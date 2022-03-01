@@ -360,7 +360,7 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	XFREE(MTYPE_APISERVER, apiserv);
 }
 
-void ospf_apiserver_read(struct thread *thread)
+void ospf_apiserver_read(struct event *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
@@ -419,7 +419,7 @@ void ospf_apiserver_read(struct thread *thread)
 	msg_free(msg);
 }
 
-void ospf_apiserver_sync_write(struct thread *thread)
+void ospf_apiserver_sync_write(struct event *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
@@ -479,7 +479,7 @@ out:
 }
 
 
-void ospf_apiserver_async_write(struct thread *thread)
+void ospf_apiserver_async_write(struct event *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
@@ -577,7 +577,7 @@ int ospf_apiserver_serv_sock_family(unsigned short port, int family)
 
 /* Accept connection request from external applications. For each
    accepted connection allocate own connection instance. */
-void ospf_apiserver_accept(struct thread *thread)
+void ospf_apiserver_accept(struct event *thread)
 {
 	int accept_sock;
 	int new_sync_sock;

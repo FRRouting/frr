@@ -20,7 +20,7 @@ extern int eigrp_if_ipmulticast(struct eigrp *, struct prefix *, unsigned int);
 extern int eigrp_network_set(struct eigrp *eigrp, struct prefix *p);
 extern int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p);
 
-extern void eigrp_hello_timer(struct thread *thread);
+extern void eigrp_hello_timer(struct event *thread);
 extern void eigrp_if_update(struct interface *);
 extern int eigrp_if_add_allspfrouters(struct eigrp *, struct prefix *,
 				      unsigned int);

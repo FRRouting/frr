@@ -57,7 +57,7 @@ struct vtysh_client {
 	char path[MAXPATHLEN];
 	struct vtysh_client *next;
 
-	struct thread *log_reader;
+	struct event *log_reader;
 	int log_fd;
 	uint32_t lost_msgs;
 };
@@ -3728,7 +3728,7 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 		text + textpos);
 }
 
-static void vtysh_log_read(struct thread *thread)
+static void vtysh_log_read(struct event *thread)
 {
 	struct vtysh_client *vclient = THREAD_ARG(thread);
 	struct {

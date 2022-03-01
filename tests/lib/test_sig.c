@@ -36,7 +36,7 @@ struct frr_signal_t sigs[] = {{
 			      }};
 
 struct thread_master *master;
-struct thread t;
+struct event t;
 
 int main(void)
 {

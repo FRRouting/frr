@@ -361,7 +361,7 @@ static void vty_do_exit(int isexit)
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
 	unsigned int num_vrfs = 2;
 	unsigned int num_interfaces = 4;
 	unsigned int num_routes = 6;

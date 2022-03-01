@@ -107,7 +107,7 @@ void igmp_group_reset_gmi(struct gm_group *group)
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
 
-static void igmp_source_timer(struct thread *t)
+static void igmp_source_timer(struct event *t)
 {
 	struct gm_source *source;
 	struct gm_group *group;
@@ -1200,7 +1200,7 @@ static int group_retransmit_sources(struct gm_group *group,
 	return num_retransmit_sources_left;
 }
 
-static void igmp_group_retransmit(struct thread *t)
+static void igmp_group_retransmit(struct event *t)
 {
 	struct gm_group *group;
 	int num_retransmit_sources_left;

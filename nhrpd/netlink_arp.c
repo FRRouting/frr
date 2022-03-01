@@ -23,7 +23,7 @@
 
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
-static struct thread *netlink_log_thread;
+static struct event *netlink_log_thread;
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
@@ -96,7 +96,7 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
 }
 
-static void netlink_log_recv(struct thread *t)
+static void netlink_log_recv(struct event *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
 	int fd = THREAD_FD(t);

@@ -48,7 +48,7 @@ const char *isis_disflag2string(int disflag)
 	return NULL; /* not reached */
 }
 
-void isis_run_dr(struct thread *thread)
+void isis_run_dr(struct event *thread)
 {
 	struct isis_circuit_arg *arg = THREAD_ARG(thread);
 

@@ -49,9 +49,9 @@ struct ted_state {
 	/* The TED itself as in link_state.h */
 	struct ls_ted *ted;
 	/* Timer for ted sync */
-	struct thread *t_link_state_sync;
+	struct event *t_link_state_sync;
 	/* Timer for refresh sid in segment list */
-	struct thread *t_segment_list_refresh;
+	struct event *t_segment_list_refresh;
 	/* delay interval in seconds */
 	uint32_t link_state_delay_interval;
 	/* delay interval refresh in seconds */

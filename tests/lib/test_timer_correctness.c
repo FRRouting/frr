@@ -35,7 +35,7 @@ static char *expected_buf;
 
 static struct prng *prng;
 
-static struct thread **timers;
+static struct event **timers;
 
 static int timers_pending;
 
@@ -63,7 +63,7 @@ static void terminate_test(void)
 	exit(exit_code);
 }
 
-static void timer_func(struct thread *thread)
+static void timer_func(struct event *thread)
 {
 	int rv;
 
@@ -94,7 +94,7 @@ static int cmp_timeval(const void *a, const void *b)
 int main(int argc, char **argv)
 {
 	int i, j;
-	struct thread t;
+	struct event t;
 	struct timeval **alarms;
 
 	master = thread_master_create(NULL);

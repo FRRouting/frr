@@ -28,7 +28,7 @@
 #include "zebra/zebra_routemap_clippy.c"
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
-static struct thread *zebra_t_rmap_update = NULL;
+static struct event *zebra_t_rmap_update = NULL;
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct nh_rmap_obj {
@@ -1722,7 +1722,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_nht_rm_update(rmap_name);
 }
 
-static void zebra_route_map_update_timer(struct thread *thread)
+static void zebra_route_map_update_timer(struct event *thread)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event driven route-map update triggered");

@@ -509,7 +509,7 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
  * Function to originate or flush default after applying
  * route-map on all ei.
  */
-static void ospf_external_lsa_default_routemap_timer(struct thread *thread)
+static void ospf_external_lsa_default_routemap_timer(struct event *thread)
 {
 	struct list *ext_list;
 	struct ospf *ospf = THREAD_ARG(thread);
@@ -1510,7 +1510,7 @@ int ospf_distribute_list_out_unset(struct ospf *ospf, int type,
 }
 
 /* distribute-list update timer. */
-static void ospf_distribute_list_update_timer(struct thread *thread)
+static void ospf_distribute_list_update_timer(struct event *thread)
 {
 	struct route_node *rn;
 	struct external_info *ei;

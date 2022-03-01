@@ -10,7 +10,7 @@
 #include "typesafe.h"
 #include "pim_addr.h"
 
-struct thread;
+struct event;
 struct pim_instance;
 struct gm_packet_sg;
 struct gm_if;
@@ -65,14 +65,14 @@ struct gm_sg {
 	 * (implies we haven't received any report yet, since it's cancelled
 	 * by that)
 	 */
-	struct thread *t_sg_expire;
+	struct event *t_sg_expire;
 
 	/* last-member-left triggered queries (group/group-source specific)
 	 *
 	 * this timer will be running even if we aren't the elected querier,
 	 * in case the election result changes midway through.
 	 */
-	struct thread *t_sg_query;
+	struct event *t_sg_query;
 
 	/* we must keep sending (QRV) queries even if we get a positive
 	 * response, to make sure other routers are updated.  query_sbit
@@ -226,7 +226,7 @@ struct gm_grp_pending {
 	pim_addr grp;
 
 	struct timeval query;
-	struct thread *t_expire;
+	struct event *t_expire;
 };
 
 /* guaranteed MTU for IPv6 is 1280 bytes.  IPv6 header is 40 bytes, MLDv2
@@ -247,7 +247,7 @@ struct gm_gsq_pending {
 	struct gm_gsq_pends_item itm;
 
 	struct gm_if *iface;
-	struct thread *t_send;
+	struct event *t_send;
 
 	pim_addr grp;
 	bool s_bit;
@@ -300,7 +300,7 @@ struct gm_if_stats {
 struct gm_if {
 	struct interface *ifp;
 	struct pim_instance *pim;
-	struct thread *t_query, *t_other_querier, *t_expire;
+	struct event *t_query, *t_other_querier, *t_expire;
 
 	bool stopping;
 

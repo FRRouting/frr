@@ -64,10 +64,10 @@ struct gm_sock {
 	pim_addr ifaddr;
 	time_t sock_creation;
 
-	struct thread *t_igmp_read; /* read: IGMP sockets */
-	struct thread
-		*t_igmp_query_timer; /* timer: issue IGMP general queries */
-	struct thread *t_other_querier_timer; /* timer: other querier present */
+	struct event *t_igmp_read; /* read: IGMP sockets */
+	/* timer: issue IGMP general queries */
+	struct event *t_igmp_query_timer;
+	struct event *t_other_querier_timer;  /* timer: other querier present */
 	pim_addr querier_addr;		      /* IP address of the querier */
 	int querier_query_interval;	   /* QQI */
 	int querier_robustness_variable; /* QRV */
@@ -144,7 +144,7 @@ static inline void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 
 struct gm_source {
 	pim_addr source_addr;
-	struct thread *t_source_timer;
+	struct event *t_source_timer;
 	struct gm_group *source_group; /* back pointer */
 	time_t source_creation;
 	uint32_t source_flags;
@@ -165,11 +165,11 @@ struct gm_group {
 	  represents the time for the *filter-mode* of the group to expire and
 	  switch to INCLUDE mode.
 	*/
-	struct thread *t_group_timer;
+	struct event *t_group_timer;
 
 	/* Shared between group-specific and
 	   group-and-source-specific retransmissions */
-	struct thread *t_group_query_retransmit_timer;
+	struct event *t_group_query_retransmit_timer;
 
 	/* Counter exclusive for group-specific retransmissions
 	   (not used by group-and-source-specific retransmissions,

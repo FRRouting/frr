@@ -46,7 +46,7 @@ void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,
 				  int sock);
 static void ripng_instance_disable(struct ripng *ripng);
-static void ripng_triggered_update(struct thread *);
+static void ripng_triggered_update(struct event *);
 static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
 				 struct if_rmap *if_rmap);
 
@@ -408,7 +408,7 @@ static int ripng_lladdr_check(struct interface *ifp, struct in6_addr *addr)
 }
 
 /* RIPng route garbage collect timer. */
-static void ripng_garbage_collect(struct thread *t)
+static void ripng_garbage_collect(struct event *t)
 {
 	struct ripng_info *rinfo;
 	struct agg_node *rp;
@@ -585,7 +585,7 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 }
 
 /* Timeout RIPng routes. */
-static void ripng_timeout(struct thread *t)
+static void ripng_timeout(struct event *t)
 {
 	struct ripng_info *rinfo = THREAD_ARG(t);
 	struct ripng *ripng = ripng_info_get_instance(rinfo);
@@ -1282,7 +1282,7 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 }
 
 /* First entry point of reading RIPng packet. */
-static void ripng_read(struct thread *thread)
+static void ripng_read(struct event *thread)
 {
 	struct ripng *ripng = THREAD_ARG(thread);
 	int len;
@@ -1390,7 +1390,7 @@ static void ripng_clear_changed_flag(struct ripng *ripng)
 
 /* Regular update of RIPng route.  Send all routing formation to RIPng
    enabled interface. */
-static void ripng_update(struct thread *t)
+static void ripng_update(struct event *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 	struct interface *ifp;
@@ -1438,7 +1438,7 @@ static void ripng_update(struct thread *t)
 }
 
 /* Triggered update interval timer. */
-static void ripng_triggered_interval(struct thread *t)
+static void ripng_triggered_interval(struct event *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 
@@ -1449,7 +1449,7 @@ static void ripng_triggered_interval(struct thread *t)
 }
 
 /* Execute triggered update. */
-void ripng_triggered_update(struct thread *t)
+void ripng_triggered_update(struct event *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 	struct interface *ifp;
@@ -1932,7 +1932,7 @@ static void ripng_vty_out_uptime(struct vty *vty, struct ripng_info *rinfo)
 	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
-	struct thread *thread;
+	struct event *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
 		clock = thread_timer_remain_second(thread);

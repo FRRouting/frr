@@ -182,7 +182,7 @@ struct bgp_path_info_extra {
 		} export;
 
 		struct {
-			struct thread *timer;
+			struct event *timer;
 			void *hme; /* encap monitor, if this is a VPN route */
 			struct prefix_rd
 				rd; /* import: route's route-distinguisher */

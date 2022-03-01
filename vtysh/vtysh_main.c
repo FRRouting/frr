@@ -214,9 +214,9 @@ struct option longopts[] = {
 
 bool vtysh_loop_exited;
 
-static struct thread *vtysh_rl_read_thread;
+static struct event *vtysh_rl_read_thread;
 
-static void vtysh_rl_read(struct thread *thread)
+static void vtysh_rl_read(struct event *thread)
 {
 	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
 			&vtysh_rl_read_thread);
@@ -226,7 +226,7 @@ static void vtysh_rl_read(struct thread *thread)
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
 static void vtysh_rl_run(void)
 {
-	struct thread thread;
+	struct event thread;
 
 	master = thread_master_create(NULL);
 

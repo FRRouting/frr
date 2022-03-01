@@ -89,7 +89,7 @@ struct isis {
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	time_t uptime;			  /* when did we start */
-	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
+	struct event *t_dync_clean; /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 	int snmp_notifications;
 	struct list *dyn_cache;
@@ -99,7 +99,7 @@ struct isis {
 
 extern struct isis_master *im;
 
-extern struct thread *t_isis_cfg;
+extern struct event *t_isis_cfg;
 
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
@@ -129,11 +129,11 @@ struct isis_area {
 	struct list *circuit_list; /* IS-IS circuits */
 	struct list *adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
-	struct thread *t_tick; /* LSP walker */
-	struct thread *t_lsp_refresh[ISIS_LEVELS];
-	struct thread *t_overload_on_startup_timer;
+	struct event *t_tick; /* LSP walker */
+	struct event *t_lsp_refresh[ISIS_LEVELS];
+	struct event *t_overload_on_startup_timer;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
-	struct thread *t_rlfa_rib_update;
+	struct event *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
 	 * a) regular refresh of LSPs
 	 * b) (possibly throttled) updates to LSPs
@@ -226,7 +226,7 @@ struct isis_area {
 	struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF
 							    SPF algo
 							    parameters*/
-	struct thread *spf_timer[ISIS_LEVELS];
+	struct event *spf_timer[ISIS_LEVELS];
 
 	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
 

@@ -628,7 +628,7 @@ static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
 	delete_on_noinfo(ch);
 }
 
-static void on_ifjoin_expiry_timer(struct thread *t)
+static void on_ifjoin_expiry_timer(struct event *t)
 {
 	struct pim_ifchannel *ch;
 
@@ -642,7 +642,7 @@ static void on_ifjoin_expiry_timer(struct thread *t)
 	/* ch may have been deleted */
 }
 
-static void on_ifjoin_prune_pending_timer(struct thread *t)
+static void on_ifjoin_prune_pending_timer(struct event *t)
 {
 	struct pim_ifchannel *ch;
 	int send_prune_echo; /* boolean */

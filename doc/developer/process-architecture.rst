@@ -28,7 +28,7 @@ within the event system are variations on the term "thread". The primary
 datastructure that holds the state of an event loop in this system is called a
 "threadmaster". Events scheduled on the event loop - what would today be called
 an 'event' or 'task' in systems such as libevent - are called "threads" and the
-datastructure for them is ``struct thread``. To add to the confusion, these
+datastructure for them is ``struct event``. To add to the confusion, these
 "threads" have various types, one of which is "event". To hopefully avoid some
 of this confusion, this document refers to these "threads" as a 'task' except
 where the datastructures are explicitly named. When they are explicitly named,
@@ -80,8 +80,8 @@ are given by integer macros in :file:`event.h` and are:
    Type used internally for tasks on the ready queue.
 
 ``THREAD_UNUSED``
-   Type used internally for ``struct thread`` objects that aren't being used.
-   The event system pools ``struct thread`` to avoid heap allocations; this is
+   Type used internally for ``struct event`` objects that aren't being used.
+   The event system pools ``struct event`` to avoid heap allocations; this is
    the type they have when they're in the pool.
 
 ``THREAD_EXECUTE``
@@ -95,9 +95,9 @@ irrelevant for the time being) for the specific type. For example, to add a
 
 ::
 
-   thread_add_read(struct thread_master *master, int (*handler)(struct thread *), void *arg, int fd, struct thread **ref);
+   thread_add_read(struct thread_master *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
 
-The ``struct thread`` is then created and added to the appropriate internal
+The ``struct event`` is then created and added to the appropriate internal
 datastructure within the ``threadmaster``. Note that the ``READ`` and
 ``WRITE`` tasks are independent - a ``READ`` task only tests for
 readability, for example.
@@ -133,7 +133,7 @@ illustrated at the bottom.
 
 Mapping the general names used in the figure to specific FRR functions:
 
-- ``task`` is ``struct thread *``
+- ``task`` is ``struct event *``
 - ``fetch`` is ``thread_fetch()``
 - ``exec()`` is ``thread_call``
 - ``cancel()`` is ``thread_cancel()``

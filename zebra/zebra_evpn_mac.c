@@ -378,7 +378,7 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 	return buf;
 }
 
-static void zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_mac *mac = NULL;
@@ -1500,7 +1500,7 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static void zebra_evpn_mac_hold_exp_cb(struct thread *t)
+static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 {
 	struct zebra_mac *mac;
 	bool old_bgp_ready;

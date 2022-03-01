@@ -29,7 +29,7 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_DYNHN, "ISIS dyn hostname");
 
-static void dyn_cache_cleanup(struct thread *);
+static void dyn_cache_cleanup(struct event *);
 
 void dyn_cache_init(struct isis *isis)
 {
@@ -54,7 +54,7 @@ void dyn_cache_finish(struct isis *isis)
 	list_delete(&isis->dyn_cache);
 }
 
-static void dyn_cache_cleanup(struct thread *thread)
+static void dyn_cache_cleanup(struct event *thread)
 {
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;

@@ -1853,7 +1853,7 @@ void isis_spf_switchover_routes(struct isis_area *area,
 				      family, nexthop_ip, ifindex);
 }
 
-static void isis_run_spf_cb(struct thread *thread)
+static void isis_run_spf_cb(struct event *thread)
 {
 	struct isis_spf_run *run = THREAD_ARG(thread);
 	struct isis_area *area = run->area;

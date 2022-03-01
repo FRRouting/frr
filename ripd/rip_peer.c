@@ -52,7 +52,7 @@ struct rip_peer *rip_peer_lookup_next(struct rip *rip, struct in_addr *addr)
 }
 
 /* RIP peer is timeout. */
-static void rip_peer_timeout(struct thread *t)
+static void rip_peer_timeout(struct event *t)
 {
 	struct rip_peer *peer;
 

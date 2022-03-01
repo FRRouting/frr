@@ -1091,7 +1091,7 @@ struct lp_test {
 	struct timeval starttime;
 	struct skiplist *timestamps_alloc;
 	struct skiplist *timestamps_dealloc;
-	struct thread *event_thread;
+	struct event *event_thread;
 	unsigned int counter[LPT_STAT_MAX];
 };
 
@@ -1150,7 +1150,7 @@ static int test_cb(mpls_label_t label, void *labelid, bool allocated)
 	return 0;
 }
 
-static void labelpool_test_event_handler(struct thread *thread)
+static void labelpool_test_event_handler(struct event *thread)
 {
 	struct lp_test *tcb;
 

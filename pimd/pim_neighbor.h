@@ -27,10 +27,10 @@ struct pim_neighbor {
 	uint32_t dr_priority;
 	uint32_t generation_id;
 	struct list *prefix_list; /* list of struct prefix */
-	struct thread *t_expire_timer;
+	struct event *t_expire_timer;
 	struct interface *interface;
 
-	struct thread *jp_timer;
+	struct event *jp_timer;
 	struct list *upstream_jp_agg;
 	struct bfd_session_params *bfd_session;
 };

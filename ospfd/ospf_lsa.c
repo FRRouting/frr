@@ -742,7 +742,7 @@ void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area)
 	stream_putw_at(*s, putp, cnt);
 }
 
-static void ospf_stub_router_timer(struct thread *t)
+static void ospf_stub_router_timer(struct event *t)
 {
 	struct ospf_area *area = THREAD_ARG(t);
 
@@ -3042,7 +3042,7 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
-void ospf_maxage_lsa_remover(struct thread *thread)
+void ospf_maxage_lsa_remover(struct event *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct ospf_lsa *lsa, *old;
@@ -3290,7 +3290,7 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 }
 
 /* Periodical check of MaxAge LSA. */
-void ospf_lsa_maxage_walker(struct thread *thread)
+void ospf_lsa_maxage_walker(struct event *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct route_node *rn;
@@ -3838,7 +3838,7 @@ struct lsa_action {
 	struct ospf_lsa *lsa;
 };
 
-static void ospf_lsa_action(struct thread *t)
+static void ospf_lsa_action(struct event *t)
 {
 	struct lsa_action *data;
 
@@ -4029,7 +4029,7 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 }
 
-void ospf_lsa_refresh_walker(struct thread *t)
+void ospf_lsa_refresh_walker(struct event *t)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;

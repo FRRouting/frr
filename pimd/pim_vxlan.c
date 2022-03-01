@@ -169,7 +169,7 @@ void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 		pim_vxlan_del_work(vxlan_sg);
 }
 
-static void pim_vxlan_work_timer_cb(struct thread *t)
+static void pim_vxlan_work_timer_cb(struct event *t)
 {
 	pim_vxlan_do_reg_work();
 	pim_vxlan_work_timer_setup(true /* start */);

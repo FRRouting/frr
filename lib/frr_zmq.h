@@ -26,7 +26,7 @@ extern "C" {
 
 /* callback integration */
 struct cb_core {
-	struct thread *thread;
+	struct event *thread;
 	void *arg;
 
 	bool cancelled;

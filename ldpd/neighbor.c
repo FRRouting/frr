@@ -24,13 +24,13 @@ static __inline int	 nbr_addr_compare(const struct nbr *,
 static __inline int	 nbr_pid_compare(const struct nbr *,
 			    const struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
-static void nbr_ktimer(struct thread *thread);
+static void nbr_ktimer(struct event *thread);
 static void		 nbr_start_ktimer(struct nbr *);
-static void nbr_ktimeout(struct thread *thread);
+static void nbr_ktimeout(struct event *thread);
 static void		 nbr_start_ktimeout(struct nbr *);
-static void nbr_itimeout(struct thread *thread);
+static void nbr_itimeout(struct event *thread);
 static void		 nbr_start_itimeout(struct nbr *);
-static void nbr_idtimer(struct thread *thread);
+static void nbr_idtimer(struct event *thread);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
 static __inline int	 nbr_params_compare(const struct nbr_params *,
@@ -407,7 +407,7 @@ nbr_session_active_role(struct nbr *nbr)
 
 /* Keepalive timer: timer to send keepalive message to neighbors */
 
-static void nbr_ktimer(struct thread *thread)
+static void nbr_ktimer(struct event *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 
@@ -436,7 +436,7 @@ nbr_stop_ktimer(struct nbr *nbr)
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
 
-static void nbr_ktimeout(struct thread *thread)
+static void nbr_ktimeout(struct event *thread)
 {
 	struct nbr *nbr = THREAD_ARG(thread);
 
@@ -464,7 +464,7 @@ nbr_stop_ktimeout(struct nbr *nbr)
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
 
-static void nbr_itimeout(struct thread *thread)
+static void nbr_itimeout(struct event *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 
@@ -492,7 +492,7 @@ nbr_stop_itimeout(struct nbr *nbr)
 
 /* Init delay timer: timer to retry to iniziatize session */
 
-static void nbr_idtimer(struct thread *thread)
+static void nbr_idtimer(struct event *thread)
 {
 	struct nbr *nbr = THREAD_ARG(thread);
 
@@ -549,7 +549,7 @@ nbr_pending_connect(struct nbr *nbr)
 	return (nbr->ev_connect != NULL);
 }
 
-static void nbr_connect_cb(struct thread *thread)
+static void nbr_connect_cb(struct event *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 	int		 error;

@@ -1907,7 +1907,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	return OSPF6_READ_CONTINUE;
 }
 
-void ospf6_receive(struct thread *thread)
+void ospf6_receive(struct event *thread)
 {
 	int sockfd;
 	struct ospf6 *ospf6;
@@ -2082,7 +2082,7 @@ static uint16_t ospf6_make_hello(struct ospf6_interface *oi, struct stream *s)
 	return length;
 }
 
-static void ospf6_write(struct thread *thread)
+static void ospf6_write(struct event *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_interface *oi;
@@ -2236,7 +2236,7 @@ static void ospf6_write(struct thread *thread)
 				 &ospf6->t_write);
 }
 
-void ospf6_hello_send(struct thread *thread)
+void ospf6_hello_send(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_packet *op;
@@ -2333,7 +2333,7 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 	return length;
 }
 
-void ospf6_dbdesc_send(struct thread *thread)
+void ospf6_dbdesc_send(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 	uint16_t length = OSPF6_HEADER_SIZE;
@@ -2376,7 +2376,7 @@ void ospf6_dbdesc_send(struct thread *thread)
 	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 }
 
-void ospf6_dbdesc_send_newone(struct thread *thread)
+void ospf6_dbdesc_send_newone(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -2498,7 +2498,7 @@ static uint16_t ospf6_make_lsack_neighbor(struct ospf6_neighbor *on,
 	return length;
 }
 
-void ospf6_lsreq_send(struct thread *thread)
+void ospf6_lsreq_send(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_packet *op;
@@ -2676,7 +2676,7 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 	return length;
 }
 
-void ospf6_lsupdate_send_neighbor(struct thread *thread)
+void ospf6_lsupdate_send_neighbor(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_packet *op;
@@ -2811,7 +2811,7 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 	return length;
 }
 
-void ospf6_lsupdate_send_interface(struct thread *thread)
+void ospf6_lsupdate_send_interface(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_packet *op;
@@ -2852,7 +2852,7 @@ void ospf6_lsupdate_send_interface(struct thread *thread)
 	}
 }
 
-void ospf6_lsack_send_neighbor(struct thread *thread)
+void ospf6_lsack_send_neighbor(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_packet *op;
@@ -2928,7 +2928,7 @@ static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
 	return length;
 }
 
-void ospf6_lsack_send_interface(struct thread *thread)
+void ospf6_lsack_send_interface(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_packet *op;

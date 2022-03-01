@@ -54,7 +54,7 @@ static void pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa,
 }
 
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
-static void pim_msdp_sa_adv_timer_cb(struct thread *t)
+static void pim_msdp_sa_adv_timer_cb(struct event *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 
@@ -77,7 +77,7 @@ static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 }
 
 /* RFC-3618:Sec-5.3 - SA cache state timer */
-static void pim_msdp_sa_state_timer_cb(struct thread *t)
+static void pim_msdp_sa_state_timer_cb(struct event *t)
 {
 	struct pim_msdp_sa *sa;
 
@@ -861,7 +861,7 @@ static void pim_msdp_peer_timer_expiry_log(struct pim_msdp_peer *mp,
 }
 
 /* RFC-3618:Sec-5.4 - peer hold timer */
-static void pim_msdp_peer_hold_timer_cb(struct thread *t)
+static void pim_msdp_peer_hold_timer_cb(struct event *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -893,7 +893,7 @@ static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 
 
 /* RFC-3618:Sec-5.5 - peer keepalive timer */
-static void pim_msdp_peer_ka_timer_cb(struct thread *t)
+static void pim_msdp_peer_ka_timer_cb(struct event *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -954,7 +954,7 @@ static void pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 }
 
 /* RFC-3618:Sec-5.6 - connection retry on active peer */
-static void pim_msdp_peer_cr_timer_cb(struct thread *t)
+static void pim_msdp_peer_cr_timer_cb(struct event *t)
 {
 	struct pim_msdp_peer *mp;
 

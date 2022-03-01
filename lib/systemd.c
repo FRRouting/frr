@@ -65,7 +65,7 @@ void systemd_send_stopping(void)
 
 static struct thread_master *systemd_master = NULL;
 
-static void systemd_send_watchdog(struct thread *t)
+static void systemd_send_watchdog(struct event *t)
 {
 	systemd_send_information("WATCHDOG=1");
 

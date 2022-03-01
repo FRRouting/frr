@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 {
 	struct peer *peer;
 	int i, j;
-	struct thread t;
+	struct event t;
 
 	qobj_init();
 	bgp_attr_init();

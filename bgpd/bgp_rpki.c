@@ -53,7 +53,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
-static struct thread *t_rpki_sync;
+static struct event *t_rpki_sync;
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -381,7 +381,7 @@ struct rpki_revalidate_prefix {
 	safi_t safi;
 };
 
-static void rpki_revalidate_prefix(struct thread *thread)
+static void rpki_revalidate_prefix(struct event *thread)
 {
 	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
 	struct bgp_dest *match, *node;
@@ -402,7 +402,7 @@ static void rpki_revalidate_prefix(struct thread *thread)
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
 }
 
-static void bgpd_sync_callback(struct thread *thread)
+static void bgpd_sync_callback(struct event *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
@@ -489,7 +489,7 @@ struct rpki_revalidate_peer {
 	struct peer *peer;
 };
 
-static void bgp_rpki_revalidate_peer(struct thread *thread)
+static void bgp_rpki_revalidate_peer(struct event *thread)
 {
 	struct rpki_revalidate_peer *rvp = THREAD_ARG(thread);
 
@@ -631,7 +631,7 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void sync_expired(struct thread *thread)
+static void sync_expired(struct event *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");

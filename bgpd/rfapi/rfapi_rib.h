@@ -61,7 +61,7 @@ struct rfapi_info {
 	struct bgp_tea_options *tea_options;
 	struct rfapi_un_option *un_options;
 	struct rfapi_vn_option *vn_options;
-	struct thread *timer;
+	struct event *timer;
 };
 
 /*

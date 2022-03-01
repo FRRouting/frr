@@ -300,7 +300,7 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static void nb_cli_confirmed_commit_timeout(struct thread *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *thread)
 {
 	struct vty *vty = THREAD_ARG(thread);
 

@@ -720,7 +720,7 @@ static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
 #endif /* __FreeBSD__ */
 
 /* Interface State Machine */
-void interface_up(struct thread *thread)
+void interface_up(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6 *ospf6;
@@ -834,7 +834,7 @@ void interface_up(struct thread *thread)
 	}
 }
 
-void wait_timer(struct thread *thread)
+void wait_timer(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -849,7 +849,7 @@ void wait_timer(struct thread *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void backup_seen(struct thread *thread)
+void backup_seen(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -864,7 +864,7 @@ void backup_seen(struct thread *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void neighbor_change(struct thread *thread)
+void neighbor_change(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -881,7 +881,7 @@ void neighbor_change(struct thread *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void interface_down(struct thread *thread)
+void interface_down(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;

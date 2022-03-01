@@ -3197,7 +3197,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static void bgp_startup_timer_expire(struct thread *thread)
+static void bgp_startup_timer_expire(struct event *thread)
 {
 	struct bgp *bgp;
 
@@ -3761,7 +3761,7 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Delete the graceful restart info */
 	FOREACH_AFI_SAFI (afi, safi) {
-		struct thread *t;
+		struct event *t;
 
 		gr_info = &bgp->gr_info[afi][safi];
 		if (!gr_info)

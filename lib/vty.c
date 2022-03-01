@@ -81,7 +81,7 @@ struct vty_serv {
 	int sock;
 	bool vtysh;
 
-	struct thread *t_accept;
+	struct event *t_accept;
 };
 
 DECLARE_DLIST(vtyservs, struct vty_serv, itm);
@@ -1360,7 +1360,7 @@ static void vty_buffer_reset(struct vty *vty)
 }
 
 /* Read data via vty socket. */
-static void vty_read(struct thread *thread)
+static void vty_read(struct event *thread)
 {
 	int i;
 	int nbytes;
@@ -1563,7 +1563,7 @@ static void vty_read(struct thread *thread)
 }
 
 /* Flush buffer to the vty. */
-static void vty_flush(struct thread *thread)
+static void vty_flush(struct event *thread)
 {
 	int erase;
 	buffer_status_t flushrc;
@@ -1823,7 +1823,7 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 }
 
 /* Accept connection from the network. */
-static void vty_accept(struct thread *thread)
+static void vty_accept(struct event *thread)
 {
 	struct vty_serv *vtyserv = THREAD_ARG(thread);
 	int vty_sock;
@@ -2036,7 +2036,7 @@ static void vty_serv_un(const char *path)
 
 /* #define VTYSH_DEBUG 1 */
 
-static void vtysh_accept(struct thread *thread)
+static void vtysh_accept(struct event *thread)
 {
 	struct vty_serv *vtyserv = THREAD_ARG(thread);
 	int accept_sock = vtyserv->sock;
@@ -2166,7 +2166,7 @@ void vty_pass_fd(struct vty *vty, int fd)
 	vty->pass_fd = fd;
 }
 
-static void vtysh_read(struct thread *thread)
+static void vtysh_read(struct event *thread)
 {
 	int ret;
 	int sock;
@@ -2275,7 +2275,7 @@ static void vtysh_read(struct thread *thread)
 		vty_event(VTYSH_READ, vty);
 }
 
-static void vtysh_write(struct thread *thread)
+static void vtysh_write(struct event *thread)
 {
 	struct vty *vty = THREAD_ARG(thread);
 
@@ -2382,7 +2382,7 @@ void vty_close(struct vty *vty)
 }
 
 /* When time out occur output message then close connection. */
-static void vty_timeout(struct thread *thread)
+static void vty_timeout(struct event *thread)
 {
 	struct vty *vty;
 

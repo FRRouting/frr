@@ -338,7 +338,7 @@ static void bgp_socket_set_buffer_size(const int fd)
 }
 
 /* Accept bgp connection. */
-static void bgp_accept(struct thread *thread)
+static void bgp_accept(struct event *thread)
 {
 	int bgp_sock;
 	int accept_sock;

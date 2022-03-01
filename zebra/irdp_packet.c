@@ -52,7 +52,7 @@
 
 int irdp_sock = -1;
 
-extern struct thread *t_irdp_raw;
+extern struct event *t_irdp_raw;
 
 static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 {
@@ -209,7 +209,7 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 	return ret;
 }
 
-void irdp_read_raw(struct thread *r)
+void irdp_read_raw(struct event *r)
 {
 	struct interface *ifp;
 	struct zebra_if *zi;

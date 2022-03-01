@@ -28,7 +28,7 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast");
 
 int netlink_mcast_nflog_group;
 static int netlink_mcast_log_fd = -1;
-static struct thread *netlink_mcast_log_thread;
+static struct event *netlink_mcast_log_thread;
 
 struct mcast_ctx {
 	struct interface *ifp;
@@ -138,7 +138,7 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	}
 }
 
-static void netlink_mcast_log_recv(struct thread *t)
+static void netlink_mcast_log_recv(struct event *t)
 {
 	uint8_t buf[65535]; /* Max OSPF Packet size */
 	int fd = THREAD_FD(t);

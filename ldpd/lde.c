@@ -30,8 +30,8 @@
 #include "libfrr.h"
 
 static void		 lde_shutdown(void);
-static void lde_dispatch_imsg(struct thread *thread);
-static void lde_dispatch_parent(struct thread *thread);
+static void lde_dispatch_imsg(struct event *thread);
+static void lde_dispatch_parent(struct event *thread);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -145,7 +145,7 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	struct thread thread;
+	struct event thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
 
@@ -232,7 +232,7 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void lde_dispatch_imsg(struct thread *thread)
+static void lde_dispatch_imsg(struct event *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -402,7 +402,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 }
 
 /* ARGSUSED */
-static void lde_dispatch_parent(struct thread *thread)
+static void lde_dispatch_parent(struct event *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -2123,7 +2123,7 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static void zclient_sync_retry(struct thread *thread)
+static void zclient_sync_retry(struct event *thread)
 {
 	zclient_sync_init();
 }

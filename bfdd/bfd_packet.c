@@ -768,7 +768,7 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
-void bfd_recv_cb(struct thread *t)
+void bfd_recv_cb(struct event *t)
 {
 	int sd = THREAD_FD(t);
 	struct bfd_session *bfd;

@@ -1704,7 +1704,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	bgp_attr_unintern(&iattr);
 }
 
-static void vncExportWithdrawTimer(struct thread *t)
+static void vncExportWithdrawTimer(struct event *t)
 {
 	struct vnc_export_info *eti = THREAD_ARG(t);
 	const struct prefix *p = agg_node_get_prefix(eti->node);

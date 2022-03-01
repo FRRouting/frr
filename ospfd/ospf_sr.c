@@ -457,7 +457,7 @@ int ospf_sr_local_block_release_label(mpls_label_t label)
  *
  * @return		1 on success
  */
-static void sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct event *start)
 {
 	struct ospf *ospf;
 

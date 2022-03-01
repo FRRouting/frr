@@ -209,7 +209,7 @@ int ospf6_router_is_stub_router(struct ospf6_lsa *lsa)
 	return OSPF6_NOT_STUB_ROUTER;
 }
 
-void ospf6_router_lsa_originate(struct thread *thread)
+void ospf6_router_lsa_originate(struct event *thread)
 {
 	struct ospf6_area *oa;
 
@@ -494,7 +494,7 @@ static int ospf6_network_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_network_lsa_originate(struct thread *thread)
+void ospf6_network_lsa_originate(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -746,7 +746,7 @@ static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_link_lsa_originate(struct thread *thread)
+void ospf6_link_lsa_originate(struct event *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -982,7 +982,7 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
+void ospf6_intra_prefix_lsa_originate_stub(struct event *thread)
 {
 	struct ospf6_area *oa;
 
@@ -1217,7 +1217,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 }
 
 
-void ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
+void ospf6_intra_prefix_lsa_originate_transit(struct event *thread)
 {
 	struct ospf6_interface *oi;
 

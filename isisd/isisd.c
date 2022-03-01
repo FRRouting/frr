@@ -88,7 +88,7 @@ static struct isis_master isis_master;
 struct isis_master *im;
 
 /* ISIS config processing thread */
-struct thread *t_isis_cfg;
+struct event *t_isis_cfg;
 
 #ifndef FABRICD
 DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));

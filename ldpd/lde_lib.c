@@ -28,7 +28,7 @@ static void		 fec_nh_del(struct fec_nh *);
 RB_GENERATE(fec_tree, fec, entry, fec_compare)
 
 struct fec_tree		 ft = RB_INITIALIZER(&ft);
-struct thread		*gc_timer;
+struct event *gc_timer;
 
 /* FEC tree functions */
 void
@@ -1026,7 +1026,7 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 /* gabage collector timer: timer to remove dead entries from the LIB */
 
 /* ARGSUSED */
-void lde_gc_timer(struct thread *thread)
+void lde_gc_timer(struct event *thread)
 {
 	struct fec	*fec, *safe;
 	struct fec_node	*fn;

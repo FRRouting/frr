@@ -618,14 +618,14 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	return bfd_key_lookup(key);
 }
 
-void bfd_xmt_cb(struct thread *t)
+void bfd_xmt_cb(struct event *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
 	ptm_bfd_xmt_TO(bs, 0);
 }
 
-void bfd_echo_xmt_cb(struct thread *t)
+void bfd_echo_xmt_cb(struct event *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
@@ -634,7 +634,7 @@ void bfd_echo_xmt_cb(struct thread *t)
 }
 
 /* Was ptm_bfd_detect_TO() */
-void bfd_recvtimer_cb(struct thread *t)
+void bfd_recvtimer_cb(struct event *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
@@ -647,7 +647,7 @@ void bfd_recvtimer_cb(struct thread *t)
 }
 
 /* Was ptm_bfd_echo_detect_TO() */
-void bfd_echo_recvtimer_cb(struct thread *t)
+void bfd_echo_recvtimer_cb(struct event *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 

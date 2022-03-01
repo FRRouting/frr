@@ -15,12 +15,12 @@
 #include "log.h"
 
 static __inline int adj_compare(const struct adj *, const struct adj *);
-static void adj_itimer(struct thread *);
+static void adj_itimer(struct event *);
 static __inline int tnbr_compare(const struct tnbr *, const struct tnbr *);
 static void	 tnbr_del(struct ldpd_conf *, struct tnbr *);
 static void	 tnbr_start(struct tnbr *);
 static void	 tnbr_stop(struct tnbr *);
-static void tnbr_hello_timer(struct thread *);
+static void tnbr_hello_timer(struct event *);
 static void	 tnbr_start_hello_timer(struct tnbr *);
 static void	 tnbr_stop_hello_timer(struct tnbr *);
 
@@ -161,7 +161,7 @@ adj_get_af(const struct adj *adj)
 /* adjacency timers */
 
 /* ARGSUSED */
-static void adj_itimer(struct thread *thread)
+static void adj_itimer(struct event *thread)
 {
 	struct adj *adj = THREAD_ARG(thread);
 
@@ -331,7 +331,7 @@ tnbr_get_hello_interval(struct tnbr *tnbr)
 /* target neighbors timers */
 
 /* ARGSUSED */
-static void tnbr_hello_timer(struct thread *thread)
+static void tnbr_hello_timer(struct event *thread)
 {
 	struct tnbr	*tnbr = THREAD_ARG(thread);
 

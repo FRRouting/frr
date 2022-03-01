@@ -196,7 +196,7 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 
 /* events supporting code */
 
-void isis_event_dis_status_change(struct thread *thread)
+void isis_event_dis_status_change(struct event *thread)
 {
 	struct isis_circuit *circuit;
 

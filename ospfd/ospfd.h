@@ -145,7 +145,7 @@ struct ospf_gr_info {
 	bool prepare_in_progress;
 	bool finishing_restart;
 	uint32_t grace_period;
-	struct thread *t_grace_period;
+	struct event *t_grace_period;
 };
 
 /* OSPF instance structure. */
@@ -257,31 +257,30 @@ struct ospf {
 	int redistribute;		/* Num of redistributed protocols. */
 
 	/* Threads. */
-	struct thread *t_abr_task;	  /* ABR task timer. */
-	struct thread *t_abr_fr;	  /* ABR FR timer. */
-	struct thread *t_asbr_check;	/* ASBR check timer. */
-	struct thread *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
+	struct event *t_abr_task;		 /* ABR task timer. */
+	struct event *t_abr_fr;			 /* ABR FR timer. */
+	struct event *t_asbr_check;		 /* ASBR check timer. */
+	struct event *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
 						     update timer. */
-	struct thread *t_distribute_update; /* Distirbute list update timer. */
-	struct thread *t_spf_calc;	  /* SPF calculation timer. */
-	struct thread *t_ase_calc;	  /* ASE calculation timer. */
-	struct thread
-		*t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
-	struct thread *t_sr_update; /* Segment Routing update timer */
+	struct event *t_distribute_update; /* Distirbute list update timer. */
+	struct event *t_spf_calc;	   /* SPF calculation timer. */
+	struct event *t_ase_calc;	   /* ASE calculation timer. */
+	struct event *t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
+	struct event *t_sr_update;	 /* Segment Routing update timer */
 
 	unsigned int maxage_delay;      /* Delay on Maxage remover timer, sec */
-	struct thread *t_maxage;	/* MaxAge LSA remover timer. */
-	struct thread *t_maxage_walker; /* MaxAge LSA checking timer. */
+	struct event *t_maxage;		/* MaxAge LSA remover timer. */
+	struct event *t_maxage_walker;	/* MaxAge LSA checking timer. */
 
-	struct thread
+	struct event
 		*t_deferred_shutdown; /* deferred/stub-router shutdown timer*/
 
-	struct thread *t_write;
+	struct event *t_write;
 #define OSPF_WRITE_INTERFACE_COUNT_DEFAULT    20
-	struct thread *t_default_routemap_timer;
+	struct event *t_default_routemap_timer;
 
 	int write_oi_count; /* Num of packets sent per thread invocation */
-	struct thread *t_read;
+	struct event *t_read;
 	int fd;
 	struct stream *ibuf;
 	struct list *oi_write_q;
@@ -313,7 +312,7 @@ struct ospf {
 		struct list *qs[OSPF_LSA_REFRESHER_SLOTS];
 	} lsa_refresh_queue;
 
-	struct thread *t_lsa_refresher;
+	struct event *t_lsa_refresher;
 	time_t lsa_refresher_started;
 #define OSPF_LSA_REFRESH_INTERVAL_DEFAULT 10
 	uint16_t lsa_refresh_interval;
@@ -382,7 +381,7 @@ struct ospf {
 	/* delay timer to process external routes
 	 * with summary address.
 	 */
-	struct thread *t_external_aggr;
+	struct event *t_external_aggr;
 
 	/* delay interval in seconds */
 	uint16_t aggr_delay_interval;
@@ -578,8 +577,8 @@ struct ospf_area {
 	struct p_spaces_head *p_spaces;
 
 	/* Threads. */
-	struct thread *t_stub_router;     /* Stub-router timer */
-	struct thread *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
+	struct event *t_stub_router;	 /* Stub-router timer */
+	struct event *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
 
 	/* Statistics field. */
 	uint32_t spf_calculation; /* SPF Calculation Count. */
@@ -627,7 +626,7 @@ struct ospf_nbr_nbma {
 	uint32_t v_poll;
 
 	/* Poll timer thread. */
-	struct thread *t_poll;
+	struct event *t_poll;
 
 	/* State change. */
 	uint32_t state_change;

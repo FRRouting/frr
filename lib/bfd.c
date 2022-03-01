@@ -87,7 +87,7 @@ struct bfd_session_params {
 	 * configuration load or northbound batch), so we'll use this to
 	 * install/uninstall the BFD session parameters only once.
 	 */
-	struct thread *installev;
+	struct event *installev;
 
 	/** BFD session installation state. */
 	bool installed;
@@ -485,7 +485,7 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	return true;
 }
 
-static void _bfd_sess_send(struct thread *t)
+static void _bfd_sess_send(struct event *t)
 {
 	struct bfd_session_params *bsp = THREAD_ARG(t);
 	int rv;

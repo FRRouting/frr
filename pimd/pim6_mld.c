@@ -45,7 +45,7 @@ DEFINE_MTYPE_STATIC(PIMD, GM_SG, "MLD (S,G)");
 DEFINE_MTYPE_STATIC(PIMD, GM_GRP_PENDING, "MLD group query state");
 DEFINE_MTYPE_STATIC(PIMD, GM_GSQ_PENDING, "MLD group/source query aggregate");
 
-static void gm_t_query(struct thread *t);
+static void gm_t_query(struct event *t);
 static void gm_trigger_specific(struct gm_sg *sg);
 static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 			      struct timeval expire_wait);
@@ -1029,7 +1029,7 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
  * its own path too and won't hit this.  This is really only triggered when a
  * host straight up disappears.
  */
-static void gm_t_expire(struct thread *t)
+static void gm_t_expire(struct event *t)
 {
 	struct gm_if *gm_ifp = THREAD_ARG(t);
 	struct gm_packet_state *pkt;
@@ -1126,7 +1126,7 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 			   gm_ifp->n_pending, &pend->expiry);
 }
 
-static void gm_t_sg_expire(struct thread *t)
+static void gm_t_sg_expire(struct event *t)
 {
 	struct gm_sg *sg = THREAD_ARG(t);
 	struct gm_if *gm_ifp = sg->iface;
@@ -1232,7 +1232,7 @@ static void gm_handle_q_groupsrc(struct gm_if *gm_ifp,
 	}
 }
 
-static void gm_t_grp_expire(struct thread *t)
+static void gm_t_grp_expire(struct event *t)
 {
 	/* if we're here, that means when we received the group-specific query
 	 * there was one or more active S,G for this group.  For *,G the timer
@@ -1353,7 +1353,7 @@ static void gm_bump_querier(struct gm_if *gm_ifp)
 	thread_execute(router->master, gm_t_query, gm_ifp, 0);
 }
 
-static void gm_t_other_querier(struct thread *t)
+static void gm_t_other_querier(struct event *t)
 {
 	struct gm_if *gm_ifp = THREAD_ARG(t);
 	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
@@ -1586,7 +1586,7 @@ static bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len,
 	return false;
 }
 
-static void gm_t_recv(struct thread *t)
+static void gm_t_recv(struct event *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 	union {
@@ -1858,7 +1858,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	}
 }
 
-static void gm_t_query(struct thread *t)
+static void gm_t_query(struct event *t)
 {
 	struct gm_if *gm_ifp = THREAD_ARG(t);
 	unsigned int timer_ms = gm_ifp->cur_query_intv;
@@ -1874,7 +1874,7 @@ static void gm_t_query(struct thread *t)
 	gm_send_query(gm_ifp, PIMADDR_ANY, NULL, 0, false);
 }
 
-static void gm_t_sg_query(struct thread *t)
+static void gm_t_sg_query(struct event *t)
 {
 	struct gm_sg *sg = THREAD_ARG(t);
 
@@ -1895,7 +1895,7 @@ static void gm_send_specific(struct gm_gsq_pending *pend_gsq)
 	XFREE(MTYPE_GM_GSQ_PENDING, pend_gsq);
 }
 
-static void gm_t_gsq_pend(struct thread *t)
+static void gm_t_gsq_pend(struct event *t)
 {
 	struct gm_gsq_pending *pend_gsq = THREAD_ARG(t);
 

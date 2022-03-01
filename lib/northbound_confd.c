@@ -26,7 +26,7 @@ static struct debug nb_dbg_client_confd = {0, "Northbound client: ConfD"};
 static struct thread_master *master;
 static struct sockaddr confd_addr;
 static int cdb_sub_sock, dp_ctl_sock, dp_worker_sock;
-static struct thread *t_cdb_sub, *t_dp_ctl, *t_dp_worker;
+static struct event *t_cdb_sub, *t_dp_ctl, *t_dp_worker;
 static struct confd_daemon_ctx *dctx;
 static struct confd_notification_ctx *live_ctx;
 static bool confd_connected;
@@ -401,7 +401,7 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 	return 0;
 }
 
-static void frr_confd_cdb_read_cb(struct thread *thread)
+static void frr_confd_cdb_read_cb(struct event *thread)
 {
 	int fd = THREAD_FD(thread);
 	enum cdb_sub_notification cdb_ev;
@@ -1173,7 +1173,7 @@ static int frr_confd_dp_read(struct confd_daemon_ctx *dctx, int fd)
 	return 0;
 }
 
-static void frr_confd_dp_ctl_read(struct thread *thread)
+static void frr_confd_dp_ctl_read(struct event *thread)
 {
 	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
@@ -1183,7 +1183,7 @@ static void frr_confd_dp_ctl_read(struct thread *thread)
 	frr_confd_dp_read(dctx, fd);
 }
 
-static void frr_confd_dp_worker_read(struct thread *thread)
+static void frr_confd_dp_worker_read(struct event *thread)
 {
 	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);

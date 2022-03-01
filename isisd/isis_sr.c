@@ -1081,7 +1081,7 @@ DEFUN(show_sr_node, show_sr_node_cmd,
  *
  * @return		1 on success
  */
-static void sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct event *start)
 {
 	struct isis_area *area;
 

@@ -40,7 +40,7 @@ struct fabricd {
 	enum fabricd_sync_state initial_sync_state;
 	time_t initial_sync_start;
 	struct isis_circuit *initial_sync_circuit;
-	struct thread *initial_sync_timeout;
+	struct event *initial_sync_timeout;
 
 	struct isis_spftree *spftree;
 	struct skiplist *neighbors;
@@ -49,8 +49,8 @@ struct fabricd {
 	uint8_t tier;
 	uint8_t tier_config;
 	uint8_t tier_pending;
-	struct thread *tier_calculation_timer;
-	struct thread *tier_set_timer;
+	struct event *tier_calculation_timer;
+	struct event *tier_set_timer;
 
 	int csnp_delay;
 	bool always_send_csnp;
@@ -237,7 +237,7 @@ void fabricd_finish(struct fabricd *f)
 	hash_free(f->neighbors_neighbors);
 }
 
-static void fabricd_initial_sync_timeout(struct thread *thread)
+static void fabricd_initial_sync_timeout(struct event *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 
@@ -389,14 +389,14 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 	return tier;
 }
 
-static void fabricd_tier_set_timer(struct thread *thread)
+static void fabricd_tier_set_timer(struct event *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 
 	fabricd_set_tier(f, f->tier_pending);
 }
 
-static void fabricd_tier_calculation_cb(struct thread *thread)
+static void fabricd_tier_calculation_cb(struct event *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 	uint8_t tier = ISIS_TIER_UNDEFINED;

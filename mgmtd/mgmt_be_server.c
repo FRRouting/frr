@@ -30,10 +30,10 @@
 
 static int mgmt_be_listen_fd = -1;
 static struct thread_master *mgmt_be_listen_tm;
-static struct thread *mgmt_be_listen_ev;
+static struct event *mgmt_be_listen_ev;
 static void mgmt_be_server_register_event(enum mgmt_be_event event);
 
-static void mgmt_be_conn_accept(struct thread *thread)
+static void mgmt_be_conn_accept(struct event *thread)
 {
 	int client_conn_fd;
 	union sockunion su;

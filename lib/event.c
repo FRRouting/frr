@@ -28,19 +28,19 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master");
 DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info");
 DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats");
 
-DECLARE_LIST(thread_list, struct thread, threaditem);
+DECLARE_LIST(thread_list, struct event, threaditem);
 
 struct cancel_req {
 	int flags;
-	struct thread *thread;
+	struct event *thread;
 	void *eventobj;
-	struct thread **threadref;
+	struct event **threadref;
 };
 
 /* Flags for task cancellation */
 #define THREAD_CANCEL_FLAG_READY     0x01
 
-static int thread_timer_cmp(const struct thread *a, const struct thread *b)
+static int thread_timer_cmp(const struct event *a, const struct event *b)
 {
 	if (a->u.sands.tv_sec < b->u.sands.tv_sec)
 		return -1;
@@ -53,7 +53,7 @@ static int thread_timer_cmp(const struct thread *a, const struct thread *b)
 	return 0;
 }
 
-DECLARE_HEAP(thread_timer_list, struct thread, timeritem, thread_timer_cmp);
+DECLARE_HEAP(thread_timer_list, struct event, timeritem, thread_timer_cmp);
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
@@ -73,7 +73,7 @@ pthread_key_t thread_current;
 static pthread_mutex_t masters_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *masters;
 
-static void thread_free(struct thread_master *master, struct thread *thread);
+static void thread_free(struct thread_master *master, struct event *thread);
 
 #ifndef EXCLUDE_CPU_TIME
 #define EXCLUDE_CPU_TIME 0
@@ -399,7 +399,7 @@ static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
-	struct thread *thread;
+	struct event *thread;
 	uint32_t i;
 
 	memset(underline, '-', sizeof(underline));
@@ -485,7 +485,7 @@ static void show_thread_timers_helper(struct vty *vty, struct thread_master *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
-	struct thread *thread;
+	struct event *thread;
 
 	memset(underline, '-', sizeof(underline));
 	underline[sizeof(underline) - 1] = '\0';
@@ -571,10 +571,10 @@ struct thread_master *thread_master_create(const char *name)
 	}
 
 	rv->read = XCALLOC(MTYPE_THREAD_POLL,
-			   sizeof(struct thread *) * rv->fd_limit);
+			   sizeof(struct event *) * rv->fd_limit);
 
 	rv->write = XCALLOC(MTYPE_THREAD_POLL,
-			    sizeof(struct thread *) * rv->fd_limit);
+			    sizeof(struct event *) * rv->fd_limit);
 
 	char tmhashname[strlen(name) + 32];
 	snprintf(tmhashname, sizeof(tmhashname), "%s - threadmaster event hash",
@@ -634,14 +634,14 @@ void thread_master_set_name(struct thread_master *master, const char *name)
 #define THREAD_UNUSED_DEPTH 10
 
 /* Move thread to unuse list. */
-static void thread_add_unuse(struct thread_master *m, struct thread *thread)
+static void thread_add_unuse(struct thread_master *m, struct event *thread)
 {
 	pthread_mutex_t mtxc = thread->mtx;
 
 	assert(m != NULL && thread != NULL);
 
 	thread->hist->total_active--;
-	memset(thread, 0, sizeof(struct thread));
+	memset(thread, 0, sizeof(struct event));
 	thread->type = THREAD_UNUSED;
 
 	/* Restore the thread mutex context. */
@@ -659,16 +659,16 @@ static void thread_add_unuse(struct thread_master *m, struct thread *thread)
 static void thread_list_free(struct thread_master *m,
 		struct thread_list_head *list)
 {
-	struct thread *t;
+	struct event *t;
 
 	while ((t = thread_list_pop(list)))
 		thread_free(m, t);
 }
 
 static void thread_array_free(struct thread_master *m,
-			      struct thread **thread_array)
+			      struct event **thread_array)
 {
-	struct thread *t;
+	struct event *t;
 	int index;
 
 	for (index = 0; index < m->fd_limit; ++index) {
@@ -692,7 +692,7 @@ static void thread_array_free(struct thread_master *m,
 void thread_master_free_unused(struct thread_master *m)
 {
 	frr_with_mutex (&m->mtx) {
-		struct thread *t;
+		struct event *t;
 		while ((t = thread_list_pop(&m->unuse)))
 			thread_free(m, t);
 	}
@@ -701,7 +701,7 @@ void thread_master_free_unused(struct thread_master *m)
 /* Stop thread scheduler. */
 void thread_master_free(struct thread_master *m)
 {
-	struct thread *t;
+	struct event *t;
 
 	frr_with_mutex (&masters_mtx) {
 		listnode_delete(masters, m);
@@ -733,7 +733,7 @@ void thread_master_free(struct thread_master *m)
 }
 
 /* Return remain time in milliseconds. */
-unsigned long thread_timer_remain_msec(struct thread *thread)
+unsigned long thread_timer_remain_msec(struct event *thread)
 {
 	int64_t remain;
 
@@ -748,12 +748,12 @@ unsigned long thread_timer_remain_msec(struct thread *thread)
 }
 
 /* Return remain time in seconds. */
-unsigned long thread_timer_remain_second(struct thread *thread)
+unsigned long thread_timer_remain_second(struct event *thread)
 {
 	return thread_timer_remain_msec(thread) / 1000LL;
 }
 
-struct timeval thread_timer_remain(struct thread *thread)
+struct timeval thread_timer_remain(struct event *thread)
 {
 	struct timeval remain;
 	frr_with_mutex (&thread->mtx) {
@@ -780,8 +780,7 @@ static int time_hhmmss(char *buf, int buf_size, long sec)
 	return wr != 8;
 }
 
-char *thread_timer_to_hhmmss(char *buf, int buf_size,
-		struct thread *t_timer)
+char *thread_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
 		time_hhmmss(buf, buf_size,
@@ -793,15 +792,15 @@ char *thread_timer_to_hhmmss(char *buf, int buf_size,
 }
 
 /* Get new thread.  */
-static struct thread *thread_get(struct thread_master *m, uint8_t type,
-				 void (*func)(struct thread *), void *arg,
-				 const struct xref_threadsched *xref)
+static struct event *thread_get(struct thread_master *m, uint8_t type,
+				void (*func)(struct event *), void *arg,
+				const struct xref_threadsched *xref)
 {
-	struct thread *thread = thread_list_pop(&m->unuse);
+	struct event *thread = thread_list_pop(&m->unuse);
 	struct cpu_thread_history tmp;
 
 	if (!thread) {
-		thread = XCALLOC(MTYPE_THREAD, sizeof(struct thread));
+		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
 		/* mutex only needs to be initialized at struct creation. */
 		pthread_mutex_init(&thread->mtx, NULL);
 		m->alloc++;
@@ -840,7 +839,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	return thread;
 }
 
-static void thread_free(struct thread_master *master, struct thread *thread)
+static void thread_free(struct thread_master *master, struct event *thread)
 {
 	/* Update statistics. */
 	assert(master->alloc > 0);
@@ -951,12 +950,12 @@ done:
 /* Add new read thread. */
 void _thread_add_read_write(const struct xref_threadsched *xref,
 			    struct thread_master *m,
-			    void (*func)(struct thread *), void *arg, int fd,
-			    struct thread **t_ptr)
+			    void (*func)(struct event *), void *arg, int fd,
+			    struct event **t_ptr)
 {
 	int dir = xref->thread_type;
-	struct thread *thread = NULL;
-	struct thread **thread_array;
+	struct event *thread = NULL;
+	struct event **thread_array;
 
 	if (dir == THREAD_READ)
 		frrtrace(9, frr_libfrr, schedule_read, m,
@@ -1031,11 +1030,11 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 
 static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 				      struct thread_master *m,
-				      void (*func)(struct thread *), void *arg,
+				      void (*func)(struct event *), void *arg,
 				      struct timeval *time_relative,
-				      struct thread **t_ptr)
+				      struct event **t_ptr)
 {
-	struct thread *thread;
+	struct event *thread;
 	struct timeval t;
 
 	assert(m != NULL);
@@ -1084,8 +1083,8 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 
 /* Add timer event thread. */
 void _thread_add_timer(const struct xref_threadsched *xref,
-		       struct thread_master *m, void (*func)(struct thread *),
-		       void *arg, long timer, struct thread **t_ptr)
+		       struct thread_master *m, void (*func)(struct event *),
+		       void *arg, long timer, struct event **t_ptr)
 {
 	struct timeval trel;
 
@@ -1100,8 +1099,8 @@ void _thread_add_timer(const struct xref_threadsched *xref,
 /* Add timer event thread with "millisecond" resolution */
 void _thread_add_timer_msec(const struct xref_threadsched *xref,
 			    struct thread_master *m,
-			    void (*func)(struct thread *), void *arg,
-			    long timer, struct thread **t_ptr)
+			    void (*func)(struct event *), void *arg, long timer,
+			    struct event **t_ptr)
 {
 	struct timeval trel;
 
@@ -1115,19 +1114,18 @@ void _thread_add_timer_msec(const struct xref_threadsched *xref,
 
 /* Add timer event thread with "timeval" resolution */
 void _thread_add_timer_tv(const struct xref_threadsched *xref,
-			  struct thread_master *m,
-			  void (*func)(struct thread *), void *arg,
-			  struct timeval *tv, struct thread **t_ptr)
+			  struct thread_master *m, void (*func)(struct event *),
+			  void *arg, struct timeval *tv, struct event **t_ptr)
 {
 	_thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
 }
 
 /* Add simple event thread. */
 void _thread_add_event(const struct xref_threadsched *xref,
-		       struct thread_master *m, void (*func)(struct thread *),
-		       void *arg, int val, struct thread **t_ptr)
+		       struct thread_master *m, void (*func)(struct event *),
+		       void *arg, int val, struct event **t_ptr)
 {
-	struct thread *thread = NULL;
+	struct event *thread = NULL;
 
 	frrtrace(9, frr_libfrr, schedule_event, m,
 		 xref->funcname, xref->xref.file, xref->xref.line,
@@ -1240,7 +1238,7 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state,
 static void cancel_arg_helper(struct thread_master *master,
 			      const struct cancel_req *cr)
 {
-	struct thread *t;
+	struct event *t;
 	nfds_t i;
 	int fd;
 	struct pollfd *pfd;
@@ -1307,7 +1305,7 @@ static void cancel_arg_helper(struct thread_master *master,
 	/* Check the timer tasks */
 	t = thread_timer_list_first(&master->timer);
 	while (t) {
-		struct thread *t_next;
+		struct event *t_next;
 
 		t_next = thread_timer_list_next(&master->timer, t);
 
@@ -1333,8 +1331,8 @@ static void cancel_arg_helper(struct thread_master *master,
 static void do_thread_cancel(struct thread_master *master)
 {
 	struct thread_list_head *list = NULL;
-	struct thread **thread_array = NULL;
-	struct thread *thread;
+	struct event **thread_array = NULL;
+	struct event *thread;
 	struct cancel_req *cr;
 	struct listnode *ln;
 
@@ -1467,7 +1465,7 @@ void thread_cancel_event_ready(struct thread_master *m, void *arg)
  *
  * @param thread task to cancel
  */
-void thread_cancel(struct thread **thread)
+void thread_cancel(struct event **thread)
 {
 	struct thread_master *master;
 
@@ -1497,7 +1495,7 @@ void thread_cancel(struct thread **thread)
 /**
  * Asynchronous cancellation.
  *
- * Called with either a struct thread ** or void * to an event argument,
+ * Called with either a struct event ** or void * to an event argument,
  * this function posts the correct cancellation request and blocks until it is
  * serviced.
  *
@@ -1518,7 +1516,7 @@ void thread_cancel(struct thread **thread)
  * @param thread pointer to thread to cancel
  * @param eventobj the event
  */
-void thread_cancel_async(struct thread_master *master, struct thread **thread,
+void thread_cancel_async(struct thread_master *master, struct event **thread,
 			 void *eventobj)
 {
 	assert(!(thread && eventobj) && (thread || eventobj));
@@ -1566,13 +1564,13 @@ static struct timeval *thread_timer_wait(struct thread_timer_list_head *timers,
 	if (!thread_timer_list_count(timers))
 		return NULL;
 
-	struct thread *next_timer = thread_timer_list_first(timers);
+	struct event *next_timer = thread_timer_list_first(timers);
 	monotime_until(&next_timer->u.sands, timer_val);
 	return timer_val;
 }
 
-static struct thread *thread_run(struct thread_master *m, struct thread *thread,
-				 struct thread *fetch)
+static struct event *thread_run(struct thread_master *m, struct event *thread,
+				struct event *fetch)
 {
 	*fetch = *thread;
 	thread_add_unuse(m, thread);
@@ -1580,10 +1578,10 @@ static struct thread *thread_run(struct thread_master *m, struct thread *thread,
 }
 
 static int thread_process_io_helper(struct thread_master *m,
-				    struct thread *thread, short state,
+				    struct event *thread, short state,
 				    short actual_state, int pos)
 {
-	struct thread **thread_array;
+	struct event **thread_array;
 
 	/*
 	 * poll() clears the .events field, but the pollfd array we
@@ -1690,7 +1688,7 @@ static unsigned int thread_process_timers(struct thread_master *m,
 {
 	struct timeval prev = *timenow;
 	bool displayed = false;
-	struct thread *thread;
+	struct event *thread;
 	unsigned int ready = 0;
 
 	while ((thread = thread_timer_list_first(&m->timer))) {
@@ -1729,7 +1727,7 @@ static unsigned int thread_process_timers(struct thread_master *m,
 /* process a list en masse, e.g. for event thread lists */
 static unsigned int thread_process(struct thread_list_head *list)
 {
-	struct thread *thread;
+	struct event *thread;
 	unsigned int ready = 0;
 
 	while ((thread = thread_list_pop(list))) {
@@ -1742,9 +1740,9 @@ static unsigned int thread_process(struct thread_list_head *list)
 
 
 /* Fetch next ready thread. */
-struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
+struct event *thread_fetch(struct thread_master *m, struct event *fetch)
 {
-	struct thread *thread = NULL;
+	struct event *thread = NULL;
 	struct timeval now;
 	struct timeval zerotime = {0, 0};
 	struct timeval tv;
@@ -1912,7 +1910,7 @@ unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
    for CPU time.  On balance, wall clock time seems to make sense.
    Plus it has the added benefit that gettimeofday should be faster
    than calling getrusage. */
-int thread_should_yield(struct thread *thread)
+int thread_should_yield(struct event *thread)
 {
 	int result;
 	frr_with_mutex (&thread->mtx) {
@@ -1922,7 +1920,7 @@ int thread_should_yield(struct thread *thread)
 	return result;
 }
 
-void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
+void thread_set_yield_time(struct event *thread, unsigned long yield_time)
 {
 	frr_with_mutex (&thread->mtx) {
 		thread->yield = yield_time;
@@ -1963,7 +1961,7 @@ void thread_getrusage(RUSAGE_T *r)
  * particular, the maximum real and cpu times must be monotonically increasing
  * or this code is not correct.
  */
-void thread_call(struct thread *thread)
+void thread_call(struct event *thread)
 {
 	RUSAGE_T before, after;
 
@@ -2060,10 +2058,10 @@ void thread_call(struct thread *thread)
 
 /* Execute thread */
 void _thread_execute(const struct xref_threadsched *xref,
-		     struct thread_master *m, void (*func)(struct thread *),
+		     struct thread_master *m, void (*func)(struct event *),
 		     void *arg, int val)
 {
-	struct thread *thread;
+	struct event *thread;
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {
@@ -2131,7 +2129,7 @@ void debug_signals(const sigset_t *sigs)
 }
 
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
-				   const struct thread *thread)
+				   const struct event *thread)
 {
 	static const char * const types[] = {
 		[THREAD_READ] = "read",
@@ -2176,7 +2174,7 @@ printfrr_ext_autoreg_p("TH", printfrr_thread);
 static ssize_t printfrr_thread(struct fbuf *buf, struct printfrr_eargs *ea,
 			       const void *ptr)
 {
-	const struct thread *thread = ptr;
+	const struct event *thread = ptr;
 	struct timespec remain = {};
 
 	if (ea->fmt[0] == 'D') {

@@ -767,7 +767,7 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 	return 0;
 }
 
-static void mroute_read(struct thread *t)
+static void mroute_read(struct event *t)
 {
 	struct pim_instance *pim;
 	static long long count;

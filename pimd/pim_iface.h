@@ -104,10 +104,10 @@ struct pim_interface {
 	struct gm_if *mld;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
-	struct thread *t_pim_sock_read; /* thread for reading PIM socket */
+	struct event *t_pim_sock_read;	/* thread for reading PIM socket */
 	int64_t pim_sock_creation;      /* timestamp of PIM socket creation */
 
-	struct thread *t_pim_hello_timer;
+	struct event *t_pim_hello_timer;
 	int pim_hello_period;
 	int pim_default_holdtime;
 	int pim_triggered_hello_delay;

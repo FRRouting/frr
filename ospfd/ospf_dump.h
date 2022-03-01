@@ -142,7 +142,7 @@ extern const char *ospf_if_name_string(struct ospf_interface *);
 extern int ospf_nbr_ism_state(struct ospf_neighbor *nbr);
 extern void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
 				       size_t size);
-extern const char *ospf_timer_dump(struct thread *, char *, size_t);
+extern const char *ospf_timer_dump(struct event *, char *, size_t);
 extern const char *ospf_timeval_dump(struct timeval *, char *, size_t);
 extern void ospf_packet_dump(struct stream *);
 extern void ospf_debug_init(void);

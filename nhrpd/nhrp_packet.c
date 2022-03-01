@@ -286,7 +286,7 @@ err:
 	return -1;
 }
 
-static void nhrp_packet_recvraw(struct thread *t)
+static void nhrp_packet_recvraw(struct event *t)
 {
 	int fd = THREAD_FD(t), ifindex;
 	struct zbuf *zb;

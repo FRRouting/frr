@@ -215,12 +215,12 @@ struct mgmt_txn_ctx {
 
 	/* struct mgmt_master *mm; */
 
-	struct thread *proc_set_cfg;
-	struct thread *proc_comm_cfg;
-	struct thread *proc_get_cfg;
-	struct thread *proc_get_data;
-	struct thread *comm_cfg_timeout;
-	struct thread *clnup;
+	struct event *proc_set_cfg;
+	struct event *proc_comm_cfg;
+	struct event *proc_get_cfg;
+	struct event *proc_get_data;
+	struct event *comm_cfg_timeout;
+	struct event *clnup;
 
 	/* List of backend adapters involved in this transaction */
 	struct mgmt_txn_badapters_head be_adapters;
@@ -615,7 +615,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	*txn_req = NULL;
 }
 
-static void mgmt_txn_process_set_cfg(struct thread *thread)
+static void mgmt_txn_process_set_cfg(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -1454,7 +1454,7 @@ mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 	return 0;
 }
 
-static void mgmt_txn_cfg_commit_timedout(struct thread *thread)
+static void mgmt_txn_cfg_commit_timedout(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 
@@ -1544,7 +1544,7 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	return 0;
 }
 
-static void mgmt_txn_process_commit_cfg(struct thread *thread)
+static void mgmt_txn_process_commit_cfg(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
@@ -1874,7 +1874,7 @@ mgmt_txn_get_config_failed:
 	return 0;
 }
 
-static void mgmt_txn_process_get_cfg(struct thread *thread)
+static void mgmt_txn_process_get_cfg(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -1941,7 +1941,7 @@ static void mgmt_txn_process_get_cfg(struct thread *thread)
 	}
 }
 
-static void mgmt_txn_process_get_data(struct thread *thread)
+static void mgmt_txn_process_get_data(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2206,7 +2206,7 @@ mgmt_txn_cleanup_all_txns(void)
 		mgmt_txn_cleanup_txn(&txn);
 }
 
-static void mgmt_txn_cleanup(struct thread *thread)
+static void mgmt_txn_cleanup(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 

@@ -38,7 +38,7 @@ struct zebra_pw {
 	uint8_t protocol;
 	struct zserv *client;
 	struct rnh *rnh;
-	struct thread *install_retry_timer;
+	struct event *install_retry_timer;
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(zebra_pw);

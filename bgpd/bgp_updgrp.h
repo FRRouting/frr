@@ -197,10 +197,10 @@ struct update_subgroup {
 	/* announcement attribute hash */
 	struct hash *hash;
 
-	struct thread *t_coalesce;
+	struct event *t_coalesce;
 	uint32_t v_coalesce;
 
-	struct thread *t_merge_check;
+	struct event *t_merge_check;
 
 	/* table version that the subgroup has caught up to. */
 	uint64_t version;
@@ -373,7 +373,7 @@ extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 extern void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx);
 extern void update_group_periodic_merge(struct bgp *bgp);
 extern void
-update_group_refresh_default_originate_route_map(struct thread *thread);
+update_group_refresh_default_originate_route_map(struct event *thread);
 extern void update_group_start_advtimer(struct bgp *bgp);
 
 extern void update_subgroup_inherit_info(struct update_subgroup *to,

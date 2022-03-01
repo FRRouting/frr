@@ -442,7 +442,7 @@ static void bgp_write_proceed_actions(struct peer *peer)
  * update group a peer belongs to, encode this information into packets, and
  * enqueue the packets onto the peer's output buffer.
  */
-void bgp_generate_updgrp_packets(struct thread *thread)
+void bgp_generate_updgrp_packets(struct event *thread)
 {
 	struct peer *peer = THREAD_ARG(thread);
 
@@ -1792,7 +1792,7 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
-static void bgp_refresh_stalepath_timer_expire(struct thread *thread)
+static void bgp_refresh_stalepath_timer_expire(struct event *thread)
 {
 	struct peer_af *paf;
 
@@ -2867,7 +2867,7 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
  * @param thread
  * @return 0
  */
-void bgp_process_packet(struct thread *thread)
+void bgp_process_packet(struct event *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
@@ -3044,7 +3044,7 @@ void bgp_send_delayed_eor(struct bgp *bgp)
  * having the io pthread try to enqueue fsm events or mess with the peer
  * struct.
  */
-void bgp_packet_process_error(struct thread *thread)
+void bgp_packet_process_error(struct event *thread)
 {
 	struct peer *peer;
 	int code;

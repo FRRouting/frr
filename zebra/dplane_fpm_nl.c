@@ -83,22 +83,22 @@ struct fpm_nl_ctx {
 	/* data plane events. */
 	struct zebra_dplane_provider *prov;
 	struct frr_pthread *fthread;
-	struct thread *t_connect;
-	struct thread *t_read;
-	struct thread *t_write;
-	struct thread *t_event;
-	struct thread *t_nhg;
-	struct thread *t_dequeue;
+	struct event *t_connect;
+	struct event *t_read;
+	struct event *t_write;
+	struct event *t_event;
+	struct event *t_nhg;
+	struct event *t_dequeue;
 
 	/* zebra events. */
-	struct thread *t_lspreset;
-	struct thread *t_lspwalk;
-	struct thread *t_nhgreset;
-	struct thread *t_nhgwalk;
-	struct thread *t_ribreset;
-	struct thread *t_ribwalk;
-	struct thread *t_rmacreset;
-	struct thread *t_rmacwalk;
+	struct event *t_lspreset;
+	struct event *t_lspwalk;
+	struct event *t_nhgreset;
+	struct event *t_nhgwalk;
+	struct event *t_ribreset;
+	struct event *t_ribwalk;
+	struct event *t_rmacreset;
+	struct event *t_rmacwalk;
 
 	/* Statistic counters. */
 	struct {
@@ -166,16 +166,16 @@ enum fpm_nl_events {
 /*
  * Prototypes.
  */
-static void fpm_process_event(struct thread *t);
+static void fpm_process_event(struct event *t);
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
-static void fpm_lsp_send(struct thread *t);
-static void fpm_lsp_reset(struct thread *t);
-static void fpm_nhg_send(struct thread *t);
-static void fpm_nhg_reset(struct thread *t);
-static void fpm_rib_send(struct thread *t);
-static void fpm_rib_reset(struct thread *t);
-static void fpm_rmac_send(struct thread *t);
-static void fpm_rmac_reset(struct thread *t);
+static void fpm_lsp_send(struct event *t);
+static void fpm_lsp_reset(struct event *t);
+static void fpm_nhg_send(struct event *t);
+static void fpm_nhg_reset(struct event *t);
+static void fpm_rib_send(struct event *t);
+static void fpm_rib_reset(struct event *t);
+static void fpm_rmac_send(struct event *t);
+static void fpm_rmac_reset(struct event *t);
 
 /*
  * CLI.
@@ -409,7 +409,7 @@ static struct cmd_node fpm_node = {
 /*
  * FPM functions.
  */
-static void fpm_connect(struct thread *t);
+static void fpm_connect(struct event *t);
 
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
@@ -448,7 +448,7 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 			 &fnc->t_connect);
 }
 
-static void fpm_read(struct thread *t)
+static void fpm_read(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	fpm_msg_hdr_t fpm;
@@ -610,7 +610,7 @@ static void fpm_read(struct thread *t)
 	stream_reset(fnc->ibuf);
 }
 
-static void fpm_write(struct thread *t)
+static void fpm_write(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	socklen_t statuslen;
@@ -714,7 +714,7 @@ static void fpm_write(struct thread *t)
 	}
 }
 
-static void fpm_connect(struct thread *t)
+static void fpm_connect(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct sockaddr_in *sin = (struct sockaddr_in *)&fnc->addr;
@@ -1020,7 +1020,7 @@ static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static void fpm_lsp_send(struct thread *t)
+static void fpm_lsp_send(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -1080,7 +1080,7 @@ static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static void fpm_nhg_send(struct thread *t)
+static void fpm_nhg_send(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct fpm_nhg_arg fna;
@@ -1109,7 +1109,7 @@ static void fpm_nhg_send(struct thread *t)
 /**
  * Send all RIB installed routes to the connected data plane.
  */
-static void fpm_rib_send(struct thread *t)
+static void fpm_rib_send(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	rib_dest_t *dest;
@@ -1214,7 +1214,7 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
 }
 
-static void fpm_rmac_send(struct thread *t)
+static void fpm_rmac_send(struct event *t)
 {
 	struct fpm_rmac_arg fra;
 
@@ -1240,7 +1240,7 @@ static void fpm_nhg_reset_cb(struct hash_bucket *bucket, void *arg)
 	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_FPM);
 }
 
-static void fpm_nhg_reset(struct thread *t)
+static void fpm_nhg_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 
@@ -1260,7 +1260,7 @@ static void fpm_lsp_reset_cb(struct hash_bucket *bucket, void *arg)
 	UNSET_FLAG(lsp->flags, LSP_FLAG_FPM);
 }
 
-static void fpm_lsp_reset(struct thread *t)
+static void fpm_lsp_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -1274,7 +1274,7 @@ static void fpm_lsp_reset(struct thread *t)
 /**
  * Resets the RIB FPM flags so we send all routes again.
  */
-static void fpm_rib_reset(struct thread *t)
+static void fpm_rib_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	rib_dest_t *dest;
@@ -1315,7 +1315,7 @@ static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
 }
 
-static void fpm_rmac_reset(struct thread *t)
+static void fpm_rmac_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 
@@ -1326,7 +1326,7 @@ static void fpm_rmac_reset(struct thread *t)
 			 &fnc->t_rmacwalk);
 }
 
-static void fpm_process_queue(struct thread *t)
+static void fpm_process_queue(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_dplane_ctx *ctx;
@@ -1387,7 +1387,7 @@ static void fpm_process_queue(struct thread *t)
 /**
  * Handles external (e.g. CLI, data plane or others) events.
  */
-static void fpm_process_event(struct thread *t)
+static void fpm_process_event(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	enum fpm_nl_events event = THREAD_VAL(t);

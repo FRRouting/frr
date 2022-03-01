@@ -614,7 +614,7 @@ static void mgmt_be_adapter_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_adapter_proc_msgbufs(struct thread *thread)
+static void mgmt_be_adapter_proc_msgbufs(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter = THREAD_ARG(thread);
 
@@ -623,7 +623,7 @@ static void mgmt_be_adapter_proc_msgbufs(struct thread *thread)
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_PROC_MSG);
 }
 
-static void mgmt_be_adapter_read(struct thread *thread)
+static void mgmt_be_adapter_read(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 	enum mgmt_msg_rsched rv;
@@ -640,7 +640,7 @@ static void mgmt_be_adapter_read(struct thread *thread)
 	mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_READ);
 }
 
-static void mgmt_be_adapter_write(struct thread *thread)
+static void mgmt_be_adapter_write(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter = THREAD_ARG(thread);
 	enum mgmt_msg_wsched rv;
@@ -658,7 +658,7 @@ static void mgmt_be_adapter_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_be_adapter_resume_writes(struct thread *thread)
+static void mgmt_be_adapter_resume_writes(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 
@@ -695,7 +695,7 @@ static void mgmt_be_iter_and_get_cfg(struct mgmt_ds_ctx *ds_ctx,
 	nb_config_diff_created(node, seq, root);
 }
 
-static void mgmt_be_adapter_conn_init(struct thread *thread)
+static void mgmt_be_adapter_conn_init(struct event *thread)
 {
 	struct mgmt_be_client_adapter *adapter;
 

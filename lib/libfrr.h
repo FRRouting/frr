@@ -70,7 +70,7 @@ struct frr_daemon_info {
 	bool terminal;
 	enum frr_cli_mode cli_mode;
 
-	struct thread *read_in;
+	struct event *read_in;
 	const char *config_file;
 	const char *backup_config_file;
 	const char *pid_file;

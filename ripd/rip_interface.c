@@ -774,7 +774,7 @@ int rip_enable_if_delete(struct rip *rip, const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-static void rip_interface_wakeup(struct thread *t)
+static void rip_interface_wakeup(struct event *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;

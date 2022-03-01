@@ -106,11 +106,11 @@ DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 struct mgmt_be_client_ctx {
 	int conn_fd;
 	struct thread_master *tm;
-	struct thread *conn_retry_tmr;
-	struct thread *conn_read_ev;
-	struct thread *conn_write_ev;
-	struct thread *conn_writes_on;
-	struct thread *msg_proc_ev;
+	struct event *conn_retry_tmr;
+	struct event *conn_read_ev;
+	struct event *conn_write_ev;
+	struct event *conn_writes_on;
+	struct event *msg_proc_ev;
 	uint32_t flags;
 
 	struct mgmt_msg_state mstate;
@@ -897,7 +897,7 @@ static void mgmt_be_client_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-static void mgmt_be_client_proc_msgbufs(struct thread *thread)
+static void mgmt_be_client_proc_msgbufs(struct event *thread)
 {
 	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
 
@@ -906,7 +906,7 @@ static void mgmt_be_client_proc_msgbufs(struct thread *thread)
 		mgmt_be_client_register_event(client_ctx, MGMTD_BE_PROC_MSG);
 }
 
-static void mgmt_be_client_read(struct thread *thread)
+static void mgmt_be_client_read(struct event *thread)
 {
 	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
 	enum mgmt_msg_rsched rv;
@@ -962,7 +962,7 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
 	return rv;
 }
 
-static void mgmt_be_client_write(struct thread *thread)
+static void mgmt_be_client_write(struct event *thread)
 {
 	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
 	enum mgmt_msg_wsched rv;
@@ -981,7 +981,7 @@ static void mgmt_be_client_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_be_client_resume_writes(struct thread *thread)
+static void mgmt_be_client_resume_writes(struct event *thread)
 {
 	struct mgmt_be_client_ctx *client_ctx;
 
@@ -1040,7 +1040,7 @@ static void mgmt_be_server_connect(struct mgmt_be_client_ctx *client_ctx)
 			client_ctx->client_params.user_data, true);
 }
 
-static void mgmt_be_client_conn_timeout(struct thread *thread)
+static void mgmt_be_client_conn_timeout(struct event *thread)
 {
 	mgmt_be_server_connect(THREAD_ARG(thread));
 }

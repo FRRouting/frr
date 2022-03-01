@@ -92,7 +92,7 @@ struct zebra_neigh {
 	/* Duplicate ip detection */
 	uint32_t dad_count;
 
-	struct thread *dad_ip_auto_recovery_timer;
+	struct event *dad_ip_auto_recovery_timer;
 
 	struct timeval detect_start_time;
 
@@ -101,7 +101,7 @@ struct zebra_neigh {
 	time_t uptime;
 
 	/* used for ageing out the PEER_ACTIVE flag */
-	struct thread *hold_timer;
+	struct event *hold_timer;
 };
 
 /*

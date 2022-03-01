@@ -87,7 +87,7 @@ struct zebra_evpn_es {
 	 * imported before running the DF election.
 	 */
 #define ZEBRA_EVPN_MH_DF_DELAY_TIME 3 /* seconds */
-	struct thread *df_delay_timer;
+	struct event *df_delay_timer;
 };
 RB_HEAD(zebra_es_rb_head, zebra_evpn_es);
 RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
@@ -248,7 +248,7 @@ struct zebra_evpn_mh_info {
 	 */
 	int startup_delay_time; /* seconds */
 #define ZEBRA_EVPN_MH_STARTUP_DELAY_DEF (3 * 60)
-	struct thread *startup_delay_timer;
+	struct event *startup_delay_timer;
 
 	/* Number of configured uplinks */
 	uint32_t uplink_cfg_cnt;

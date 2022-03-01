@@ -249,7 +249,7 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 	return ZCLIENT_SEND_FAILURE;
 }
 
-static void zclient_flush_data(struct thread *thread)
+static void zclient_flush_data(struct event *thread)
 {
 	struct zclient *zclient = THREAD_ARG(thread);
 
@@ -744,7 +744,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 
 /* This function is a wrapper function for calling zclient_start from
    timer or event thread. */
-static void zclient_connect(struct thread *t)
+static void zclient_connect(struct event *t)
 {
 	struct zclient *zclient;
 
@@ -4026,7 +4026,7 @@ static zclient_handler *const lib_handlers[] = {
 };
 
 /* Zebra client message read function. */
-static void zclient_read(struct thread *thread)
+static void zclient_read(struct event *thread)
 {
 	size_t already;
 	uint16_t length, command;

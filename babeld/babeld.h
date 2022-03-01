@@ -84,8 +84,8 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 struct babel
 {
     /* Babel threads. */
-    struct thread *t_read;    /* on Babel protocol's socket */
-    struct thread *t_update;  /* timers */
+    struct event *t_read;   /* on Babel protocol's socket */
+    struct event *t_update; /* timers */
     /* distribute_ctx */
     struct distribute_ctx *distribute_ctx;
 };

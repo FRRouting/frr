@@ -39,8 +39,8 @@ struct bfd_notify_peer *control_notifypeer_find(struct bfd_control_socket *bcs,
 struct bfd_control_socket *control_new(int sd);
 static void control_free(struct bfd_control_socket *bcs);
 static void control_reset_buf(struct bfd_control_buffer *bcb);
-static void control_read(struct thread *t);
-static void control_write(struct thread *t);
+static void control_read(struct event *t);
+static void control_write(struct event *t);
 
 static void control_handle_request_add(struct bfd_control_socket *bcs,
 				       struct bfd_control_msg *bcm);
@@ -142,7 +142,7 @@ void control_shutdown(void)
 	}
 }
 
-void control_accept(struct thread *t)
+void control_accept(struct event *t)
 {
 	int csock, sd = THREAD_FD(t);
 
@@ -379,7 +379,7 @@ static void control_reset_buf(struct bfd_control_buffer *bcb)
 	bcb->bcb_left = 0;
 }
 
-static void control_read(struct thread *t)
+static void control_read(struct event *t)
 {
 	struct bfd_control_socket *bcs = THREAD_ARG(t);
 	struct bfd_control_buffer *bcb = &bcs->bcs_bin;
@@ -514,7 +514,7 @@ schedule_next_read:
 	thread_add_read(master, control_read, bcs, sd, &bcs->bcs_ev);
 }
 
-static void control_write(struct thread *t)
+static void control_write(struct event *t)
 {
 	struct bfd_control_socket *bcs = THREAD_ARG(t);
 	struct bfd_control_buffer *bcb = bcs->bcs_bout;

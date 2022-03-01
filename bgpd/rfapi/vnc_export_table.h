@@ -29,7 +29,7 @@ struct vnc_export_info {
 	uint8_t type;
 	uint8_t subtype;
 	uint32_t lifetime;
-	struct thread *timer;
+	struct event *timer;
 };
 
 extern struct agg_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,

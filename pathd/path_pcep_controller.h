@@ -77,7 +77,7 @@ struct pcep_ctrl_socket_data {
 	void *payload;
 };
 
-typedef void (*pcep_ctrl_thread_callback)(struct thread *);
+typedef void (*pcep_ctrl_thread_callback)(struct event *);
 
 /* PCC connection information, populated in a thread-safe
  * manner with pcep_ctrl_get_pcc_info() */
@@ -134,25 +134,25 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 			     struct path *path);
 void pcep_thread_initiate_path(struct ctrl_state *ctrl_state, int pcc_id,
 			       struct path *path);
-void pcep_thread_cancel_timer(struct thread **thread);
+void pcep_thread_cancel_timer(struct event **thread);
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
-				    int retry_count, struct thread **thread);
+				    int retry_count, struct event **thread);
 void pcep_thread_schedule_timeout(struct ctrl_state *ctrl_state, int pcc_id,
 				  enum pcep_ctrl_timeout_type type,
 				  uint32_t delay, void *param,
-				  struct thread **thread);
+				  struct event **thread);
 void pcep_thread_schedule_session_timeout(struct ctrl_state *ctrl_state,
 					  int pcc_id, int delay,
-					  struct thread **thread);
+					  struct event **thread);
 void pcep_thread_remove_candidate_path_segments(struct ctrl_state *ctrl_state,
 						struct pcc_state *pcc_state);
 
 void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
 					int pcc_id, int delay,
-					struct thread **thread);
+					struct event **thread);
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 					int delay, void *payload,
-					struct thread **thread,
+					struct event **thread,
 					pcep_ctrl_thread_callback cb);
 int pcep_thread_socket_read(void *fpt, void **thread, int fd, void *payload,
 			    pcep_ctrl_thread_callback cb);
@@ -161,7 +161,7 @@ int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
 
 int pcep_thread_send_ctrl_event(void *fpt, void *payload,
 				pcep_ctrl_thread_callback cb);
-void pcep_thread_pcep_event(struct thread *thread);
+void pcep_thread_pcep_event(struct event *thread);
 int pcep_thread_pcc_count(struct ctrl_state *ctrl_state);
 /* Called by the PCC to refine a path in the main thread */
 int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,

@@ -29,7 +29,7 @@ struct bgp_table {
 
 	/* soft_reconfig_table in progress */
 	bool soft_reconfig_init;
-	struct thread *soft_reconfig_thread;
+	struct event *soft_reconfig_thread;
 
 	/* list of peers on which soft_reconfig_table has to run */
 	struct list *soft_reconfig_peers;

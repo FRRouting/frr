@@ -15,11 +15,11 @@
 
 #define	CONTROL_BACKLOG	5
 
-static void control_accept(struct thread *);
+static void control_accept(struct event *);
 static struct ctl_conn	*control_connbyfd(int);
 static struct ctl_conn	*control_connbypid(pid_t);
 static void		 control_close(int);
-static void control_dispatch_imsg(struct thread *);
+static void control_dispatch_imsg(struct event *);
 
 struct ctl_conns	 ctl_conns;
 
@@ -90,7 +90,7 @@ control_cleanup(char *path)
 }
 
 /* ARGSUSED */
-static void control_accept(struct thread *thread)
+static void control_accept(struct event *thread)
 {
 	int			 connfd;
 	socklen_t		 len;
@@ -177,7 +177,7 @@ control_close(int fd)
 }
 
 /* ARGSUSED */
-static void control_dispatch_imsg(struct thread *thread)
+static void control_dispatch_imsg(struct event *thread)
 {
 	int		 fd = THREAD_FD(thread);
 	struct ctl_conn	*c;

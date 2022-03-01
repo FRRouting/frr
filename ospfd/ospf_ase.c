@@ -549,7 +549,7 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
-static void ospf_ase_calculate_timer(struct thread *t)
+static void ospf_ase_calculate_timer(struct event *t)
 {
 	struct ospf *ospf;
 	struct ospf_lsa *lsa;

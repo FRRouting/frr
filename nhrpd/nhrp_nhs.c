@@ -13,8 +13,8 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries");
 
-static void nhrp_nhs_resolve(struct thread *t);
-static void nhrp_reg_send_req(struct thread *t);
+static void nhrp_nhs_resolve(struct event *t);
+static void nhrp_reg_send_req(struct event *t);
 
 static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 {
@@ -103,7 +103,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					  &cie_nbma_nhs);
 }
 
-static void nhrp_reg_timeout(struct thread *t)
+static void nhrp_reg_timeout(struct event *t)
 {
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_cache *c;
@@ -155,7 +155,7 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 	}
 }
 
-static void nhrp_reg_send_req(struct thread *t)
+static void nhrp_reg_send_req(struct event *t)
 {
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_nhs *nhs = r->nhs;
@@ -309,7 +309,7 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 			nhrp_reg_delete(reg);
 }
 
-static void nhrp_nhs_resolve(struct thread *t)
+static void nhrp_nhs_resolve(struct event *t)
 {
 	struct nhrp_nhs *nhs = THREAD_ARG(t);
 

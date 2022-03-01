@@ -37,7 +37,7 @@ struct adj {
 	struct nbr		*nbr;
 	int			 ds_tlv;
 	struct hello_source	 source;
-	struct thread		*inactivity_timer;
+	struct event *inactivity_timer;
 	uint16_t		 holdtime;
 	union ldpd_addr		 trans_addr;
 };
@@ -50,7 +50,7 @@ struct tcp_conn {
 	int			 fd;
 	struct ibuf_read	*rbuf;
 	struct evbuf		 wbuf;
-	struct thread		*rev;
+	struct event *rev;
 	in_port_t		 lport;
 	in_port_t		 rport;
 };
@@ -59,11 +59,11 @@ struct nbr {
 	RB_ENTRY(nbr)		 id_tree, addr_tree, pid_tree;
 	struct tcp_conn		*tcp;
 	struct nbr_adj_head	 adj_tree;	/* adjacencies */
-	struct thread		*ev_connect;
-	struct thread		*keepalive_timer;
-	struct thread		*keepalive_timeout;
-	struct thread		*init_timeout;
-	struct thread		*initdelay_timer;
+	struct event *ev_connect;
+	struct event *keepalive_timer;
+	struct event *keepalive_timeout;
+	struct event *init_timeout;
+	struct event *initdelay_timer;
 
 	struct mapping_head	 mapping_list;
 	struct mapping_head	 withdraw_list;
@@ -115,7 +115,7 @@ struct pending_conn {
 	int				 fd;
 	int				 af;
 	union ldpd_addr			 addr;
-	struct thread			*ev_timeout;
+	struct event *ev_timeout;
 };
 #define PENDING_CONN_TIMEOUT	5
 
@@ -137,7 +137,7 @@ extern struct nbr_pid_head	 nbrs_by_pid;
 
 /* accept.c */
 void	accept_init(void);
-int accept_add(int, void (*)(struct thread *), void *);
+int accept_add(int, void (*)(struct event *), void *);
 void	accept_del(int);
 void	accept_pause(void);
 void	accept_unpause(void);
@@ -281,8 +281,8 @@ int			 gen_ldp_hdr(struct ibuf *, uint16_t);
 int			 gen_msg_hdr(struct ibuf *, uint16_t, uint16_t);
 int			 send_packet(int, int, union ldpd_addr *,
 			    struct iface_af *, void *, size_t);
-void disc_recv_packet(struct thread *thread);
-void session_accept(struct thread *thread);
+void disc_recv_packet(struct event *thread);
+void session_accept(struct event *thread);
 void			 session_accept_nbr(struct nbr *, int);
 void			 session_shutdown(struct nbr *, uint32_t, uint32_t,
 			    uint32_t);

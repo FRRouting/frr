@@ -28,12 +28,12 @@ DEFINE_HOOK(agentx_enabled, (), ());
 static bool agentx_enabled = false;
 
 static struct thread_master *agentx_tm;
-static struct thread *timeout_thr = NULL;
+static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
 
 static void agentx_events_update(void);
 
-static void agentx_timeout(struct thread *t)
+static void agentx_timeout(struct event *t)
 {
 	snmp_timeout();
 	run_alarms();
@@ -41,13 +41,13 @@ static void agentx_timeout(struct thread *t)
 	agentx_events_update();
 }
 
-static void agentx_read(struct thread *t)
+static void agentx_read(struct event *t)
 {
 	fd_set fds;
 	int flags, new_flags = 0;
 	int nonblock = false;
 	struct listnode *ln = THREAD_ARG(t);
-	struct thread **thr = listgetdata(ln);
+	struct event **thr = listgetdata(ln);
 	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
@@ -94,7 +94,7 @@ static void agentx_events_update(void)
 	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
 	fd_set fds;
 	struct listnode *ln;
-	struct thread **thr;
+	struct event **thr;
 	int fd, thr_fd;
 
 	thread_cancel(&timeout_thr);
@@ -130,8 +130,8 @@ static void agentx_events_update(void)
 		/* need listener, but haven't hit one where it would be */
 		else if (FD_ISSET(fd, &fds)) {
 			struct listnode *newln;
-			thr = XCALLOC(MTYPE_TMP, sizeof(struct thread *));
 
+			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, thr);
 			thread_add_read(agentx_tm, agentx_read, newln, fd, thr);
 		}

@@ -51,7 +51,7 @@ DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
-static void if_zebra_speed_update(struct thread *thread)
+static void if_zebra_speed_update(struct event *thread)
 {
 	struct interface *ifp = THREAD_ARG(thread);
 	struct zebra_if *zif = ifp->info;

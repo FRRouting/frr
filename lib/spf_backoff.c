@@ -48,8 +48,8 @@ struct spf_backoff {
 
 	/* State machine */
 	enum spf_backoff_state state;
-	struct thread *t_holddown;
-	struct thread *t_timetolearn;
+	struct event *t_holddown;
+	struct event *t_timetolearn;
 
 	/* For debugging */
 	char *name;
@@ -104,7 +104,7 @@ void spf_backoff_free(struct spf_backoff *backoff)
 	XFREE(MTYPE_SPF_BACKOFF, backoff);
 }
 
-static void spf_backoff_timetolearn_elapsed(struct thread *thread)
+static void spf_backoff_timetolearn_elapsed(struct event *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
@@ -113,7 +113,7 @@ static void spf_backoff_timetolearn_elapsed(struct thread *thread)
 		      backoff->name, spf_backoff_state2str(backoff->state));
 }
 
-static void spf_backoff_holddown_elapsed(struct thread *thread)
+static void spf_backoff_holddown_elapsed(struct event *thread)
 {
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 

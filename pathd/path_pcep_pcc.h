@@ -41,7 +41,7 @@ struct req_map_data {
 
 struct req_entry {
 	RB_ENTRY(req_entry) entry;
-	struct thread *t_retry;
+	struct event *t_retry;
 	int retry_count;
 	bool was_sent;
 	struct path *path;
@@ -66,9 +66,9 @@ struct pcc_state {
 	pcep_session *sess;
 	uint32_t retry_count;
 	bool synchronized;
-	struct thread *t_reconnect;
-	struct thread *t_update_best;
-	struct thread *t_session_timeout;
+	struct event *t_reconnect;
+	struct event *t_update_best;
+	struct event *t_session_timeout;
 	uint32_t next_reqid;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;

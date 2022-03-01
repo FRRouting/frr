@@ -459,7 +459,7 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 }
 
 /* Handling of grace period expiry. */
-static void ospf6_gr_grace_period_expired(struct thread *thread)
+static void ospf6_gr_grace_period_expired(struct event *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 

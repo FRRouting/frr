@@ -478,7 +478,7 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	assert(!"Reached end of function where we are not expecting to");
 }
 
-void isis_adj_expire(struct thread *thread)
+void isis_adj_expire(struct event *thread)
 {
 	struct isis_adjacency *adj;
 

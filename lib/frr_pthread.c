@@ -224,12 +224,12 @@ void frr_pthread_stop_all(void)
  */
 
 /* dummy task for sleeper pipe */
-static void fpt_dummy(struct thread *thread)
+static void fpt_dummy(struct event *thread)
 {
 }
 
 /* poison pill task to end event loop */
-static void fpt_finish(struct thread *thread)
+static void fpt_finish(struct event *thread)
 {
 	struct frr_pthread *fpt = THREAD_ARG(thread);
 
@@ -289,7 +289,7 @@ static void *fpt_run(void *arg)
 
 	frr_pthread_notify_running(fpt);
 
-	struct thread task;
+	struct event task;
 	while (atomic_load_explicit(&fpt->running, memory_order_relaxed)) {
 		pthread_testcancel();
 		if (thread_fetch(fpt->master, &task)) {

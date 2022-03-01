@@ -476,10 +476,10 @@ struct dplane_zns_info {
 	struct zebra_dplane_info info;
 
 	/* Request data from the OS */
-	struct thread *t_request;
+	struct event *t_request;
 
 	/* Read event */
-	struct thread *t_read;
+	struct event *t_read;
 
 	/* List linkage */
 	struct zns_info_list_item link;
@@ -585,10 +585,10 @@ static struct zebra_dplane_globals {
 	struct thread_master *dg_master;
 
 	/* Event/'thread' pointer for queued updates */
-	struct thread *dg_t_update;
+	struct event *dg_t_update;
 
 	/* Event pointer for pending shutdown check loop */
-	struct thread *dg_t_shutdown_check;
+	struct event *dg_t_shutdown_check;
 
 } zdplane_info;
 
@@ -609,7 +609,7 @@ DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
 #define DPLANE_PROV_UNLOCK(p) pthread_mutex_unlock(&((p)->dp_mutex))
 
 /* Prototypes */
-static void dplane_thread_loop(struct thread *event);
+static void dplane_thread_loop(struct event *event);
 static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
@@ -5773,7 +5773,7 @@ bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
  * Callback when an OS (netlink) incoming event read is ready. This runs
  * in the dplane pthread.
  */
-static void dplane_incoming_read(struct thread *event)
+static void dplane_incoming_read(struct event *event)
 {
 	struct dplane_zns_info *zi = THREAD_ARG(event);
 
@@ -5788,7 +5788,7 @@ static void dplane_incoming_read(struct thread *event)
  * Callback in the dataplane pthread that requests info from the OS and
  * initiates netlink reads.
  */
-static void dplane_incoming_request(struct thread *event)
+static void dplane_incoming_request(struct event *event)
 {
 	struct dplane_zns_info *zi = THREAD_ARG(event);
 
@@ -6597,7 +6597,7 @@ static bool dplane_work_pending(void)
  * final zebra shutdown.
  * This runs in the dplane pthread context.
  */
-static void dplane_check_shutdown_status(struct thread *event)
+static void dplane_check_shutdown_status(struct event *event)
 {
 	struct dplane_zns_info *zi;
 
@@ -6664,7 +6664,7 @@ void zebra_dplane_finish(void)
  * pthread can look for other pending work - such as i/o work on behalf of
  * providers.
  */
-static void dplane_thread_loop(struct thread *event)
+static void dplane_thread_loop(struct event *event)
 {
 	struct dplane_ctx_list_head work_list;
 	struct dplane_ctx_list_head error_list;

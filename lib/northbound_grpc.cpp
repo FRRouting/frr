@@ -181,9 +181,9 @@ class RpcStateBase
 	}
 
       protected:
-	virtual CallState run_mainthread(struct thread *thread) = 0;
+	virtual CallState run_mainthread(struct event *thread) = 0;
 
-	static void c_callback(struct thread *thread)
+	static void c_callback(struct event *thread)
 	{
 		auto _tag = static_cast<RpcStateBase *>(THREAD_ARG(thread));
 		/*
@@ -250,7 +250,7 @@ template <typename Q, typename S> class UnaryRpcState : public RpcStateBase
 				     &copy->responder, cq, cq, copy);
 	}
 
-	CallState run_mainthread(struct thread *thread) override
+	CallState run_mainthread(struct event *thread) override
 	{
 		// Unary RPC are always finished, see "Unary" :)
 		grpc::Status status = this->callback(this);
@@ -302,7 +302,7 @@ class StreamRpcState : public RpcStateBase
 				      &copy->async_responder, cq, cq, copy);
 	}
 
-	CallState run_mainthread(struct thread *thread) override
+	CallState run_mainthread(struct event *thread) override
 	{
 		if (this->callback(this))
 			return MORE;
@@ -1275,7 +1275,7 @@ static int frr_grpc_finish(void)
  * fork. This is done by scheduling this init function as an event task, since
  * the event loop doesn't run until after fork.
  */
-static void frr_grpc_module_very_late_init(struct thread *thread)
+static void frr_grpc_module_very_late_init(struct event *thread)
 {
 	const char *args = THIS_MODULE->load_args;
 	uint port = GRPC_DEFAULT_PORT;

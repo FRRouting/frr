@@ -31,7 +31,7 @@
 #include "pim_bsm.h"
 #include <lib/lib_errors.h>
 
-static void on_pim_hello_send(struct thread *t);
+static void on_pim_hello_send(struct event *t);
 
 static const char *pim_pim_msgtype2str(enum pim_msg_type type)
 {
@@ -334,7 +334,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 
 static void pim_sock_read_on(struct interface *ifp);
 
-static void pim_sock_read(struct thread *t)
+static void pim_sock_read(struct event *t)
 {
 	struct interface *ifp, *orig_ifp;
 	struct pim_interface *pim_ifp;
@@ -830,7 +830,7 @@ static void hello_resched(struct interface *ifp)
 /*
   Periodic hello timer
  */
-static void on_pim_hello_send(struct thread *t)
+static void on_pim_hello_send(struct event *t)
 {
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;

@@ -60,7 +60,7 @@ struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
 /* RIPng peer is timeout.
  * Garbage collector.
  **/
-static void ripng_peer_timeout(struct thread *t)
+static void ripng_peer_timeout(struct event *t)
 {
 	struct ripng_peer *peer;
 

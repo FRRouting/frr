@@ -323,11 +323,11 @@ struct zclient {
 	struct buffer *wb;
 
 	/* Read and connect thread. */
-	struct thread *t_read;
-	struct thread *t_connect;
+	struct event *t_read;
+	struct event *t_connect;
 
 	/* Thread to write buffered data to zebra. */
-	struct thread *t_write;
+	struct event *t_write;
 
 	/* Redistribute information. */
 	uint8_t redist_default; /* clients protocol */

@@ -17,7 +17,7 @@ struct ssmpingd_sock {
 	struct pim_instance *pim;
 
 	int sock_fd;		    /* socket */
-	struct thread *t_sock_read; /* thread for reading socket */
+	struct event *t_sock_read;  /* thread for reading socket */
 	pim_addr source_addr;       /* source address */
 	int64_t creation;	   /* timestamp of socket creation */
 	int64_t requests;	   /* counter */

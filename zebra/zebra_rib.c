@@ -56,7 +56,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
  * Event, list, and mutex for delivery of dataplane results
  */
 static pthread_mutex_t dplane_mutex;
-static struct thread *t_dplane;
+static struct event *t_dplane;
 static struct dplane_ctx_list_head rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
@@ -4393,7 +4393,7 @@ static void rib_update_ctx_fini(struct rib_update_ctx **ctx)
 	XFREE(MTYPE_RIB_UPDATE_CTX, *ctx);
 }
 
-static void rib_update_handler(struct thread *thread)
+static void rib_update_handler(struct event *thread)
 {
 	struct rib_update_ctx *ctx;
 
@@ -4408,7 +4408,7 @@ static void rib_update_handler(struct thread *thread)
  * Thread list to ensure we don't schedule a ton of events
  * if interfaces are flapping for instance.
  */
-static struct thread *t_rib_update_threads[RIB_UPDATE_MAX];
+static struct event *t_rib_update_threads[RIB_UPDATE_MAX];
 
 /* Schedule a RIB update event for all vrfs */
 void rib_update(enum rib_update_event event)
@@ -4494,7 +4494,7 @@ void rib_sweep_table(struct route_table *table)
 }
 
 /* Sweep all RIB tables.  */
-void rib_sweep_route(struct thread *t)
+void rib_sweep_route(struct event *t)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -4606,7 +4606,7 @@ static void handle_pw_result(struct zebra_dplane_ctx *ctx)
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
-static void rib_process_dplane_results(struct thread *thread)
+static void rib_process_dplane_results(struct event *thread)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_list_head ctxlist;

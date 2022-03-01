@@ -195,7 +195,7 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 			create ? nhrp_cache_alloc : NULL);
 }
 
-static void nhrp_cache_do_free(struct thread *t)
+static void nhrp_cache_do_free(struct event *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
 
@@ -203,7 +203,7 @@ static void nhrp_cache_do_free(struct thread *t)
 	nhrp_cache_free(c);
 }
 
-static void nhrp_cache_do_timeout(struct thread *t)
+static void nhrp_cache_do_timeout(struct event *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
 
@@ -395,7 +395,7 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	nhrp_cache_update_timers(c);
 }
 
-static void nhrp_cache_do_auth_timeout(struct thread *t)
+static void nhrp_cache_do_auth_timeout(struct event *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
 	c->t_auth = NULL;

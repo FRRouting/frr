@@ -278,7 +278,7 @@ struct rfapi_rib_tcb {
 /*
  * remove route from rib
  */
-static void rfapiRibExpireTimer(struct thread *t)
+static void rfapiRibExpireTimer(struct event *t)
 {
 	struct rfapi_rib_tcb *tcb = THREAD_ARG(t);
 

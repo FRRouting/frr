@@ -114,14 +114,14 @@ struct zebra_mac {
 	/* Duplicate mac detection */
 	uint32_t dad_count;
 
-	struct thread *dad_mac_auto_recovery_timer;
+	struct event *dad_mac_auto_recovery_timer;
 
 	struct timeval detect_start_time;
 
 	time_t dad_dup_detect_time;
 
 	/* used for ageing out the PEER_ACTIVE flag */
-	struct thread *hold_timer;
+	struct event *hold_timer;
 
 	/* number of neigh entries (using this mac) that have
 	 * ZEBRA_MAC_ES_PEER_ACTIVE or ZEBRA_NEIGH_ES_PEER_PROXY

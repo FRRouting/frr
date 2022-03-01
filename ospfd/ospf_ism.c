@@ -237,7 +237,7 @@ int ospf_dr_election(struct ospf_interface *oi)
 }
 
 
-void ospf_hello_timer(struct thread *thread)
+void ospf_hello_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 
@@ -254,7 +254,7 @@ void ospf_hello_timer(struct thread *thread)
 	OSPF_HELLO_TIMER_ON(oi);
 }
 
-static void ospf_wait_timer(struct thread *thread)
+static void ospf_wait_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 
@@ -560,7 +560,7 @@ static void ism_change_state(struct ospf_interface *oi, int state)
 }
 
 /* Execute ISM event process. */
-void ospf_ism_event(struct thread *thread)
+void ospf_ism_event(struct event *thread)
 {
 	int event;
 	int next_state;

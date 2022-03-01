@@ -44,7 +44,7 @@ DEFINE_HOOK(ospf_nsm_change,
 static void nsm_clear_adj(struct ospf_neighbor *);
 
 /* OSPF NSM Timer functions. */
-static void ospf_inactivity_timer(struct thread *thread)
+static void ospf_inactivity_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -71,7 +71,7 @@ static void ospf_inactivity_timer(struct thread *thread)
 	}
 }
 
-static void ospf_db_desc_timer(struct thread *thread)
+static void ospf_db_desc_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -791,7 +791,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 }
 
 /* Execute NSM event process. */
-void ospf_nsm_event(struct thread *thread)
+void ospf_nsm_event(struct event *thread)
 {
 	int event;
 	int next_state;

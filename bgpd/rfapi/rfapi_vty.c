@@ -516,8 +516,7 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 
 	if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && bpi->extra
 	    && bpi->extra->vnc.import.timer) {
-		struct thread *t =
-			(struct thread *)bpi->extra->vnc.import.timer;
+		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
 		r = snprintf(p, REMAIN, " [%4lu] ",
 			     thread_timer_remain_second(t));
 		INCP;
@@ -1114,8 +1113,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		time_t age;
 		char buf_age[BUFSIZ];
 
-		struct thread *t =
-			(struct thread *)bpi->extra->vnc.import.timer;
+		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
 		remaining = thread_timer_remain_second(t);
 
 #ifdef RFAPI_REGISTRATIONS_REPORT_AGE

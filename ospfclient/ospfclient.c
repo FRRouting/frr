@@ -69,7 +69,7 @@ struct my_opaque_lsa {
  * ---------------------------------------------------------
  */
 
-static void lsa_delete(struct thread *t)
+static void lsa_delete(struct event *t)
 {
 	struct ospf_apiclient *oclient;
 	struct in_addr area_id;
@@ -92,7 +92,7 @@ static void lsa_delete(struct thread *t)
 	printf("done, return code is = %d\n", rc);
 }
 
-static void lsa_inject(struct thread *t)
+static void lsa_inject(struct event *t)
 {
 	struct ospf_apiclient *cl;
 	struct in_addr ifaddr;
@@ -138,7 +138,7 @@ static void lsa_inject(struct thread *t)
 
 /* This thread handles asynchronous messages coming in from the OSPF
    API server */
-static void lsa_read(struct thread *thread)
+static void lsa_read(struct event *thread)
 {
 	struct ospf_apiclient *oclient;
 	int fd;
@@ -269,7 +269,7 @@ static int usage(void)
 
 int main(int argc, char *argv[])
 {
-	struct thread thread;
+	struct event thread;
 
 	args = argv;
 
