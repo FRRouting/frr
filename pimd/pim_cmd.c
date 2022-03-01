@@ -8171,13 +8171,7 @@ DEFUN(interface_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
-			      argv[4]->arg);
-
-	return nb_cli_apply_changes(vty,
-				    FRR_PIM_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
-
+	return pim_process_ip_pim_boundary_oil_cmd(vty, argv[4]->arg);
 }
 
 DEFUN(interface_no_ip_pim_boundary_oil,
@@ -8190,12 +8184,7 @@ DEFUN(interface_no_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY,
-			      NULL);
-
-	return nb_cli_apply_changes(vty,
-				    FRR_PIM_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return pim_process_no_ip_pim_boundary_oil_cmd(vty);
 }
 
 DEFUN (interface_ip_mroute,
