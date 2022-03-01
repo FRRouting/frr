@@ -340,6 +340,32 @@ DEFPY_HIDDEN (interface_no_ipv6_pim_sm,
 	return pim_process_no_ip_pim_cmd(vty);
 }
 
+/* boundaries */
+DEFPY (interface_ipv6_pim_boundary_oil,
+      interface_ipv6_pim_boundary_oil_cmd,
+      "ipv6 multicast boundary oil WORD",
+      IPV6_STR
+      "Generic multicast configuration options\n"
+      "Define multicast boundary\n"
+      "Filter OIL by group using prefix list\n"
+      "Prefix list to filter OIL with\n")
+{
+	return pim_process_ip_pim_boundary_oil_cmd(vty, oil);
+}
+
+DEFPY (interface_no_ipv6_pim_boundary_oil,
+      interface_no_ipv6_pim_boundary_oil_cmd,
+      "no ipv6 multicast boundary oil [WORD]",
+      NO_STR
+      IPV6_STR
+      "Generic multicast configuration options\n"
+      "Define multicast boundary\n"
+      "Filter OIL by group using prefix list\n"
+      "Prefix list to filter OIL with\n")
+{
+	return pim_process_no_ip_pim_boundary_oil_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -369,4 +395,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_sm_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_ipv6_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ipv6_pim_boundary_oil_cmd);
 }
