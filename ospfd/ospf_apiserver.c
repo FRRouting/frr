@@ -278,7 +278,7 @@ struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 	return new;
 }
 
-void ospf_apiserver_event(enum event event, int fd,
+void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 			  struct ospf_apiserver *apiserv)
 {
 	switch (event) {
@@ -367,7 +367,7 @@ void ospf_apiserver_read(struct thread *thread)
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
-	enum event event;
+	enum ospf_apiserver_event event;
 
 	apiserv = THREAD_ARG(thread);
 	fd = THREAD_FD(thread);
@@ -710,7 +710,7 @@ static int ospf_apiserver_send_msg(struct ospf_apiserver *apiserv,
 {
 	struct msg_fifo *fifo;
 	struct msg *msg2;
-	enum event event;
+	enum ospf_apiserver_event event;
 	int fd;
 
 	switch (msg->hdr.msgtype) {
