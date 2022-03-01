@@ -210,6 +210,25 @@ DEFPY (no_ipv6_pim_register_suppress,
 	return pim_process_no_register_suppress_cmd(vty);
 }
 
+DEFPY (interface_ipv6_pim,
+       interface_ipv6_pim_cmd,
+       "ipv6 pim",
+       IPV6_STR
+       PIM_STR)
+{
+	return pim_process_ip_pim_cmd(vty);
+}
+
+DEFPY (interface_no_ipv6_pim,
+       interface_no_ipv6_pim_cmd,
+       "no ipv6 pim",
+       NO_STR
+       IPV6_STR
+       PIM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -228,4 +247,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
 }
