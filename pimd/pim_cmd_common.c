@@ -425,3 +425,20 @@ int pim_process_no_ip_pim_hello_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
 }
+
+int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "false");
+	else {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "true");
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
