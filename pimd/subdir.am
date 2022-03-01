@@ -38,6 +38,7 @@ pim_common = \
 	pimd/pim_nb.c \
 	pimd/pim_nb_config.c \
 	pimd/pim_neighbor.c \
+	pimd/pim_nht.c \
 	pimd/pim_oil.c \
 	pimd/pim_routemap.c \
 	pimd/pim_rp.c \
@@ -70,7 +71,6 @@ pimd_pimd_SOURCES = \
 	pimd/pim_msdp.c \
 	pimd/pim_msdp_packet.c \
 	pimd/pim_msdp_socket.c \
-	pimd/pim_nht.c \
 	pimd/pim_pim.c \
 	pimd/pim_register.c \
 	pimd/pim_signals.c \
