@@ -84,7 +84,7 @@ static ptm_lib_handle_t *ptm_hdl;
 struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
-void zebra_ptm_sock_read(struct thread *thread);
+void zebra_ptm_sock_read(struct event *thread);
 static void zebra_ptm_install_commands(void);
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
@@ -152,7 +152,7 @@ void zebra_ptm_finish(void)
 		close(ptm_cb.ptm_sock);
 }
 
-static void zebra_ptm_flush_messages(struct thread *thread)
+static void zebra_ptm_flush_messages(struct event *thread)
 {
 	ptm_cb.t_write = NULL;
 
@@ -208,7 +208,7 @@ static int zebra_ptm_send_message(char *data, int size)
 	return 0;
 }
 
-void zebra_ptm_connect(struct thread *t)
+void zebra_ptm_connect(struct event *t)
 {
 	int init = 0;
 
@@ -629,7 +629,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	}
 }
 
-void zebra_ptm_sock_read(struct thread *thread)
+void zebra_ptm_sock_read(struct event *thread)
 {
 	int sock;
 	int rc;

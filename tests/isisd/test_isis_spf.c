@@ -488,7 +488,7 @@ int main(int argc, char **argv)
 {
 	char *p;
 	char *progname;
-	struct thread thread;
+	struct event thread;
 	bool debug = false;
 
 	/* Set umask before anything for security */

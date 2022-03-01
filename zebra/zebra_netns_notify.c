@@ -41,18 +41,18 @@
 #define ZEBRA_NS_POLLING_MAX_RETRIES  200
 
 DEFINE_MTYPE_STATIC(ZEBRA, NETNS_MISC, "ZebraNetNSInfo");
-static struct thread *zebra_netns_notify_current;
+static struct event *zebra_netns_notify_current;
 
 struct zebra_netns_info {
 	const char *netnspath;
 	unsigned int retries;
 };
 
-static void zebra_ns_ready_read(struct thread *t);
+static void zebra_ns_ready_read(struct event *t);
 static void zebra_ns_notify_create_context_from_entry_name(const char *name);
 static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 				  int stop_retry);
-static void zebra_ns_notify_read(struct thread *t);
+static void zebra_ns_notify_read(struct event *t);
 
 static struct vrf *vrf_handler_create(struct vty *vty, const char *vrfname)
 {
@@ -229,7 +229,7 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 	return false;
 }
 
-static void zebra_ns_ready_read(struct thread *t)
+static void zebra_ns_ready_read(struct event *t)
 {
 	struct zebra_netns_info *zns_info = THREAD_ARG(t);
 	const char *netnspath;
@@ -280,7 +280,7 @@ static void zebra_ns_ready_read(struct thread *t)
 	zebra_ns_continue_read(zns_info, 1);
 }
 
-static void zebra_ns_notify_read(struct thread *t)
+static void zebra_ns_notify_read(struct event *t)
 {
 	int fd_monitor = THREAD_FD(t);
 	struct inotify_event *event;

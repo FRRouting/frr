@@ -27,7 +27,7 @@ struct thread_master *master;
 
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event event;
 
 	master = thread_master_create(NULL);
 
@@ -45,8 +45,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (thread_fetch(master, &event))
+		thread_call(&event);
 
 	/* Not reached. */
 	exit(0);

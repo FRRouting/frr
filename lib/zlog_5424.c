@@ -789,7 +789,7 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 	rcu_free(MTYPE_LOG_5424, oldt, zt.rcu_head);
 }
 
-static void zlog_5424_reconnect(struct thread *t)
+static void zlog_5424_reconnect(struct event *t)
 {
 	struct zlog_cfg_5424 *zcf = THREAD_ARG(t);
 	int fd = THREAD_FD(t);

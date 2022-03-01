@@ -204,15 +204,15 @@ struct zfpm_glob {
 	/*
 	 * Threads for I/O.
 	 */
-	struct thread *t_connect;
-	struct thread *t_write;
-	struct thread *t_read;
+	struct event *t_connect;
+	struct event *t_write;
+	struct event *t_read;
 
 	/*
 	 * Thread to clean up after the TCP connection to the FPM goes down
 	 * and the state that belongs to it.
 	 */
-	struct thread *t_conn_down;
+	struct event *t_conn_down;
 
 	struct {
 		struct zfpm_rnodes_iter iter;
@@ -222,7 +222,7 @@ struct zfpm_glob {
 	 * Thread to take actions once the TCP conn to the FPM comes up, and
 	 * the state that belongs to it.
 	 */
-	struct thread *t_conn_up;
+	struct event *t_conn_up;
 
 	struct {
 		struct zfpm_rnodes_iter iter;
@@ -251,7 +251,7 @@ struct zfpm_glob {
 	/*
 	 * Stats interval timer.
 	 */
-	struct thread *t_stats;
+	struct event *t_stats;
 
 	/*
 	 * If non-zero, the last time when statistics were cleared.
@@ -269,8 +269,8 @@ static struct zfpm_glob *zfpm_g = &zfpm_glob_space;
 
 static int zfpm_trigger_update(struct route_node *rn, const char *reason);
 
-static void zfpm_read_cb(struct thread *thread);
-static void zfpm_write_cb(struct thread *thread);
+static void zfpm_read_cb(struct event *thread);
+static void zfpm_write_cb(struct event *thread);
 
 static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
@@ -283,7 +283,7 @@ union g_addr ipv4ll_gateway;
 /*
  * zfpm_thread_should_yield
  */
-static inline int zfpm_thread_should_yield(struct thread *t)
+static inline int zfpm_thread_should_yield(struct event *t)
 {
 	return thread_should_yield(t);
 }
@@ -503,7 +503,7 @@ static inline void zfpm_connect_off(void)
  * Callback for actions to be taken when the connection to the FPM
  * comes up.
  */
-static void zfpm_conn_up_thread_cb(struct thread *thread)
+static void zfpm_conn_up_thread_cb(struct event *thread)
 {
 	struct route_node *rnode;
 	struct zfpm_rnodes_iter *iter;
@@ -619,7 +619,7 @@ static void zfpm_connect_check(void)
  * Callback that is invoked to clean up state after the TCP connection
  * to the FPM goes down.
  */
-static void zfpm_conn_down_thread_cb(struct thread *thread)
+static void zfpm_conn_down_thread_cb(struct event *thread)
 {
 	struct route_node *rnode;
 	struct zfpm_rnodes_iter *iter;
@@ -723,7 +723,7 @@ static void zfpm_connection_down(const char *detail)
 /*
  * zfpm_read_cb
  */
-static void zfpm_read_cb(struct thread *thread)
+static void zfpm_read_cb(struct event *thread)
 {
 	size_t already;
 	struct stream *ibuf;
@@ -1152,7 +1152,7 @@ static void zfpm_build_updates(void)
 /*
  * zfpm_write_cb
  */
-static void zfpm_write_cb(struct thread *thread)
+static void zfpm_write_cb(struct event *thread)
 {
 	struct stream *s;
 	int num_writes;
@@ -1234,7 +1234,7 @@ static void zfpm_write_cb(struct thread *thread)
 /*
  * zfpm_connect_cb
  */
-static void zfpm_connect_cb(struct thread *t)
+static void zfpm_connect_cb(struct event *t)
 {
 	int sock, ret;
 	struct sockaddr_in serv;
@@ -1664,7 +1664,7 @@ static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args)
 /*
  * struct zfpm_statsimer_cb
  */
-static void zfpm_stats_timer_cb(struct thread *t)
+static void zfpm_stats_timer_cb(struct event *t)
 {
 	zfpm_g->t_stats = NULL;
 

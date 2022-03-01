@@ -52,7 +52,7 @@ int test_log_prio = ZLOG_DISABLED;
 /* main routine. */
 int main(int argc, char **argv)
 {
-	struct thread thread;
+	struct event thread;
 	size_t yangcount;
 
 	/* Set umask before anything for security */

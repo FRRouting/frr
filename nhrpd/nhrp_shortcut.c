@@ -18,7 +18,7 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 
 static struct route_table *shortcut_rib[AFI_MAX];
 
-static void nhrp_shortcut_do_purge(struct thread *t);
+static void nhrp_shortcut_do_purge(struct event *t);
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s);
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s);
 
@@ -31,7 +31,7 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 	}
 }
 
-static void nhrp_shortcut_do_expire(struct thread *t)
+static void nhrp_shortcut_do_expire(struct event *t)
 {
 	struct nhrp_shortcut *s = THREAD_ARG(t);
 
@@ -154,7 +154,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	}
 }
 
-static void nhrp_shortcut_do_purge(struct thread *t)
+static void nhrp_shortcut_do_purge(struct event *t)
 {
 	struct nhrp_shortcut *s = THREAD_ARG(t);
 	s->t_timer = NULL;

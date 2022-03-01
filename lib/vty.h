@@ -148,7 +148,7 @@ struct vty {
 	size_t pending_cmds_bufpos;
 
 	/* Confirmed-commit timeout and rollback configuration. */
-	struct thread *t_confirmed_commit_timeout;
+	struct event *t_confirmed_commit_timeout;
 	struct nb_config *confirmed_commit_rollback;
 
 	/* qobj object ID (replacement for "index") */
@@ -202,12 +202,12 @@ struct vty {
 	int lines;
 
 	/* Read and write thread. */
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* Timeout seconds and thread. */
 	unsigned long v_timeout;
-	struct thread *t_timeout;
+	struct event *t_timeout;
 
 	/* What address is this vty comming from. */
 	char address[SU_ADDRSTRLEN];

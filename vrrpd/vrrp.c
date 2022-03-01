@@ -673,8 +673,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static void vrrp_adver_timer_expire(struct thread *thread);
-static void vrrp_master_down_timer_expire(struct thread *thread);
+static void vrrp_adver_timer_expire(struct event *thread);
+static void vrrp_master_down_timer_expire(struct event *thread);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -976,7 +976,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static void vrrp_read(struct thread *thread)
+static void vrrp_read(struct event *thread)
 {
 	struct vrrp_router *r = THREAD_ARG(thread);
 
@@ -1473,7 +1473,7 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static void vrrp_adver_timer_expire(struct thread *thread)
+static void vrrp_adver_timer_expire(struct event *thread)
 {
 	struct vrrp_router *r = THREAD_ARG(thread);
 
@@ -1501,7 +1501,7 @@ static void vrrp_adver_timer_expire(struct thread *thread)
 /*
  * Called when Master_Down_Timer expires.
  */
-static void vrrp_master_down_timer_expire(struct thread *thread)
+static void vrrp_master_down_timer_expire(struct event *thread)
 {
 	struct vrrp_router *r = THREAD_ARG(thread);
 

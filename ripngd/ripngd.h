@@ -121,13 +121,13 @@ struct ripng {
 	struct list *offset_list_master;
 
 	/* RIPng threads. */
-	struct thread *t_read;
-	struct thread *t_update;
+	struct event *t_read;
+	struct event *t_update;
 
 	/* Triggered update hack. */
 	int trigger;
-	struct thread *t_triggered_update;
-	struct thread *t_triggered_interval;
+	struct event *t_triggered_update;
+	struct event *t_triggered_interval;
 
 	/* RIPng ECMP flag */
 	bool ecmp;
@@ -200,8 +200,8 @@ struct ripng_info {
 	uint8_t flags;
 
 	/* Garbage collect timer. */
-	struct thread *t_timeout;
-	struct thread *t_garbage_collect;
+	struct event *t_timeout;
+	struct event *t_garbage_collect;
 
 	/* Route-map features - this variables can be changed. */
 	struct in6_addr nexthop_out;
@@ -254,7 +254,7 @@ struct ripng_interface {
 	uint8_t default_only;
 
 	/* Wake up thread. */
-	struct thread *t_wakeup;
+	struct event *t_wakeup;
 
 	/* Passive interface. */
 	int passive;
@@ -282,7 +282,7 @@ struct ripng_peer {
 	int recv_badroutes;
 
 	/* Timeout thread. */
-	struct thread *t_timeout;
+	struct event *t_timeout;
 };
 
 /* All RIPng events. */

@@ -397,7 +397,7 @@ void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static void zebra_evpn_neigh_hold_exp_cb(struct thread *t)
+static void zebra_evpn_neigh_hold_exp_cb(struct event *t)
 {
 	struct zebra_neigh *n;
 	bool old_bgp_ready;
@@ -1080,7 +1080,7 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	return 0;
 }
 
-static void zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_ip_auto_recovery_exp(struct event *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_neigh *nbr = NULL;

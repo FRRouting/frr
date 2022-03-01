@@ -22,7 +22,7 @@ static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
 static int		 if_reset(struct iface *, int);
 static void		 if_update_af(struct iface_af *);
-static void if_hello_timer(struct thread *thread);
+static void if_hello_timer(struct event *thread);
 static void		 if_start_hello_timer(struct iface_af *);
 static void		 if_stop_hello_timer(struct iface_af *);
 static int		 if_join_ipv4_group(struct iface *, struct in_addr *);
@@ -32,7 +32,7 @@ static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
 
 static int ldp_sync_fsm_init(struct iface *iface, int state);
 static int ldp_sync_act_iface_start_sync(struct iface *iface);
-static void iface_wait_for_ldp_sync_timer(struct thread *thread);
+static void iface_wait_for_ldp_sync_timer(struct event *thread);
 static void start_wait_for_ldp_sync_timer(struct iface *iface);
 static void stop_wait_for_ldp_sync_timer(struct iface *iface);
 static int ldp_sync_act_ldp_start_sync(struct iface *iface);
@@ -444,7 +444,7 @@ if_get_wait_for_sync_interval(void)
 
 /* timers */
 /* ARGSUSED */
-static void if_hello_timer(struct thread *thread)
+static void if_hello_timer(struct event *thread)
 {
 	struct iface_af		*ia = THREAD_ARG(thread);
 
@@ -720,7 +720,7 @@ ldp_sync_act_iface_start_sync(struct iface *iface)
 	return (0);
 }
 
-static void iface_wait_for_ldp_sync_timer(struct thread *thread)
+static void iface_wait_for_ldp_sync_timer(struct event *thread)
 {
 	struct iface *iface = THREAD_ARG(thread);
 

@@ -112,7 +112,7 @@ struct bmp {
 
 	int socket;
 	char remote[SU_ADDRSTRLEN + 6];
-	struct thread *t_read;
+	struct event *t_read;
 
 	struct pullwr *pullwr;
 
@@ -176,7 +176,7 @@ struct bmp_active {
 	union sockunion addrs[8];
 	int socket;
 	const char *last_err;
-	struct thread *t_timer, *t_read, *t_write;
+	struct event *t_timer, *t_read, *t_write;
 };
 
 /* config & state for passive / listening sockets */
@@ -190,7 +190,7 @@ struct bmp_listener {
 	union sockunion addr;
 	int port;
 
-	struct thread *t_accept;
+	struct event *t_accept;
 	int sock;
 };
 
@@ -226,7 +226,7 @@ struct bmp_targets {
 
 	struct bmp_actives_head actives;
 
-	struct thread *t_stats;
+	struct event *t_stats;
 	struct bmp_session_head sessions;
 
 	struct bmp_qhash_head updhash;

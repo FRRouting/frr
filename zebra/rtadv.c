@@ -475,7 +475,7 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
-static void rtadv_timer(struct thread *thread)
+static void rtadv_timer(struct event *thread)
 {
 	struct zebra_vrf *zvrf = THREAD_ARG(thread);
 	struct vrf *vrf;
@@ -817,7 +817,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	return;
 }
 
-static void rtadv_read(struct thread *thread)
+static void rtadv_read(struct event *thread)
 {
 	int sock;
 	int len;

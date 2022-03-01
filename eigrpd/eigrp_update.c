@@ -895,7 +895,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
  *
  * Uses nbr_gr_packet_type and t_nbr_send_gr from neighbor.
  */
-void eigrp_update_send_GR_thread(struct thread *thread)
+void eigrp_update_send_GR_thread(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
 

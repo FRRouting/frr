@@ -812,7 +812,7 @@ struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
 
 
 /* ospf6 lsa expiry */
-void ospf6_lsa_expire(struct thread *thread)
+void ospf6_lsa_expire(struct event *thread)
 {
 	struct ospf6_lsa *lsa;
 	struct ospf6 *ospf6;
@@ -823,7 +823,7 @@ void ospf6_lsa_expire(struct thread *thread)
 	assert(OSPF6_LSA_IS_MAXAGE(lsa));
 	assert(!lsa->refresh);
 
-	lsa->expire = (struct thread *)NULL;
+	lsa->expire = (struct event *)NULL;
 
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)) {
 		zlog_debug("LSA Expire:");
@@ -845,7 +845,7 @@ void ospf6_lsa_expire(struct thread *thread)
 	ospf6_maxage_remove(ospf6);
 }
 
-void ospf6_lsa_refresh(struct thread *thread)
+void ospf6_lsa_refresh(struct event *thread)
 {
 	struct ospf6_lsa *old, *self, *new;
 	struct ospf6_lsdb *lsdb_self;
@@ -853,7 +853,7 @@ void ospf6_lsa_refresh(struct thread *thread)
 	old = (struct ospf6_lsa *)THREAD_ARG(thread);
 	assert(old && old->header);
 
-	old->refresh = (struct thread *)NULL;
+	old->refresh = (struct event *)NULL;
 
 	lsdb_self = ospf6_get_scoped_lsdb_self(old);
 	self = ospf6_lsdb_lookup(old->header->type, old->header->id,

@@ -52,7 +52,7 @@
 	thread_execute(master, ospf_nsm_event, (N), (E))
 
 /* Prototypes. */
-extern void ospf_nsm_event(struct thread *);
+extern void ospf_nsm_event(struct event *);
 extern void ospf_check_nbr_loading(struct ospf_neighbor *);
 extern int ospf_db_summary_isempty(struct ospf_neighbor *);
 extern int ospf_db_summary_count(struct ospf_neighbor *);

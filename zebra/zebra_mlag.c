@@ -36,8 +36,8 @@ uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
 static bool test_mlag_in_progress;
 
 static int zebra_mlag_signal_write_thread(void);
-static void zebra_mlag_terminate_pthread(struct thread *event);
-static void zebra_mlag_post_data_from_main_thread(struct thread *thread);
+static void zebra_mlag_terminate_pthread(struct event *event);
+static void zebra_mlag_post_data_from_main_thread(struct event *thread);
 static void zebra_mlag_publish_process_state(struct zserv *client,
 					     zebra_message_types_t msg_type);
 
@@ -132,7 +132,7 @@ void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len)
  * This thread reads the clients data from the Global queue and encodes with
  * protobuf and pass on to the MLAG socket.
  */
-static void zebra_mlag_client_msg_handler(struct thread *event)
+static void zebra_mlag_client_msg_handler(struct event *event)
 {
 	struct stream *s;
 	uint32_t wr_count = 0;
@@ -292,7 +292,7 @@ static void zebra_mlag_publish_process_state(struct zserv *client,
  * main thread, because for that access was needed for clients list.
  * so instead of forcing the locks, messages will be posted from main thread.
  */
-static void zebra_mlag_post_data_from_main_thread(struct thread *thread)
+static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 {
 	struct stream *s = THREAD_ARG(thread);
 	struct stream *zebra_s = NULL;
@@ -376,7 +376,7 @@ static void zebra_mlag_spawn_pthread(void)
  * all clients are un-registered for MLAG Updates, terminate the
  * MLAG write thread
  */
-static void zebra_mlag_terminate_pthread(struct thread *event)
+static void zebra_mlag_terminate_pthread(struct event *event)
 {
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("Zebra MLAG write thread terminate called");

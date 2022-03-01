@@ -2345,7 +2345,7 @@ static void rfapiMonitorEncapDelete(struct bgp_path_info *vpn_bpi)
 /*
  * Timer callback for withdraw
  */
-static void rfapiWithdrawTimerVPN(struct thread *t)
+static void rfapiWithdrawTimerVPN(struct event *t)
 {
 	struct rfapi_withdraw *wcb = THREAD_ARG(t);
 	struct bgp_path_info *bpi = wcb->info;
@@ -2654,7 +2654,7 @@ rfapiWithdrawEncapUpdateCachedUn(struct rfapi_import_table *import_table,
 	return 0;
 }
 
-static void rfapiWithdrawTimerEncap(struct thread *t)
+static void rfapiWithdrawTimerEncap(struct event *t)
 {
 	struct rfapi_withdraw *wcb = THREAD_ARG(t);
 	struct bgp_path_info *bpi = wcb->info;
@@ -2739,7 +2739,7 @@ static void
 rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 			  struct agg_node *rn, struct bgp_path_info *bpi,
 			  afi_t afi, safi_t safi,
-			  void (*timer_service_func)(struct thread *))
+			  void (*timer_service_func)(struct event *))
 {
 	uint32_t lifetime;
 	struct rfapi_withdraw *wcb;
@@ -2831,7 +2831,7 @@ static void rfapiExpireEncapNow(struct rfapi_import_table *it,
 				struct agg_node *rn, struct bgp_path_info *bpi)
 {
 	struct rfapi_withdraw *wcb;
-	struct thread t;
+	struct event t;
 
 	/*
 	 * pretend we're an expiring timer
@@ -3094,7 +3094,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 					 * bpi
 					 */
 					struct rfapi_withdraw *wcb;
-					struct thread t;
+					struct event t;
 
 					/*
 					 * pretend we're an expiring timer
@@ -3305,7 +3305,7 @@ static void rfapiExpireVpnNow(struct rfapi_import_table *it,
 			      int lockoffset)
 {
 	struct rfapi_withdraw *wcb;
-	struct thread t;
+	struct event t;
 
 	/*
 	 * pretend we're an expiring timer
@@ -4046,7 +4046,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 	struct agg_node *rn;
 	struct bgp_path_info *bpi;
 	struct agg_table *rt = NULL;
-	void (*timer_service_func)(struct thread *) = NULL;
+	void (*timer_service_func)(struct event *) = NULL;
 
 	assert(afi == AFI_IP || afi == AFI_IP6);
 

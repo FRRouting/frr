@@ -1388,7 +1388,7 @@ static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
 	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
 }
 
-static void isis_area_verify_routes_cb(struct thread *thread)
+static void isis_area_verify_routes_cb(struct event *thread)
 {
 	struct isis_area *area = THREAD_ARG(thread);
 

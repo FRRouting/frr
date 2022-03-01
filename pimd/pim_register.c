@@ -32,7 +32,7 @@
 #include "pim_vxlan.h"
 #include "pim_addr.h"
 
-struct thread *send_test_packet_timer = NULL;
+struct event *send_test_packet_timer = NULL;
 
 void pim_register_join(struct pim_upstream *up)
 {

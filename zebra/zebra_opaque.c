@@ -80,7 +80,7 @@ static struct zebra_opaque_globals {
 	struct thread_master *master;
 
 	/* Event/'thread' pointer for queued zapi messages */
-	struct thread *t_msgs;
+	struct event *t_msgs;
 
 	/* Input fifo queue to the module, and lock to protect it. */
 	pthread_mutex_t mutex;
@@ -94,7 +94,7 @@ static const char LOG_NAME[] = "Zebra Opaque";
 /* Prototypes */
 
 /* Main event loop, processing incoming message queue */
-static void process_messages(struct thread *event);
+static void process_messages(struct event *event);
 static int handle_opq_registration(const struct zmsghdr *hdr,
 				   struct stream *msg);
 static int handle_opq_unregistration(const struct zmsghdr *hdr,
@@ -258,7 +258,7 @@ uint32_t zebra_opaque_enqueue_batch(struct stream_fifo *batch)
 /*
  * Pthread event loop, process the incoming message queue.
  */
-static void process_messages(struct thread *event)
+static void process_messages(struct event *event)
 {
 	struct stream_fifo fifo;
 	struct stream *msg;

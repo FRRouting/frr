@@ -50,7 +50,7 @@ DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
-static void rip_triggered_update(struct thread *);
+static void rip_triggered_update(struct event *);
 static int rip_update_jitter(unsigned long);
 static void rip_distance_table_node_cleanup(struct route_table *table,
 					    struct route_node *node);
@@ -121,7 +121,7 @@ struct rip *rip_info_get_instance(const struct rip_info *rinfo)
 }
 
 /* RIP route garbage collect timer. */
-static void rip_garbage_collect(struct thread *t)
+static void rip_garbage_collect(struct event *t)
 {
 	struct rip_info *rinfo;
 	struct route_node *rp;
@@ -287,7 +287,7 @@ struct rip_info *rip_ecmp_delete(struct rip *rip, struct rip_info *rinfo)
 }
 
 /* Timeout RIP routes. */
-static void rip_timeout(struct thread *t)
+static void rip_timeout(struct event *t)
 {
 	struct rip_info *rinfo = THREAD_ARG(t);
 	struct rip *rip = rip_info_get_instance(rinfo);
@@ -1697,7 +1697,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 }
 
 /* First entry point of RIP packet. */
-static void rip_read(struct thread *t)
+static void rip_read(struct event *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int sock;
@@ -2478,7 +2478,7 @@ static void rip_update_process(struct rip *rip, int route_type)
 }
 
 /* RIP's periodical timer. */
-static void rip_update(struct thread *t)
+static void rip_update(struct event *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 
@@ -2520,7 +2520,7 @@ static void rip_clear_changed_flag(struct rip *rip)
 }
 
 /* Triggered update interval timer. */
-static void rip_triggered_interval(struct thread *t)
+static void rip_triggered_interval(struct event *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 
@@ -2531,7 +2531,7 @@ static void rip_triggered_interval(struct thread *t)
 }
 
 /* Execute triggered update. */
-static void rip_triggered_update(struct thread *t)
+static void rip_triggered_update(struct event *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int interval;
@@ -2923,7 +2923,7 @@ static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
 	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
-	struct thread *thread;
+	struct event *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
 		clock = thread_timer_remain_second(thread);

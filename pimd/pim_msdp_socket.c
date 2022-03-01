@@ -50,7 +50,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 }
 
 /* passive peer socket accept */
-static void pim_msdp_sock_accept(struct thread *thread)
+static void pim_msdp_sock_accept(struct event *thread)
 {
 	union sockunion su;
 	struct pim_instance *pim = THREAD_ARG(thread);

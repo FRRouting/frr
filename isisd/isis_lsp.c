@@ -49,9 +49,9 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
-static void lsp_refresh(struct thread *thread);
-static void lsp_l1_refresh_pseudo(struct thread *thread);
-static void lsp_l2_refresh_pseudo(struct thread *thread);
+static void lsp_refresh(struct event *thread);
+static void lsp_l1_refresh_pseudo(struct event *thread);
+static void lsp_l2_refresh_pseudo(struct event *thread);
 
 static void lsp_destroy(struct isis_lsp *lsp);
 
@@ -429,7 +429,7 @@ bool isis_level2_adj_up(struct isis_area *area)
 /*
  * Unset the overload bit after the timer expires
  */
-void set_overload_on_start_timer(struct thread *thread)
+void set_overload_on_start_timer(struct event *thread)
 {
 	struct isis_area *area = THREAD_ARG(thread);
 	assert(area);
@@ -1523,7 +1523,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 /*
  * Something has changed or periodic refresh -> regenerate LSP
  */
-static void lsp_refresh(struct thread *thread)
+static void lsp_refresh(struct event *thread)
 {
 	struct lsp_refresh_arg *arg = THREAD_ARG(thread);
 
@@ -1903,7 +1903,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 /*
  * Something has changed or periodic refresh -> regenerate pseudo LSP
  */
-static void lsp_l1_refresh_pseudo(struct thread *thread)
+static void lsp_l1_refresh_pseudo(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
@@ -1925,7 +1925,7 @@ static void lsp_l1_refresh_pseudo(struct thread *thread)
 	lsp_regenerate_pseudo(circuit, IS_LEVEL_1);
 }
 
-static void lsp_l2_refresh_pseudo(struct thread *thread)
+static void lsp_l2_refresh_pseudo(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
@@ -2049,7 +2049,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
  * Walk through LSPs for an area
  *  - set remaining lifetime
  */
-void lsp_tick(struct thread *thread)
+void lsp_tick(struct event *thread)
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;

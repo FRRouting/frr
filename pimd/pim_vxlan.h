@@ -75,7 +75,7 @@ enum pim_vxlan_flags {
 struct pim_vxlan {
 	enum pim_vxlan_flags flags;
 
-	struct thread *work_timer;
+	struct event *work_timer;
 	struct list *work_list;
 	struct listnode *next_work;
 	int max_work_cnt;

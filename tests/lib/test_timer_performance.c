@@ -22,7 +22,7 @@
 
 struct thread_master *master;
 
-static void dummy_func(struct thread *thread)
+static void dummy_func(struct event *thread)
 {
 }
 
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 {
 	struct prng *prng;
 	int i;
-	struct thread **timers;
+	struct event **timers;
 	struct timeval tv_start, tv_lap, tv_stop;
 	unsigned long t_schedule, t_remove;
 

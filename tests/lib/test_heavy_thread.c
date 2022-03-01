@@ -56,7 +56,7 @@ static void slow_func(struct vty *vty, const char *str, const int i)
 		printf("%s did %d, x = %g\n", str, i, x);
 }
 
-static void clear_something(struct thread *thread)
+static void clear_something(struct event *thread)
 {
 	struct work_state *ws = THREAD_ARG(thread);
 

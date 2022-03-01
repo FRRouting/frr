@@ -180,7 +180,7 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	return lsa;
 }
 
-void ospf6_orig_as_external_lsa(struct thread *thread)
+void ospf6_orig_as_external_lsa(struct event *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_lsa *lsa;
@@ -1065,7 +1065,7 @@ static void ospf6_asbr_routemap_unset(struct ospf6_redist *red)
 	ROUTEMAP(red) = NULL;
 }
 
-static void ospf6_asbr_routemap_update_timer(struct thread *thread)
+static void ospf6_asbr_routemap_update_timer(struct event *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_redist *red;
@@ -3332,7 +3332,7 @@ ospf6_handle_external_aggr_add(struct ospf6 *ospf6)
 	}
 }
 
-static void ospf6_asbr_summary_process(struct thread *thread)
+static void ospf6_asbr_summary_process(struct event *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	int operation = 0;

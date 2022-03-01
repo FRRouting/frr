@@ -264,7 +264,7 @@ static void run_server(int syncfd)
 {
 	void *zmqsock;
 	char dummy = 0;
-	struct thread t;
+	struct event t;
 
 	master = thread_master_create(NULL);
 	signal_init(master, array_size(sigs), sigs);

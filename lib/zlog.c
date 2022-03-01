@@ -506,7 +506,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 
 static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 {
-	struct thread *tc = pthread_getspecific(thread_current);
+	struct event *tc = pthread_getspecific(thread_current);
 	const char *uid = xref->xref.xrefdata->uid;
 	bool found_thread = false;
 

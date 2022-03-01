@@ -188,7 +188,7 @@ static void update_dr_priority(struct pim_neighbor *neigh,
 	}
 }
 
-static void on_neighbor_timer(struct thread *t)
+static void on_neighbor_timer(struct event *t)
 {
 	struct pim_neighbor *neigh;
 	struct interface *ifp;
@@ -238,7 +238,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 			 neigh->holdtime, &neigh->t_expire_timer);
 }
 
-static void on_neighbor_jp_timer(struct thread *t)
+static void on_neighbor_jp_timer(struct event *t)
 {
 	struct pim_neighbor *neigh = THREAD_ARG(t);
 	struct pim_rpf rpf;

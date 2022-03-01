@@ -32,7 +32,7 @@ struct isis_tx_queue_entry {
 	struct isis_lsp *lsp;
 	enum isis_tx_type type;
 	bool is_retry;
-	struct thread *retry;
+	struct event *retry;
 	struct isis_tx_queue *queue;
 };
 
@@ -100,7 +100,7 @@ static struct isis_tx_queue_entry *tx_queue_find(struct isis_tx_queue *queue,
 	return hash_lookup(queue->hash, &e);
 }
 
-static void tx_queue_send_event(struct thread *thread)
+static void tx_queue_send_event(struct event *thread)
 {
 	struct isis_tx_queue_entry *e = THREAD_ARG(thread);
 	struct isis_tx_queue *queue = e->queue;

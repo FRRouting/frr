@@ -30,8 +30,8 @@ struct rtadv {
 	struct adv_if_list_head adv_if;
 	struct adv_if_list_head adv_msec_if;
 
-	struct thread *ra_read;
-	struct thread *ra_timer;
+	struct event *ra_read;
+	struct event *ra_timer;
 };
 
 PREDECL_RBTREE_UNIQ(rtadv_prefixes);

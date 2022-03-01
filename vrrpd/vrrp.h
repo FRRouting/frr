@@ -193,10 +193,10 @@ struct vrrp_router {
 		uint32_t trans_cnt;
 	} stats;
 
-	struct thread *t_master_down_timer;
-	struct thread *t_adver_timer;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_master_down_timer;
+	struct event *t_adver_timer;
+	struct event *t_read;
+	struct event *t_write;
 };
 
 /*

@@ -590,7 +590,7 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	zlog_debug("%s", buffer);
 }
 
-static void ospf6_spf_calculation_thread(struct thread *t)
+static void ospf6_spf_calculation_thread(struct event *t)
 {
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6;
@@ -1228,7 +1228,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-static void ospf6_ase_calculate_timer(struct thread *t)
+static void ospf6_ase_calculate_timer(struct event *t)
 {
 	struct ospf6 *ospf6;
 	struct ospf6_lsa *lsa;

@@ -63,11 +63,11 @@ struct bfd_dplane_ctx {
 	/** Output buffer data. */
 	struct stream *outbuf;
 	/** Input event data. */
-	struct thread *inbufev;
+	struct event *inbufev;
 	/** Output event data. */
-	struct thread *outbufev;
+	struct event *outbufev;
 	/** Connection event. */
-	struct thread *connectev;
+	struct event *connectev;
 
 	/** Amount of bytes read. */
 	uint64_t in_bytes;
@@ -94,7 +94,7 @@ struct bfd_dplane_ctx {
  */
 typedef void (*bfd_dplane_expect_cb)(struct bfddp_message *msg, void *arg);
 
-static void bfd_dplane_client_connect(struct thread *t);
+static void bfd_dplane_client_connect(struct event *t);
 static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc);
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc);
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
@@ -312,7 +312,7 @@ static ssize_t bfd_dplane_flush(struct bfd_dplane_ctx *bdc)
 	return total;
 }
 
-static void bfd_dplane_write(struct thread *t)
+static void bfd_dplane_write(struct event *t)
 {
 	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
 
@@ -599,7 +599,7 @@ skip_read:
 	return 0;
 }
 
-static void bfd_dplane_read(struct thread *t)
+static void bfd_dplane_read(struct event *t)
 {
 	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
 	int rv;
@@ -819,7 +819,7 @@ static uint16_t bfd_dplane_request_counters(const struct bfd_session *bs)
 /*
  * Data plane listening socket.
  */
-static void bfd_dplane_accept(struct thread *t)
+static void bfd_dplane_accept(struct event *t)
 {
 	struct bfd_global *bg = THREAD_ARG(t);
 	struct bfd_dplane_ctx *bdc;
@@ -899,7 +899,7 @@ static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc)
 	}
 }
 
-static void bfd_dplane_client_connect(struct thread *t)
+static void bfd_dplane_client_connect(struct event *t)
 {
 	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
 	int rv, sock;

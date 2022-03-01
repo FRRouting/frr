@@ -50,11 +50,11 @@ DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_SESSION, "MGMTD Frontend session");
 struct mgmt_fe_client_ctx {
 	int conn_fd;
 	struct thread_master *tm;
-	struct thread *conn_retry_tmr;
-	struct thread *conn_read_ev;
-	struct thread *conn_write_ev;
-	struct thread *conn_writes_on;
-	struct thread *msg_proc_ev;
+	struct event *conn_retry_tmr;
+	struct event *conn_read_ev;
+	struct event *conn_write_ev;
+	struct event *conn_writes_on;
+	struct event *msg_proc_ev;
 	uint32_t flags;
 
 	struct mgmt_msg_state mstate;
@@ -174,7 +174,7 @@ static int mgmt_fe_client_send_msg(struct mgmt_fe_client_ctx *client_ctx,
 	return rv;
 }
 
-static void mgmt_fe_client_write(struct thread *thread)
+static void mgmt_fe_client_write(struct event *thread)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 	enum mgmt_msg_wsched rv;
@@ -194,7 +194,7 @@ static void mgmt_fe_client_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_fe_client_resume_writes(struct thread *thread)
+static void mgmt_fe_client_resume_writes(struct event *thread)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 
@@ -670,7 +670,7 @@ static void mgmt_fe_client_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
 }
 
-static void mgmt_fe_client_proc_msgbufs(struct thread *thread)
+static void mgmt_fe_client_proc_msgbufs(struct event *thread)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 
@@ -680,7 +680,7 @@ static void mgmt_fe_client_proc_msgbufs(struct thread *thread)
 		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_PROC_MSG);
 }
 
-static void mgmt_fe_client_read(struct thread *thread)
+static void mgmt_fe_client_read(struct event *thread)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 	enum mgmt_msg_rsched rv;
@@ -725,7 +725,7 @@ static void mgmt_fe_server_connect(struct mgmt_fe_client_ctx *client_ctx)
 }
 
 
-static void mgmt_fe_client_conn_timeout(struct thread *thread)
+static void mgmt_fe_client_conn_timeout(struct event *thread)
 {
 	mgmt_fe_server_connect(THREAD_ARG(thread));
 }

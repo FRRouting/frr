@@ -964,7 +964,7 @@ static void frr_daemonize(void)
  * to read the config in after thread execution starts, so that
  * we can match this behavior.
  */
-static void frr_config_read_in(struct thread *t)
+static void frr_config_read_in(struct event *t)
 {
 	hook_call(frr_config_pre, master);
 
@@ -1095,9 +1095,9 @@ static void frr_terminal_close(int isexit)
 	}
 }
 
-static struct thread *daemon_ctl_thread = NULL;
+static struct event *daemon_ctl_thread = NULL;
 
-static void frr_daemon_ctl(struct thread *t)
+static void frr_daemon_ctl(struct event *t)
 {
 	char buf[1];
 	ssize_t nr;
@@ -1180,7 +1180,7 @@ void frr_run(struct thread_master *master)
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
 
-	struct thread thread;
+	struct event thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
 }

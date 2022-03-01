@@ -1335,7 +1335,7 @@ static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
-static void bmp_stats(struct thread *thread)
+static void bmp_stats(struct event *thread)
 {
 	struct bmp_targets *bt = THREAD_ARG(thread);
 	struct stream *s;
@@ -1388,7 +1388,7 @@ static void bmp_stats(struct thread *thread)
 }
 
 /* read from the BMP socket to detect session termination */
-static void bmp_read(struct thread *t)
+static void bmp_read(struct event *t)
 {
 	struct bmp *bmp = THREAD_ARG(t);
 	char buf[1024];
@@ -1492,7 +1492,7 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 }
 
 /* Accept BMP connection. */
-static void bmp_accept(struct thread *thread)
+static void bmp_accept(struct event *thread)
 {
 	union sockunion su;
 	struct bmp_listener *bl = THREAD_ARG(thread);
@@ -1902,7 +1902,7 @@ static void bmp_active_resolved(struct resolver_query *resq, const char *errstr,
 	bmp_active_connect(ba);
 }
 
-static void bmp_active_thread(struct thread *t)
+static void bmp_active_thread(struct event *t)
 {
 	struct bmp_active *ba = THREAD_ARG(t);
 	socklen_t slen;

@@ -289,7 +289,7 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
-static void on_join_timer(struct thread *t)
+static void on_join_timer(struct event *t)
 {
 	struct pim_upstream *up;
 
@@ -1461,7 +1461,7 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 
 	return up;
 }
-static void pim_upstream_keep_alive_timer(struct thread *t)
+static void pim_upstream_keep_alive_timer(struct event *t)
 {
 	struct pim_upstream *up;
 
@@ -1494,7 +1494,7 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 }
 
 /* MSDP on RP needs to know if a source is registerable to this RP */
-static void pim_upstream_msdp_reg_timer(struct thread *t)
+static void pim_upstream_msdp_reg_timer(struct event *t)
 {
 	struct pim_upstream *up = THREAD_ARG(t);
 	struct pim_instance *pim = up->channel_oil->pim;
@@ -1680,7 +1680,7 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	return state_str;
 }
 
-static void pim_upstream_register_stop_timer(struct thread *t)
+static void pim_upstream_register_stop_timer(struct event *t)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;

@@ -339,7 +339,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static void ospf_ldp_sync_holddown_timer(struct thread *thread)
+static void ospf_ldp_sync_holddown_timer(struct event *thread)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;

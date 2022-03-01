@@ -4344,7 +4344,7 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	vpn_policy_routemap_event(rmap_name);
 }
 
-void bgp_route_map_update_timer(struct thread *thread)
+void bgp_route_map_update_timer(struct event *thread)
 {
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 }

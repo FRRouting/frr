@@ -140,7 +140,7 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 
 	fb.pos = buf;
 
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (!tc)
@@ -284,7 +284,7 @@ void zlog_backtrace(int priority)
 
 void zlog_thread_info(int log_level)
 {
-	struct thread *tc;
+	struct event *tc;
 	tc = pthread_getspecific(thread_current);
 
 	if (tc)

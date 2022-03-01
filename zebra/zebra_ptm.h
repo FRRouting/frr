@@ -26,9 +26,9 @@ struct zebra_ptm_cb {
 
 	struct buffer *wb; /* Buffer of data waiting to be written to ptm. */
 
-	struct thread *t_read;  /* Thread for read */
-	struct thread *t_write; /* Thread for write */
-	struct thread *t_timer; /* Thread for timer */
+	struct event *t_read;  /* Thread for read */
+	struct event *t_write; /* Thread for write */
+	struct event *t_timer; /* Thread for timer */
 
 	char *out_data;
 	char *in_data;
@@ -57,7 +57,7 @@ struct zebra_ptm_cb {
 
 void zebra_ptm_init(void);
 void zebra_ptm_finish(void);
-void zebra_ptm_connect(struct thread *t);
+void zebra_ptm_connect(struct event *t);
 void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 

@@ -976,7 +976,7 @@ int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
 }
 
 /* This function performs ABR related processing */
-static void ospf6_abr_task_timer(struct thread *thread)
+static void ospf6_abr_task_timer(struct event *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 

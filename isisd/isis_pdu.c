@@ -1780,7 +1780,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	return retval;
 }
 
-void isis_receive(struct thread *thread)
+void isis_receive(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t ssnpa[ETH_ALEN];
@@ -2009,7 +2009,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 	return retval;
 }
 
-static void send_hello_cb(struct thread *thread)
+static void send_hello_cb(struct event *thread)
 {
 	struct isis_circuit_arg *arg = THREAD_ARG(thread);
 	assert(arg);
@@ -2050,8 +2050,7 @@ static void send_hello_cb(struct thread *thread)
 }
 
 static void _send_hello_sched(struct isis_circuit *circuit,
-			      struct thread **threadp,
-			      int level, long delay)
+			      struct event **threadp, int level, long delay)
 {
 	if (*threadp) {
 		if (thread_timer_remain_msec(*threadp) < (unsigned long)delay)
@@ -2240,7 +2239,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 	return ISIS_OK;
 }
 
-void send_l1_csnp(struct thread *thread)
+void send_l1_csnp(struct event *thread)
 {
 	struct isis_circuit *circuit;
 
@@ -2260,7 +2259,7 @@ void send_l1_csnp(struct thread *thread)
 			 &circuit->t_send_csnp[0]);
 }
 
-void send_l2_csnp(struct thread *thread)
+void send_l2_csnp(struct event *thread)
 {
 	struct isis_circuit *circuit;
 
@@ -2394,7 +2393,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 	return ISIS_OK;
 }
 
-void send_l1_psnp(struct thread *thread)
+void send_l1_psnp(struct event *thread)
 {
 
 	struct isis_circuit *circuit;
@@ -2415,7 +2414,7 @@ void send_l1_psnp(struct thread *thread)
  *  7.3.15.4 action on expiration of partial SNP interval
  *  level 2
  */
-void send_l2_psnp(struct thread *thread)
+void send_l2_psnp(struct event *thread)
 {
 	struct isis_circuit *circuit;
 

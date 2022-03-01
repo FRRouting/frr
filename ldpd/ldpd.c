@@ -35,8 +35,8 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
-static void main_dispatch_ldpe(struct thread *thread);
-static void main_dispatch_lde(struct thread *thread);
+static void main_dispatch_ldpe(struct event *thread);
+static void main_dispatch_lde(struct event *thread);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 			    struct imsgbuf *);
 static void		 main_imsg_send_net_sockets(int);
@@ -208,7 +208,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.n_yang_modules = array_size(ldpd_yang_modules),
 );
 
-static void ldp_config_fork_apply(struct thread *t)
+static void ldp_config_fork_apply(struct event *t)
 {
 	/*
 	 * So the frr_config_fork() function schedules
@@ -557,7 +557,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 /* imsg handling */
 /* ARGSUSED */
-static void main_dispatch_ldpe(struct thread *thread)
+static void main_dispatch_ldpe(struct event *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -625,7 +625,7 @@ static void main_dispatch_ldpe(struct thread *thread)
 }
 
 /* ARGSUSED */
-static void main_dispatch_lde(struct thread *thread)
+static void main_dispatch_lde(struct event *thread)
 {
 	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
@@ -733,7 +733,7 @@ static void main_dispatch_lde(struct thread *thread)
 }
 
 /* ARGSUSED */
-void ldp_write_handler(struct thread *thread)
+void ldp_write_handler(struct event *thread)
 {
 	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
@@ -823,7 +823,7 @@ evbuf_event_add(struct evbuf *eb)
 				 &eb->ev);
 }
 
-void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct thread *),
+void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct event *),
 		void *arg)
 {
 	msgbuf_init(&eb->wbuf);

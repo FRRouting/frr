@@ -286,7 +286,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 	return 0;
 }
 
-static void ssmpingd_sock_read(struct thread *t)
+static void ssmpingd_sock_read(struct event *t)
 {
 	struct ssmpingd_sock *ss;
 

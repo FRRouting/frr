@@ -51,8 +51,8 @@ struct mgmt_fe_session_ctx {
 	uint8_t ds_write_locked[MGMTD_DS_MAX_ID];
 	uint8_t ds_read_locked[MGMTD_DS_MAX_ID];
 	uint8_t ds_locked_implict[MGMTD_DS_MAX_ID];
-	struct thread *proc_cfg_txn_clnp;
-	struct thread *proc_show_txn_clnp;
+	struct event *proc_cfg_txn_clnp;
+	struct event *proc_show_txn_clnp;
 
 	struct mgmt_fe_sessions_item list_linkage;
 };
@@ -629,7 +629,7 @@ static int mgmt_fe_send_getdata_reply(struct mgmt_fe_session_ctx *session,
 	return mgmt_fe_adapter_send_msg(session->adapter, &fe_msg);
 }
 
-static void mgmt_fe_session_cfg_txn_clnup(struct thread *thread)
+static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -638,7 +638,7 @@ static void mgmt_fe_session_cfg_txn_clnup(struct thread *thread)
 	mgmt_fe_session_cfg_txn_cleanup(session);
 }
 
-static void mgmt_fe_session_show_txn_clnup(struct thread *thread)
+static void mgmt_fe_session_show_txn_clnup(struct event *thread)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -1435,7 +1435,7 @@ static void mgmt_fe_adapter_process_msg(void *user_ctx, uint8_t *data,
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
 }
 
-static void mgmt_fe_adapter_proc_msgbufs(struct thread *thread)
+static void mgmt_fe_adapter_proc_msgbufs(struct event *thread)
 {
 	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
 
@@ -1444,7 +1444,7 @@ static void mgmt_fe_adapter_proc_msgbufs(struct thread *thread)
 		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_PROC_MSG);
 }
 
-static void mgmt_fe_adapter_read(struct thread *thread)
+static void mgmt_fe_adapter_read(struct event *thread)
 {
 	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
 	enum mgmt_msg_rsched rv;
@@ -1459,7 +1459,7 @@ static void mgmt_fe_adapter_read(struct thread *thread)
 	mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_READ);
 }
 
-static void mgmt_fe_adapter_write(struct thread *thread)
+static void mgmt_fe_adapter_write(struct event *thread)
 {
 	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
 	enum mgmt_msg_wsched rv;
@@ -1477,7 +1477,7 @@ static void mgmt_fe_adapter_write(struct thread *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void mgmt_fe_adapter_resume_writes(struct thread *thread)
+static void mgmt_fe_adapter_resume_writes(struct event *thread)
 {
 	struct mgmt_fe_client_adapter *adapter;
 

@@ -18764,14 +18764,14 @@ static const struct cmd_variable_handler bgp_var_peergroup[] = {
 
 DEFINE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 
-static struct thread *t_bgp_cfg;
+static struct event *t_bgp_cfg;
 
 bool bgp_config_inprocess(void)
 {
 	return thread_is_scheduled(t_bgp_cfg);
 }
 
-static void bgp_config_finish(struct thread *t)
+static void bgp_config_finish(struct event *t)
 {
 	struct listnode *node;
 	struct bgp *bgp;

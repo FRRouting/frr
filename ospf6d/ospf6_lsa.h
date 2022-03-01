@@ -119,8 +119,8 @@ struct ospf6_lsa {
 	struct timeval received;   /* used by MinLSArrival check */
 	struct timeval installed;
 
-	struct thread *expire;
-	struct thread *refresh; /* For self-originated LSA */
+	struct event *expire;
+	struct event *refresh; /* For self-originated LSA */
 
 	int retrans_count;
 
@@ -241,8 +241,8 @@ extern struct ospf6_lsa *ospf6_lsa_copy(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa);
 
-extern void ospf6_lsa_expire(struct thread *thread);
-extern void ospf6_lsa_refresh(struct thread *thread);
+extern void ospf6_lsa_expire(struct event *thread);
+extern void ospf6_lsa_refresh(struct event *thread);
 
 extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsah);
 extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsah);

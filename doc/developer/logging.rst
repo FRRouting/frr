@@ -335,16 +335,16 @@ Time/interval formats
 FRR library helper formats
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. frrfmt:: %pTH (struct thread *)
+.. frrfmt:: %pTH (struct event *)
 
-   Print remaining time on timer thread. Interval-printing flag characters
+   Print remaining time on timer event. Interval-printing flag characters
    listed above for ``%pTV`` can be added, e.g. ``%pTHtx``.
 
    ``NULL`` pointers are printed as ``-``.
 
-.. frrfmt:: %pTHD (struct thread *)
+.. frrfmt:: %pTHD (struct event *)
 
-   Print debugging information for given thread.  Sample output:
+   Print debugging information for given event.  Sample output:
 
    .. code-block:: none
 

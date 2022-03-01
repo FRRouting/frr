@@ -331,7 +331,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 /*
  * LDP-SYNC holddown timer routines
  */
-static void isis_ldp_sync_holddown_timer(struct thread *thread)
+static void isis_ldp_sync_holddown_timer(struct event *thread)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;

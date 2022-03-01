@@ -242,7 +242,7 @@ void eigrp_distribute_update_all_wrapper(struct access_list *notused)
  * Called when 10sec waiting time expire and
  * executes Graceful restart for whole process
  */
-void eigrp_distribute_timer_process(struct thread *thread)
+void eigrp_distribute_timer_process(struct event *thread)
 {
 	struct eigrp *eigrp;
 
@@ -263,7 +263,7 @@ void eigrp_distribute_timer_process(struct thread *thread)
  * Called when 10sec waiting time expire and
  * executes Graceful restart for interface
  */
-void eigrp_distribute_timer_interface(struct thread *thread)
+void eigrp_distribute_timer_interface(struct event *thread)
 {
 	struct eigrp_interface *ei;
 

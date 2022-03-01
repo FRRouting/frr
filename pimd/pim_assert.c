@@ -493,7 +493,7 @@ static int pim_assert_cancel(struct pim_ifchannel *ch)
 	return pim_assert_do(ch, metric);
 }
 
-static void on_assert_timer(struct thread *t)
+static void on_assert_timer(struct event *t)
 {
 	struct pim_ifchannel *ch;
 	struct interface *ifp;

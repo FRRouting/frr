@@ -117,15 +117,15 @@ struct rip {
 	struct list *peer_list;
 
 	/* RIP threads. */
-	struct thread *t_read;
+	struct event *t_read;
 
 	/* Update and garbage timer. */
-	struct thread *t_update;
+	struct event *t_update;
 
 	/* Triggered update hack. */
 	int trigger;
-	struct thread *t_triggered_update;
-	struct thread *t_triggered_interval;
+	struct event *t_triggered_update;
+	struct event *t_triggered_interval;
 
 	/* RIP timer values. */
 	uint32_t update_time;
@@ -239,8 +239,8 @@ struct rip_info {
 	uint8_t flags;
 
 	/* Garbage collect timer. */
-	struct thread *t_timeout;
-	struct thread *t_garbage_collect;
+	struct event *t_timeout;
+	struct event *t_garbage_collect;
 
 	/* Route-map futures - this variables can be changed. */
 	struct in_addr nexthop_out;
@@ -309,7 +309,7 @@ struct rip_interface {
 	struct route_map *routemap[RIP_FILTER_MAX];
 
 	/* Wake up thread. */
-	struct thread *t_wakeup;
+	struct event *t_wakeup;
 
 	/* Interface statistics. */
 	int recv_badpackets;
@@ -342,7 +342,7 @@ struct rip_peer {
 	int recv_badroutes;
 
 	/* Timeout thread. */
-	struct thread *t_timeout;
+	struct event *t_timeout;
 };
 
 struct rip_distance {

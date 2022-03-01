@@ -35,8 +35,8 @@
 static struct thread_master *zmlag_master;
 static int mlag_socket;
 
-static void zebra_mlag_connect(struct thread *thread);
-static void zebra_mlag_read(struct thread *thread);
+static void zebra_mlag_connect(struct event *thread);
+static void zebra_mlag_read(struct event *thread);
 
 /*
  * Write the data to MLAGD
@@ -59,7 +59,7 @@ static void zebra_mlag_sched_read(void)
 			&zrouter.mlag_info.t_read);
 }
 
-static void zebra_mlag_read(struct thread *thread)
+static void zebra_mlag_read(struct event *thread)
 {
 	static uint32_t mlag_rd_buf_offset;
 	uint32_t *msglen;
@@ -151,7 +151,7 @@ static void zebra_mlag_read(struct thread *thread)
 	zebra_mlag_sched_read();
 }
 
-static void zebra_mlag_connect(struct thread *thread)
+static void zebra_mlag_connect(struct event *thread)
 {
 	struct sockaddr_un svr = {0};
 

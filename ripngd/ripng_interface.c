@@ -586,7 +586,7 @@ int ripng_enable_if_delete(struct ripng *ripng, const char *ifname)
 }
 
 /* Wake up interface. */
-static void ripng_interface_wakeup(struct thread *t)
+static void ripng_interface_wakeup(struct event *t)
 {
 	struct interface *ifp;
 	struct ripng_interface *ri;

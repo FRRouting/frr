@@ -51,7 +51,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	XFREE(MTYPE_NHRP_PEER, p);
 }
 
-static void nhrp_peer_notify_up(struct thread *t)
+static void nhrp_peer_notify_up(struct event *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -248,7 +248,7 @@ void nhrp_peer_unref(struct nhrp_peer *p)
 	}
 }
 
-static void nhrp_peer_request_timeout(struct thread *t)
+static void nhrp_peer_request_timeout(struct event *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -271,7 +271,7 @@ static void nhrp_peer_request_timeout(struct thread *t)
 	}
 }
 
-static void nhrp_peer_defer_vici_request(struct thread *t)
+static void nhrp_peer_defer_vici_request(struct event *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;

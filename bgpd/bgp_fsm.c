@@ -82,13 +82,13 @@ static const char *const bgp_event_str[] = {
    function. */
 
 /* BGP event function. */
-void bgp_event(struct thread *);
+void bgp_event(struct event *event);
 
 /* BGP thread functions. */
-static void bgp_start_timer(struct thread *);
-static void bgp_connect_timer(struct thread *);
-static void bgp_holdtime_timer(struct thread *);
-static void bgp_delayopen_timer(struct thread *);
+static void bgp_start_timer(struct event *event);
+static void bgp_connect_timer(struct event *event);
+static void bgp_holdtime_timer(struct event *event);
+static void bgp_delayopen_timer(struct event *event);
 
 /* BGP FSM functions. */
 static enum bgp_fsm_state_progress bgp_start(struct peer *);
@@ -502,7 +502,7 @@ void bgp_timer_set(struct peer *peer)
 
 /* BGP start timer.  This function set BGP_Start event to thread value
    and process event. */
-static void bgp_start_timer(struct thread *thread)
+static void bgp_start_timer(struct event *thread)
 {
 	struct peer *peer;
 
@@ -516,7 +516,7 @@ static void bgp_start_timer(struct thread *thread)
 }
 
 /* BGP connect retry timer. */
-static void bgp_connect_timer(struct thread *thread)
+static void bgp_connect_timer(struct event *thread)
 {
 	struct peer *peer;
 
@@ -540,7 +540,7 @@ static void bgp_connect_timer(struct thread *thread)
 }
 
 /* BGP holdtime timer. */
-static void bgp_holdtime_timer(struct thread *thread)
+static void bgp_holdtime_timer(struct event *thread)
 {
 	atomic_size_t inq_count;
 	struct peer *peer;
@@ -571,7 +571,7 @@ static void bgp_holdtime_timer(struct thread *thread)
 	bgp_event(thread); /* bgp_event unlocks peer */
 }
 
-void bgp_routeadv_timer(struct thread *thread)
+void bgp_routeadv_timer(struct event *thread)
 {
 	struct peer *peer;
 
@@ -592,7 +592,7 @@ void bgp_routeadv_timer(struct thread *thread)
 }
 
 /* RFC 4271 DelayOpenTimer */
-void bgp_delayopen_timer(struct thread *thread)
+void bgp_delayopen_timer(struct event *thread)
 {
 	struct peer *peer;
 
@@ -668,7 +668,7 @@ static void bgp_graceful_restart_timer_off(struct peer *peer)
 	bgp_timer_set(peer);
 }
 
-static void bgp_llgr_stale_timer_expire(struct thread *thread)
+static void bgp_llgr_stale_timer_expire(struct event *thread)
 {
 	struct peer_af *paf;
 	struct peer *peer;
@@ -770,7 +770,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 	}
 }
 
-static void bgp_graceful_restart_timer_expire(struct thread *thread)
+static void bgp_graceful_restart_timer_expire(struct event *thread)
 {
 	struct peer *peer, *tmp_peer;
 	struct listnode *node, *nnode;
@@ -836,7 +836,7 @@ static void bgp_graceful_restart_timer_expire(struct thread *thread)
 	bgp_graceful_restart_timer_off(peer);
 }
 
-static void bgp_graceful_stale_timer_expire(struct thread *thread)
+static void bgp_graceful_stale_timer_expire(struct event *thread)
 {
 	struct peer *peer;
 	afi_t afi;
@@ -855,7 +855,7 @@ static void bgp_graceful_stale_timer_expire(struct thread *thread)
 }
 
 /* Selection deferral timer processing function */
-static void bgp_graceful_deferral_timer_expire(struct thread *thread)
+static void bgp_graceful_deferral_timer_expire(struct event *thread)
 {
 	struct afi_safi_info *info;
 	afi_t afi;
@@ -1125,7 +1125,7 @@ int bgp_fsm_error_subcode(int status)
 }
 
 /* The maxmed onstartup timer expiry callback. */
-static void bgp_maxmed_onstartup_timer(struct thread *thread)
+static void bgp_maxmed_onstartup_timer(struct event *thread)
 {
 	struct bgp *bgp;
 
@@ -1167,7 +1167,7 @@ static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 }
 
 /* The update delay timer expiry callback. */
-static void bgp_update_delay_timer(struct thread *thread)
+static void bgp_update_delay_timer(struct event *thread)
 {
 	struct bgp *bgp;
 
@@ -1179,7 +1179,7 @@ static void bgp_update_delay_timer(struct thread *thread)
 }
 
 /* The establish wait timer expiry callback. */
-static void bgp_establish_wait_timer(struct thread *thread)
+static void bgp_establish_wait_timer(struct event *thread)
 {
 	struct bgp *bgp;
 
@@ -1654,7 +1654,7 @@ bgp_stop_with_notify(struct peer *peer, uint8_t code, uint8_t sub_code)
  * when the connection is established. A read event is triggered when the
  * connection is closed. Thus we need to cancel whichever one did not occur.
  */
-static void bgp_connect_check(struct thread *thread)
+static void bgp_connect_check(struct event *thread)
 {
 	int status;
 	socklen_t slen;
@@ -2572,7 +2572,7 @@ static const struct {
 };
 
 /* Execute event process. */
-void bgp_event(struct thread *thread)
+void bgp_event(struct event *thread)
 {
 	enum bgp_fsm_events event;
 	struct peer *peer;

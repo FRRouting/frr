@@ -56,10 +56,10 @@ PREDECL_LIST(mgmt_fe_adapters);
 struct mgmt_fe_client_adapter {
 	int conn_fd;
 	union sockunion conn_su;
-	struct thread *conn_read_ev;
-	struct thread *conn_write_ev;
-	struct thread *conn_writes_on;
-	struct thread *proc_msg_ev;
+	struct event *conn_read_ev;
+	struct event *conn_write_ev;
+	struct event *conn_writes_on;
+	struct event *proc_msg_ev;
 	uint32_t flags;
 
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];

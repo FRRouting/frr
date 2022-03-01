@@ -1683,7 +1683,7 @@ void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg)
 	}
 }
 
-static void zebra_nhg_timer(struct thread *thread)
+static void zebra_nhg_timer(struct event *thread)
 {
 	struct nhg_hash_entry *nhe = THREAD_ARG(thread);
 

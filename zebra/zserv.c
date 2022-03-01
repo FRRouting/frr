@@ -213,7 +213,7 @@ static void zserv_client_fail(struct zserv *client)
  * allows us to expose information about input and output queues to the user in
  * terms of number of packets rather than size of data.
  */
-static void zserv_write(struct thread *thread)
+static void zserv_write(struct event *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
@@ -306,7 +306,7 @@ zwrite_fail:
  *
  * Any failure in any of these actions is handled by terminating the client.
  */
-static void zserv_read(struct thread *thread)
+static void zserv_read(struct event *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	int sock;
@@ -491,7 +491,7 @@ static void zserv_client_event(struct zserv *client,
  * rely on the read thread to handle queuing this task enough times to process
  * everything on the input queue.
  */
-static void zserv_process_messages(struct thread *thread)
+static void zserv_process_messages(struct event *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
@@ -570,7 +570,7 @@ DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
  * - Free associated resources
  * - Free client structure
  *
- * This does *not* take any action on the struct thread * fields. These are
+ * This does *not* take any action on the struct event * fields. These are
  * managed by the owning pthread and any tasks associated with them must have
  * been stopped prior to invoking this function.
  */
@@ -709,7 +709,7 @@ void zserv_close_client(struct zserv *client)
  * already have been closed and the thread will most likely have died, but its
  * resources still need to be cleaned up.
  */
-static void zserv_handle_client_fail(struct thread *thread)
+static void zserv_handle_client_fail(struct event *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 
@@ -846,7 +846,7 @@ void zserv_release_client(struct zserv *client)
 /*
  * Accept socket connection.
  */
-static void zserv_accept(struct thread *thread)
+static void zserv_accept(struct event *thread)
 {
 	int accept_sock;
 	int client_sock;

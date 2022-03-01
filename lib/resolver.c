@@ -24,7 +24,7 @@ XREF_SETUP();
 struct resolver_state {
 	ares_channel channel;
 	struct thread_master *master;
-	struct thread *timeout;
+	struct event *timeout;
 };
 
 static struct resolver_state state;
@@ -47,7 +47,7 @@ struct resolver_fd {
 
 	int fd;
 	struct resolver_state *state;
-	struct thread *t_read, *t_write;
+	struct event *t_read, *t_write;
 };
 
 static int resolver_fd_cmp(const struct resolver_fd *a,
@@ -100,7 +100,7 @@ static void resolver_fd_drop_maybe(struct resolver_fd *resfd)
 
 static void resolver_update_timeouts(struct resolver_state *r);
 
-static void resolver_cb_timeout(struct thread *t)
+static void resolver_cb_timeout(struct event *t)
 {
 	struct resolver_state *r = THREAD_ARG(t);
 
@@ -108,7 +108,7 @@ static void resolver_cb_timeout(struct thread *t)
 	resolver_update_timeouts(r);
 }
 
-static void resolver_cb_socket_readable(struct thread *t)
+static void resolver_cb_socket_readable(struct event *t)
 {
 	struct resolver_fd *resfd = THREAD_ARG(t);
 	struct resolver_state *r = resfd->state;
@@ -123,7 +123,7 @@ static void resolver_cb_socket_readable(struct thread *t)
 	resolver_update_timeouts(r);
 }
 
-static void resolver_cb_socket_writable(struct thread *t)
+static void resolver_cb_socket_writable(struct event *t)
 {
 	struct resolver_fd *resfd = THREAD_ARG(t);
 	struct resolver_state *r = resfd->state;
@@ -222,7 +222,7 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	callback(query, NULL, i, &addr[0]);
 }
 
-static void resolver_cb_literal(struct thread *t)
+static void resolver_cb_literal(struct event *t)
 {
 	struct resolver_query *query = THREAD_ARG(t);
 	void (*callback)(struct resolver_query *, const char *, int,

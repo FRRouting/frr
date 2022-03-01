@@ -46,7 +46,7 @@ struct zebra_ns {
 	 */
 	struct nlsock netlink_dplane_out;
 	struct nlsock netlink_dplane_in;
-	struct thread *t_netlink;
+	struct event *t_netlink;
 #endif
 
 	struct route_table *if_table;

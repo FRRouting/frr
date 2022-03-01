@@ -57,11 +57,11 @@ struct ospf_neighbor {
 	uint32_t v_ls_upd;
 
 	/* Threads. */
-	struct thread *t_inactivity;
-	struct thread *t_db_desc;
-	struct thread *t_ls_req;
-	struct thread *t_ls_upd;
-	struct thread *t_hello_reply;
+	struct event *t_inactivity;
+	struct event *t_db_desc;
+	struct event *t_ls_req;
+	struct event *t_ls_upd;
+	struct event *t_hello_reply;
 
 	/* NBMA configured neighbour */
 	struct ospf_nbr_nbma *nbr_nbma;

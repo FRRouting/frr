@@ -13,7 +13,7 @@
 #include "zlog_targets.h"
 #include "qobj.h"
 
-struct thread;
+struct event;
 struct thread_master;
 
 enum zlog_5424_dst {
@@ -79,7 +79,7 @@ struct zlog_cfg_5424 {
 
 	/* sockets only - read handler to reconnect on errors */
 	struct thread_master *master;
-	struct thread *t_reconnect;
+	struct event *t_reconnect;
 	unsigned int reconn_backoff, reconn_backoff_cur, reconn_backoff_max;
 	int sock_type;
 	struct sockaddr_storage sa;

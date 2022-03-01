@@ -31,8 +31,8 @@
 /* forward declarations */
 static uint16_t bgp_write(struct peer *);
 static uint16_t bgp_read(struct peer *peer, int *code_p);
-static void bgp_process_writes(struct thread *);
-static void bgp_process_reads(struct thread *);
+static void bgp_process_writes(struct event *event);
+static void bgp_process_reads(struct event *event);
 static bool validate_header(struct peer *);
 
 /* generic i/o status codes */
@@ -108,7 +108,7 @@ void bgp_reads_off(struct peer *peer)
 /*
  * Called from I/O pthread when a file descriptor has become ready for writing.
  */
-static void bgp_process_writes(struct thread *thread)
+static void bgp_process_writes(struct event *thread)
 {
 	static struct peer *peer;
 	peer = THREAD_ARG(thread);
@@ -210,7 +210,7 @@ static int read_ibuf_work(struct peer *peer)
  * We read as much data as possible, process as many packets as we can and
  * place them on peer->ibuf for secondary processing by the main thread.
  */
-static void bgp_process_reads(struct thread *thread)
+static void bgp_process_reads(struct event *thread)
 {
 	/* clang-format off */
 	static struct peer *peer;       /* peer to read from */

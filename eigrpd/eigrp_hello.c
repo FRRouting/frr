@@ -66,7 +66,7 @@ static const struct message eigrp_general_tlv_type_str[] = {
  * Sends hello packet via multicast for all interfaces eigrp
  * is configured for
  */
-void eigrp_hello_timer(struct thread *thread)
+void eigrp_hello_timer(struct event *thread)
 {
 	struct eigrp_interface *ei;
 

@@ -22,7 +22,7 @@
 
 /* master signals descriptor struct */
 static struct frr_sigevent_master_t {
-	struct thread *t;
+	struct event *t;
 
 	struct frr_signal_t *signals;
 	int sigc;
@@ -127,7 +127,7 @@ int frr_sigevent_process(void)
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
 /* timer thread to check signals. shouldn't be needed */
-void frr_signal_timer(struct thread *t)
+void frr_signal_timer(struct event *t)
 {
 	struct frr_sigevent_master_t *sigm;
 

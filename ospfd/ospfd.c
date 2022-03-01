@@ -596,7 +596,7 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 }
 
 /* Timer thread for G-R */
-static void ospf_deferred_shutdown_timer(struct thread *t)
+static void ospf_deferred_shutdown_timer(struct event *t)
 {
 	struct ospf *ospf = THREAD_ARG(t);
 

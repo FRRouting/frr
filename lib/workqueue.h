@@ -48,7 +48,7 @@ struct work_queue {
 	 * the following may be read
 	 */
 	struct thread_master *master; /* thread master */
-	struct thread *thread;	/* thread, if one is active */
+	struct event *thread;	      /* thread, if one is active */
 	char *name;		      /* work queue name */
 
 	/* Specification for this work queue.
@@ -158,7 +158,7 @@ extern void work_queue_unplug(struct work_queue *wq);
 bool work_queue_is_scheduled(struct work_queue *wq);
 
 /* Helpers, exported for thread.c and command.c */
-extern void work_queue_run(struct thread *thread);
+extern void work_queue_run(struct event *thread);
 
 extern void workqueue_cmd_init(void);
 

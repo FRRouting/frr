@@ -86,15 +86,15 @@ struct restart_info {
 	pid_t pid;
 	struct timeval time;
 	long interval;
-	struct thread *t_kill;
+	struct event *t_kill;
 	int kills;
 };
 
 static struct global_state {
 	enum restart_phase phase;
-	struct thread *t_phase_hanging;
-	struct thread *t_startup_timeout;
-	struct thread *t_operational;
+	struct event *t_phase_hanging;
+	struct event *t_startup_timeout;
+	struct event *t_operational;
 	const char *vtydir;
 	long period;
 	long timeout;
@@ -149,9 +149,9 @@ struct daemon {
 	int fd;
 	struct timeval echo_sent;
 	unsigned int connect_tries;
-	struct thread *t_wakeup;
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_wakeup;
+	struct event *t_read;
+	struct event *t_write;
 	struct daemon *next;
 	struct restart_info restart;
 
@@ -195,7 +195,7 @@ static const struct option longopts[] = {
 	{NULL, 0, NULL, 0}};
 
 static int try_connect(struct daemon *dmn);
-static void wakeup_send_echo(struct thread *t_wakeup);
+static void wakeup_send_echo(struct event *t_wakeup);
 static void try_restart(struct daemon *dmn);
 static void phase_check(void);
 static void restart_done(struct daemon *dmn);
@@ -347,7 +347,7 @@ static struct timeval *time_elapsed(struct timeval *result,
 	return result;
 }
 
-static void restart_kill(struct thread *t_kill)
+static void restart_kill(struct event *t_kill)
 {
 	struct restart_info *restart = THREAD_ARG(t_kill);
 	struct timeval delay;
@@ -554,7 +554,7 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
 	} while (0);
 
-static void wakeup_down(struct thread *t_wakeup)
+static void wakeup_down(struct event *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -565,7 +565,7 @@ static void wakeup_down(struct thread *t_wakeup)
 		try_restart(dmn);
 }
 
-static void wakeup_init(struct thread *t_wakeup)
+static void wakeup_init(struct event *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -593,7 +593,7 @@ static void restart_done(struct daemon *dmn)
 		SET_WAKEUP_DOWN(dmn);
 }
 
-static void daemon_restarting_operational(struct thread *thread)
+static void daemon_restarting_operational(struct event *thread)
 {
 	systemd_send_status("FRR Operational");
 }
@@ -622,7 +622,7 @@ static void daemon_down(struct daemon *dmn, const char *why)
 	phase_check();
 }
 
-static void handle_read(struct thread *t_read)
+static void handle_read(struct event *t_read)
 {
 	struct daemon *dmn = THREAD_ARG(t_read);
 	static const char resp[sizeof(PING_TOKEN) + 4] = PING_TOKEN "\n";
@@ -750,7 +750,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	phase_check();
 }
 
-static void check_connect(struct thread *t_write)
+static void check_connect(struct event *t_write)
 {
 	struct daemon *dmn = THREAD_ARG(t_write);
 	int sockerr;
@@ -778,7 +778,7 @@ static void check_connect(struct thread *t_write)
 	daemon_up(dmn, "delayed connect succeeded");
 }
 
-static void wakeup_connect_hanging(struct thread *t_wakeup)
+static void wakeup_connect_hanging(struct event *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 	char why[100];
@@ -862,7 +862,7 @@ static int try_connect(struct daemon *dmn)
 	return 1;
 }
 
-static void phase_hanging(struct thread *t_hanging)
+static void phase_hanging(struct event *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
 	flog_err(EC_WATCHFRR_CONNECTION,
@@ -985,7 +985,7 @@ static void try_restart(struct daemon *dmn)
 	run_job(&gs.restart, "restart", gs.restart_command, 0, 1);
 }
 
-static void wakeup_unresponsive(struct thread *t_wakeup)
+static void wakeup_unresponsive(struct event *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -1000,7 +1000,7 @@ static void wakeup_unresponsive(struct thread *t_wakeup)
 	}
 }
 
-static void wakeup_no_answer(struct thread *t_wakeup)
+static void wakeup_no_answer(struct event *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -1015,7 +1015,7 @@ static void wakeup_no_answer(struct thread *t_wakeup)
 	try_restart(dmn);
 }
 
-static void wakeup_send_echo(struct thread *t_wakeup)
+static void wakeup_send_echo(struct event *t_wakeup)
 {
 	static const char echocmd[] = "echo " PING_TOKEN;
 	ssize_t rc;
@@ -1118,7 +1118,7 @@ static char *translate_blanks(const char *cmd, const char *blankstr)
 	return res;
 }
 
-static void startup_timeout(struct thread *t_wakeup)
+static void startup_timeout(struct event *t_wakeup)
 {
 	daemon_send_ready(1);
 }

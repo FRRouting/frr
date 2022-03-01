@@ -265,12 +265,12 @@ struct bfd_session {
 	struct bfd_config_timers timers;
 	struct bfd_timers cur_timers;
 	uint64_t detect_TO;
-	struct thread *echo_recvtimer_ev;
-	struct thread *recvtimer_ev;
+	struct event *echo_recvtimer_ev;
+	struct event *recvtimer_ev;
 	uint64_t xmt_TO;
 	uint64_t echo_xmt_TO;
-	struct thread *xmttimer_ev;
-	struct thread *echo_xmttimer_ev;
+	struct event *xmttimer_ev;
+	struct event *echo_xmttimer_ev;
 	uint64_t echo_detect_TO;
 
 	/* software object state */
@@ -401,8 +401,8 @@ struct bfd_control_socket {
 	TAILQ_ENTRY(bfd_control_socket) bcs_entry;
 
 	int bcs_sd;
-	struct thread *bcs_ev;
-	struct thread *bcs_outev;
+	struct event *bcs_ev;
+	struct event *bcs_outev;
 	struct bcqueue bcs_bcqueue;
 
 	/* Notification data */
@@ -422,7 +422,7 @@ int control_init(const char *path);
 void control_shutdown(void);
 int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
-void control_accept(struct thread *t);
+void control_accept(struct event *t);
 
 
 /*
@@ -439,7 +439,7 @@ struct bfd_vrf_global {
 	int bg_echov6;
 	struct vrf *vrf;
 
-	struct thread *bg_ev[6];
+	struct event *bg_ev[6];
 };
 
 /* Forward declaration of data plane context struct. */
@@ -448,7 +448,7 @@ TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
 
 struct bfd_global {
 	int bg_csock;
-	struct thread *bg_csockev;
+	struct event *bg_csockev;
 	struct bcslist bg_bcslist;
 
 	struct pllist bg_pllist;
@@ -466,7 +466,7 @@ struct bfd_global {
 	/* Distributed BFD items. */
 	bool bg_use_dplane;
 	int bg_dplane_sock;
-	struct thread *bg_dplane_sockev;
+	struct event *bg_dplane_sockev;
 	struct dplane_queue bg_dplaneq;
 
 	/* Debug options. */
@@ -553,7 +553,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
 void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
 
-void bfd_recv_cb(struct thread *t);
+void bfd_recv_cb(struct event *t);
 
 
 /*
@@ -561,7 +561,7 @@ void bfd_recv_cb(struct thread *t);
  *
  * Contains the code related with event loop.
  */
-typedef void (*bfd_ev_cb)(struct thread *t);
+typedef void (*bfd_ev_cb)(struct event *t);
 
 void bfd_recvtimer_update(struct bfd_session *bs);
 void bfd_echo_recvtimer_update(struct bfd_session *bs);
@@ -688,10 +688,10 @@ unsigned long bfd_get_session_count(void);
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
 
-void bfd_recvtimer_cb(struct thread *t);
-void bfd_echo_recvtimer_cb(struct thread *t);
-void bfd_xmt_cb(struct thread *t);
-void bfd_echo_xmt_cb(struct thread *t);
+void bfd_recvtimer_cb(struct event *t);
+void bfd_echo_recvtimer_cb(struct event *t);
+void bfd_xmt_cb(struct event *t);
+void bfd_echo_xmt_cb(struct event *t);
 
 extern struct in6_addr zero_addr;
 

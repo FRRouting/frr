@@ -29,7 +29,7 @@
 #include "pim_tib.h"
 
 static void group_timer_off(struct gm_group *group);
-static void pim_igmp_general_query(struct thread *t);
+static void pim_igmp_general_query(struct event *t);
 
 void igmp_anysource_forward_start(struct pim_instance *pim,
 				  struct gm_group *group)
@@ -325,7 +325,7 @@ struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 	return NULL;
 }
 
-static void pim_igmp_other_querier_expire(struct thread *t)
+static void pim_igmp_other_querier_expire(struct event *t)
 {
 	struct gm_sock *igmp;
 
@@ -887,7 +887,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 }
 
 /* Issue IGMP general query */
-static void pim_igmp_general_query(struct thread *t)
+static void pim_igmp_general_query(struct event *t)
 {
 	struct gm_sock *igmp;
 	struct in_addr dst_addr;
@@ -1208,7 +1208,7 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 static void igmp_read_on(struct gm_sock *igmp);
 
-static void pim_igmp_read(struct thread *t)
+static void pim_igmp_read(struct event *t)
 {
 	uint8_t buf[10000];
 	struct gm_sock *igmp = (struct gm_sock *)THREAD_ARG(t);
@@ -1300,7 +1300,7 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
   source records.  Source records whose timers are zero (from the
   previous EXCLUDE mode) are deleted.
  */
-static void igmp_group_timer(struct thread *t)
+static void igmp_group_timer(struct event *t)
 {
 	struct gm_group *group;
 

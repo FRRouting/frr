@@ -33,7 +33,7 @@ DEFUN (daemon_exit,
 }
 
 static int timer_count;
-static void test_timer(struct thread *thread)
+static void test_timer(struct event *thread)
 {
 	int *count = THREAD_ARG(thread);
 
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	int vty_port = 4000;
 	int daemon_mode = 0;
 	char *progname;
-	struct thread thread;
+	struct event thread;
 	char *config_file = NULL;
 
 	/* Set umask before anything for security */

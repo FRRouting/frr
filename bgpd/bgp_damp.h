@@ -92,7 +92,7 @@ struct bgp_damp_config {
 	struct bgp_damp_info *no_reuse_list;
 
 	/* Reuse timer thread per-set base. */
-	struct thread *t_reuse;
+	struct event *t_reuse;
 
 	afi_t afi;
 	safi_t safi;

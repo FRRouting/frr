@@ -25,10 +25,10 @@
 #include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
-static void ldpe_dispatch_main(struct thread *thread);
-static void ldpe_dispatch_lde(struct thread *thread);
+static void ldpe_dispatch_main(struct event *thread);
+static void ldpe_dispatch_lde(struct event *thread);
 #ifdef __OpenBSD__
-static void ldpe_dispatch_pfkey(struct thread *thread);
+static void ldpe_dispatch_pfkey(struct event *thread);
 #endif
 static void	 ldpe_setup_sockets(int, int, int, int);
 static void	 ldpe_close_sockets(int);
@@ -44,7 +44,7 @@ static struct imsgev    iev_main_data;
 static struct imsgev	*iev_main, *iev_main_sync;
 static struct imsgev	*iev_lde;
 #ifdef __OpenBSD__
-static struct thread	*pfkey_ev;
+static struct event *pfkey_ev;
 #endif
 
 /* ldpe privileges */
@@ -122,7 +122,7 @@ ldpe(void)
 	/* create base configuration */
 	leconf = config_new_empty();
 
-	struct thread thread;
+	struct event thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
 
@@ -262,7 +262,7 @@ ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void ldpe_dispatch_main(struct thread *thread)
+static void ldpe_dispatch_main(struct event *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*niface;
@@ -622,7 +622,7 @@ static void ldpe_dispatch_main(struct thread *thread)
 }
 
 /* ARGSUSED */
-static void ldpe_dispatch_lde(struct thread *thread)
+static void ldpe_dispatch_lde(struct event *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -759,7 +759,7 @@ static void ldpe_dispatch_lde(struct thread *thread)
 
 #ifdef __OpenBSD__
 /* ARGSUSED */
-static void ldpe_dispatch_pfkey(struct thread *thread)
+static void ldpe_dispatch_pfkey(struct event *thread)
 {
 	int	 fd = THREAD_FD(thread);
 

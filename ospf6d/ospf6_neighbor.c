@@ -272,7 +272,7 @@ static int need_adjacency(struct ospf6_neighbor *on)
 	return 0;
 }
 
-void hello_received(struct thread *thread)
+void hello_received(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -292,7 +292,7 @@ void hello_received(struct thread *thread)
 					    OSPF6_NEIGHBOR_EVENT_HELLO_RCVD);
 }
 
-void twoway_received(struct thread *thread)
+void twoway_received(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -324,7 +324,7 @@ void twoway_received(struct thread *thread)
 			 &on->thread_send_dbdesc);
 }
 
-void negotiation_done(struct thread *thread)
+void negotiation_done(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -373,7 +373,7 @@ void negotiation_done(struct thread *thread)
 				    OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE);
 }
 
-static void ospf6_neighbor_last_dbdesc_release(struct thread *thread)
+static void ospf6_neighbor_last_dbdesc_release(struct event *thread)
 {
 	struct ospf6_neighbor *on = THREAD_ARG(thread);
 
@@ -381,7 +381,7 @@ static void ospf6_neighbor_last_dbdesc_release(struct thread *thread)
 	memset(&on->dbdesc_last, 0, sizeof(struct ospf6_dbdesc));
 }
 
-void exchange_done(struct thread *thread)
+void exchange_done(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -437,7 +437,7 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 	}
 }
 
-void loading_done(struct thread *thread)
+void loading_done(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -456,7 +456,7 @@ void loading_done(struct thread *thread)
 				    OSPF6_NEIGHBOR_EVENT_LOADING_DONE);
 }
 
-void adj_ok(struct thread *thread)
+void adj_ok(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -484,7 +484,7 @@ void adj_ok(struct thread *thread)
 	}
 }
 
-void seqnumber_mismatch(struct thread *thread)
+void seqnumber_mismatch(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -512,7 +512,7 @@ void seqnumber_mismatch(struct thread *thread)
 			 &on->thread_send_dbdesc);
 }
 
-void bad_lsreq(struct thread *thread)
+void bad_lsreq(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -541,7 +541,7 @@ void bad_lsreq(struct thread *thread)
 
 }
 
-void oneway_received(struct thread *thread)
+void oneway_received(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -568,7 +568,7 @@ void oneway_received(struct thread *thread)
 	THREAD_OFF(on->thread_adj_ok);
 }
 
-void inactivity_timer(struct thread *thread)
+void inactivity_timer(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 

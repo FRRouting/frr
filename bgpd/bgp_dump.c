@@ -69,11 +69,11 @@ struct bgp_dump {
 
 	char *interval_str;
 
-	struct thread *t_interval;
+	struct event *t_interval;
 };
 
 static int bgp_dump_unset(struct bgp_dump *bgp_dump);
-static void bgp_dump_interval_func(struct thread *);
+static void bgp_dump_interval_func(struct event *);
 
 /* BGP packet dump output buffer. */
 struct stream *bgp_dump_obuf;
@@ -428,7 +428,7 @@ static unsigned int bgp_dump_routes_func(int afi, int first_run,
 	return seq;
 }
 
-static void bgp_dump_interval_func(struct thread *t)
+static void bgp_dump_interval_func(struct event *t)
 {
 	struct bgp_dump *bgp_dump;
 	bgp_dump = THREAD_ARG(t);

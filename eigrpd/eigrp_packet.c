@@ -305,7 +305,7 @@ int eigrp_check_sha256_digest(struct stream *s,
 	return 1;
 }
 
-void eigrp_write(struct thread *thread)
+void eigrp_write(struct event *thread)
 {
 	struct eigrp *eigrp = THREAD_ARG(thread);
 	struct eigrp_header *eigrph;
@@ -459,7 +459,7 @@ out:
 }
 
 /* Starting point of packet process function. */
-void eigrp_read(struct thread *thread)
+void eigrp_read(struct event *thread)
 {
 	int ret;
 	struct stream *ibuf;
@@ -970,7 +970,7 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 	return 0;
 }
 
-void eigrp_unack_packet_retrans(struct thread *thread)
+void eigrp_unack_packet_retrans(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
 	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
@@ -1006,7 +1006,7 @@ void eigrp_unack_packet_retrans(struct thread *thread)
 	}
 }
 
-void eigrp_unack_multicast_packet_retrans(struct thread *thread)
+void eigrp_unack_multicast_packet_retrans(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
 	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);

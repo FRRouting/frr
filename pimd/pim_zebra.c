@@ -397,7 +397,7 @@ void pim_scan_oil(struct pim_instance *pim)
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 }
 
-static void on_rpf_cache_refresh(struct thread *t)
+static void on_rpf_cache_refresh(struct event *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 

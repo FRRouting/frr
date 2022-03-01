@@ -37,11 +37,11 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
-static void babel_init_routing_process(struct thread *thread);
+static void babel_init_routing_process(struct event *thread);
 static void babel_get_myid(void);
 static void babel_initial_noise(void);
-static void babel_read_protocol(struct thread *thread);
-static void babel_main_loop(struct thread *thread);
+static void babel_read_protocol(struct event *thread);
+static void babel_main_loop(struct event *thread);
 static void babel_set_timer(struct timeval *timeout);
 static void babel_fill_with_next_timeout(struct timeval *tv);
 static void
@@ -163,7 +163,7 @@ fail:
 }
 
 /* thread reading entries form others babel daemons */
-static void babel_read_protocol(struct thread *thread)
+static void babel_read_protocol(struct event *thread)
 {
     int rc;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -199,7 +199,7 @@ static void babel_read_protocol(struct thread *thread)
 /* Zebra will give some information, especially about interfaces. This function
  must be call with a litte timeout wich may give zebra the time to do his job,
  making these inits have sense. */
-static void babel_init_routing_process(struct thread *thread)
+static void babel_init_routing_process(struct event *thread)
 {
     myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
@@ -311,7 +311,7 @@ babel_clean_routing_process(void)
 }
 
 /* Function used with timeout. */
-static void babel_main_loop(struct thread *thread)
+static void babel_main_loop(struct event *thread)
 {
     struct timeval tv;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);

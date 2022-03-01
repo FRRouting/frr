@@ -43,7 +43,7 @@ void frrzmq_finish(void)
 	}
 }
 
-static void frrzmq_read_msg(struct thread *t)
+static void frrzmq_read_msg(struct event *t)
 {
 	struct frrzmq_cb **cbp = THREAD_ARG(t);
 	struct frrzmq_cb *cb;
@@ -201,7 +201,7 @@ int _frrzmq_thread_add_read(const struct xref_threadsched *xref,
 	return 0;
 }
 
-static void frrzmq_write_msg(struct thread *t)
+static void frrzmq_write_msg(struct event *t)
 {
 	struct frrzmq_cb **cbp = THREAD_ARG(t);
 	struct frrzmq_cb *cb;

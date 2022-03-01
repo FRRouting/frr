@@ -264,7 +264,7 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 /* If there's redistribution configured, we need to refresh external
  * LSAs in order to install Type-7 and flood to all NSSA Areas
  */
-static void ospf_asbr_nssa_redist_update_timer(struct thread *thread)
+static void ospf_asbr_nssa_redist_update_timer(struct event *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	int type;
@@ -1040,7 +1040,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 	}
 }
 
-static void ospf_asbr_external_aggr_process(struct thread *thread)
+static void ospf_asbr_external_aggr_process(struct event *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	int operation = 0;

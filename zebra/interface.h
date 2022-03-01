@@ -199,7 +199,7 @@ struct zebra_if {
 	struct interface *link;
 
 	uint8_t speed_update_count;
-	struct thread *speed_update;
+	struct event *speed_update;
 
 	/*
 	 * Does this interface have a v6 to v4 ll neighbor entry

@@ -44,7 +44,7 @@ static int blob2buf(const struct blob *b, char *buf, size_t n)
 }
 
 struct vici_conn {
-	struct thread *t_reconnect, *t_read, *t_write;
+	struct event *t_reconnect, *t_read, *t_write;
 	struct zbuf ibuf;
 	struct zbuf_queue obuf;
 	int fd;
@@ -56,7 +56,7 @@ struct vici_message_ctx {
 	int nsections;
 };
 
-static void vici_reconnect(struct thread *t);
+static void vici_reconnect(struct event *t);
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...);
 
 static void vici_zbuf_puts(struct zbuf *obuf, const char *str)
@@ -357,7 +357,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 	}
 }
 
-static void vici_read(struct thread *t)
+static void vici_read(struct event *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	struct zbuf *ibuf = &vici->ibuf;
@@ -387,7 +387,7 @@ static void vici_read(struct thread *t)
 	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 }
 
-static void vici_write(struct thread *t)
+static void vici_write(struct event *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	int r;
@@ -500,7 +500,7 @@ static char *vici_get_charon_filepath(void)
 	return buff;
 }
 
-static void vici_reconnect(struct thread *t)
+static void vici_reconnect(struct event *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	int fd;

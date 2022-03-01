@@ -70,7 +70,7 @@ struct client_gr_info {
 	/* Book keeping */
 	struct prefix *current_prefix;
 	void *stale_client_ptr;
-	struct thread *t_stale_removal;
+	struct event *t_stale_removal;
 
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
@@ -105,14 +105,14 @@ struct zserv {
 	struct buffer *wb;
 
 	/* Threads for read/write. */
-	struct thread *t_read;
-	struct thread *t_write;
+	struct event *t_read;
+	struct event *t_write;
 
 	/* Event for message processing, for the main pthread */
-	struct thread *t_process;
+	struct event *t_process;
 
 	/* Event for the main pthread */
-	struct thread *t_cleanup;
+	struct event *t_cleanup;
 
 	/* This client's redistribute flag. */
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
@@ -378,7 +378,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) void zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) void zebra_finalize(struct event *event);
 
 /*
  * Graceful restart functions.

@@ -51,17 +51,17 @@
 
 struct evbuf {
 	struct msgbuf		 wbuf;
-	struct thread		*ev;
-	void (*handler)(struct thread *);
+	struct event *ev;
+	void (*handler)(struct event *);
 	void			*arg;
 };
 
 struct imsgev {
 	struct imsgbuf		 ibuf;
-	void (*handler_write)(struct thread *);
-	struct thread		*ev_write;
-	void (*handler_read)(struct thread *);
-	struct thread		*ev_read;
+	void (*handler_write)(struct event *);
+	struct event *ev_write;
+	void (*handler_read)(struct event *);
+	struct event *ev_read;
 };
 
 enum imsg_type {
@@ -329,14 +329,14 @@ struct iface_af {
 	int			 state;
 	struct ia_adj_head	 adj_tree;
 	time_t			 uptime;
-	struct thread		*hello_timer;
+	struct event *hello_timer;
 	uint16_t		 hello_holdtime;
 	uint16_t		 hello_interval;
 };
 
 struct iface_ldp_sync {
 	int			 state;
-	struct thread           *wait_for_sync_timer;
+	struct event *wait_for_sync_timer;
 };
 
 struct iface {
@@ -359,7 +359,7 @@ DECLARE_QOBJ_TYPE(iface);
 /* source of targeted hellos */
 struct tnbr {
 	RB_ENTRY(tnbr)		 entry;
-	struct thread		*hello_timer;
+	struct event *hello_timer;
 	struct adj		*adj;
 	int			 af;
 	union ldpd_addr		 addr;
@@ -582,8 +582,8 @@ DECLARE_QOBJ_TYPE(ldpd_conf);
 #define	F_LDPD_ALLOW_BROKEN_LSP 0x0010
 
 struct ldpd_af_global {
-	struct thread		*disc_ev;
-	struct thread		*edisc_ev;
+	struct event *disc_ev;
+	struct event *edisc_ev;
 	int			 ldp_disc_socket;
 	int			 ldp_edisc_socket;
 	int			 ldp_session_socket;
@@ -781,7 +781,7 @@ void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
 socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
-void ldp_write_handler(struct thread *thread);
+void ldp_write_handler(struct event *thread);
 void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
 void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
 int			 main_imsg_compose_both(enum imsg_type, void *,
@@ -791,7 +791,7 @@ int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t,
 			    pid_t, int, void *, uint16_t);
 void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
 void			 evbuf_event_add(struct evbuf *);
-void evbuf_init(struct evbuf *, int, void (*)(struct thread *), void *);
+void evbuf_init(struct evbuf *, int, void (*)(struct event *), void *);
 void			 evbuf_clear(struct evbuf *);
 int			 ldp_acl_request(struct imsgev *, char *, int,
 			    union ldpd_addr *, uint8_t);

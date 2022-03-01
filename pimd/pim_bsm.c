@@ -140,7 +140,7 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 	return bsgrp;
 }
 
-static void pim_on_bs_timer(struct thread *t)
+static void pim_on_bs_timer(struct event *t)
 {
 	struct route_node *rn;
 	struct bsm_scope *scope;
@@ -257,7 +257,7 @@ static bool is_hold_time_elapsed(void *data)
 		return true;
 }
 
-static void pim_on_g2rp_timer(struct thread *t)
+static void pim_on_g2rp_timer(struct event *t)
 {
 	struct bsm_rpinfo *bsrp;
 	struct bsm_rpinfo *bsrp_node;

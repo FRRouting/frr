@@ -311,7 +311,7 @@ struct srte_candidate {
 	uint32_t affinity_filters[MAX_AFFINITY_FILTER_TYPE];
 
 	/* Hooks delaying timer */
-	struct thread *hook_timer;
+	struct event *hook_timer;
 };
 
 RB_HEAD(srte_candidate_head, srte_candidate);

@@ -37,7 +37,7 @@ struct ldp_sync_info {
 	uint8_t enabled;         /* enabled */
 	uint8_t state;           /* running state */
 	uint16_t holddown;       /* timer value */
-	struct thread *t_holddown; /* holddown timer*/
+	struct event *t_holddown; /* holddown timer*/
 	uint32_t metric[2];      /* isis interface metric */
 };
 

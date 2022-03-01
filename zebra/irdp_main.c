@@ -56,7 +56,7 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-struct thread *t_irdp_raw;
+struct event *t_irdp_raw;
 
 /* Timer interval of irdp. */
 int irdp_timer_interval = IRDP_DEFAULT_INTERVAL;
@@ -190,7 +190,7 @@ static void irdp_advertisement(struct interface *ifp, struct prefix *p)
 	stream_free(s);
 }
 
-void irdp_send_thread(struct thread *t_advert)
+void irdp_send_thread(struct event *t_advert)
 {
 	uint32_t timer, tmp;
 	struct interface *ifp = THREAD_ARG(t_advert);

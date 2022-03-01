@@ -118,9 +118,9 @@ struct zebra_mlag_info {
 	 * so no issues.
 	 *
 	 */
-	struct thread *t_read;
+	struct event *t_read;
 	/* Event for MLAG write */
-	struct thread *t_write;
+	struct event *t_write;
 };
 
 struct zebra_router {
@@ -194,7 +194,7 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
-	struct thread *sweeper;
+	struct event *sweeper;
 
 	/*
 	 * The hash of nexthop groups associated with this router

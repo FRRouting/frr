@@ -1046,14 +1046,14 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 	return false;
 }
 
-static struct thread *bgp_tm_thread_connect;
+static struct event *bgp_tm_thread_connect;
 static bool bgp_tm_status_connected;
 static bool bgp_tm_chunk_obtained;
 #define BGP_FLOWSPEC_TABLE_CHUNK 100000
 static uint32_t bgp_tm_min, bgp_tm_max, bgp_tm_chunk_size;
 struct bgp *bgp_tm_bgp;
 
-static void bgp_zebra_tm_connect(struct thread *t)
+static void bgp_zebra_tm_connect(struct event *t)
 {
 	struct zclient *zclient;
 	int delay = 10, ret = 0;

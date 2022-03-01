@@ -72,9 +72,9 @@
 	thread_execute(master, ospf_ism_event, (I), (E))
 
 /* Prototypes. */
-extern void ospf_ism_event(struct thread *thread);
+extern void ospf_ism_event(struct event *thread);
 extern void ism_change_status(struct ospf_interface *, int);
-extern void ospf_hello_timer(struct thread *thread);
+extern void ospf_hello_timer(struct event *thread);
 extern int ospf_dr_election(struct ospf_interface *oi);
 
 DECLARE_HOOK(ospf_ism_change,

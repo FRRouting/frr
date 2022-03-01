@@ -169,7 +169,7 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 /* clang-format on */
 
 
-static void isis_config_finish(struct thread *t)
+static void isis_config_finish(struct event *t)
 {
 	struct listnode *node, *inode;
 	struct isis *isis;
