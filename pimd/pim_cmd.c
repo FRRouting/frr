@@ -8087,20 +8087,7 @@ DEFPY (interface_ip_pim_activeactive,
        PIM_STR
        "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
 {
-	if (no)
-		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
-				      "false");
-	else {
-		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-				      "true");
-
-		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
-				      "true");
-	}
-
-	return nb_cli_apply_changes(vty,
-			FRR_PIM_INTERFACE_XPATH,
-			"frr-routing:ipv4");
+	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,

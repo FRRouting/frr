@@ -277,6 +277,17 @@ DEFPY (interface_no_ipv6_pim_hello,
 	return pim_process_no_ip_pim_hello_cmd(vty);
 }
 
+DEFPY (interface_ipv6_pim_activeactive,
+       interface_ipv6_pim_activeactive_cmd,
+       "[no] ipv6 pim active-active",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Mark interface as Active-Active for MLAG operations\n")
+{
+	return pim_process_ip_pim_activeactive_cmd(vty, no);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -301,4 +312,5 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
 }
