@@ -442,3 +442,21 @@ int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no)
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
 }
+
+int pim_process_ip_pim_boundary_oil_cmd(struct vty *vty, const char *oil)
+{
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
+			      oil);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
