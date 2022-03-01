@@ -371,3 +371,20 @@ int pim_process_no_ip_pim_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
 }
+
+int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str)
+{
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
+			      drpriority_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_drprio_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
