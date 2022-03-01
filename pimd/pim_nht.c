@@ -162,6 +162,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	return 0;
 }
 
+#if PIM_IPV == 4
 void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 {
 	struct pim_nexthop_cache *pnc;
@@ -175,6 +176,7 @@ void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 
 	pnc->bsr_count++;
 }
+#endif /* PIM_IPV == 4 */
 
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
@@ -244,6 +246,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	pim_nht_drop_maybe(pim, pnc);
 }
 
+#if PIM_IPV == 4
 void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -398,6 +401,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 	}
 	return false;
 }
+#endif /* PIM_IPV == 4 */
 
 void pim_rp_nexthop_del(struct rp_info *rp_info)
 {

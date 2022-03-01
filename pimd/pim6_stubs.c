@@ -29,40 +29,6 @@
 /*
  * NH lookup / NHT
  */
-void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
-			   struct pim_nexthop_cache *pnc, int command)
-{
-}
-
-int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
-			    struct pim_nexthop *nexthop, struct prefix *src,
-			    struct prefix *grp, int neighbor_needed)
-{
-	return 0;
-}
-
-int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
-			      struct pim_upstream *up, struct rp_info *rp,
-			      struct pim_nexthop_cache *out_pnc)
-{
-	return 0;
-}
-
-void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
-				struct pim_upstream *up, struct rp_info *rp)
-{
-}
-
-struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
-						 struct pim_rpf *rpf)
-{
-	return NULL;
-}
-
-void pim_rp_nexthop_del(struct rp_info *rp_info)
-{
-}
-
 void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 {
 }

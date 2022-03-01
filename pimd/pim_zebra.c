@@ -454,10 +454,11 @@ static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
+
+	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
 #if PIM_IPV == 4
 	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
 	[ZEBRA_INTERFACE_VRF_UPDATE] = pim_zebra_interface_vrf_update,
-	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
 
 	[ZEBRA_VXLAN_SG_ADD] = pim_zebra_vxlan_sg_proc,
 	[ZEBRA_VXLAN_SG_DEL] = pim_zebra_vxlan_sg_proc,
