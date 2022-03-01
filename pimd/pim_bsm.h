@@ -185,7 +185,11 @@ struct bsm_hdr {
 	uint16_t frag_tag;
 	uint8_t hm_len;
 	uint8_t bsr_prio;
+#if PIM_IPV == 4
 	struct pim_encoded_ipv4_unicast bsr_addr;
+#else
+	struct pim_encoded_ipv6_unicast bsr_addr;
+#endif
 } __attribute__((packed));
 
 struct bsmmsg_grpinfo {

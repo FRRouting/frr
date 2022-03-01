@@ -861,7 +861,6 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
 		char grp_str[PREFIX_STRLEN];
 		char rp_str[INET_ADDRSTRLEN];
-		char bsr_str[INET_ADDRSTRLEN];
 		struct bsmmsg_grpinfo *group;
 		struct bsmmsg_rpinfo *rpaddr;
 		struct prefix grp;
@@ -884,11 +883,9 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		buf += sizeof(struct bsm_hdr);
 		len -= sizeof(struct bsm_hdr);
 
-		snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
-			   &hdr->bsr_addr.addr);
-
 		if (uj) {
-			json_object_string_add(json, "BSR address", bsr_str);
+			json_object_string_addf(json, "BSR address", "%pPA",
+						&hdr->bsr_addr.addr);
 			json_object_int_add(json, "BSR priority",
 					    hdr->bsr_prio);
 			json_object_int_add(json, "Hashmask Length",
@@ -900,7 +897,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 			vty_out(vty, "------------------\n");
 			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
 				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
-			vty_out(vty, "%-15s %-15d %-15d %-15d\n", bsr_str,
+			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n",
+				&hdr->bsr_addr.addr,
 				hdr->bsr_prio, hdr->hm_len,
 				ntohs(hdr->frag_tag));
 		}
