@@ -288,6 +288,37 @@ DEFPY (interface_ipv6_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
+DEFPY_HIDDEN (interface_ipv6_pim_ssm,
+              interface_ipv6_pim_ssm_cmd,
+              "ipv6 pim ssm",
+              IPV6_STR
+              PIM_STR
+              IFACE_PIM_STR)
+{
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	vty_out(vty,
+		"Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+
+	return NB_OK;
+}
+
+DEFPY_HIDDEN (interface_no_ipv6_pim_ssm,
+              interface_no_ipv6_pim_ssm_cmd,
+              "no ipv6 pim ssm",
+              NO_STR
+              IPV6_STR
+              PIM_STR
+              IFACE_PIM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -313,4 +344,6 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
 }
