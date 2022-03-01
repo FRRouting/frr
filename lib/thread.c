@@ -1884,6 +1884,27 @@ unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 				   unsigned long *cputime)
 {
 #ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
+
+#ifdef __FreeBSD__
+	/*
+	 * FreeBSD appears to have an issue when calling clock_gettime
+	 * with CLOCK_THREAD_CPUTIME_ID really close to each other
+	 * occassionally the now time will be before the start time.
+	 * This is not good and FRR is ending up with CPU HOG's
+	 * when the subtraction wraps to very large numbers
+	 *
+	 * What we are going to do here is cheat a little bit
+	 * and notice that this is a problem and just correct
+	 * it so that it is impossible to happen
+	 */
+	if (start->cpu.tv_sec == now->cpu.tv_sec &&
+	    start->cpu.tv_nsec > now->cpu.tv_nsec)
+		now->cpu.tv_nsec = start->cpu.tv_nsec + 1;
+	else if (start->cpu.tv_sec > now->cpu.tv_sec) {
+		now->cpu.tv_sec = start->cpu.tv_sec;
+		now->cpu.tv_nsec = start->cpu.tv_nsec + 1;
+	}
+#endif
 	*cputime = (now->cpu.tv_sec - start->cpu.tv_sec) * TIMER_SECOND_MICRO
 		   + (now->cpu.tv_nsec - start->cpu.tv_nsec) / 1000;
 #else
