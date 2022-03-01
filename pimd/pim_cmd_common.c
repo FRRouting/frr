@@ -326,3 +326,48 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+int pim_process_ip_pim_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_cmd(struct vty *vty)
+{
+	const struct lyd_node *mld_enable_dnode;
+	char mld_if_xpath[XPATH_MAXLEN];
+
+	int printed =
+		snprintf(mld_if_xpath, sizeof(mld_if_xpath),
+			 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+			 VTY_CURR_XPATH, FRR_PIM_AF_XPATH_VAL);
+
+	if (printed >= (int)(sizeof(mld_if_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	mld_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					   FRR_PIM_AF_XPATH_VAL);
+
+	if (!mld_enable_dnode) {
+		nb_cli_enqueue_change(vty, mld_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(mld_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, mld_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "false");
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
