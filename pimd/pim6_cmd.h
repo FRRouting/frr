@@ -34,6 +34,7 @@
 	"MLD last member query interval\n"
 #define IFACE_MLD_LAST_MEMBER_QUERY_COUNT_STR "MLD last member query count\n"
 #define IFACE_PIM_STR "Enable PIM SSM operation\n"
+#define IFACE_PIM_SM_STR "Enable PIM SM operation\n"
 #define IFACE_PIM_HELLO_STR "Hello Interval\n"
 #define IFACE_PIM_HELLO_TIME_STR "Time in seconds for Hello Interval\n"
 #define IFACE_PIM_HELLO_HOLD_STR "Time in seconds for Hold Interval\n"
