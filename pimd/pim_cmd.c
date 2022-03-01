@@ -8099,11 +8099,7 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
 {
 	int ret;
 
-	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
-
-	ret = nb_cli_apply_changes(vty,
-			FRR_PIM_INTERFACE_XPATH,
-			"frr-routing:ipv4");
+	ret = pim_process_ip_pim_cmd(vty);
 
 	if (ret != NB_OK)
 		return ret;
@@ -8145,39 +8141,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	      PIM_STR
 	      IFACE_PIM_STR)
 {
-	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN];
-
-	int printed =
-		snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-			 "%s/frr-gmp:gmp/address-family[address-family='%s']",
-			 VTY_CURR_XPATH, "frr-routing:ipv4");
-
-	if (printed >= (int)(sizeof(igmp_if_xpath))) {
-		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
-			XPATH_MAXLEN);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    FRR_GMP_ENABLE_XPATH,
-					    VTY_CURR_XPATH,
-					    "frr-routing:ipv4");
-	if (!igmp_enable_dnode) {
-		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
-		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-	} else {
-		if (!yang_dnode_get_bool(igmp_enable_dnode, ".")) {
-			nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY,
-					      NULL);
-			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-		} else
-			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					      "false");
-	}
-
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return pim_process_no_ip_pim_cmd(vty);
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_sm,
@@ -8232,7 +8196,7 @@ DEFUN (interface_no_ip_pim,
        IP_STR
        PIM_STR)
 {
-	pim_process_no_ip_pim_cmd(vty);
+	return pim_process_no_ip_pim_cmd(vty);
 }
 
 /* boundaries */
