@@ -38,5 +38,7 @@ int pim_process_no_register_suppress_cmd(struct vty *vty);
 
 int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
+int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str);
+int pim_process_no_ip_pim_drprio_cmd(struct vty *vty);
 
 #endif /* PIM_CMD_COMMON_H */

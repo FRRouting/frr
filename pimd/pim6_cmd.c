@@ -229,6 +229,29 @@ DEFPY (interface_no_ipv6_pim,
 	return pim_process_no_ip_pim_cmd(vty);
 }
 
+DEFPY (interface_ipv6_pim_drprio,
+       interface_ipv6_pim_drprio_cmd,
+       "ipv6 pim drpriority (1-4294967295)",
+       IPV6_STR
+       PIM_STR
+       "Set the Designated Router Election Priority\n"
+       "Value of the new DR Priority\n")
+{
+	return pim_process_ip_pim_drprio_cmd(vty, drpriority_str);
+}
+
+DEFPY (interface_no_ipv6_pim_drprio,
+       interface_no_ipv6_pim_drprio_cmd,
+       "no ip pim drpriority [(1-4294967295)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Revert the Designated Router Priority to default\n"
+       "Old Value of the Priority\n")
+{
+	return pim_process_no_ip_pim_drprio_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -249,4 +272,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
 }
