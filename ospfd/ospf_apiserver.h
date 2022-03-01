@@ -68,7 +68,7 @@ struct ospf_apiserver {
 	struct thread *t_async_write;
 };
 
-enum event {
+enum ospf_apiserver_event {
 	OSPF_APISERVER_ACCEPT,
 	OSPF_APISERVER_SYNC_READ,
 #ifdef USE_ASYNC_READ
@@ -88,7 +88,7 @@ extern int ospf_apiserver_init(void);
 extern void ospf_apiserver_term(void);
 extern struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async);
 extern void ospf_apiserver_free(struct ospf_apiserver *apiserv);
-extern void ospf_apiserver_event(enum event event, int fd,
+extern void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 				 struct ospf_apiserver *apiserv);
 extern int ospf_apiserver_serv_sock_family(unsigned short port, int family);
 extern void ospf_apiserver_accept(struct thread *thread);
