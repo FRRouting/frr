@@ -366,6 +366,32 @@ DEFPY (interface_no_ipv6_pim_boundary_oil,
 	return pim_process_no_ip_pim_boundary_oil_cmd(vty);
 }
 
+DEFPY (interface_ipv6_mroute,
+       interface_ipv6_mroute_cmd,
+       "ipv6 mroute INTERFACE X:X::X:X$group [X:X::X:X]$source",
+       IPV6_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group address\n"
+       "Source address\n")
+{
+	return pim_process_ip_mroute_cmd(vty, interface, group_str, source_str);
+}
+
+DEFPY (interface_no_ipv6_mroute,
+       interface_no_ipv6_mroute_cmd,
+       "no ipv6 mroute INTERFACE X:X::X:X$group [X:X::X:X]$source",
+       NO_STR
+       IPV6_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group Address\n"
+       "Source Address\n")
+{
+	return pim_process_no_ip_mroute_cmd(vty, interface, group_str,
+					    source_str);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -399,4 +425,6 @@ void pim_cmd_init(void)
 			&interface_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
 }

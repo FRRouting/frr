@@ -8205,13 +8205,8 @@ DEFUN (interface_ip_mroute,
 	else
 		source_str = argv[idx_ipv4 + 1]->arg;
 
-	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY,
-			      argv[idx_interface]->arg);
-
-	return nb_cli_apply_changes(vty,
-				    FRR_PIM_MROUTE_XPATH,
-				    "frr-routing:ipv4", source_str,
-				    argv[idx_ipv4]->arg);
+	return pim_process_ip_mroute_cmd(vty, argv[idx_interface]->arg,
+					 argv[idx_ipv4]->arg, source_str);
 }
 
 DEFUN (interface_no_ip_mroute,
@@ -8224,6 +8219,7 @@ DEFUN (interface_no_ip_mroute,
        "Group Address\n"
        "Source Address\n")
 {
+	int idx_interface = 3;
 	int idx_ipv4 = 4;
 	const char *source_str;
 
@@ -8232,12 +8228,8 @@ DEFUN (interface_no_ip_mroute,
 	else
 		source_str = argv[idx_ipv4 + 1]->arg;
 
-	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty,
-				    FRR_PIM_MROUTE_XPATH,
-				    "frr-routing:ipv4", source_str,
-				    argv[idx_ipv4]->arg);
+	return pim_process_no_ip_mroute_cmd(vty, argv[idx_interface]->arg,
+					    argv[idx_ipv4]->arg, source_str);
 }
 
 DEFUN (interface_ip_pim_hello,
