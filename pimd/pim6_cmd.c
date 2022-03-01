@@ -252,6 +252,31 @@ DEFPY (interface_no_ipv6_pim_drprio,
 	return pim_process_no_ip_pim_drprio_cmd(vty);
 }
 
+DEFPY (interface_ipv6_pim_hello,
+       interface_ipv6_pim_hello_cmd,
+       "ipv6 pim hello (1-65535) [(1-65535)]$hold",
+       IPV6_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IFACE_PIM_HELLO_TIME_STR
+       IFACE_PIM_HELLO_HOLD_STR)
+{
+	return pim_process_ip_pim_hello_cmd(vty, hello_str, hold_str);
+}
+
+DEFPY (interface_no_ipv6_pim_hello,
+       interface_no_ipv6_pim_hello_cmd,
+       "no ipv6 pim hello [(1-65535) [(1-65535)]]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IGNORED_IN_NO_STR
+       IGNORED_IN_NO_STR)
+{
+	return pim_process_no_ip_pim_hello_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -274,4 +299,6 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
 }
