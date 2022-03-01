@@ -346,6 +346,13 @@ Pre-submission Checklist
   the new feature within our existing CI infrastructure.  Also the
   addition of automated testing to cover any pull request is encouraged.
 
+- All new code must use the current latest version of acceptable code.
+
+   - If a daemon is converted to YANG, then new code must use YANG.
+   - DEFPY's must be used for new cli
+   - Typesafe lists must be used
+   - printf formatting changes must be used
+
 .. _signing-off:
 
 Signing Off
@@ -1250,8 +1257,8 @@ CLI changes
 -----------
 
 CLI's are a complicated ugly beast. Additions or changes to the CLI should use
-a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
-DEFUN's are added to the system, documentation should be provided for the new
+a DEFPY to encapsulate one setting as much as is possible.  Additionally as new
+DEFPY's are added to the system, documentation should be provided for the new
 commands.
 
 Backwards Compatibility
