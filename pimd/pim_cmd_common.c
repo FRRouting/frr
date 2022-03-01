@@ -30,6 +30,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "ferr.h"
+#include "lib/srcdest_table.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -459,4 +460,42 @@ int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
+			      const char *group_str, const char *source_str)
+{
+	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY, interface);
+
+	if (!source_str) {
+		char buf[SRCDEST2STR_BUFFER];
+
+		inet_ntop(AF_INET6, &in6addr_any, buf, sizeof(buf));
+		return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+					    FRR_PIM_AF_XPATH_VAL, buf,
+					    group_str);
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL, source_str,
+				    group_str);
+}
+
+int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
+				 const char *group_str, const char *source_str)
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	if (!source_str) {
+		char buf[SRCDEST2STR_BUFFER];
+
+		inet_ntop(AF_INET6, &in6addr_any, buf, sizeof(buf));
+		return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+					    FRR_PIM_AF_XPATH_VAL, buf,
+					    group_str);
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL, source_str,
+				    group_str);
 }
