@@ -67,6 +67,7 @@
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"
 #include "pim_nb.h"
+#include "pim_addr.h"
 #include "pim_cmd_common.h"
 
 #ifndef VTYSH_EXTRACT_PL
@@ -2593,8 +2594,8 @@ DEFPY (show_ip_pim_join,
 {
 	pim_sgaddr sg = {0};
 	struct vrf *v;
-	bool uj = !!json;
 	struct pim_instance *pim;
+	json_object *json_parent = NULL;
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 
@@ -2617,14 +2618,20 @@ DEFPY (show_ip_pim_join,
 			sg.grp = s_or_g;
 	}
 
-	pim_show_join(pim, vty, &sg, uj);
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_join(pim, vty, &sg, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_join_vrf_all,
+DEFPY (show_ip_pim_join_vrf_all,
        show_ip_pim_join_vrf_all_cmd,
-       "show ip pim vrf all join [json]",
+       "show ip pim vrf all join [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2633,24 +2640,25 @@ DEFUN (show_ip_pim_join_vrf_all,
        JSON_STR)
 {
 	pim_sgaddr sg = {0};
-	bool uj = use_json(argc, argv);
-	struct vrf *vrf;
-	bool first = true;
+	struct vrf *vrf_struct;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj)
-		vty_out(vty, "{ ");
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
-			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_show_join(vrf->info, vty, &sg, uj);
+	if (json)
+		json_parent = json_object_new_object();
+	RB_FOREACH (vrf_struct, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf_struct->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_join(vrf_struct->info, vty, &sg, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf_struct->name,
+					       json_vrf);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_WARNING;
 }
