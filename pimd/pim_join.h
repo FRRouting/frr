@@ -27,8 +27,7 @@
 #include "pim_neighbor.h"
 
 int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
-		       struct in_addr src_addr, uint8_t *tlv_buf,
-		       int tlv_buf_size);
+		       pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size);
 
 int pim_joinprune_send(struct pim_rpf *nexthop, struct list *groups);
 
