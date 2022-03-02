@@ -47,10 +47,10 @@ DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
 
 /* Zebra client events. */
-enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
+enum zclient_event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 
 /* Prototype for event manager. */
-static void zclient_event(enum event, struct zclient *);
+static void zclient_event(enum zclient_event, struct zclient *);
 
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp);
@@ -4038,7 +4038,7 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 		zebra_redistribute_default_send(command, zclient, afi, vrf_id);
 }
 
-static void zclient_event(enum event event, struct zclient *zclient)
+static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
 	case ZCLIENT_SCHEDULE:
