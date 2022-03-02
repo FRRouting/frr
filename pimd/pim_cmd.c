@@ -5313,39 +5313,50 @@ DEFUN (show_ip_pim_upstream_rpf,
 
 DEFUN (show_ip_pim_rp,
        show_ip_pim_rp_cmd,
-       "show ip pim [vrf NAME] rp-info [json]",
+       "show ip pim [vrf NAME] rp-info [A.B.C.D] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM RP information\n"
+       "Multicast Group address\n"
        JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct in_addr group = {0};
 
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_rp_show_information(vrf->info, vty, uj);
+	if (argv_find(argv, argc, "A.B.C.D", &idx))
+		inet_pton(AF_INET, argv[idx]->arg, &group);
+
+	pim_rp_show_information(vrf->info, &group, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_pim_rp_vrf_all,
        show_ip_pim_rp_vrf_all_cmd,
-       "show ip pim vrf all rp-info [json]",
+       "show ip pim vrf all rp-info [A.B.C.D] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM RP information\n"
+       "Multicast Group address\n"
        JSON_STR)
 {
+	int idx = 0;
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
 	bool first = true;
+	struct in_addr group = {0};
+
+	if (argv_find(argv, argc, "A.B.C.D", &idx))
+		inet_pton(AF_INET, argv[idx]->arg, &group);
 
 	if (uj)
 		vty_out(vty, "{ ");
@@ -5357,7 +5368,7 @@ DEFUN (show_ip_pim_rp_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_rp_show_information(vrf->info, vty, uj);
+		pim_rp_show_information(vrf->info, &group, vty, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");

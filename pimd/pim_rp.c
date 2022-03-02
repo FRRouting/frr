@@ -48,6 +48,7 @@
 #include "pim_oil.h"
 #include "pim_zebra.h"
 #include "pim_bsm.h"
+#include "pim_ssm.h"
 
 /* Cleanup pim->rpf_hash each node data */
 void pim_rp_list_hash_clean(void *data)
@@ -1204,7 +1205,8 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
-void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
+void pim_rp_show_information(struct pim_instance *pim, struct in_addr *group,
+			     struct vty *vty, bool uj)
 {
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;
@@ -1220,8 +1222,16 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"RP address       group/prefix-list   OIF               I am RP    Source\n");
+			"RP address       group/prefix-list   OIF               I am RP    Source   Group-Type\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
+		const char *group_type =
+			pim_is_grp_ssm(pim, rp_info->group.u.prefix4) ? "SSM"
+								      : "ASM";
+
+		if (group->s_addr != INADDR_ANY &&
+		    !IPV4_ADDR_SAME(group, &rp_info->group.u.prefix4))
+			continue;
+
 		if (!pim_rpf_addr_is_inaddr_any(&rp_info->rp)) {
 			char buf[48];
 
@@ -1285,6 +1295,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 						&rp_info->group);
 				json_object_string_add(json_row, "source",
 						       source);
+				json_object_string_add(json_row, "groupType",
+						       group_type);
 
 				json_object_array_add(json_rp_rows, json_row);
 			} else {
@@ -1312,7 +1324,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 				else
 					vty_out(vty, "no");
 
-				vty_out(vty, "%14s\n", source);
+				vty_out(vty, "%14s", source);
+				vty_out(vty, "%6s\n", group_type);
 			}
 			prev_rp_info = rp_info;
 		}
