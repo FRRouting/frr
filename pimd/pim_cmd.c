@@ -3488,7 +3488,7 @@ DEFPY (show_ip_pim_rpf_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_nexthop,
+DEFPY (show_ip_pim_nexthop,
        show_ip_pim_nexthop_cmd,
        "show ip pim [vrf NAME] nexthop",
        SHOW_STR
@@ -3497,20 +3497,21 @@ DEFUN (show_ip_pim_nexthop,
        VRF_CMD_HELP_STR
        "PIM cached nexthop rpf information\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	pim_show_nexthop(vrf->info, vty);
+	pim_show_nexthop(v->info, vty);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_nexthop_lookup,
+DEFPY (show_ip_pim_nexthop_lookup,
        show_ip_pim_nexthop_lookup_cmd,
-       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D A.B.C.D",
+       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source A.B.C.D$group",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3521,61 +3522,37 @@ DEFUN (show_ip_pim_nexthop_lookup,
 {
 	struct prefix nht_p;
 	int result = 0;
-	struct in_addr src_addr, grp_addr;
-	struct in_addr vif_source;
-	const char *addr_str, *addr_str1;
+	pim_addr vif_source;
 	struct prefix grp;
 	struct pim_nexthop nexthop;
 	char nexthop_addr_str[PREFIX_STRLEN];
-	char grp_str[PREFIX_STRLEN];
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	addr_str = argv[idx]->arg;
-	result = inet_pton(AF_INET, addr_str, &src_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad unicast address %s: errno=%d: %s\n", addr_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-	if (pim_is_group_224_4(src_addr)) {
+	if (pim_is_group_224_4(source)) {
 		vty_out(vty,
 			"Invalid argument. Expected Valid Source Address.\n");
 		return CMD_WARNING;
 	}
 
-	addr_str1 = argv[idx + 1]->arg;
-	result = inet_pton(AF_INET, addr_str1, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad unicast address %s: errno=%d: %s\n", addr_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-	if (!pim_is_group_224_4(grp_addr)) {
+	if (!pim_is_group_224_4(group)) {
 		vty_out(vty,
 			"Invalid argument. Expected Valid Multicast Group Address.\n");
 		return CMD_WARNING;
 	}
 
-	if (!pim_rp_set_upstream_addr(vrf->info, &vif_source, src_addr,
-				      grp_addr))
+	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
 		return CMD_SUCCESS;
 
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = vif_source;
-	grp.family = AF_INET;
-	grp.prefixlen = IPV4_MAX_BITLEN;
-	grp.u.prefix4 = grp_addr;
+	pim_addr_to_prefix(&nht_p, vif_source);
+	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	result = pim_ecmp_nexthop_lookup(vrf->info, &nexthop, &nht_p, &grp, 0);
+	result = pim_ecmp_nexthop_lookup(v->info, &nexthop, &nht_p, &grp, 0);
 
 	if (!result) {
 		vty_out(vty,
@@ -3583,10 +3560,9 @@ DEFUN (show_ip_pim_nexthop_lookup,
 		return CMD_SUCCESS;
 	}
 
-	pim_addr_dump("<grp?>", &grp, grp_str, sizeof(grp_str));
 	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
 		      nexthop_addr_str, sizeof(nexthop_addr_str));
-	vty_out(vty, "Group %s --- Nexthop %s Interface %s \n", grp_str,
+	vty_out(vty, "Group %s --- Nexthop %s Interface %s \n", group_str,
 		nexthop_addr_str, nexthop.interface->name);
 
 	return CMD_SUCCESS;
