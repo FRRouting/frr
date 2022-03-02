@@ -138,11 +138,11 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 }
 
 /* For now check dst address for hello, assrt and join/prune is all pim rtr */
-static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, in_addr_t addr)
+static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 {
 	if ((type == PIM_MSG_TYPE_HELLO) || (type == PIM_MSG_TYPE_ASSERT)
 	    || (type == PIM_MSG_TYPE_JOIN_PRUNE)) {
-		if (addr != qpim_all_pim_routers_addr.s_addr)
+		if (pim_addr_cmp(addr, qpim_all_pim_routers_addr))
 			return false;
 	}
 
@@ -249,7 +249,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		}
 	}
 
-	if (!pim_pkt_dst_addr_ok(header->type, ip_hdr->ip_dst.s_addr)) {
+	if (!pim_pkt_dst_addr_ok(header->type, ip_hdr->ip_dst)) {
 		char dst_str[INET_ADDRSTRLEN];
 		char src_str[INET_ADDRSTRLEN];
 
@@ -530,9 +530,8 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 	struct ip *ip = (struct ip *)buf;
 
 	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
-		char dst_str[INET_ADDRSTRLEN];
-
 		switch (errno) {
+#if PIM_IPV == 4
 		case EMSGSIZE: {
 			size_t hdrsize = sizeof(struct ip);
 			size_t newlen1 = ((len - hdrsize) / 2) & 0xFFF8;
@@ -557,14 +556,13 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		}
 
 			return -1;
+#endif
 		default:
 			if (PIM_DEBUG_PIM_PACKETS) {
-				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
-					       sizeof(dst_str));
 				zlog_warn(
-					"%s: sendto() failure to %s: iface=%s fd=%d msg_size=%zd: errno=%d: %s",
-					__func__, dst_str, ifname, fd, len,
-					errno, safe_strerror(errno));
+					"%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: errno=%d: %s",
+					__func__, dst, ifname, fd, len, errno,
+					safe_strerror(errno));
 			}
 			return -1;
 		}
@@ -582,13 +580,13 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	unsigned char *msg_start;
 	uint8_t ttl;
 	struct pim_msg_header *header;
+#if PIM_IPV == 4
 	struct ip *ip;
+#else
+	struct ipv6_ph ph;
+#endif
 
 	memset(buffer, 0, 10000);
-	int sendlen = sizeof(struct ip) + pim_msg_size;
-
-	msg_start = buffer + sizeof(struct ip);
-	memcpy(msg_start, pim_msg, pim_msg_size);
 
 	header = (struct pim_msg_header *)pim_msg;
 /*
@@ -618,6 +616,8 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		break;
 	}
 
+#if PIM_IPV == 4
+	int sendlen = sizeof(struct ip) + pim_msg_size;
 	ip = (struct ip *)buffer;
 	ip->ip_id = htons(++ip_id);
 	ip->ip_hl = 5;
@@ -628,16 +628,33 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	ip->ip_dst = dst;
 	ip->ip_ttl = ttl;
 	ip->ip_len = htons(sendlen);
+	
+	msg_start = buffer + sizeof(struct ip);
+	memcpy(msg_start, pim_msg, pim_msg_size);
+#else
+	int sendlen = pim_msg_size;
+	setsockopt_ipv6_multicast_hops(fd, ttl);
 
+	ph.src = src;
+	ph.dst = dst;
+	if (header->type == PIM_MSG_TYPE_REGISTER) {
+		ph.ulpl = PIM_MSG_REGISTER_LEN;
+	} else {
+		ph.ulpl = pim_msg_size;
+	}
+	ph.next_hdr = IPPROTO_PIM;
+	header->checksum = in_cksum_with_ph6(&ph, pim_msg, pim_msg_size);
+	msg_start = buffer;
+	memcpy(msg_start, pim_msg, pim_msg_size);
+#endif
 	if (PIM_DEBUG_PIM_PACKETS) {
-		char dst_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
-		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x", __func__,
-			   dst_str, ifname, pim_msg_size, header->checksum);
+		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
+			   __func__, &dst, ifname, pim_msg_size,
+			   header->checksum);
 	}
 
 	memset(&to, 0, sizeof(to));
-	to.sin_family = AF_INET;
+	to.sin_family = PIM_AF;
 	to.sin_addr = dst;
 	tolen = sizeof(to);
 
@@ -660,13 +677,10 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 	pim_ifp = ifp->info;
 
 	if (PIM_DEBUG_PIM_HELLO) {
-		char dst_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<dst?>", qpim_all_pim_routers_addr, dst_str,
-			       sizeof(dst_str));
 		zlog_debug(
-			"%s: to %s on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
-			__func__, dst_str, ifp->name, holdtime,
-			pim_ifp->pim_propagation_delay_msec,
+			"%s: to %pPA on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
+			__func__, &qpim_all_pim_routers_addr, ifp->name,
+			holdtime, pim_ifp->pim_propagation_delay_msec,
 			pim_ifp->pim_override_interval_msec,
 			PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(
 				pim_ifp->options),

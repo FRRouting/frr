@@ -18,6 +18,7 @@
  */
 
 #include <zebra.h>
+#include <netinet/ip6.h>
 
 #include "if.h"
 #include "log.h"
@@ -59,10 +60,14 @@ void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
 	 * including the PIM header and the next 4 bytes, excluding the data
 	 * packet portion
 	 */
+#if PIM_IPV == 4
 	if (pim_msg_type == PIM_MSG_TYPE_REGISTER)
 		header->checksum = in_cksum(pim_msg, PIM_MSG_REGISTER_LEN);
 	else
 		header->checksum = in_cksum(pim_msg, pim_msg_size);
+		/* IPv6 check sum is calculated in pim_msg_send by filling
+		 * pseudo  header */
+#endif
 }
 
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr)
