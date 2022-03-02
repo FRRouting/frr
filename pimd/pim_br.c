@@ -33,8 +33,6 @@ struct pim_br {
 	pim_addr pmbr;
 };
 
-pim_addr pim_br_unknown = {.s_addr = 0};
-
 static struct list *pim_br_list = NULL;
 
 pim_addr pim_br_get_pmbr(pim_sgaddr *sg)
@@ -47,7 +45,7 @@ pim_addr pim_br_get_pmbr(pim_sgaddr *sg)
 			return pim_br->pmbr;
 	}
 
-	return pim_br_unknown;
+	return PIMADDR_ANY;
 }
 
 void pim_br_set_pmbr(pim_sgaddr *sg, pim_addr br)

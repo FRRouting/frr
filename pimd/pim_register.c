@@ -414,7 +414,7 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 					"%s: Received Register message with Border bit set",
 					__func__);
 
-			if (!pim_addr_cmp(pimbr, pim_br_unknown))
+			if (pim_addr_is_any(pimbr))
 				pim_br_set_pmbr(&sg, src_addr);
 			else if (pim_addr_cmp(src_addr, pimbr)) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
