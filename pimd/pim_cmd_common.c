@@ -1728,7 +1728,6 @@ static void pim_show_membership_helper(struct vty *vty,
 				       struct pim_ifchannel *ch,
 				       struct json_object *json)
 {
-	char ch_grp_str[PIM_ADDRSTRLEN];
 	json_object *json_iface = NULL;
 	json_object *json_row = NULL;
 
@@ -1739,16 +1738,14 @@ static void pim_show_membership_helper(struct vty *vty,
 		json_object_object_add(json, ch->interface->name, json_iface);
 	}
 
-	snprintfrr(ch_grp_str, sizeof(ch_grp_str), "%pPAs", &ch->sg.grp);
-
 	json_row = json_object_new_object();
 	json_object_string_addf(json_row, "source", "%pPAs", &ch->sg.src);
-	json_object_string_add(json_row, "group", ch_grp_str);
+	json_object_string_addf(json_row, "group", "%pPAs", &ch->sg.grp);
 	json_object_string_add(json_row, "localMembership",
 			       ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO
-					   ? "NOINFO"
-					   : "INCLUDE");
-	json_object_object_add(json_iface, ch_grp_str, json_row);
+				       ? "NOINFO"
+				       : "INCLUDE");
+	json_object_object_addf(json_iface, json_row, "%pPAs", &ch->sg.grp);
 }
 
 void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
@@ -1773,8 +1770,7 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_json(vty, json);
 	} else {
 		vty_out(vty,
 			"Interface         Address          Source           Group            Membership\n");
@@ -1841,9 +1837,8 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 				}
 			}
 		}
+		json_object_free(json);
 	}
-
-	json_object_free(json);
 }
 
 static void pim_show_channel_helper(struct pim_instance *pim, struct vty *vty,
