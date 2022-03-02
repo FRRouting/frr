@@ -1253,6 +1253,36 @@ DEFPY (show_ipv6_pim_join_vrf_all,
 	return CMD_WARNING;
 }
 
+DEFPY (show_ipv6_pim_jp_agg,
+       show_ipv6_pim_jp_agg_cmd,
+       "show ipv6 pim [vrf NAME] jp-agg",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "join prune aggregation list\n")
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_jp_agg_list(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1322,4 +1352,5 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_join_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_join_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_jp_agg_cmd);
 }
