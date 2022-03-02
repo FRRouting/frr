@@ -30,14 +30,14 @@
 
 struct pim_br {
 	pim_sgaddr sg;
-	struct in_addr pmbr;
+	pim_addr pmbr;
 };
 
-struct in_addr pim_br_unknown = {.s_addr = 0};
+pim_addr pim_br_unknown = {.s_addr = 0};
 
 static struct list *pim_br_list = NULL;
 
-struct in_addr pim_br_get_pmbr(pim_sgaddr *sg)
+pim_addr pim_br_get_pmbr(pim_sgaddr *sg)
 {
 	struct listnode *node;
 	struct pim_br *pim_br;
@@ -50,7 +50,7 @@ struct in_addr pim_br_get_pmbr(pim_sgaddr *sg)
 	return pim_br_unknown;
 }
 
-void pim_br_set_pmbr(pim_sgaddr *sg, struct in_addr br)
+void pim_br_set_pmbr(pim_sgaddr *sg, pim_addr br)
 {
 	struct listnode *node, *next;
 	struct pim_br *pim_br;
