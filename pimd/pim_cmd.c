@@ -5363,39 +5363,56 @@ DEFUN (show_ip_pim_upstream_rpf,
 
 DEFUN (show_ip_pim_rp,
        show_ip_pim_rp_cmd,
-       "show ip pim [vrf NAME] rp-info [json]",
+       "show ip pim [vrf NAME] rp-info [A.B.C.D/M] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM RP information\n"
+       "Multicast Group range\n"
        JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	struct prefix *range = NULL;
 
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_rp_show_information(vrf->info, vty, uj);
+	if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
+		range = prefix_new();
+		(void)str2prefix(argv[idx]->arg, range);
+		apply_mask(range);
+	}
+
+	pim_rp_show_information(vrf->info, range, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_pim_rp_vrf_all,
        show_ip_pim_rp_vrf_all_cmd,
-       "show ip pim vrf all rp-info [json]",
+       "show ip pim vrf all rp-info [A.B.C.D/M] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM RP information\n"
+       "Multicast Group range\n"
        JSON_STR)
 {
+	int idx = 0;
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
 	bool first = true;
+	struct prefix *range = NULL;
+
+	if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
+		range = prefix_new();
+		(void)str2prefix(argv[idx]->arg, range);
+		apply_mask(range);
+	}
 
 	if (uj)
 		vty_out(vty, "{ ");
@@ -5407,7 +5424,7 @@ DEFUN (show_ip_pim_rp_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_rp_show_information(vrf->info, vty, uj);
+		pim_rp_show_information(vrf->info, range, vty, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
