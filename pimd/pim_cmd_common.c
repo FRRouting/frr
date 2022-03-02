@@ -1684,17 +1684,9 @@ static void pim_show_jp_agg_helper(struct vty *vty, struct interface *ifp,
 				   struct pim_neighbor *neigh,
 				   struct pim_upstream *up, int is_join)
 {
-	char src_str[INET_ADDRSTRLEN];
-	char grp_str[INET_ADDRSTRLEN];
-	char rpf_str[INET_ADDRSTRLEN];
-
-	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-	/* pius->address.s_addr */
-	pim_inet4_dump("<rpf?>", neigh->source_addr, rpf_str, sizeof(rpf_str));
-
-	vty_out(vty, "%-16s %-15s %-15s %-15s %5s\n", ifp->name, rpf_str,
-		src_str, grp_str, is_join ? "J" : "P");
+	vty_out(vty, "%-16s %-15pPAs %-15pPAs %-15pPAs %5s\n", ifp->name,
+		&neigh->source_addr, &up->sg.src, &up->sg.grp,
+		is_join ? "J" : "P");
 }
 
 void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
