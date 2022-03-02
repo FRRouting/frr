@@ -20,13 +20,13 @@
 #ifndef PIM_BR_H
 #define PIM_BR_H
 
-struct in_addr pim_br_get_pmbr(pim_sgaddr *sg);
+pim_addr pim_br_get_pmbr(pim_sgaddr *sg);
 
-void pim_br_set_pmbr(pim_sgaddr *sg, struct in_addr value);
+void pim_br_set_pmbr(pim_sgaddr *sg, pim_addr value);
 void pim_br_clear_pmbr(pim_sgaddr *sg);
 
 void pim_br_init(void);
 
-extern struct in_addr pim_br_unknown;
+extern pim_addr pim_br_unknown;
 
 #endif

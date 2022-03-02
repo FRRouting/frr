@@ -408,15 +408,15 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		}
 
 		if (*bits & PIM_REGISTER_BORDER_BIT) {
-			struct in_addr pimbr = pim_br_get_pmbr(&sg);
+			pim_addr pimbr = pim_br_get_pmbr(&sg);
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s: Received Register message with Border bit set",
 					__func__);
 
-			if (pimbr.s_addr == pim_br_unknown.s_addr)
+			if (!pim_addr_cmp(pimbr, pim_br_unknown))
 				pim_br_set_pmbr(&sg, src_addr);
-			else if (src_addr.s_addr != pimbr.s_addr) {
+			else if (pim_addr_cmp(src_addr, pimbr)) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
 						       src_addr);
 				if (PIM_DEBUG_PIM_PACKETS)
