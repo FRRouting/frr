@@ -2693,9 +2693,9 @@ DEFPY (show_ip_pim_jp_agg,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_local_membership,
+DEFPY (show_ip_pim_local_membership,
        show_ip_pim_local_membership_cmd,
-       "show ip pim [vrf NAME] local-membership [json]",
+       "show ip pim [vrf NAME] local-membership [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2703,14 +2703,15 @@ DEFUN (show_ip_pim_local_membership,
        "PIM interface local-membership\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct vrf *v;
+	bool uj = !!json;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	pim_show_membership(vrf->info, vty, uj);
+	pim_show_membership(v->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
