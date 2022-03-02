@@ -510,7 +510,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix g
 		}
 
 		/*
-		 * Take over the 224.0.0.0/4 group if the rp is INADDR_NONE
+		 * Take over the 224.0.0.0/4 group if the rp is INADDR_ANY
 		 */
 		if (prefix_same(&rp_all->group, &rp_info->group) &&
 		    pim_rpf_addr_is_inaddr_any(&rp_all->rp)) {
