@@ -509,6 +509,43 @@ cause great confusion.
 
    Display information about RP's that are configured on this router.
 
+.. clicmd:: show ip pim [vrf NAME] groups [json]
+
+   Display information about the group mappings that are configured on
+   this router.
+
+   .. code-block:: frr
+
+      # show ip pim vrf default groups
+      Group           RP              Origin  Mode
+      238.0.0.5       192.168.10.17   Static  ASM
+      236.0.0.1       0.0.0.0         None    ASM
+      232.0.0.1       192.168.10.110  Static  SSM
+
+      # show ip pim vrf default groups json
+      {
+         "groups":[
+            {
+               "group":"238.0.0.5",
+               "rp":"192.168.10.17",
+               "origin":"Static",
+               "mode":"ASM"
+            },
+            {
+               "group":"236.0.0.1",
+               "rp":"0.0.0.0",
+               "origin":"None",
+               "mode":"ASM"
+            },
+            {
+               "group":"232.0.0.1",
+               "rp":"192.168.10.110",
+               "origin":"Static",
+               "mode":"SSM"
+            }
+         ]
+      }
+
 .. clicmd:: show ip pim rpf
 
    Display information about currently being used S,G's and their RPF lookup

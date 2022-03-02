@@ -2697,6 +2697,72 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 		vty_json(vty, json);
 }
 
+static void pim_groups_show_information(struct pim_instance *pim,
+					struct vty *vty, bool uj)
+{
+	struct interface *ifp;
+	json_object *json = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_groups = json_object_new_array();
+		json_object_object_add(json, "groups", json_groups);
+	} else {
+		vty_out(vty, "Group           RP              Origin  Mode\n");
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *grpnode;
+		struct gm_group *grp;
+
+		if (!pim_ifp)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
+					  grp)) {
+			struct rp_info *rp_info = NULL;
+			struct prefix group_prefix;
+			const char *origin = NULL;
+			const char *mode = NULL;
+
+			pim_addr_to_prefix(&group_prefix, grp->group_addr);
+			rp_info = pim_rp_find_match_group(pim, &group_prefix);
+
+			origin = pim_rp_origin_str(rp_info->rp_src);
+			mode = pim_is_grp_ssm(pim, rp_info->group.u.prefix4)
+				       ? "SSM"
+				       : "ASM";
+
+			if (uj) {
+				json_group = json_object_new_object();
+				json_object_array_add(json_groups, json_group);
+
+				json_object_string_addf(json_group, "group",
+							"%pI4",
+							&grp->group_addr);
+				json_object_string_addf(
+					json_group, "rp", "%pI4",
+					&rp_info->rp.rpf_addr.u.prefix4);
+				json_object_string_add(json_group, "origin",
+						       origin);
+				json_object_string_add(json_group, "mode",
+						       mode);
+			} else {
+				vty_out(vty, "%-15pI4 %-15pI4 %-7s %-5s\n",
+					&grp->group_addr,
+					&rp_info->rp.rpf_addr.u.prefix4, origin,
+					mode);
+			}
+		}
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
 static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
@@ -5307,6 +5373,28 @@ DEFUN (show_ip_pim_upstream_rpf,
 		return CMD_WARNING;
 
 	pim_show_upstream_rpf(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_groups,
+       show_ip_pim_groups_cmd,
+       "show ip pim [vrf NAME] groups [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM Groups information\n"
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim_groups_show_information(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -10854,6 +10942,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_channel_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_join_desired_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_groups_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_cmd);

@@ -1204,6 +1204,19 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
+const char *pim_rp_origin_str(enum rp_source source)
+{
+	switch (source) {
+	case RP_SRC_STATIC:
+		return "Static";
+	case RP_SRC_BSR:
+		return "BSR";
+	case RP_SRC_NONE:
+		return "None";
+	}
+	return "n/a";
+}
+
 void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct rp_info *rp_info;

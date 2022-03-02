@@ -88,4 +88,5 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
 void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim);
+const char *pim_rp_origin_str(enum rp_source source);
 #endif
