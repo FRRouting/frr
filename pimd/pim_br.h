@@ -27,6 +27,4 @@ void pim_br_clear_pmbr(pim_sgaddr *sg);
 
 void pim_br_init(void);
 
-extern pim_addr pim_br_unknown;
-
 #endif
