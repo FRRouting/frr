@@ -2677,7 +2677,8 @@ void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "%% No such interface or neighbor\n");
 }
 
-void pim_show_neighbors(struct pim_instance *pim, struct vty *vty, bool uj)
+void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
+			json_object *json)
 {
 	struct listnode *neighnode;
 	struct interface *ifp;
@@ -2686,16 +2687,13 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty, bool uj)
 	time_t now;
 	char uptime[10];
 	char expire[10];
-	char neigh_src_str[INET_ADDRSTRLEN];
-	json_object *json = NULL;
+	char neigh_src_str[PIM_ADDRSTRLEN];
 	json_object *json_ifp_rows = NULL;
 	json_object *json_row = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (uj) {
-		json = json_object_new_object();
-	} else {
+	if (!json) {
 		vty_out(vty,
 			"Interface                Neighbor    Uptime  Holdtime  DR Pri\n");
 	}
@@ -2709,19 +2707,19 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty, bool uj)
 		if (pim_ifp->pim_sock_fd < 0)
 			continue;
 
-		if (uj)
+		if (json)
 			json_ifp_rows = json_object_new_object();
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 					  neigh)) {
-			pim_inet4_dump("<src?>", neigh->source_addr,
-				       neigh_src_str, sizeof(neigh_src_str));
+			snprintfrr(neigh_src_str, sizeof(neigh_src_str),
+				   "%pPAs", &neigh->source_addr);
 			pim_time_uptime(uptime, sizeof(uptime),
 					now - neigh->creation);
 			pim_time_timer_to_hhmmss(expire, sizeof(expire),
 						 neigh->t_expire_timer);
 
-			if (uj) {
+			if (json) {
 				json_row = json_object_new_object();
 				json_object_string_add(json_row, "interface",
 						       ifp->name);
@@ -2745,12 +2743,9 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty, bool uj)
 			}
 		}
 
-		if (uj) {
+		if (json) {
 			json_object_object_add(json, ifp->name, json_ifp_rows);
 			json_ifp_rows = NULL;
 		}
 	}
-
-	if (uj)
-		vty_json(vty, json);
 }
