@@ -37,6 +37,7 @@
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"
 #include "pim_nb.h"
+#include "pim_addr.h"
 #include "pim_cmd_common.h"
 
 #ifndef VTYSH_EXTRACT_PL
@@ -1168,6 +1169,90 @@ DEFPY (show_ipv6_pim_interface_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_join,
+       show_ipv6_pim_join_cmd,
+       "show ipv6 pim [vrf NAME] join [X:X::X:X$s_or_g [X:X::X:X$g]] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface join information\n"
+       "The Source or Group\n"
+       "The Group\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {};
+	struct vrf *v;
+	struct pim_instance *pim;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (!pim_addr_is_any(s_or_g)) {
+		if (!pim_addr_is_any(g)) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_join(pim, vty, &sg, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_join_vrf_all,
+       show_ipv6_pim_join_vrf_all_cmd,
+       "show ipv6 pim vrf all join [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface join information\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *vrf_struct;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf_struct, vrf_name_head, &vrfs_by_name) {
+		if (!json_parent)
+			vty_out(vty, "VRF: %s\n", vrf_struct->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_join(vrf_struct->info, vty, &sg, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf_struct->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_WARNING;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1235,4 +1320,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_channel_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_join_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_join_vrf_all_cmd);
 }
