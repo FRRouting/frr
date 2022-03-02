@@ -21,6 +21,9 @@
 #define PIM_MSG_H
 
 #include <netinet/in.h>
+#if PIM_IPV == 6
+#include <netinet/ip6.h>
+#endif
 
 #include "pim_jp_agg.h"
 
@@ -180,6 +183,30 @@ struct pim_jp {
 	uint16_t holdtime;
 	struct pim_jp_groups groups[1];
 } __attribute__((packed));
+
+#if PIM_IPV == 4
+static inline pim_sgaddr pim_sgaddr_from_iphdr(const void *iphdr)
+{
+	const struct ip *ipv4_hdr = iphdr;
+	pim_sgaddr sg;
+
+	sg.src = ipv4_hdr->ip_src;
+	sg.grp = ipv4_hdr->ip_dst;
+
+	return sg;
+}
+#else
+static inline pim_sgaddr pim_sgaddr_from_iphdr(const void *iphdr)
+{
+	const struct ip6_hdr *ipv6_hdr = iphdr;
+	pim_sgaddr sg;
+
+	sg.src = ipv6_hdr->ip6_src;
+	sg.grp = ipv6_hdr->ip6_dst;
+
+	return sg;
+}
+#endif
 
 void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
 			  uint8_t pim_msg_type, bool no_fwd);
