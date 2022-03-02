@@ -1283,6 +1283,29 @@ DEFPY (show_ipv6_pim_jp_agg,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_local_membership,
+       show_ipv6_pim_local_membership_cmd,
+       "show ipv6 pim [vrf NAME] local-membership [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface local-membership\n"
+       JSON_STR)
+{
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_membership(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1353,4 +1376,5 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_join_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_join_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_jp_agg_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_local_membership_cmd);
 }
