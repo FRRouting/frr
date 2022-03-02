@@ -2983,9 +2983,9 @@ DEFUN(show_ip_pim_mlag_up_vrf_all, show_ip_pim_mlag_up_vrf_all_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_neighbor,
+DEFPY (show_ip_pim_neighbor,
        show_ip_pim_neighbor_cmd,
-       "show ip pim [vrf NAME] neighbor [detail|WORD] [json]",
+       "show ip pim [vrf NAME] neighbor [detail|WORD]$interface [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2995,25 +2995,31 @@ DEFUN (show_ip_pim_neighbor,
        "Name of interface or neighbor\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct vrf *v;
+	json_object *json_parent = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	if (argv_find(argv, argc, "detail", &idx)
-	    || argv_find(argv, argc, "WORD", &idx))
-		pim_show_neighbors_single(vrf->info, vty, argv[idx]->arg, uj);
+	if (json)
+		json_parent = json_object_new_object();
+
+	if (interface)
+		pim_show_neighbors_single(v->info, vty, interface, json_parent);
 	else
-		pim_show_neighbors(vrf->info, vty, uj);
+		pim_show_neighbors(v->info, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_neighbor_vrf_all,
+DEFPY (show_ip_pim_neighbor_vrf_all,
        show_ip_pim_neighbor_vrf_all_cmd,
-       "show ip pim vrf all neighbor [detail|WORD] [json]",
+       "show ip pim vrf all neighbor [detail|WORD]$interface [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3023,30 +3029,29 @@ DEFUN (show_ip_pim_neighbor_vrf_all,
        "Name of interface or neighbor\n"
        JSON_STR)
 {
-	int idx = 2;
-	bool uj = use_json(argc, argv);
-	struct vrf *vrf;
-	bool first = true;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj)
-		vty_out(vty, "{ ");
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
-			vty_out(vty, "VRF: %s\n", vrf->name);
-		if (argv_find(argv, argc, "detail", &idx)
-		    || argv_find(argv, argc, "WORD", &idx))
-			pim_show_neighbors_single(vrf->info, vty,
-						  argv[idx]->arg, uj);
+	if (json)
+		json_parent = json_object_new_object();
+	RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", v->name);
 		else
-			pim_show_neighbors(vrf->info, vty, uj);
+			json_vrf = json_object_new_object();
+
+		if (interface)
+			pim_show_neighbors_single(v->info, vty, interface,
+						  json_vrf);
+		else
+			pim_show_neighbors(v->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, v->name, json_vrf);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }

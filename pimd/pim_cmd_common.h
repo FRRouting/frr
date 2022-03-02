@@ -90,8 +90,9 @@ void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj);
 void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
 void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
-			       const char *neighbor, bool uj);
-void pim_show_neighbors(struct pim_instance *pim, struct vty *vty, bool uj);
+			       const char *neighbor, json_object *json);
+void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
+			json_object *json);
 /*
  * Special Macro to allow us to get the correct pim_instance
  */
