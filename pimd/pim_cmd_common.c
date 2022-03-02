@@ -51,6 +51,7 @@
 #include "pim_nht.h"
 #include "pim_sock.h"
 #include "pim_ssm.h"
+#include "pim_addr.h"
 
 /**
  * Get current node VRF name.
@@ -1576,7 +1577,7 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 
 static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 				 struct pim_ifchannel *ch, json_object *json,
-				 time_t now, bool uj)
+				 time_t now)
 {
 	json_object *json_iface = NULL;
 	json_object *json_row = NULL;
@@ -1585,7 +1586,6 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 	char uptime[10];
 	char expire[10];
 	char prune[10];
-	char buf[PREFIX_STRLEN];
 
 	ifaddr = pim_ifp->primary_address;
 
@@ -1595,14 +1595,8 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 	pim_time_timer_to_mmss(prune, sizeof(prune),
 			       ch->t_ifjoin_prune_pending_timer);
 
-	if (uj) {
+	if (json) {
 		char ch_grp_str[PIM_ADDRSTRLEN];
-		char ch_src_str[PIM_ADDRSTRLEN];
-
-		snprintfrr(ch_grp_str, sizeof(ch_grp_str), "%pPAs",
-			   &ch->sg.grp);
-		snprintfrr(ch_src_str, sizeof(ch_src_str), "%pPAs",
-			   &ch->sg.src);
 
 		json_object_object_get_ex(json, ch->interface->name,
 					  &json_iface);
@@ -1615,8 +1609,10 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 		}
 
 		json_row = json_object_new_object();
-		json_object_string_add(json_row, "source", ch_src_str);
-		json_object_string_add(json_row, "group", ch_grp_str);
+		json_object_string_addf(json_row, "source", "%pPAs",
+					&ch->sg.src);
+		json_object_string_addf(json_row, "group", "%pPAs",
+					&ch->sg.grp);
 		json_object_string_add(json_row, "upTime", uptime);
 		json_object_string_add(json_row, "expire", expire);
 		json_object_string_add(json_row, "prune", prune);
@@ -1635,38 +1631,38 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 			json_object_int_add(json_row, "protocolPim", 1);
 		if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
 			json_object_int_add(json_row, "protocolIgmp", 1);
+		snprintfrr(ch_grp_str, sizeof(ch_grp_str), "%pPAs",
+			   &ch->sg.grp);
 		json_object_object_get_ex(json_iface, ch_grp_str, &json_grp);
 		if (!json_grp) {
 			json_grp = json_object_new_object();
-			json_object_object_add(json_grp, ch_src_str, json_row);
-			json_object_object_add(json_iface, ch_grp_str,
-					       json_grp);
+			json_object_object_addf(json_grp, json_row, "%pPAs",
+						&ch->sg.src);
+			json_object_object_addf(json_iface, json_grp, "%pPAs",
+						&ch->sg.grp);
 		} else
-			json_object_object_add(json_grp, ch_src_str, json_row);
+			json_object_object_addf(json_grp, json_row, "%pPAs",
+						&ch->sg.src);
 	} else {
-		vty_out(vty, "%-16s %-15s %-15pPAs %-15pPAs %-10s %8s %-6s %5s\n",
-			ch->interface->name,
-			inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
-			&ch->sg.src, &ch->sg.grp,
+		vty_out(vty,
+			"%-16s %-15pPAs %-15pPAs %-15pPAs %-10s %8s %-6s %5s\n",
+			ch->interface->name, &ifaddr, &ch->sg.src, &ch->sg.grp,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 			uptime, expire, prune);
 	}
 }
 
-void pim_show_join(struct pim_instance *pim, struct vty *vty,
-			  pim_sgaddr *sg, bool uj)
+void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
+		   json_object *json)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
 	time_t now;
-	json_object *json = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (uj)
-		json = json_object_new_object();
-	else
+	if (!json)
 		vty_out(vty,
 			"Interface        Address         Source          Group           State      Uptime   Expire Prune\n");
 
@@ -1678,12 +1674,10 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty,
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			if (!pim_sgaddr_match(ch->sg, *sg))
 				continue;
-			pim_show_join_helper(vty, pim_ifp, ch, json, now, uj);
+
+			pim_show_join_helper(vty, pim_ifp, ch, json, now);
 		} /* scan interface channels */
 	}
-
-	if (uj)
-		vty_json(vty, json);
 }
 
 static void pim_show_jp_agg_helper(struct vty *vty, struct interface *ifp,
