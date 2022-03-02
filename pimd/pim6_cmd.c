@@ -33,12 +33,14 @@
 
 #include "pimd.h"
 #include "pim6_cmd.h"
+#include "pim_cmd_common.h"
 #include "pim_vty.h"
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"
 #include "pim_nb.h"
 #include "pim_addr.h"
-#include "pim_cmd_common.h"
+#include "pim_nht.h"
+
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
@@ -1379,6 +1381,74 @@ DEFPY (show_ipv6_pim_neighbor_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_nexthop,
+       show_ipv6_pim_nexthop_cmd,
+       "show ipv6 pim [vrf NAME] nexthop",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached nexthop rpf information\n")
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_nexthop(v->info, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_nexthop_lookup,
+       show_ipv6_pim_nexthop_lookup_cmd,
+       "show ipv6 pim [vrf NAME] nexthop-lookup X:X::X:X$source X:X::X:X$group",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached nexthop rpf lookup\n"
+       "Source/RP address\n"
+       "Multicast Group address\n")
+{
+	struct prefix nht_p;
+	int result = 0;
+	pim_addr vif_source;
+	struct prefix grp;
+	struct pim_nexthop nexthop;
+	char nexthop_addr_str[PIM_ADDRSTRLEN];
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
+		return CMD_SUCCESS;
+
+	pim_addr_to_prefix(&nht_p, vif_source);
+	pim_addr_to_prefix(&grp, group);
+	memset(&nexthop, 0, sizeof(nexthop));
+
+	result = pim_ecmp_nexthop_lookup(v->info, &nexthop, &nht_p, &grp, 0);
+
+	if (!result) {
+		vty_out(vty,
+			"Nexthop Lookup failed, no usable routes returned.\n");
+		return CMD_SUCCESS;
+	}
+
+	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
+		      nexthop_addr_str, sizeof(nexthop_addr_str));
+	vty_out(vty, "Group %s --- Nexthop %s Interface %s\n", group_str,
+		nexthop_addr_str, nexthop.interface->name);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1452,4 +1522,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_local_membership_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_neighbor_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_neighbor_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_nexthop_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_nexthop_lookup_cmd);
 }
