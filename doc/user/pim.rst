@@ -505,9 +505,11 @@ cause great confusion.
    Display information about a S,G pair and how the RPF would be chosen. This
    is especially useful if there are ECMP's available from the RPF lookup.
 
-.. clicmd:: show ip pim rp-info
+.. clicmd:: show ip pim [vrf NAME] rp-info [A.B.C.D/M] [json]
 
    Display information about RP's that are configured on this router.
+
+   You can filter the output by specifying an arbitrary group.
 
 .. clicmd:: show ip pim rpf
 
