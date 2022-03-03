@@ -1222,7 +1222,6 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
-	char source[7];
 	char buf[PREFIX_STRLEN];
 
 	json_object *json = NULL;
@@ -1238,12 +1237,6 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		if (!pim_rpf_addr_is_inaddr_any(&rp_info->rp)) {
 			char buf[48];
 
-			if (rp_info->rp_src == RP_SRC_STATIC)
-				strlcpy(source, "Static", sizeof(source));
-			else if (rp_info->rp_src == RP_SRC_BSR)
-				strlcpy(source, "BSR", sizeof(source));
-			else
-				strlcpy(source, "None", sizeof(source));
 			if (uj) {
 				/*
 				 * If we have moved on to a new RP then add the
@@ -1296,8 +1289,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					json_object_string_addf(
 						json_row, "group", "%pFX",
 						&rp_info->group);
-				json_object_string_add(json_row, "source",
-						       source);
+				json_object_string_add(
+					json_row, "source",
+					pim_rp_origin_str(rp_info->rp_src));
 
 				json_object_array_add(json_rp_rows, json_row);
 			} else {
@@ -1325,7 +1319,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 				else
 					vty_out(vty, "no");
 
-				vty_out(vty, "%14s\n", source);
+				vty_out(vty, "%14s\n",
+					pim_rp_origin_str(rp_info->rp_src));
 			}
 			prev_rp_info = rp_info;
 		}
