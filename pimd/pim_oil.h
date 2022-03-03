@@ -98,7 +98,11 @@ struct channel_oil {
 
 	struct rb_pim_oil_item oil_rb;
 
-	pim_mfcctl oil;
+#if PIM_IPV == 4
+	struct mfcctl oil;
+#else
+	struct mf6cctl oil;
+#endif
 	int installed;
 	int oil_inherited_rescan;
 	int oil_size;
@@ -135,6 +139,12 @@ static inline void oil_if_set(struct channel_oil *c_oil, vifi_t ifi, uint8_t set
 {
 	c_oil->oil.mfcc_ttls[ifi] = set;
 }
+
+static inline int oil_if_cmp(struct mfcctl *oil1, struct mfcctl *oil2)
+{
+	return memcmp(&oil1->mfcc_ttls[0], &oil2->mfcc_ttls[0],
+		      sizeof(oil1->mfcc_ttls));
+}
 #else
 static inline pim_addr *oil_origin(struct channel_oil *c_oil)
 {
@@ -162,6 +172,12 @@ static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi, bool set)
 		IF_SET(ifi, &c_oil->oil.mf6cc_ifset);
 	else
 		IF_CLR(ifi, &c_oil->oil.mf6cc_ifset);
+}
+
+static inline int oil_if_cmp(struct mf6cctl *oil1, struct mf6cctl *oil2)
+{
+	return memcmp(&oil1->mf6cc_ifset, &oil2->mf6cc_ifset,
+		      sizeof(oil1->mf6cc_ifset));
 }
 #endif
 

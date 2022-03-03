@@ -30,18 +30,7 @@
 #include "pim_vxlan_instance.h"
 #include "pim_oil.h"
 #include "pim_upstream.h"
-
-#if defined(HAVE_LINUX_MROUTE_H)
-#include <linux/mroute.h>
-#else
-/*
-  Below: from <linux/mroute.h>
-*/
-
-#ifndef MAXVIFS
-#define MAXVIFS (256)
-#endif
-#endif
+#include "pim_mroute.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
