@@ -244,8 +244,8 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss, const uint8_t *buf,
 static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 {
 	struct interface *ifp;
-	struct sockaddr_in from;
-	struct sockaddr_in to;
+	struct sockaddr_storage from;
+	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
 	socklen_t tolen = sizeof(to);
 	ifindex_t ifindex = -1;
@@ -256,13 +256,11 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 
 	len = pim_socket_recvfromto(ss->sock_fd, buf, sizeof(buf), &from,
 				    &fromlen, &to, &tolen, &ifindex);
+
 	if (len < 0) {
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", ss->source_addr, source_str,
-			       sizeof(source_str));
 		zlog_warn(
-			"%s: failure receiving ssmping for source %s on fd=%d: errno=%d: %s",
-			__func__, source_str, ss->sock_fd, errno,
+			"%s: failure receiving ssmping for source %pI4 on fd=%d: errno=%d: %s",
+			__func__, &ss->source_addr, ss->sock_fd, errno,
 			safe_strerror(errno));
 		return -1;
 	}
@@ -270,47 +268,31 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 	ifp = if_lookup_by_index(ifindex, ss->pim->vrf->vrf_id);
 
 	if (buf[0] != PIM_SSMPINGD_REQUEST) {
-		char source_str[INET_ADDRSTRLEN];
-		char from_str[INET_ADDRSTRLEN];
-		char to_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", ss->source_addr, source_str,
-			       sizeof(source_str));
-		pim_inet4_dump("<from?>", from.sin_addr, from_str,
-			       sizeof(from_str));
-		pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
 		zlog_warn(
-			"%s: bad ssmping type=%d from %s,%d to %s,%d on interface %s ifindex=%d fd=%d src=%s",
-			__func__, buf[0], from_str, ntohs(from.sin_port),
-			to_str, ntohs(to.sin_port),
+			"%s: bad ssmping type=%d from %pSUp to %pSUp on interface %s ifindex=%d fd=%d src=%pI4",
+			__func__, buf[0], &from, &to,
 			ifp ? ifp->name : "<iface?>", ifindex, ss->sock_fd,
-			source_str);
+			&ss->source_addr);
 		return 0;
 	}
 
 	if (PIM_DEBUG_SSMPINGD) {
-		char source_str[INET_ADDRSTRLEN];
-		char from_str[INET_ADDRSTRLEN];
-		char to_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", ss->source_addr, source_str,
-			       sizeof(source_str));
-		pim_inet4_dump("<from?>", from.sin_addr, from_str,
-			       sizeof(from_str));
-		pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
 		zlog_debug(
-			"%s: recv ssmping from %s,%d to %s,%d on interface %s ifindex=%d fd=%d src=%s",
-			__func__, from_str, ntohs(from.sin_port), to_str,
-			ntohs(to.sin_port), ifp ? ifp->name : "<iface?>",
-			ifindex, ss->sock_fd, source_str);
+			"%s: recv ssmping from %pSUp, to %pSUp, on interface %s ifindex=%d fd=%d src=%pI4",
+			__func__, &from, &to, ifp ? ifp->name : "<iface?>",
+			ifindex, ss->sock_fd, &ss->source_addr);
 	}
 
 	buf[0] = PIM_SSMPINGD_REPLY;
 
+	struct sockaddr_in *from_addr = (struct sockaddr_in *)&from;
+
 	/* unicast reply */
-	ssmpingd_sendto(ss, buf, len, from);
+	ssmpingd_sendto(ss, buf, len, *from_addr);
 
 	/* multicast reply */
-	from.sin_addr = ss->pim->ssmpingd_group_addr;
-	ssmpingd_sendto(ss, buf, len, from);
+	from_addr->sin_addr = ss->pim->ssmpingd_group_addr;
+	ssmpingd_sendto(ss, buf, len, *from_addr);
 
 	return 0;
 }
