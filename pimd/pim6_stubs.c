@@ -121,3 +121,12 @@ struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 {
 }
+void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
+		       struct pim_rpf *rpg, int null_register,
+		       struct pim_upstream *up)
+{
+}
+void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
+			    pim_addr originator)
+{
+}
