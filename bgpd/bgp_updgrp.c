@@ -85,6 +85,8 @@ static void sync_init(struct update_subgroup *subgrp,
 {
 	struct peer *peer = UPDGRP_PEER(updgrp);
 
+	subgrp->v_coalesce =
+		MAX((UPDGRP_INST(updgrp))->coalesce_time, peer->v_routeadv);
 	subgrp->sync =
 		XCALLOC(MTYPE_BGP_SYNCHRONISE, sizeof(struct bgp_synchronize));
 	bgp_adv_fifo_init(&subgrp->sync->update);
@@ -814,7 +816,6 @@ update_subgroup_create(struct update_group *updgrp)
 
 	subgrp = XCALLOC(MTYPE_BGP_UPD_SUBGRP, sizeof(struct update_subgroup));
 	update_subgroup_checkin(subgrp, updgrp);
-	subgrp->v_coalesce = (UPDGRP_INST(updgrp))->coalesce_time;
 	sync_init(subgrp, updgrp);
 	bpacket_queue_init(SUBGRP_PKTQ(subgrp));
 	bpacket_queue_add(SUBGRP_PKTQ(subgrp), NULL, NULL);
