@@ -331,8 +331,8 @@ static void pim_sock_read(struct thread *t)
 	struct interface *ifp, *orig_ifp;
 	struct pim_interface *pim_ifp;
 	int fd;
-	struct sockaddr_in from;
-	struct sockaddr_in to;
+	struct sockaddr_storage from;
+	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
 	socklen_t tolen = sizeof(to);
 	uint8_t buf[PIM_PIM_BUFSIZE_READ];

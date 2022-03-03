@@ -1016,8 +1016,8 @@ static void pim_igmp_read(struct thread *t)
 {
 	uint8_t buf[10000];
 	struct gm_sock *igmp = (struct gm_sock *)THREAD_ARG(t);
-	struct sockaddr_in from;
-	struct sockaddr_in to;
+	struct sockaddr_storage from;
+	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
 	socklen_t tolen = sizeof(to);
 	ifindex_t ifindex = -1;
