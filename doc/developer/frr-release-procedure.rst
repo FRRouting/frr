@@ -204,7 +204,7 @@ Stage 3 - Publish
 
    .. code-block:: console
 
-      cp <old-version>.md <version>.md
+      cp content/release/<old-version>.md content/release/<new-version>.md
 
    Paste the GitHub release announcement text into this document, and **remove
    line breaks**. In other words, this::
@@ -219,6 +219,16 @@ Stage 3 - Publish
 
    This is very important otherwise the announcement will be unreadable on the
    website.
+
+   To get the number of commiters and commits, here is a couple of handy commands:
+
+   .. code-block:: console
+
+      # The number of commits
+      % git log --oneline --no-merges base_8.2...base_8.1 | wc -l
+
+      # The number of commiters
+      % git shortlog --summary --no-merges base_8.2...base_8.1 | wc -l
 
    Make sure to add a link to the GitHub releases page at the top.
 
