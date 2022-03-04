@@ -72,6 +72,7 @@ override_dh_auto_install:
 
 # let dh_systemd_* and dh_installinit do their thing automatically
 	cp tools/frr.service debian/frr.service
+	cp tools/frr@.service debian/frr@.service
 	cp tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 
@@ -112,3 +113,4 @@ override_dh_auto_clean:
 	if test -f Makefile; then make redistclean; fi
 	-rm -f debian/frr.init
 	-rm -f debian/frr.service
+	-rm -f debian/frr@.service
