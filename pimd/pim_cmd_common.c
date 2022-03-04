@@ -760,8 +760,8 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 	return state_str;
 }
 
-void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
-			    time_t now, json_object *json)
+void pim_show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
+				time_t now, json_object *json)
 {
 	char refresh_uptime[10];
 
@@ -802,19 +802,16 @@ void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
+void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 {
 	struct pim_upstream *up;
 	time_t now = pim_time_monotonic_sec();
-	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	if (uj) {
-		json = json_object_new_object();
-		show_rpf_refresh_stats(vty, pim, now, json);
-	} else {
-		show_rpf_refresh_stats(vty, pim, now, json);
+	pim_show_rpf_refresh_stats(vty, pim, now, json);
+
+	if (!json) {
 		vty_out(vty, "\n");
 		vty_out(vty,
 			"Source          Group           RpfIface         RpfAddress      RibNextHop      Metric Pref\n");
@@ -832,9 +829,12 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			      &rpf->source_nexthop.mrib_nexthop_addr,
 			      rib_nexthop_str, sizeof(rib_nexthop_str));
 
-		rpf_ifname = rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>";
+		rpf_ifname =
+			rpf->source_nexthop.interface ? rpf->source_nexthop
+								.interface->name
+						      : "<ifname?>";
 
-		if (uj) {
+		if (json) {
 			char grp_str[PIM_ADDRSTRLEN];
 			char src_str[PIM_ADDRSTRLEN];
 
@@ -869,16 +869,14 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			json_object_object_add(json_group, src_str, json_row);
 
 		} else {
-			vty_out(vty, "%-15pPAs %-15pPAs %-16s %-15s %-15s %6d %4d\n",
+			vty_out(vty,
+				"%-15pPAs %-15pPAs %-16s %-15s %-15s %6d %4d\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
 				rpf_addr_str, rib_nexthop_str,
 				rpf->source_nexthop.mrib_route_metric,
 				rpf->source_nexthop.mrib_metric_preference);
 		}
 	}
-
-	if (uj)
-		vty_json(vty, json);
 }
 
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
