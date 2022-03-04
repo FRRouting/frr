@@ -232,9 +232,6 @@ Stage 3 - Publish
 
    Make sure to add a link to the GitHub releases page at the top.
 
-   Once finished, manually add a new entry into ``index.html`` to link to this
-   new announcement. Look at past commits to see how to do this.
-
 #. Deploy the updated ``frr-www`` on the frrouting.org web server and verify
    that the announcement text is visible.
 
