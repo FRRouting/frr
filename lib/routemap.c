@@ -1809,12 +1809,11 @@ static struct list *route_map_get_index_list(struct route_node **rn,
 /*
  * This function returns the route-map index that best matches the prefix.
  */
-static struct route_map_index *route_map_get_index(struct route_map *map,
-						   const struct prefix *prefix,
-						   void *object,
-						   uint8_t *match_ret)
+static struct route_map_index *
+route_map_get_index(struct route_map *map, const struct prefix *prefix,
+		    void *object, enum route_map_cmd_result_t *match_ret)
 {
-	int ret = 0;
+	enum route_map_cmd_result_t ret = RMAP_NOMATCH;
 	struct list *candidate_rmap_list = NULL;
 	struct route_node *rn = NULL;
 	struct listnode *ln = NULL, *nn = NULL;
@@ -2569,7 +2568,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	if ((!map->optimization_disabled)
 	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
 		index = route_map_get_index(map, prefix, match_object,
-					    (uint8_t *)&match_ret);
+					    &match_ret);
 		if (index) {
 			index->applied++;
 			if (rmap_debug)
