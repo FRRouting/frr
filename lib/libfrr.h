@@ -21,6 +21,7 @@
 #ifndef _ZEBRA_FRR_H
 #define _ZEBRA_FRR_H
 
+#include "typesafe.h"
 #include "sigevent.h"
 #include "privs.h"
 #include "thread.h"
@@ -51,6 +52,14 @@ extern "C" {
  * Does nothing if -d isn't used.
  */
 #define FRR_DETACH_LATER	(1 << 6)
+
+PREDECL_DLIST(log_args);
+struct log_arg {
+	struct log_args_item itm;
+
+	char target[0];
+};
+DECLARE_DLIST(log_args, struct log_arg, itm);
 
 enum frr_cli_mode {
 	FRR_CLI_CLASSIC = 0,
@@ -88,7 +97,7 @@ struct frr_daemon_info {
 	const char *pathspace;
 	bool zpathspace;
 
-	const char *early_logging;
+	struct log_args_head early_logging[1];
 	const char *early_loglevel;
 
 	const char *proghelp;
