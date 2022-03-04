@@ -369,7 +369,11 @@ static int bgpd_sync_callback(struct thread *thread)
 	thread_add_read(bm->master, bgpd_sync_callback, NULL, socket, &t_rpki);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
+<<<<<<< HEAD
 		while (read(socket, &rec, sizeof(rec) != -1))
+=======
+		while (read(socket, &rec, sizeof(struct pfx_record)) != -1)
+>>>>>>> bfc30f168 (bgpd: Fix while(read()) for RPKI sync callback)
 			;
 
 		atomic_store_explicit(&rtr_update_overflow, 0,
