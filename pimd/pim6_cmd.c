@@ -712,6 +712,76 @@ DEFPY (show_ipv6_pim_rp_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_rpf,
+       show_ipv6_pim_rpf_cmd,
+       "show ipv6 pim [vrf NAME] rpf [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached source rpf information\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_rpf(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_rpf_vrf_all,
+       show_ipv6_pim_rpf_vrf_all_cmd,
+       "show ipv6 pim vrf all rpf [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached source rpf information\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_rpf(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -766,4 +836,6 @@ void pim_cmd_init(void)
 			&interface_no_ipv6_mld_query_interval_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_rpf_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_rpf_vrf_all_cmd);
 }
