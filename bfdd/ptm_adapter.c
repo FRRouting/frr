@@ -756,20 +756,6 @@ static int bfd_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-static int bfdd_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t nvrfid;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id, &nvrfid);
-	if (ifp == NULL)
-		return 0;
-
-	if_update_to_new_vrf(ifp, nvrfid);
-
-	return 0;
-}
-
 static void bfdd_sessions_enable_address(struct connected *ifc)
 {
 	struct bfd_session_observer *bso;
@@ -832,9 +818,6 @@ static zclient_handler *const bfd_handlers[] = {
 	 * avoid having to create too many handlers.
 	 */
 	[ZEBRA_BFD_DEST_REPLAY] = bfdd_replay,
-
-	/* Learn about interface VRF. */
-	[ZEBRA_INTERFACE_VRF_UPDATE] = bfdd_interface_vrf_update,
 
 	/* Learn about new addresses being registered. */
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = bfdd_interface_address_update,

@@ -853,7 +853,7 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	if_down_del_nbr_connected(ifp);
 
 	/* Send out notification on interface VRF change. */
-	/* This is to issue an UPDATE or a DELETE, as appropriate. */
+	/* This is to issue a DELETE, as appropriate. */
 	zebra_interface_vrf_update_del(ifp, vrf_id);
 
 	if (if_is_vrf(ifp))

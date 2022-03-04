@@ -129,29 +129,6 @@ int pbr_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-static int interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-
-	if (!ifp) {
-		DEBUGD(&pbr_dbg_zebra, "%s: VRF change interface not found",
-		       __func__);
-
-		return 0;
-	}
-
-	DEBUGD(&pbr_dbg_zebra, "%s: %s VRF change %u -> %u", __func__,
-	       ifp->name, vrf_id, new_vrf_id);
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-
-	return 0;
-}
-
 static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix p;
@@ -436,7 +413,6 @@ extern struct zebra_privs_t pbr_privs;
 static zclient_handler *const pbr_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
-	[ZEBRA_INTERFACE_VRF_UPDATE] = interface_vrf_update,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
 	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
 	[ZEBRA_NEXTHOP_UPDATE] = pbr_zebra_nexthop_update,

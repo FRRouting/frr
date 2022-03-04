@@ -435,27 +435,6 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 	return 0;
 }
 
-/* Notify client about interface moving from one VRF to another.
- * Whether client is interested in old and new VRF is checked by caller.
- */
-int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
-			       vrf_id_t vrf_id)
-{
-	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-
-	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf->vrf_id);
-
-	/* Fill in the name of the interface and its new VRF (id) */
-	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
-	stream_putl(s, vrf_id);
-
-	/* Write packet size. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	client->if_vrfchg_cnt++;
-	return zserv_send_message(client, s);
-}
-
 /* Add new nbr connected IPv6 address */
 void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 {

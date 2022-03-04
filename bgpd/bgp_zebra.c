@@ -477,66 +477,6 @@ static int bgp_interface_nbr_address_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-/* VRF update for an interface. */
-static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-	struct connected *c;
-	struct nbr_connected *nc;
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-	struct peer *peer;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf VRF change VRF %u IF %s NewVRF %u", vrf_id,
-			   ifp->name, new_vrf_id);
-
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
-
-	if (bgp) {
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
-			bgp_connected_delete(bgp, c);
-
-		for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
-			bgp_nbr_connected_delete(bgp, nc, 1);
-
-		/* Fast external-failover */
-		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if ((peer->ttl != BGP_DEFAULT_TTL)
-				    && (peer->gtsm_hops
-					!= BGP_GTSM_HOPS_CONNECTED))
-					continue;
-
-				if (ifp == peer->nexthop.ifp)
-					BGP_EVENT_ADD(peer->connection,
-						      BGP_Stop);
-			}
-		}
-	}
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-
-	bgp = bgp_lookup_by_vrf_id(new_vrf_id);
-	if (!bgp)
-		return 0;
-
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
-		bgp_connected_add(bgp, c);
-
-	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
-		bgp_nbr_connected_add(bgp, nc);
-
-	hook_call(bgp_vrf_status_changed, bgp, ifp);
-	return 0;
-}
-
 /* Zebra route add and delete treatment. */
 static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
@@ -3401,7 +3341,6 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = bgp_interface_address_delete,
 	[ZEBRA_INTERFACE_NBR_ADDRESS_ADD] = bgp_interface_nbr_address_add,
 	[ZEBRA_INTERFACE_NBR_ADDRESS_DELETE] = bgp_interface_nbr_address_delete,
-	[ZEBRA_INTERFACE_VRF_UPDATE] = bgp_interface_vrf_update,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = zebra_read_route,
 	[ZEBRA_NEXTHOP_UPDATE] = bgp_read_nexthop_update,

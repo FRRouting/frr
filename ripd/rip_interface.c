@@ -383,31 +383,6 @@ static int rip_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-/* VRF update for an interface. */
-int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
-
-		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
-			   ifp->name, ifp->vrf->name, vrf_id, VRF_LOGNAME(nvrf),
-			   new_vrf_id);
-	}
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-	rip_interface_sync(ifp);
-
-	return 0;
-}
-
 static void rip_interface_clean(struct rip_interface *ri)
 {
 	ri->enable_network = 0;

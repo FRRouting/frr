@@ -413,7 +413,6 @@ extern int ripng_interface_add(ZAPI_CALLBACK_ARGS);
 extern int ripng_interface_delete(ZAPI_CALLBACK_ARGS);
 extern int ripng_interface_address_add(ZAPI_CALLBACK_ARGS);
 extern int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS);
-extern int ripng_interface_vrf_update(ZAPI_CALLBACK_ARGS);
 extern void ripng_interface_sync(struct interface *ifp);
 
 extern struct ripng *ripng_lookup_by_vrf_id(vrf_id_t vrf_id);
