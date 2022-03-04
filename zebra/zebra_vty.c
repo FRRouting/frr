@@ -3977,6 +3977,7 @@ DEFUN (show_zebra,
 
 	ttable_rowseps(table, 0, BOTTOM, true, '-');
 	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());
+	ttable_add_row(table, "ECMP Maximum|%d", zrouter.multipath_num);
 	ttable_add_row(table, "v4 Forwarding|%s", ipforward() ? "On" : "Off");
 	ttable_add_row(table, "v6 Forwarding|%s",
 		       ipforward_ipv6() ? "On" : "Off");
