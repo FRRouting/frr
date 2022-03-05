@@ -401,7 +401,7 @@ void zlog_tls_buffer_flush(void)
 		return;
 
 	rcu_read_lock();
-	frr_each (zlog_targets, &zlog_targets, zt) {
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
 		if (!zt->logfn)
 			continue;
 
@@ -431,7 +431,7 @@ static void vzlog_notls(const struct xref_logmsg *xref, int prio,
 	msg->stackbufsz = sizeof(stackbuf);
 
 	rcu_read_lock();
-	frr_each (zlog_targets, &zlog_targets, zt) {
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
 		if (prio > zt->prio_min)
 			continue;
 		if (!zt->logfn)
