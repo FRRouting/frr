@@ -182,8 +182,6 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 void zlog_live_open(struct zlog_live_cfg *cfg, int prio_min, int *other_fd)
 {
 	int sockets[2];
-	struct zlt_live *zte;
-	struct zlog_target *zt;
 
 	if (cfg->target)
 		zlog_live_close(cfg);
@@ -208,13 +206,23 @@ void zlog_live_open(struct zlog_live_cfg *cfg, int prio_min, int *other_fd)
 		shutdown(sockets[0], SHUT_RD);
 
 	*other_fd = sockets[1];
+	zlog_live_open_fd(cfg, prio_min, sockets[0]);
+}
+
+void zlog_live_open_fd(struct zlog_live_cfg *cfg, int prio_min, int fd)
+{
+	struct zlt_live *zte;
+	struct zlog_target *zt;
+
+	if (cfg->target)
+		zlog_live_close(cfg);
 
 	zt = zlog_target_clone(MTYPE_LOG_LIVE, NULL, sizeof(*zte));
 	zte = container_of(zt, struct zlt_live, zt);
 	cfg->target = zte;
 
-	set_nonblocking(sockets[0]);
-	zte->fd = sockets[0];
+	set_nonblocking(fd);
+	zte->fd = fd;
 	zte->zt.prio_min = prio_min;
 	zte->zt.logfn = zlog_live;
 	zte->zt.logfn_sigsafe = zlog_live_sigsafe;

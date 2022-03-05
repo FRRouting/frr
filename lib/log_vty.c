@@ -428,6 +428,22 @@ void command_setup_early_logging(const char *dest, const char *level)
 		set_log_file(&zt_file_cmdline, NULL, sep, nlevel);
 		return;
 	}
+	if (strcmp(type, "monitor") == 0 && sep) {
+		struct zlog_live_cfg cfg = {};
+		unsigned long fd;
+		char *endp;
+
+		sep++;
+		fd = strtoul(sep, &endp, 10);
+		if (!*sep || *endp) {
+			fprintf(stderr, "invalid monitor fd \"%s\"\n", sep);
+			exit(1);
+		}
+
+		zlog_live_open_fd(&cfg, nlevel, fd);
+		zlog_live_disown(&cfg);
+		return;
+	}
 
 	fprintf(stderr, "invalid log target \"%s\" (\"%s\")\n", type, dest);
 	exit(1);
