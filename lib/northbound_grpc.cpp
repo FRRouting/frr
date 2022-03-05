@@ -1400,6 +1400,11 @@ static int frr_grpc_finish(void)
 	grpc_debug("%s: joining and destroy grpc thread", __func__);
 	pthread_join(fpt->thread, NULL);
 	frr_pthread_destroy(fpt);
+
+	// Fix protobuf 'memory leaks' during shutdown.
+	// https://groups.google.com/g/protobuf/c/4y_EmQiCGgs
+	google::protobuf::ShutdownProtobufLibrary();
+
 	return 0;
 }
 
