@@ -22,6 +22,7 @@
 #include "frrcu.h"
 #include "zlog.h"
 #include "printfrr.h"
+#include "network.h"
 
 DEFINE_MTYPE_STATIC(LOG, LOG_LIVE, "log vtysh live target");
 
@@ -109,6 +110,8 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 	for (size_t msgpos = 0; msgpos < msgtotal; msgpos += sent) {
 		sent = sendmmsg(fd, mmhs + msgpos, msgtotal - msgpos, 0);
 
+		if (sent <= 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+			break;
 		if (sent <= 0)
 			goto out_err;
 	}
@@ -195,6 +198,7 @@ void zlog_live_open(struct zlog_live_cfg *cfg, int prio_min, int *other_fd)
 	zte = container_of(zt, struct zlt_live, zt);
 	cfg->target = zte;
 
+	set_nonblocking(sockets[0]);
 	zte->fd = sockets[0];
 	zte->zt.prio_min = prio_min;
 	zte->zt.logfn = zlog_live;
