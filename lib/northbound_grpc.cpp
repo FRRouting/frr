@@ -96,11 +96,11 @@ class Candidates
 	{
 		char errmsg[BUFSIZ] = {0};
 
-		_cdb.erase(c->id);
 		nb_config_free(c->config);
 		if (c->transaction)
 			nb_candidate_commit_abort(c->transaction, errmsg,
 						  sizeof(errmsg));
+		_cdb.erase(c->id);
 	}
 
 	struct candidate *get_candidate(uint32_t id)
