@@ -78,7 +78,7 @@ class Candidates
 	{
 		// Delete candidates.
 		for (auto it = _cdb.begin(); it != _cdb.end(); it++)
-			delete_candidate(&it->second);
+			delete_candidate(it->first);
 	}
 
 	struct candidate *create_candidate(void)
@@ -94,8 +94,14 @@ class Candidates
 		return c;
 	}
 
-	void delete_candidate(struct candidate *c)
+	bool contains(uint64_t candidate_id)
 	{
+		return _cdb.count(candidate_id) > 0;
+	}
+
+	void delete_candidate(uint64_t candidate_id)
+	{
+		struct candidate *c = &_cdb[candidate_id];
 		char errmsg[BUFSIZ] = {0};
 
 		nb_config_free(c->config);
@@ -105,14 +111,14 @@ class Candidates
 		_cdb.erase(c->id);
 	}
 
-	struct candidate *get_candidate(uint32_t id)
+	struct candidate *get_candidate(uint64_t id)
 	{
 		return _cdb.count(id) == 0 ? NULL : &_cdb[id];
 	}
 
       private:
 	uint64_t _next_id = 0;
-	std::map<uint32_t, struct candidate> _cdb;
+	std::map<uint64_t, struct candidate> _cdb;
 };
 
 class RpcStateBase
@@ -182,6 +188,9 @@ template <typename Q, typename S> class NewRpcState : RpcStateBase
 		while (this->state == new_state)
 			pthread_cond_wait(&this->cond, &this->cmux);
 		pthread_mutex_unlock(&this->cmux);
+
+		if (enter_state == FINISH)
+			assert(this->state == DELETED);
 
 		if (this->state == DELETED) {
 			grpc_debug("%s RPC: -> [DELETED]", name);
@@ -617,15 +626,14 @@ void HandleUnaryDeleteCandidate(NewRpcState<frr::DeleteCandidateRequest,
 
 	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
 
-	struct candidate *candidate = tag->cdb->get_candidate(candidate_id);
-	if (!candidate) {
+	if (!tag->cdb->contains(candidate_id)) {
 		tag->responder.Finish(
 			tag->response,
 			grpc::Status(grpc::StatusCode::NOT_FOUND,
 				     "candidate configuration not found"),
 			tag);
 	} else {
-		tag->cdb->delete_candidate(candidate);
+		tag->cdb->delete_candidate(candidate_id);
 		tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 	}
 	tag->state = FINISH;
