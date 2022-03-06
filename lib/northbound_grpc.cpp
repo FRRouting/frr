@@ -276,10 +276,10 @@ static LYD_FORMAT encoding2lyd_format(enum frr::Encoding encoding)
 }
 
 static int yang_dnode_edit(struct lyd_node *dnode, const std::string &path,
-			   const std::string &value)
+			   const char *value)
 {
-	LY_ERR err = lyd_new_path(dnode, ly_native_ctx, path.c_str(),
-				  value.c_str(), LYD_NEW_PATH_UPDATE, &dnode);
+	LY_ERR err = lyd_new_path(dnode, ly_native_ctx, path.c_str(), value,
+				  LYD_NEW_PATH_UPDATE, &dnode);
 	if (err != LY_SUCCESS) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed: %s",
 			  __func__, ly_errmsg(ly_native_ctx));
@@ -706,8 +706,8 @@ void HandleUnaryEditCandidate(
 
 	auto pvs = tag->request.update();
 	for (const frr::PathValue &pv : pvs) {
-		if (yang_dnode_edit(candidate_tmp->dnode, pv.path(), pv.value())
-		    != 0) {
+		if (yang_dnode_edit(candidate_tmp->dnode, pv.path(),
+				    pv.value().c_str()) != 0) {
 			nb_config_free(candidate_tmp);
 
 			tag->responder.Finish(
