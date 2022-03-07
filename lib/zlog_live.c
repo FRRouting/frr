@@ -64,14 +64,16 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 
 	for (i = 0; i < nmsgs; i++) {
 		const struct fmt_outpos *argpos;
-		size_t n_argpos, arghdrlen;
+		size_t n_argpos, texthdrlen;
 		struct zlog_msg *msg = msgs[i];
 		int prio = zlog_msg_prio(msg);
+		const struct xref_logmsg *xref;
+		intmax_t pid, tid;
 
 		if (prio > zt->prio_min)
 			continue;
 
-		zlog_msg_args(msg, &arghdrlen, &n_argpos, &argpos);
+		zlog_msg_args(msg, &texthdrlen, &n_argpos, &argpos);
 
 		mmh->msg_hdr.msg_iov = iov;
 
@@ -90,14 +92,27 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 		iov++;
 
 		zlog_msg_tsraw(msg, &ts);
+		zlog_msg_pid(msg, &pid, &tid);
+		xref = zlog_msg_xref(msg);
 
 		hdr->ts_sec = ts.tv_sec;
 		hdr->ts_nsec = ts.tv_nsec;
-		hdr->prio = zlog_msg_prio(msg);
+		hdr->pid = pid;
+		hdr->tid = tid;
+		hdr->prio = prio;
 		hdr->flags = 0;
 		hdr->textlen = textlen;
-		hdr->arghdrlen = arghdrlen;
+		hdr->texthdrlen = texthdrlen;
 		hdr->n_argpos = n_argpos;
+		if (xref) {
+			memcpy(hdr->uid, xref->xref.xrefdata->uid,
+			       sizeof(hdr->uid));
+			hdr->ec = xref->ec;
+		} else {
+			memset(hdr->uid, 0, sizeof(hdr->uid));
+			hdr->ec = 0;
+		}
+		hdr->hdrlen = sizeof(*hdr) + sizeof(*argpos) * n_argpos;
 
 		mmh->msg_hdr.msg_iovlen = iov - mmh->msg_hdr.msg_iov;
 		mmh++;
