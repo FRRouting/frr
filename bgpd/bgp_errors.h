@@ -101,6 +101,7 @@ enum bgp_log_refs {
 	EC_BGP_ROUTER_ID_SAME,
 	EC_BGP_INVALID_BGP_INSTANCE,
 	EC_BGP_INVALID_ROUTE,
+	EC_BGP_NO_LL_ADDRESS_AVAILABLE,
 };
 
 extern void bgp_error_init(void);
