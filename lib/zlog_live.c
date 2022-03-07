@@ -134,7 +134,7 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 			      size_t len)
 {
 	struct zlt_live *zte = container_of(zt, struct zlt_live, zt);
-	struct zlog_live_hdr hdr[1];
+	struct zlog_live_hdr hdr[1] = {};
 	struct iovec iovs[2], *iov = iovs;
 	struct timespec ts;
 	int fd;
@@ -143,14 +143,12 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 	if (fd < 0)
 		return;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	clock_gettime(CLOCK_REALTIME, &ts);
 
 	hdr->ts_sec = ts.tv_sec;
 	hdr->ts_nsec = ts.tv_nsec;
 	hdr->prio = LOG_CRIT;
-	hdr->flags = 0;
 	hdr->textlen = len;
-	hdr->n_argpos = 0;
 
 	iov->iov_base = (char *)hdr;
 	iov->iov_len = sizeof(hdr);
