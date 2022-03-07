@@ -507,7 +507,7 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 	char rp_group_xpath[XPATH_MAXLEN];
 	int result = 0;
 	struct prefix group;
-	struct in_addr rp_addr;
+	pim_addr rp_addr;
 
 	result = str2prefix(group_str, &group);
 	if (result) {
@@ -527,7 +527,7 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = inet_pton(AF_INET, rp_str, &rp_addr);
+	result = inet_pton(PIM_AF, rp_str, &rp_addr);
 	if (result <= 0) {
 		vty_out(vty, "%% Bad RP address specified: %s\n", rp_str);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -538,9 +538,8 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_group_xpath, sizeof(rp_group_xpath),
-		 FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 rp_str);
+		 FRR_PIM_STATIC_RP_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL, rp_str);
 	strlcat(rp_group_xpath, "/group-list", sizeof(rp_group_xpath));
 
 	nb_cli_enqueue_change(vty, rp_group_xpath, NB_OP_CREATE, group_str);
@@ -563,8 +562,7 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 rp_str);
+		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
 
 	printed = snprintf(group_list_xpath, sizeof(group_list_xpath),
 			   "%s/group-list", rp_xpath);
