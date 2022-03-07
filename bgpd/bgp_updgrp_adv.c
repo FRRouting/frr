@@ -879,8 +879,20 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		}
 		bgp->peer_self->rmap_type = 0;
 
-		if (ret == RMAP_DENYMATCH)
+		if (ret == RMAP_DENYMATCH) {
+			/*
+			 * If its a implicit withdraw due to routemap
+			 * deny operation need to set the flag back.
+			 * This is a convertion of update flow to
+			 * withdraw flow.
+			 */
+			if (!withdraw &&
+			    (!CHECK_FLAG(subgrp->sflags,
+					 SUBGRP_STATUS_DEFAULT_ORIGINATE)))
+				SET_FLAG(subgrp->sflags,
+					 SUBGRP_STATUS_DEFAULT_ORIGINATE);
 			withdraw = 1;
+		}
 	}
 
 	/* Check if the default route is in local BGP RIB which is
