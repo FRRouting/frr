@@ -421,6 +421,33 @@ DEFPY (no_ipv6_pim_rp,
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
 
+DEFPY (ipv6_pim_rp_prefix_list,
+       ipv6_pim_rp_prefix_list_cmd,
+       "ipv6 pim rp X:X::X:X$rp prefix-list WORD$plist",
+       IPV6_STR
+       PIM_STR
+       "Rendezvous Point\n"
+       "ipv6 address of RP\n"
+       "group prefix-list filter\n"
+       "Name of a prefix-list\n")
+{
+	return pim_process_rp_plist_cmd(vty, rp_str, plist);
+}
+
+DEFPY (no_ipv6_pim_rp_prefix_list,
+       no_ipv6_pim_rp_prefix_list_cmd,
+       "no ipv6 pim rp X:X::X:X$rp prefix-list WORD$plist",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Rendezvous Point\n"
+       "ipv6 address of RP\n"
+       "group prefix-list filter\n"
+       "Name of a prefix-list\n")
+{
+	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -460,4 +487,8 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_cmd);
 	install_element(VRF_NODE, &no_ipv6_pim_rp_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_rp_prefix_list_cmd);
+	install_element(VRF_NODE, &ipv6_pim_rp_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
+	install_element(VRF_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
 }
