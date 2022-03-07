@@ -33,6 +33,8 @@ struct zlog_live_hdr {
 	int64_t pid;
 	int64_t tid;
 
+	/* number of lost messages due to best-effort non-blocking mode */
+	uint32_t lost_msgs;
 	/* syslog priority value */
 	uint32_t prio;
 	/* flags: currently unused */

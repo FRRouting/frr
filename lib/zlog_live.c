@@ -40,6 +40,7 @@ struct zlt_live {
 	struct rcu_head head_self;
 
 	atomic_uint_fast32_t state;
+	atomic_uint_fast32_t lost_msgs;
 };
 
 static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
@@ -99,6 +100,8 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 		hdr->ts_nsec = ts.tv_nsec;
 		hdr->pid = pid;
 		hdr->tid = tid;
+		hdr->lost_msgs = atomic_load_explicit(&zte->lost_msgs,
+						      memory_order_relaxed);
 		hdr->prio = prio;
 		hdr->flags = 0;
 		hdr->textlen = textlen;
@@ -125,8 +128,12 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 	for (size_t msgpos = 0; msgpos < msgtotal; msgpos += sent) {
 		sent = sendmmsg(fd, mmhs + msgpos, msgtotal - msgpos, 0);
 
-		if (sent <= 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		if (sent <= 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			atomic_fetch_add_explicit(&zte->lost_msgs,
+						  msgtotal - msgpos,
+						  memory_order_relaxed);
 			break;
+		}
 		if (sent <= 0)
 			goto out_err;
 	}
