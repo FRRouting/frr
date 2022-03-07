@@ -1176,8 +1176,8 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
-	char rp_buffer[32];
 	int count = 0;
+	pim_addr rp_addr;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
@@ -1186,18 +1186,15 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 		if (rp_info->rp_src == RP_SRC_BSR)
 			continue;
 
+		rp_addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
 		if (rp_info->plist)
-			vty_out(vty, "%sip pim rp %s prefix-list %s\n", spaces,
-				inet_ntop(AF_INET,
-					  &rp_info->rp.rpf_addr.u.prefix4,
-					  rp_buffer, 32),
-				rp_info->plist);
+			vty_out(vty,
+				"%s" PIM_AF_NAME
+				" pim rp %pPA prefix-list %s\n",
+				spaces, &rp_addr, rp_info->plist);
 		else
-			vty_out(vty, "%sip pim rp %s %pFX\n", spaces,
-				inet_ntop(AF_INET,
-					  &rp_info->rp.rpf_addr.u.prefix4,
-					  rp_buffer, 32),
-				&rp_info->group);
+			vty_out(vty, "%s" PIM_AF_NAME " pim rp %pPA %pFX\n",
+				spaces, &rp_addr, &rp_info->group);
 		count++;
 	}
 
