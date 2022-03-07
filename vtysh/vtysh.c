@@ -73,6 +73,7 @@ struct vtysh_client {
 
 	struct thread *log_reader;
 	int log_fd;
+	uint32_t lost_msgs;
 };
 
 static bool stderr_tty;
@@ -3656,6 +3657,15 @@ static void vtysh_log_read(struct thread *thread)
 	if (ret < 0 && ERRNO_IO_RETRY(errno))
 		return;
 
+	if (stderr_stdout_same) {
+#ifdef HAVE_RL_CLEAR_VISIBLE_LINE
+		rl_clear_visible_line();
+#else
+		puts("\r");
+#endif
+		fflush(stdout);
+	}
+
 	if (ret <= 0) {
 		struct timespec ts;
 
@@ -3681,15 +3691,15 @@ static void vtysh_log_read(struct thread *thread)
 		buf.hdr.flags = 0;
 		buf.hdr.texthdrlen = 0;
 		buf.hdr.n_argpos = 0;
-	}
+	} else {
+		int32_t lost_msgs = buf.hdr.lost_msgs - vclient->lost_msgs;
 
-	if (stderr_stdout_same) {
-#ifdef HAVE_RL_CLEAR_VISIBLE_LINE
-		rl_clear_visible_line();
-#else
-		puts("\r");
-#endif
-		fflush(stdout);
+		if (lost_msgs > 0) {
+			vclient->lost_msgs = buf.hdr.lost_msgs;
+			fprintf(stderr,
+				"%d log messages from %s lost (vtysh reading too slowly)\n",
+				lost_msgs, vclient->name);
+		}
 	}
 
 	text = buf.text + sizeof(buf.hdr.argpos[0]) * buf.hdr.n_argpos;
