@@ -1333,7 +1333,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 		json_object_int_add(json_row, "queryV1", rx_stats.query_v1);
 		json_object_int_add(json_row, "queryV2", rx_stats.query_v2);
 		json_object_int_add(json_row, "queryV3", rx_stats.query_v3);
-		json_object_int_add(json_row, "leaveV3", rx_stats.leave_v2);
+		json_object_int_add(json_row, "leaveV2", rx_stats.leave_v2);
 		json_object_int_add(json_row, "reportV1", rx_stats.report_v1);
 		json_object_int_add(json_row, "reportV2", rx_stats.report_v2);
 		json_object_int_add(json_row, "reportV3", rx_stats.report_v3);
