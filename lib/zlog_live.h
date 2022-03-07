@@ -20,13 +20,40 @@
 #include "printfrr.h"
 
 struct zlog_live_hdr {
+	/* timestamp (CLOCK_REALTIME) */
 	uint64_t ts_sec;
 	uint32_t ts_nsec;
-	uint32_t prio;
-	uint32_t flags;
-	uint32_t textlen;
 
-	uint32_t arghdrlen;
+	/* length of zlog_live_hdr, including variable length bits and
+	 * possible future extensions - aka start of text
+	 */
+	uint32_t hdrlen;
+
+	/* process & thread ID, meaning depends on OS */
+	int64_t pid;
+	int64_t tid;
+
+	/* syslog priority value */
+	uint32_t prio;
+	/* flags: currently unused */
+	uint32_t flags;
+	/* length of message text - extra data (e.g. future key/value metadata)
+	 * may follow after it
+	 */
+	uint32_t textlen;
+	/* length of "[XXXXX-XXXXX][EC 0] " header; consumer may want to skip
+	 * over it if using the raw values below.  Note that this text may be
+	 * absent depending on "log error-category" and "log unique-id"
+	 * settings
+	 */
+	uint32_t texthdrlen;
+
+	/* xref unique identifier, "XXXXX-XXXXX\0" = 12 bytes */
+	char uid[12];
+	/* EC value */
+	uint32_t ec;
+
+	/* recorded printf formatting argument positions (variable length) */
 	uint32_t n_argpos;
 	struct fmt_outpos argpos[0];
 };

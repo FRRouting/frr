@@ -3679,7 +3679,7 @@ static void vtysh_log_read(struct thread *thread)
 		buf.hdr.ts_nsec = ts.tv_nsec;
 		buf.hdr.prio = LOG_ERR;
 		buf.hdr.flags = 0;
-		buf.hdr.arghdrlen = 0;
+		buf.hdr.texthdrlen = 0;
 		buf.hdr.n_argpos = 0;
 	}
 
