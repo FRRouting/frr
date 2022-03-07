@@ -7036,34 +7036,17 @@ DEFPY (ip_pim_rp,
 	return pim_process_rp_cmd(vty, rp_str, group_str);
 }
 
-DEFUN (ip_pim_rp_prefix_list,
+DEFPY (ip_pim_rp_prefix_list,
        ip_pim_rp_prefix_list_cmd,
-       "ip pim rp A.B.C.D prefix-list WORD",
+       "ip pim rp A.B.C.D$rp prefix-list WORD$plist",
        IP_STR
        "pim multicast routing\n"
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "ip address of RP\n"
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	int idx_rp = 3, idx_plist = 5;
-	const char *vrfname;
-	char rp_plist_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
-		 FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 argv[idx_rp]->arg);
-	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
-
-	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY,
-			      argv[idx_plist]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_rp_plist_cmd(vty, rp_str, plist);
 }
 
 DEFPY (no_ip_pim_rp,
@@ -7081,53 +7064,18 @@ DEFPY (no_ip_pim_rp,
 	return pim_process_no_rp_cmd(vty, rp_str, group_str);
 }
 
-DEFUN (no_ip_pim_rp_prefix_list,
+DEFPY (no_ip_pim_rp_prefix_list,
        no_ip_pim_rp_prefix_list_cmd,
-       "no ip pim rp A.B.C.D prefix-list WORD",
+       "no ip pim rp A.B.C.D$rp prefix-list WORD$plist",
        NO_STR
        IP_STR
        "pim multicast routing\n"
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "ip address of RP\n"
        "group prefix-list filter\n"
        "Name of a prefix-list\n")
 {
-	int idx_rp = 4;
-	int idx_plist = 6;
-	char rp_xpath[XPATH_MAXLEN];
-	char plist_xpath[XPATH_MAXLEN];
-	const char *vrfname;
-	const struct lyd_node *plist_dnode;
-	const char *plist;
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 argv[idx_rp]->arg);
-
-	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
-		 argv[idx_rp]->arg);
-	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
-
-	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
-	if (!plist_dnode) {
-		vty_out(vty, "%% Unable to find specified RP\n");
-		return NB_OK;
-	}
-
-	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
-	if (strcmp(argv[idx_plist]->arg, plist)) {
-		vty_out(vty, "%% Unable to find specified RP\n");
-		return NB_OK;
-	}
-
-	nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
 DEFUN (ip_pim_ssm_prefix_list,

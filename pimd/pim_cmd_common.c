@@ -597,3 +597,60 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
+			     const char *prefix_list)
+{
+	const char *vrfname;
+	char rp_plist_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
+		 FRR_PIM_STATIC_RP_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL, rp_str);
+	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
+
+	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY, prefix_list);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
+				const char *prefix_list)
+{
+	char rp_xpath[XPATH_MAXLEN];
+	char plist_xpath[XPATH_MAXLEN];
+	const char *vrfname;
+	const struct lyd_node *plist_dnode;
+	const char *plist;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+
+	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
+
+	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
+	if (!plist_dnode) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	plist = yang_dnode_get_string(plist_dnode, plist_xpath);
+	if (strcmp(prefix_list, plist)) {
+		vty_out(vty, "%% Unable to find specified RP\n");
+		return NB_OK;
+	}
+
+	nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
