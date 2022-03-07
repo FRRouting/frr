@@ -29,7 +29,7 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    Zebra, when started, will read in routes.  Those routes that Zebra
    identifies that it was the originator of will be swept in TIME seconds.
    If no time is specified then we will sweep those routes immediately.
-   Under the *BSD's, there is no way to properly store the originating
+   Under the \*BSD's, there is no way to properly store the originating
    route and the route types in this case will show up as a static route
    with an admin distance of 255.
 
