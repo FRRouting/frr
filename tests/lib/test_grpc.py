@@ -1,8 +1,10 @@
 import inspect
 import os
 import subprocess
-import pytest
+
 import frrtest
+import pytest
+
 
 class TestGRPC(object):
     program = "./test_grpc"
@@ -15,9 +17,13 @@ class TestGRPC(object):
         basedir = os.path.dirname(inspect.getsourcefile(type(self)))
         program = os.path.join(basedir, self.program)
         proc = subprocess.Popen(
-            [frrtest.binpath(program)], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+            [frrtest.binpath(program)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
         output, _ = proc.communicate()
         self.exitcode = proc.wait()
         if self.exitcode != 0:
+            print("OUTPUT:\n" + output.decode("ascii"))
             raise frrtest.TestExitNonzero(self)
