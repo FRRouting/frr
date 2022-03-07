@@ -475,6 +475,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Get log files from router and open an issue",
 	},
 	{
+		.code = EC_BGP_NO_LL_ADDRESS_AVAILABLE,
+		.title = "BGP v6 peer with no LL address on outgoing interface",
+		.description = "BGP when using a v6 peer requires a v6 LL address to be configured on the outgoing interface as per RFC 4291 section 2.1",
+		.suggestion = "Add a v6 LL address to the outgoing interfaces as per RFC",
+	},
+	{
 		.code = END_FERR,
 	}
 };
