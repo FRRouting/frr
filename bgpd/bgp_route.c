@@ -5376,10 +5376,10 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						    bgp_attr_get_community(
 							    pi->attr),
 						    COMMUNITY_NO_LLGR))
-						break;
+						continue;
 					if (!CHECK_FLAG(pi->flags,
 							BGP_PATH_STALE))
-						break;
+						continue;
 
 					/*
 					 * If this is VRF leaked route
@@ -5409,9 +5409,9 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 				    !community_include(
 					    bgp_attr_get_community(pi->attr),
 					    COMMUNITY_NO_LLGR))
-					break;
+					continue;
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_STALE))
-					break;
+					continue;
 				if (safi == SAFI_UNICAST &&
 				    (peer->bgp->inst_type ==
 					     BGP_INSTANCE_TYPE_VRF ||
