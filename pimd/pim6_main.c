@@ -189,12 +189,12 @@ int main(int argc, char **argv, char **envp)
 #if 0
 	pim_bfd_init();
 	pim_mlag_init();
+#endif
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);
 
 	routing_control_plane_protocols_register_vrf_dependency();
-#endif
 
 	frr_config_fork();
 	frr_run(router->master);
