@@ -210,6 +210,188 @@ DEFPY (no_ipv6_pim_register_suppress,
 	return pim_process_no_register_suppress_cmd(vty);
 }
 
+DEFPY (interface_ipv6_pim,
+       interface_ipv6_pim_cmd,
+       "ipv6 pim",
+       IPV6_STR
+       PIM_STR)
+{
+	return pim_process_ip_pim_cmd(vty);
+}
+
+DEFPY (interface_no_ipv6_pim,
+       interface_no_ipv6_pim_cmd,
+       "no ipv6 pim",
+       NO_STR
+       IPV6_STR
+       PIM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
+DEFPY (interface_ipv6_pim_drprio,
+       interface_ipv6_pim_drprio_cmd,
+       "ipv6 pim drpriority (1-4294967295)",
+       IPV6_STR
+       PIM_STR
+       "Set the Designated Router Election Priority\n"
+       "Value of the new DR Priority\n")
+{
+	return pim_process_ip_pim_drprio_cmd(vty, drpriority_str);
+}
+
+DEFPY (interface_no_ipv6_pim_drprio,
+       interface_no_ipv6_pim_drprio_cmd,
+       "no ip pim drpriority [(1-4294967295)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Revert the Designated Router Priority to default\n"
+       "Old Value of the Priority\n")
+{
+	return pim_process_no_ip_pim_drprio_cmd(vty);
+}
+
+DEFPY (interface_ipv6_pim_hello,
+       interface_ipv6_pim_hello_cmd,
+       "ipv6 pim hello (1-65535) [(1-65535)]$hold",
+       IPV6_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IFACE_PIM_HELLO_TIME_STR
+       IFACE_PIM_HELLO_HOLD_STR)
+{
+	return pim_process_ip_pim_hello_cmd(vty, hello_str, hold_str);
+}
+
+DEFPY (interface_no_ipv6_pim_hello,
+       interface_no_ipv6_pim_hello_cmd,
+       "no ipv6 pim hello [(1-65535) [(1-65535)]]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IGNORED_IN_NO_STR
+       IGNORED_IN_NO_STR)
+{
+	return pim_process_no_ip_pim_hello_cmd(vty);
+}
+
+DEFPY (interface_ipv6_pim_activeactive,
+       interface_ipv6_pim_activeactive_cmd,
+       "[no] ipv6 pim active-active",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Mark interface as Active-Active for MLAG operations\n")
+{
+	return pim_process_ip_pim_activeactive_cmd(vty, no);
+}
+
+DEFPY_HIDDEN (interface_ipv6_pim_ssm,
+              interface_ipv6_pim_ssm_cmd,
+              "ipv6 pim ssm",
+              IPV6_STR
+              PIM_STR
+              IFACE_PIM_STR)
+{
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	vty_out(vty,
+		"Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+
+	return NB_OK;
+}
+
+DEFPY_HIDDEN (interface_no_ipv6_pim_ssm,
+              interface_no_ipv6_pim_ssm_cmd,
+              "no ipv6 pim ssm",
+              NO_STR
+              IPV6_STR
+              PIM_STR
+              IFACE_PIM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
+DEFPY_HIDDEN (interface_ipv6_pim_sm,
+	      interface_ipv6_pim_sm_cmd,
+	      "ipv6 pim sm",
+	      IPV6_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
+{
+	return pim_process_ip_pim_cmd(vty);
+}
+
+DEFPY_HIDDEN (interface_no_ipv6_pim_sm,
+	      interface_no_ipv6_pim_sm_cmd,
+	      "no ipv6 pim sm",
+	      NO_STR
+	      IPV6_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
+/* boundaries */
+DEFPY (interface_ipv6_pim_boundary_oil,
+      interface_ipv6_pim_boundary_oil_cmd,
+      "ipv6 multicast boundary oil WORD",
+      IPV6_STR
+      "Generic multicast configuration options\n"
+      "Define multicast boundary\n"
+      "Filter OIL by group using prefix list\n"
+      "Prefix list to filter OIL with\n")
+{
+	return pim_process_ip_pim_boundary_oil_cmd(vty, oil);
+}
+
+DEFPY (interface_no_ipv6_pim_boundary_oil,
+      interface_no_ipv6_pim_boundary_oil_cmd,
+      "no ipv6 multicast boundary oil [WORD]",
+      NO_STR
+      IPV6_STR
+      "Generic multicast configuration options\n"
+      "Define multicast boundary\n"
+      "Filter OIL by group using prefix list\n"
+      "Prefix list to filter OIL with\n")
+{
+	return pim_process_no_ip_pim_boundary_oil_cmd(vty);
+}
+
+DEFPY (interface_ipv6_mroute,
+       interface_ipv6_mroute_cmd,
+       "ipv6 mroute INTERFACE X:X::X:X$group [X:X::X:X]$source",
+       IPV6_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group address\n"
+       "Source address\n")
+{
+	return pim_process_ip_mroute_cmd(vty, interface, group_str, source_str);
+}
+
+DEFPY (interface_no_ipv6_mroute,
+       interface_no_ipv6_mroute_cmd,
+       "no ipv6 mroute INTERFACE X:X::X:X$group [X:X::X:X]$source",
+       NO_STR
+       IPV6_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group Address\n"
+       "Source Address\n")
+{
+	return pim_process_no_ip_mroute_cmd(vty, interface, group_str,
+					    source_str);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -228,4 +410,21 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_register_suppress_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_sm_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_ipv6_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ipv6_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
 }

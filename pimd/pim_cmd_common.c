@@ -30,6 +30,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "ferr.h"
+#include "lib/srcdest_table.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -325,4 +326,176 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_ip_pim_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_cmd(struct vty *vty)
+{
+	const struct lyd_node *mld_enable_dnode;
+	char mld_if_xpath[XPATH_MAXLEN];
+
+	int printed =
+		snprintf(mld_if_xpath, sizeof(mld_if_xpath),
+			 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+			 VTY_CURR_XPATH, FRR_PIM_AF_XPATH_VAL);
+
+	if (printed >= (int)(sizeof(mld_if_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	mld_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					   FRR_PIM_AF_XPATH_VAL);
+
+	if (!mld_enable_dnode) {
+		nb_cli_enqueue_change(vty, mld_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(mld_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, mld_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "false");
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str)
+{
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
+			      drpriority_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_drprio_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
+				 const char *hold_str)
+{
+	const struct lyd_node *mld_enable_dnode;
+
+	mld_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					   FRR_PIM_AF_XPATH_VAL);
+
+	if (!mld_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(mld_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY, hello_str);
+
+	if (hold_str)
+		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
+				      hold_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_hello_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_activeactive_cmd(struct vty *vty, const char *no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "false");
+	else {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_MODIFY,
+				      "true");
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_boundary_oil_cmd(struct vty *vty, const char *oil)
+{
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY,
+			      oil);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
+			      const char *group_str, const char *source_str)
+{
+	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY, interface);
+
+	if (!source_str) {
+		char buf[SRCDEST2STR_BUFFER];
+
+		inet_ntop(AF_INET6, &in6addr_any, buf, sizeof(buf));
+		return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+					    FRR_PIM_AF_XPATH_VAL, buf,
+					    group_str);
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL, source_str,
+				    group_str);
+}
+
+int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
+				 const char *group_str, const char *source_str)
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	if (!source_str) {
+		char buf[SRCDEST2STR_BUFFER];
+
+		inet_ntop(AF_INET6, &in6addr_any, buf, sizeof(buf));
+		return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+					    FRR_PIM_AF_XPATH_VAL, buf,
+					    group_str);
+	}
+
+	return nb_cli_apply_changes(vty, FRR_PIM_MROUTE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL, source_str,
+				    group_str);
 }
