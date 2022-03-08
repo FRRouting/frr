@@ -206,6 +206,8 @@ void isis_circuit_down(struct isis_circuit *);
 void circuit_update_nlpids(struct isis_circuit *circuit);
 void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			    char detail);
+void isis_circuit_print_json(struct isis_circuit *circuit,
+			     struct json_object *json, char detail);
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 

@@ -294,7 +294,7 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 
 		/* Print the LDPDB. */
 		if (CHECK_FLAG(flags, F_DISPLAY_LSPDB))
-			show_isis_database_lspdb(vty, area, level - 1,
+			show_isis_database_lspdb_vty(vty, area, level - 1,
 						 &area->lspdb[level - 1], NULL,
 						 ISIS_UI_LEVEL_DETAIL);
 

@@ -2683,3 +2683,15 @@ void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 
 	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }
+void isis_spf_print_json(struct isis_spftree *spftree, struct json_object *json)
+{
+	char uptime[MONOTIME_STRLEN];
+	time_t cur;
+	cur = time(NULL);
+	cur -= spftree->last_run_timestamp;
+	frrtime_to_interval(cur, uptime, sizeof(uptime));
+	json_object_string_add(json, "last-run-elapsed", uptime);
+	json_object_int_add(json, "last-run-duration-usec",
+			    spftree->last_run_duration);
+	json_object_int_add(json, "last-run-count", spftree->runcount);
+}

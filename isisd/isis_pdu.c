@@ -2209,7 +2209,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 				circuit->interface->name,
 				stream_get_endp(circuit->snd_stream));
 			log_multiline(LOG_DEBUG, "              ", "%s",
-				      isis_format_tlvs(tlvs));
+				      isis_format_tlvs(tlvs, NULL));
 			if (IS_DEBUG_PACKET_DUMP)
 				zlog_dump_data(
 					STREAM_DATA(circuit->snd_stream),
@@ -2368,7 +2368,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 				circuit->interface->name,
 				stream_get_endp(circuit->snd_stream));
 			log_multiline(LOG_DEBUG, "              ", "%s",
-				      isis_format_tlvs(tlvs));
+				      isis_format_tlvs(tlvs, NULL));
 			if (IS_DEBUG_PACKET_DUMP)
 				zlog_dump_data(
 					STREAM_DATA(circuit->snd_stream),
