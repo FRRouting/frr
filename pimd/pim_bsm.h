@@ -115,7 +115,7 @@ struct bsm_rpinfo {
 	uint32_t elapse_time;           /* upd at expiry of elected RP node */
 	uint16_t rp_prio;               /* RP priority */
 	uint16_t rp_holdtime;           /* RP holdtime - g2rp timer value */
-	struct in_addr rp_address;      /* RP Address */
+	pim_addr rp_address;		/* RP Address */
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
 	struct thread *g2rp_timer;      /* Run only for elected RP node */
 };
