@@ -1305,8 +1305,10 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
-		struct listnode *sock_node;
+		struct listnode *sock_node, *source_node, *group_node;
 		struct gm_sock *igmp;
+		struct gm_group *group;
+		struct gm_source *src;
 
 		pim_ifp = ifp->info;
 
@@ -1315,6 +1317,22 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 
 		if (ifname && strcmp(ifname, ifp->name))
 			continue;
+
+		rx_stats.total_groups +=
+			pim_ifp->gm_group_list
+				? listcount(pim_ifp->gm_group_list)
+				: 0;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, group_node,
+					  group)) {
+			for (ALL_LIST_ELEMENTS_RO(group->group_source_list,
+						  source_node, src)) {
+				if (pim_addr_is_any(src->source_addr))
+					continue;
+
+				rx_stats.total_source_groups++;
+			}
+		}
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node,
 					  igmp)) {
@@ -1343,6 +1361,10 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 				    rx_stats.mtrace_req);
 		json_object_int_add(json_row, "unsupported",
 				    rx_stats.unsupported);
+		json_object_int_add(json_row, "totalGroups",
+				    rx_stats.total_groups);
+		json_object_int_add(json_row, "totalSourceGroups",
+				    rx_stats.total_source_groups);
 		json_object_object_add(json, ifname ? ifname : "global",
 				       json_row);
 		vty_json(vty, json);
@@ -1350,16 +1372,21 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "IGMP RX statistics\n");
 		vty_out(vty, "Interface       : %s\n",
 			ifname ? ifname : "global");
-		vty_out(vty, "V1 query        : %u\n", rx_stats.query_v1);
-		vty_out(vty, "V2 query        : %u\n", rx_stats.query_v2);
-		vty_out(vty, "V3 query        : %u\n", rx_stats.query_v3);
-		vty_out(vty, "V2 leave        : %u\n", rx_stats.leave_v2);
-		vty_out(vty, "V1 report       : %u\n", rx_stats.report_v1);
-		vty_out(vty, "V2 report       : %u\n", rx_stats.report_v2);
-		vty_out(vty, "V3 report       : %u\n", rx_stats.report_v3);
-		vty_out(vty, "mtrace response : %u\n", rx_stats.mtrace_rsp);
-		vty_out(vty, "mtrace request  : %u\n", rx_stats.mtrace_req);
-		vty_out(vty, "unsupported     : %u\n", rx_stats.unsupported);
+		vty_out(vty, "V1 query            : %u\n", rx_stats.query_v1);
+		vty_out(vty, "V2 query            : %u\n", rx_stats.query_v2);
+		vty_out(vty, "V3 query            : %u\n", rx_stats.query_v3);
+		vty_out(vty, "V2 leave            : %u\n", rx_stats.leave_v2);
+		vty_out(vty, "V1 report           : %u\n", rx_stats.report_v1);
+		vty_out(vty, "V2 report           : %u\n", rx_stats.report_v2);
+		vty_out(vty, "V3 report           : %u\n", rx_stats.report_v3);
+		vty_out(vty, "mtrace response     : %u\n", rx_stats.mtrace_rsp);
+		vty_out(vty, "mtrace request      : %u\n", rx_stats.mtrace_req);
+		vty_out(vty, "unsupported         : %u\n",
+			rx_stats.unsupported);
+		vty_out(vty, "total groups        : %u\n",
+			rx_stats.total_groups);
+		vty_out(vty, "total source groups : %u\n",
+			rx_stats.total_source_groups);
 	}
 }
 
