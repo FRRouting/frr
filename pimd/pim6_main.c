@@ -185,9 +185,6 @@ int main(int argc, char **argv, char **envp)
 	 */
 	pim_iface_init();
 
-	/* TODO PIM6: next line is temporary since pim_cmd_init is disabled */
-	if_cmd_init(NULL);
-
 	pim_zebra_init();
 #if 0
 	pim_bfd_init();
