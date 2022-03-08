@@ -136,7 +136,6 @@ static ns_id_t extract_nsid(struct nlmsghdr *nlh, char *buf)
 	ns_id_t ns_id = NS_UNKNOWN;
 	int offset = NETLINK_ALIGN(sizeof(struct nlmsghdr))
 		     + NETLINK_ALIGN(sizeof(struct rtgenmsg));
-	int curr_length = offset;
 	void *tail = (void *)((char *)nlh + NETLINK_ALIGN(nlh->nlmsg_len));
 	struct nlattr *attr;
 
@@ -145,7 +144,6 @@ static ns_id_t extract_nsid(struct nlmsghdr *nlh, char *buf)
 	     && attr->nla_len >= sizeof(struct nlattr)
 	     && attr->nla_len <= NETLINK_NLATTR_LEN(tail, attr);
 	     attr += NETLINK_ALIGN(attr->nla_len)) {
-		curr_length += attr->nla_len;
 		if ((attr->nla_type & NLA_TYPE_MASK) == NETNSA_NSID) {
 			uint32_t *ptr = (uint32_t *)(attr);
 
