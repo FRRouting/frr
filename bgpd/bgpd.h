@@ -254,10 +254,11 @@ enum bgp_instance_type {
 };
 
 #define BGP_SEND_EOR(bgp, afi, safi)                                           \
-	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR)                      \
-	 && ((bgp->gr_info[afi][safi].t_select_deferral == NULL)               \
-	     || (bgp->gr_info[afi][safi].eor_required                          \
-		 == bgp->gr_info[afi][safi].eor_received)))
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                   \
+	 !bm->t_rmap_update &&                                                 \
+	 ((bgp->gr_info[afi][safi].t_select_deferral == NULL) ||               \
+	  (bgp->gr_info[afi][safi].eor_required ==                             \
+	   bgp->gr_info[afi][safi].eor_received)))
 
 /* BGP GR Global ds */
 
