@@ -143,10 +143,9 @@ sub scan_file {
         elsif ($fabricd) {
            $protocol = "VTYSH_FABRICD";
         }
-# Enable VTYSH_PIM6D once pim6_cmd.c is merged 
-#	elsif ($file =~ /pimd\/pim6_cmd\.c$/) {
-#		$protocol = "VTYSH_PIM6D";
-#	}
+        elsif ($file =~ /pimd\/pim6_.*\.c$/) {
+           $protocol = "VTYSH_PIM6D";
+        }
         else {
            ($protocol) = ($file =~ /^(?:.*\/)?([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
