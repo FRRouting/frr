@@ -730,7 +730,7 @@ DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
       "Graceful Restart commands\n"
       "Prepare upcoming graceful restart\n"
       IP_STR
-      "Prepare to restart the OSPF process")
+      "Prepare to restart the OSPF process\n")
 {
 	struct ospf *ospf;
 	struct listnode *node;

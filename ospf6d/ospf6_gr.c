@@ -689,7 +689,7 @@ DEFPY(ospf6_graceful_restart_prepare, ospf6_graceful_restart_prepare_cmd,
       "graceful-restart prepare ipv6 ospf",
       "Graceful Restart commands\n"
       "Prepare upcoming graceful restart\n" IPV6_STR
-      "Prepare to restart the OSPFv3 process")
+      "Prepare to restart the OSPFv3 process\n")
 {
 	ospf6_gr_prepare();
 
