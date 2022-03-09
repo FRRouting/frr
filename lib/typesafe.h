@@ -43,6 +43,22 @@ extern "C" {
 		item;                                                          \
 		item = from, from = prefix##_next_safe(head, from))
 
+/* reverse direction, only supported by a few containers */
+
+#define frr_rev_each(prefix, head, item)                                       \
+	for (item = prefix##_last(head); item;                                 \
+			item = prefix##_prev(head, item))
+#define frr_rev_each_safe(prefix, head, item)                                  \
+	for (typeof(prefix##_prev_safe(head, NULL)) prefix##_safe =            \
+			prefix##_prev_safe(head,                               \
+				(item = prefix##_last(head)));                 \
+		item;                                                          \
+		item = prefix##_safe,                                          \
+			prefix##_safe = prefix##_prev_safe(head, prefix##_safe))
+#define frr_rev_each_from(prefix, head, item, from)                            \
+	for (item = from, from = prefix##_prev_safe(head, item);               \
+		item;                                                          \
+		item = from, from = prefix##_prev_safe(head, from))
 
 /* non-const variants.  these wrappers are the same for all the types, so
  * bundle them together here.
@@ -55,6 +71,16 @@ macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
 {                                                                              \
 	return (type *)prefix ## _const_next(h, item);                         \
+}                                                                              \
+/* ... */
+#define TYPESAFE_LAST_PREV(prefix, type)                                       \
+macro_pure type *prefix ## _last(struct prefix##_head *h)                      \
+{                                                                              \
+	return (type *)prefix ## _const_last(h);                               \
+}                                                                              \
+macro_pure type *prefix ## _prev(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	return (type *)prefix ## _const_prev(h, item);                         \
 }                                                                              \
 /* ... */
 #define TYPESAFE_FIND(prefix, type)                                            \
@@ -398,11 +424,33 @@ macro_pure const type *prefix ## _const_next(const struct prefix##_head *h,    \
 	return container_of(ditem->next, type, field.di);                      \
 }                                                                              \
 TYPESAFE_FIRST_NEXT(prefix, type)                                              \
+macro_pure const type *prefix ## _const_last(const struct prefix##_head *h)    \
+{                                                                              \
+	const struct dlist_item *ditem = h->dh.hitem.prev;                     \
+	if (ditem == &h->dh.hitem)                                             \
+		return NULL;                                                   \
+	return container_of(ditem, type, field.di);                            \
+}                                                                              \
+macro_pure const type *prefix ## _const_prev(const struct prefix##_head *h,    \
+					     const type *item)	               \
+{                                                                              \
+	const struct dlist_item *ditem = &item->field.di;                      \
+	if (ditem->prev == &h->dh.hitem)                                       \
+		return NULL;                                                   \
+	return container_of(ditem->prev, type, field.di);                      \
+}                                                                              \
+TYPESAFE_LAST_PREV(prefix, type)                                               \
 macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 {                                                                              \
 	if (!item)                                                             \
 		return NULL;                                                   \
 	return prefix ## _next(h, item);                                       \
+}                                                                              \
+macro_pure type *prefix ## _prev_safe(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	if (!item)                                                             \
+		return NULL;                                                   \
+	return prefix ## _prev(h, item);                                       \
 }                                                                              \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \

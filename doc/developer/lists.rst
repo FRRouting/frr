@@ -100,35 +100,39 @@ Available types:
 
 Functions provided:
 
-+------------------------------------+------+------+------+---------+------------+
-| Function                           | LIST | HEAP | HASH | \*_UNIQ | \*_NONUNIQ |
-+====================================+======+======+======+=========+============+
-| _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+------+---------+------------+
-| _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
-|                                    |      |      |      |         |            |
-| _const_first, _const_next          |      |      |      |         |            |
-+------------------------------------+------+------+------+---------+------------+
-| _swap_all                          | yes  | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+------+---------+------------+
-| _anywhere                          | yes  | --   | --   | --      | --         |
-+------------------------------------+------+------+------+---------+------------+
-| _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
-+------------------------------------+------+------+------+---------+------------+
-| _add                               | --   | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+------+---------+------------+
-| _member                            | yes  | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+------+---------+------------+
-| _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+------+---------+------------+
-| _find, _const_find                 | --   | --   | yes  | yes     | --         |
-+------------------------------------+------+------+------+---------+------------+
-| _find_lt, _find_gteq,              | --   | --   | --   | yes     | yes        |
-|                                    |      |      |      |         |            |
-| _const_find_lt, _const_find_gteq   |      |      |      |         |            |
-+------------------------------------+------+------+------+---------+------------+
-| use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+------+---------+------------+
++------------------------------------+-------+------+------+---------+------------+
+| Function                           | LIST  | HEAP | HASH | \*_UNIQ | \*_NONUNIQ |
++====================================+=======+======+======+=========+============+
+| _init, _fini                       | yes   | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
+| _first, _next, _next_safe,         | yes   | yes  | yes  | yes     | yes        |
+|                                    |       |      |      |         |            |
+| _const_first, _const_next          |       |      |      |         |            |
++------------------------------------+-------+------+------+---------+------------+
+| _last, _prev, _prev_safe,          | DLIST | --   | --   | RB only | RB only    |
+|                                    | only  |      |      |         |            |
+| _const_last, _const_prev           |       |      |      |         |            |
++------------------------------------+-------+------+------+---------+------------+
+| _swap_all                          | yes   | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
+| _anywhere                          | yes   | --   | --   | --      | --         |
++------------------------------------+-------+------+------+---------+------------+
+| _add_head, _add_tail, _add_after   | yes   | --   | --   | --      | --         |
++------------------------------------+-------+------+------+---------+------------+
+| _add                               | --    | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
+| _member                            | yes   | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
+| _del, _pop                         | yes   | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
+| _find, _const_find                 | --    | --   | yes  | yes     | --         |
++------------------------------------+-------+------+------+---------+------------+
+| _find_lt, _find_gteq,              | --    | --   | --   | yes     | yes        |
+|                                    |       |      |      |         |            |
+| _const_find_lt, _const_find_gteq   |       |      |      |         |            |
++------------------------------------+-------+------+------+---------+------------+
+| use with frr_each() macros         | yes   | yes  | yes  | yes     | yes        |
++------------------------------------+-------+------+------+---------+------------+
 
 
 
@@ -236,6 +240,13 @@ The following iteration macros work across all data structures:
       resume iteration after breaking out of the loop by keeping the ``from``
       value persistent and reusing it for the next loop.
 
+.. c:macro:: frr_rev_each(Z, head, item)
+.. c:macro:: frr_rev_each_safe(Z, head, item)
+.. c:macro:: frr_rev_each_from(Z, head, item, from)
+
+   Reverse direction variants of the above.  Only supported on containers that
+   implement ``_last`` and ``_prev`` (i.e. ``RBTREE`` and ``DLIST``).
+
 To iterate over ``const`` pointers, add ``_const`` to the name of the
 datastructure (``Z`` above), e.g. ``frr_each (mylist, head, item)`` becomes
 ``frr_each (mylist_const, head, item)``.
@@ -291,6 +302,12 @@ The following documentation assumes that a list has been defined using
    empty.  This is O(1) for all data structures except red-black trees
    where it is O(log n).
 
+.. c:function:: const itemtype *Z_const_last(const struct Z_head *)
+.. c:function:: itemtype *Z_last(struct Z_head *)
+
+   Last item in the structure, or ``NULL``.  Only available on containers
+   that support reverse iteration (i.e. ``RBTREE`` and ``DLIST``).
+
 .. c:function:: itemtype *Z_pop(struct Z_head *)
 
    Remove and return the first item in the structure, or ``NULL`` if the
@@ -328,6 +345,13 @@ The following documentation assumes that a list has been defined using
 
    Same as :c:func:`Z_next()`, except that ``NULL`` is returned if
    ``prev`` is ``NULL``.
+
+.. c:function:: const itemtype *Z_const_prev(const struct Z_head *, const itemtype *next)
+.. c:function:: itemtype *Z_prev(struct Z_head *, itemtype *next)
+.. c:function:: itemtype *Z_prev_safe(struct Z_head *, itemtype *next)
+
+   As above, but preceding item.  Only available on structures that support
+   reverse iteration (i.e. ``RBTREE`` and ``DLIST``).
 
 .. c:function:: itemtype *Z_del(struct Z_head *, itemtype *item)
 

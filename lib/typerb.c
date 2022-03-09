@@ -468,6 +468,28 @@ struct rb_entry *typed_rb_next(const struct rb_entry *rbe_const)
 	return rbe;
 }
 
+struct rb_entry *typed_rb_prev(const struct rb_entry *rbe_const)
+{
+	struct rb_entry *rbe = (struct rb_entry *)rbe_const;
+
+	if (RBE_LEFT(rbe)) {
+		rbe = RBE_LEFT(rbe);
+		while (RBE_RIGHT(rbe))
+			rbe = RBE_RIGHT(rbe);
+	} else {
+		if (RBE_PARENT(rbe) && (rbe == RBE_RIGHT(RBE_PARENT(rbe))))
+			rbe = RBE_PARENT(rbe);
+		else {
+			while (RBE_PARENT(rbe)
+			       && (rbe == RBE_LEFT(RBE_PARENT(rbe))))
+				rbe = RBE_PARENT(rbe);
+			rbe = RBE_PARENT(rbe);
+		}
+	}
+
+	return rbe;
+}
+
 struct rb_entry *typed_rb_min(const struct rbt_tree *rbt)
 {
 	struct rb_entry *rbe = RBH_ROOT(rbt);
@@ -476,6 +498,19 @@ struct rb_entry *typed_rb_min(const struct rbt_tree *rbt)
 	while (rbe != NULL) {
 		parent = rbe;
 		rbe = RBE_LEFT(rbe);
+	}
+
+	return parent;
+}
+
+struct rb_entry *typed_rb_max(const struct rbt_tree *rbt)
+{
+	struct rb_entry *rbe = RBH_ROOT(rbt);
+	struct rb_entry *parent = NULL;
+
+	while (rbe != NULL) {
+		parent = rbe;
+		rbe = RBE_RIGHT(rbe);
 	}
 
 	return parent;
