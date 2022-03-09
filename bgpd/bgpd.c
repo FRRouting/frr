@@ -1731,6 +1731,8 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer->v_routeadv = (peer_sort(peer) == BGP_PEER_IBGP)
 				   ? BGP_DEFAULT_IBGP_ROUTEADV
 				   : BGP_DEFAULT_EBGP_ROUTEADV;
+	if (bgp_config_inprocess())
+		peer->shut_during_cfg = true;
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	peer->group = group;
@@ -7938,8 +7940,33 @@ void bgp_pthreads_finish(void)
 	frr_pthread_stop_all();
 }
 
+static int peer_unshut_after_cfg(struct bgp *bgp)
+{
+	struct listnode *node;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (!peer->shut_during_cfg)
+			continue;
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: released from config-pending hold",
+				   peer->host);
+
+		peer->shut_during_cfg = false;
+		if (peer_active(peer) && peer->status != Established) {
+			if (peer->status != Idle)
+				BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(peer, BGP_Start);
+		}
+	}
+
+	return 0;
+}
+
 void bgp_init(unsigned short instance)
 {
+	hook_register(bgp_config_end, peer_unshut_after_cfg);
 
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */
