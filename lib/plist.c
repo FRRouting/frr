@@ -31,6 +31,7 @@
 #include "lib/json.h"
 #include "libfrr.h"
 
+#include <typesafe.h>
 #include "plist_int.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST, "Prefix List");
@@ -58,17 +59,8 @@ struct pltrie_table {
 	struct pltrie_entry entries[PLC_LEN];
 };
 
-/* List of struct prefix_list. */
-struct prefix_list_list {
-	struct prefix_list *head;
-	struct prefix_list *tail;
-};
-
 /* Master structure of prefix_list. */
 struct prefix_master {
-	/* List of prefix_list which name is string. */
-	struct prefix_list_list str;
-
 	/* The latest update. */
 	struct prefix_list *recent;
 
@@ -80,26 +72,32 @@ struct prefix_master {
 
 	/* number of bytes that have a trie level */
 	size_t trie_depth;
+
+	struct plist_head str;
 };
+static int prefix_list_compare_func(const struct prefix_list *a,
+				    const struct prefix_list *b);
+DECLARE_RBTREE_UNIQ(plist, struct prefix_list, plist_item,
+		    prefix_list_compare_func);
 
 /* Static structure of IPv4 prefix_list's master. */
 static struct prefix_master prefix_master_ipv4 = {
-	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
+	NULL, NULL, NULL, PLC_MAXLEVELV4,
 };
 
 /* Static structure of IPv6 prefix-list's master. */
 static struct prefix_master prefix_master_ipv6 = {
-	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
+	NULL, NULL, NULL, PLC_MAXLEVELV6,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v4 = {
-	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV4,
+	NULL, NULL, NULL, PLC_MAXLEVELV4,
 };
 
 /* Static structure of BGP ORF prefix_list's master. */
 static struct prefix_master prefix_master_orf_v6 = {
-	{NULL, NULL}, NULL, NULL, NULL, PLC_MAXLEVELV6,
+	NULL, NULL, NULL, PLC_MAXLEVELV6,
 };
 
 static struct prefix_master *prefix_master_get(afi_t afi, int orf)
@@ -124,11 +122,17 @@ afi_t prefix_list_afi(struct prefix_list *plist)
 	return AFI_IP6;
 }
 
+static int prefix_list_compare_func(const struct prefix_list *a,
+				    const struct prefix_list *b)
+{
+	return strcmp(a->name, b->name);
+}
+
 /* Lookup prefix_list from list of prefix_list by name. */
 static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
 						 const char *name)
 {
-	struct prefix_list *plist;
+	struct prefix_list *plist, lookup;
 	struct prefix_master *master;
 
 	if (name == NULL)
@@ -138,11 +142,10 @@ static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
 	if (master == NULL)
 		return NULL;
 
-	for (plist = master->str.head; plist; plist = plist->next)
-		if (strcmp(plist->name, name) == 0)
-			return plist;
-
-	return NULL;
+	lookup.name = XSTRDUP(MTYPE_TMP, name);
+	plist = plist_find(&master->str, &lookup);
+	XFREE(MTYPE_TMP, lookup.name);
+	return plist;
 }
 
 struct prefix_list *prefix_list_lookup(afi_t afi, const char *name)
@@ -188,8 +191,6 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 					      const char *name)
 {
 	struct prefix_list *plist;
-	struct prefix_list *point;
-	struct prefix_list_list *list;
 	struct prefix_master *master;
 
 	master = prefix_master_get(afi, orf);
@@ -203,43 +204,7 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 	plist->trie =
 		XCALLOC(MTYPE_PREFIX_LIST_TRIE, sizeof(struct pltrie_table));
 
-	/* Set prefix_list to string list. */
-	list = &master->str;
-
-	/* Set point to insertion point. */
-	for (point = list->head; point; point = point->next)
-		if (strcmp(point->name, name) >= 0)
-			break;
-
-	/* In case of this is the first element of master. */
-	if (list->head == NULL) {
-		list->head = list->tail = plist;
-		return plist;
-	}
-
-	/* In case of insertion is made at the tail of access_list. */
-	if (point == NULL) {
-		plist->prev = list->tail;
-		list->tail->next = plist;
-		list->tail = plist;
-		return plist;
-	}
-
-	/* In case of insertion is made at the head of access_list. */
-	if (point == list->head) {
-		plist->next = list->head;
-		list->head->prev = plist;
-		list->head = plist;
-		return plist;
-	}
-
-	/* Insertion is made at middle of the access_list. */
-	plist->next = point;
-	plist->prev = point->prev;
-
-	if (point->prev)
-		point->prev->next = plist;
-	point->prev = plist;
+	plist_add(&master->str, plist);
 
 	return plist;
 }
@@ -261,7 +226,6 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 /* Delete prefix-list from prefix_list_master and free it. */
 void prefix_list_delete(struct prefix_list *plist)
 {
-	struct prefix_list_list *list;
 	struct prefix_master *master;
 	struct prefix_list_entry *pentry;
 	struct prefix_list_entry *next;
@@ -278,17 +242,7 @@ void prefix_list_delete(struct prefix_list *plist)
 
 	master = plist->master;
 
-	list = &master->str;
-
-	if (plist->next)
-		plist->next->prev = plist->prev;
-	else
-		list->tail = plist->prev;
-
-	if (plist->prev)
-		plist->prev->next = plist->next;
-	else
-		list->head = plist->next;
+	plist_del(&master->str, plist);
 
 	XFREE(MTYPE_TMP, plist->desc);
 
@@ -1120,7 +1074,7 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 					master->recent->name);
 		}
 
-		for (plist = master->str.head; plist; plist = plist->next)
+		frr_each (plist, &master->str, plist)
 			vty_show_prefix_entry(vty, json_proto, afi, plist,
 					      master, dtype, seqnum);
 	}
@@ -1208,7 +1162,7 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 		return CMD_WARNING;
 
 	if (name == NULL && prefix == NULL) {
-		for (plist = master->str.head; plist; plist = plist->next)
+		frr_each (plist, &master->str, plist)
 			for (pentry = plist->head; pentry;
 			     pentry = pentry->next)
 				pentry->hitcnt = 0;
@@ -1608,20 +1562,14 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 static void prefix_list_reset_afi(afi_t afi, int orf)
 {
 	struct prefix_list *plist;
-	struct prefix_list *next;
 	struct prefix_master *master;
 
 	master = prefix_master_get(afi, orf);
 	if (master == NULL)
 		return;
 
-	for (plist = master->str.head; plist; plist = next) {
-		next = plist->next;
+	while ((plist = plist_pop(&master->str)))
 		prefix_list_delete(plist);
-	}
-
-	assert(master->str.head == NULL);
-	assert(master->str.tail == NULL);
 
 	master->recent = NULL;
 }
@@ -1643,7 +1591,7 @@ static void plist_autocomplete_afi(afi_t afi, vector comps,
 	if (master == NULL)
 		return;
 
-	for (plist = master->str.head; plist; plist = plist->next)
+	frr_each (plist, &master->str, plist)
 		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, plist->name));
 }
 
@@ -1696,6 +1644,11 @@ static void prefix_list_init_ipv6(void)
 
 void prefix_list_init(void)
 {
+	plist_init(&prefix_master_ipv4.str);
+	plist_init(&prefix_master_orf_v4.str);
+	plist_init(&prefix_master_ipv6.str);
+	plist_init(&prefix_master_orf_v6.str);
+
 	cmd_variable_handler_register(plist_var_handlers);
 
 	prefix_list_init_ipv4();
