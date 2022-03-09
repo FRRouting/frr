@@ -162,6 +162,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	return 0;
 }
 
+#if PIM_IPV == 4
 void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 {
 	struct pim_nexthop_cache *pnc;
@@ -175,6 +176,7 @@ void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 
 	pnc->bsr_count++;
 }
+#endif /* PIM_IPV == 4 */
 
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
@@ -244,6 +246,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	pim_nht_drop_maybe(pim, pnc);
 }
 
+#if PIM_IPV == 4
 void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -398,6 +401,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 	}
 	return false;
 }
+#endif /* PIM_IPV == 4 */
 
 void pim_rp_nexthop_del(struct rp_info *rp_info)
 {
@@ -482,23 +486,13 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 {
 	uint32_t hash_val;
-	uint32_t s = 0, g = 0;
 
-	if ((!src))
+	if (!src)
 		return 0;
 
-	switch (src->family) {
-	case AF_INET: {
-		s = src->u.prefix4.s_addr;
-		s = s == 0 ? 1 : s;
-		if (grp)
-			g = grp->u.prefix4.s_addr;
-	} break;
-	default:
-		break;
-	}
-
-	hash_val = jhash_2words(g, s, 101);
+	hash_val = prefix_hash_key(src);
+	if (grp)
+		hash_val ^= prefix_hash_key(grp);
 	return hash_val;
 }
 
@@ -549,9 +543,9 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 					break;
 			}
 
-			if (curr_route_valid
-			    && !pim_if_connected_to_source(nexthop->interface,
-							   src->u.prefix4)) {
+			if (curr_route_valid &&
+			    !pim_if_connected_to_source(nexthop->interface,
+							src_addr)) {
 				nbr = pim_neighbor_find_prefix(
 					nexthop->interface,
 					&nexthop->mrib_nexthop_addr);
@@ -668,7 +662,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 				nh_node->gate.ipv4;
 #else
 			nexthop->mrib_nexthop_addr.u.prefix6 =
-				nh_node->gate->ipv6;
+				nh_node->gate.ipv6;
 #endif
 			nexthop->mrib_metric_preference = pnc->distance;
 			nexthop->mrib_route_metric = pnc->metric;
