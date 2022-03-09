@@ -17599,10 +17599,50 @@ static const struct cmd_variable_handler bgp_var_peergroup[] = {
 	{.tokenname = "PGNAME", .completions = bgp_ac_peergroup},
 	{.completions = NULL} };
 
+DEFINE_HOOK(bgp_config_end, (struct bgp * bgp), (bgp));
+
+static struct thread *t_bgp_cfg;
+
+bool bgp_config_inprocess(void)
+{
+	return !!t_bgp_cfg;
+}
+
+static void bgp_config_finish(struct thread *t)
+{
+	struct listnode *node;
+	struct bgp *bgp;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp))
+		hook_call(bgp_config_end, bgp);
+}
+
+static void bgp_config_start(void)
+{
+	zlog_debug("Start reading BGP configuration");
+	THREAD_OFF(t_bgp_cfg);
+	thread_add_timer(bm->master, bgp_config_finish, NULL, 300, &t_bgp_cfg);
+}
+
+static void bgp_config_end(void)
+{
+	zlog_debug("Finished reading BGP configuration");
+
+	if (!t_bgp_cfg)
+		return;
+
+	THREAD_OFF(t_bgp_cfg);
+
+	thread_add_timer(bm->master, bgp_config_finish, NULL,
+			 bm->rmap_update_timer, &t_bgp_cfg);
+}
+
 void bgp_vty_init(void)
 {
 	cmd_variable_handler_register(bgp_var_neighbor);
 	cmd_variable_handler_register(bgp_var_peergroup);
+
+	cmd_init_config_callbacks(bgp_config_start, bgp_config_end);
 
 	/* Install bgp top node. */
 	install_node(&bgp_node);
