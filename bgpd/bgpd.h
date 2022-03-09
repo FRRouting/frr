@@ -770,6 +770,7 @@ DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
+DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -1675,6 +1676,8 @@ struct peer {
 	/* Long-lived Graceful Restart */
 	struct llgr_info llgr[AFI_MAX][SAFI_MAX];
 
+	bool shut_during_cfg;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
@@ -1702,9 +1705,10 @@ DECLARE_QOBJ_TYPE(peer);
 
 /* Check if suppress start/restart of sessions to peer. */
 #define BGP_PEER_START_SUPPRESSED(P)                                           \
-	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN)                            \
-	 || CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW)               \
-	 || CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN))
+	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN) ||                         \
+	 CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW) ||               \
+	 CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN) ||                     \
+	 (P)->shut_during_cfg)
 
 #define PEER_ROUTE_ADV_DELAY(peer)					       \
 	(CHECK_FLAG(peer->thread_flags, PEER_THREAD_SUBGRP_ADV_DELAY))
