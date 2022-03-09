@@ -17599,10 +17599,66 @@ static const struct cmd_variable_handler bgp_var_peergroup[] = {
 	{.tokenname = "PGNAME", .completions = bgp_ac_peergroup},
 	{.completions = NULL} };
 
+DEFINE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
+
+static struct thread *t_bgp_cfg;
+
+bool bgp_config_inprocess(void)
+{
+	return thread_is_scheduled(t_bgp_cfg);
+}
+
+static void bgp_config_finish(struct thread *t)
+{
+	struct listnode *node;
+	struct bgp *bgp;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp))
+		hook_call(bgp_config_end, bgp);
+}
+
+static void bgp_config_start(void)
+{
+#define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
+	THREAD_OFF(t_bgp_cfg);
+	thread_add_timer(bm->master, bgp_config_finish, NULL,
+			 BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
+}
+
+/* When we receive a hook the configuration is read,
+ * we start a timer to make sure we postpone sending
+ * EoR before route-maps are processed.
+ * This is especially valid if using `bgp route-map delay-timer`.
+ */
+static void bgp_config_end(void)
+{
+#define BGP_POST_CONFIG_DELAY_SECONDS 1
+	uint32_t bgp_post_config_delay =
+		thread_is_scheduled(bm->t_rmap_update)
+			? thread_timer_remain_second(bm->t_rmap_update)
+			: BGP_POST_CONFIG_DELAY_SECONDS;
+
+	/* If BGP config processing thread isn't running, then
+	 * we can return and rely it's properly handled.
+	 */
+	if (!bgp_config_inprocess())
+		return;
+
+	THREAD_OFF(t_bgp_cfg);
+
+	/* Start a new timer to make sure we don't send EoR
+	 * before route-maps are processed.
+	 */
+	thread_add_timer(bm->master, bgp_config_finish, NULL,
+			 bgp_post_config_delay, &t_bgp_cfg);
+}
+
 void bgp_vty_init(void)
 {
 	cmd_variable_handler_register(bgp_var_neighbor);
 	cmd_variable_handler_register(bgp_var_peergroup);
+
+	cmd_init_config_callbacks(bgp_config_start, bgp_config_end);
 
 	/* Install bgp top node. */
 	install_node(&bgp_node);
