@@ -1,3 +1,9 @@
+frr (8.2.1-0) UNRELEASED; urgency=medium
+
+  * New upstream release FRR 8.2.1
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 09 Mar 2022 10:00:00 -0600
+
 frr (8.2-0) UNRELEASED; urgency=medium
 
   * New upstream release FRR 8.2

@@ -773,7 +773,11 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Tue Mar  1 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Wed Mar  9 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Wed Mar  9 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2.1
+- Fix bgp rpki hang issue
+- Fixes for grpc
 
 * Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
 - The FRRouting community would like to announce FRR Release 8.2.
