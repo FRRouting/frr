@@ -52,6 +52,22 @@ extern struct thread_master *master;
 
 #define VTYSH_WAS_ACTIVE (-2)
 
+
+/*
+ * When VTYSH is run in fork mode, where it forks one child per daemon to send
+ * configuration, we have to summarize the exit codes of the child processes
+ * into a single exit code returned by the VTYSH parent process. The following
+ * return codes are used in fork mode to summarize the state of child processes
+ * in the case where one or more do not exit successfully (nonzero exit).
+ */
+
+/* One or more children exited with an error */
+#define VTYSH_EXIT_MULTI_CHILD_ERROR 254
+
+/* One or more children were killed by a signal or crashed */
+#define VTYSH_EXIT_CHILD_ABNORMAL 255
+
+
 /* commands in REALLYALL are crucial to correct vtysh operation */
 #define VTYSH_REALLYALL	  ~0U
 /* watchfrr is not in ALL since library CLI functions should not be

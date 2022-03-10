@@ -665,11 +665,40 @@ int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
 
 		/* parent, wait for children */
 		if (fork_pid != 0) {
+			/*
+			 * results of all child processes will be summarized
+			 * into a single return code which is used as the
+			 * parent vtysh's exit status
+			 *
+			 * - 1 child failed normally - we use that child's
+			 *   return code
+			 * - >1 child failed normally - we use
+			 *   VTYSH_EXIT_MULTI_CHILD_ERROR
+			 * - >0 child crashed or killed by signal - we use
+			 *   VTYSH_EXIT_CHILD_ABNORMAL
+			 */
+			int summary_child_status = 0;
+
 			fprintf(stdout,
 				"Waiting for children to finish applying config...\n");
-			while (wait(&status) > 0)
-				;
-			return 0;
+			while (wait(&status) > 0) {
+				if (WIFEXITED(status) &&
+				    WEXITSTATUS(status) != 0) {
+					if (summary_child_status != 0 &&
+					    summary_child_status !=
+						    VTYSH_EXIT_CHILD_ABNORMAL) {
+						summary_child_status =
+							VTYSH_EXIT_MULTI_CHILD_ERROR;
+					} else if (summary_child_status == 0) {
+						summary_child_status =
+							WEXITSTATUS(status);
+					}
+				} else if (WIFSIGNALED(status)) {
+					summary_child_status =
+						VTYSH_EXIT_CHILD_ABNORMAL;
+				}
+			}
+			return summary_child_status;
 		}
 
 		/*
