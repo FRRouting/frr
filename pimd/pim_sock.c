@@ -38,6 +38,7 @@
 
 #include "pimd.h"
 #include "pim_mroute.h"
+#include "pim_iface.h"
 #include "pim_sock.h"
 #include "pim_str.h"
 
@@ -233,7 +234,8 @@ int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 	return fd;
 }
 
-int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex)
+int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
+		    struct pim_interface *pim_ifp)
 {
 	int ret;
 
@@ -248,11 +250,14 @@ int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex)
 	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &opt, sizeof(opt));
 #endif
 
+	pim_ifp->igmp_ifstat_joins_sent++;
+
 	if (ret) {
 		flog_err(
 			EC_LIB_SOCKET,
 			"Failure socket joining fd=%d group %pPAs on interface address %pPAs: %m",
 			fd, &group, &ifaddr);
+		pim_ifp->igmp_ifstat_joins_failed++;
 		return ret;
 	}
 
