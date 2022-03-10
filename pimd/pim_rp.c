@@ -77,26 +77,21 @@ int pim_rp_list_cmp(void *v1, void *v2)
 {
 	struct rp_info *rp1 = (struct rp_info *)v1;
 	struct rp_info *rp2 = (struct rp_info *)v2;
+	int ret;
 
 	/*
 	 * Sort by RP IP address
 	 */
-	if (rp1->rp.rpf_addr.u.prefix4.s_addr
-	    < rp2->rp.rpf_addr.u.prefix4.s_addr)
-		return -1;
-
-	if (rp1->rp.rpf_addr.u.prefix4.s_addr
-	    > rp2->rp.rpf_addr.u.prefix4.s_addr)
-		return 1;
+	ret = prefix_cmp(&rp1->rp.rpf_addr, &rp2->rp.rpf_addr);
+	if (ret)
+		return ret;
 
 	/*
 	 * Sort by group IP address
 	 */
-	if (rp1->group.u.prefix4.s_addr < rp2->group.u.prefix4.s_addr)
-		return -1;
-
-	if (rp1->group.u.prefix4.s_addr > rp2->group.u.prefix4.s_addr)
-		return 1;
+	ret = prefix_cmp(&rp1->group, &rp2->group);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -116,13 +111,12 @@ void pim_rp_init(struct pim_instance *pim)
 
 	if (!pim_get_all_mcast_group(&rp_info->group)) {
 		flog_err(EC_LIB_DEVELOPMENT,
-			 "Unable to convert 224.0.0.0/4 to prefix");
+			 "Unable to convert all-multicast prefix");
 		list_delete(&pim->rp_list);
 		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);
 		return;
 	}
-	rp_info->group.family = AF_INET;
 	pim_addr_to_prefix(&rp_info->rp.rpf_addr, PIMADDR_ANY);
 
 	listnode_add(pim->rp_list, rp_info);
@@ -130,9 +124,9 @@ void pim_rp_init(struct pim_instance *pim)
 	rn = route_node_get(pim->rp_table, &rp_info->group);
 	rn->info = rp_info;
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug(
-			"Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
-			rn, rp_info, route_node_get_lock_count(rn));
+		zlog_debug("Allocated: %p for rp_info: %p(%pFX) Lock: %d", rn,
+			   rp_info, &rp_info->group,
+			   route_node_get_lock_count(rn));
 }
 
 void pim_rp_free(struct pim_instance *pim)
@@ -375,7 +369,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 				 up->sg.grp);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: pim upstream update for  old upstream %pI4",
+		zlog_debug("%s: pim upstream update for old upstream %pPA",
 			   __func__, &old_upstream_addr);
 
 	if (!pim_addr_cmp(old_upstream_addr, new_upstream_addr))
@@ -932,9 +926,7 @@ void pim_rp_setup(struct pim_instance *pim)
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+		nht_p = rp_info->rp.rpf_addr;
 
 		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
@@ -1159,7 +1151,6 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
 	char source[7];
-	char buf[PREFIX_STRLEN];
 
 	json_object *json = NULL;
 	json_object *json_rp_rows = NULL;
@@ -1171,8 +1162,6 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_out(vty,
 			"RP address       group/prefix-list   OIF               I am RP    Source\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		char buf[48];
-
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
@@ -1188,15 +1177,11 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 			 * entry for the previous RP
 			 */
 			if (prev_rp_info &&
-			    prev_rp_info->rp.rpf_addr.u.prefix4.s_addr !=
-				    rp_info->rp.rpf_addr.u.prefix4.s_addr) {
-				json_object_object_add(
-					json,
-					inet_ntop(AF_INET,
-						  &prev_rp_info->rp.rpf_addr.u
-							   .prefix4,
-						  buf, sizeof(buf)),
-					json_rp_rows);
+			    prefix_cmp(&prev_rp_info->rp.rpf_addr,
+				       &rp_info->rp.rpf_addr)) {
+				json_object_object_addf(
+					json, json_rp_rows, "%pFXh",
+					&prev_rp_info->rp.rpf_addr);
 				json_rp_rows = NULL;
 			}
 
@@ -1204,9 +1189,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 				json_rp_rows = json_object_new_array();
 
 			json_row = json_object_new_object();
-			json_object_string_addf(
-				json_row, "rpAddress", "%pI4",
-				&rp_info->rp.rpf_addr.u.prefix4);
+			json_object_string_addf(json_row, "rpAddress", "%pFXh",
+						&rp_info->rp.rpf_addr);
 			if (rp_info->rp.source_nexthop.interface)
 				json_object_string_add(
 					json_row, "outboundInterface",
@@ -1233,10 +1217,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 
 			json_object_array_add(json_rp_rows, json_row);
 		} else {
-			vty_out(vty, "%-15s  ",
-				inet_ntop(AF_INET,
-					  &rp_info->rp.rpf_addr.u.prefix4, buf,
-					  sizeof(buf)));
+			vty_out(vty, "%-15pFXh  ", &rp_info->rp.rpf_addr);
 
 			if (rp_info->plist)
 				vty_out(vty, "%-18s  ", rp_info->plist);
@@ -1262,12 +1243,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		if (prev_rp_info && json_rp_rows)
-			json_object_object_add(
-				json,
-				inet_ntop(AF_INET,
-					  &prev_rp_info->rp.rpf_addr.u.prefix4,
-					  buf, sizeof(buf)),
-				json_rp_rows);
+			json_object_object_addf(json, json_rp_rows, "%pFXh",
+						&prev_rp_info->rp.rpf_addr);
 
 		vty_json(vty, json);
 	}
@@ -1285,17 +1262,20 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+		nht_p = rp_info->rp.rpf_addr;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
 		if (!pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info,
 					       &pnc))
 			continue;
 
 		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {
-			if (nh_node->gate.ipv4.s_addr != INADDR_ANY)
+#if PIM_IPV == 4
+			if (!pim_addr_is_any(nh_node->gate.ipv4))
 				continue;
+#else
+			if (!pim_addr_is_any(nh_node->gate.ipv6))
+				continue;
+#endif
 
 			struct interface *ifp1 = if_lookup_by_index(
 				nh_node->ifindex, pim->vrf->vrf_id);
@@ -1308,15 +1288,11 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 #else
 			nh_node->gate.ipv6 = nbr->source_addr;
 #endif
-			if (PIM_DEBUG_PIM_NHT_RP) {
-				char str[PREFIX_STRLEN];
-				pim_addr_dump("<nht_addr?>", &nht_p, str,
-					      sizeof(str));
+			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug(
-					"%s: addr %s new nexthop addr %pPAs interface %s",
-					__func__, str, &nbr->source_addr,
+					"%s: addr %pFXh new nexthop addr %pPAs interface %s",
+					__func__, &nht_p, &nbr->source_addr,
 					ifp1->name);
-			}
 		}
 	}
 }
