@@ -216,6 +216,10 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 	pim_ifp = oif->info;
 
+	assertf(pim_ifp->mroute_vif_index >= 0,
+		"trying to del OIF %s with VIF (%d)", oif->name,
+		pim_ifp->mroute_vif_index);
+
 	/*
 	 * Don't do anything if we've been asked to remove a source
 	 * that is not actually on it.
@@ -417,6 +421,10 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	}
 
 	pim_ifp = oif->info;
+
+	assertf(pim_ifp->mroute_vif_index >= 0,
+		"trying to add OIF %s with VIF (%d)", oif->name,
+		pim_ifp->mroute_vif_index);
 
 	/* Prevent single protocol from subscribing same interface to
 	   channel (S,G) multiple times */
