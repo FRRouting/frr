@@ -96,6 +96,13 @@ struct pim_interface {
 	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
+
+#if PIM_IPV == 6
+	/* link-locals: MLD uses lowest addr, PIM uses highest... */
+	pim_addr ll_lowest;
+	pim_addr ll_highest;
+#endif
+
 	pim_addr primary_address;       /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
 	pim_addr update_source;		/* user can statically set the primary

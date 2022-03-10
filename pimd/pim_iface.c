@@ -512,6 +512,26 @@ void pim_if_addr_add(struct connected *ifc)
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
+#if PIM_IPV != 4
+	if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) ||
+	    IN6_IS_ADDR_LOOPBACK(&ifc->address->u.prefix6)) {
+		if (IN6_IS_ADDR_UNSPECIFIED(&pim_ifp->ll_lowest))
+			pim_ifp->ll_lowest = ifc->address->u.prefix6;
+		else if (IPV6_ADDR_CMP(&ifc->address->u.prefix6,
+				       &pim_ifp->ll_lowest) < 0)
+			pim_ifp->ll_lowest = ifc->address->u.prefix6;
+
+		if (IPV6_ADDR_CMP(&ifc->address->u.prefix6,
+				  &pim_ifp->ll_highest) > 0)
+			pim_ifp->ll_highest = ifc->address->u.prefix6;
+
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug(
+				"%s: new link-local %pI6, lowest now %pI6, highest %pI6",
+				ifc->ifp->name, &ifc->address->u.prefix6,
+				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
+	}
+#endif
 
 	detect_address_change(ifp, 0, __func__);
 
@@ -711,6 +731,43 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 				   ? "secondary"
 				   : "primary");
 
+#if PIM_IPV == 6
+	struct pim_interface *pim_ifp = ifc->ifp->info;
+
+	if (pim_ifp &&
+	    (!IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_lowest) ||
+	     !IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_highest))) {
+		struct listnode *cnode;
+		struct connected *cc;
+
+		memset(&pim_ifp->ll_lowest, 0xff, sizeof(pim_ifp->ll_lowest));
+		memset(&pim_ifp->ll_highest, 0, sizeof(pim_ifp->ll_highest));
+
+		for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected, cnode, cc)) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&cc->address->u.prefix6) &&
+			    !IN6_IS_ADDR_LOOPBACK(&cc->address->u.prefix6))
+				continue;
+
+			if (IPV6_ADDR_CMP(&cc->address->u.prefix6,
+					  &pim_ifp->ll_lowest) < 0)
+				pim_ifp->ll_lowest = cc->address->u.prefix6;
+			if (IPV6_ADDR_CMP(&cc->address->u.prefix6,
+					  &pim_ifp->ll_highest) > 0)
+				pim_ifp->ll_highest = cc->address->u.prefix6;
+		}
+
+		if (pim_ifp->ll_lowest.s6_addr[0] == 0xff)
+			memset(&pim_ifp->ll_lowest, 0,
+			       sizeof(pim_ifp->ll_lowest));
+
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug(
+				"%s: removed link-local %pI6, lowest now %pI6, highest %pI6",
+				ifc->ifp->name, &ifc->address->u.prefix6,
+				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
+	}
+#endif
+
 	detect_address_change(ifp, force_prim_as_any, __func__);
 
 	pim_if_addr_del_igmp(ifc);
@@ -825,17 +882,36 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
 	struct listnode *node;
-	int v4_addrs = 0;
-	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source)) {
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source))
 		return pim_ifp->update_source;
-	}
+
+#if PIM_IPV == 6
+	if (pim_ifp)
+		return pim_ifp->ll_highest;
+
+	pim_addr best_addr = PIMADDR_ANY;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		pim_addr addr;
 
+		if (ifc->address->family != AF_INET6)
+			continue;
+
+		addr = pim_addr_from_prefix(ifc->address);
+		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+			continue;
+		if (pim_addr_cmp(addr, best_addr) > 0)
+			best_addr = addr;
+	}
+
+	return best_addr;
+#else
+	int v4_addrs = 0;
+	int v6_addrs = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		switch (ifc->address->family) {
 		case AF_INET:
 			v4_addrs++;
@@ -853,16 +929,9 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 		if (ifc->address->family != PIM_AF)
 			continue;
 
-		addr = pim_addr_from_prefix(ifc->address);
-
-#if PIM_IPV == 6
-		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
-			continue;
-#endif
-		return addr;
+		return pim_addr_from_prefix(ifc->address);
 	}
 
-#if PIM_IPV == 4
 	/*
 	 * If we have no v4_addrs and v6 is configured
 	 * We probably are using unnumbered
@@ -882,8 +951,8 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
 	}
-#endif
 	return PIMADDR_ANY;
+#endif
 }
 
 static int pim_iface_next_vif_index(struct interface *ifp)
