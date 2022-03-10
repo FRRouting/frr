@@ -428,7 +428,7 @@ static int pim_sock_open(struct interface *ifp)
 		return -1;
 
 	if (pim_socket_join(fd, qpim_all_pim_routers_addr,
-			    pim_ifp->primary_address, ifp->ifindex)) {
+			    pim_ifp->primary_address, ifp->ifindex, pim_ifp)) {
 		close(fd);
 		return -2;
 	}
@@ -467,6 +467,8 @@ void pim_ifstat_reset(struct interface *ifp)
 	pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
 	pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
 	pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
+	pim_ifp->igmp_ifstat_joins_sent = 0;
+	pim_ifp->igmp_ifstat_joins_failed = 0;
 }
 
 void pim_sock_reset(struct interface *ifp)

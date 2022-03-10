@@ -134,7 +134,7 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.report_v2++;
+	igmp->igmp_stats.report_v2++;
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
@@ -242,7 +242,7 @@ int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.leave_v2++;
+	igmp->igmp_stats.leave_v2++;
 
 	/*
 	 * RFC 3376

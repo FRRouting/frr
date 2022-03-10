@@ -189,6 +189,9 @@ struct pim_interface {
 	bool bsm_enable; /* bsm processing enable */
 	bool ucast_bsm_accept; /* ucast bsm processing */
 
+	uint32_t igmp_ifstat_joins_sent;
+	uint32_t igmp_ifstat_joins_failed;
+
 	struct {
 		bool enabled;
 		uint32_t min_rx;

@@ -45,4 +45,6 @@ void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b)
 	a->unsupported += b->unsupported;
 	a->total_groups += b->total_groups;
 	a->total_source_groups += b->total_source_groups;
+	a->joins_sent += b->joins_sent;
+	a->joins_failed += b->joins_failed;
 }

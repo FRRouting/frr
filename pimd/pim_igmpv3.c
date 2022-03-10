@@ -1909,7 +1909,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.report_v3++;
+	igmp->igmp_stats.report_v3++;
 
 	num_groups = ntohs(
 		*(uint16_t *)(igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET));

@@ -35,6 +35,8 @@ struct igmp_stats {
 	uint32_t	unsupported;
 	uint32_t	total_groups;
 	uint32_t	total_source_groups;
+	uint32_t	joins_sent;
+	uint32_t	joins_failed;
 };
 
 #if PIM_IPV == 4
