@@ -128,6 +128,15 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp);
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 
 #else /* PIM_IPV != 4 */
+static inline void pim_igmp_if_init(struct pim_interface *pim_ifp,
+				    struct interface *ifp)
+{
+}
+
+static inline void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+{
+}
+
 static inline void pim_igmp_general_query_on(struct gm_sock *igmp)
 {
 }
