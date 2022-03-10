@@ -696,9 +696,7 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	int i;
 	struct pim_rpf rpf;
 	struct pim_nexthop_cache *pnc = NULL;
-	struct pim_neighbor *nbr = NULL;
 	struct interface *ifp = NULL;
-	struct interface *ifp1 = NULL;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct pim_instance *pim;
 	struct zapi_route nhr;
@@ -739,11 +737,6 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		for (i = 0; i < nhr.nexthop_num; i++) {
 			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
 			switch (nexthop->type) {
-			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-			case NEXTHOP_TYPE_IPV6:
-			case NEXTHOP_TYPE_BLACKHOLE:
-				break;
 			case NEXTHOP_TYPE_IFINDEX:
 				/*
 				 * Connected route (i.e. no nexthop), use
@@ -760,31 +753,44 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 					pnc->rpf.rpf_addr.u.prefix6;
 #endif
 				break;
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
+#if PIM_IPV == 4
+			/* RFC5549 IPv4-over-IPv6 nexthop handling:
+			 * if we get an IPv6 nexthop in IPv4 PIM, hunt down a
+			 * PIM neighbor and use that instead.
+			 */
+			case NEXTHOP_TYPE_IPV6_IFINDEX: {
+				struct interface *ifp1 = NULL;
+				struct pim_neighbor *nbr = NULL;
+
 				ifp1 = if_lookup_by_index(nexthop->ifindex,
 							  pim->vrf->vrf_id);
 
 				if (!ifp1)
 					nbr = NULL;
 				else
+					/* FIXME: should really use nbr's
+					 * secondary address list here
+					 */
 					nbr = pim_neighbor_find_if(ifp1);
+
 				/* Overwrite with Nbr address as NH addr */
 				if (nbr)
-#if PIM_IPV == 4
 					nexthop->gate.ipv4 = nbr->source_addr;
-#else
-					nexthop->gate.ipv6 = nbr->source_addr;
-#endif
-				else {
+				else
 					// Mark nexthop address to 0 until PIM
 					// Nbr is resolved.
-#if PIM_IPV == 4
 					nexthop->gate.ipv4 = PIMADDR_ANY;
-#else
-					nexthop->gate.ipv6 = PIMADDR_ANY;
-#endif
-				}
 
+				break;
+			}
+#else
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+#endif
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_BLACKHOLE:
+				/* nothing to do for the other nexthop types */
 				break;
 			}
 
