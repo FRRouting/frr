@@ -1223,7 +1223,7 @@ int bgp_global_gr_init(struct bgp *bgp)
 		{
 		/*Event -> */
 		/*GLOBAL_GR_cmd*/ /*no_Global_GR_cmd*/
-			GLOBAL_INVALID,  GLOBAL_HELPER,
+			GLOBAL_GR,  GLOBAL_HELPER,
 		/*GLOBAL_DISABLE_cmd*/ /*no_Global_Disable_cmd*/
 			GLOBAL_DISABLE,  GLOBAL_INVALID
 		},
