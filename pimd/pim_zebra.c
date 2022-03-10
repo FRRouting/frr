@@ -55,7 +55,6 @@ struct zclient *zclient;
 
 
 /* Router-id update message from zebra. */
-__attribute__((unused))
 static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
@@ -65,7 +64,6 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-__attribute__((unused))
 static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -158,6 +156,10 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
 		}
 	}
+#else /* PIM_IPV != 4 */
+	if (p->family != PIM_AF)
+		return 0;
+#endif
 
 	pim_if_addr_add(c);
 	if (pim_ifp) {
@@ -178,12 +180,6 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
-#else /* PIM_IPV != 4 */
-	(void)pim_ifp;
-
-	if (p->family == PIM_AF)
-		pim_if_addr_add(c);
-#endif
 	return 0;
 }
 
@@ -222,8 +218,7 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 #endif
 	}
 
-#if PIM_IPV == 4
-	if (p->family == AF_INET) {
+	if (p->family == PIM_AF) {
 		struct pim_instance *pim;
 
 		pim = vrf->info;
@@ -231,10 +226,6 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		pim_rp_setup(pim);
 		pim_i_am_rp_re_evaluate(pim);
 	}
-#else
-	if (p->family == PIM_AF)
-		pim_if_addr_del(c, 0);
-#endif
 
 	connected_free(&c);
 	return 0;
@@ -461,10 +452,10 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
 
 	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
-#if PIM_IPV == 4
 	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
 	[ZEBRA_INTERFACE_VRF_UPDATE] = pim_zebra_interface_vrf_update,
 
+#if PIM_IPV == 4
 	[ZEBRA_VXLAN_SG_ADD] = pim_zebra_vxlan_sg_proc,
 	[ZEBRA_VXLAN_SG_DEL] = pim_zebra_vxlan_sg_proc,
 

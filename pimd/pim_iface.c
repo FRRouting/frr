@@ -127,7 +127,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
-#if PIM_IPV == 4
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
 		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
@@ -153,10 +152,12 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	if (pim)
 		PIM_IF_DO_PIM(pim_ifp->options);
+#if PIM_IPV == 4
 	if (igmp)
 		PIM_IF_DO_IGMP(pim_ifp->options);
 
 	PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
+#endif
 
 	pim_ifp->gm_join_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
@@ -186,10 +187,11 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	ifp->info = pim_ifp;
 
+#if PIM_IPV == 4
 	pim_sock_reset(ifp);
+#endif
 
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
-#endif
 	pim_ifp->pim->mcast_if_count++;
 
 	return pim_ifp;
@@ -208,9 +210,12 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->gm_join_list) {
 		pim_if_igmp_join_del_all(ifp);
 	}
+#endif
 
 	pim_ifchannel_delete_all(ifp);
+#if PIM_IPV == 4
 	igmp_sock_delete_all(ifp);
+#endif
 
 	pim_neighbor_delete_all(ifp, "Interface removed from configuration");
 
@@ -224,7 +229,6 @@ void pim_if_delete(struct interface *ifp)
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
-#endif
 
 	ifp->info = NULL;
 }
@@ -1618,7 +1622,6 @@ static int pim_ifp_create(struct interface *ifp)
 		 */
 		if (pim_ifp)
 			pim_ifp->pim = pim;
-#if PIM_IPV == 4
 		pim_if_addr_add_all(ifp);
 
 		/*
@@ -1630,7 +1633,6 @@ static int pim_ifp_create(struct interface *ifp)
 		 * this is a no-op if it's already been done.
 		 */
 		pim_if_create_pimreg(pim);
-#endif
 	}
 
 #if PIM_IPV == 4
@@ -1668,6 +1670,7 @@ static int pim_ifp_create(struct interface *ifp)
 
 static int pim_ifp_up(struct interface *ifp)
 {
+	uint32_t table_id;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 
@@ -1689,9 +1692,6 @@ static int pim_ifp_up(struct interface *ifp)
 	 */
 	if (pim_ifp)
 		pim_ifp->pim = pim;
-
-#if PIM_IPV == 4
-	uint32_t table_id;
 
 	/*
 	  pim_if_addr_add_all() suffices for bringing up both IGMP and
@@ -1721,7 +1721,6 @@ static int pim_ifp_up(struct interface *ifp)
 			}
 		}
 	}
-#endif
 	return 0;
 }
 
@@ -1735,7 +1734,6 @@ static int pim_ifp_down(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-#if PIM_IPV == 4
 	if (!if_is_operative(ifp)) {
 		pim_ifchannel_delete_all(ifp);
 		/*
@@ -1744,6 +1742,7 @@ static int pim_ifp_down(struct interface *ifp)
 		*/
 		pim_if_addr_del_all(ifp);
 
+#if PIM_IPV == 4
 		/*
 		  pim_sock_delete() closes the socket, stops read and timer
 		  threads,
@@ -1752,13 +1751,15 @@ static int pim_ifp_down(struct interface *ifp)
 		if (ifp->info) {
 			pim_sock_delete(ifp, "link down");
 		}
+#endif
 	}
 
 	if (ifp->info) {
 		pim_if_del_vif(ifp);
+#if PIM_IPV == 4
 		pim_ifstat_reset(ifp);
-	}
 #endif
+	}
 
 	return 0;
 }
@@ -1773,11 +1774,11 @@ static int pim_ifp_destroy(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-#if PIM_IPV == 4
-	struct pim_instance *pim;
-
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
+
+#if PIM_IPV == 4
+	struct pim_instance *pim;
 
 	pim = ifp->vrf->info;
 	if (pim && pim->vxlan.term_if == ifp)
