@@ -179,8 +179,10 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		}
 	}
 #else /* PIM_IPV != 4 */
-	/* unused - for now */
 	(void)pim_ifp;
+
+	if (p->family == PIM_AF)
+		pim_if_addr_add(c);
 #endif
 	return 0;
 }
@@ -229,6 +231,9 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		pim_rp_setup(pim);
 		pim_i_am_rp_re_evaluate(pim);
 	}
+#else
+	if (p->family == PIM_AF)
+		pim_if_addr_del(c, 0);
 #endif
 
 	connected_free(&c);
