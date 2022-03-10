@@ -124,6 +124,7 @@ lib_libfrr_la_SOURCES = \
 	lib/yang.c \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
+	lib/zapi_fae.c \
 	lib/zclient.c \
 	lib/zlog.c \
 	lib/zlog_5424.c \
@@ -320,6 +321,7 @@ pkginclude_HEADERS += \
 	lib/yang.h \
 	lib/yang_translator.h \
 	lib/yang_wrappers.h \
+	lib/zapi_fae.h \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \

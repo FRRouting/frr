@@ -1326,6 +1326,19 @@ enum zapi_opaque_registry {
 	LDP_RLFA_UNREGISTER_ALL = 8,
 	/* Announce LDP labels associated to a previously registered RLFA */
 	LDP_RLFA_LABELS = 9,
+
+	/* Flex-algo Endpoint IGP ready to receive registrations */
+	FAE_READY = 10,
+	/* Flex-algo Endpoint IGP not ready to receive registrations */
+	FAE_NOTREADY = 11,
+	/* Flex-algo Endpoint registration request */
+	FAE_REGISTER = 12,
+	/* Flex-algo Endpoint unregistration request */
+	FAE_UNREGISTER = 13,
+	/* Flex-algo Endpoint update */
+	FAE_UPDATE = 14,
+	/* Flex-algo Endpoint Client ready to receive updates */
+	FAE_CLIENT_READY = 15,
 };
 
 /* Send the hello message.
