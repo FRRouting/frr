@@ -53,8 +53,8 @@
 #if PIM_IPV == 4
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
-			  struct in_addr group_addr,
-			  struct in_addr source_addr);
+			  struct in_addr group_addr, struct in_addr source_addr,
+			  struct pim_interface *pim_ifp);
 #endif
 
 void pim_if_init(struct pim_instance *pim)
@@ -576,7 +576,7 @@ void pim_if_addr_add(struct connected *ifc)
 				close(ij->sock_fd);
 				join_fd = igmp_join_sock(
 					ifp->name, ifp->ifindex, ij->group_addr,
-					ij->source_addr);
+					ij->source_addr, pim_ifp);
 				if (join_fd < 0) {
 					char group_str[INET_ADDRSTRLEN];
 					char source_str[INET_ADDRSTRLEN];
@@ -1248,12 +1248,16 @@ static struct gm_join *igmp_join_find(struct list *join_list,
 }
 
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
-			  struct in_addr group_addr, struct in_addr source_addr)
+			  struct in_addr group_addr, struct in_addr source_addr,
+			  struct pim_interface *pim_ifp)
 {
 	int join_fd;
 
+	pim_ifp->igmp_ifstat_joins_sent++;
+
 	join_fd = pim_socket_raw(IPPROTO_IGMP);
 	if (join_fd < 0) {
+		pim_ifp->igmp_ifstat_joins_failed++;
 		return -1;
 	}
 
@@ -1268,6 +1272,8 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
 			__func__, join_fd, group_str, source_str, ifindex,
 			ifname, errno, safe_strerror(errno));
+
+		pim_ifp->igmp_ifstat_joins_failed++;
 
 		close(join_fd);
 		return -2;
@@ -1288,7 +1294,7 @@ static struct gm_join *igmp_join_new(struct interface *ifp,
 	assert(pim_ifp);
 
 	join_fd = igmp_join_sock(ifp->name, ifp->ifindex, group_addr,
-				 source_addr);
+				 source_addr, pim_ifp);
 	if (join_fd < 0) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
