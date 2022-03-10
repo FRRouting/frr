@@ -199,11 +199,12 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	stream_get_ipaddr(s, &raddr);
 
-	if (raddr.ipa_type != IPADDR_V4 ||
-	    raddr.ipaddr_v4.s_addr != addr.s_addr)
+	if (raddr.ipa_type != PIM_IPADDR ||
+	    pim_addr_cmp(raddr.ipaddr_pim, addr)) {
 		zlog_warn("%s: address mismatch: addr=%pPA(%s) raddr=%pIA",
 			  __func__, &addr, pim->vrf->name, &raddr);
-	/* warning only */
+		/* warning only */
+	}
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
@@ -328,8 +329,8 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -1;
 	}
 
-	ipaddr.ipa_type = IPADDR_V4;
-	ipaddr.ipaddr_v4 = addr;
+	ipaddr.ipa_type = PIM_IPADDR;
+	ipaddr.ipaddr_pim = addr;
 
 	s = zlookup->obuf;
 	stream_reset(s);
@@ -480,6 +481,7 @@ void pim_zlookup_show_ip_multicast(struct vty *vty)
 	}
 }
 
+#if PIM_IPV == 4
 int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 {
 	struct stream *s = zlookup->obuf;
@@ -568,3 +570,4 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 
 	return 0;
 }
+#endif
