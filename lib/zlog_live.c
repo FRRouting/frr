@@ -22,6 +22,7 @@
 #include "frrcu.h"
 #include "zlog.h"
 #include "printfrr.h"
+#include "network.h"
 
 DEFINE_MTYPE_STATIC(LOG, LOG_LIVE, "log vtysh live target");
 
@@ -39,6 +40,7 @@ struct zlt_live {
 	struct rcu_head head_self;
 
 	atomic_uint_fast32_t state;
+	atomic_uint_fast32_t lost_msgs;
 };
 
 static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
@@ -63,14 +65,16 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 
 	for (i = 0; i < nmsgs; i++) {
 		const struct fmt_outpos *argpos;
-		size_t n_argpos, arghdrlen;
+		size_t n_argpos, texthdrlen;
 		struct zlog_msg *msg = msgs[i];
 		int prio = zlog_msg_prio(msg);
+		const struct xref_logmsg *xref;
+		intmax_t pid, tid;
 
 		if (prio > zt->prio_min)
 			continue;
 
-		zlog_msg_args(msg, &arghdrlen, &n_argpos, &argpos);
+		zlog_msg_args(msg, &texthdrlen, &n_argpos, &argpos);
 
 		mmh->msg_hdr.msg_iov = iov;
 
@@ -89,14 +93,29 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 		iov++;
 
 		zlog_msg_tsraw(msg, &ts);
+		zlog_msg_pid(msg, &pid, &tid);
+		xref = zlog_msg_xref(msg);
 
 		hdr->ts_sec = ts.tv_sec;
 		hdr->ts_nsec = ts.tv_nsec;
-		hdr->prio = zlog_msg_prio(msg);
+		hdr->pid = pid;
+		hdr->tid = tid;
+		hdr->lost_msgs = atomic_load_explicit(&zte->lost_msgs,
+						      memory_order_relaxed);
+		hdr->prio = prio;
 		hdr->flags = 0;
 		hdr->textlen = textlen;
-		hdr->arghdrlen = arghdrlen;
+		hdr->texthdrlen = texthdrlen;
 		hdr->n_argpos = n_argpos;
+		if (xref) {
+			memcpy(hdr->uid, xref->xref.xrefdata->uid,
+			       sizeof(hdr->uid));
+			hdr->ec = xref->ec;
+		} else {
+			memset(hdr->uid, 0, sizeof(hdr->uid));
+			hdr->ec = 0;
+		}
+		hdr->hdrlen = sizeof(*hdr) + sizeof(*argpos) * n_argpos;
 
 		mmh->msg_hdr.msg_iovlen = iov - mmh->msg_hdr.msg_iov;
 		mmh++;
@@ -109,6 +128,12 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 	for (size_t msgpos = 0; msgpos < msgtotal; msgpos += sent) {
 		sent = sendmmsg(fd, mmhs + msgpos, msgtotal - msgpos, 0);
 
+		if (sent <= 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			atomic_fetch_add_explicit(&zte->lost_msgs,
+						  msgtotal - msgpos,
+						  memory_order_relaxed);
+			break;
+		}
 		if (sent <= 0)
 			goto out_err;
 	}
@@ -134,7 +159,7 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 			      size_t len)
 {
 	struct zlt_live *zte = container_of(zt, struct zlt_live, zt);
-	struct zlog_live_hdr hdr[1];
+	struct zlog_live_hdr hdr[1] = {};
 	struct iovec iovs[2], *iov = iovs;
 	struct timespec ts;
 	int fd;
@@ -143,14 +168,12 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 	if (fd < 0)
 		return;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	clock_gettime(CLOCK_REALTIME, &ts);
 
 	hdr->ts_sec = ts.tv_sec;
 	hdr->ts_nsec = ts.tv_nsec;
 	hdr->prio = LOG_CRIT;
-	hdr->flags = 0;
 	hdr->textlen = len;
-	hdr->n_argpos = 0;
 
 	iov->iov_base = (char *)hdr;
 	iov->iov_len = sizeof(hdr);
@@ -166,8 +189,6 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 void zlog_live_open(struct zlog_live_cfg *cfg, int prio_min, int *other_fd)
 {
 	int sockets[2];
-	struct zlt_live *zte;
-	struct zlog_target *zt;
 
 	if (cfg->target)
 		zlog_live_close(cfg);
@@ -192,12 +213,23 @@ void zlog_live_open(struct zlog_live_cfg *cfg, int prio_min, int *other_fd)
 		shutdown(sockets[0], SHUT_RD);
 
 	*other_fd = sockets[1];
+	zlog_live_open_fd(cfg, prio_min, sockets[0]);
+}
+
+void zlog_live_open_fd(struct zlog_live_cfg *cfg, int prio_min, int fd)
+{
+	struct zlt_live *zte;
+	struct zlog_target *zt;
+
+	if (cfg->target)
+		zlog_live_close(cfg);
 
 	zt = zlog_target_clone(MTYPE_LOG_LIVE, NULL, sizeof(*zte));
 	zte = container_of(zt, struct zlt_live, zt);
 	cfg->target = zte;
 
-	zte->fd = sockets[0];
+	set_nonblocking(fd);
+	zte->fd = fd;
 	zte->zt.prio_min = prio_min;
 	zte->zt.logfn = zlog_live;
 	zte->zt.logfn_sigsafe = zlog_live_sigsafe;
