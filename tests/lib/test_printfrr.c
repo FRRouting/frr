@@ -207,6 +207,24 @@ int main(int argc, char **argv)
 	assert(strcmp(p, "test#5") == 0);
 	XFREE(MTYPE_TMP, p);
 
+	struct prefix pfx;
+
+	str2prefix("192.168.1.23/24", &pfx);
+	printchk("192.168.1.23/24", "%pFX", &pfx);
+	printchk("192.168.1.23", "%pFXh", &pfx);
+
+	str2prefix("2001:db8::1234/64", &pfx);
+	printchk("2001:db8::1234/64", "%pFX", &pfx);
+	printchk("2001:db8::1234", "%pFXh", &pfx);
+
+	pfx.family = AF_UNIX;
+	printchk("UNK prefix", "%pFX", &pfx);
+	printchk("{prefix.af=AF_UNIX}", "%pFXh", &pfx);
+
+	str2prefix_eth("02:ca:fe:f0:0d:1e/48", (struct prefix_eth *)&pfx);
+	printchk("02:ca:fe:f0:0d:1e/48", "%pFX", &pfx);
+	printchk("02:ca:fe:f0:0d:1e", "%pFXh", &pfx);
+
 	struct prefix_sg sg;
 	sg.src.s_addr = INADDR_ANY;
 	sg.grp.s_addr = INADDR_ANY;

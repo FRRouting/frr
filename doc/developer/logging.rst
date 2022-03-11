@@ -163,6 +163,10 @@ Networking data types
    - :c:union:`prefixptr` (dereference to get :c:struct:`prefix`)
    - :c:union:`prefixconstptr` (dereference to get :c:struct:`prefix`)
 
+   Options:
+
+   ``%pFXh``: (address only) :frrfmtout:`1.2.3.0` / :frrfmtout:`fe80::1234`
+
 .. frrfmt:: %pPSG4 (struct prefix_sg *)
 
    :frrfmtout:`(*,1.2.3.4)`
