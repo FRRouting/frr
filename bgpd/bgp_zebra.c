@@ -882,6 +882,12 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			 */
 			if (!v6_ll_avail && if_is_loopback(ifp))
 				v6_ll_avail = true;
+			else {
+				flog_warn(
+					EC_BGP_NO_LL_ADDRESS_AVAILABLE,
+					"Interface: %s does not have a v6 LL address associated with it, waiting until one is created for it",
+					ifp->name);
+			}
 		} else
 		/* Link-local address. */
 		{
