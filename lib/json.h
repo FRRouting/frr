@@ -116,6 +116,28 @@ static inline struct json_object *json_object_new_stringf(const char *fmt, ...)
 	return ret;
 }
 
+/* NOTE: argument order differs! (due to varargs)
+ *   json_object_object_add(parent, key, child)
+ *   json_object_object_addv(parent, child, key, va)
+ *   json_object_object_addf(parent, child, key, ...)
+ * (would be weird to have the child inbetween the format string and args)
+ */
+PRINTFRR(3, 0)
+extern void json_object_object_addv(struct json_object *parent,
+				    struct json_object *child,
+				    const char *keyfmt, va_list args);
+PRINTFRR(3, 4)
+static inline void json_object_object_addf(struct json_object *parent,
+					   struct json_object *child,
+					   const char *keyfmt, ...)
+{
+	va_list args;
+
+	va_start(args, keyfmt);
+	json_object_object_addv(parent, child, keyfmt, args);
+	va_end(args);
+}
+
 #define JSON_STR "JavaScript Object Notation\n"
 
 /* NOTE: json-c lib has following commit 316da85 which
