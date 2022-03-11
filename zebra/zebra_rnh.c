@@ -768,7 +768,7 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
  * of a particular VRF and address-family or a specific prefix.
  */
 void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
-			struct prefix *p, safi_t safi)
+			const struct prefix *p, safi_t safi)
 {
 	struct route_table *rnh_table;
 	struct route_node *nrn;
@@ -803,7 +803,7 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 }
 
 void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
-			   struct vty *vty, struct prefix *p)
+			   struct vty *vty, const struct prefix *p)
 {
 	struct route_table *table;
 	struct route_node *rn;

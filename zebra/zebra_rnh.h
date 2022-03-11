@@ -44,9 +44,9 @@ extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *, bool *);
 extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client);
 extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
-			       struct prefix *p, safi_t safi);
+			       const struct prefix *p, safi_t safi);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
-				  struct vty *vty, struct prefix *p);
+				  struct vty *vty, const struct prefix *p);
 
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 
