@@ -872,7 +872,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 	  address of the join message is our primary address.
 	 */
 	if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
-		zlog_warn("%s: Assert Loser recv Join%s from %pI4 on %s",
+		zlog_warn("%s: Assert Loser recv Join%s from %pPA on %s",
 			  __func__, ch->sg_str, &neigh_addr, ifp->name);
 
 		assert_action_a5(ch);
