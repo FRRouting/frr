@@ -821,7 +821,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	uint32_t mask = 0;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: (S,G)=%pSG oif=%s (%pI4)", __func__, &ch->sg,
+		zlog_debug("%s: (S,G)=%pSG oif=%s (%pPA)", __func__, &ch->sg,
 			   ch->interface->name, &up->upstream_addr);
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
