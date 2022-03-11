@@ -1441,7 +1441,7 @@ int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to)
 	addr = &evpn->u.prefix_evpn;
 
 	switch (addr->route_type) {
-	case (2):
+	case BGP_EVPN_MAC_IP_ROUTE:
 		if (IS_IPADDR_V4(&addr->macip_addr.ip))
 			ipaddr2prefix(&addr->macip_addr.ip, 32, to);
 		else if (IS_IPADDR_V6(&addr->macip_addr.ip))
@@ -1450,7 +1450,7 @@ int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to)
 			return -1; /* mac only? */
 
 		break;
-	case (5):
+	case BGP_EVPN_IP_PREFIX_ROUTE:
 		ipaddr2prefix(&addr->prefix_addr.ip,
 			      addr->prefix_addr.ip_prefix_length, to);
 		break;
