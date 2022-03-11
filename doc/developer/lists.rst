@@ -1,23 +1,23 @@
 .. _lists:
 
-List implementations
+Type-safe containers
 ====================
 
 .. note::
 
-   The term *list* is used generically for lists, skiplists, trees and hash
-   tables in this document.
+   This section previously used the term *list*; it was changed to *container*
+   to be more clear.
 
-Common list interface
----------------------
+Common container interface
+--------------------------
 
-FRR includes a set of list-like data structure implementations with abstracted
+FRR includes a set of container implementations with abstracted
 common APIs.  The purpose of this is easily allow swapping out one
 data structure for another while also making the code easier to read and write.
-There is one API for unsorted lists and a similar but not identical API for
-sorted lists - and heaps use a middle ground of both.
+There is one API for unsorted containers and a similar but not identical API
+for sorted containers - and heaps use a middle ground of both.
 
-For unsorted lists, the following implementations exist:
+For unsorted containers, the following implementations exist:
 
 - single-linked list with tail pointer (e.g. STAILQ in BSD)
 
@@ -31,7 +31,7 @@ Being partially sorted, the oddball structure:
 - an 8-ary heap
 
 
-For sorted lists, these data structures are implemented:
+For sorted containers, these data structures are implemented:
 
 - single-linked list
 
@@ -44,7 +44,7 @@ For sorted lists, these data structures are implemented:
 - hash table (note below)
 
 Except for hash tables, each of the sorted data structures has a variant with
-unique and non-unique list items.  Hash tables always require unique items
+unique and non-unique items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
 key.  Also, iterating while modifying does not work with hash tables.
 Conversely, the heap always has non-unique items, but iterating while modifying
@@ -60,7 +60,7 @@ in the future:
 
 
 The APIs are all designed to be as type-safe as possible.  This means that
-there will be a compiler warning when an item doesn't match the list, or
+there will be a compiler warning when an item doesn't match the container, or
 the return value has a different type, or other similar situations.  **You
 should never use casts with these APIs.**  If a cast is neccessary in relation
 to these APIs, there is probably something wrong with the overall design.
@@ -140,7 +140,7 @@ Datastructure type setup
 ------------------------
 
 Each of the data structures has a ``PREDECL_*`` and a ``DECLARE_*`` macro to
-set up an "instantiation" of the list.  This works somewhat similar to C++
+set up an "instantiation" of the container.  This works somewhat similar to C++
 templating, though much simpler.
 
 **In all following text, the Z prefix is replaced with a name choosen
@@ -178,8 +178,8 @@ The common setup pattern will look like this:
 
 ``XXX`` is replaced with the name of the data structure, e.g. ``SKIPLIST``
 or ``ATOMLIST``.  The ``DECLARE_XXX`` invocation can either occur in a `.h`
-file (if the list needs to be accessed from several C files) or it can be
-placed in a `.c` file (if the list is only accessed from that file.)  The
+file (if the container needs to be accessed from several C files) or it can be
+placed in a `.c` file (if the container is only accessed from that file.)  The
 ``PREDECL_XXX`` invocation defines the ``struct Z_item`` and ``struct
 Z_head`` types and must therefore occur before these are used.
 
@@ -200,7 +200,7 @@ The following iteration macros work across all data structures:
 
       for (item = Z_first(&head); item; item = Z_next(&head, item))
 
-   Note that this will fail if the list is modified while being iterated
+   Note that this will fail if the container is modified while being iterated
    over.
 
 .. c:macro:: frr_each_safe(Z, head, item)
@@ -224,8 +224,8 @@ The following iteration macros work across all data structures:
 
 .. c:macro:: frr_each_from(Z, head, item, from)
 
-   Iterates over the list, starting at item ``from``.  This variant is "safe"
-   as in the previous macro.  Equivalent to:
+   Iterates over the container, starting at item ``from``.  This variant is
+   "safe" as in the previous macro.  Equivalent to:
 
    .. code-block:: c
 
@@ -254,24 +254,24 @@ datastructure (``Z`` above), e.g. ``frr_each (mylist, head, item)`` becomes
 Common API
 ----------
 
-The following documentation assumes that a list has been defined using
-``Z`` as the name, and ``itemtype`` being the type of the list items (e.g.
+The following documentation assumes that a container has been defined using
+``Z`` as the name, and ``itemtype`` being the type of the items (e.g.
 ``struct item``.)
 
 .. c:function:: void Z_init(struct Z_head *)
 
-   Initializes the list for use.  For most implementations, this just sets
+   Initializes the container for use.  For most implementations, this just sets
    some values.  Hash tables are the only implementation that allocates
    memory in this call.
 
 .. c:function:: void Z_fini(struct Z_head *)
 
-   Reverse the effects of :c:func:`Z_init()`.  The list must be empty
+   Reverse the effects of :c:func:`Z_init()`.  The container must be empty
    when this function is called.
 
    .. warning::
 
-      This function may ``assert()`` if the list is not empty.
+      This function may ``assert()`` if the container is not empty.
 
 .. c:function:: size_t Z_count(const struct Z_head *)
 
@@ -281,7 +281,7 @@ The following documentation assumes that a list has been defined using
 
    .. note::
 
-      For atomic lists with concurrent access, the value will already be
+      For atomic containers with concurrent access, the value will already be
       outdated by the time this function returns and can therefore only be
       used as an estimate.
 
@@ -317,7 +317,7 @@ The following documentation assumes that a list has been defined using
    This function can be used to build queues (with unsorted structures) or
    priority queues (with sorted structures.)
 
-   Another common pattern is deleting all list items:
+   Another common pattern is deleting all container items:
 
    .. code-block:: c
 
@@ -355,14 +355,14 @@ The following documentation assumes that a list has been defined using
 
 .. c:function:: itemtype *Z_del(struct Z_head *, itemtype *item)
 
-   Remove ``item`` from the list and return it.
+   Remove ``item`` from the container and return it.
 
    .. note::
 
       This function's behaviour is undefined if ``item`` is not actually
-      on the list.  Some structures return ``NULL`` in this case while others
-      return ``item``.  The function may also call ``assert()`` (but most
-      don't.)
+      on the container.  Some structures return ``NULL`` in this case while
+      others return ``item``.  The function may also call ``assert()`` (but
+      most don't.)
 
 .. c:function:: itemtype *Z_swap_all(struct Z_head *, struct Z_head *)
 
@@ -451,8 +451,8 @@ API for sorted structures
 -------------------------
 
 Sorted data structures do not need to have an insertion position specified,
-therefore the insertion calls are different from unsorted lists.  Also,
-sorted lists can be searched for a value.
+therefore the insertion calls are different from unsorted containers.  Also,
+sorted containers can be searched for a value.
 
 .. c:macro:: DECLARE_XXX_UNIQ(Z, type, field, compare_func)
 
@@ -463,7 +463,7 @@ sorted lists can be searched for a value.
       created for this instantiation.  ``DECLARE_XXX(foo, ...)``
       gives ``struct foo_item``, ``foo_add()``, ``foo_count()``, etc.  Note
       that this must match the value given in ``PREDECL_XXX(foo)``.
-   :param typename type: Specifies the data type of the list items, e.g.
+   :param typename type: Specifies the data type of the items, e.g.
       ``struct item``.  Note that ``struct`` must be added here, it is not
       automatically added.
    :param token field: References a struct member of ``type`` that must be
@@ -472,29 +472,29 @@ sorted lists can be searched for a value.
    :param funcptr compare_func: Item comparison function, must have the
       following function signature:
       ``int function(const itemtype *, const itemtype*)``.  This function
-      may be static if the list is only used in one file.
+      may be static if the container is only used in one file.
 
 .. c:macro:: DECLARE_XXX_NONUNIQ(Z, type, field, compare_func)
 
-   Same as above, but allow adding multiple items to the list that compare
+   Same as above, but allow adding multiple items to the container that compare
    as equal in ``compare_func``.  Ordering between these items is undefined
-   and depends on the list implementation.
+   and depends on the container implementation.
 
 .. c:function:: itemtype *Z_add(struct Z_head *, itemtype *item)
 
    Insert an item at the appropriate sorted position.  If another item exists
-   in the list that compares as equal (``compare_func()`` == 0), ``item`` is
-   not inserted into the list and the already-existing item in the list is
+   in the container that compares as equal (``compare_func()`` == 0), ``item``
+   is not inserted and the already-existing item in the container is
    returned.  Otherwise, on successful insertion, ``NULL`` is returned.
 
-   For ``_NONUNIQ`` lists, this function always returns NULL since ``item``
-   can always be successfully added to the list.
+   For ``_NONUNIQ`` containers, this function always returns NULL since
+   ``item`` can always be successfully added to the container.
 
 .. c:function:: const itemtype *Z_const_find(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find(struct Z_head *, const itemtype *ref)
 
-   Search the list for an item that compares equal to ``ref``.  If no equal
-   item is found, return ``NULL``.
+   Search the container for an item that compares equal to ``ref``.  If no
+   equal item is found, return ``NULL``.
 
    This function is likely used with a temporary stack-allocated value for
    ``ref`` like so:
@@ -507,21 +507,21 @@ sorted lists can be searched for a value.
 
    .. note::
 
-      The ``Z_find()`` function is only available for lists that contain
-      unique items (i.e. ``DECLARE_XXX_UNIQ``.)  This is because on a list
-      containing non-unique items, more than one item may compare as equal to
+      The ``Z_find()`` function is only available for containers that contain
+      unique items (i.e. ``DECLARE_XXX_UNIQ``.)  This is because on a container
+      with non-unique items, more than one item may compare as equal to
       the item that is searched for.
 
 .. c:function:: const itemtype *Z_const_find_gteq(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_gteq(struct Z_head *, const itemtype *ref)
 
-   Search the list for an item that compares greater or equal to
+   Search the container for an item that compares greater or equal to
    ``ref``.  See :c:func:`Z_find()` above.
 
 .. c:function:: const itemtype *Z_const_find_lt(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_lt(struct Z_head *, const itemtype *ref)
 
-   Search the list for an item that compares less than
+   Search the container for an item that compares less than
    ``ref``.  See :c:func:`Z_find()` above.
 
 
@@ -535,7 +535,7 @@ API for hash tables
       created for this instantiation.  ``DECLARE_XXX(foo, ...)``
       gives ``struct foo_item``, ``foo_add()``, ``foo_count()``, etc.  Note
       that this must match the value given in ``PREDECL_XXX(foo)``.
-   :param typename type: Specifies the data type of the list items, e.g.
+   :param typename type: Specifies the data type of the items, e.g.
       ``struct item``.  Note that ``struct`` must be added here, it is not
       automatically added.
    :param token field: References a struct member of ``type`` that must be
@@ -544,7 +544,7 @@ API for hash tables
    :param funcptr compare_func: Item comparison function, must have the
       following function signature:
       ``int function(const itemtype *, const itemtype*)``.  This function
-      may be static if the list is only used in one file.  For hash tables,
+      may be static if the container is only used in one file.  For hash tables,
       this function is only used to check for equality, the ordering is
       ignored.
    :param funcptr hash_func: Hash calculation function, must have the
@@ -749,9 +749,9 @@ Head removal (pop) and deallocation:
 FAQ
 ---
 
-What are the semantics of ``const`` in the list APIs?
+What are the semantics of ``const`` in the container APIs?
    ``const`` pointers to list heads and/or items are interpreted to mean that
-   both the list itself as well as the data items are read-only.
+   both the container itself as well as the data items are read-only.
 
 Why is there no "is this item on a/the list" test?
    It's slow for several of the data structures, and the work of adding it
