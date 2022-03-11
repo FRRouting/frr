@@ -1,7 +1,7 @@
 all: ALWAYS
-	@$(MAKE) -s -C .. vrrp/vrrp
+	@$(MAKE) -s -C .. vrrpd/vrrpd
 %: ALWAYS
-	@$(MAKE) -s -C .. vrrp/$@
+	@$(MAKE) -s -C .. vrrpd/$@
 
 Makefile:
 	#nothing
