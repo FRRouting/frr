@@ -753,10 +753,6 @@ What are the semantics of ``const`` in the container APIs?
    ``const`` pointers to list heads and/or items are interpreted to mean that
    both the container itself as well as the data items are read-only.
 
-Why is there no "is this item on a/the list" test?
-   It's slow for several of the data structures, and the work of adding it
-   just hasn't been done.  It can certainly be added if it's needed.
-
 Why is it ``PREDECL`` + ``DECLARE`` instead of ``DECLARE`` + ``DEFINE``?
    The rule is that a ``DEFINE`` must be in a ``.c`` file, and linked exactly
    once because it defines some kind of global symbol.  This is not the case
