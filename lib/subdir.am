@@ -30,6 +30,7 @@ lib_libfrr_la_SOURCES = \
 	lib/defaults.c \
 	lib/distribute.c \
 	lib/explicit_bzero.c \
+	lib/fae_db.c \
 	lib/ferr.c \
 	lib/filter.c \
 	lib/filter_cli.c \
@@ -218,6 +219,7 @@ pkginclude_HEADERS += \
 	lib/debug.h \
 	lib/defaults.h \
 	lib/distribute.h \
+	lib/fae_db.h \
 	lib/ferr.h \
 	lib/filter.h \
 	lib/flex_algo.h \
