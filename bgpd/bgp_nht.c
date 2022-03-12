@@ -665,6 +665,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
 	struct bgp *bgp;
+	struct prefix match;
 	struct zapi_route nhr;
 	afi_t afi;
 
@@ -677,16 +678,16 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		return;
 	}
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &nhr)) {
 		zlog_err("%s[%s]: Failure to decode nexthop update", __func__,
 			 bgp->name_pretty);
 		return;
 	}
 
-	afi = family2afi(nhr.prefix.family);
+	afi = family2afi(match.family);
 	tree = &bgp->nexthop_cache_table[afi];
 
-	bnc_nhc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
+	bnc_nhc = bnc_find(tree, &match, nhr.srte_color);
 	if (!bnc_nhc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
@@ -697,7 +698,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 	tree = &bgp->import_check_table[afi];
 
-	bnc_import = bnc_find(tree, &nhr.prefix, nhr.srte_color);
+	bnc_import = bnc_find(tree, &match, nhr.srte_color);
 	if (!bnc_import) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(

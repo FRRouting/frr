@@ -702,19 +702,20 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct pim_instance *pim;
 	struct zapi_route nhr;
+	struct prefix match;
 
 	if (!vrf)
 		return 0;
 	pim = vrf->info;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &match, &nhr)) {
 		zlog_err("%s: Decode of nexthop update from zebra failed",
 			 __func__);
 		return 0;
 	}
 
 	if (cmd == ZEBRA_NEXTHOP_UPDATE) {
-		prefix_copy(&rpf.rpf_addr, &nhr.prefix);
+		prefix_copy(&rpf.rpf_addr, &match);
 		pnc = pim_nexthop_cache_find(pim, &rpf);
 		if (!pnc) {
 			if (PIM_DEBUG_PIM_NHT)
@@ -806,9 +807,9 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
 					"%s: NHT addr %pFX(%s) %d-nhop via %pI4(%s) type %d distance:%u metric:%u ",
-					__func__, &nhr.prefix, pim->vrf->name,
-					i + 1, &nexthop->gate.ipv4,
-					ifp->name, nexthop->type, nhr.distance,
+					__func__, &match, pim->vrf->name, i + 1,
+					&nexthop->gate.ipv4, ifp->name,
+					nexthop->type, nhr.distance,
 					nhr.metric);
 
 			if (!ifp->info) {
@@ -862,7 +863,7 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (PIM_DEBUG_PIM_NHT)
 		zlog_debug(
 			"%s: NHT Update for %pFX(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
-			__func__, &nhr.prefix, pim->vrf->name, nhr.nexthop_num,
+			__func__, &match, pim->vrf->name, nhr.nexthop_num,
 			pnc->nexthop_num, vrf_id, pnc->upstream_hash->count,
 			listcount(pnc->rp_list));
 
