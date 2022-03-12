@@ -169,24 +169,25 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct static_nht_data *nhtd, lookup;
 	struct zapi_route nhr;
+	struct prefix matched;
 	afi_t afi = AFI_IP;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("Failure to decode nexthop update message");
 		return 1;
 	}
 
-	if (nhr.prefix.family == AF_INET6)
+	if (matched.family == AF_INET6)
 		afi = AFI_IP6;
 
 	if (nhr.type == ZEBRA_ROUTE_CONNECT) {
-		if (static_nexthop_is_local(vrf_id, &nhr.prefix,
-					nhr.prefix.family))
+		if (static_nexthop_is_local(vrf_id, &matched,
+					    nhr.prefix.family))
 			nhr.nexthop_num = 0;
 	}
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = &nhr.prefix;
+	lookup.nh = &matched;
 	lookup.nh_vrf_id = vrf_id;
 
 	nhtd = hash_lookup(static_nht_hash, &lookup);
@@ -194,8 +195,8 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
-		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
-		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
+		static_nht_reset_start(&matched, afi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, &matched, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
