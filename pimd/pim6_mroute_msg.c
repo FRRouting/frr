@@ -98,7 +98,7 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 	if (enable) {
 		/* Linux and Solaris IPV6_PKTINFO */
 		data = 1;
-		if (setsockopt(pim->mroute_socket, PIM_IPPROTO, IPV6_PKTINFO,
+		if (setsockopt(pim->mroute_socket, PIM_IPPROTO, IPV6_RECVPKTINFO,
 			       &data, data_len)) {
 			zlog_warn(
 				"Could not set IPV6_PKTINFO on socket fd=%d: errno=%d: %s",
@@ -165,7 +165,7 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			return 0;
 		if (PIM_DEBUG_MROUTE) {
 			zlog_debug(
-				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pPAs,%pPAs) on %s mifi=%d  size=%ld",
+				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI6,%pI6) on %s mifi=%d  size=%ld",
 				__func__, mrt6msgtype2str[msg->im6_msgtype],
 				msg->im6_msgtype, ip6_hdr->ip6_nxt,
 				pim->mroute_socket, &msg->im6_src,
