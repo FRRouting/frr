@@ -49,10 +49,8 @@
 
 extern struct zclient *zclient;
 
-static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
-			       int is_bgp_static_route);
-static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
-				 int is_bgp_static_route);
+static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
+static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 static void bgp_nht_ifp_initial(struct thread *thread);
 
@@ -92,8 +90,7 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 		}
 		/* only unregister if this is the last nh for this prefix*/
 		if (!bnc_existing_for_prefix(bnc))
-			unregister_zebra_rnh(
-				bnc, CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
+			unregister_zebra_rnh(bnc);
 		bnc_free(bnc);
 	}
 }
@@ -308,7 +305,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED)
 		   && !is_default_host_route(&bnc->prefix))
-		register_zebra_rnh(bnc, is_bgp_static_route);
+		register_zebra_rnh(bnc);
 
 	if (pi && pi->nexthop != bnc) {
 		/* Unlink from existing nexthop cache, if any. This will also
@@ -387,7 +384,7 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 			zlog_debug(
 				"Freeing connected NHT node %p for peer %s(%s)",
 				bnc, peer->host, bnc->bgp->name_pretty);
-		unregister_zebra_rnh(bnc, 0);
+		unregister_zebra_rnh(bnc);
 		bnc_free(bnc);
 	}
 }
@@ -915,8 +912,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
  * RETURNS:
  *   void.
  */
-static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
-			       int is_bgp_import_route)
+static void register_zebra_rnh(struct bgp_nexthop_cache *bnc)
 {
 	/* Check if we have already registered */
 	if (bnc->flags & BGP_NEXTHOP_REGISTERED)
@@ -937,8 +933,7 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
  * RETURNS:
  *   void.
  */
-static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
-				 int is_bgp_import_route)
+static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc)
 {
 	/* Check if we have already registered */
 	if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
@@ -1173,7 +1168,7 @@ void bgp_nht_register_nexthops(struct bgp *bgp)
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc) {
-			register_zebra_rnh(bnc, 0);
+			register_zebra_rnh(bnc);
 		}
 	}
 }
