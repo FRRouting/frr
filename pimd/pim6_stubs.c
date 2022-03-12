@@ -54,37 +54,6 @@ void zclient_lookup_free(void)
 }
 
 /*
- * packet handling
- */
-int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
-		 int pim_msg_size, const char *ifname)
-{
-	return 0;
-}
-
-int pim_hello_send(struct interface *ifp, uint16_t holdtime)
-{
-	return -1;
-}
-
-void pim_hello_restart_now(struct interface *ifp)
-{
-}
-
-void pim_hello_restart_triggered(struct interface *ifp)
-{
-}
-
-int pim_sock_add(struct interface *ifp)
-{
-	return -1;
-}
-
-void pim_sock_delete(struct interface *ifp, const char *delete_message)
-{
-}
-
-/*
  * PIM register
  */
 void pim_register_join(struct pim_upstream *up)
@@ -121,12 +90,31 @@ struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 {
 }
+
+int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
+		    uint32_t buf_size, bool no_fwd)
+{
+	return 0;
+}
+
 void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up)
 {
 }
+
 void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 			    pim_addr originator)
 {
+}
+
+int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
+		      pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size)
+{
+	return 0;
+}
+
+int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
+{
+	return 0;
 }
