@@ -351,21 +351,6 @@ int sockopt_ttl(int family, int sock, int ttl)
 	return 0;
 }
 
-/*
- * This function called setsockopt(.., TCP_CORK,...)
- * Which on linux is a no-op since it is enabled by
- * default and on BSD it uses TCP_NOPUSH to do
- * the same thing( which it was not configured to
- * use).  This cleanup of the api occurred on 8/1/17
- * I imagine if after more than 1 year of no-one
- * complaining, and a major upgrade release we
- * can deprecate and remove this function call
- */
-int sockopt_cork(int sock, int onoff)
-{
-	return 0;
-}
-
 int sockopt_minttl(int family, int sock, int minttl)
 {
 #ifdef IP_MINTTL

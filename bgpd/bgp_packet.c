@@ -665,9 +665,6 @@ static void bgp_write_notify(struct peer *peer)
 
 	assert(stream_get_endp(s) >= BGP_HEADER_SIZE);
 
-	/* Stop collecting data within the socket */
-	sockopt_cork(peer->fd, 0);
-
 	/*
 	 * socket is in nonblocking mode, if we can't deliver the NOTIFY, well,
 	 * we only care about getting a clean shutdown at this point.
