@@ -521,7 +521,8 @@ static uint16_t ip_id = 0;
 
 
 static int pim_msg_send_frame(int fd, char *buf, size_t len,
-			      struct sockaddr *dst, size_t salen)
+			      struct sockaddr *dst, size_t salen,
+			      const char *ifname)
 {
 	struct ip *ip = (struct ip *)buf;
 
@@ -537,8 +538,8 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 
 			ip->ip_len = htons(sendlen);
 			ip->ip_off = htons(offset | IP_MF);
-			if (pim_msg_send_frame(fd, buf, sendlen, dst, salen)
-			    == 0) {
+			if (pim_msg_send_frame(fd, buf, sendlen, dst, salen,
+					       ifname) == 0) {
 				struct ip *ip2 = (struct ip *)(buf + newlen1);
 				size_t newlen2 = len - sendlen;
 				sendlen = newlen2 + hdrsize;
@@ -547,7 +548,8 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 				ip2->ip_len = htons(sendlen);
 				ip2->ip_off = htons(offset + (newlen1 >> 3));
 				return pim_msg_send_frame(fd, (char *)ip2,
-							  sendlen, dst, salen);
+							  sendlen, dst, salen,
+							  ifname);
 			}
 		}
 
@@ -557,9 +559,9 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
 					       sizeof(dst_str));
 				zlog_warn(
-					"%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
-					__func__, dst_str, fd, len, errno,
-					safe_strerror(errno));
+					"%s: sendto() failure to %s: iface=%s fd=%d msg_size=%zd: errno=%d: %s",
+					__func__, dst_str, ifname, fd, len,
+					errno, safe_strerror(errno));
 			}
 			return -1;
 		}
@@ -641,7 +643,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
-			   tolen);
+			   tolen, ifname);
 	return 0;
 }
 
