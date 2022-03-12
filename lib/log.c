@@ -590,14 +590,15 @@ int proto_redistnum(int afi, const char *s)
 	return -1;
 }
 
-void zlog_hexdump(const void *mem, size_t len)
+void zlog_blk_hexdump(struct zlog_blk *blk, const void *mem, size_t len)
 {
 	char line[64];
 	const uint8_t *src = mem;
 	const uint8_t *end = src + len;
 
 	if (len == 0) {
-		zlog_debug("%016lx: (zero length / no data)", (long)src);
+		zlog_blk_debug(blk, "%016lx: (zero length / no data)",
+			       (long)src);
 		return;
 	}
 
@@ -629,7 +630,7 @@ void zlog_hexdump(const void *mem, size_t len)
 				*fb.pos++ = '.';
 		}
 
-		zlog_debug("%.*s", (int)(fb.pos - fb.buf), fb.buf);
+		zlog_blk_debug(blk, "%.*s", (int)(fb.pos - fb.buf), fb.buf);
 	}
 }
 

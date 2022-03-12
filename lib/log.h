@@ -106,7 +106,9 @@ extern void zlog_backtrace_sigsafe(int priority, void *program_counter);
 extern size_t frr_timestamp(int timestamp_precision /* # subsecond digits */,
 			    char *buf, size_t buflen);
 
-extern void zlog_hexdump(const void *mem, size_t len);
+extern void zlog_blk_hexdump(struct zlog_blk *blk, const void *mem, size_t len);
+#define zlog_hexdump(mem, len) ZLOG_CALL_LOGBLK(zlog_blk_hexdump, mem, len)
+
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in,
 				 size_t inlen);
 
