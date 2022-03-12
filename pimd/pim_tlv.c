@@ -127,11 +127,7 @@ int pim_encode_addr_ucast(uint8_t *buf, pim_addr addr)
 {
 	uint8_t *start = buf;
 
-#if PIM_IPV == 4
-	*buf++ = PIM_MSG_ADDRESS_FAMILY_IPV4;
-#else
-	*buf++ = PIM_MSG_ADDRESS_FAMILY_IPV6;
-#endif
+	*buf++ = PIM_MSG_ADDRESS_FAMILY;
 	*buf++ = 0;
 	memcpy(buf, &addr, sizeof(addr));
 	buf += sizeof(addr);
@@ -624,16 +620,15 @@ int pim_parse_addr_source(pim_sgaddr *sg, uint8_t *flags, const uint8_t *buf,
 	}
 
 	switch (family) {
-	case PIM_MSG_ADDRESS_FAMILY_IPV4:
-		if ((addr + sizeof(struct in_addr)) > pastend) {
+	case PIM_MSG_ADDRESS_FAMILY:
+		if ((addr + sizeof(sg->src)) > pastend) {
 			zlog_warn(
-				"%s: IPv4 source address overflow: left=%td needed=%zu",
-				__func__, pastend - addr,
-				sizeof(struct in_addr));
+				"%s: IP source address overflow: left=%td needed=%zu",
+				__func__, pastend - addr, sizeof(sg->src));
 			return -3;
 		}
 
-		memcpy(&sg->src, addr, sizeof(struct in_addr));
+		memcpy(&sg->src, addr, sizeof(sg->src));
 
 		/*
 		   RFC 4601: 4.9.1  Encoded Source and Group Address Formats
@@ -642,26 +637,23 @@ int pim_parse_addr_source(pim_sgaddr *sg, uint8_t *flags, const uint8_t *buf,
 
 		   The mask length MUST be equal to the mask length in bits for
 		   the given Address Family and Encoding Type (32 for IPv4
-		   native
-		   and 128 for IPv6 native).  A router SHOULD ignore any
-		   messages
-		   received with any other mask length.
+		   native and 128 for IPv6 native).  A router SHOULD ignore any
+		   messages received with any other mask length.
 		*/
-		if (mask_len != IPV4_MAX_BITLEN) {
-			zlog_warn("%s: IPv4 bad source address mask: %d",
+		if (mask_len != PIM_MAX_BITLEN) {
+			zlog_warn("%s: IP bad source address mask: %d",
 				  __func__, mask_len);
 			return -4;
 		}
 
-		addr += sizeof(struct in_addr);
+		addr += sizeof(sg->src);
 
 		break;
-	default: {
+	default:
 		zlog_warn(
 			"%s: unknown source address encoding family=%d: %02x%02x%02x%02x",
 			__func__, family, buf[0], buf[1], buf[2], buf[3]);
 		return -5;
-	}
 	}
 
 	return addr - buf;
