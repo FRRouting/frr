@@ -773,7 +773,11 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Wed Mar  9 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Sat Mar 12 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Sat Mar 12 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2.2
+- Fix zebra nexthop tracking
+- Fix bgp graceful restart double config
 
 * Wed Mar  9 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2.1
 - Fix bgp rpki hang issue
