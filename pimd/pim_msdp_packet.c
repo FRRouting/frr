@@ -214,8 +214,6 @@ void pim_msdp_write(struct thread *thread)
 		return;
 	}
 
-	sockopt_cork(mp->fd, 1);
-
 	/* Nonblocking write until TCP output buffer is full  */
 	do {
 		int writenum;
@@ -279,8 +277,6 @@ void pim_msdp_write(struct thread *thread)
 		}
 	} while ((s = stream_fifo_head(mp->obuf)) != NULL);
 	pim_msdp_write_proceed_actions(mp);
-
-	sockopt_cork(mp->fd, 0);
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP peer %s pim_msdp_write wrote %d packets",
