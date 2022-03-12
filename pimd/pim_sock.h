@@ -47,8 +47,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			  struct sockaddr_in *to, socklen_t *tolen,
 			  ifindex_t *ifindex);
 
-int pim_socket_mcastloop_get(int fd);
-
 int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen);
 
 #endif /* PIM_SOCK_H */
