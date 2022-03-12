@@ -407,23 +407,6 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 	return err; /* len */
 }
 
-int pim_socket_mcastloop_get(int fd)
-{
-	int loop;
-	socklen_t loop_len = sizeof(loop);
-
-	if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, &loop_len)) {
-		int e = errno;
-		zlog_warn(
-			"Could not get Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
-		errno = e;
-		return PIM_SOCK_ERR_LOOP;
-	}
-
-	return loop;
-}
-
 int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen)
 {
 	if (getsockname(fd, name, namelen)) {
