@@ -455,8 +455,7 @@ static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 	json_object_free(json);
 }
 
-static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp,
-				int mloop)
+static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp)
 {
 	vty_out(vty, "Flags\n");
 	vty_out(vty, "-----\n");
@@ -469,7 +468,6 @@ static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp,
 	vty_out(vty, "Interface Index : %d\n", ifp->ifindex);
 	vty_out(vty, "Multicast       : %s\n",
 		if_is_multicast(ifp) ? "yes" : "no");
-	vty_out(vty, "Multicast Loop  : %d\n", mloop);
 	vty_out(vty, "Promiscuous     : %s\n",
 		(ifp->flags & IFF_PROMISC) ? "yes" : "no");
 	vty_out(vty, "\n");
@@ -576,7 +574,6 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	char other_hhmmss[10];
 	int found_ifname = 0;
 	int sqi;
-	int mloop = 0;
 	long gmi_msec; /* Group Membership Interval */
 	long lmqt_msec;
 	long ohpi_msec;
@@ -639,11 +636,6 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 
 			qri_msec =
 				pim_ifp->gm_query_max_response_time_dsec * 100;
-			if (pim_ifp->pim_sock_fd >= 0)
-				mloop = pim_socket_mcastloop_get(
-					pim_ifp->pim_sock_fd);
-			else
-				mloop = 0;
 			lmqc = pim_ifp->gm_last_member_query_count;
 
 			if (uj) {
@@ -776,7 +768,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "\n");
 				vty_out(vty, "\n");
 
-				pim_print_ifp_flags(vty, ifp, mloop);
+				pim_print_ifp_flags(vty, ifp);
 			}
 		}
 	}
@@ -903,7 +895,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	char src_str[INET_ADDRSTRLEN];
 	char stat_uptime[10];
 	char uptime[10];
-	int mloop = 0;
 	int found_ifname = 0;
 	int print_header;
 	json_object *json = NULL;
@@ -945,10 +936,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			      pim_ifp->pim_hello_period);
 		pim_time_uptime(stat_uptime, sizeof(stat_uptime),
 				now - pim_ifp->pim_ifstat_start);
-		if (pim_ifp->pim_sock_fd >= 0)
-			mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
-		else
-			mloop = 0;
 
 		if (uj) {
 			char pbuf[PREFIX2STR_BUFFER];
@@ -1096,8 +1083,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					    pim_ifp->pim_ifstat_hello_sendfail);
 			json_object_int_add(json_row, "helloGenerationId",
 					    pim_ifp->pim_generation_id);
-			json_object_int_add(json_row, "flagMulticastLoop",
-					    mloop);
 
 			json_object_int_add(
 				json_row, "effectivePropagationDelay",
@@ -1250,7 +1235,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "\n");
 			vty_out(vty, "\n");
 
-			pim_print_ifp_flags(vty, ifp, mloop);
+			pim_print_ifp_flags(vty, ifp);
 
 			vty_out(vty, "Join Prune Interval\n");
 			vty_out(vty, "-------------------\n");
