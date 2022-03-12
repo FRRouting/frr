@@ -582,12 +582,11 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!yang_dnode_exists(vty->candidate_config->dnode, group_xpath)) {
+	group_dnode = yang_dnode_get(vty->candidate_config->dnode, group_xpath);
+	if (!group_dnode) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;
 	}
-
-	group_dnode = yang_dnode_get(vty->candidate_config->dnode, group_xpath);
 
 	if (yang_is_last_list_dnode(group_dnode))
 		nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
