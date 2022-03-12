@@ -1749,7 +1749,7 @@ class Router(Node):
                         daemon, self.logdir, self.name
                     )
 
-                cmdopt = "{} --log file:{}.log --log-level debug".format(
+                cmdopt = "{} --command-log-always --log file:{}.log --log-level debug".format(
                     daemon_opts, daemon
                 )
             if extra_opts:
