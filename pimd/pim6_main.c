@@ -178,8 +178,7 @@ int main(int argc, char **argv, char **envp)
 
 	pim_route_map_init();
 #endif
-	/* pim_init(); */
-	pim_cmd_init();
+	pim_init();
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
 	 */
