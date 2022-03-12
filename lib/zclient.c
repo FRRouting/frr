@@ -1924,7 +1924,8 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 /*
  * Decode the nexthop-tracking update message
  */
-bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
+bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				struct zapi_route *nhr)
 {
 	uint32_t i;
 
@@ -1932,6 +1933,22 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 
 	STREAM_GETL(s, nhr->message);
 	STREAM_GETW(s, nhr->safi);
+	STREAM_GETW(s, match->family);
+	STREAM_GETC(s, match->prefixlen);
+	/*
+	 * What we got told to match against
+	 */
+	switch (match->family) {
+	case AF_INET:
+		STREAM_GET(&match->u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
+		break;
+	case AF_INET6:
+		STREAM_GET(&match->u.prefix6, s, IPV6_MAX_BYTELEN);
+		break;
+	}
+	/*
+	 * What we matched against
+	 */
 	STREAM_GETW(s, nhr->prefix.family);
 	STREAM_GETC(s, nhr->prefix.prefixlen);
 	switch (nhr->prefix.family) {

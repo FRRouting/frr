@@ -1169,15 +1169,17 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 	stream_putl(s, message);
 
+	/*
+	 * Put what we were told to match against
+	 */
 	stream_putw(s, rnh->safi);
 	stream_putw(s, rn->p.family);
+	stream_putc(s, rn->p.prefixlen);
 	switch (rn->p.family) {
 	case AF_INET:
-		stream_putc(s, rn->p.prefixlen);
 		stream_put_in_addr(s, &rn->p.u.prefix4);
 		break;
 	case AF_INET6:
-		stream_putc(s, rn->p.prefixlen);
 		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
@@ -1186,6 +1188,26 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 			 __func__, rn->p.family);
 		goto failure;
 	}
+
+	/*
+	 * What we matched against
+	 */
+	stream_putw(s, rnh->resolved_route.family);
+	stream_putc(s, rnh->resolved_route.prefixlen);
+	switch (rnh->resolved_route.family) {
+	case AF_INET:
+		stream_put_in_addr(s, &rnh->resolved_route.u.prefix4);
+		break;
+	case AF_INET6:
+		stream_put(s, &rnh->resolved_route.u.prefix6, IPV6_MAX_BYTELEN);
+		break;
+	default:
+		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
+			 "%s: Unknown family (%d) notification attempted",
+			 __func__, rn->p.family);
+		goto failure;
+	}
+
 	if (srte_color)
 		stream_putl(s, srte_color);
 

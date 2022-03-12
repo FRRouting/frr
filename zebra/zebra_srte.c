@@ -117,13 +117,25 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	stream_putl(s, message);
 
 	stream_putw(s, SAFI_UNICAST);
+	/*
+	 * The prefix is copied twice because the ZEBRA_NEXTHOP_UPDATE
+	 * code was modified to send back both the matched against
+	 * as well as the actual matched.  There does not appear to
+	 * be an equivalent here so just send the same thing twice.
+	 */
 	switch (policy->endpoint.ipa_type) {
 	case IPADDR_V4:
 		stream_putw(s, AF_INET);
 		stream_putc(s, IPV4_MAX_BITLEN);
 		stream_put_in_addr(s, &policy->endpoint.ipaddr_v4);
+		stream_putw(s, AF_INET);
+		stream_putc(s, IPV4_MAX_BITLEN);
+		stream_put_in_addr(s, &policy->endpoint.ipaddr_v4);
 		break;
 	case IPADDR_V6:
+		stream_putw(s, AF_INET6);
+		stream_putc(s, IPV6_MAX_BITLEN);
+		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
 		stream_putw(s, AF_INET6);
 		stream_putc(s, IPV6_MAX_BITLEN);
 		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
