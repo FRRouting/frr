@@ -993,12 +993,14 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			if (!nbr && !if_is_loopback(ifp)) {
 				if (i == mod_val)
 					mod_val++;
-				i++;
 				if (PIM_DEBUG_PIM_NHT)
 					zlog_debug(
-						"%s: NBR not found on input interface %s(%s) (RPF for source %pPA)",
-						__func__, ifp->name,
-						pim->vrf->name, &src_addr);
+						"%s: NBR (%pFXh) not found on input interface %s(%s) (RPF for source %pPA)",
+						__func__,
+						&nexthop_tab[i].nexthop_addr,
+						ifp->name, pim->vrf->name,
+						&src_addr);
+				i++;
 				continue;
 			}
 		}
