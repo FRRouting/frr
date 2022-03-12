@@ -187,9 +187,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	ifp->info = pim_ifp;
 
-#if PIM_IPV == 4
 	pim_sock_reset(ifp);
-#endif
 
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
 	pim_ifp->pim->mcast_if_count++;
@@ -1751,7 +1749,6 @@ static int pim_ifp_down(struct interface *ifp)
 		*/
 		pim_if_addr_del_all(ifp);
 
-#if PIM_IPV == 4
 		/*
 		  pim_sock_delete() closes the socket, stops read and timer
 		  threads,
@@ -1760,7 +1757,6 @@ static int pim_ifp_down(struct interface *ifp)
 		if (ifp->info) {
 			pim_sock_delete(ifp, "link down");
 		}
-#endif
 	}
 
 	if (ifp->info) {
