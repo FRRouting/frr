@@ -1174,13 +1174,12 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	 */
 	stream_putw(s, rnh->safi);
 	stream_putw(s, rn->p.family);
+	stream_putc(s, rn->p.prefixlen);
 	switch (rn->p.family) {
 	case AF_INET:
-		stream_putc(s, rn->p.prefixlen);
 		stream_put_in_addr(s, &rn->p.u.prefix4);
 		break;
 	case AF_INET6:
-		stream_putc(s, rn->p.prefixlen);
 		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
