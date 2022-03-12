@@ -1111,7 +1111,17 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
 int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				     const struct nexthop *nh);
-extern bool zapi_nexthop_update_decode(struct stream *s,
+/*
+ * match -> is the prefix that the calling daemon asked to be matched
+ * against.
+ * nhr->prefix -> is the actual prefix that was matched against in the
+ * rib itself.
+ *
+ * This distinction is made because a LPM can be made if there is a
+ * covering route.  This way the upper level protocol can make a decision
+ * point about whether or not it wants to use the match or not.
+ */
+extern bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 				       struct zapi_route *nhr);
 const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 			     int bufsize);

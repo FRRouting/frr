@@ -399,17 +399,19 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route nhr;
+	struct prefix matched;
 	uint32_t i;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("Failure to decode Nexthop update message");
 		return 0;
 	}
 
 	if (DEBUG_MODE_CHECK(&pbr_dbg_zebra, DEBUG_MODE_ALL)) {
 
-		DEBUGD(&pbr_dbg_zebra, "%s: Received Nexthop update: %pFX",
-		       __func__, &nhr.prefix);
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Received Nexthop update: %pFX against %pFX",
+		       __func__, &matched, &nhr.prefix);
 
 		DEBUGD(&pbr_dbg_zebra, "%s:   (Nexthops(%u)", __func__,
 		       nhr.nexthop_num);
@@ -423,6 +425,7 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
+	nhr.prefix = matched;
 	pbr_nht_nexthop_update(&nhr);
 	return 1;
 }
