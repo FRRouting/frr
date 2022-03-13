@@ -127,7 +127,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
-#if PIM_IPV == 4
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
 		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
@@ -153,10 +152,12 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	if (pim)
 		PIM_IF_DO_PIM(pim_ifp->options);
+#if PIM_IPV == 4
 	if (igmp)
 		PIM_IF_DO_IGMP(pim_ifp->options);
 
 	PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
+#endif
 
 	pim_ifp->gm_join_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
@@ -186,10 +187,11 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	ifp->info = pim_ifp;
 
+#if PIM_IPV == 4
 	pim_sock_reset(ifp);
+#endif
 
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
-#endif
 	pim_ifp->pim->mcast_if_count++;
 
 	return pim_ifp;
@@ -208,9 +210,12 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->gm_join_list) {
 		pim_if_igmp_join_del_all(ifp);
 	}
+#endif
 
 	pim_ifchannel_delete_all(ifp);
+#if PIM_IPV == 4
 	igmp_sock_delete_all(ifp);
+#endif
 
 	pim_neighbor_delete_all(ifp, "Interface removed from configuration");
 
@@ -224,7 +229,6 @@ void pim_if_delete(struct interface *ifp)
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
-#endif
 
 	ifp->info = NULL;
 }
@@ -512,6 +516,26 @@ void pim_if_addr_add(struct connected *ifc)
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
+#if PIM_IPV != 4
+	if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) ||
+	    IN6_IS_ADDR_LOOPBACK(&ifc->address->u.prefix6)) {
+		if (IN6_IS_ADDR_UNSPECIFIED(&pim_ifp->ll_lowest))
+			pim_ifp->ll_lowest = ifc->address->u.prefix6;
+		else if (IPV6_ADDR_CMP(&ifc->address->u.prefix6,
+				       &pim_ifp->ll_lowest) < 0)
+			pim_ifp->ll_lowest = ifc->address->u.prefix6;
+
+		if (IPV6_ADDR_CMP(&ifc->address->u.prefix6,
+				  &pim_ifp->ll_highest) > 0)
+			pim_ifp->ll_highest = ifc->address->u.prefix6;
+
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug(
+				"%s: new link-local %pI6, lowest now %pI6, highest %pI6",
+				ifc->ifp->name, &ifc->address->u.prefix6,
+				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
+	}
+#endif
 
 	detect_address_change(ifp, 0, __func__);
 
@@ -711,6 +735,43 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 				   ? "secondary"
 				   : "primary");
 
+#if PIM_IPV == 6
+	struct pim_interface *pim_ifp = ifc->ifp->info;
+
+	if (pim_ifp &&
+	    (!IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_lowest) ||
+	     !IPV6_ADDR_CMP(&ifc->address->u.prefix6, &pim_ifp->ll_highest))) {
+		struct listnode *cnode;
+		struct connected *cc;
+
+		memset(&pim_ifp->ll_lowest, 0xff, sizeof(pim_ifp->ll_lowest));
+		memset(&pim_ifp->ll_highest, 0, sizeof(pim_ifp->ll_highest));
+
+		for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected, cnode, cc)) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&cc->address->u.prefix6) &&
+			    !IN6_IS_ADDR_LOOPBACK(&cc->address->u.prefix6))
+				continue;
+
+			if (IPV6_ADDR_CMP(&cc->address->u.prefix6,
+					  &pim_ifp->ll_lowest) < 0)
+				pim_ifp->ll_lowest = cc->address->u.prefix6;
+			if (IPV6_ADDR_CMP(&cc->address->u.prefix6,
+					  &pim_ifp->ll_highest) > 0)
+				pim_ifp->ll_highest = cc->address->u.prefix6;
+		}
+
+		if (pim_ifp->ll_lowest.s6_addr[0] == 0xff)
+			memset(&pim_ifp->ll_lowest, 0,
+			       sizeof(pim_ifp->ll_lowest));
+
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug(
+				"%s: removed link-local %pI6, lowest now %pI6, highest %pI6",
+				ifc->ifp->name, &ifc->address->u.prefix6,
+				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
+	}
+#endif
+
 	detect_address_change(ifp, force_prim_as_any, __func__);
 
 	pim_if_addr_del_igmp(ifc);
@@ -825,17 +886,36 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
 	struct listnode *node;
-	int v4_addrs = 0;
-	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source)) {
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source))
 		return pim_ifp->update_source;
-	}
+
+#if PIM_IPV == 6
+	if (pim_ifp)
+		return pim_ifp->ll_highest;
+
+	pim_addr best_addr = PIMADDR_ANY;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		pim_addr addr;
 
+		if (ifc->address->family != AF_INET6)
+			continue;
+
+		addr = pim_addr_from_prefix(ifc->address);
+		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+			continue;
+		if (pim_addr_cmp(addr, best_addr) > 0)
+			best_addr = addr;
+	}
+
+	return best_addr;
+#else
+	int v4_addrs = 0;
+	int v6_addrs = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		switch (ifc->address->family) {
 		case AF_INET:
 			v4_addrs++;
@@ -853,16 +933,9 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 		if (ifc->address->family != PIM_AF)
 			continue;
 
-		addr = pim_addr_from_prefix(ifc->address);
-
-#if PIM_IPV == 6
-		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
-			continue;
-#endif
-		return addr;
+		return pim_addr_from_prefix(ifc->address);
 	}
 
-#if PIM_IPV == 4
 	/*
 	 * If we have no v4_addrs and v6 is configured
 	 * We probably are using unnumbered
@@ -882,8 +955,8 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
 	}
-#endif
 	return PIMADDR_ANY;
+#endif
 }
 
 static int pim_iface_next_vif_index(struct interface *ifp)
@@ -1549,7 +1622,6 @@ static int pim_ifp_create(struct interface *ifp)
 		 */
 		if (pim_ifp)
 			pim_ifp->pim = pim;
-#if PIM_IPV == 4
 		pim_if_addr_add_all(ifp);
 
 		/*
@@ -1561,7 +1633,6 @@ static int pim_ifp_create(struct interface *ifp)
 		 * this is a no-op if it's already been done.
 		 */
 		pim_if_create_pimreg(pim);
-#endif
 	}
 
 #if PIM_IPV == 4
@@ -1599,6 +1670,7 @@ static int pim_ifp_create(struct interface *ifp)
 
 static int pim_ifp_up(struct interface *ifp)
 {
+	uint32_t table_id;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 
@@ -1620,9 +1692,6 @@ static int pim_ifp_up(struct interface *ifp)
 	 */
 	if (pim_ifp)
 		pim_ifp->pim = pim;
-
-#if PIM_IPV == 4
-	uint32_t table_id;
 
 	/*
 	  pim_if_addr_add_all() suffices for bringing up both IGMP and
@@ -1652,7 +1721,6 @@ static int pim_ifp_up(struct interface *ifp)
 			}
 		}
 	}
-#endif
 	return 0;
 }
 
@@ -1666,7 +1734,6 @@ static int pim_ifp_down(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-#if PIM_IPV == 4
 	if (!if_is_operative(ifp)) {
 		pim_ifchannel_delete_all(ifp);
 		/*
@@ -1675,6 +1742,7 @@ static int pim_ifp_down(struct interface *ifp)
 		*/
 		pim_if_addr_del_all(ifp);
 
+#if PIM_IPV == 4
 		/*
 		  pim_sock_delete() closes the socket, stops read and timer
 		  threads,
@@ -1683,13 +1751,15 @@ static int pim_ifp_down(struct interface *ifp)
 		if (ifp->info) {
 			pim_sock_delete(ifp, "link down");
 		}
+#endif
 	}
 
 	if (ifp->info) {
 		pim_if_del_vif(ifp);
+#if PIM_IPV == 4
 		pim_ifstat_reset(ifp);
-	}
 #endif
+	}
 
 	return 0;
 }
@@ -1704,11 +1774,11 @@ static int pim_ifp_destroy(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-#if PIM_IPV == 4
-	struct pim_instance *pim;
-
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
+
+#if PIM_IPV == 4
+	struct pim_instance *pim;
 
 	pim = ifp->vrf->info;
 	if (pim && pim->vxlan.term_if == ifp)

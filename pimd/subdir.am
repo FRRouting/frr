@@ -47,6 +47,7 @@ pim_common = \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
 	pimd/pim_str.c \
+	pimd/pim_tib.c \
 	pimd/pim_time.c \
 	pimd/pim_tlv.c \
 	pimd/pim_upstream.c \
@@ -141,6 +142,7 @@ noinst_HEADERS += \
 	pimd/pim_ssmpingd.h \
 	pimd/pim_static.h \
 	pimd/pim_str.h \
+	pimd/pim_tib.h \
 	pimd/pim_time.h \
 	pimd/pim_tlv.h \
 	pimd/pim_upstream.h \
