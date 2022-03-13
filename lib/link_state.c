@@ -38,6 +38,7 @@
 #include "sbuf.h"
 #include "printfrr.h"
 #include <lib/json.h>
+#include "lib/segment_routing.h"
 #include "link_state.h"
 
 /* Link State Memory allocation */
@@ -138,12 +139,23 @@ int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 	    && (n1->as_number != n2->as_number))
 		return 0;
 	if (CHECK_FLAG(n1->flags, LS_NODE_SR)) {
+		int anum;
+		int same = 1;
+
 		if (n1->srgb.flag != n2->srgb.flag
 		    || n1->srgb.lower_bound != n2->srgb.lower_bound
 		    || n1->srgb.range_size != n2->srgb.range_size)
 			return 0;
-		if ((n1->algo[0] != n2->algo[0])
-		    || (n1->algo[1] != n2->algo[1]))
+
+		for (anum = 0; anum < SR_ALGORITHM_COUNT; anum++) {
+			if (n1->algo[anum] != n2->algo[anum]) {
+				same = 0;
+				break;
+			}
+			if (n1->algo[anum] == SR_ALGORITHM_UNSET)
+				break;
+		}
+		if (!same)
 			return 0;
 		if (CHECK_FLAG(n1->flags, LS_NODE_SRLB)
 		    && ((n1->srlb.lower_bound != n2->srlb.lower_bound
@@ -2009,12 +2021,13 @@ static void ls_show_vertex_vty(struct ls_vertex *vertex, struct vty *vty,
 				  lsn->srlb.lower_bound, upper);
 		}
 		sbuf_push(&sbuf, 0, "\tAlgo: ");
-		for (int i = 0; i < 2; i++) {
-			if (lsn->algo[i] == 255)
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			if (lsn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 
 			sbuf_push(&sbuf, 0,
-				  lsn->algo[i] == 0 ? "SPF " : "S-SPF ");
+				  lsn->algo[i] == 0 ? "SPF "
+						    : (1 ? "S-SPF " : "SR"));
 		}
 		if (CHECK_FLAG(lsn->flags, LS_NODE_MSD))
 			sbuf_push(&sbuf, 0, "\tMSD: %d", lsn->msd);
@@ -2110,14 +2123,16 @@ static void ls_show_vertex_json(struct ls_vertex *vertex,
 		json_object_int_add(jsr, "srgb-lower", lsn->srgb.lower_bound);
 		jalgo = json_object_new_array();
 		json_object_object_add(jsr, "algorithms", jalgo);
-		for (int i = 0; i < 2; i++) {
-			if (lsn->algo[i] == 255)
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			if (lsn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 			jobj = json_object_new_object();
 
 			snprintfrr(buf, 2, "%u", i);
-			json_object_string_add(
-				jobj, buf, lsn->algo[i] == 0 ? "SPF" : "S-SPF");
+			json_object_string_add(jobj, buf,
+					       lsn->algo[i] == 0
+						       ? "SPF"
+						       : (1 ? "S-SPF" : "SR"));
 			json_object_array_add(jalgo, jobj);
 		}
 		if (CHECK_FLAG(lsn->flags, LS_NODE_SRLB)) {

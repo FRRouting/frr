@@ -26,6 +26,7 @@
 #define _FRR_LINK_STATE_H_
 
 #include "typesafe.h"
+#include "segment_routing.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -135,7 +136,7 @@ struct ls_node {
 		uint32_t lower_bound;		/* MPLS label lower bound */
 		uint32_t range_size;		/* MPLS label range size */
 	} srlb;
-	uint8_t algo[2];		/* Segment Routing Algorithms */
+	uint8_t algo[SR_ALGORITHM_COUNT]; /* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
 };
 
