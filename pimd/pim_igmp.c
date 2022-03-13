@@ -220,6 +220,7 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	int fd;
 	int join = 0;
 	struct in_addr group;
+	struct pim_interface *pim_ifp = ifp->info;
 
 	fd = pim_socket_mcast(IPPROTO_IGMP, ifaddr, ifp, 1);
 
@@ -228,7 +229,8 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 
 	if (PIM_IF_TEST_IGMP_LISTEN_ALLROUTERS(pim_options)) {
 		if (inet_aton(PIM_ALL_ROUTERS, &group)) {
-			if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex))
+			if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex,
+					     pim_ifp))
 				++join;
 		} else {
 			zlog_warn(
@@ -244,7 +246,7 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	  IGMP routers must receive general queries for querier election.
 	*/
 	if (inet_aton(PIM_ALL_SYSTEMS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex))
+		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex, pim_ifp))
 			++join;
 	} else {
 		zlog_warn(
@@ -254,7 +256,8 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	}
 
 	if (inet_aton(PIM_ALL_IGMP_ROUTERS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex)) {
+		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex,
+				     pim_ifp)) {
 			++join;
 		}
 	} else {
@@ -489,16 +492,16 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 	/* Collecting IGMP Rx stats */
 	switch (query_version) {
 	case 1:
-		igmp->rx_stats.query_v1++;
+		igmp->igmp_stats.query_v1++;
 		break;
 	case 2:
-		igmp->rx_stats.query_v2++;
+		igmp->igmp_stats.query_v2++;
 		break;
 	case 3:
-		igmp->rx_stats.query_v3++;
+		igmp->igmp_stats.query_v3++;
 		break;
 	default:
-		igmp->rx_stats.unsupported++;
+		igmp->igmp_stats.unsupported++;
 	}
 
 	/*
@@ -630,7 +633,7 @@ static int igmp_v1_recv_report(struct gm_sock *igmp, struct in_addr from,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.report_v1++;
+	igmp->igmp_stats.report_v1++;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_warn("%s %s: FIXME WRITEME", __FILE__, __func__);
@@ -782,7 +785,7 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 	zlog_warn("Ignoring unsupported IGMP message type: %d", msg_type);
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.unsupported++;
+	igmp->igmp_stats.unsupported++;
 
 	return -1;
 }
@@ -1159,7 +1162,7 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 		pim_ifp->gm_default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
 
-	igmp_stats_init(&igmp->rx_stats);
+	igmp_stats_init(&igmp->igmp_stats);
 
 	if (mtrace_only) {
 		igmp->mtrace_only = mtrace_only;
