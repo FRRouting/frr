@@ -112,6 +112,7 @@ struct ospf_route {
 		struct route_external ext;
 	} u;
 
+	bool connected;
 	bool changed;
 };
 

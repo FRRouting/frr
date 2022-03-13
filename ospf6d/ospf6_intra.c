@@ -1714,6 +1714,8 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 			ls_entry->path.cost + ntohs(op->prefix_metric);
 		memcpy(&route->path.ls_prefix, &ls_prefix,
 		       sizeof(struct prefix));
+		if (ls_entry->connected)
+			route->connected = true;
 		if (direct_connect) {
 			ifp = if_lookup_prefix(&route->prefix,
 					       oa->ospf6->vrf_id);

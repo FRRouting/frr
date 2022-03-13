@@ -379,6 +379,8 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 	route->path.options[0] = v->options[0];
 	route->path.options[1] = v->options[1];
 	route->path.options[2] = v->options[2];
+	if (v->hops == 0)
+		route->connected = true;
 
 	ospf6_spf_copy_nexthops_to_route(route, v);
 
