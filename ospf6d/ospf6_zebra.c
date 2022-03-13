@@ -401,6 +401,10 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	int ret = 0;
 	struct prefix *dest;
 
+	/* Do not install connected routes. */
+	if (type == ADD && request->connected)
+		return;
+
 	if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 		zlog_debug("Zebra Send %s route: %pFX",
 			   (type == REM ? "remove" : "add"), &request->prefix);
@@ -431,6 +435,9 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 				"  Best-path removal resulted Secondary addition");
 		type = ADD;
 		request = request->next;
+		/* Do not install if the promoted secondary is also connected. */
+		if (request->connected)
+			return;
 	}
 
 	/* Only the best path will be sent to zebra. */
