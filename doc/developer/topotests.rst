@@ -35,6 +35,9 @@ Installing Topotest Requirements
    python2 -m pip install 'exabgp<4.0.0'
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
+   # To enable the gRPC topotest install:
+   python3 -m pip install grpcio grpcio-tools
+
 
 Enable Coredumps
 """"""""""""""""

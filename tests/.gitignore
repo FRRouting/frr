@@ -1,6 +1,8 @@
 *.log
 *.sum
 *.xml
+frr-northbound.proto
+frr_northbound*
 .pytest_cache
 /bgpd/test_aspath
 /bgpd/test_bgp_table
