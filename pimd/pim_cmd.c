@@ -1348,6 +1348,8 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 				    igmp_stats.mtrace_req);
 		json_object_int_add(json_row, "unsupported",
 				    igmp_stats.unsupported);
+		json_object_int_add(json_row, "totalReceivedMessages",
+				    igmp_stats.total_recv_messages);
 		json_object_int_add(json_row, "totalGroups",
 				    igmp_stats.total_groups);
 		json_object_int_add(json_row, "totalSourceGroups",
@@ -1365,39 +1367,41 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 		vty_json(vty, json);
 	} else {
 		vty_out(vty, "IGMP statistics\n");
-		vty_out(vty, "Interface            : %s\n",
+		vty_out(vty, "Interface               : %s\n",
 			ifname ? ifname : "global");
-		vty_out(vty, "V1 query             : %u\n",
+		vty_out(vty, "V1 query                : %u\n",
 			igmp_stats.query_v1);
-		vty_out(vty, "V2 query             : %u\n",
+		vty_out(vty, "V2 query                : %u\n",
 			igmp_stats.query_v2);
-		vty_out(vty, "V3 query             : %u\n",
+		vty_out(vty, "V3 query                : %u\n",
 			igmp_stats.query_v3);
-		vty_out(vty, "V2 leave             : %u\n",
+		vty_out(vty, "V2 leave                : %u\n",
 			igmp_stats.leave_v2);
-		vty_out(vty, "V1 report            : %u\n",
+		vty_out(vty, "V1 report               : %u\n",
 			igmp_stats.report_v1);
-		vty_out(vty, "V2 report            : %u\n",
+		vty_out(vty, "V2 report               : %u\n",
 			igmp_stats.report_v2);
-		vty_out(vty, "V3 report            : %u\n",
+		vty_out(vty, "V3 report               : %u\n",
 			igmp_stats.report_v3);
-		vty_out(vty, "mtrace response      : %u\n",
+		vty_out(vty, "mtrace response         : %u\n",
 			igmp_stats.mtrace_rsp);
-		vty_out(vty, "mtrace request       : %u\n",
+		vty_out(vty, "mtrace request          : %u\n",
 			igmp_stats.mtrace_req);
-		vty_out(vty, "unsupported          : %u\n",
+		vty_out(vty, "unsupported             : %u\n",
 			igmp_stats.unsupported);
-		vty_out(vty, "joins failed         : %u\n",
+		vty_out(vty, "total received messages : %u\n",
+			igmp_stats.total_recv_messages);
+		vty_out(vty, "joins failed            : %u\n",
 			igmp_stats.joins_failed);
-		vty_out(vty, "joins sent           : %u\n",
+		vty_out(vty, "joins sent              : %u\n",
 			igmp_stats.joins_sent);
-		vty_out(vty, "general queries sent : %u\n",
+		vty_out(vty, "general queries sent    : %u\n",
 			igmp_stats.general_queries_sent);
-		vty_out(vty, "group queries sent   : %u\n",
+		vty_out(vty, "group queries sent      : %u\n",
 			igmp_stats.group_queries_sent);
-		vty_out(vty, "total groups         : %u\n",
+		vty_out(vty, "total groups            : %u\n",
 			igmp_stats.total_groups);
-		vty_out(vty, "total source groups  : %u\n",
+		vty_out(vty, "total source groups     : %u\n",
 			igmp_stats.total_source_groups);
 	}
 }
