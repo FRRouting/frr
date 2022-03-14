@@ -1309,6 +1309,8 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 			pim_ifp->gm_group_list
 				? listcount(pim_ifp->gm_group_list)
 				: 0;
+		igmp_stats.peak_groups += pim_ifp->igmp_peak_group_count;
+
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, group_node,
 					  group)) {
@@ -1350,6 +1352,8 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 				    igmp_stats.unsupported);
 		json_object_int_add(json_row, "totalReceivedMessages",
 				    igmp_stats.total_recv_messages);
+		json_object_int_add(json_row, "peakGroups",
+				    igmp_stats.peak_groups);
 		json_object_int_add(json_row, "totalGroups",
 				    igmp_stats.total_groups);
 		json_object_int_add(json_row, "totalSourceGroups",
@@ -1399,6 +1403,8 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 			igmp_stats.general_queries_sent);
 		vty_out(vty, "group queries sent      : %u\n",
 			igmp_stats.group_queries_sent);
+		vty_out(vty, "peak groups             : %u\n",
+			igmp_stats.peak_groups);
 		vty_out(vty, "total groups            : %u\n",
 			igmp_stats.total_groups);
 		vty_out(vty, "total source groups     : %u\n",
@@ -4051,6 +4057,7 @@ DEFUN (clear_ip_pim_interface_traffic,
 		pim_ifp->pim_ifstat_bsm_tx = 0;
 		pim_ifp->igmp_ifstat_joins_sent = 0;
 		pim_ifp->igmp_ifstat_joins_failed = 0;
+		pim_ifp->igmp_peak_group_count = 0;
 	}
 
 	return CMD_SUCCESS;

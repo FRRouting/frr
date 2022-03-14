@@ -977,6 +977,8 @@ static void igmp_group_free(struct gm_group *group)
 
 static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 {
+	uint32_t group_count = listcount(pim_ifp->gm_group_list);
+
 	++pim_ifp->pim->igmp_group_count;
 	if (pim_ifp->pim->igmp_group_count
 	    == pim_ifp->pim->igmp_watermark_limit) {
@@ -985,6 +987,9 @@ static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 			pim_ifp->pim->igmp_group_count,
 			VRF_LOGNAME(pim_ifp->pim->vrf));
 	}
+
+	if (pim_ifp->igmp_peak_group_count < group_count)
+		pim_ifp->igmp_peak_group_count = group_count;
 }
 
 static void igmp_group_count_decr(struct pim_interface *pim_ifp)
