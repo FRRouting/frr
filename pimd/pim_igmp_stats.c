@@ -47,4 +47,6 @@ void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b)
 	a->total_source_groups += b->total_source_groups;
 	a->joins_sent += b->joins_sent;
 	a->joins_failed += b->joins_failed;
+	a->general_queries_sent += b->general_queries_sent;
+	a->group_queries_sent += b->group_queries_sent;
 }

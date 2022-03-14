@@ -985,12 +985,10 @@ static void igmp_send_query_group(struct gm_group *group, char *query_buf,
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 		igmp_send_query(
-			pim_ifp->igmp_version, group, igmp->fd, ifp->name,
-			query_buf, query_buf_size, num_sources,
-			group->group_addr, group->group_addr,
+			pim_ifp->igmp_version, group, query_buf, query_buf_size,
+			num_sources, group->group_addr, group->group_addr,
 			pim_ifp->gm_specific_query_max_response_time_dsec,
-			s_flag, igmp->querier_robustness_variable,
-			igmp->querier_query_interval);
+			s_flag, igmp);
 	}
 }
 
