@@ -153,7 +153,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 
 	if (wrong_af) {
 		zlog_err("invalid AF in Register-Stop on %s", ifp->name);
-		return 0;
+		return -1;
 	}
 
 
