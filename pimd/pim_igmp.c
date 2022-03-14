@@ -909,13 +909,10 @@ static void pim_igmp_general_query(struct thread *t)
 			   querier_str, dst_str, igmp->interface->name);
 	}
 
-	igmp_send_query(pim_ifp->igmp_version, 0 /* igmp_group */, igmp->fd,
-			igmp->interface->name, query_buf, sizeof(query_buf),
-			0 /* num_sources */, dst_addr, group_addr,
-			pim_ifp->gm_query_max_response_time_dsec,
-			1 /* s_flag: always set for general queries */,
-			igmp->querier_robustness_variable,
-			igmp->querier_query_interval);
+	igmp_send_query(pim_ifp->igmp_version, 0 /* igmp_group */, query_buf,
+			sizeof(query_buf), 0 /* num_sources */, dst_addr,
+			group_addr, pim_ifp->gm_query_max_response_time_dsec,
+			1 /* s_flag: always set for general queries */, igmp);
 
 	pim_igmp_general_query_on(igmp);
 }
@@ -1454,23 +1451,29 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	return group;
 }
 
-void igmp_send_query(int igmp_version, struct gm_group *group, int fd,
-		     const char *ifname, char *query_buf, int query_buf_size,
-		     int num_sources, struct in_addr dst_addr,
-		     struct in_addr group_addr,
+void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
+		     int query_buf_size, int num_sources,
+		     struct in_addr dst_addr, struct in_addr group_addr,
 		     int query_max_response_time_dsec, uint8_t s_flag,
-		     uint8_t querier_robustness_variable,
-		     uint16_t querier_query_interval)
+		     struct gm_sock *igmp)
 {
+	if (pim_addr_is_any(group_addr) &&
+	    ntohl(dst_addr.s_addr) == INADDR_ALLHOSTS_GROUP)
+		igmp->igmp_stats.general_queries_sent++;
+	else if (group)
+		igmp->igmp_stats.group_queries_sent++;
+
 	if (igmp_version == 3) {
-		igmp_v3_send_query(group, fd, ifname, query_buf, query_buf_size,
-				   num_sources, dst_addr, group_addr,
+		igmp_v3_send_query(group, igmp->fd, igmp->interface->name,
+				   query_buf, query_buf_size, num_sources,
+				   dst_addr, group_addr,
 				   query_max_response_time_dsec, s_flag,
-				   querier_robustness_variable,
-				   querier_query_interval);
+				   igmp->querier_robustness_variable,
+				   igmp->querier_query_interval);
 	} else if (igmp_version == 2) {
-		igmp_v2_send_query(group, fd, ifname, query_buf, dst_addr,
-				   group_addr, query_max_response_time_dsec);
+		igmp_v2_send_query(group, igmp->fd, igmp->interface->name,
+				   query_buf, dst_addr, group_addr,
+				   query_max_response_time_dsec);
 	}
 }
 
@@ -1501,13 +1504,10 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 
 		char query_buf[query_buf_size];
 
-		igmp_send_query(igmp_ver, 0 /* igmp_group */, igmp->fd,
-				igmp->interface->name, query_buf,
-				sizeof(query_buf), 0 /* num_sources */,
-				dst_addr, group_addr,
-				pim_ifp->gm_query_max_response_time_dsec,
-				1 /* s_flag: always set for general queries */,
-				igmp->querier_robustness_variable,
-				igmp->querier_query_interval);
+		igmp_send_query(
+			igmp_ver, 0 /* igmp_group */, query_buf,
+			sizeof(query_buf), 0 /* num_sources */, dst_addr,
+			group_addr, pim_ifp->gm_query_max_response_time_dsec,
+			1 /* s_flag: always set for general queries */, igmp);
 	}
 }

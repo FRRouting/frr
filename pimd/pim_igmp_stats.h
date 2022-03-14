@@ -37,6 +37,8 @@ struct igmp_stats {
 	uint32_t total_source_groups;
 	uint32_t joins_sent;
 	uint32_t joins_failed;
+	uint32_t general_queries_sent;
+	uint32_t group_queries_sent;
 };
 
 #if PIM_IPV == 4

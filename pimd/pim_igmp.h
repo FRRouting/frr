@@ -240,13 +240,11 @@ void igmp_startup_mode_on(struct gm_sock *igmp);
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 			 const char *ifname);
 
-void igmp_send_query(int igmp_version, struct gm_group *group, int fd,
-		     const char *ifname, char *query_buf, int query_buf_size,
-		     int num_sources, struct in_addr dst_addr,
-		     struct in_addr group_addr,
+void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
+		     int query_buf_size, int num_sources,
+		     struct in_addr dst_addr, struct in_addr group_addr,
 		     int query_max_response_time_dsec, uint8_t s_flag,
-		     uint8_t querier_robustness_variable,
-		     uint16_t querier_query_interval);
+		     struct gm_sock *igmp);
 void igmp_group_delete(struct gm_group *group);
 
 void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver);
