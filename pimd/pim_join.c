@@ -43,14 +43,10 @@
 #include "pim_util.h"
 #include "pim_ssm.h"
 
-static void on_trace(const char *label, struct interface *ifp,
-		     struct in_addr src)
+static void on_trace(const char *label, struct interface *ifp, pim_addr src)
 {
-	if (PIM_DEBUG_PIM_TRACE) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src, src_str, sizeof(src_str));
-		zlog_debug("%s: from %s on %s", label, src_str, ifp->name);
-	}
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: from %pPA on %s", label, &src, ifp->name);
 }
 
 static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
@@ -422,6 +418,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	size_t packet_left = 0;
 	size_t packet_size = 0;
 	size_t group_size = 0;
+	pim_addr rpf_addr;
 
 	if (rpf->source_nexthop.interface)
 		pim_ifp = rpf->source_nexthop.interface->info;
@@ -430,8 +427,9 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		return -1;
 	}
 
-	on_trace(__func__, rpf->source_nexthop.interface,
-		 rpf->rpf_addr.u.prefix4);
+	rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
+
+	on_trace(__func__, rpf->source_nexthop.interface, rpf_addr);
 
 	if (!pim_ifp) {
 		zlog_warn("%s: multicast not enabled on interface %s", __func__,
@@ -439,15 +437,12 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		return -1;
 	}
 
-	if (rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY) {
-		if (PIM_DEBUG_PIM_J_P) {
-			char dst_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,
-				       dst_str, sizeof(dst_str));
-			zlog_debug("%s: upstream=%s is myself on interface %s",
-				   __func__, dst_str,
-				   rpf->source_nexthop.interface->name);
-		}
+	if (pim_addr_is_any(rpf_addr)) {
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug(
+				"%s: upstream=%pPA is myself on interface %s",
+				__func__, &rpf_addr,
+				rpf->source_nexthop.interface->name);
 		return 0;
 	}
 
@@ -468,8 +463,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 
 			memset(msg, 0, sizeof(*msg));
 
-			pim_msg_addr_encode_ipv4_ucast((uint8_t *)&msg->addr,
-						       rpf->rpf_addr.u.prefix4);
+			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
+						  rpf_addr);
 			msg->reserved = 0;
 			msg->holdtime = htons(PIM_JP_HOLDTIME);
 
@@ -485,15 +480,11 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			packet_left = rpf->source_nexthop.interface->mtu - 24;
 			packet_left -= packet_size;
 		}
-		if (PIM_DEBUG_PIM_J_P) {
-			char dst_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,
-				       dst_str, sizeof(dst_str));
+		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug(
-				"%s: sending (G)=%pPAs to upstream=%s on interface %s",
-				__func__, &group->group, dst_str,
+				"%s: sending (G)=%pPAs to upstream=%pPA on interface %s",
+				__func__, &group->group, &rpf_addr,
 				rpf->source_nexthop.interface->name);
-		}
 
 		group_size = pim_msg_get_jp_group_size(group->sources);
 		if (group_size > packet_left) {
@@ -513,8 +504,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			msg = (struct pim_jp *)pim_msg;
 			memset(msg, 0, sizeof(*msg));
 
-			pim_msg_addr_encode_ipv4_ucast((uint8_t *)&msg->addr,
-						       rpf->rpf_addr.u.prefix4);
+			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
+						  rpf_addr);
 			msg->reserved = 0;
 			msg->holdtime = htons(PIM_JP_HOLDTIME);
 
