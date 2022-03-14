@@ -469,6 +469,7 @@ void pim_ifstat_reset(struct interface *ifp)
 	pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
 	pim_ifp->igmp_ifstat_joins_sent = 0;
 	pim_ifp->igmp_ifstat_joins_failed = 0;
+	pim_ifp->igmp_peak_group_count = 0;
 }
 
 void pim_sock_reset(struct interface *ifp)

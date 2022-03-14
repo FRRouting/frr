@@ -33,6 +33,7 @@ struct igmp_stats {
 	uint32_t mtrace_rsp;
 	uint32_t mtrace_req;
 	uint32_t unsupported;
+	uint32_t peak_groups;
 	uint32_t total_groups;
 	uint32_t total_source_groups;
 	uint32_t joins_sent;

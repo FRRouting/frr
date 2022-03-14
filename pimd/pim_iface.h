@@ -191,6 +191,7 @@ struct pim_interface {
 
 	uint32_t igmp_ifstat_joins_sent;
 	uint32_t igmp_ifstat_joins_failed;
+	uint32_t igmp_peak_group_count;
 
 	struct {
 		bool enabled;
