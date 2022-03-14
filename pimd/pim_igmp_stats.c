@@ -43,6 +43,7 @@ void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b)
 	a->mtrace_rsp += b->mtrace_rsp;
 	a->mtrace_req += b->mtrace_req;
 	a->unsupported += b->unsupported;
+	a->peak_groups += b->peak_groups;
 	a->total_groups += b->total_groups;
 	a->total_source_groups += b->total_source_groups;
 	a->joins_sent += b->joins_sent;
