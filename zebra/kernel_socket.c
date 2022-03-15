@@ -1577,6 +1577,12 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 			res = kernel_pbr_rule_update(ctx);
 			break;
 
+		case DPLANE_OP_INTF_INSTALL:
+		case DPLANE_OP_INTF_UPDATE:
+		case DPLANE_OP_INTF_DELETE:
+			res = kernel_intf_update(ctx);
+			break;
+
 		/* Ignore 'notifications' - no-op */
 		case DPLANE_OP_SYS_ROUTE_ADD:
 		case DPLANE_OP_SYS_ROUTE_DELETE:

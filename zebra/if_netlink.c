@@ -77,6 +77,7 @@
 #include "zebra/netconf_netlink.h"
 
 extern struct zebra_privs_t zserv_privs;
+uint8_t frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
@@ -814,33 +815,90 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	return 0;
 }
 
-/* If the interface is an es bond member then it must follow EVPN's
- * protodown setting
+static bool is_if_protodown_reason_only_frr(uint32_t rc_bitfield)
+{
+	/* This shouldn't be possible */
+	assert(frr_protodown_r_bit < 32);
+	return (rc_bitfield == (((uint32_t)1) << frr_protodown_r_bit));
+}
+
+/*
+ * Process interface protodown dplane update.
+ *
+ * If the interface is an es bond member then it must follow EVPN's
+ * protodown setting.
  */
 static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
-					     bool protodown)
+					     struct rtattr **tb)
 {
-	bool zif_protodown;
+	bool protodown;
+	bool old_protodown;
+	uint32_t rc_bitfield = 0;
+	struct rtattr *pd_reason_info[IFLA_MAX + 1];
 
-	zif_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
-	if (protodown == zif_protodown)
+	protodown = !!*(uint8_t *)RTA_DATA(tb[IFLA_PROTO_DOWN]);
+
+	if (tb[IFLA_PROTO_DOWN_REASON]) {
+		netlink_parse_rtattr_nested(pd_reason_info, IFLA_INFO_MAX,
+					    tb[IFLA_PROTO_DOWN_REASON]);
+
+		if (pd_reason_info[IFLA_PROTO_DOWN_REASON_VALUE])
+			rc_bitfield = *(uint32_t *)RTA_DATA(
+				pd_reason_info[IFLA_PROTO_DOWN_REASON_VALUE]);
+	}
+
+	/*
+	 * Set our reason code to note it wasn't us.
+	 * If the reason we got from the kernel is ONLY frr though, don't
+	 * set it.
+	 */
+	COND_FLAG(zif->protodown_rc, ZEBRA_PROTODOWN_EXTERNAL,
+		  protodown && rc_bitfield &&
+			  !is_if_protodown_reason_only_frr(rc_bitfield));
+
+
+	old_protodown = !!ZEBRA_IF_IS_PROTODOWN(zif);
+	if (protodown == old_protodown)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("interface %s dplane change, protdown %s",
 			   zif->ifp->name, protodown ? "on" : "off");
 
+	/* Set protodown, respectively */
+	COND_FLAG(zif->flags, ZIF_FLAG_PROTODOWN, protodown);
+
 	if (zebra_evpn_is_es_bond_member(zif->ifp)) {
+		/* Check it's not already being sent to the dplane first */
+		if (protodown &&
+		    CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN)) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"bond mbr %s protodown on recv'd but already sent protodown on to the dplane",
+					zif->ifp->name);
+			return;
+		}
+
+		if (!protodown &&
+		    CHECK_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN)) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"bond mbr %s protodown off recv'd but already sent protodown off to the dplane",
+					zif->ifp->name);
+			return;
+		}
+
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"bond mbr %s re-instate protdown %s in the dplane",
-				zif->ifp->name, zif_protodown ? "on" : "off");
-		netlink_protodown(zif->ifp, zif_protodown);
-	} else {
-		if (protodown)
-			zif->flags |= ZIF_FLAG_PROTODOWN;
+				"bond mbr %s reinstate protodown %s in the dplane",
+				zif->ifp->name, old_protodown ? "on" : "off");
+
+		if (old_protodown)
+			SET_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
 		else
-			zif->flags &= ~ZIF_FLAG_PROTODOWN;
+			SET_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
+
+		dplane_intf_update(zif->ifp);
 	}
 }
 
@@ -856,6 +914,29 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 			mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS]);
 
 	return bypass;
+}
+
+/*
+ * Only called at startup to cleanup leftover protodown reasons we may
+ * have not cleaned up. We leave protodown set though.
+ */
+static void if_sweep_protodown(struct zebra_if *zif)
+{
+	bool protodown;
+
+	protodown = !!ZEBRA_IF_IS_PROTODOWN(zif);
+
+	if (!protodown)
+		return;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("interface %s sweeping protodown %s reason 0x%x",
+			   zif->ifp->name, protodown ? "on" : "off",
+			   zif->protodown_rc);
+
+	/* Only clear our reason codes, leave external if it was set */
+	UNSET_FLAG(zif->protodown_rc, ZEBRA_PROTODOWN_ALL);
+	dplane_intf_update(zif->ifp);
 }
 
 /*
@@ -905,7 +986,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Looking up interface name. */
 	memset(linkinfo, 0, sizeof(linkinfo));
-	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+	netlink_parse_rtattr_flags(tb, IFLA_MAX, IFLA_RTA(ifi), len,
+				   NLA_F_NESTED);
 
 	/* check for wireless messages to ignore */
 	if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0)) {
@@ -1020,10 +1102,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex, !!bypass);
 
 	if (tb[IFLA_PROTO_DOWN]) {
-		uint8_t protodown;
-
-		protodown = *(uint8_t *)RTA_DATA(tb[IFLA_PROTO_DOWN]);
-		netlink_proc_dplane_if_protodown(zif, !!protodown);
+		netlink_proc_dplane_if_protodown(zif, tb);
+		if_sweep_protodown(zif);
 	}
 
 	return 0;
@@ -1242,6 +1322,41 @@ netlink_put_address_update_msg(struct nl_batch *bth,
 {
 	return netlink_batch_add_msg(bth, ctx, netlink_address_msg_encoder,
 				     false);
+}
+
+static ssize_t netlink_intf_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+					size_t buflen)
+{
+	enum dplane_op_e op;
+	int cmd = 0;
+
+	op = dplane_ctx_get_op(ctx);
+
+	switch (op) {
+	case DPLANE_OP_INTF_UPDATE:
+		cmd = RTM_SETLINK;
+		break;
+	case DPLANE_OP_INTF_INSTALL:
+		cmd = RTM_NEWLINK;
+		break;
+	case DPLANE_OP_INTF_DELETE:
+		cmd = RTM_DELLINK;
+		break;
+	default:
+		flog_err(
+			EC_ZEBRA_NHG_FIB_UPDATE,
+			"Context received for kernel interface update with incorrect OP code (%u)",
+			op);
+		return -1;
+	}
+
+	return netlink_intf_msg_encode(cmd, ctx, buf, buflen);
+}
+
+enum netlink_msg_status
+netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_intf_msg_encoder, false);
 }
 
 int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
@@ -1716,7 +1831,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Looking up interface name. */
 	memset(linkinfo, 0, sizeof(linkinfo));
-	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+	netlink_parse_rtattr_flags(tb, IFLA_MAX, IFLA_RTA(ifi), len,
+				   NLA_F_NESTED);
 
 	/* check for wireless messages to ignore */
 	if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0)) {
@@ -1856,14 +1972,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
 							     !!bypass);
 
-			if (tb[IFLA_PROTO_DOWN]) {
-				uint8_t protodown;
+			if (tb[IFLA_PROTO_DOWN])
+				netlink_proc_dplane_if_protodown(ifp->info, tb);
 
-				protodown = *(uint8_t *)RTA_DATA(
-					tb[IFLA_PROTO_DOWN]);
-				netlink_proc_dplane_if_protodown(ifp->info,
-								 !!protodown);
-			}
 		} else if (ifp->vrf->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1910,14 +2021,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				netlink_to_zebra_link_type(ifi->ifi_type);
 			netlink_interface_update_hw_addr(tb, ifp);
 
-			if (tb[IFLA_PROTO_DOWN]) {
-				uint8_t protodown;
-
-				protodown = *(uint8_t *)RTA_DATA(
-					tb[IFLA_PROTO_DOWN]);
-				netlink_proc_dplane_if_protodown(zif,
-								 !!protodown);
-			}
+			if (tb[IFLA_PROTO_DOWN])
+				netlink_proc_dplane_if_protodown(ifp->info, tb);
 
 			if (if_is_no_ptm_operative(ifp)) {
 				bool is_up = if_is_operative(ifp);
@@ -2049,30 +2154,72 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-int netlink_protodown(struct interface *ifp, bool down)
-{
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+/**
+ * Interface encoding helper function.
+ *
+ * \param[in] cmd netlink command.
+ * \param[in] ctx dataplane context (information snapshot).
+ * \param[out] buf buffer to hold the packet.
+ * \param[in] buflen amount of buffer bytes.
+ */
 
+ssize_t netlink_intf_msg_encode(uint16_t cmd,
+				const struct zebra_dplane_ctx *ctx, void *buf,
+				size_t buflen)
+{
 	struct {
 		struct nlmsghdr n;
 		struct ifinfomsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
+		char buf[];
+	} *req = buf;
 
-	memset(&req, 0, sizeof(req));
+	struct rtattr *nest_protodown_reason;
+	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
+	bool down = dplane_ctx_intf_is_protodown(ctx);
+	bool pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
+	struct nlsock *nl =
+		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = RTM_SETLINK;
-	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+	if (buflen < sizeof(*req))
+		return 0;
 
-	req.ifa.ifi_index = ifp->ifindex;
+	memset(req, 0, sizeof(*req));
 
-	nl_attr_put(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
-	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
+	if (cmd != RTM_SETLINK)
+		flog_err(
+			EC_ZEBRA_INTF_UPDATE_FAILURE,
+			"Only RTM_SETLINK message type currently supported in dplane pthread");
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_type = cmd;
+	req->n.nlmsg_pid = nl->snl.nl_pid;
+
+	req->ifa.ifi_index = ifindex;
+
+	nl_attr_put8(&req->n, buflen, IFLA_PROTO_DOWN, down);
+	nl_attr_put32(&req->n, buflen, IFLA_LINK, ifindex);
+
+	/* Reason info nest */
+	nest_protodown_reason =
+		nl_attr_nest(&req->n, buflen, IFLA_PROTO_DOWN_REASON);
+
+	if (!nest_protodown_reason)
+		return -1;
+
+	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
+		      (1 << frr_protodown_r_bit));
+	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
+		      ((int)pd_reason_val) << frr_protodown_r_bit);
+
+	nl_attr_nest_end(&req->n, nest_protodown_reason);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: %s, protodown=%d reason_val=%d ifindex=%u",
+			   __func__, nl_msg_type_to_str(cmd), down,
+			   pd_reason_val, ifindex);
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
 /* Interface information read by netlink. */
@@ -2086,6 +2233,37 @@ void interface_list(struct zebra_ns *zns)
 	netlink_nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
+}
+
+void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
+{
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug(
+			"Protodown reason bit index changed: bit-index %u -> bit-index %u",
+			frr_protodown_r_bit, bit);
+
+	frr_protodown_r_bit = bit;
+}
+
+void if_netlink_unset_frr_protodown_r_bit(void)
+{
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug(
+			"Protodown reason bit index changed: bit-index %u -> bit-index %u",
+			frr_protodown_r_bit, FRR_PROTODOWN_REASON_DEFAULT_BIT);
+
+	frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
+}
+
+
+bool if_netlink_frr_protodown_r_bit_is_set(void)
+{
+	return (frr_protodown_r_bit != FRR_PROTODOWN_REASON_DEFAULT_BIT);
+}
+
+uint8_t if_netlink_get_frr_protodown_r_bit(void)
+{
+	return frr_protodown_r_bit;
 }
 
 #endif /* GNU_LINUX */

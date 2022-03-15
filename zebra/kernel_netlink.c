@@ -94,6 +94,7 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
 					   {RTM_GETROUTE, "RTM_GETROUTE"},
 					   {RTM_NEWLINK, "RTM_NEWLINK"},
+					   {RTM_SETLINK, "RTM_SETLINK"},
 					   {RTM_DELLINK, "RTM_DELLINK"},
 					   {RTM_GETLINK, "RTM_GETLINK"},
 					   {RTM_NEWADDR, "RTM_NEWADDR"},
@@ -208,6 +209,10 @@ int netlink_config_write_helper(struct vty *vty)
 	    || threshold != NL_DEFAULT_BATCH_SEND_THRESHOLD)
 		vty_out(vty, "zebra kernel netlink batch-tx-buf %u %u\n", size,
 			threshold);
+
+	if (if_netlink_frr_protodown_r_bit_is_set())
+		vty_out(vty, "zebra protodown reason-bit %u\n",
+			if_netlink_get_frr_protodown_r_bit());
 
 	return 0;
 }
@@ -1491,6 +1496,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_INTF_NETCONFIG:
 	case DPLANE_OP_NONE:
 		return FRR_NETLINK_ERROR;
+
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+		return netlink_put_intf_update_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;
