@@ -804,9 +804,11 @@ class TopoRouter(TopoGear):
             for daemon in self.RD:
                 # This will not work for all daemons
                 daemonstr = self.RD.get(daemon).rstrip("d")
-                result = self.run(
-                    "grep 'router {}' {}".format(daemonstr, source)
-                ).strip()
+                if daemonstr == "pim":
+                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
+                else:
+                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
+                result = self.run(grep_cmd).strip()
                 if result:
                     self.load_config(daemon)
         else:
