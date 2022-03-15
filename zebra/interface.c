@@ -2296,7 +2296,6 @@ bool zebra_if_get_source(const struct interface *ifp, const struct ipaddr *dest,
 			continue;
 
 		if (dest->ipa_type == IPADDR_V4 && ifc->address->family == AF_INET) {
-
 			src->ipa_type = dest->ipa_type;
 			src->ipaddr_v4 = ifc->address->u.prefix4;
 			ret = true;

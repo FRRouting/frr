@@ -697,9 +697,14 @@ int zebra_neigh_throttle_show(struct vty *vty, bool detail, bool use_json)
 	uint32_t expires;
 	json_object *json = NULL;
 	json_object *jarray = NULL;
+	json_object *jvrf = NULL;
 	json_object *jobj = NULL;
+	vrf_id_t last_vrf_id = VRF_UNKNOWN;
+	struct vrf *last_vrf = NULL;
 
 	if (use_json) {
+		char keybuf[100];
+
 		json = json_object_new_object();
 
 		/* Individual attributes */
@@ -716,29 +721,45 @@ int zebra_neigh_throttle_show(struct vty *vty, bool detail, bool use_json)
 		if (!detail)
 			goto json_done;
 
-		/* Array/list of entries */
-		jarray = json_object_new_array();
+		/* Array of entries */
+		jarray = json_object_new_object();
 
 		entry = nt_entry_rb_const_first(&nt_globals.entry_rb);
 		while (entry) {
 			jobj = json_object_new_object();
 
-			json_object_int_add(jobj, "expiration", entry->expiration);
+			if (entry->vrfid != last_vrf_id) {
+				/* Finish with current vrf dict */
+				if (jvrf) {
+					json_object_object_add(
+						jarray, VRF_LOGNAME(last_vrf),
+						jvrf);
+				}
 
-			if (entry->addr.ipa_type == IPADDR_V4) {
-				json_object_string_add(jobj, "afi", "ipv4");
-				json_object_string_addf(jobj, "ipaddr", "%pI4",
-							&entry->addr.ipaddr_v4);
-			} else if (entry->addr.ipa_type == IPADDR_V6) {
-				json_object_string_add(jobj, "afi", "ipv6");
-				json_object_string_addf(jobj, "ipaddr", "%pI6",
-							&entry->addr.ipaddr_v6);
+				last_vrf_id = entry->vrfid;
+				last_vrf = vrf_lookup_by_id(entry->vrfid);
+
+				jvrf = json_object_new_object();
 			}
 
-			json_object_array_add(jarray, jobj);
+			json_object_int_add(jobj, "expiration", entry->expiration);
+
+			if (entry->addr.ipa_type == IPADDR_V4)
+				json_object_string_add(jobj, "afi", "ipv4");
+			else if (entry->addr.ipa_type == IPADDR_V6)
+				json_object_string_add(jobj, "afi", "ipv6");
+
+			/* Construct entry's key */
+			snprintfrr(keybuf, sizeof(keybuf), "%pIA", &entry->addr);
+
+			json_object_object_add(jvrf, keybuf, jobj);
 
 			entry = nt_entry_rb_const_next(&nt_globals.entry_rb, entry);
 		}
+
+		/* Finish with last vrf dict */
+		if (jvrf)
+			json_object_object_add(jarray, VRF_LOGNAME(last_vrf), jvrf);
 
 		json_object_object_add(json, "entries", jarray);
 
@@ -761,6 +782,13 @@ json_done:
 		/* Show output sorted by ip */
 		entry = nt_entry_rb_const_first(&nt_globals.entry_rb);
 		while (entry) {
+			if (entry->vrfid != last_vrf_id) {
+				last_vrf_id = entry->vrfid;
+				last_vrf = vrf_lookup_by_id(entry->vrfid);
+
+				vty_out(vty, "VRF %s\n", VRF_LOGNAME(last_vrf));
+			}
+
 			/* Compute remaining timeout */
 			if (entry->expiration >= now)
 				expires = entry->expiration - now;
