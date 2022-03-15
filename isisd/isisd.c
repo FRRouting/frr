@@ -53,6 +53,10 @@
 #include "isisd/isis_flex_algo.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
+#ifndef FABRICD
+#include "isisd/isis_fae.h"
+#include "isisd/isis_zebra_fae.h"
+#endif /* !FABRICD */
 
 /* For debug statement. */
 unsigned long debug_adj_pkt;
@@ -91,6 +95,8 @@ struct isis_master *im;
 
 /* ISIS config processing thread */
 struct event *t_isis_cfg;
+
+uint32_t z_area_id_next;
 
 #ifndef FABRICD
 DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
@@ -301,6 +307,8 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	listnode_add(isis->area_list, area);
 	area->isis = isis;
 
+	area->z_area_id = z_area_id_next++;
+
 	/*
 	 * Fabricd runs only as level-2.
 	 * For IS-IS, the default is level-1-2
@@ -323,6 +331,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	/* Flex-Algo */
 	area->flex_algos = flex_algos_alloc(isis_flex_algo_data_alloc,
 					    isis_flex_algo_data_free);
+	isis_fae_alloc_db(&area->fae);
 #endif /* ifndef FABRICD */
 
 	spftree_area_init(area);
@@ -431,6 +440,10 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 		}
 	}
 
+#ifndef FABRICD
+	isis_zebra_fae_ready_send(area, ZAPI_FAE_IS_READY);
+#endif /* !FABRICD */
+
 	return area;
 }
 
@@ -471,6 +484,23 @@ struct isis_area *isis_area_lookup(const char *area_tag, vrf_id_t vrf_id)
 	return NULL;
 }
 
+struct isis_area *isis_area_lookup_by_z_area_id(uint32_t z_area_id,
+						vrf_id_t vrf_id)
+{
+	struct isis_area *area;
+	struct listnode *node;
+	struct isis *isis;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+	if (isis == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (area->z_area_id == z_area_id)
+			return area;
+
+	return NULL;
+}
 int isis_area_get(struct vty *vty, const char *area_tag)
 {
 	struct isis_area *area;
@@ -498,6 +528,10 @@ void isis_area_destroy(struct isis_area *area)
 	struct isis_circuit *circuit;
 
 	QOBJ_UNREG(area);
+
+#ifndef FABRICD
+	isis_zebra_fae_ready_send(area, ZAPI_FAE_NOT_READY);
+#endif /* !FABRICD */
 
 	if (fabricd)
 		fabricd_finish(area->fabricd);
@@ -3842,6 +3876,17 @@ struct cmd_node isis_srv6_node_msd_node = {
 
 void isis_init(void)
 {
+	/*
+	 * z_area_id is a compact identifier meant to substitute
+	 * for potentially-long area-tag strings in ZAPI messages.
+	 * It is not part of the isis protocol.
+	 *
+	 * area_id is initialized this way to reduce likelihood
+	 * that a restarted isisd will generate area_id values
+	 * that collide with previous values sent to other daemons.
+	 */
+	z_area_id_next = (uint32_t)monotime(NULL);
+
 	/* Install IS-IS top node */
 	install_node(&router_node);
 

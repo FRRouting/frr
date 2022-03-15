@@ -44,6 +44,10 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
 #include "isisd/isis_ldp_sync.h"
+#ifndef FABRICD
+#include "isisd/isis_fae.h"
+#include "isisd/isis_zebra_fae.h"
+#endif /* !FABRICD */
 
 struct zclient *zclient;
 static struct zclient *zclient_sync;
@@ -740,6 +744,9 @@ static void isis_zebra_connected(struct zclient *zclient)
 	zclient_register_opaque(zclient, LDP_RLFA_LABELS);
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	zclient_register_opaque(zclient, FAE_REGISTER);
+	zclient_register_opaque(zclient, FAE_UNREGISTER);
+	zclient_register_opaque(zclient, FAE_CLIENT_READY);
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
@@ -799,6 +806,17 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		STREAM_GET(&rlfa, s, sizeof(rlfa));
 		isis_rlfa_process_ldp_response(&rlfa);
 		break;
+#ifndef FABRICD
+	case FAE_REGISTER:
+		ret = isis_zebra_fae_process_register(s);
+		break;
+	case FAE_UNREGISTER:
+		ret = isis_zebra_fae_process_unregister(s);
+		break;
+	case FAE_CLIENT_READY:
+		ret = isis_zebra_fae_process_client_ready(s);
+		break;
+#endif /* !FABRICD */
 	default:
 		break;
 	}
@@ -1412,6 +1430,9 @@ void isis_zebra_stop(void)
 	zclient_unregister_opaque(zclient, LDP_RLFA_LABELS);
 	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	zclient_unregister_opaque(zclient, FAE_REGISTER);
+	zclient_unregister_opaque(zclient, FAE_UNREGISTER);
+	zclient_unregister_opaque(zclient, FAE_CLIENT_READY);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 	zclient_stop(zclient);

@@ -57,6 +57,15 @@ noinst_HEADERS += \
 	isisd/fabricd.h \
 	# end
 
+if !FABRICD
+noinst_HEADERS += \
+	isisd/isis_fae_db.h \
+	isisd/isis_fae_cli.h \
+	isisd/isis_fae.h \
+	isisd/isis_zebra_fae.h \
+	# end
+endif
+
 LIBISIS_SOURCES = \
 	isisd/isis_affinitymap.c \
 	isisd/isis_adjacency.c \
@@ -67,6 +76,8 @@ LIBISIS_SOURCES = \
 	isisd/isis_dynhn.c \
 	isisd/isis_errors.c \
 	isisd/isis_events.c \
+	isisd/isis_fae.c \
+	isisd/isis_fae_cli.c \
 	isisd/isis_flags.c \
 	isisd/isis_ldp_sync.c \
 	isisd/isis_lfa.c \
@@ -86,6 +97,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \
 	isisd/isis_zebra.c \
+	isisd/isis_zebra_fae.c \
 	isisd/isisd.c \
 	isisd/iso_checksum.c \
 	isisd/fabricd.c \
@@ -113,6 +125,7 @@ isisd_libisis_a_SOURCES = \
 
 clippy_scan += \
 	isisd/isis_cli.c \
+	isisd/isis_fae_cli.c \
 	# end
 
 isisd_isisd_LDADD = isisd/libisis.a $(ISIS_LDADD_COMMON)

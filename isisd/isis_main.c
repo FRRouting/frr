@@ -48,6 +48,9 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 #include "isisd/isis_ldp_sync.h"
+#ifndef FABRICD
+#include "isisd/isis_fae.h"
+#endif /* !FABRICD */
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -323,6 +326,7 @@ int main(int argc, char **argv, char **envp)
 #endif /* FABRICD */
 #ifndef FABRICD
 	isis_cli_init();
+	isis_fae_init();
 #endif /* ifndef FABRICD */
 	isis_spf_init();
 	isis_redist_init();

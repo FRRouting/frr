@@ -20,6 +20,9 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_sr.h"
 #include "isisd/isis_srv6.h"
+#ifndef FABRICD
+#include "isisd/isis_fae_db.h"
+#endif /* !FABRICD */
 #include "isis_flags.h"
 #include "isis_lsp.h"
 #include "isis_lfa.h"
@@ -128,6 +131,7 @@ struct isis_area {
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
+	uint32_t z_area_id;	/* unique to this area */
 	struct list *circuit_list; /* IS-IS circuits */
 	struct list *adjacency_list; /* IS-IS adjacencies */
 	struct flags flags;
@@ -230,6 +234,8 @@ struct isis_area {
 #ifndef FABRICD
 	/* Flex-Algo */
 	struct flex_algos *flex_algos;
+
+	struct isis_fae_db fae; /* Flex-algo endpoint  registrations */
 #endif /* ifndef FABRICD */
 	/* Counters */
 	uint32_t circuit_state_changes;
@@ -289,6 +295,8 @@ struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 					  const char *vrf_name);
+struct isis_area *isis_area_lookup_by_z_area_id(uint32_t z_area_id,
+						vrf_id_t vrf_id);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);

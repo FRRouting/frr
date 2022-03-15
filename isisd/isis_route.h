@@ -36,6 +36,8 @@ struct isis_route_info {
 	struct isis_sr_psid_info sr_algo_previous[SR_ALGORITHM_COUNT];
 	struct list *nexthops;
 	struct isis_route_info *backup;
+	/* Flex-algo endpoint registrations */
+	struct list *fae_regs[SR_ALGORITHM_COUNT];
 };
 
 struct isis_route_table_info {
