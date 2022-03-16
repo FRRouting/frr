@@ -3036,9 +3036,11 @@ int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 			return 0;
 
 		/* don't import hosts that are locally attached */
-		if (install
-		    && !bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi,
-							     install))
+		if (install && bgp_evpn_skip_vrf_import_of_local_es(
+				       bgp_vrf, evp, pi, install))
+			return 0;
+
+		if (install)
 			ret = install_evpn_route_entry_in_vrf(bgp_vrf, evp, pi);
 		else
 			ret = uninstall_evpn_route_entry_in_vrf(bgp_vrf, evp,
@@ -3291,9 +3293,11 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 		int ret;
 
 		/* don't import hosts that are locally attached */
-		if (install
-		    && !bgp_evpn_skip_vrf_import_of_local_es(bgp_vrf, evp, pi,
-							     install))
+		if (install && bgp_evpn_skip_vrf_import_of_local_es(
+				       bgp_vrf, evp, pi, install))
+			return 0;
+
+		if (install)
 			ret = install_evpn_route_entry_in_vrf(bgp_vrf, evp, pi);
 		else
 			ret = uninstall_evpn_route_entry_in_vrf(bgp_vrf, evp,
