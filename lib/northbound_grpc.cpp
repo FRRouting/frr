@@ -223,7 +223,7 @@ class RpcStateBase
 	pthread_mutex_t cmux = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	CallState state = CREATE;
-	CallState entered_state;
+	CallState entered_state = CREATE;
 
       public:
 	const char *name;
@@ -1153,7 +1153,9 @@ static void *grpc_pthread_start(void *arg)
 	std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
 	s_server = server.get();
 
+	pthread_mutex_lock(&s_server_lock); // Make coverity happy
 	grpc_running = true;
+	pthread_mutex_unlock(&s_server_lock); // Make coverity happy
 
 	/* Schedule unary RPC handlers */
 	REQUEST_NEWRPC(GetCapabilities, NULL);
