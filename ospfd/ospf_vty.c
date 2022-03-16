@@ -3432,7 +3432,7 @@ DEFUN (show_ip_ospf,
 			if (uj)
 				vty_json(vty, json);
 			else if (!ospf_output)
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty, "%% OSPF is not enabled\n");
 			return ret;
 		}
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
@@ -3440,7 +3440,9 @@ DEFUN (show_ip_ospf,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 
 			return CMD_SUCCESS;
 		}
@@ -3451,7 +3453,8 @@ DEFUN (show_ip_ospf,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
 
 			return CMD_SUCCESS;
 		}
@@ -4164,7 +4167,7 @@ DEFUN (show_ip_ospf_interface,
 			if (uj)
 				vty_json(vty, json);
 			else if (!ospf)
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty, "%% OSPF is not enabled\n");
 
 			return ret;
 		}
@@ -4173,7 +4176,9 @@ DEFUN (show_ip_ospf_interface,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 
 			return CMD_SUCCESS;
 		}
@@ -4187,7 +4192,8 @@ DEFUN (show_ip_ospf_interface,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
 
 			return CMD_SUCCESS;
 		}
@@ -4572,7 +4578,7 @@ DEFUN (show_ip_ospf_neighbor,
 			if (uj)
 				vty_json(vty, json);
 			else if (!ospf)
-				vty_out(vty, "OSPF instance not found\n");
+				vty_out(vty, "OSPF is not enabled\n");
 
 			return ret;
 		}
@@ -4582,7 +4588,9 @@ DEFUN (show_ip_ospf_neighbor,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 
 			return CMD_SUCCESS;
 		}
@@ -4593,7 +4601,8 @@ DEFUN (show_ip_ospf_neighbor,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
 
 			return CMD_SUCCESS;
 		}
@@ -7123,11 +7132,13 @@ DEFUN (show_ip_ospf_database_max,
 			}
 
 			if (!ospf_output)
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty, "%% OSPF is not enabled\n");
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if (ospf == NULL || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 				return CMD_SUCCESS;
 			}
 			ret = (show_ip_ospf_database_common(
@@ -7138,7 +7149,7 @@ DEFUN (show_ip_ospf_database_max,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found\n");
+			vty_out(vty, "%% OSPF is not enabled in vrf default\n");
 			return CMD_SUCCESS;
 		}
 
@@ -7349,11 +7360,13 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 					uj);
 			}
 			if (!ospf_output)
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty, "%% OSPF is not enabled\n");
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if ((ospf == NULL) || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 				return CMD_SUCCESS;
 			}
 
@@ -7364,7 +7377,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found\n");
+			vty_out(vty, "%% OSPF is not enabled on vrf default\n");
 			return CMD_SUCCESS;
 		}
 
@@ -10460,7 +10473,9 @@ DEFPY (show_ip_ospf_gr_helper,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 
 			return CMD_SUCCESS;
 		}
@@ -10474,7 +10489,8 @@ DEFPY (show_ip_ospf_gr_helper,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
 
 			return CMD_SUCCESS;
 		}
@@ -11019,11 +11035,13 @@ DEFUN (show_ip_ospf_border_routers,
 			}
 
 			if (!ospf_output)
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty, "%% OSPF is not enabled\n");
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if (ospf == NULL || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 				return CMD_SUCCESS;
 			}
 
@@ -11034,7 +11052,7 @@ DEFUN (show_ip_ospf_border_routers,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found\n");
+			vty_out(vty, "%% OSPF is not enabled in vrf default\n");
 			return CMD_SUCCESS;
 		}
 
@@ -11161,7 +11179,7 @@ DEFUN (show_ip_ospf_route,
 				/* Keep Non-pretty format */
 				vty_json(vty, json);
 			} else if (!ospf_output)
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty, "%% OSPF is not enabled\n");
 
 			return ret;
 		}
@@ -11170,7 +11188,9 @@ DEFUN (show_ip_ospf_route,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 
 			return CMD_SUCCESS;
 		}
@@ -11181,7 +11201,8 @@ DEFUN (show_ip_ospf_route,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
 
 			return CMD_SUCCESS;
 		}
@@ -11602,7 +11623,9 @@ DEFUN (show_ip_ospf_external_aggregator,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf %s\n",
+					vrf_name);
 
 			return CMD_SUCCESS;
 		}
@@ -11615,7 +11638,8 @@ DEFUN (show_ip_ospf_external_aggregator,
 			if (uj)
 				vty_json(vty, json);
 			else
-				vty_out(vty, "%% OSPF instance not found\n");
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
 
 			return CMD_SUCCESS;
 		}
