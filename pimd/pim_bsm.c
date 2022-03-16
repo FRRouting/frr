@@ -130,11 +130,7 @@ int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *node1,
 		return 1;
 	if (node1->hash > node2->hash)
 		return -1;
-	if (pim_addr_cmp(node1->rp_address, node2->rp_address) < 0)
-		return 1;
-	if (pim_addr_cmp(node1->rp_address, node2->rp_address) > 0)
-		return -1;
-	return 0;
+	return pim_addr_cmp(node2->rp_address, node1->rp_address);
 }
 
 static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
@@ -1056,6 +1052,7 @@ static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
 		grpaddr = grpaddr & ((mask << (32 - hashmasklen)));
 	else
 		grpaddr = grpaddr & mask;
+
 	rp_add = ntohl(rp.s_addr);
 	temp = 1103515245 * ((1103515245 * (uint64_t)grpaddr + 12345) ^ rp_add)
 	       + 12345;
@@ -1075,8 +1072,7 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 
 	bsm_rpinfo->rp_prio = rp->rp_pri;
 	bsm_rpinfo->rp_holdtime = rp->rp_holdtime;
-	memcpy(&bsm_rpinfo->rp_address, &rp->rpaddr.addr,
-	       sizeof(struct in_addr));
+	bsm_rpinfo->rp_address = rp->rpaddr.addr;
 	bsm_rpinfo->elapse_time = 0;
 
 	/* Back pointer to the group node. */
@@ -1241,13 +1237,12 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			offset += sizeof(struct bsmmsg_rpinfo);
 
 			if (PIM_DEBUG_BSM) {
-				char rp_str[INET_ADDRSTRLEN];
+				pim_addr rp_addr;
 
-				pim_inet4_dump("<Rpaddr?>", rpinfo.rpaddr.addr,
-					       rp_str, sizeof(rp_str));
+				rp_addr = rpinfo.rpaddr.addr;
 				zlog_debug(
-					"%s, Rp address - %s; pri:%d hold:%d",
-					__func__, rp_str, rpinfo.rp_pri,
+					"%s, Rp address - %pPAs; pri:%d hold:%d",
+					__func__, &rp_addr, rpinfo.rp_pri,
 					rpinfo.rp_holdtime);
 			}
 
