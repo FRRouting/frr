@@ -278,11 +278,12 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				    bool dp_static, struct zebra_mac *mac);
 int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 			     bool clear_static);
-int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
-				const struct ipaddr *ip,
-				struct zebra_mac **macp,
-				const struct ethaddr *macaddr, vlanid_t vlan_id,
-				bool def_gw);
+void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
+				 struct zebra_evpn *zevpn,
+				 const struct ipaddr *ip,
+				 struct zebra_mac **macp,
+				 const struct ethaddr *macaddr,
+				 vlanid_t vlan_id, bool def_gw);
 void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn);
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn);
 void zebra_evpn_mac_ifp_del(struct interface *ifp);
