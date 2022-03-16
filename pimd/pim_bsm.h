@@ -193,7 +193,11 @@ struct bsm_hdr {
 } __attribute__((packed));
 
 struct bsmmsg_grpinfo {
+#if PIM_IPV == 4
 	struct pim_encoded_group_ipv4 group;
+#else
+	struct pim_encoded_group_ipv6 group;
+#endif
 	uint8_t rp_count;
 	uint8_t frag_rp_count;
 	uint16_t reserved;
