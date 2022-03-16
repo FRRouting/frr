@@ -3506,20 +3506,6 @@ void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import)
 				     &pi->net->p, pi, import);
 }
 
-/* Import the pi into vrf routing tables */
-void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import)
-{
-	struct bgp *bgp_evpn;
-
-	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn)
-		return;
-
-	bgp_evpn_install_uninstall_table(bgp_evpn, AFI_L2VPN, SAFI_EVPN,
-					 &pi->net->p, pi, import, false /*vpn*/,
-					 true /*vrf*/);
-}
-
 /*
  * delete and withdraw all ipv4 and ipv6 routes in the vrf table as type-5
  * routes
