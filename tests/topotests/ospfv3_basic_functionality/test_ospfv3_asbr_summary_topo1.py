@@ -2113,6 +2113,14 @@ def test_ospfv3_type5_summary_tc46_p0(request):
         tc_name, result
     )
 
+    output = tgen.gears["r0"].vtysh_cmd(
+        "show ipv6 ospf6 database as-external json", isjson=True
+    )
+
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ipv6 ospf6 database as-external json", isjson=True
+    )
+
     result = verify_rib(
         tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
     )
