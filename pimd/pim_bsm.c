@@ -1130,6 +1130,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 	int frag_rp_cnt = 0;
 	int offset = 0;
 	int ins_count = 0;
+	pim_addr grp_addr;
 
 	while (buflen > offset) {
 		if (offset + (int)sizeof(struct bsmmsg_grpinfo) > buflen) {
@@ -1141,31 +1142,28 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		}
 		/* Extract Group tlv from BSM */
 		memcpy(&grpinfo, buf, sizeof(struct bsmmsg_grpinfo));
+		grp_addr = grpinfo.group.addr;
 
-		if (PIM_DEBUG_BSM) {
-			char grp_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<Group?>", grpinfo.group.addr, grp_str,
-				       sizeof(grp_str));
+		if (PIM_DEBUG_BSM)
 			zlog_debug(
-				"%s, Group %s  Rpcount:%d Fragment-Rp-count:%d",
-				__func__, grp_str, grpinfo.rp_count,
+				"%s, Group %pPAs  Rpcount:%d Fragment-Rp-count:%d",
+				__func__, &grp_addr, grpinfo.rp_count,
 				grpinfo.frag_rp_count);
-		}
 
 		buf += sizeof(struct bsmmsg_grpinfo);
 		offset += sizeof(struct bsmmsg_grpinfo);
 
-		group.family = AF_INET;
-		if (grpinfo.group.mask > IPV4_MAX_BITLEN) {
+		group.family = PIM_AF;
+		if (grpinfo.group.mask > PIM_MAX_BITLEN) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"%s, v4 prefix length specified: %d is too long",
+					"%s, prefix length specified: %d is too long",
 					__func__, grpinfo.group.mask);
 			return false;
 		}
+
+		pim_addr_to_prefix(&group, grp_addr);
 		group.prefixlen = grpinfo.group.mask;
-		group.u.prefix4.s_addr = grpinfo.group.addr.s_addr;
 
 		/* Get the Group node for the BSM rp table */
 		bsgrp = pim_bsm_get_bsgrp_node(scope, &group);
@@ -1177,14 +1175,10 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			if (!bsgrp)
 				continue;
 
-			if (PIM_DEBUG_BSM) {
-				char grp_str[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<Group?>", grpinfo.group.addr,
-					       grp_str, sizeof(grp_str));
-				zlog_debug("%s, Rp count is zero for group: %s",
-					   __func__, grp_str);
-			}
+			if (PIM_DEBUG_BSM)
+				zlog_debug(
+					"%s, Rp count is zero for group: %pPAs",
+					__func__, &grp_addr);
 
 			old_rpinfo = bsm_rpinfos_first(bsgrp->bsrp_list);
 			if (old_rpinfo)
