@@ -1668,7 +1668,7 @@ def verify_ospf6_rib(
             logger.info("Checking router %s RIB:", router)
 
             # Verifying RIB routes
-            command = "show ipv6 ospf route"
+            command = "show ipv6 ospf route detail"
 
             found_routes = []
             missing_routes = []
@@ -1710,6 +1710,8 @@ def verify_ospf6_rib(
 
                     # Generating IPs for verification
                     ip_list = generate_ips(network, no_of_ip)
+                    if len(ip_list) == 1:
+                        ip_list = [network]
                     st_found = False
                     nh_found = False
                     for st_rt in ip_list:
@@ -1846,7 +1848,7 @@ def verify_ospf6_rib(
                                     return errormsg
 
                             if metric is not None:
-                                if "type2cost" not in ospf_rib_json[st_rt]:
+                                if "metricCostE2" not in ospf_rib_json[st_rt]:
                                     errormsg = (
                                         "[DUT: {}]: metric is"
                                         " not present for"
@@ -1854,7 +1856,7 @@ def verify_ospf6_rib(
                                     )
                                     return errormsg
 
-                                if metric != ospf_rib_json[st_rt]["type2cost"]:
+                                if metric != ospf_rib_json[st_rt]["metricCostE2"]:
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "

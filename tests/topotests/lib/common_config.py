@@ -2536,6 +2536,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         ipv6_data = set_data.setdefault("ipv6", {})
                         local_preference = set_data.setdefault("locPrf", None)
                         metric = set_data.setdefault("metric", None)
+                        metric_type = set_data.setdefault("metric-type", None)
                         as_path = set_data.setdefault("path", {})
                         weight = set_data.setdefault("weight", None)
                         community = set_data.setdefault("community", {})
@@ -2559,7 +2560,11 @@ def create_route_maps(tgen, input_dict, build=False):
 
                         # Metric
                         if metric:
-                            rmap_data.append("set metric {} \n".format(metric))
+                            del_comm = set_data.setdefault("delete", None)
+                            if del_comm:
+                                rmap_data.append("no set metric {}".format(metric))
+                            else:
+                                rmap_data.append("set metric {}".format(metric))
 
                         # Origin
                         if origin:

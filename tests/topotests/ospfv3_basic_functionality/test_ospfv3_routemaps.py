@@ -178,6 +178,312 @@ def teardown_module(mod):
 # ##################################
 
 
+def test_ospfv3_routemaps_functionality_tc19_p0(request):
+    """
+    OSPF Route map - Verify OSPF route map support functionality.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config as per the topology")
+    reset_config_on_routers(tgen)
+
+    step("Create static routes(10.0.20.1/32 and 10.0.20.2/32) in R0")
+    # Create Static routes
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK["ipv6"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    ospf_red_r1 = {"r0": {"ospf6": {"redistribute": [{"redist_type": "static"}]}}}
+    result = create_router_ospf(tgen, topo, ospf_red_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    lsid = NETWORK["ipv6"][0].split("/")[0]
+    rid = routerids[0]
+
+    protocol = "ospf"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    ospf_red_r1 = {
+        "r0": {
+            "ospf6": {"redistribute": [{"redist_type": "static", "del_action": True}]}
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_red_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Create prefix-list in R0 to permit 10.0.20.1/32 prefix &" " deny 10.0.20.2/32"
+    )
+
+    # Create ip prefix list
+    pfx_list = {
+        "r0": {
+            "prefix_lists": {
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv6"][0],
+                            "action": "permit",
+                        },
+                        {"seqid": 11, "network": "any", "action": "deny"},
+                    ]
+                }
+            }
+        }
+    }
+    result = create_prefix_lists(tgen, pfx_list)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("verify that prefix-list is created in R0.")
+    result = verify_prefix_lists(tgen, pfx_list)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n, prefix list creation failed. Error: {}".format(
+        tc_name, result
+    )
+
+    # Create route map
+    routemaps = {
+        "r0": {
+            "route_maps": {
+                "rmap_ipv6": [
+                    {
+                        "action": "permit",
+                        "match": {"ipv6": {"prefix_lists": "pf_list_1_ipv6"}},
+                    }
+                ]
+            }
+        }
+    }
+    result = create_route_maps(tgen, routemaps)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Configure route map rmap1 and redistribute static routes to"
+        " ospf using route map rmap1"
+    )
+
+    ospf_red_r1 = {
+        "r0": {
+            "ospf6": {
+                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv6"}]
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_red_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    step("Verify that route map is activated in OSPF.")
+
+    step("Verify that route 10.0.20.1 is allowed and 10.0.20.2 is denied.")
+    dut = "r1"
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 1, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    lsid = NETWORK["ipv6"][1].split("/")[0]
+    rid = routerids[0]
+
+    step("Change prefix rules to permit 10.0.20.2 and deny 10.0.20.1")
+    # Create ip prefix list
+    pfx_list = {
+        "r0": {
+            "prefix_lists": {
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv6"][1],
+                            "action": "permit",
+                        },
+                        {"seqid": 11, "network": "any", "action": "deny"},
+                    ]
+                }
+            }
+        }
+    }
+    result = create_prefix_lists(tgen, pfx_list)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that route 10.0.20.2 is allowed and 10.0.20.1 is denied.")
+    dut = "r1"
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][1], "no_of_ip": 1, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 1, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route found in the RIB,  Error: {}".format(
+        tc_name, result
+    )
+
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
+        tc_name, result
+    )
+
+    step("Delete and reconfigure prefix list.")
+    # Create ip prefix list
+    pfx_list = {
+        "r0": {
+            "prefix_lists": {
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv6"][1],
+                            "action": "permit",
+                            "delete": True,
+                        },
+                        {
+                            "seqid": 11,
+                            "network": "any",
+                            "action": "deny",
+                            "delete": True,
+                        },
+                    ]
+                }
+            }
+        }
+    }
+    result = create_prefix_lists(tgen, pfx_list)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_prefix_lists(tgen, pfx_list)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 5, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
+        tc_name, result
+    )
+
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
+        tc_name, result
+    )
+
+    pfx_list = {
+        "r0": {
+            "prefix_lists": {
+                "ipv6": {
+                    "pf_list_1_ipv6": [
+                        {
+                            "seqid": 10,
+                            "network": NETWORK["ipv6"][1],
+                            "action": "permit",
+                        },
+                        {"seqid": 11, "network": "any", "action": "deny"},
+                    ]
+                }
+            }
+        }
+    }
+    result = create_prefix_lists(tgen, pfx_list)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that route 10.0.20.2 is allowed and 10.0.20.1 is denied.")
+    dut = "r1"
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][1], "no_of_ip": 1, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 1, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
+        tc_name, result
+    )
+
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
+        tc_name, result
+    )
+
+    write_test_footer(tc_name)
+
+
 def test_ospfv3_routemaps_functionality_tc20_p0(request):
     """
     OSPF route map support functionality.
@@ -461,7 +767,7 @@ def test_ospfv3_routemaps_functionality_tc22_p0(request):
                     {
                         "action": "permit",
                         "seq_id": "20",
-                        "match": {"ipv6": {"prefix_lists": "pf_list_2_ipv4"}},
+                        "match": {"ipv6": {"prefix_lists": "pf_list_2_ipv6"}},
                     },
                 ]
             }
@@ -474,7 +780,7 @@ def test_ospfv3_routemaps_functionality_tc22_p0(request):
     input_dict_2 = {
         "r0": {
             "prefix_lists": {
-                "ipv4": {
+                "ipv6": {
                     "pf_list_1_ipv6": [
                         {"seqid": 10, "network": NETWORK["ipv6"][0], "action": "permit"}
                     ]
@@ -489,8 +795,8 @@ def test_ospfv3_routemaps_functionality_tc22_p0(request):
     input_dict_2 = {
         "r0": {
             "prefix_lists": {
-                "ipv4": {
-                    "pf_list_2_ipv4": [
+                "ipv6": {
+                    "pf_list_2_ipv6": [
                         {"seqid": 10, "network": NETWORK["ipv6"][1], "action": "permit"}
                     ]
                 }
@@ -567,7 +873,7 @@ def test_ospfv3_routemaps_functionality_tc22_p0(request):
                     {
                         "action": "deny",
                         "seq_id": "20",
-                        "match": {"ipv6": {"prefix_lists": "pf_list_2_ipv4"}},
+                        "match": {"ipv6": {"prefix_lists": "pf_list_2_ipv6"}},
                     }
                 ]
             }
@@ -620,6 +926,106 @@ def test_ospfv3_routemaps_functionality_tc22_p0(request):
     ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
         tc_name, result
     )
+
+    write_test_footer(tc_name)
+
+
+def test_ospfv3_routemaps_functionality_tc23_p0(request):
+    """
+    OSPF Route map - Multiple set clauses.
+
+    Verify OSPF route map support functionality when we add/remove route-maps
+    with multiple set clauses and without any match statement.(Set only)
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config as per the topology")
+
+    reset_config_on_routers(tgen)
+
+    step(
+        " Create static routes(10.0.20.1/32) in R1 and "
+        "redistribute to OSPF using route map."
+    )
+    # Create Static routes
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK["ipv6"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    ospf_red_r0 = {
+        "r0": {
+            "ospf6": {
+                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv6"}]
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_red_r0)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Configure route map with set clause (set metric)")
+    # Create route map
+    routemaps = {
+        "r0": {
+            "route_maps": {
+                "rmap_ipv6": [
+                    {"action": "permit", "seq_id": 10, "set": {"metric": 123}}
+                ]
+            }
+        }
+    }
+    result = create_route_maps(tgen, routemaps)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that configured metric is applied to ospf routes.")
+    dut = "r1"
+    protocol = "ospf"
+
+    result = verify_ospf6_rib(tgen, dut, input_dict, metric=123)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, metric=123)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("un configure the set clause")
+    # Create route map
+    routemaps = {
+        "r0": {
+            "route_maps": {
+                "rmap_ipv6": [
+                    {
+                        "action": "permit",
+                        "seq_id": 10,
+                        "set": {"metric": 123, "delete": True},
+                    }
+                ]
+            }
+        }
+    }
+    result = create_route_maps(tgen, routemaps)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that metric falls back to original metric for ospf routes.")
+    dut = "r1"
+    protocol = "ospf"
+
+    result = verify_ospf6_rib(tgen, dut, input_dict, metric=20)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, metric=20)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
