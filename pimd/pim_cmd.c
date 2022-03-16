@@ -862,7 +862,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		char grp_str[PREFIX_STRLEN];
 		char rp_str[INET_ADDRSTRLEN];
 		struct bsmmsg_grpinfo *group;
-		struct bsmmsg_rpinfo *rpaddr;
+		struct bsmmsg_rpinfo *bsm_rpinfo;
 		struct prefix grp;
 		struct bsm_hdr *hdr;
 		uint32_t offset = 0;
@@ -951,31 +951,30 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 					"RpAddress     HoldTime     Priority\n");
 
 			while (frag_rp_cnt--) {
-				rpaddr = (struct bsmmsg_rpinfo *)buf;
+				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
 
 				buf += sizeof(struct bsmmsg_rpinfo);
 				offset += sizeof(struct bsmmsg_rpinfo);
 
-				pim_inet4_dump("<Rp addr?>",
-					       rpaddr->rpaddr.addr, rp_str,
-					       sizeof(rp_str));
-
 				if (uj) {
 					json_row = json_object_new_object();
-					json_object_string_add(
-						json_row, "Rp Address", rp_str);
+					json_object_string_addf(
+						json_row, "Rp Address", "%pPA",
+						(pim_addr *)&bsm_rpinfo->rpaddr.addr);
 					json_object_int_add(
 						json_row, "Rp HoldTime",
-						ntohs(rpaddr->rp_holdtime));
+						ntohs(bsm_rpinfo->rp_holdtime));
 					json_object_int_add(json_row,
 							    "Rp Priority",
-							    rpaddr->rp_pri);
-					json_object_object_add(
-						json_group, rp_str, json_row);
+							    bsm_rpinfo->rp_pri);
+					json_object_object_addf(
+						json_group, json_row, "%pPA",
+						(pim_addr *)&bsm_rpinfo->rpaddr.addr);
 				} else {
-					vty_out(vty, "%-15s %-12d %d\n", rp_str,
-						ntohs(rpaddr->rp_holdtime),
-						rpaddr->rp_pri);
+					vty_out(vty, "%-15pPA %-12d %d\n",
+						(pim_addr *)&bsm_rpinfo->rpaddr.addr,
+						ntohs(bsm_rpinfo->rp_holdtime),
+						bsm_rpinfo->rp_pri);
 				}
 			}
 			vty_out(vty, "\n");

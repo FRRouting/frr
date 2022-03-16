@@ -200,7 +200,11 @@ struct bsmmsg_grpinfo {
 } __attribute__((packed));
 
 struct bsmmsg_rpinfo {
+#if PIM_IPV == 4
 	struct pim_encoded_ipv4_unicast rpaddr;
+#else
+	struct pim_encoded_ipv6_unicast rpaddr;
+#endif
 	uint16_t rp_holdtime;
 	uint8_t rp_pri;
 	uint8_t reserved;
