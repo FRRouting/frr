@@ -1175,7 +1175,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 		const char *group_type =
 			pim_is_grp_ssm(pim, group) ? "SSM" : "ASM";
 
-		if (range && !prefix_same(&rp_info->group, range))
+		if (range && !prefix_match(&rp_info->group, range))
 			continue;
 
 		if (rp_info->rp_src == RP_SRC_STATIC)
