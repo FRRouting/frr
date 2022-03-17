@@ -7,8 +7,8 @@ PATH
 :abbr:`PATH` is a daemon that handles the installation and deletion
 of Segment Routing (SR) Policies.
 Based on MPLS (This means that your OS of choice must support MPLS),
-SR add a stack of MPLS labels to ingress packets so these
-packets are egress through the desired path.
+SR adds a stack of MPLS labels to ingress packets so these
+packets are sent through the desired path.
 
 .. image:: images/pathd_general.png
 
@@ -22,8 +22,15 @@ communicating using the PCEP protocol (:rfc:`5440`).
 Configuration
 =============
 
-Explicit Segment Lists
-----------------------
+Candidate paths for a policy can be specified in several ways:
+
+    * Explicit Static segment lists
+    * Explicit TED-based segment lists
+    * Dynamic PCEP-based segment lists
+    * Flex-algo IGP segment lists
+
+Explicit Static Segment Lists
+-----------------------------
 
 This is the simplest way of configuration, no remote PCE is necessary.
 In order to create a config that match the graphics used in this documentation,
@@ -49,8 +56,8 @@ Let see now the final configuration that match the graphics shown above.
       candidate-path preference 100 name CP1 explicit segment-list SL1
 
 
-Explicit Segment Lists and Traffic Engineering Database (TED)
--------------------------------------------------------------
+Explicit Traffic Engineering Database (TED)-based Segment Lists
+---------------------------------------------------------------
 
 Sometimes is difficult to know the values of MPLS labels
 (adjacency changes,...).
@@ -90,8 +97,8 @@ configuration provided to corresponding MPLS labels.
 	It would be the same for isis (:ref:`isis-traffic-engineering`) but in the
 	moment of writting it's not fully tested.
 
-Dynamic Segment Lists
----------------------
+Dynamic PCEP-based Segment Lists
+--------------------------------
 
 One of the useful options to configure is the creation of policies with
 the dynamic option. In this case based on a given endpoint the SL will be
@@ -174,6 +181,62 @@ controller and obtain those by means of the PCEP protocol.
 
 .. image:: images/pathd_initiated_multi.png
 
+Flex-algo IGP Segment Lists
+---------------------------
+A dynamic segment list may be specified by reference to an IGP route  
+that is computed according to a flexible algorithm definition
+(please see draft-ietf-lsr-flex-algo).
+Currently, isisd supports flex-algo.
+The draft specification also defines flex-algo for OSPF, but ospfd
+does not currently implement it.
+
+A flex-algo candidate path's segment list is determined according to the
+intersection of several parameters:
+
+    * identity of a specific IGP routing domain
+    * endpoint address
+    * flex-algo definition number
+
+When a flex-algo candidate path is defined, pathd interrogates the IGP
+to look up the endpoint address and return the segment-routing path
+associated with the matching route.
+If the IGP's route changes, it asynchronously updates pathd with the
+new matching segment-routing path.
+
+In pathd, there is a single global IGP routing domain identity for 
+flex-algo lookups, as specified by the flex-algo igp-defaults.
+This identity consists of the protocol name, the instance,
+the vrf, and (for isis) the area-tag.
+
+The endpoint address is the endpoint specified for the candidate path's
+parent policy.
+
+The flex-algo definition number is a parameter to the flex-algo
+candidate path command.
+
+Troubleshooting flex-algo segment lists
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Several commands are available to examine flex-algo information in pathd.
+
+    * debug flex-algo show igp-defaults
+
+	Show the IGP defaults settings
+
+    * debug flex-algo show igp
+
+	Show the known IGP identities, either referenced by a candidate-path
+	or which have signaled readiness to receive endpoint lookup requests.
+
+    * show policy detail path
+
+	Show detailed policy information including the path segment lists
+
+    * debug flex-algo show endpoint
+
+	Show the table of configured flex-algo endpoints and resulting
+	path segment lists.
+
+
 Starting
 ========
 
@@ -215,6 +278,7 @@ Example:
     traffic-eng
      mpls-te on
      mpls-te import ospfv2
+     igp-defaults proto isis area-tag myarea
      segment-list SL1
       index 10 mpls label 16010
       index 20 mpls label 16030
@@ -235,6 +299,7 @@ Example:
        metric bound msd 16 required
        metric te 10
        objective-function mcp required
+      candidate-path preference 300 name CP3 flex-algo 128
      !
      pcep
       pce-config GROUP1
@@ -291,6 +356,9 @@ Configuration Commands
 
    Delete or specify a segment in a segment list definition.
 
+.. clicmd:: flex-algo igp-defaults protocol isis [instance (0-65535)] [vrf VRF] area-tag AREA
+
+    Set IGP defaults for flex-algo route/path lookups
 
 .. clicmd:: policy color COLOR endpoint ENDPOINT
 
@@ -310,6 +378,11 @@ Configuration Commands
 .. clicmd:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
    Delete or define an explicit candidate path.
+
+
+.. clicmd:: candidate-path preference PREFERENCE name NAME flex-algo (128-255)
+
+   Delete or define a flex-algo candidate path
 
 
 .. clicmd:: candidate-path preference PREFERENCE name NAME dynamic

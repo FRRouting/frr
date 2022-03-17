@@ -23,6 +23,7 @@
 #include "pathd/path_zebra.h"
 #include "lib/command.h"
 #include "lib/link_state.h"
+#include "pathd/path_flex_algo.h"
 
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 
@@ -82,6 +83,9 @@ static void path_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 	zclient_send_router_id_update(zclient, ZEBRA_ROUTER_ID_ADD, AFI_IP6,
 				      VRF_DEFAULT);
+
+	path_zebra_fae_igp_opaque_register();
+	zapi_fae_client_ready_send(zclient);
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
@@ -259,6 +263,17 @@ static void path_zebra_label_manager_connect(void)
 	}
 }
 
+void path_zebra_fae_igp_opaque_register(void)
+{
+	zclient_register_opaque(zclient, FAE_READY);
+	zclient_register_opaque(zclient, FAE_NOTREADY);
+
+	/*
+	 * Must register even to receive unicasts
+	 */
+	zclient_register_opaque(zclient, FAE_UPDATE);
+}
+
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	int ret = 0;
@@ -297,6 +312,15 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		ls_delete_msg(msg);
 		/* Update local configuration after process update. */
 		path_ted_segment_list_refresh();
+		break;
+	case FAE_READY:
+		ret = path_zebra_handle_fae_ready(true, s);
+		break;
+	case FAE_NOTREADY:
+		ret = path_zebra_handle_fae_ready(false, s);
+		break;
+	case FAE_UPDATE:
+		ret = path_zebra_handle_fae_update(s);
 		break;
 	default:
 		zlog_debug("%s: [rcv ted] unknown opaque event (%d) !",
@@ -339,6 +363,10 @@ void path_zebra_init(struct event_loop *master)
 
 void path_zebra_stop(void)
 {
+	zclient_unregister_opaque(zclient, FAE_UPDATE);
+	zclient_unregister_opaque(zclient, FAE_READY);
+	zclient_unregister_opaque(zclient, FAE_NOTREADY);
+
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient_stop(zclient_sync);

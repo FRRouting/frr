@@ -209,6 +209,13 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-pathd:pathd/srte/policy/candidate-path/flex-algo-number",
+			.cbs = {
+				.modify = pathd_srte_policy_candidate_path_flex_algo_number_modify,
+				.destroy = dummy_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-pathd:pathd/srte/policy/candidate-path/constraints/bandwidth",
 			.cbs = {
 				.create = dummy_create,

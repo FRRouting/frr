@@ -1,0 +1,76 @@
+module frr-pathd-flexalgo {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/pathd-flexalgo";
+  prefix frr-pathd-flexalgo;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import ietf-routing-types {
+    prefix rt-types;
+  }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  import frr-pathd {
+    prefix frr-pathd;
+  }
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR pathd srte service.";
+
+  revision 2022-09-16 {
+    description
+      "Initial revision.";
+  }
+
+  grouping flex-algo-config {
+    description
+      "Configure ISIS instance that has Flex Algorithm configured.";
+    container flex-algo {
+      container igp-defaults {
+        leaf protocol {
+          type frr-route-types:frr-route-types;
+          description
+            "IGP protocol.";
+          must ". = 'isis'" {
+            error-message "only isis supported for flex-algo igp";
+          }
+        }
+        leaf vrf {
+          type frr-vrf:vrf-ref;
+          description
+            "VRF name.";
+        }
+        leaf instance {
+          type uint16;
+          description
+            "IGP instance ID.";
+        }
+        leaf isis-area-tag {
+          type string;
+          description
+            "Area-tag (IS-IS only).";
+          when "../protocol = 'isis'";
+        }
+      }
+    }
+  }
+
+  augment "/frr-pathd:pathd/frr-pathd:srte" {
+    description
+      "SR-TE configuration.";
+    uses flex-algo-config;
+  }
+}

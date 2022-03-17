@@ -22,6 +22,9 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_nb.c \
 	pathd/path_nb_config.c \
 	pathd/path_nb_state.c \
+	pathd/path_flex_algo.c \
+	pathd/path_flex_algo_zebra.c \
+	pathd/path_flex_algo_config.c \
 	pathd/path_ted.c \
 	pathd/path_zebra.c \
 	pathd/pathd.c \
@@ -29,6 +32,7 @@ pathd_libpath_a_SOURCES = \
 
 clippy_scan += \
 	pathd/path_cli.c \
+	pathd/path_flex_algo_config.c \
 	pathd/path_pcep_cli.c \
 	pathd/path_ted.c \
 	# end
@@ -37,6 +41,7 @@ noinst_HEADERS += \
 	pathd/path_debug.h \
 	pathd/path_errors.h \
 	pathd/path_nb.h \
+	pathd/path_flex_algo.h \
 	pathd/path_pcep.h \
 	pathd/path_pcep_cli.h \
 	pathd/path_pcep_controller.h \
@@ -54,6 +59,7 @@ pathd_pathd_SOURCES = \
 	# end
 nodist_pathd_pathd_SOURCES = \
 	yang/frr-pathd.yang.c \
+	yang/frr-pathd-flexalgo.yang.c \
 	# end
 pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la -lm $(LIBCAP)
 

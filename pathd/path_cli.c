@@ -20,6 +20,8 @@
 #include "pathd/path_nb.h"
 #include "pathd/path_cli_clippy.c"
 #include "pathd/path_ted.h"
+#include "pathd/path_zebra.h"     /* for fae debug commands */
+#include "pathd/path_flex_algo.h" /* for fa_vty_igp_show_all */
 
 #define XPATH_MAXATTRSIZE 64
 #define XPATH_MAXKEYSIZE 42
@@ -139,16 +141,19 @@ DEFPY(show_srte_policy,
 }
 
 
+/* clang-format off */
 /*
  * Show detailed SR-TE info
  */
 DEFPY(show_srte_policy_detail,
       show_srte_policy_detail_cmd,
-      "show sr-te policy detail",
+      "show sr-te policy detail [path]$do_path",
       SHOW_STR
       "SR-TE info\n"
       "SR-TE Policy\n"
-      "Show a detailed summary\n")
+      "Show a detailed summary\n"
+      "Show paths\n"
+      )
 {
 	struct srte_policy *policy;
 
@@ -180,6 +185,22 @@ DEFPY(show_srte_policy_detail,
 		RB_FOREACH (candidate, srte_candidate_head,
 			    &policy->candidate_paths) {
 			struct srte_segment_list *segment_list;
+			const char *cand_type = "?";
+
+			switch (candidate->type) {
+			case SRTE_CANDIDATE_TYPE_UNDEFINED:
+				cand_type = "undefined";
+				break;
+			case SRTE_CANDIDATE_TYPE_EXPLICIT:
+				cand_type = "explicit";
+				break;
+			case SRTE_CANDIDATE_TYPE_DYNAMIC:
+				cand_type = "dynamic";
+				break;
+			case SRTE_CANDIDATE_TYPE_FLEX_ALGO:
+				cand_type = "flex-algo";
+				break;
+			}
 
 			segment_list = candidate->lsp->segment_list;
 			if (segment_list == NULL)
@@ -197,12 +218,30 @@ DEFPY(show_srte_policy_detail,
 					? "*"
 					: " ",
 				candidate->preference, candidate->name,
-				candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT
-					? "explicit"
-					: "dynamic",
+				cand_type,
 				segment_list_info,
 				srte_origin2str(
 					candidate->lsp->protocol_origin));
+
+			if (do_path) {
+				vty_out(vty, "      SID-list:");
+				if (segment_list) {
+					/*
+					 * Display path
+					 */
+					struct srte_segment_entry *se;
+
+					RB_FOREACH(se, srte_segment_entry_head,
+						&segment_list->segments) {
+
+						vty_out(vty, " %u",
+							se->sid_value);
+					}
+				} else {
+					vty_out(vty, " (empty)");
+				}
+				vty_out(vty, "\n");
+			}
 		}
 
 		vty_out(vty, "\n");
@@ -210,6 +249,7 @@ DEFPY(show_srte_policy_detail,
 
 	return CMD_SUCCESS;
 }
+/* clang-format on */
 
 DEFPY_NOSH(
       segment_routing_list,
@@ -760,6 +800,32 @@ DEFPY(srte_policy_candidate_exp,
 				    preference_str);
 }
 
+/* clang-format off */
+DEFPY(srte_policy_candidate_flexalgo,
+      srte_policy_candidate_flexalgo_cmd,
+      "candidate-path preference (0-4294967295)$preference name WORD$name \
+	 flex-algo (128-255)$algorithm",
+      "Segment Routing Policy Candidate Path\n"
+      "Segment Routing Policy Candidate Path Preference\n"
+      "Administrative Preference\n"
+      "Segment Routing Policy Candidate Path Name\n"
+      "Symbolic Name\n"
+      "Flex Algo\n"
+      "Algorithm Number\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
+	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
+	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
+	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "config");
+	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "flex-algo");
+	nb_cli_enqueue_change(vty, "./flex-algo-number", NB_OP_MODIFY,
+			      algorithm_str);
+	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
+				    preference_str);
+}
+/* clang-format on */
+
+
 DEFPY_NOSH(
 	srte_policy_candidate_dyn,
 	srte_policy_candidate_dyn_cmd,
@@ -953,6 +1019,7 @@ DEFPY(srte_policy_no_candidate,
 	<\
 	  explicit segment-list WORD\
 	  |dynamic\
+	  |flex-algo\
 	>]",
       NO_STR
       "Segment Routing Policy Candidate Path\n"
@@ -963,7 +1030,8 @@ DEFPY(srte_policy_no_candidate,
       "Explicit Path\n"
       "List of SIDs\n"
       "Name of the Segment List\n"
-      "Dynamic Path\n")
+      "Dynamic Path\n"
+      "Flex-Algo Dynamic Path\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
@@ -1219,6 +1287,13 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 	if (strmatch(type, "explicit"))
 		vty_out(vty, " segment-list %s",
 			yang_dnode_get_string(dnode, "segment-list-name"));
+
+	if (strmatch(type, "flex-algo")) {
+		uint8_t algorithm;
+
+		algorithm = yang_dnode_get_uint8(dnode, "flex-algo-number");
+		vty_out(vty, " %u\n", algorithm);
+	}
 	vty_out(vty, "\n");
 
 	if (strmatch(type, "dynamic")) {
@@ -1295,6 +1370,8 @@ int config_write_segment_routing(struct vty *vty)
 	path_ted_config_write(vty);
 
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
+			   "/frr-pathd:pathd/srte/flex-algo");
+	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/segment-list");
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/policy");
@@ -1369,6 +1446,7 @@ void path_cli_init(void)
 	install_element(SR_POLICY_NODE, &srte_policy_no_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_exp_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_cmd);
+	install_element(SR_POLICY_NODE, &srte_policy_candidate_flexalgo_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_no_candidate_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE,
 			&srte_candidate_bandwidth_cmd);
@@ -1386,4 +1464,6 @@ void path_cli_init(void)
 			&srte_candidate_objfun_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE,
 			&srte_candidate_no_objfun_cmd);
+
+	path_flex_algo_cli_init();
 }

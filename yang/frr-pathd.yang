@@ -15,6 +15,12 @@ module frr-pathd {
   import frr-interface {
     prefix frr-interface;
   }
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
 
   organization
     "Free Range Routing";
@@ -247,6 +253,9 @@ module frr-pathd {
               enum dynamic {
                 value 2;
               }
+              enum flex-algo {
+                value 3;
+              }
             }
           }
           leaf segment-list-name {
@@ -256,6 +265,15 @@ module frr-pathd {
             description
               "The name of the Segment List to use as LSP.";
           }
+	  leaf flex-algo-number {
+            when "../type = 'flex-algo'";
+	    mandatory true;
+	    type uint8 {
+	      range "128..255";
+	    }
+	    description
+	      "candidate flex-algo number 128-255.";
+	  }
           container constraints {
             when "../type = 'dynamic'";
             description

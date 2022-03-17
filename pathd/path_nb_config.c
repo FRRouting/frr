@@ -659,7 +659,7 @@ int pathd_srte_policy_candidate_path_type_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
-	/* the candidate type is fixed after setting it once, this is checked
+	/* the candidate type is fixed after setting it once, which is checked
 	 * here */
 	if (args->event == NB_EV_VALIDATE) {
 		/* first get the precise path to the candidate path */
@@ -725,6 +725,79 @@ int pathd_srte_policy_candidate_path_segment_list_name_destroy(
 
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-pathd:pathd/srte/policy/candidate-path/flex-algo-number
+ */
+int pathd_srte_policy_candidate_path_flex_algo_number_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct srte_candidate *candidate;
+	uint8_t flex_algo_number;
+
+	zlog_debug("%s: entry, event %s", __func__, nb_event_name(args->event));
+
+	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
+		return NB_OK;
+
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+
+	/*
+	 * Once the flex-algo number is set, it can't be changed (doing it
+	 * this way ensures endpoint registration/unregistration has all
+	 * the needed info)
+	 */
+	if (args->event == NB_EV_VALIDATE) {
+		if (CHECK_FLAG(candidate->flags,
+			       F_CANDIDATE_HAS_FLEX_ALGO_NUMBER)) {
+
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"The candidate already has a flex-algo number");
+			return NB_ERR_RESOURCE;
+		}
+		return NB_OK;
+	}
+
+	flex_algo_number = yang_dnode_get_uint8(args->dnode, NULL);
+
+	candidate->flex_algo_number = flex_algo_number;
+	SET_FLAG(candidate->flags, F_CANDIDATE_HAS_FLEX_ALGO_NUMBER);
+
+	/*
+	 * Current implementation (2022-May) does not allow per-candidate
+	 * IGP paremeters to be set, so always set this flag
+	 */
+	SET_FLAG(candidate->flags, F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS);
+
+	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
+
+	return NB_OK;
+}
+
+#if 0 /* TBD I think not needed - must delete entire candidate */
+int pathd_srte_policy_candidate_path_flex_algo_number_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct srte_candidate *candidate;
+
+	zlog_debug("%s: entry, event %s", __func__, nb_event_name(args->event));
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * TBD this part is not right if we really need a "destroy"
+	 * method. If we need it, then we need to invalidate the
+	 * candidate and delete its endpoint tracking/unregister with IGP
+	 */
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate->flex_algo_number = 0;
+	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
+
+	return NB_OK;
+}
+#endif
 
 /*
  * XPath: /frr-pathd:pathd/srte/policy/candidate-path/constraints/bandwidth

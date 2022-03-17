@@ -25,6 +25,8 @@ DEFINE_MGROUP(PATHD, "pathd");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE, "SR Policy candidate path");
+DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_ISIS_AREA,
+		    "SR Policy candidate path isis area tag string");
 
 DEFINE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
 	    (candidate));
@@ -728,7 +730,27 @@ void srte_candidate_del(struct srte_candidate *candidate)
 		  candidate);
 
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate->lsp);
+	XFREE(MTYPE_PATH_SR_CANDIDATE_ISIS_AREA,
+	      candidate->fa_igp_config.isis_area);
+	XFREE(MTYPE_PATH_SR_CANDIDATE_ISIS_AREA,
+	      candidate->fa_igp_state.isis_area);
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);
+}
+
+void srte_candidate_set_fa_igp_state(struct srte_candidate *candidate,
+				     uint8_t proto, uint16_t instance,
+				     vrf_id_t vrf_id, char *isis_area)
+{
+	candidate->fa_igp_state.proto = proto;
+	candidate->fa_igp_state.instance = instance;
+	candidate->fa_igp_state.vrf_id = vrf_id;
+	XFREE(MTYPE_PATH_SR_CANDIDATE_ISIS_AREA,
+	      candidate->fa_igp_state.isis_area);
+	candidate->fa_igp_state.isis_area = NULL;
+	if (ZEBRA_ROUTE_ISIS == proto) {
+		candidate->fa_igp_state.isis_area =
+			XSTRDUP(MTYPE_PATH_SR_CANDIDATE_ISIS_AREA, isis_area);
+	}
 }
 
 /**

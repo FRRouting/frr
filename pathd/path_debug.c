@@ -52,6 +52,8 @@ const char *srte_candidate_type_name(enum srte_candidate_type type)
 		return "EXPLICIT";
 	case SRTE_CANDIDATE_TYPE_DYNAMIC:
 		return "DYNAMIC";
+	case SRTE_CANDIDATE_TYPE_FLEX_ALGO:
+		return "FLEX-ALGO";
 	case SRTE_CANDIDATE_TYPE_UNDEFINED:
 		return "UNDEFINED";
 	default:

@@ -21,6 +21,7 @@
 #include "path_zebra.h"
 #include "path_errors.h"
 #include "path_ted.h"
+#include "path_flex_algo.h"
 
 char backup_config_file[256];
 
@@ -93,6 +94,7 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_pathd_info,
+	&frr_pathd_flexalgo_info,
 };
 
 /* clang-format off */
@@ -139,6 +141,7 @@ int main(int argc, char **argv, char **envp)
 	path_zebra_init(master);
 	path_cli_init();
 	path_ted_init(master);
+	path_flex_algo_init();
 
 	frr_config_fork();
 	frr_run(master);

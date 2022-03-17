@@ -12,6 +12,8 @@
 #include "lib/srte.h"
 #include "lib/hook.h"
 #include "lib/prefix.h"
+#include "lib/zclient.h"
+#include "lib/zapi_fae.h" /* for ZAPI_FAE_ISIS_AREA_SIZE */
 
 #define PATH_SID_ERROR 1
 #define PATH_SID_NO_ERROR 0
@@ -39,6 +41,7 @@ enum srte_candidate_type {
 	SRTE_CANDIDATE_TYPE_UNDEFINED = 0,
 	SRTE_CANDIDATE_TYPE_EXPLICIT = 1,
 	SRTE_CANDIDATE_TYPE_DYNAMIC = 2,
+	SRTE_CANDIDATE_TYPE_FLEX_ALGO = 3,
 };
 
 enum srte_candidate_metric_type {
@@ -246,6 +249,16 @@ struct srte_lsp {
 	enum objfun_type objfun;
 };
 
+/*
+ * Describes the  IGP nexus from which to obtain flex-algo endpoint SID lists.
+ */
+struct srte_flex_algo_igp {
+	uint8_t proto;     /* IGP */
+	uint16_t instance; /* daemon instance */
+	vrf_id_t vrf_id;
+	char *isis_area; /* if proto == ZEBRA_ROUTE_ISIS */
+};
+
 /* Configured candidate path */
 struct srte_candidate {
 	RB_ENTRY(srte_candidate) entry;
@@ -290,6 +303,9 @@ struct srte_candidate {
 #define F_CANDIDATE_HAS_EXCLUDE_ANY 0x1000
 #define F_CANDIDATE_HAS_INCLUDE_ANY 0x2000
 #define F_CANDIDATE_HAS_INCLUDE_ALL 0x4000
+#define F_CANDIDATE_HAS_FLEX_ALGO_NUMBER 0x8000
+#define F_CANDIDATE_FLEX_ALGO_REGISTERED 0x10000
+#define F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS 0x20000
 
 	/* Metrics Configured Values */
 	struct srte_metric metrics[MAX_METRIC_TYPE];
@@ -305,6 +321,32 @@ struct srte_candidate {
 
 	/* Hooks delaying timer */
 	struct event *hook_timer;
+
+	/* Flex-algo number for flex-algo type */
+	uint8_t flex_algo_number;
+
+	/*
+	 * IGP nexus from which to obtain flex-algo endpoint SID lists.
+	 *
+	 * fa_igp_config is valid when:
+	 *  - F_CANDIDATE_HAS_FLEX_ALGO_NUMBER is set and
+	 *  - F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS is not set.
+	 *
+	 * Note that as of 2022-May, per-candidate IGP paremeters
+	 * can not be administratively set. All candidates use
+	 * the IGP defaults.
+	 */
+	struct srte_flex_algo_igp fa_igp_config;
+
+	/*
+	 * Reflect actual parameters used to register endpoint.
+	 * When F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS is set,
+	 * these values are needed to find the endpoint in the
+	 * endpoint tracking table.
+	 *
+	 * Valid when F_CANDIDATE_FLEX_ALGO_REGISTERED is set.
+	 */
+	struct srte_flex_algo_igp fa_igp_state;
 };
 
 RB_HEAD(srte_candidate_head, srte_candidate);
@@ -397,6 +439,9 @@ struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  enum srte_protocol_origin origin,
 					  const char *originator);
 void srte_candidate_del(struct srte_candidate *candidate);
+void srte_candidate_set_fa_igp_state(struct srte_candidate *candidate,
+				     uint8_t proto, uint16_t instance,
+				     vrf_id_t vrf_id, char *isis_area);
 void srte_candidate_set_bandwidth(struct srte_candidate *candidate,
 				  float bandwidth, bool required);
 void srte_candidate_unset_bandwidth(struct srte_candidate *candidate);
