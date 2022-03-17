@@ -148,7 +148,7 @@ module frr-pim {
       type uint16 {
         range "1..max";
       }
-      default "210";
+      default "185";
       description
         "RP keep alive Timer in seconds.";
     }
