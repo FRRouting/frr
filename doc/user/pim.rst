@@ -509,7 +509,20 @@ cause great confusion.
 
    Display information about RP's that are configured on this router.
 
-   You can filter the output by specifying an arbitrary group.
+   You can filter the output by specifying an arbitrary group range.
+
+   .. code-block:: frr
+
+      # show ip pim rp-info
+      RP address       group/prefix-list   OIF               I am RP    Source   Group-Type
+      192.168.10.123   225.0.0.0/24        eth2              yes        Static   ASM
+      192.168.10.123   239.0.0.0/8         eth2              yes        Static   ASM
+      192.168.10.123   239.4.0.0/24        eth2              yes        Static   SSM
+
+      # show ip pim rp-info 239.4.0.0/25
+      RP address       group/prefix-list   OIF               I am RP    Source   Group-Type
+      192.168.10.123   239.0.0.0/8         eth2              yes        Static   ASM
+      192.168.10.123   239.4.0.0/24        eth2              yes        Static   SSM
 
 .. clicmd:: show ip pim rpf
 
