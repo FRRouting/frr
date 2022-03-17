@@ -1655,6 +1655,10 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 					    pim_ifp->pim_ifstat_join_recv);
 			json_object_int_add(json_row, "joinTx",
 					    pim_ifp->pim_ifstat_join_send);
+			json_object_int_add(json_row, "pruneRx",
+					    pim_ifp->pim_ifstat_prune_recv);
+			json_object_int_add(json_row, "pruneTx",
+					    pim_ifp->pim_ifstat_prune_send);
 			json_object_int_add(json_row, "registerRx",
 					    pim_ifp->pim_ifstat_reg_recv);
 			json_object_int_add(json_row, "registerTx",
