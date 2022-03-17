@@ -132,6 +132,8 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 				(*lsdb->hook_add)(lsa);
 		}
 	} else {
+		lsa->retrans_count = old->retrans_count;
+
 		if (OSPF6_LSA_IS_CHANGED(old, lsa)) {
 			if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 				if (lsdb->hook_remove) {
