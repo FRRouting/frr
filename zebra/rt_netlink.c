@@ -361,33 +361,6 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 	return proto;
 }
 
-/*
-Pending: create an efficient table_id (in a tree/hash) based lookup)
- */
-vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		zvrf = vrf->info;
-		if (zvrf == NULL)
-			continue;
-		/* case vrf with netns : match the netnsid */
-		if (vrf_is_backend_netns()) {
-			if (ns_id == zvrf_id(zvrf))
-				return zvrf_id(zvrf);
-		} else {
-			/* VRF is VRF_BACKEND_VRF_LITE */
-			if (zvrf->table_id != table_id)
-				continue;
-			return zvrf_id(zvrf);
-		}
-	}
-
-	return VRF_DEFAULT;
-}
-
 /**
  * @parse_encap_mpls() - Parses encapsulated mpls attributes
  * @tb:         Pointer to rtattr to look for nested items in.
