@@ -1921,10 +1921,7 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
 	es->route_table = bgp_table_init(bgp, AFI_L2VPN, SAFI_EVPN);
 
 	/* Add to rb_tree */
-	if (RB_INSERT(bgp_es_rb_head, &bgp_mh_info->es_rb_tree, es)) {
-		XFREE(MTYPE_BGP_EVPN_ES, es);
-		return NULL;
-	}
+	RB_INSERT(bgp_es_rb_head, &bgp_mh_info->es_rb_tree, es);
 
 	/* Initialise the ES-EVI list */
 	es->es_evi_list = list_new();
@@ -3031,10 +3028,7 @@ static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_create(struct bgp_evpn_es *es,
 	es_vrf->bgp_vrf = bgp_vrf;
 
 	/* insert into the VRF-ESI rb tree */
-	if (RB_INSERT(bgp_es_vrf_rb_head, &bgp_vrf->es_vrf_rb_tree, es_vrf)) {
-		XFREE(MTYPE_BGP_EVPN_ES_VRF, es_vrf);
-		return NULL;
-	}
+	RB_INSERT(bgp_es_vrf_rb_head, &bgp_vrf->es_vrf_rb_tree, es_vrf);
 
 	/* add to the ES's VRF list */
 	listnode_init(&es_vrf->es_listnode, es_vrf);
@@ -3574,10 +3568,7 @@ static struct bgp_evpn_es_evi *bgp_evpn_es_evi_new(struct bgp_evpn_es *es,
 	es_evi->es_evi_vtep_list->cmp = bgp_evpn_es_evi_vtep_cmp;
 
 	/* insert into the VNI-ESI rb tree */
-	if (RB_INSERT(bgp_es_evi_rb_head, &vpn->es_evi_rb_tree, es_evi)) {
-		XFREE(MTYPE_BGP_EVPN_ES_EVI, es_evi);
-		return NULL;
-	}
+	RB_INSERT(bgp_es_evi_rb_head, &vpn->es_evi_rb_tree, es_evi);
 
 	/* add to the ES's VNI list */
 	listnode_init(&es_evi->es_listnode, es_evi);
