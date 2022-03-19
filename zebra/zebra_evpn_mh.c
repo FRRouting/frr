@@ -113,10 +113,7 @@ static struct zebra_evpn_es_evi *zebra_evpn_es_evi_new(struct zebra_evpn_es *es,
 	es_evi->zevpn = zevpn;
 
 	/* insert into the EVPN-ESI rb tree */
-	if (RB_INSERT(zebra_es_evi_rb_head, &zevpn->es_evi_rb_tree, es_evi)) {
-		XFREE(MTYPE_ZES_EVI, es_evi);
-		return NULL;
-	}
+	RB_INSERT(zebra_es_evi_rb_head, &zevpn->es_evi_rb_tree, es_evi);
 
 	/* add to the ES's VNI list */
 	listnode_init(&es_evi->es_listnode, es_evi);
@@ -1776,10 +1773,7 @@ static struct zebra_evpn_es *zebra_evpn_es_new(const esi_t *esi)
 	esi_to_str(&es->esi, es->esi_str, sizeof(es->esi_str));
 
 	/* Add to rb_tree */
-	if (RB_INSERT(zebra_es_rb_head, &zmh_info->es_rb_tree, es)) {
-		XFREE(MTYPE_ZES, es);
-		return NULL;
-	}
+	RB_INSERT(zebra_es_rb_head, &zmh_info->es_rb_tree, es);
 
 	/* Initialise the ES-EVI list */
 	es->es_evi_list = list_new();
