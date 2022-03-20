@@ -532,6 +532,7 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 	memcpy(global_p, vni_p, sizeof(*global_p));
 	global_p->prefix.ead_addr.ip.ipa_type = 0;
 	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
+	global_p->prefix.ead_addr.frag_id = 0;
 }
 
 /* EAD prefix in the global table doesn't include the VTEP-IP so
@@ -656,4 +657,7 @@ extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 						     struct bgp_path_info *pi,
 						     int install);
 extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
+extern void bgp_evpn_xxport_delete_ecomm(void *val);
+extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
+				     struct ecommunity *ecom2);
 #endif /* _BGP_EVPN_PRIVATE_H */

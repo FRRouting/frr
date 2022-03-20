@@ -325,8 +325,8 @@ static int is_vni_present_in_irt_vnis(struct list *vnis, struct bgpevpn *vpn)
 /*
  * Compare Route Targets.
  */
-static int evpn_route_target_cmp(struct ecommunity *ecom1,
-				 struct ecommunity *ecom2)
+int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
+			      struct ecommunity *ecom2)
 {
 	if (ecom1 && !ecom2)
 		return -1;
@@ -349,7 +349,7 @@ static int evpn_route_target_cmp(struct ecommunity *ecom1,
 	return strcmp(ecom1->str, ecom2->str);
 }
 
-static void evpn_xxport_delete_ecomm(void *val)
+void bgp_evpn_xxport_delete_ecomm(void *val)
 {
 	struct ecommunity *ecomm = val;
 	ecommunity_free(&ecomm);
@@ -5322,11 +5322,13 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
-	vpn->import_rtl->cmp = (int (*)(void *, void *))evpn_route_target_cmp;
-	vpn->import_rtl->del = evpn_xxport_delete_ecomm;
+	vpn->import_rtl->cmp =
+		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
+	vpn->import_rtl->del = bgp_evpn_xxport_delete_ecomm;
 	vpn->export_rtl = list_new();
-	vpn->export_rtl->cmp = (int (*)(void *, void *))evpn_route_target_cmp;
-	vpn->export_rtl->del = evpn_xxport_delete_ecomm;
+	vpn->export_rtl->cmp =
+		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
+	vpn->export_rtl->del = bgp_evpn_xxport_delete_ecomm;
 	bf_assign_index(bm->rd_idspace, vpn->rd_id);
 	derive_rd_rt_for_vni(bgp, vpn);
 
@@ -6027,12 +6029,12 @@ void bgp_evpn_init(struct bgp *bgp)
 			    "BGP VRF Import RT Hash");
 	bgp->vrf_import_rtl = list_new();
 	bgp->vrf_import_rtl->cmp =
-		(int (*)(void *, void *))evpn_route_target_cmp;
-	bgp->vrf_import_rtl->del = evpn_xxport_delete_ecomm;
+		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
+	bgp->vrf_import_rtl->del = bgp_evpn_xxport_delete_ecomm;
 	bgp->vrf_export_rtl = list_new();
 	bgp->vrf_export_rtl->cmp =
-		(int (*)(void *, void *))evpn_route_target_cmp;
-	bgp->vrf_export_rtl->del = evpn_xxport_delete_ecomm;
+		(int (*)(void *, void *))bgp_evpn_route_target_cmp;
+	bgp->vrf_export_rtl->del = bgp_evpn_xxport_delete_ecomm;
 	bgp->l2vnis = list_new();
 	bgp->l2vnis->cmp = vni_list_cmp;
 	/* By default Duplicate Address Dection is enabled.

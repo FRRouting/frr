@@ -358,7 +358,7 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 		"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 	vty_out(vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n");
 	vty_out(vty,
-		"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]\n");
+		"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]\n");
 	vty_out(vty,
 		"EVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\n");
 	vty_out(vty, "EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\n");
@@ -2712,7 +2712,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			/* RD header and legend - once overall. */
 			if (rd_header && !json) {
 				vty_out(vty,
-					"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]\n");
+					"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]:[Frag-id]\n");
 				vty_out(vty,
 					"EVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]\n");
 				vty_out(vty,
@@ -5992,6 +5992,87 @@ DEFUN (no_bgp_evpn_vrf_rt,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_evpn_ead_ess_frag_evi_limit, bgp_evpn_ead_es_frag_evi_limit_cmd,
+      "[no$no] ead-es-frag evi-limit (1-1000)$limit",
+      NO_STR
+      "EAD ES fragment config\n"
+      "EVIs per-fragment\n"
+      "limit\n")
+{
+	bgp_mh_info->evi_per_es_frag =
+		no ? BGP_EVPN_MAX_EVI_PER_ES_FRAG : limit;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(bgp_evpn_ead_es_rt, bgp_evpn_ead_es_rt_cmd,
+      "ead-es-route-target export RT",
+      "EAD ES Route Target\n"
+      "export\n"
+      "Route target (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct ecommunity *ecomadd = NULL;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!EVPN_ENABLED(bgp)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING;
+	}
+
+	/* Add/update the export route-target */
+	ecomadd = ecommunity_str2com(argv[2]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecomadd) {
+		vty_out(vty, "%% Malformed Route Target list\n");
+		return CMD_WARNING;
+	}
+	ecommunity_str(ecomadd);
+
+	/* Do nothing if we already have this export route-target */
+	if (!bgp_evpn_rt_matches_existing(bgp_mh_info->ead_es_export_rtl,
+					  ecomadd))
+		bgp_evpn_mh_config_ead_export_rt(bgp, ecomadd, false);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_evpn_ead_es_rt, no_bgp_evpn_ead_es_rt_cmd,
+      "no ead-es-route-target export RT",
+      NO_STR
+      "EAD ES Route Target\n"
+      "export\n" EVPN_ASN_IP_HELP_STR)
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct ecommunity *ecomdel = NULL;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!EVPN_ENABLED(bgp)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING;
+	}
+
+	ecomdel = ecommunity_str2com(argv[3]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecomdel) {
+		vty_out(vty, "%% Malformed Route Target list\n");
+		return CMD_WARNING;
+	}
+	ecommunity_str(ecomdel);
+
+	if (!bgp_evpn_rt_matches_existing(bgp_mh_info->ead_es_export_rtl,
+					  ecomdel)) {
+		vty_out(vty,
+			"%% RT specified does not match EAD-ES RT configuration\n");
+		return CMD_WARNING;
+	}
+	bgp_evpn_mh_config_ead_export_rt(bgp, ecomdel, true);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_evpn_vni_rt,
        bgp_evpn_vni_rt_cmd,
        "route-target <both|import|export> RT",
@@ -6258,6 +6339,10 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->resolve_overlay_index)
 		vty_out(vty, "  enable-resolve-overlay-index\n");
 
+	if (bgp_mh_info->evi_per_es_frag != BGP_EVPN_MAX_EVI_PER_ES_FRAG)
+		vty_out(vty, "  ead-es-frag evi-limit %u\n",
+			bgp_mh_info->evi_per_es_frag);
+
 	if (bgp_mh_info->host_routes_use_l3nhg !=
 			BGP_EVPN_MH_USE_ES_L3NHG_DEF) {
 		if (bgp_mh_info->host_routes_use_l3nhg)
@@ -6319,6 +6404,23 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name);
 		else
 			vty_out(vty, "  advertise ipv4 unicast gateway-ip\n");
+	}
+
+	/* EAD ES export route-target */
+	if (listcount(bgp_mh_info->ead_es_export_rtl)) {
+		struct ecommunity *ecom;
+		char *ecom_str;
+		struct listnode *node;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->ead_es_export_rtl, node,
+					  ecom)) {
+
+			ecom_str = ecommunity_ecom2str(
+				ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			vty_out(vty, "  ead-es-route-target export %s\n",
+				ecom_str);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		}
 	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
@@ -6506,6 +6608,9 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_NODE, &no_bgp_evpn_vrf_rd_without_val_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_rt_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_ead_es_rt_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_frag_evi_limit_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_svi_ip_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&bgp_evpn_advertise_default_gw_vni_cmd);

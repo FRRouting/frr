@@ -95,6 +95,7 @@ struct evpn_ead_addr {
 	esi_t esi;
 	uint32_t eth_tag;
 	struct ipaddr ip;
+	uint16_t frag_id;
 };
 
 struct evpn_macip_addr {
