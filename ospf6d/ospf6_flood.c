@@ -878,6 +878,28 @@ static int ospf6_is_maxage_lsa_drop(struct ospf6_lsa *lsa,
 	return 0;
 }
 
+static bool ospf6_lsa_check_min_arrival(struct ospf6_lsa *lsa,
+					struct ospf6_neighbor *from)
+{
+	struct timeval now, res;
+	unsigned int time_delta_ms;
+
+	monotime(&now);
+	timersub(&now, &lsa->installed, &res);
+	time_delta_ms = (res.tv_sec * 1000) + (int)(res.tv_usec / 1000);
+
+	if (time_delta_ms < from->ospf6_if->area->ospf6->lsa_minarrival) {
+		if (IS_OSPF6_DEBUG_FLOODING ||
+		    IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))
+			zlog_debug(
+				"LSA can't be updated within MinLSArrival, %dms < %dms, discard",
+				time_delta_ms,
+				from->ospf6_if->area->ospf6->lsa_minarrival);
+		return true;
+	}
+	return false;
+}
+
 /* RFC2328 section 13 The Flooding Procedure */
 void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		       struct ospf6_lsa_header *lsa_header)
@@ -885,7 +907,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 	struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
 	int ismore_recent;
 	int is_debug = 0;
-	unsigned int time_delta_ms;
 
 	ismore_recent = 1;
 	assert(from);
@@ -993,19 +1014,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 		/* (a) MinLSArrival check */
 		if (old) {
-			struct timeval now, res;
-			monotime(&now);
-			timersub(&now, &old->installed, &res);
-			time_delta_ms =
-				(res.tv_sec * 1000) + (int)(res.tv_usec / 1000);
-			if (time_delta_ms
-			    < from->ospf6_if->area->ospf6->lsa_minarrival) {
-				if (is_debug)
-					zlog_debug(
-						"LSA can't be updated within MinLSArrival, %dms < %dms, discard",
-						time_delta_ms,
-						from->ospf6_if->area->ospf6
-							->lsa_minarrival);
+			if (ospf6_lsa_check_min_arrival(old, from)) {
 				ospf6_lsa_delete(new);
 				return; /* examin next lsa */
 			}
@@ -1222,7 +1231,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						__PRETTY_FUNCTION__, old->name);
 			}
 
-			/* XXX, MinLSArrival check !? RFC 2328 13 (8) */
+			/* MinLSArrival check as per RFC 2328 13 (8) */
+			if (ospf6_lsa_check_min_arrival(old, from)) {
+				ospf6_lsa_delete(new);
+				return; /* examin next lsa */
+			}
 
 			ospf6_lsdb_add(ospf6_lsa_copy(old),
 				       from->lsupdate_list);
