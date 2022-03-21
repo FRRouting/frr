@@ -724,3 +724,53 @@ void isis_route_invalidate_table(struct isis_area *area,
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
 	}
 }
+
+void isis_route_switchover_nexthop(struct isis_area *area,
+				   struct route_table *table, int family,
+				   union g_addr *nexthop_addr,
+				   ifindex_t ifindex)
+{
+	const char *ifname = NULL, *vrfname = NULL;
+	struct isis_route_info *rinfo;
+	struct prefix_ipv6 *src_p;
+	struct route_node *rnode;
+	vrf_id_t vrf_id;
+	struct prefix *prefix;
+
+	if (IS_DEBUG_EVENTS) {
+		if (area && area->isis) {
+			vrf_id = area->isis->vrf_id;
+			vrfname = vrf_id_to_name(vrf_id);
+			ifname = ifindex2ifname(ifindex, vrf_id);
+		}
+		zlog_debug("%s: initiating fast-reroute %s on VRF %s iface %s",
+			   __func__, family2str(family), vrfname ? vrfname : "",
+			   ifname ? ifname : "");
+	}
+
+	for (rnode = route_top(table); rnode;
+	     rnode = srcdest_route_next(rnode)) {
+		if (!rnode->info)
+			continue;
+		rinfo = rnode->info;
+
+		if (!rinfo->backup)
+			continue;
+
+		if (!nexthoplookup(rinfo->nexthops, family, nexthop_addr,
+				   ifindex))
+			continue;
+
+		srcdest_rnode_prefixes(rnode, (const struct prefix **)&prefix,
+				       (const struct prefix **)&src_p);
+
+		/* Switchover route. */
+		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+		isis_route_update(area, prefix, src_p, rinfo->backup);
+
+		isis_route_info_delete(rinfo);
+
+		rnode->info = NULL;
+		route_unlock_node(rnode);
+	}
+}
