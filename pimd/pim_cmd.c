@@ -6060,6 +6060,10 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 
 			/* Find the inbound interface nested under the source,
 			 * create it if it doesn't exist */
+			json_object_string_add(json_source, "source",
+					       src_str);
+			json_object_string_add(json_source, "group",
+					       grp_str);
 			json_object_int_add(json_source, "installed",
 					    c_oil->installed);
 			json_object_int_add(json_source, "refCount",
