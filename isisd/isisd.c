@@ -3090,6 +3090,25 @@ void isis_area_verify_routes(struct isis_area *area)
 		isis_spf_verify_routes(area, area->spftree[tree]);
 }
 
+void isis_area_switchover_routes(struct isis_area *area, int family,
+				 union g_addr *nexthop_ip, ifindex_t ifindex,
+				 int level)
+{
+	int tree;
+
+	/* TODO SPFTREE_DSTSRC */
+	if (family == AF_INET)
+		tree = SPFTREE_IPV4;
+	else if (family == AF_INET6)
+		tree = SPFTREE_IPV6;
+	else
+		return;
+
+	isis_spf_switchover_routes(area, area->spftree[tree], family,
+				   nexthop_ip, ifindex, level);
+}
+
+
 static void area_resign_level(struct isis_area *area, int level)
 {
 	isis_area_invalidate_routes(area, level);

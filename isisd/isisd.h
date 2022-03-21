@@ -291,6 +291,9 @@ struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
+void isis_area_switchover_routes(struct isis_area *area, int family,
+				 union g_addr *nexthop_ip, ifindex_t ifindex,
+				 int level);
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
 void isis_area_overload_on_startup_set(struct isis_area *area,
