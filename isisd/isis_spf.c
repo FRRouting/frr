@@ -1848,6 +1848,15 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 }
 
+void isis_spf_switchover_routes(struct isis_area *area,
+				struct isis_spftree **trees, int family,
+				union g_addr *nexthop_ip, ifindex_t ifindex,
+				int level)
+{
+	isis_route_switchover_nexthop(area, trees[level - 1]->route_table,
+				      family, nexthop_ip, ifindex);
+}
+
 static int isis_run_spf_cb(struct thread *thread)
 {
 	struct isis_spf_run *run = THREAD_ARG(thread);

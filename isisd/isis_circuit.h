@@ -28,6 +28,7 @@
 #include "qobj.h"
 #include "prefix.h"
 #include "ferr.h"
+#include "nexthop.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -208,6 +209,9 @@ void circuit_update_nlpids(struct isis_circuit *circuit);
 void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			    char detail);
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
+void isis_circuit_switchover_routes(struct isis_circuit *circuit, int family,
+				    union g_addr *nexthop_ip,
+				    ifindex_t ifindex);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
