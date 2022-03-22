@@ -1902,9 +1902,6 @@ static struct bgp_evpn_es *bgp_evpn_es_new(struct bgp *bgp, const esi_t *esi)
 {
 	struct bgp_evpn_es *es;
 
-	if (!bgp)
-		return NULL;
-
 	es = XCALLOC(MTYPE_BGP_EVPN_ES, sizeof(struct bgp_evpn_es));
 
 	/* set the ESI */
@@ -2364,7 +2361,6 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 			  struct in_addr originator_ip, bool oper_up,
 			  uint16_t df_pref, bool bypass)
 {
-	char buf[ESI_STR_LEN];
 	struct bgp_evpn_es *es;
 	bool new_es = true;
 	bool regen_esr = false;
@@ -2374,15 +2370,8 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	if (es) {
 		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
 			new_es = false;
-	} else {
+	} else
 		es = bgp_evpn_es_new(bgp, esi);
-		if (!es) {
-			flog_err(EC_BGP_ES_CREATE,
-				"%u: Failed to allocate ES entry for ESI %s - at Local ES Add",
-				bgp->vrf_id, esi_to_str(esi, buf, sizeof(buf)));
-			return -1;
-		}
-	}
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("add local es %s orig-ip %pI4 df_pref %u %s",
@@ -3821,15 +3810,8 @@ int bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 			   &p->prefix.ead_addr.ip.ipaddr_v4);
 
 	es = bgp_evpn_es_find(esi);
-	if (!es) {
+	if (!es)
 		es = bgp_evpn_es_new(bgp, esi);
-		if (!es) {
-			flog_err(EC_BGP_ES_CREATE,
-				"%u: Failed to allocate ES entry for ESI %s - at remote ES Add",
-				bgp->vrf_id, esi_to_str(esi, buf, sizeof(buf)));
-			return -1;
-		}
-	}
 
 	es_evi = bgp_evpn_es_evi_find(es, vpn);
 	if (!es_evi)
