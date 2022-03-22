@@ -3433,9 +3433,9 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return false;
 
 		zlog_info(
-			"%%MAXPFXEXCEED: No. of %s prefix received from %s %u exceed, limit %u",
-			get_afi_safi_str(afi, safi, false), peer->host, pcount,
-			peer->pmax[afi][safi]);
+			"%%MAXPFXEXCEED: No. of %s prefix received from %s(%s) %u exceed, limit %u",
+			get_afi_safi_str(afi, safi, false), peer->host,
+			bgp_peer_hostname(peer), pcount, peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
@@ -3473,8 +3473,9 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Maximum-prefix restart timer started for %d secs",
-					peer->host, peer->v_pmax_restart);
+					"%s(%s) Maximum-prefix restart timer started for %d secs",
+					peer->host, bgp_peer_hostname(peer),
+					peer->v_pmax_restart);
 
 			BGP_TIMER_ON(peer->t_pmax_restart,
 				     bgp_maximum_prefix_restart_timer,
