@@ -221,9 +221,8 @@ int zebra_l2_brvlan_mac_del(struct interface *br_if,
 			   br_if->name, bmac->vid);
 		return -1;
 	}
-
 	vid = bmac->vid;
-	tmp_mac = hash_release(br->mac_table[vid], &bmac);
+	tmp_mac = hash_release(br->mac_table[vid], bmac);
 	if (tmp_mac)
 		zebra_l2_brvlan_mac_free(tmp_mac);
 
