@@ -3132,8 +3132,6 @@ void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi, struct bgp *bgp_vrf)
 	es_vrf = bgp_evpn_es_vrf_find(es, bgp_vrf);
 	if (!es_vrf)
 		es_vrf = bgp_evpn_es_vrf_create(es, bgp_vrf);
-	if (!es_vrf)
-		return;
 
 	es_evi->es_vrf = es_vrf;
 	++es_vrf->ref_cnt;
@@ -3781,11 +3779,8 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 		if (CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
 			/* dup */
 			return 0;
-	} else {
+	} else
 		es_evi = bgp_evpn_es_evi_new(es, vpn);
-		if (!es_evi)
-			return -1;
-	}
 
 	bgp_evpn_es_evi_local_info_set(es_evi);
 
@@ -3837,13 +3832,8 @@ int bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 
 	es_evi = bgp_evpn_es_evi_find(es, vpn);
-	if (!es_evi) {
+	if (!es_evi)
 		es_evi = bgp_evpn_es_evi_new(es, vpn);
-		if (!es_evi) {
-			bgp_evpn_es_free(es, __func__);
-			return -1;
-		}
-	}
 
 	ead_es = !!p->prefix.ead_addr.eth_tag;
 	bgp_evpn_es_evi_vtep_add(bgp, es_evi, p->prefix.ead_addr.ip.ipaddr_v4,
