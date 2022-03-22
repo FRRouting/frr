@@ -464,11 +464,28 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 				lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, on->retrans_list);
 			if (!old) {
+				struct ospf6_lsa *orig;
+				struct ospf6_lsdb *lsdb;
+
 				if (is_debug)
 					zlog_debug(
 						"Increment %s from retrans_list of %s",
 						lsa->name, on->name);
-				ospf6_increment_retrans_count(lsa);
+
+				/* Increment the retrans count on the original
+				 * copy of LSA if present, to maintain the
+				 * counter consistency.
+				 */
+
+				lsdb = ospf6_get_scoped_lsdb(lsa);
+				orig = ospf6_lsdb_lookup(
+					lsa->header->type, lsa->header->id,
+					lsa->header->adv_router, lsdb);
+				if (orig)
+					ospf6_increment_retrans_count(orig);
+				else
+					ospf6_increment_retrans_count(lsa);
+
 				ospf6_lsdb_add(ospf6_lsa_copy(lsa),
 					       on->retrans_list);
 				thread_add_timer(
