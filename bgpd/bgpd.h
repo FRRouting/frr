@@ -2473,6 +2473,11 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
+static inline const char *bgp_peer_hostname(struct peer *peer)
+{
+	return peer->hostname ? peer->hostname : "Unknown";
+}
+
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 

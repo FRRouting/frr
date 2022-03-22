@@ -483,8 +483,10 @@ void bgp_generate_updgrp_packets(struct thread *thread)
 						if (bgp_debug_neighbor_events(
 							    peer))
 							zlog_debug(
-								"%s sending route-refresh (EoRR) for %s/%s",
+								"%s(%s) sending route-refresh (EoRR) for %s/%s",
 								peer->host,
+								bgp_peer_hostname(
+									peer),
 								afi2str(afi),
 								safi2str(safi));
 					}
@@ -913,9 +915,12 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 				stream_putc(s, ORF_COMMON_PART_REMOVE_ALL);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s sending REFRESH_REQ to remove ORF(%d) (%s) for afi/safi: %s/%s",
-						peer->host, orf_type,
-						(when_to_refresh == REFRESH_DEFER
+						"%s(%s) sending REFRESH_REQ to remove ORF(%d) (%s) for afi/safi: %s/%s",
+						peer->host,
+						bgp_peer_hostname(peer),
+						orf_type,
+						(when_to_refresh ==
+								 REFRESH_DEFER
 							 ? "defer"
 							 : "immediate"),
 						iana_afi2str(pkt_afi),
@@ -930,9 +935,12 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 					ORF_COMMON_PART_DENY);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s sending REFRESH_REQ with pfxlist ORF(%d) (%s) for afi/safi: %s/%s",
-						peer->host, orf_type,
-						(when_to_refresh == REFRESH_DEFER
+						"%s(%s) sending REFRESH_REQ with pfxlist ORF(%d) (%s) for afi/safi: %s/%s",
+						peer->host,
+						bgp_peer_hostname(peer),
+						orf_type,
+						(when_to_refresh ==
+								 REFRESH_DEFER
 							 ? "defer"
 							 : "immediate"),
 						iana_afi2str(pkt_afi),
@@ -949,9 +957,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!orf_refresh)
-			zlog_debug("%s sending REFRESH_REQ for afi/safi: %s/%s",
-				   peer->host, iana_afi2str(pkt_afi),
-				   iana_safi2str(pkt_safi));
+			zlog_debug(
+				"%s(%s) sending REFRESH_REQ for afi/safi: %s/%s",
+				peer->host, bgp_peer_hostname(peer),
+				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
 	}
 
 	/* Add packet to the peer. */
@@ -995,8 +1004,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s sending CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
-				peer->host,
+				"%s(%s) sending CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
+				peer->host, bgp_peer_hostname(peer),
 				action == CAPABILITY_ACTION_SET ? "Advertising"
 								: "Removing",
 				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
@@ -1551,8 +1560,9 @@ static void bgp_refresh_stalepath_timer_expire(struct thread *thread)
 		bgp_clear_stale_route(peer, afi, safi);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s: route-refresh (BoRR) timer for %s/%s expired",
-			   peer->host, afi2str(afi), safi2str(safi));
+		zlog_debug(
+			"%s(%s) route-refresh (BoRR) timer expired for afi/safi: %d/%d",
+			peer->host, bgp_peer_hostname(peer), afi, safi);
 
 	bgp_timer_set(peer);
 }
@@ -1708,7 +1718,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 				peer->host);
 
 		if (ret && bgp_debug_update(peer, NULL, NULL, 1)) {
-			zlog_debug("%s rcvd UPDATE w/ attr: %s", peer->host,
+			zlog_debug("%s(%s) rcvd UPDATE w/ attr: %s", peer->host,
+				   bgp_peer_hostname(peer),
 				   peer->rcvd_attr_str);
 			peer->rcvd_attr_printed = 1;
 		}
@@ -1738,8 +1749,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	if (BGP_DEBUG(update, UPDATE_IN))
-		zlog_debug("%s rcvd UPDATE wlen %d attrlen %d alen %d",
-			   peer->host, withdraw_len, attribute_len, update_len);
+		zlog_debug("%s(%s) rcvd UPDATE wlen %d attrlen %d alen %d",
+			   peer->host, bgp_peer_hostname(peer), withdraw_len,
+			   attribute_len, update_len);
 
 	/* Parse any given NLRIs */
 	for (int i = NLRI_UPDATE; i < NLRI_TYPE_MAX; i++) {
@@ -2273,18 +2285,18 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 				   PEER_STATUS_EOR_RECEIVED)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s rcvd route-refresh (BoRR) for %s/%s before EoR",
-					peer->host, afi2str(afi),
-					safi2str(safi));
+					"%s(%s) rcvd route-refresh (BoRR) for %s/%s before EoR",
+					peer->host, bgp_peer_hostname(peer),
+					afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
 		if (peer->t_refresh_stalepath) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
-					peer->host, afi2str(afi),
-					safi2str(safi));
+					"%s(%s) rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
+					peer->host, bgp_peer_hostname(peer),
+					afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
@@ -2312,14 +2324,16 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s rcvd route-refresh (BoRR) for %s/%s, triggering timer for %u seconds",
-				peer->host, afi2str(afi), safi2str(safi),
+				"%s(%s) rcvd route-refresh (BoRR) for %s/%s, triggering timer for %u seconds",
+				peer->host, bgp_peer_hostname(peer),
+				afi2str(afi), safi2str(safi),
 				peer->bgp->stalepath_time);
 	} else if (subtype == BGP_ROUTE_REFRESH_EORR) {
 		if (!peer->t_refresh_stalepath) {
 			zlog_err(
-				"%s rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
-				peer->host, afi2str(afi), safi2str(safi));
+				"%s(%s) rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
+				peer->host, bgp_peer_hostname(peer),
+				afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
@@ -2331,15 +2345,18 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
-				peer->host, afi2str(afi), safi2str(safi));
+				"%s(%s) rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
+				peer->host, bgp_peer_hostname(peer),
+				afi2str(afi), safi2str(safi));
 
 		if (peer->nsf[afi][safi])
 			bgp_clear_stale_route(peer, afi, safi);
 	} else {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s rcvd route-refresh (REQUEST) for %s/%s",
-				   peer->host, afi2str(afi), safi2str(safi));
+			zlog_debug(
+				"%s(%s) rcvd route-refresh (REQUEST) for %s/%s",
+				peer->host, bgp_peer_hostname(peer),
+				afi2str(afi), safi2str(safi));
 
 		/* In response to a "normal route refresh request" from the
 		 * peer, the speaker MUST send a BoRR message.
@@ -2354,9 +2371,10 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					PEER_STATUS_EOR_SEND)) {
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s rcvd route-refresh (REQUEST) for %s/%s before EoR",
-						peer->host, afi2str(afi),
-						safi2str(safi));
+						"%s(%s) rcvd route-refresh (REQUEST) for %s/%s before EoR",
+						peer->host,
+						bgp_peer_hostname(peer),
+						afi2str(afi), safi2str(safi));
 				return BGP_PACKET_NOOP;
 			}
 
@@ -2365,9 +2383,9 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s sending route-refresh (BoRR) for %s/%s",
-					peer->host, afi2str(afi),
-					safi2str(safi));
+					"%s(%s) sending route-refresh (BoRR) for %s/%s",
+					peer->host, bgp_peer_hostname(peer),
+					afi2str(afi), safi2str(safi));
 
 			/* Set flag Ready-To-Send to know when we can send EoRR
 			 * message.

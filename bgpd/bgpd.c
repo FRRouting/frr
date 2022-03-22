@@ -2349,15 +2349,15 @@ void peer_nsf_stop(struct peer *peer)
 	if (peer->t_gr_restart) {
 		BGP_TIMER_OFF(peer->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s graceful restart timer stopped",
-				   peer->host);
+			zlog_debug("%s(%s) graceful restart timer stopped",
+				   peer->host, bgp_peer_hostname(peer));
 	}
 	if (peer->t_gr_stale) {
 		BGP_TIMER_OFF(peer->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s graceful restart stalepath timer stopped",
-				peer->host);
+				"%s(%s) graceful restart stalepath timer stopped",
+				peer->host, bgp_peer_hostname(peer));
 	}
 	bgp_clear_route_all(peer);
 }
@@ -4296,8 +4296,9 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 				BGP_TIMER_OFF(peer->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s Maximum-prefix restart timer canceled",
-						peer->host);
+						"%s(%s) Maximum-prefix restart timer canceled",
+						peer->host,
+						bgp_peer_hostname(peer));
 			}
 
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
@@ -7187,8 +7188,9 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 	if (peer->t_pmax_restart) {
 		BGP_TIMER_OFF(peer->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s Maximum-prefix restart timer cancelled",
-				   peer->host);
+			zlog_debug(
+				"%s(%s) Maximum-prefix restart timer cancelled",
+				peer->host, bgp_peer_hostname(peer));
 	}
 	BGP_EVENT_ADD(peer, BGP_Start);
 	return true;
