@@ -131,12 +131,27 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			struct listnode *srcnode;
 			struct gm_source *src;
 
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  srcnode, src)) {
-				igmp_source_forward_reevaluate_one(pim, src);
-			} /* scan group sources */
-		}	  /* scan igmp groups */
+			/*
+			 * RFC 4604
+			 * section 2.2.1
+			 * EXCLUDE mode does not apply to SSM addresses,
+			 * and an SSM-aware router will ignore
+			 * MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE
+			 * requests in the SSM range.
+			 */
+			if (pim_is_grp_ssm(pim, grp->group_addr) &&
+			    grp->group_filtermode_isexcl) {
+				igmp_group_delete(grp);
+			} else {
+				/* scan group sources */
+				for (ALL_LIST_ELEMENTS_RO(
+					     grp->group_source_list, srcnode,
+					     src)) {
+					igmp_source_forward_reevaluate_one(pim,
+									   src);
+				} /* scan group sources */
+			}
+		} /* scan igmp groups */
 
 		RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb,
 				 ch_temp) {
