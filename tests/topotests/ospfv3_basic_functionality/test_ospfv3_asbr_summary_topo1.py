@@ -2102,6 +2102,14 @@ def test_ospfv3_type5_summary_tc46_p0(request):
     ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Verify that originally advertised routes are withdraw from there" " peer.")
+    output = tgen.gears["r0"].vtysh_cmd(
+        "show ipv6 ospf6 database as-external json", isjson=True
+    )
+
+    output = tgen.gears["r1"].vtysh_cmd(
+        "show ipv6 ospf6 database as-external json", isjson=True
+    )
+
     input_dict = {
         "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
@@ -2111,14 +2119,6 @@ def test_ospfv3_type5_summary_tc46_p0(request):
         result is not True
     ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
         tc_name, result
-    )
-
-    output = tgen.gears["r0"].vtysh_cmd(
-        "show ipv6 ospf6 database as-external json", isjson=True
-    )
-
-    output = tgen.gears["r1"].vtysh_cmd(
-        "show ipv6 ospf6 database as-external json", isjson=True
     )
 
     result = verify_rib(
