@@ -523,6 +523,11 @@ lib/clippy-command_parse.$(OBJEXT): lib/command_lex.h
 lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
 
+DISTCLEANFILES += lib/command_lex.h \
+		  lib/command_lex.c \
+		  lib/command_parse.h \
+		  lib/command_parse.c
+
 rt_enabled =
 
 if BABELD
