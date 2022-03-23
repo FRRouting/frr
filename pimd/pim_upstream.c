@@ -2062,6 +2062,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	if ((up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE) &&
 	    (up->rpf.source_nexthop.interface)) {
 		pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);
+		pim_upstream_update_could_assert(up);
 	}
 
 	return rv;
