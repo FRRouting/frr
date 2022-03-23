@@ -2781,6 +2781,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			if (prefix_sid) {
 				char buf_sid[BUFSIZ] = {};
 				char buf_lblop[BUFSIZ] = {};
+				unsigned regs = 0;
 
 				if (rinfo->sr_algo[alg].present) {
 					snprintf(buf_sid, sizeof(buf_sid), "%u",
@@ -2796,17 +2797,21 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 					continue;
 				}
 
+				if (rinfo->fae_regs[alg])
+					regs = listcount(rinfo->fae_regs[alg]);
+
 				if (first || json) {
-					ttable_add_row(tt,
-						       "%s|%u|%s|%s|%s|%s|%d",
-						       buf_prefix, rinfo->cost,
-						       buf_iface, buf_nhop,
-						       buf_sid, buf_lblop, alg);
+					ttable_add_row(
+						tt, "%s|%u|%s|%s|%s|%s|%d|%u",
+						buf_prefix, rinfo->cost,
+						buf_iface, buf_nhop, buf_sid,
+						buf_lblop, alg, regs);
 					first = false;
 				} else
-					ttable_add_row(tt, "||%s|%s|%s|%s|%d",
-						       buf_iface, buf_nhop,
-						       buf_sid, buf_lblop, alg);
+					ttable_add_row(
+						tt, "||%s|%s|%s|%s|%d|%u",
+						buf_iface, buf_nhop, buf_sid,
+						buf_lblop, alg, regs);
 			} else {
 				char buf_labels[BUFSIZ] = {};
 
@@ -2912,7 +2917,7 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 	if (prefix_sid)
 		ttable_add_row(
 			tt,
-			"Prefix|Metric|Interface|Nexthop|SID|Label Op.|Algo");
+			"Prefix|Metric|Interface|Nexthop|SID|Label Op.|Algo|Regs");
 	else
 		ttable_add_row(tt, "Prefix|Metric|Interface|Nexthop|Label(s)");
 	tt->style.cell.rpad = 2;
