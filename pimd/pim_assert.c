@@ -34,6 +34,7 @@
 #include "pim_hello.h"
 #include "pim_macro.h"
 #include "pim_assert.h"
+#include "pim_zebra.h"
 #include "pim_ifchannel.h"
 
 static int assert_action_a3(struct pim_ifchannel *ch);
@@ -50,6 +51,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 	int winner_changed = !!pim_addr_cmp(ch->ifassert_winner, winner);
 	int metric_changed = !pim_assert_metric_match(
 		&ch->ifassert_winner_metric, &winner_metric);
+	enum pim_rpf_result rpf_result;
+	struct pim_rpf old_rpf;
 
 	if (PIM_DEBUG_PIM_EVENTS) {
 		if (ch->ifassert_state != new_state) {
@@ -74,6 +77,22 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 	ch->ifassert_creation = pim_time_monotonic_sec();
 
 	if (winner_changed || metric_changed) {
+		if (winner_changed) {
+			old_rpf.source_nexthop.interface =
+				ch->upstream->rpf.source_nexthop.interface;
+			rpf_result = pim_rpf_update(pim_ifp->pim, ch->upstream,
+						    &old_rpf, __func__);
+			if (rpf_result == PIM_RPF_CHANGED ||
+			    (rpf_result == PIM_RPF_FAILURE &&
+			     old_rpf.source_nexthop.interface))
+				pim_zebra_upstream_rpf_changed(
+					pim_ifp->pim, ch->upstream, &old_rpf);
+			/* update kernel multicast forwarding cache (MFC) */
+			if (ch->upstream->rpf.source_nexthop.interface &&
+			    ch->upstream->channel_oil)
+				pim_upstream_mroute_iif_update(
+					ch->upstream->channel_oil, __func__);
+		}
 		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 		pim_ifchannel_update_could_assert(ch);
 		pim_ifchannel_update_assert_tracking_desired(ch);
