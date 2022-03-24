@@ -45,6 +45,7 @@
 #define DEBUG_MLD_PACKETS_STR "MLD protocol packets\n"
 #define DEBUG_MLD_TRACE_STR "MLD internal daemon activity\n"
 #define CONF_SSMPINGD_STR "Enable ssmpingd operation\n"
+#define DEBUG_PIMV6_STR "PIMv6 protocol activity\n"
 
 void pim_cmd_init(void);
 

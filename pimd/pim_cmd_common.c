@@ -3673,3 +3673,28 @@ void clear_pim_statistics(struct pim_instance *pim)
 		pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
 	}
 }
+
+int pim_debug_pim_cmd(void)
+{
+	PIM_DO_DEBUG_PIM_EVENTS;
+	PIM_DO_DEBUG_PIM_PACKETS;
+	PIM_DO_DEBUG_PIM_TRACE;
+	PIM_DO_DEBUG_MSDP_EVENTS;
+	PIM_DO_DEBUG_MSDP_PACKETS;
+	PIM_DO_DEBUG_BSM;
+	PIM_DO_DEBUG_VXLAN;
+	return CMD_SUCCESS;
+}
+
+int pim_no_debug_pim_cmd(void)
+{
+	PIM_DONT_DEBUG_PIM_EVENTS;
+	PIM_DONT_DEBUG_PIM_PACKETS;
+	PIM_DONT_DEBUG_PIM_TRACE;
+	PIM_DONT_DEBUG_MSDP_EVENTS;
+	PIM_DONT_DEBUG_MSDP_PACKETS;
+
+	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	return CMD_SUCCESS;
+}
