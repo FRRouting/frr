@@ -2479,9 +2479,13 @@ void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
 	if (zvrf && zvrf->zns)
 		local_ns_id = zvrf->zns->ns_id;
 
-	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
-	if (!mac)
-		mac = zebra_evpn_mac_add(zevpn, macaddr);
+	if (!*macp) {
+		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+		if (!mac)
+			mac = zebra_evpn_mac_add(zevpn, macaddr);
+		*macp = mac;
+	} else
+		mac = *macp;
 
 	/* Set "local" forwarding info. */
 	zebra_evpn_mac_clear_fwd_info(mac);
@@ -2494,8 +2498,6 @@ void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
 	mac->fwd_info.local.ifindex = ifp->ifindex;
 	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vlan_id;
-
-	*macp = mac;
 }
 
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
@@ -2548,7 +2550,6 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 				? true
 				: false;
 
-	mac = NULL;
 	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0, false);
 
 	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
