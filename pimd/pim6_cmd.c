@@ -43,6 +43,7 @@
 #include "pim_bsm.h"
 #include "pim_iface.h"
 #include "pim_zebra.h"
+#include "pim_instance.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
@@ -2017,6 +2018,37 @@ DEFPY (debug_pimv6,
 		return pim_no_debug_pim_cmd();
 }
 
+DEFPY (debug_pimv6_nht,
+       debug_pimv6_nht_cmd,
+       "[no] debug pimv6 nht",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       "Nexthop Tracking\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_NHT;
+	else
+		PIM_DONT_DEBUG_PIM_NHT;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_nht_det,
+       debug_pimv6_nht_det_cmd,
+       "[no] debug pimv6 nht detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       "Nexthop Tracking\n"
+       "Detailed Information\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_NHT_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_NHT_DETAIL;
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2129,6 +2161,10 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_count_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_nht_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_nht_det_cmd);
 }
