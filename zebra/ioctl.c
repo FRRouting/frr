@@ -136,7 +136,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 void if_get_metric(struct interface *ifp)
 {
 #ifdef SIOCGIFMETRIC
-	struct ifreq ifreq;
+	struct ifreq ifreq = {};
 
 	ifreq_set_name(&ifreq, ifp);
 
@@ -153,7 +153,7 @@ void if_get_metric(struct interface *ifp)
 /* get interface MTU */
 void if_get_mtu(struct interface *ifp)
 {
-	struct ifreq ifreq;
+	struct ifreq ifreq = {};
 
 	ifreq_set_name(&ifreq, ifp);
 
@@ -410,8 +410,8 @@ int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 void if_get_flags(struct interface *ifp)
 {
 	int ret;
-	struct ifreq ifreqflags;
-	struct ifreq ifreqdata;
+	struct ifreq ifreqflags = {};
+	struct ifreq ifreqdata = {};
 
 	ifreq_set_name(&ifreqflags, ifp);
 	ifreq_set_name(&ifreqdata, ifp);
