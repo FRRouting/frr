@@ -77,7 +77,7 @@ reload)
 	# systemd doesn't set WATCHDOG_USEC for reload commands.
 	watchfrr_pidfile="$V_PATH/watchfrr.pid"
 	watchfrr_pid="`cat \"$watchfrr_pidfile\"`"
-	watchfrr_cmdline="`strings /proc/$watchfrr_pid/cmdline`"
+	watchfrr_cmdline="`tr '\0' '\n' < /proc/$watchfrr_pid/cmdline`"
 	if [ -d "/proc/$watchfrr_pid" ]; then
 		wdt="`tr '\0' '\n' < /proc/$watchfrr_pid/environ | grep '^WATCHDOG_USEC='`"
 		wdt="${wdt#WATCHDOG_USEC=}"
