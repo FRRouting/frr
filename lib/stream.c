@@ -921,7 +921,7 @@ int stream_put_in_addr(struct stream *s, const struct in_addr *addr)
 	return sizeof(uint32_t);
 }
 
-bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip)
+bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip)
 {
 	stream_putw(s, ip->ipa_type);
 
