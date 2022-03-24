@@ -1623,6 +1623,8 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	struct bmp *bmp;
 	struct bmp_active *ba;
 
+	THREAD_OFF(bt->t_stats);
+
 	frr_each_safe (bmp_actives, &bt->actives, ba)
 		bmp_active_put(ba);
 
