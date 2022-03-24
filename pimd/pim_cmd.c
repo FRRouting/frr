@@ -5522,41 +5522,17 @@ DEFUN (no_debug_pim_static,
 }
 
 
-DEFUN (debug_pim,
+DEFPY (debug_pim,
        debug_pim_cmd,
-       "debug pim",
-       DEBUG_STR
-       DEBUG_PIM_STR)
-{
-	PIM_DO_DEBUG_PIM_EVENTS;
-	PIM_DO_DEBUG_PIM_PACKETS;
-	PIM_DO_DEBUG_PIM_TRACE;
-	PIM_DO_DEBUG_MSDP_EVENTS;
-	PIM_DO_DEBUG_MSDP_PACKETS;
-	PIM_DO_DEBUG_BSM;
-	PIM_DO_DEBUG_VXLAN;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim,
-       no_debug_pim_cmd,
-       "no debug pim",
+       "[no] debug pim",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR)
 {
-	PIM_DONT_DEBUG_PIM_EVENTS;
-	PIM_DONT_DEBUG_PIM_PACKETS;
-	PIM_DONT_DEBUG_PIM_TRACE;
-	PIM_DONT_DEBUG_MSDP_EVENTS;
-	PIM_DONT_DEBUG_MSDP_PACKETS;
-
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
-	PIM_DONT_DEBUG_BSM;
-	PIM_DONT_DEBUG_VXLAN;
-
-	return CMD_SUCCESS;
+	if (!no)
+		return pim_debug_pim_cmd();
+	else
+		return pim_no_debug_pim_cmd();
 }
 
 DEFUN (debug_pim_nht,
@@ -7872,7 +7848,6 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pim_static_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_static_cmd);
 	install_element(ENABLE_NODE, &debug_pim_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_nht_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_det_cmd);
@@ -7927,7 +7902,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pim_static_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_static_cmd);
 	install_element(CONFIG_NODE, &debug_pim_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_nht_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_det_cmd);
