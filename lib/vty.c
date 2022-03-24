@@ -2033,6 +2033,7 @@ static int vtysh_do_pass_fd(struct vty *vty)
 	struct cmsghdr *cmh = CMSG_FIRSTHDR(&mh);
 	ssize_t ret;
 
+	memset(&u.buf, 0, sizeof(u.buf));
 	cmh->cmsg_level = SOL_SOCKET;
 	cmh->cmsg_type = SCM_RIGHTS;
 	cmh->cmsg_len = CMSG_LEN(sizeof(int));
