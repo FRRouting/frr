@@ -38,7 +38,8 @@ Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
 
 Package: frr
 Architecture: linux-any
-Depends: iproute2 | iproute,
+Depends: binutils,
+         iproute2 | iproute,
          logrotate (>= 3.2-11),
          lsof,
          ${misc:Depends},
