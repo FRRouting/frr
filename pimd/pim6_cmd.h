@@ -46,6 +46,7 @@
 #define DEBUG_MLD_TRACE_STR "MLD internal daemon activity\n"
 #define CONF_SSMPINGD_STR "Enable ssmpingd operation\n"
 #define DEBUG_PIMV6_STR "PIMv6 protocol activity\n"
+#define DEBUG_PIMV6_EVENTS_STR "PIMv6 protocol events\n"
 
 void pim_cmd_init(void);
 

@@ -5591,26 +5591,18 @@ DEFUN (no_debug_pim_nht_rp,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_events,
+DEFPY (debug_pim_events,
        debug_pim_events_cmd,
-       "debug pim events",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_EVENTS_STR)
-{
-	PIM_DO_DEBUG_PIM_EVENTS;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_events,
-       no_debug_pim_events_cmd,
-       "no debug pim events",
+       "[no] debug pim events",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_EVENTS_STR)
 {
-	PIM_DONT_DEBUG_PIM_EVENTS;
+	if (!no)
+		PIM_DO_DEBUG_PIM_EVENTS;
+	else
+		PIM_DONT_DEBUG_PIM_EVENTS;
 	return CMD_SUCCESS;
 }
 
@@ -7836,7 +7828,6 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &debug_pim_events_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_events_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_packets_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
@@ -7888,7 +7879,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &debug_pim_events_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_packets_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
