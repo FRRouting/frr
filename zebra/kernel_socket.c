@@ -159,6 +159,9 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 #ifdef RTM_IFANNOUNCE
 				       {RTM_IFANNOUNCE, "RTM_IFANNOUNCE"},
 #endif /* RTM_IFANNOUNCE */
+#ifdef RTM_IEEE80211
+				       {RTM_IEEE80211, "RTM_IEEE80211"},
+#endif
 				       {0}};
 
 static const struct message rtm_flag_str[] = {{RTF_UP, "UP"},
@@ -1405,7 +1408,10 @@ static void kernel_read(struct thread *thread)
 #endif /* RTM_IFANNOUNCE */
 	default:
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Unprocessed RTM_type: %d", rtm->rtm_type);
+			zlog_debug(
+				"Unprocessed RTM_type: %s(%d)",
+				lookup_msg(rtm_type_str, rtm->rtm_type, NULL),
+				rtm->rtm_type);
 		break;
 	}
 }
