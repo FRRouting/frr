@@ -2049,6 +2049,21 @@ DEFPY (debug_pimv6_nht_det,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_pimv6_events,
+       debug_pimv6_events_cmd,
+       "[no] debug pimv6 events",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_EVENTS_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_EVENTS;
+	else
+		PIM_DONT_DEBUG_PIM_EVENTS;
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2163,8 +2178,10 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_events_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_det_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_events_cmd);
 }
