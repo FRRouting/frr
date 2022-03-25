@@ -279,7 +279,7 @@ void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 }
 
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
-			   struct interface *src_ifp, struct in_addr src_ip)
+			   struct interface *src_ifp, pim_addr src_ip)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
