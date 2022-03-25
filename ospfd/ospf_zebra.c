@@ -1280,6 +1280,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct prefix_ipv4 p;
+	struct prefix pgen;
 	unsigned long ifindex;
 	struct in_addr nexthop;
 	struct external_info *ei;
@@ -1302,13 +1303,17 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
 		return 0;
 
+	pgen.family = p.family;
+	pgen.prefixlen = p.prefixlen;
+	pgen.u.prefix4 = p.prefix;
+
 	/* Re-destributed route is default route.
 	 * Here, route type is used as 'ZEBRA_ROUTE_KERNEL' for
 	 * updating ex-info. But in resetting (no default-info
 	 * originate)ZEBRA_ROUTE_MAX is used to delete the ex-info.
 	 * Resolved this inconsistency by maintaining same route type.
 	 */
-	if (is_default_prefix4(&p))
+	if ((is_default_prefix(&pgen)) && (api.type != ZEBRA_ROUTE_OSPF))
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
