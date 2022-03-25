@@ -13978,6 +13978,8 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 	int idx = 0;
 	bool first = true;
 	uint16_t show_flags = 0;
+	struct listnode *node;
+	struct bgp *abgp;
 
 	if (uj) {
 		argc--;
@@ -14029,42 +14031,52 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 	    || CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP6)) {
 		afi = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP) ? AFI_IP
 								  : AFI_IP6;
-		FOREACH_SAFI (safi) {
-			if (!bgp_afi_safi_peer_exists(bgp, afi, safi))
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, abgp)) {
+			FOREACH_SAFI (safi) {
+				if (!bgp_afi_safi_peer_exists(abgp, afi, safi))
+					continue;
 
-			if (uj) {
-				if (first)
-					first = false;
-				else
-					vty_out(vty, ",\n");
-				vty_out(vty, "\"%s\":",
-					get_afi_safi_str(afi, safi, true));
-			} else
-				vty_out(vty, "\nFor address family: %s\n",
-					get_afi_safi_str(afi, safi, false));
+				if (uj) {
+					if (first)
+						first = false;
+					else
+						vty_out(vty, ",\n");
+					vty_out(vty, "\"%s\":",
+						get_afi_safi_str(afi, safi,
+								 true));
+				} else
+					vty_out(vty,
+						"\nFor address family: %s\n",
+						get_afi_safi_str(afi, safi,
+								 false));
 
-			peer_adj_routes(vty, peer, afi, safi, type, rmap_name,
-					show_flags);
+				peer_adj_routes(vty, peer, afi, safi, type,
+						rmap_name, show_flags);
+			}
 		}
 	} else {
-		FOREACH_AFI_SAFI (afi, safi) {
-			if (!bgp_afi_safi_peer_exists(bgp, afi, safi))
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, abgp)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (!bgp_afi_safi_peer_exists(abgp, afi, safi))
+					continue;
 
-			if (uj) {
-				if (first)
-					first = false;
-				else
-					vty_out(vty, ",\n");
-				vty_out(vty, "\"%s\":",
-					get_afi_safi_str(afi, safi, true));
-			} else
-				vty_out(vty, "\nFor address family: %s\n",
-					get_afi_safi_str(afi, safi, false));
+				if (uj) {
+					if (first)
+						first = false;
+					else
+						vty_out(vty, ",\n");
+					vty_out(vty, "\"%s\":",
+						get_afi_safi_str(afi, safi,
+								 true));
+				} else
+					vty_out(vty,
+						"\nFor address family: %s\n",
+						get_afi_safi_str(afi, safi,
+								 false));
 
-			peer_adj_routes(vty, peer, afi, safi, type, rmap_name,
-					show_flags);
+				peer_adj_routes(vty, peer, afi, safi, type,
+						rmap_name, show_flags);
+			}
 		}
 	}
 	if (uj)
