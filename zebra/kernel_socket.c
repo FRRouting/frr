@@ -453,12 +453,13 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 		if_get_metric(ifp);
 		if_add_update(ifp);
 	} else if (ifp != NULL && ifan->ifan_what == IFAN_DEPARTURE)
-		if_delete_update(ifp);
+		if_delete_update(&ifp);
 
-	if_get_flags(ifp);
-	if_get_mtu(ifp);
-	if_get_metric(ifp);
-
+	if (ifp) {
+		if_get_flags(ifp);
+		if_get_mtu(ifp);
+		if_get_metric(ifp);
+	}
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: interface %s index %d", __func__,
 			   ifan->ifan_name, ifan->ifan_index);
@@ -725,10 +726,10 @@ int ifm_read(struct if_msghdr *ifm)
 			 * will still behave correctly if run on a platform
 			 * without
 			 */
-			if_delete_update(ifp);
+			if_delete_update(&ifp);
 		}
 #endif /* RTM_IFANNOUNCE */
-		if (if_is_up(ifp)) {
+		if (ifp && if_is_up(ifp)) {
 #if defined(__bsdi__)
 			if_kvm_get_mtu(ifp);
 #else
@@ -738,14 +739,16 @@ int ifm_read(struct if_msghdr *ifm)
 		}
 	}
 
+	if (ifp) {
 #ifdef HAVE_NET_RT_IFLIST
-	ifp->stats = ifm->ifm_data;
+		ifp->stats = ifm->ifm_data;
 #endif /* HAVE_NET_RT_IFLIST */
-	ifp->speed = ifm->ifm_data.ifi_baudrate / 1000000;
+		ifp->speed = ifm->ifm_data.ifi_baudrate / 1000000;
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: interface %s index %d", __func__, ifp->name,
-			   ifp->ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: interface %s index %d", __func__,
+				   ifp->name, ifp->ifindex);
+	}
 
 	return 0;
 }

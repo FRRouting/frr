@@ -806,9 +806,10 @@ static void if_delete_connected(struct interface *ifp)
 }
 
 /* Handle an interface delete event */
-void if_delete_update(struct interface *ifp)
+void if_delete_update(struct interface **pifp)
 {
 	struct zebra_if *zif;
+	struct interface *ifp = *pifp;
 
 	if (if_is_up(ifp)) {
 		flog_err(
@@ -871,7 +872,7 @@ void if_delete_update(struct interface *ifp)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s is being deleted from the system",
 				   ifp->name);
-		if_delete(&ifp);
+		if_delete(pifp);
 	}
 }
 
