@@ -1016,6 +1016,18 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					return err;
 			}
 
+			/*
+			 * What is the right thing to do?  The kernel
+			 * is telling us that the dump request was interrupted
+			 * and we more than likely are out of luck and have
+			 * missed data from the kernel.  At this point in time
+			 * lets just note that this is happening.
+			 */
+			if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+				flog_err(
+					EC_ZEBRA_NETLINK_BAD_SEQUENCE,
+					"netlink recvmsg: The Dump request was interrupted");
+
 			/* OK we got netlink message. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
