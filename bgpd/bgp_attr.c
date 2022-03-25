@@ -2572,6 +2572,16 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
+	if (length < BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficient data (need %hu, have %u remaining in UPDATE)",
+			BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH,
+			length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE) {
 		loc_block_len = stream_getc(peer->curr);
 		loc_node_len = stream_getc(peer->curr);
