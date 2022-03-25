@@ -149,10 +149,13 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 	return true;
 }
 
-int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
+int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
+		   pim_sgaddr sg)
 {
+#if PIM_IPV == 4
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
+#endif
 	uint8_t *pim_msg;
 	uint32_t pim_msg_len = 0;
 	uint16_t pim_checksum; /* received checksum */
@@ -160,8 +163,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	struct pim_neighbor *neigh;
 	struct pim_msg_header *header;
 	bool   no_fwd;
-	pim_sgaddr sg;
 
+#if PIM_IPV == 4
 	if (len < sizeof(*ip_hdr)) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
@@ -171,10 +174,15 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	}
 
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
-	sg = pim_sgaddr_from_iphdr(buf);
+	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
 	pim_msg = buf + ip_hlen;
 	pim_msg_len = len - ip_hlen;
+#else
+	/* NB: header is not included in IPv6 RX */
+	pim_msg = buf;
+	pim_msg_len = len;
+#endif
 
 	header = (struct pim_msg_header *)pim_msg;
 	if (pim_msg_len < PIM_PIM_MIN_LEN) {
@@ -332,6 +340,8 @@ static void pim_sock_read(struct thread *t)
 	pim_ifp = ifp->info;
 
 	while (cont) {
+		pim_sgaddr sg;
+
 		len = pim_socket_recvfromto(fd, buf, sizeof(buf), &from,
 					    &fromlen, &to, &tolen, &ifindex);
 		if (len < 0) {
@@ -361,7 +371,15 @@ static void pim_sock_read(struct thread *t)
 					ifindex);
 			goto done;
 		}
-		int fail = pim_pim_packet(ifp, buf, len);
+#if PIM_IPV == 4
+		sg.src = ((struct sockaddr_in *)&from)->sin_addr;
+		sg.grp = ((struct sockaddr_in *)&to)->sin_addr;
+#else
+		sg.src = ((struct sockaddr_in6 *)&from)->sin6_addr;
+		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
+#endif
+
+		int fail = pim_pim_packet(ifp, buf, len, sg);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
