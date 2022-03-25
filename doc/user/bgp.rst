@@ -2956,7 +2956,7 @@ local discriminator against the bond interface on the PE (via zebra) -
 The sys-mac and local discriminator are used for generating a 10-byte,
 Type-3 Ethernet Segment ID.
 
-Type-1 (EAS-per-ES and EAD-per-EVI) routes are used to advertise the locally
+Type-1 (EAD-per-ES and EAD-per-EVI) routes are used to advertise the locally
 attached ESs and to learn off remote ESs in the network. Local Type-2/MAC-IP
 routes are also advertised with a destination ESI allowing for MAC-IP syncing
 between Ethernet Segment peers.
@@ -3056,8 +3056,7 @@ route maybe fragmented.
 The number of EVIs per-EAD route can be configured via the following
 BGP command -
 
-.. index:: [no] ead-es-frag evi-limit(1-1000)
-.. clicmd:: [no] ead-es-frag evi-limit(1-1000)
+.. clicmd:: [no] ead-es-frag evi-limit (1-1000)
 
 Sample Configuration
 ^^^^^^^^^^^^^^^^^^^^^
