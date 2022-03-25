@@ -212,7 +212,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 
 	if (close(ss->sock_fd)) {
 		zlog_warn(
-			"%s: failure closing ssmpingd sock_fd=%d for source %pI4: errno=%d: %s",
+			"%s: failure closing ssmpingd sock_fd=%d for source %pPA: errno=%d: %s",
 			__func__, ss->sock_fd, &ss->source_addr, errno,
 			safe_strerror(errno));
 		/* warning only */
@@ -262,7 +262,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 
 	if (len < 0) {
 		zlog_warn(
-			"%s: failure receiving ssmping for source %pI4 on fd=%d: errno=%d: %s",
+			"%s: failure receiving ssmping for source %pPA on fd=%d: errno=%d: %s",
 			__func__, &ss->source_addr, ss->sock_fd, errno,
 			safe_strerror(errno));
 		return -1;
@@ -272,7 +272,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 
 	if (buf[0] != PIM_SSMPINGD_REQUEST) {
 		zlog_warn(
-			"%s: bad ssmping type=%d from %pSUp to %pSUp on interface %s ifindex=%d fd=%d src=%pI4",
+			"%s: bad ssmping type=%d from %pSUp to %pSUp on interface %s ifindex=%d fd=%d src=%pPA",
 			__func__, buf[0], &from, &to,
 			ifp ? ifp->name : "<iface?>", ifindex, ss->sock_fd,
 			&ss->source_addr);
@@ -281,7 +281,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 
 	if (PIM_DEBUG_SSMPINGD) {
 		zlog_debug(
-			"%s: recv ssmping from %pSUp, to %pSUp, on interface %s ifindex=%d fd=%d src=%pI4",
+			"%s: recv ssmping from %pSUp, to %pSUp, on interface %s ifindex=%d fd=%d src=%pPA",
 			__func__, &from, &to, ifp ? ifp->name : "<iface?>",
 			ifindex, ss->sock_fd, &ss->source_addr);
 	}
@@ -330,7 +330,7 @@ static struct ssmpingd_sock *ssmpingd_new(struct pim_instance *pim,
 	sock_fd =
 		ssmpingd_socket(source_addr, /* port: */ 4321, /* mTTL: */ 64);
 	if (sock_fd < 0) {
-		zlog_warn("%s: ssmpingd_socket() failure for source %pI4",
+		zlog_warn("%s: ssmpingd_socket() failure for source %pPA",
 			  __func__, &source_addr);
 		return 0;
 	}
