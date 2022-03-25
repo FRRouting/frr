@@ -179,7 +179,7 @@ static int zebra_ns_delete(char *name)
 		}
 
 		UNSET_FLAG(ifp->flags, IFF_UP);
-		if_delete_update(ifp);
+		if_delete_update(&ifp);
 	}
 
 	ns = (struct ns *)vrf->ns_ctxt;
