@@ -712,7 +712,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [function-bits-length 32]
+.. clicmd:: prefix X:X::X:X/M [func-bits 32]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
@@ -732,7 +732,7 @@ and this section also helps that case.
    will be ``2001:db8:1:1:1::``)
 
    The function bits range is 16bits by default.  If operator want to change
-   function bits range, they can configure with ``function-bits-length``
+   function bits range, they can configure with ``func-bits``
    option.
 
 ::
