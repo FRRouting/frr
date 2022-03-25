@@ -12318,6 +12318,12 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	if (!idx)
 		return CMD_WARNING;
 
+	if (!bgp) {
+		vty_out(vty,
+			"Specified 'all' vrf's but this command currently only works per view/vrf\n");
+		return CMD_WARNING;
+	}
+
 	if (argv_find(argv, argc, "cidr-only", &idx))
 		sh_type = bgp_show_type_cidr_only;
 
