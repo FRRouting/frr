@@ -316,12 +316,6 @@ static inline int is_export_rt_configured(struct bgpevpn *vpn)
 	return (CHECK_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD));
 }
 
-static inline int is_vni_param_configured(struct bgpevpn *vpn)
-{
-	return (is_rd_configured(vpn) || is_import_rt_configured(vpn)
-		|| is_export_rt_configured(vpn));
-}
-
 static inline void encode_es_rt_extcomm(struct ecommunity_val *eval,
 					struct ethaddr *mac)
 {
