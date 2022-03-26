@@ -63,7 +63,7 @@ void ecommunity_strfree(char **s)
 	XFREE(MTYPE_ECOMMUNITY_STR, *s);
 }
 
-/* Allocate ecommunities.  */
+/* Free ecommunities.  */
 void ecommunity_free(struct ecommunity **ecom)
 {
 	if (!(*ecom))
