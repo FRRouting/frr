@@ -1931,6 +1931,28 @@ static struct cmd_node bmp_node = {
 	.prompt = "%s(config-bgp-bmp)# "
 };
 
+static void bmp_targets_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct bgp *bgp;
+	struct bmp_targets *target;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+		if (!bmpbgp)
+			continue;
+
+		frr_each_safe (bmp_targets, &bmpbgp->targets, target)
+			vector_set(comps,
+				   XSTRDUP(MTYPE_COMPLETION, target->name));
+	}
+}
+
+static const struct cmd_variable_handler bmp_targets_var_handlers[] = {
+	{.tokenname = "BMPTARGETS", .completions = bmp_targets_autocomplete},
+	{.completions = NULL}};
+
 #define BMP_STR "BGP Monitoring Protocol\n"
 
 #ifndef VTYSH_EXTRACT_PL
@@ -2424,6 +2446,9 @@ static int bgp_bmp_init(struct thread_master *tm)
 {
 	install_node(&bmp_node);
 	install_default(BMP_NODE);
+
+	cmd_variable_handler_register(bmp_targets_var_handlers);
+
 	install_element(BGP_NODE, &bmp_targets_cmd);
 	install_element(BGP_NODE, &no_bmp_targets_cmd);
 
