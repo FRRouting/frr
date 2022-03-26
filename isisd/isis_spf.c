@@ -330,10 +330,11 @@ static void _isis_spftree_init(struct isis_spftree *tree)
 	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
 	tree->route_table = srcdest_table_init();
 	tree->route_table->cleanup = isis_route_node_cleanup;
-	tree->route_table->info = isis_route_table_info_alloc(tree->algorithm);
+	tree->route_table->info =
+		isis_route_table_info_alloc(tree->area, tree->algorithm);
 	tree->route_table_backup = srcdest_table_init();
 	tree->route_table_backup->info =
-		isis_route_table_info_alloc(tree->algorithm);
+		isis_route_table_info_alloc(tree->area, tree->algorithm);
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 	tree->prefix_sids = hash_create(prefix_sid_key_make, prefix_sid_cmp,
 					"SR Prefix-SID Entries");
@@ -2123,7 +2124,7 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 	isis_route_table_info_free(backup_info);
 	tree->route_table_backup = srcdest_table_init();
 	tree->route_table_backup->info =
-		isis_route_table_info_alloc(tree->algorithm);
+		isis_route_table_info_alloc(tree->area, tree->algorithm);
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 }
 

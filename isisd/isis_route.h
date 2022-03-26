@@ -37,6 +37,7 @@ struct isis_route_info {
 };
 
 struct isis_route_table_info {
+	struct isis_area *area;
 	uint8_t algorithm;
 };
 
@@ -83,7 +84,8 @@ void isis_route_switchover_nexthop(struct isis_area *area,
 				   union g_addr *nexthop_addr,
 				   ifindex_t ifindex);
 
-struct isis_route_table_info *isis_route_table_info_alloc(uint8_t algorithm);
+struct isis_route_table_info *
+isis_route_table_info_alloc(struct isis_area *area, uint8_t algorithm);
 void isis_route_table_info_free(void *info);
 uint8_t isis_route_table_algorithm(const struct route_table *table);
 

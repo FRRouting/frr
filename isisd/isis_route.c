@@ -305,12 +305,14 @@ void isis_route_node_cleanup(struct route_table *table, struct route_node *node)
 		isis_route_info_delete(node->info);
 }
 
-struct isis_route_table_info *isis_route_table_info_alloc(uint8_t algorithm)
+struct isis_route_table_info *
+isis_route_table_info_alloc(struct isis_area *area, uint8_t algorithm)
 {
 	struct isis_route_table_info *info;
 
 	info = XCALLOC(MTYPE_ISIS_ROUTE_TABLE_INFO, sizeof(*info));
 	info->algorithm = algorithm;
+	info->area = area;
 	return info;
 }
 
