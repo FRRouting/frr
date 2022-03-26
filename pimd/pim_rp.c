@@ -1146,6 +1146,92 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
+static void pim_rp_show_info_ssm_plist(struct vty *vty, struct pim_ssm *ssm,
+				       json_object *json, struct prefix *range)
+{
+	struct prefix_list_entry *pentry;
+	struct prefix_list *plist;
+	struct prefix *p = NULL;
+	json_object *json_rp_rows = NULL;
+	json_object *json_row = NULL;
+	const char *no_rp = "0.0.0.0";
+	const char *source = "Static";
+	const char *type = "SSM";
+
+	if (ssm->plist_name) {
+		plist = prefix_list_lookup(AFI_IP, ssm->plist_name);
+
+		for (pentry = plist->head; pentry; pentry = pentry->next) {
+			if (pentry->any)
+				continue;
+
+			p = &pentry->prefix;
+
+			if (range && !prefix_match(p, range))
+				continue;
+
+			if (!json)
+				vty_out(vty,
+					"%-15s  %-18pFX  (Unknown)         no         %s   %s\n",
+					no_rp, p, source, type);
+			else {
+				json_row = json_object_new_object();
+				json_object_object_get_ex(json, no_rp,
+							  &json_rp_rows);
+				if (!json_rp_rows) {
+					json_rp_rows = json_object_new_array();
+					json_object_object_add(json, no_rp,
+							       json_rp_rows);
+				}
+
+				json_object_string_add(json_row, "rpAddress",
+						       no_rp);
+				json_object_string_add(json_row,
+						       "outboundInterface",
+						       "Unknown");
+				json_object_boolean_false_add(json_row,
+							      "iAmRP");
+				json_object_string_addf(json_row, "group",
+							"%pFX", p);
+				json_object_string_add(json_row, "source",
+						       source);
+				json_object_string_add(json_row, "groupType",
+						       type);
+				json_object_array_add(json_rp_rows, json_row);
+			}
+		}
+	} else {
+		(void)str2prefix(PIM_SSM_STANDARD_RANGE, p);
+
+		if (range && !prefix_match(p, range))
+			return;
+
+		if (!json)
+			vty_out(vty,
+				"%-15s  %-18s  (Unknown)         no         %s   %s\n",
+				no_rp, PIM_SSM_STANDARD_RANGE, source, type);
+		else {
+			json_row = json_object_new_object();
+			json_object_object_get_ex(json, no_rp, &json_rp_rows);
+			if (!json_rp_rows) {
+				json_rp_rows = json_object_new_array();
+				json_object_object_add(json, no_rp,
+						       json_rp_rows);
+			}
+
+			json_object_string_add(json_row, "rpAddress", no_rp);
+			json_object_string_add(json_row, "outboundInterface",
+					       "Unknown");
+			json_object_boolean_false_add(json_row, "iAmRP");
+			json_object_string_add(json_row, "group",
+					       PIM_SSM_STANDARD_RANGE);
+			json_object_string_add(json_row, "source", source);
+			json_object_string_add(json_row, "groupType", type);
+			json_object_array_add(json_rp_rows, json_row);
+		}
+	}
+}
+
 void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 			     struct vty *vty, bool uj)
 {
@@ -1256,6 +1342,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 		}
 		prev_rp_info = rp_info;
 	}
+
+	pim_rp_show_info_ssm_plist(vty, (struct pim_ssm *)pim->ssm_info, json,
+				   range);
 
 	if (uj) {
 		if (prev_rp_info && json_rp_rows)
