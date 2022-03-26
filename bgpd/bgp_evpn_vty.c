@@ -5858,16 +5858,15 @@ DEFUN (bgp_evpn_vrf_rt,
 		return CMD_WARNING;
 	}
 
+	ecomadd = ecommunity_str2com(argv[2]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecomadd) {
+		vty_out(vty, "%% Malformed Route Target list\n");
+		return CMD_WARNING;
+	}
+	ecommunity_str(ecomadd);
+
 	/* Add/update the import route-target */
 	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_IMPORT) {
-		ecomadd = ecommunity_str2com(argv[2]->arg,
-					     ECOMMUNITY_ROUTE_TARGET, 0);
-		if (!ecomadd) {
-			vty_out(vty, "%% Malformed Route Target list\n");
-			return CMD_WARNING;
-		}
-		ecommunity_str(ecomadd);
-
 		/* Do nothing if we already have this import route-target */
 		if (!bgp_evpn_rt_matches_existing(bgp->vrf_import_rtl, ecomadd))
 			bgp_evpn_configure_import_rt_for_vrf(bgp, ecomadd);
@@ -5875,14 +5874,6 @@ DEFUN (bgp_evpn_vrf_rt,
 
 	/* Add/update the export route-target */
 	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_EXPORT) {
-		ecomadd = ecommunity_str2com(argv[2]->arg,
-					     ECOMMUNITY_ROUTE_TARGET, 0);
-		if (!ecomadd) {
-			vty_out(vty, "%% Malformed Route Target list\n");
-			return CMD_WARNING;
-		}
-		ecommunity_str(ecomadd);
-
 		/* Do nothing if we already have this export route-target */
 		if (!bgp_evpn_rt_matches_existing(bgp->vrf_export_rtl, ecomadd))
 			bgp_evpn_configure_export_rt_for_vrf(bgp, ecomadd);
@@ -6107,16 +6098,15 @@ DEFUN (bgp_evpn_vni_rt,
 		return CMD_WARNING;
 	}
 
+	ecomadd = ecommunity_str2com(argv[2]->arg, ECOMMUNITY_ROUTE_TARGET, 0);
+	if (!ecomadd) {
+		vty_out(vty, "%% Malformed Route Target list\n");
+		return CMD_WARNING;
+	}
+	ecommunity_str(ecomadd);
+
 	/* Add/update the import route-target */
 	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_IMPORT) {
-		ecomadd = ecommunity_str2com(argv[2]->arg,
-					     ECOMMUNITY_ROUTE_TARGET, 0);
-		if (!ecomadd) {
-			vty_out(vty, "%% Malformed Route Target list\n");
-			return CMD_WARNING;
-		}
-		ecommunity_str(ecomadd);
-
 		/* Do nothing if we already have this import route-target */
 		if (!bgp_evpn_rt_matches_existing(vpn->import_rtl, ecomadd))
 			evpn_configure_import_rt(bgp, vpn, ecomadd);
@@ -6124,14 +6114,6 @@ DEFUN (bgp_evpn_vni_rt,
 
 	/* Add/update the export route-target */
 	if (rt_type == RT_TYPE_BOTH || rt_type == RT_TYPE_EXPORT) {
-		ecomadd = ecommunity_str2com(argv[2]->arg,
-					     ECOMMUNITY_ROUTE_TARGET, 0);
-		if (!ecomadd) {
-			vty_out(vty, "%% Malformed Route Target list\n");
-			return CMD_WARNING;
-		}
-		ecommunity_str(ecomadd);
-
 		/* Do nothing if we already have this export route-target */
 		if (!bgp_evpn_rt_matches_existing(vpn->export_rtl, ecomadd))
 			evpn_configure_export_rt(bgp, vpn, ecomadd);
