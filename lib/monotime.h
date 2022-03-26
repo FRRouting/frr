@@ -81,9 +81,9 @@ static inline time_t monotime(struct timeval *tvo)
 	return ts.tv_sec;
 }
 
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND ONE_DAY_SECOND*7
-#define ONE_YEAR_SECOND ONE_DAY_SECOND*365
+#define ONE_DAY_SECOND (60 * 60 * 24)
+#define ONE_WEEK_SECOND (ONE_DAY_SECOND * 7)
+#define ONE_YEAR_SECOND (ONE_DAY_SECOND * 365)
 
 /* the following two return microseconds, not time_t!
  *
