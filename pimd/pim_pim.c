@@ -152,6 +152,7 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		   pim_sgaddr sg)
 {
+	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
@@ -179,10 +180,25 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	pim_msg = buf + ip_hlen;
 	pim_msg_len = len - ip_hlen;
 #else
+	struct ipv6_ph phdr = {
+		.src = sg.src,
+		.dst = sg.grp,
+		.ulpl = htonl(len),
+		.next_hdr = IPPROTO_PIM,
+	};
+
+	iovp->iov_base = &phdr;
+	iovp->iov_len = sizeof(phdr);
+	iovp++;
+
 	/* NB: header is not included in IPv6 RX */
 	pim_msg = buf;
 	pim_msg_len = len;
 #endif
+
+	iovp->iov_base = pim_msg;
+	iovp->iov_len = pim_msg_len;
+	iovp++;
 
 	header = (struct pim_msg_header *)pim_msg;
 	if (pim_msg_len < PIM_PIM_MIN_LEN) {
@@ -215,10 +231,21 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					   pim_msg_len, PIM_MSG_REGISTER_LEN);
 			return -1;
 		}
+
+#if PIM_IPV == 6
+		phdr.ulpl = htonl(PIM_MSG_REGISTER_LEN);
+#endif
 		/* First 8 byte header checksum */
-		checksum = in_cksum(pim_msg, PIM_MSG_REGISTER_LEN);
+		iovp[-1].iov_len = PIM_MSG_REGISTER_LEN;
+		checksum = in_cksumv(iov, iovp - iov);
+
 		if (checksum != pim_checksum) {
-			checksum = in_cksum(pim_msg, pim_msg_len);
+#if PIM_IPV == 6
+			phdr.ulpl = htonl(pim_msg_len);
+#endif
+			iovp[-1].iov_len = pim_msg_len;
+
+			checksum = in_cksumv(iov, iovp - iov);
 			if (checksum != pim_checksum) {
 				if (PIM_DEBUG_PIM_PACKETS)
 					zlog_debug(
@@ -230,7 +257,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 			}
 		}
 	} else {
-		checksum = in_cksum(pim_msg, pim_msg_len);
+		checksum = in_cksumv(iov, iovp - iov);
 		if (checksum != pim_checksum) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
