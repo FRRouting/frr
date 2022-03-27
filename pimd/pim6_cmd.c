@@ -523,7 +523,7 @@ DEFPY (interface_no_ipv6_mld,
        IFACE_MLD_STR)
 {
 	const struct lyd_node *pim_enable_dnode;
-	char pim_if_xpath[XPATH_MAXLEN + 20];
+	char pim_if_xpath[XPATH_MAXLEN + 64];
 
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
 		 "%s/frr-pim:pim/address-family[address-family='%s']",
