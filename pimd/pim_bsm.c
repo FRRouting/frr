@@ -718,6 +718,7 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 			      uint32_t pim_mtu, pim_addr dst_addr, bool no_fwd)
 {
+	struct pim_interface *pim_ifp = ifp->info;
 	struct bsmmsg_grpinfo *grpinfo, *curgrp;
 	uint8_t *firstgrp_ptr;
 	uint8_t *pkt;
@@ -836,9 +837,10 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 				< (PIM_BSM_GRP_LEN + PIM_BSM_RP_LEN))) {
 				/* No space to fit in more rp, send this pkt */
 				this_pkt_len = pim_mtu - this_pkt_rem;
-				pim_msg_build_header(pak_start, this_pkt_len,
-						     PIM_MSG_TYPE_BOOTSTRAP,
-						     no_fwd);
+				pim_msg_build_header(
+					pim_ifp->primary_address, dst_addr,
+					pak_start, this_pkt_len,
+					PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
 				pim_bsm_send_intf(pak_start, this_pkt_len, ifp,
 						  dst_addr);
 
@@ -873,7 +875,8 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 	/* Send if we have any unsent packet */
 	if (pak_pending) {
 		this_pkt_len = pim_mtu - this_pkt_rem;
-		pim_msg_build_header(pak_start, this_pkt_len,
+		pim_msg_build_header(pim_ifp->primary_address, dst_addr,
+				     pak_start, this_pkt_len,
 				     PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
 		pim_bsm_send_intf(pak_start, (pim_mtu - this_pkt_rem), ifp,
 				  dst_addr);
@@ -920,7 +923,8 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 				zlog_debug("%s: pim_bsm_frag_send returned %s",
 					   __func__, ret ? "TRUE" : "FALSE");
 		} else {
-			pim_msg_build_header(buf, len, PIM_MSG_TYPE_BOOTSTRAP,
+			pim_msg_build_header(pim_ifp->primary_address, dst_addr,
+					     buf, len, PIM_MSG_TYPE_BOOTSTRAP,
 					     no_fwd);
 			if (!pim_bsm_send_intf(buf, len, ifp, dst_addr)) {
 				if (PIM_DEBUG_BSM)
@@ -999,7 +1003,8 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 			}
 		} else {
 			/* Pim header needs to be constructed */
-			pim_msg_build_header(bsfrag->data, bsfrag->size,
+			pim_msg_build_header(pim_ifp->primary_address, dst_addr,
+					     bsfrag->data, bsfrag->size,
 					     PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
 			ret = pim_bsm_send_intf(bsfrag->data, bsfrag->size, ifp,
 						dst_addr);
