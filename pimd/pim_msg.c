@@ -38,10 +38,36 @@
 #include "pim_jp_agg.h"
 #include "pim_oil.h"
 
-void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
-			  uint8_t pim_msg_type, bool no_fwd)
+void pim_msg_build_header(pim_addr src, pim_addr dst, uint8_t *pim_msg,
+			  size_t pim_msg_size, uint8_t pim_msg_type,
+			  bool no_fwd)
 {
 	struct pim_msg_header *header = (struct pim_msg_header *)pim_msg;
+	struct iovec iov[2], *iovp = iov;
+
+	/*
+	 * The checksum for Registers is done only on the first 8 bytes of the
+	 * packet, including the PIM header and the next 4 bytes, excluding the
+	 * data packet portion
+	 *
+	 * for IPv6, the pseudoheader upper-level protocol length is also
+	 * truncated, so let's just set it here before everything else.
+	 */
+	if (pim_msg_type == PIM_MSG_TYPE_REGISTER)
+		pim_msg_size = PIM_MSG_REGISTER_LEN;
+
+#if PIM_IPV == 6
+	struct ipv6_ph phdr = {
+		.src = src,
+		.dst = dst,
+		.ulpl = htonl(pim_msg_size),
+		.next_hdr = IPPROTO_PIM,
+	};
+
+	iovp->iov_base = &phdr;
+	iovp->iov_len = sizeof(phdr);
+	iovp++;
+#endif
 
 	/*
 	 * Write header
@@ -51,18 +77,12 @@ void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
 	header->Nbit = no_fwd;
 	header->reserved = 0;
 
-
 	header->checksum = 0;
-	/*
-	 * The checksum for Registers is done only on the first 8 bytes of the
-	 * packet,
-	 * including the PIM header and the next 4 bytes, excluding the data
-	 * packet portion
-	 */
-	if (pim_msg_type == PIM_MSG_TYPE_REGISTER)
-		header->checksum = in_cksum(pim_msg, PIM_MSG_REGISTER_LEN);
-	else
-		header->checksum = in_cksum(pim_msg, pim_msg_size);
+	iovp->iov_base = header;
+	iovp->iov_len = pim_msg_size;
+	iovp++;
+
+	header->checksum = in_cksumv(iov, iovp - iov);
 }
 
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr)

@@ -88,7 +88,8 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	length = pim_encode_addr_ucast(b1, sg->src);
 	b1length += length;
 
-	pim_msg_build_header(buffer, b1length + PIM_MSG_REGISTER_STOP_LEN,
+	pim_msg_build_header(src, originator, buffer,
+			     b1length + PIM_MSG_REGISTER_STOP_LEN,
 			     PIM_MSG_TYPE_REG_STOP, false);
 
 	pinfo = (struct pim_interface *)ifp->info;
@@ -261,7 +262,8 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
-	pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN,
+	pim_msg_build_header(src, rpg->rpf_addr.u.prefix4, buffer,
+			     buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
 	++pinfo->pim_ifstat_reg_send;

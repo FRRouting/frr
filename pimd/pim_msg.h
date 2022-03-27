@@ -216,8 +216,9 @@ static inline pim_sgaddr pim_sgaddr_from_iphdr(const void *iphdr)
 }
 #endif
 
-void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
-			  uint8_t pim_msg_type, bool no_fwd);
+void pim_msg_build_header(pim_addr src, pim_addr dst, uint8_t *pim_msg,
+			  size_t pim_msg_size, uint8_t pim_msg_type,
+			  bool no_fwd);
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr);
 uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr);
 

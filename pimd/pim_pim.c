@@ -704,7 +704,9 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 	assert(pim_msg_size >= PIM_PIM_MIN_LEN);
 	assert(pim_msg_size <= PIM_PIM_BUFSIZE_WRITE);
 
-	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_HELLO, false);
+	pim_msg_build_header(pim_ifp->primary_address,
+			     qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
+			     PIM_MSG_TYPE_HELLO, false);
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
