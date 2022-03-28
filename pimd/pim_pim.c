@@ -557,50 +557,42 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 			      struct sockaddr *dst, size_t salen,
 			      const char *ifname)
 {
-	struct ip *ip = (struct ip *)buf;
+	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
+		return 0;
 
-	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
-		char dst_str[INET_ADDRSTRLEN];
+#if PIM_IPV == 4
+	if (errno == EMSGSIZE) {
+		struct ip *ip = (struct ip *)buf;
+		size_t hdrsize = sizeof(struct ip);
+		size_t newlen1 = ((len - hdrsize) / 2) & 0xFFF8;
+		size_t sendlen = newlen1 + hdrsize;
+		size_t offset = ntohs(ip->ip_off);
+		int ret;
 
-		switch (errno) {
-		case EMSGSIZE: {
-			size_t hdrsize = sizeof(struct ip);
-			size_t newlen1 = ((len - hdrsize) / 2) & 0xFFF8;
-			size_t sendlen = newlen1 + hdrsize;
-			size_t offset = ntohs(ip->ip_off);
+		ip->ip_len = htons(sendlen);
+		ip->ip_off = htons(offset | IP_MF);
 
-			ip->ip_len = htons(sendlen);
-			ip->ip_off = htons(offset | IP_MF);
-			if (pim_msg_send_frame(fd, buf, sendlen, dst, salen,
-					       ifname) == 0) {
-				struct ip *ip2 = (struct ip *)(buf + newlen1);
-				size_t newlen2 = len - sendlen;
-				sendlen = newlen2 + hdrsize;
+		ret = pim_msg_send_frame(fd, buf, sendlen, dst, salen, ifname);
+		if (ret)
+			return ret;
 
-				memcpy(ip2, ip, hdrsize);
-				ip2->ip_len = htons(sendlen);
-				ip2->ip_off = htons(offset + (newlen1 >> 3));
-				return pim_msg_send_frame(fd, (char *)ip2,
-							  sendlen, dst, salen,
-							  ifname);
-			}
-		}
+		struct ip *ip2 = (struct ip *)(buf + newlen1);
+		size_t newlen2 = len - sendlen;
 
-			return -1;
-		default:
-			if (PIM_DEBUG_PIM_PACKETS) {
-				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
-					       sizeof(dst_str));
-				zlog_warn(
-					"%s: sendto() failure to %s: iface=%s fd=%d msg_size=%zd: errno=%d: %s",
-					__func__, dst_str, ifname, fd, len,
-					errno, safe_strerror(errno));
-			}
-			return -1;
-		}
+		sendlen = newlen2 + hdrsize;
+
+		memcpy(ip2, ip, hdrsize);
+		ip2->ip_len = htons(sendlen);
+		ip2->ip_off = htons(offset + (newlen1 >> 3));
+		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen,
+					  ifname);
 	}
+#endif
 
-	return 0;
+	zlog_warn(
+		"%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m",
+		__func__, dst, ifname, fd, len);
+	return -1;
 }
 
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
