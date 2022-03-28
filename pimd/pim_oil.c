@@ -544,20 +544,27 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 int pim_channel_oil_empty(struct channel_oil *c_oil)
 {
+#if PIM_IPV == 4
+	static struct mfcctl null_oil;
+#else
+	static struct mf6cctl null_oil;
+#endif
+
 	if (!c_oil)
 		return 1;
+
 
 	/* exclude pimreg from the OIL when checking if the inherited_oil is
 	 * non-NULL.
 	 * pimreg device (in all vrfs) uses a vifi of
 	 * 0 (PIM_OIF_PIM_REGISTER_VIF) so we simply mfcc_ttls[0] */
+	if (oil_if_has(c_oil, 0)) {
 #if PIM_IPV == 4
-	static pim_mfcctl null_oil;
-
-	return !memcmp(&c_oil->oil.mfcc_ttls[1], &null_oil.mfcc_ttls[1],
-		sizeof(null_oil.mfcc_ttls) - sizeof(null_oil.mfcc_ttls[0]));
+		null_oil.mfcc_ttls[0] = 1;
 #else
-	CPP_NOTICE("FIXME STUB");
-	return false;
+		IF_SET(0, &null_oil.mf6cc_ifset);
 #endif
+	}
+
+	return !oil_if_cmp(&c_oil->oil, &null_oil);
 }

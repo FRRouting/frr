@@ -30,152 +30,106 @@
 #define __EXTENSIONS__
 #endif
 
-#include <netinet/in.h>
-#ifdef HAVE_NETINET_IP_MROUTE_H
-#include <netinet/ip_mroute.h>
-#endif
 
 #define PIM_MROUTE_MIN_TTL (1)
 
 #if PIM_IPV == 4
+
+#include <netinet/in.h>
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
 #else
-/*
-  Below: from <linux/mroute.h>
-*/
-
-#ifndef MAXVIFS
-#define MAXVIFS (256)
+#ifndef VTYSH_EXTRACT_PL
+#include "linux/mroute.h"
+#endif
 #endif
 
-#ifndef SIOCGETVIFCNT
-#define SIOCGETVIFCNT   SIOCPROTOPRIVATE        /* IP protocol privates */
-#define SIOCGETSGCNT    (SIOCPROTOPRIVATE+1)
-#define SIOCGETRPF      (SIOCPROTOPRIVATE+2)
+typedef struct vifctl pim_vifctl;
+typedef struct igmpmsg kernmsg;
+typedef struct sioc_sg_req pim_sioc_sg_req;
+
+#define vc_vifi vifc_vifi
+#define vc_flags vifc_flags
+#define vc_threshold vifc_threshold
+#define vc_rate_limit vifc_rate_limit
+#define vc_lcl_addr vifc_lcl_addr
+#define vc_lcl_ifindex vifc_lcl_ifindex
+#define vc_rmt_addr vifc_rmt_addr
+
+#define msg_im_vif im_vif
+#define msg_im_src im_src
+#define msg_im_dst im_dst
+
+#ifndef IGMPMSG_WRVIFWHOLE
+#define IGMPMSG_WRVIFWHOLE 4 /* For PIM processing */
+#endif
+
+#ifndef PIM_IPPROTO
+#define PIM_IPPROTO IPPROTO_IP
+#endif
+#ifndef PIM_SIOCGETSGCNT
+#define PIM_SIOCGETSGCNT SIOCGETSGCNT
+#endif
+
+#else /* PIM_IPV != 4 */
+
+#include <netinet/ip6.h>
+
+#if defined(HAVE_LINUX_MROUTE6_H)
+#include <linux/mroute6.h>
+#else
+#ifndef VTYSH_EXTRACT_PL
+#include "linux/mroute6.h"
+#endif
 #endif
 
 #ifndef MRT_INIT
-#define MRT_BASE     200
-#define MRT_INIT     (MRT_BASE)      /* Activate the kernel mroute code      */
-#define MRT_DONE     (MRT_BASE+1)    /* Shutdown the kernel mroute           */
-#define MRT_ADD_VIF  (MRT_BASE+2)    /* Add a virtual interface              */
-#define MRT_DEL_VIF  (MRT_BASE+3)    /* Delete a virtual interface           */
-#define MRT_ADD_MFC  (MRT_BASE+4)    /* Add a multicast forwarding entry     */
-#define MRT_DEL_MFC  (MRT_BASE+5)    /* Delete a multicast forwarding entry  */
-#define MRT_VERSION  (MRT_BASE+6)    /* Get the kernel multicast version     */
-#define MRT_ASSERT   (MRT_BASE+7)    /* Activate PIM assert mode             */
-#define MRT_PIM      (MRT_BASE+8)    /* enable PIM code      */
+#define MRT_BASE MRT6_BASE
+#define MRT_INIT MRT6_INIT
+#define MRT_DONE MRT6_DONE
+#define MRT_ADD_VIF MRT6_ADD_MIF
+#define MRT_DEL_VIF MRT6_DEL_MIF
+#define MRT_ADD_MFC MRT6_ADD_MFC
+#define MRT_DEL_MFC MRT6_DEL_MFC
+#define MRT_VERSION MRT6_VERSION
+#define MRT_ASSERT MRT6_ASSERT
+#define MRT_PIM MRT6_PIM
 #endif
 
-#ifndef MRT_TABLE
-#define MRT_TABLE    (209)           /* Specify mroute table ID */
+#ifndef PIM_IPPROTO
+#define PIM_IPPROTO IPPROTO_IPV6
 #endif
 
-#ifndef HAVE_VIFI_T
-typedef unsigned short vifi_t;
+#ifndef PIM_SIOCGETSGCNT
+#define PIM_SIOCGETSGCNT SIOCGETSGCNT_IN6
 #endif
 
-#ifndef HAVE_STRUCT_VIFCTL
-struct vifctl {
-	vifi_t vifc_vifi;	     /* Index of VIF */
-	unsigned char vifc_flags;     /* VIFF_ flags */
-	unsigned char vifc_threshold; /* ttl limit */
-	unsigned int vifc_rate_limit; /* Rate limiter values (NI) */
-	struct in_addr vifc_lcl_addr; /* Our address */
-	struct in_addr vifc_rmt_addr; /* IPIP tunnel addr */
-};
+#ifndef MRT6MSG_WRMIFWHOLE
+#define MRT6MSG_WRMIFWHOLE 4 /* For PIM processing */
 #endif
 
-#ifndef HAVE_STRUCT_MFCCTL
-struct mfcctl {
-	struct in_addr mfcc_origin;       /* Origin of mcast      */
-	struct in_addr mfcc_mcastgrp;     /* Group in question    */
-	vifi_t mfcc_parent;		  /* Where it arrived     */
-	unsigned char mfcc_ttls[MAXVIFS]; /* Where it is going    */
-	unsigned int mfcc_pkt_cnt;	/* pkt count for src-grp */
-	unsigned int mfcc_byte_cnt;
-	unsigned int mfcc_wrong_if;
-	int mfcc_expire;
-};
-#endif
+typedef struct mif6ctl pim_vifctl;
+typedef struct mrt6msg kernmsg;
+typedef mifi_t vifi_t;
+typedef struct sioc_sg_req6 pim_sioc_sg_req;
 
-/*
- *      Group count retrieval for mrouted
- */
-/*
-  struct sioc_sg_req sgreq;
-  memset(&sgreq, 0, sizeof(sgreq));
-  memcpy(&sgreq.src, &source_addr, sizeof(sgreq.src));
-  memcpy(&sgreq.grp, &group_addr, sizeof(sgreq.grp));
-  ioctl(mrouter_s4, SIOCGETSGCNT, &sgreq);
- */
-#ifndef HAVE_STRUCT_SIOC_SG_REQ
-struct sioc_sg_req {
-	struct in_addr src;
-	struct in_addr grp;
-	unsigned long pktcnt;
-	unsigned long bytecnt;
-	unsigned long wrong_if;
-};
-#endif
+#define vc_vifi mif6c_mifi
+#define vc_flags mif6c_flags
+#define vc_threshold vifc_threshold
+#define vc_pifi mif6c_pifi
+#define vc_rate_limit vifc_rate_limit
 
-/*
- *      To get vif packet counts
- */
-/*
-  struct sioc_vif_req vreq;
-  memset(&vreq, 0, sizeof(vreq));
-  vreq.vifi = vif_index;
-  ioctl(mrouter_s4, SIOCGETVIFCNT, &vreq);
- */
-#ifndef HAVE_STRUCT_SIOC_VIF_REQ
-struct sioc_vif_req {
-	vifi_t vifi;	  /* Which iface */
-	unsigned long icount; /* In packets */
-	unsigned long ocount; /* Out packets */
-	unsigned long ibytes; /* In bytes */
-	unsigned long obytes; /* Out bytes */
-};
-#endif
+#define msg_im_vif im6_mif
+#define msg_im_src im6_src
+#define msg_im_dst im6_dst
 
-/*
- *      Pseudo messages used by mrouted
- */
-#ifndef IGMPMSG_NOCACHE
-#define IGMPMSG_NOCACHE         1               /* Kern cache fill request to mrouted */
-#define IGMPMSG_WRONGVIF        2               /* For PIM assert processing (unused) */
-#define IGMPMSG_WHOLEPKT        3               /* For PIM Register processing */
-#endif
-
-#ifndef HAVE_STRUCT_IGMPMSG
-struct igmpmsg {
-	uint32_t unused1, unused2;
-	unsigned char im_msgtype; /* What is this */
-	unsigned char im_mbz;     /* Must be zero */
-	unsigned char im_vif;     /* Interface (this ought to be a vifi_t!) */
-	unsigned char unused3;
-	struct in_addr im_src, im_dst;
-};
-#endif
-
-#endif /* HAVE_LINUX_MROUTE_H */
-
-typedef struct mfcctl pim_mfcctl;
-
-#else /* PIM_IPV != 4 */
-#if defined(HAVE_LINUX_MROUTE6_H)
-#include <linux/mroute6.h>
-#endif
-
-typedef struct mf6cctl pim_mfcctl;
-
+#ifndef MAXVIFS
 #define MAXVIFS IF_SETSIZE
 #endif
 
-#ifndef IGMPMSG_WRVIFWHOLE
-#define IGMPMSG_WRVIFWHOLE      4               /* For PIM processing */
+#define VIFF_REGISTER MIFF_REGISTER
 #endif
+
 
 /*
   Above: from <linux/mroute.h>
@@ -201,4 +155,11 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name);
 void pim_mroute_update_counters(struct channel_oil *c_oil);
 bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		int oif_index);
+int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
+		   ifindex_t ifindex);
+int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg);
+int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf);
+int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg);
+int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf);
+int pim_mroute_set(struct pim_instance *pim, int enable);
 #endif /* PIM_MROUTE_H */
