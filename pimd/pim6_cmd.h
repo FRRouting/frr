@@ -52,6 +52,9 @@
 #define DEBUG_PIMV6_J_P_PACKETS_STR "PIMv6 Join/Prune protocol packets\n"
 #define DEBUG_PIMV6_PIM_REG_PACKETS_STR                                        \
 	"PIMv6 Register/Reg-Stop protocol packets\n"
+#define DEBUG_PIMV6_PACKETDUMP_STR "PIMv6 packet dump\n"
+#define DEBUG_PIMV6_PACKETDUMP_SEND_STR "Dump sent packets\n"
+#define DEBUG_PIMV6_PACKETDUMP_RECV_STR "Dump received packets\n"
 
 void pim_cmd_init(void);
 

@@ -2082,6 +2082,38 @@ DEFPY (debug_pimv6_packets,
 						    vty);
 }
 
+DEFPY (debug_pimv6_packetdump_send,
+       debug_pimv6_packetdump_send_cmd,
+       "[no] debug pimv6 packet-dump send",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_PACKETDUMP_STR
+       DEBUG_PIMV6_PACKETDUMP_SEND_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_SEND;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_packetdump_recv,
+       debug_pimv6_packetdump_recv_cmd,
+       "[no] debug pimv6 packet-dump receive",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_PACKETDUMP_STR
+       DEBUG_PIMV6_PACKETDUMP_RECV_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_RECV;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2198,10 +2230,14 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_events_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_packets_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_packetdump_send_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_packetdump_recv_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_det_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_events_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_packets_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_packetdump_send_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_packetdump_recv_cmd);
 }
