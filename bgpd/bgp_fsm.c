@@ -2207,8 +2207,18 @@ static int bgp_establish(struct peer *peer)
 
 	peer->uptime = bgp_clock();
 
-	/* Send route-refresh when ORF is enabled */
+	/* Send route-refresh when ORF is enabled.
+	 * Stop Long-lived Graceful Restart timers.
+	 */
 	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->t_llgr_stale[afi][safi]) {
+			BGP_TIMER_OFF(peer->t_llgr_stale[afi][safi]);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s Long-lived stale timer stopped for afi/safi: %d/%d",
+					peer->host, afi, safi);
+		}
+
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
 			       PEER_CAP_ORF_PREFIX_SM_ADV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
