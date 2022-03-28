@@ -72,42 +72,42 @@ void igmp_anysource_forward_stop(struct gm_group *group)
 }
 
 static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
-					       struct gm_source *source)
+					       struct gm_source *source,
+					       int is_grp_ssm)
 {
 	pim_sgaddr sg;
 	struct gm_group *group = source->source_group;
-	struct pim_ifchannel *ch;
-
-	if ((source->source_addr.s_addr != INADDR_ANY) ||
-	    !IGMP_SOURCE_TEST_FORWARDING(source->source_flags))
-		return;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = source->source_addr;
 	sg.grp = group->group_addr;
 
-	ch = pim_ifchannel_find(group->interface, &sg);
-	if (pim_is_grp_ssm(pim, group->group_addr)) {
-		/* If SSM group withdraw local membership */
-		if (ch &&
-		    (ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE)) {
-			if (PIM_DEBUG_PIM_EVENTS)
-				zlog_debug(
-					"local membership del for %pSG as G is now SSM",
-					&sg);
-			pim_ifchannel_local_membership_del(group->interface,
-							   &sg);
+	/** if there is no PIM state **/
+	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
+		if (pim_addr_is_any(source->source_addr)) {
+			if (is_grp_ssm) {
+				if (PIM_DEBUG_PIM_EVENTS)
+					zlog_debug(
+						"local membership del for %pSG as G is now SSM",
+						&sg);
+				igmp_source_forward_stop(source);
+			}
+		} else {
+			if (!is_grp_ssm) {
+				if (PIM_DEBUG_PIM_EVENTS)
+					zlog_debug(
+						"local membership del for %pSG as G is now ASM",
+						&sg);
+				igmp_source_forward_stop(source);
+			}
 		}
 	} else {
-		/* If ASM group add local membership */
-		if (!ch ||
-		    (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO)) {
+		if (!pim_addr_is_any(source->source_addr) && (is_grp_ssm)) {
 			if (PIM_DEBUG_PIM_EVENTS)
 				zlog_debug(
-					"local membership add for %pSG as G is now ASM",
+					"local membership add for %pSG as G is now SSM",
 					&sg);
-			pim_ifchannel_local_membership_add(
-				group->interface, &sg, false /*is_vxlan*/);
+			igmp_source_forward_start(pim, source);
 		}
 	}
 }
@@ -130,6 +130,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 					  grp)) {
 			struct listnode *srcnode;
 			struct gm_source *src;
+			int is_grp_ssm;
 
 			/*
 			 * RFC 4604
@@ -139,16 +140,16 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			 * MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE
 			 * requests in the SSM range.
 			 */
-			if (pim_is_grp_ssm(pim, grp->group_addr) &&
-			    grp->group_filtermode_isexcl) {
+			is_grp_ssm = pim_is_grp_ssm(pim, grp->group_addr);
+			if (is_grp_ssm && grp->group_filtermode_isexcl) {
 				igmp_group_delete(grp);
 			} else {
 				/* scan group sources */
 				for (ALL_LIST_ELEMENTS_RO(
 					     grp->group_source_list, srcnode,
 					     src)) {
-					igmp_source_forward_reevaluate_one(pim,
-									   src);
+					igmp_source_forward_reevaluate_one(
+						pim, src, is_grp_ssm);
 				} /* scan group sources */
 			}
 		} /* scan igmp groups */
