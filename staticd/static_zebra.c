@@ -44,9 +44,47 @@
 #include "static_vty.h"
 #include "static_debug.h"
 
+DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
+PREDECL_HASH(static_nht_hash);
+
+struct static_nht_data {
+	struct static_nht_hash_item itm;
+
+	struct prefix nh;
+	safi_t safi;
+
+	vrf_id_t nh_vrf_id;
+
+	uint32_t refcount;
+	uint8_t nh_num;
+};
+
+static int static_nht_data_cmp(const struct static_nht_data *nhtd1,
+			       const struct static_nht_data *nhtd2)
+{
+	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return numcmp(nhtd1->nh_vrf_id, nhtd2->nh_vrf_id);
+	if (nhtd1->safi != nhtd2->safi)
+		return numcmp(nhtd1->safi, nhtd2->safi);
+
+	return prefix_cmp(&nhtd1->nh, &nhtd2->nh);
+}
+
+static unsigned int static_nht_data_hash(const struct static_nht_data *nhtd)
+{
+	unsigned int key = 0;
+
+	key = prefix_hash_key(&nhtd->nh);
+	return jhash_2words(nhtd->nh_vrf_id, nhtd->safi, key);
+}
+
+DECLARE_HASH(static_nht_hash, struct static_nht_data, itm, static_nht_data_cmp,
+	     static_nht_data_hash);
+
+static struct static_nht_hash_head static_nht_hash[1];
+
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
-static struct hash *static_nht_hash;
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 /* Inteface addition message from zebra. */
@@ -104,31 +142,32 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	struct prefix p;
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
+	safi_t safi;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
-				      NULL, NULL))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note, NULL,
+				      &safi))
 		return -1;
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
-		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %pFX failed to install for table: %u",
 			  __func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
-		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn(
 			"%s: Route %pFX over-ridden by better route for table: %u",
 			__func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
-		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVED:
-		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
-		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_INSTALLED);
 		zlog_warn("%s: Route %pFX failure to remove for table: %u",
 			  __func__, &p, table_id);
 		break;
@@ -140,15 +179,6 @@ static void zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
-
-struct static_nht_data {
-	struct prefix *nh;
-
-	vrf_id_t nh_vrf_id;
-
-	uint32_t refcount;
-	uint8_t nh_num;
-};
 
 /* API to check whether the configured nexthop address is
  * one of its local connected address or not.
@@ -187,17 +217,19 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	}
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = &matched;
+	lookup.nh = matched;
 	lookup.nh_vrf_id = vrf_id;
+	lookup.safi = nhr.safi;
 
-	nhtd = hash_lookup(static_nht_hash, &lookup);
+	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
-		static_nht_reset_start(&matched, afi, nhtd->nh_vrf_id);
+		static_nht_reset_start(&matched, afi, nhr.safi,
+				       nhtd->nh_vrf_id);
 		static_nht_update(NULL, &matched, nhr.nexthop_num, afi,
-				  nhtd->nh_vrf_id);
+				  nhr.safi, nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
 
@@ -210,55 +242,50 @@ static void static_zebra_capabilities(struct zclient_capabilities *cap)
 	zebra_ecmp_count = cap->ecmp;
 }
 
-static unsigned int static_nht_hash_key(const void *data)
+static struct static_nht_data *
+static_nht_hash_getref(const struct static_nht_data *ref)
 {
-	const struct static_nht_data *nhtd = data;
-	unsigned int key = 0;
+	struct static_nht_data *nhtd;
 
-	key = prefix_hash_key(nhtd->nh);
-	return jhash_1word(nhtd->nh_vrf_id, key);
+	nhtd = static_nht_hash_find(static_nht_hash, ref);
+	if (!nhtd) {
+		nhtd = XCALLOC(MTYPE_STATIC_NHT_DATA, sizeof(*nhtd));
+
+		prefix_copy(&nhtd->nh, &ref->nh);
+		nhtd->nh_vrf_id = ref->nh_vrf_id;
+		nhtd->safi = ref->safi;
+
+		static_nht_hash_add(static_nht_hash, nhtd);
+	}
+
+	nhtd->refcount++;
+	return nhtd;
 }
 
-static bool static_nht_hash_cmp(const void *d1, const void *d2)
+static bool static_nht_hash_decref(struct static_nht_data *nhtd)
 {
-	const struct static_nht_data *nhtd1 = d1;
-	const struct static_nht_data *nhtd2 = d2;
+	if (--nhtd->refcount > 0)
+		return true;
 
-	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
-		return false;
-
-	return prefix_same(nhtd1->nh, nhtd2->nh);
+	static_nht_hash_del(static_nht_hash, nhtd);
+	XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
+	return false;
 }
 
-static void *static_nht_hash_alloc(void *data)
+static void static_nht_hash_clear(void)
 {
-	struct static_nht_data *copy = data;
-	struct static_nht_data *new;
+	struct static_nht_data *nhtd;
 
-	new = XMALLOC(MTYPE_TMP, sizeof(*new));
-
-	new->nh = prefix_new();
-	prefix_copy(new->nh, copy->nh);
-	new->refcount = 0;
-	new->nh_num = 0;
-	new->nh_vrf_id = copy->nh_vrf_id;
-
-	return new;
-}
-
-static void static_nht_hash_free(void *data)
-{
-	struct static_nht_data *nhtd = data;
-
-	prefix_free(&nhtd->nh);
-	XFREE(MTYPE_TMP, nhtd);
+	while ((nhtd = static_nht_hash_pop(static_nht_hash)))
+		XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
 }
 
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
-	struct static_nht_data *nhtd, lookup;
+	struct static_route_info *si = static_route_info_from_rnode(rn);
+	struct static_nht_data lookup;
 	uint32_t cmd;
 	struct prefix p;
 	afi_t afi = AFI_IP;
@@ -294,44 +321,42 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	}
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = &p;
+	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
+	lookup.safi = si->safi;
 
 	nh->nh_registered = reg;
 
 	if (reg) {
-		nhtd = hash_get(static_nht_hash, &lookup,
-				static_nht_hash_alloc);
-		nhtd->refcount++;
+		struct static_nht_data *nhtd;
+
+		nhtd = static_nht_hash_getref(&lookup);
 
 		if (nhtd->refcount > 1) {
 			DEBUGD(&static_dbg_route,
 			       "Already registered nexthop(%pFX) for %pRN %d",
 			       &p, rn, nhtd->nh_num);
 			if (nhtd->nh_num)
-				static_nht_update(&rn->p, nhtd->nh,
-						  nhtd->nh_num, afi,
+				static_nht_update(&rn->p, &nhtd->nh,
+						  nhtd->nh_num, afi, si->safi,
 						  nh->nh_vrf_id);
 			return;
 		}
 	} else {
-		nhtd = hash_lookup(static_nht_hash, &lookup);
+		struct static_nht_data *nhtd;
+
+		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 		if (!nhtd)
 			return;
-
-		nhtd->refcount--;
-		if (nhtd->refcount >= 1)
+		if (static_nht_hash_decref(nhtd))
 			return;
-
-		hash_release(static_nht_hash, nhtd);
-		static_nht_hash_free(nhtd);
 	}
 
 	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
 	       reg ? "Registering" : "Unregistering", &p, rn);
 
-	if (zclient_send_rnh(zclient, cmd, &p, false, false, nh->nh_vrf_id)
-	    == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_rnh(zclient, cmd, &p, si->safi, false, false,
+			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 /*
@@ -342,6 +367,7 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
+	struct static_route_info *si = static_route_info_from_rnode(rn);
 	struct static_nht_data *nhtd, lookup = {};
 	struct prefix p = {};
 	afi_t afi = AFI_IP;
@@ -369,14 +395,15 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 		break;
 	}
 
-	lookup.nh = &p;
+	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
+	lookup.safi = si->safi;
 
-	nhtd = hash_lookup(static_nht_hash, &lookup);
+	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 	if (nhtd && nhtd->nh_num) {
 		nh->state = STATIC_START;
-		static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num, afi,
-				  nh->nh_vrf_id);
+		static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
+				  si->safi, nh->nh_vrf_id);
 		return 1;
 	}
 	return 0;
@@ -531,14 +558,15 @@ void static_zebra_init(void)
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
 
-	static_nht_hash = hash_create(static_nht_hash_key,
-				      static_nht_hash_cmp,
-				      "Static Nexthop Tracking hash");
+	static_nht_hash_init(static_nht_hash);
 }
 
 /* static_zebra_stop used by tests/lib/test_grpc.cpp */
 void static_zebra_stop(void)
 {
+	static_nht_hash_clear();
+	static_nht_hash_fini(static_nht_hash);
+
 	if (!zclient)
 		return;
 	zclient_stop(zclient);
