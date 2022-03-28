@@ -448,6 +448,180 @@ DEFPY (no_ipv6_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
+DEFPY (interface_ipv6_mld_join,
+       interface_ipv6_mld_join_cmd,
+       "ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
+       IPV6_STR
+       IFACE_MLD_STR
+       "MLD join multicast group\n"
+       "Multicast group address\n"
+       "Source address\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (source_str) {
+		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
+		source_str = "::";
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
+		 group_str, source_str);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (interface_no_ipv6_mld_join,
+       interface_no_ipv6_mld_join_cmd,
+       "no ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       "MLD join multicast group\n"
+       "Multicast group address\n"
+       "Source address\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (source_str) {
+		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
+		source_str = "::";
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
+		 group_str, source_str);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (interface_ipv6_mld,
+       interface_ipv6_mld_cmd,
+       "ipv6 mld",
+       IPV6_STR
+       IFACE_MLD_STR)
+{
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
+DEFPY (interface_no_ipv6_mld,
+       interface_no_ipv6_mld_cmd,
+       "no ipv6 mld",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR)
+{
+	const struct lyd_node *pim_enable_dnode;
+	char pim_if_xpath[XPATH_MAXLEN + 64];
+
+	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
+		 "%s/frr-pim:pim/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv6");
+
+	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
+					   "frr-routing:ipv6");
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, ".")) {
+			nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY,
+					      NULL);
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+		} else
+			nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
+					      "false");
+	}
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
+DEFPY (interface_ipv6_mld_version,
+       interface_ipv6_mld_version_cmd,
+       "ipv6 mld version (1-2)$version",
+       IPV6_STR
+       IFACE_MLD_STR
+       "MLD version\n"
+       "MLD version number\n")
+{
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./mld-version", NB_OP_MODIFY, version_str);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
+DEFPY (interface_no_ipv6_mld_version,
+       interface_no_ipv6_mld_version_cmd,
+       "no ipv6 mld version [(1-2)]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       "MLD version\n"
+       "MLD version number\n")
+{
+	nb_cli_enqueue_change(vty, "./mld-version", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
+DEFPY (interface_ipv6_mld_query_interval,
+       interface_ipv6_mld_query_interval_cmd,
+       "ipv6 mld query-interval (1-65535)$q_interval",
+       IPV6_STR
+       IFACE_MLD_STR
+       IFACE_MLD_QUERY_INTERVAL_STR
+       "Query interval in seconds\n")
+{
+	const struct lyd_node *pim_enable_dnode;
+
+	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
+					   "frr-routing:ipv6");
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+			      q_interval_str);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
+DEFPY (interface_no_ipv6_mld_query_interval,
+      interface_no_ipv6_mld_query_interval_cmd,
+      "no ipv6 mld query-interval [(1-65535)]",
+      NO_STR
+      IPV6_STR
+      IFACE_MLD_STR
+      IFACE_MLD_QUERY_INTERVAL_STR
+      IGNORED_IN_NO_STR)
+{
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -491,4 +665,13 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
 	install_element(VRF_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_join_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ipv6_mld_query_interval_cmd);
 }

@@ -348,6 +348,7 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	return false;
 }
 
+#if PIM_IPV == 4
 static int pim_cmd_igmp_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -376,12 +377,14 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 
 	return NB_OK;
 }
+#endif /* PIM_IPV == 4 */
 
 /*
  * CLI reconfiguration affects the interface level (struct pim_interface).
  * This function propagates the reconfiguration to every active socket
  * for that interface.
  */
+#if PIM_IPV == 4
 static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 {
 	struct interface *ifp;
@@ -406,6 +409,7 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	 */
 	igmp_startup_mode_on(igmp);
 }
+#endif
 
 static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 {
@@ -436,6 +440,7 @@ static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 	}
 }
 
+#if PIM_IPV == 4
 static void change_query_interval(struct pim_interface *pim_ifp,
 		int query_interval)
 {
@@ -449,6 +454,7 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 		igmp_sock_query_reschedule(igmp);
 	}
 }
+#endif
 
 static void change_query_max_response_time(struct pim_interface *pim_ifp,
 		int query_max_response_time_dsec)
@@ -2550,6 +2556,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_gmp_address_family_enable_modify(
 	struct nb_cb_modify_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	bool igmp_enable;
 	struct pim_interface *pim_ifp;
@@ -2597,7 +2604,9 @@ int lib_interface_gmp_address_family_enable_modify(
 				pim_if_delete(ifp);
 		}
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
@@ -2671,6 +2680,7 @@ int lib_interface_gmp_address_family_mld_version_modify(
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		/* TBD depends on MLD data structure changes */
 		break;
 	}
 
@@ -2697,6 +2707,7 @@ int lib_interface_gmp_address_family_mld_version_destroy(
 int lib_interface_gmp_address_family_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	int query_interval;
 
@@ -2710,7 +2721,9 @@ int lib_interface_gmp_address_family_query_interval_modify(
 		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
 		change_query_interval(ifp->info, query_interval);
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif
 	return NB_OK;
 }
 
@@ -2802,6 +2815,7 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 int lib_interface_gmp_address_family_static_group_create(
 	struct nb_cb_create_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	struct ipaddr source_addr;
 	struct ipaddr group_addr;
@@ -2844,7 +2858,9 @@ int lib_interface_gmp_address_family_static_group_create(
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
