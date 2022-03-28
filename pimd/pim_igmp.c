@@ -179,6 +179,18 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
+	/*
+	 * PIM state should not be allowed for ASM group with valid source
+	 * address.
+	 */
+	if ((!pim_is_grp_ssm(pim, source->source_group->group_addr)) &&
+	    !pim_addr_is_any(source->source_addr)) {
+		zlog_warn(
+			"%s: (S,G)=%pSG ASM range having source address, not allowed to create PIM state",
+			__func__, &sg);
+		return;
+	}
+
 	/* Prevent IGMP interface from installing multicast route multiple
 	   times */
 	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
