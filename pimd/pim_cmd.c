@@ -5623,54 +5623,35 @@ DEFPY (debug_pim_packets,
 						    vty);
 }
 
-
-DEFUN (debug_pim_packetdump_send,
+DEFPY (debug_pim_packetdump_send,
        debug_pim_packetdump_send_cmd,
-       "debug pim packet-dump send",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETDUMP_STR
-       DEBUG_PIM_PACKETDUMP_SEND_STR)
-{
-	PIM_DO_DEBUG_PIM_PACKETDUMP_SEND;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_packetdump_send,
-       no_debug_pim_packetdump_send_cmd,
-       "no debug pim packet-dump send",
+       "[no] debug pim packet-dump send",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETDUMP_STR
        DEBUG_PIM_PACKETDUMP_SEND_STR)
 {
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_SEND;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_packetdump_recv,
+DEFPY (debug_pim_packetdump_recv,
        debug_pim_packetdump_recv_cmd,
-       "debug pim packet-dump receive",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETDUMP_STR
-       DEBUG_PIM_PACKETDUMP_RECV_STR)
-{
-	PIM_DO_DEBUG_PIM_PACKETDUMP_RECV;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_packetdump_recv,
-       no_debug_pim_packetdump_recv_cmd,
-       "no debug pim packet-dump receive",
+       "[no] debug pim packet-dump receive",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETDUMP_STR
        DEBUG_PIM_PACKETDUMP_RECV_STR)
 {
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_RECV;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
 	return CMD_SUCCESS;
 }
 
@@ -7793,9 +7774,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pim_events_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_packetdump_send_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_packetdump_recv_cmd);
 	install_element(ENABLE_NODE, &debug_pim_trace_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_trace_cmd);
 	install_element(ENABLE_NODE, &debug_pim_trace_detail_cmd);
@@ -7843,9 +7822,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_packetdump_send_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_packetdump_recv_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_trace_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
