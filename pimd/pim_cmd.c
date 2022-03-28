@@ -5655,51 +5655,34 @@ DEFPY (debug_pim_packetdump_recv,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_trace,
+DEFPY (debug_pim_trace,
        debug_pim_trace_cmd,
-       "debug pim trace",
+       "[no] debug pim trace",
+       NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_TRACE_STR)
 {
-	PIM_DO_DEBUG_PIM_TRACE;
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_trace_detail,
+DEFPY (debug_pim_trace_detail,
        debug_pim_trace_detail_cmd,
-       "debug pim trace detail",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR
-       "Detailed Information\n")
-{
-	PIM_DO_DEBUG_PIM_TRACE_DETAIL;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_trace,
-       no_debug_pim_trace_cmd,
-       "no debug pim trace",
-       NO_STR
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR)
-{
-	PIM_DONT_DEBUG_PIM_TRACE;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_trace_detail,
-       no_debug_pim_trace_detail_cmd,
-       "no debug pim trace detail",
+       "[no] debug pim trace detail",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_TRACE_STR
        "Detailed Information\n")
 {
-	PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
 	return CMD_SUCCESS;
 }
 
@@ -7776,9 +7759,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
 	install_element(ENABLE_NODE, &debug_pim_trace_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_trace_cmd);
 	install_element(ENABLE_NODE, &debug_pim_trace_detail_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_trace_detail_cmd);
 	install_element(ENABLE_NODE, &debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
@@ -7824,9 +7805,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_trace_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_trace_detail_cmd);
 	install_element(CONFIG_NODE, &debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &debug_pim_zebra_cmd);

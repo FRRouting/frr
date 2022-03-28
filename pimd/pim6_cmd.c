@@ -2114,6 +2114,37 @@ DEFPY (debug_pimv6_packetdump_recv,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_pimv6_trace,
+       debug_pimv6_trace_cmd,
+       "[no] debug pimv6 trace",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_TRACE_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_trace_detail,
+       debug_pimv6_trace_detail_cmd,
+       "[no] debug pimv6 trace detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_TRACE_STR
+       "Detailed Information\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2232,6 +2263,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_packets_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_packetdump_send_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_packetdump_recv_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_trace_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_trace_detail_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
@@ -2240,4 +2273,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pimv6_packets_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_packetdump_send_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_packetdump_recv_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_trace_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_trace_detail_cmd);
 }
