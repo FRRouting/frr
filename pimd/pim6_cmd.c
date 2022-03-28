@@ -2145,6 +2145,21 @@ DEFPY (debug_pimv6_trace_detail,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_pimv6_zebra,
+       debug_pimv6_zebra_cmd,
+       "[no] debug pimv6 zebra",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_ZEBRA_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_ZEBRA;
+	else
+		PIM_DONT_DEBUG_ZEBRA;
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2265,6 +2280,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_packetdump_recv_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_trace_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_trace_detail_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_zebra_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
@@ -2275,4 +2291,5 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pimv6_packetdump_recv_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_trace_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_trace_detail_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_zebra_cmd);
 }

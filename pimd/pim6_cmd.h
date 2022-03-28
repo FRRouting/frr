@@ -56,6 +56,7 @@
 #define DEBUG_PIMV6_PACKETDUMP_SEND_STR "Dump sent packets\n"
 #define DEBUG_PIMV6_PACKETDUMP_RECV_STR "Dump received packets\n"
 #define DEBUG_PIMV6_TRACE_STR "PIMv6 internal daemon activity\n"
+#define DEBUG_PIMV6_ZEBRA_STR "ZEBRA protocol activity\n"
 
 void pim_cmd_init(void);
 

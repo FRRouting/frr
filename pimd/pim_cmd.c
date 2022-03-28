@@ -5707,26 +5707,18 @@ DEFUN (no_debug_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_zebra,
+DEFPY (debug_pim_zebra,
        debug_pim_zebra_cmd,
-       "debug pim zebra",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_ZEBRA_STR)
-{
-	PIM_DO_DEBUG_ZEBRA;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_zebra,
-       no_debug_pim_zebra_cmd,
-       "no debug pim zebra",
+       "[no] debug pim zebra",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_ZEBRA_STR)
 {
-	PIM_DONT_DEBUG_ZEBRA;
+	if (!no)
+		PIM_DO_DEBUG_ZEBRA;
+	else
+		PIM_DONT_DEBUG_ZEBRA;
 	return CMD_SUCCESS;
 }
 
@@ -7763,7 +7755,6 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_zebra_cmd);
 	install_element(ENABLE_NODE, &debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
@@ -7809,7 +7800,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &debug_pim_zebra_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_zebra_cmd);
 	install_element(CONFIG_NODE, &debug_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &debug_pim_vxlan_cmd);
