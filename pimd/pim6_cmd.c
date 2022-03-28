@@ -2064,6 +2064,24 @@ DEFPY (debug_pimv6_events,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_pimv6_packets,
+       debug_pimv6_packets_cmd,
+       "[no] debug pimv6 packets [<hello$hello|joins$joins|register$registers>]",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_PACKETS_STR
+       DEBUG_PIMV6_HELLO_PACKETS_STR
+       DEBUG_PIMV6_J_P_PACKETS_STR
+       DEBUG_PIMV6_PIM_REG_PACKETS_STR)
+{
+	if (!no)
+		return pim_debug_pim_packets_cmd(hello, joins, registers, vty);
+	else
+		return pim_no_debug_pim_packets_cmd(hello, joins, registers,
+						    vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2179,9 +2197,11 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_nht_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_events_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_packets_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_det_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_events_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_packets_cmd);
 }

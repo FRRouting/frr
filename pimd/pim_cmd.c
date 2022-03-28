@@ -5606,58 +5606,21 @@ DEFPY (debug_pim_events,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_packets,
+DEFPY (debug_pim_packets,
        debug_pim_packets_cmd,
-       "debug pim packets [<hello|joins|register>]",
-       DEBUG_STR
+       "[no] debug pim packets [<hello$hello|joins$joins|register$registers>]",
+       NO_STR DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETS_STR
        DEBUG_PIM_HELLO_PACKETS_STR
        DEBUG_PIM_J_P_PACKETS_STR
        DEBUG_PIM_PIM_REG_PACKETS_STR)
 {
-	int idx = 0;
-	if (argv_find(argv, argc, "hello", &idx)) {
-		PIM_DO_DEBUG_PIM_HELLO;
-		vty_out(vty, "PIM Hello debugging is on\n");
-	} else if (argv_find(argv, argc, "joins", &idx)) {
-		PIM_DO_DEBUG_PIM_J_P;
-		vty_out(vty, "PIM Join/Prune debugging is on\n");
-	} else if (argv_find(argv, argc, "register", &idx)) {
-		PIM_DO_DEBUG_PIM_REG;
-		vty_out(vty, "PIM Register debugging is on\n");
-	} else {
-		PIM_DO_DEBUG_PIM_PACKETS;
-		vty_out(vty, "PIM Packet debugging is on \n");
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_packets,
-       no_debug_pim_packets_cmd,
-       "no debug pim packets [<hello|joins|register>]",
-       NO_STR
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETS_STR
-       DEBUG_PIM_HELLO_PACKETS_STR
-       DEBUG_PIM_J_P_PACKETS_STR
-       DEBUG_PIM_PIM_REG_PACKETS_STR)
-{
-	int idx = 0;
-	if (argv_find(argv, argc, "hello", &idx)) {
-		PIM_DONT_DEBUG_PIM_HELLO;
-		vty_out(vty, "PIM Hello debugging is off \n");
-	} else if (argv_find(argv, argc, "joins", &idx)) {
-		PIM_DONT_DEBUG_PIM_J_P;
-		vty_out(vty, "PIM Join/Prune debugging is off \n");
-	} else if (argv_find(argv, argc, "register", &idx)) {
-		PIM_DONT_DEBUG_PIM_REG;
-		vty_out(vty, "PIM Register debugging is off\n");
-	} else
-		PIM_DONT_DEBUG_PIM_PACKETS;
-
-	return CMD_SUCCESS;
+	if (!no)
+		return pim_debug_pim_packets_cmd(hello, joins, registers, vty);
+	else
+		return pim_no_debug_pim_packets_cmd(hello, joins, registers,
+						    vty);
 }
 
 
@@ -7829,7 +7792,6 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &debug_pim_events_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_packets_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_packetdump_send_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
@@ -7880,7 +7842,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_packets_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_packetdump_send_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);

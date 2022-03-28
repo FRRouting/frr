@@ -47,6 +47,11 @@
 #define CONF_SSMPINGD_STR "Enable ssmpingd operation\n"
 #define DEBUG_PIMV6_STR "PIMv6 protocol activity\n"
 #define DEBUG_PIMV6_EVENTS_STR "PIMv6 protocol events\n"
+#define DEBUG_PIMV6_PACKETS_STR "PIMv6 protocol packets\n"
+#define DEBUG_PIMV6_HELLO_PACKETS_STR "PIMv6 Hello protocol packets\n"
+#define DEBUG_PIMV6_J_P_PACKETS_STR "PIMv6 Join/Prune protocol packets\n"
+#define DEBUG_PIMV6_PIM_REG_PACKETS_STR                                        \
+	"PIMv6 Register/Reg-Stop protocol packets\n"
 
 void pim_cmd_init(void);
 
