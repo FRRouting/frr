@@ -2422,10 +2422,10 @@ void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type,
 	    && !(CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)))
 		ospf_nssa_lsa_flush(ospf, p);
 
-	/* Sweep LSA from Link State Retransmit List. */
-	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
-
 	if (!IS_LSA_MAXAGE(lsa)) {
+		/* Sweep LSA from Link State Retransmit List. */
+		ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
+
 		/* Unregister LSA from Refresh queue. */
 		ospf_refresher_unregister_lsa(ospf, lsa);
 
