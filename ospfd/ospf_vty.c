@@ -4395,11 +4395,18 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				json_neighbor = json_object_new_object();
 
 				ospf_nbr_ism_state_message(nbr, msgbuf, 16);
-
+#if CONFDATE > 20230321
+CPP_NOTICE("Remove show_ip_ospf_neighbor_sub() JSON keys: priority, state, deadTimeMsecs, address, retransmitCounter, requestCounter, dbSummaryCounter")
+#endif
 				json_object_int_add(json_neighbor, "priority",
 						    nbr->priority);
 				json_object_string_add(json_neighbor, "state",
 						       msgbuf);
+				json_object_int_add(json_neighbor,
+						    "nbrPriority",
+						    nbr->priority);
+				json_object_string_add(json_neighbor,
+						       "nbrState", msgbuf);
 
 				json_object_string_add(
 					json_neighbor, "converged",
@@ -4425,6 +4432,10 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 					json_object_int_add(json_neighbor,
 							    "deadTimeMsecs",
 							    time_store);
+					json_object_int_add(
+						json_neighbor,
+						"routerDeadIntervalTimerDueMsec",
+						time_store);
 					json_object_string_add(
 						json_neighbor, "upTime",
 						ospf_timeval_dump(
@@ -4440,9 +4451,16 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 					json_object_string_add(json_neighbor,
 							       "deadTimeMsecs",
 							       "inactive");
+					json_object_string_add(
+						json_neighbor,
+						"routerDeadIntervalTimerDueMsec",
+						"inactive");
 				}
 				json_object_string_addf(json_neighbor,
 							"address", "%pI4",
+							&nbr->src);
+				json_object_string_addf(json_neighbor,
+							"ifaceAddress", "%pI4",
 							&nbr->src);
 				json_object_string_add(json_neighbor,
 						       "ifaceName",
@@ -4450,12 +4468,24 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				json_object_int_add(
 					json_neighbor, "retransmitCounter",
 					ospf_ls_retransmit_count(nbr));
+				json_object_int_add(
+					json_neighbor,
+					"linkStateRetransmissionListCounter",
+					ospf_ls_retransmit_count(nbr));
 				json_object_int_add(json_neighbor,
 						    "requestCounter",
 						    ospf_ls_request_count(nbr));
+				json_object_int_add(
+					json_neighbor,
+					"linkStateRequestListCounter",
+					ospf_ls_request_count(nbr));
 				json_object_int_add(json_neighbor,
 						    "dbSummaryCounter",
 						    ospf_db_summary_count(nbr));
+				json_object_int_add(
+					json_neighbor,
+					"databaseSummaryListCounter",
+					ospf_db_summary_count(nbr));
 
 				json_object_array_add(json_neigh_array,
 						      json_neighbor);
