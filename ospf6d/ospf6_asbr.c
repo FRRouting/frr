@@ -1440,6 +1440,7 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	/* apply route-map */
 	if (ROUTEMAP(red)) {
 		troute.route_option = &tinfo;
+		troute.ospf6 = ospf6;
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
 
