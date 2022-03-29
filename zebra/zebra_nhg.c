@@ -43,6 +43,7 @@
 #include "zebra_dplane.h"
 #include "zebra/interface.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/rib.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
@@ -1960,6 +1961,61 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 }
 
 /*
+ * So this nexthop resolution has decided that a connected route
+ * is the correct choice.  At this point in time if FRR has multiple
+ * connected routes that all point to the same prefix one will be
+ * selected, *but* the particular interface may not be the one
+ * that the nexthop points at.  Let's look at all the available
+ * connected routes on this node and if any of them auto match
+ * the routes nexthops ifindex that is good enough for a match
+ *
+ * This code is depending on the fact that a nexthop->ifindex is 0
+ * if it is not known, if this assumption changes, yummy!
+ * Additionally a ifindx of 0 means figure it out for us.
+ */
+static struct route_entry *
+zebra_nhg_connected_ifindex(struct route_node *rn, struct route_entry *match,
+			    int32_t curr_ifindex)
+{
+	struct nexthop *newhop = match->nhe->nhg.nexthop;
+	struct route_entry *re;
+
+	assert(newhop); /* What a kick in the patooey */
+
+	if (curr_ifindex == 0)
+		return match;
+
+	if (curr_ifindex == newhop->ifindex)
+		return match;
+
+	/*
+	 * At this point we know that this route is matching a connected
+	 * but there are possibly a bunch of connected routes that are
+	 * alive that should be considered as well.  So let's iterate over
+	 * all the re's and see if they are connected as well and maybe one
+	 * of those ifindexes match as well.
+	 */
+	RNODE_FOREACH_RE (rn, re) {
+		if (re->type != ZEBRA_ROUTE_CONNECT)
+			continue;
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			continue;
+
+		/*
+		 * zebra has a connected route that is not removed
+		 * let's test if it is good
+		 */
+		newhop = re->nhe->nhg.nexthop;
+		assert(newhop);
+		if (curr_ifindex == newhop->ifindex)
+			return re;
+	}
+
+	return match;
+}
+
+/*
  * Given a nexthop we need to properly recursively resolve,
  * do a table lookup to find and match if at all possible.
  * Set the nexthop->ifindex and resolution info as appropriate.
@@ -2210,24 +2266,23 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		}
 
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
-			/* Directly point connected route. */
+			match = zebra_nhg_connected_ifindex(rn, match,
+							    nexthop->ifindex);
+
 			newhop = match->nhe->nhg.nexthop;
-			if (newhop) {
-				if (nexthop->type == NEXTHOP_TYPE_IPV4
-				    || nexthop->type == NEXTHOP_TYPE_IPV6)
-					nexthop->ifindex = newhop->ifindex;
-				else if (nexthop->ifindex != newhop->ifindex) {
-					if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-						zlog_debug(
-							"%s: %pNHv given ifindex does not match nexthops ifindex found found: %pNHv",
-							__func__, nexthop,
-							newhop);
-					/*
-					 * NEXTHOP_TYPE_*_IFINDEX but ifindex
-					 * doesn't match what we found.
-					 */
-					return 0;
-				}
+			if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+			    nexthop->type == NEXTHOP_TYPE_IPV6)
+				nexthop->ifindex = newhop->ifindex;
+			else if (nexthop->ifindex != newhop->ifindex) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+					zlog_debug(
+						"%s: %pNHv given ifindex does not match nexthops ifindex found: %pNHv",
+						__func__, nexthop, newhop);
+				/*
+				 * NEXTHOP_TYPE_*_IFINDEX but ifindex
+				 * doesn't match what we found.
+				 */
+				return 0;
 			}
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
