@@ -678,6 +678,20 @@ Terminal Mode Commands
    This command displays FRR's timer data for timers that will pop in
    the future.
 
+.. clicmd:: show yang operational-data XPATH [{format <json|xml>|translate TRANSLATOR|with-config}] DAEMON
+
+   Display the YANG operational data starting from XPATH. The default
+   format is JSON, but can be displayed in XML as well.
+
+   Normally YANG operational data are located inside containers marked
+   as `read-only`.
+
+   Optionally it is also possible to display configuration leaves in
+   addition to operational data with the option `with-config`. This
+   option enables the display of configuration leaves with their
+   currently configured value (if the leaf is optional it will only show
+   if it was created or has a default value).
+
 .. _common-invocation-options:
 
 Common Invocation Options
