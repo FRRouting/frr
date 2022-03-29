@@ -1400,14 +1400,13 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
-static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
-				   struct list *adj_list, struct isis_lsp *lsp,
-				   const uint8_t *pseudo_nodeid,
-				   uint32_t pseudo_metric)
+static void spf_adj_list_parse_lsp_frag(struct isis_spftree *spftree,
+					struct list *adj_list,
+					struct isis_lsp *lsp,
+					const uint8_t *pseudo_nodeid,
+					uint32_t pseudo_metric)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
-	struct isis_lsp *frag;
-	struct listnode *node;
 	struct isis_item *head;
 	struct isis_item_list *te_neighs;
 
@@ -1445,14 +1444,27 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 			}
 		}
 	}
+}
+
+
+static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
+				   struct list *adj_list, struct isis_lsp *lsp,
+				   const uint8_t *pseudo_nodeid,
+				   uint32_t pseudo_metric)
+{
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	spf_adj_list_parse_lsp_frag(spftree, adj_list, lsp, pseudo_nodeid,
+				    pseudo_metric);
 
 	/* Parse LSP fragments. */
 	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
 		if (!frag->tlvs)
 			continue;
 
-		spf_adj_list_parse_lsp(spftree, adj_list, frag, pseudo_nodeid,
-				       pseudo_metric);
+		spf_adj_list_parse_lsp_frag(spftree, adj_list, frag,
+					    pseudo_nodeid, pseudo_metric);
 	}
 }
 
