@@ -2053,11 +2053,15 @@ void ospf_sr_config_write_router(struct vty *vty)
 		vty_out(vty, " segment-routing global-block %u %u",
 			OspfSR.srgb.start, upper);
 
-	if ((OspfSR.srlb.start != DEFAULT_SRLB_LABEL)
-	    || (OspfSR.srlb.end != DEFAULT_SRLB_END))
+	if ((OspfSR.srlb.start != DEFAULT_SRLB_LABEL) ||
+	    (OspfSR.srlb.end != DEFAULT_SRLB_END)) {
+		if ((OspfSR.srgb.start == DEFAULT_SRGB_LABEL) &&
+		    (OspfSR.srgb.size == DEFAULT_SRGB_SIZE))
+			vty_out(vty, " segment-routing global-block %u %u",
+				OspfSR.srgb.start, upper);
 		vty_out(vty, " local-block %u %u\n", OspfSR.srlb.start,
 			OspfSR.srlb.end);
-	else
+	} else
 		vty_out(vty, "\n");
 
 	if (OspfSR.msd != 0)
@@ -2663,12 +2667,18 @@ DEFUN (no_sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
+		  (struct prefix *)&srp->prefv4, srp->sid);
+
 	/* Get Interface */
 	ifp = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
 	if (ifp == NULL) {
 		vty_out(vty, "interface for prefix %s not found.\n",
 			argv[idx]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
+		/* silently remove from list */
+		listnode_delete(OspfSR.self->ext_prefix, srp);
+		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
+		return CMD_SUCCESS;
 	}
 
 	/* Update Extended Prefix LSA */
@@ -2676,9 +2686,6 @@ DEFUN (no_sr_prefix_sid,
 		vty_out(vty, "No corresponding loopback interface. Abort!\n");
 		return CMD_WARNING;
 	}
-
-	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
-		  (struct prefix *)&srp->prefv4, srp->sid);
 
 	/* Delete NHLFE if NO-PHP is set and EXPLICIT NULL not set */
 	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
