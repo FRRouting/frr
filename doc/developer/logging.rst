@@ -171,7 +171,7 @@ Networking data types
 
    :frrfmtout:`(*,1.2.3.4)`
 
-   This is *(S,G)* output for use in pimd.  (Note prefix_sg is not a prefix
+   This is *(S,G)* output for use in zebra.  (Note prefix_sg is not a prefix
    "subclass" like the other prefix_* structs.)
 
 .. frrfmt:: %pSU (union sockunion *)
@@ -204,12 +204,6 @@ Networking data types
    ``%pNHcg``: :frrfmtout:`1.2.3.4` — compact gateway only
 
    ``%pNHci``: :frrfmtout:`eth0` — compact interface only
-
-.. frrfmt:: %pBD (struct bgp_dest *)
-
-   :frrfmtout:`fe80::1234/64`
-
-   (only available in bgpd.)
 
 .. frrfmt:: %dPF (int)
 
@@ -360,6 +354,51 @@ FRR library helper formats
       {(thread *)0x55a3b5827230 arg=0x55a3b5827c50 read   fd=16        mld_t_recv() &mld_ifp->t_recv from pimd/pim6_mld.c:1186}
 
    (The output is aligned to some degree.)
+
+FRR daemon specific formats
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following formats are only available in specific daemons, as the code
+implementing them is part of the daemon, not the library.
+
+zebra
+"""""
+
+.. frrfmt:: %pZN (struct route_node *)
+
+   Print information for a RIB node, including zebra-specific data.
+
+   :frrfmtout:`::/0 src fe80::/64 (MRIB)` (``%pZN``)
+
+   :frrfmtout:`1234` (``%pZNt`` - table number)
+
+bgpd
+""""
+
+.. frrfmt:: %pBD (struct bgp_dest *)
+
+   Print prefix for a BGP destination.
+
+   :frrfmtout:`fe80::1234/64`
+
+pimd/pim6d
+""""""""""
+
+.. frrfmt:: %pPA (pim_addr *)
+
+   Format IP address according to IP version (pimd vs. pim6d) being compiled.
+
+   :frrfmtout:`fe80::1234` / :frrfmtout:`10.0.0.1`
+
+   :frrfmtout:`*` (``%pPAs`` - replace 0.0.0.0/:: with star)
+
+.. frrfmt:: %pSG (pim_sgaddr *)
+
+   Format S,G pair according to IP version (pimd vs. pim6d) being compiled.
+   Braces are included.
+
+   :frrfmtout:`(*,224.0.0.0)`
+
 
 General utility formats
 ^^^^^^^^^^^^^^^^^^^^^^^
