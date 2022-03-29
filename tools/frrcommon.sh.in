@@ -253,11 +253,11 @@ all_start() {
 all_stop() {
 	local pids reversed
 
-	daemon_list daemons disabled
-	[ "$1" = "--reallyall" ] && daemons="$daemons $disabled"
+	daemon_list enabled_daemons disabled_daemons
+	[ "$1" = "--reallyall" ] && enabled_daemons="$enabled_daemons $disabled_daemons"
 
 	reversed=""
-	for dmninst in $daemons; do
+	for dmninst in $enabled_daemons; do
 		reversed="$dmninst $reversed"
 	done
 
