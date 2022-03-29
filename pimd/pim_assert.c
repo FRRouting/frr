@@ -338,6 +338,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 			 uint32_t metric_preference, uint32_t route_metric,
 			 uint32_t rpt_bit_flag)
 {
+	struct pim_interface *pim_ifp = ifp->info;
 	uint8_t *buf_pastend = pim_msg + buf_size;
 	uint8_t *pim_msg_curr;
 	int pim_msg_size;
@@ -380,7 +381,9 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 	  Add PIM header
 	*/
 	pim_msg_size = pim_msg_curr - pim_msg;
-	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_ASSERT, false);
+	pim_msg_build_header(pim_ifp->primary_address,
+			     qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
+			     PIM_MSG_TYPE_ASSERT, false);
 
 	return pim_msg_size;
 }

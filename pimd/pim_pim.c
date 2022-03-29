@@ -152,6 +152,7 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		   pim_sgaddr sg)
 {
+	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
@@ -179,10 +180,25 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	pim_msg = buf + ip_hlen;
 	pim_msg_len = len - ip_hlen;
 #else
+	struct ipv6_ph phdr = {
+		.src = sg.src,
+		.dst = sg.grp,
+		.ulpl = htonl(len),
+		.next_hdr = IPPROTO_PIM,
+	};
+
+	iovp->iov_base = &phdr;
+	iovp->iov_len = sizeof(phdr);
+	iovp++;
+
 	/* NB: header is not included in IPv6 RX */
 	pim_msg = buf;
 	pim_msg_len = len;
 #endif
+
+	iovp->iov_base = pim_msg;
+	iovp->iov_len = pim_msg_len;
+	iovp++;
 
 	header = (struct pim_msg_header *)pim_msg;
 	if (pim_msg_len < PIM_PIM_MIN_LEN) {
@@ -215,10 +231,21 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					   pim_msg_len, PIM_MSG_REGISTER_LEN);
 			return -1;
 		}
+
+#if PIM_IPV == 6
+		phdr.ulpl = htonl(PIM_MSG_REGISTER_LEN);
+#endif
 		/* First 8 byte header checksum */
-		checksum = in_cksum(pim_msg, PIM_MSG_REGISTER_LEN);
+		iovp[-1].iov_len = PIM_MSG_REGISTER_LEN;
+		checksum = in_cksumv(iov, iovp - iov);
+
 		if (checksum != pim_checksum) {
-			checksum = in_cksum(pim_msg, pim_msg_len);
+#if PIM_IPV == 6
+			phdr.ulpl = htonl(pim_msg_len);
+#endif
+			iovp[-1].iov_len = pim_msg_len;
+
+			checksum = in_cksumv(iov, iovp - iov);
 			if (checksum != pim_checksum) {
 				if (PIM_DEBUG_PIM_PACKETS)
 					zlog_debug(
@@ -230,7 +257,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 			}
 		}
 	} else {
-		checksum = in_cksum(pim_msg, pim_msg_len);
+		checksum = in_cksumv(iov, iovp - iov);
 		if (checksum != pim_checksum) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
@@ -522,75 +549,62 @@ void pim_sock_reset(struct interface *ifp)
 	pim_ifstat_reset(ifp);
 }
 
+#if PIM_IPV == 4
 static uint16_t ip_id = 0;
-
+#endif
 
 static int pim_msg_send_frame(int fd, char *buf, size_t len,
 			      struct sockaddr *dst, size_t salen,
 			      const char *ifname)
 {
-	struct ip *ip = (struct ip *)buf;
+	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
+		return 0;
 
-	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
-		char dst_str[INET_ADDRSTRLEN];
+#if PIM_IPV == 4
+	if (errno == EMSGSIZE) {
+		struct ip *ip = (struct ip *)buf;
+		size_t hdrsize = sizeof(struct ip);
+		size_t newlen1 = ((len - hdrsize) / 2) & 0xFFF8;
+		size_t sendlen = newlen1 + hdrsize;
+		size_t offset = ntohs(ip->ip_off);
+		int ret;
 
-		switch (errno) {
-		case EMSGSIZE: {
-			size_t hdrsize = sizeof(struct ip);
-			size_t newlen1 = ((len - hdrsize) / 2) & 0xFFF8;
-			size_t sendlen = newlen1 + hdrsize;
-			size_t offset = ntohs(ip->ip_off);
+		ip->ip_len = htons(sendlen);
+		ip->ip_off = htons(offset | IP_MF);
 
-			ip->ip_len = htons(sendlen);
-			ip->ip_off = htons(offset | IP_MF);
-			if (pim_msg_send_frame(fd, buf, sendlen, dst, salen,
-					       ifname) == 0) {
-				struct ip *ip2 = (struct ip *)(buf + newlen1);
-				size_t newlen2 = len - sendlen;
-				sendlen = newlen2 + hdrsize;
+		ret = pim_msg_send_frame(fd, buf, sendlen, dst, salen, ifname);
+		if (ret)
+			return ret;
 
-				memcpy(ip2, ip, hdrsize);
-				ip2->ip_len = htons(sendlen);
-				ip2->ip_off = htons(offset + (newlen1 >> 3));
-				return pim_msg_send_frame(fd, (char *)ip2,
-							  sendlen, dst, salen,
-							  ifname);
-			}
-		}
+		struct ip *ip2 = (struct ip *)(buf + newlen1);
+		size_t newlen2 = len - sendlen;
 
-			return -1;
-		default:
-			if (PIM_DEBUG_PIM_PACKETS) {
-				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
-					       sizeof(dst_str));
-				zlog_warn(
-					"%s: sendto() failure to %s: iface=%s fd=%d msg_size=%zd: errno=%d: %s",
-					__func__, dst_str, ifname, fd, len,
-					errno, safe_strerror(errno));
-			}
-			return -1;
-		}
+		sendlen = newlen2 + hdrsize;
+
+		memcpy(ip2, ip, hdrsize);
+		ip2->ip_len = htons(sendlen);
+		ip2->ip_off = htons(offset + (newlen1 >> 3));
+		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen,
+					  ifname);
 	}
+#endif
 
-	return 0;
+	zlog_warn(
+		"%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m",
+		__func__, dst, ifname, fd, len);
+	return -1;
 }
 
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, const char *ifname)
 {
-	struct sockaddr_in to;
 	socklen_t tolen;
 	unsigned char buffer[10000];
 	unsigned char *msg_start;
 	uint8_t ttl;
 	struct pim_msg_header *header;
-	struct ip *ip;
 
 	memset(buffer, 0, 10000);
-	int sendlen = sizeof(struct ip) + pim_msg_size;
-
-	msg_start = buffer + sizeof(struct ip);
-	memcpy(msg_start, pim_msg, pim_msg_size);
 
 	header = (struct pim_msg_header *)pim_msg;
 /*
@@ -620,7 +634,11 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		break;
 	}
 
-	ip = (struct ip *)buffer;
+#if PIM_IPV == 4
+	struct ip *ip = (struct ip *)buffer;
+	struct sockaddr_in to = {};
+	int sendlen = sizeof(*ip) + pim_msg_size;
+
 	ip->ip_id = htons(++ip_id);
 	ip->ip_hl = 5;
 	ip->ip_v = 4;
@@ -631,17 +649,34 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	ip->ip_ttl = ttl;
 	ip->ip_len = htons(sendlen);
 
-	if (PIM_DEBUG_PIM_PACKETS) {
-		char dst_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
-		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x", __func__,
-			   dst_str, ifname, pim_msg_size, header->checksum);
-	}
-
-	memset(&to, 0, sizeof(to));
 	to.sin_family = AF_INET;
 	to.sin_addr = dst;
 	tolen = sizeof(to);
+#else
+	struct ip6_hdr *ip = (struct ip6_hdr *)buffer;
+	struct sockaddr_in6 to = {};
+	int sendlen = sizeof(*ip) + pim_msg_size;
+
+	ip->ip6_flow = 0;
+	ip->ip6_vfc = (6 << 4) | (IPTOS_PREC_INTERNETCONTROL >> 4);
+	ip->ip6_plen = htons(pim_msg_size);
+	ip->ip6_nxt = PIM_IP_PROTO_PIM;
+	ip->ip6_hlim = ttl;
+	ip->ip6_src = src;
+	ip->ip6_dst = dst;
+
+	to.sin6_family = AF_INET6;
+	to.sin6_addr = dst;
+	tolen = sizeof(to);
+#endif
+
+	msg_start = buffer + sizeof(*ip);
+	memcpy(msg_start, pim_msg, pim_msg_size);
+
+	if (PIM_DEBUG_PIM_PACKETS)
+		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
+			   __func__, &dst, ifname, pim_msg_size,
+			   header->checksum);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
 		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
@@ -661,20 +696,16 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 
 	pim_ifp = ifp->info;
 
-	if (PIM_DEBUG_PIM_HELLO) {
-		char dst_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<dst?>", qpim_all_pim_routers_addr, dst_str,
-			       sizeof(dst_str));
+	if (PIM_DEBUG_PIM_HELLO)
 		zlog_debug(
-			"%s: to %s on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
-			__func__, dst_str, ifp->name, holdtime,
-			pim_ifp->pim_propagation_delay_msec,
+			"%s: to %pPA on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
+			__func__, &qpim_all_pim_routers_addr, ifp->name,
+			holdtime, pim_ifp->pim_propagation_delay_msec,
 			pim_ifp->pim_override_interval_msec,
 			PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(
 				pim_ifp->options),
 			pim_ifp->pim_dr_priority, pim_ifp->pim_generation_id,
 			listcount(ifp->connected));
-	}
 
 	pim_tlv_size = pim_hello_build_tlv(
 		ifp, pim_msg + PIM_PIM_MIN_LEN,
@@ -692,7 +723,9 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 	assert(pim_msg_size >= PIM_PIM_MIN_LEN);
 	assert(pim_msg_size <= PIM_PIM_BUFSIZE_WRITE);
 
-	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_HELLO, false);
+	pim_msg_build_header(pim_ifp->primary_address,
+			     qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
+			     PIM_MSG_TYPE_HELLO, false);
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
