@@ -3273,7 +3273,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
 
-	if ((NDA_VLAN <= NDA_MAX) && tb[NDA_VLAN]) {
+	if (tb[NDA_VLAN]) {
 		vid_present = 1;
 		vid = *(uint16_t *)RTA_DATA(tb[NDA_VLAN]);
 		snprintf(vid_buf, sizeof(vid_buf), " VLAN %u", vid);
