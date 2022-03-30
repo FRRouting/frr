@@ -1754,6 +1754,8 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 	if (!zvrf)
 		return NS_WALK_STOP;
 
+	assert(_pifp);
+
 	/* loop through all vxlan-interface */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 
@@ -1784,8 +1786,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 
 
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
-		if (_pifp)
-			*_pifp = (void *)ifp;
+		*_pifp = (void *)ifp;
 		return NS_WALK_STOP;
 	}
 
@@ -1856,7 +1857,6 @@ struct zebra_l3vni *zl3vni_from_vrf(vrf_id_t vrf_id)
 
 static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 {
-	int found = 0;
 	struct zebra_ns *zns = ns->info;
 	struct zebra_l3vni **p_zl3vni = (struct zebra_l3vni **)_p_zl3vni;
 	struct zebra_from_svi_param *in_param =
@@ -1866,8 +1866,7 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 
-	if (!in_param)
-		return NS_WALK_STOP;
+	assert(in_param && p_zl3vni);
 
 	/* loop through all vxlan-interface */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
@@ -1886,17 +1885,12 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 
 		if (!in_param->bridge_vlan_aware
 		    || vxl->access_vlan == in_param->vid) {
-			found = 1;
-			break;
+			*p_zl3vni = zl3vni_lookup(vxl->vni);
+			return NS_WALK_STOP;
 		}
 	}
 
-	if (!found)
-		return NS_WALK_CONTINUE;
-
-	if (p_zl3vni)
-		*p_zl3vni = zl3vni_lookup(vxl->vni);
-	return NS_WALK_STOP;
+	return NS_WALK_CONTINUE;
 }
 
 /*
