@@ -3495,9 +3495,9 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return false;
 
 		zlog_info(
-			"%%MAXPFX: No. of %s prefix received from %s reaches %u, max %u",
-			get_afi_safi_str(afi, safi, false), peer->host, pcount,
-			peer->pmax[afi][safi]);
+			"%%MAXPFX: No. of %s prefix received from %s(%s) reaches %u, max %u",
+			get_afi_safi_str(afi, safi, false), peer->host,
+			bgp_peer_hostname(peer), pcount, peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi],
 			 PEER_STATUS_PREFIX_THRESHOLD);
 	} else
@@ -4009,7 +4009,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						num_labels, addpath_id ? 1 : 0,
 						addpath_id, evpn, pfx_buf,
 						sizeof(pfx_buf));
-					zlog_debug("%s rcvd %s", peer->host,
+					zlog_debug("%s(%s) rcvd %s", peer->host,
+						   bgp_peer_hostname(peer),
 						   pfx_buf);
 				}
 
@@ -4024,8 +4025,9 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				if (bgp_debug_update(peer, p, NULL, 1)) {
 					if (!peer->rcvd_attr_printed) {
 						zlog_debug(
-							"%s rcvd UPDATE w/ attr: %s",
+							"%s(%s) rcvd UPDATE w/ attr: %s",
 							peer->host,
+							bgp_peer_hostname(peer),
 							peer->rcvd_attr_str);
 						peer->rcvd_attr_printed = 1;
 					}
@@ -4036,8 +4038,10 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						addpath_id, evpn, pfx_buf,
 						sizeof(pfx_buf));
 					zlog_debug(
-						"%s rcvd %s...duplicate ignored",
-						peer->host, pfx_buf);
+						"%s(%s) rcvd %s...duplicate ignored",
+						peer->host,
+						bgp_peer_hostname(peer),
+						pfx_buf);
 				}
 
 				/* graceful restart STALE flag unset. */
@@ -4063,8 +4067,9 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					addpath_id ? 1 : 0, addpath_id, evpn,
 					pfx_buf, sizeof(pfx_buf));
 				zlog_debug(
-					"%s rcvd %s, flapped quicker than processing",
-					peer->host, pfx_buf);
+					"%s(%s) rcvd %s, flapped quicker than processing",
+					peer->host, bgp_peer_hostname(peer),
+					pfx_buf);
 			}
 
 			bgp_path_info_restore(dest, pi);
@@ -4084,7 +4089,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						num_labels, addpath_id ? 1 : 0,
 						addpath_id, evpn, pfx_buf,
 						sizeof(pfx_buf));
-			zlog_debug("%s rcvd %s", peer->host, pfx_buf);
+			zlog_debug("%s(%s) rcvd %s", peer->host,
+				   bgp_peer_hostname(peer), pfx_buf);
 		}
 
 		/* graceful restart STALE flag unset. */
@@ -4381,7 +4387,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Received Logging. */
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		if (!peer->rcvd_attr_printed) {
-			zlog_debug("%s rcvd UPDATE w/ attr: %s", peer->host,
+			zlog_debug("%s(%s) rcvd UPDATE w/ attr: %s", peer->host,
+				   bgp_peer_hostname(peer),
 				   peer->rcvd_attr_str);
 			peer->rcvd_attr_printed = 1;
 		}
@@ -4389,7 +4396,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, evpn,
 					pfx_buf, sizeof(pfx_buf));
-		zlog_debug("%s rcvd %s", peer->host, pfx_buf);
+		zlog_debug("%s(%s) rcvd %s", peer->host,
+			   bgp_peer_hostname(peer), pfx_buf);
 	}
 
 	/* Make new BGP info. */
@@ -4533,7 +4541,8 @@ filtered:
 
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		if (!peer->rcvd_attr_printed) {
-			zlog_debug("%s rcvd UPDATE w/ attr: %s", peer->host,
+			zlog_debug("%s(%s) rcvd UPDATE w/ attr: %s", peer->host,
+				   bgp_peer_hostname(peer),
 				   peer->rcvd_attr_str);
 			peer->rcvd_attr_printed = 1;
 		}
@@ -4541,8 +4550,9 @@ filtered:
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, evpn,
 					pfx_buf, sizeof(pfx_buf));
-		zlog_debug("%s rcvd UPDATE about %s -- DENIED due to: %s",
-			   peer->host, pfx_buf, reason);
+		zlog_debug("%s(%s) rcvd UPDATE about %s -- DENIED due to: %s",
+			   peer->host, bgp_peer_hostname(peer), pfx_buf,
+			   reason);
 	}
 
 	if (pi) {
@@ -4646,8 +4656,8 @@ int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, NULL,
 					pfx_buf, sizeof(pfx_buf));
-		zlog_debug("%s rcvd UPDATE about %s -- withdrawn", peer->host,
-			   pfx_buf);
+		zlog_debug("%s(%s) rcvd UPDATE about %s -- withdrawn",
+			   peer->host, bgp_peer_hostname(peer), pfx_buf);
 	}
 
 	/* Withdraw specified route from routing table. */
