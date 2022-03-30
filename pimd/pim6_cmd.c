@@ -622,6 +622,452 @@ DEFPY (interface_no_ipv6_mld_query_interval,
 				    "frr-routing:ipv6");
 }
 
+DEFPY (show_ipv6_pim_rp,
+       show_ipv6_pim_rp_cmd,
+       "show ipv6 pim [vrf NAME] rp-info [X:X::X:X/M$group] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM RP information\n"
+       "Multicast Group range\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+	struct prefix *range = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (group_str) {
+		range = prefix_new();
+		prefix_copy(range, group);
+		apply_mask(range);
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_rp_show_information(pim, range, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	prefix_free(&range);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_rp_vrf_all,
+       show_ipv6_pim_rp_vrf_all_cmd,
+       "show ipv6 pim vrf all rp-info [X:X::X:X/M$group] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM RP information\n"
+       "Multicast Group range\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+	struct prefix *range = NULL;
+
+	if (group_str) {
+		range = prefix_new();
+		prefix_copy(range, group);
+		apply_mask(range);
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_rp_show_information(vrf->info, range, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	prefix_free(&range);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_rpf,
+       show_ipv6_pim_rpf_cmd,
+       "show ipv6 pim [vrf NAME] rpf [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached source rpf information\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_rpf(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_rpf_vrf_all,
+       show_ipv6_pim_rpf_vrf_all_cmd,
+       "show ipv6 pim vrf all rpf [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached source rpf information\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_rpf(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_secondary,
+       show_ipv6_pim_secondary_cmd,
+       "show ipv6 pim [vrf NAME] secondary",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM neighbor addresses\n")
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_neighbors_secondary(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_statistics,
+       show_ipv6_pim_statistics_cmd,
+       "show ipv6 pim [vrf NAME] statistics [interface WORD$word] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM statistics\n"
+       INTERFACE_STR
+       "PIM interface\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (word)
+		pim_show_statistics(pim, vty, word, uj);
+	else
+		pim_show_statistics(pim, vty, NULL, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_upstream,
+       show_ipv6_pim_upstream_cmd,
+       "show ipv6 pim [vrf NAME] upstream [X:X::X:X$s_or_g [X:X::X:X$g]] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream information\n"
+       "The Source or Group\n"
+       "The Group\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *v;
+	bool uj = !!json;
+	struct pim_instance *pim;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (uj)
+		json_parent = json_object_new_object();
+
+	if (!pim_addr_is_any(s_or_g)) {
+		if (!pim_addr_is_any(g)) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+
+	pim_show_upstream(pim, vty, &sg, json_parent);
+
+	if (uj)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_upstream_vrf_all,
+       show_ipv6_pim_upstream_vrf_all_cmd,
+       "show ipv6 pim vrf all upstream [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream information\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_upstream(vrf->info, vty, &sg, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_upstream_join_desired,
+       show_ipv6_pim_upstream_join_desired_cmd,
+       "show ipv6 pim [vrf NAME] upstream-join-desired [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream join-desired\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_join_desired(pim, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_upstream_rpf,
+       show_ipv6_pim_upstream_rpf_cmd,
+       "show ipv6 pim [vrf NAME] upstream-rpf [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream source rpf\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_upstream_rpf(pim, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_state,
+       show_ipv6_pim_state_cmd,
+       "show ipv6 pim [vrf NAME] state [X:X::X:X$s_or_g [X:X::X:X$g]] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM state information\n"
+       "Unicast or Multicast address\n"
+       "Multicast address\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_state(pim, vty, s_or_g_str, g_str, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_state_vrf_all,
+       show_ipv6_pim_state_vrf_all_cmd,
+       "show ipv6 pim vrf all state [X:X::X:X$s_or_g [X:X::X:X$g]] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM state information\n"
+       "Unicast or Multicast address\n"
+       "Multicast address\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_state(vrf->info, vty, s_or_g_str, g_str, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -674,4 +1120,16 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_rp_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_rpf_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_rpf_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_secondary_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_statistics_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_join_desired_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_rpf_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_state_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_state_vrf_all_cmd);
 }
