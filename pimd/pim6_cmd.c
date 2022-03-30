@@ -49,6 +49,13 @@
 #include "pimd/pim6_cmd_clippy.c"
 #endif
 
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = pim_debug_config_write,
+};
+
 DEFPY (ipv6_pim_joinprune_time,
        ipv6_pim_joinprune_time_cmd,
        "ipv6 pim join-prune-interval (1-65535)$jpi",
@@ -2163,6 +2170,8 @@ DEFPY (debug_pimv6_zebra,
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
+
+	install_node(&debug_node);
 
 	install_element(CONFIG_NODE, &ipv6_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_joinprune_time_cmd);
