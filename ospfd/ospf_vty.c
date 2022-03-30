@@ -4394,7 +4394,8 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 
 				json_neighbor = json_object_new_object();
 
-				ospf_nbr_ism_state_message(nbr, msgbuf, 16);
+				ospf_nbr_ism_state_message(nbr, msgbuf,
+							   sizeof(msgbuf));
 #if CONFDATE > 20230321
 CPP_NOTICE("Remove show_ip_ospf_neighbor_sub() JSON keys: priority, state, deadTimeMsecs, address, retransmitCounter, requestCounter, dbSummaryCounter")
 #endif
@@ -4490,7 +4491,8 @@ CPP_NOTICE("Remove show_ip_ospf_neighbor_sub() JSON keys: priority, state, deadT
 				json_object_array_add(json_neigh_array,
 						      json_neighbor);
 			} else {
-				ospf_nbr_ism_state_message(nbr, msgbuf, 16);
+				ospf_nbr_ism_state_message(nbr, msgbuf,
+							   sizeof(msgbuf));
 
 				if (nbr->state == NSM_Attempt
 				    && nbr->router_id.s_addr == INADDR_ANY)
@@ -5116,6 +5118,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_neigh = NULL, *json_neigh_array = NULL;
 	char neigh_str[INET_ADDRSTRLEN] = {0};
+	char neigh_state[16] = {0};
 
 	if (use_json) {
 		if (prev_nbr &&
@@ -5168,15 +5171,13 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			ospf_area_desc_string(oi->area), oi->ifp->name);
 
 	/* Show neighbor priority and state. */
+	ospf_nbr_ism_state_message(nbr, neigh_state, sizeof(neigh_state));
 	if (use_json) {
 		json_object_int_add(json_neigh, "nbrPriority", nbr->priority);
-		json_object_string_add(
-			json_neigh, "nbrState",
-			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+		json_object_string_add(json_neigh, "nbrState", neigh_state);
 	} else
 		vty_out(vty, "    Neighbor priority is %d, State is %s,",
-			nbr->priority,
-			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+			nbr->priority, neigh_state);
 
 	/* Show state changes. */
 	if (use_json)
