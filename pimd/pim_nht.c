@@ -810,13 +810,18 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				continue;
 			}
 
-			if (PIM_DEBUG_PIM_NHT)
+			if (PIM_DEBUG_PIM_NHT) {
+#if PIM_IPV == 4
+				pim_addr nhaddr = nexthop->gate.ipv4;
+#else
+				pim_addr nhaddr = nexthop->gate.ipv6;
+#endif
 				zlog_debug(
-					"%s: NHT addr %pFX(%s) %d-nhop via %pI4(%s) type %d distance:%u metric:%u ",
+					"%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
 					__func__, &match, pim->vrf->name, i + 1,
-					&nexthop->gate.ipv4, ifp->name,
-					nexthop->type, nhr.distance,
-					nhr.metric);
+					&nhaddr, ifp->name, nexthop->type,
+					nhr.distance, nhr.metric);
+			}
 
 			if (!ifp->info) {
 				/*
