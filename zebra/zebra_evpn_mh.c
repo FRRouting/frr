@@ -3392,7 +3392,8 @@ DEFPY(zebra_evpn_es_id,
 			ret = zebra_evpn_es_type0_esi_update(zif, zero_esi);
 
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to clear ES local id\n");
+			vty_out(vty,
+				"%% Failed to clear ES local id or ESI name\n");
 			return CMD_WARNING;
 		}
 	} else {
@@ -3404,13 +3405,14 @@ DEFPY(zebra_evpn_es_id,
 
 		if (esi_str) {
 			if (!str_to_esi(esi_str, &esi)) {
-				vty_out(vty, "%% Malformed ESI\n");
+				vty_out(vty, "%% Malformed ESI name\n");
 				return CMD_WARNING;
 			}
 			ret = zebra_evpn_es_type0_esi_update(zif, &esi);
 		} else {
 			if (!es_lid) {
-				vty_out(vty, "%%Specify local ES ID\n");
+				vty_out(vty,
+					"%% Specify ES local id or ESI name\n");
 				return CMD_WARNING;
 			}
 			ret = zebra_evpn_es_lid_update(zif, es_lid);
