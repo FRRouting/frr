@@ -437,6 +437,28 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
 						pim_ifp->primary_address,
 						up->upstream_register);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+			} else {
+				/*
+				 * At this point pimd is connected to
+				 * the source, it has a parent, we are not
+				 * the RP  and the SPTBIT should be set
+				 * since we know *the* S,G is on the SPT.
+				 * The first time this happens, let's cause
+				 * an immediate join to go out so that
+				 * the RP can trim this guy immediately
+				 * if necessary, instead of waiting
+				 * one join/prune send cycle
+				 */
+				if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE &&
+				    up->parent &&
+				    up->rpf.source_nexthop.interface !=
+					    up->parent->rpf.source_nexthop
+						    .interface) {
+					up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+					pim_jp_agg_single_upstream_send(
+						&up->parent->rpf, up->parent,
+						true);
+				}
 			}
 			pim_upstream_keep_alive_timer_start(
 				up, pim_ifp->pim->keep_alive_time);
