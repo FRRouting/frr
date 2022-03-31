@@ -5124,8 +5124,13 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 		zevpn_vxlan_if_set(zevpn, ifp, true /* set */);
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
-		if (vlan_if)
+		if (vlan_if) {
 			zevpn->svi_if = vlan_if;
+			zevpn->vrf_id = vlan_if->vrf->vrf_id;
+			zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
+			if (zl3vni)
+				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
+		}
 
 		/* Take further actions needed.
 		 * Note that if we are here, there is a change of interest.
