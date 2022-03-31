@@ -997,25 +997,26 @@ void ls_ted_del(struct ls_ted *ted)
 	XFREE(MTYPE_LS_DB, ted);
 }
 
-void ls_ted_del_all(struct ls_ted *ted)
+void ls_ted_del_all(struct ls_ted **ted)
 {
 	struct ls_vertex *vertex;
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 
-	if (ted == NULL)
+	if (*ted == NULL)
 		return;
 
 	/* First remove Vertices, Edges and Subnets and associated Link State */
-	frr_each_safe (vertices, &ted->vertices, vertex)
-		ls_vertex_del_all(ted, vertex);
-	frr_each_safe (edges, &ted->edges, edge)
-		ls_edge_del_all(ted, edge);
-	frr_each_safe (subnets, &ted->subnets, subnet)
-		ls_subnet_del_all(ted, subnet);
+	frr_each_safe (vertices, &(*ted)->vertices, vertex)
+		ls_vertex_del_all(*ted, vertex);
+	frr_each_safe (edges, &(*ted)->edges, edge)
+		ls_edge_del_all(*ted, edge);
+	frr_each_safe (subnets, &(*ted)->subnets, subnet)
+		ls_subnet_del_all(*ted, subnet);
 
 	/* then remove TED itself */
-	ls_ted_del(ted);
+	ls_ted_del(*ted);
+	*ted = NULL;
 }
 
 void ls_ted_clean(struct ls_ted *ted)
