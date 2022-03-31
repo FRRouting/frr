@@ -167,6 +167,8 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 			struct listnode *node;
 			struct isis_adjacency *adj;
 
+			if (!adjdb)
+				continue;
 			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
 				bfd_adj_cmd(adj);
 		}
