@@ -381,6 +381,12 @@ bgpd
 
    :frrfmtout:`fe80::1234/64`
 
+.. frrfmt:: %pBP (struct peer *)
+
+   :frrfmtout:`192.168.1.1(leaf1.frrouting.org)`
+
+   Print BGP peer's IP and hostname together.
+
 pimd/pim6d
 """"""""""
 
