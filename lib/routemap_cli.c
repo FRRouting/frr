@@ -635,6 +635,11 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:alias"));
+	} else if (IS_MATCH_SCRIPT(condition)) {
+		vty_out(vty, " match script %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-bgp-route-map:script"));
 	} else if (IS_MATCH_ORIGIN(condition)) {
 		vty_out(vty, " match origin %s\n",
 			yang_dnode_get_string(
