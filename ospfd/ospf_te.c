@@ -3908,7 +3908,7 @@ DEFUN (no_ospf_mpls_te,
 	ote_debug("MPLS-TE: ON -> OFF");
 
 	/* Remove TED */
-	ls_ted_del_all(OspfMplsTE.ted);
+	ls_ted_del_all(&OspfMplsTE.ted);
 	OspfMplsTE.enabled = false;
 
 	/* Flush all TE Opaque LSAs */

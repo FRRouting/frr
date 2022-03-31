@@ -66,7 +66,7 @@ uint32_t path_ted_teardown(void)
 	PATH_TED_DEBUG("%s : TED [%p]", __func__, ted_state_g.ted);
 	path_ted_unregister_vty();
 	path_ted_stop_importing_igp();
-	ls_ted_del_all(ted_state_g.ted);
+	ls_ted_del_all(&ted_state_g.ted);
 	path_ted_timer_sync_cancel();
 	path_ted_timer_refresh_cancel();
 	return 0;
@@ -391,7 +391,7 @@ DEFUN (no_path_ted,
 	}
 
 	/* Remove TED */
-	ls_ted_del_all(ted_state_g.ted);
+	ls_ted_del_all(&ted_state_g.ted);
 	ted_state_g.enabled = false;
 	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
 	ted_state_g.import = IMPORT_UNKNOWN;
