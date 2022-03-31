@@ -1868,7 +1868,7 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	/* Remove Link State Database */
-	ls_ted_del_all(area->mta->ted);
+	ls_ted_del_all(&area->mta->ted);
 
 	/* Flush LSP if circuit engage */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
