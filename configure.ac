@@ -325,6 +325,9 @@ else
    fi
 fi
 
+dnl just stick -g into LDFLAGS, if we don't have it in CFLAGS it won't do much
+LDFLAGS="$LDFLAGS -g"
+
 AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 
 dnl always want these CFLAGS
