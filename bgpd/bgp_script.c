@@ -156,17 +156,18 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 {
-	lua_getfield(L, -1, "metric");
+	lua_getfield(L, idx, "metric");
 	attr->med = lua_tointeger(L, -1);
 	lua_pop(L, 1);
-	lua_getfield(L, -1, "ifindex");
+	lua_getfield(L, idx, "ifindex");
 	attr->nh_ifindex = lua_tointeger(L, -1);
 	lua_pop(L, 1);
-	lua_getfield(L, -1, "aspath");
+	lua_getfield(L, idx, "aspath");
 	attr->aspath = aspath_str2aspath(lua_tostring(L, -1));
 	lua_pop(L, 1);
-	lua_getfield(L, -1, "localpref");
+	lua_getfield(L, idx, "localpref");
 	attr->local_pref = lua_tointeger(L, -1);
+	lua_pop(L, 1);
 	lua_pop(L, 1);
 }
 
