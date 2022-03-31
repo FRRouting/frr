@@ -276,6 +276,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_LOCAL_PREF(C)                                                 \
 	(strmatch(C, "frr-bgp-route-map:match-local-preference"))
 #define IS_MATCH_ALIAS(C) (strmatch(C, "frr-bgp-route-map:match-alias"))
+#define IS_MATCH_SCRIPT(C) (strmatch(C, "frr-bgp-route-map:match-script"))
 #define IS_MATCH_ORIGIN(C)                                                     \
 	(strmatch(C, "frr-bgp-route-map:match-origin"))
 #define IS_MATCH_RPKI(C) (strmatch(C, "frr-bgp-route-map:rpki"))
