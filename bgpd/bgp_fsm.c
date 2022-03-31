@@ -677,8 +677,7 @@ static void bgp_llgr_stale_timer_expire(struct thread *thread)
 	 * stale routes from the neighbor that it is retaining.
 	 */
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s(%s) Long-lived stale timer (%s) expired",
-			   peer->host, bgp_peer_hostname(peer),
+		zlog_debug("%pBP Long-lived stale timer (%s) expired", peer,
 			   get_afi_safi_str(afi, safi, false));
 
 	UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_LLGR_WAIT);
@@ -720,10 +719,8 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
-							"%s(%s) Long-lived set stale community (LLGR_STALE) for: %pFX",
-							peer->host,
-							bgp_peer_hostname(peer),
-							&dest->p);
+							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+							peer, &dest->p);
 
 					attr = *pi->attr;
 					bgp_attr_add_llgr_community(&attr);
@@ -750,10 +747,8 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s(%s) Long-lived set stale community (LLGR_STALE) for: %pFX",
-						peer->host,
-						bgp_peer_hostname(peer),
-						&dest->p);
+						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+						peer, &dest->p);
 
 				attr = *pi->attr;
 				bgp_attr_add_llgr_community(&attr);
@@ -777,10 +772,9 @@ static void bgp_graceful_restart_timer_expire(struct thread *thread)
 	peer = THREAD_ARG(thread);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug("%s(%s) graceful restart timer expired", peer->host,
-			   bgp_peer_hostname(peer));
-		zlog_debug("%s(%s) graceful restart stalepath timer stopped",
-			   peer->host, bgp_peer_hostname(peer));
+		zlog_debug("%pBP graceful restart timer expired", peer);
+		zlog_debug("%pBP graceful restart stalepath timer stopped",
+			   peer);
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -806,8 +800,8 @@ static void bgp_graceful_restart_timer_expire(struct thread *thread)
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s(%s) Long-lived stale timer (%s) started for %d sec",
-					peer->host, bgp_peer_hostname(peer),
+					"%pBP Long-lived stale timer (%s) started for %d sec",
+					peer,
 					get_afi_safi_str(afi, safi, false),
 					peer->llgr[afi][safi].stale_time);
 
@@ -842,8 +836,8 @@ static void bgp_graceful_stale_timer_expire(struct thread *thread)
 	peer = THREAD_ARG(thread);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s(%s) graceful restart stalepath timer expired",
-			   peer->host, bgp_peer_hostname(peer));
+		zlog_debug("%pBP graceful restart stalepath timer expired",
+			   peer);
 
 	/* NSF delete stale route */
 	FOREACH_AFI_SAFI_NSF (afi, safi)
@@ -1395,8 +1389,8 @@ int bgp_stop(struct peer *peer)
 			struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
 
 			zlog_info(
-				"%%ADJCHANGE: neighbor %s(%s) in vrf %s Down %s",
-				peer->host, bgp_peer_hostname(peer),
+				"%%ADJCHANGE: neighbor %pBP in vrf %s Down %s",
+				peer,
 				vrf ? ((vrf->vrf_id != VRF_DEFAULT)
 					       ? vrf->name
 					       : VRF_DEFAULT_NAME)
@@ -1409,19 +1403,17 @@ int bgp_stop(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_gr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s(%s) graceful restart stalepath timer stopped",
-					peer->host, bgp_peer_hostname(peer));
+					"%pBP graceful restart stalepath timer stopped",
+					peer);
 		}
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
 			if (bgp_debug_neighbor_events(peer)) {
 				zlog_debug(
-					"%s(%s) graceful restart timer started for %d sec",
-					peer->host, bgp_peer_hostname(peer),
-					peer->v_gr_restart);
+					"%pBP graceful restart timer started for %d sec",
+					peer, peer->v_gr_restart);
 				zlog_debug(
-					"%s(%s) graceful restart stalepath timer started for %d sec",
-					peer->host, bgp_peer_hostname(peer),
-					peer->bgp->stalepath_time);
+					"%pBP graceful restart stalepath timer started for %d sec",
+					peer, peer->bgp->stalepath_time);
 			}
 			BGP_TIMER_ON(peer->t_gr_restart,
 				     bgp_graceful_restart_timer_expire,
@@ -1442,8 +1434,8 @@ int bgp_stop(struct peer *peer)
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s(%s) route-refresh restart stalepath timer stopped",
-					peer->host, bgp_peer_hostname(peer));
+					"%pBP route-refresh restart stalepath timer stopped",
+					peer);
 		}
 
 		/* If peer reset before receiving EOR, decrement EOR count and
@@ -2099,8 +2091,7 @@ static int bgp_establish(struct peer *peer)
 	/* bgp log-neighbor-changes of neighbor Up */
 	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 		struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
-		zlog_info("%%ADJCHANGE: neighbor %s(%s) in vrf %s Up",
-			  peer->host, bgp_peer_hostname(peer),
+		zlog_info("%%ADJCHANGE: neighbor %pBP in vrf %s Up", peer,
 			  vrf ? ((vrf->vrf_id != VRF_DEFAULT)
 					 ? vrf->name
 					 : VRF_DEFAULT_NAME)
@@ -2113,9 +2104,9 @@ static int bgp_establish(struct peer *peer)
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	if (bgp_debug_neighbor_events(peer)) {
 		if (BGP_PEER_RESTARTING_MODE(peer))
-			zlog_debug("peer %s BGP_RESTARTING_MODE", peer->host);
+			zlog_debug("%pBP BGP_RESTARTING_MODE", peer);
 		else if (BGP_PEER_HELPER_MODE(peer))
-			zlog_debug("peer %s BGP_HELPER_MODE", peer->host);
+			zlog_debug("%pBP BGP_HELPER_MODE", peer);
 	}
 
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
@@ -2189,16 +2180,15 @@ static int bgp_establish(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_gr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s(%s) graceful restart stalepath timer stopped",
-					peer->host, bgp_peer_hostname(peer));
+					"%pBP graceful restart stalepath timer stopped",
+					peer);
 		}
 	}
 
 	if (peer->t_gr_restart) {
 		BGP_TIMER_OFF(peer->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s(%s) graceful restart timer stopped",
-				   peer->host, bgp_peer_hostname(peer));
+			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 
 	/* Reset uptime, turn on keepalives, send current table. */
@@ -2215,8 +2205,8 @@ static int bgp_establish(struct peer *peer)
 			BGP_TIMER_OFF(peer->t_llgr_stale[afi][safi]);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Long-lived stale timer stopped for afi/safi: %d/%d",
-					peer->host, afi, safi);
+					"%pBP Long-lived stale timer stopped for afi/safi: %d/%d",
+					peer, afi, safi);
 		}
 
 		if (CHECK_FLAG(peer->af_cap[afi][safi],
