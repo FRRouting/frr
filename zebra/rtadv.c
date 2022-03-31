@@ -490,9 +490,11 @@ static void rtadv_timer(struct thread *thread)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (if_is_loopback(ifp) || !if_is_operative(ifp)
-			    || (vrf_is_backend_netns()
-				&& ifp->vrf->vrf_id != zvrf->vrf->vrf_id))
+			if (if_is_loopback(ifp) || !if_is_operative(ifp) ||
+			    IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) ||
+			    !connected_get_linklocal(ifp) ||
+			    (vrf_is_backend_netns() &&
+			     ifp->vrf->vrf_id != zvrf->vrf->vrf_id))
 				continue;
 
 			zif = ifp->info;
