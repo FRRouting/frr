@@ -1628,7 +1628,7 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Update related packet debugging is %s\n",
 			onoffs);
 	if (flags & DEBUG_RTE_EVENTS)
-		vty_out(vty, "IS-IS Route related debuggin is %s\n", onoffs);
+		vty_out(vty, "IS-IS Route related debugging is %s\n", onoffs);
 	if (flags & DEBUG_EVENTS)
 		vty_out(vty, "IS-IS Event debugging is %s\n", onoffs);
 	if (flags & DEBUG_PACKET_DUMP)
