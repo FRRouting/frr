@@ -141,7 +141,7 @@ def teardown_module():
 
 def get_llip(onrouter, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -169,7 +169,7 @@ def get_llip(onrouter, intf):
 
 def get_glipv6(onrouter, intf):
     """
-    API to get the global ipv6 address of a perticular interface
+    API to get the global ipv6 address of a particular interface
 
     Parameters
     ----------
