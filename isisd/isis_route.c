@@ -882,8 +882,9 @@ static void _isis_route_verify_merge(struct isis_area *area,
 						ISIS_ROUTE_FLAG_ZEBRA_SYNCED)) {
 					continue;
 				}
+			} else {
+				mrnode->info = rnode->info;
 			}
-			mrnode->info = rnode->info;
 		}
 	}
 
