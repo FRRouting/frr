@@ -4207,7 +4207,7 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
 def get_ipv6_linklocal_address(topo, node, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
