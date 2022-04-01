@@ -104,6 +104,8 @@ int gm_process_last_member_query_interval_cmd(struct vty *vty,
 int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
 void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		 bool fill, json_object *json);
+void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
+			 json_object *json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance

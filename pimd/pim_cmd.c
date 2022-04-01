@@ -4156,90 +4156,9 @@ DEFUN (show_ip_mroute_count_vrf_all,
 	return CMD_SUCCESS;
 }
 
-static void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
-				json_object *json)
-{
-	struct listnode *node;
-	struct channel_oil *c_oil;
-	struct static_route *s_route;
-	uint32_t starg_sw_mroute_cnt = 0;
-	uint32_t sg_sw_mroute_cnt = 0;
-	uint32_t starg_hw_mroute_cnt = 0;
-	uint32_t sg_hw_mroute_cnt = 0;
-	json_object *json_starg = NULL;
-	json_object *json_sg = NULL;
-
-	if (!json)
-		vty_out(vty, "Mroute Type    Installed/Total\n");
-
-	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
-		if (!c_oil->installed) {
-			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
-				starg_sw_mroute_cnt++;
-			else
-				sg_sw_mroute_cnt++;
-		} else {
-			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
-				starg_hw_mroute_cnt++;
-			else
-				sg_hw_mroute_cnt++;
-		}
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
-		if (!s_route->c_oil.installed) {
-			if (s_route->c_oil.oil.mfcc_origin.s_addr == INADDR_ANY)
-				starg_sw_mroute_cnt++;
-			else
-				sg_sw_mroute_cnt++;
-		} else {
-			if (s_route->c_oil.oil.mfcc_origin.s_addr == INADDR_ANY)
-				starg_hw_mroute_cnt++;
-			else
-				sg_hw_mroute_cnt++;
-		}
-	}
-
-	if (!json) {
-		vty_out(vty, "%-20s %u/%u\n", "(*, G)", starg_hw_mroute_cnt,
-			starg_sw_mroute_cnt + starg_hw_mroute_cnt);
-		vty_out(vty, "%-20s %u/%u\n", "(S, G)", sg_hw_mroute_cnt,
-			sg_sw_mroute_cnt + sg_hw_mroute_cnt);
-		vty_out(vty, "------\n");
-		vty_out(vty, "%-20s %u/%u\n", "Total",
-			(starg_hw_mroute_cnt + sg_hw_mroute_cnt),
-			(starg_sw_mroute_cnt + starg_hw_mroute_cnt
-			 + sg_sw_mroute_cnt + sg_hw_mroute_cnt));
-	} else {
-		/* (*,G) route details */
-		json_starg = json_object_new_object();
-		json_object_object_add(json, "wildcardGroup", json_starg);
-
-		json_object_int_add(json_starg, "installed",
-				    starg_hw_mroute_cnt);
-		json_object_int_add(json_starg, "total",
-				    starg_sw_mroute_cnt + starg_hw_mroute_cnt);
-
-		/* (S, G) route details */
-		json_sg = json_object_new_object();
-		json_object_object_add(json, "sourceGroup", json_sg);
-
-		json_object_int_add(json_sg, "installed", sg_hw_mroute_cnt);
-		json_object_int_add(json_sg, "total",
-				    sg_sw_mroute_cnt + sg_hw_mroute_cnt);
-
-		json_object_int_add(json, "totalNumOfInstalledMroutes",
-				    starg_hw_mroute_cnt + sg_hw_mroute_cnt);
-		json_object_int_add(json, "totalNumOfMroutes",
-				    starg_sw_mroute_cnt + starg_hw_mroute_cnt
-				    + sg_sw_mroute_cnt
-				    + sg_hw_mroute_cnt);
-	}
-}
-
-DEFUN (show_ip_mroute_summary,
+DEFPY (show_ip_mroute_summary,
        show_ip_mroute_summary_cmd,
-       "show ip mroute [vrf NAME] summary [json]",
+       "show ip mroute [vrf NAME] summary [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -4247,27 +4166,38 @@ DEFUN (show_ip_mroute_summary,
        "Summary of all mroutes\n"
        JSON_STR)
 {
-	int idx = 2;
-	bool uj = use_json(argc, argv);
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	json_object *json = NULL;
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
 
-	if (uj)
-		json = json_object_new_object();
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 
-	if (!vrf)
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
+	}
 
-	show_mroute_summary(vrf->info, vty, json);
+	pim = pim_get_pim_instance(v->vrf_id);
 
-	if (uj)
-		vty_json(vty, json);
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_summary(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_mroute_summary_vrf_all,
+DEFPY (show_ip_mroute_summary_vrf_all,
        show_ip_mroute_summary_vrf_all_cmd,
-       "show ip mroute vrf all summary [json]",
+       "show ip mroute vrf all summary [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -4276,27 +4206,27 @@ DEFUN (show_ip_mroute_summary_vrf_all,
        JSON_STR)
 {
 	struct vrf *vrf;
-	bool uj = use_json(argc, argv);
-	json_object *json = NULL;
+	json_object *json_parent = NULL;
 	json_object *json_vrf = NULL;
 
-	if (uj)
-		json = json_object_new_object();
+	if (json)
+		json_parent = json_object_new_object();
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj)
-			json_vrf = json_object_new_object();
-		else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
 
 		show_mroute_summary(vrf->info, vty, json_vrf);
 
-		if (uj)
-			json_object_object_add(json, vrf->name, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
 
-	if (uj)
-		vty_json(vty, json);
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
