@@ -65,7 +65,7 @@
 #include "isisd/isis_zebra.h"
 
 /*------------------------------------------------------------------------*
- * Followings are control functions for MPLS-TE parameters management.
+ * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
 
 /* Main initialization / update function of the MPLS TE Circuit context */
@@ -1231,7 +1231,7 @@ void isis_te_init_ted(struct isis_area *area)
 			isis_te_parse_lsp(area->mta, lsp);
 }
 
-/* Followings are vty command functions */
+/* Following are vty command functions */
 #ifndef FABRICD
 
 static void show_router_id(struct vty *vty, struct isis_area *area)

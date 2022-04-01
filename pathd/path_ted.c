@@ -353,7 +353,7 @@ DEFPY (debug_path_ted,
 }
 
 /*
- * Followings are vty command functions.
+ * Following are vty command functions.
  */
 /* clang-format off */
 DEFUN (path_ted_on,
