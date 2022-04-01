@@ -61,7 +61,7 @@ static void test_encode_decode(void)
 	assert(strncmp(p_a_str, p_b_str, sizeof(p_b_str)) == 0);
 	assert(lua_gettop(L) == 0);
 
-	struct interface ifp_a;
+	struct interface ifp_a = {};
 	struct interface ifp_b = ifp_a;
 
 	lua_pushinterface(L, &ifp_a);
@@ -79,7 +79,7 @@ static void test_encode_decode(void)
 	assert(ifp_a.ll_type == ifp_b.ll_type);
 	assert(lua_gettop(L) == 0);
 
-	struct in_addr addr_a;
+	struct in_addr addr_a = {};
 	struct in_addr addr_b = addr_a;
 
 	lua_pushinaddr(L, &addr_a);
@@ -87,7 +87,7 @@ static void test_encode_decode(void)
 	assert(addr_a.s_addr == addr_b.s_addr);
 	assert(lua_gettop(L) == 0);
 
-	struct in6_addr in6addr_a;
+	struct in6_addr in6addr_a = {};
 	struct in6_addr in6addr_b = in6addr_a;
 
 	lua_pushin6addr(L, &in6addr_a);
