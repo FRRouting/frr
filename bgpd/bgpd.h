@@ -2473,11 +2473,6 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
-static inline const char *bgp_peer_hostname(struct peer *peer)
-{
-	return peer->hostname ? peer->hostname : "Unknown";
-}
-
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 
@@ -2508,4 +2503,11 @@ void peer_tcp_mss_unset(struct peer *peer);
 
 extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
 					       safi_t safi);
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+/* clang-format off */
+#pragma FRR printfrr_ext "%pBP" (struct peer *)
+/* clang-format on */
+#endif
+
 #endif /* _QUAGGA_BGPD_H */
