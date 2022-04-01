@@ -79,7 +79,7 @@ static const char *const mode2text[] = {"Off", "AS", "Area"};
 
 
 /*------------------------------------------------------------------------*
- * Followings are initialize/terminate functions for MPLS-TE handling.
+ * Following are initialize/terminate functions for MPLS-TE handling.
  *------------------------------------------------------------------------*/
 
 static int ospf_mpls_te_new_if(struct interface *ifp);
@@ -197,7 +197,7 @@ void ospf_mpls_te_finish(void)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are control functions for MPLS-TE parameters management.
+ * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
 static void del_mpls_te_link(void *val)
 {
@@ -814,7 +814,7 @@ static int is_mandated_params_set(struct mpls_te_link *lp)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are callback functions against generic Opaque-LSAs handling.
+ * Following are callback functions against generic Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 
 static int ospf_mpls_te_new_if(struct interface *ifp)
@@ -1079,7 +1079,7 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are OSPF protocol processing functions for MPLS-TE LSA.
+ * Following are OSPF protocol processing functions for MPLS-TE LSA.
  *------------------------------------------------------------------------*/
 
 static void build_tlv_header(struct stream *s, struct tlv_header *tlvh)
@@ -1624,7 +1624,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 
 /**
  * ------------------------------------------------------
- * Followings are Link State Data Base control functions.
+ * Following are Link State Data Base control functions.
  * ------------------------------------------------------
  */
 
@@ -3153,7 +3153,7 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty session control functions.
+ * Following are vty session control functions.
  *------------------------------------------------------------------------*/
 #define check_tlv_size(size, msg)                                              \
 	do {                                                                   \
@@ -3846,7 +3846,7 @@ static void ospf_mpls_te_config_write_router(struct vty *vty)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty command functions.
+ * Following are vty command functions.
  *------------------------------------------------------------------------*/
 
 DEFUN (ospf_mpls_te_on,

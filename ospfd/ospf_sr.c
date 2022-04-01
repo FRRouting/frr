@@ -2023,7 +2023,7 @@ void ospf_sr_update_task(struct ospf *ospf)
 
 /*
  * --------------------------------------
- * Followings are vty command functions.
+ * Following are vty command functions.
  * --------------------------------------
  */
 
