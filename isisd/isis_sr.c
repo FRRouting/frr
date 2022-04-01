@@ -641,7 +641,7 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 			   struct list *nexthops)
 {
 	struct isis_circuit *circuit = adj->circuit;
-	struct isis_area *area = circuit->area;
+	struct isis_area *area;
 	struct sr_adjacency *sra;
 	struct isis_adj_sid *adj_sid;
 	struct isis_lan_adj_sid *ladj_sid;
@@ -649,6 +649,9 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 	uint8_t flags;
 	mpls_label_t input_label;
 
+	area = circuit->area;
+	if (!area)
+		return;
 	sr_debug("ISIS-Sr (%s): Add %s Adjacency SID", area->area_tag,
 		 backup ? "Backup" : "Primary");
 
