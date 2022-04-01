@@ -934,12 +934,12 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 	switch (error) {
 	case BGP_ERR_AF_UNCONFIGURED:
 		vty_out(vty,
-			"%%BGP: Enable %s address family for the neighbor %s\n",
+			"%% BGP: Enable %s address family for the neighbor %s\n",
 			get_afi_safi_str(afi, safi, false), peer->host);
 		break;
 	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
 		vty_out(vty,
-			"%%BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
+			"%% BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
 			peer->host);
 		break;
 	default:
@@ -1086,7 +1086,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			peer = peer_lookup(bgp, &su);
 			if (!peer) {
 				vty_out(vty,
-					"%%BGP: Unknown neighbor - \"%s\"\n",
+					"%% BGP: Unknown neighbor - \"%s\"\n",
 					arg);
 				return CMD_WARNING;
 			}
@@ -1113,7 +1113,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		group = peer_group_lookup(bgp, arg);
 		if (!group) {
-			vty_out(vty, "%%BGP: No such peer-group %s\n", arg);
+			vty_out(vty, "%% BGP: No such peer-group %s\n", arg);
 			return CMD_WARNING;
 		}
 
@@ -1128,7 +1128,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		if (!found)
 			vty_out(vty,
-				"%%BGP: No %s peer belonging to peer-group %s is configured\n",
+				"%% BGP: No %s peer belonging to peer-group %s is configured\n",
 				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
@@ -1163,7 +1163,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		if (!found)
 			vty_out(vty,
-				"%%BGP: No external %s peer is configured\n",
+				"%% BGP: No external %s peer is configured\n",
 				get_afi_safi_str(afi, safi, false));
 
 		return CMD_SUCCESS;
@@ -1200,7 +1200,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		if (!found)
 			vty_out(vty,
-				"%%BGP: No %s peer is configured with AS %s\n",
+				"%% BGP: No %s peer is configured with AS %s\n",
 				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
