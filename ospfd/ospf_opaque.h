@@ -64,7 +64,7 @@
 #define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
 #define OPAQUE_TYPE_MAX                                8
 
-/* Followings types are proposed in internet-draft documents. */
+/* Following types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
 #define OPAQUE_TYPE_SECONDARY_NEIGHBOR_DISCOVERY	224
 #define OPAQUE_TYPE_FLOODGATE                           225

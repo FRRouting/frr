@@ -221,7 +221,7 @@ static struct ospf_apiserver *lookup_apiserver_by_lsa(struct ospf_lsa *lsa)
 }
 
 /* -----------------------------------------------------------
- * Followings are functions to manage client connections.
+ * Following are functions to manage client connections.
  * -----------------------------------------------------------
  */
 static int ospf_apiserver_new_lsa_hook(struct ospf_lsa *lsa)
@@ -1174,7 +1174,7 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 
 
 /* -----------------------------------------------------------
- * Followings are functions for LSDB synchronization.
+ * Following are functions for LSDB synchronization.
  * -----------------------------------------------------------
  */
 
@@ -1345,7 +1345,7 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 
 
 /* -----------------------------------------------------------
- * Followings are functions to originate or update LSA
+ * Following are functions to originate or update LSA
  * from an application.
  * -----------------------------------------------------------
  */
@@ -1787,7 +1787,7 @@ out:
 
 
 /* -----------------------------------------------------------
- * Followings are functions to delete LSAs
+ * Following are functions to delete LSAs
  * -----------------------------------------------------------
  */
 
@@ -1952,7 +1952,7 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 
 
 /* -----------------------------------------------------------
- * Followings are callback functions to handle opaque types
+ * Following are callback functions to handle opaque types
  * -----------------------------------------------------------
  */
 
@@ -2102,7 +2102,7 @@ void ospf_apiserver_show_info(struct vty *vty, struct json_object *json,
 }
 
 /* -----------------------------------------------------------
- * Followings are functions to notify clients about events
+ * Following are functions to notify clients about events
  * -----------------------------------------------------------
  */
 
@@ -2417,7 +2417,7 @@ static void apiserver_clients_lsa_change_notify(uint8_t msgtype,
 
 
 /* -------------------------------------------------------------
- * Followings are hooks invoked when LSAs are updated or deleted
+ * Following are hooks invoked when LSAs are updated or deleted
  * -------------------------------------------------------------
  */
 

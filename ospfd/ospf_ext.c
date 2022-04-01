@@ -74,7 +74,7 @@ static struct ospf_ext_lp OspfEXT;
 
 /*
  * -----------------------------------------------------------------------
- * Followings are initialize/terminate functions for Extended Prefix/Link
+ * Following are initialize/terminate functions for Extended Prefix/Link
  * Opaque LSA handling.
  * -----------------------------------------------------------------------
  */
@@ -216,7 +216,7 @@ void ospf_ext_finish(void)
 
 /*
  * ---------------------------------------------------------------------
- * Followings are control functions for Extended Prefix/Link Opaque LSA
+ * Following are control functions for Extended Prefix/Link Opaque LSA
  * parameters management.
  * ---------------------------------------------------------------------
  */
@@ -681,7 +681,7 @@ void ospf_ext_update_sr(bool enable)
 
 /*
  * -----------------------------------------------------------------------
- * Followings are callback functions against generic Opaque-LSAs handling
+ * Following are callback functions against generic Opaque-LSAs handling
  * -----------------------------------------------------------------------
  */
 
@@ -985,7 +985,7 @@ static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa)
 
 /*
  * -------------------------------------------------------
- * Followings are OSPF protocol processing functions for
+ * Following are OSPF protocol processing functions for
  * Extended Prefix/Link Opaque LSA
  * -------------------------------------------------------
  */
@@ -1713,7 +1713,7 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
 
 /*
  * ------------------------------------
- * Followings are vty show functions.
+ * Following are vty show functions.
  * ------------------------------------
  */
 
