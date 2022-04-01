@@ -2928,7 +2928,7 @@ def addKernelRoute(
     Parameters:
     -----------
     * `tgen`  : Topogen object
-    * `router`: router for which kernal routes needs to be added
+    * `router`: router for which kernel routes needs to be added
     * `intf`: interface name, for which kernel routes needs to be added
     * `bindToAddress`: bind to <host>, an interface or multicast
                        address
@@ -2969,7 +2969,7 @@ def addKernelRoute(
         output = rnode.run(cmd)
 
         def check_in_kernel(rnode, verify_cmd, grp_addr, router):
-            # Verifying if ip route added to kernal
+            # Verifying if ip route added to kernel
             errormsg = None
             result = rnode.run(verify_cmd)
             logger.debug("{}\n{}".format(verify_cmd, result))
