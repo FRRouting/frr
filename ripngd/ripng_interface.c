@@ -198,7 +198,7 @@ static int ripng_if_down(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface link up message processing. */
+/* Interface link up message processing. */
 static int ripng_ifp_up(struct interface *ifp)
 {
 	if (IS_RIPNG_DEBUG_ZEBRA)
@@ -222,7 +222,7 @@ static int ripng_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface link down message processing. */
+/* Interface link down message processing. */
 static int ripng_ifp_down(struct interface *ifp)
 {
 	ripng_interface_sync(ifp);
@@ -238,7 +238,7 @@ static int ripng_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 static int ripng_ifp_create(struct interface *ifp)
 {
 	ripng_interface_sync(ifp);

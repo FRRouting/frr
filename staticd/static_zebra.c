@@ -87,7 +87,7 @@ static struct static_nht_hash_head static_nht_hash[1];
 struct zclient *zclient;
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 static int static_ifp_create(struct interface *ifp)
 {
 	static_ifindex_update(ifp, true);
