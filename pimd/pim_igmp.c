@@ -206,8 +206,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 }
 
 /*
-  igmp_source_forward_stop: stop fowarding, but keep the source
-  igmp_source_delete:       stop fowarding, and delete the source
+  igmp_source_forward_stop: stop forwarding, but keep the source
+  igmp_source_delete:       stop forwarding, and delete the source
  */
 void igmp_source_forward_stop(struct gm_source *source)
 {

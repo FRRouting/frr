@@ -1872,7 +1872,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(
 	return mac;
 }
 
-/* update local fowarding info. return true if a dest-ES change
+/* update local forwarding info. return true if a dest-ES change
  * is detected
  */
 static bool zebra_evpn_local_mac_update_fwd_info(struct zebra_mac *mac,
