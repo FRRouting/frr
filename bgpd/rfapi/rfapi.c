@@ -3980,7 +3980,7 @@ rfapi_rfp_get_group_config_name_l2(struct rfapi_cfg *rfc, const char *name,
  *    rfp_start_val     value returned by rfp_start
  *    type              group type
  *    name              group name
- *    criteria          RFAPI caller provided serach criteria
+ *    criteria          RFAPI caller provided search criteria
  *    search_cb         optional rfp_group_config_search_cb_t
  *
  * output:
@@ -4037,7 +4037,7 @@ void *rfapi_rfp_get_group_config_ptr_name(
  *    rfp_start_val     value returned by rfp_start
  *    type              group type
  *    logical_net_id    group logical network identifier
- *    criteria          RFAPI caller provided serach criteria
+ *    criteria          RFAPI caller provided search criteria
  *    search_cb         optional rfp_group_config_search_cb_t
  *
  * output:
