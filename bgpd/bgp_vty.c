@@ -13042,7 +13042,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_object_add(json_cap, "hostName",
 					       json_hname);
 
-			/* Gracefull Restart */
+			/* Graceful Restart */
 			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
 			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV) &&
@@ -13452,7 +13452,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						vty_out(vty, "none");
 					vty_out(vty, "\n");
 				}
-			} /* Gracefull Restart */
+			} /* Graceful Restart */
 		}
 	}
 
