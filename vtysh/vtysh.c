@@ -3401,7 +3401,7 @@ DEFUN (vtysh_write_memory,
 
 	vty_out(vty, "Note: this version of vtysh never writes vtysh.conf\n");
 
-	/* If integrated frr.conf explicitely set. */
+	/* If integrated frr.conf explicitly set. */
 	if (want_config_integrated()) {
 		ret = CMD_WARNING_CONFIG_FAILED;
 
