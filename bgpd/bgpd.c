@@ -4489,7 +4489,7 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 	}
 
 	/*
-	 * Update peer-group members, unless they are explicitely overriding
+	 * Update peer-group members, unless they are explicitly overriding
 	 * peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
@@ -4657,7 +4657,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 			  set != invert);
 	} else {
 		/*
-		 * Update peer-group members, unless they are explicitely
+		 * Update peer-group members, unless they are explicitly
 		 * overriding peer-group configuration.
 		 */
 		for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode,
@@ -4919,7 +4919,7 @@ int peer_update_source_if_set(struct peer *peer, const char *ifname)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -4990,7 +4990,7 @@ int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5067,7 +5067,7 @@ int peer_update_source_unset(struct peer *peer)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5147,7 +5147,7 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5223,7 +5223,7 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5328,7 +5328,7 @@ int peer_weight_set(struct peer *peer, afi_t afi, safi_t safi, uint16_t weight)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5375,7 +5375,7 @@ int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5421,7 +5421,7 @@ int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5460,7 +5460,7 @@ int peer_timers_unset(struct peer *peer)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5500,7 +5500,7 @@ int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 	}
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5554,7 +5554,7 @@ int peer_timers_connect_unset(struct peer *peer)
 	}
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5602,7 +5602,7 @@ int peer_advertise_interval_set(struct peer *peer, uint32_t routeadv)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5659,7 +5659,7 @@ int peer_advertise_interval_unset(struct peer *peer)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5700,7 +5700,7 @@ int peer_timers_delayopen_set(struct peer *peer, uint32_t delayopen)
 		return 0;
 
 	/* Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5747,7 +5747,7 @@ int peer_timers_delayopen_unset(struct peer *peer)
 		return 0;
 
 	/* Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5817,7 +5817,7 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5883,7 +5883,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/*
 	 * Remove flags and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -5952,7 +5952,7 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6028,7 +6028,7 @@ int peer_local_as_unset(struct peer *peer)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6092,7 +6092,7 @@ int peer_password_set(struct peer *peer, const char *password)
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6170,7 +6170,7 @@ int peer_password_unset(struct peer *peer)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6240,7 +6240,7 @@ int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 	/*
 	 * Set configuration on all peer-group members, un less they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6307,7 +6307,7 @@ int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 	/*
 	 * Remove configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6425,7 +6425,7 @@ int peer_prefix_list_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 	/*
 	 * Set configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6493,7 +6493,7 @@ int peer_prefix_list_unset(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Remove configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6609,7 +6609,7 @@ int peer_aslist_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 	/*
 	 * Set configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6676,7 +6676,7 @@ int peer_aslist_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 	/*
 	 * Remove configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6806,7 +6806,7 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 	/*
 	 * Set configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6872,7 +6872,7 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 	/*
 	 * Remove configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6926,7 +6926,7 @@ int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Set configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -6988,7 +6988,7 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/*
 	 * Remove configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -7092,7 +7092,7 @@ int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Set configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -7153,7 +7153,7 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Remove configuration on all peer-group members, unless they are
-	 * explicitely overriding peer-group configuration.
+	 * explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -7231,7 +7231,7 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Set flags and configuration on all peer-group members, unless they
-	 * are explicitely overriding peer-group configuration.
+	 * are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -7292,7 +7292,7 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/*
 	 * Remove flags and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		struct peer *member;
@@ -7354,7 +7354,7 @@ int peer_maximum_prefix_out_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they
-	 * are explicitely overriding peer-group configuration.
+	 * are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
@@ -7396,7 +7396,7 @@ int peer_maximum_prefix_out_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/*
 	 * Remove flag and configuration from all peer-group members, unless
-	 * they are explicitely overriding peer-group configuration.
+	 * they are explicitly overriding peer-group configuration.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
 		/* Skip peers with overridden configuration. */
