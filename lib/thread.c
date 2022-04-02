@@ -751,7 +751,7 @@ void thread_master_free(struct thread_master *m)
 	XFREE(MTYPE_THREAD_MASTER, m);
 }
 
-/* Return remain time in miliseconds. */
+/* Return remain time in milliseconds. */
 unsigned long thread_timer_remain_msec(struct thread *thread)
 {
 	int64_t remain;
