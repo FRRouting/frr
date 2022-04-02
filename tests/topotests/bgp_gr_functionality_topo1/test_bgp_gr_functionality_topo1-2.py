@@ -20,7 +20,7 @@
 #
 
 """
-Following tests are covered to test BGP Gracefull Restart functionality.
+Following tests are covered to test BGP Graceful Restart functionality.
 Basic Common Test steps for all the test case below :
 - Create topology (setup module)
   Creating 2 routers topology, r1, r2 in IBGP
