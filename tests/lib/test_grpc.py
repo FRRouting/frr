@@ -13,6 +13,10 @@ class TestGRPC(object):
         'S["GRPC_TRUE"]=""\n' not in open("../config.status").readlines(),
         reason="GRPC not enabled",
     )
+    @pytest.mark.skipif(
+        not os.path.isdir("/usr/share/yang"),
+        reason="YANG models aren't installed in /usr/share/yang",
+    )
     def test_exits_cleanly(self):
         basedir = os.path.dirname(inspect.getsourcefile(type(self)))
         program = os.path.join(basedir, self.program)
