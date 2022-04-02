@@ -81,7 +81,7 @@ Basic Common Test steps for all the test case below :
     Global Mode : GR Restart
     PerPeer Mode :  None
     GR Mode effective : GR Restart
-23. Transition from Peer-level disbale to Global inherit helper
+23. Transition from Peer-level disable to Global inherit helper
     Global Mode : None
     PerPeer Mode :  GR Disable
     GR Mode effective : GR Disable
@@ -1418,7 +1418,7 @@ def test_BGP_GR_TC_49_p1(request):
 
 def BGP_GR_TC_52_p1(request):
     """
-    Test Objective : Transition from Peer-level disbale to Global inherit helper
+    Test Objective : Transition from Peer-level disable to Global inherit helper
     Global Mode : None
     PerPeer Mode :  GR Disable
     GR Mode effective : GR Disable
