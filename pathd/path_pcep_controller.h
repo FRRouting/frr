@@ -132,7 +132,7 @@ struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
 
 /* Asynchronously send a report. The caller is giving away the path structure,
  * it shouldn't be allocated on the stack. If `pcc_id` is `0` the report is
- * sent by all PCCs.  The parameter is_stable is used to hint wether the status
+ * sent by all PCCs.  The parameter is_stable is used to hint whether the status
  * will soon change, this is used to ensure all report updates are sent even
  * when missing status update events */
 int pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
