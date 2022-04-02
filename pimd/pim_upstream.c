@@ -647,7 +647,7 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
  * 2. and along the RPT if SPTbit is not set
  * If forwarding is hw accelerated i.e. control and dataplane components
  * are separate you may not be able to reliably set SPT bit on intermediate
- * routers while still fowarding on the (S,G,rpt).
+ * routers while still forwarding on the (S,G,rpt).
  *
  * This macro is a slight deviation on the RFC and uses "traffic-agnostic"
  * criteria to decide between using the RPT vs. SPT for forwarding.
