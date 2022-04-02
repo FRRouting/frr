@@ -617,7 +617,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 			hook_call(rip_ifaddr_del, ifc);
 
-			/* Chech wether this prefix needs to be removed */
+			/* Chech whether this prefix needs to be removed */
 			rip_apply_address_del(ifc);
 		}
 
@@ -628,7 +628,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 }
 
 /* Check interface is enabled by network statement. */
-/* Check wether the interface has at least a connected prefix that
+/* Check whether the interface has at least a connected prefix that
  * is within the ripng_enable_network table. */
 static int rip_enable_network_lookup_if(struct interface *ifp)
 {
@@ -663,7 +663,7 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check wether connected is within the ripng_enable_network table. */
+/* Check whether connected is within the ripng_enable_network table. */
 static int rip_enable_network_lookup2(struct connected *connected)
 {
 	struct rip_interface *ri = connected->ifp->info;
@@ -840,7 +840,7 @@ static void rip_connect_set(struct interface *ifp, int set)
 		nh.ifindex = connected->ifp->ifindex;
 		nh.type = NEXTHOP_TYPE_IFINDEX;
 		if (set) {
-			/* Check once more wether this prefix is within a
+			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
 			if ((rip_enable_if_lookup(rip, connected->ifp->name)
 			     >= 0)
