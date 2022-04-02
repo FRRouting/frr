@@ -1841,7 +1841,7 @@ struct route_map_rule_cmd route_set_srte_color_cmd = {
 	"sr-te color", route_set_srte_color, route_set_srte_color_compile,
 	route_set_srte_color_free};
 
-/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+/* Set nexthop to object.  object must be pointer to struct attr. */
 struct rmap_ip_nexthop_set {
 	struct in_addr *address;
 	int peer_address;
@@ -3306,7 +3306,7 @@ static const struct route_map_rule_cmd
 
 /* `set ipv6 nexthop global IP_ADDRESS' */
 
-/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+/* Set nexthop to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
 route_set_ipv6_nexthop_global(void *rule, const struct prefix *p, void *object)
 {
@@ -3418,7 +3418,7 @@ static const struct route_map_rule_cmd
 
 /* `set ipv6 nexthop local IP_ADDRESS' */
 
-/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+/* Set nexthop to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
 route_set_ipv6_nexthop_local(void *rule, const struct prefix *p, void *object)
 {
@@ -3478,7 +3478,7 @@ static const struct route_map_rule_cmd
 
 /* `set ipv6 nexthop peer-address' */
 
-/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+/* Set nexthop to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
 route_set_ipv6_nexthop_peer(void *rule, const struct prefix *pfx, void *object)
 {

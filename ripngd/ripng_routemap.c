@@ -254,7 +254,7 @@ static const struct route_map_rule_cmd route_set_metric_cmd = {
 
 /* `set ipv6 next-hop local IP_ADDRESS' */
 
-/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+/* Set nexthop to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
 route_set_ipv6_nexthop_local(void *rule, const struct prefix *p, void *object)
 {
@@ -307,7 +307,7 @@ static const struct route_map_rule_cmd
 
 /* `set tag TAG' */
 
-/* Set tag to object.  ojbect must be pointer to struct attr. */
+/* Set tag to object.  object must be pointer to struct attr. */
 static enum route_map_cmd_result_t
 route_set_tag(void *rule, const struct prefix *prefix, void *object)
 {
