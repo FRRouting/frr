@@ -337,7 +337,7 @@ struct ospf {
 	struct list *external[ZEBRA_ROUTE_MAX + 1];
 #define EXTERNAL_INFO(E) (E->external_info)
 
-	/* Gracefull restart Helper supported configs*/
+	/* Graceful restart Helper supported configs*/
 	/* Supported grace interval*/
 	uint32_t supported_grace_time;
 

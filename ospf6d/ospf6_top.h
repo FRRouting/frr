@@ -70,7 +70,7 @@ struct ospf6_gr_info {
 };
 
 struct ospf6_gr_helper {
-	/* Gracefull restart Helper supported configs*/
+	/* Graceful restart Helper supported configs*/
 	/* Supported grace interval*/
 	uint32_t supported_grace_time;
 
