@@ -432,7 +432,7 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 					"RIPng connected address %pFX delete",
 					p);
 
-			/* Check wether this prefix needs to be removed. */
+			/* Check whether this prefix needs to be removed. */
 			ripng_apply_address_del(ifc);
 		}
 		connected_free(&ifc);
@@ -442,7 +442,7 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 }
 
 /* Lookup RIPng enable network. */
-/* Check wether the interface has at least a connected prefix that
+/* Check whether the interface has at least a connected prefix that
  * is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
@@ -477,7 +477,7 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check wether connected is within the ripng->enable_network table. */
+/* Check whether connected is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup2(struct connected *connected)
 {
 	struct ripng_interface *ri = connected->ifp->info;
@@ -647,7 +647,7 @@ static void ripng_connect_set(struct interface *ifp, int set)
 		apply_mask_ipv6(&address);
 
 		if (set) {
-			/* Check once more wether this prefix is within a
+			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
 			if ((ripng_enable_if_lookup(ripng, connected->ifp->name)
 			     >= 0)

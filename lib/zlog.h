@@ -68,7 +68,7 @@ struct xrefdata_logmsg {
  * initialization and/or before config load.  There is no need to call e.g.
  * fprintf(stderr, ...) just because it's "too early" at startup.  Depending
  * on context, it may still be the right thing to use fprintf though -- try to
- * determine wether something is a log message or something else.
+ * determine whether something is a log message or something else.
  */
 
 extern void vzlogx(const struct xref_logmsg *xref, int prio,
