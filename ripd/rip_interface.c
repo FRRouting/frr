@@ -311,7 +311,7 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 	return 0;
 }
 
-/* Inteface link down message processing. */
+/* Interface link down message processing. */
 static int rip_ifp_down(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
@@ -327,7 +327,7 @@ static int rip_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface link up message processing */
+/* Interface link up message processing */
 static int rip_ifp_up(struct interface *ifp)
 {
 	if (IS_RIP_DEBUG_ZEBRA)
@@ -351,7 +351,7 @@ static int rip_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 static int rip_ifp_create(struct interface *ifp)
 {
 	rip_interface_sync(ifp);

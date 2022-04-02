@@ -64,7 +64,7 @@ void pbr_if_del(struct interface *ifp)
 	XFREE(MTYPE_PBR_INTERFACE, ifp->info);
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 int pbr_ifp_create(struct interface *ifp)
 {
 	DEBUGD(&pbr_dbg_zebra, "%s: %s", __func__, ifp->name);
