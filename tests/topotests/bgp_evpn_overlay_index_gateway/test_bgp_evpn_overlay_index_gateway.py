@@ -135,7 +135,7 @@ def setup_module(mod):
         l3mdev_accept = 0
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     tgen.start_topology()
 
     # Configure MAC address for hosts as these MACs are advertised with EVPN type-2 routes

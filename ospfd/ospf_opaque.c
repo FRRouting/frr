@@ -61,7 +61,7 @@ DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_TYPE, "OSPF opaque per-type info");
 DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_ID, "OSPF opaque per-ID info");
 
 /*------------------------------------------------------------------------*
- * Followings are initialize/terminate functions for Opaque-LSAs handling.
+ * Following are initialize/terminate functions for Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 
 #ifdef SUPPORT_OSPF_API
@@ -258,7 +258,7 @@ static const char *ospf_opaque_type_name(uint8_t opaque_type)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are management functions to store user specified callbacks.
+ * Following are management functions to store user specified callbacks.
  *------------------------------------------------------------------------*/
 
 struct opaque_info_per_type; /* Forward declaration. */
@@ -467,7 +467,7 @@ ospf_opaque_functab_lookup(struct ospf_lsa *lsa)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are management functions for self-originated LSA entries.
+ * Following are management functions for self-originated LSA entries.
  *------------------------------------------------------------------------*/
 
 /*
@@ -759,7 +759,7 @@ out:
 }
 
 /*------------------------------------------------------------------------*
- * Followings are (vty) configuration functions for Opaque-LSAs handling.
+ * Following are (vty) configuration functions for Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 
 DEFUN (capability_opaque,
@@ -830,7 +830,7 @@ static void ospf_opaque_register_vty(void)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are collection of user-registered function callers.
+ * Following are collection of user-registered function callers.
  *------------------------------------------------------------------------*/
 
 static int opaque_lsa_new_if_callback(struct list *funclist,
@@ -978,7 +978,7 @@ out:
 }
 
 /*------------------------------------------------------------------------*
- * Followings are glue functions to call Opaque-LSA specific processing.
+ * Following are glue functions to call Opaque-LSA specific processing.
  *------------------------------------------------------------------------*/
 
 int ospf_opaque_new_if(struct interface *ifp)
@@ -1283,7 +1283,7 @@ out:
 }
 
 /*------------------------------------------------------------------------*
- * Followings are Opaque-LSA origination/refresh management functions.
+ * Following are Opaque-LSA origination/refresh management functions.
  *------------------------------------------------------------------------*/
 
 static void ospf_opaque_type9_lsa_originate(struct thread *t);
@@ -1647,7 +1647,7 @@ struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are re-origination/refresh/flush operations of Opaque-LSAs,
+ * Following are re-origination/refresh/flush operations of Opaque-LSAs,
  * triggered by external interventions (vty session, signaling, etc).
  *------------------------------------------------------------------------*/
 
@@ -2162,7 +2162,7 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 }
 
 /*------------------------------------------------------------------------*
- * Followings are util functions; probably be used by Opaque-LSAs only...
+ * Following are util functions; probably be used by Opaque-LSAs only...
  *------------------------------------------------------------------------*/
 
 struct ospf *oi_to_top(struct ospf_interface *oi)

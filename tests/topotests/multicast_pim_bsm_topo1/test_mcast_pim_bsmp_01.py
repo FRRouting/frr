@@ -170,7 +170,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Don"t run this test if we have any failure.
@@ -313,7 +313,7 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
     result = add_rp_interfaces_and_pim_config(tgen, topo, "lo", rp, rp_mapping)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    # Add kernal routes to sender and receiver
+    # Add kernel routes to sender and receiver
     for group, rp_list in rp_mapping.items():
         mask = group.split("/")[1]
         if int(mask) == 32:

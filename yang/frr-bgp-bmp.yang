@@ -86,7 +86,7 @@ submodule frr-bgp-bmp {
           type uint32 {
             range "100..86400000";
           }
-          units "miliseconds";
+          units "milliseconds";
           default "30000";
           description
             "Minimum connection retry interval.";
@@ -96,7 +96,7 @@ submodule frr-bgp-bmp {
           type uint32 {
             range "100..86400000";
           }
-          units "miliseconds";
+          units "milliseconds";
           default "720000";
           description
             "Maximum connection retry interval.";
@@ -170,7 +170,7 @@ submodule frr-bgp-bmp {
           type uint32 {
             range "100..86400000";
           }
-          units "miliseconds";
+          units "milliseconds";
           description
             "Interval to send BMP Stats.";
         }

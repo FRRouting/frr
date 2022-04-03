@@ -79,7 +79,7 @@ enum ospf_apiserver_event {
 };
 
 /* -----------------------------------------------------------
- * Followings are functions to manage client connections.
+ * Following are functions to manage client connections.
  * -----------------------------------------------------------
  */
 
@@ -99,7 +99,7 @@ extern int ospf_apiserver_send_reply(struct ospf_apiserver *apiserv,
 				     uint32_t seqnr, uint8_t rc);
 
 /* -----------------------------------------------------------
- * Followings are message handler functions
+ * Following are message handler functions
  * -----------------------------------------------------------
  */
 
@@ -147,7 +147,7 @@ extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 
 
 /* -----------------------------------------------------------
- * Followings are functions for LSA origination/deletion
+ * Following are functions for LSA origination/deletion
  * -----------------------------------------------------------
  */
 
@@ -169,7 +169,7 @@ extern void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa);
 
 
 /* -----------------------------------------------------------
- * Followings are callback functions to handle opaque types
+ * Following are callback functions to handle opaque types
  * -----------------------------------------------------------
  */
 
@@ -191,7 +191,7 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 					    uint8_t opaque_type);
 
 /* -----------------------------------------------------------
- * Followings are hooks when LSAs are updated or deleted
+ * Following are hooks when LSAs are updated or deleted
  * -----------------------------------------------------------
  */
 

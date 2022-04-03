@@ -134,7 +134,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Creating configuration from JSON
@@ -218,7 +218,7 @@ def red_connected(dut, config=True):
 
 def get_llip(onrouter, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -245,7 +245,7 @@ def get_llip(onrouter, intf):
 
 def get_glipv6(onrouter, intf):
     """
-    API to get the global ipv6 address of a perticular interface
+    API to get the global ipv6 address of a particular interface
 
     Parameters
     ----------
