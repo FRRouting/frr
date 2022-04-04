@@ -29,6 +29,8 @@ struct gm_packet_sg;
 struct gm_if;
 struct channel_oil;
 
+#define MLD_DEFAULT_VERSION 2
+
 /* see comment below on subs_negative/subs_positive */
 enum gm_sub_sense {
 	/* negative/pruning: S,G in EXCLUDE */
