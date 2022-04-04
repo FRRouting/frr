@@ -388,6 +388,12 @@ void zclient_lookup_read_pipe(struct thread *thread)
 	struct pim_zlookup_nexthop nexthop_tab[10];
 	struct in_addr l = {.s_addr = INADDR_ANY};
 
+	if (!pim) {
+		if (PIM_DEBUG_PIM_NHT_DETAIL)
+			zlog_debug("%s: Unable to find pim instance", __func__);
+		return;
+	}
+
 	zclient_lookup_nexthop_once(pim, nexthop_tab, 10, l);
 	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
 			 &zlookup_read);
