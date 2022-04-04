@@ -594,13 +594,24 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 }
 
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
-		 int pim_msg_size, const char *ifname)
+		 int pim_msg_size, struct interface *ifp)
 {
 	socklen_t tolen;
 	unsigned char buffer[10000];
 	unsigned char *msg_start;
 	uint8_t ttl;
 	struct pim_msg_header *header;
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip sending PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
 
 	memset(buffer, 0, 10000);
 
@@ -673,7 +684,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 
 	if (PIM_DEBUG_PIM_PACKETS)
 		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
-			   __func__, &dst, ifname, pim_msg_size,
+			   __func__, &dst, ifp->name, pim_msg_size,
 			   header->checksum);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
@@ -681,7 +692,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
-			   tolen, ifname);
+			   tolen, ifp->name);
 	return 0;
 }
 
