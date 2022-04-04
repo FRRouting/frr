@@ -177,6 +177,21 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	return 1;
 }
 
+static struct pim_interface *pim_ifp_get(const struct lyd_node *dnode,
+					 const char *path,
+					 struct interface **ifpp)
+{
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(dnode, path, true);
+	if (ifpp)
+		*ifpp = ifp;
+	if (ifp->info)
+		return (struct pim_interface *)ifp->info;
+
+	return pim_if_new(ifp, false, false, false, false);
+}
+
 static int interface_pim_use_src_cmd_worker(struct interface *ifp,
 		pim_addr source_addr, char *errmsg, size_t errmsg_len)
 {
@@ -2686,10 +2701,7 @@ int lib_interface_gmp_address_family_mld_version_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
-		if (!pim_ifp)
-			return NB_ERR_INCONSISTENCY;
+		pim_ifp = pim_ifp_get(args->dnode, NULL, &ifp);
 
 		pim_ifp->mld_version = yang_dnode_get_uint8(args->dnode, NULL);
 		gm_ifp_update(ifp);
@@ -2702,25 +2714,6 @@ int lib_interface_gmp_address_family_mld_version_modify(
 int lib_interface_gmp_address_family_mld_version_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct interface *ifp;
-	struct pim_interface *pim_ifp;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
-		if (!pim_ifp)
-			return NB_ERR_INCONSISTENCY;
-
-		pim_ifp->mld_version = 2;
-		gm_ifp_update(ifp);
-		break;
-	}
-
 	return NB_OK;
 }
 
@@ -2753,10 +2746,7 @@ int lib_interface_gmp_address_family_query_interval_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
-		if (!pim_ifp)
-			return NB_ERR_INCONSISTENCY;
+		pim_ifp = pim_ifp_get(args->dnode, NULL, &ifp);
 
 		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->gm_default_query_interval = query_interval;
