@@ -880,6 +880,12 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 	 */
 	pim = pim_get_pim_instance(VRF_DEFAULT);
 
+	if (!pim) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("%s: Unable to find pim instance", __func__);
+		return;
+	}
+
 	if (enable)
 		vxlan_mlag.flags |= PIM_VXLAN_MLAGF_ENABLED;
 	else
