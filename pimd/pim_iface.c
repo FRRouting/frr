@@ -129,6 +129,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
+	pim_ifp->mld_version = MLD_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
 		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
 	pim_ifp->gm_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
