@@ -158,6 +158,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    and would like pim to use a specific source address associated with
    that interface.
 
+.. clicmd:: ipv6 pim passive
+
+   Disable sending and receiving pim control packets on the interface.
+
 .. clicmd:: ipv6 mld
 
    Tell pim to receive MLD reports and Query on this interface. The default
