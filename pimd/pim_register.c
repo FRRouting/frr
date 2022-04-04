@@ -100,14 +100,16 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 		return;
 	}
 	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,
-			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp->name)) {
+			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
 				"%s: could not send PIM register stop message on interface %s",
 				__func__, ifp->name);
 		}
 	}
-	++pinfo->pim_ifstat_reg_stop_send;
+
+	if (!pinfo->pim_passive_enable)
+		++pinfo->pim_ifstat_reg_stop_send;
 }
 
 static void pim_reg_stop_upstream(struct pim_instance *pim,
@@ -266,10 +268,11 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 	pim_msg_build_header(src, dst, buffer, buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
-	++pinfo->pim_ifstat_reg_send;
+	if (!pinfo->pim_passive_enable)
+		++pinfo->pim_ifstat_reg_send;
 
 	if (pim_msg_send(pinfo->pim_sock_fd, src, dst, buffer,
-			 buf_size + PIM_MSG_REGISTER_LEN, ifp->name)) {
+			 buf_size + PIM_MSG_REGISTER_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
 				"%s: could not send PIM register message on interface %s",
