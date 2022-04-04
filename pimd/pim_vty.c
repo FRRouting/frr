@@ -264,8 +264,8 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		struct ssmpingd_sock *ss;
 		++writes;
 		for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
-			vty_out(vty, "%sip ssmpingd %pPA\n", spaces,
-				&ss->source_addr);
+			vty_out(vty, "%s" PIM_AF_NAME " ssmpingd %pPA\n",
+				spaces, &ss->source_addr);
 			++writes;
 		}
 	}
