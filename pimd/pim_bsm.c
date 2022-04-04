@@ -704,13 +704,15 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 	}
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-			 dst_addr, buf, len, ifp->name)) {
+			 dst_addr, buf, len, ifp)) {
 		zlog_warn("%s: Could not send BSM message on interface: %s",
 			  __func__, ifp->name);
 		return false;
 	}
 
-	pim_ifp->pim_ifstat_bsm_tx++;
+	if (!pim_ifp->pim_passive_enable)
+		pim_ifp->pim_ifstat_bsm_tx++;
+
 	pim_ifp->pim->bsm_sent++;
 	return true;
 }
