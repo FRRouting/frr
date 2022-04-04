@@ -63,8 +63,7 @@ static void pim_if_membership_clear(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (PIM_IF_TEST_PIM(pim_ifp->options)
-	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
+	if (pim_ifp->pim_enable && pim_ifp->igmp_enable) {
 		return;
 	}
 
@@ -90,9 +89,9 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (!PIM_IF_TEST_PIM(pim_ifp->options))
+	if (!pim_ifp->pim_enable)
 		return;
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+	if (!pim_ifp->igmp_enable)
 		return;
 
 	/*
@@ -143,7 +142,7 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	if (!pim_ifp)
 		pim_ifp = pim_if_new(ifp, false, true, false, false);
 	else
-		PIM_IF_DO_PIM(pim_ifp->options);
+		pim_ifp->pim_enable = true;
 
 	pim_if_addr_add_all(ifp);
 	pim_if_membership_refresh(ifp);
@@ -159,7 +158,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	if (!pim_ifp)
 		return 1;
 
-	PIM_IF_DONT_PIM(pim_ifp->options);
+	pim_ifp->pim_enable = false;
 
 	pim_if_membership_clear(ifp);
 
@@ -169,7 +168,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
 
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
+	if (!pim_ifp->igmp_enable) {
 		pim_if_addr_del_all(ifp);
 		pim_if_delete(ifp);
 	}
@@ -360,8 +359,8 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 		pim_ifp = pim_if_new(ifp, true, false, false, false);
 		need_startup = 1;
 	} else {
-		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-			PIM_IF_DO_IGMP(pim_ifp->options);
+		if (!pim_ifp->igmp_enable) {
+			pim_ifp->igmp_enable = true;
 			need_startup = 1;
 		}
 	}
@@ -2536,13 +2535,13 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		PIM_IF_DONT_IGMP(pim_ifp->options);
+		pim_ifp->igmp_enable = false;
 
 		pim_if_membership_clear(ifp);
 
 		pim_if_addr_del_all_igmp(ifp);
 
-		if (!PIM_IF_TEST_PIM(pim_ifp->options))
+		if (!pim_ifp->pim_enable)
 			pim_if_delete(ifp);
 	}
 
@@ -2593,13 +2592,13 @@ int lib_interface_gmp_address_family_enable_modify(
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			PIM_IF_DONT_IGMP(pim_ifp->options);
+			pim_ifp->igmp_enable = false;
 
 			pim_if_membership_clear(ifp);
 
 			pim_if_addr_del_all_igmp(ifp);
 
-			if (!PIM_IF_TEST_PIM(pim_ifp->options))
+			if (!pim_ifp->pim_enable)
 				pim_if_delete(ifp);
 		}
 	}

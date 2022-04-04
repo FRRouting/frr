@@ -289,7 +289,7 @@ static int pim_igmp_config_write(struct vty *vty, int writes,
 				 struct pim_interface *pim_ifp)
 {
 	/* IF ip igmp */
-	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
+	if (pim_ifp->igmp_enable) {
 		vty_out(vty, " ip igmp\n");
 		++writes;
 	}
@@ -361,7 +361,7 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+	if (pim_ifp->pim_enable) {
 		vty_out(vty, " " PIM_AF_NAME " pim\n");
 		++writes;
 	}
