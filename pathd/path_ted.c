@@ -15,9 +15,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "stdlib.h"
-
 #include <zebra.h>
+
+#include <stdlib.h>
 
 #include "memory.h"
 #include "log.h"

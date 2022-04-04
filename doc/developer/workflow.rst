@@ -623,6 +623,8 @@ Please copy-paste this header verbatim. In particular:
 
 - Do not replace "This program" with "FRR"
 - Do not change the address of the FSF
+- keep ``#include <zebra.h>``.  The absolute first header included in any C
+  file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H guard)
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------

@@ -50,10 +50,10 @@
 
 #define PY_SSIZE_T_CLEAN
 
-#include <Python.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include <Python.h>
 #include "structmember.h"
 #include <string.h>
 #include <stdlib.h>
