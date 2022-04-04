@@ -29,7 +29,9 @@ extern "C" {
 #endif
 
 struct mcast_route_data {
-	struct prefix_sg sg;
+	int family;
+	struct ipaddr src;
+	struct ipaddr grp;
 	unsigned int ifindex;
 	unsigned long long lastused;
 };
