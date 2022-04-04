@@ -1137,7 +1137,7 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 	/* enable pim on the term ifp */
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
-		PIM_IF_DO_PIM(pim_ifp->options);
+		pim_ifp->pim_enable = true;
 		/* ifp is already oper up; activate it as a term dev */
 		if (pim_ifp->mroute_vif_index >= 0)
 			pim_vxlan_term_oif_update(pim, ifp);
@@ -1165,8 +1165,8 @@ void pim_vxlan_del_term_dev(struct pim_instance *pim)
 
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
-		PIM_IF_DONT_PIM(pim_ifp->options);
-		if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+		pim_ifp->pim_enable = false;
+		if (!pim_ifp->igmp_enable)
 			pim_if_delete(ifp);
 	}
 }

@@ -255,17 +255,14 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	if (fd < 0)
 		return -1;
 
-	if (PIM_IF_TEST_IGMP_LISTEN_ALLROUTERS(pim_options)) {
-		if (inet_aton(PIM_ALL_ROUTERS, &group)) {
-			if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex,
-					     pim_ifp))
-				++join;
-		} else {
-			zlog_warn(
-				"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
-				__FILE__, __func__, fd, &ifaddr,
-				PIM_ALL_ROUTERS, errno, safe_strerror(errno));
-		}
+	if (inet_aton(PIM_ALL_ROUTERS, &group)) {
+		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex, pim_ifp))
+			++join;
+	} else {
+		zlog_warn(
+			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
+			__FILE__, __func__, fd, &ifaddr, PIM_ALL_ROUTERS, errno,
+			safe_strerror(errno));
 	}
 
 	/*

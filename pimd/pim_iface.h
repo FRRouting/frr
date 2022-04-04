@@ -34,30 +34,7 @@
 #include "bfd.h"
 #include "pim_str.h"
 
-#define PIM_IF_MASK_PIM                             (1 << 0)
-#define PIM_IF_MASK_IGMP                            (1 << 1)
-#define PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS          (1 << 2)
-#define PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION (1 << 3)
-
 #define PIM_IF_IS_DELETED(ifp) ((ifp)->ifindex == IFINDEX_INTERNAL)
-
-#define PIM_IF_TEST_PIM(options) (PIM_IF_MASK_PIM & (options))
-#define PIM_IF_TEST_IGMP(options) (PIM_IF_MASK_IGMP & (options))
-#define PIM_IF_TEST_IGMP_LISTEN_ALLROUTERS(options) (PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS & (options))
-#define PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
-	(PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION & (options))
-
-#define PIM_IF_DO_PIM(options) ((options) |= PIM_IF_MASK_PIM)
-#define PIM_IF_DO_IGMP(options) ((options) |= PIM_IF_MASK_IGMP)
-#define PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(options) ((options) |= PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS)
-#define PIM_IF_DO_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                    \
-	((options) |= PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
-
-#define PIM_IF_DONT_PIM(options) ((options) &= ~PIM_IF_MASK_PIM)
-#define PIM_IF_DONT_IGMP(options) ((options) &= ~PIM_IF_MASK_IGMP)
-#define PIM_IF_DONT_IGMP_LISTEN_ALLROUTERS(options) ((options) &= ~PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS)
-#define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
-	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
 #define PIM_I_am_DR(pim_ifp)                                                   \
 	!pim_addr_cmp((pim_ifp)->pim_dr_addr, (pim_ifp)->primary_address)
@@ -93,6 +70,11 @@ struct pim_secondary_addr {
 };
 
 struct pim_interface {
+	bool pim_enable : 1;
+	bool pim_can_disable_join_suppression : 1;
+
+	bool igmp_enable : 1;
+
 	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;

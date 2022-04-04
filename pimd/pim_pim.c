@@ -526,11 +526,8 @@ void pim_sock_reset(struct interface *ifp)
 		PIM_DEFAULT_PROPAGATION_DELAY_MSEC;
 	pim_ifp->pim_override_interval_msec =
 		PIM_DEFAULT_OVERRIDE_INTERVAL_MSEC;
-	if (PIM_DEFAULT_CAN_DISABLE_JOIN_SUPPRESSION) {
-		PIM_IF_DO_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options);
-	} else {
-		PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options);
-	}
+	pim_ifp->pim_can_disable_join_suppression =
+		PIM_DEFAULT_CAN_DISABLE_JOIN_SUPPRESSION;
 
 	/* neighbors without lan_delay */
 	pim_ifp->pim_number_of_nonlandelay_neighbors = 0;
@@ -702,8 +699,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 			__func__, &qpim_all_pim_routers_addr, ifp->name,
 			holdtime, pim_ifp->pim_propagation_delay_msec,
 			pim_ifp->pim_override_interval_msec,
-			PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(
-				pim_ifp->options),
+			pim_ifp->pim_can_disable_join_suppression,
 			pim_ifp->pim_dr_priority, pim_ifp->pim_generation_id,
 			listcount(ifp->connected));
 
@@ -713,7 +709,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 		pim_ifp->pim_dr_priority, pim_ifp->pim_generation_id,
 		pim_ifp->pim_propagation_delay_msec,
 		pim_ifp->pim_override_interval_msec,
-		PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options));
+		pim_ifp->pim_can_disable_join_suppression);
 	if (pim_tlv_size < 0) {
 		return -1;
 	}
