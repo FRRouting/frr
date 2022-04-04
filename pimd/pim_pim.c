@@ -737,7 +737,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
-			 ifp->name)) {
+			 ifp)) {
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
 				"%s: could not send PIM message on interface %s",
@@ -766,8 +766,10 @@ int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 		return -1;
 	}
 
-	++pim_ifp->pim_ifstat_hello_sent;
-	PIM_IF_FLAG_SET_HELLO_SENT(pim_ifp->flags);
+	if (!pim_ifp->pim_passive_enable) {
+		++pim_ifp->pim_ifstat_hello_sent;
+		PIM_IF_FLAG_SET_HELLO_SENT(pim_ifp->flags);
+	}
 
 	return 0;
 }
