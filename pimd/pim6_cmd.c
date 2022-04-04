@@ -41,7 +41,7 @@
 #include "pim_addr.h"
 #include "pim_nht.h"
 #include "pim_bsm.h"
-
+#include "pim_iface.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
@@ -216,21 +216,55 @@ DEFPY (no_ipv6_pim_register_suppress,
 
 DEFPY (interface_ipv6_pim,
        interface_ipv6_pim_cmd,
-       "ipv6 pim",
+       "ipv6 pim [passive$passive]",
        IPV6_STR
-       PIM_STR)
+       PIM_STR
+       "Disable exchange of protocol packets\n")
 {
-	return pim_process_ip_pim_cmd(vty);
+	int ret;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (passive)
+		pim_ifp->pim_passive_enable = true;
+
+	return CMD_SUCCESS;
 }
 
 DEFPY (interface_no_ipv6_pim,
        interface_no_ipv6_pim_cmd,
-       "no ipv6 pim",
+       "no ipv6 pim [passive$passive]",
        NO_STR
        IPV6_STR
-       PIM_STR)
+       PIM_STR
+       "Disable exchange of protocol packets\n")
 {
-	return pim_process_no_ip_pim_cmd(vty);
+	int ret;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp;
+
+	ret = pim_process_no_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (passive)
+		pim_ifp->pim_passive_enable = false;
+
+	return CMD_SUCCESS;
 }
 
 DEFPY (interface_ipv6_pim_drprio,
