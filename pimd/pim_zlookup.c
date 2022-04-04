@@ -506,17 +506,16 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	pim_sgaddr sg;
 	int count = 0;
 	int ret;
+	pim_sgaddr more = {};
 	struct interface *ifp =
-		pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
+		pim_if_find_by_vif_index(c_oil->pim, *oil_parent(c_oil));
 
 	if (PIM_DEBUG_ZEBRA) {
-		pim_sgaddr more;
-
-		more.src = c_oil->oil.mfcc_origin;
-		more.grp = c_oil->oil.mfcc_mcastgrp;
-		zlog_debug("Sending Request for New Channel Oil Information%pSG VIIF %d(%s)",
-			   &more, c_oil->oil.mfcc_parent,
-			   c_oil->pim->vrf->name);
+		more.src = *oil_origin(c_oil);
+		more.grp = *oil_mcastgrp(c_oil);
+		zlog_debug(
+			"Sending Request for New Channel Oil Information%pSG VIIF %d(%s)",
+			&more, *oil_parent(c_oil), c_oil->pim->vrf->name);
 	}
 
 	if (!ifp)
@@ -525,8 +524,9 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS,
 			      c_oil->pim->vrf->vrf_id);
-	stream_put_in_addr(s, &c_oil->oil.mfcc_origin);
-	stream_put_in_addr(s, &c_oil->oil.mfcc_mcastgrp);
+	stream_putl(s, PIM_AF);
+	stream_write(s, oil_origin(c_oil), sizeof(pim_addr));
+	stream_write(s, oil_mcastgrp(c_oil), sizeof(pim_addr));
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -560,20 +560,17 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		}
 	}
 
-	sg.src.s_addr = stream_get_ipv4(s);
-	sg.grp.s_addr = stream_get_ipv4(s);
-	if (sg.src.s_addr != c_oil->oil.mfcc_origin.s_addr
-	    || sg.grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr) {
-		if (PIM_DEBUG_ZEBRA) {
-			pim_sgaddr more;
+	stream_get(&sg.src, s, sizeof(pim_addr));
+	stream_get(&sg.grp, s, sizeof(pim_addr));
 
-			more.src = c_oil->oil.mfcc_origin;
-			more.grp = c_oil->oil.mfcc_mcastgrp;
+	more.src = *oil_origin(c_oil);
+	more.grp = *oil_mcastgrp(c_oil);
+	if (pim_sgaddr_cmp(sg, more)) {
+		if (PIM_DEBUG_ZEBRA)
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
 				"%s: Received wrong %pSG(%s) information requested",
 				__func__, &more, c_oil->pim->vrf->name);
-		}
 		zclient_lookup_failed(zlookup);
 		return -3;
 	}
