@@ -166,6 +166,13 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		struct pim_instance *pim;
 
 		pim = pim_get_pim_instance(vrf_id);
+		if (!pim) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: Unable to find pim instance",
+					   __func__);
+			return 0;
+		}
+
 		pim_ifp->pim = pim;
 
 		pim_rp_check_on_if_add(pim_ifp);
