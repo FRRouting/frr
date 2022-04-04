@@ -2947,14 +2947,16 @@ This group of server links is referred to as an Ethernet Segment.
 Ethernet Segments
 """""""""""""""""
 An Ethernet Segment can be configured by specifying a system-MAC and a
-local discriminator against the bond interface on the PE (via zebra) -
+local discriminator or a complete ESINAME against the bond interface on the
+PE (via zebra) -
 
-.. clicmd:: evpn mh es-id (1-16777215)
+.. clicmd:: evpn mh es-id <(1-16777215)|ESINAME>
 
 .. clicmd:: evpn mh es-sys-mac X:X:X:X:X:X
 
 The sys-mac and local discriminator are used for generating a 10-byte,
-Type-3 Ethernet Segment ID.
+Type-3 Ethernet Segment ID. ESINAME is a 10-byte, Type-0 Ethernet Segment ID -
+"00:AA:BB:CC:DD:EE:FF:GG:HH:II".
 
 Type-1 (EAD-per-ES and EAD-per-EVI) routes are used to advertise the locally
 attached ESs and to learn off remote ESs in the network. Local Type-2/MAC-IP
