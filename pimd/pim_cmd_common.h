@@ -102,6 +102,8 @@ int gm_process_no_last_member_query_count_cmd(struct vty *vty);
 int gm_process_last_member_query_interval_cmd(struct vty *vty,
 					      const char *lmqi_str);
 int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
+int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
+			     const char *src_str);
 /*
  * Special Macro to allow us to get the correct pim_instance
  */

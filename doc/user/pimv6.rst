@@ -113,6 +113,14 @@ Certain signals have special meanings to *pim6d*.
    notifications to the kernel. This command is vrf aware, to configure for a
    vrf, enter the vrf submode.
 
+.. clicmd:: ipv6 ssmpingd [X:X::X:X]
+
+   Enable ipv6 ssmpingd configuration. A network level management tool
+   to check whether one can receive multicast packets via SSM from host.
+   The host target given to ssmping must run the ssmpingd daemon which listens
+   for IPv4 and IPv6 unicast requests. When it receives one, it responds to a
+   well known SSM multicast group which ssmping just have joined.
+
 .. _pimv6-interface-configuration:
 
 PIMv6 Interface Configuration

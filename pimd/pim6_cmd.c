@@ -451,6 +451,33 @@ DEFPY (no_ipv6_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
+
+DEFPY (ipv6_ssmpingd,
+      ipv6_ssmpingd_cmd,
+      "ipv6 ssmpingd [X:X::X:X]$source",
+      IPV6_STR
+      CONF_SSMPINGD_STR
+      "Source address\n")
+{
+	const char *src_str = (source_str) ? source_str : "::";
+
+	return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
+}
+
+
+DEFPY (no_ipv6_ssmpingd,
+      no_ipv6_ssmpingd_cmd,
+      "no ipv6 ssmpingd [X:X::X:X]$source",
+      NO_STR
+      IPV6_STR
+      CONF_SSMPINGD_STR
+      "Source address\n")
+{
+	const char *src_str = (source_str) ? source_str : "::";
+
+	return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
+}
+
 DEFPY (interface_ipv6_mld_join,
        interface_ipv6_mld_join_cmd,
        "ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
@@ -1585,6 +1612,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
 	install_element(VRF_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
+	install_element(CONFIG_NODE, &ipv6_ssmpingd_cmd);
+	install_element(VRF_NODE, &ipv6_ssmpingd_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_ssmpingd_cmd);
+	install_element(VRF_NODE, &no_ipv6_ssmpingd_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);

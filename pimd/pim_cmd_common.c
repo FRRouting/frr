@@ -2836,3 +2836,25 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
 }
+
+
+int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
+			     const char *src_str)
+{
+	const char *vrfname;
+	char ssmpingd_ip_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
+		sizeof(ssmpingd_ip_xpath));
+
+	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, operation, src_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}

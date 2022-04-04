@@ -5308,24 +5308,9 @@ DEFUN (ip_ssmpingd,
        "Source address\n")
 {
 	int idx_ipv4 = 2;
-	const char *source_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
-	const char *vrfname;
-	char ssmpingd_ip_xpath[XPATH_MAXLEN];
+	const char *src_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
-		sizeof(ssmpingd_ip_xpath));
-
-	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, NB_OP_CREATE,
-			      source_str);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
 }
 
 DEFUN (no_ip_ssmpingd,
@@ -5336,25 +5321,10 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-	const char *vrfname;
 	int idx_ipv4 = 3;
-	const char *source_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
-	char ssmpingd_ip_xpath[XPATH_MAXLEN];
+	const char *src_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
-		 FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
-		sizeof(ssmpingd_ip_xpath));
-
-	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, NB_OP_DESTROY,
-			      source_str);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
 }
 
 DEFUN (ip_pim_ecmp,
