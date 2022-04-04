@@ -409,6 +409,11 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	if (pim_ifp->pim_passive_enable) {
+		vty_out(vty, " " PIM_AF_NAME " pim passive\n");
+		++writes;
+	}
+
 	writes += pim_static_write_mroute(pim, vty, ifp);
 	pim_bsm_write_config(vty, ifp);
 	++writes;
