@@ -167,11 +167,15 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 
 			struct listnode *node;
 			struct isis_adjacency *adj;
+			struct list *adj_list;
 
 			if (!adjdb)
 				continue;
-			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
+			adj_list = list_new();
+			isis_adj_build_up_list(circuit->u.bc.adjdb[level - 1], adj_list);
+			for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
 				bfd_adj_cmd(adj);
+			list_delete(&adj_list);
 		}
 		break;
 	case CIRCUIT_T_P2P:
