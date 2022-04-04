@@ -897,6 +897,26 @@ necessary replacements.
 | u_long    | unsigned long            |
 +-----------+--------------------------+
 
+FRR also uses unnamed struct fields, enabled with ``-fms-extensions`` (cf.
+https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html).  The following two
+patterns can/should be used where contextually appropriate:
+
+.. code-block:: c
+
+   struct outer {
+           struct inner;
+   };
+
+.. code-block:: c
+
+   struct outer {
+           union {
+                   struct inner;
+                   struct inner inner_name;
+           };
+   };
+
+
 .. _style-exceptions:
 
 Exceptions
