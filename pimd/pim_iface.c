@@ -150,13 +150,9 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	assert(pim_ifp->gm_query_max_response_time_dsec <
 	       pim_ifp->gm_default_query_interval);
 
-	if (pim)
-		PIM_IF_DO_PIM(pim_ifp->options);
+	pim_ifp->pim_enable = pim;
 #if PIM_IPV == 4
-	if (igmp)
-		PIM_IF_DO_IGMP(pim_ifp->options);
-
-	PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
+	pim_ifp->igmp_enable = igmp;
 #endif
 
 	pim_ifp->gm_join_list = NULL;
@@ -317,7 +313,7 @@ static int detect_primary_address_change(struct interface *ifp,
 
 	if (changed) {
 		/* Before updating pim_ifp send Hello time with 0 hold time */
-		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+		if (pim_ifp->pim_enable) {
 			pim_hello_send(ifp, 0 /* zero-sec holdtime */);
 		}
 		pim_ifp->primary_address = new_prim_addr;
@@ -462,7 +458,7 @@ static void detect_address_change(struct interface *ifp, int force_prim_as_any,
 
 
 	if (changed) {
-		if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
+		if (!pim_ifp->pim_enable) {
 			return;
 		}
 
@@ -543,7 +539,7 @@ void pim_if_addr_add(struct connected *ifc)
 #if PIM_IPV == 4
 	struct in_addr ifaddr = ifc->address->u.prefix4;
 
-	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
+	if (pim_ifp->igmp_enable) {
 		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
@@ -610,7 +606,7 @@ void pim_if_addr_add(struct connected *ifc)
 	} /* igmp mtrace only */
 #endif
 
-	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+	if (pim_ifp->pim_enable) {
 
 		if (!pim_addr_is_any(pim_ifp->primary_address)) {
 
@@ -802,7 +798,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	}
 
 	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
-		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+		if (pim_ifp->pim_enable) {
 
 			/* Interface has a valid primary address ? */
 			if (!pim_addr_is_any(pim_ifp->primary_address)) {
@@ -1211,7 +1207,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	assert(pim_ifp);
 
 	/* join suppression disabled ? */
-	if (PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPPRESSION(pim_ifp->options))
+	if (pim_ifp->pim_can_disable_join_suppression)
 		return 0;
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */

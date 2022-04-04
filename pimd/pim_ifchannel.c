@@ -1155,7 +1155,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 		return 0;
 	}
 
-	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
+	if (!pim_ifp->pim_enable) {
 		if (PIM_DEBUG_EVENTS)
 			zlog_debug("%s:%pSG PIM is not configured on this interface %s",
 				   __func__, sg, ifp->name);
@@ -1249,7 +1249,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
-	if (!PIM_IF_TEST_PIM(pim_ifp->options))
+	if (!pim_ifp->pim_enable)
 		return;
 
 	orig = ch = pim_ifchannel_find(ifp, sg);
