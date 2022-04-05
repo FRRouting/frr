@@ -4031,81 +4031,9 @@ DEFUN (clear_ip_mroute_count,
 	return CMD_SUCCESS;
 }
 
-static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
-					      json_object *json,
-					      struct vty *vty)
-{
-	char group_str[INET_ADDRSTRLEN];
-	char source_str[INET_ADDRSTRLEN];
-	json_object *json_group = NULL;
-	json_object *json_source = NULL;
-
-	if (!c_oil->installed)
-		return;
-
-	pim_mroute_update_counters(c_oil);
-
-	pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str,
-		       sizeof(group_str));
-	pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str,
-		       sizeof(source_str));
-
-	if (json) {
-		json_object_object_get_ex(json, group_str, &json_group);
-
-		if (!json_group) {
-			json_group = json_object_new_object();
-			json_object_object_add(json, group_str, json_group);
-		}
-
-		json_source = json_object_new_object();
-		json_object_object_add(json_group, source_str, json_source);
-		json_object_int_add(json_source, "lastUsed",
-				    c_oil->cc.lastused / 100);
-		json_object_int_add(json_source, "packets", c_oil->cc.pktcnt);
-		json_object_int_add(json_source, "bytes", c_oil->cc.bytecnt);
-		json_object_int_add(json_source, "wrongIf", c_oil->cc.wrong_if);
-
-	} else {
-		vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld\n",
-			source_str, group_str, c_oil->cc.lastused / 100,
-			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
-			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
-			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
-	}
-}
-
-static void show_mroute_count(struct pim_instance *pim, struct vty *vty,
-			      bool uj)
-{
-	struct listnode *node;
-	struct channel_oil *c_oil;
-	struct static_route *sr;
-	json_object *json = NULL;
-
-	if (uj)
-		json = json_object_new_object();
-	else {
-		vty_out(vty, "\n");
-
-		vty_out(vty,
-			"Source          Group           LastUsed Packets Bytes WrongIf  \n");
-	}
-
-	/* Print PIM and IGMP route counts */
-	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
-		show_mroute_count_per_channel_oil(c_oil, json, vty);
-
-	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
-		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
-
-	if (uj)
-		vty_json(vty, json);
-}
-
-DEFUN (show_ip_mroute_count,
+DEFPY (show_ip_mroute_count,
        show_ip_mroute_count_cmd,
-       "show ip mroute [vrf NAME] count [json]",
+       "show ip mroute [vrf NAME] count [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -4113,20 +4041,36 @@ DEFUN (show_ip_mroute_count,
        "Route and packet count data\n"
        JSON_STR)
 {
-	int idx = 2;
-	bool uj = use_json(argc, argv);
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	show_mroute_count(vrf->info, vty, uj);
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_count(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_mroute_count_vrf_all,
+DEFPY (show_ip_mroute_count_vrf_all,
        show_ip_mroute_count_vrf_all_cmd,
-       "show ip mroute vrf all count [json]",
+       "show ip mroute vrf all count [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -4134,24 +4078,27 @@ DEFUN (show_ip_mroute_count_vrf_all,
        "Route and packet count data\n"
        JSON_STR)
 {
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj)
-		vty_out(vty, "{ ");
+	if (json)
+		json_parent = json_object_new_object();
+
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		show_mroute_count(vrf->info, vty, uj);
+		else
+			json_vrf = json_object_new_object();
+
+		show_mroute_count(vrf->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }

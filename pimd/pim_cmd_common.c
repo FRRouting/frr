@@ -3299,3 +3299,70 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 					    sg_hw_mroute_cnt);
 	}
 }
+
+void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
+				       json_object *json, struct vty *vty)
+{
+	json_object *json_group = NULL;
+	json_object *json_source = NULL;
+
+	if (!c_oil->installed)
+		return;
+
+	pim_mroute_update_counters(c_oil);
+
+	if (json) {
+		char group_str[PIM_ADDRSTRLEN];
+		char source_str[PIM_ADDRSTRLEN];
+
+		snprintfrr(group_str, sizeof(group_str), "%pPAs",
+			   oil_mcastgrp(c_oil));
+		snprintfrr(source_str, sizeof(source_str), "%pPAs",
+			   oil_origin(c_oil));
+
+		json_object_object_get_ex(json, group_str, &json_group);
+
+		if (!json_group) {
+			json_group = json_object_new_object();
+			json_object_object_add(json, group_str, json_group);
+		}
+
+		json_source = json_object_new_object();
+		json_object_object_add(json_group, source_str, json_source);
+		json_object_int_add(json_source, "lastUsed",
+				    c_oil->cc.lastused / 100);
+		json_object_int_add(json_source, "packets", c_oil->cc.pktcnt);
+		json_object_int_add(json_source, "bytes", c_oil->cc.bytecnt);
+		json_object_int_add(json_source, "wrongIf", c_oil->cc.wrong_if);
+
+	} else {
+		vty_out(vty, "%-15pPAs %-15pPAs %-8llu %-7ld %-10ld %-7ld\n",
+			oil_origin(c_oil), oil_mcastgrp(c_oil),
+			c_oil->cc.lastused / 100,
+			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
+			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
+			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
+	}
+}
+
+void show_mroute_count(struct pim_instance *pim, struct vty *vty,
+		       json_object *json)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *sr;
+
+	if (!json) {
+		vty_out(vty, "\n");
+
+		vty_out(vty,
+			"Source          Group           LastUsed Packets Bytes WrongIf  \n");
+	}
+
+	/* Print PIM and IGMP route counts */
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
+		show_mroute_count_per_channel_oil(c_oil, json, vty);
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
+		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
+}
