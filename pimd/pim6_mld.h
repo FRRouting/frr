@@ -70,6 +70,8 @@ struct gm_sg {
 	struct channel_oil *oil;
 	bool tib_joined;
 
+	struct timeval created;
+
 	/* if a group- or group-and-source specific query is running
 	 * (implies we haven't received any report yet, since it's cancelled
 	 * by that)
@@ -142,6 +144,8 @@ struct gm_subscriber {
 	size_t refcount;
 
 	struct gm_packets_head packets[1];
+
+	struct timeval created;
 };
 
 /*
@@ -275,6 +279,36 @@ enum gm_version {
 	GM_MLDV2,
 };
 
+struct gm_if_stats {
+	uint64_t rx_drop_sys;
+	uint64_t rx_drop_csum;
+	uint64_t rx_drop_srcaddr;
+	uint64_t rx_drop_dstaddr;
+	uint64_t rx_drop_ra;
+	uint64_t rx_drop_malformed;
+	uint64_t rx_trunc_report;
+
+	/* since the types are different, this is rx_old_* not of rx_*_old */
+	uint64_t rx_old_report;
+	uint64_t rx_old_leave;
+	uint64_t rx_new_report;
+
+	uint64_t rx_query_new_general;
+	uint64_t rx_query_new_group;
+	uint64_t rx_query_new_groupsrc;
+	uint64_t rx_query_new_sbit;
+	uint64_t rx_query_old_general;
+	uint64_t rx_query_old_group;
+
+	uint64_t tx_query_new_general;
+	uint64_t tx_query_new_group;
+	uint64_t tx_query_new_groupsrc;
+	uint64_t tx_query_old_general;
+	uint64_t tx_query_old_group;
+
+	uint64_t tx_query_fail;
+};
+
 struct gm_if {
 	struct interface *ifp;
 	struct pim_instance *pim;
@@ -311,6 +345,9 @@ struct gm_if {
 	struct gm_sgs_head sgs[1];
 	struct gm_subscribers_head subscribers[1];
 	struct gm_packet_expires_head expires[1];
+
+	struct timeval started;
+	struct gm_if_stats stats;
 };
 
 #if PIM_IPV == 6
