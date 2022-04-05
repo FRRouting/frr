@@ -332,7 +332,7 @@ static struct rtr_mgr_group *get_groups(void)
 
 inline int is_synchronized(void)
 {
-	return rtr_is_running && rtr_mgr_conf_in_sync(rtr_config);
+	return is_running() && rtr_mgr_conf_in_sync(rtr_config);
 }
 
 inline int is_running(void)
@@ -631,7 +631,7 @@ static int start(void)
 static void stop(void)
 {
 	rtr_is_stopping = 1;
-	if (rtr_is_running) {
+	if (is_running()) {
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = 0;
@@ -640,7 +640,7 @@ static void stop(void)
 
 static int reset(bool force)
 {
-	if (rtr_is_running && !force)
+	if (is_running() && !force)
 		return SUCCESS;
 
 	RPKI_DEBUG("Resetting RPKI Session");
@@ -805,7 +805,7 @@ static int add_cache(struct cache *cache)
 	group.sockets_len = 1;
 	group.sockets = &cache->rtr_socket;
 
-	if (rtr_is_running) {
+	if (is_running()) {
 		init_tr_socket(cache);
 
 		if (rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
@@ -1170,9 +1170,9 @@ DEFPY (no_rpki_cache,
 		return CMD_WARNING;
 	}
 
-	if (rtr_is_running && listcount(cache_list) == 1) {
+	if (is_running() && listcount(cache_list) == 1) {
 		stop();
-	} else if (rtr_is_running) {
+	} else if (is_running()) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
 			vty_out(vty, "Could not remove cache %ld", preference);
 
