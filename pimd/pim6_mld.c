@@ -2231,12 +2231,557 @@ void gm_ifp_update(struct interface *ifp)
 	}
 }
 
+/*
+ * CLI (show commands only)
+ */
 
 #include "lib/command.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_mld_clippy.c"
 #endif
+
+#define MLD_STR "Multicast Listener Discovery\n"
+
+static struct vrf *gm_cmd_vrf_lookup(struct vty *vty, const char *vrf_str,
+				     int *err)
+{
+	struct vrf *ret;
+
+	if (!vrf_str)
+		return vrf_lookup_by_id(VRF_DEFAULT);
+	if (!strcmp(vrf_str, "all"))
+		return NULL;
+	ret = vrf_lookup_by_name(vrf_str);
+	if (ret)
+		return ret;
+
+	vty_out(vty, "%% VRF %pSQq does not exist\n", vrf_str);
+	*err = CMD_WARNING;
+	return NULL;
+}
+
+static void gm_show_if_one_detail(struct vty *vty, struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = (struct pim_interface *)ifp->info;
+	struct gm_if *gm_ifp;
+	bool querier;
+	size_t i;
+
+	if (!pim_ifp) {
+		vty_out(vty, "Interface %s: no PIM/MLD config\n\n", ifp->name);
+		return;
+	}
+
+	gm_ifp = pim_ifp->mld;
+	if (!gm_ifp) {
+		vty_out(vty, "Interface %s: MLD not running\n\n", ifp->name);
+		return;
+	}
+
+	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
+
+	vty_out(vty, "Interface %s: MLD running\n", ifp->name);
+	vty_out(vty, "  Uptime:                  %pTVMs\n", &gm_ifp->started);
+	vty_out(vty, "  MLD version:             %d\n", gm_ifp->cur_version);
+	vty_out(vty, "  Querier:                 %pPA%s\n", &gm_ifp->querier,
+		querier ? " (this system)" : "");
+	vty_out(vty, "  Query timer:             %pTH\n", gm_ifp->t_query);
+	vty_out(vty, "  Other querier timer:     %pTH\n",
+		gm_ifp->t_other_querier);
+	vty_out(vty, "  Robustness value:        %u\n", gm_ifp->cur_qrv);
+	vty_out(vty, "  Query interval:          %ums\n",
+		gm_ifp->cur_query_intv);
+	vty_out(vty, "  Query response timer:    %ums\n", gm_ifp->cur_max_resp);
+	vty_out(vty, "  Last member query intv.: %ums\n",
+		gm_ifp->cur_query_intv_trig);
+	vty_out(vty, "  %u expiry timers from general queries:\n",
+		gm_ifp->n_pending);
+	for (i = 0; i < gm_ifp->n_pending; i++) {
+		struct gm_general_pending *p = &gm_ifp->pending[i];
+
+		vty_out(vty, "    %9pTVMs ago (query) -> %9pTVMu (expiry)\n",
+			&p->query, &p->expiry);
+	}
+	vty_out(vty, "  %zu expiry timers from *,G queries\n",
+		gm_grp_pends_count(gm_ifp->grp_pends));
+	vty_out(vty, "  %zu expiry timers from S,G queries\n",
+		gm_gsq_pends_count(gm_ifp->gsq_pends));
+	vty_out(vty, "  %zu total *,G/S,G from %zu hosts in %zu bundles\n",
+		gm_sgs_count(gm_ifp->sgs),
+		gm_subscribers_count(gm_ifp->subscribers),
+		gm_packet_expires_count(gm_ifp->expires));
+	vty_out(vty, "\n");
+}
+
+static void gm_show_if_one(struct vty *vty, struct interface *ifp,
+			   json_object *js_if)
+{
+	struct pim_interface *pim_ifp = (struct pim_interface *)ifp->info;
+	struct gm_if *gm_ifp = pim_ifp->mld;
+	bool querier;
+
+	if (!gm_ifp) {
+		if (js_if)
+			json_object_string_add(js_if, "state", "down");
+		else
+			vty_out(vty, "%-16s  %5s\n", ifp->name, "down");
+		return;
+	}
+
+	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
+
+	if (js_if) {
+		json_object_string_add(js_if, "state", "up");
+		json_object_string_addf(js_if, "version", "%d",
+					gm_ifp->cur_version);
+		json_object_string_addf(js_if, "upTime", "%pTVMs",
+					&gm_ifp->started);
+		json_object_boolean_add(js_if, "querier", querier);
+		json_object_string_addf(js_if, "querierIp", "%pPA",
+					&gm_ifp->querier);
+		if (querier)
+			json_object_string_addf(js_if, "queryTimer", "%pTH",
+						gm_ifp->t_query);
+		else
+			json_object_string_addf(js_if, "otherQuerierTimer",
+						"%pTH",
+						gm_ifp->t_other_querier);
+	} else {
+		vty_out(vty, "%-16s  %-5s  %d  %-25pPA  %-5s %11pTH  %pTVMs\n",
+			ifp->name, "up", gm_ifp->cur_version, &gm_ifp->querier,
+			querier ? "query" : "other",
+			querier ? gm_ifp->t_query : gm_ifp->t_other_querier,
+			&gm_ifp->started);
+	}
+}
+
+static void gm_show_if_vrf(struct vty *vty, struct vrf *vrf, const char *ifname,
+			   bool detail, json_object *js)
+{
+	struct interface *ifp;
+	json_object *js_vrf;
+
+	if (js) {
+		js_vrf = json_object_new_object();
+		json_object_object_add(js, vrf->name, js_vrf);
+	}
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		json_object *js_if = NULL;
+
+		if (ifname && strcmp(ifp->name, ifname))
+			continue;
+		if (detail && !js) {
+			gm_show_if_one_detail(vty, ifp);
+			continue;
+		}
+
+		if (!ifp->info)
+			continue;
+		if (js) {
+			js_if = json_object_new_object();
+			json_object_object_add(js_vrf, ifp->name, js_if);
+		}
+
+		gm_show_if_one(vty, ifp, js_if);
+	}
+}
+
+static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
+		       bool detail, json_object *js)
+{
+	if (!js && !detail)
+		vty_out(vty, "%-16s  %-5s  V  %-25s  %-18s  %s\n", "Interface",
+			"State", "Querier", "Timer", "Uptime");
+
+	if (vrf)
+		gm_show_if_vrf(vty, vrf, ifname, detail, js);
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_if_vrf(vty, vrf, ifname, detail, js);
+}
+
+DEFPY(gm_show_interface,
+      gm_show_interface_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME] [detail$detail|json$json]",
+      DEBUG_STR
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      "MLD interface information\n"
+      "Detailed output\n"
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+	json_object *js = NULL;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (json)
+		js = json_object_new_object();
+	gm_show_if(vty, vrf, ifname, !!detail, js);
+	return vty_json(vty, js);
+}
+
+static void gm_show_stats_one(struct vty *vty, struct gm_if *gm_ifp,
+			      json_object *js_if)
+{
+	struct gm_if_stats *stats = &gm_ifp->stats;
+	struct {
+		const char *text;
+		const char *js_key;
+		uint64_t *val;
+	} * item,
+		items[] = {
+			/* clang-format off */
+		{ "v2 reports received", "rxV2Reports", &stats->rx_new_report },
+		{ "v1 reports received", "rxV1Reports", &stats->rx_old_report },
+		{ "v1 done received",    "rxV1Done",    &stats->rx_old_leave },
+
+		{ "v2 *,* queries received",   "rxV2QueryGeneral",     &stats->rx_query_new_general },
+		{ "v2 *,G queries received",   "rxV2QueryGroup",       &stats->rx_query_new_group },
+		{ "v2 S,G queries received",   "rxV2QueryGroupSource", &stats->rx_query_new_groupsrc },
+		{ "v2 S-bit queries received", "rxV2QuerySBit",        &stats->rx_query_new_sbit },
+		{ "v1 *,* queries received",   "rxV1QueryGeneral",     &stats->rx_query_old_general },
+		{ "v1 *,G queries received",   "rxV1QueryGroup",       &stats->rx_query_old_group },
+
+		{ "v2 *,* queries sent", "txV2QueryGeneral",     &stats->tx_query_new_general },
+		{ "v2 *,G queries sent", "txV2QueryGroup",       &stats->tx_query_new_group },
+		{ "v2 S,G queries sent", "txV2QueryGroupSource", &stats->tx_query_new_groupsrc },
+		{ "v1 *,* queries sent", "txV1QueryGeneral",     &stats->tx_query_old_general },
+		{ "v1 *,G queries sent", "txV1QueryGroup",       &stats->tx_query_old_group },
+		{ "TX errors",           "txErrors",             &stats->tx_query_fail },
+
+		{ "RX system errors",            "rxErrorSys",      &stats->rx_drop_sys },
+		{ "RX dropped (checksum error)", "rxDropChecksum",  &stats->rx_drop_csum },
+		{ "RX dropped (invalid source)", "rxDropSrcAddr",   &stats->rx_drop_srcaddr },
+		{ "RX dropped (invalid dest.)",  "rxDropDstAddr",   &stats->rx_drop_dstaddr },
+		{ "RX dropped (missing alert)",  "rxDropRtrAlert",  &stats->rx_drop_ra },
+		{ "RX dropped (malformed pkt.)", "rxDropMalformed", &stats->rx_drop_malformed },
+		{ "RX truncated reports",        "rxTruncatedRep",  &stats->rx_trunc_report },
+			/* clang-format on */
+		};
+
+	for (item = items; item < items + array_size(items); item++) {
+		if (js_if)
+			json_object_int_add(js_if, item->js_key, *item->val);
+		else
+			vty_out(vty, "  %-30s  %" PRIu64 "\n", item->text,
+				*item->val);
+	}
+}
+
+static void gm_show_stats_vrf(struct vty *vty, struct vrf *vrf,
+			      const char *ifname, json_object *js)
+{
+	struct interface *ifp;
+	json_object *js_vrf;
+
+	if (js) {
+		js_vrf = json_object_new_object();
+		json_object_object_add(js, vrf->name, js_vrf);
+	}
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		struct pim_interface *pim_ifp;
+		struct gm_if *gm_ifp;
+		json_object *js_if = NULL;
+
+		if (ifname && strcmp(ifp->name, ifname))
+			continue;
+
+		if (!ifp->info)
+			continue;
+		pim_ifp = ifp->info;
+		if (!pim_ifp->mld)
+			continue;
+		gm_ifp = pim_ifp->mld;
+
+		if (js) {
+			js_if = json_object_new_object();
+			json_object_object_add(js_vrf, ifp->name, js_if);
+		} else {
+			vty_out(vty, "Interface: %s\n", ifp->name);
+		}
+		gm_show_stats_one(vty, gm_ifp, js_if);
+		if (!js)
+			vty_out(vty, "\n");
+	}
+}
+
+DEFPY(gm_show_interface_stats,
+      gm_show_interface_stats_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] statistics [interface IFNAME] [json$json]",
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      "MLD statistics\n"
+      INTERFACE_STR
+      "Interface name\n"
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+	json_object *js = NULL;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (json)
+		js = json_object_new_object();
+
+	if (vrf)
+		gm_show_stats_vrf(vty, vrf, ifname, js);
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_stats_vrf(vty, vrf, ifname, js);
+	return vty_json(vty, js);
+}
+
+static void gm_show_joins_one(struct vty *vty, struct gm_if *gm_ifp,
+			      const struct prefix_ipv6 *groups,
+			      const struct prefix_ipv6 *sources,
+			      bool detail, json_object *js_if)
+{
+	struct gm_sg *sg, *sg_start;
+	json_object *js_group = NULL;
+	pim_addr js_grpaddr = PIMADDR_ANY;
+	struct gm_subscriber sub_ref, *sub_untracked;
+
+	if (groups) {
+		struct gm_sg sg_ref = {};
+
+		sg_ref.sgaddr.grp = pim_addr_from_prefix(groups);
+		sg_start = gm_sgs_find_gteq(gm_ifp->sgs, &sg_ref);
+	} else
+		sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	sub_ref.addr = gm_dummy_untracked;
+	sub_untracked = gm_subscribers_find(gm_ifp->subscribers, &sub_ref);
+	/* NB: sub_untracked may be NULL if no untracked joins exist */
+
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		struct timeval *recent = NULL, *untracked = NULL;
+		json_object *js_src;
+
+		if (groups) {
+			struct prefix_ipv6 grp_p;
+
+			pim_addr_to_prefix(&grp_p, sg->sgaddr.grp);
+			if (!prefix_match(groups, &grp_p))
+				break;
+		}
+
+		if (sources) {
+			struct prefix_ipv6 src_p;
+
+			pim_addr_to_prefix(&src_p, sg->sgaddr.src);
+			if (!prefix_match(sources, &src_p))
+				continue;
+		}
+
+		if (sg->most_recent) {
+			struct gm_packet_state *packet;
+
+			packet = gm_packet_sg2state(sg->most_recent);
+			recent = &packet->received;
+		}
+
+		if (sub_untracked) {
+			struct gm_packet_state *packet;
+			struct gm_packet_sg *item;
+
+			item = gm_packet_sg_find(sg, GM_SUB_POS, sub_untracked);
+			if (item) {
+				packet = gm_packet_sg2state(item);
+				untracked = &packet->received;
+			}
+		}
+
+		if (!js_if) {
+			FMT_NSTD_BEGIN; /* %.0p */
+			vty_out(vty,
+				"%-30pPA  %-30pPAs  %-16s  %10.0pTVMs  %10.0pTVMs  %10.0pTVMs\n",
+				&sg->sgaddr.grp, &sg->sgaddr.src,
+				gm_states[sg->state], recent, untracked,
+				&sg->created);
+
+			if (!detail)
+				continue;
+
+			struct gm_packet_sg *item;
+			struct gm_packet_state *packet;
+
+			frr_each (gm_packet_sg_subs, sg->subs_positive, item) {
+				packet = gm_packet_sg2state(item);
+
+				if (packet->subscriber == sub_untracked)
+					continue;
+				vty_out(vty, "    %-58pPA  %-16s  %10.0pTVMs\n",
+					&packet->subscriber->addr, "(JOIN)",
+					&packet->received);
+			}
+			frr_each (gm_packet_sg_subs, sg->subs_negative, item) {
+				packet = gm_packet_sg2state(item);
+
+				if (packet->subscriber == sub_untracked)
+					continue;
+				vty_out(vty, "    %-58pPA  %-16s  %10.0pTVMs\n",
+					&packet->subscriber->addr, "(PRUNE)",
+					&packet->received);
+			}
+			FMT_NSTD_END; /* %.0p */
+			continue;
+		}
+		/* if (js_if) */
+
+		if (!js_group || pim_addr_cmp(js_grpaddr, sg->sgaddr.grp)) {
+			js_group = json_object_new_object();
+			json_object_object_addf(js_if, js_group, "%pPA",
+						&sg->sgaddr.grp);
+			js_grpaddr = sg->sgaddr.grp;
+		}
+
+		js_src = json_object_new_object();
+		json_object_object_addf(js_group, js_src, "%pPA",
+					&sg->sgaddr.src);
+
+		json_object_string_addf(js_src, "state", gm_states[sg->state]);
+		json_object_string_addf(js_src, "created", "%pTVMs",
+					&sg->created);
+		json_object_string_addf(js_src, "lastSeen", "%pTVMs", recent);
+
+		if (untracked)
+			json_object_string_addf(js_src, "untrackedLastSeen", "%pTVMs", untracked);
+		if (!detail)
+			continue;
+
+		json_object *js_subs;
+		struct gm_packet_sg *item;
+		struct gm_packet_state *packet;
+
+		js_subs = json_object_new_object();
+		json_object_object_add(js_src, "joinedBy", js_subs);
+		frr_each (gm_packet_sg_subs, sg->subs_positive, item) {
+			packet = gm_packet_sg2state(item);
+			if (packet->subscriber == sub_untracked)
+				continue;
+
+			json_object *js_sub;
+
+			js_sub = json_object_new_object();
+			json_object_object_addf(js_subs, js_sub, "%pPA",
+						&packet->subscriber->addr);
+			json_object_string_addf(js_sub, "lastSeen", "%pTVMs",
+						&packet->received);
+		}
+
+		js_subs = json_object_new_object();
+		json_object_object_add(js_src, "prunedBy", js_subs);
+		frr_each (gm_packet_sg_subs, sg->subs_negative, item) {
+			packet = gm_packet_sg2state(item);
+			if (packet->subscriber == sub_untracked)
+				continue;
+
+			json_object *js_sub;
+
+			js_sub = json_object_new_object();
+			json_object_object_addf(js_subs, js_sub, "%pPA",
+						&packet->subscriber->addr);
+			json_object_string_addf(js_sub, "lastSeen", "%pTVMs",
+						&packet->received);
+		}
+	}
+}
+
+static void gm_show_joins_vrf(struct vty *vty, struct vrf *vrf,
+			      const char *ifname,
+			      const struct prefix_ipv6 *groups,
+			      const struct prefix_ipv6 *sources,
+			      bool detail, json_object *js)
+{
+	struct interface *ifp;
+	json_object *js_vrf;
+
+	if (js) {
+		js_vrf = json_object_new_object();
+		json_object_object_add(js, vrf->name, js_vrf);
+	}
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		struct pim_interface *pim_ifp;
+		struct gm_if *gm_ifp;
+		json_object *js_if = NULL;
+
+		if (ifname && strcmp(ifp->name, ifname))
+			continue;
+
+		if (!ifp->info)
+			continue;
+		pim_ifp = ifp->info;
+		if (!pim_ifp->mld)
+			continue;
+		gm_ifp = pim_ifp->mld;
+
+		if (js) {
+			js_if = json_object_new_object();
+			json_object_object_add(js_vrf, ifp->name, js_if);
+		}
+
+		if (!js && !ifname)
+			vty_out(vty, "\nOn interface %s:\n", ifp->name);
+
+		gm_show_joins_one(vty, gm_ifp, groups, sources, detail, js_if);
+	}
+}
+
+DEFPY(gm_show_interface_joins,
+      gm_show_interface_joins_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] joins [{interface IFNAME|groups X:X::X:X/M|sources X:X::X:X/M|detail$detail}] [json$json]",
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      "MLD joined groups & sources\n"
+      INTERFACE_STR
+      "Interface name\n"
+      "Limit output to group range\n"
+      "Show groups covered by this prefix\n"
+      "Limit output to source range\n"
+      "Show sources covered by this prefix\n"
+      "Show details, including tracked receivers\n"
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+	json_object *js = NULL;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (json)
+		js = json_object_new_object();
+	else
+		vty_out(vty, "%-30s  %-30s  %-16s  %10s  %10s  %10s\n",
+			"Group", "Source", "State", "LastSeen", "NonTrkSeen", "Created");
+
+	if (vrf)
+		gm_show_joins_vrf(vty, vrf, ifname, groups, sources, !!detail,
+				  js);
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_joins_vrf(vty, vrf, ifname, groups, sources, !!detail,
+					  js);
+	return vty_json(vty, js);
+}
 
 DEFPY(gm_debug_show,
       gm_debug_show_cmd,
@@ -2410,6 +2955,10 @@ void gm_cli_init(void);
 
 void gm_cli_init(void)
 {
+	install_element(VIEW_NODE, &gm_show_interface_cmd);
+	install_element(VIEW_NODE, &gm_show_interface_stats_cmd);
+	install_element(VIEW_NODE, &gm_show_interface_joins_cmd);
+
 	install_element(VIEW_NODE, &gm_debug_show_cmd);
 	install_element(INTERFACE_NODE, &gm_debug_iface_cfg_cmd);
 }
