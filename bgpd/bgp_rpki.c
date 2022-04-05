@@ -903,9 +903,8 @@ static void free_cache(struct cache *cache)
 	if (cache->type == TCP) {
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->host);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->port);
-		if (cache->tr_config.tcp_config->bindaddr)
-			XFREE(MTYPE_BGP_RPKI_CACHE,
-			      cache->tr_config.tcp_config->bindaddr);
+		XFREE(MTYPE_BGP_RPKI_CACHE,
+		      cache->tr_config.tcp_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config);
 	}
 #if defined(FOUND_SSH)
@@ -917,9 +916,8 @@ static void free_cache(struct cache *cache)
 		      cache->tr_config.ssh_config->client_privkey_path);
 		XFREE(MTYPE_BGP_RPKI_CACHE,
 		      cache->tr_config.ssh_config->server_hostkey_path);
-		if (cache->tr_config.ssh_config->bindaddr)
-			XFREE(MTYPE_BGP_RPKI_CACHE,
-			      cache->tr_config.ssh_config->bindaddr);
+		XFREE(MTYPE_BGP_RPKI_CACHE,
+		      cache->tr_config.ssh_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.ssh_config);
 	}
 #endif
