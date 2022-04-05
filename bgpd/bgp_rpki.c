@@ -123,6 +123,7 @@ static int add_tcp_cache(const char *host, const char *port,
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static int is_synchronized(void);
 static int is_running(void);
+static int is_stopping(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
@@ -340,6 +341,11 @@ inline int is_running(void)
 	return rtr_is_running;
 }
 
+inline int is_stopping(void)
+{
+	return rtr_is_stopping;
+}
+
 static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
 {
 	struct prefix *prefix = prefix_new();
@@ -481,7 +487,7 @@ static void rpki_connection_status_cb(const struct rtr_mgr_group *group
 	struct pfx_record rec = {0};
 	int retval;
 
-	if (rtr_is_stopping ||
+	if (is_stopping() ||
 	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
@@ -501,8 +507,8 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				    const struct pfx_record rec,
 				    const bool added __attribute__((unused)))
 {
-	if (rtr_is_stopping
-	    || atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
+	if (is_stopping() ||
+	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
 	int retval =
