@@ -497,7 +497,6 @@ void pim_zlookup_show_ip_multicast(struct vty *vty)
 	}
 }
 
-#if PIM_IPV == 4
 int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 {
 	struct stream *s = zlookup->obuf;
@@ -583,4 +582,3 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 
 	return 0;
 }
-#endif
