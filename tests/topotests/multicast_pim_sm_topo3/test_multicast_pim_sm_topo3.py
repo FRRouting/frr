@@ -2834,9 +2834,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
 
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
     input_traffic = {"f1": {"traffic_sent": [intf_f1_i8]}}
-    traffic_before = verify_multicast_traffic(
-        tgen, input_traffic, return_traffic=True, expected=False
-    )
+    traffic_before = verify_multicast_traffic(tgen, input_traffic, return_traffic=True)
     assert isinstance(traffic_before, dict), (
         "Testcase {} : Failed \n traffic_before is not dictionary \n "
         "Error: {}".format(tc_name, result)
@@ -2861,9 +2859,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
 
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
     input_traffic = {"f1": {"traffic_sent": [intf_f1_i8]}}
-    traffic_after = verify_multicast_traffic(
-        tgen, input_traffic, return_traffic=True, expected=False
-    )
+    traffic_after = verify_multicast_traffic(tgen, input_traffic, return_traffic=True)
     assert isinstance(traffic_after, dict), (
         "Testcase {} : Failed \n traffic_after is not dictionary \n "
         "Error: {}".format(tc_name, result)
