@@ -118,7 +118,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *grpnode;
+		struct listnode *grpnode, *grp_nextnode;
 		struct gm_group *grp;
 		struct pim_ifchannel *ch, *ch_temp;
 
@@ -126,8 +126,8 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
-					  grp)) {
+		for (ALL_LIST_ELEMENTS(pim_ifp->gm_group_list, grpnode,
+				       grp_nextnode, grp)) {
 			struct listnode *srcnode;
 			struct gm_source *src;
 			int is_grp_ssm;
