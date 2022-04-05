@@ -93,6 +93,15 @@ void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json);
 void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			json_object *json);
+int gm_process_query_max_response_time_cmd(struct vty *vty,
+					   const char *qmrt_str);
+int gm_process_no_query_max_response_time_cmd(struct vty *vty);
+int gm_process_last_member_query_count_cmd(struct vty *vty,
+					   const char *lmqc_str);
+int gm_process_no_last_member_query_count_cmd(struct vty *vty);
+int gm_process_last_member_query_interval_cmd(struct vty *vty,
+					      const char *lmqi_str);
+int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
 /*
  * Special Macro to allow us to get the correct pim_instance
  */
@@ -102,4 +111,12 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
 	vrf = (vrf) ? vrf : pim->vrf
 
+/*
+ * Special Macro to allow us to get the correct pim_instance;
+ */
+#define PIM_DECLVAR_CONTEXT(A, B)                                              \
+	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
+	struct pim_instance *B =                                               \
+		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
+	vrf = (vrf) ? vrf : pim->vrf
 #endif /* PIM_CMD_COMMON_H */
