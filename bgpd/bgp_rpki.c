@@ -67,6 +67,7 @@ static struct thread *t_rpki;
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
@@ -156,17 +157,17 @@ static const struct route_map_rule_cmd route_match_rpki_cmd = {
 
 static void *malloc_wrapper(size_t size)
 {
-	return XMALLOC(MTYPE_BGP_RPKI_CACHE, size);
+	return XMALLOC(MTYPE_BGP_RPKI_RTRLIB, size);
 }
 
 static void *realloc_wrapper(void *ptr, size_t size)
 {
-	return XREALLOC(MTYPE_BGP_RPKI_CACHE, ptr, size);
+	return XREALLOC(MTYPE_BGP_RPKI_RTRLIB, ptr, size);
 }
 
 static void free_wrapper(void *ptr)
 {
-	XFREE(MTYPE_BGP_RPKI_CACHE, ptr);
+	XFREE(MTYPE_BGP_RPKI_RTRLIB, ptr);
 }
 
 static void init_tr_socket(struct cache *cache)
