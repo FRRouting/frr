@@ -2762,8 +2762,8 @@ int lib_interface_gmp_address_family_query_interval_modify(
 int lib_interface_gmp_address_family_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
+#if PIM_IPV == 4
 	int query_max_response_time_dsec;
 
 	switch (args->event) {
@@ -2779,10 +2779,23 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 				query_max_response_time_dsec);
 	}
 #else
-	/* TBD Depends on MLD data structure changes */
+	struct pim_interface *pim_ifp;
+	int max_resp_ms;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		pim_ifp = pim_ifp_get(args->dnode, NULL, &ifp);
+
+		max_resp_ms = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_ifp->mld_max_resp_ms = max_resp_ms;
+		gm_ifp_update(ifp);
+		break;
+	}
 #endif
-
-
 	return NB_OK;
 }
 
@@ -2792,9 +2805,9 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 int lib_interface_gmp_address_family_last_member_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
+#if PIM_IPV == 4
 	int last_member_query_interval;
 
 	switch (args->event) {
@@ -2813,9 +2826,22 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 		break;
 	}
 #else
-	/* TBD Depends on MLD data structure changes */
-#endif
+	int last_query_intv;
 
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		pim_ifp = pim_ifp_get(args->dnode, NULL, &ifp);
+
+		last_query_intv = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_ifp->mld_last_query_intv = last_query_intv;
+		gm_ifp_update(ifp);
+		break;
+	}
+#endif
 	return NB_OK;
 }
 
@@ -2825,9 +2851,10 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 int lib_interface_gmp_address_family_robustness_variable_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
+
+#if PIM_IPV == 4
 	int last_member_query_count;
 
 	switch (args->event) {
@@ -2845,7 +2872,22 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 		break;
 	}
 #else
-	/* TBD Depends on MLD data structure changes */
+	int robustness;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		pim_ifp = pim_ifp_get(args->dnode, NULL, &ifp);
+
+		robustness = yang_dnode_get_uint8(args->dnode, NULL);
+		pim_ifp->gm_default_robustness_variable = robustness;
+		pim_ifp->gm_last_member_query_count = robustness;
+		gm_ifp_update(ifp);
+		break;
+	}
 #endif
 
 	return NB_OK;

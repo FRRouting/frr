@@ -138,6 +138,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->gm_specific_query_max_response_time_dsec =
 		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->gm_last_member_query_count = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->mld_last_query_intv = 30000;
+	pim_ifp->mld_max_resp_ms = 5000;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
