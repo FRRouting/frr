@@ -729,7 +729,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	enum pfxv_state result;
 
 	if (!is_synchronized())
-		return 0;
+		return RPKI_NOT_BEING_USED;
 
 	// No aspath means route comes from iBGP
 	if (!attr->aspath || !attr->aspath->segments) {
@@ -769,7 +769,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 		break;
 
 	default:
-		return 0;
+		return RPKI_NOT_BEING_USED;
 	}
 
 	// Do the actual validation
@@ -799,7 +799,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 			prefix, as_number);
 		break;
 	}
-	return 0;
+	return RPKI_NOT_BEING_USED;
 }
 
 static int add_cache(struct cache *cache)
