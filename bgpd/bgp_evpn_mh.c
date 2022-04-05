@@ -1273,9 +1273,9 @@ void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
 				}
 			}
 
-			if (node_to_del)
-				list_delete_node(bgp_mh_info->ead_es_export_rtl,
-						 node_to_del);
+			assert(node_to_del);
+			list_delete_node(bgp_mh_info->ead_es_export_rtl,
+					 node_to_del);
 		}
 	} else {
 		listnode_add_sort(bgp_mh_info->ead_es_export_rtl, ecomcfg);
