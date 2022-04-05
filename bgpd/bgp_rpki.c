@@ -64,6 +64,7 @@
 #endif
 
 static struct thread *t_rpki;
+static struct thread *t_rpki_start;
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
@@ -72,6 +73,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
+#define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -594,6 +596,18 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
+static void start_expired(struct thread *thread)
+{
+	if (!rtr_mgr_conf_in_sync(rtr_config)) {
+		thread_add_timer(bm->master, start_expired, NULL,
+				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
+				 &t_rpki_start);
+		return;
+	}
+
+	rtr_is_running = 1;
+}
+
 static int start(void)
 {
 	int ret;
@@ -627,7 +641,8 @@ static int start(void)
 		rtr_mgr_free(rtr_config);
 		return ERROR;
 	}
-	rtr_is_running = 1;
+
+	thread_add_timer(bm->master, start_expired, NULL, 0, &t_rpki_start);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
@@ -638,6 +653,7 @@ static void stop(void)
 {
 	rtr_is_stopping = 1;
 	if (is_running()) {
+		THREAD_OFF(t_rpki_start);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = 0;
@@ -647,6 +663,9 @@ static void stop(void)
 static int reset(bool force)
 {
 	if (is_running() && !force)
+		return SUCCESS;
+
+	if (thread_is_scheduled(t_rpki_start))
 		return SUCCESS;
 
 	RPKI_DEBUG("Resetting RPKI Session");
