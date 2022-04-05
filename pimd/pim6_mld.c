@@ -224,6 +224,7 @@ static struct gm_sg *gm_sg_make(struct gm_if *gm_ifp, pim_addr grp,
 		XFREE(MTYPE_GM_SG, ret);
 		ret = prev;
 	} else {
+		monotime(&ret->created);
 		gm_packet_sg_subs_init(ret->subs_positive);
 		gm_packet_sg_subs_init(ret->subs_negative);
 	}
@@ -285,6 +286,7 @@ static struct gm_subscriber *gm_subscriber_get(struct gm_if *gm_ifp,
 		ret->iface = gm_ifp;
 		ret->addr = addr;
 		ret->refcount = 1;
+		monotime(&ret->created);
 		gm_packets_init(ret->packets);
 
 		gm_subscribers_add(gm_ifp->subscribers, ret);
@@ -815,8 +817,12 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv2 report (truncated header)"));
+		gm_ifp->stats.rx_drop_malformed++;
 		return;
 	}
+
+	/* errors after this may at least partially process the packet */
+	gm_ifp->stats.rx_new_report++;
 
 	hdr = (struct mld_v2_report_hdr *)data;
 	data += sizeof(*hdr);
@@ -842,6 +848,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		if (len < sizeof(*rechdr)) {
 			zlog_warn(log_pkt_src(
 				"malformed MLDv2 report (truncated record header)"));
+			gm_ifp->stats.rx_trunc_report++;
 			break;
 		}
 
@@ -855,6 +862,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		if (len < record_size) {
 			zlog_warn(log_pkt_src(
 				"malformed MLDv2 report (truncated source list)"));
+			gm_ifp->stats.rx_trunc_report++;
 			break;
 		}
 		if (!IN6_IS_ADDR_MULTICAST(&rechdr->grp)) {
@@ -862,6 +870,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 				log_pkt_src(
 					"malformed MLDv2 report (invalid group %pI6)"),
 				&rechdr->grp);
+			gm_ifp->stats.rx_trunc_report++;
 			break;
 		}
 
@@ -913,8 +922,11 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	if (len < sizeof(*hdr)) {
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug(log_pkt_src("malformed MLDv1 report (truncated)"));
+		gm_ifp->stats.rx_drop_malformed++;
 		return;
 	}
+
+	gm_ifp->stats.rx_old_report++;
 
 	hdr = (struct mld_v1_pkt *)data;
 
@@ -975,8 +987,11 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 	if (len < sizeof(*hdr)) {
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug(log_pkt_src("malformed MLDv1 leave (truncated)"));
+		gm_ifp->stats.rx_drop_malformed++;
 		return;
 	}
+
+	gm_ifp->stats.rx_old_leave++;
 
 	hdr = (struct mld_v1_pkt *)data;
 
@@ -1363,6 +1378,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	if (len < sizeof(struct mld_v2_query_hdr) &&
 	    len != sizeof(struct mld_v1_pkt)) {
 		zlog_warn(log_pkt_src("invalid query size"));
+		gm_ifp->stats.rx_drop_malformed++;
 		return;
 	}
 
@@ -1373,6 +1389,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		zlog_warn(log_pkt_src(
 				  "malformed MLDv2 query (invalid group %pI6)"),
 			  &hdr->grp);
+		gm_ifp->stats.rx_drop_malformed++;
 		return;
 	}
 
@@ -1382,12 +1399,14 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		if (len < sizeof(struct mld_v2_query_hdr) + src_space) {
 			zlog_warn(log_pkt_src(
 				"malformed MLDv2 query (truncated source list)"));
+			gm_ifp->stats.rx_drop_malformed++;
 			return;
 		}
 
 		if (general_query && src_space) {
 			zlog_warn(log_pkt_src(
 				"malformed MLDv2 query (general query with non-empty source list)"));
+			gm_ifp->stats.rx_drop_malformed++;
 			return;
 		}
 	}
@@ -1402,10 +1421,12 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 				log_pkt_src(
 					"wrong destination %pPA for general query"),
 				pkt_dst);
+			gm_ifp->stats.rx_drop_dstaddr++;
 			return;
 		}
 
 		if (!IPV6_ADDR_SAME(&hdr->grp, pkt_dst)) {
+			gm_ifp->stats.rx_drop_dstaddr++;
 			zlog_warn(
 				log_pkt_src(
 					"wrong destination %pPA for group specific query"),
@@ -1454,24 +1475,33 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	}
 
 	if (len == sizeof(struct mld_v1_pkt)) {
-		if (general_query)
+		if (general_query) {
 			gm_handle_q_general(gm_ifp, &timers);
-		else
+			gm_ifp->stats.rx_query_old_general++;
+		} else {
 			gm_handle_q_group(gm_ifp, &timers, hdr->grp);
+			gm_ifp->stats.rx_query_old_group++;
+		}
 		return;
 	}
 
 	/* v2 query - [S]uppress bit */
-	if (hdr->flags & 0x8)
+	if (hdr->flags & 0x8) {
+		gm_ifp->stats.rx_query_new_sbit++;
 		return;
+	}
 
-	if (general_query)
+	if (general_query) {
 		gm_handle_q_general(gm_ifp, &timers);
-	else if (!ntohs(hdr->n_src))
+		gm_ifp->stats.rx_query_new_general++;
+	} else if (!ntohs(hdr->n_src)) {
 		gm_handle_q_group(gm_ifp, &timers, hdr->grp);
-	else
+		gm_ifp->stats.rx_query_new_group++;
+	} else {
 		gm_handle_q_groupsrc(gm_ifp, &timers, hdr->grp, hdr->srcs,
 				     ntohs(hdr->n_src));
+		gm_ifp->stats.rx_query_new_groupsrc++;
+	}
 }
 
 static void gm_rx_process(struct gm_if *gm_ifp,
@@ -1496,6 +1526,7 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 			log_pkt_src(
 				"(dst %pPA) packet RX checksum failure, expected %04hx, got %04hx"),
 			pkt_dst, pkt_csum, ref_csum);
+		gm_ifp->stats.rx_drop_csum++;
 		return;
 	}
 
@@ -1592,6 +1623,7 @@ static void gm_t_recv(struct thread *t)
 	nread = recvmsg(gm_ifp->sock, mh, MSG_PEEK | MSG_TRUNC);
 	if (nread <= 0) {
 		zlog_err(log_ifp("RX error: %m"));
+		gm_ifp->stats.rx_drop_sys++;
 		return;
 	}
 
@@ -1602,6 +1634,7 @@ static void gm_t_recv(struct thread *t)
 	nread = recvmsg(gm_ifp->sock, mh, 0);
 	if (nread <= 0) {
 		zlog_err(log_ifp("RX error: %m"));
+		gm_ifp->stats.rx_drop_sys++;
 		goto out_free;
 	}
 
@@ -1629,17 +1662,21 @@ static void gm_t_recv(struct thread *t)
 	if (!pktinfo || !hoplimit) {
 		zlog_err(log_ifp(
 			"BUG: packet without IPV6_PKTINFO or IPV6_HOPLIMIT"));
+		gm_ifp->stats.rx_drop_sys++;
 		goto out_free;
 	}
 
 	if (*hoplimit != 1) {
 		zlog_err(log_pkt_src("packet with hop limit != 1"));
+		/* spoofing attempt => count on srcaddr counter */
+		gm_ifp->stats.rx_drop_srcaddr++;
 		goto out_free;
 	}
 
 	if (!ip6_check_hopopts_ra(hopopts, hopopt_len, IP6_ALERT_MLD)) {
 		zlog_err(log_pkt_src(
 			"packet without IPv6 Router Alert MLD option"));
+		gm_ifp->stats.rx_drop_ra++;
 		goto out_free;
 	}
 
@@ -1651,12 +1688,14 @@ static void gm_t_recv(struct thread *t)
 
 	if (!IN6_IS_ADDR_LINKLOCAL(&pkt_src->sin6_addr)) {
 		zlog_warn(log_pkt_src("packet from invalid source address"));
+		gm_ifp->stats.rx_drop_srcaddr++;
 		goto out_free;
 	}
 
 	pktlen = nread;
 	if (pktlen < sizeof(struct icmp6_plain_hdr)) {
 		zlog_warn(log_pkt_src("truncated packet"));
+		gm_ifp->stats.rx_drop_malformed++;
 		goto out_free;
 	}
 
@@ -1777,8 +1816,24 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 		ret = sendmsg(gm_ifp->sock, mh, 0);
 	}
 
-	if (ret != expect_ret)
+	if (ret != expect_ret) {
 		zlog_warn(log_ifp("failed to send query: %m"));
+		gm_ifp->stats.tx_query_fail++;
+	} else {
+		if (gm_ifp->cur_version == GM_MLDV1) {
+			if (pim_addr_is_any(grp))
+				gm_ifp->stats.tx_query_old_general++;
+			else
+				gm_ifp->stats.tx_query_old_group++;
+		} else {
+			if (pim_addr_is_any(grp))
+				gm_ifp->stats.tx_query_new_general++;
+			else if (!n_srcs)
+				gm_ifp->stats.tx_query_new_group++;
+			else
+				gm_ifp->stats.tx_query_new_groupsrc++;
+		}
+	}
 }
 
 static void gm_t_query(struct thread *t)
@@ -1894,6 +1949,7 @@ static void gm_start(struct interface *ifp)
 	gm_ifp->ifp = ifp;
 	pim_ifp->mld = gm_ifp;
 	gm_ifp->pim = pim_ifp->pim;
+	monotime(&gm_ifp->started);
 
 	zlog_info(log_ifp("starting MLD"));
 
