@@ -2755,10 +2755,10 @@ const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd)
 		peer_gr_cmd = "NO_PEER_GR_CMD";
 		break;
 	case PEER_DISABLE_CMD:
-		peer_gr_cmd = "PEER_GR_CMD";
+		peer_gr_cmd = "PEER_DISABLE_GR_CMD";
 		break;
 	case NO_PEER_DISABLE_CMD:
-		peer_gr_cmd = "NO_PEER_GR_CMD";
+		peer_gr_cmd = "NO_PEER_DISABLE_GR_CMD";
 		break;
 	case PEER_HELPER_CMD:
 		peer_gr_cmd = "PEER_HELPER_CMD";
