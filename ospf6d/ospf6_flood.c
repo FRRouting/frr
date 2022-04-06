@@ -936,7 +936,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 	/* (1) LSA Checksum */
 	if (!ospf6_lsa_checksum_valid(new->header)) {
 		if (is_debug)
-			zlog_debug("Wrong LSA Checksum, discard");
+			zlog_debug(
+				"Wrong LSA Checksum %s (Router-ID: %pI4) [Type:%s Checksum:%#06hx), discard",
+				from->name, &from->router_id,
+				ospf6_lstype_name(new->header->type),
+				ntohs(new->header->checksum));
 		ospf6_lsa_delete(new);
 		return;
 	}
