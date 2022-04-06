@@ -20,7 +20,6 @@
  */
 
 #include <zebra.h>
-#include "zebra/zebra_vrf.h"
 
 #include "if.h"
 #include "vrf.h"
@@ -158,6 +157,7 @@ static void vrf_ids_by_table_update(uint32_t table_id, vrf_id_t new_vrf_id)
 struct vrf *vrf_lookup_by_name(const char *name)
 {
 	struct vrf vrf;
+
 	strlcpy(vrf.name, name, sizeof(vrf.name));
 
 	return (RB_FIND(vrf_name_head, &vrfs_by_name, &vrf));
@@ -420,16 +420,14 @@ struct vrf *vrf_lookup_by_id(vrf_id_t vrf_id)
 vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 {
 	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
 
 	/* case vrf with netns : match the netnsid */
 	if (vrf_is_backend_netns()) {
 		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			zvrf = vrf->info;
-			if (zvrf == NULL)
+			if (vrf->info == NULL)
 				continue;
-			if (ns_id == zvrf_id(zvrf))
-				return zvrf_id(zvrf);
+			if (ns_id == vrf->vrf_id)
+				return vrf->vrf_id;
 		}
 		/* case vrf with VRF_BACKEND_VRF_LITE : match the table_id */
 	} else if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
