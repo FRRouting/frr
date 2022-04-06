@@ -1,13 +1,13 @@
 {
-  "locators":[
+  "locators": [
     {
       "name": "loc1",
       "prefix": "2001:db8:1:1::/64",
       "statusUp": true,
       "chunks": [
         {
-          "prefix": "2001:db8:1:1::/64",
-          "proto": "system"
+          "prefix": "2001:db8:1:1::/68",
+          "proto": "sharp"
         }
       ]
     },
@@ -15,12 +15,7 @@
       "name": "loc2",
       "prefix": "2001:db8:2:2::/64",
       "statusUp": true,
-      "chunks": [
-        {
-          "prefix": "2001:db8:2:2::/64",
-          "proto": "system"
-        }
-      ]
+      "chunks": []
     }
   ]
 }

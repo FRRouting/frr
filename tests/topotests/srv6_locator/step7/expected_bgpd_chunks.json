@@ -1,0 +1,18 @@
+{
+  "locatorName": "",
+  "locatorChunks": [],
+  "functions": [],
+  "bgps": [
+    {
+      "name": "default",
+      "vpnPolicy": {
+        "ip": {
+          "toVpnSid": "none"
+        },
+        "ip6": {
+          "toVpnSid": "none"
+        }
+      }
+    }
+  ]
+}

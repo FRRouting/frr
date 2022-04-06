@@ -74,6 +74,79 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def get_locator_chunk_from_bgpd(router, locator):
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 100
+          segment-routing srv6
+           locator {}
+        """.format(
+            locator
+        )
+    )
+
+
+def get_locator_chunk_from_sharpd(router, locator):
+    router.vtysh_cmd("sharp srv6-manager get-locator-chunk {}".format(locator))
+
+
+def release_locator_chunk_from_bgpd(router, locator):
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 100
+          segment-routing srv6
+           no locator {}
+        """.format(
+            locator
+        )
+    )
+
+
+def release_locator_chunk_from_sharpd(router, locator):
+    router.vtysh_cmd("sharp srv6-manager release-locator-chunk {}".format(locator))
+
+
+def allocate_new_locator(router, locator, prefix):
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator {}
+             prefix {}
+        """.format(
+            locator, prefix
+        )
+    )
+
+
+def deallocate_locator(router, locator):
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            no locator {}
+        """.format(
+            locator
+        )
+    )
+
+
+def disable_srv6(router):
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          no srv6
+        """
+    )
+
+
 def test_srv6():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -92,6 +165,12 @@ def test_srv6():
         expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
         return topotest.json_cmp(output, expected)
 
+    def _check_bgpd_chunk(router, expected_chunk_file):
+        logger.info("checking bgpd locator chunk status")
+        output = json.loads(router.vtysh_cmd("show bgp segment-routing srv6 json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
+        return topotest.json_cmp(output, expected)
+
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
@@ -102,61 +181,58 @@ def test_srv6():
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
         assert result is None, "Failed"
 
+    def check_bgpd_chunk(router, expected_file):
+        func = functools.partial(_check_bgpd_chunk, router, expected_file)
+        success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
+        assert result is None, "Failed"
+
+    def check_all_srv6_status(step):
+        check_srv6_locator(router, "step{}/expected_locators.json".format(step))
+        check_sharpd_chunk(router, "step{}/expected_sharpd_chunks.json".format(step))
+        check_bgpd_chunk(router, "step{}/expected_bgpd_chunks.json".format(step))
+
     # FOR DEVELOPER:
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
 
     logger.info("Test1 for Locator Configuration")
-    check_srv6_locator(router, "expected_locators1.json")
-    check_sharpd_chunk(router, "expected_chunks1.json")
+    check_all_srv6_status(1)
 
-    logger.info("Test2 get chunk for locator loc1")
-    router.vtysh_cmd("sharp srv6-manager get-locator-chunk loc1")
-    check_srv6_locator(router, "expected_locators2.json")
-    check_sharpd_chunk(router, "expected_chunks2.json")
+    logger.info("Test2 get chunk for locator loc1 from sharpd")
+    get_locator_chunk_from_sharpd(router, "loc1")
+    check_all_srv6_status(2)
 
-    logger.info("Test3 release chunk for locator loc1")
-    router.vtysh_cmd("sharp srv6-manager release-locator-chunk loc1")
-    check_srv6_locator(router, "expected_locators3.json")
-    check_sharpd_chunk(router, "expected_chunks3.json")
+    logger.info("Test3 get chunk for locator loc1 from bgpd")
+    get_locator_chunk_from_bgpd(router, "loc1")
+    check_all_srv6_status(3)
 
-    logger.info("Test4 additional locator loc3")
-    router.vtysh_cmd(
-        """
-        configure terminal
-         segment-routing
-          srv6
-           locators
-            locator loc3
-             prefix 2001:db8:3:3::/64
-        """
-    )
-    check_srv6_locator(router, "expected_locators4.json")
-    check_sharpd_chunk(router, "expected_chunks4.json")
+    logger.info("Test4 release chunk for locator loc1 from sharpd")
+    release_locator_chunk_from_sharpd(router, "loc1")
+    check_all_srv6_status(4)
 
-    logger.info("Test5 delete locator and chunk is released automatically")
-    router.vtysh_cmd(
-        """
-        configure terminal
-         segment-routing
-          srv6
-           locators
-            no locator loc1
-        """
-    )
-    check_srv6_locator(router, "expected_locators5.json")
-    check_sharpd_chunk(router, "expected_chunks5.json")
+    logger.info("Test5 release chunk for locator loc1 from bgpd")
+    release_locator_chunk_from_bgpd(router, "loc1")
+    check_all_srv6_status(5)
 
-    logger.info("Test6 delete srv6 all configuration")
-    router.vtysh_cmd(
-        """
-        configure terminal
-         segment-routing
-          no srv6
-        """
-    )
-    check_srv6_locator(router, "expected_locators6.json")
-    check_sharpd_chunk(router, "expected_chunks6.json")
+    logger.info("Test6 re-get loc1 chunk from sharpd")
+    get_locator_chunk_from_sharpd(router, "loc1")
+    check_all_srv6_status(6)
+
+    logger.info("Test7 re-re-release loc1 chunk from bgpd")
+    release_locator_chunk_from_sharpd(router, "loc1")
+    check_all_srv6_status(7)
+
+    logger.info("Test8 additional locator loc3")
+    allocate_new_locator(router, "loc3", "2001:db8:3:3::/64")
+    check_all_srv6_status(8)
+
+    logger.info("Test9 delete locator and chunk is released automatically")
+    deallocate_locator(router, "loc1")
+    check_all_srv6_status(9)
+
+    logger.info("Test10 delete srv6 all configuration")
+    disable_srv6(router)
+    check_all_srv6_status(10)
 
 
 if __name__ == "__main__":

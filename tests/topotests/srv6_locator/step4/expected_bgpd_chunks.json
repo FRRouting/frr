@@ -1,0 +1,20 @@
+{
+  "locatorName": "loc1",
+  "locatorChunks": [
+    "2001:db8:1:1:1::/68"
+  ],
+  "functions": [],
+  "bgps": [
+    {
+      "name": "default",
+      "vpnPolicy": {
+        "ip": {
+          "toVpnSid": "none"
+        },
+        "ip6": {
+          "toVpnSid": "none"
+        }
+      }
+    }
+  ]
+}
