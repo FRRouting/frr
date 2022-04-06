@@ -3525,7 +3525,6 @@ DEFPY (show_ip_pim_nexthop_lookup,
 	pim_addr vif_source;
 	struct prefix grp;
 	struct pim_nexthop nexthop;
-	char nexthop_addr_str[PREFIX_STRLEN];
 	struct vrf *v;
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
@@ -3560,10 +3559,8 @@ DEFPY (show_ip_pim_nexthop_lookup,
 		return CMD_SUCCESS;
 	}
 
-	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
-		      nexthop_addr_str, sizeof(nexthop_addr_str));
-	vty_out(vty, "Group %s --- Nexthop %s Interface %s \n", group_str,
-		nexthop_addr_str, nexthop.interface->name);
+	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s \n", group_str,
+		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
 
 	return CMD_SUCCESS;
 }
@@ -4680,7 +4677,6 @@ DEFUN (show_ip_rib,
 	struct in_addr addr;
 	const char *addr_str;
 	struct pim_nexthop nexthop;
-	char nexthop_addr_str[PREFIX_STRLEN];
 	int result;
 
 	if (!vrf)
@@ -4706,10 +4702,8 @@ DEFUN (show_ip_rib,
 	vty_out(vty,
 		"Address         NextHop         Interface Metric Preference\n");
 
-	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
-		      nexthop_addr_str, sizeof(nexthop_addr_str));
-
-	vty_out(vty, "%-15s %-15s %-9s %6d %10d\n", addr_str, nexthop_addr_str,
+	vty_out(vty, "%-15s %-15pPAs %-9s %6d %10d\n", addr_str,
+		&nexthop.mrib_nexthop_addr,
 		nexthop.interface ? nexthop.interface->name : "<ifname?>",
 		nexthop.mrib_route_metric, nexthop.mrib_metric_preference);
 

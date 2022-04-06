@@ -1541,7 +1541,6 @@ DEFPY (show_ipv6_pim_nexthop_lookup,
 	pim_addr vif_source;
 	struct prefix grp;
 	struct pim_nexthop nexthop;
-	char nexthop_addr_str[PIM_ADDRSTRLEN];
 	struct vrf *v;
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
@@ -1564,10 +1563,8 @@ DEFPY (show_ipv6_pim_nexthop_lookup,
 		return CMD_SUCCESS;
 	}
 
-	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
-		      nexthop_addr_str, sizeof(nexthop_addr_str));
-	vty_out(vty, "Group %s --- Nexthop %s Interface %s\n", group_str,
-		nexthop_addr_str, nexthop.interface->name);
+	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s\n", group_str,
+		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
 
 	return CMD_SUCCESS;
 }
