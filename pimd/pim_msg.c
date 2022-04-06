@@ -219,6 +219,11 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 				if (child->rpf.source_nexthop.interface &&
 					!pim_rpf_is_same(&up->rpf,
 						&child->rpf)) {
+					if (PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
+								up->flags)
+					    && !(child->t_ka_timer))
+						continue;
+
 					size += sizeof(pim_encoded_source);
 					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
 						child->flags);
