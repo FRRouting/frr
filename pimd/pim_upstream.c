@@ -838,8 +838,7 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 	up->rpf.source_nexthop.interface = incoming;
 
 	/* reset other parameters to matched a connected incoming interface */
-	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
-			   PIMADDR_ANY);
+	up->rpf.source_nexthop.mrib_nexthop_addr = PIMADDR_ANY;
 	up->rpf.source_nexthop.mrib_metric_preference =
 		ZEBRA_CONNECT_DISTANCE_DEFAULT;
 	up->rpf.source_nexthop.mrib_route_metric = 0;
@@ -899,8 +898,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
-	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
-			   PIMADDR_ANY);
+	up->rpf.source_nexthop.mrib_nexthop_addr = PIMADDR_ANY;
 	up->rpf.source_nexthop.mrib_metric_preference =
 		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
