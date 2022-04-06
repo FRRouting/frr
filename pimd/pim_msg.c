@@ -244,6 +244,24 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 					zlog_debug(
 						"%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
 						__func__, child->sg_str);
+			} else if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(
+					   child->flags) &&
+				   !pim_rpf_is_same(&up->rpf, &child->rpf) &&
+				   PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags) &&
+				   child->t_ka_timer) {
+				/*
+				 * This is corner case where FHR is LHR,
+				 * source and receiver on same interface and
+				 * no other receiver/join on any other interface
+				 */
+				size += sizeof(struct pim_encoded_source_ipv4);
+				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
+					child->flags);
+				if (PIM_DEBUG_PIM_PACKETS)
+					zlog_debug(
+						"%s: RPF'(%s) != RPF'(%s,rpt),(FHR=LHR case) Add Prune to compound message",
+						__func__, up->sg_str,
+						child->sg_str);
 			} else if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s: Do not add Prune %s to compound message %s",
