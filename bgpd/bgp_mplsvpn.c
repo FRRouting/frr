@@ -523,7 +523,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 			      struct in6_addr *sid_locator)
 {
 	struct listnode *node;
-	struct prefix_ipv6 *chunk;
+	struct srv6_locator_chunk *chunk;
 	struct in6_addr sid_buf;
 	bool alloced = false;
 	int label = 0;
@@ -532,8 +532,8 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
-		*sid_locator = chunk->prefix;
-		sid_buf = chunk->prefix;
+		*sid_locator = chunk->prefix.prefix;
+		sid_buf = chunk->prefix.prefix;
 		if (index != 0) {
 			label = index << 12;
 			transpose_sid(&sid_buf, label, 64, 16);

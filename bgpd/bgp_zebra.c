@@ -3155,26 +3155,26 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct stream *s = NULL;
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node;
-	struct prefix_ipv6 *c;
-	struct srv6_locator_chunk s6c = {};
-	struct prefix_ipv6 *chunk = NULL;
+	struct srv6_locator_chunk *c;
+	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
 
 	s = zclient->ibuf;
-	zapi_srv6_locator_chunk_decode(s, &s6c);
+	zapi_srv6_locator_chunk_decode(s, chunk);
 
-	if (strcmp(bgp->srv6_locator_name, s6c.locator_name) != 0) {
+	if (strcmp(bgp->srv6_locator_name, chunk->locator_name) != 0) {
 		zlog_err("%s: Locator name unmatch %s:%s", __func__,
-			 bgp->srv6_locator_name, s6c.locator_name);
+			 bgp->srv6_locator_name, chunk->locator_name);
+		srv6_locator_chunk_free(chunk);
 		return 0;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, c)) {
-		if (!prefix_cmp(c, &s6c.prefix))
+		if (!prefix_cmp(&c->prefix, &chunk->prefix)) {
+			srv6_locator_chunk_free(chunk);
 			return 0;
+		}
 	}
 
-	chunk = prefix_ipv6_new();
-	*chunk = s6c.prefix;
 	listnode_add(bgp->srv6_locator_chunks, chunk);
 	vpn_leak_postchange_all();
 	return 0;
@@ -3203,7 +3203,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node, *nnode;
-	struct prefix_ipv6 *chunk;
+	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
@@ -3215,7 +3215,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
 		if (prefix_match((struct prefix *)&loc.prefix,
-				 (struct prefix *)chunk))
+				 (struct prefix *)&chunk->prefix))
 			listnode_delete(bgp->srv6_locator_chunks, chunk);
 
 	// refresh functions
