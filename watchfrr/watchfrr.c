@@ -136,13 +136,13 @@ static struct global_state {
 	.stop_command = DEFAULT_STOP_CMD,
 };
 
-typedef enum {
+enum daemon_state {
 	DAEMON_INIT,
 	DAEMON_DOWN,
 	DAEMON_CONNECTING,
 	DAEMON_UP,
 	DAEMON_UNRESPONSIVE
-} daemon_state_t;
+};
 
 #define IS_UP(DMN)                                                             \
 	(((DMN)->state == DAEMON_UP) || ((DMN)->state == DAEMON_UNRESPONSIVE))
@@ -153,7 +153,7 @@ static const char *const state_str[] = {
 
 struct daemon {
 	const char *name;
-	daemon_state_t state;
+	enum daemon_state state;
 	int fd;
 	struct timeval echo_sent;
 	unsigned int connect_tries;
