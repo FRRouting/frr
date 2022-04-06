@@ -1053,6 +1053,12 @@ void watchfrr_status(struct vty *vty)
 	struct timeval delay;
 
 	vty_out(vty, "watchfrr global phase: %s\n", phase_str[gs.phase]);
+	vty_out(vty, " Restart Command: %pSQq\n", gs.restart_command);
+	vty_out(vty, " Start Command: %pSQq\n", gs.start_command);
+	vty_out(vty, " Stop Command: %pSQq\n", gs.stop_command);
+	vty_out(vty, " Min Restart Interval: %ld\n", gs.min_restart_interval);
+	vty_out(vty, " Max Restart Interval: %ld\n", gs.max_restart_interval);
+	vty_out(vty, " Restart Timeout: %ld\n", gs.restart_timeout);
 	if (gs.restart.pid)
 		vty_out(vty, "    global restart running, pid %ld\n",
 			(long)gs.restart.pid);
