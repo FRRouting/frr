@@ -143,7 +143,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
-	pim_ifp->ucast_bsm_accept = true;
+	pim_ifp->ucast_bsm_accept = false;
 	pim_ifp->am_i_dr = false;
 
 	/*
