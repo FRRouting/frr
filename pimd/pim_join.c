@@ -163,6 +163,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	pastend = tlv_buf + tlv_buf_size;
 	pim_ifp = ifp->info;
 
+	assert(pim_ifp);
 	/*
 	  Parse ucast addr
 	*/

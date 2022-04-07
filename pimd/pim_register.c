@@ -133,7 +133,7 @@ static void pim_reg_stop_upstream(struct pim_instance *pim,
 int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_instance *pim;
 	struct pim_upstream *up = NULL;
 	struct pim_rpf *rp;
 	pim_addr rpf_addr;
@@ -144,6 +144,8 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	bool handling_star = false;
 	int l;
 
+	assert(pim_ifp);
+	pim = pim_ifp->pim;
 	++pim_ifp->pim_ifstat_reg_stop_recv;
 
 	memset(&sg, 0, sizeof(sg));
@@ -380,9 +382,11 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	uint32_t *bits;
 	int i_am_rp = 0;
 	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_instance *pim;
 	pim_addr rp_addr;
 
+	assert(pim_ifp);
+	pim = pim_ifp->pim;
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 

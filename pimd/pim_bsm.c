@@ -1291,12 +1291,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 
 	/* BSM Packet acceptance validation */
 	pim_ifp = ifp->info;
-	if (!pim_ifp) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: multicast not enabled on interface %s",
-				   __func__, ifp->name);
-		return -1;
-	}
+	assert(pim_ifp);
 
 	pim_ifp->pim_ifstat_bsm_rx++;
 	pim = pim_ifp->pim;
