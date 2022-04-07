@@ -365,7 +365,7 @@ void zclient_lookup_read_pipe(struct thread *thread)
 	struct zclient *zlookup = THREAD_ARG(thread);
 	struct pim_instance *pim = pim_get_pim_instance(VRF_DEFAULT);
 	struct pim_zlookup_nexthop nexthop_tab[10];
-	struct in_addr l = {.s_addr = INADDR_ANY};
+	pim_addr l = PIMADDR_ANY;
 
 	if (!pim) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
