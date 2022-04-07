@@ -31,6 +31,7 @@
 #include "thread.h"
 #include "if.h"
 #include "stream.h"
+#include "bfd.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -813,6 +814,15 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					  buf, sizeof(buf));
 				vty_out(vty, "      %s\n", buf);
 			}
+		}
+		if (adj->circuit && adj->circuit->bfd_config.enabled) {
+			vty_out(vty, "    BFD is %s%s\n",
+				adj->bfd_session ? "active, status "
+						 : "configured",
+				!adj->bfd_session
+					? ""
+					: bfd_get_status_str(bfd_sess_status(
+						  adj->bfd_session)));
 		}
 		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
 			const char *adj_type;
