@@ -76,7 +76,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
 				"%s: Using last lookup for %pPAs at %lld, %" PRId64
-				" addr %pFX",
+				" addr %pPAs",
 				__func__, &addr, nexthop->last_lookup_time,
 				pim->last_route_change_time,
 				&nexthop->mrib_nexthop_addr);
@@ -124,8 +124,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			i++;
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find_prefix(
-				ifp, &nexthop_tab[i].nexthop_addr);
+			nbr = pim_neighbor_find(ifp,
+						nexthop_tab[i].nexthop_addr);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p",
 					   ifp->name, nbr);
@@ -140,11 +140,12 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	if (found) {
 		if (PIM_DEBUG_ZEBRA)
 			zlog_debug(
-				"%s %s: found nexthop %pFX for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
+				"%s %s: found nexthop %pPAs for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
 				__FILE__, __func__,
 				&nexthop_tab[i].nexthop_addr, &addr, ifp->name,
 				first_ifindex, nexthop_tab[i].route_metric,
 				nexthop_tab[i].protocol_distance);
+
 		/* update nexthop data */
 		nexthop->interface = ifp;
 		nexthop->mrib_nexthop_addr = nexthop_tab[i].nexthop_addr;
@@ -162,11 +163,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 static int nexthop_mismatch(const struct pim_nexthop *nh1,
 			    const struct pim_nexthop *nh2)
 {
-	pim_addr nh_addr1 = pim_addr_from_prefix(&nh1->mrib_nexthop_addr);
-	pim_addr nh_addr2 = pim_addr_from_prefix(&nh2->mrib_nexthop_addr);
-
 	return (nh1->interface != nh2->interface) ||
-	       (pim_addr_cmp(nh_addr1, nh_addr2)) ||
+	       (pim_addr_cmp(nh1->mrib_nexthop_addr, nh2->mrib_nexthop_addr)) ||
 	       (nh1->mrib_metric_preference != nh2->mrib_metric_preference) ||
 	       (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
@@ -257,7 +255,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	if (nexthop_mismatch(&rpf->source_nexthop, &saved.source_nexthop)) {
 
 		if (PIM_DEBUG_ZEBRA)
-			zlog_debug("%s(%s): (S,G)=%s source nexthop now is: interface=%s address=%pFX pref=%d metric=%d",
+			zlog_debug("%s(%s): (S,G)=%s source nexthop now is: interface=%s address=%pPAs pref=%d metric=%d",
 		 __func__, caller,
 		 up->sg_str,
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>",
@@ -316,8 +314,7 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 	if (up->rpf.source_nexthop.interface) {
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
-		pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
-				   PIMADDR_ANY);
+		up->rpf.source_nexthop.mrib_nexthop_addr = PIMADDR_ANY;
 		up->rpf.source_nexthop.mrib_metric_preference =
 			router->infinite_assert_metric.metric_preference;
 		up->rpf.source_nexthop.mrib_route_metric =
@@ -364,11 +361,8 @@ static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 
 	/* return NBR( RPF_interface(S), MRIB.next_hop( S ) ) */
 
-	pim_addr nhaddr;
-
-	nhaddr =
-		pim_addr_from_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr);
-	neigh = pim_if_find_neighbor(up->rpf.source_nexthop.interface, nhaddr);
+	neigh = pim_if_find_neighbor(up->rpf.source_nexthop.interface,
+				     up->rpf.source_nexthop.mrib_nexthop_addr);
 	if (neigh)
 		rpf_addr = neigh->source_addr;
 	else
