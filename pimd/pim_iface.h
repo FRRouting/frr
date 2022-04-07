@@ -71,6 +71,7 @@ struct pim_secondary_addr {
 struct pim_interface {
 	bool pim_enable : 1;
 	bool pim_can_disable_join_suppression : 1;
+	bool pim_passive_enable : 1;
 
 	bool igmp_enable : 1;
 

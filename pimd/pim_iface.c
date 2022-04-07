@@ -150,6 +150,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	       pim_ifp->gm_default_query_interval);
 
 	pim_ifp->pim_enable = pim;
+	pim_ifp->pim_passive_enable = false;
 #if PIM_IPV == 4
 	pim_ifp->igmp_enable = igmp;
 #endif
