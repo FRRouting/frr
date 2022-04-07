@@ -449,6 +449,14 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	struct pim_instance *pim = pim_ifp->pim;
 	pim_addr rp_addr;
 
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
+
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
