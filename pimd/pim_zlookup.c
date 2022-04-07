@@ -304,17 +304,14 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 				       struct pim_zlookup_nexthop nexthop_tab[],
-				       const int tab_size, struct in_addr addr)
+				       const int tab_size, pim_addr addr)
 {
 	struct stream *s;
 	int ret;
 
-	if (PIM_DEBUG_PIM_NHT_DETAIL) {
-		char addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-		zlog_debug("%s: addr=%s(%s)", __func__, addr_str,
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
 			   pim->vrf->name);
-	}
 
 	/* Check socket. */
 	if (zlookup->sock < 0) {
@@ -336,7 +333,11 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
 			      pim->vrf->vrf_id);
+#if PIM_IPV == 4
 	stream_put_in_addr(s, &addr);
+#else
+	stream_write(s, (uint8_t *)&addr, 16);
+#endif
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	ret = writen(zlookup->sock, s->data, stream_get_endp(s));
