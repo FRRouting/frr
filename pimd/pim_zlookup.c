@@ -392,7 +392,7 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 	for (lookup = 0; lookup < max_lookup; ++lookup) {
 		int num_ifindex;
 		int first_ifindex;
-		struct prefix nexthop_addr;
+		pim_addr nexthop_addr;
 
 		num_ifindex = zclient_lookup_nexthop_once(pim, nexthop_tab,
 							  tab_size, addr);
@@ -441,8 +441,7 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 						nexthop_tab[0].route_metric);
 
 				/* use last address as nexthop address */
-				pim_addr_to_prefix(
-					&(nexthop_tab[0].nexthop_addr), addr);
+				nexthop_tab[0].nexthop_addr = addr;
 
 				/* report original route metric/distance */
 				nexthop_tab[0].route_metric = route_metric;
@@ -453,23 +452,16 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 			return num_ifindex;
 		}
 
-		if (PIM_DEBUG_PIM_NHT) {
-			char addr_str[INET_ADDRSTRLEN];
-			char nexthop_str[PREFIX_STRLEN];
-			pim_inet4_dump("<addr?>", addr, addr_str,
-				       sizeof(addr_str));
-			pim_addr_dump("<nexthop?>", &nexthop_addr, nexthop_str,
-				      sizeof(nexthop_str));
+		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
-				"%s: lookup=%d/%d: zebra returned recursive nexthop %s for address %pPA(%s) dist=%d met=%d",
-				__func__, lookup, max_lookup, nexthop_str,
+				"%s: lookup=%d/%d: zebra returned recursive nexthop %pPAs for address %pPA(%s) dist=%d met=%d",
+				__func__, lookup, max_lookup, &nexthop_addr,
 				&addr, pim->vrf->name,
 				nexthop_tab[0].protocol_distance,
 				nexthop_tab[0].route_metric);
-		}
 
-		addr = pim_addr_from_prefix(&(nexthop_addr)); /* use nexthop
-						  addr for recursive lookup */
+		addr = nexthop_addr; /* use nexthop
+					addr for recursive lookup */
 
 	} /* for (max_lookup) */
 
