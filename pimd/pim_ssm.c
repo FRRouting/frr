@@ -70,19 +70,9 @@ void pim_ssm_prefix_list_update(struct pim_instance *pim,
 
 static int pim_is_grp_standard_ssm(struct prefix *group)
 {
-	static int first = 1;
-	static struct prefix group_ssm;
+	pim_addr addr = pim_addr_from_prefix(group);
 
-	if (first) {
-		if (!str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm))
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: Failure to Read Group Address: %s",
-				 __func__, PIM_SSM_STANDARD_RANGE);
-
-		first = 0;
-	}
-
-	return prefix_match(&group_ssm, group);
+	return pim_addr_ssm(addr);
 }
 
 int pim_is_grp_ssm(struct pim_instance *pim, pim_addr group_addr)
