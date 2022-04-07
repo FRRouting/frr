@@ -303,6 +303,15 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
+
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
+
 	++pim_ifp->pim_ifstat_assert_recv;
 
 	return dispatch_assert(ifp, msg_source_addr, sg.grp, msg_metric);
