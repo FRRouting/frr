@@ -156,7 +156,7 @@ void zclient_lookup_new(void)
 static int zclient_read_nexthop(struct pim_instance *pim,
 				struct zclient *zlookup,
 				struct pim_zlookup_nexthop nexthop_tab[],
-				const int tab_size, struct in_addr addr)
+				const int tab_size, pim_addr addr)
 {
 	int num_ifindex = 0;
 	struct stream *s;
@@ -165,19 +165,15 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t command = 0;
-	struct in_addr raddr;
+	pim_addr raddr;
 	uint8_t distance;
 	uint32_t metric;
 	int nexthop_num;
 	int i, err;
 
-	if (PIM_DEBUG_PIM_NHT_DETAIL) {
-		char addr_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-		zlog_debug("%s: addr=%s(%s)", __func__, addr_str,
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
+		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
 			   pim->vrf->name);
-	}
 
 	s = zlookup->ibuf;
 
@@ -201,17 +197,15 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 	}
 
+#if PIM_IPV == 4
 	raddr.s_addr = stream_get_ipv4(s);
-
-	if (raddr.s_addr != addr.s_addr) {
-		char addr_str[INET_ADDRSTRLEN];
-		char raddr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-		pim_inet4_dump("<raddr?>", raddr, raddr_str, sizeof(raddr_str));
-		zlog_warn("%s: address mismatch: addr=%s(%s) raddr=%s",
-			  __func__, addr_str, pim->vrf->name, raddr_str);
-		/* warning only */
-	}
+#else
+	stream_get(&raddr, s, sizeof(struct in6_addr));
+#endif
+	if (pim_addr_cmp(raddr, addr))
+		zlog_warn("%s: address mismatch: addr=%pPAs(%s) raddr=%pPAs",
+			  __func__, &addr, pim->vrf->name, &raddr);
+	/* warning only */
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
@@ -233,12 +227,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		nexthop_vrf_id = stream_getl(s);
 		nexthop_type = stream_getc(s);
 		if (num_ifindex >= tab_size) {
-			char addr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<addr?>", addr, addr_str,
-				       sizeof(addr_str));
 			zlog_warn(
-				"%s: found too many nexthop ifindexes (%d > %d) for address %s(%s)",
-				__func__, (num_ifindex + 1), tab_size, addr_str,
+				"%s: found too many nexthop ifindexes (%d > %d) for address %pPAs(%s)",
+				__func__, (num_ifindex + 1), tab_size, &addr,
 				pim->vrf->name);
 			return num_ifindex;
 		}
@@ -254,32 +245,25 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			 * allow us to work in cases where we are
 			 * trying to find a route for this box.
 			 */
-			nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
-			nexthop_tab[num_ifindex].nexthop_addr.prefixlen =
-				IPV4_MAX_BITLEN;
-			nexthop_tab[num_ifindex].nexthop_addr.u.prefix4 =
-				addr;
+			nexthop_tab[num_ifindex].nexthop_addr = addr;
 			++num_ifindex;
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
-			nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
-			nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr =
+			nexthop_tab[num_ifindex].nexthop_addr.s_addr =
 				stream_get_ipv4(s);
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
 			++num_ifindex;
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET6;
-			stream_get(&nexthop_tab[num_ifindex]
-					    .nexthop_addr.u.prefix6,
-				   s, sizeof(struct in6_addr));
+			stream_get(&nexthop_tab[num_ifindex].nexthop_addr, s,
+				   sizeof(struct in6_addr));
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
 
 			p.family = AF_INET6;
 			p.prefixlen = IPV6_MAX_BITLEN;
 			memcpy(&p.u.prefix6,
-			       &nexthop_tab[num_ifindex].nexthop_addr.u.prefix6,
+			       &nexthop_tab[num_ifindex].nexthop_addr,
 			       sizeof(struct in6_addr));
 
 			/*
@@ -298,23 +282,17 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				nbr = pim_neighbor_find_if(ifp);
 
 			if (nbr) {
-				nexthop_tab[num_ifindex].nexthop_addr.family =
-					AF_INET;
-				pim_addr_to_prefix(
-					&nexthop_tab[num_ifindex].nexthop_addr,
-					nbr->source_addr);
+				nexthop_tab[num_ifindex].nexthop_addr =
+					nbr->source_addr;
 			}
 			++num_ifindex;
 			break;
 		default:
 			/* do nothing */
 			{
-				char addr_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", addr, addr_str,
-					       sizeof(addr_str));
 				zlog_warn(
-					"%s: found non-ifindex nexthop type=%d for address %s(%s)",
-					__func__, nexthop_type, addr_str,
+					"%s: found non-ifindex nexthop type=%d for address %pPAs(%s)",
+					__func__, nexthop_type, &addr,
 					pim->vrf->name);
 			}
 			break;
