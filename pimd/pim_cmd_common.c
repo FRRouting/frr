@@ -2110,6 +2110,10 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 						       sec_list);
 			}
 
+			if (pim_ifp->pim_passive_enable)
+				json_object_boolean_true_add(json_row,
+							     "passive");
+
 			/* PIM neighbors */
 			if (pim_ifp->pim_neighbor_list->count) {
 				json_pim_neighbors = json_object_new_object();
@@ -2276,6 +2280,12 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 			} else {
 				vty_out(vty, "Address    : %pPAs\n", &ifaddr);
 			}
+
+			if (pim_ifp->pim_passive_enable)
+				vty_out(vty, "Passive    : %s\n",
+					(pim_ifp->pim_passive_enable) ? "yes"
+								      : "no");
+
 			vty_out(vty, "\n");
 
 			/* PIM neighbors */
