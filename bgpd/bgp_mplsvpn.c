@@ -516,28 +516,35 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
 }
 
 /*
+ * This function generates a new SID based on bgp->srv6_locator_chunks and
+ * index. The locator and generated SID are stored in arguments sid_locator
+ * and sid, respectively.
+ *
  * if index != 0: try to allocate as index-mode
  * else: try to allocate as auto-mode
  */
 static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
-			      struct in6_addr *sid_locator)
+			      struct in6_addr *sid_locator,
+			      struct in6_addr *sid)
 {
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
-	struct in6_addr sid_buf;
 	bool alloced = false;
 	int label = 0;
+	uint8_t offset = 0;
 
-	if (!bgp || !sid_locator)
+	if (!bgp || !sid_locator || !sid)
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		*sid_locator = chunk->prefix.prefix;
-		sid_buf = chunk->prefix.prefix;
+		*sid = chunk->prefix.prefix;
+		offset = chunk->block_bits_length + chunk->node_bits_length;
+
 		if (index != 0) {
 			label = index << 12;
-			transpose_sid(&sid_buf, label, 64, 16);
-			if (sid_exist(bgp, &sid_buf))
+			transpose_sid(sid, label, offset, 16);
+			if (sid_exist(bgp, sid))
 				return false;
 			alloced = true;
 			break;
@@ -545,8 +552,8 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 
 		for (size_t i = 1; i < 255; i++) {
 			label = i << 12;
-			transpose_sid(&sid_buf, label, 64, 16);
-			if (sid_exist(bgp, &sid_buf))
+			transpose_sid(sid, label, offset, 16);
+			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
 			break;
@@ -556,7 +563,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 	if (!alloced)
 		return 0;
 
-	sid_register(bgp, &sid_buf, bgp->srv6_locator_name);
+	sid_register(bgp, sid, bgp->srv6_locator_name);
 	return label;
 }
 
@@ -600,20 +607,18 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 
 	tovpn_sid_locator =
 		XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-	tovpn_sid_transpose_label =
-		alloc_new_sid(bgp_vpn, tovpn_sid_index, tovpn_sid_locator);
+	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+
+	tovpn_sid_transpose_label = alloc_new_sid(bgp_vpn, tovpn_sid_index,
+						  tovpn_sid_locator, tovpn_sid);
+
 	if (tovpn_sid_transpose_label == 0) {
 		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
 			   __func__, bgp_vrf->name_pretty, afi2str(afi));
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid_locator);
+		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
 	}
-
-	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-	*tovpn_sid = *tovpn_sid_locator;
-	transpose_sid(tovpn_sid, tovpn_sid_transpose_label,
-		      BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET,
-		      BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH);
 
 	if (debug) {
 		inet_ntop(AF_INET6, tovpn_sid, buf, sizeof(buf));
