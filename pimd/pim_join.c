@@ -164,6 +164,14 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	pastend = tlv_buf + tlv_buf_size;
 	pim_ifp = ifp->info;
 
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
+
 	/*
 	  Parse ucast addr
 	*/
