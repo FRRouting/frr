@@ -45,14 +45,14 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_TABLE_INFO, "ISIS route table info");
 
 DEFINE_HOOK(isis_route_update_hook,
 	    (struct isis_area * area, struct prefix *prefix,
-	     struct isis_route_info *route_info),
-	    (area, prefix, route_info));
+	     struct route_node *rn, bool switchover),
+	    (area, prefix, rn, switchover));
 
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 					  union g_addr *ip, ifindex_t ifindex);
 static void isis_route_update(struct isis_area *area, struct prefix *prefix,
-			      struct prefix_ipv6 *src_p,
-			      struct isis_route_info *route_info);
+			      struct prefix_ipv6 *src_p, struct route_node *rn,
+			      bool switchover);
 
 static struct mpls_label_stack *
 label_stack_dup(const struct mpls_label_stack *const orig)
@@ -531,7 +531,7 @@ void isis_route_delete(struct isis_area *area, struct route_node *rode,
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
 		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte: route delete  %s", buff);
-		isis_route_update(area, prefix, src_p, rinfo);
+		isis_route_update(area, prefix, src_p, rode, false);
 	}
 	isis_route_info_delete(rinfo);
 	rode->info = NULL;
@@ -585,9 +585,14 @@ static void set_merge_route_info_sr_algo(struct isis_route_info *mrinfo,
 }
 
 static void isis_route_update(struct isis_area *area, struct prefix *prefix,
-			      struct prefix_ipv6 *src_p,
-			      struct isis_route_info *route_info)
+			      struct prefix_ipv6 *src_p, struct route_node *rn,
+			      bool switchover)
 {
+	struct isis_route_info *route_info;
+
+	route_info = switchover ? ((struct isis_route_info *)rn->info)->backup
+				: rn->info;
+
 	if (area == NULL)
 		return;
 
@@ -613,11 +618,11 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 				isis_zebra_prefix_sid_install(area, prefix,
 							      &sr_algo);
 
-			hook_call(isis_route_update_hook, area, prefix,
-				  route_info);
+			hook_call(isis_route_update_hook, area, prefix, rn,
+				  switchover);
 		}
 
-		hook_call(isis_route_update_hook, area, prefix, route_info);
+		hook_call(isis_route_update_hook, area, prefix, rn, switchover);
 
 		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
@@ -632,7 +637,7 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		/* Uninstall route. */
 		isis_zebra_route_del_route(area->isis, prefix, src_p,
 					   route_info);
-		hook_call(isis_route_update_hook, area, prefix, route_info);
+		hook_call(isis_route_update_hook, area, prefix, rn, switchover);
 
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 	}
@@ -705,7 +710,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 		}
 #endif /* EXTREME_DEBUG */
 
-		isis_route_update(area, dst_p, src_p, rinfo);
+		isis_route_update(area, dst_p, src_p, rnode, false);
 
 		if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
 			continue;
@@ -949,7 +954,7 @@ void isis_route_switchover_nexthop(struct isis_area *area,
 		/* Switchover route. */
 		isis_route_remove_previous_sid(area, prefix, rinfo);
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-		isis_route_update(area, prefix, src_p, rinfo->backup);
+		isis_route_update(area, prefix, src_p, rnode, true);
 
 		isis_route_info_delete(rinfo);
 
