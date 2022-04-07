@@ -3449,14 +3449,11 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 			   new_active ? "active" : "inactive");
 
 	/* add VTEP to parent es */
-	if (new_active) {
-		struct bgp_evpn_es_vtep *es_vtep;
-
-		es_vtep = bgp_evpn_es_vtep_add(bgp, evi_vtep->es_evi->es,
-					       evi_vtep->vtep_ip, false /*esr*/,
-					       0, 0);
-		evi_vtep->es_vtep = es_vtep;
-	} else {
+	if (new_active)
+		evi_vtep->es_vtep = bgp_evpn_es_vtep_add(
+			bgp, evi_vtep->es_evi->es, evi_vtep->vtep_ip,
+			false /*esr*/, 0, 0);
+	else {
 		if (evi_vtep->es_vtep) {
 			bgp_evpn_es_vtep_do_del(bgp, evi_vtep->es_vtep,
 					false /*esr*/);
@@ -4401,14 +4398,12 @@ static uint32_t bgp_evpn_es_run_consistency_checks(struct bgp_evpn_es *es)
 static void bgp_evpn_run_consistency_checks(struct thread *t)
 {
 	int proc_cnt = 0;
-	int es_cnt = 0;
 	struct listnode *node;
 	struct listnode *nextnode;
 	struct bgp_evpn_es *es;
 
 	for (ALL_LIST_ELEMENTS(bgp_mh_info->pend_es_list,
 				node, nextnode, es)) {
-		++es_cnt;
 		++proc_cnt;
 		/* run consistency checks on the ES and remove it from the
 		 * pending list
