@@ -2103,6 +2103,20 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].usmap.map);
 	}
 
+	/* Conditional Advertisements */
+	if (!CHECK_FLAG(pfilter_ovrd[RMAP_OUT], PEER_FT_ADVERTISE_MAP)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].advmap.aname,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].advmap.amap);
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].advmap.cname,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].advmap.cmap);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].advmap.condition);
+	}
+
 	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_NONE) {
 		peer->addpath_type[afi][safi] = conf->addpath_type[afi][safi];
 		bgp_addpath_type_changed(conf->bgp);
