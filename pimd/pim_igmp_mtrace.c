@@ -81,11 +81,9 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 		zlog_debug("mtrace pim_nexthop_lookup OK");
 
 	if (PIM_DEBUG_MTRACE)
-		zlog_debug("mtrace next_hop=%pI4",
-			   &nexthop.mrib_nexthop_addr.u.prefix4);
+		zlog_debug("mtrace next_hop=%pPAs", &nexthop.mrib_nexthop_addr);
 
-	if (nexthop.mrib_nexthop_addr.family == AF_INET)
-		nh_addr = nexthop.mrib_nexthop_addr.u.prefix4;
+	nh_addr = nexthop.mrib_nexthop_addr;
 
 	ifp_in = nexthop.interface;
 
@@ -134,7 +132,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	}
 
 	ifp_in = up->rpf.source_nexthop.interface;
-	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4;
+	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr;
 	total = htonl(MTRACE_UNKNOWN_COUNT);
 
 	if (PIM_DEBUG_MTRACE)
