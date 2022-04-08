@@ -1840,6 +1840,79 @@ DEFPY (show_ipv6_mroute_count_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_mroute_summary,
+       show_ipv6_mroute_summary_cmd,
+       "show ipv6 mroute [vrf NAME] summary [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Summary of all mroutes\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_summary(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute_summary_vrf_all,
+       show_ipv6_mroute_summary_vrf_all_cmd,
+       "show ipv6 mroute vrf all summary [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Summary of all mroutes\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_mroute_summary(vrf->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1944,4 +2017,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_count_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_count_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
 }
