@@ -873,6 +873,34 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
         lines_to_add.remove((ctx_keys, line))
 
 
+def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
+
+    # This method handles deletion of bgp neighbor configs,
+    # if there is neighbor to peer-group cmd is in delete list.
+    # As 'no neighbor .* peer-group' deletes the neighbor,
+    # subsequent neighbor speciic config line deletion results
+    # in error.
+    lines_to_del_to_del = []
+
+    for (ctx_keys, line) in lines_to_del:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            if ctx_keys[0] in del_nbr_dict:
+                for nbr in del_nbr_dict[ctx_keys[0]]:
+                    re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+                    nb_exp = "neighbor %s .*" % nbr
+                    if not re_nbr_pg:
+                        re_nb = re.search(nb_exp, line)
+                        if re_nb:
+                            lines_to_del_to_del.append((ctx_keys, line))
+
+    for (ctx_keys, line) in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
+
+
 """
 This method handles deletion of bgp peer group config.
 The objective is to delete config lines related to peers
@@ -886,6 +914,7 @@ def delete_move_lines(lines_to_add, lines_to_del):
     bgp_delete_nbr_remote_as_line(lines_to_add)
 
     del_dict = dict()
+    del_nbr_dict = dict()
     # Stores the lines to move to the end of the pending list.
     lines_to_del_to_del = []
     # Stores the lines to move to end of the pending list.
@@ -969,6 +998,16 @@ def delete_move_lines(lines_to_add, lines_to_del):
             if re_nb_remoteas:
                 lines_to_del_to_app.append((ctx_keys, line))
 
+            # 'no neighbor peer [interface] peer-group <>' is in lines_to_del
+            # copy the neighbor and look for all config removal lines associated
+            # to neighbor and delete them from the lines_to_del
+            re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+            if re_nbr_pg:
+                if ctx_keys[0] not in del_nbr_dict:
+                    del_nbr_dict[ctx_keys[0]] = list()
+                if re_nbr_pg.group(1) not in del_nbr_dict[ctx_keys[0]]:
+                    del_nbr_dict[ctx_keys[0]].append(re_nbr_pg.group(1))
+
             # {'router bgp 65001': {'PG': [], 'PG1': []},
             # 'router bgp 65001 vrf vrf1': {'PG': [], 'PG1': []}}
             if ctx_keys[0] not in del_dict:
@@ -981,6 +1020,8 @@ def delete_move_lines(lines_to_add, lines_to_del):
 
     if found_pg_del_cmd == False:
         bgp_delete_inst_move_line(lines_to_del)
+        if del_nbr_dict:
+            bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict)
         return (lines_to_add, lines_to_del)
 
     for (ctx_keys, line) in lines_to_del_to_app:
