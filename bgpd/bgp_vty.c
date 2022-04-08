@@ -7434,7 +7434,7 @@ DEFPY (bgp_condadv_period,
 
 DEFPY (neighbor_advertise_map,
        neighbor_advertise_map_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -7455,7 +7455,7 @@ DEFPY (neighbor_advertise_map,
 }
 
 ALIAS_HIDDEN(neighbor_advertise_map, neighbor_advertise_map_hidden_cmd,
-	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
+	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Route-map to conditionally advertise routes\n"
 	     "Name of advertise map\n"
