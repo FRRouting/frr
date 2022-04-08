@@ -14473,7 +14473,7 @@ static void community_show_all_iterator(struct hash_bucket *bucket,
 
 	com = (struct community *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
-		community_str(com, false));
+		community_str(com, false, false));
 }
 
 /* Show BGP's community internal data. */
@@ -14502,7 +14502,7 @@ static void lcommunity_show_all_iterator(struct hash_bucket *bucket,
 
 	lcom = (struct lcommunity *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
-		lcommunity_str(lcom, false));
+		lcommunity_str(lcom, false, false));
 }
 
 /* Show BGP's community internal data. */
@@ -19354,9 +19354,9 @@ static const char *community_list_config_str(struct community_entry *entry)
 		str = "";
 	else {
 		if (entry->style == COMMUNITY_LIST_STANDARD)
-			str = community_str(entry->u.com, false);
+			str = community_str(entry->u.com, false, false);
 		else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
-			str = lcommunity_str(entry->u.lcom, false);
+			str = lcommunity_str(entry->u.lcom, false, false);
 		else
 			str = entry->config;
 	}

@@ -175,7 +175,8 @@ struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 	return lcom1;
 }
 
-static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
+static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
+				  bool translate_alias)
 {
 	int i;
 	int len;
@@ -228,7 +229,8 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 		snprintf(lcsb, sizeof(lcsb), "%u:%u:%u", global, local1,
 			 local2);
 
-		const char *com2alias = bgp_community2alias(lcsb);
+		const char *com2alias =
+			translate_alias ? bgp_community2alias(lcsb) : lcsb;
 
 		len = strlcat(str_buf, com2alias, str_buf_sz);
 		assert((unsigned int)len < str_buf_sz);
@@ -264,7 +266,7 @@ struct lcommunity *lcommunity_intern(struct lcommunity *lcom)
 	find->refcnt++;
 
 	if (!find->str)
-		set_lcommunity_string(find, false);
+		set_lcommunity_string(find, false, true);
 
 	return find;
 }
@@ -291,7 +293,8 @@ void lcommunity_unintern(struct lcommunity **lcom)
 }
 
 /* Return string representation of lcommunities attribute. */
-char *lcommunity_str(struct lcommunity *lcom, bool make_json)
+char *lcommunity_str(struct lcommunity *lcom, bool make_json,
+		     bool translate_alias)
 {
 	if (!lcom)
 		return NULL;
@@ -300,7 +303,7 @@ char *lcommunity_str(struct lcommunity *lcom, bool make_json)
 		XFREE(MTYPE_LCOMMUNITY_STR, lcom->str);
 
 	if (!lcom->str)
-		set_lcommunity_string(lcom, make_json);
+		set_lcommunity_string(lcom, make_json, translate_alias);
 
 	return lcom->str;
 }

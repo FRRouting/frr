@@ -200,7 +200,8 @@ struct community *community_uniq_sort(struct community *com)
    0xFFFFFF04      "no-peer"
 
    For other values, "AS:VAL" format is used.  */
-static void set_community_string(struct community *com, bool make_json)
+static void set_community_string(struct community *com, bool make_json,
+				 bool translate_alias)
 {
 	int i;
 	char *str;
@@ -447,7 +448,9 @@ static void set_community_string(struct community *com, bool make_json)
 			val = comval & 0xFFFF;
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			const char *com2alias = bgp_community2alias(buf);
+			const char *com2alias =
+				translate_alias ? bgp_community2alias(buf)
+						: buf;
 
 			strlcat(str, com2alias, len);
 			if (make_json) {
@@ -487,7 +490,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find, false);
+		set_community_string(find, false, true);
 
 	return find;
 }
@@ -548,7 +551,7 @@ struct community *community_dup(struct community *com)
 }
 
 /* Return string representation of communities attribute. */
-char *community_str(struct community *com, bool make_json)
+char *community_str(struct community *com, bool make_json, bool translate_alias)
 {
 	if (!com)
 		return NULL;
@@ -557,7 +560,7 @@ char *community_str(struct community *com, bool make_json)
 		XFREE(MTYPE_COMMUNITY_STR, com->str);
 
 	if (!com->str)
-		set_community_string(com, make_json);
+		set_community_string(com, make_json, translate_alias);
 	return com->str;
 }
 
