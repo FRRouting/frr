@@ -540,7 +540,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 	// Current Nexthop is VALID, check to stay on the current path.
 	if (nexthop->interface && nexthop->interface->info &&
-	    ((struct pim_interface *)nexthop->interface->info)->options &&
+	    (((struct pim_interface *)nexthop->interface->info)->pim_enable ||
+	     ((struct pim_interface *)nexthop->interface->info)->igmp_enable) &&
 	    (!pim_addr_is_any(nh_addr))) {
 		/* User configured knob to explicitly switch
 		   to new path is disabled or current path
@@ -655,8 +656,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			continue;
 		}
 
-		if (!PIM_IF_TEST_PIM(
-			    ((struct pim_interface *)ifp->info)->options)) {
+		if (!((struct pim_interface *)ifp->info)->pim_enable) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
 					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pI4)",
@@ -1025,8 +1025,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		}
 
 
-		if (!PIM_IF_TEST_PIM(
-			    ((struct pim_interface *)ifp->info)->options)) {
+		if (!((struct pim_interface *)ifp->info)->pim_enable) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
 					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pI4)",
