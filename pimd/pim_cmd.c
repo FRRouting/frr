@@ -3781,19 +3781,22 @@ DEFPY (show_ip_mroute,
 	pim_sgaddr sg = {0};
 	struct pim_instance *pim;
 	struct vrf *v;
+	json_object *json_parent = NULL;
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 
-	if (!v) {
-		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+	if (!v)
 		return CMD_WARNING;
-	}
+
 	pim = pim_get_pim_instance(v->vrf_id);
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
 		return CMD_WARNING;
 	}
+
+	if (json)
+		json_parent = json_object_new_object();
 
 	if (s_or_g.s_addr != INADDR_ANY) {
 		if (g.s_addr != INADDR_ANY) {
@@ -3802,13 +3805,18 @@ DEFPY (show_ip_mroute,
 		} else
 			sg.grp = s_or_g;
 	}
-	show_mroute(pim, vty, &sg, !!fill, !!json);
+
+	show_mroute(pim, vty, &sg, !!fill, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_mroute_vrf_all,
+DEFPY (show_ip_mroute_vrf_all,
        show_ip_mroute_vrf_all_cmd,
-       "show ip mroute vrf all [fill] [json]",
+       "show ip mroute vrf all [fill$fill] [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -3817,29 +3825,25 @@ DEFUN (show_ip_mroute_vrf_all,
        JSON_STR)
 {
 	pim_sgaddr sg = {0};
-	bool uj = use_json(argc, argv);
-	int idx = 4;
 	struct vrf *vrf;
-	bool first = true;
-	bool fill = false;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (argv_find(argv, argc, "fill", &idx))
-		fill = true;
+	if (json)
+		json_parent = json_object_new_object();
 
-	if (uj)
-		vty_out(vty, "{ ");
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		show_mroute(vrf->info, vty, &sg, fill, uj);
+		else
+			json_vrf = json_object_new_object();
+		show_mroute(vrf->info, vty, &sg, !!fill, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
