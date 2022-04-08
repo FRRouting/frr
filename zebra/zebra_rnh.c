@@ -529,8 +529,7 @@ static bool rnh_check_re_nexthops(const struct route_entry *re,
 
 	/* Some special checks if registration asked for them. */
 	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
-		if ((re->type == ZEBRA_ROUTE_CONNECT)
-		    || (re->type == ZEBRA_ROUTE_STATIC))
+		if (RIB_TYPE_RESOLVED(re->type))
 			ret = true;
 		if (re->type == ZEBRA_ROUTE_NHRP) {
 

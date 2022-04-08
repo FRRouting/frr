@@ -2209,8 +2209,10 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			continue;
 		}
 
-		if (match->type == ZEBRA_ROUTE_CONNECT) {
-			/* Directly point connected route. */
+		if (RIB_TYPE_RESOLVED(match->type)) {
+			/* Valid resolving route type for non-recursive
+			 * routes.
+			 */
 			newhop = match->nhe->nhg.nexthop;
 			if (newhop) {
 				if (nexthop->type == NEXTHOP_TYPE_IPV4
