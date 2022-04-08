@@ -5570,19 +5570,19 @@ DEFUN_YANG (set_community,
 	str = buffer_getstr(b);
 	buffer_free(b);
 
-	if (str) {
+	if (str)
 		com = community_str2com(str);
-		XFREE(MTYPE_TMP, str);
-	}
 
 	/* Can't compile user input into communities attribute.  */
 	if (!com) {
-		vty_out(vty, "%% Malformed communities attribute\n");
+		vty_out(vty, "%% Malformed communities attribute '%s'\n", str);
+		XFREE(MTYPE_TMP, str);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	XFREE(MTYPE_TMP, str);
 
 	/* Set communites attribute string.  */
-	str = community_str(com, false);
+	str = community_str(com, false, false);
 
 	if (additive) {
 		size_t argstr_sz = strlen(str) + strlen(" additive") + 1;
