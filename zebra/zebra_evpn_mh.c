@@ -3761,18 +3761,10 @@ static inline bool zebra_evpn_mh_is_all_uplinks_down(void)
 static void zebra_evpn_mh_uplink_oper_flags_update(struct zebra_if *zif,
 						   bool set)
 {
-	if (set) {
-		if (if_is_operative(zif->ifp)) {
-			if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)) {
-				zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
-				++zmh_info->uplink_oper_up_cnt;
-			}
-		} else {
-			if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP) {
-				zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
-				if (zmh_info->uplink_oper_up_cnt)
-					--zmh_info->uplink_oper_up_cnt;
-			}
+	if (set && if_is_operative(zif->ifp)) {
+		if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)) {
+			zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
+			++zmh_info->uplink_oper_up_cnt;
 		}
 	} else {
 		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP) {
