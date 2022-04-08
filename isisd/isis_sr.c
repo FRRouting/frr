@@ -1070,7 +1070,10 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
-
+			if (!area->srdb.enabled) {
+				vty_out(vty, " Segment Routing is disabled\n");
+				continue;
+			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++)
 				show_node(vty, area, level);
