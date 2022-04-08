@@ -652,8 +652,8 @@ DEFPY (interface_no_ipv6_mld_query_interval,
 				    "frr-routing:ipv6");
 }
 
-DEFPY (mld_group_watermark,
-       mld_group_watermark_cmd,
+DEFPY (ipv6_mld_group_watermark,
+       ipv6_mld_group_watermark_cmd,
        "ipv6 mld watermark-warn (1-65535)$limit",
        IPV6_STR
        MLD_STR
@@ -665,8 +665,8 @@ DEFPY (mld_group_watermark,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_mld_group_watermark,
-       no_mld_group_watermark_cmd,
+DEFPY (no_ipv6_mld_group_watermark,
+       no_ipv6_mld_group_watermark_cmd,
        "no ipv6 mld watermark-warn [(1-65535)$limit]",
        NO_STR
        IPV6_STR
@@ -1625,10 +1625,10 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
-	install_element(CONFIG_NODE, &mld_group_watermark_cmd);
-	install_element(VRF_NODE, &mld_group_watermark_cmd);
-	install_element(CONFIG_NODE, &no_mld_group_watermark_cmd);
-	install_element(VRF_NODE, &no_mld_group_watermark_cmd);
+	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,

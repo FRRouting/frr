@@ -4969,8 +4969,8 @@ DEFUN (no_ip_pim_packets,
 	return pim_process_no_pim_packet_cmd(vty);
 }
 
-DEFPY (igmp_group_watermark,
-       igmp_group_watermark_cmd,
+DEFPY (ip_igmp_group_watermark,
+       ip_igmp_group_watermark_cmd,
        "ip igmp watermark-warn (1-65535)$limit",
        IP_STR
        IGMP_STR
@@ -4983,8 +4983,8 @@ DEFPY (igmp_group_watermark,
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_igmp_group_watermark,
-       no_igmp_group_watermark_cmd,
+DEFPY (no_ip_igmp_group_watermark,
+       no_ip_igmp_group_watermark_cmd,
        "no ip igmp watermark-warn [(1-65535)$limit]",
        NO_STR
        IP_STR
@@ -8416,10 +8416,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 	install_element(CONFIG_NODE, &ip_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_mlag_cmd);
-	install_element(CONFIG_NODE, &igmp_group_watermark_cmd);
-	install_element(VRF_NODE, &igmp_group_watermark_cmd);
-	install_element(CONFIG_NODE, &no_igmp_group_watermark_cmd);
-	install_element(VRF_NODE, &no_igmp_group_watermark_cmd);
+	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_ip_igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &no_ip_igmp_group_watermark_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
