@@ -10504,11 +10504,21 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 4 display Community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
 		if (json_paths) {
+<<<<<<< HEAD
 			if (!attr->community->json)
 				community_str(attr->community, true);
 			json_object_lock(attr->community->json);
 			json_object_object_add(json_path, "community",
 					       attr->community->json);
+=======
+			if (!bgp_attr_get_community(attr)->json)
+				community_str(bgp_attr_get_community(attr),
+					      true, true);
+			json_object_lock(bgp_attr_get_community(attr)->json);
+			json_object_object_add(
+				json_path, "community",
+				bgp_attr_get_community(attr)->json);
+>>>>>>> c0945b782 (bgpd: Allow setting BGP [large]community in route-maps)
 		} else {
 			vty_out(vty, "      Community: %s\n",
 				attr->community->str);
@@ -10532,11 +10542,21 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 6 display Large community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (json_paths) {
+<<<<<<< HEAD
 			if (!attr->lcommunity->json)
 				lcommunity_str(attr->lcommunity, true);
 			json_object_lock(attr->lcommunity->json);
 			json_object_object_add(json_path, "largeCommunity",
 					       attr->lcommunity->json);
+=======
+			if (!bgp_attr_get_lcommunity(attr)->json)
+				lcommunity_str(bgp_attr_get_lcommunity(attr),
+					       true, true);
+			json_object_lock(bgp_attr_get_lcommunity(attr)->json);
+			json_object_object_add(
+				json_path, "largeCommunity",
+				bgp_attr_get_lcommunity(attr)->json);
+>>>>>>> c0945b782 (bgpd: Allow setting BGP [large]community in route-maps)
 		} else {
 			vty_out(vty, "      Large Community: %s\n",
 				attr->lcommunity->str);
