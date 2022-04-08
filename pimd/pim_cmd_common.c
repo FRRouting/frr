@@ -3391,13 +3391,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	}
 }
 
-#if PIM_IPV == 4
 static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 					      json_object *json,
 					      struct vty *vty)
 {
-	char group_str[INET_ADDRSTRLEN];
-	char source_str[INET_ADDRSTRLEN];
 	json_object *json_group = NULL;
 	json_object *json_source = NULL;
 
@@ -3406,12 +3403,15 @@ static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 
 	pim_mroute_update_counters(c_oil);
 
-	pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str,
-		       sizeof(group_str));
-	pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str,
-		       sizeof(source_str));
-
 	if (json) {
+		char group_str[PIM_ADDRSTRLEN];
+		char source_str[PIM_ADDRSTRLEN];
+
+		snprintfrr(group_str, sizeof(group_str), "%pPAs",
+			   oil_mcastgrp(c_oil));
+		snprintfrr(source_str, sizeof(source_str), "%pPAs",
+			   oil_origin(c_oil));
+
 		json_object_object_get_ex(json, group_str, &json_group);
 
 		if (!json_group) {
@@ -3428,8 +3428,9 @@ static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 		json_object_int_add(json_source, "wrongIf", c_oil->cc.wrong_if);
 
 	} else {
-		vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld\n",
-			source_str, group_str, c_oil->cc.lastused / 100,
+		vty_out(vty, "%-15pPAs %-15pPAs %-8llu %-7ld %-10ld %-7ld\n",
+			oil_origin(c_oil), oil_mcastgrp(c_oil),
+			c_oil->cc.lastused / 100,
 			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
 			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
 			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
@@ -3437,16 +3438,13 @@ static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 }
 
 void show_mroute_count(struct pim_instance *pim, struct vty *vty,
-			      bool uj)
+		       json_object *json)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
 	struct static_route *sr;
-	json_object *json = NULL;
 
-	if (uj)
-		json = json_object_new_object();
-	else {
+	if (!json) {
 		vty_out(vty, "\n");
 
 		vty_out(vty,
@@ -3459,11 +3457,9 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
 		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
-
-	if (uj)
-		vty_json(vty, json);
 }
 
+#if PIM_IPV == 4
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 				json_object *json)
 {
