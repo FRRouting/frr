@@ -3459,9 +3459,8 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
 }
 
-#if PIM_IPV == 4
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
-				json_object *json)
+			 json_object *json)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
@@ -3478,12 +3477,12 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		if (!c_oil->installed) {
-			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+			if (pim_addr_is_any(*oil_origin(c_oil)))
 				starg_sw_mroute_cnt++;
 			else
 				sg_sw_mroute_cnt++;
 		} else {
-			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+			if (pim_addr_is_any(*oil_origin(c_oil)))
 				starg_hw_mroute_cnt++;
 			else
 				sg_hw_mroute_cnt++;
@@ -3492,12 +3491,12 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
 		if (!s_route->c_oil.installed) {
-			if (s_route->c_oil.oil.mfcc_origin.s_addr == INADDR_ANY)
+			if (pim_addr_is_any(*oil_origin(&s_route->c_oil)))
 				starg_sw_mroute_cnt++;
 			else
 				sg_sw_mroute_cnt++;
 		} else {
-			if (s_route->c_oil.oil.mfcc_origin.s_addr == INADDR_ANY)
+			if (pim_addr_is_any(*oil_origin(&s_route->c_oil)))
 				starg_hw_mroute_cnt++;
 			else
 				sg_hw_mroute_cnt++;
@@ -3512,8 +3511,8 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "------\n");
 		vty_out(vty, "%-20s %u/%u\n", "Total",
 			(starg_hw_mroute_cnt + sg_hw_mroute_cnt),
-			(starg_sw_mroute_cnt + starg_hw_mroute_cnt
-			 + sg_sw_mroute_cnt + sg_hw_mroute_cnt));
+			(starg_sw_mroute_cnt + starg_hw_mroute_cnt +
+			 sg_sw_mroute_cnt + sg_hw_mroute_cnt));
 	} else {
 		/* (*,G) route details */
 		json_starg = json_object_new_object();
@@ -3535,9 +3534,8 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 		json_object_int_add(json, "totalNumOfInstalledMroutes",
 				    starg_hw_mroute_cnt + sg_hw_mroute_cnt);
 		json_object_int_add(json, "totalNumOfMroutes",
-				    starg_sw_mroute_cnt + starg_hw_mroute_cnt
-				    + sg_sw_mroute_cnt
-				    + sg_hw_mroute_cnt);
+				    starg_sw_mroute_cnt + starg_hw_mroute_cnt +
+					    sg_sw_mroute_cnt +
+					    sg_hw_mroute_cnt);
 	}
 }
-#endif
