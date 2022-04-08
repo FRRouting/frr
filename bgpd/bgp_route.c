@@ -10506,7 +10506,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (json_paths) {
 			if (!bgp_attr_get_community(attr)->json)
 				community_str(bgp_attr_get_community(attr),
-					      true);
+					      true, true);
 			json_object_lock(bgp_attr_get_community(attr)->json);
 			json_object_object_add(
 				json_path, "community",
@@ -10537,7 +10537,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (json_paths) {
 			if (!bgp_attr_get_lcommunity(attr)->json)
 				lcommunity_str(bgp_attr_get_lcommunity(attr),
-					       true);
+					       true, true);
 			json_object_lock(bgp_attr_get_lcommunity(attr)->json);
 			json_object_object_add(
 				json_path, "largeCommunity",
