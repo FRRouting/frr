@@ -123,7 +123,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
-	pim_ifp->options = 0;
 	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 

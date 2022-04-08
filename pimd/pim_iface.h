@@ -75,7 +75,6 @@ struct pim_interface {
 
 	bool igmp_enable : 1;
 
-	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
 
