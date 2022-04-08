@@ -111,7 +111,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		 bool fill, json_object *json);
 void show_mroute_count(struct pim_instance *pim, struct vty *vty,
-			      bool uj);
+		       json_object *json);
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 				json_object *json);
 
