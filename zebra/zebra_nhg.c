@@ -2209,8 +2209,16 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			continue;
 		}
 
+<<<<<<< HEAD
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
 			/* Directly point connected route. */
+=======
+		if ((match->type == ZEBRA_ROUTE_CONNECT) ||
+		    (RIB_SYSTEM_ROUTE(match) && RSYSTEM_ROUTE(type))) {
+			match = zebra_nhg_connected_ifindex(rn, match,
+							    nexthop->ifindex);
+
+>>>>>>> c9e4abf81 (zebra: Allow system routes to recurse through themselves)
 			newhop = match->nhe->nhg.nexthop;
 			if (newhop) {
 				if (nexthop->type == NEXTHOP_TYPE_IPV4
