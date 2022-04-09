@@ -2203,6 +2203,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			ret = route_map_apply(ROUTE_MAP_OUT(filter), p,
 					      &rmap_path);
 
+		bgp_attr_flush(&dummy_attr);
 		peer->rmap_type = 0;
 
 		if (ret == RMAP_DENYMATCH) {
@@ -2212,7 +2213,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 					peer->host, p,
 					ROUTE_MAP_OUT_NAME(filter));
 
-			bgp_attr_flush(&dummy_attr);
 			return false;
 		}
 	}
