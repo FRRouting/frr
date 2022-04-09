@@ -133,6 +133,30 @@ def test_zebra_connected_multiple():
     assert result is None, "Kernel route is missing from zebra"
 
 
+def test_zebra_system_recursion():
+    "Test a system route recursing through another system route"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 10.0.1.30/32 dev r1-eth1")
+    router.run("ip route add 10.9.9.0/24 via 10.0.1.30 dev r1-eth1")
+    router.run("ip link add dummy2 type dummy")
+    router.run("ip link set dummy2 up")
+    router.run("ip link set dummy2 down")
+
+    routes = "{}/{}/ip_route2.json".format(CWD, router.name)
+    expected = json.loads(open(routes).read())
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route json", expected
+    )
+
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Kernel route is missing from zebra"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
