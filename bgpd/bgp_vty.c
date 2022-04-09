@@ -12559,6 +12559,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		else
 			json_object_boolean_false_add(
 				json_neigh, "extendedOptionalParametersLength");
+
+		/* Conditional advertisements */
+		json_object_int_add(
+			json_neigh,
+			"bgpTimerConfiguredConditionalAdvertisementsSec",
+			bgp->condition_check_period);
+		if (thread_is_scheduled(bgp->t_condition_check))
+			json_object_int_add(
+				json_neigh,
+				"bgpTimerUntilConditionalAdvertisementsSec",
+				thread_timer_remain_second(
+					bgp->t_condition_check));
 	} else {
 		/* Administrative shutdown. */
 		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
@@ -12636,6 +12648,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(p))
 			vty_out(vty,
 				"  Extended Optional Parameters Length is enabled\n");
+
+		/* Conditional advertisements */
+		vty_out(vty,
+			"  Configured conditional advertisements interval is %d seconds\n",
+			bgp->condition_check_period);
+		if (thread_is_scheduled(bgp->t_condition_check))
+			vty_out(vty,
+				"  Time until conditional advertisements begin is %lu seconds\n",
+				thread_timer_remain_second(
+					bgp->t_condition_check));
 	}
 	/* Capability. */
 	if (peer_established(p) &&
