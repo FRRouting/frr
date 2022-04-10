@@ -1688,7 +1688,7 @@ static bool bgp_evpn_is_macip_path(struct bgp_path_info *pi)
  * This is done indirectly by re-attempting an install of the
  * route in the associated VRFs. As a part of the VRF install use
  * of l3 NHG is evaluated and this results in the
- * attr.es_flag ATTR_ES_USE_L3_NHG being set or cleared.
+ * attr.es_flag ATTR_ES_L3_NHG_USE being set or cleared.
  */
 static void
 bgp_evpn_es_path_update_on_es_vrf_chg(struct bgp_evpn_es_vrf *es_vrf,
