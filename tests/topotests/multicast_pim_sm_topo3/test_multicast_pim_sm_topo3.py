@@ -3270,8 +3270,6 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     intf_r2_l1 = topo["routers"]["r2"]["links"]["l1"]["interface"]
     shutdown_bringup_interface(tgen, "r2", intf_r2_l1, False)
 
-    app_helper.stop_host("i2")
-
     step("Verify RP info after Shut the link from FHR to RP from RP node")
     dut = "l1"
     rp_address = "1.0.5.17"
@@ -3421,8 +3419,6 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     shutdown_bringup_interface(tgen, "l1", intf_l1_r2, False)
 
     step("Verify PIM Nbrs after Shut the link from FHR to RP from FHR node")
-
-    app_helper.stop_host("i6")
 
     step("Verify RP info after Shut the link from FHR to RP from FHR node")
     dut = "l1"
