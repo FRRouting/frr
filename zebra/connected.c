@@ -327,6 +327,8 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	if (!if_is_operative(ifp))
+		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	/* Allocate new connected address. */
 	p = prefix_ipv4_new();
@@ -548,6 +550,8 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	if (!if_is_operative(ifp))
+		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	/* Allocate new connected address. */
 	p = prefix_ipv6_new();
