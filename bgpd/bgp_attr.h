@@ -528,6 +528,12 @@ static inline void bgp_attr_set_lcommunity(struct attr *attr,
 					   struct lcommunity *lcomm)
 {
 	attr->lcommunity = lcomm;
+
+	if (lcomm)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag,
+			   ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 }
 
 static inline struct community *bgp_attr_get_community(const struct attr *attr)
@@ -539,6 +545,11 @@ static inline void bgp_attr_set_community(struct attr *attr,
 					  struct community *comm)
 {
 	attr->community = comm;
+
+	if (comm)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 }
 
 static inline struct ecommunity *
