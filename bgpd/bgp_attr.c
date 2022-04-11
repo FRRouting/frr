@@ -1012,7 +1012,6 @@ struct attr *bgp_attr_aggregate_intern(
 		}
 
 		bgp_attr_set_community(&attr, community);
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 	}
 
 	if (ecommunity) {
@@ -1020,10 +1019,8 @@ struct attr *bgp_attr_aggregate_intern(
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 	}
 
-	if (lcommunity) {
+	if (lcommunity)
 		bgp_attr_set_lcommunity(&attr, lcommunity);
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
-	}
 
 	if (bgp_in_graceful_shutdown(bgp))
 		bgp_attr_add_gshut_community(&attr);
@@ -1100,7 +1097,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	comm = bgp_attr_get_community(attr);
 	community_unintern(&comm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 	bgp_attr_set_community(attr, NULL);
 
 	ecomm = bgp_attr_get_ecommunity(attr);
@@ -1115,7 +1111,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	lcomm = bgp_attr_get_lcommunity(attr);
 	lcommunity_unintern(&lcomm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
@@ -1967,8 +1962,6 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
-
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -2297,8 +2290,6 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 	if (!bgp_attr_get_lcommunity(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }

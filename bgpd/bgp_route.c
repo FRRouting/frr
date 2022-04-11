@@ -1769,7 +1769,6 @@ void bgp_attr_add_llgr_community(struct attr *attr)
 	community_free(&llgr);
 
 	bgp_attr_set_community(attr, new);
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 }
 
 void bgp_attr_add_gshut_community(struct attr *attr)
@@ -1798,7 +1797,6 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 
 	community_free(&gshut);
 	bgp_attr_set_community(attr, new);
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 
 	/* When we add the graceful-shutdown community we must also
 	 * lower the local-preference */
@@ -3711,7 +3709,6 @@ static void bgp_attr_add_no_export_community(struct attr *attr)
 	community_free(&no_export);
 
 	bgp_attr_set_community(attr, new);
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 }
 
 int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
