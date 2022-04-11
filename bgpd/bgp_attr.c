@@ -986,6 +986,10 @@ struct attr *bgp_attr_aggregate_intern(
 	attr.origin = origin;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGIN);
 
+	/* MED */
+	attr.med = 0;
+	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
+
 	/* AS path attribute. */
 	if (aspath)
 		attr.aspath = aspath_intern(aspath);
