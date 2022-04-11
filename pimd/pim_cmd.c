@@ -1523,7 +1523,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"Interface        Address         Group           Source          Timer Fwd Uptime  \n");
+			"Interface        Group           Source          Timer Fwd Uptime  \n");
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
