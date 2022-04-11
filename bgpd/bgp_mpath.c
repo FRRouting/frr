@@ -907,16 +907,13 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		attr.origin = origin;
 		if (community) {
 			bgp_attr_set_community(&attr, community);
-			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 		}
 		if (ecomm) {
 			bgp_attr_set_ecommunity(&attr, ecomm);
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 		}
-		if (lcomm) {
+		if (lcomm)
 			bgp_attr_set_lcommunity(&attr, lcomm);
-			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
-		}
 
 		/* Zap multipath attr nexthop so we set nexthop to self */
 		attr.nexthop.s_addr = INADDR_ANY;
