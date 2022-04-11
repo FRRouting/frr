@@ -8196,7 +8196,9 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "}]",
       NO_STR
       "Configure BGP aggregate entries\n"
-      "Aggregate prefix\n" "Aggregate address\n" "Aggregate mask\n"
+      "Aggregate prefix\n"
+      "Aggregate address\n"
+      "Aggregate mask\n"
       "Generate AS set path information\n"
       "Filter more specific routes from updates\n"
       "Apply route map to aggregate network\n"
