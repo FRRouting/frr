@@ -436,34 +436,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			be_msg->cfg_data_reply->success,
 			be_msg->cfg_data_reply->error_if_any, adapter);
 		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_VALIDATE_REPLY:
-		MGMTD_BE_ADAPTER_DBG(
-			"Got %s CFG_VALIDATE_REPLY Msg from '%s' for Txn-Id 0x%llx for %d batches (Id 0x%llx-0x%llx),  Err:'%s'",
-			be_msg->cfg_validate_reply->success ? "successful"
-							       : "failed",
-			adapter->name,
-			(unsigned long long)
-				be_msg->cfg_validate_reply->txn_id,
-			(int)be_msg->cfg_validate_reply->n_batch_ids,
-			(unsigned long long)
-				be_msg->cfg_validate_reply->batch_ids[0],
-			(unsigned long long)be_msg->cfg_validate_reply
-				->batch_ids[be_msg->cfg_validate_reply
-						    ->n_batch_ids
-					    - 1],
-			be_msg->cfg_validate_reply->error_if_any
-				? be_msg->cfg_validate_reply->error_if_any
-				: "None");
-		/*
-		 * Forward the CGFData-validate reply to txn module.
-		 */
-		mgmt_txn_notify_be_cfg_validate_reply(
-			be_msg->cfg_validate_reply->txn_id,
-			be_msg->cfg_validate_reply->success,
-			(uint64_t *)be_msg->cfg_validate_reply->batch_ids,
-			be_msg->cfg_validate_reply->n_batch_ids,
-			be_msg->cfg_validate_reply->error_if_any, adapter);
-		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
 			"Got %s CFG_APPLY_REPLY Msg from '%s' for Txn-Id 0x%llx for %d batches (Id 0x%llx-0x%llx),  Err:'%s'",
@@ -508,7 +480,6 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_VALIDATE_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REQ:
@@ -631,32 +602,6 @@ mgmt_be_send_cfgdata_create_req(struct mgmt_be_client_adapter *adapter,
 		"Sending CFGDATA_CREATE_REQ message to Backend client '%s' for Txn-Id %llx, Batch-Id: %llx",
 		adapter->name, (unsigned long long)txn_id,
 		(unsigned long long)batch_id);
-
-	return mgmt_be_adapter_send_msg(adapter, &be_msg);
-}
-
-static int
-mgmt_be_send_cfgvalidate_req(struct mgmt_be_client_adapter *adapter,
-				uint64_t txn_id, uint64_t batch_ids[],
-				size_t num_batch_ids)
-{
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeCfgDataValidateReq vldt_req;
-
-	mgmtd__be_cfg_data_validate_req__init(&vldt_req);
-	vldt_req.txn_id = txn_id;
-	vldt_req.batch_ids = (uint64_t *)batch_ids;
-	vldt_req.n_batch_ids = num_batch_ids;
-
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_VALIDATE_REQ;
-	be_msg.cfg_validate_req = &vldt_req;
-
-	MGMTD_BE_ADAPTER_DBG(
-		"Sending CFG_VALIDATE_REQ message to Backend client '%s' for Txn-Id %llx, #Batches: %d [0x%llx - 0x%llx]",
-		adapter->name, (unsigned long long)txn_id, (int)num_batch_ids,
-		(unsigned long long)batch_ids[0],
-		(unsigned long long)batch_ids[num_batch_ids - 1]);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
 }
@@ -1179,15 +1124,6 @@ int mgmt_be_send_cfg_data_create_req(struct mgmt_be_client_adapter *adapter,
 	return mgmt_be_send_cfgdata_create_req(
 		adapter, txn_id, batch_id, cfg_req->cfgdata_reqs,
 		cfg_req->num_reqs, end_of_data);
-}
-
-extern int
-mgmt_be_send_cfg_validate_req(struct mgmt_be_client_adapter *adapter,
-				 uint64_t txn_id, uint64_t batch_ids[],
-				 size_t num_batch_ids)
-{
-	return mgmt_be_send_cfgvalidate_req(adapter, txn_id, batch_ids,
-					       num_batch_ids);
 }
 
 extern int
