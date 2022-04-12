@@ -432,7 +432,7 @@ static int frr_opt(int opt)
 {
 	static int vty_port_set = 0;
 	static int vty_addr_set = 0;
-	struct option_chain *oc;
+	struct option_chain *oc = NULL;
 	struct log_arg *log_arg;
 	size_t arg_len;
 	char *err;
