@@ -8533,15 +8533,29 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Static function to display route. */
-static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
-				struct vty *vty, json_object *json, bool wide)
+static void route_vty_out_route(struct bgp_path_info *path,
+				const struct prefix *p, struct vty *vty,
+				json_object *json, bool wide, bool no_display)
 {
 	int len = 0;
 	char buf[BUFSIZ];
+	const char *best_reason = NULL;
+
+	if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED) && wide)
+		best_reason = bgp_path_selection_reason2str(path->net->reason);
+
+	if (no_display) {
+		if (best_reason)
+			len = vty_out(vty, "(%s)", best_reason);
+		vty_out(vty, "%*s", (wide ? 45 - len : 17 - len), " ");
+		return;
+	}
 
 	if (p->family == AF_INET) {
 		if (!json) {
 			len = vty_out(vty, "%pFX", p);
+			if (best_reason)
+				len += vty_out(vty, " (%s)", best_reason);
 		} else {
 			json_object_string_add(json, "prefix",
 					       inet_ntop(p->family,
@@ -8549,7 +8563,8 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 							 BUFSIZ));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
 			json_object_string_addf(json, "network", "%pFX", p);
-			json_object_int_add(json, "version", dest->version);
+			json_object_int_add(json, "version",
+					    path->net->version);
 		}
 	} else if (p->family == AF_ETHERNET) {
 		len = vty_out(vty, "%pFX", p);
@@ -8564,16 +8579,19 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 			       NLRI_STRING_FORMAT_JSON_SIMPLE :
 			       NLRI_STRING_FORMAT_MIN, json);
 	} else {
-		if (!json)
+		if (!json) {
 			len = vty_out(vty, "%pFX", p);
-		else {
+			if (best_reason)
+				len += vty_out(vty, " (%s)", best_reason);
+		} else {
 			json_object_string_add(json, "prefix",
 						inet_ntop(p->family,
 							&p->u.prefix, buf,
 							BUFSIZ));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
 			json_object_string_addf(json, "network", "%pFX", p);
-			json_object_int_add(json, "version", dest->version);
+			json_object_int_add(json, "version",
+					    path->net->version);
 		}
 	}
 
@@ -8753,7 +8771,7 @@ static char *bgp_nexthop_hostname(struct peer *peer,
 
 /* called from terminal list command */
 void route_vty_out(struct vty *vty, const struct prefix *p,
-		   struct bgp_path_info *path, int display, safi_t safi,
+		   struct bgp_path_info *path, int no_display, safi_t safi,
 		   json_object *json_paths, bool wide)
 {
 	int len;
@@ -8779,15 +8797,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	/* short status lead text */
 	route_vty_short_status_out(vty, path, p, json_path);
 
-	if (!json_paths) {
-		/* print prefix and mask */
-		if (!display)
-			route_vty_out_route(path->net, p, vty, json_path, wide);
-		else
-			vty_out(vty, "%*s", (wide ? 45 : 17), " ");
-	} else {
-		route_vty_out_route(path->net, p, vty, json_path, wide);
-	}
+	if (!json_paths)
+		route_vty_out_route(path, p, vty, json_path, wide, no_display);
 
 	/*
 	 * If vrf id of nexthop is different from that of prefix,
@@ -9230,6 +9241,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 	json_object *json_net = NULL;
 	int len;
 	char buff[BUFSIZ];
+	struct bgp_path_info *path = bgp_dest_get_bgp_path_info(dest);
 
 	/* Route status display. */
 	if (use_json) {
@@ -9255,7 +9267,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 			json_object_string_addf(json_net, "network", "%pFX", p);
 		}
 	} else
-		route_vty_out_route(dest, p, vty, NULL, wide);
+		route_vty_out_route(path, p, vty, NULL, wide, false);
 
 	/* Print attribute */
 	if (attr) {
@@ -9388,7 +9400,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (json == NULL) {
 		if (!display)
-			route_vty_out_route(path->net, p, vty, NULL, false);
+			route_vty_out_route(path, p, vty, NULL, false, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -9483,7 +9495,7 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 	/* print prefix and mask */
 	if (!display)
-		route_vty_out_route(path->net, p, vty, json_path, false);
+		route_vty_out_route(path, p, vty, json_path, false, false);
 	else
 		vty_out(vty, "%*s", 17, " ");
 
@@ -9591,7 +9603,7 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(path->net, p, vty, NULL, false);
+			route_vty_out_route(path, p, vty, NULL, false, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
 
@@ -9655,7 +9667,7 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(path->net, p, vty, NULL, false);
+			route_vty_out_route(path, p, vty, NULL, false, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
 
