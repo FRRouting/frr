@@ -3508,6 +3508,26 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     )
     logger.info("Expected Behaviour: {}".format(result))
 
+    step("Verify upstream after No Shut the link from FHR to RP from FHR node")
+
+    for data in input_dict_starg:
+        result = verify_upstream_iif(
+            tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_sg_i1:
+        result = verify_upstream_iif(
+            tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_sg_i2:
+        result = verify_upstream_iif(
+            tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
     step("Verify mroute after No Shut the link from FHR to RP from FHR node")
 
     for data in input_dict_starg:
@@ -3542,26 +3562,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
             data["oil"],
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step("Verify upstream after No Shut the link from FHR to RP from FHR node")
-
-    for data in input_dict_starg:
-        result = verify_upstream_iif(
-            tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
-        )
-        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    for data in input_dict_sg_i1:
-        result = verify_upstream_iif(
-            tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
-        )
-        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    for data in input_dict_sg_i2:
-        result = verify_upstream_iif(
-            tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN_RANGE_1
-        )
-        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+#FAILING HERE
 
     step("Verify mcast traffic received after noshut FHR to RP from FHR node")
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
