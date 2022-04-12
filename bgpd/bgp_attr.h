@@ -516,6 +516,11 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 					   struct ecommunity *ecomm)
 {
 	attr->ecommunity = ecomm;
+
+	if (ecomm)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 }
 
 static inline struct lcommunity *
@@ -562,6 +567,13 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
 	attr->ipv6_ecommunity = ipv6_ecomm;
+
+	if (ipv6_ecomm)
+		SET_FLAG(attr->flag,
+			 ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag,
+			   ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 }
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)

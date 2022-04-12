@@ -622,8 +622,6 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	bgp_attr_set_ecommunity(
 		attr,
 		ecommunity_merge(bgp_attr_get_ecommunity(attr), &ecom_df));
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /* Create or update local type-4 route */
@@ -904,8 +902,6 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 							       ecom));
 		}
 	}
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /* Extended communities associated with EAD-per-EVI */
@@ -932,8 +928,6 @@ static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
 		bgp_attr_set_ecommunity(
 			attr,
 			ecommunity_merge(bgp_attr_get_ecommunity(attr), ecom));
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /* Update EVPN EAD (type-1) route -
