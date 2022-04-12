@@ -1303,27 +1303,6 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		vty_json(vty, json);
 }
 
-static void clear_pim_statistics(struct pim_instance *pim)
-{
-	struct interface *ifp;
-
-	pim->bsm_rcvd = 0;
-	pim->bsm_sent = 0;
-	pim->bsm_dropped = 0;
-
-	/* scan interfaces */
-	FOR_ALL_INTERFACES (pim->vrf, ifp) {
-		struct pim_interface *pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			continue;
-
-		pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
-		pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
-		pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
-	}
-}
-
 static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
@@ -1859,45 +1838,6 @@ DEFUN (clear_ip_pim_statistics,
 
 	clear_pim_statistics(vrf->info);
 	return CMD_SUCCESS;
-}
-
-static void clear_mroute(struct pim_instance *pim)
-{
-	struct pim_upstream *up;
-	struct interface *ifp;
-
-	/* scan interfaces */
-	FOR_ALL_INTERFACES (pim->vrf, ifp) {
-		struct pim_interface *pim_ifp = ifp->info;
-		struct pim_ifchannel *ch;
-
-		if (!pim_ifp)
-			continue;
-
-		/* deleting all ifchannels */
-		while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
-			ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
-
-			pim_ifchannel_delete(ch);
-		}
-
-#if PIM_IPV == 4
-		/* clean up all igmp groups */
-		struct gm_group *grp;
-
-		if (pim_ifp->gm_group_list) {
-			while (pim_ifp->gm_group_list->count) {
-				grp = listnode_head(pim_ifp->gm_group_list);
-				igmp_group_delete(grp);
-			}
-		}
-#endif
-	}
-
-	/* clean up all upstreams*/
-	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
-		pim_upstream_del(pim, up, __func__);
-
 }
 
 DEFUN (clear_ip_mroute,

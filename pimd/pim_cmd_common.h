@@ -121,6 +121,8 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 		       json_object *json);
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 			 json_object *json);
+void clear_mroute(struct pim_instance *pim);
+void clear_pim_statistics(struct pim_instance *pim);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
