@@ -287,7 +287,7 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 	return ret;
 }
 
-/* Install or unistall a Tyoe-4 route in the per-ES routing table */
+/* Install or unistall a Type-4 route in the per-ES routing table */
 int bgp_evpn_es_route_install_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 		afi_t afi, safi_t safi, struct prefix_evpn *evp,
 		struct bgp_path_info *pi, int install)
@@ -378,7 +378,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			remote_pi = tmp_pi;
 	}
 
-	/* we don't expect to see a remote_ri at this point as
+	/* we don't expect to see a remote_pi at this point as
 	 * an ES route has {esi, vtep_ip} as the key in the ES-rt-table
 	 * in the VNI-rt-table.
 	 */
