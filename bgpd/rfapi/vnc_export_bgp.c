@@ -650,9 +650,6 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	} else {
 		bgp_attr_set_ecommunity(new, ecom_ro);
 	}
-	if (ecom_ro) {
-		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
-	}
 
 	/*
 	 * Set MED

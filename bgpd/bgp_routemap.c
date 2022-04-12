@@ -2584,7 +2584,6 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	attr = path->attr;
 
 	if (rcs->none) {
-		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 		bgp_attr_set_ecommunity(attr, NULL);
 		return RMAP_OKAY;
 	}
@@ -2610,8 +2609,6 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
 	bgp_attr_set_ecommunity(path->attr, new_ecom);
-
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	return RMAP_OKAY;
 }
@@ -2774,7 +2771,6 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 
 	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
 	bgp_attr_set_ecommunity(path->attr, new_ecom);
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	/* Mark that route-map has set link bandwidth; used in attribute
 	 * setting decisions.
