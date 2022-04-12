@@ -8700,7 +8700,7 @@ DEFPY (af_rt_vpn_imexport,
 	int ret;
 	struct ecommunity *ecom = NULL;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 	afi_t afi;
 	int idx = 0;
 	bool yes = true;
@@ -8780,7 +8780,7 @@ DEFPY (af_route_map_vpn_imexport,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 	afi_t afi;
 	int idx = 0;
 	bool yes = true;
@@ -8843,7 +8843,7 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
       "name of route-map\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
 	afi_t afi;
 	struct bgp *bgp_default;
 
@@ -8896,7 +8896,7 @@ DEFPY(af_no_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
       "name of route-map\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
 	afi_t afi;
 
 	afi = vpn_policy_getafi(vty, bgp, true);
@@ -9027,7 +9027,7 @@ DEFPY (bgp_imexport_vpn,
 	int idx = 0;
 	bool yes = true;
 	int flag;
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
@@ -14626,7 +14626,7 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 	char *vname;
 	char buf1[INET6_ADDRSTRLEN];
 	char *ecom_str;
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 
 	if (json) {
 		json_object *json_import_vrfs = NULL;

@@ -192,11 +192,11 @@ struct bgp_redist {
 	struct bgp_rmap rmap;
 };
 
-typedef enum {
+enum vpn_policy_direction {
 	BGP_VPN_POLICY_DIR_FROMVPN = 0,
 	BGP_VPN_POLICY_DIR_TOVPN = 1,
 	BGP_VPN_POLICY_DIR_MAX = 2
-} vpn_policy_direction_t;
+};
 
 struct vpn_policy {
 	struct bgp *bgp; /* parent */
