@@ -832,9 +832,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	struct ecommunity *ecomm = bgp_attr_get_ecommunity(&attr);
 
-	if (ecomm->size) {
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
-	} else {
+	if (!ecomm->size) {
 		ecommunity_free(&ecomm);
 		bgp_attr_set_ecommunity(&attr, NULL);
 	}

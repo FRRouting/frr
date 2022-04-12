@@ -1014,10 +1014,8 @@ struct attr *bgp_attr_aggregate_intern(
 		bgp_attr_set_community(&attr, community);
 	}
 
-	if (ecommunity) {
+	if (ecommunity)
 		bgp_attr_set_ecommunity(&attr, ecommunity);
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
-	}
 
 	if (lcommunity)
 		bgp_attr_set_lcommunity(&attr, lcommunity);
@@ -1101,12 +1099,10 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	ecomm = bgp_attr_get_ecommunity(attr);
 	ecommunity_unintern(&ecomm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 	bgp_attr_set_ecommunity(attr, NULL);
 
 	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
 	ecommunity_unintern(&ipv6_ecomm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
 
 	lcomm = bgp_attr_get_lcommunity(attr);
@@ -2327,8 +2323,6 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
-
 	/* Extract DF election preference and  mobility sequence number */
 	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &attr->df_alg);
 
@@ -2397,8 +2391,6 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 	if (!ipv6_ecomm)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }

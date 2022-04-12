@@ -759,8 +759,6 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac,
 				   true, true);
 	}
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /*
@@ -870,8 +868,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
 					       &ecom_na));
 	}
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /*
