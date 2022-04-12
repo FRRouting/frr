@@ -205,7 +205,7 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 	return 1;
 }
 
-static inline void vpn_leak_prechange(vpn_policy_direction_t direction,
+static inline void vpn_leak_prechange(enum vpn_policy_direction direction,
 				      afi_t afi, struct bgp *bgp_vpn,
 				      struct bgp *bgp_vrf)
 {
@@ -225,7 +225,7 @@ static inline void vpn_leak_prechange(vpn_policy_direction_t direction,
 	}
 }
 
-static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
+static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 				       afi_t afi, struct bgp *bgp_vpn,
 				       struct bgp *bgp_vrf)
 {

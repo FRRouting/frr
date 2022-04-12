@@ -1921,7 +1921,7 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 	struct bgp *bgp_import;
 	struct listnode *node;
 	struct ecommunity *ecom;
-	vpn_policy_direction_t idir, edir;
+	enum vpn_policy_direction idir, edir;
 
 	/*
 	 * Router-id change that is not explicitly configured
@@ -2034,7 +2034,7 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			 afi_t afi, safi_t safi)
 {
 	const char *export_name;
-	vpn_policy_direction_t idir, edir;
+	enum vpn_policy_direction idir, edir;
 	char *vname, *tmp_name;
 	char buf[RD_ADDRSTRLEN];
 	struct ecommunity *ecom;
@@ -2163,7 +2163,7 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi)
 {
 	const char *export_name, *tmp_name;
-	vpn_policy_direction_t idir, edir;
+	enum vpn_policy_direction idir, edir;
 	char *vname;
 	struct ecommunity *ecom = NULL;
 	struct listnode *node;
@@ -3086,7 +3086,7 @@ void bgp_vpn_leak_export(struct bgp *from_bgp)
 	char *vname;
 	struct listnode *node, *next;
 	struct ecommunity *ecom;
-	vpn_policy_direction_t idir, edir;
+	enum vpn_policy_direction idir, edir;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *to_bgp;
 	int debug;

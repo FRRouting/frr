@@ -3780,7 +3780,7 @@ void bgp_free(struct bgp *bgp)
 	XFREE(MTYPE_BGP_EVPN_INFO, bgp->evpn_info);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		vpn_policy_direction_t dir;
+		enum vpn_policy_direction dir;
 
 		if (bgp->vpn_policy[afi].import_vrf)
 			list_delete(&bgp->vpn_policy[afi].import_vrf);
