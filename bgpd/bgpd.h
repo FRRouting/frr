@@ -901,13 +901,13 @@ struct bgp_filter {
 
 /* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
    a peer who's AS is part of our Confederation.  */
-typedef enum {
+enum bgp_peer_sort {
 	BGP_PEER_UNSPECIFIED,
 	BGP_PEER_IBGP,
 	BGP_PEER_EBGP,
 	BGP_PEER_INTERNAL,
 	BGP_PEER_CONFED,
-} bgp_peer_sort_t;
+};
 
 /* BGP message header and packet size.  */
 #define BGP_MARKER_SIZE		                16
@@ -1084,7 +1084,7 @@ struct peer {
 	/* Peer's local AS number. */
 	as_t local_as;
 
-	bgp_peer_sort_t sort;
+	enum bgp_peer_sort sort;
 
 	/* Peer's Change local AS number. */
 	as_t change_local_as;
@@ -2025,8 +2025,8 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 #define peer_unlock(A) peer_unlock_with_caller(__FUNCTION__, (A))
 #define peer_lock(B) peer_lock_with_caller(__FUNCTION__, (B))
 
-extern bgp_peer_sort_t peer_sort(struct peer *peer);
-extern bgp_peer_sort_t peer_sort_lookup(struct peer *peer);
+extern enum bgp_peer_sort peer_sort(struct peer *peer);
+extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
 extern bool peer_active(struct peer *);
 extern bool peer_active_nego(struct peer *);
