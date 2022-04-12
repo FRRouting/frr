@@ -3370,7 +3370,9 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 
 	assert(attr);
 
-	/* Only type-2, type-3, type-4 and type-5 are supported currently */
+	/* Only type-1, type-2, type-3, type-4 and type-5
+	 * are supported currently
+	 */
 	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
 	      || evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
 	      || evp->prefix.route_type == BGP_EVPN_ES_ROUTE
@@ -3475,7 +3477,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		if (evp->prefix.route_type == BGP_EVPN_ES_ROUTE) {
 
 			/* we will match based on the entire esi to avoid
-			 * imoort of an es route for esi2 into esi1
+			 * import of an es route for esi2 into esi1
 			 */
 			es = bgp_evpn_es_find(&evp->prefix.es_addr.esi);
 			if (es && bgp_evpn_is_es_local(es))
@@ -6101,8 +6103,9 @@ bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx)
 	 * EVPN routes should be marked as valid only if the nexthop is
 	 * reachable. Only if this happens, the route should be imported
 	 * (into VNI or VRF routing tables) and/or advertised.
-	 * Note: This is currently applied for EVPN type-2, type-3 and
-	 * type-5 routes. It may be tweaked later on for other routes, or
+	 * Note: This is currently applied for EVPN type-1, type-2,
+	 * type-3, type-4 and type-5 routes.
+	 * It may be tweaked later on for other routes, or
 	 * even removed completely when all routes are handled.
 	 */
 	if (pfx && pfx->family == AF_EVPN

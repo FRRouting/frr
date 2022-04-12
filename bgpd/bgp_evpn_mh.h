@@ -50,7 +50,9 @@ struct bgp_evpn_es_frag {
 	/* RD for this ES fragment */
 	struct prefix_rd prd;
 
-	/* Memory used for linking bgp_evpn_es_rd to bgp_evpn_es->rd_list */
+	/* Memory used for linking bgp_evpn_es_frag to
+	 * bgp_evpn_es->es_frag_list
+	 */
 	struct listnode es_listnode;
 
 	/* List of ES-EVIs associated with this fragment */
@@ -59,11 +61,11 @@ struct bgp_evpn_es_frag {
 
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
- * bgp_mh_info->es_rb_tree using ESI as key
+ *   bgp_mh_info->es_rb_tree using ESI as key
  * - Local ESs are received from zebra (BGP_EVPNES_LOCAL)
  * - Remotes ESs are implicitly created (by reference) by a remote ES-EVI
  *   (BGP_EVPNES_REMOTE)
- * - An ES can be simulatenously LOCAL and REMOTE; infact all LOCAL ESs are
+ * - An ES can be simultaneously LOCAL and REMOTE; infact all LOCAL ESs are
  *   expected to have REMOTE ES peers.
  */
 struct bgp_evpn_es {
@@ -101,7 +103,7 @@ struct bgp_evpn_es {
 	 */
 	struct listnode pend_es_listnode;
 
-	/* [EVPNES_LOCAL] List of RDs for this ES (bgp_evpn_es_rd) */
+	/* [EVPNES_LOCAL] List of RDs for this ES (bgp_evpn_es_frag) */
 	struct list *es_frag_list;
 	struct bgp_evpn_es_frag *es_base_frag;
 
