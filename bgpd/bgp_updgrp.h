@@ -74,10 +74,7 @@
 	 | PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV             \
 	 | PEER_CAP_ENHE_AF_NEGO)
 
-enum bpacket_attr_vec_type {
-	BGP_ATTR_VEC_NH = 0,
-	BGP_ATTR_VEC_MAX
-};
+enum bpacket_attr_vec_type { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX };
 
 typedef struct {
 	uint32_t flags;
