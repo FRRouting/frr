@@ -905,9 +905,8 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 
 		attr.aspath = aspath;
 		attr.origin = origin;
-		if (community) {
+		if (community)
 			bgp_attr_set_community(&attr, community);
-		}
 		if (ecomm)
 			bgp_attr_set_ecommunity(&attr, ecomm);
 		if (lcomm)
