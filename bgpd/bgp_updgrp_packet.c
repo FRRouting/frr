@@ -1240,7 +1240,7 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 
 static void
 bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
-				   bpacket_attr_vec_type type,
+				   enum bpacket_attr_vec_type type,
 				   struct attr *attr)
 {
 	if (CHECK_FLAG(attr->rmap_change_flags,
@@ -1291,8 +1291,8 @@ void bpacket_attr_vec_arr_reset(struct bpacket_attr_vec_arr *vecarr)
 
 /* Setup a particular node entry in the vecarr */
 void bpacket_attr_vec_arr_set_vec(struct bpacket_attr_vec_arr *vecarr,
-				  bpacket_attr_vec_type type, struct stream *s,
-				  struct attr *attr)
+				  enum bpacket_attr_vec_type type,
+				  struct stream *s, struct attr *attr)
 {
 	if (!vecarr)
 		return;

@@ -74,7 +74,10 @@
 	 | PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV             \
 	 | PEER_CAP_ENHE_AF_NEGO)
 
-typedef enum { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX } bpacket_attr_vec_type;
+enum bpacket_attr_vec_type {
+	BGP_ATTR_VEC_NH = 0,
+	BGP_ATTR_VEC_MAX
+};
 
 typedef struct {
 	uint32_t flags;
@@ -410,7 +413,7 @@ extern struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 						struct peer_af *paf);
 extern void bpacket_attr_vec_arr_reset(struct bpacket_attr_vec_arr *vecarr);
 extern void bpacket_attr_vec_arr_set_vec(struct bpacket_attr_vec_arr *vecarr,
-					 bpacket_attr_vec_type type,
+					 enum bpacket_attr_vec_type type,
 					 struct stream *s, struct attr *attr);
 extern void subgroup_default_update_packet(struct update_subgroup *subgrp,
 					   struct attr *attr,
