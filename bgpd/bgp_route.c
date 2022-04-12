@@ -565,8 +565,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 {
 	const struct prefix *new_p;
 	struct attr *newattr, *existattr;
-	bgp_peer_sort_t new_sort;
-	bgp_peer_sort_t exist_sort;
+	enum bgp_peer_sort new_sort;
+	enum bgp_peer_sort exist_sort;
 	uint32_t new_pref;
 	uint32_t exist_pref;
 	uint32_t new_med;
