@@ -288,7 +288,7 @@ struct updwalk_context {
 	struct bgp_path_info *pi;
 	uint64_t updgrp_id;
 	uint64_t subgrp_id;
-	bgp_policy_type_e policy_type;
+	enum bgp_policy_type policy_type;
 	const char *policy_name;
 	int policy_event_start_flag;
 	int policy_route_update;
@@ -368,7 +368,8 @@ extern void update_subgroup_split_peer(struct peer_af *, struct update_group *);
 extern bool update_subgroup_check_merge(struct update_subgroup *, const char *);
 extern bool update_subgroup_trigger_merge_check(struct update_subgroup *,
 						int force);
-extern void update_group_policy_update(struct bgp *bgp, bgp_policy_type_e ptype,
+extern void update_group_policy_update(struct bgp *bgp,
+				       enum bgp_policy_type ptype,
 				       const char *pname, int route_update,
 				       int start_event);
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,

@@ -1463,7 +1463,7 @@ static int update_group_periodic_merge_walkcb(struct update_group *updgrp,
  *             over multiple statements. Useful to set dirty flag on
  *             update groups.
  */
-void update_group_policy_update(struct bgp *bgp, bgp_policy_type_e ptype,
+void update_group_policy_update(struct bgp *bgp, enum bgp_policy_type ptype,
 				const char *pname, int route_update,
 				int start_event)
 {
