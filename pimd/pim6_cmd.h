@@ -39,6 +39,7 @@
 #define IFACE_PIM_HELLO_TIME_STR "Time in seconds for Hello Interval\n"
 #define IFACE_PIM_HELLO_HOLD_STR "Time in seconds for Hold Interval\n"
 #define MROUTE_STR "IP multicast routing table\n"
+#define CLEAR_IP_PIM_STR "PIM clear commands\n"
 #define DEBUG_MLD_STR "MLD protocol activity\n"
 #define DEBUG_MLD_EVENTS_STR "MLD protocol events\n"
 #define DEBUG_MLD_PACKETS_STR "MLD protocol packets\n"
