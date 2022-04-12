@@ -1968,12 +1968,12 @@ enum bgp_create_error_code {
 /*
  * Enumeration of different policy kinds a peer can be configured with.
  */
-typedef enum {
+enum bgp_policy_type {
 	BGP_POLICY_ROUTE_MAP,
 	BGP_POLICY_FILTER_LIST,
 	BGP_POLICY_PREFIX_LIST,
 	BGP_POLICY_DISTRIBUTE_LIST,
-} bgp_policy_type_e;
+};
 
 /* peer_flag_change_type. */
 enum peer_change_type {
