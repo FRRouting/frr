@@ -70,9 +70,6 @@ enum mgmt_commit_phase {
 	MGMTD_COMMIT_PHASE_PREPARE_CFG = 0,
 	MGMTD_COMMIT_PHASE_TXN_CREATE,
 	MGMTD_COMMIT_PHASE_SEND_CFG,
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	MGMTD_COMMIT_PHASE_VALIDATE_CFG,
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 	MGMTD_COMMIT_PHASE_APPLY_CFG,
 	MGMTD_COMMIT_PHASE_TXN_DELETE,
 	MGMTD_COMMIT_PHASE_MAX
@@ -88,10 +85,6 @@ mgmt_commit_phase2str(enum mgmt_commit_phase cmt_phase)
 		return "CREATE-TXN";
 	case MGMTD_COMMIT_PHASE_SEND_CFG:
 		return "SEND-CFG";
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	case MGMTD_COMMIT_PHASE_VALIDATE_CFG:
-		return "VALIDATE-CFG";
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
 		return "APPLY-CFG";
 	case MGMTD_COMMIT_PHASE_TXN_DELETE:
@@ -1172,7 +1165,6 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 {
 	struct nb_context nb_ctx;
 	struct nb_config *nb_config;
-	char err_buf[1024] = {0};
 	struct nb_config_cbs changes;
 	struct nb_config_cbs *cfg_chgs = NULL;
 	int ret;
@@ -1273,10 +1265,16 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		goto mgmt_txn_prepare_config_done;
 	}
 
+#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
+	if (mm->perf_stats_en)
+		gettimeofday(&txn->commit_cfg_req->req.commit_cfg.cmt_stats
+				      ->validate_start,
+			     NULL);
 	/*
 	 * Validate YANG contents of the source DB and get the diff
 	 * between source and destination DB contents.
 	 */
+	char err_buf[1024] = {0};
 	nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
 	nb_ctx.user = (void *)txn;
 	ret = nb_candidate_validate_yang(nb_config, false, err_buf,
@@ -1289,12 +1287,6 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		ret = -1;
 		goto mgmt_txn_prepare_config_done;
 	}
-#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	if (mm->perf_stats_en)
-		gettimeofday(&txn->commit_cfg_req->req.commit_cfg.cmt_stats
-				      ->validate_start,
-			     NULL);
-
 	/*
 	 * Perform application level validations locally on the MGMTD
 	 * process by calling application specific validation routines
@@ -1571,71 +1563,6 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	return 0;
 }
 
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-/*
- * Send CFG_VALIDATE_REQs to all the backend client.
- */
-static int mgmt_txn_send_be_cfg_validate(struct mgmt_txn_ctx *txn)
-{
-	enum mgmt_be_client_id id;
-	struct mgmt_be_client_adapter *adapter;
-	struct mgmt_commit_cfg_req *cmtcfg_req;
-	uint64_t *batch_ids;
-	size_t indx, num_batches;
-	struct mgmt_txn_batch_list_head *btch_list;
-	struct mgmt_txn_be_cfg_batch *cfg_btch;
-
-	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
-
-	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].validate_config) {
-			adapter = mgmt_be_get_adapter_by_id(id);
-			if (!adapter)
-				return -1;
-
-			btch_list = &cmtcfg_req->curr_batches[id];
-			num_batches = mgmt_txn_batch_list_count(btch_list);
-			batch_ids = (uint64_t *)calloc(num_batches,
-						       sizeof(uint64_t));
-
-			indx = 0;
-			FOREACH_TXN_CFG_BATCH_IN_LIST (btch_list, cfg_btch) {
-				batch_ids[indx] = cfg_btch->batch_id;
-				indx++;
-				assert(indx <= num_batches);
-			}
-
-			if (mgmt_be_send_cfg_validate_req(
-				    adapter, txn->txn_id, batch_ids, indx)
-			    != 0) {
-				(void)mgmt_txn_send_commit_cfg_reply(
-					txn, MGMTD_INTERNAL_ERROR,
-					"Could not send CFG_VALIDATE_REQ to backend adapter");
-				return -1;
-			}
-
-			FOREACH_TXN_CFG_BATCH_IN_LIST (btch_list, cfg_btch) {
-				cfg_btch->comm_phase =
-					MGMTD_COMMIT_PHASE_VALIDATE_CFG;
-			}
-
-			free(batch_ids);
-		}
-	}
-
-	txn->commit_cfg_req->req.commit_cfg.next_phase =
-		MGMTD_COMMIT_PHASE_APPLY_CFG;
-
-	/*
-	 * Dont move the commit to next phase yet. Wait for all VALIDATE_REPLIES
-	 * to come back.
-	 */
-
-	return 0;
-}
-#endif /* iddef MGMTD_LOCAL_VALIDATIONS_ENABLED */
-
 static void mgmt_txn_process_commit_cfg(struct thread *thread)
 {
 	struct mgmt_txn_ctx *txn;
@@ -1674,8 +1601,7 @@ static void mgmt_txn_process_commit_cfg(struct thread *thread)
 			 * Backend by now.
 			 */
 #ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-		assert(cmtcfg_req->next_phase
-		       == MGMTD_COMMIT_PHASE_VALIDATE_CFG);
+		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_APPLY_CFG);
 		MGMTD_TXN_DBG(
 			"Txn:%p Session:0x%llx, trigger sending CFG_VALIDATE_REQ to all backend clients",
 			txn, (unsigned long long)txn->session_id);
@@ -1686,19 +1612,6 @@ static void mgmt_txn_process_commit_cfg(struct thread *thread)
 			txn, (unsigned long long)txn->session_id);
 #endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 		break;
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	case MGMTD_COMMIT_PHASE_VALIDATE_CFG:
-		if (mm->perf_stats_en)
-			gettimeofday(&cmtcfg_req->cmt_stats->validate_start,
-				     NULL);
-		/*
-		 * We should have received successful CFFDATA_CREATE_REPLY from
-		 * all concerned Backend Clients by now. Send out the
-		 * CFG_VALIDATE_REQs now.
-		 */
-		mgmt_txn_send_be_cfg_validate(txn);
-		break;
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
 		if (mm->perf_stats_en)
 			gettimeofday(&cmtcfg_req->cmt_stats->apply_cfg_start,
@@ -2712,11 +2625,7 @@ int mgmt_txn_notify_be_cfgdata_reply(
 	mgmt_move_txn_cfg_batch_to_next(
 		cmtcfg_req, cfg_btch, &cmtcfg_req->curr_batches[adapter->id],
 		&cmtcfg_req->next_batches[adapter->id], true,
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-		MGMTD_COMMIT_PHASE_VALIDATE_CFG);
-#else  /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 		MGMTD_COMMIT_PHASE_APPLY_CFG);
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 
 	mgmt_try_move_commit_to_next_phase(txn, cmtcfg_req);
 

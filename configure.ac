@@ -618,6 +618,8 @@ AC_ARG_ENABLE([bgpd],
   AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
 AC_ARG_ENABLE([mgmtd],
   AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
+AC_ARG_ENABLE([mgmtd_local_validations],
+  AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -1747,7 +1749,7 @@ AS_IF([test "$enable_mgmtd" != "no"], [
   AC_DEFINE([HAVE_MGMTD], [1], [mgmtd])
 
   # Enable MGMTD local validations
-  AS_IF([test "$enable_mgmtd_local_validations" != "no"], [
+  AS_IF([test "$enable_mgmtd_local_validations" == "yes"], [
     AC_DEFINE([MGMTD_LOCAL_VALIDATIONS_ENABLED], [1], [Enable mgmtd local validations.])
   ])
 ])

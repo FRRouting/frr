@@ -26,7 +26,9 @@ struct mgmt_master;
 
 struct mgmt_commit_stats {
 	struct timeval last_start;
+#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
 	struct timeval validate_start;
+#endif
 	struct timeval prep_cfg_start;
 	struct timeval txn_create_start;
 	struct timeval send_cfg_start;
