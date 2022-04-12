@@ -487,6 +487,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	char err_buf[BUFSIZ];
 	size_t num_processed;
 	bool debug_be = mgmt_debug_be_client;
+	int err;
 
 	assert(txn && txn->client_ctx);
 	client_ctx = txn->client_ctx;
@@ -548,15 +549,26 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	nb_ctx.user = (void *)client_ctx->client_params.user_data;
 	if (debug_be)
 		gettimeofday(&prep_nb_cfg_start, NULL);
-	if (nb_candidate_commit_prepare(
-		    &nb_ctx, client_ctx->candidate_config, "MGMTD Backend Txn",
-		    &txn->nb_txn, true, true, err_buf, sizeof(err_buf) - 1)
-	    != NB_OK) {
+	err = nb_candidate_commit_prepare(&nb_ctx, client_ctx->candidate_config,
+					  "MGMTD Backend Txn", &txn->nb_txn,
+#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
+					  true, true,
+#else
+					  false, true,
+#endif
+					  err_buf, sizeof(err_buf) - 1);
+	if (err != NB_OK) {
 		err_buf[sizeof(err_buf) - 1] = 0;
-		MGMTD_BE_CLIENT_ERR(
-			"Failed to prepare configs for Txn %llx, %u Batches! Err: '%s'",
-			(unsigned long long)txn->txn_id,
-			(uint32_t)num_processed, err_buf);
+		if (err == NB_ERR_VALIDATION)
+			MGMTD_BE_CLIENT_ERR(
+				"Failed to validate configs for Txn %llx %u Batches! Err: '%s'",
+				(unsigned long long)txn->txn_id,
+				(uint32_t)num_processed, err_buf);
+		else
+			MGMTD_BE_CLIENT_ERR(
+				"Failed to prepare configs for Txn %llx, %u Batches! Err: '%s'",
+				(unsigned long long)txn->txn_id,
+				(uint32_t)num_processed, err_buf);
 		error = true;
 		SET_FLAG(txn->flags, MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED);
 	}
@@ -583,11 +595,9 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 		if (!error) {
 			SET_FLAG(batch->flags,
 				 MGMTD_BE_BATCH_FLAGS_CFG_PREPARED);
-#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
 			mgmt_be_batch_list_del(&txn->cfg_batches, batch);
 			mgmt_be_batch_list_add_tail(&txn->apply_cfgs,
 						       batch);
-#endif /* MGMTD_LOCAL_VALIDATIONS_ENABLED */
 		}
 	}
 
@@ -689,130 +699,6 @@ mgmt_be_process_cfgdata_req(struct mgmt_be_client_ctx *client_ctx,
 	}
 
 	return 0;
-}
-
-static int
-mgmt_be_send_validate_reply(struct mgmt_be_client_ctx *client_ctx,
-			       uint64_t txn_id, uint64_t batch_ids[],
-			       size_t num_batch_ids, bool success,
-			       const char *error_if_any)
-{
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeCfgDataValidateReply validate_reply;
-
-	mgmtd__be_cfg_data_validate_reply__init(&validate_reply);
-	validate_reply.success = success;
-	validate_reply.txn_id = txn_id;
-	validate_reply.batch_ids = (uint64_t *)batch_ids;
-	validate_reply.n_batch_ids = num_batch_ids;
-
-	if (error_if_any)
-		validate_reply.error_if_any = (char *)error_if_any;
-
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case =
-		MGMTD__BE_MESSAGE__MESSAGE_CFG_VALIDATE_REPLY;
-	be_msg.cfg_validate_reply = &validate_reply;
-
-	MGMTD_BE_CLIENT_DBG(
-		"Sending CFG_VALIDATE_REPLY message to MGMTD for txn 0x%llx %d  batches [0x%llx - 0x%llx]",
-		(unsigned long long)txn_id, (int)num_batch_ids,
-		(unsigned long long)batch_ids[0],
-		(unsigned long long)batch_ids[num_batch_ids - 1]);
-
-	return mgmt_be_client_send_msg(client_ctx, &be_msg);
-}
-
-static int
-mgmt_be_process_cfg_validate(struct mgmt_be_client_ctx *client_ctx,
-				uint64_t txn_id, uint64_t batch_ids[],
-				size_t num_batch_ids)
-{
-	int ret = 0;
-	size_t indx;
-	struct mgmt_be_txn_ctx *txn;
-	struct mgmt_be_txn_req *txn_req = NULL;
-	struct mgmt_be_batch_ctx *batch;
-	bool error;
-	char err_buf[1024];
-	struct nb_context nb_ctx = {0};
-
-	txn = mgmt_be_find_txn_by_id(client_ctx, txn_id);
-	if (!txn) {
-		mgmt_be_send_validate_reply(client_ctx, txn_id, batch_ids,
-					       num_batch_ids, false,
-					       "Transaction not created yet!");
-		return -1;
-	}
-
-	for (indx = 0; indx < num_batch_ids; indx++) {
-		batch = mgmt_be_find_batch_by_id(txn, batch_ids[indx]);
-		if (!batch) {
-			mgmt_be_send_validate_reply(
-				client_ctx, txn_id, batch_ids, num_batch_ids,
-				false, "Batch context not created!");
-			return -1;
-		}
-
-		if (batch->txn_req.event != MGMTD_BE_TXN_PROC_SETCFG) {
-			snprintf(err_buf, sizeof(err_buf),
-				 "Batch-id 0x%llx not a Config Data Batch!",
-				 (unsigned long long)batch_ids[indx]);
-			mgmt_be_send_validate_reply(client_ctx, txn_id,
-						       batch_ids, num_batch_ids,
-						       false, err_buf);
-			return -1;
-		}
-
-		txn_req = &batch->txn_req;
-		error = false;
-		nb_candidate_edit_config_changes(
-			client_ctx->candidate_config,
-			txn_req->req.set_cfg.cfg_changes,
-			(size_t)txn_req->req.set_cfg.num_cfg_changes, NULL,
-			NULL, 0, err_buf, sizeof(err_buf), &error);
-		if (error) {
-			err_buf[sizeof(err_buf) - 1] = 0;
-			MGMTD_BE_CLIENT_ERR(
-				"Failed to apply configs for Txn %llx Batch %llx to Candidate! Err: '%s'",
-				(unsigned long long)txn_id,
-				(unsigned long long)batch_ids[indx], err_buf);
-			mgmt_be_send_validate_reply(
-				client_ctx, txn_id, batch_ids, num_batch_ids,
-				false,
-				"Failed to update Candidate Db on backend!");
-			return -1;
-		}
-
-		/* Move the batch to APPLY list */
-		mgmt_be_batch_list_del(&txn->cfg_batches, batch);
-		mgmt_be_batch_list_add_tail(&txn->apply_cfgs,
-					       batch);
-	}
-
-	nb_ctx.client = NB_CLIENT_CLI;
-	nb_ctx.user = (void *)client_ctx->client_params.user_data;
-	if (nb_candidate_commit_prepare(&nb_ctx, client_ctx->candidate_config,
-					"MGMTD Txn", &txn->nb_txn, false,
-					false, err_buf, sizeof(err_buf) - 1)
-	    != NB_OK) {
-		err_buf[sizeof(err_buf) - 1] = 0;
-		MGMTD_BE_CLIENT_ERR(
-			"Failed to validate configs for Txn %llx Batch %llx! Err: '%s'",
-			(unsigned long long)txn_id,
-			(unsigned long long)batch_ids[indx], err_buf);
-		mgmt_be_send_validate_reply(
-			client_ctx, txn_id, batch_ids, num_batch_ids, false,
-			"Failed to validate Config on backend!");
-		return -1;
-	}
-
-	if (ret == 0) {
-		mgmt_be_send_validate_reply(client_ctx, txn_id, batch_ids,
-					       num_batch_ids, true, NULL);
-	}
-
-	return ret;
 }
 
 static int mgmt_be_send_apply_reply(struct mgmt_be_client_ctx *client_ctx,
@@ -959,13 +845,6 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 			be_msg->cfg_data_req->n_data_req,
 			be_msg->cfg_data_req->end_of_data);
 		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_VALIDATE_REQ:
-		mgmt_be_process_cfg_validate(
-			client_ctx,
-			(uint64_t)be_msg->cfg_validate_req->txn_id,
-			(uint64_t *)be_msg->cfg_validate_req->batch_ids,
-			be_msg->cfg_validate_req->n_batch_ids);
-		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
 		mgmt_be_process_cfg_apply(
 			client_ctx, (uint64_t)be_msg->cfg_apply_req->txn_id);
@@ -985,7 +864,6 @@ mgmt_be_client_handle_msg(struct mgmt_be_client_ctx *client_ctx,
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_VALIDATE_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_SHOW_CMD_REPLY:
