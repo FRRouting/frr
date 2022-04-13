@@ -2199,7 +2199,6 @@ route_set_community(void *rule, const struct prefix *prefix, void *object)
 
 	/* "none" case.  */
 	if (rcs->none) {
-		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 		bgp_attr_set_community(attr, NULL);
 		/* See the longer comment down below. */
 		if (old && old->refcnt == 0)
@@ -2226,8 +2225,6 @@ route_set_community(void *rule, const struct prefix *prefix, void *object)
 
 	/* will be interned by caller if required */
 	bgp_attr_set_community(attr, new);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 
 	return RMAP_OKAY;
 }
@@ -2313,7 +2310,6 @@ route_set_lcommunity(void *rule, const struct prefix *prefix, void *object)
 
 	/* "none" case.  */
 	if (rcs->none) {
-		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 		bgp_attr_set_lcommunity(attr, NULL);
 
 		/* See the longer comment down below. */
@@ -2340,8 +2336,6 @@ route_set_lcommunity(void *rule, const struct prefix *prefix, void *object)
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
 	bgp_attr_set_lcommunity(attr, new);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 
 	return RMAP_OKAY;
 }
@@ -2438,13 +2432,9 @@ route_set_lcommunity_delete(void *rule, const struct prefix *pfx, void *object)
 
 		if (new->size == 0) {
 			bgp_attr_set_lcommunity(path->attr, NULL);
-			path->attr->flag &=
-				~ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 			lcommunity_free(&new);
 		} else {
 			bgp_attr_set_lcommunity(path->attr, new);
-			path->attr->flag |=
-				ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 		}
 	}
 
@@ -2526,12 +2516,9 @@ route_set_community_delete(void *rule, const struct prefix *prefix,
 
 		if (new->size == 0) {
 			bgp_attr_set_community(path->attr, NULL);
-			path->attr->flag &=
-				~ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 			community_free(&new);
 		} else {
 			bgp_attr_set_community(path->attr, new);
-			path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 		}
 	}
 
@@ -2597,7 +2584,6 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	attr = path->attr;
 
 	if (rcs->none) {
-		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 		bgp_attr_set_ecommunity(attr, NULL);
 		return RMAP_OKAY;
 	}
@@ -2623,8 +2609,6 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
 	bgp_attr_set_ecommunity(path->attr, new_ecom);
-
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	return RMAP_OKAY;
 }
@@ -2787,7 +2771,6 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 
 	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
 	bgp_attr_set_ecommunity(path->attr, new_ecom);
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	/* Mark that route-map has set link bandwidth; used in attribute
 	 * setting decisions.

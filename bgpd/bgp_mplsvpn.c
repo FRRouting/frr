@@ -1147,7 +1147,6 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 				.rtlist[BGP_VPN_POLICY_DIR_TOVPN]);
 	}
 	bgp_attr_set_ecommunity(&static_attr, new_ecom);
-	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 
 	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
 		char *s = ecommunity_ecom2str(
@@ -1511,8 +1510,6 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		bgp_attr_set_ecommunity(&static_attr, new_ecom);
 
 		if (new_ecom->size == 0) {
-			UNSET_FLAG(static_attr.flag,
-				   ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 			ecommunity_free(&new_ecom);
 			bgp_attr_set_ecommunity(&static_attr, NULL);
 		}

@@ -1012,18 +1012,13 @@ struct attr *bgp_attr_aggregate_intern(
 		}
 
 		bgp_attr_set_community(&attr, community);
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 	}
 
-	if (ecommunity) {
+	if (ecommunity)
 		bgp_attr_set_ecommunity(&attr, ecommunity);
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
-	}
 
-	if (lcommunity) {
+	if (lcommunity)
 		bgp_attr_set_lcommunity(&attr, lcommunity);
-		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
-	}
 
 	if (bgp_in_graceful_shutdown(bgp))
 		bgp_attr_add_gshut_community(&attr);
@@ -1100,22 +1095,18 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	comm = bgp_attr_get_community(attr);
 	community_unintern(&comm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 	bgp_attr_set_community(attr, NULL);
 
 	ecomm = bgp_attr_get_ecommunity(attr);
 	ecommunity_unintern(&ecomm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 	bgp_attr_set_ecommunity(attr, NULL);
 
 	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
 	ecommunity_unintern(&ipv6_ecomm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
 
 	lcomm = bgp_attr_get_lcommunity(attr);
 	lcommunity_unintern(&lcomm);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
@@ -1969,8 +1960,6 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
-
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -2300,8 +2289,6 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
-
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -2337,8 +2324,6 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	if (!bgp_attr_get_ecommunity(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	/* Extract DF election preference and  mobility sequence number */
 	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &attr->df_alg);
@@ -2408,8 +2393,6 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 	if (!ipv6_ecomm)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
