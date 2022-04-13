@@ -321,7 +321,6 @@ struct bgp_evpn_mh_info {
 	/* Enable ES consistency checking */
 	bool consistency_checking;
 	/* Use L3 NHGs for host routes in symmetric IRB */
-	bool install_l3nhg;
 	bool host_routes_use_l3nhg;
 	/* Some vendors are not generating the EAD-per-EVI route. This knob
 	 * can be turned off to activate a remote ES-PE when the EAD-per-ES
