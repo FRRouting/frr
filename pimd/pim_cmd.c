@@ -3786,47 +3786,16 @@ DEFPY (show_ip_mroute_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_mroute_count,
+DEFPY (clear_ip_mroute_count,
        clear_ip_mroute_count_cmd,
-       "clear ip mroute [vrf NAME] count",
+       "clear ip mroute [vrf NAME]$name count",
        CLEAR_STR
        IP_STR
        MROUTE_STR
        VRF_CMD_HELP_STR
        "Route and packet count data\n")
 {
-	int idx = 2;
-	struct listnode *node;
-	struct channel_oil *c_oil;
-	struct static_route *sr;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct pim_instance *pim;
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	pim = vrf->info;
-	frr_each(rb_pim_oil, &pim->channel_oil_head, c_oil) {
-		if (!c_oil->installed)
-			continue;
-
-		pim_mroute_update_counters(c_oil);
-		c_oil->cc.origpktcnt = c_oil->cc.pktcnt;
-		c_oil->cc.origbytecnt = c_oil->cc.bytecnt;
-		c_oil->cc.origwrong_if = c_oil->cc.wrong_if;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
-		if (!sr->c_oil.installed)
-			continue;
-
-		pim_mroute_update_counters(&sr->c_oil);
-
-		sr->c_oil.cc.origpktcnt = sr->c_oil.cc.pktcnt;
-		sr->c_oil.cc.origbytecnt = sr->c_oil.cc.bytecnt;
-		sr->c_oil.cc.origwrong_if = sr->c_oil.cc.wrong_if;
-	}
-	return CMD_SUCCESS;
+	return clear_ip_mroute_count_command(vty, name);
 }
 
 DEFPY (show_ip_mroute_count,

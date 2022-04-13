@@ -52,6 +52,7 @@
 #include "pim_nht.h"
 #include "pim_sock.h"
 #include "pim_ssm.h"
+#include "pim_static.h"
 #include "pim_addr.h"
 #include "pim_static.h"
 
@@ -3562,6 +3563,41 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 					    sg_sw_mroute_cnt +
 					    sg_hw_mroute_cnt);
 	}
+}
+
+int clear_ip_mroute_count_command(struct vty *vty, const char *name)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *sr;
+	struct vrf *v = pim_cmd_lookup(vty, name);
+	struct pim_instance *pim;
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = v->info;
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
+		if (!c_oil->installed)
+			continue;
+
+		pim_mroute_update_counters(c_oil);
+		c_oil->cc.origpktcnt = c_oil->cc.pktcnt;
+		c_oil->cc.origbytecnt = c_oil->cc.bytecnt;
+		c_oil->cc.origwrong_if = c_oil->cc.wrong_if;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
+		if (!sr->c_oil.installed)
+			continue;
+
+		pim_mroute_update_counters(&sr->c_oil);
+
+		sr->c_oil.cc.origpktcnt = sr->c_oil.cc.pktcnt;
+		sr->c_oil.cc.origbytecnt = sr->c_oil.cc.bytecnt;
+		sr->c_oil.cc.origwrong_if = sr->c_oil.cc.wrong_if;
+	}
+	return CMD_SUCCESS;
 }
 
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
