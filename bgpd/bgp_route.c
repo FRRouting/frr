@@ -8189,14 +8189,16 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> [{"
       "as-set$as_set_s"
       "|summary-only$summary_only"
-      "|route-map WORD$rmap_name"
+      "|route-map RMAP_NAME$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
       "|matching-MED-only$match_med"
-      "|suppress-map WORD$suppress_map"
+      "|suppress-map RMAP_NAME$suppress_map"
       "}]",
       NO_STR
       "Configure BGP aggregate entries\n"
-      "Aggregate prefix\n" "Aggregate address\n" "Aggregate mask\n"
+      "Aggregate prefix\n"
+      "Aggregate address\n"
+      "Aggregate mask\n"
       "Generate AS set path information\n"
       "Filter more specific routes from updates\n"
       "Apply route map to aggregate network\n"
@@ -8251,10 +8253,10 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "[no] aggregate-address X:X::X:X/M$prefix [{"
       "as-set$as_set_s"
       "|summary-only$summary_only"
-      "|route-map WORD$rmap_name"
+      "|route-map RMAP_NAME$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
       "|matching-MED-only$match_med"
-      "|suppress-map WORD$suppress_map"
+      "|suppress-map RMAP_NAME$suppress_map"
       "}]",
       NO_STR
       "Configure BGP aggregate entries\n"
