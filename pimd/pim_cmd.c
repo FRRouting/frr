@@ -1924,22 +1924,21 @@ DEFUN (clear_ip_pim_interface_traffic,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_pim_oil,
+DEFPY (clear_ip_pim_oil,
        clear_ip_pim_oil_cmd,
-       "clear ip pim [vrf NAME] oil",
+       "clear ip pim [vrf NAME]$name oil",
        CLEAR_STR
        IP_STR
        CLEAR_IP_PIM_STR
        VRF_CMD_HELP_STR
        "Rescan PIM OIL (output interface list)\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v = pim_cmd_lookup(vty, name);
 
-	if (!vrf)
+	if (!v)
 		return CMD_WARNING;
 
-	pim_scan_oil(vrf->info);
+	pim_scan_oil(v->info);
 
 	return CMD_SUCCESS;
 }
