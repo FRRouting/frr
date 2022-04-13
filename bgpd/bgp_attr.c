@@ -4177,9 +4177,14 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+		bool transparent = CHECK_FLAG(peer->af_flags[afi][safi],
+					      PEER_FLAG_RSERVER_CLIENT) &&
+				   from &&
+				   CHECK_FLAG(from->af_flags[afi][safi],
+					      PEER_FLAG_RSERVER_CLIENT);
 
-		if (peer->sort == BGP_PEER_IBGP
-		    || peer->sort == BGP_PEER_CONFED) {
+		if (peer->sort == BGP_PEER_IBGP ||
+		    peer->sort == BGP_PEER_CONFED || transparent) {
 			if (ecomm->size * 8 > 255) {
 				stream_putc(s,
 					    BGP_ATTR_FLAG_OPTIONAL
