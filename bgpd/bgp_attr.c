@@ -4183,9 +4183,22 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Extended Communities attribute. */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+<<<<<<< HEAD
 		if (peer->sort == BGP_PEER_IBGP
 		    || peer->sort == BGP_PEER_CONFED) {
 			if (attr->ecommunity->size * 8 > 255) {
+=======
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+		bool transparent = CHECK_FLAG(peer->af_flags[afi][safi],
+					      PEER_FLAG_RSERVER_CLIENT) &&
+				   from &&
+				   CHECK_FLAG(from->af_flags[afi][safi],
+					      PEER_FLAG_RSERVER_CLIENT);
+
+		if (peer->sort == BGP_PEER_IBGP ||
+		    peer->sort == BGP_PEER_CONFED || transparent) {
+			if (ecomm->size * 8 > 255) {
+>>>>>>> b17d5444f (bgpd: Pass non-transitive ext-communities between Route Server and RS clients)
 				stream_putc(s,
 					    BGP_ATTR_FLAG_OPTIONAL
 						    | BGP_ATTR_FLAG_TRANS
