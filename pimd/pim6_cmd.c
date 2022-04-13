@@ -42,6 +42,7 @@
 #include "pim_nht.h"
 #include "pim_bsm.h"
 #include "pim_iface.h"
+#include "pim_zebra.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
@@ -1972,6 +1973,25 @@ DEFPY (clear_ipv6_mroute,
 	return CMD_SUCCESS;
 }
 
+DEFPY (clear_ipv6_pim_oil,
+       clear_ipv6_pim_oil_cmd,
+       "clear ipv6 pim [vrf NAME]$name oil",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Rescan PIMv6 OIL (output interface list)\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_scan_oil(v->info);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2081,4 +2101,5 @@ void pim_cmd_init(void)
 
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
 }
