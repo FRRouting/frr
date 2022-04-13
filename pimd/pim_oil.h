@@ -27,18 +27,18 @@ struct pim_interface;
 /*
  * Where did we get this (S,G) from?
  *
- * IGMP - Learned from IGMP
+ * GM - Learned from IGMP/MLD
  * PIM - Learned from PIM
  * SOURCE - Learned from Source multicast packet received
  * STAR - Inherited
  */
-#define PIM_OIF_FLAG_PROTO_IGMP   (1 << 0)
+#define PIM_OIF_FLAG_PROTO_GM     (1 << 0)
 #define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
 #define PIM_OIF_FLAG_PROTO_STAR   (1 << 2)
 #define PIM_OIF_FLAG_PROTO_VXLAN  (1 << 3)
-#define PIM_OIF_FLAG_PROTO_ANY                                 \
-	(PIM_OIF_FLAG_PROTO_IGMP | PIM_OIF_FLAG_PROTO_PIM      \
-	 | PIM_OIF_FLAG_PROTO_STAR | PIM_OIF_FLAG_PROTO_VXLAN)
+#define PIM_OIF_FLAG_PROTO_ANY                                                 \
+	(PIM_OIF_FLAG_PROTO_GM | PIM_OIF_FLAG_PROTO_PIM |                      \
+	 PIM_OIF_FLAG_PROTO_STAR | PIM_OIF_FLAG_PROTO_VXLAN)
 
 /* OIF is present in the OIL but must not be used for forwarding traffic */
 #define PIM_OIF_FLAG_MUTE         (1 << 4)

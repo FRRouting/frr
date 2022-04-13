@@ -1164,7 +1164,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						out_ifname,
 						(c_oil->oif_flags
 							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_IGMP)
+						 PIM_OIF_FLAG_PROTO_GM)
 							? 'I'
 							: ' ',
 						(c_oil->oif_flags
@@ -1192,7 +1192,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						out_ifname,
 						(c_oil->oif_flags
 							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_IGMP)
+						 PIM_OIF_FLAG_PROTO_GM)
 							? 'I'
 							: ' ',
 						(c_oil->oif_flags

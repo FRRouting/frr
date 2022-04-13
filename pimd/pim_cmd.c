@@ -4062,8 +4062,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 					json_object_boolean_true_add(
 						json_ifp_out, "protocolPim");
 
-				if (c_oil->oif_flags[oif_vif_index]
-				    & PIM_OIF_FLAG_PROTO_IGMP)
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_GM)
 					json_object_boolean_true_add(
 						json_ifp_out, "protocolIgmp");
 
@@ -4107,8 +4107,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 					strlcpy(proto, "PIM", sizeof(proto));
 				}
 
-				if (c_oil->oif_flags[oif_vif_index]
-				    & PIM_OIF_FLAG_PROTO_IGMP) {
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_GM) {
 					strlcpy(proto, "IGMP", sizeof(proto));
 				}
 

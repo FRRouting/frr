@@ -1836,7 +1836,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 				flag = PIM_OIF_FLAG_PROTO_STAR;
 			else {
 				if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
-					flag = PIM_OIF_FLAG_PROTO_IGMP;
+					flag = PIM_OIF_FLAG_PROTO_GM;
 				if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 					flag |= PIM_OIF_FLAG_PROTO_PIM;
 				if (starch)
@@ -2115,7 +2115,7 @@ void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 			continue;
 
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
+				    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}
 }
 
@@ -2160,18 +2160,17 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 
 		if (!nlist) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
-					PIM_OIF_FLAG_PROTO_IGMP, __func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 			continue;
 		}
 		pim_addr_to_prefix(&g, up->sg.grp);
 		apply_new = prefix_list_apply(np, &g);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP,
-						__func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 		else
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
-					PIM_OIF_FLAG_PROTO_IGMP, __func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}
 }
 

@@ -739,8 +739,8 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 	pim_ifp = ifp_out->info;
 	if (!pim_ifp)
 		return false;
-	if ((c_oil->oif_flags[oif_index] & PIM_OIF_FLAG_PROTO_IGMP) &&
-			PIM_I_am_DR(pim_ifp))
+	if ((c_oil->oif_flags[oif_index] & PIM_OIF_FLAG_PROTO_GM) &&
+	    PIM_I_am_DR(pim_ifp))
 		return true;
 
 	return false;
