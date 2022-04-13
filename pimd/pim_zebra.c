@@ -499,7 +499,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			   ch->interface->name, &up->upstream_addr);
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
-		mask = PIM_OIF_FLAG_PROTO_IGMP;
+		mask = PIM_OIF_FLAG_PROTO_GM;
 
 	if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 		mask |= PIM_OIF_FLAG_PROTO_PIM;
