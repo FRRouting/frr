@@ -135,7 +135,7 @@ class TemplateTopo(Topo):
         files = ["show_ipv6_route.ref", "show_yang_interface_isis_adjacencies.ref"]
         for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
             outputs[rname] = {}
-            for step in range(1, 13 + 1):
+            for step in range(1, 16 + 1):
                 outputs[rname][step] = {}
                 for file in files:
                     if step == 1:
@@ -193,7 +193,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def router_compare_json_output(rname, command, reference):
+def router_compare_json_output(rname, command, reference, wait=0.5, count=120):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
@@ -203,7 +203,7 @@ def router_compare_json_output(rname, command, reference):
 
     # Run test function until we get an result. Wait at most 60 seconds.
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -620,6 +620,91 @@ def test_rib_ipv6_step13():
             rname,
             "show ipv6 route isis json",
             outputs[rname][13]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 14
+#
+# Action(s):
+# - Setting spf-delay-ietf init-delay of 15s
+#
+# Expected changes:
+# - No routing table change
+# - At the end of test, SPF reacts to a failure in 15s
+#
+def test_rib_ipv6_step14():
+    logger.info("Test (step 14): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Setting spf-delay-ietf init-delay of 15s")
+    tgen.net["rt1"].cmd('vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 15000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"')
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][14]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 15
+#
+# Action(s):
+# - shut the eth-rt2 interface on rt1
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step15():
+    logger.info("Test (step 15): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
+    os.system("ip link set %s down" % tgen.net["s1"].intfs[1].name)
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][15]["show_ipv6_route.ref"],
+            count=2,
+            wait=0.05,
+        )
+
+
+#
+# Step 16
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step16():
+    logger.info("Test (step 16): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
         )
 
 
