@@ -5747,9 +5747,13 @@ DEFUN (show_bgp_vrf_l3vni_info,
 
 	name = argv[idx_vrf]->arg;
 	bgp = bgp_lookup_by_name(name);
+	if (strmatch(name, VRF_DEFAULT_NAME))
+		bgp = bgp_get_default();
+
 	if (!bgp) {
 		if (!uj)
-			vty_out(vty, "BGP instance for VRF %s not found", name);
+			vty_out(vty, "BGP instance for VRF %s not found\n",
+				name);
 		else {
 			json_object_string_add(json, "warning",
 					       "BGP instance not found");
