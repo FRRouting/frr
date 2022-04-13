@@ -818,6 +818,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	assert(attr.aspath);
 
 	attr.local_pref = bgp->default_local_pref;
+	attr.med = 0;
+	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 
 	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
 		/* IPv6 global nexthop must be included. */
