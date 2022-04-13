@@ -192,11 +192,11 @@ struct bgp_redist {
 	struct bgp_rmap rmap;
 };
 
-typedef enum {
+enum vpn_policy_direction {
 	BGP_VPN_POLICY_DIR_FROMVPN = 0,
 	BGP_VPN_POLICY_DIR_TOVPN = 1,
 	BGP_VPN_POLICY_DIR_MAX = 2
-} vpn_policy_direction_t;
+};
 
 struct vpn_policy {
 	struct bgp *bgp; /* parent */
@@ -901,13 +901,13 @@ struct bgp_filter {
 
 /* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
    a peer who's AS is part of our Confederation.  */
-typedef enum {
+enum bgp_peer_sort {
 	BGP_PEER_UNSPECIFIED,
 	BGP_PEER_IBGP,
 	BGP_PEER_EBGP,
 	BGP_PEER_INTERNAL,
 	BGP_PEER_CONFED,
-} bgp_peer_sort_t;
+};
 
 /* BGP message header and packet size.  */
 #define BGP_MARKER_SIZE		                16
@@ -1084,7 +1084,7 @@ struct peer {
 	/* Peer's local AS number. */
 	as_t local_as;
 
-	bgp_peer_sort_t sort;
+	enum bgp_peer_sort sort;
 
 	/* Peer's Change local AS number. */
 	as_t change_local_as;
@@ -1968,12 +1968,12 @@ enum bgp_create_error_code {
 /*
  * Enumeration of different policy kinds a peer can be configured with.
  */
-typedef enum {
+enum bgp_policy_type {
 	BGP_POLICY_ROUTE_MAP,
 	BGP_POLICY_FILTER_LIST,
 	BGP_POLICY_PREFIX_LIST,
 	BGP_POLICY_DISTRIBUTE_LIST,
-} bgp_policy_type_e;
+};
 
 /* peer_flag_change_type. */
 enum peer_change_type {
@@ -2025,8 +2025,8 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 #define peer_unlock(A) peer_unlock_with_caller(__FUNCTION__, (A))
 #define peer_lock(B) peer_lock_with_caller(__FUNCTION__, (B))
 
-extern bgp_peer_sort_t peer_sort(struct peer *peer);
-extern bgp_peer_sort_t peer_sort_lookup(struct peer *peer);
+extern enum bgp_peer_sort peer_sort(struct peer *peer);
+extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
 extern bool peer_active(struct peer *);
 extern bool peer_active_nego(struct peer *);

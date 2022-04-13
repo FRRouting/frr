@@ -1679,7 +1679,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	 *
 	 * Complicates the flow a little though..
 	 */
-	bgp_attr_parse_ret_t attr_parse_ret = BGP_ATTR_PARSE_PROCEED;
+	enum bgp_attr_parse_ret attr_parse_ret = BGP_ATTR_PARSE_PROCEED;
 /* This define morphs the update case into a withdraw when lower levels
  * have signalled an error condition where this is best.
  */
