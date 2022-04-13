@@ -361,10 +361,8 @@ int pim_ssmpingd_start(struct pim_instance *pim, pim_addr source_addr)
 		return 0;
 	}
 
-	{
-		zlog_info("%s: starting ssmpingd for source %pPAs", __func__,
-			  &source_addr);
-	}
+	zlog_info("%s: starting ssmpingd for source %pPAs", __func__,
+		  &source_addr);
 
 	ss = ssmpingd_new(pim, source_addr);
 	if (!ss) {
