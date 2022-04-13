@@ -1935,6 +1935,25 @@ DEFPY (show_ipv6_mroute_summary_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (clear_ipv6_pim_statistics,
+       clear_ipv6_pim_statistics_cmd,
+       "clear ipv6 pim statistics [vrf NAME]$name",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset PIM statistics\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	clear_pim_statistics(v->info);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2041,4 +2060,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_count_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
+
+	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 }

@@ -1821,22 +1821,22 @@ DEFUN (clear_ip_igmp_interfaces,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_pim_statistics,
+DEFPY (clear_ip_pim_statistics,
        clear_ip_pim_statistics_cmd,
-       "clear ip pim statistics [vrf NAME]",
+       "clear ip pim statistics [vrf NAME]$name",
        CLEAR_STR
        IP_STR
        CLEAR_IP_PIM_STR
        VRF_CMD_HELP_STR
        "Reset PIM statistics\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v = pim_cmd_lookup(vty, name);
 
-	if (!vrf)
+	if (!v)
 		return CMD_WARNING;
 
-	clear_pim_statistics(vrf->info);
+	clear_pim_statistics(v->info);
+
 	return CMD_SUCCESS;
 }
 
