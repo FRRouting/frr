@@ -3695,56 +3695,73 @@ DEFPY (show_ip_multicast_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_ip_multicast_count,
-      show_ip_multicast_count_cmd,
-      "show ip multicast count [vrf NAME] [json]",
-      SHOW_STR IP_STR
-      "Multicast global information\n"
-      "Data packet count\n"
-      VRF_CMD_HELP_STR JSON_STR)
+DEFPY (show_ip_multicast_count,
+       show_ip_multicast_count_cmd,
+       "show ip multicast count [vrf NAME] [json$json]",
+       SHOW_STR
+       IP_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
-	int idx = 3;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	show_multicast_interfaces(vrf->info, vty, uj);
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_multicast_interfaces(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_ip_multicast_count_vrf_all,
-      show_ip_multicast_count_vrf_all_cmd,
-      "show ip multicast count vrf all [json]",
-      SHOW_STR IP_STR
-      "Multicast global information\n"
-      "Data packet count\n"
-      VRF_CMD_HELP_STR JSON_STR)
+DEFPY (show_ip_multicast_count_vrf_all,
+       show_ip_multicast_count_vrf_all_cmd,
+       "show ip multicast count vrf all [json$json]",
+       SHOW_STR
+       IP_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj)
-		vty_out(vty, "{ ");
+	if (json)
+		json_parent = json_object_new_object();
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
 
-		show_multicast_interfaces(vrf->info, vty, uj);
+		show_multicast_interfaces(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
-
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
