@@ -105,7 +105,7 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 			     const char *src_str);
 void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
-					     struct vty *vty);
+				      struct vty *vty);
 void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				      bool uj);
 
