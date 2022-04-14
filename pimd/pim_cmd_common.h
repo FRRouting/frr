@@ -107,7 +107,7 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 				      struct vty *vty);
 void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
-				      bool uj);
+			       json_object *json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;

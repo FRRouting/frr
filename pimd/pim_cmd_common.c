@@ -2882,17 +2882,14 @@ static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 }
 
 void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
-				      bool uj)
+			       json_object *json)
 {
 	struct interface *ifp;
-	json_object *json = NULL;
 	json_object *json_row = NULL;
 
 	vty_out(vty, "\n");
 
-	if (uj)
-		json = json_object_new_object();
-	else
+	if (!json)
 		vty_out(vty,
 			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
 
@@ -2930,7 +2927,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 		}
 #endif
 
-		if (uj) {
+		if (json) {
 			json_row = json_object_new_object();
 			json_object_string_add(json_row, "name", ifp->name);
 			json_object_string_add(json_row, "state",
@@ -2960,9 +2957,6 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				(unsigned long)vreq.obytes);
 		}
 	}
-
-	if (uj)
-		vty_json(vty, json);
 }
 
 void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
@@ -3011,5 +3005,5 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 
 	show_scan_oil_stats(pim, vty, now);
 
-	show_multicast_interfaces(pim, vty, false);
+	show_multicast_interfaces(pim, vty, NULL);
 }
