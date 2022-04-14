@@ -2858,7 +2858,6 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-#if PIM_IPV == 4
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
@@ -2886,7 +2885,6 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				      bool uj)
 {
 	struct interface *ifp;
-	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -2900,8 +2898,11 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
-		struct in_addr ifaddr;
+#if PIM_IPV == 4
 		struct sioc_vif_req vreq;
+#else
+		struct sioc_mif_req6 vreq;
+#endif
 
 		pim_ifp = ifp->info;
 
@@ -2909,8 +2910,8 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		memset(&vreq, 0, sizeof(vreq));
+#if PIM_IPV == 4
 		vreq.vifi = pim_ifp->mroute_vif_index;
-
 		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
 			zlog_warn(
 				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
@@ -2918,14 +2919,23 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				pim_ifp->mroute_vif_index, errno,
 				safe_strerror(errno));
 		}
+#else
+		vreq.mifi = pim_ifp->mroute_vif_index;
+		if (ioctl(pim->mroute_socket, SIOCGETMIFCNT_IN6, &vreq)) {
+			zlog_warn(
+				"ioctl(SIOCGETMIFCNT_IN6=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+				(unsigned long)SIOCGETMIFCNT_IN6, ifp->name,
+				pim_ifp->mroute_vif_index, errno,
+				safe_strerror(errno));
+		}
+#endif
 
-		ifaddr = pim_ifp->primary_address;
 		if (uj) {
 			json_row = json_object_new_object();
 			json_object_string_add(json_row, "name", ifp->name);
 			json_object_string_add(json_row, "state",
 					       if_is_up(ifp) ? "up" : "down");
-			json_object_string_addf(json_row, "address", "%pI4",
+			json_object_string_addf(json_row, "address", "%pPA",
 						&pim_ifp->primary_address);
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
@@ -2941,9 +2951,8 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
 			vty_out(vty,
-				"%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
-				ifp->name,
-				inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
+				"%-16s %-15pPAs %3d %3d %7lu %7lu %10lu %10lu\n",
+				ifp->name, &pim_ifp->primary_address,
 				ifp->ifindex, pim_ifp->mroute_vif_index,
 				(unsigned long)vreq.icount,
 				(unsigned long)vreq.ocount,
@@ -2956,8 +2965,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 		vty_json(vty, json);
 }
 
-void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
-					     struct vty *vty)
+void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 {
 	struct vrf *vrf = pim->vrf;
 	time_t now = pim_time_monotonic_sec();
@@ -2979,7 +2987,11 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 	vty_out(vty, "\n");
 
 	pim_zebra_zclient_update(vty);
+#if PIM_IPV == 4
 	pim_zlookup_show_ip_multicast(vty);
+#else
+	/* TBD */
+#endif
 
 	vty_out(vty, "\n");
 	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
@@ -3001,4 +3013,3 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 
 	show_multicast_interfaces(pim, vty, false);
 }
-#endif /* PIM_IPV == 4 */

@@ -3649,51 +3649,48 @@ DEFPY (show_ip_pim_statistics,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_multicast,
+DEFPY (show_ip_multicast,
        show_ip_multicast_cmd,
        "show ip multicast [vrf NAME]",
        SHOW_STR
        IP_STR
-       VRF_CMD_HELP_STR
-       "Multicast global information\n")
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v;
+	struct pim_instance *pim;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_cmd_show_ip_multicast_helper(pim, vty);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_multicast_vrf_all,
+DEFPY (show_ip_multicast_vrf_all,
        show_ip_multicast_vrf_all_cmd,
        "show ip multicast vrf all",
        SHOW_STR
        IP_STR
-       VRF_CMD_HELP_STR
-       "Multicast global information\n")
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
 {
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
 
-	if (uj)
-		vty_out(vty, "{ ");
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
-			vty_out(vty, "VRF: %s\n", vrf->name);
+		vty_out(vty, "VRF: %s\n", vrf->name);
 		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
