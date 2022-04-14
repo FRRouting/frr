@@ -385,9 +385,9 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	if (remote_pi) {
 		flog_err(
 			EC_BGP_ES_INVALID,
-			"%u ERROR: local es route for ESI: %s Vtep %pI4 also learnt from remote",
+			"%u ERROR: local es route for ESI: %s vtep %pI4 also learnt from remote",
 			bgp->vrf_id, es ? es->esi_str : "Null",
-			&es->originator_ip);
+			es ? &es->originator_ip : NULL);
 		return -1;
 	}
 
