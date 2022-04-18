@@ -305,7 +305,7 @@ zebra_l2_brvlan_mac_add(struct interface *br_if, vlanid_t vid,
 
 struct zebra_l2_brvlan_mac *zebra_l2_brvlan_mac_find(struct interface *br_if,
 						     vlanid_t vid,
-						     struct ethaddr *mac)
+						     const struct ethaddr *mac)
 {
 	struct zebra_if *zif;
 	struct zebra_l2_bridge_if *br;

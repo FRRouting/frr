@@ -69,7 +69,7 @@ zebra_l2_brvlan_mac_add(struct interface *br_if, vlanid_t vid,
 			bool local_inactive, bool dp_static);
 extern struct zebra_l2_brvlan_mac *
 zebra_l2_brvlan_mac_find(struct interface *br_if, vlanid_t vid,
-			 struct ethaddr *mac);
+			 const struct ethaddr *mac);
 
 extern int zebra_l2_bridge_if_del(struct interface *ifp);
 extern int zebra_l2_bridge_if_add(struct interface *ifp);
