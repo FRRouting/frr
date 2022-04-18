@@ -661,8 +661,11 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			"Interface MTU %zu on %s is too low to support area lsp mtu %u!",
 			isis_circuit_pdu_size(circuit),
 			circuit->interface->name, circuit->area->lsp_mtu);
-		isis_circuit_update_all_srmflags(circuit, 0);
-		return ISIS_ERROR;
+
+		/* Allow ISIS to continue configuration.   With this
+		 * configuration failure ISIS will attempt to send lsp
+		 * packets but will fail until the mtu is configured properly
+		 */
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
