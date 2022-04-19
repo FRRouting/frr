@@ -1568,8 +1568,10 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	if (master == NULL)
 		return;
 
-	while ((plist = plist_pop(&master->str)))
+	while ((plist = plist_first(&master->str))) {
 		prefix_list_delete(plist);
+		plist_pop(&master->str);
+	}
 
 	master->recent = NULL;
 }
