@@ -398,7 +398,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 	req->r.rtm_family = ri->af;
 
 	/*
-	 * rtm_table field is a uchar field which can accomodate table_id less
+	 * rtm_table field is a uchar field which can accommodate table_id less
 	 * than 256.
 	 * To support table id greater than 255, if the table_id is greater than
 	 * 255, set rtm_table to RT_TABLE_UNSPEC and add RTA_TABLE attribute

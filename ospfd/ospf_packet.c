@@ -3515,7 +3515,7 @@ static int ospf_make_ls_req_func(struct stream *s, uint16_t *length,
 	/* LS Request packet overflows interface MTU
 	 * delta is just number of bytes required for 1 LS Req
 	 * ospf_packet_max will return the number of bytes can
-	 * be accomodated without ospf header. So length+delta
+	 * be accommodated without ospf header. So length+delta
 	 * can be compared to ospf_packet_max
 	 * to check if it can fit another lsreq in the same packet.
 	 */
@@ -3649,7 +3649,7 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 		/* LS Ack packet overflows interface MTU
 		 * delta is just number of bytes required for
 		 * 1 LS Ack(1 LS Hdr) ospf_packet_max will return
-		 * the number of bytes can be accomodated without
+		 * the number of bytes can be accommodated without
 		 * ospf header. So length+delta can be compared
 		 * against ospf_packet_max to check if it can fit
 		 * another ls header in the same packet.
@@ -3966,7 +3966,7 @@ void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
 	list_delete(&update);
 }
 
-/* Determine size for packet. Must be at least big enough to accomodate next
+/* Determine size for packet. Must be at least big enough to accommodate next
  * LSA on list, which may be bigger than MTU size.
  *
  * Return pointer to new ospf_packet
