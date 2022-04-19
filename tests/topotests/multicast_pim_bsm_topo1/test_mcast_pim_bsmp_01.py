@@ -34,7 +34,7 @@ Tests covered in this suite
 3.2 Verify if  no forwarding bit is set , FRR is not forwarding the
     BSM to other PIM nbrs
 3.3 Verify multicast BSM is sent to new router when unicast BSM is disabled
-4.1 Verfiy BSM arrived on non bsm capable interface is dropped and
+4.1 Verify BSM arrived on non bsm capable interface is dropped and
     not processed
 4.2 Verify group to RP info updated correctly in FRR node, after shut and
     no-shut of BSM enable interfaces
@@ -865,7 +865,7 @@ def test_new_router_fwd_p0(request):
 
 def test_int_bsm_config_p1(request):
     """
-    1. Verfiy BSM arrived on non bsm capable interface is dropped and
+    1. Verify BSM arrived on non bsm capable interface is dropped and
        not processed
     2. Verify group to RP info updated correctly in FRR node, after shut and
        no-shut of BSM enable interfaces
