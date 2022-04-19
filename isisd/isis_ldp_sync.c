@@ -479,9 +479,9 @@ void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
 	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config
+	 *  specified on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
- 	 */
+	 */
 	if (if_is_loopback(circuit->interface))
 		return;
 
@@ -541,7 +541,7 @@ void isis_if_set_ldp_sync_holddown(struct isis_circuit *circuit)
 	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config.
+	 *  specified on interface overrides global config.
 	 */
 	if (if_is_loopback(circuit->interface))
 		return;
