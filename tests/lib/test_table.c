@@ -382,7 +382,7 @@ static void verify_prefix_iter_cmp(const char *p1, const char *p2,
 	assert(exp_result == result);
 
 	/*
-	 * Also check the reverse comparision.
+	 * Also check the reverse comparison.
 	 */
 	result = route_table_prefix_iter_cmp((struct prefix *)&p2_pfx,
 					     (struct prefix *)&p1_pfx);
@@ -398,7 +398,7 @@ static void verify_prefix_iter_cmp(const char *p1, const char *p2,
 /*
  * test_prefix_iter_cmp
  *
- * Tests comparision of prefixes according to order of iteration.
+ * Tests comparison of prefixes according to order of iteration.
  */
 static void test_prefix_iter_cmp(void)
 {
