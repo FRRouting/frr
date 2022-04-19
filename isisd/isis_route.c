@@ -443,7 +443,7 @@ void isis_route_delete(struct isis_area *area, struct route_node *rode,
 	if (rinfo == NULL) {
 		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug(
-				"ISIS-Rte: tried to delete non-existant route %s",
+				"ISIS-Rte: tried to delete non-existent route %s",
 				buff);
 		return;
 	}
