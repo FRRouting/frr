@@ -1253,10 +1253,10 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 13. Router-ID comparision. */
+	/* 13. Router-ID comparison. */
 	/* If one of the paths is "stale", the corresponding peer router-id will
 	 * be 0 and would always win over the other path. If originator id is
-	 * used for the comparision, it will decide which path is better.
+	 * used for the comparison, it will decide which path is better.
 	 */
 	if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 		new_id.s_addr = newattr->originator_id.s_addr;
@@ -1285,7 +1285,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 14. Cluster length comparision. */
+	/* 14. Cluster length comparison. */
 	new_cluster = BGP_CLUSTER_LIST_LENGTH(new->attr);
 	exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
@@ -1309,7 +1309,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 15. Neighbor address comparision. */
+	/* 15. Neighbor address comparison. */
 	/* Do this only if neither path is "stale" as stale paths do not have
 	 * valid peer information (as the connection may or may not be up).
 	 */
