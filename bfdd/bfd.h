@@ -724,7 +724,7 @@ void bfd_profile_free(struct bfd_profile *bp);
 
 /**
  * Apply a profile configuration to an existing BFD session. The non default
- * values will not be overriden.
+ * values will not be overridden.
  *
  * NOTE: if the profile doesn't exist yet, then the profile will be applied
  * once it begins to exist.
