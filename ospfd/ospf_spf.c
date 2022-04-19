@@ -678,7 +678,7 @@ static void ospf_spf_flush_parents(struct vertex *w)
 
 /*
  * Consider supplied next-hop for inclusion to the supplied list of
- * equal-cost next-hops, adjust list as neccessary.
+ * equal-cost next-hops, adjust list as necessary.
  */
 static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 				struct vertex_nexthop *newhop,

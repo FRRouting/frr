@@ -62,7 +62,7 @@ in the future:
 The APIs are all designed to be as type-safe as possible.  This means that
 there will be a compiler warning when an item doesn't match the container, or
 the return value has a different type, or other similar situations.  **You
-should never use casts with these APIs.**  If a cast is neccessary in relation
+should never use casts with these APIs.**  If a cast is necessary in relation
 to these APIs, there is probably something wrong with the overall design.
 
 Only the following pieces use dynamically allocated memory:
@@ -650,7 +650,7 @@ Atomic lists
 `atomlist.h` provides an unsorted and a sorted atomic single-linked list.
 Since atomic memory accesses can be considerably slower than plain memory
 accessses (depending on the CPU type), these lists should only be used where
-neccessary.
+necessary.
 
 The following guarantees are provided regarding concurrent access:
 

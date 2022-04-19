@@ -471,7 +471,7 @@ recommendations apply in regards to upgrades:
    for differences against your old configuration.  If any defaults changed
    that affect your setup, lines may appear or disappear.  If a new line
    appears, it was previously the default (or not supported) and is now
-   neccessary to retain previous behavior.  If a line disappears, it
+   necessary to retain previous behavior.  If a line disappears, it
    previously wasn't the default, but now is, so it is no longer necessary.
 
 3. Check the log files for deprecation warnings by using ``grep -i deprecat``.
