@@ -158,7 +158,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	ospf6 = oi->interface->vrf->info;
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
-	/* A specifed ip ospf cost overrides a calculated one. */
+	/* A specified ip ospf cost overrides a calculated one. */
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
 		cost = oi->cost;
 	else {
