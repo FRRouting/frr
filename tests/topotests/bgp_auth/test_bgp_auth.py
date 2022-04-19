@@ -158,7 +158,7 @@ def setup_module(mod):
     # This is a sample of configuration loading.
     router_list = tgen.routers()
 
-    # For all registred routers, load the zebra configuration file
+    # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_OSPF)
