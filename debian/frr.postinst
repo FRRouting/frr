@@ -16,7 +16,7 @@ adduser \
 	frr
 usermod -a -G frrvty frr
 
-mkdir -p /var/log/frr
+mkdir -m 0755 -p /var/log/frr
 mkdir -p /etc/frr
 
 
