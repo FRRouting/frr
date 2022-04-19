@@ -94,7 +94,7 @@ TC_30 : Verify IIF and OIL change to other path after shut the primary path
 TC_31 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
         shut the RPF interface.
 TC_32 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
-        shut the RPF inteface
+        shut the RPF interface
 """
 
 import os
@@ -3820,7 +3820,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
 def test_delete_RP_shut_noshut_RP_interface_p1(request):
     """
     TC_32_P1: Verify RP info and (*,G) mroute after deleting the RP and shut/
-           no shut the RPF inteface
+           no shut the RPF interface
 
     Topology used:
                 ________r2_____
