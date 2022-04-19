@@ -93,7 +93,7 @@ class LTemplate:
         # This is a sample of configuration loading.
         router_list = tgen.routers()
 
-        # For all registred routers, load the zebra configuration file
+        # For all registered routers, load the zebra configuration file
         for rname, router in router_list.items():
             logger.info("Setting up %s" % rname)
             for rd_val in TopoRouter.RD:
