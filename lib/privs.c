@@ -684,7 +684,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 #else  /* !HAVE_CAPABILITIES */
 	/* we dont have caps. we'll need to maintain rid and saved uid
-	 * and change euid back to saved uid (who we presume has all neccessary
+	 * and change euid back to saved uid (who we presume has all necessary
 	 * privileges) whenever we are asked to raise our privileges.
 	 *
 	 * This is not worth that much security wise, but all we can do.
