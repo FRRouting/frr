@@ -1370,7 +1370,7 @@ quagga (0.96.4x-3) unstable; urgency=low
   * Made the directory (but not the config/log files!) world accessible
     again on user request (thanks to Anand Kumria)). Closes: #213129
   * No longer providing sample configuration in /etc/quagga/. They are
-    now only available in /usr/share/doc/quagga/ to avoid accidently
+    now only available in /usr/share/doc/quagga/ to avoid accidentally
     using them without changing the adresses (thanks to Marc Haber).
     Closes: #215918
 
@@ -1430,7 +1430,7 @@ quagga (0.96.3-1) unstable; urgency=medium
 
 quagga (0.96.2-9) unstable; urgency=medium
 
-  * Removed /usr/share/info/dir.* which were accidently there and prevented
+  * Removed /usr/share/info/dir.* which were accidentally there and prevented
     the installation by dpkg (thanks to Simon Raven). Closes: #212614
   * Reworded package description (thanks to Anand Kumria). Closes: #213125
   * Added french debconf translation (thanks to Christian Perrier).
