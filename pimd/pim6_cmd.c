@@ -170,7 +170,7 @@ DEFPY (ipv6_pim_rp_keep_alive,
        "ipv6 pim rp keep-alive-timer (1-65535)$kat",
        IPV6_STR
        PIM_STR
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
@@ -183,7 +183,7 @@ DEFPY (no_ipv6_pim_rp_keep_alive,
        NO_STR
        IPV6_STR
        PIM_STR
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
