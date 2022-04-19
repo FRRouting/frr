@@ -3361,6 +3361,18 @@ int vtysh_write_config_integrated(void)
 		err++;
 	}
 
+	if (fflush(fp) != 0) {
+		printf("%% Warning: fflush() failed on %s: %s\n", frr_config,
+		       safe_strerror(errno));
+		err++;
+	}
+
+	if (fsync(fd) < 0) {
+		printf("%% Warning: fsync() failed on %s: %s\n", frr_config,
+		       safe_strerror(errno));
+		err++;
+	}
+
 	fclose(fp);
 
 	printf("Integrated configuration saved to %s\n", frr_config);
