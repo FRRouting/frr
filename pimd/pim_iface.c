@@ -1525,7 +1525,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
 /*
  * PIM wants to have an interface pointer for everything it does.
  * The pimreg is a special interface that we have that is not
- * quite an inteface but a VIF is created for it.
+ * quite an interface but a VIF is created for it.
  */
 void pim_if_create_pimreg(struct pim_instance *pim)
 {
