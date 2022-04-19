@@ -847,7 +847,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
 
-	/* Intern referenced strucutre. */
+	/* Intern referenced structure. */
 	if (attr->aspath) {
 		if (!attr->aspath->refcnt)
 			attr->aspath = aspath_intern(attr->aspath);

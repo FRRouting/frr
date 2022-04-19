@@ -210,7 +210,7 @@ ecommunity_uniq_sort_internal(struct ecommunity *ecom,
 	return new;
 }
 
-/* This function takes pointer to Extended Communites strucutre then
+/* This function takes pointer to Extended Communites structure then
  * create a new Extended Communities structure by uniq and sort each
  * Extended Communities value.
  */
