@@ -2679,7 +2679,7 @@ done:
 }
 
 /**
- * dplane_ctx_intf_init() - Initialize a context block for a inteface update
+ * dplane_ctx_intf_init() - Initialize a context block for a interface update
  *
  * @ctx:	Dataplane context to init
  * @op:		Operation being performed

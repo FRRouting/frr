@@ -1790,7 +1790,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	previous_pw_type = l2vpn->pw_type;
 	previous_mtu = l2vpn->mtu;
 
-	/* merge intefaces */
+	/* merge interfaces */
 	RB_FOREACH_SAFE(lif, l2vpn_if_head, &l2vpn->if_tree, ftmp) {
 		/* find deleted interfaces */
 		if (l2vpn_if_find(xl, lif->ifname) == NULL) {
