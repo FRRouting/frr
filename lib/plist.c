@@ -1615,6 +1615,7 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	if (master == NULL)
 		return;
 
+<<<<<<< HEAD
 	for (plist = master->str.head; plist; plist = next) {
 		next = plist->next;
 		prefix_list_delete(plist);
@@ -1622,6 +1623,12 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
+=======
+	while ((plist = plist_first(&master->str))) {
+		prefix_list_delete(plist);
+		plist_pop(&master->str);
+	}
+>>>>>>> 10258b031 (lib: Prevent crash after shutdown request)
 
 	master->recent = NULL;
 }
