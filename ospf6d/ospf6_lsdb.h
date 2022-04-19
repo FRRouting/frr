@@ -71,7 +71,7 @@ extern struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
  * Since we are locking the lsa in ospf6_lsdb_head
  * and then unlocking it in ospf6_lsa_unlock, when
  * we cache the next pointer we need to increment
- * the lock for the lsa so we don't accidently free
+ * the lock for the lsa so we don't accidentally free
  * it really early.
  */
 #define ALL_LSDB(lsdb, lsa, lsanext)                                           \
