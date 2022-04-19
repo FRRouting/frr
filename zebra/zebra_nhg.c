@@ -3002,10 +3002,12 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_FAIL_INSTALL);
 
-			flog_err(
-				EC_ZEBRA_DP_INSTALL_FAIL,
-				"Failed to install Nexthop ID (%u) into the kernel",
-				nhe->id);
+			if (!(zebra_nhg_proto_nexthops_only() &&
+			      !PROTO_OWNED(nhe)))
+				flog_err(
+					EC_ZEBRA_DP_INSTALL_FAIL,
+					"Failed to install Nexthop ID (%u) into the kernel",
+					nhe->id);
 		}
 		break;
 
