@@ -989,7 +989,7 @@ quagga (0.98.3-6) testing-proposed-updates; urgency=high
 quagga (0.98.3-5) unstable; urgency=high
 
   * The patch which tried to remove the OpenSSL dependency, which is
-    not only unneccessary but also a violation of the licence and thus RC,
+    not only unnecessary but also a violation of the licence and thus RC,
     stopped working a while ago, since autoreconf is no longer run before
     building the binaries. So now ./configure is patched directly (thanks
     to Faidon Liambotis for reporting). Closes: #306840

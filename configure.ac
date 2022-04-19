@@ -58,7 +58,7 @@ elif test "$host" != "$build"; then
 
   AC_MSG_NOTICE([...])
   AC_MSG_NOTICE([... cross-compilation: creating hosttools directory and self-configuring for build platform tools])
-  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if neccessary])
+  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if necessary])
   AC_MSG_NOTICE([...])
 
   (
