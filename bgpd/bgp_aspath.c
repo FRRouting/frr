@@ -544,7 +544,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 	seg = as->segments;
 
-/* ASN takes 5 to 10 chars plus seperator, see below.
+/* ASN takes 5 to 10 chars plus separator, see below.
  * If there is one differing segment type, we need an additional
  * 2 chars for segment delimiters, and the final '\0'.
  * Hopefully this is large enough to avoid hitting the realloc
@@ -560,17 +560,17 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 	while (seg) {
 		int i;
-		char seperator;
+		char separator;
 
-		/* Check AS type validity. Set seperator for segment */
+		/* Check AS type validity. Set separator for segment */
 		switch (seg->type) {
 		case AS_SET:
 		case AS_CONFED_SET:
-			seperator = ',';
+			separator = ',';
 			break;
 		case AS_SEQUENCE:
 		case AS_CONFED_SEQUENCE:
-			seperator = ' ';
+			separator = ' ';
 			break;
 		default:
 			XFREE(MTYPE_AS_STR, str_buf);
@@ -584,7 +584,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 /* We might need to increase str_buf, particularly if path has
  * differing segments types, our initial guesstimate above will
- * have been wrong. Need 10 chars for ASN, a seperator each and
+ * have been wrong. Need 10 chars for ASN, a separator each and
  * potentially two segment delimiters, plus a space between each
  * segment and trailing zero.
  *
@@ -607,7 +607,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 		if (make_json)
 			jseg_list = json_object_new_array();
 
-		/* write out the ASNs, with their seperators, bar the last one*/
+		/* write out the ASNs, with their separators, bar the last one*/
 		for (i = 0; i < seg->length; i++) {
 			if (make_json)
 				json_object_array_add(
@@ -619,7 +619,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 			if (i < (seg->length - 1))
 				len += snprintf(str_buf + len, str_size - len,
-						"%c", seperator);
+						"%c", separator);
 		}
 
 		if (make_json) {
@@ -1917,7 +1917,7 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 {
 	const char *p = buf;
 
-	/* Skip seperators (space for sequences, ',' for sets). */
+	/* Skip separators (space for sequences, ',' for sets). */
 	while (isspace((unsigned char)*p) || *p == ',')
 		p++;
 
