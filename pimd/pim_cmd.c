@@ -4903,7 +4903,7 @@ DEFPY (ip_pim_rp_keep_alive,
        "ip pim rp keep-alive-timer (1-65535)$kat",
        IP_STR
        "pim multicast routing\n"
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
@@ -4916,7 +4916,7 @@ DEFUN (no_ip_pim_rp_keep_alive,
        NO_STR
        IP_STR
        "pim multicast routing\n"
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
@@ -5056,7 +5056,7 @@ DEFPY (ip_pim_rp,
        "ip pim rp A.B.C.D$rp [A.B.C.D/M]$gp",
        IP_STR
        "pim multicast routing\n"
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
@@ -5084,7 +5084,7 @@ DEFPY (no_ip_pim_rp,
        NO_STR
        IP_STR
        "pim multicast routing\n"
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "ip address of RP\n"
        "Group Address range to cover\n")
 {
