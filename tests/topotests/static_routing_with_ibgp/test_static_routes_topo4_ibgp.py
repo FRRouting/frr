@@ -175,7 +175,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
     )
 
     for addr_type in ADDR_TYPES:
-        # Api call to modfiy BGP timerse
+        # Api call to modify BGP timerse
         input_dict = {
             "r2": {
                 "bgp": {

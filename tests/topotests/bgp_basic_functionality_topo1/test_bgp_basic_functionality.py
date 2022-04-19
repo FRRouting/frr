@@ -371,7 +371,7 @@ def test_bgp_timers_functionality(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
-    # Api call to modfiy BGP timerse
+    # Api call to modify BGP timerse
     input_dict = {
         "r1": {
             "bgp": {
