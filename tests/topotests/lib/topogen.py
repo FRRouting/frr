@@ -443,7 +443,7 @@ class Topogen(object):
     def start_router(self, router=None):
         """
         Call the router startRouter method.
-        If no router is specified it is called for all registred routers.
+        If no router is specified it is called for all registered routers.
         """
         if router is None:
             # pylint: disable=r1704
