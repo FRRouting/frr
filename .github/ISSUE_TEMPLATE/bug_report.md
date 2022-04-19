@@ -50,8 +50,8 @@ A clear and concise description of what the bug is.
 Put "x" in "[ ]" if you already tried following:
 -->
 
-[ ] Did you check if this is a duplicate issue?
-[ ] Did you test it on the latest FRRouting/frr master branch?
+- [ ] Did you check if this is a duplicate issue?
+- [ ] Did you test it on the latest FRRouting/frr master branch?
 
 
 **To Reproduce**
