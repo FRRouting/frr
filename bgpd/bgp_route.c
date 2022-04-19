@@ -1598,7 +1598,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 	/* Route map apply. */
 	if (rmap) {
 		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
-		/* Duplicate current value to new strucutre for modification. */
+		/* Duplicate current value to new structure for modification. */
 		rmap_path.peer = peer;
 		rmap_path.attr = attr;
 		rmap_path.extra = &extra;
@@ -1655,7 +1655,7 @@ static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
 
 	memset(&rmap_path, 0, sizeof(struct bgp_path_info));
 	/* Route map apply. */
-	/* Duplicate current value to new strucutre for modification. */
+	/* Duplicate current value to new structure for modification. */
 	rmap_path.peer = peer;
 	rmap_path.attr = attr;
 
