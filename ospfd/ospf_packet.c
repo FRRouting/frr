@@ -3601,7 +3601,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 			zlog_debug("%s: List Iteration %d LSA[%s]", __func__,
 				   count, dump_lsa_key(lsa));
 
-		/* Will it fit? Minimum it has to fit atleast one */
+		/* Will it fit? Minimum it has to fit at least one */
 		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
 				(count > 0))
 			break;

@@ -1015,7 +1015,7 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 
 	if (router->pim_mlag_intf_cnt == 1) {
 		/*
-		 * atleast one Interface is configured for MLAG, send register
+		 * at least one Interface is configured for MLAG, send register
 		 * to Zebra for receiving MLAG Updates
 		 */
 		pim_mlag_register();

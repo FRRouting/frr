@@ -849,7 +849,7 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 				this_pkt_rem = pim_mtu - (PIM_BSM_HDR_LEN
 							  + PIM_MSG_HEADER_LEN);
 
-				/* If pkt can't accomodate next group + atleast
+				/* If pkt can't accomodate next group + at least
 				 * one rp, we must break out of this inner loop
 				 * and process next RP
 				 */
