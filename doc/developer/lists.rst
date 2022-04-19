@@ -143,7 +143,7 @@ Each of the data structures has a ``PREDECL_*`` and a ``DECLARE_*`` macro to
 set up an "instantiation" of the container.  This works somewhat similar to C++
 templating, though much simpler.
 
-**In all following text, the Z prefix is replaced with a name choosen
+**In all following text, the Z prefix is replaced with a name chosen
 for the instance of the datastructure.**
 
 The common setup pattern will look like this:
