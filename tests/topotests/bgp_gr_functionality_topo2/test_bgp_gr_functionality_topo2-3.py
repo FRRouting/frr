@@ -1041,7 +1041,7 @@ def test_BGP_GR_15_p2(request):
     logger.info(
         "[Step 2] : Test Setup "
         "[Helper Mode]R6-----R1[Restart Mode]"
-        "--------R2[Helper Mode] Initilized"
+        "--------R2[Helper Mode] Initialized"
     )
 
     # Configure graceful-restart
