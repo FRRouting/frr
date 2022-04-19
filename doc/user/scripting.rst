@@ -58,7 +58,7 @@ The documentation for :ref:`on-rib-process-dplane-results` tells us its
 arguments. Here, the destination prefix for a route is being logged out.
 
 Scripts live in :file:`/etc/frr/scripts/` by default. This is configurable at
-compile time via ``--with-scriptdir``. It may be overriden at runtime with the
+compile time via ``--with-scriptdir``. It may be overridden at runtime with the
 ``--scriptdir`` daemon option.
 
 The documentation for :ref:`on-rib-process-dplane-results` indicates that the
