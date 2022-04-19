@@ -73,6 +73,7 @@ EOF
 		-o -f /etc/frr/eigrpd.conf \
 		-o -f /etc/frr/babeld.conf \
 		-o -f /etc/frr/pbrd.conf \
+		-o -f /etc/frr/pathd.conf \
 		-o -f /etc/frr/bfdd.conf; then
 		# no explicit statement, but some split config file exists
 		# => need to fix vtysh.conf & frr.conf in postinst

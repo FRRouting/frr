@@ -110,6 +110,14 @@
     endscript
 }
 
+/var/log/frr/pathd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/pathd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
 /var/log/frr/pbrd.log {
     notifempty
     missingok
