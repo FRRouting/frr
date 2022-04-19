@@ -746,7 +746,7 @@ def proto_name_to_number(protocol):
 def ip4_route(node):
     """
     Gets a structured return of the command 'ip route'. It can be used in
-    conjuction with json_cmp() to provide accurate assert explanations.
+    conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -787,7 +787,7 @@ def ip4_route(node):
 def ip4_vrf_route(node):
     """
     Gets a structured return of the command 'ip route show vrf {0}-cust1'.
-    It can be used in conjuction with json_cmp() to provide accurate assert explanations.
+    It can be used in conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -831,7 +831,7 @@ def ip4_vrf_route(node):
 def ip6_route(node):
     """
     Gets a structured return of the command 'ip -6 route'. It can be used in
-    conjuction with json_cmp() to provide accurate assert explanations.
+    conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -871,7 +871,7 @@ def ip6_route(node):
 def ip6_vrf_route(node):
     """
     Gets a structured return of the command 'ip -6 route show vrf {0}-cust1'.
-    It can be used in conjuction with json_cmp() to provide accurate assert explanations.
+    It can be used in conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -913,7 +913,7 @@ def ip6_vrf_route(node):
 def ip_rules(node):
     """
     Gets a structured return of the command 'ip rule'. It can be used in
-    conjuction with json_cmp() to provide accurate assert explanations.
+    conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     [
