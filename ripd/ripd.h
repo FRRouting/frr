@@ -526,7 +526,7 @@ extern void rip_cli_init(void);
 extern struct zebra_privs_t ripd_privs;
 extern struct rip_instance_head rip_instances;
 
-/* Master thread strucutre. */
+/* Master thread structure. */
 extern struct thread_master *master;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
