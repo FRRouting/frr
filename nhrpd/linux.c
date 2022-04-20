@@ -7,8 +7,9 @@
  * (at your option) any later version.
  */
 
-#include <errno.h>
 #include "zebra.h"
+
+#include <errno.h>
 #include <linux/if_packet.h>
 
 #include "nhrp_protocol.h"
