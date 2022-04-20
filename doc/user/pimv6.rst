@@ -285,6 +285,18 @@ cause great confusion.
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. clicmd:: show ipv6 multicast
+
+   Display various information about the interfaces used in this pim instance.
+
+.. clicmd:: show ipv6 multicast count [vrf NAME] [json]
+
+   Display multicast data packets count per interface for a vrf.
+
+.. clicmd:: show ipv6 multicast count vrf all [json]
+
+   Display multicast data packets count per interface for all vrf.
+
 PIMv6 Debug Commands
 ====================
 
