@@ -217,7 +217,8 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 {
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	zlog_debug("isis_dr_resign l%d", level);
+	if (IS_DEBUG_EVENTS)
+		zlog_debug("isis_dr_resign l%d", level);
 
 	circuit->u.bc.is_dr[level - 1] = 0;
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
