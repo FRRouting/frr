@@ -128,7 +128,8 @@ reload)
 
 *)
 	echo "Usage:"
-	echo "    ${0} (start|stop|restart|force-reload|reload|status)"
+	echo "    ${0} <start|stop|restart|force-reload|reload|status> [namespace]"
+	echo "    ${0} stop namespace1"
 	exit 1
 	;;
 esac
