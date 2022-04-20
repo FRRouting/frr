@@ -339,3 +339,20 @@ configure CLI mode. If you specify debug commands in the configuration cli
 mode, the debug commands can be persistent across restarts of the FRR pim6d if
 the config was written out.
 
+PIMv6 Clear Commands
+====================
+Clear commands reset various variables.
+
+.. clicmd:: clear ipv6 mroute
+
+   Reset multicast routes.
+
+.. clicmd:: clear ipv6 mroute [vrf NAME] count
+
+   When this command is issued, reset the counts of data shown for
+   packet count, byte count and wrong interface to 0 and start count
+   up from this spot.
+
+.. clicmd:: clear ipv6 pim oil
+
+   Rescan PIMv6 OIL (output interface list).
