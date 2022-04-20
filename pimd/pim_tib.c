@@ -110,8 +110,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
 		int result;
 
-		result = pim_channel_add_oif(*oilp, oif,
-					     PIM_OIF_FLAG_PROTO_IGMP, __func__);
+		result = pim_channel_add_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
+					     __func__);
 		if (result) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_warn("%s: add_oif() failed with return=%d",
@@ -136,7 +136,7 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 				"%s: Failure to add local membership for %pSG",
 				__func__, &sg);
 
-		pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_IGMP,
+		pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				    __func__);
 		return false;
 	}
@@ -160,7 +160,7 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 fixes the issue without ill effect, similar to
 	 pim_forward_stop below.
 	*/
-	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_IGMP,
+	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {
 		if (PIM_DEBUG_IGMP_TRACE)
