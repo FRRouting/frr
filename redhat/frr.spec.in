@@ -432,7 +432,8 @@ popd
 
 %install
 mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
-         %{buildroot}%{_localstatedir}/log/frr %{buildroot}%{_infodir}
+         %{buildroot}%{_infodir}
+mkdir -m 0755 -p %{buildroot}%{_localstatedir}/log/frr
 make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
@@ -639,11 +640,11 @@ fi
 /usr/share/yang/*.yang
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
-    %dir %attr(750,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
+    %dir %attr(755,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
     %dir %attr(751,%{frr_user},%{frr_user}) %{rundir}
 %else
     %dir %attr(750,root,root) %{configdir}
-    %dir %attr(750,root,root) %{_localstatedir}/log/frr
+    %dir %attr(755,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{rundir}
 %endif
 %{_infodir}/frr.info.gz
@@ -918,7 +919,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Add ability to show BGP routes from a particular table version
 -    Add support for for RFC 8050 (MRT add-path)
 -    Add SNMP support for MPLS VPN
--    Add `show bgp summary wide` command to show more detailed output 
+-    Add `show bgp summary wide` command to show more detailed output
      on wide terminals
 -    Add ability for peer-groups to have `ttl-security hops` configured
 -    Add support for conditional Advertisement

@@ -1752,7 +1752,7 @@ if __name__ == "__main__":
 
     elif args.reload:
         if not os.path.isdir("/var/log/frr/"):
-            os.makedirs("/var/log/frr/")
+            os.makedirs("/var/log/frr/", mode=0o0755)
 
         logging.basicConfig(
             filename="/var/log/frr/frr-reload.log",
