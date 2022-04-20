@@ -79,6 +79,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_trace.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -699,6 +700,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	void *prefsrc = NULL; /* IPv4 preferred source host address */
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
+
+	frrtrace(3, frr_zebra, netlink_route_change_read_unicast, h, ns_id,
+		 startup);
 
 	rtm = NLMSG_DATA(h);
 
@@ -2905,6 +2909,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* Count of nexthops in group array */
 	uint8_t grp_count = 0;
 	struct rtattr *tb[NHA_MAX + 1] = {};
+
+	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);
 
 	nhm = NLMSG_DATA(h);
 
