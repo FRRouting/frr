@@ -51,6 +51,9 @@ struct external_info {
 	 * after a summary address deletion.
 	 */
 	bool to_be_processed;
+
+	/* Persistent default route. */
+	bool default_always;
 };
 
 #define OSPF_EXTL_AGGR_DEFAULT_DELAY 5
