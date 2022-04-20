@@ -42,6 +42,13 @@ RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 # general helpers
 #
 
+is_user_root () {
+	[ "${EUID:-$(id -u)}" -eq 0 ] || {
+		log_failure_msg "Only users having EUID=0 can start/stop daemons"
+		return 1
+	}
+}
+
 debug() {
 	[ -n "$watchfrr_debug" ] || return 0
 
@@ -150,6 +157,8 @@ daemon_prep() {
 daemon_start() {
 	local dmninst daemon inst args instopt wrap bin
 
+	is_user_root || exit 1
+
 	all=false
 	[ "$1" = "--all" ] && { all=true; shift; }
 
@@ -182,6 +191,8 @@ daemon_start() {
 daemon_stop() {
 	local dmninst daemon inst pidfile vtyfile pid cnt fail
 	daemon_inst "$1"
+
+	is_user_root || exit 1
 
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
