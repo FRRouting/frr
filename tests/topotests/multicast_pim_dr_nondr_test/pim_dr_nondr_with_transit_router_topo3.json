@@ -1,0 +1,241 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {"ipv4": "10.0.0.0", "v4mask": 24, "link_local": "disable"},
+    "lo_prefix": {"ipv4": "1.0.", "v4mask": 32},
+    "switches": {
+        "s1": {
+            "links": {
+                "i1": {"ipv4": "auto"},
+                "r1": {"ipv4": "auto", "pim": "enable"},
+                "r2": {"ipv4": "auto", "pim": "enable"}
+            }
+        }
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r6": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r6": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r6": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r6": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            }
+        },
+        "r4": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r6": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r5": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r6": {},
+                    "r5": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            }
+        },
+        "r5": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "i2": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r4": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            }
+        },
+        "r6": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r1": {},
+                    "r2": {},
+                    "r4": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            }
+        },
+        "i1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback"}
+            }
+        },
+        "i2": {
+            "links": {
+                "r5": {"ipv4": "auto"}
+            }
+        }
+    }
+}
