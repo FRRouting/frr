@@ -167,10 +167,7 @@ static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
 	irt->vrfs = list_new();
 
 	/* Add to hash */
-	if (!hash_get(bgp_evpn->vrf_import_rt_hash, irt, hash_alloc_intern)) {
-		XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
-		return NULL;
-	}
+	(void)hash_get(bgp_evpn->vrf_import_rt_hash, irt, hash_alloc_intern);
 
 	return irt;
 }
@@ -272,10 +269,7 @@ static struct irt_node *import_rt_new(struct bgp *bgp,
 	irt->vnis = list_new();
 
 	/* Add to hash */
-	if (!hash_get(bgp->import_rt_hash, irt, hash_alloc_intern)) {
-		XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
-		return NULL;
-	}
+	(void)hash_get(bgp->import_rt_hash, irt, hash_alloc_intern);
 
 	return irt;
 }
@@ -5336,10 +5330,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->route_table = bgp_table_init(bgp, AFI_L2VPN, SAFI_EVPN);
 
 	/* Add to hash */
-	if (!hash_get(bgp->vnihash, vpn, hash_alloc_intern)) {
-		XFREE(MTYPE_BGP_EVPN, vpn);
-		return NULL;
-	}
+	(void)hash_get(bgp->vnihash, vpn, hash_alloc_intern);
 
 	bgp_evpn_remote_ip_hash_init(vpn);
 	bgp_evpn_link_to_vni_svi_hash(bgp, vpn);
