@@ -2209,7 +2209,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			continue;
 		}
 
-		if (match->type == ZEBRA_ROUTE_CONNECT) {
+		if (match->type == ZEBRA_ROUTE_CONNECT ||
+		    (RIB_SYSTEM_ROUTE(match) && RSYSTEM_ROUTE(type))) {
 			/* Directly point connected route. */
 			newhop = match->nhe->nhg.nexthop;
 			if (newhop) {
