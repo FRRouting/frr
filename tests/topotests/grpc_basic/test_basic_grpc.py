@@ -122,7 +122,7 @@ def test_get_config(tgen):
     nrepeat = 5
     r1 = tgen.gears["r1"]
 
-    step("'GET' inteface config 10 times, once per invocation")
+    step("'GET' interface config 10 times, once per invocation")
 
     for i in range(0, nrepeat):
         output = run_grpc_client(r1, GRPCP_ZEBRA, "GET,/frr-interface:lib")

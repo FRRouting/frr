@@ -103,7 +103,7 @@ static bool lcommunity_add_val(struct lcommunity *lcom,
 	return true;
 }
 
-/* This function takes pointer to Large Communites strucutre then
+/* This function takes pointer to Large Communites structure then
    create a new Large Communities structure by uniq and sort each
    Large Communities value.  */
 struct lcommunity *lcommunity_uniq_sort(struct lcommunity *lcom)

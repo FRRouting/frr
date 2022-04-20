@@ -456,7 +456,7 @@ def test_BGP_GR_20_p1(request):
     reset_config_on_routers(tgen)
 
     logger.info(
-        "[Step 1] : Test Setup " "[Restart Mode]R3-----R1[Restart Mode] Initilized"
+        "[Step 1] : Test Setup " "[Restart Mode]R3-----R1[Restart Mode] Initialized"
     )
 
     # Configure graceful-restart
@@ -602,7 +602,7 @@ def test_BGP_GR_21_p2(request):
     reset_config_on_routers(tgen)
 
     logger.info(
-        "[Step 1] : Test Setup " "[Helper Mode]R6-----R1[Restart Mode] Initilized"
+        "[Step 1] : Test Setup " "[Helper Mode]R6-----R1[Restart Mode] Initialized"
     )
 
     # Configure graceful-restart
@@ -676,7 +676,7 @@ def test_BGP_GR_21_p2(request):
     logger.info(
         "[Step 2] : Test Setup "
         "[Restart Mode]R2-----[Helper Mode]R1[Disable Mode]"
-        "--------R6[Helper Mode] Initilized"
+        "--------R6[Helper Mode] Initialized"
     )
 
     # Configure graceful-restart
@@ -821,7 +821,7 @@ def test_BGP_GR_22_p2(request):
     reset_config_on_routers(tgen)
 
     logger.info(
-        "[Step 1] : Test Setup " "[Helper Mode]R3-----R1[Restart Mode] Initilized"
+        "[Step 1] : Test Setup " "[Helper Mode]R3-----R1[Restart Mode] Initialized"
     )
 
     # Configure graceful-restart
@@ -901,7 +901,7 @@ def test_BGP_GR_22_p2(request):
     logger.info(
         "[Step 2] : Test Setup "
         "[Restart Mode]R2-----[Helper Mode]R1[Disable Mode]"
-        "--------R3[Helper Mode] Initilized"
+        "--------R3[Helper Mode] Initialized"
     )
 
     # Configure graceful-restart

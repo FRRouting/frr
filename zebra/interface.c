@@ -958,7 +958,7 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	/*
 	 * We need to note whether or not we originated a v6
 	 * neighbor entry for this interface.  So that when
-	 * someone unwisely accidently deletes this entry
+	 * someone unwisely accidentally deletes this entry
 	 * we can shove it back in.
 	 */
 	zif->v6_2_v4_ll_neigh_entry = !!add;

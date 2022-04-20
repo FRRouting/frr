@@ -450,7 +450,7 @@ char link_info_set(struct stream **s, struct in_addr id, struct in_addr data,
 	/* LSA stream is initially allocated to OSPF_MAX_LSA_SIZE, suits
 	 * vast majority of cases. Some rare routers with lots of links need
 	 * more.
-	 * we try accomodate those here.
+	 * we try accommodate those here.
 	 */
 	if (STREAM_WRITEABLE(*s) < OSPF_ROUTER_LSA_LINK_SIZE) {
 		size_t ret = OSPF_MAX_LSA_SIZE;
@@ -2858,7 +2858,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	   update is needed */
 	old = ospf_lsdb_lookup(lsdb, lsa);
 
-	/* Do comparision and record if recalc needed. */
+	/* Do comparison and record if recalc needed. */
 	rt_recalc = 0;
 	if (old == NULL || ospf_lsa_different(old, lsa, false)) {
 		/* Ref rfc3623 section 3.2.3

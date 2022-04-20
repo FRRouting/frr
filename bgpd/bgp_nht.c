@@ -323,7 +323,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			pi->extra->igpmetric = 0;
 	} else if (peer) {
 		/*
-		 * Let's not accidently save the peer data for a peer
+		 * Let's not accidentally save the peer data for a peer
 		 * we are going to throw away in a second or so.
 		 * When we come back around we'll fix up this
 		 * data properly in replace_nexthop_by_peer

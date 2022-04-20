@@ -31,7 +31,7 @@
  * - The Router-ID is 10.0.255.X, where X is the node number;
  * - The default link metric is 10;
  * - When SR is enabled, Adj-SIDs and Prefix-SIDs are generated automatically;
- * - When SR is enabled, the default SRGB is [16000-23999] (can be overriden).
+ * - When SR is enabled, the default SRGB is [16000-23999] (can be overridden).
  *
  * Test topology 1:
  * ================

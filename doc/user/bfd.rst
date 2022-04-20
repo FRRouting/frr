@@ -236,7 +236,7 @@ BFD Peer Specific Commands
 
    Notes:
 
-   - Profile configurations can be overriden on a peer basis by specifying
+   - Profile configurations can be overridden on a peer basis by specifying
      non-default parameters in peer configuration node.
    - Non existing profiles can be configured and they will only be applied
      once they start to exist.

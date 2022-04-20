@@ -81,7 +81,7 @@ content:
    MPLS must be invidividually enabled on each interface that requires it. See
    the example in the config block above.
 
-Load the modifed sysctls on the system:
+Load the modified sysctls on the system:
 
 .. code-block:: console
 
