@@ -366,17 +366,9 @@ General multicast routing state
    Display total number of S,G mroutes and number of S,G mroutes
    installed into the kernel for all vrfs.
 
-PIMv6 Debug Commands
-====================
-
-The debugging subsystem for PIMv6 behaves in accordance with how FRR handles
-debugging. You can specify debugging at the enable CLI mode as well as the
-configure CLI mode. If you specify debug commands in the configuration cli
-mode, the debug commands can be persistent across restarts of the FRR pim6d if
-the config was written out.
-
 PIMv6 Clear Commands
 ====================
+
 Clear commands reset various variables.
 
 .. clicmd:: clear ipv6 mroute
@@ -392,3 +384,45 @@ Clear commands reset various variables.
 .. clicmd:: clear ipv6 pim oil
 
    Rescan PIMv6 OIL (output interface list).
+
+PIMv6 Debug Commands
+====================
+
+The debugging subsystem for PIMv6 behaves in accordance with how FRR handles
+debugging. You can specify debugging at the enable CLI mode as well as the
+configure CLI mode. If you specify debug commands in the configuration cli
+mode, the debug commands can be persistent across restarts of the FRR pim6d if
+the config was written out.
+
+.. clicmd:: debug pimv6 events
+
+   This turns on debugging for PIMv6 system events. Especially timers.
+
+.. clicmd:: debug pimv6 nht
+
+   This turns on debugging for PIMv6 nexthop tracking. It will display
+   information about RPF lookups and information about when a nexthop changes.
+
+.. clicmd:: debug pimv6 nht detail
+
+   This turns on debugging for PIMv6 nexthop in detail. This is not enabled
+   by default.
+
+.. clicmd:: debug pimv6 packet-dump
+
+   This turns on an extraordinary amount of data. Each pim packet sent and
+   received is dumped for debugging purposes. This should be considered a
+   developer only command.
+
+.. clicmd:: debug pimv6 packets
+
+   This turns on information about packet generation for sending and about
+   packet handling from a received packet.
+
+.. clicmd:: debug pimv6 trace
+
+   This traces pim code and how it is running.
+
+.. clicmd:: debug pimv6 zebra
+
+   This gathers data about events from zebra that come up through the ZAPI.
