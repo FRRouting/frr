@@ -1562,7 +1562,7 @@ static void
 ospf6_link_route_to_aggr(struct ospf6_external_aggr_rt *aggr,
 			struct ospf6_route *rt)
 {
-	hash_get(aggr->match_extnl_hash, rt, hash_alloc_intern);
+	(void)hash_get(aggr->match_extnl_hash, rt, hash_alloc_intern);
 	rt->aggr_route = aggr;
 }
 

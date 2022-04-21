@@ -831,8 +831,8 @@ static void ospf6_gr_helper_support_set_per_routerid(struct ospf6 *ospf6,
 
 	} else {
 		/* Add the routerid to the enable router hash table */
-		hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
-			 ospf6_enable_rtr_hash_alloc);
+		(void)hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
+			       ospf6_enable_rtr_hash_alloc);
 	}
 }
 

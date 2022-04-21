@@ -6208,9 +6208,6 @@ static void bgp_evpn_remote_ip_hash_add(struct bgpevpn *vpn,
 	}
 
 	ip = hash_get(vpn->remote_ip_hash, &tmp, bgp_evpn_remote_ip_hash_alloc);
-	if (!ip)
-		return;
-
 	(void)listnode_add(ip->macip_path_list, pi);
 
 	bgp_evpn_remote_ip_process_nexthops(vpn, &ip->addr, true);
@@ -6343,7 +6340,7 @@ static void bgp_evpn_link_to_vni_svi_hash(struct bgp *bgp, struct bgpevpn *vpn)
 	if (vpn->svi_ifindex == 0)
 		return;
 
-	hash_get(bgp->vni_svi_hash, vpn, hash_alloc_intern);
+	(void)hash_get(bgp->vni_svi_hash, vpn, hash_alloc_intern);
 }
 
 static void bgp_evpn_unlink_from_vni_svi_hash(struct bgp *bgp,

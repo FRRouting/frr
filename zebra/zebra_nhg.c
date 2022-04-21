@@ -329,7 +329,7 @@ static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 		return -1;
 	}
 
-	hash_get(zrouter.nhgs_id, nhe, hash_alloc_intern);
+	(void)hash_get(zrouter.nhgs_id, nhe, hash_alloc_intern);
 
 	return 0;
 }

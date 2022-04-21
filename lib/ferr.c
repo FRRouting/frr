@@ -86,7 +86,7 @@ void log_ref_add(struct log_ref *ref)
 
 	frr_with_mutex(&refs_mtx) {
 		while (ref[i].code != END_FERR) {
-			hash_get(refs, &ref[i], hash_alloc_intern);
+			(void)hash_get(refs, &ref[i], hash_alloc_intern);
 			i++;
 		}
 	}

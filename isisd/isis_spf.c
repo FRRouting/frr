@@ -527,14 +527,14 @@ static void vertex_add_parent_firsthop(struct hash_bucket *bucket, void *arg)
 	struct isis_vertex *vertex = arg;
 	struct isis_vertex *hop = bucket->data;
 
-	hash_get(vertex->firsthops, hop, hash_alloc_intern);
+	(void)hash_get(vertex->firsthops, hop, hash_alloc_intern);
 }
 
 static void vertex_update_firsthops(struct isis_vertex *vertex,
 				    struct isis_vertex *parent)
 {
 	if (vertex->d_N <= 2)
-		hash_get(vertex->firsthops, vertex, hash_alloc_intern);
+		(void)hash_get(vertex->firsthops, vertex, hash_alloc_intern);
 
 	if (vertex->d_N < 2 || !parent)
 		return;
@@ -606,8 +606,8 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 			if (vertex->N.ip.sr.label != MPLS_INVALID_LABEL)
 				vertex->N.ip.sr.present = true;
 
-			hash_get(spftree->prefix_sids, vertex,
-				 hash_alloc_intern);
+			(void)hash_get(spftree->prefix_sids, vertex,
+				       hash_alloc_intern);
 		}
 	}
 

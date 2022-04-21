@@ -754,8 +754,6 @@ static struct update_group *update_group_create(struct peer_af *paf)
 
 	updgrp = hash_get(paf->peer->bgp->update_groups[paf->afid], &tmp,
 			  updgrp_hash_alloc);
-	if (!updgrp)
-		return NULL;
 	update_group_checkin(updgrp);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))

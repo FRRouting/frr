@@ -256,7 +256,7 @@ void bgp_keepalives_on(struct peer *peer)
 		holder.peer = peer;
 		if (!hash_lookup(peerhash, &holder)) {
 			struct pkat *pkat = pkat_new(peer);
-			hash_get(peerhash, pkat, hash_alloc_intern);
+			(void)hash_get(peerhash, pkat, hash_alloc_intern);
 			peer_lock(peer);
 		}
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);

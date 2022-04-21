@@ -570,10 +570,7 @@ zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 	acc_bd->mbr_zifs = list_new();
 
 	/* Add to hash */
-	if (!hash_get(zmh_info->evpn_vlan_table, acc_bd, hash_alloc_intern)) {
-		XFREE(MTYPE_ZACC_BD, acc_bd);
-		return NULL;
-	}
+	(void)hash_get(zmh_info->evpn_vlan_table, acc_bd, hash_alloc_intern);
 
 	/* check if an svi exists for the vlan */
 	if (br_if) {
@@ -1091,10 +1088,7 @@ static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
 		nh_id = id | EVPN_NHG_ID_TYPE_BIT;
 		/* Add to NHG hash */
 		es->nhg_id = nh_id;
-		if (!hash_get(zmh_info->nhg_table, es, hash_alloc_intern)) {
-			bf_release_index(zmh_info->nh_id_bitmap, id);
-			return 0;
-		}
+		(void)hash_get(zmh_info->nhg_table, es, hash_alloc_intern);
 	} else {
 		nh_id = id | EVPN_NH_ID_TYPE_BIT;
 	}
@@ -1361,10 +1355,7 @@ static struct zebra_evpn_l2_nh *zebra_evpn_l2_nh_alloc(struct in_addr vtep_ip)
 
 	nh = XCALLOC(MTYPE_L2_NH, sizeof(*nh));
 	nh->vtep_ip = vtep_ip;
-	if (!hash_get(zmh_info->nh_ip_table, nh, hash_alloc_intern)) {
-		XFREE(MTYPE_L2_NH, nh);
-		return NULL;
-	}
+	(void)hash_get(zmh_info->nh_ip_table, nh, hash_alloc_intern);
 
 	nh->nh_id = zebra_evpn_nhid_alloc(NULL);
 	if (!nh->nh_id) {

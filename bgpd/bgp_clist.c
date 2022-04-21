@@ -184,7 +184,7 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 	new->name_hash = bgp_clist_hash_key_community_list(new);
 
 	/* Save for later */
-	hash_get(cm->hash, new, hash_alloc_intern);
+	(void)hash_get(cm->hash, new, hash_alloc_intern);
 
 	/* If name is made by all digit character.  We treat it as
 	   number. */
