@@ -465,6 +465,9 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 
 	src = XCALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
 
+	if (new)
+		*new = true;
+
 	src->t_source_timer = NULL;
 	src->source_group = group; /* back pointer */
 	src->source_addr = src_addr;
