@@ -191,9 +191,6 @@ void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 	tmp.addr = *tip;
 
 	addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
-	if (!addr)
-		return;
-
 	addr->refcnt++;
 }
 

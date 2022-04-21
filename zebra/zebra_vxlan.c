@@ -1189,8 +1189,6 @@ static struct zebra_mac *zl3vni_rmac_add(struct zebra_l3vni *zl3vni,
 	memset(&tmp_rmac, 0, sizeof(struct zebra_mac));
 	memcpy(&tmp_rmac.macaddr, rmac, ETH_ALEN);
 	zrmac = hash_get(zl3vni->rmac_table, &tmp_rmac, zl3vni_rmac_alloc);
-	assert(zrmac);
-
 	zrmac->nh_list = list_new();
 	zrmac->nh_list->cmp = (int (*)(void *, void *))l3vni_rmac_nh_list_cmp;
 	zrmac->nh_list->del = (void (*)(void *))l3vni_rmac_nh_free;
@@ -1466,7 +1464,6 @@ static struct zebra_neigh *zl3vni_nh_add(struct zebra_l3vni *zl3vni,
 	memset(&tmp_n, 0, sizeof(struct zebra_neigh));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(zl3vni->nh_table, &tmp_n, zl3vni_nh_alloc);
-	assert(n);
 
 	RB_INIT(host_rb_tree_entry, &n->host_rb);
 
@@ -1696,7 +1693,6 @@ static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 	tmp_zl3vni.vni = vni;
 
 	zl3vni = hash_get(zrouter.l3vni_table, &tmp_zl3vni, zl3vni_alloc);
-	assert(zl3vni);
 
 	zl3vni->vrf_id = vrf_id;
 	zl3vni->svi_if = NULL;
@@ -6039,11 +6035,6 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 	}
 
 	vxlan_sg = zebra_vxlan_sg_new(zvrf, sg);
-	if (!vxlan_sg) {
-		if (parent)
-			zebra_vxlan_sg_do_deref(zvrf, sip, sg->grp);
-		return vxlan_sg;
-	}
 
 	zebra_vxlan_sg_send(zvrf, sg, vxlan_sg->sg_str,
 			ZEBRA_VXLAN_SG_ADD);

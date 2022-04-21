@@ -1105,7 +1105,6 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	memset(&tmp_mac, 0, sizeof(struct zebra_mac));
 	memcpy(&tmp_mac.macaddr, macaddr, ETH_ALEN);
 	mac = hash_get(zevpn->mac_table, &tmp_mac, zebra_evpn_mac_alloc);
-	assert(mac);
 
 	mac->zevpn = zevpn;
 	mac->dad_mac_auto_recovery_timer = NULL;

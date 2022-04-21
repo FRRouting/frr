@@ -2271,7 +2271,7 @@ static int bgp_establish(struct peer *peer)
 	 * so the hash_release is the same for either.
 	 */
 	hash_release(peer->bgp->peerhash, peer);
-	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Start BFD peer if not already running. */
 	if (peer->bfd_config)
