@@ -445,11 +445,15 @@ static bool full_cli;
 /* This function write configuration of this host. */
 static int config_write_host(struct vty *vty)
 {
-	if (cmd_hostname_get())
-		vty_out(vty, "hostname %s\n", cmd_hostname_get());
+	const char *name;
 
-	if (cmd_domainname_get())
-		vty_out(vty, "domainname %s\n", cmd_domainname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "hostname %s\n", name);
+
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "domainname %s\n", name);
 
 	/* The following are all configuration commands that are not sent to
 	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
