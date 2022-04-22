@@ -1646,6 +1646,11 @@ void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info)
 			     level++) {
 				struct isis_spftree *spftree;
 
+				if (!(area->is_type & level))
+					continue;
+				if (!area->spftree[tree][level - 1])
+					continue;
+
 				spftree = area->spftree[tree][level - 1];
 				isis_rlfa_list_clear(spftree);
 			}
