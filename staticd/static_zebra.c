@@ -280,15 +280,40 @@ static void static_nht_hash_clear(void)
 		XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
 }
 
+static bool static_zebra_nht_get_prefix(const struct static_nexthop *nh,
+					struct prefix *p)
+{
+	switch (nh->type) {
+	case STATIC_IFNAME:
+	case STATIC_BLACKHOLE:
+		p->family = AF_UNSPEC;
+		return false;
+
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		p->family = AF_INET;
+		p->prefixlen = IPV4_MAX_BITLEN;
+		p->u.prefix4 = nh->addr.ipv4;
+		return true;
+
+	case STATIC_IPV6_GATEWAY:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		p->family = AF_INET6;
+		p->prefixlen = IPV6_MAX_BITLEN;
+		p->u.prefix6 = nh->addr.ipv6;
+		return true;
+	}
+
+	assertf(0, "BUG: someone forgot to add nexthop type %u", nh->type);
+}
+
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
 	struct static_route_info *si = static_route_info_from_rnode(rn);
-	struct static_nht_data lookup;
+	struct static_nht_data lookup = {};
 	uint32_t cmd;
-	struct prefix p;
-	afi_t afi = AFI_IP;
 
 	cmd = (reg) ?
 		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
@@ -299,29 +324,8 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	if (!nh->nh_registered && !reg)
 		return;
 
-	memset(&p, 0, sizeof(p));
-	switch (nh->type) {
-	case STATIC_IFNAME:
-	case STATIC_BLACKHOLE:
+	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return;
-	case STATIC_IPV4_GATEWAY:
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		p.family = AF_INET;
-		p.prefixlen = IPV4_MAX_BITLEN;
-		p.u.prefix4 = nh->addr.ipv4;
-		afi = AFI_IP;
-		break;
-	case STATIC_IPV6_GATEWAY:
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		p.family = AF_INET6;
-		p.prefixlen = IPV6_MAX_BITLEN;
-		p.u.prefix6 = nh->addr.ipv6;
-		afi = AFI_IP6;
-		break;
-	}
-
-	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 	lookup.safi = si->safi;
 
@@ -335,11 +339,14 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		if (nhtd->refcount > 1) {
 			DEBUGD(&static_dbg_route,
 			       "Already registered nexthop(%pFX) for %pRN %d",
-			       &p, rn, nhtd->nh_num);
-			if (nhtd->nh_num)
+			       &lookup.nh, rn, nhtd->nh_num);
+			if (nhtd->nh_num) {
+				afi_t afi = prefix_afi(&lookup.nh);
+
 				static_nht_update(&rn->p, &nhtd->nh,
 						  nhtd->nh_num, afi, si->safi,
 						  nh->nh_vrf_id);
+			}
 			return;
 		}
 	} else {
@@ -353,9 +360,9 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	}
 
 	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
-	       reg ? "Registering" : "Unregistering", &p, rn);
+	       reg ? "Registering" : "Unregistering", &lookup.nh, rn);
 
-	if (zclient_send_rnh(zclient, cmd, &p, si->safi, false, false,
+	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, false, false,
 			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
@@ -369,38 +376,19 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 	struct route_node *rn = pn->rn;
 	struct static_route_info *si = static_route_info_from_rnode(rn);
 	struct static_nht_data *nhtd, lookup = {};
-	struct prefix p = {};
-	afi_t afi = AFI_IP;
 
 	if (!nh->nh_registered)
 		return 0;
 
-	switch (nh->type) {
-	case STATIC_IFNAME:
-	case STATIC_BLACKHOLE:
+	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return 0;
-	case STATIC_IPV4_GATEWAY:
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		p.family = AF_INET;
-		p.prefixlen = IPV4_MAX_BITLEN;
-		p.u.prefix4 = nh->addr.ipv4;
-		afi = AFI_IP;
-		break;
-	case STATIC_IPV6_GATEWAY:
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		p.family = AF_INET6;
-		p.prefixlen = IPV6_MAX_BITLEN;
-		p.u.prefix6 = nh->addr.ipv6;
-		afi = AFI_IP6;
-		break;
-	}
-
-	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 	lookup.safi = si->safi;
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 	if (nhtd && nhtd->nh_num) {
+		afi_t afi = prefix_afi(&lookup.nh);
+
 		nh->state = STATIC_START;
 		static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
 				  si->safi, nh->nh_vrf_id);
