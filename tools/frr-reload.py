@@ -901,15 +901,11 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         lines_to_del.remove((ctx_keys, line))
 
 
-"""
-This method handles deletion of bgp peer group config.
-The objective is to delete config lines related to peers
-associated with the peer-group and move the peer-group
-config line to the end of the lines_to_del list.
-"""
-
-
 def delete_move_lines(lines_to_add, lines_to_del):
+    # This method handles deletion of bgp peer group config.
+    # The objective is to delete config lines related to peers
+    # associated with the peer-group and move the peer-group
+    # config line to the end of the lines_to_del list.
 
     bgp_delete_nbr_remote_as_line(lines_to_add)
 
