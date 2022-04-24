@@ -262,8 +262,12 @@ static_nht_hash_getref(const struct static_nht_data *ref)
 	return nhtd;
 }
 
-static bool static_nht_hash_decref(struct static_nht_data *nhtd)
+static bool static_nht_hash_decref(struct static_nht_data **nhtd_p)
 {
+	struct static_nht_data *nhtd = *nhtd_p;
+
+	*nhtd_p = NULL;
+
 	if (--nhtd->refcount > 0)
 		return true;
 
@@ -315,21 +319,10 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	struct static_nht_data lookup = {};
 	uint32_t cmd;
 
-	cmd = (reg) ?
-		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
-
-	if (nh->nh_registered && reg)
-		return;
-
-	if (!nh->nh_registered && !reg)
-		return;
-
 	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 	lookup.safi = si->safi;
-
-	nh->nh_registered = reg;
 
 	if (reg) {
 		struct static_nht_data *nhtd;
@@ -347,25 +340,40 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 						  nhtd->nh_num, afi, si->safi,
 						  nh->nh_vrf_id);
 			}
-			return;
+
+			if (nhtd->nh_registered)
+				return;
 		}
+
+		cmd = ZEBRA_NEXTHOP_REGISTER;
+		DEBUGD(&static_dbg_route, "Registering nexthop(%pFX) for %pRN",
+		       &lookup.nh, rn);
 	} else {
 		struct static_nht_data *nhtd;
 
 		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 		if (!nhtd)
 			return;
-		if (static_nht_hash_decref(nhtd))
+		if (static_nht_hash_decref(&nhtd))
+			/* still got references alive */
 			return;
-	}
 
-	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
-	       reg ? "Registering" : "Unregistering", &lookup.nh, rn);
+		if (!nhtd->nh_registered)
+			return;
+
+		cmd = ZEBRA_NEXTHOP_UNREGISTER;
+		DEBUGD(&static_dbg_route,
+		       "Unregistering nexthop(%pFX) for %pRN", &lookup.nh, rn);
+	}
 
 	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, false, false,
 			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
-		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
+		zlog_warn("%s: Failure to send nexthop %pFX for %pRN to zebra",
+			  __func__, &lookup.nh, rn);
+	else
+		nh->nh_registered = reg;
 }
+
 /*
  * When nexthop gets updated via configuration then use the
  * already registered NH and resend the route to zebra
