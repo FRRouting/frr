@@ -390,7 +390,8 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 }
 
 static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
-				       struct zapi_route *nhr)
+				       struct zapi_route *nhr,
+				       bool import_check)
 {
 	struct nexthop *nexthop;
 	struct nexthop *oldnh;
@@ -421,7 +422,21 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	if (nhr->nexthop_num != bnc->nexthop_num)
 		bnc->change_flags |= BGP_NEXTHOP_CHANGED;
 
-	if (nhr->nexthop_num) {
+	if (import_check && (nhr->type == ZEBRA_ROUTE_BGP ||
+			     !prefix_same(&bnc->prefix, &nhr->prefix))) {
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
+
+		bnc_nexthop_free(bnc);
+		bnc->nexthop = NULL;
+
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug(
+				"%s: Import Check does not resolve to the same prefix for %pFX received %pFX or matching route is BGP",
+				__func__, &bnc->prefix, &nhr->prefix);
+	} else if (nhr->nexthop_num) {
 		struct peer *peer = bnc->nht_info;
 
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
@@ -695,7 +710,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 	} else
-		bgp_process_nexthop_update(bnc_nhc, &nhr);
+		bgp_process_nexthop_update(bnc_nhc, &nhr, false);
 
 	tree = &bgp->import_check_table[afi];
 
@@ -706,17 +721,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 		return;
-	} else {
-		if (nhr.type == ZEBRA_ROUTE_BGP
-		    || !prefix_same(&bnc_import->prefix, &nhr.prefix)) {
-			if (BGP_DEBUG(nht, NHT))
-				zlog_debug(
-					"%s: Import Check does not resolve to the same prefix for %pFX received %pFX",
-					__func__, &bnc_import->prefix, &nhr.prefix);
-			return;
-		}
-		bgp_process_nexthop_update(bnc_import, &nhr);
 	}
+	bgp_process_nexthop_update(bnc_import, &nhr, true);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -739,7 +745,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 			    || CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
 
-			bgp_process_nexthop_update(bnc_iter, &nhr);
+			bgp_process_nexthop_update(bnc_iter, &nhr, false);
 		}
 	}
 }
