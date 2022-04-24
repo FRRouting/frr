@@ -176,9 +176,12 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	return 0;
 }
+
 static void zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
 }
 
 /* API to check whether the configured nexthop address is
