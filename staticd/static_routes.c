@@ -369,13 +369,11 @@ void static_install_nexthop(struct static_nexthop *nh)
 	switch (nh->type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV6_GATEWAY:
-		if (!static_zebra_nh_update(nh))
-			static_zebra_nht_register(nh, true);
+		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		if (!static_zebra_nh_update(nh))
-			static_zebra_nht_register(nh, true);
+		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_BLACKHOLE:
 		static_install_path(pn);

@@ -57,6 +57,7 @@ struct static_nht_data {
 
 	uint32_t refcount;
 	uint8_t nh_num;
+	bool registered;
 };
 
 static int static_nht_data_cmp(const struct static_nht_data *nhtd1,
@@ -316,7 +317,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
 	struct static_route_info *si = static_route_info_from_rnode(rn);
-	struct static_nht_data lookup = {};
+	struct static_nht_data *nhtd, lookup = {};
 	uint32_t cmd;
 
 	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
@@ -324,41 +325,57 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 	lookup.safi = si->safi;
 
-	if (reg) {
-		struct static_nht_data *nhtd;
+	if (nh->nh_registered) {
+		/* nh->nh_registered means we own a reference on the nhtd */
+		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
+		assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
+			&lookup.nh);
+	} else if (reg) {
 		nhtd = static_nht_hash_getref(&lookup);
 
-		if (nhtd->refcount > 1) {
+		if (nhtd->refcount > 1)
 			DEBUGD(&static_dbg_route,
-			       "Already registered nexthop(%pFX) for %pRN %d",
+			       "Reusing registered nexthop(%pFX) for %pRN %d",
 			       &lookup.nh, rn, nhtd->nh_num);
-			if (nhtd->nh_num) {
-				afi_t afi = prefix_afi(&lookup.nh);
+	} else {
+		/* !reg && !nh->nh_registered */
+		zlog_warn("trying to unregister nexthop %pFX twice",
+			  &lookup.nh);
+		return;
+	}
 
-				static_nht_update(&rn->p, &nhtd->nh,
-						  nhtd->nh_num, afi, si->safi,
-						  nh->nh_vrf_id);
-			}
+	nh->nh_registered = reg;
 
-			if (nhtd->nh_registered)
-				return;
+	if (reg) {
+		if (nhtd->nh_num) {
+			/* refresh with existing data */
+			afi_t afi = prefix_afi(&lookup.nh);
+
+			if (nh->state == STATIC_NOT_INSTALLED)
+				nh->state = STATIC_START;
+			static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
+					  si->safi, nh->nh_vrf_id);
+			return;
 		}
+
+		if (nhtd->registered)
+			/* have no data, but did send register */
+			return;
 
 		cmd = ZEBRA_NEXTHOP_REGISTER;
 		DEBUGD(&static_dbg_route, "Registering nexthop(%pFX) for %pRN",
 		       &lookup.nh, rn);
 	} else {
-		struct static_nht_data *nhtd;
+		bool was_zebra_registered;
 
-		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
-		if (!nhtd)
-			return;
+		was_zebra_registered = nhtd->registered;
 		if (static_nht_hash_decref(&nhtd))
 			/* still got references alive */
 			return;
 
-		if (!nhtd->nh_registered)
+		/* NB: nhtd is now NULL. */
+		if (!was_zebra_registered)
 			return;
 
 		cmd = ZEBRA_NEXTHOP_UNREGISTER;
@@ -370,39 +387,8 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop %pFX for %pRN to zebra",
 			  __func__, &lookup.nh, rn);
-	else
-		nh->nh_registered = reg;
-}
-
-/*
- * When nexthop gets updated via configuration then use the
- * already registered NH and resend the route to zebra
- */
-int static_zebra_nh_update(struct static_nexthop *nh)
-{
-	struct static_path *pn = nh->pn;
-	struct route_node *rn = pn->rn;
-	struct static_route_info *si = static_route_info_from_rnode(rn);
-	struct static_nht_data *nhtd, lookup = {};
-
-	if (!nh->nh_registered)
-		return 0;
-
-	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
-		return 0;
-	lookup.nh_vrf_id = nh->nh_vrf_id;
-	lookup.safi = si->safi;
-
-	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
-	if (nhtd && nhtd->nh_num) {
-		afi_t afi = prefix_afi(&lookup.nh);
-
-		nh->state = STATIC_START;
-		static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
-				  si->safi, nh->nh_vrf_id);
-		return 1;
-	}
-	return 0;
+	else if (reg)
+		nhtd->registered = true;
 }
 
 extern void static_zebra_route_add(struct static_path *pn, bool install)
