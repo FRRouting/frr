@@ -420,6 +420,11 @@ extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
 
+static inline afi_t prefix_afi(union prefixconstptr pu)
+{
+	return family2afi(pu.p->family);
+}
+
 /*
  * Check bit of the prefix.
  *
