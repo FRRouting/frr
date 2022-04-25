@@ -1810,40 +1810,6 @@ DEFUN (no_debug_bgp_zebra_prefix,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_bgp_allow_martians,
-       debug_bgp_allow_martians_cmd,
-       "debug bgp allow-martians",
-       DEBUG_STR
-       BGP_STR
-       "BGP allow martian next hops\n")
-{
-	if (vty->node == CONFIG_NODE)
-		DEBUG_ON(allow_martians, ALLOW_MARTIANS);
-	else {
-		TERM_DEBUG_ON(allow_martians, ALLOW_MARTIANS);
-		vty_out(vty, "BGP allow_martian next hop debugging is on\n");
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_bgp_allow_martians,
-       no_debug_bgp_allow_martians_cmd,
-       "no debug bgp allow-martians",
-       NO_STR
-       DEBUG_STR
-       BGP_STR
-       "BGP allow martian next hops\n")
-{
-	if (vty->node == CONFIG_NODE)
-		DEBUG_OFF(allow_martians, ALLOW_MARTIANS);
-	else {
-		TERM_DEBUG_OFF(allow_martians, ALLOW_MARTIANS);
-		vty_out(vty, "BGP allow martian next hop debugging is off\n");
-	}
-	return CMD_SUCCESS;
-}
-
-
 /* debug bgp update-groups */
 DEFUN (debug_bgp_update_groups,
        debug_bgp_update_groups_cmd,
@@ -2439,8 +2405,6 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_update_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_zebra_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_zebra_cmd);
-	install_element(ENABLE_NODE, &debug_bgp_allow_martians_cmd);
-	install_element(CONFIG_NODE, &debug_bgp_allow_martians_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_update_groups_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_update_groups_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_bestpath_prefix_cmd);
@@ -2504,8 +2468,6 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_bgp_update_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_zebra_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_zebra_cmd);
-	install_element(ENABLE_NODE, &no_debug_bgp_allow_martians_cmd);
-	install_element(CONFIG_NODE, &no_debug_bgp_allow_martians_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_update_groups_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_update_groups_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_cmd);
