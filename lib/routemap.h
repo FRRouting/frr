@@ -370,6 +370,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:as-path-prepend"))
 #define IS_SET_AS_EXCLUDE(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:as-path-exclude"))
+#define IS_SET_AS_REPLACE(A) (strmatch(A, "frr-bgp-route-map:as-path-replace"))
 #define IS_SET_IPV6_NH_GLOBAL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:ipv6-nexthop-global"))
 #define IS_SET_IPV6_VPN_NH(A)                                                  \
