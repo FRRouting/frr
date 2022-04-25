@@ -4423,6 +4423,24 @@ DEFUN (neighbor_remote_as,
 	return peer_remote_as_vty(vty, argv[idx_peer]->arg,
 				  argv[idx_remote_as]->arg);
 }
+
+DEFPY (bgp_allow_martian,
+       bgp_allow_martian_cmd,
+       "[no]$no bgp allow-martian-nexthop",
+       NO_STR
+       BGP_STR
+       "Allow Martian nexthops to be received in the NLRI from a peer\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		bgp->allow_martian = false;
+	else
+		bgp->allow_martian = true;
+
+	return CMD_SUCCESS;
+}
+
 /* Enable fast convergence of bgp sessions. If this is enabled, bgp
  * sessions do not wait for hold timer expiry to bring down the sessions
  * when nexthop becomes unreachable
@@ -17517,6 +17535,9 @@ int bgp_config_write(struct vty *vty)
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
 			vty_out(vty, " bgp shutdown\n");
 
+		if (bgp->allow_martian)
+			vty_out(vty, " bgp allow-martian-nexthop\n");
+
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
@@ -17859,6 +17880,8 @@ void bgp_vty_init(void)
 	/* bgp route-map delay-timer commands. */
 	install_element(CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);
 	install_element(CONFIG_NODE, &no_bgp_set_route_map_delay_timer_cmd);
+
+	install_element(BGP_NODE, &bgp_allow_martian_cmd);
 
 	/* bgp fast-convergence command */
 	install_element(BGP_NODE, &bgp_fast_convergence_cmd);

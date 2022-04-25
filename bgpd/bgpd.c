@@ -3126,6 +3126,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp_lock(bgp);
 
+	bgp->allow_martian = false;
 	bgp_process_queue_init(bgp);
 	bgp->heuristic_coalesce = true;
 	bgp->inst_type = inst_type;

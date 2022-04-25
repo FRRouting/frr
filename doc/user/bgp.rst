@@ -3365,6 +3365,12 @@ Debugging
    Display Listen sockets and the vrf that created them.  Useful for debugging of when
    listen is not working and this is considered a developer debug statement.
 
+.. clicmd:: debug bgp allow-martian
+
+   Enable or disable BGP accepting martian nexthops from a peer.  Please note
+   this is not an actual debug command and this command is also being deprecated
+   and will be removed soon.  The new command is :clicmd:`bgp allow-martian-nexthop`
+
 .. clicmd:: debug bgp bfd
 
    Enable or disable debugging for BFD events. This will show BFD integration
@@ -4005,6 +4011,12 @@ starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
 configuration write operation.  At this point in time non SAFI_UNICAST BGP
 data is not properly withdrawn from zebra when this command is issued.
+
+.. clicmd:: bgp allow-martian-nexthop
+
+When a peer receives a martian nexthop as part of the NLRI for a route
+permit the nexthop to be used as such, instead of rejecting and resetting
+the connection.
 
 .. clicmd:: bgp send-extra-data zebra
 
