@@ -1488,6 +1488,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	struct bgp_path_info *bpi;
 	int origin_local = 0;
 	struct bgp *src_vrf;
+	struct interface *ifp;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -1598,6 +1599,13 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 			static_attr.mp_nexthop_global = nexthop_orig.u.prefix6;
 		}
 		break;
+	}
+
+	if (static_attr.nexthop.s_addr == INADDR_ANY &&
+	    IN6_IS_ADDR_UNSPECIFIED(&static_attr.mp_nexthop_global)) {
+		ifp = if_get_vrf_loopback(src_vrf->vrf_id);
+		if (ifp)
+			static_attr.nh_ifindex = ifp->ifindex;
 	}
 
 	/*
