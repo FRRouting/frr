@@ -229,6 +229,8 @@ daemon_status() {
 	local dmninst daemon inst pidfile pid fail
 	daemon_inst "$1"
 
+	is_user_root || exit 1
+
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 
 	[ -r "$pidfile" ] || return 3
