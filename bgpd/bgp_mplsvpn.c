@@ -2265,12 +2265,21 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	/* If the path has accept-own community and the source VRF
 	 * is valid, reset next-hop to self, to allow importing own
 	 * routes between different VRFs on the same node.
-	 * Set the nh ifindex to VRF's interface, not the real interface.
+	 */
+
+	if (src_bgp)
+		subgroup_announce_reset_nhop(nhfamily, &static_attr);
+
+	bpi_ultimate = bgp_get_imported_bpi_ultimate(path_vpn);
+
+	/* The nh ifindex may not be defined (when the route is
+	 * imported from the network statement => BGP_ROUTE_STATIC)
+	 * or to the real interface.
+	 * Rewrite the nh ifindex to VRF's interface.
 	 * Let the kernel to decide with double lookup the real next-hop
 	 * interface when installing the route.
 	 */
-	if (src_bgp) {
-		subgroup_announce_reset_nhop(nhfamily, &static_attr);
+	if (src_bgp || bpi_ultimate->sub_type == BGP_ROUTE_STATIC) {
 		ifp = if_get_vrf_loopback(src_vrf->vrf_id);
 		if (ifp)
 			static_attr.nh_ifindex = ifp->ifindex;
@@ -2356,9 +2365,6 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	 */
 	if (!CHECK_FLAG(to_bgp->af_flags[afi][safi],
 			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
-		/* work back to original route */
-		bpi_ultimate = bgp_get_imported_bpi_ultimate(path_vpn);
-
 		/*
 		 * if original route was unicast,
 		 * then it did not arrive over vpn
