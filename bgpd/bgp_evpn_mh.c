@@ -196,9 +196,8 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 
 	/* Check if route entry is already present. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->extra
-				&& (struct bgp_path_info *)pi->extra->parent ==
-				parent_pi)
+		if (pi->extra &&
+		    (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
 	if (!pi) {
@@ -3841,13 +3840,13 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 	es = bgp_evpn_es_find(&p->prefix.ead_addr.esi);
 	if (!es) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("del remote %s es %s evi %u vtep %pI4, NO es",
-				   p->prefix.ead_addr.eth_tag ? "ead-es"
-							      : "ead-evi",
-				   esi_to_str(&p->prefix.ead_addr.esi, buf,
-					      sizeof(buf)),
-				   vpn->vni,
-    			   &p->prefix.ead_addr.ip.ipaddr_v4);
+			zlog_debug(
+				"del remote %s es %s evi %u vtep %pI4, NO es",
+				p->prefix.ead_addr.eth_tag ? "ead-es"
+							   : "ead-evi",
+				esi_to_str(&p->prefix.ead_addr.esi, buf,
+					   sizeof(buf)),
+				vpn->vni, &p->prefix.ead_addr.ip.ipaddr_v4);
 		return 0;
 	}
 	es_evi = bgp_evpn_es_evi_find(es, vpn);
