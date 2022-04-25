@@ -1258,6 +1258,28 @@ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 	return new;
 }
 
+/* Replace all ASNs with our own ASN */
+struct aspath *aspath_replace_all_asn(struct aspath *aspath, as_t our_asn)
+{
+	struct aspath *new;
+	struct assegment *seg;
+
+	new = aspath_dup(aspath);
+	seg = new->segments;
+
+	while (seg) {
+		int i;
+
+		for (i = 0; i < seg->length; i++)
+			seg->as[i] = our_asn;
+
+		seg = seg->next;
+	}
+
+	aspath_str_update(new, false);
+	return new;
+}
+
 /* Replace all private ASNs with our own ASN */
 struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn,
 					   as_t peer_asn)
