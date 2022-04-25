@@ -6133,6 +6133,32 @@ DEFUN (no_debug_igmp_trace,
 }
 
 
+DEFUN (debug_igmp_trace_detail,
+       debug_igmp_trace_detail_cmd,
+       "debug igmp trace detail",
+       DEBUG_STR
+       DEBUG_IGMP_STR
+       DEBUG_IGMP_TRACE_STR
+       "detailed\n")
+{
+	PIM_DO_DEBUG_IGMP_TRACE_DETAIL;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_igmp_trace_detail,
+       no_debug_igmp_trace_detail_cmd,
+       "no debug igmp trace detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_IGMP_STR
+       DEBUG_IGMP_TRACE_STR
+       "detailed\n")
+{
+	PIM_DONT_DEBUG_IGMP_TRACE_DETAIL;
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (debug_mroute,
        debug_mroute_cmd,
        "debug mroute",
@@ -8542,6 +8568,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_igmp_packets_cmd);
 	install_element(ENABLE_NODE, &debug_igmp_trace_cmd);
 	install_element(ENABLE_NODE, &no_debug_igmp_trace_cmd);
+	install_element(ENABLE_NODE, &debug_igmp_trace_detail_cmd);
+	install_element(ENABLE_NODE, &no_debug_igmp_trace_detail_cmd);
 	install_element(ENABLE_NODE, &debug_mroute_cmd);
 	install_element(ENABLE_NODE, &debug_mroute_detail_cmd);
 	install_element(ENABLE_NODE, &no_debug_mroute_cmd);
@@ -8595,6 +8623,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_igmp_packets_cmd);
 	install_element(CONFIG_NODE, &debug_igmp_trace_cmd);
 	install_element(CONFIG_NODE, &no_debug_igmp_trace_cmd);
+	install_element(CONFIG_NODE, &debug_igmp_trace_detail_cmd);
+	install_element(CONFIG_NODE, &no_debug_igmp_trace_detail_cmd);
 	install_element(CONFIG_NODE, &debug_mroute_cmd);
 	install_element(CONFIG_NODE, &debug_mroute_detail_cmd);
 	install_element(CONFIG_NODE, &no_debug_mroute_cmd);
