@@ -2174,6 +2174,57 @@ static const struct route_map_rule_cmd route_set_aspath_exclude_cmd = {
 	route_aspath_free,
 };
 
+/* `set as-path replace AS-PATH` */
+static void *route_aspath_replace_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_aspath_replace_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static enum route_map_cmd_result_t
+route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
+{
+	struct aspath *aspath_new;
+	const char *replace = rule;
+	struct bgp_path_info *path = object;
+	as_t own_asn = path->peer->change_local_as ? path->peer->change_local_as
+						   : path->peer->local_as;
+
+	if (path->peer->sort != BGP_PEER_EBGP) {
+		zlog_warn(
+			"`set as-path replace` is supported only for EBGP peers");
+		return RMAP_NOOP;
+	}
+
+	if (path->attr->aspath->refcnt)
+		aspath_new = aspath_dup(path->attr->aspath);
+	else
+		aspath_new = path->attr->aspath;
+
+	if (strmatch(replace, "any")) {
+		path->attr->aspath =
+			aspath_replace_all_asn(aspath_new, own_asn);
+	} else {
+		as_t replace_asn = strtoul(replace, NULL, 10);
+
+		path->attr->aspath = aspath_replace_specific_asn(
+			aspath_new, replace_asn, own_asn);
+	}
+
+	return RMAP_OKAY;
+}
+
+static const struct route_map_rule_cmd route_set_aspath_replace_cmd = {
+	"as-path replace",
+	route_set_aspath_replace,
+	route_aspath_replace_compile,
+	route_aspath_replace_free,
+};
+
 /* `set community COMMUNITY' */
 struct rmap_com_set {
 	struct community *com;
@@ -5389,6 +5440,43 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (set_aspath_replace_asn,
+	    set_aspath_replace_asn_cmd,
+	    "set as-path replace <any|(1-4294967295)>$replace",
+	    SET_STR
+	    "Transform BGP AS_PATH attribute\n"
+	    "Replace AS number to local AS number\n"
+	    "Replace any AS number to local AS number\n"
+	    "Replace a specific AS number to local AS number\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-replace']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:replace-as-path", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, replace);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_set_aspath_replace_asn,
+	    no_set_aspath_replace_asn_cmd,
+	    "no set as-path replace [<any|(1-4294967295)>]",
+	    NO_STR
+	    SET_STR
+	    "Transform BGP AS_PATH attribute\n"
+	    "Replace AS number to local AS number\n"
+	    "Replace any AS number to local AS number\n"
+	    "Replace a specific AS number to local AS number\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:as-path-replace']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (no_set_aspath_prepend,
 	    no_set_aspath_prepend_cmd,
 	    "no set as-path prepend [(1-4294967295)]",
@@ -6727,6 +6815,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_distance_cmd);
 	route_map_install_set(&route_set_aspath_prepend_cmd);
 	route_map_install_set(&route_set_aspath_exclude_cmd);
+	route_map_install_set(&route_set_aspath_replace_cmd);
 	route_map_install_set(&route_set_origin_cmd);
 	route_map_install_set(&route_set_atomic_aggregate_cmd);
 	route_map_install_set(&route_set_aggregator_as_cmd);
@@ -6800,10 +6889,12 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_prepend_asn_cmd);
 	install_element(RMAP_NODE, &set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
+	install_element(RMAP_NODE, &set_aspath_replace_asn_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_replace_asn_cmd);
 	install_element(RMAP_NODE, &set_origin_cmd);
 	install_element(RMAP_NODE, &no_set_origin_cmd);
 	install_element(RMAP_NODE, &set_atomic_aggregate_cmd);
