@@ -9463,7 +9463,6 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 			   json_object *json_paths)
 {
 	struct attr *attr;
-	char buf[BUFSIZ] = {0};
 	json_object *json_path = NULL;
 	json_object *json_nexthop = NULL;
 	json_object *json_overlay = NULL;
@@ -9488,16 +9487,15 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 	/* Print attribute */
 	attr = path->attr;
-	char buf1[BUFSIZ];
 	int af = NEXTHOP_FAMILY(attr->mp_nexthop_len);
 
 	switch (af) {
 	case AF_INET:
-		inet_ntop(af, &attr->mp_nexthop_global_in, buf, BUFSIZ);
 		if (!json_path) {
-			vty_out(vty, "%-16s", buf);
+			vty_out(vty, "%-16pI4", &attr->mp_nexthop_global_in);
 		} else {
-			json_object_string_add(json_nexthop, "ip", buf);
+			json_object_string_addf(json_nexthop, "ip", "%pI4",
+						&attr->mp_nexthop_global_in);
 
 			json_object_string_add(json_nexthop, "afi", "ipv4");
 
@@ -9506,15 +9504,17 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 		}
 		break;
 	case AF_INET6:
-		inet_ntop(af, &attr->mp_nexthop_global, buf, BUFSIZ);
-		inet_ntop(af, &attr->mp_nexthop_local, buf1, BUFSIZ);
 		if (!json_path) {
-			vty_out(vty, "%s(%s)", buf, buf1);
+			vty_out(vty, "%pI6(%pI6)", &attr->mp_nexthop_global,
+				&attr->mp_nexthop_local);
 		} else {
-			json_object_string_add(json_nexthop, "ipv6Global", buf);
+			json_object_string_addf(json_nexthop, "ipv6Global",
+						"%pI6",
+						&attr->mp_nexthop_global);
 
-			json_object_string_add(json_nexthop, "ipv6LinkLocal",
-					       buf1);
+			json_object_string_addf(json_nexthop, "ipv6LinkLocal",
+						"%pI6",
+						&attr->mp_nexthop_local);
 
 			json_object_string_add(json_nexthop, "afi", "ipv6");
 
@@ -9535,12 +9535,10 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(attr);
 
-	ipaddr2str(&eo->gw_ip, buf, BUFSIZ);
-
 	if (!json_path)
-		vty_out(vty, "/%s", buf);
+		vty_out(vty, "/%pIA", &eo->gw_ip);
 	else
-		json_object_string_add(json_overlay, "gw", buf);
+		json_object_string_addf(json_overlay, "gw", "%pIA", &eo->gw_ip);
 
 	if (bgp_attr_get_ecommunity(attr)) {
 		char *mac = NULL;
