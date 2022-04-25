@@ -532,6 +532,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 	bool alloced = false;
 	int label = 0;
 	uint8_t offset = 0;
+	uint8_t len = 0;
 
 	if (!bgp || !sid_locator || !sid)
 		return false;
@@ -540,10 +541,11 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 		*sid_locator = chunk->prefix.prefix;
 		*sid = chunk->prefix.prefix;
 		offset = chunk->block_bits_length + chunk->node_bits_length;
+		len = chunk->function_bits_length ?: 16;
 
 		if (index != 0) {
 			label = index << 12;
-			transpose_sid(sid, label, offset, 16);
+			transpose_sid(sid, label, offset, len);
 			if (sid_exist(bgp, sid))
 				return false;
 			alloced = true;
@@ -552,7 +554,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 
 		for (size_t i = 1; i < 255; i++) {
 			label = i << 12;
-			transpose_sid(sid, label, offset, 16);
+			transpose_sid(sid, label, offset, len);
 			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
@@ -633,13 +635,29 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 		tovpn_sid_transpose_label;
 }
 
+/*
+ * This function shifts "label" 4 bits to the right and
+ * embeds it by length "len", starting at offset "offset"
+ * as seen from the MSB (Most Significant Bit) of "sid".
+ *
+ * e.g. if "label" is 0x1000 and "len" is 16, "label" is
+ * embedded in "sid" as follows:
+ *
+ *                 <----   len  ----->
+ *         label:  0000 0001 0000 0000 0000
+ *         sid:    .... 0000 0001 0000 0000
+ *                      <----   len  ----->
+ *                    ^
+ *                    |
+ *                 offset from MSB
+ */
 void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 		   uint8_t len)
 {
 	for (uint8_t idx = 0; idx < len; idx++) {
 		uint8_t tidx = offset + idx;
 		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
-		if (label >> (19 - idx) & 0x1)
+		if (label >> (len + 3 - idx) & 0x1)
 			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
 	}
 }
