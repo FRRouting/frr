@@ -2147,7 +2147,7 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
  * Delete all type-2 (MACIP) local routes for this VNI - only from the
  * global routing table. These are also scheduled for withdraw from peers.
  */
-static int delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
+static void delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	afi_t afi;
 	safi_t safi;
@@ -2160,7 +2160,7 @@ static int delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 
 	rddest = bgp_node_lookup(bgp->rib[afi][safi],
 				 (struct prefix *)&vpn->prd);
-	if (rddest && bgp_dest_has_bgp_path_info_data(rddest)) {
+	if (rddest) {
 		table = bgp_dest_get_bgp_table_info(rddest);
 		for (dest = bgp_table_top(table); dest;
 		     dest = bgp_route_next(dest)) {
@@ -2175,13 +2175,10 @@ static int delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 			if (pi)
 				bgp_process(bgp, dest, afi, safi);
 		}
-	}
 
-	/* Unlock RD node. */
-	if (rddest)
+		/* Unlock RD node. */
 		bgp_dest_unlock_node(rddest);
-
-	return 0;
+	}
 }
 
 /*
@@ -3704,7 +3701,6 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
  */
 static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	int ret;
 	struct prefix_evpn p;
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *pi;
@@ -3714,9 +3710,7 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	/* Delete and withdraw locally learnt type-2 routes (MACIP)
 	 * for this VNI - from the global table.
 	 */
-	ret = delete_global_type2_routes(bgp, vpn);
-	if (ret)
-		return ret;
+	delete_global_type2_routes(bgp, vpn);
 
 	/* Remove type-3 route for this VNI from global table. */
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
