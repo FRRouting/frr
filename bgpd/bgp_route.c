@@ -8543,6 +8543,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	afi_t afi;
 	route_map_result_t ret;
 	struct bgp_redist *red;
+	struct interface *ifp;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) ||
 	    bgp->peer_self == NULL)
@@ -8602,6 +8603,11 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	}
 	attr.nh_type = nhtype;
 	attr.nh_ifindex = ifindex;
+	ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
+	if (ifp && if_is_operative(ifp))
+		SET_FLAG(attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
+	else
+		UNSET_FLAG(attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
 
 	attr.med = metric;
 	attr.distance = distance;
