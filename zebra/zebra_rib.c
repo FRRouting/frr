@@ -487,6 +487,62 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 	return re;
 }
 
+struct route_entry *rib_match_ipv6_multicast(vrf_id_t vrf_id,
+					     struct in6_addr addr,
+					     struct route_node **rn_out)
+{
+	struct route_entry *re = NULL, *mre = NULL, *ure = NULL;
+	struct route_node *m_rn = NULL, *u_rn = NULL;
+	union g_addr gaddr = {.ipv6 = addr};
+
+	switch (zrouter.ipv4_multicast_mode) {
+	case MCAST_MRIB_ONLY:
+		return rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr,
+				 rn_out);
+	case MCAST_URIB_ONLY:
+		return rib_match(AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, rn_out);
+	case MCAST_NO_CONFIG:
+	case MCAST_MIX_MRIB_FIRST:
+		re = mre = rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr,
+				     &m_rn);
+		if (!mre)
+			re = ure = rib_match(AFI_IP6, SAFI_UNICAST, vrf_id,
+					     &gaddr, &u_rn);
+		break;
+	case MCAST_MIX_DISTANCE:
+		mre = rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+		ure = rib_match(AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+		if (mre && ure)
+			re = ure->distance < mre->distance ? ure : mre;
+		else if (mre)
+			re = mre;
+		else if (ure)
+			re = ure;
+		break;
+	case MCAST_MIX_PFXLEN:
+		mre = rib_match(AFI_IP6, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+		ure = rib_match(AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
+		if (mre && ure)
+			re = u_rn->p.prefixlen > m_rn->p.prefixlen ? ure : mre;
+		else if (mre)
+			re = mre;
+		else if (ure)
+			re = ure;
+		break;
+	}
+
+	if (rn_out)
+		*rn_out = (re == mre) ? m_rn : u_rn;
+
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: %pI6: vrf: %s(%u) found %s, using %s", __func__,
+			   &addr, vrf_id_to_name(vrf_id), vrf_id,
+			   mre ? (ure ? "MRIB+URIB" : "MRIB")
+			       : ure ? "URIB" : "nothing",
+			   re == ure ? "URIB" : re == mre ? "MRIB" : "none");
+	return re;
+}
+
 struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 {
 	struct route_table *table;
