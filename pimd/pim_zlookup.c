@@ -220,8 +220,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	for (i = 0; i < nexthop_num; ++i) {
 		vrf_id_t nexthop_vrf_id;
 		enum nexthop_types_t nexthop_type;
-		struct pim_neighbor *nbr;
-		struct prefix p;
+		struct in_addr nh_ip4;
+		struct in6_addr nh_ip6;
+		ifindex_t nh_ifi;
 
 		nexthop_vrf_id = stream_getl(s);
 		nexthop_type = stream_getc(s);
@@ -249,21 +250,27 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
-			nexthop_tab[num_ifindex].nexthop_addr.s_addr =
-				stream_get_ipv4(s);
-			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
+			nh_ip4.s_addr = stream_get_ipv4(s);
+			nh_ifi = stream_getl(s);
+#if PIM_IPV == 4
+			nexthop_tab[num_ifindex].nexthop_addr = nh_ip4;
+			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
+#else
+			zlog_warn("cannot use IPv4 nexthop %pI4 for IPv6 %pPA",
+				  &nh_ip4, &addr);
+#endif
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			stream_get(&nexthop_tab[num_ifindex].nexthop_addr, s,
-				   sizeof(struct in6_addr));
-			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
+			stream_get(&nh_ip6, s, sizeof(nh_ip6));
+			nh_ifi = stream_getl(s);
 
-			p.family = AF_INET6;
-			p.prefixlen = IPV6_MAX_BITLEN;
-			memcpy(&p.u.prefix6,
-			       &nexthop_tab[num_ifindex].nexthop_addr,
-			       sizeof(struct in6_addr));
+#if PIM_IPV == 6
+			nexthop_tab[num_ifindex].nexthop_addr = nh_ip6;
+			nexthop_tab[num_ifindex].ifindex = nh_ifi;
+			++num_ifindex;
+#else
+			/* RFC 5549 v4-over-v6 nexthop handling */
 
 			/*
 			 * If we are sending v6 secondary assume we receive v6
@@ -274,26 +281,35 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				nexthop_vrf_id);
 
 			if (!ifp)
-				nbr = NULL;
-			else if (pim->send_v6_secondary)
+				break;
+
+			struct pim_neighbor *nbr;
+
+			if (pim->send_v6_secondary) {
+				struct prefix p;
+
+				p.family = AF_INET6;
+				p.prefixlen = IPV6_MAX_BITLEN;
+				p.u.prefix6 = nh_ip6;
+
 				nbr = pim_neighbor_find_by_secondary(ifp, &p);
-			else
+			} else
 				nbr = pim_neighbor_find_if(ifp);
 
-			if (nbr) {
-				nexthop_tab[num_ifindex].nexthop_addr =
-					nbr->source_addr;
-			}
+			if (!nbr)
+				break;
+
+			nexthop_tab[num_ifindex].nexthop_addr =
+				nbr->source_addr;
+			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
+#endif
 			break;
 		default:
 			/* do nothing */
-			{
-				zlog_warn(
-					"%s: found non-ifindex nexthop type=%d for address %pPAs(%s)",
-					__func__, nexthop_type, &addr,
-					pim->vrf->name);
-			}
+			zlog_warn(
+				"%s: found non-ifindex nexthop type=%d for address %pPAs(%s)",
+				__func__, nexthop_type, &addr, pim->vrf->name);
 			break;
 		}
 	}
