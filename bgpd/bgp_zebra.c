@@ -1273,6 +1273,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint8_t distance;
 	struct peer *peer;
 	struct bgp_path_info *mpinfo;
+	struct bgp_path_info *bpi_ultimate;
 	struct bgp *bgp_orig;
 	uint32_t metric;
 	struct attr local_attr;
@@ -1321,13 +1322,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 	peer = info->peer;
 
-	if (info->type == ZEBRA_ROUTE_BGP
-	    && info->sub_type == BGP_ROUTE_IMPORTED) {
-
-		/* Obtain peer from parent */
-		if (info->extra && info->extra->parent)
-			peer = ((struct bgp_path_info *)(info->extra->parent))
-				       ->peer;
+	if (info->type == ZEBRA_ROUTE_BGP) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(info);
+		peer = bpi_ultimate->peer;
 	}
 
 	tag = info->attr->tag;
