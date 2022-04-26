@@ -112,6 +112,8 @@ extern bool aspath_single_asn_check(struct aspath *, as_t asn);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);
+extern struct aspath *aspath_replace_all_asn(struct aspath *aspath,
+					     as_t our_asn);
 extern struct aspath *aspath_replace_private_asns(struct aspath *aspath,
 						  as_t asn, as_t peer_asn);
 extern struct aspath *aspath_remove_private_asns(struct aspath *aspath,
