@@ -520,8 +520,10 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 	ecomadd = ecommunity_new();
 	ecommunity_add_val(ecomadd, &eval, false, false);
 	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
-		if (ecommunity_cmp(ecomadd, ecom))
+		if (ecommunity_cmp(ecomadd, ecom)) {
 			ecom_found = true;
+			break;
+		}
 
 	if (!ecom_found)
 		listnode_add_sort(rtl, ecomadd);
@@ -4556,6 +4558,7 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl)
 		if (ecommunity_match(ecom, ecom_auto)) {
 			ecommunity_free(&ecom);
 			node_to_del = node;
+			break;
 		}
 	}
 
@@ -5104,7 +5107,6 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 /*
  * Map the RTs (configured or automatically derived) of a VRF to the VRF.
  * The mapping will be used during route processing.
- * bgp_def: default bgp instance
  * bgp_vrf: specific bgp vrf instance on which RT is configured
  */
 void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
