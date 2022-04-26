@@ -2021,7 +2021,16 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		ifp = if_get_vrf_loopback(src_vrf->vrf_id);
 		if (ifp)
 			static_attr.nh_ifindex = ifp->ifindex;
-	}
+	} else if (static_attr.nh_ifindex)
+		ifp = if_lookup_by_index(static_attr.nh_ifindex,
+					 src_vrf->vrf_id);
+	else
+		ifp = NULL;
+
+	if (ifp && if_is_operative(ifp))
+		SET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
+	else
+		UNSET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
 
 	/*
 	 * route map handling

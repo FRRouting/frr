@@ -173,6 +173,7 @@ struct attr {
 	uint8_t nh_flag;
 
 #define BGP_ATTR_NH_VALID 0x01
+#define BGP_ATTR_NH_IF_OPERSTATE 0x02
 
 	/* Path origin attribute */
 	uint8_t origin;

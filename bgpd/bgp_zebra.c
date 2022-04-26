@@ -234,6 +234,7 @@ static int bgp_ifp_up(struct interface *ifp)
 	struct connected *c;
 	struct nbr_connected *nc;
 	struct listnode *node, *nnode;
+	struct bgp *bgp_default = bgp_get_default();
 	struct bgp *bgp;
 
 	bgp = ifp->vrf->info;
@@ -256,6 +257,14 @@ static int bgp_ifp_up(struct interface *ifp)
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	bgp_nht_ifp_up(ifp);
 
+	if (bgp_default && if_is_loopback(ifp)) {
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
+		vpn_leak_postchange_all();
+	}
+
 	return 0;
 }
 
@@ -264,6 +273,7 @@ static int bgp_ifp_down(struct interface *ifp)
 	struct connected *c;
 	struct nbr_connected *nc;
 	struct listnode *node, *nnode;
+	struct bgp *bgp_default = bgp_get_default();
 	struct bgp *bgp;
 	struct peer *peer;
 
@@ -302,6 +312,14 @@ static int bgp_ifp_down(struct interface *ifp)
 
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	bgp_nht_ifp_down(ifp);
+
+	if (bgp_default && if_is_loopback(ifp)) {
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
+		vpn_leak_postchange_all();
+	}
 
 	return 0;
 }
@@ -3188,6 +3206,7 @@ extern struct zebra_privs_t bgpd_privs;
 
 static int bgp_ifp_create(struct interface *ifp)
 {
+	struct bgp *bgp_default = bgp_get_default();
 	struct bgp *bgp;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
@@ -3202,6 +3221,17 @@ static int bgp_ifp_create(struct interface *ifp)
 
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
+
+	if (bgp_default &&
+	    (if_is_loopback_exact(ifp) ||
+	     (if_is_vrf(ifp) && ifp->vrf->vrf_id != VRF_DEFAULT))) {
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
+		vpn_leak_postchange_all();
+	}
+
 	return 0;
 }
 
