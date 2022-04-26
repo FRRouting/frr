@@ -165,7 +165,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t command = 0;
-	pim_addr raddr;
+	struct ipaddr raddr;
 	uint8_t distance;
 	uint32_t metric;
 	int nexthop_num;
@@ -177,7 +177,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	s = zlookup->ibuf;
 
-	while (command != ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB) {
+	while (command != ZEBRA_NEXTHOP_LOOKUP_MRIB) {
 		stream_reset(s);
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,
 					  &version, &vrf_id, &command);
@@ -197,13 +197,11 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 	}
 
-#if PIM_IPV == 4
-	raddr.s_addr = stream_get_ipv4(s);
-#else
-	stream_get(&raddr, s, sizeof(struct in6_addr));
-#endif
-	if (pim_addr_cmp(raddr, addr))
-		zlog_warn("%s: address mismatch: addr=%pPAs(%s) raddr=%pPAs",
+	stream_get_ipaddr(s, &raddr);
+
+	if (raddr.ipa_type != IPADDR_V4 ||
+	    raddr.ipaddr_v4.s_addr != addr.s_addr)
+		zlog_warn("%s: address mismatch: addr=%pPA(%s) raddr=%pIA",
 			  __func__, &addr, pim->vrf->name, &raddr);
 	/* warning only */
 
@@ -308,6 +306,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 {
 	struct stream *s;
 	int ret;
+	struct ipaddr ipaddr;
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
 		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
@@ -329,15 +328,13 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -1;
 	}
 
+	ipaddr.ipa_type = IPADDR_V4;
+	ipaddr.ipaddr_v4 = addr;
+
 	s = zlookup->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
-			      pim->vrf->vrf_id);
-#if PIM_IPV == 4
-	stream_put_in_addr(s, &addr);
-#else
-	stream_write(s, (uint8_t *)&addr, 16);
-#endif
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, pim->vrf->vrf_id);
+	stream_put_ipaddr(s, &ipaddr);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	ret = writen(zlookup->sock, s->data, stream_get_endp(s));

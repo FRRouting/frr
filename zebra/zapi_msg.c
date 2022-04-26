@@ -659,11 +659,18 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
  * Modified version of zsend_ipv4_nexthop_lookup(): Query unicast rib if
  * nexthop is not found on mrib. Returns both route metric and protocol
  * distance.
+ *
+ * *XXX* this ZAPI call is slated to be removed at some point in the future
+ * since MRIB support in PIM is hopelessly broken in its interactions with NHT.
+ * The plan is to make pimd use NHT to receive URIB and MRIB in parallel and
+ * make the decision there, which will obsolete this ZAPI op.
+ * (Otherwise we would need to implement sending NHT updates for the result of
+ * this "URIB-MRIB-combined" table, but we only decide that here on the fly,
+ * so it'd be rather complex to do NHT for.)
  */
-static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
-					  struct in_addr addr,
-					  struct route_entry *re,
-					  struct zebra_vrf *zvrf)
+static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
+				     struct route_entry *re,
+				     struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	unsigned long nump;
@@ -675,8 +682,8 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	stream_reset(s);
 
 	/* Fill in result. */
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
-	stream_put_in_addr(s, &addr);
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
+	stream_put_ipaddr(s, addr);
 
 	if (re) {
 		struct nexthop_group *nhg;
@@ -2229,14 +2236,28 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 }
 
 /* MRIB Nexthop lookup for IPv4. */
-static void zread_ipv4_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
+static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {
-	struct in_addr addr;
-	struct route_entry *re;
+	struct ipaddr addr;
+	struct route_entry *re = NULL;
 
-	STREAM_GET(&addr.s_addr, msg, IPV4_MAX_BYTELEN);
-	re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr, NULL);
-	zsend_ipv4_nexthop_lookup_mrib(client, addr, re, zvrf);
+	STREAM_GET_IPADDR(msg, &addr);
+
+	switch (addr.ipa_type) {
+	case IPADDR_V4:
+		re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr.ipaddr_v4,
+					      NULL);
+		break;
+	case IPADDR_V6:
+		re = rib_match_ipv6_multicast(zvrf_id(zvrf), addr.ipaddr_v6,
+					      NULL);
+		break;
+	case IPADDR_NONE:
+		/* ??? */
+		goto stream_failure;
+	}
+
+	zsend_nexthop_lookup_mrib(client, &addr, re, zvrf);
 
 stream_failure:
 	return;
@@ -3685,7 +3706,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REDISTRIBUTE_DELETE] = zebra_redistribute_delete,
 	[ZEBRA_REDISTRIBUTE_DEFAULT_ADD] = zebra_redistribute_default_add,
 	[ZEBRA_REDISTRIBUTE_DEFAULT_DELETE] = zebra_redistribute_default_delete,
-	[ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB] = zread_ipv4_nexthop_lookup_mrib,
+	[ZEBRA_NEXTHOP_LOOKUP_MRIB] = zread_nexthop_lookup_mrib,
 	[ZEBRA_HELLO] = zread_hello,
 	[ZEBRA_NEXTHOP_REGISTER] = zread_rnh_register,
 	[ZEBRA_NEXTHOP_UNREGISTER] = zread_rnh_unregister,
