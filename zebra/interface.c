@@ -1667,8 +1667,7 @@ static void interface_update_l2info(struct zebra_dplane_ctx *ctx,
 
 	switch (zif_type) {
 	case ZEBRA_IF_BRIDGE:
-		zebra_l2_bridge_add_update(ifp,
-					   dplane_ctx_get_ifp_bridge_info(ctx));
+		zebra_l2_bridge_add_update(ifp, dplane_ctx_get_ifp_bridge_info(ctx), add);
 		break;
 	case ZEBRA_IF_VLAN:
 		zebra_l2_vlanif_update(ifp, dplane_ctx_get_ifp_vlan_info(ctx));

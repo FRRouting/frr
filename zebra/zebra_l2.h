@@ -198,9 +198,8 @@ extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 					 struct zebra_ns *zns);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
-extern void
-zebra_l2_bridge_add_update(struct interface *ifp,
-			   const struct zebra_l2info_bridge *bridge_info);
+extern void zebra_l2_bridge_add_update(struct interface *ifp,
+				       const struct zebra_l2info_bridge *bridge_info, bool add);
 extern void zebra_l2_bridge_del(struct interface *ifp);
 extern void zebra_l2_vlanif_update(struct interface *ifp,
 				   const struct zebra_l2info_vlan *vlan_info);

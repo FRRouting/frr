@@ -3617,7 +3617,7 @@ DEFPY(show_evpn_local_mac_all,
 			continue;
 		if (!br)
 			continue;
-		for (int vid = 0; vid < VLANID_MAX; vid++) {
+		for (int vid = 1; vid < VLANID_MAX; vid++) {
 			if (!br->mac_table[vid])
 				continue;
 			zebra_l2_brvlan_print_macs(vty, ifp, vid, uj);
