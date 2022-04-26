@@ -1,0 +1,16 @@
+[
+  {
+    "VRF":0,
+    "Area":"1",
+    "Endpoint":"10.254.0.1",
+    "Algorithm":128,
+    "Status":"Active"
+  },
+  {
+    "VRF":0,
+    "Area":"1",
+    "Endpoint":"10.254.0.1",
+    "Algorithm":131,
+    "Status":"Active"
+  }
+]

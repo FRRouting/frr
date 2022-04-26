@@ -1,0 +1,557 @@
+{
+  "10.1.0.0/24": [
+    {
+      "prefix": "10.1.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.5.0.0/24": [
+    {
+      "prefix": "10.5.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.12.0.0/24": [
+    {
+      "prefix": "10.12.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.14.0.0/24": [
+    {
+      "prefix": "10.14.0.0/24",
+      "protocol": "isis",
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1"
+        }
+      ]
+    }
+  ],
+  "10.15.0.0/24": [
+    {
+      "prefix": "10.15.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.23.0.0/24": [
+    {
+      "prefix": "10.23.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.26.0.0/24": [
+    {
+      "prefix": "10.26.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.34.0.0/24": [
+    {
+      "prefix": "10.34.0.0/24",
+      "protocol": "isis",
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3"
+        }
+      ]
+    }
+  ],
+  "10.37.0.0/24": [
+    {
+      "prefix": "10.37.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.39.0.0/24": [
+    {
+      "prefix": "10.39.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.48.0.0/24": [
+    {
+      "prefix": "10.48.0.0/24",
+      "protocol": "isis",
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8"
+        }
+      ]
+    }
+  ],
+  "10.56.0.0/24": [
+    {
+      "prefix": "10.56.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.58.0.0/24": [
+    {
+      "prefix": "10.58.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.67.0.0/24": [
+    {
+      "prefix": "10.67.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.78.0.0/24": [
+    {
+      "prefix": "10.78.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.79.0.0/24": [
+    {
+      "prefix": "10.79.0.0/24",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.1/32": [
+    {
+      "prefix": "10.254.0.1/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.2/32": [
+    {
+      "prefix": "10.254.0.2/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.3/32": [
+    {
+      "prefix": "10.254.0.3/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.4/32": [
+    {
+      "prefix": "10.254.0.4/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.6/32": [
+    {
+      "prefix": "10.254.0.6/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.7/32": [
+    {
+      "prefix": "10.254.0.7/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 40,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.14.0.2",
+          "afi": "ipv4",
+          "interfaceName": "eth-1",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.8/32": [
+    {
+      "prefix": "10.254.0.8/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        },
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.9/32": [
+    {
+      "prefix": "10.254.0.9/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.48.0.9",
+          "afi": "ipv4",
+          "interfaceName": "eth-8",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.0.10/32": [
+    {
+      "prefix": "10.254.0.10/32",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "ip": "10.34.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "active": true
+        }
+      ]
+    }
+  ]
+}

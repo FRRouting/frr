@@ -1,0 +1,480 @@
+{
+  "2001:db8:0:1::/64": [
+    {
+      "prefix": "2001:db8:0:1::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:0:5::/64": [
+    {
+      "prefix": "2001:db8:0:5::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:1:2::/64": [
+    {
+      "prefix": "2001:db8:1:2::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:1:4::/64": [
+    {
+      "prefix": "2001:db8:1:4::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:1:5::/64": [
+    {
+      "prefix": "2001:db8:1:5::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:2:3::/64": [
+    {
+      "prefix": "2001:db8:2:3::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:3:4::/64": [
+    {
+      "prefix": "2001:db8:3:4::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:3:7::/64": [
+    {
+      "prefix": "2001:db8:3:7::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:3:9::/64": [
+    {
+      "prefix": "2001:db8:3:9::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:4:8::/64": [
+    {
+      "prefix": "2001:db8:4:8::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:5:8::/64": [
+    {
+      "prefix": "2001:db8:5:8::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:7:8::/64": [
+    {
+      "prefix": "2001:db8:7:8::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:7:9::/64": [
+    {
+      "prefix": "2001:db8:7:9::/64",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::1/128": [
+    {
+      "prefix": "2001:db8:f::1/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::2/128": [
+    {
+      "prefix": "2001:db8:f::2/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::3/128": [
+    {
+      "prefix": "2001:db8:f::3/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::4/128": [
+    {
+      "prefix": "2001:db8:f::4/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::5/128": [
+    {
+      "prefix": "2001:db8:f::5/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 40,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::6/128": [
+    {
+      "prefix": "2001:db8:f::6/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::8/128": [
+    {
+      "prefix": "2001:db8:f::8/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 20,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::9/128": [
+    {
+      "prefix": "2001:db8:f::9/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-5",
+          "active": true
+        },
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:f::a/128": [
+    {
+      "prefix": "2001:db8:f::a/128",
+      "protocol": "isis",
+      "selected": true,
+      "destSelected": true,
+      "distance": 115,
+      "metric": 30,
+      "installed": true,
+      "nexthops": [
+        {
+          "fib": true,
+          "afi": "ipv6",
+          "interfaceName": "eth-7",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
