@@ -115,6 +115,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->send_v6_secondary = 1;
 
+	pim->gm_socket = -1;
+
 	pim_rp_init(pim);
 
 	pim_bsm_proc_init(pim);

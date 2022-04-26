@@ -282,7 +282,6 @@ enum gm_version {
 };
 
 struct gm_if_stats {
-	uint64_t rx_drop_sys;
 	uint64_t rx_drop_csum;
 	uint64_t rx_drop_srcaddr;
 	uint64_t rx_drop_dstaddr;
@@ -314,7 +313,7 @@ struct gm_if_stats {
 struct gm_if {
 	struct interface *ifp;
 	struct pim_instance *pim;
-	struct thread *t_query, *t_other_querier, *t_recv, *t_expire;
+	struct thread *t_query, *t_other_querier, *t_expire;
 
 	bool stopping;
 
@@ -338,8 +337,6 @@ struct gm_if {
 	uint8_t n_pending;
 	struct gm_grp_pends_head grp_pends[1];
 	struct gm_gsq_pends_head gsq_pends[1];
-
-	int sock;
 
 	pim_addr querier;
 	pim_addr cur_ll_lowest;

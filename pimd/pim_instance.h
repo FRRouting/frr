@@ -167,6 +167,10 @@ struct pim_instance {
 	struct list *ssmpingd_list;
 	pim_addr ssmpingd_group_addr;
 
+	unsigned int gm_socket_if_count;
+	int gm_socket;
+	struct thread *t_gm_recv;
+
 	unsigned int igmp_group_count;
 	unsigned int igmp_watermark_limit;
 	unsigned int keep_alive_time;
@@ -194,6 +198,8 @@ struct pim_instance {
 	int64_t nexthop_lookups;
 	int64_t nexthop_lookups_avoided;
 	int64_t last_route_change_time;
+
+	uint64_t gm_rx_drop_sys;
 };
 
 void pim_vrf_init(void);

@@ -1591,7 +1591,7 @@ static bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len,
 
 static void gm_t_recv(struct thread *t)
 {
-	struct gm_if *gm_ifp = THREAD_ARG(t);
+	struct pim_instance *pim = THREAD_ARG(t);
 	union {
 		char buf[CMSG_SPACE(sizeof(struct in6_pktinfo)) +
 			 CMSG_SPACE(256) /* hop options */ +
@@ -1610,8 +1610,8 @@ static void gm_t_recv(struct thread *t)
 	ssize_t nread;
 	size_t pktlen;
 
-	thread_add_read(router->master, gm_t_recv, gm_ifp, gm_ifp->sock,
-			&gm_ifp->t_recv);
+	thread_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
+			&pim->t_gm_recv);
 
 	iov->iov_base = rxbuf;
 	iov->iov_len = sizeof(rxbuf);
@@ -1624,10 +1624,10 @@ static void gm_t_recv(struct thread *t)
 	mh->msg_iovlen = array_size(iov);
 	mh->msg_flags = 0;
 
-	nread = recvmsg(gm_ifp->sock, mh, MSG_PEEK | MSG_TRUNC);
+	nread = recvmsg(pim->gm_socket, mh, MSG_PEEK | MSG_TRUNC);
 	if (nread <= 0) {
-		zlog_err(log_ifp("RX error: %m"));
-		gm_ifp->stats.rx_drop_sys++;
+		zlog_err("(VRF %s) RX error: %m", pim->vrf->name);
+		pim->gm_rx_drop_sys++;
 		return;
 	}
 
@@ -1635,14 +1635,23 @@ static void gm_t_recv(struct thread *t)
 		iov->iov_base = XMALLOC(MTYPE_GM_PACKET, nread);
 		iov->iov_len = nread;
 	}
-	nread = recvmsg(gm_ifp->sock, mh, 0);
+	nread = recvmsg(pim->gm_socket, mh, 0);
 	if (nread <= 0) {
-		zlog_err(log_ifp("RX error: %m"));
-		gm_ifp->stats.rx_drop_sys++;
+		zlog_err("(VRF %s) RX error: %m", pim->vrf->name);
+		pim->gm_rx_drop_sys++;
 		goto out_free;
 	}
 
-	if ((int)pkt_src->sin6_scope_id != gm_ifp->ifp->ifindex)
+	struct interface *ifp;
+
+	ifp = if_lookup_by_index(pkt_src->sin6_scope_id, pim->vrf->vrf_id);
+	if (!ifp || !ifp->info)
+		goto out_free;
+
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp = pim_ifp->mld;
+
+	if (!gm_ifp)
 		goto out_free;
 
 	for (cmsg = CMSG_FIRSTHDR(mh); cmsg; cmsg = CMSG_NXTHDR(mh, cmsg)) {
@@ -1666,7 +1675,7 @@ static void gm_t_recv(struct thread *t)
 	if (!pktinfo || !hoplimit) {
 		zlog_err(log_ifp(
 			"BUG: packet without IPV6_PKTINFO or IPV6_HOPLIMIT"));
-		gm_ifp->stats.rx_drop_sys++;
+		pim->gm_rx_drop_sys++;
 		goto out_free;
 	}
 
@@ -1739,7 +1748,8 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 		.next_hdr = IPPROTO_ICMPV6,
 	};
 	union {
-		char buf[CMSG_SPACE(8)];
+		char buf[CMSG_SPACE(8) /* hop options */ +
+			 CMSG_SPACE(sizeof(struct in6_pktinfo))];
 		struct cmsghdr align;
 	} cmsg = {};
 	struct cmsghdr *cmh;
@@ -1748,6 +1758,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	size_t iov_len;
 	ssize_t ret, expect_ret;
 	uint8_t *dp;
+	struct in6_pktinfo *pktinfo;
 
 	if (if_is_loopback(gm_ifp->ifp)) {
 		/* Linux is a bit odd with multicast on loopback */
@@ -1799,6 +1810,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	mh->msg_iovlen = iov_len - 1;
 	mh->msg_control = &cmsg;
 	mh->msg_controllen = sizeof(cmsg.buf);
+
 	cmh = CMSG_FIRSTHDR(mh);
 	cmh->cmsg_level = IPPROTO_IPV6;
 	cmh->cmsg_type = IPV6_HOPOPTS;
@@ -1813,12 +1825,20 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	*dp++ = 0;		     /* pad0 */
 	*dp++ = 0;		     /* pad0 */
 
+	cmh = CMSG_NXTHDR(mh, cmh);
+	cmh->cmsg_level = IPPROTO_IPV6;
+	cmh->cmsg_type = IPV6_PKTINFO;
+	cmh->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+	pktinfo = (struct in6_pktinfo *)CMSG_DATA(cmh);
+	pktinfo->ipi6_ifindex = gm_ifp->ifp->ifindex;
+	pktinfo->ipi6_addr = gm_ifp->cur_ll_lowest;
+
 	expect_ret = iov[1].iov_len;
 	if (iov_len == 3)
 		expect_ret += iov[2].iov_len;
 
 	frr_with_privs (&pimd_privs) {
-		ret = sendmsg(gm_ifp->sock, mh, 0);
+		ret = sendmsg(gm_ifp->pim->gm_socket, mh, 0);
 	}
 
 	if (ret != expect_ret) {
@@ -1899,7 +1919,7 @@ static void gm_trigger_specific(struct gm_sg *sg)
 
 	if (!IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest))
 		return;
-	if (gm_ifp->sock == -1)
+	if (gm_ifp->pim->gm_socket == -1)
 		return;
 
 	if (PIM_DEBUG_IGMP_TRACE)
@@ -1938,17 +1958,122 @@ static void gm_trigger_specific(struct gm_sg *sg)
 	}
 }
 
+static void gm_vrf_socket_incref(struct pim_instance *pim)
+{
+	struct vrf *vrf = pim->vrf;
+	int ret, intval;
+	struct icmp6_filter filter[1];
+
+	if (pim->gm_socket_if_count++ && pim->gm_socket != -1)
+		return;
+
+	ICMP6_FILTER_SETBLOCKALL(filter);
+	ICMP6_FILTER_SETPASS(ICMP6_MLD_QUERY, filter);
+	ICMP6_FILTER_SETPASS(ICMP6_MLD_V1_REPORT, filter);
+	ICMP6_FILTER_SETPASS(ICMP6_MLD_V1_DONE, filter);
+	ICMP6_FILTER_SETPASS(ICMP6_MLD_V2_REPORT, filter);
+
+	frr_with_privs (&pimd_privs) {
+		pim->gm_socket = vrf_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6,
+					    vrf->vrf_id, vrf->name);
+		if (pim->gm_socket < 0) {
+			zlog_err("(VRF %s) could not create MLD socket: %m",
+				 vrf->name);
+			return;
+		}
+
+		ret = setsockopt(pim->gm_socket, SOL_ICMPV6, ICMP6_FILTER,
+				 filter, sizeof(filter));
+		if (ret)
+			zlog_err("(VRF %s) failed to set ICMP6_FILTER: %m",
+				 vrf->name);
+
+		intval = 1;
+		ret = setsockopt(pim->gm_socket, SOL_IPV6, IPV6_RECVPKTINFO,
+				 &intval, sizeof(intval));
+		if (ret)
+			zlog_err("(VRF %s) failed to set IPV6_RECVPKTINFO: %m",
+				 vrf->name);
+
+		intval = 1;
+		ret = setsockopt(pim->gm_socket, SOL_IPV6, IPV6_RECVHOPOPTS,
+				 &intval, sizeof(intval));
+		if (ret)
+			zlog_err("(VRF %s) failed to set IPV6_HOPOPTS: %m",
+				 vrf->name);
+
+		intval = 1;
+		ret = setsockopt(pim->gm_socket, SOL_IPV6, IPV6_RECVHOPLIMIT,
+				 &intval, sizeof(intval));
+		if (ret)
+			zlog_err("(VRF %s) failed to set IPV6_HOPLIMIT: %m",
+				 vrf->name);
+
+		intval = 1;
+		ret = setsockopt(pim->gm_socket, SOL_IPV6, IPV6_MULTICAST_LOOP,
+				 &intval, sizeof(intval));
+		if (ret)
+			zlog_err(
+				"(VRF %s) failed to disable IPV6_MULTICAST_LOOP: %m",
+				vrf->name);
+
+		intval = 1;
+		ret = setsockopt(pim->gm_socket, SOL_IPV6, IPV6_MULTICAST_HOPS,
+				 &intval, sizeof(intval));
+		if (ret)
+			zlog_err(
+				"(VRF %s) failed to set IPV6_MULTICAST_HOPS: %m",
+				vrf->name);
+
+		/* NB: IPV6_MULTICAST_ALL does not completely bypass multicast
+		 * RX filtering in Linux.  It only means "receive all groups
+		 * that something on the system has joined".  To actually
+		 * receive *all* MLD packets - which is what we need -
+		 * multicast routing must be enabled on the interface.  And
+		 * this only works for MLD packets specifically.
+		 *
+		 * For reference, check ip6_mc_input() in net/ipv6/ip6_input.c
+		 * and in particular the #ifdef CONFIG_IPV6_MROUTE block there.
+		 *
+		 * Also note that the code there explicitly checks for the IPv6
+		 * router alert MLD option (which is required by the RFC to be
+		 * on MLD packets.)  That implies trying to support hosts which
+		 * erroneously don't add that option is just not possible.
+		 */
+		intval = 1;
+		ret = setsockopt(pim->gm_socket, SOL_IPV6, IPV6_MULTICAST_ALL,
+				 &intval, sizeof(intval));
+		if (ret)
+			zlog_info(
+				"(VRF %s) failed to set IPV6_MULTICAST_ALL: %m (OK on old kernels)",
+				vrf->name);
+	}
+
+	thread_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
+			&pim->t_gm_recv);
+}
+
+static void gm_vrf_socket_decref(struct pim_instance *pim)
+{
+	if (--pim->gm_socket_if_count)
+		return;
+
+	THREAD_OFF(pim->t_gm_recv);
+	close(pim->gm_socket);
+	pim->gm_socket = -1;
+}
+
 static void gm_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct gm_if *gm_ifp;
-	int ret, intval;
-	struct icmp6_filter filter[1];
 
 	assert(pim_ifp);
 	assert(pim_ifp->pim);
 	assert(pim_ifp->mroute_vif_index >= 0);
 	assert(!pim_ifp->mld);
+
+	gm_vrf_socket_incref(pim_ifp->pim);
 
 	gm_ifp = XCALLOC(MTYPE_GM_IFACE, sizeof(*gm_ifp));
 	gm_ifp->ifp = ifp;
@@ -1978,99 +2103,19 @@ static void gm_start(struct interface *ifp)
 	gm_grp_pends_init(gm_ifp->grp_pends);
 	gm_gsq_pends_init(gm_ifp->gsq_pends);
 
-	ICMP6_FILTER_SETBLOCKALL(filter);
-	ICMP6_FILTER_SETPASS(ICMP6_MLD_QUERY, filter);
-	ICMP6_FILTER_SETPASS(ICMP6_MLD_V1_REPORT, filter);
-	ICMP6_FILTER_SETPASS(ICMP6_MLD_V1_DONE, filter);
-	ICMP6_FILTER_SETPASS(ICMP6_MLD_V2_REPORT, filter);
-
 	frr_with_privs (&pimd_privs) {
-		gm_ifp->sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-		if (gm_ifp->sock < 0) {
-			zlog_err("(%s) could not create MLD socket: %m",
-				 ifp->name);
-			return;
-		}
-
-		ret = setsockopt(gm_ifp->sock, SOL_ICMPV6, ICMP6_FILTER, filter,
-				 sizeof(filter));
-		if (ret)
-			zlog_err("(%s) failed to set ICMP6_FILTER: %m",
-				 ifp->name);
-
-		intval = 1;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_RECVPKTINFO,
-				 &intval, sizeof(intval));
-		if (ret)
-			zlog_err("(%s) failed to set IPV6_RECVPKTINFO: %m",
-				 ifp->name);
-
-		intval = 1;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_RECVHOPOPTS,
-				 &intval, sizeof(intval));
-		if (ret)
-			zlog_err("(%s) failed to set IPV6_HOPOPTS: %m",
-				 ifp->name);
-
-		intval = 1;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_RECVHOPLIMIT,
-				 &intval, sizeof(intval));
-		if (ret)
-			zlog_err("(%s) failed to set IPV6_HOPLIMIT: %m",
-				 ifp->name);
-
-		intval = 1;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_MULTICAST_LOOP,
-				 &intval, sizeof(intval));
-		if (ret)
-			zlog_err(
-				"(%s) failed to disable IPV6_MULTICAST_LOOP: %m",
-				ifp->name);
-
-		intval = 1;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_MULTICAST_HOPS,
-				 &intval, sizeof(intval));
-		if (ret)
-			zlog_err("(%s) failed to set IPV6_MULTICAST_HOPS: %m",
-				 ifp->name);
-
-		/* NB: IPV6_MULTICAST_ALL does not completely bypass multicast
-		 * RX filtering in Linux.  It only means "receive all groups
-		 * that something on the system has joined".  To actually
-		 * receive *all* MLD packets - which is what we need -
-		 * multicast routing must be enabled on the interface.  And
-		 * this only works for MLD packets specifically.
-		 *
-		 * For reference, check ip6_mc_input() in net/ipv6/ip6_input.c
-		 * and in particular the #ifdef CONFIG_IPV6_MROUTE block there.
-		 *
-		 * Also note that the code there explicitly checks for the IPv6
-		 * router alert MLD option (which is required by the RFC to be
-		 * on MLD packets.)  That implies trying to support hosts which
-		 * erroneously don't add that option is just not possible.
-		 */
-		intval = 1;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_MULTICAST_ALL,
-				 &intval, sizeof(intval));
-		if (ret)
-			zlog_info(
-				"(%s) failed to set IPV6_MULTICAST_ALL: %m (OK on old kernels)",
-				ifp->name);
-
 		struct ipv6_mreq mreq;
+		int ret;
 
 		/* all-MLDv2 group */
 		mreq.ipv6mr_multiaddr = gm_all_routers;
 		mreq.ipv6mr_interface = ifp->ifindex;
-		ret = setsockopt(gm_ifp->sock, SOL_IPV6, IPV6_JOIN_GROUP, &mreq,
-				 sizeof(mreq));
+		ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6,
+				 IPV6_JOIN_GROUP, &mreq, sizeof(mreq));
 		if (ret)
 			zlog_err("(%s) failed to join ff02::16 (all-MLDv2): %m",
 				 ifp->name);
 	}
-
-	thread_add_read(router->master, gm_t_recv, gm_ifp, gm_ifp->sock,
-			&gm_ifp->t_recv);
 }
 
 void gm_ifp_teardown(struct interface *ifp)
@@ -2093,13 +2138,24 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	THREAD_OFF(gm_ifp->t_query);
 	THREAD_OFF(gm_ifp->t_other_querier);
-	THREAD_OFF(gm_ifp->t_recv);
 	THREAD_OFF(gm_ifp->t_expire);
 
-	if (gm_ifp->sock != -1) {
-		close(gm_ifp->sock);
-		gm_ifp->sock = -1;
+	frr_with_privs (&pimd_privs) {
+		struct ipv6_mreq mreq;
+		int ret;
+
+		/* all-MLDv2 group */
+		mreq.ipv6mr_multiaddr = gm_all_routers;
+		mreq.ipv6mr_interface = ifp->ifindex;
+		ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6,
+				 IPV6_LEAVE_GROUP, &mreq, sizeof(mreq));
+		if (ret)
+			zlog_err(
+				"(%s) failed to leave ff02::16 (all-MLDv2): %m",
+				ifp->name);
 	}
+
+	gm_vrf_socket_decref(gm_ifp->pim);
 
 	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
 		gm_packet_drop(pkt, false);
@@ -2143,8 +2199,6 @@ static void gm_update_ll(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct gm_if *gm_ifp = pim_ifp ? pim_ifp->mld : NULL;
-	struct sockaddr_in6 sa = {.sin6_family = AF_INET6};
-	int rc;
 	bool was_querier;
 
 	was_querier =
@@ -2173,17 +2227,6 @@ static void gm_update_ll(struct interface *ifp)
 		gm_ifp->querier = gm_ifp->cur_ll_lowest;
 	} else
 		return;
-
-	/* we're querier */
-	sa.sin6_addr = pim_ifp->ll_lowest;
-	sa.sin6_scope_id = ifp->ifindex;
-
-	frr_with_privs (&pimd_privs) {
-		rc = bind(gm_ifp->sock, (struct sockaddr *)&sa, sizeof(sa));
-	}
-	if (rc)
-		zlog_err(log_ifp("bind to %pPA failed: %m"),
-			 &pim_ifp->ll_lowest);
 
 	gm_ifp->n_startup = gm_ifp->cur_qrv;
 	thread_execute(router->master, gm_t_query, gm_ifp, 0);
@@ -2462,7 +2505,6 @@ static void gm_show_stats_one(struct vty *vty, struct gm_if *gm_ifp,
 		{ "v1 *,G queries sent", "txV1QueryGroup",       &stats->tx_query_old_group },
 		{ "TX errors",           "txErrors",             &stats->tx_query_fail },
 
-		{ "RX system errors",            "rxErrorSys",      &stats->rx_drop_sys },
 		{ "RX dropped (checksum error)", "rxDropChecksum",  &stats->rx_drop_csum },
 		{ "RX dropped (invalid source)", "rxDropSrcAddr",   &stats->rx_drop_srcaddr },
 		{ "RX dropped (invalid dest.)",  "rxDropDstAddr",   &stats->rx_drop_dstaddr },
@@ -2824,7 +2866,6 @@ DEFPY(gm_debug_show,
 	vty_out(vty, "ll_lowest:       %pPA\n\n", &pim_ifp->ll_lowest);
 	vty_out(vty, "t_query:         %pTHD\n", gm_ifp->t_query);
 	vty_out(vty, "t_other_querier: %pTHD\n", gm_ifp->t_other_querier);
-	vty_out(vty, "t_recv:          %pTHD\n", gm_ifp->t_recv);
 	vty_out(vty, "t_expire:        %pTHD\n", gm_ifp->t_expire);
 
 	vty_out(vty, "\nn_pending: %u\n", gm_ifp->n_pending);
