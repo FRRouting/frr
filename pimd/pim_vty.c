@@ -65,23 +65,28 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug igmp packets\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_TRACE) {
+	/* PIM_DEBUG_IGMP_TRACE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_IGMP_TRACE) {
 		vty_out(vty, "debug igmp trace\n");
 		++writes;
 	}
+	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+		vty_out(vty, "debug igmp trace detail\n");
+		++writes;
+	}
 
-	if (PIM_DEBUG_MROUTE) {
+	/* PIM_DEBUG_MROUTE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_MROUTE) {
 		vty_out(vty, "debug mroute\n");
+		++writes;
+	}
+	if (PIM_DEBUG_MROUTE_DETAIL) {
+		vty_out(vty, "debug mroute detail\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_MTRACE) {
 		vty_out(vty, "debug mtrace\n");
-		++writes;
-	}
-
-	if (PIM_DEBUG_MROUTE_DETAIL_ONLY) {
-		vty_out(vty, "debug mroute detail\n");
 		++writes;
 	}
 
@@ -102,11 +107,12 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
+	/* PIM_DEBUG_PIM_TRACE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_PIM_TRACE) {
 		vty_out(vty, "debug pim trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_PIM_TRACE_DETAIL_ONLY) {
+	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		vty_out(vty, "debug pim trace detail\n");
 		++writes;
 	}

@@ -157,23 +157,22 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 	(router->debugs & PIM_MASK_PIM_PACKETDUMP_SEND)
 #define PIM_DEBUG_PIM_PACKETDUMP_RECV                                          \
 	(router->debugs & PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DEBUG_PIM_TRACE (router->debugs & PIM_MASK_PIM_TRACE)
+#define PIM_DEBUG_PIM_TRACE                                                    \
+	(router->debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_PIM_TRACE_DETAIL))
 #define PIM_DEBUG_PIM_TRACE_DETAIL                                             \
-	(router->debugs & (PIM_MASK_PIM_TRACE_DETAIL | PIM_MASK_PIM_TRACE))
-#define PIM_DEBUG_PIM_TRACE_DETAIL_ONLY                                        \
 	(router->debugs & PIM_MASK_PIM_TRACE_DETAIL)
 #define PIM_DEBUG_IGMP_EVENTS (router->debugs & PIM_MASK_IGMP_EVENTS)
 #define PIM_DEBUG_IGMP_PACKETS (router->debugs & PIM_MASK_IGMP_PACKETS)
-#define PIM_DEBUG_IGMP_TRACE (router->debugs & PIM_MASK_IGMP_TRACE)
+#define PIM_DEBUG_IGMP_TRACE                                                   \
+	(router->debugs & (PIM_MASK_IGMP_TRACE | PIM_MASK_IGMP_TRACE_DETAIL))
 #define PIM_DEBUG_IGMP_TRACE_DETAIL                                            \
-	(router->debugs & (PIM_MASK_IGMP_TRACE_DETAIL | PIM_MASK_IGMP_TRACE))
+	(router->debugs & PIM_MASK_IGMP_TRACE_DETAIL)
 #define PIM_DEBUG_ZEBRA (router->debugs & PIM_MASK_ZEBRA)
 #define PIM_DEBUG_MLAG (router->debugs & PIM_MASK_MLAG)
 #define PIM_DEBUG_SSMPINGD (router->debugs & PIM_MASK_SSMPINGD)
-#define PIM_DEBUG_MROUTE (router->debugs & PIM_MASK_MROUTE)
-#define PIM_DEBUG_MROUTE_DETAIL                                                \
-	(router->debugs & (PIM_MASK_MROUTE_DETAIL | PIM_MASK_MROUTE))
-#define PIM_DEBUG_MROUTE_DETAIL_ONLY (router->debugs & PIM_MASK_MROUTE_DETAIL)
+#define PIM_DEBUG_MROUTE                                                       \
+	(router->debugs & (PIM_MASK_MROUTE | PIM_MASK_MROUTE_DETAIL))
+#define PIM_DEBUG_MROUTE_DETAIL (router->debugs & PIM_MASK_MROUTE_DETAIL)
 #define PIM_DEBUG_PIM_HELLO (router->debugs & PIM_MASK_PIM_HELLO)
 #define PIM_DEBUG_PIM_J_P (router->debugs & PIM_MASK_PIM_J_P)
 #define PIM_DEBUG_PIM_REG (router->debugs & PIM_MASK_PIM_REG)
