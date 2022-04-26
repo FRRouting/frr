@@ -3420,7 +3420,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 	 * About Prefix-SID path attribute,
 	 * Label-Index TLV(type1) and The Originator SRGB TLV(type-3)
 	 * may only appear in a BGP Prefix-SID attribute attached to
-	 * IPv4/IPv6 Labeled Unicast prefixes ([RFC8277]).
+	 * IPv4/IPv6 Labeled Unicast prefixes ([RFC3107]).
 	 * It MUST be ignored when received for other BGP AFI/SAFI combinations.
 	 */
 	if (!attr->mp_nexthop_len || mp_update->safi != SAFI_LABELED_UNICAST)

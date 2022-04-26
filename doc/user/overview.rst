@@ -373,8 +373,6 @@ BGP
   :t:`BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder. July 2017.`
 - :rfc:`8212`
   :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
-- :rfc:`8277`
-  :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
 - :rfc:`8654`
   :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
 - :rfc:`9003`

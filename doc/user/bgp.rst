@@ -128,8 +128,8 @@ Multiprotocol extensions enable BGP to carry routing information for multiple
 network layer protocols. BGP supports an Address Family Identifier (AFI) for
 IPv4 and IPv6. Support is also provided for multiple sets of per-AFI
 information via the BGP Subsequent Address Family Identifier (SAFI). FRR
-supports SAFIs for unicast information, labeled information (:rfc:`3107` and
-:rfc:`8277`), and Layer 3 VPN information (:rfc:`4364` and :rfc:`4659`).
+supports SAFIs for unicast information, labeled information (:rfc:`3107`),
+and Layer 3 VPN information (:rfc:`4364` and :rfc:`4659`).
 
 .. _bgp-route-selection:
 
