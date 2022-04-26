@@ -331,13 +331,12 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 			if (if_is_loopback(ifp) && if_is_loopback(src_ifp))
 				return true;
 
-			nbr = pim_neighbor_find_prefix(ifp, &znh->nexthop_addr);
+			nbr = pim_neighbor_find(ifp, znh->nexthop_addr);
 			if (!nbr)
 				continue;
 
-			return znh->ifindex == src_ifp->ifindex
-			       && znh->nexthop_addr.u.prefix4.s_addr
-					  == src_ip.s_addr;
+			return znh->ifindex == src_ifp->ifindex &&
+			       (!pim_addr_cmp(znh->nexthop_addr, src_ip));
 		}
 		return false;
 	}
@@ -406,8 +405,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 void pim_rp_nexthop_del(struct rp_info *rp_info)
 {
 	rp_info->rp.source_nexthop.interface = NULL;
-	pim_addr_to_prefix(&rp_info->rp.source_nexthop.mrib_nexthop_addr,
-			   PIMADDR_ANY);
+	rp_info->rp.source_nexthop.mrib_nexthop_addr = PIMADDR_ANY;
 	rp_info->rp.source_nexthop.mrib_metric_preference =
 		router->infinite_assert_metric.metric_preference;
 	rp_info->rp.source_nexthop.mrib_route_metric =
@@ -510,7 +508,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	uint32_t hash_val = 0, mod_val = 0;
 	uint8_t nh_iter = 0, found = 0;
 	uint32_t i, num_nbrs = 0;
-	pim_addr nh_addr = pim_addr_from_prefix(&(nexthop->mrib_nexthop_addr));
+	pim_addr nh_addr = nexthop->mrib_nexthop_addr;
 	pim_addr src_addr = pim_addr_from_prefix(src);
 	pim_addr grp_addr = pim_addr_from_prefix(grp);
 
@@ -546,9 +544,9 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			if (curr_route_valid &&
 			    !pim_if_connected_to_source(nexthop->interface,
 							src_addr)) {
-				nbr = pim_neighbor_find_prefix(
+				nbr = pim_neighbor_find(
 					nexthop->interface,
-					&nexthop->mrib_nexthop_addr);
+					nexthop->mrib_nexthop_addr);
 				if (!nbr
 				    && !if_is_loopback(nexthop->interface)) {
 					if (PIM_DEBUG_PIM_NHT)
@@ -655,14 +653,10 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 		if (nh_iter == mod_val) {
 			nexthop->interface = ifp;
-			nexthop->mrib_nexthop_addr.family = PIM_AF;
-			nexthop->mrib_nexthop_addr.prefixlen = PIM_MAX_BITLEN;
 #if PIM_IPV == 4
-			nexthop->mrib_nexthop_addr.u.prefix4 =
-				nh_node->gate.ipv4;
+			nexthop->mrib_nexthop_addr = nh_node->gate.ipv4;
 #else
-			nexthop->mrib_nexthop_addr.u.prefix6 =
-				nh_node->gate.ipv6;
+			nexthop->mrib_nexthop_addr = nh_node->gate.ipv6;
 #endif
 			nexthop->mrib_metric_preference = pnc->distance;
 			nexthop->mrib_route_metric = pnc->metric;
@@ -942,8 +936,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		ifps[i] = if_lookup_by_index(nexthop_tab[i].ifindex,
 					     pim->vrf->vrf_id);
 		if (ifps[i]) {
-			nbrs[i] = pim_neighbor_find_prefix(
-				ifps[i], &nexthop_tab[i].nexthop_addr);
+			nbrs[i] = pim_neighbor_find(
+				ifps[i], nexthop_tab[i].nexthop_addr);
 			if (nbrs[i] ||
 			    pim_if_connected_to_source(ifps[i], src_addr))
 				num_nbrs++;
@@ -1006,7 +1000,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 					mod_val++;
 				if (PIM_DEBUG_PIM_NHT)
 					zlog_debug(
-						"%s: NBR (%pFXh) not found on input interface %s(%s) (RPF for source %pPA)",
+						"%s: NBR (%pPA) not found on input interface %s(%s) (RPF for source %pPA)",
 						__func__,
 						&nexthop_tab[i].nexthop_addr,
 						ifp->name, pim->vrf->name,
@@ -1017,19 +1011,13 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		}
 
 		if (i == mod_val) {
-			if (PIM_DEBUG_PIM_NHT) {
-				char nexthop_str[PREFIX_STRLEN];
-
-				pim_addr_dump("<nexthop?>",
-					      &nexthop_tab[i].nexthop_addr,
-					      nexthop_str, sizeof(nexthop_str));
+			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
-					"%s: found nhop %s for addr %pPA interface %s(%s) metric %d dist %d",
-					__func__, nexthop_str, &src_addr,
-					ifp->name, pim->vrf->name,
+					"%s: found nhop %pPA for addr %pPA interface %s(%s) metric %d dist %d",
+					__func__, &nexthop_tab[i].nexthop_addr,
+					&src_addr, ifp->name, pim->vrf->name,
 					nexthop_tab[i].route_metric,
 					nexthop_tab[i].protocol_distance);
-			}
 			/* update nexthop data */
 			nexthop->interface = ifp;
 			nexthop->mrib_nexthop_addr =
