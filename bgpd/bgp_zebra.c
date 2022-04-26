@@ -236,6 +236,14 @@ static int bgp_ifp_up(struct interface *ifp)
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	bgp_nht_ifp_up(ifp);
 
+	if (bgp_get_default() && if_is_loopback(ifp)) {
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
+		vpn_leak_postchange_all();
+	}
+
 	return 0;
 }
 
@@ -282,6 +290,14 @@ static int bgp_ifp_down(struct interface *ifp)
 
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
 	bgp_nht_ifp_down(ifp);
+
+	if (bgp_get_default() && if_is_loopback(ifp)) {
+		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
+		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP6);
+		vpn_leak_postchange_all();
+	}
 
 	return 0;
 }
