@@ -7,6 +7,7 @@
 #define ISIS_BFD_H
 
 /* RFC6213 MTID/NLPID supported pair */
+#define ISIS_BFD_MT_NLP_UNDEFINED	  0x0
 #define ISIS_BFD_MT_STANDARD_NLP_IPV4	  0x1
 #define ISIS_BFD_MT_STANDARD_NLP_IPV6	  0x2
 #define ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6 0x4
@@ -21,11 +22,33 @@ struct bfd_conf;
 struct bfd_local_mtnlpid {
 	uint16_t mtid;
 	uint8_t nlpid;
+
+	/* RFC6213 variables have been inited.
+	 * Display debug log if false.
+	 */
+	bool inited;
+
+	/* RFC6213 variables */
+	/* ISIS_TOPO_NLPID_BFD_REQUIRED */
+	bool topo_nlpid_bfd_required;
+	/* ISIS_TOPO_NLPID_STATE */
+	bool topo_nlpid_state;
 };
 
 /* Locally supported topologies (MTID) */
 struct bfd_local_mtid {
 	uint16_t mtid;
+
+	/* RFC6213 variables have been inited.
+	 * Display debug log if false.
+	 */
+	bool inited;
+
+	/* RFC6213 variables */
+	/* ISIS_TOPO_BFD_REQUIRED */
+	bool topo_bfd_required;
+	/* ISIS_TOPO_USEABLE */
+	bool topo_useable;
 };
 
 struct bfd_rfc6213_params {
@@ -36,9 +59,20 @@ struct bfd_rfc6213_params {
 	struct list *local_mtnlpid_lst;
 	/* list of locally supported MTID*/
 	struct list *local_mtid_lst;
-};
 
-void isis_bfd_adjacency_update_rfc6213_local_params(struct isis_adjacency *adj);
+	/* RFC6213 and internal variables have been inited.
+	 * Display debug log if false.
+	 */
+	bool inited;
+
+	/* RFC6213 variables */
+	/* ISIS_BFD_REQUIRED */
+	bool bfd_required;
+	/* previous ISIS_BFD_REQUIRED */
+	bool bfd_required_last;
+	/* ISIS_NEIGHBOR_USEABLE */
+	bool neighbor_useable;
+};
 
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit);
 void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit);
