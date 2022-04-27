@@ -30,7 +30,7 @@
 #include "bgpd/bgp_ecommunity.h"
 
 /* need these to link in libbgp */
-struct zebra_privs_t *bgpd_privs = NULL;
+struct zebra_privs_t bgpd_privs = {};
 struct thread_master *master = NULL;
 
 static int failed = 0;

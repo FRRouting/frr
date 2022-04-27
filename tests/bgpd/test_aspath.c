@@ -40,7 +40,7 @@
 #define FAILED VT100_RED "failed" VT100_RESET
 
 /* need these to link in libbgp */
-struct zebra_privs_t *bgpd_privs = NULL;
+struct zebra_privs_t bgpd_privs = {};
 struct thread_master *master = NULL;
 
 static int failed = 0;

@@ -37,7 +37,7 @@
 #include "bgpd/bgp_network.h"
 
 /* need these to link in libbgp */
-struct zebra_privs_t *bgpd_privs = NULL;
+struct zebra_privs_t bgpd_privs = {};
 struct thread_master *master = NULL;
 
 static struct bgp *bgp;
