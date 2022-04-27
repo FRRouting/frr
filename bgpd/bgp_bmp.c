@@ -761,8 +761,8 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 	struct peer *peer;
 	struct listnode *node;
 	struct stream *s, *s2;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	frrtrace(3, frr_bgp, bmp_eor, afi, safi, flags);
 
