@@ -7,13 +7,16 @@ Ease of access wrappers around PDML-formatted packet dumps
 
 import xml.etree.ElementTree as etree
 
-from typing import Tuple, Optional, Union, Any
+from typing import Tuple, Optional, Union, List, Any, TYPE_CHECKING
 
 try:
     from typing import OrderedDict
 except ImportError:
     # python 3.6
     from typing import Dict as OrderedDict  # type: ignore
+
+if TYPE_CHECKING:
+    from .base import TopotatoItem
 
 
 class _IndexChainMixin:
@@ -118,6 +121,8 @@ class PDMLProto(PDMLData):
 class PDMLPacket(_IndexChainMixin, OrderedDict[Tuple[str, int], PDMLProto]):
     _xmlpkt: etree.Element
     ts: float
+
+    match_for: List["TopotatoItem"]
 
     def __init__(self, xmlpkt: etree.Element):
         super().__init__()

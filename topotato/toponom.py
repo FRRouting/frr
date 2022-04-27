@@ -48,11 +48,11 @@ def addr2iface(addr: AnyAddress, plen: int) -> AnyInterface:
 lo4_net = ipaddress.IPv4Interface("10.255.0.0/24")
 lo6_net = ipaddress.IPv6Interface("fd00::/64")
 lan4_net = lambda n: addr2net(
-    ipaddress.IPv4Address("10.0.0.0") + (100 + n) * 2 ** 16, 16
+    ipaddress.IPv4Address("10.0.0.0") + (100 + n) * 2**16, 16
 )
-lan6_net = lambda n: addr2net(ipaddress.IPv6Address("fdbc::") + n * 2 ** 96, 64)
+lan6_net = lambda n: addr2net(ipaddress.IPv6Address("fdbc::") + n * 2**96, 64)
 p2p_ip4 = lambda g, a, b: addr2iface(
-    ipaddress.IPv4Address("10.0.0.0") + g * 2 ** 16 + a * 2 ** 8 + b, 16
+    ipaddress.IPv4Address("10.0.0.0") + g * 2**16 + a * 2**8 + b, 16
 )
 
 
@@ -306,7 +306,11 @@ class Router(NOMLinked):
 %s
 </table>>, style = filled, fillcolor="#ffffff"
 ];"""
-            % (self.dotname, self.dotname, "\n".join(["<tr>%s</tr>" % row for row in tabrows]))
+            % (
+                self.dotname,
+                self.dotname,
+                "\n".join(["<tr>%s</tr>" % row for row in tabrows]),
+            )
         )
 
 
@@ -428,10 +432,10 @@ class LinkIface(NOMNode):
 
     @property
     def ll6(self):
-        mac = self.macaddr.replace(':', '')
-        eui = bytearray(binascii.a2b_hex(''.join([mac[:6], 'fffe', mac[6:]])))
+        mac = self.macaddr.replace(":", "")
+        eui = bytearray(binascii.a2b_hex("".join([mac[:6], "fffe", mac[6:]])))
         eui[0] ^= 0x2
-        addr = binascii.a2b_hex('fe80000000000000') + eui
+        addr = binascii.a2b_hex("fe80000000000000") + eui
         return ipaddress.IPv6Address(bytes(addr))
 
 
@@ -622,7 +626,9 @@ class Network:
         out += ["graph net {"]
         out += ["  rankdir = LR;"]
         out += ["  margin = 0;"]
-        out += ['  node [ margin=0, fontname="Inconsolata Semi-Condensed", fontsize=15 ];']
+        out += [
+            '  node [ margin=0, fontname="Inconsolata Semi-Condensed", fontsize=15 ];'
+        ]
         out += ['  edge [ margin=0, fontname="Inconsolata Semi-Condensed", minlen=2 ];']
         out += ["  rank=same { "]
         for r in self.routers.values():
@@ -656,7 +662,8 @@ def test():
     pprint(sorted(net.routers.values()))
     pprint(sorted(net.lans.values()))
     pprint(sorted(net.links.items()))
-    open("network.dot", "w").write(net.dot())
+    with open("network.dot", "w", encoding="utf-8") as fd:
+        fd.write(net.dot())
 
     return net
 
