@@ -3596,8 +3596,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			       struct attr *attr)
 {
 	size_t sizep;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	afi_t nh_afi;
 
 	/* Set extended bit always to encode the attribute length as 2 bytes */
@@ -4404,8 +4404,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi, safi_t safi)
 {
 	unsigned long attrlen_pnt;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	/* Set extended bit always to encode the attribute length as 2 bytes */
 	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN);
