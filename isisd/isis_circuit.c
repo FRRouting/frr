@@ -1424,10 +1424,6 @@ static int isis_interface_config_write(struct vty *vty)
 					circuit->passwd.passwd);
 				write++;
 			}
-			if (circuit->bfd_config.enabled) {
-				vty_out(vty, " " PROTO_NAME " bfd\n");
-				write++;
-			}
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
 		} while (0);
