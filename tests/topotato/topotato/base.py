@@ -13,6 +13,7 @@ import time
 import subprocess
 import signal
 import logging
+import struct
 from abc import ABC, abstractmethod
 
 import typing
@@ -37,7 +38,7 @@ from _pytest import nodes
 
 # from _pytest.mark.structures import Mark
 
-from .exceptions import TopotatoFail
+from .exceptions import *
 from .liveshark import LiveShark
 from .utils import ClassHooks
 
@@ -65,7 +66,7 @@ class _SkipTrace(set):
 
     def __repr__(self):
         # this is pretty much just for sphinx/autodoc
-        return '<%s.%s>' % (self.__class__.__module__, self.__class__.__name__)
+        return "<%s.%s>" % (self.__class__.__module__, self.__class__.__name__)
 
     def get_callers(self) -> List[inspect.FrameInfo]:
         """
@@ -105,6 +106,10 @@ class TimedElement(ABC):
 
     Sortable by timestamp, and possibly with a HTML conversion function.
     """
+    def __init__(self):
+        super().__init__()
+        self.match_for = []
+
     @abstractmethod
     def ts(self):
         raise NotImplementedError()
@@ -225,7 +230,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
     ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], None]:
 
         parent, name = yield None
-        self = cls.from_parent(parent, name + namesuffix, *args, **kwargs)
+        self = cls.from_parent(parent, namesuffix, *args, **kwargs)
         self._codeloc = codeloc
         yield self
 
@@ -238,24 +243,28 @@ class TopotatoItem(nodes.Item, ClassHooks):
         self._request._fillfixtures()
         self.instance = self.funcargs[self._obj.instancefn.__name__]
 
+    @skiptrace
     def runtest(self):
         """
         Called by pytest in the "call" stage (pytest_runtest_call)
         """
-        if self.skipall:
-            pytest.skip(self.skipall)
+        testinst = self.getparent(TopotatoInstance)
+        if testinst.skipall:
+            raise TopotatoEarlierFailSkip() from testinst.skipall
         # pylint: disable=not-callable
         self()
 
-    def sleep(self, step, until):
+    def sleep(self, step=None, until=None):
         obj = self
-        while getattr(obj, 'started_ts', None) is None:
+        while getattr(obj, "started_ts", None) is None:
             obj = obj.parent
 
-        abs_until = obj.started_ts + until
-        # TODO: don't hardcode liveshark here...
-        for _ in self.parent.liveshark.run(step, abs_until):
-            pass
+        abs_until = obj.started_ts + (until or float("inf"))
+        abs_delay = time.time() + (step or float("inf"))
+        deadline = min(abs_until, abs_delay)
+
+        tinst = self.getparent(TopotatoInstance)
+        tinst.netinst.poller.sleep(deadline - time.time())
 
     def reportinfo(self):  # -> Tuple[Union[py.path.local, str], int, str]:
         fspath = self._codeloc.filename
@@ -316,80 +325,27 @@ class InstanceStartup(TopotatoItem):
 
     Includes starting tshark and checking all daemons are running.
     """
+
     commands: OrderedDict
 
     # pylint: disable=arguments-differ
     @classmethod
     def from_parent(cls, parent):
+        assert isinstance(parent, TopotatoInstance)
+
         self = super().from_parent(parent, name="startup")
         return self
 
     def reportinfo(self):
-        fspath, _, _ = self.parent.parent.reportinfo()
+        fspath, _, _ = self.getparent(TopotatoClass).reportinfo()
         return fspath, float("-inf"), "startup"
 
     def runtest(self):
-        if self.skipall:
-            pytest.skip(self.skipall)
-
-        self.parent.starting_ts = time.time()
-
-        self.instance.start()
-        time.sleep(0.2)
-        # self.instance.status()
-
-        self.commands = OrderedDict()
-
-        failed = []
-        for rtr in self.instance.network.routers.keys():
-            router = self.instance.routers[rtr]
-
-            for daemon in self.instance.configs.daemons:
-                if not self.instance.configs.want_daemon(rtr, daemon):
-                    continue
-
-                out, rc = router.vtysh_fast(daemon, "show version")
-                self.commands.setdefault((rtr, daemon), []).append(
-                    ("show version", out, rc, None)
-                )
-                if rc != 0:
-                    failed.append((rtr, daemon))
-
-        if len(failed) > 0:
-            raise ValueError("daemons failed to start: %r" % failed)
-
-        # let tshark decode in the background (otherwise it adds a few seconds
-        # during shutdown to dump everything)
-        self.parent.pcap_tail_f = None
-        self.parent.tshark_proc = None
-        pdml_rd = None
-
-        # pylint: disable=consider-using-with
-        if getattr(self.instance, "pcapfile", None):
-            for _ in range(0, 10):
-                if os.path.exists(self.instance.pcapfile):
-                    break
-                time.sleep(0.025)
-
-            pcap_rd, pcap_wr = os.pipe()
-            pdml_rd, pdml_wr = os.pipe()
-
-            self.parent.pcap_tail_f = subprocess.Popen(
-                ["tail", "-f", "-c", "+0", self.instance.pcapfile],
-                stdout=pcap_wr,
-            )
-            self.parent.tshark_proc = subprocess.Popen(
-                ["tshark", "-r", "-", "-q", "-l", "-T", "pdml"],
-                stdout=pdml_wr,
-                stdin=pcap_rd,
-            )
-
-            os.close(pcap_rd)
-            os.close(pcap_wr)
-            os.close(pdml_wr)
-
-        self.parent.started_ts = time.time()
-        self.parent.liveshark = LiveShark(pdml_rd, self.parent.started_ts)
+        try:
+            self.parent.do_start(self)
+        except TopotatoFail as e:
+            self.parent.skipall = e
+            raise
 
 
 # false warning on get_closest_marker()
@@ -405,31 +361,17 @@ class InstanceShutdown(TopotatoItem):
     # pylint: disable=arguments-differ
     @classmethod
     def from_parent(cls, parent):
+        assert isinstance(parent, TopotatoInstance)
+
         self = super().from_parent(parent, name="shutdown")
         return self
 
     def reportinfo(self):
-        fspath, _, _ = self.parent.parent.reportinfo()
+        fspath, _, _ = self.getparent(TopotatoClass).reportinfo()
         return fspath, float("inf"), "shutdown"
 
     def runtest(self):
-        if self.skipall:
-            pytest.skip(self.skipall)
-
-        self.instance.stop()
-
-        if self.parent.pcap_tail_f:
-            self.parent.pcap_tail_f.send_signal(signal.SIGINT)
-            self.parent.pcap_tail_f.wait()
-
-            assert self.parent.tshark_proc
-
-            for _ in self.parent.liveshark.run(15.0, expect_eof=True):
-                pass
-
-            if self.parent.tshark_proc.wait() != 0:
-                logger.error("tshark nonzero exit")
-            self.parent.liveshark.close()
+        self.parent.do_stop(self)
 
 
 class TestBase:
@@ -451,7 +393,7 @@ class TestBase:
        @instance_fixture()
        def testenv(configs):
            return FRRNetworkInstance(configs.topology, configs).prepare()
-      
+
        class MyTest(TestBase):
            instancefn = testenv
 
@@ -548,19 +490,63 @@ class TopotatoWrapped:
         Refer to :py:meth:`TestBase._topotato_makeitem`, this is the method
         level equivalent of that.
         """
-        return list(collector._topotato_child(name, obj))
+        return [TopotatoFunction.from_hook(obj, collector, name)]
 
 
 def topotatofunc(fn):
     """
     Decorator to mark methods as item-yielding test generators.
 
-    .. todo:: 
-     
+    .. todo::
+
        Just decorate with :py:class:`TopotatoWrapped` directly?  A class as
        decorator does look a bit weird though...
     """
     return TopotatoWrapped(fn)
+
+
+class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
+    # pylint: disable=protected-access
+    @classmethod
+    def from_hook(cls, obj, collector, name):
+        self = super().from_parent(collector, name=name)
+        self._obj = obj._call
+        self._obj_raw = obj
+
+        return self
+
+    @skiptrace
+    def collect(self) -> Union[
+        None, nodes.Item, nodes.Collector, List[Union[nodes.Item, nodes.Collector]]
+    ]:
+        # obj contains unbound methods; get bound instead
+        method = getattr(self.parent.obj, self.name)
+        assert callable(method)
+
+        tcls = self.getparent(TopotatoClass)
+        topo = tcls.obj.instancefn.net
+
+        # pylint: disable=protected-access
+        argspec = inspect.getfullargspec(method._call).args[2:]
+        args = []
+        for argname in argspec:
+            args.append(topo.routers[argname])
+
+        iterator = method(topo, *args)
+
+        tests = []
+        sendval = None
+        try:
+            while True:
+                value = iterator.send(sendval)
+                if value is not None:
+                    logger.debug("collect on: %r test: %r", self, value)
+                    tests.append(value)
+                sendval = (self, self.name)
+        except StopIteration:
+            pass
+
+        return tests
 
 
 # false warning on get_closest_marker()
@@ -582,6 +568,19 @@ class TopotatoInstance(_pytest.python.Instance):
     Parent in the pytest sense, in this case the class definition.
     """
 
+    # pylint: disable=protected-access
+    @classmethod
+    def from_parent(
+        cls: Type["TopotatoInstance"], parent: nodes.Node, *args, **kw
+    ) -> "TopotatoInstance":
+        self = super().from_parent(parent, *args, **kw)
+
+        self.skipall = None
+
+        self.pcap_tail_f = None
+        self.tshark_proc = None
+        return self
+
     def collect(self):
         """
         Tell pytest our test items, in this case adding startup/shutdown.
@@ -596,44 +595,95 @@ class TopotatoInstance(_pytest.python.Instance):
         yield from super().collect()
         yield InstanceShutdown.from_parent(self)
 
-    # pytest 6.0.x => _makeitem()
-    # pytest 6.2.x => _genfunctions()
+    def do_start(self, startitem):
+        if self.skipall:
+            pytest.skip(self.skipall)
 
-    @skiptrace
-    def _topotato_child(
-        self, name: str, obj: object
-    ) -> Union[
-        None, nodes.Item, nodes.Collector, List[Union[nodes.Item, nodes.Collector]]
-    ]:
-        assert isinstance(obj, TopotatoWrapped)
+        self.starting_ts = time.time()
 
-        # obj contains unbound methods; get bound instead
-        method = getattr(self.obj, name)
-        assert callable(method)
+        self.netinst = netinst = startitem.instance
 
-        topo = self.parent.obj.instancefn.net
+        netinst.start()
+        netinst.poller.sleep(0.2)
+        # netinst.status()
 
-        # pylint: disable=protected-access
-        argspec = inspect.getfullargspec(method._call).args[2:]
-        args = []
-        for argname in argspec:
-            args.append(topo.routers[argname])
+        startitem.commands = OrderedDict()
 
-        iterator = method(topo, *args)
+        failed = []
+        for rtr in netinst.network.routers.keys():
+            router = netinst.routers[rtr]
 
-        tests = []
-        sendval = None
-        try:
-            while True:
-                value = iterator.send(sendval)
-                if value is not None:
-                    logger.debug("collect on: %r test: %r", self, value)
-                    tests.append(value)
-                sendval = (self, name)
-        except StopIteration:
-            pass
+            for daemon in netinst.configs.daemons:
+                if not netinst.configs.want_daemon(rtr, daemon):
+                    continue
 
-        return tests
+                try:
+                    out, rc = router.vtysh_fast(daemon, "show version")
+                except ConnectionRefusedError as e:
+                    failed.append((rtr, daemon))
+                startitem.commands.setdefault((rtr, daemon), []).append(
+                    ("show version", out, rc, None)
+                )
+                if rc != 0:
+                    failed.append((rtr, daemon))
+
+        if len(failed) > 0:
+            netinst.poller.sleep(0)
+            raise TopotatoDaemonCrash("daemons failed to start: %r" % failed)
+
+        # let tshark decode in the background (otherwise it adds a few seconds
+        # during shutdown to dump everything)
+        pdml_rd = None
+
+        # pylint: disable=consider-using-with
+        if getattr(netinst, "pcapfile", None):
+            for _ in range(0, 10):
+                if os.path.exists(netinst.pcapfile):
+                    break
+                time.sleep(0.025)
+
+            pcap_rd, pcap_wr = os.pipe()
+            pdml_rd, pdml_wr = os.pipe()
+
+            self.pcap_tail_f = subprocess.Popen(
+                ["tail", "-f", "-c", "+0", netinst.pcapfile],
+                stdout=pcap_wr,
+            )
+            self.tshark_proc = subprocess.Popen(
+                ["tshark", "-r", "-", "-q", "-l", "-T", "pdml"],
+                stdout=pdml_wr,
+                stdin=pcap_rd,
+            )
+
+            os.close(pcap_rd)
+            os.close(pcap_wr)
+            os.close(pdml_wr)
+
+        self.started_ts = time.time()
+        self.liveshark = LiveShark(pdml_rd, self.started_ts)
+        netinst.poller.append(self.liveshark)
+
+    def do_stop(self, stopitem):
+        netinst = stopitem.instance
+
+        netinst.stop()
+
+        if self.pcap_tail_f:
+            self.pcap_tail_f.send_signal(signal.SIGINT)
+            self.pcap_tail_f.wait()
+
+            self.liveshark.expect_eof = True
+
+        for router in netinst.routers.values():
+            for daemonlog in router.livelogs.values():
+                daemonlog.close_prep()
+
+        netinst.poller.sleep(2, final=True) # FIXME
+
+        if self.tshark_proc:
+            if self.tshark_proc.wait(timeout=2.0) != 0:
+                logger.error("tshark nonzero exit")
+            self.liveshark.close()
 
 
 # false warning on get_closest_marker()
@@ -646,6 +696,7 @@ class TopotatoClass(_pytest.python.Class):
     one of this here rather than the regular :py:class:`_pytest.python.Class`.
     This allows us to customize behavior.
     """
+
     _instance: TopotatoInstance
     _obj: Type[TestBase]
 

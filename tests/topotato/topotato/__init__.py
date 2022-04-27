@@ -6,6 +6,7 @@ Welcome to 🔝🥔.  Because a potato is better than topotests.
 """
 
 from .frr import FRRNetworkInstance, FRRConfigs
-from .base import TestBase
+from .base import TestBase, topotatofunc
 from .fixtures import *
 from .assertions import *
+from .utils import JSONCompareIgnoreContent

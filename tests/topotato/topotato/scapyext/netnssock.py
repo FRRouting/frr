@@ -12,9 +12,9 @@ import errno
 import threading
 from fcntl import ioctl
 
-import scapy.fields
-import scapy.layers.l2
-from scapy.config import conf
+import scapy.fields  # type: ignore
+import scapy.layers.l2  # type: ignore
+from scapy.config import conf  # type: ignore
 
 SIOCGIFADDR = 0x8915
 

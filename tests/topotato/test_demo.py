@@ -77,10 +77,16 @@ def testenv(configs):
 
 
 class AllStartupTest(TestBase):
+    """
+    docstring here
+    """
     instancefn = testenv
 
     @topotatofunc
     def test_running(self, topo, r1):
+        """
+        just check that all daemons are running
+        """
         for daemon in Configs.daemons:
             if not hasattr(Configs, daemon):
                 continue

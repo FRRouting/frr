@@ -19,9 +19,8 @@ After you set everything up, run:
 You can also put frr-builddir in pytest.ini (example included.)
 
 REQUIREMENTS:
-- python >= 3.6
+- python >= 3.8 (3.6 used to work but not actively tested)
 - pytest >= 6.0
-- pytest-html
 - graphviz
 - tshark
 - dumpcap

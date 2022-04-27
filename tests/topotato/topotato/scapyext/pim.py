@@ -13,8 +13,8 @@ import struct
 from enum import Enum
 from typing import ClassVar
 
-from scapy.packet import bind_layers, Packet
-from scapy.fields import (
+from scapy.packet import bind_layers, Packet  # type: ignore
+from scapy.fields import (  # type: ignore
     Field,
     BitField,
     BitEnumField,
@@ -24,12 +24,12 @@ from scapy.fields import (
     ShortField,
     XShortField,
 )
-from scapy.layers.inet import IP, DestIPField
-from scapy.layers.inet6 import IPv6
-from scapy.utils import checksum
-from scapy.volatile import RandShort
-from scapy.error import Scapy_Exception
-from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.layers.inet import IP, DestIPField  # type: ignore
+from scapy.layers.inet6 import IPv6  # type: ignore
+from scapy.utils import checksum  # type: ignore
+from scapy.volatile import RandShort  # type: ignore
+from scapy.error import Scapy_Exception  # type: ignore
+from scapy.pton_ntop import inet_ntop, inet_pton  # type: ignore
 
 
 class PIM_Types(Enum):
