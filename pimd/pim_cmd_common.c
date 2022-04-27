@@ -898,12 +898,8 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		char rpf_addr_str[PREFIX_STRLEN];
 		const char *rpf_ifname;
 		struct pim_rpf *rpf = &up->rpf;
-
-		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
-			      sizeof(rpf_addr_str));
 
 		rpf_ifname =
 			rpf->source_nexthop.interface ? rpf->source_nexthop
@@ -932,8 +928,8 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 			json_object_string_add(json_row, "group", grp_str);
 			json_object_string_add(json_row, "rpfInterface",
 					       rpf_ifname);
-			json_object_string_add(json_row, "rpfAddress",
-					       rpf_addr_str);
+			json_object_string_addf(json_row, "rpfAddress", "%pPA",
+						&rpf->rpf_addr);
 			json_object_string_addf(
 				json_row, "ribNexthop", "%pPAs",
 				&rpf->source_nexthop.mrib_nexthop_addr);
@@ -947,9 +943,9 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 
 		} else {
 			vty_out(vty,
-				"%-15pPAs %-15pPAs %-16s %-15s %-15pPAs %6d %4d\n",
+				"%-15pPAs %-15pPAs %-16s %-15pPA %-15pPAs %6d %4d\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
-				rpf_addr_str,
+				&rpf->rpf_addr,
 				&rpf->source_nexthop.mrib_nexthop_addr,
 				rpf->source_nexthop.mrib_route_metric,
 				rpf->source_nexthop.mrib_metric_preference);
@@ -1352,9 +1348,9 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		if (!up->t_join_timer && up->rpf.source_nexthop.interface) {
 			struct pim_neighbor *nbr;
 
-			nbr = pim_neighbor_find_prefix(
+			nbr = pim_neighbor_find(
 				up->rpf.source_nexthop.interface,
-				&up->rpf.rpf_addr);
+				up->rpf.rpf_addr);
 			if (nbr)
 				pim_time_timer_to_hhmmss(join_timer,
 							 sizeof(join_timer),
@@ -1418,7 +1414,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 
 				rpg = RP(pim, up->sg.grp);
 				json_object_string_addf(json_row, "rpfAddress",
-							"%pFX", &rpg->rpf_addr);
+							"%pPA", &rpg->rpf_addr);
 			} else {
 				json_object_string_add(json_row, "rpfAddress",
 						       src_str);
@@ -1534,14 +1530,10 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		char rpf_addr_str[PREFIX_STRLEN];
 		struct pim_rpf *rpf;
 		const char *rpf_ifname;
 
 		rpf = &up->rpf;
-
-		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
-			      sizeof(rpf_addr_str));
 
 		rpf_ifname =
 			rpf->source_nexthop.interface ? rpf->source_nexthop
@@ -1573,14 +1565,15 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			json_object_string_addf(
 				json_row, "ribNexthop", "%pPAs",
 				&rpf->source_nexthop.mrib_nexthop_addr);
-			json_object_string_add(json_row, "rpfAddress",
-					       rpf_addr_str);
+			json_object_string_addf(json_row, "rpfAddress", "%pPA",
+						&rpf->rpf_addr);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty, "%-15pPAs %-15pPAs %-16s %-15pPA %-15s\n",
+			vty_out(vty,
+				"%-15pPAs %-15pPAs %-16s %-15pPA %-15pPA\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
 				&rpf->source_nexthop.mrib_nexthop_addr,
-				rpf_addr_str);
+				&rpf->rpf_addr);
 		}
 	}
 
@@ -2657,11 +2650,10 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
-		pim_addr rpf_addr = pim_addr_from_prefix(&pnc->rpf.rpf_addr);
 
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 
-		vty_out(vty, "%-15pPAs ", &rpf_addr);
+		vty_out(vty, "%-15pPA ", &pnc->rpf.rpf_addr);
 		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
 #if PIM_IPV == 4
 		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
@@ -2688,19 +2680,17 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 	json_object *json_arr = NULL;
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
-		pim_addr rpf_addr;
-
 		first_ifindex = nh_node->ifindex;
-		rpf_addr = pim_addr_from_prefix(&pnc->rpf.rpf_addr);
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
-		snprintfrr(addr_str, sizeof(addr_str), "%pPAs", &rpf_addr);
+		snprintfrr(addr_str, sizeof(addr_str), "%pPA",
+			   &pnc->rpf.rpf_addr);
 		json_object_object_get_ex(cwd->json_obj, addr_str, &json_row);
 		if (!json_row) {
 			json_row = json_object_new_object();
-			json_object_string_addf(json_row, "address", "%pPAs",
-						&rpf_addr);
-			json_object_object_addf(cwd->json_obj, json_row,
-						"%pPAs", &rpf_addr);
+			json_object_string_addf(json_row, "address", "%pPA",
+						&pnc->rpf.rpf_addr);
+			json_object_object_addf(cwd->json_obj, json_row, "%pPA",
+						&pnc->rpf.rpf_addr);
 			json_arr = json_object_new_array();
 			json_object_object_add(json_row, "nexthops", json_arr);
 		}
@@ -2722,7 +2712,6 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 				       pim_addr source, pim_addr group)
 {
-	struct prefix nht_p;
 	int result = 0;
 	pim_addr vif_source;
 	struct prefix grp;
@@ -2752,11 +2741,11 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
 		return CMD_SUCCESS;
 
-	pim_addr_to_prefix(&nht_p, vif_source);
 	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	result = pim_ecmp_nexthop_lookup(v->info, &nexthop, &nht_p, &grp, 0);
+	result =
+		pim_ecmp_nexthop_lookup(v->info, &nexthop, vif_source, &grp, 0);
 
 	if (!result) {
 		vty_out(vty,
