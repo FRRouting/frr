@@ -86,7 +86,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		 * If the RP sent in the message is not
 		 * our RP for the group, drop the message
 		 */
-		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
+		rpf_addr = rp->rpf_addr;
 		if (pim_addr_cmp(sg->src, rpf_addr)) {
 			zlog_warn(
 				"%s: Specified RP(%pPAs) in join is different than our configured RP(%pPAs)",
@@ -427,7 +427,6 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	size_t packet_left = 0;
 	size_t packet_size = 0;
 	size_t group_size = 0;
-	pim_addr rpf_addr;
 
 	if (rpf->source_nexthop.interface)
 		pim_ifp = rpf->source_nexthop.interface->info;
@@ -436,9 +435,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		return -1;
 	}
 
-	rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
 
-	on_trace(__func__, rpf->source_nexthop.interface, rpf_addr);
+	on_trace(__func__, rpf->source_nexthop.interface, rpf->rpf_addr);
 
 	if (!pim_ifp) {
 		zlog_warn("%s: multicast not enabled on interface %s", __func__,
@@ -446,11 +444,11 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		return -1;
 	}
 
-	if (pim_addr_is_any(rpf_addr)) {
+	if (pim_addr_is_any(rpf->rpf_addr)) {
 		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug(
 				"%s: upstream=%pPA is myself on interface %s",
-				__func__, &rpf_addr,
+				__func__, &rpf->rpf_addr,
 				rpf->source_nexthop.interface->name);
 		return 0;
 	}
@@ -473,7 +471,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			memset(msg, 0, sizeof(*msg));
 
 			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
-						  rpf_addr);
+						  rpf->rpf_addr);
 			msg->reserved = 0;
 			msg->holdtime = htons(PIM_JP_HOLDTIME);
 
@@ -492,7 +490,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug(
 				"%s: sending (G)=%pPAs to upstream=%pPA on interface %s",
-				__func__, &group->group, &rpf_addr,
+				__func__, &group->group, &rpf->rpf_addr,
 				rpf->source_nexthop.interface->name);
 
 		group_size = pim_msg_get_jp_group_size(group->sources);
@@ -516,7 +514,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			memset(msg, 0, sizeof(*msg));
 
 			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
-						  rpf_addr);
+						  rpf->rpf_addr);
 			msg->reserved = 0;
 			msg->holdtime = htons(PIM_JP_HOLDTIME);
 
