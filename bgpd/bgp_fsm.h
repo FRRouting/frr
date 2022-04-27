@@ -110,14 +110,14 @@
 	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
 
 #define BGP_PEER_RESTARTING_MODE(peer)                                         \
-	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)                   \
-	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV)                    \
-	 && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&                \
+	 CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV) &&         \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 
 #define BGP_PEER_HELPER_MODE(peer)                                             \
-	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER)            \
-	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)                    \
-	 && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV))
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER) &&         \
+	 CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV) &&         \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV))
 
 /* Prototypes. */
 

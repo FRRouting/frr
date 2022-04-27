@@ -1176,8 +1176,10 @@ struct peer {
 #define PEER_CAP_RESTART_RCV                (1U << 6) /* restart received */
 #define PEER_CAP_AS4_ADV                    (1U << 7) /* as4 advertised */
 #define PEER_CAP_AS4_RCV                    (1U << 8) /* as4 received */
-#define PEER_CAP_RESTART_BIT_ADV            (1U << 9) /* sent restart state */
-#define PEER_CAP_RESTART_BIT_RCV            (1U << 10) /* peer restart state */
+/* sent graceful-restart restart (R) bit */
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV (1U << 9)
+/* received graceful-restart restart (R) bit */
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV (1U << 10)
 #define PEER_CAP_ADDPATH_ADV                (1U << 11) /* addpath advertised */
 #define PEER_CAP_ADDPATH_RCV                (1U << 12) /* addpath received */
 #define PEER_CAP_ENHE_ADV                   (1U << 13) /* Extended nexthop advertised */
