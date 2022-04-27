@@ -100,6 +100,7 @@ void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
 			     struct isis_adjacency *adj, bool *changed);
 void bfd_handle_adj_down(struct isis_adjacency *adj, uint8_t family,
 			 const char *reason);
+bool isis_bfd_dont_update_adjacency_holdtime(struct isis_adjacency *adj);
 
 void isis_bfd_init(struct event_loop *tm);
 

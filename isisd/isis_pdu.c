@@ -115,6 +115,17 @@ struct iih_info {
 	int calculated_type;
 };
 
+static void
+isis_pdu_log_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
+{
+	struct isis_circuit *circuit = adj->circuit;
+
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug("ISIS-Adj (%s): IIH from L%u adjacency %s received. holdtime not maintained.",
+			   circuit->area->area_tag, adj->level,
+			   isis_adj_name(adj));
+}
+
 static int process_p2p_hello(struct iih_info *iih)
 {
 	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;
@@ -255,19 +266,26 @@ static int process_p2p_hello(struct iih_info *iih)
 	if (tw_adj)
 		adj->ext_circuit_id = tw_adj->local_circuit_id;
 
-	/* 8.2.6 Monitoring point-to-point adjacencies */
-	adj->hold_time = iih->holdtime;
-	adj->last_upd = time(NULL);
-
 	bool changed;
 	isis_tlvs_to_adj(iih->tlvs, adj, &changed);
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
 
-	/* lets take care of the expiry */
-	EVENT_OFF(adj->t_expire);
-	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
-			&adj->t_expire);
+	/* RFC6213, 4. transition handling using hold timer
+	 */
+	if (isis_bfd_config_rfc6213_enabled(&iih->circuit->bfd_config) &&
+	    isis_bfd_dont_update_adjacency_holdtime(adj))
+		isis_pdu_log_dont_update_adjacency_holdtime(adj);
+	else {
+		/* 8.2.6 Monitoring point-to-point adjacencies */
+		adj->hold_time = iih->holdtime;
+		adj->last_upd = time(NULL);
+
+		/* lets take care of the expiry */
+		EVENT_OFF(adj->t_expire);
+		event_add_timer(master, isis_adj_expire, adj,
+				(long)adj->hold_time, &adj->t_expire);
+	}
 
 	/* While fabricds initial sync is in progress, ignore hellos from other
 	 * interfaces than the one we are performing the initial sync on. */
@@ -517,8 +535,6 @@ static int process_lan_hello(struct iih_info *iih)
 	}
 
 	adj->circuit_t = iih->circ_type;
-	adj->hold_time = iih->holdtime;
-	adj->last_upd = time(NULL);
 	adj->prio[iih->level - 1] = iih->priority;
 	memcpy(adj->lanid, iih->dis, ISIS_SYS_ID_LEN + 1);
 
@@ -527,10 +543,20 @@ static int process_lan_hello(struct iih_info *iih)
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
 
-	/* lets take care of the expiry */
-	EVENT_OFF(adj->t_expire);
-	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
-			&adj->t_expire);
+	/* RFC6213, 4. transition handling using hold timer
+	 */
+	if (isis_bfd_config_rfc6213_enabled(&iih->circuit->bfd_config) &&
+	    isis_bfd_dont_update_adjacency_holdtime(adj))
+		isis_pdu_log_dont_update_adjacency_holdtime(adj);
+	else {
+		adj->hold_time = iih->holdtime;
+		adj->last_upd = time(NULL);
+
+		/* lets take care of the expiry */
+		EVENT_OFF(adj->t_expire);
+		event_add_timer(master, isis_adj_expire, adj,
+				(long)adj->hold_time, &adj->t_expire);
+	}
 
 	/*
 	 * If the snpa for this circuit is found from LAN Neighbours TLV

@@ -171,7 +171,7 @@ void isis_delete_adj(void *arg)
 	return;
 }
 
-static const char *adj_state2string(int state)
+const char *adj_state2string(int state)
 {
 
 	switch (state) {
