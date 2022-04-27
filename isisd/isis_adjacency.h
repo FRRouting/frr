@@ -93,7 +93,8 @@ struct isis_adjacency {
 	struct isis_circuit *circuit; /* back pointer */
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
 	unsigned int mt_count; /* Number of entries in mt_set */
-	struct bfd_session_params *bfd_session;
+	struct bfd_session_params *bfd_session_ipv4;
+	struct bfd_session_params *bfd_session_ipv6;
 	struct bfd_rfc6213_params bfd_rfc6213;
 	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 	uint32_t snmp_idx;

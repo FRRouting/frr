@@ -72,6 +72,12 @@ struct bfd_rfc6213_params {
 	bool bfd_required_last;
 	/* ISIS_NEIGHBOR_USEABLE */
 	bool neighbor_useable;
+
+	/* internal variables */
+	/* BFD IPv4 local config is required and can be used */
+	bool bfd_ipv4_required;
+	/* BFD IPv6 local config is required and can be used */
+	bool bfd_ipv6_required;
 };
 
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit);

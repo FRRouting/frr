@@ -722,6 +722,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 	time_t now;
 	struct isis_dynhn *dyn;
 	int level;
+	struct bfd_session_params *bfd_session;
 
 	vty_out(vty, " %-20s", isis_adj_name(adj));
 
@@ -846,13 +847,16 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			}
 		}
 		if (adj->circuit && adj->circuit->bfd_config.enabled) {
+			bfd_session = adj->bfd_session_ipv4
+					      ? adj->bfd_session_ipv4
+					      : adj->bfd_session_ipv6;
+
 			vty_out(vty, "    BFD is %s%s\n",
-				adj->bfd_session ? "active, status "
-						 : "configured",
-				!adj->bfd_session
+				bfd_session ? "active, status " : "configured",
+				!bfd_session
 					? ""
 					: bfd_get_status_str(bfd_sess_status(
-						  adj->bfd_session)));
+						  bfd_session)));
 			if (isis_bfd_config_rfc6213_enabled(
 				    &adj->circuit->bfd_config))
 				isis_bfd_show_adjacency(vty, adj);

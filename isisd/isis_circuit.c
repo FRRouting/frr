@@ -274,8 +274,8 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 	return (struct isis_circuit *)ifp->info;
 }
 
-DEFINE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
-	    (circuit));
+DEFINE_HOOK(isis_circuit_add_addr_hook,
+	    (struct isis_circuit * circuit, uint8_t family), (circuit, family));
 
 void isis_circuit_add_addr(struct isis_circuit *circuit,
 			   struct connected *connected)
@@ -359,7 +359,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 #endif /* EXTREME_DEBUG */
 	}
 
-	hook_call(isis_circuit_add_addr_hook, circuit);
+	hook_call(isis_circuit_add_addr_hook, circuit,
+		  connected->address->family);
 
 	return;
 }
