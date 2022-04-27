@@ -263,7 +263,7 @@ static void on_neighbor_jp_timer(struct thread *t)
 			   neigh->upstream_jp_agg->count);
 
 	rpf.source_nexthop.interface = neigh->interface;
-	pim_addr_to_prefix(&rpf.rpf_addr, neigh->source_addr);
+	rpf.rpf_addr = neigh->source_addr;
 	pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
 
 	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
