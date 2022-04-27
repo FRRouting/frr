@@ -54,21 +54,21 @@ struct pim_nexthop_cache {
 };
 
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
-int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
+int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr *addr,
 			      struct pim_upstream *up, struct rp_info *rp,
 			      struct pim_nexthop_cache *out_pnc);
-void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
+void pim_delete_tracked_nexthop(struct pim_instance *pim, pim_addr *addr,
 				struct pim_upstream *up, struct rp_info *rp);
 struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
 						 struct pim_rpf *rpf);
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
-			    struct pim_nexthop *nexthop, struct prefix *src,
+			    struct pim_nexthop *nexthop, pim_addr *src,
 			    struct prefix *grp, int neighbor_needed);
 void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 			   struct pim_nexthop_cache *pnc, int command);
-int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
-				     struct prefix *src, struct prefix *grp);
+int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr *src,
+				     struct prefix *grp);
 void pim_rp_nexthop_del(struct rp_info *rp_info);
 
 /* for RPF check on BSM message receipt */
