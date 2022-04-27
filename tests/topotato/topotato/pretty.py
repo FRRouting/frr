@@ -11,28 +11,29 @@ import subprocess
 import datetime
 import time
 import os
+import urllib.parse
+import json
+from xml.etree import ElementTree
 
 import logging
 logger = logging.getLogger('topotato')
 logger.setLevel(logging.DEBUG)
 
+import jinja2
 from py.xml import html
 
 from . import base
 from . import assertions
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
-from .htmlmonkeypatch import HTMLTouchupMonkey
 from .utils import ClassHooks, exec_find
+from .scapy import ScapySend
 
 
-def _html_final_hook(html_result):
-    html_result[0].append(html.link(href="topotato/topotato.css", rel="stylesheet", type="text/css"))
-    html_result[0].append(html.link(href="topotato/protomato.css", rel="stylesheet", type="text/css"))
-    html_result[0].append(html.script(src='topotato/protomato.js', type='text/javascript'))
-    return html_result
-
-HTMLTouchupMonkey.html_final_hook = _html_final_hook
+jenv = jinja2.Environment(
+    loader=jinja2.PackageLoader("topotato.pretty", "html"),
+    autoescape=True,
+)
 
 
 class fmt(html):
@@ -57,6 +58,8 @@ class fmt(html):
         class_ = 'logmsg'
     class logtext(_cssclass, html.span):
         class_ = 'logtext'
+    class logarg(_cssclass, html.span):
+        class_ = 'logarg'
     class logmeta(_cssclass, html.span):
         class_ = 'logmeta'
     class uid(_cssclass, html.span):
@@ -69,40 +72,30 @@ class fmt(html):
     class clicmdtext(_cssclass, html.span):
         class_ = 'clicmdtext'
 
+    class cliout(_cssclass, html.div):
+        class_ = 'cliout'
+    class cliouttext(_cssclass, html.pre):
+        class_ = 'cliouttext'
 
-class TimedLog(base.TimedElement):
-    log_ts_re = re.compile(r'^(\d+)/(\d+)/(\d+) (\d+):(\d+):(\d+)(?:\.(\d+))? ')
-    log_prio_re = re.compile(r'^(emerg|alert|crit|error|warn|notif|info|debug)[a-z]*: ')
-    log_daemon_re = re.compile(r'^([A-Z0-9_]+): ')
+    class assertmatchitem(_cssclass, html.div):
+        class_ = 'assert-match-item'
+
+
+class PrettyLog(base.TimedElement):
     log_id_re = re.compile(r'^(?:\[(?P<uid>[A-Z0-9]{5}-[A-Z0-9]{5})\])?(?:\[EC (?P<ec>\d+)\])? ?')
 
-    def __init__(self, seqno, router, daemon, line):
+    def __init__(self, prettysession, seqno, msg):
         super().__init__()
-        self._router = router
-        self._daemon = daemon
-        self._line = line
+        self._prettysession = prettysession
+        self._seqno = seqno
 
-        m = self.log_ts_re.match(line)
-        if m is not None:
-            vals = [int(i) for i in m.groups()[:6]]
-            _ts = datetime.datetime(*vals).timestamp()
-            if m.group(7) is not None:
-                _ts += float('0.%s' % m.group(7))
-            line = line[m.end():]
-        else:
-            _ts = time.time()
+        self._msg = msg
+        self._router = msg.router.name
+        self._daemon = msg.daemon
+        self._ts = msg.ts
+        self._prio = msg.prio_text
 
-        m = self.log_prio_re.match(line)
-        if m is not None:
-            self._prio = m.group(1)
-            line = line[m.end():]
-        else:
-            self._prio = None
-
-        m = self.log_daemon_re.match(line)
-        if m is not None:
-            # don't care about this...
-            line = line[m.end():]
+        self._line = line = msg.text
 
         m = self.log_id_re.match(line)
         if m is not None:
@@ -113,22 +106,35 @@ class TimedLog(base.TimedElement):
             self._uid = None
             self._ec = None
 
-        self._ts = _ts
-        self._seqno = seqno
         self._text = line
 
+    def __repr__(self):
+        return '<%s @%.6f %r>' % (self.__class__.__name__, self._ts, self._text)
+    
     def ts(self):
         return (self._ts, self._seqno)
 
-    def html(self, ts_rel):
+    def html(self, id_, ts_rel):
         meta = []
         if self._uid:
             xref = FRRConfigs.xrefs['refs'].get(self._uid, [])
-            if len(xref) == 1:
-                path = os.path.join(FRRConfigs.srcpath, xref[0]['file'])
-                meta.append(html.a(self._uid, href="%s#L%d" % (path, xref[0]['line'])))
+            loc_set = {(loc['file'], loc['line']) for loc in xref}
+            if len(loc_set) == 1:
+                filename, line = loc_set.pop()
+                if self._prettysession.source_url:
+                    path = urllib.parse.urljoin(self._prettysession.source_url, filename)
+                else:
+                    path = os.path.join(FRRConfigs.srcpath, filename)
+                meta.append(html.a(self._uid, href="%s#L%d" % (path, line)))
             else:
                 meta.append(fmt.uid(self._uid))
+
+
+        logtext = []
+        for text, arg in self._msg.iter_args():
+            logtext.append(text)
+            if arg is not None:
+                logtext.append(fmt.logarg(arg))
 
         msg = fmt.logmsg([
             fmt.tstamp('%.3f' % (self._ts - ts_rel)),
@@ -136,18 +142,45 @@ class TimedLog(base.TimedElement):
             fmt.dmnname(self._daemon),
             fmt.logmeta(meta),
             fmt.logprio(self._prio or '???'),
-            fmt.logtext(self._text),
+            fmt.logtext(logtext),
         ])
+        msg.attr.id = id_
         if self._prio is not None:
             msg.attr.class_ += ' prio-%s' % self._prio
-        return msg
+
+        if self._msg.match_for:
+            msg.attr.class_ += ' assert-match'
+            for node in self._msg.match_for:
+                msg.append(fmt.assertmatchitem(node.nodeid))
+        return [msg]
+
+
+class PrettyExtraFile:
+    def __init__(self, owner, name, ext, mimetype, data):
+        self.owner = owner
+        self.name = name
+        self.ext = ext
+        self.mimetype = mimetype
+        self.data = data
+        self.filename = None
+
+        owner.extrafiles[name] = self
+
+    def output(self, basepath, basename):
+        self.filename = '%s_%s%s' % (basename, self.name, self.ext)
+
+        with open(os.path.join(basepath, self.filename), 'wb') as fd:
+            data = self.data
+            if isinstance(self.data, str):
+                data = data.encode('UTF-8')
+            fd.write(data)
 
 
 class PrettySession:
-    def __init__(self, session, outdir=None):
+    def __init__(self, session, outdir=None, source_url=None):
         self.session = session
         self.outdir = outdir
-        self.pytest_html = session.config.pluginmanager.getplugin('html')
+        self.source_url = source_url
 
         if outdir and not os.path.exists(outdir):
             os.mkdir(outdir)
@@ -162,29 +195,41 @@ class PrettySession:
 
 
 class PrettyInstance(list):
+    template = jenv.get_template('instance.html.j2')
+
     def __init__(self, prettysession, instance):
         super().__init__()
         self.prettysession = prettysession
         self.instance = instance
         self.timed = []
 
-    def append(self, item):
-        super().append(item)
-
-        for router, daemon, lines in item.instance.iter_logs():
-            for seqno, line in enumerate(lines.splitlines(), len(self.timed)):
-                self.timed.append(TimedLog(seqno, router, daemon, line))
-
     def distribute(self):
-        if self.instance.protomato is None:
-            return
+        for router in self.instance.routers.values():
+            for daemonlog in router.livelogs.values():
+                for seqno, msg in enumerate(daemonlog):
+                    self.timed.append(PrettyLog(self.prettysession, seqno, msg))
 
-        packets = self.instance.protomato[:]
+        packets = []
+        if self.instance.protomato is not None:
+            packets.extend(self.instance.protomato)
+        packets.sort()
+
         timed = self.timed[:]
+        timed.sort()
 
         prettyitem = None
 
+        with open('/tmp/tdump', 'w') as fd:
+            from pprint import pformat
+            fd.write(pformat({
+                'logs': timed,
+                'packets': packets,
+            }))
+
         for prettyitem in self:
+            #if isinstance(prettyitem.item, assertions.TopotatoModifier):
+            #    continue
+
             while packets and packets[0].ts() < (prettyitem.ts_end, 0):
                 prettyitem.timed.append(packets.pop(0))
 
@@ -197,45 +242,69 @@ class PrettyInstance(list):
         prettyitem.timed.extend(timed)
         prettyitem.timed.sort()
 
+        #def _raw(pi):
+        #    return list([i._msg for i in pi.timed if isinstance(i, PrettyLog)])
+        #breakpoint()
+
     _filename_sub = re.compile(r'[^a-zA-Z0-9]')
 
     def report(self):
-        topotatoinst = self[0].item.parent
-        topotatocls = topotatoinst.parent
+        topotatoinst = self[0].item.getparent(base.TopotatoInstance)
+        topotatocls = topotatoinst.getparent(base.TopotatoClass)
         nodeid = topotatocls.nodeid
-        filename = '%s.html' % (self._filename_sub.sub('_', nodeid))
-        filename = os.path.join(self.prettysession.outdir, filename)
-
-        body = [
-            html.h1(nodeid),
-        ]
-        if topotatocls.obj.__doc__:
-            body.append(html.div(topotatocls.obj.__doc__, class_='docstring'))
+        basename = self._filename_sub.sub('_', nodeid)
+        basepath = os.path.join(self.prettysession.outdir, basename)
 
         items = []
-        for prettyitem in self.instance.pretty:
-            item = html.div(class_="item")
-            item.append(html.div(prettyitem.item.nodeid[len(nodeid):], class_="nodeid"))
-            item.append(prettyitem.html)
-            items.append(item)
-        body.append(html.div(*items, class_="items"))
+        prevfunc = None
 
-        output = html.html()
-        output.append(html.head(
-            html.title(nodeid),
-            html.meta(charset="utf-8"),
-            html.link(href="../topotato/topotato.css", rel="stylesheet", type="text/css"),
-            html.link(href="../topotato/protomato.css", rel="stylesheet", type="text/css"),
-            html.script(src='../topotato/protomato.js', type='text/javascript'),
-        ))
-        output.append(html.body(*body))
+        for i, prettyitem in enumerate(self.instance.pretty):
+            prettyitem.idx = i
 
-        with open(filename, 'wb') as fd:
-            fd.write(output.unicode().encode('UTF-8'))
+            itemnodeid = prettyitem.item.nodeid[len(nodeid):]
+            itembasename = '%s_%s' % (basename, self._filename_sub.sub('_', itemnodeid))
+            for extrafile in prettyitem.files():
+                extrafile.output(self.prettysession.outdir, itembasename)
+
+            funcparent = prettyitem.item.getparent(base.TopotatoFunction)
+            if funcparent is not prevfunc and funcparent is not None:
+                items.append(PrettyItem.make(self.prettysession, funcparent))
+            prevfunc = funcparent
+
+            items.append(prettyitem)
+
+        del prevfunc
+        del funcparent
+
+        # remove doctype / xml / ... decls
+        ElementTree.register_namespace('', "http://www.w3.org/2000/svg")
+        toposvg = ElementTree.fromstring(self[0].toposvg)
+        toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
+
+        if hasattr(topotatoinst, 'liveshark'):
+            if not hasattr(topotatoinst.liveshark, 'xml'):
+                breakpoint()
+            pdml = topotatoinst.liveshark.xml
+            # pdml.attrib['xmlns'] = 'https://xmlns.frrouting.org/topotato/pdml/'
+            pdml = ElementTree.tostring(pdml).decode('UTF-8')
+        else:
+            pdml = ''
+
+        pdml_json = json.dumps(pdml)
+
+        extrafiles = {}
+        for item in self:
+            extrafiles.update(item.extrafiles)
+
+        output = self.template.render(locals())
+
+        with open('%s.html' % basepath, 'wb') as fd:
+            fd.write(output.encode('UTF-8'))
 
 
 class PrettyItem(ClassHooks):
     itemclasses = {}
+    template = jenv.get_template('item.html.j2')
 
     @classmethod
     def make(cls, session, item):
@@ -259,13 +328,16 @@ class PrettyItem(ClassHooks):
         self.item = item
         self.timed = []
         self.result = None
+        self.extrafiles = {}
 
     def __call__(self, call, result):
         handler = getattr(self, 'when_%s' % result.when, None)
         if handler:
-            if not hasattr(result, 'extra'):
-                result.extra = []
             handler(call, result)
+
+    def files(self):
+        if False:
+            yield PrettyExtraFile(self, '', '', '', '')
 
     def when_setup(self, call, result):
         pass
@@ -274,6 +346,21 @@ class PrettyItem(ClassHooks):
     def when_call(self, call, result):
         self.result = result
 
+    # properties for HTML rendering
+
+    @property
+    def nodeid_rel(self):
+        parentid = self.item.getparent(base.TopotatoInstance).nodeid
+        selfid = self.item.nodeid
+        return selfid[len(parentid):]
+
+
+class PrettyTopotatoFunc(PrettyItem, matches=base.TopotatoFunction):
+    template = jenv.get_template('item_func.html.j2')
+
+    @property
+    def doc(self):
+        return self.item.obj.__doc__
 
 class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
     def __init__(self, prettysession, item):
@@ -294,15 +381,13 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
             self.instance.pretty = PrettyInstance(self.prettysession, self.instance)
         self.instance.pretty.append(self)
 
-    def finalize(self):
+    def finalize(self, idx):
         loghtml = fmt.timetable()
-        for e in self.timed:
-            loghtml.append(e.html(self.instance.ts_rel))
+        for subidx, e in enumerate(self.timed):
+            loghtml.extend(e.html('i%di%d' % (idx, subidx), self.instance.ts_rel))
             loghtml.append('\n')
 
         self.html = loghtml
-        extras = self.prettysession.pytest_html.extras
-        self.result.extra.append(extras.html(str(loghtml)))
 
 
 class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
@@ -322,44 +407,51 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
         if call.excinfo:
             return
 
-        extras = self.prettysession.pytest_html.extras
-
-        if self.exec_dot:
-            dot = self.instance.network.dot()
-            graphviz = subprocess.Popen(['dot', '-Tsvg', '-o/dev/stdout'],
-                    stdin = subprocess.PIPE, stdout = subprocess.PIPE)
-            out, _ = graphviz.communicate(dot.encode('UTF-8'))
-            out = base64.b64encode(out).decode('US-ASCII')
-
-            result.extra.append(extras.svg(out, 'topology diagram'))
-
         self.instance.protomato = ProtomatoDumper(self.instance.network.macmap(),
                 self.instance.ts_rel)
         self.item.parent.liveshark.subscribe(self.instance.protomato.submit)
+
+    def files(self):
+        dot = self.instance.network.dot()
+        yield PrettyExtraFile(self, 'dotfile', '.dot', 'text/plain; charset=utf-8', dot)
+
+        if self.exec_dot:
+            graphviz = subprocess.Popen(['dot', '-Tsvg', '-o/dev/stdout'],
+                    stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+            self.toposvg, _ = graphviz.communicate(dot.encode('UTF-8'))
+            # sigh.
+            self.toposvg = self.toposvg.replace(b"\"Inconsolata Semi-Condensed\"", b"\"Inconsolata Semi Condensed\"") 
+
+            yield PrettyExtraFile(self, 'dotfilesvg', '.svg', 'image/svg+xml', self.toposvg)
+        else:
+            self.toposvg = None
 
 
 class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
     def when_call(self, call, result):
         super().when_call(call, result)
 
-        extras = self.prettysession.pytest_html.extras
-
         if getattr(self.instance, 'pcapfile', None):
             with open(self.instance.pcapfile, 'rb') as fd:
-                content = fd.read()
-            result.extra.append(extras.extra(
-                content=content, format_type=extras.FORMAT_BINARY,
-                mime_type='application/octet-stream', name='packets',
-                extension='pcapng'))
+                self._pcap = fd.read()
+        else:
+            self._pcap = None
 
         self.instance.pretty.distribute()
 
-        for prettyitem in self.instance.pretty:
-            prettyitem.finalize()
+        for idx, prettyitem in enumerate(self.instance.pretty):
+            prettyitem.finalize(idx)
 
         self.instance.pretty.report()
 
+    def files(self):
+        if self._pcap:
+            yield PrettyExtraFile(self, 'packets', '.pcapng', 'application/octet-stream', self._pcap)
+
+
 class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
+    template = jenv.get_template('item_vtysh.html.j2')
+
     class Line(base.TimedElement):
         def __init__(self, ts, router, daemon, cmd, out, rc, result, same):
             super().__init__()
@@ -380,16 +472,23 @@ class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
         def ts(self):
             return (self._ts, 0)
 
-        def html(self, ts_rel):
+        def html(self, id_, ts_rel):
             clicmd = fmt.clicmd([
                 fmt.tstamp('%.3f' % (self._ts - ts_rel)),
                 fmt.rtrname(self._router),
                 fmt.dmnname(self._daemon),
                 fmt.clicmdtext(self._cmd),
             ])
+            clicmd.attr.id = id_
             if self._same:
                 clicmd.attr.class_ += ' cli-same'
-            return clicmd
+
+            ret = [clicmd]
+            if self._out.strip() != '':
+                clicmd.attr.onclick = 'onclickclicmd(event);'
+                clicmd.attr.class_ += ' cli-has-out'
+                ret.append(fmt.cliout([fmt.cliouttext(self._out)]))
+            return ret
 
     def when_call(self, call, result):
         super().when_call(call, result)
@@ -401,3 +500,7 @@ class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
             for ts, cmd, out, rc, result in cmds:
                 self.timed.append(self.Line(ts, rtr, daemon, cmd, out, rc, result, prev_out == out))
                 prev_out = out
+
+
+class PrettyScapy(PrettyTopotato, matches=ScapySend):
+    template = jenv.get_template('item_scapy.html.j2')

@@ -11,10 +11,12 @@ import os
 import select
 import time
 import logging
+import io
 
 from typing import Union, List, Any, Optional, TextIO, Callable, Iterable
 
 from xml.etree.ElementTree import XMLPullParser
+from .utils import MiniPollee
 from .pdmlpacket import PDMLPacket
 
 _logger = logging.getLogger("topotato")
@@ -26,7 +28,7 @@ class LiveSharkEOFError(EOFError):
     """
 
 
-class LiveShark:
+class LiveShark(MiniPollee):
     """
     mini eventloop for tshark running in background decoding packets
 
@@ -50,15 +52,16 @@ class LiveShark:
 
         self.receivers = []
         self.packets = []
+        self.expect_eof = False
         if self._pdmlfd is not None:
             self._pdml_pp = XMLPullParser(["end"])
 
     def _handle_packet(self, xmlpkt):
         pkt = PDMLPacket(xmlpkt)
         # _logger.debug("pkt %r live-delay %fs", pkt, time.time() - pkt.ts)
+        self.packets.append(pkt)
         for receiver in self.receivers:
             receiver(pkt)
-        self.packets.append(pkt)
         return pkt
 
     def subscribe(self, receiver: Callable[[PDMLPacket], Any]):
@@ -69,6 +72,27 @@ class LiveShark:
         for pkt in self.packets:
             receiver(pkt)
         self.receivers.append(receiver)
+
+    def filenos(self):
+        if self._pdmlfd:
+            yield (self._pdmlfd, self._pdml_read)
+
+    def _pdml_read(self, fd):
+        rddata = os.read(self._pdmlfd, 16384)
+        if not rddata:
+            self.close()
+            self._pdmlfd = None
+            if not self.expect_eof:
+                raise LiveSharkEOFError()
+            return True
+
+        self._pdml_pp.feed(rddata)
+        for _, obj in self._pdml_pp.read_events():
+            if obj.tag == "packet":
+                yield (True, self._handle_packet(obj))
+            if obj.tag == "pdml":
+                self.xml = obj
+        return False
 
     def run(
         self,
@@ -86,6 +110,8 @@ class LiveShark:
 
         yields tuples (new, pkt), ends iteration on timeout or readable fds
         """
+
+        self.expect_eof = expect_eof
 
         abs_start = time.time()
         abs_delay = abs_start + (delay or float("inf"))
@@ -110,17 +136,9 @@ class LiveShark:
             if self._pdmlfd and self._pdmlfd in rd:
                 rd.remove(self._pdmlfd)
 
-                rddata = os.read(self._pdmlfd, 16384)
-                if not rddata:
-                    self.close()
-                    if not expect_eof:
-                        raise LiveSharkEOFError()
+                is_eof = yield from self._pdml_read(self._pdmlfd)
+                if is_eof:
                     return []
-
-                self._pdml_pp.feed(rddata)
-                for _, obj in self._pdml_pp.read_events():
-                    if obj.tag == "packet":
-                        yield (True, self._handle_packet(obj))
 
             if rd or time.time() >= deadline:
                 return rd

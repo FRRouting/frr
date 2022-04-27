@@ -9,12 +9,8 @@ import signal
 from lxml import etree
 from collections import OrderedDict
 
-from .htmlmonkeypatch import ResultMonkey
-
-ResultMonkey.apply()
-
 from .utils import deindent, ClassHooks, get_textdiff
-from .assertions import TopotatoItem, TopotatoCompareFail
+from .assertions import TopotatoItem
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .fixtures import *
@@ -52,6 +48,7 @@ def pytest_addoption(parser):
     parser.addoption("--show-topology", type=str, default=None, help="show specific topology")
     parser.addoption("--frr-builddir", type=str, default=None, help="override frr_builddir pytest.ini option")
     parser.addoption("--reportato-dir", type=str, default=None, help="output directory for topotato HTML report")
+    parser.addoption("--source-url", type=str, default=None, help="URL to use as base in HTML report source links")
 
     parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../frr')
     parser.addini('reportato_dir', 'Default output directory for topotato HTML report')
@@ -64,35 +61,8 @@ from .pretty import *
 
 @pytest.hookimpl()
 def pytest_sessionstart(session):
-    envstate = ClassHooks._check_env_all()
-
-    if not envstate:
-        raise TopotatoEnvProblem('\n'.join(envstate.errors))
-
-    path = os.environ['PATH'].split(':')
-    fail = 0
-
-    def check_tool(name):
-        for p in path:
-            pname = os.path.join(p, name)
-            if os.access(pname, os.X_OK):
-                logger.debug('%s => %s' % (name, pname))
-                return pname
-        else:
-            logger.error('cannot find "%s" in PATH, please install it.' % name)
-            return None
-
-    if os.getuid() != 0:
-        logger.error('topotato must be run as root.  skipping all tests.')
-        fail += 1
-
-    tools = ['tshark']
-    #if sys.platform == 'freebsd12':
-    #    tools.extend(['jail', 'jexec', 'ifconfig', 'netstat'])
-
-    for tool in tools:
-        if check_tool(tool) is None:
-            fail += 1
+    tw = session.config.get_terminal_writer()
+    session.terminal_writer = tw
 
     def get_dir(optname, ininame):
         basedir = os.getcwd()
@@ -107,67 +77,38 @@ def pytest_sessionstart(session):
             val = os.path.abspath(os.path.join(basedir, val))
         return val
 
-    frr_builddir = get_dir('--frr-builddir', 'frr_builddir')
-    if not fail:
-        if not FRRConfigs.init(frr_builddir):
-            fail += 1
-    if fail:
-        TopotatoItem.skipall = 'topotato environment not set up correctly'
 
+    tw.sep("=", "topotato initialization", bold=True)
+
+    FRRConfigs.frrpath = get_dir('--frr-builddir', 'frr_builddir')
     reportato_dir = get_dir('--reportato-dir', 'reportato_dir')
+    source_url = session.config.getoption('--source-url')
 
-    session.pretty = PrettySession(session, reportato_dir)
+    envstate = ClassHooks.check_env_all()
 
-class LogFormatting(list):
-    class Item:
-        log_ts_re = re.compile(r'^(\d+)/(\d+)/(\d+) (\d+):(\d+):(\d+)(?:\.(\d+))? ')
+    if os.getuid() != 0:
+        envstate.errors.append("topotato must be run as root.")
 
-        def __init__(self, seqno, router, daemon, line):
-            self._router = router
-            self._daemon = daemon
-            self._line = line
+    for err in envstate.errors:
+        if isinstance(err, Exception):
+            while err is not None:
+                tw.line('ERROR:   %r' % err, red=True, bold=True)
+                err = getattr(err, '__cause__', None)
+        else:
+            tw.line('ERROR:   %s' % err, red=True, bold=True)
 
-            m = self.log_ts_re.match(line)
-            if m is not None:
-                vals = list([int(i) for i in m.groups()[:6]])
-                _ts = datetime.datetime(*vals).timestamp()
-                if m.group(7) is not None:
-                    _ts += float('0.%s' % m.group(7))
-            else:
-                _ts = time.time()
-            self._ts = (_ts, seqno)
+    for warn in envstate.warnings:
+        tw.line('Warning: %s' % warn, yellow=True, bold=True)
 
-        def __lt__(self, other):
-            return self._ts < other._ts
+    if not envstate:
+        tw.sep("=", "topotato aborting", bold=True)
+        raise EnvironmentError('\n'.join([str(e) for e in envstate.errors]))
 
-        def __repr__(self):
-            return 'LogFormatting.Item(, %r, %r, %r)@%r' % (self._router, self._daemon, self._line, self._ts)
-
-        def html(self):
-            return '%s' % self._line
-
-    class ProtomatoItem:
-        def __init__(self, tomato):
-            self._ts = (tomato.ts, 0)
-            self._html = tomato
-
-        def __lt__(self, other):
-            return self._ts < other._ts
-
-        def html(self):
-            return self._html.unicode(indent=2) #todo: return directly
-
-    def __init__(self, itr):
-        super().__init__()
-        for rtr, daemon, logpile in itr:
-            for seqno, msg in enumerate(logpile.splitlines()):
-                self.append(self.Item(seqno, rtr, daemon, msg))
-        self.sort()
+    session.pretty = PrettySession(session, reportato_dir, source_url)
 
 
 @pytest.mark.hookwrapper
 def pytest_runtest_makereport(item, call):
-    pytest_html = item.config.pluginmanager.getplugin('html')
     outcome = yield
     report = outcome.get_result()
 
@@ -181,13 +122,11 @@ def pytest_runtest_makereport(item, call):
 
     if not hasattr(item.instance, 'reports'):
         item.instance.reports = []
-    extra = getattr(report, 'extra', [])
 
     if report.when == 'call':
         report.timestamp = time.time()
         item.instance.reports.append(report)
 
-    report.extra = extra
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_collection(session):
@@ -294,6 +233,7 @@ def pytest_collection(session):
         sys.stdout.write('\n')
 
         if len(starters) == 1:
+            starters[0].parent.setup()
             starters[0].setup()
             starters[0].runtest()
 
@@ -307,52 +247,3 @@ def pytest_collection(session):
             signal.pause()
 
         session.items = []
-
-from .frr import FRRConfigs
-
-def text_rich_cmp(configs, rtr, out, expect, outtitle):
-    lines = []
-    for line in deindent(expect).split('\n'):
-        items = line.split('$$')
-        lre = []
-        while len(items) > 0:
-            lre.append(re.escape(items.pop(0)))
-            if len(items) == 0:
-                break
-            expr = items.pop(0)
-            if expr.startswith('='):
-                expr = expr[1:]
-                if expr.startswith(' '):
-                    lre.append('\\s+')
-                lre.append(re.escape(str(configs.eval(rtr, expr))))
-                if expr.endswith(' '):
-                    lre.append('\\s+')
-            else:
-                lre.append(expr)
-        lines.append((line, ''.join(lre)))
-
-    x_got, x_exp = [], []
-    fail = False
-
-    for i, out_line in enumerate(out.split('\n')):
-        if i >= len(lines):
-            x_got.append(out_line)
-            fail = True
-            continue
-
-        ref_line, ref_re = lines[i]
-        if re.match('^' + ref_re + '$', out_line):
-            x_got.append(out_line)
-            x_exp.append(out_line)
-        else:
-            x_got.append(out_line)
-            x_exp.append(ref_line)
-            fail = True
-
-    if not fail:
-        return None
-
-    return TopotatoCompareFail('\n'+get_textdiff(x_got, x_exp,
-            title1=outtitle,
-            title2="expected")
-        )

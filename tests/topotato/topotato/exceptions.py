@@ -42,6 +42,12 @@ class TopotatoPacketFail(TopotatoFail):
     """
 
 
+class TopotatoLogFail(TopotatoFail):
+    """
+    Expected log message not seen.
+    """
+
+
 class TopotatoDaemonCrash(TopotatoFail):
     """
     Daemon exited/crashed unexpectedly.

@@ -7,6 +7,7 @@ Network object model representation
 
 import ipaddress
 import re
+import binascii
 from itertools import chain
 
 import abc
@@ -273,22 +274,22 @@ class Router(NOMLinked):
         for i in self.ifaces:
             iip4 = "".join(
                 [
-                    '<br align="right"/><font color="#663300" point-size="9">%s</font>'
+                    '<font color="#663300" point-size="10">%s</font><br align="right"/>'
                     % str(addr)
                     for addr in i.ip4
                 ]
             )
             iip6 = "".join(
                 [
-                    '<br align="right"/><font color="#003366" point-size="9">%s</font>'
+                    '<font color="#003366" point-size="11">%s</font><br align="right"/>'
                     % str(addr)
                     for addr in i.ip6
                 ]
             )
             tabrows.append(
-                '<td port="%s" align="right">%s<br align="right"/>'
-                '<font point-size="8">%s</font>%s%s</td>'
-                % (i.ifname, i.ifname, i.macaddr, iip4, iip6)
+                '<td id="%s_%s" port="%s" align="right">%s<br align="right"/>'
+                '<font point-size="10">%s</font><br align="right"/>%s%s</td>'
+                % (self.dotname, i.ifname, i.ifname, i.ifname, i.macaddr, iip4, iip6)
             )
         if len(tabrows) == 0:
             tabrows = [""]
@@ -301,11 +302,11 @@ class Router(NOMLinked):
         tabrows[0] = main + tabrows[0]
 
         out.append(
-            """ "%s" [ shape=none, label=<<table>
+            """ "%s" [ id="%s", shape=none, label=<<table>
 %s
 </table>>, style = filled, fillcolor="#ffffff"
 ];"""
-            % (self.dotname, "\n".join(["<tr>%s</tr>" % row for row in tabrows]))
+            % (self.dotname, self.dotname, "\n".join(["<tr>%s</tr>" % row for row in tabrows]))
         )
 
 
@@ -353,8 +354,8 @@ class LAN(NOMLinked):
             ['<br/><font color="#003366">%s</font>' % str(addr) for addr in self.ip6]
         )
         out.append(
-            '  "%s" [ shape=ellipse, label=<<b>%s</b>%s%s>, style = filled, fillcolor="#cccccc" ];'
-            % (self.dotname, self.name, ip4, ip6)
+            '  "%s" [ id="%s", shape=ellipse, label=<<b>%s</b>%s%s>, style = filled, fillcolor="#cccccc" ];'
+            % (self.dotname, self.dotname, self.name, ip4, ip6)
         )
 
 
@@ -424,6 +425,14 @@ class LinkIface(NOMNode):
                 addr = net[eui_int]
                 iface = ipaddress.IPv6Interface("%s/%d" % (str(addr), net.prefixlen))
                 self.ip6.append(iface)
+
+    @property
+    def ll6(self):
+        mac = self.macaddr.replace(':', '')
+        eui = bytearray(binascii.a2b_hex(''.join([mac[:6], 'fffe', mac[6:]])))
+        eui[0] ^= 0x2
+        addr = binascii.a2b_hex('fe80000000000000') + eui
+        return ipaddress.IPv6Address(bytes(addr))
 
 
 class Link(NOMNode):
@@ -612,9 +621,9 @@ class Network:
         out = []
         out += ["graph net {"]
         out += ["  rankdir = LR;"]
-        out += ["  graph [ dpi=72 ];"]
-        out += ['  node [ fontname="Input Mono", fontsize=14 ];']
-        out += ['  edge [ fontname="Input Mono Condensed", minlen=3.0 ];']
+        out += ["  margin = 0;"]
+        out += ['  node [ margin=0, fontname="Inconsolata Semi-Condensed", fontsize=15 ];']
+        out += ['  edge [ margin=0, fontname="Inconsolata Semi-Condensed", minlen=2 ];']
         out += ["  rank=same { "]
         for r in self.routers.values():
             r.dot(out)

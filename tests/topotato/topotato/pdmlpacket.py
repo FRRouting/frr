@@ -122,6 +122,7 @@ class PDMLPacket(_IndexChainMixin, OrderedDict[Tuple[str, int], PDMLProto]):
     def __init__(self, xmlpkt: etree.Element):
         super().__init__()
         self._xmlpkt = xmlpkt
+        self.match_for = []
 
         for xmlproto in xmlpkt.findall("proto"):
             protoobj = PDMLProto(xmlproto)

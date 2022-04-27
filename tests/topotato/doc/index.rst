@@ -5,6 +5,7 @@ topotato manual
    :maxdepth: 2
 
    parse
+   assertions
    machinery
    pytest_lowlevel
    utils
