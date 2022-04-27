@@ -11260,7 +11260,7 @@ static void bgp_show_neighnor_graceful_restart_rbit(struct vty *vty,
 	    && (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV))
 	    && (peer_established(p))) {
 
-		if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_BIT_RCV))
+		if (CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 			rbit_status = true;
 		else
 			rbit_status = false;
