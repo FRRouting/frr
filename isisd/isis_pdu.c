@@ -1959,12 +1959,20 @@ static void put_hello_hdr(struct isis_circuit *circuit, int level,
 	}
 }
 
-static void isis_adj_check_stop_bfd(struct isis_adjacency *adj)
+static bool isis_adj_check_stop_bfd_family(struct isis_adjacency *adj,
+					   uint8_t family)
 {
-	if (CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV6))
+	if (family == AF_INET6 &&
+	    CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV6)) {
 		bfd_handle_adj_down(adj, AF_INET6, NULL);
-	if (CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV4))
+		return true;
+	}
+	if (family == AF_INET &&
+	    CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV4)) {
 		bfd_handle_adj_down(adj, AF_INET, NULL);
+		return true;
+	}
+	return false;
 }
 
 static void isis_adj_check_stop_circuit(struct isis_circuit *circuit, int level)
@@ -1978,13 +1986,18 @@ static void isis_adj_check_stop_circuit(struct isis_circuit *circuit, int level)
 			adj_list = list_new();
 			isis_adj_build_up_list(circuit->u.bc.adjdb[level - 1],
 					       adj_list);
-			for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
-				isis_adj_check_stop_bfd(adj);
+			for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj)) {
+				isis_adj_check_stop_bfd_family(adj, AF_INET);
+				isis_adj_check_stop_bfd_family(adj, AF_INET6);
+			}
 			list_delete(&adj_list);
 		}
 	} else if (circuit->circ_type == CIRCUIT_T_P2P &&
-		   circuit->u.p2p.neighbor)
-		isis_adj_check_stop_bfd(circuit->u.p2p.neighbor);
+		   circuit->u.p2p.neighbor) {
+		isis_adj_check_stop_bfd_family(circuit->u.p2p.neighbor, AF_INET);
+		isis_adj_check_stop_bfd_family(circuit->u.p2p.neighbor,
+					       AF_INET6);
+	}
 }
 
 int send_hello(struct isis_circuit *circuit, int level)

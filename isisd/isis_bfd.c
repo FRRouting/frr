@@ -45,6 +45,74 @@ static bool isis_bfd_session_is_admin_down(struct isis_adjacency *adj,
 	return false;
 }
 
+/* Check if an adjacency is up and bfd required just went up
+ * This function identifies disruptive situations that should be avoided
+ * Returns true if identified, false otherwise
+ * - Used to not trigger alarm, when identified
+ */
+static bool isis_bfd_is_required_changed_up(struct isis_adjacency *adj,
+					    bool debug_on)
+{
+	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit &&
+	    adj->bfd_rfc6213.bfd_required_is_transition_up) {
+		/* RFC6213, 4.
+		 * some amount of time should be allowed before bringing down an "UP"
+		 * adjacency on a BFD enabled interface when the value of
+		 * "ISIS_BFD_REQUIRED" becomes "TRUE" as a result of the introduction of
+		 * the BFD TLV or the modification (by adding a new supported MTID/
+		 * NLPID) of an existing BFD TLV in a neighbor's IIH
+		 *
+		 * solution: return true, by not updating the IIH holdtime
+		 */
+		if (IS_DEBUG_BFD && debug_on)
+			zlog_debug("ISIS-BFD: keep L%u adjacency %s to %s, as BFD required just went true",
+				   adj->level, isis_adj_name(adj),
+				   adj_state2string(adj->adj_state));
+		return true;
+	}
+	return false;
+}
+
+/* Check if an adjacency is up and neighbor is not useable
+ * This function identifies disruptive situations that should be avoided
+ * Returns true if identified, false otherwise
+ * - Used to not update the adjacency hold time, when identified
+ */
+static bool isis_bfd_is_neighbor_not_useable(struct isis_adjacency *adj,
+					     bool debug_on)
+{
+	if (adj->adj_state == ISIS_ADJ_UP && adj->circuit &&
+	    adj->circuit->bfd_config.enabled &&
+	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
+	    adj->bfd_rfc6213.bfd_required &&
+	    !adj->bfd_rfc6213.neighbor_useable) {
+		/* RFC6213, 4.
+		 * To avoid disruptive transition to the use of BFD, do
+		 * not update the adjacency hold time when receiving
+		 * an IIH from a neighbor with whom we have an "UP" adjacency until
+		 * "ISIS_NEIGHBOR_USEABLE" becomes "TRUE"
+		 */
+		if (IS_DEBUG_BFD && debug_on)
+			zlog_debug("ISIS-BFD: keep L%u adjacency %s to %s, as neighbor is not useable",
+				   adj->level, isis_adj_name(adj),
+				   adj_state2string(adj->adj_state));
+		return true;
+	}
+	return false;
+}
+
+static void isis_bfd_transition_bfd_required(struct isis_adjacency *adj,
+					     bool val, const char *reason)
+{
+	if (IS_DEBUG_BFD &&
+	    ((adj->bfd_rfc6213.bfd_required_is_transition_up && !val) ||
+	     (!adj->bfd_rfc6213.bfd_required_is_transition_up && val)))
+		zlog_debug("ISIS-BFD: L%u adjacency %s, bfd required transition to up changes to %s (%s)",
+			   adj->level, isis_adj_name(adj),
+			   val ? "True" : "False", reason);
+	adj->bfd_rfc6213.bfd_required_is_transition_up = val;
+}
+
 static void adj_bfd_cb(struct bfd_session_params *bsp,
 		       const struct bfd_session_status *bss, void *arg)
 {
@@ -58,8 +126,15 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 			   bfd_get_status_str(bss->state));
 
 	neighbor_useable_last = adj->bfd_rfc6213.neighbor_useable;
-	if (bss->state != bss->previous_state)
+	if (bss->state != bss->previous_state) {
 		isis_bfd_update_rfc6213(adj);
+		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
+		    bss->state == BFD_STATUS_DOWN &&
+		    isis_bfd_is_required_changed_up(adj, true))
+			return;
+	}
+	if (bss->state == BFD_STATUS_UP)
+		isis_bfd_transition_bfd_required(adj, false, "BFD is up");
 
 	/* RFC6213, 4.
 	 * If a BFD session is administratively shut down [RFC5880] and the BFD
@@ -883,6 +958,11 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 			bfd_local_pair->topo_nlpid_bfd_required = false;
 
 		/* TO DO: to be moved somewhere else */
+		if (old_value == false &&
+		    bfd_local_pair->topo_nlpid_bfd_required)
+			isis_bfd_transition_bfd_required(
+				adj, true, "local MTNLPID changed to required");
+
 		if (old_value == true &&
 		    bfd_local_pair->topo_nlpid_bfd_required == false) {
 			if (bfd_local_pair->nlpid == NLPID_IP)
@@ -977,6 +1057,10 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		zlog_debug("ISIS-BFD: bfd_ipv4_required is %s on L%u adjacency %s",
 			   adj->bfd_rfc6213.bfd_ipv4_required ? "True" : "False",
 			   adj->level, isis_adj_name(adj));
+	if (old_value != adj->bfd_rfc6213.bfd_ipv4_required &&
+	    adj->bfd_rfc6213.bfd_ipv4_required)
+		isis_bfd_transition_bfd_required(adj, true,
+						 "bfd_ipv4_required is True");
 
 	old_value = adj->bfd_rfc6213.bfd_ipv6_required;
 	adj->bfd_rfc6213.bfd_ipv6_required = false;
@@ -993,6 +1077,10 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		zlog_debug("ISIS-BFD: bfd_ipv6_required is %s on L%u adjacency %s",
 			   adj->bfd_rfc6213.bfd_ipv6_required ? "True" : "False",
 			   adj->level, isis_adj_name(adj));
+	if (old_value != adj->bfd_rfc6213.bfd_ipv6_required &&
+	    adj->bfd_rfc6213.bfd_ipv6_required)
+		isis_bfd_transition_bfd_required(adj, true,
+						 "bfd_ipv6_required is True");
 
 	/* RFC6213, 3.1. ISIS_TOPO_BFD_REQUIRED
 	 * For each locally supported MTID, an "ISIS_TOPO_BFD_REQUIRED" variable
@@ -1040,6 +1128,11 @@ static void isis_bfd_update_rfc6213(struct isis_adjacency *adj)
 		zlog_debug("ISIS-BFD: BFD is %srequired for L%u adjacency %s",
 			   adj->bfd_rfc6213.bfd_required ? "" : "not ",
 			   adj->level, isis_adj_name(adj));
+	}
+	if (adj->bfd_rfc6213.bfd_required_last != adj->bfd_rfc6213.bfd_required) {
+		if (!adj->bfd_rfc6213.bfd_required)
+			isis_bfd_transition_bfd_required(adj, false,
+							 "BFD required is FALSE");
 	}
 
 	if (debug &&
@@ -1130,6 +1223,7 @@ static void isis_bfd_update_status_rfc6213(struct isis_adjacency *adj,
 	/* RFC6213, 4.
 	 * If the value of "ISIS_BFD_REQUIRED" becomes "FALSE"
 	 * then BFD session establishment is no longer required
+	 * other case : at startup, BFD required is "FALSE"
 	 */
 	if (adj->bfd_rfc6213.bfd_required_last &&
 	    ((family == AF_INET && !adj->bfd_rfc6213.bfd_ipv4_required) ||
@@ -1234,12 +1328,14 @@ void isis_bfd_show_adjacency(struct vty *vty, struct isis_adjacency *adj)
 /* RFC6213, 4.
  * Check if adjacency hold-timer must be updated
  * - returns true when a BFD admin down is detected in one of the bfd sessions.
+ * - returns true if adjacency is up and "ISIS_NEIGHBOR_USEABLE" is "FALSE"
  * - returns false otherwise
  */
 bool isis_bfd_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
 {
 	bool ipv4 = false;
 	bool ipv6 = false;
+	bool state = false;
 
 	if (adj->circuit->bfd_config.rfc6213_ipv4)
 		ipv4 = isis_bfd_session_is_admin_down(adj, adj->bfd_session_ipv4,
@@ -1249,13 +1345,15 @@ bool isis_bfd_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
 		ipv6 = isis_bfd_session_is_admin_down(adj, adj->bfd_session_ipv6,
 						      false);
 
+	state = isis_bfd_is_neighbor_not_useable(adj, false);
+
 	if (adj->circuit->bfd_config.rfc6213_ipv4 &&
 	    !adj->circuit->bfd_config.rfc6213_ipv6)
-		return ipv4;
+		return ipv4 || state;
 
 	if (adj->circuit->bfd_config.rfc6213_ipv6 &&
 	    !adj->circuit->bfd_config.rfc6213_ipv4)
-		return ipv6;
+		return ipv6 || state;
 
-	return ipv4 || ipv6;
+	return ipv4 || ipv6 || state;
 }

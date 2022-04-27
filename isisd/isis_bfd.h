@@ -89,6 +89,8 @@ struct bfd_rfc6213_params {
 #define BFD_ADJ_STOP_IPV4 0x1
 #define BFD_ADJ_STOP_IPV6 0x2
 	uint8_t flags;
+
+	bool bfd_required_is_transition_up;
 };
 
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit);
