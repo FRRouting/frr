@@ -279,7 +279,7 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT
 			       | PIM_ENCODE_RPT_BIT;
-			stosend = pim_addr_from_prefix(&rpf->rpf_addr);
+			stosend = rpf->rpf_addr;
 			/* Only Send SGRpt in case of *,G Join */
 			if (source->is_join)
 				up = source->up;
