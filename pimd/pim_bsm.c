@@ -934,7 +934,6 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	struct pim_interface *pim_ifp;
 	struct bsm_scope *scope;
 	struct bsm_frag *bsfrag;
-	char neigh_src_str[INET_ADDRSTRLEN];
 	uint32_t pim_mtu;
 	bool no_fwd = true;
 	bool ret = false;
@@ -972,13 +971,13 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	if (!pim_ifp->ucast_bsm_accept) {
 		dst_addr = qpim_all_pim_routers_addr;
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Sending BSM mcast to %s", __func__,
-				   neigh_src_str);
+			zlog_debug("%s: Sending BSM mcast to %pPA", __func__,
+				   &neigh->source_addr);
 	} else {
 		dst_addr = neigh->source_addr;
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Sending BSM ucast to %s", __func__,
-				   neigh_src_str);
+			zlog_debug("%s: Sending BSM ucast to %pPA", __func__,
+				   &neigh->source_addr);
 	}
 	pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
 	pim_hello_require(ifp);
