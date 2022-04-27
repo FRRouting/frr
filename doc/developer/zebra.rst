@@ -250,7 +250,7 @@ Zebra Protocol Commands
 +------------------------------------+-------+
 | ZEBRA_INTERFACE_DISABLE_RADV       | 43    |
 +------------------------------------+-------+
-| ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB     | 44    |
+| ZEBRA_NEXTHOP_LOOKUP_MRIB          | 44    |
 +------------------------------------+-------+
 | ZEBRA_INTERFACE_LINK_PARAMS        | 45    |
 +------------------------------------+-------+

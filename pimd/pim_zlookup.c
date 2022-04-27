@@ -165,7 +165,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t command = 0;
-	pim_addr raddr;
+	struct ipaddr raddr;
 	uint8_t distance;
 	uint32_t metric;
 	int nexthop_num;
@@ -177,7 +177,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	s = zlookup->ibuf;
 
-	while (command != ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB) {
+	while (command != ZEBRA_NEXTHOP_LOOKUP_MRIB) {
 		stream_reset(s);
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,
 					  &version, &vrf_id, &command);
@@ -197,15 +197,14 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 	}
 
-#if PIM_IPV == 4
-	raddr.s_addr = stream_get_ipv4(s);
-#else
-	stream_get(&raddr, s, sizeof(struct in6_addr));
-#endif
-	if (pim_addr_cmp(raddr, addr))
-		zlog_warn("%s: address mismatch: addr=%pPAs(%s) raddr=%pPAs",
+	stream_get_ipaddr(s, &raddr);
+
+	if (raddr.ipa_type != PIM_IPADDR ||
+	    pim_addr_cmp(raddr.ipaddr_pim, addr)) {
+		zlog_warn("%s: address mismatch: addr=%pPA(%s) raddr=%pIA",
 			  __func__, &addr, pim->vrf->name, &raddr);
-	/* warning only */
+		/* warning only */
+	}
 
 	distance = stream_getc(s);
 	metric = stream_getl(s);
@@ -221,8 +220,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	for (i = 0; i < nexthop_num; ++i) {
 		vrf_id_t nexthop_vrf_id;
 		enum nexthop_types_t nexthop_type;
-		struct pim_neighbor *nbr;
-		struct prefix p;
+		struct in_addr nh_ip4;
+		struct in6_addr nh_ip6;
+		ifindex_t nh_ifi;
 
 		nexthop_vrf_id = stream_getl(s);
 		nexthop_type = stream_getc(s);
@@ -250,21 +250,27 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
-			nexthop_tab[num_ifindex].nexthop_addr.s_addr =
-				stream_get_ipv4(s);
-			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
+			nh_ip4.s_addr = stream_get_ipv4(s);
+			nh_ifi = stream_getl(s);
+#if PIM_IPV == 4
+			nexthop_tab[num_ifindex].nexthop_addr = nh_ip4;
+			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
+#else
+			zlog_warn("cannot use IPv4 nexthop %pI4 for IPv6 %pPA",
+				  &nh_ip4, &addr);
+#endif
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			stream_get(&nexthop_tab[num_ifindex].nexthop_addr, s,
-				   sizeof(struct in6_addr));
-			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
+			stream_get(&nh_ip6, s, sizeof(nh_ip6));
+			nh_ifi = stream_getl(s);
 
-			p.family = AF_INET6;
-			p.prefixlen = IPV6_MAX_BITLEN;
-			memcpy(&p.u.prefix6,
-			       &nexthop_tab[num_ifindex].nexthop_addr,
-			       sizeof(struct in6_addr));
+#if PIM_IPV == 6
+			nexthop_tab[num_ifindex].nexthop_addr = nh_ip6;
+			nexthop_tab[num_ifindex].ifindex = nh_ifi;
+			++num_ifindex;
+#else
+			/* RFC 5549 v4-over-v6 nexthop handling */
 
 			/*
 			 * If we are sending v6 secondary assume we receive v6
@@ -275,26 +281,35 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				nexthop_vrf_id);
 
 			if (!ifp)
-				nbr = NULL;
-			else if (pim->send_v6_secondary)
+				break;
+
+			struct pim_neighbor *nbr;
+
+			if (pim->send_v6_secondary) {
+				struct prefix p;
+
+				p.family = AF_INET6;
+				p.prefixlen = IPV6_MAX_BITLEN;
+				p.u.prefix6 = nh_ip6;
+
 				nbr = pim_neighbor_find_by_secondary(ifp, &p);
-			else
+			} else
 				nbr = pim_neighbor_find_if(ifp);
 
-			if (nbr) {
-				nexthop_tab[num_ifindex].nexthop_addr =
-					nbr->source_addr;
-			}
+			if (!nbr)
+				break;
+
+			nexthop_tab[num_ifindex].nexthop_addr =
+				nbr->source_addr;
+			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
+#endif
 			break;
 		default:
 			/* do nothing */
-			{
-				zlog_warn(
-					"%s: found non-ifindex nexthop type=%d for address %pPAs(%s)",
-					__func__, nexthop_type, &addr,
-					pim->vrf->name);
-			}
+			zlog_warn(
+				"%s: found non-ifindex nexthop type=%d for address %pPAs(%s)",
+				__func__, nexthop_type, &addr, pim->vrf->name);
 			break;
 		}
 	}
@@ -308,6 +323,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 {
 	struct stream *s;
 	int ret;
+	struct ipaddr ipaddr;
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
 		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
@@ -329,15 +345,13 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -1;
 	}
 
+	ipaddr.ipa_type = PIM_IPADDR;
+	ipaddr.ipaddr_pim = addr;
+
 	s = zlookup->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
-			      pim->vrf->vrf_id);
-#if PIM_IPV == 4
-	stream_put_in_addr(s, &addr);
-#else
-	stream_write(s, (uint8_t *)&addr, 16);
-#endif
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, pim->vrf->vrf_id);
+	stream_put_ipaddr(s, &ipaddr);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	ret = writen(zlookup->sock, s->data, stream_get_endp(s));
@@ -483,6 +497,7 @@ void pim_zlookup_show_ip_multicast(struct vty *vty)
 	}
 }
 
+#if PIM_IPV == 4
 int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 {
 	struct stream *s = zlookup->obuf;
@@ -571,3 +586,4 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 
 	return 0;
 }
+#endif
