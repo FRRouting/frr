@@ -2037,6 +2037,21 @@ int send_hello(struct isis_circuit *circuit, int level)
 			if (fabricd_initial_sync_is_in_progress(circuit->area)
 			    && fabricd_initial_sync_circuit(circuit->area) != circuit)
 				threeway_state = ISIS_THREEWAY_DOWN;
+			else if (isis_bfd_config_rfc6213_enabled(
+					 &circuit->bfd_config) &&
+				 circuit->u.p2p.neighbor &&
+				 circuit->u.p2p.neighbor->bfd_rfc6213
+					 .bfd_required &&
+				 !circuit->u.p2p.neighbor->bfd_rfc6213
+					  .neighbor_useable)
+				/* RFC6213, 3.2
+				 * Whenever "ISIS_BFD_REQUIRED" is "TRUE", ...
+				 * On a Point-to-Point circuit whenever "ISIS_NEIGHBOR_USEABLE" is
+				 * "FALSE", the Three-Way adjacency state MUST be set to "DOWN" in
+				 * the Point-to-Point Three-Way Adjacency TLV [RFC5303] in all
+				 * transmitted IIHs.
+				 */
+				threeway_state = ISIS_THREEWAY_DOWN;
 			else
 				threeway_state = circuit->u.p2p.neighbor->threeway_state;
 			isis_tlvs_add_threeway_adj(tlvs,
