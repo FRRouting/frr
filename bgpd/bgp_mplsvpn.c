@@ -809,8 +809,9 @@ static bool leak_update_nexthop_valid(struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (debug)
-		zlog_debug("%s: nexthop is %svalid (in vrf %s)", __func__,
-			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);
+		zlog_debug("%s: %pFX nexthop is %svalid (in vrf %s)", __func__,
+			   p, (nh_valid ? "" : "not "),
+			   bgp_nexthop->name_pretty);
 
 	return nh_valid;
 }
