@@ -70,18 +70,13 @@ int pim_socket_raw(int protocol)
 
 void pim_socket_ip_hdr(int fd)
 {
-	const int on = 1;
-
 	frr_with_privs(&pimd_privs) {
 #if PIM_IPV == 4
+		const int on = 1;
+
 		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
 			zlog_err("%s: Could not turn on IP_HDRINCL option: %m",
 				 __func__);
-#else
-		if (setsockopt(fd, IPPROTO_IPV6, IPV6_HDRINCL, &on, sizeof(on)))
-			zlog_err(
-				"%s: Could not turn on IPV6_HDRINCL option: %m",
-				__func__);
 #endif
 	}
 }

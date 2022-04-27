@@ -42,6 +42,7 @@
 #include "pim_register.h"
 #include "pim_errors.h"
 #include "pim_bsm.h"
+#include <lib/lib_errors.h>
 
 static void on_pim_hello_send(struct thread *t);
 
@@ -551,6 +552,7 @@ void pim_sock_reset(struct interface *ifp)
 static uint16_t ip_id = 0;
 #endif
 
+#if PIM_IPV == 4
 static int pim_msg_send_frame(int fd, char *buf, size_t len,
 			      struct sockaddr *dst, size_t salen,
 			      const char *ifname)
@@ -558,7 +560,6 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
 		return 0;
 
-#if PIM_IPV == 4
 	if (errno == EMSGSIZE) {
 		struct ip *ip = (struct ip *)buf;
 		size_t hdrsize = sizeof(struct ip);
@@ -585,7 +586,6 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen,
 					  ifname);
 	}
-#endif
 
 	zlog_warn(
 		"%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m",
@@ -593,15 +593,64 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 	return -1;
 }
 
+#else
+static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
+			      struct iovec *message, int fd)
+{
+	int retval;
+	struct msghdr smsghdr = {};
+	struct cmsghdr *scmsgp;
+	union cmsgbuf {
+		struct cmsghdr hdr;
+		uint8_t buf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+	};
+	struct in6_pktinfo *pktinfo;
+	struct sockaddr_in6 dst_sin6 = {};
+
+	union cmsgbuf cmsg_buf = {};
+
+	/* destination address */
+	dst_sin6.sin6_family = AF_INET6;
+#ifdef SIN6_LEN
+	dst_sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif /*SIN6_LEN*/
+	dst_sin6.sin6_addr = dst;
+	dst_sin6.sin6_scope_id = ifindex;
+
+	/* send msg hdr */
+	smsghdr.msg_iov = message;
+	smsghdr.msg_iovlen = 1;
+	smsghdr.msg_name = (caddr_t)&dst_sin6;
+	smsghdr.msg_namelen = sizeof(dst_sin6);
+	smsghdr.msg_control = (caddr_t)&cmsg_buf.buf;
+	smsghdr.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+	smsghdr.msg_flags = 0;
+
+	scmsgp = CMSG_FIRSTHDR(&smsghdr);
+	scmsgp->cmsg_level = IPPROTO_IPV6;
+	scmsgp->cmsg_type = IPV6_PKTINFO;
+	scmsgp->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+
+	pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
+	pktinfo->ipi6_ifindex = ifindex;
+	pktinfo->ipi6_addr = src;
+
+	retval = sendmsg(fd, &smsghdr, 0);
+	if (retval < 0)
+		flog_err(
+			EC_LIB_SOCKET,
+			"sendmsg failed: source: %pI6 Dest: %pI6 ifindex: %d: %s (%d)",
+			&src, &dst, ifindex, safe_strerror(errno), errno);
+
+	return retval;
+}
+#endif
+
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, struct interface *ifp)
 {
-	socklen_t tolen;
-	unsigned char buffer[10000];
-	unsigned char *msg_start;
-	uint8_t ttl;
-	struct pim_msg_header *header;
 	struct pim_interface *pim_ifp;
+
 
 	pim_ifp = ifp->info;
 
@@ -613,9 +662,15 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		return 0;
 	}
 
+#if PIM_IPV == 4
+	uint8_t ttl;
+	struct pim_msg_header *header;
+	unsigned char buffer[10000];
+
 	memset(buffer, 0, 10000);
 
 	header = (struct pim_msg_header *)pim_msg;
+
 /*
  * Omnios apparently doesn't have a #define for IP default
  * ttl that is the same as all other platforms.
@@ -643,10 +698,11 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		break;
 	}
 
-#if PIM_IPV == 4
 	struct ip *ip = (struct ip *)buffer;
 	struct sockaddr_in to = {};
 	int sendlen = sizeof(*ip) + pim_msg_size;
+	socklen_t tolen;
+	unsigned char *msg_start;
 
 	ip->ip_id = htons(++ip_id);
 	ip->ip_hl = 5;
@@ -661,23 +717,6 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	to.sin_family = AF_INET;
 	to.sin_addr = dst;
 	tolen = sizeof(to);
-#else
-	struct ip6_hdr *ip = (struct ip6_hdr *)buffer;
-	struct sockaddr_in6 to = {};
-	int sendlen = sizeof(*ip) + pim_msg_size;
-
-	ip->ip6_flow = 0;
-	ip->ip6_vfc = (6 << 4) | (IPTOS_PREC_INTERNETCONTROL >> 4);
-	ip->ip6_plen = htons(pim_msg_size);
-	ip->ip6_nxt = PIM_IP_PROTO_PIM;
-	ip->ip6_hlim = ttl;
-	ip->ip6_src = src;
-	ip->ip6_dst = dst;
-
-	to.sin6_family = AF_INET6;
-	to.sin6_addr = dst;
-	tolen = sizeof(to);
-#endif
 
 	msg_start = buffer + sizeof(*ip);
 	memcpy(msg_start, pim_msg, pim_msg_size);
@@ -694,6 +733,17 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
 			   tolen, ifp->name);
 	return 0;
+
+#else
+	struct iovec iovector[2];
+
+	iovector[0].iov_base = pim_msg;
+	iovector[0].iov_len = pim_msg_size;
+
+	pim_msg_send_frame(src, dst, ifp->ifindex, &iovector[0], fd);
+
+	return 0;
+#endif
 }
 
 static int hello_send(struct interface *ifp, uint16_t holdtime)
