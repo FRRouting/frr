@@ -106,6 +106,21 @@ const char *cmd_domainname_get(void)
 	return host.domainname;
 }
 
+const char *cmd_system_get(void)
+{
+	return host.system;
+}
+
+const char *cmd_release_get(void)
+{
+	return host.release;
+}
+
+const char *cmd_version_get(void)
+{
+	return host.version;
+}
+
 static int root_on_exit(struct vty *vty);
 
 /* Standard command node structures. */
@@ -430,11 +445,15 @@ static bool full_cli;
 /* This function write configuration of this host. */
 static int config_write_host(struct vty *vty)
 {
-	if (cmd_hostname_get())
-		vty_out(vty, "hostname %s\n", cmd_hostname_get());
+	const char *name;
 
-	if (cmd_domainname_get())
-		vty_out(vty, "domainname %s\n", cmd_domainname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "hostname %s\n", name);
+
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "domainname %s\n", name);
 
 	/* The following are all configuration commands that are not sent to
 	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
@@ -1398,8 +1417,9 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-	vty_out(vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
-		cmd_hostname_get() ? cmd_hostname_get() : "");
+	vty_out(vty, "%s %s (%s) on %s(%s).\n", FRR_FULL_NAME, FRR_VERSION,
+		cmd_hostname_get() ? cmd_hostname_get() : "", cmd_system_get(),
+		cmd_release_get());
 	vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
 #ifdef ENABLE_VERSION_BUILD_CONFIG
 	vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
@@ -2223,9 +2243,9 @@ DEFUN (banner_motd_file,
 	int cmd = cmd_banner_motd_file(filename);
 
 	if (cmd == CMD_ERR_NO_FILE)
-		vty_out(vty, "%s does not exist", filename);
+		vty_out(vty, "%s does not exist\n", filename);
 	else if (cmd == CMD_WARNING_CONFIG_FAILED)
-		vty_out(vty, "%s must be in %s", filename, SYSCONFDIR);
+		vty_out(vty, "%s must be in %s\n", filename, SYSCONFDIR);
 
 	return cmd;
 }
@@ -2445,6 +2465,10 @@ void cmd_init(int terminal)
 
 	/* Default host value settings. */
 	host.name = XSTRDUP(MTYPE_HOST, names.nodename);
+	host.system = XSTRDUP(MTYPE_HOST, names.sysname);
+	host.release = XSTRDUP(MTYPE_HOST, names.release);
+	host.version = XSTRDUP(MTYPE_HOST, names.version);
+
 #ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 	if ((strcmp(names.domainname, "(none)") == 0))
 		host.domainname = NULL;
@@ -2563,6 +2587,9 @@ void cmd_terminate(void)
 	}
 
 	XFREE(MTYPE_HOST, host.name);
+	XFREE(MTYPE_HOST, host.system);
+	XFREE(MTYPE_HOST, host.release);
+	XFREE(MTYPE_HOST, host.version);
 	XFREE(MTYPE_HOST, host.domainname);
 	XFREE(MTYPE_HOST, host.password);
 	XFREE(MTYPE_HOST, host.password_encrypt);

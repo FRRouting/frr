@@ -19,6 +19,7 @@
 
 #include <zebra.h>
 
+#include "base64.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "northbound.h"
@@ -675,6 +676,64 @@ void yang_get_default_string_buf(char *buf, size_t size, const char *xpath_fmt,
 			  "%s: value was truncated [xpath %s]", __func__,
 			  xpath);
 }
+
+/*
+ * Primitive type: binary.
+ */
+struct yang_data *yang_data_new_binary(const char *xpath, const char *value,
+				       size_t len)
+{
+	char *value_str;
+	struct base64_encodestate s;
+	int cnt;
+	char *c;
+	struct yang_data *data;
+
+	value_str = (char *)malloc(len * 2);
+	base64_init_encodestate(&s);
+	cnt = base64_encode_block(value, len, value_str, &s);
+	c = value_str + cnt;
+	cnt = base64_encode_blockend(c, &s);
+	c += cnt;
+	*c = 0;
+	data = yang_data_new(xpath, value_str);
+	free(value_str);
+	return data;
+}
+
+size_t yang_dnode_get_binary_buf(char *buf, size_t size,
+				 const struct lyd_node *dnode,
+				 const char *xpath_fmt, ...)
+{
+	const char *canon;
+	size_t cannon_len;
+	size_t decode_len;
+	size_t ret_len;
+	size_t cnt;
+	char *value_str;
+	struct base64_decodestate s;
+
+	canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	cannon_len = strlen(canon);
+	decode_len = cannon_len;
+	value_str = (char *)malloc(decode_len);
+	base64_init_decodestate(&s);
+	cnt = base64_decode_block(canon, cannon_len, value_str, &s);
+
+	ret_len = size > cnt ? cnt : size;
+	memcpy(buf, value_str, ret_len);
+	if (size < cnt) {
+		char xpath[XPATH_MAXLEN];
+
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
+		flog_warn(EC_LIB_YANG_DATA_TRUNCATED,
+			  "%s: value was truncated [xpath %s]", __func__,
+			  xpath);
+	}
+	free(value_str);
+	return ret_len;
+}
+
 
 /*
  * Primitive type: empty.

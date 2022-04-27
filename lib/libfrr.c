@@ -46,6 +46,7 @@
 #include "frrscript.h"
 #include "systemd.h"
 
+DEFINE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
@@ -332,6 +333,8 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 
 	umask(0027);
 
+	log_args_init(daemon->early_logging);
+
 	opt_extend(&os_always);
 	if (!(di->flags & FRR_NO_SPLIT_CONFIG))
 		opt_extend(&os_cfg);
@@ -430,6 +433,8 @@ static int frr_opt(int opt)
 	static int vty_port_set = 0;
 	static int vty_addr_set = 0;
 	struct option_chain *oc;
+	struct log_arg *log_arg;
+	size_t arg_len;
 	char *err;
 
 	switch (opt) {
@@ -612,7 +617,10 @@ static int frr_opt(int opt)
 		di->privs->group = optarg;
 		break;
 	case OPTION_LOG:
-		di->early_logging = optarg;
+		arg_len = strlen(optarg) + 1;
+		log_arg = XCALLOC(MTYPE_TMP, sizeof(*log_arg) + arg_len);
+		memcpy(log_arg->target, optarg, arg_len);
+		log_args_add_tail(di->early_logging, log_arg);
 		break;
 	case OPTION_LOGLEVEL:
 		di->early_loglevel = optarg;
@@ -705,10 +713,12 @@ static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
 	struct option_chain *oc;
+	struct log_arg *log_arg;
 	struct frrmod_runtime *module;
 	struct zprivs_ids_t ids;
 	char p_instance[16] = "", p_pathspace[256] = "";
 	const char *dir;
+
 	dir = di->module_path ? di->module_path : frr_moduledir;
 
 	srandom(time(NULL));
@@ -738,7 +748,11 @@ struct thread_master *frr_init(void)
 	zlog_init(di->progname, di->logname, di->instance,
 		  ids.uid_normal, ids.gid_normal);
 
-	command_setup_early_logging(di->early_logging, di->early_loglevel);
+	while ((log_arg = log_args_pop(di->early_logging))) {
+		command_setup_early_logging(log_arg->target,
+					    di->early_loglevel);
+		XFREE(MTYPE_TMP, log_arg);
+	}
 
 	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			      frr_zclientpath)) {
@@ -770,6 +784,7 @@ struct thread_master *frr_init(void)
 
 	master = thread_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
+	hook_call(frr_early_init, master);
 
 #ifdef HAVE_SQLITE3
 	if (!di->db_file)
@@ -960,7 +975,7 @@ static void frr_daemonize(void)
  * to read the config in after thread execution starts, so that
  * we can match this behavior.
  */
-static int frr_config_read_in(struct thread *t)
+static void frr_config_read_in(struct thread *t)
 {
 	hook_call(frr_config_pre, master);
 
@@ -998,8 +1013,6 @@ static int frr_config_read_in(struct thread *t)
 	}
 
 	hook_call(frr_config_post, master);
-
-	return 0;
 }
 
 void frr_config_fork(void)
@@ -1095,7 +1108,7 @@ static void frr_terminal_close(int isexit)
 
 static struct thread *daemon_ctl_thread = NULL;
 
-static int frr_daemon_ctl(struct thread *t)
+static void frr_daemon_ctl(struct thread *t)
 {
 	char buf[1];
 	ssize_t nr;
@@ -1104,7 +1117,7 @@ static int frr_daemon_ctl(struct thread *t)
 	if (nr < 0 && (errno == EINTR || errno == EAGAIN))
 		goto out;
 	if (nr <= 0)
-		return 0;
+		return;
 
 	switch (buf[0]) {
 	case 'S': /* SIGTSTP */
@@ -1129,7 +1142,6 @@ static int frr_daemon_ctl(struct thread *t)
 out:
 	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
 			&daemon_ctl_thread);
-	return 0;
 }
 
 void frr_detach(void)

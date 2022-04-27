@@ -112,6 +112,7 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 {
 	struct ospf6_neighbor *on;
 	char buf[16];
+	int type;
 
 	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
@@ -130,6 +131,13 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 	on->dbdesc_list = ospf6_lsdb_create(on);
 	on->lsupdate_list = ospf6_lsdb_create(on);
 	on->lsack_list = ospf6_lsdb_create(on);
+
+	for (type = 0; type < OSPF6_MESSAGE_TYPE_MAX; type++) {
+		on->seqnum_l[type] = 0;
+		on->seqnum_h[type] = 0;
+	}
+
+	on->auth_present = false;
 
 	listnode_add_sort(oi->neighbor_list, on);
 
@@ -264,7 +272,7 @@ static int need_adjacency(struct ospf6_neighbor *on)
 	return 0;
 }
 
-int hello_received(struct thread *thread)
+void hello_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -282,11 +290,9 @@ int hello_received(struct thread *thread)
 	if (on->state <= OSPF6_NEIGHBOR_DOWN)
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_INIT, on,
 					    OSPF6_NEIGHBOR_EVENT_HELLO_RCVD);
-
-	return 0;
 }
 
-int twoway_received(struct thread *thread)
+void twoway_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -294,7 +300,7 @@ int twoway_received(struct thread *thread)
 	assert(on);
 
 	if (on->state > OSPF6_NEIGHBOR_INIT)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *2Way-Received*", on->name);
@@ -304,7 +310,7 @@ int twoway_received(struct thread *thread)
 	if (!need_adjacency(on)) {
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_TWOWAY, on,
 					    OSPF6_NEIGHBOR_EVENT_TWOWAY_RCVD);
-		return 0;
+		return;
 	}
 
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_EXSTART, on,
@@ -316,11 +322,9 @@ int twoway_received(struct thread *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
-
-	return 0;
 }
 
-int negotiation_done(struct thread *thread)
+void negotiation_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -329,7 +333,7 @@ int negotiation_done(struct thread *thread)
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXSTART)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *NegotiationDone*", on->name);
@@ -372,21 +376,17 @@ int negotiation_done(struct thread *thread)
 	UNSET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_EXCHANGE, on,
 				    OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE);
-
-	return 0;
 }
 
-static int ospf6_neighbor_last_dbdesc_release(struct thread *thread)
+static void ospf6_neighbor_last_dbdesc_release(struct thread *thread)
 {
 	struct ospf6_neighbor *on = THREAD_ARG(thread);
 
 	assert(on);
 	memset(&on->dbdesc_last, 0, sizeof(struct ospf6_dbdesc));
-
-	return 0;
 }
 
-int exchange_done(struct thread *thread)
+void exchange_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -394,7 +394,7 @@ int exchange_done(struct thread *thread)
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *ExchangeDone*", on->name);
@@ -420,8 +420,6 @@ int exchange_done(struct thread *thread)
 		thread_add_event(master, ospf6_lsreq_send, on, 0,
 				 &on->thread_send_lsreq);
 	}
-
-	return 0;
 }
 
 /* Check loading state. */
@@ -445,7 +443,7 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 	}
 }
 
-int loading_done(struct thread *thread)
+void loading_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -453,7 +451,7 @@ int loading_done(struct thread *thread)
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_LOADING)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *LoadingDone*", on->name);
@@ -462,11 +460,9 @@ int loading_done(struct thread *thread)
 
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_FULL, on,
 				    OSPF6_NEIGHBOR_EVENT_LOADING_DONE);
-
-	return 0;
 }
 
-int adj_ok(struct thread *thread)
+void adj_ok(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -499,11 +495,9 @@ int adj_ok(struct thread *thread)
 			ospf6_lsdb_remove(lsa, on->retrans_list);
 		}
 	}
-
-	return 0;
 }
 
-int seqnumber_mismatch(struct thread *thread)
+void seqnumber_mismatch(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -512,7 +506,7 @@ int seqnumber_mismatch(struct thread *thread)
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *SeqNumberMismatch*", on->name);
@@ -536,11 +530,9 @@ int seqnumber_mismatch(struct thread *thread)
 	on->thread_send_dbdesc = NULL;
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
-
-	return 0;
 }
 
-int bad_lsreq(struct thread *thread)
+void bad_lsreq(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -549,7 +541,7 @@ int bad_lsreq(struct thread *thread)
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *BadLSReq*", on->name);
@@ -574,10 +566,9 @@ int bad_lsreq(struct thread *thread)
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
 
-	return 0;
 }
 
-int oneway_received(struct thread *thread)
+void oneway_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -586,7 +577,7 @@ int oneway_received(struct thread *thread)
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_TWOWAY)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *1Way-Received*", on->name);
@@ -608,11 +599,9 @@ int oneway_received(struct thread *thread)
 	THREAD_OFF(on->thread_send_lsack);
 	THREAD_OFF(on->thread_exchange_done);
 	THREAD_OFF(on->thread_adj_ok);
-
-	return 0;
 }
 
-int inactivity_timer(struct thread *thread)
+void inactivity_timer(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -648,8 +637,6 @@ int inactivity_timer(struct thread *thread)
 				 on->ospf6_if->dead_interval,
 				 &on->inactivity_timer);
 	}
-
-	return 0;
 }
 
 
@@ -935,8 +922,44 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 		bfd_sess_show(vty, json_neighbor, on->bfd_session);
 
-		json_object_object_add(json, on->name, json_neighbor);
+		if (on->auth_present == true) {
+			json_object_string_add(json_neighbor, "authStatus",
+					       "enabled");
+			json_object_int_add(
+				json_neighbor, "recvdHelloHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(
+				json_neighbor, "recvdHelloLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(
+				json_neighbor, "recvdDBDescHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(
+				json_neighbor, "recvdDBDescLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(
+				json_neighbor, "recvdLSReqHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(
+				json_neighbor, "recvdLSReqLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(
+				json_neighbor, "recvdLSUpdHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(
+				json_neighbor, "recvdLSUpdLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(
+				json_neighbor, "recvdLSAckHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			json_object_int_add(
+				json_neighbor, "recvdLSAckLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+		} else
+			json_object_string_add(json_neighbor, "authStatus",
+					       "disabled");
 
+		json_object_object_add(json, on->name, json_neighbor);
 
 	} else {
 		vty_out(vty, " Neighbor %s\n", on->name);
@@ -1022,6 +1045,27 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			vty_out(vty, "      %s\n", lsa->name);
 
 		bfd_sess_show(vty, NULL, on->bfd_session);
+
+		if (on->auth_present == true) {
+			vty_out(vty, "    Authentication header present\n");
+			vty_out(vty,
+				"\t\t\t hello        DBDesc       LSReq        LSUpd        LSAck\n");
+			vty_out(vty,
+				"      Higher sequence no 0x%-10X 0x%-10X 0x%-10X 0x%-10X 0x%-10X\n",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			vty_out(vty,
+				"      Lower sequence no  0x%-10X 0x%-10X 0x%-10X 0x%-10X 0x%-10X\n",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+		} else
+			vty_out(vty, "    Authentication header not present\n");
 	}
 }
 

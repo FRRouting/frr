@@ -141,7 +141,7 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 
 	ldp_sync_info = params->ldp_sync_info;
 
-	/* specifed on interface overrides global config. */
+	/* specified on interface overrides global config. */
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
 		ldp_sync_info->holddown = oi->ospf->ldp_sync_cmd.holddown;
 
@@ -353,7 +353,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static int ospf_ldp_sync_holddown_timer(struct thread *thread)
+static void ospf_ldp_sync_holddown_timer(struct thread *thread)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;
@@ -375,7 +375,6 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 
 		ospf_if_recalculate_output_cost(ifp);
 	}
-	return 0;
 }
 
 void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
@@ -442,7 +441,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 	struct ldp_sync_info *ldp_sync_info;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config
+	 *  specified on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
 	 */
 	if (if_is_loopback(ifp))
@@ -480,7 +479,7 @@ void ospf_if_set_ldp_sync_holddown(struct ospf *ospf, struct interface *ifp)
 	struct ldp_sync_info *ldp_sync_info;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config.
+	 *  specified on interface overrides global config.
 	 */
 	if (if_is_loopback(ifp))
 		return;
@@ -509,9 +508,16 @@ void ospf_ldp_sync_show_info(struct vty *vty, struct ospf *ospf,
 
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (use_json) {
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
 			json_object_boolean_true_add(json_vrf,
 						     "MplsLdpIgpSyncEnabled");
+			json_object_boolean_true_add(json_vrf,
+						     "mplsLdpIgpSyncEnabled");
 			json_object_int_add(json_vrf, "MplsLdpIgpSyncHolddown",
+					    ospf->ldp_sync_cmd.holddown);
+			json_object_int_add(json_vrf, "mplsLdpIgpSyncHolddown",
 					    ospf->ldp_sync_cmd.holddown);
 		} else {
 			vty_out(vty, " MPLS LDP-IGP Sync is enabled\n");

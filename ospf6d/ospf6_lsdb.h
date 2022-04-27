@@ -29,6 +29,7 @@ struct ospf6_lsdb {
 	void *data; /* data structure that holds this lsdb */
 	struct route_table *table;
 	uint32_t count;
+	uint32_t stats[OSPF6_LSTYPE_SIZE];
 	void (*hook_add)(struct ospf6_lsa *);
 	void (*hook_remove)(struct ospf6_lsa *);
 };
@@ -70,7 +71,7 @@ extern struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
  * Since we are locking the lsa in ospf6_lsdb_head
  * and then unlocking it in ospf6_lsa_unlock, when
  * we cache the next pointer we need to increment
- * the lock for the lsa so we don't accidently free
+ * the lock for the lsa so we don't accidentally free
  * it really early.
  */
 #define ALL_LSDB(lsdb, lsa, lsanext)                                           \

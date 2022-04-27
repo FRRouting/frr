@@ -69,7 +69,7 @@ TC_18 : Verify RPF interface updated in mroute when higher preferred RP gets
         deleted
 TC_19 : Verify IIF and OIL in "show ip pim state" updated when higher
         preferred overlapping RP is deleted
-TC_20 : Verfiy PIM upstream IIF updated when higher preferred overlapping RP
+TC_20 : Verify PIM upstream IIF updated when higher preferred overlapping RP
         deleted
 TC_21_1 : Verify OIF and RFP for (*,G) and (S,G) when static RP configure in
           LHR router
@@ -94,7 +94,7 @@ TC_30 : Verify IIF and OIL change to other path after shut the primary path
 TC_31 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
         shut the RPF interface.
 TC_32 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
-        shut the RPF inteface
+        shut the RPF interface
 """
 
 import os
@@ -227,7 +227,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, TOPO)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Don"t run this test if we have any failure.
@@ -1157,7 +1157,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
                 gets deleted
      TC_19_P1 : Verify IIF and OIL in "show ip pim state" updated when higher
                 preferred overlapping RP is deleted
-     TC_20_P1 : Verfiy PIM upstream IIF updated when higher preferred
+     TC_20_P1 : Verify PIM upstream IIF updated when higher preferred
                 overlapping RP deleted
 
     Topology used:
@@ -1354,7 +1354,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "r1 : Verfiy upstream IIF updated when higher preferred overlapping"
+        "r1 : Verify upstream IIF updated when higher preferred overlapping"
         "RP deleted"
     )
     result = verify_upstream_iif(tgen, dut, iif, STAR, GROUP_ADDRESS)
@@ -3820,7 +3820,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
 def test_delete_RP_shut_noshut_RP_interface_p1(request):
     """
     TC_32_P1: Verify RP info and (*,G) mroute after deleting the RP and shut/
-           no shut the RPF inteface
+           no shut the RPF interface
 
     Topology used:
                 ________r2_____

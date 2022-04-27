@@ -746,7 +746,7 @@ extern void ls_ted_del(struct ls_ted *ted);
  *
  * @param ted	Link State Data Base
  */
-extern void ls_ted_del_all(struct ls_ted *ted);
+extern void ls_ted_del_all(struct ls_ted **ted);
 
 /**
  * Clean Link State Data Base by removing all Vertices, Edges and SubNets marked

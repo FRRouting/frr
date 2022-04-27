@@ -42,6 +42,15 @@ extern "C" {
 	     json_object_iter_equal(&(joi), &(join)) == 0;                     \
 	     json_object_iter_next(&(joi)))
 
+#define JSON_OBJECT_NEW_ARRAY(json_func, fields, n)                            \
+	({                                                                     \
+		struct json_object *_json_array = json_object_new_array();     \
+		for (int _i = 0; _i < (n); _i++)                               \
+			json_object_array_add(_json_array,                     \
+					      (json_func)((fields)[_i]));      \
+		(_json_array);                                                 \
+	})
+
 extern bool use_json(const int argc, struct cmd_token *argv[]);
 extern void json_object_string_add(struct json_object *obj, const char *key,
 				   const char *s);
@@ -105,6 +114,28 @@ static inline struct json_object *json_object_new_stringf(const char *fmt, ...)
 	va_end(args);
 
 	return ret;
+}
+
+/* NOTE: argument order differs! (due to varargs)
+ *   json_object_object_add(parent, key, child)
+ *   json_object_object_addv(parent, child, key, va)
+ *   json_object_object_addf(parent, child, key, ...)
+ * (would be weird to have the child inbetween the format string and args)
+ */
+PRINTFRR(3, 0)
+extern void json_object_object_addv(struct json_object *parent,
+				    struct json_object *child,
+				    const char *keyfmt, va_list args);
+PRINTFRR(3, 4)
+static inline void json_object_object_addf(struct json_object *parent,
+					   struct json_object *child,
+					   const char *keyfmt, ...)
+{
+	va_list args;
+
+	va_start(args, keyfmt);
+	json_object_object_addv(parent, child, keyfmt, args);
+	va_end(args);
 }
 
 #define JSON_STR "JavaScript Object Notation\n"

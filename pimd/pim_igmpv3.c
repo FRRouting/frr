@@ -32,6 +32,7 @@
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_oil.h"
+#include "pim_ssm.h"
 
 static void group_retransmit_timer_on(struct gm_group *group);
 static long igmp_group_timer_remain_msec(struct gm_group *group);
@@ -118,7 +119,7 @@ void igmp_group_reset_gmi(struct gm_group *group)
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
 
-static int igmp_source_timer(struct thread *t)
+static void igmp_source_timer(struct thread *t)
 {
 	struct gm_source *source;
 	struct gm_group *group;
@@ -179,8 +180,6 @@ static int igmp_source_timer(struct thread *t)
 			igmp_group_delete_empty_include(group);
 		}
 	}
-
-	return 0;
 }
 
 static void source_timer_off(struct gm_group *group, struct gm_source *source)
@@ -341,8 +340,8 @@ static void source_channel_oil_detach(struct gm_source *source)
 }
 
 /*
-  igmp_source_delete:       stop fowarding, and delete the source
-  igmp_source_forward_stop: stop fowarding, but keep the source
+  igmp_source_delete:       stop forwarding, and delete the source
+  igmp_source_forward_stop: stop forwarding, but keep the source
 */
 void igmp_source_delete(struct gm_source *source)
 {
@@ -466,6 +465,9 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 
 	src = XCALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
 
+	if (new)
+		*new = true;
+
 	src->t_source_timer = NULL;
 	src->source_group = group; /* back pointer */
 	src->source_addr = src_addr;
@@ -517,7 +519,7 @@ static void allow(struct gm_sock *igmp, struct in_addr from,
 		return;
 	}
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -670,7 +672,7 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 	if (pim_is_group_filtered(ifp->info, &group_addr))
 		return;
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -791,7 +793,7 @@ void igmpv3_report_toin(struct gm_sock *igmp, struct in_addr from,
 	 * entry is present, the request is ignored.
 	 */
 	if (num_sources) {
-		/* non-existant group is created as INCLUDE {empty} */
+		/* non-existent group is created as INCLUDE {empty} */
 		group = igmp_add_group_by_addr(igmp, group_addr);
 		if (!group) {
 			return;
@@ -945,7 +947,7 @@ void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -986,12 +988,10 @@ static void igmp_send_query_group(struct gm_group *group, char *query_buf,
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 		igmp_send_query(
-			pim_ifp->igmp_version, group, igmp->fd, ifp->name,
-			query_buf, query_buf_size, num_sources,
-			group->group_addr, group->group_addr,
+			pim_ifp->igmp_version, group, query_buf, query_buf_size,
+			num_sources, group->group_addr, group->group_addr,
 			pim_ifp->gm_specific_query_max_response_time_dsec,
-			s_flag, igmp->querier_robustness_variable,
-			igmp->querier_query_interval);
+			s_flag, igmp);
 	}
 }
 
@@ -1212,7 +1212,7 @@ static int group_retransmit_sources(struct gm_group *group,
 	return num_retransmit_sources_left;
 }
 
-static int igmp_group_retransmit(struct thread *t)
+static void igmp_group_retransmit(struct thread *t)
 {
 	struct gm_group *group;
 	int num_retransmit_sources_left;
@@ -1262,8 +1262,6 @@ static int igmp_group_retransmit(struct thread *t)
 	    || (group->group_specific_query_retransmit_count > 0)) {
 		group_retransmit_timer_on(group);
 	}
-
-	return 0;
 }
 
 /*
@@ -1470,7 +1468,7 @@ void igmpv3_report_block(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -1675,7 +1673,7 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 	*/
 	if (!s_flag) {
 		/* general query? */
-		if (PIM_INADDR_IS_ANY(group_addr)) {
+		if (group_addr.s_addr == INADDR_ANY) {
 			char dst_str[INET_ADDRSTRLEN];
 			char group_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<dst?>", dst_addr, dst_str,
@@ -1762,7 +1760,7 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 	if (!s_flag) {
 		/* s_flag is clear */
 
-		if (PIM_INADDR_IS_ANY(group_addr)) {
+		if (group_addr.s_addr == INADDR_ANY) {
 			/* this is a general query */
 			/* log that general query should have the s_flag set */
 			zlog_warn(
@@ -1826,6 +1824,64 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 	} /* s_flag is clear: timer updates */
 }
 
+static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
+				 struct in_addr grp, int rec_type)
+{
+	struct pim_interface *pim_ifp;
+	struct in_addr grp_addr;
+
+	pim_ifp = ifp->info;
+
+	/* determine filtering status for group */
+	if (pim_is_group_filtered(pim_ifp, &grp)) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug(
+				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
+				&grp.s_addr, from_str, ifp->name,
+				pim_ifp->boundary_oil_plist);
+		}
+		return false;
+	}
+
+	/*
+	 * If we receive a igmp report with the group in 224.0.0.0/24
+	 * then we should ignore it
+	 */
+
+	grp_addr.s_addr = ntohl(grp.s_addr);
+
+	if (pim_is_group_224_0_0_0_24(grp_addr)) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug(
+				"Ignoring IGMPv3 group record %pI4 from %s on %s group range falls in 224.0.0.0/24",
+				&grp.s_addr, from_str, ifp->name);
+		}
+		return false;
+	}
+
+	/*
+	 * RFC 4604
+	 * section 2.2.1
+	 * EXCLUDE mode does not apply to SSM addresses, and an SSM-aware router
+	 * will ignore MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE requests in
+	 * the SSM range.
+	 */
+	if (pim_is_grp_ssm(pim_ifp->pim, grp)) {
+		switch (rec_type) {
+		case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
+		case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
+			if (PIM_DEBUG_IGMP_PACKETS) {
+				zlog_debug(
+					"Ignoring IGMPv3 group record %pI4 from %s on %s exclude mode in SSM range",
+					&grp.s_addr, from_str, ifp->name);
+			}
+			return false;
+		}
+	}
+
+	return true;
+}
+
 int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
@@ -1834,13 +1890,9 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
 	struct interface *ifp = igmp->interface;
 	int i;
-	int local_ncb = 0;
-	struct pim_interface *pim_ifp;
 
 	if (igmp->mtrace_only)
 		return 0;
-
-	pim_ifp = igmp->interface->info;
 
 	if (igmp_msg_len < IGMP_V3_MSG_MIN_SIZE) {
 		zlog_warn(
@@ -1858,7 +1910,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.report_v3++;
+	igmp->igmp_stats.report_v3++;
 
 	num_groups = ntohs(
 		*(uint16_t *)(igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET));
@@ -1886,9 +1938,6 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		int rec_auxdatalen;
 		int rec_num_sources;
 		int j;
-		struct prefix lncb;
-		struct prefix g;
-		bool filtered = false;
 
 		if ((group_record + IGMP_V3_GROUP_RECORD_MIN_SIZE)
 		    > report_pastend) {
@@ -1946,31 +1995,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		} /* for (sources) */
 
 
-		lncb.family = AF_INET;
-		lncb.u.prefix4.s_addr = 0x000000E0;
-		lncb.prefixlen = 24;
-
-		g.family = AF_INET;
-		g.u.prefix4 = rec_group;
-		g.prefixlen = IPV4_MAX_BITLEN;
-
-		/* determine filtering status for group */
-		filtered = pim_is_group_filtered(ifp->info, &rec_group);
-
-		if (PIM_DEBUG_IGMP_PACKETS && filtered)
-			zlog_debug(
-				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
-				&rec_group, from_str, ifp->name,
-				pim_ifp->boundary_oil_plist);
-
-		/*
-		 * If we receive a igmp report with the group in 224.0.0.0/24
-		 * then we should ignore it
-		 */
-		if (prefix_match(&lncb, &g))
-			local_ncb = 1;
-
-		if (!local_ncb && !filtered)
+		if (igmp_pkt_grp_addr_ok(ifp, from_str, rec_group, rec_type))
 			switch (rec_type) {
 			case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
 				igmpv3_report_isin(igmp, from, rec_group,
@@ -2010,7 +2035,6 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 
 		group_record +=
 			8 + (rec_num_sources << 2) + (rec_auxdatalen << 2);
-		local_ncb = 0;
 
 	} /* for (group records) */
 

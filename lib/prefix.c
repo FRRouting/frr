@@ -915,12 +915,13 @@ static const char *prefixevpn_ead2str(const struct prefix_evpn *p, char *str,
 	char buf1[INET6_ADDRSTRLEN];
 
 	family = IS_IPADDR_V4(&p->prefix.ead_addr.ip) ? AF_INET : AF_INET6;
-	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]", p->prefix.route_type,
-		 p->prefix.ead_addr.eth_tag,
+	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]:[%u]",
+		 p->prefix.route_type, p->prefix.ead_addr.eth_tag,
 		 esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)),
 		 (family == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
 		 inet_ntop(family, &p->prefix.ead_addr.ip.ipaddr_v4, buf1,
-			   sizeof(buf1)));
+			   sizeof(buf1)),
+		 p->prefix.ead_addr.frag_id);
 	return str;
 }
 
@@ -1069,6 +1070,26 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	}
 
 	return str;
+}
+
+static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
+{
+	const struct prefix *p = pu.p;
+	char buf[PREFIX2STR_BUFFER];
+
+	switch (p->family) {
+	case AF_INET:
+	case AF_INET6:
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+		return bputs(fbuf, buf);
+
+	case AF_ETHERNET:
+		prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf));
+		return bputs(fbuf, buf);
+
+	default:
+		return bprintfrr(fbuf, "{prefix.af=%dPF}", p->family);
+	}
 }
 
 void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
@@ -1458,13 +1479,24 @@ printfrr_ext_autoreg_p("FX", printfrr_pfx);
 static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
-	char cbuf[PREFIX_STRLEN];
+	bool host_only = false;
+
+	if (ea->fmt[0] == 'h') {
+		ea->fmt++;
+		host_only = true;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
 
-	prefix2str(ptr, cbuf, sizeof(cbuf));
-	return bputs(buf, cbuf);
+	if (host_only)
+		return prefixhost2str(buf, (struct prefix *)ptr);
+	else {
+		char cbuf[PREFIX_STRLEN];
+
+		prefix2str(ptr, cbuf, sizeof(cbuf));
+		return bputs(buf, cbuf);
+	}
 }
 
 printfrr_ext_autoreg_p("PSG4", printfrr_psg);

@@ -31,6 +31,7 @@
 #include "thread.h"
 #include "if.h"
 #include "stream.h"
+#include "bfd.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -448,7 +449,7 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	}
 }
 
-int isis_adj_expire(struct thread *thread)
+void isis_adj_expire(struct thread *thread)
 {
 	struct isis_adjacency *adj;
 
@@ -461,8 +462,220 @@ int isis_adj_expire(struct thread *thread)
 
 	/* trigger the adj expire event */
 	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "holding time expired");
+}
 
-	return 0;
+/*
+ * show isis neighbor [detail] json
+ */
+void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
+			 char detail)
+{
+	json_object *iface_json, *ipv4_addr_json, *ipv6_link_json,
+		*ipv6_non_link_json, *topo_json, *dis_flaps_json,
+		*area_addr_json, *adj_sid_json;
+	time_t now;
+	struct isis_dynhn *dyn;
+	int level;
+	char buf[256];
+
+	json_object_string_add(json, "adj", isis_adj_name(adj));
+
+	if (detail == ISIS_UI_LEVEL_BRIEF) {
+		if (adj->circuit)
+			json_object_string_add(json, "interface",
+					       adj->circuit->interface->name);
+		else
+			json_object_string_add(json, "interface",
+					       "NULL circuit!");
+		json_object_int_add(json, "level", adj->level);
+		json_object_string_add(json, "state",
+				       adj_state2string(adj->adj_state));
+		now = time(NULL);
+		if (adj->last_upd) {
+			if (adj->last_upd + adj->hold_time < now)
+				json_object_string_add(json, "last-upd",
+						       "expiring");
+			else
+				json_object_string_add(
+					json, "expires-in",
+					time2string(adj->last_upd +
+						    adj->hold_time - now));
+		}
+		json_object_string_add(json, "snpa", snpa_print(adj->snpa));
+	}
+
+	if (detail == ISIS_UI_LEVEL_DETAIL) {
+		struct sr_adjacency *sra;
+		struct listnode *anode;
+
+		level = adj->level;
+		iface_json = json_object_new_object();
+		json_object_object_add(json, "interface", iface_json);
+		if (adj->circuit)
+			json_object_string_add(iface_json, "name",
+					       adj->circuit->interface->name);
+		else
+			json_object_string_add(iface_json, "name",
+					       "null-circuit");
+		json_object_int_add(json, "level", adj->level);
+		json_object_string_add(iface_json, "state",
+				       adj_state2string(adj->adj_state));
+		now = time(NULL);
+		if (adj->last_upd) {
+			if (adj->last_upd + adj->hold_time < now)
+				json_object_string_add(iface_json, "last-upd",
+						       "expiring");
+			else
+				json_object_string_add(
+					json, "expires-in",
+					time2string(adj->last_upd +
+						    adj->hold_time - now));
+		} else
+			json_object_string_add(json, "expires-in",
+					       time2string(adj->hold_time));
+		json_object_int_add(iface_json, "adj-flaps", adj->flaps);
+		json_object_string_add(iface_json, "last-ago",
+				       time2string(now - adj->last_flap));
+		json_object_string_add(iface_json, "circuit-type",
+				       circuit_t2string(adj->circuit_t));
+		json_object_string_add(iface_json, "speaks",
+				       nlpid2string(&adj->nlpids));
+		if (adj->mt_count != 1 ||
+		    adj->mt_set[0] != ISIS_MT_IPV4_UNICAST) {
+			topo_json = json_object_new_object();
+			json_object_object_add(iface_json, "topologies",
+					       topo_json);
+			for (unsigned int i = 0; i < adj->mt_count; i++) {
+				snprintfrr(buf, sizeof(buf), "topo-%d", i);
+				json_object_string_add(
+					topo_json, buf,
+					isis_mtid2str(adj->mt_set[i]));
+			}
+		}
+		json_object_string_add(iface_json, "snpa",
+				       snpa_print(adj->snpa));
+		if (adj->circuit &&
+		    (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)) {
+			dyn = dynhn_find_by_id(adj->circuit->isis, adj->lanid);
+			if (dyn) {
+				snprintfrr(buf, sizeof(buf), "%s-%02x",
+					   dyn->hostname,
+					   adj->lanid[ISIS_SYS_ID_LEN]);
+				json_object_string_add(iface_json, "lan-id",
+						       buf);
+			} else {
+				snprintfrr(buf, sizeof(buf), "%s-%02x",
+					   sysid_print(adj->lanid),
+					   adj->lanid[ISIS_SYS_ID_LEN]);
+				json_object_string_add(iface_json, "lan-id",
+						       buf);
+			}
+
+			json_object_int_add(iface_json, "lan-prio",
+					    adj->prio[adj->level - 1]);
+
+			dis_flaps_json = json_object_new_object();
+			json_object_object_add(iface_json, "dis-flaps",
+					       dis_flaps_json);
+			json_object_string_add(
+				dis_flaps_json, "dis-record",
+				isis_disflag2string(
+					adj->dis_record[ISIS_LEVELS + level - 1]
+						.dis));
+			json_object_int_add(dis_flaps_json, "last",
+					    adj->dischanges[level - 1]);
+			json_object_string_add(
+				dis_flaps_json, "ago",
+				time2string(now - (adj->dis_record[ISIS_LEVELS +
+								   level - 1]
+							   .last_dis_change)));
+		}
+
+		if (adj->area_address_count) {
+			area_addr_json = json_object_new_object();
+			json_object_object_add(iface_json, "area-address",
+					       area_addr_json);
+			for (unsigned int i = 0; i < adj->area_address_count;
+			     i++) {
+				json_object_string_add(
+					area_addr_json, "isonet",
+					isonet_print(adj->area_addresses[i]
+							     .area_addr,
+						     adj->area_addresses[i]
+							     .addr_len));
+			}
+		}
+		if (adj->ipv4_address_count) {
+			ipv4_addr_json = json_object_new_object();
+			json_object_object_add(iface_json, "ipv4-address",
+					       ipv4_addr_json);
+			for (unsigned int i = 0; i < adj->ipv4_address_count;
+			     i++){
+				inet_ntop(AF_INET, &adj->ipv4_addresses[i], buf,
+					  sizeof(buf));
+			json_object_string_add(ipv4_addr_json, "ipv4", buf);
+		}
+		}
+		if (adj->ll_ipv6_count) {
+			ipv6_link_json = json_object_new_object();
+			json_object_object_add(iface_json, "ipv6-link-local",
+					       ipv6_link_json);
+			for (unsigned int i = 0; i < adj->ll_ipv6_count; i++) {
+				char buf[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, &adj->ll_ipv6_addrs[i], buf,
+					  sizeof(buf));
+				json_object_string_add(ipv6_link_json, "ipv6",
+						       buf);
+			}
+		}
+		if (adj->global_ipv6_count) {
+			ipv6_non_link_json = json_object_new_object();
+			json_object_object_add(iface_json, "ipv6-global",
+					       ipv6_non_link_json);
+			for (unsigned int i = 0; i < adj->global_ipv6_count;
+			     i++) {
+				char buf[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, &adj->global_ipv6_addrs[i],
+					  buf, sizeof(buf));
+				json_object_string_add(ipv6_non_link_json,
+						       "ipv6", buf);
+			}
+		}
+
+		adj_sid_json = json_object_new_object();
+		json_object_object_add(iface_json, "adj-sid", adj_sid_json);
+		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
+			const char *adj_type;
+			const char *backup;
+			uint32_t sid;
+
+			switch (sra->adj->circuit->circ_type) {
+			case CIRCUIT_T_BROADCAST:
+				adj_type = "LAN Adjacency-SID";
+				sid = sra->u.ladj_sid->sid;
+				break;
+			case CIRCUIT_T_P2P:
+				adj_type = "Adjacency-SID";
+				sid = sra->u.adj_sid->sid;
+				break;
+			default:
+				continue;
+			}
+			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+								   : "";
+
+			json_object_string_add(adj_sid_json, "nexthop",
+					       (sra->nexthop.family == AF_INET)
+						       ? "IPv4"
+						       : "IPv6");
+			json_object_string_add(adj_sid_json, "adj-type",
+					       adj_type);
+			json_object_string_add(adj_sid_json, "is-backup",
+					       backup);
+			json_object_int_add(adj_sid_json, "sid", sid);
+		}
+	}
+	return;
 }
 
 /*
@@ -601,6 +814,15 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					  buf, sizeof(buf));
 				vty_out(vty, "      %s\n", buf);
 			}
+		}
+		if (adj->circuit && adj->circuit->bfd_config.enabled) {
+			vty_out(vty, "    BFD is %s%s\n",
+				adj->bfd_session ? "active, status "
+						 : "configured",
+				!adj->bfd_session
+					? ""
+					: bfd_get_status_str(bfd_sess_status(
+						  adj->bfd_session)));
 		}
 		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
 			const char *adj_type;

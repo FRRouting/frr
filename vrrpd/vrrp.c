@@ -405,7 +405,7 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	struct ipaddr *iter;
 
 	for (ALL_LIST_ELEMENTS_RO(r->addrs, ln, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			return true;
 
 	return false;
@@ -484,7 +484,7 @@ int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			list_delete_node(r->addrs, ln);
 
 	/*
@@ -681,8 +681,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static int vrrp_adver_timer_expire(struct thread *thread);
-static int vrrp_master_down_timer_expire(struct thread *thread);
+static void vrrp_adver_timer_expire(struct thread *thread);
+static void vrrp_master_down_timer_expire(struct thread *thread);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -903,7 +903,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
-		addrcmp = memcmp(&src->ip, &r->src.ip, IPADDRSZ(src));
+		addrcmp = ipaddr_cmp(src, &r->src);
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
@@ -983,7 +983,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static int vrrp_read(struct thread *thread)
+static void vrrp_read(struct thread *thread)
 {
 	struct vrrp_router *r = thread->arg;
 
@@ -1045,8 +1045,6 @@ done:
 
 	if (resched)
 		thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
-
-	return 0;
 }
 
 /*
@@ -1480,7 +1478,7 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static int vrrp_adver_timer_expire(struct thread *thread)
+static void vrrp_adver_timer_expire(struct thread *thread)
 {
 	struct vrrp_router *r = thread->arg;
 
@@ -1503,14 +1501,12 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 			 r->vr->vrid, family2str(r->family),
 			 vrrp_state_names[r->fsm.state]);
 	}
-
-	return 0;
 }
 
 /*
  * Called when Master_Down_Timer expires.
  */
-static int vrrp_master_down_timer_expire(struct thread *thread)
+static void vrrp_master_down_timer_expire(struct thread *thread)
 {
 	struct vrrp_router *r = thread->arg;
 
@@ -1522,8 +1518,6 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 			      r->vr->advertisement_interval * CS2MS,
 			      &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
-
-	return 0;
 }
 
 /*

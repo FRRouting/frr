@@ -1186,16 +1186,18 @@ def add_interfaces_to_vlan(tgen, input_dict):
                             interface, vlan_intf, vlan
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Bringing interface up
                         cmd = "ip link set {} up".format(vlan_intf)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Assigning IP address
                         ifaddr = ipaddress.ip_interface(
-                            u"{}/{}".format(
+                            "{}/{}".format(
                                 frr_unicode(data["ip"]), frr_unicode(data["subnet"])
                             )
                         )
@@ -1204,7 +1206,8 @@ def add_interfaces_to_vlan(tgen, input_dict):
                             ifaddr.version, vlan_intf, ifaddr
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
 
 def tcpdump_capture_start(
@@ -1505,11 +1508,9 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
             config_data = []
             if "vrfs" in c_data:
                 for vrf in c_data["vrfs"]:
-                    del_action = vrf.setdefault("delete", False)
                     name = vrf.setdefault("name", None)
                     table_id = vrf.setdefault("id", None)
-                    vni = vrf.setdefault("vni", None)
-                    del_vni = vrf.setdefault("no_vni", None)
+                    del_action = vrf.setdefault("delete", False)
 
                     if del_action:
                         # Kernel cmd- Add VRF and table
@@ -1543,43 +1544,45 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             )
                             rnode.run(cmd)
 
-                            if "links" in c_data:
-                                for destRouterLink, data in sorted(
-                                    c_data["links"].items()
-                                ):
-                                    # Loopback interfaces
-                                    if "type" in data and data["type"] == "loopback":
-                                        interface_name = destRouterLink
-                                    else:
-                                        interface_name = data["interface"]
+                for vrf in c_data["vrfs"]:
+                    vni = vrf.setdefault("vni", None)
+                    del_vni = vrf.setdefault("no_vni", None)
 
-                                    if "vrf" in data:
-                                        vrf_list = data["vrf"]
+                    if "links" in c_data:
+                        for destRouterLink, data in sorted(c_data["links"].items()):
+                            # Loopback interfaces
+                            if "type" in data and data["type"] == "loopback":
+                                interface_name = destRouterLink
+                            else:
+                                interface_name = data["interface"]
 
-                                        if type(vrf_list) is not list:
-                                            vrf_list = [vrf_list]
+                            if "vrf" in data:
+                                vrf_list = data["vrf"]
 
-                                        for _vrf in vrf_list:
-                                            cmd = "ip link set {} master {}".format(
-                                                interface_name, _vrf
-                                            )
+                                if type(vrf_list) is not list:
+                                    vrf_list = [vrf_list]
 
-                                            logger.info(
-                                                "[DUT: %s]: Running" " kernel cmd [%s]",
-                                                c_router,
-                                                cmd,
-                                            )
-                                            rnode.run(cmd)
+                                for _vrf in vrf_list:
+                                    cmd = "ip link set {} master {}".format(
+                                        interface_name, _vrf
+                                    )
 
-                        if vni:
-                            config_data.append("vrf {}".format(vrf["name"]))
-                            cmd = "vni {}".format(vni)
-                            config_data.append(cmd)
+                                    logger.info(
+                                        "[DUT: %s]: Running" " kernel cmd [%s]",
+                                        c_router,
+                                        cmd,
+                                    )
+                                    rnode.run(cmd)
 
-                        if del_vni:
-                            config_data.append("vrf {}".format(vrf["name"]))
-                            cmd = "no vni {}".format(del_vni)
-                            config_data.append(cmd)
+                    if vni:
+                        config_data.append("vrf {}".format(vrf["name"]))
+                        cmd = "vni {}".format(vni)
+                        config_data.append(cmd)
+
+                    if del_vni:
+                        config_data.append("vrf {}".format(vrf["name"]))
+                        cmd = "no vni {}".format(del_vni)
+                        config_data.append(cmd)
 
             if config_data:
                 config_data_dict[c_router] = config_data
@@ -1626,7 +1629,7 @@ def create_interface_in_kernel(
         ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
     else:
         ifaddr = ipaddress.ip_interface(
-            u"{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
+            "{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
         )
     cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
         ifaddr.version, name, ifaddr
@@ -2083,15 +2086,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                 else:
                     interface_name = data["interface"]
 
-                # Include vrf if present
-                if "vrf" in data:
-                    interface_data.append(
-                        "interface {} vrf {}".format(
-                            str(interface_name), str(data["vrf"])
-                        )
-                    )
-                else:
-                    interface_data.append("interface {}".format(str(interface_name)))
+                interface_data.append("interface {}".format(str(interface_name)))
 
                 if "ipv4" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv4"]
@@ -2544,6 +2539,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         ipv6_data = set_data.setdefault("ipv6", {})
                         local_preference = set_data.setdefault("locPrf", None)
                         metric = set_data.setdefault("metric", None)
+                        metric_type = set_data.setdefault("metric-type", None)
                         as_path = set_data.setdefault("path", {})
                         weight = set_data.setdefault("weight", None)
                         community = set_data.setdefault("community", {})
@@ -2567,7 +2563,11 @@ def create_route_maps(tgen, input_dict, build=False):
 
                         # Metric
                         if metric:
-                            rmap_data.append("set metric {} \n".format(metric))
+                            del_comm = set_data.setdefault("delete", None)
+                            if del_comm:
+                                rmap_data.append("no set metric {}".format(metric))
+                            else:
+                                rmap_data.append("set metric {}".format(metric))
 
                         # Origin
                         if origin:
@@ -2931,7 +2931,7 @@ def addKernelRoute(
     Parameters:
     -----------
     * `tgen`  : Topogen object
-    * `router`: router for which kernal routes needs to be added
+    * `router`: router for which kernel routes needs to be added
     * `intf`: interface name, for which kernel routes needs to be added
     * `bindToAddress`: bind to <host>, an interface or multicast
                        address
@@ -2972,7 +2972,7 @@ def addKernelRoute(
         output = rnode.run(cmd)
 
         def check_in_kernel(rnode, verify_cmd, grp_addr, router):
-            # Verifying if ip route added to kernal
+            # Verifying if ip route added to kernel
             errormsg = None
             result = rnode.run(verify_cmd)
             logger.debug("{}\n{}".format(verify_cmd, result))
@@ -4210,7 +4210,7 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
 def get_ipv6_linklocal_address(topo, node, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -4929,8 +4929,13 @@ def verify_ip_nht(tgen, input_dict):
 
         for nh in nh_list:
             if nh in show_ip_nht:
-                logger.info("Nexthop %s is resolved on %s", nh, router)
-                return True
+                nht = run_frr_cmd(rnode, f"show ip nht {nh}")
+                if "unresolved" in nht:
+                    errormsg = "Nexthop {} became unresolved on {}".format(nh, router)
+                    return errormsg
+                else:
+                    logger.info("Nexthop %s is resolved on %s", nh, router)
+                    return True
             else:
                 errormsg = "Nexthop {} is resolved on {}".format(nh, router)
                 return errormsg

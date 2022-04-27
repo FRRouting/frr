@@ -464,7 +464,7 @@ static struct log_ref ferr_bgp_err[] = {
 	},
 	{
 		.code = EC_BGP_INVALID_BGP_INSTANCE,
-		.title = "BGP instance for the specifc vrf is invalid",
+		.title = "BGP instance for the specific vrf is invalid",
 		.description = "Indicates that specified bgp instance is NULL",
 		.suggestion = "Get log files from router and open an issue",
 	},
@@ -473,6 +473,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.title = "BGP route node is invalid",
 		.description = "BGP route for the specified AFI/SAFI is NULL",
 		.suggestion = "Get log files from router and open an issue",
+	},
+	{
+		.code = EC_BGP_NO_LL_ADDRESS_AVAILABLE,
+		.title = "BGP v6 peer with no LL address on outgoing interface",
+		.description = "BGP when using a v6 peer requires a v6 LL address to be configured on the outgoing interface as per RFC 4291 section 2.1",
+		.suggestion = "Add a v6 LL address to the outgoing interfaces as per RFC",
 	},
 	{
 		.code = END_FERR,

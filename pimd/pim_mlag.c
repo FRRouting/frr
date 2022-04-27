@@ -174,8 +174,8 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 	/* If DF role changed on a (*,G) termination mroute update the
 	 * associated DF role on the inherited (S,G) entries
 	 */
-	if ((up->sg.src.s_addr == INADDR_ANY) &&
-			PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
+	if (pim_addr_is_any(up->sg.src) &&
+	    PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
 		pim_vxlan_inherit_mlag_flags(pim, up, true /* inherit */);
 
 	return true;
@@ -255,17 +255,14 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 	int flags = 0;
 	pim_sgaddr sg;
 	struct vrf *vrf;
-	char sg_str[PIM_SG_LEN];
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src.s_addr = htonl(msg->source_ip);
 	sg.grp.s_addr = htonl(msg->group_ip);
-	if (PIM_DEBUG_MLAG)
-		pim_str_sg_set(&sg, sg_str);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("peer MLAG mroute add %s:%s cost %d",
-			msg->vrf_name, sg_str, msg->cost_to_rp);
+		zlog_debug("peer MLAG mroute add %s:%pSG cost %d",
+			   msg->vrf_name, &sg, msg->cost_to_rp);
 
 	/* XXX - this is not correct. we MUST cache updates to avoid losing
 	 * an entry because of race conditions with the peer switch.
@@ -273,8 +270,9 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 	vrf = vrf_lookup_by_name(msg->vrf_name);
 	if  (!vrf) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("peer MLAG mroute add failed %s:%s; no vrf",
-					msg->vrf_name, sg_str);
+			zlog_debug(
+				"peer MLAG mroute add failed %s:%pSG; no vrf",
+				msg->vrf_name, &sg);
 		return;
 	}
 	pim = vrf->info;
@@ -294,8 +292,9 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 
 		if (!up) {
 			if (PIM_DEBUG_MLAG)
-				zlog_debug("peer MLAG mroute add failed %s:%s",
-						vrf->name, sg_str);
+				zlog_debug(
+					"peer MLAG mroute add failed %s:%pSG",
+					vrf->name, &sg);
 			return;
 		}
 	}
@@ -329,23 +328,20 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	struct pim_instance *pim;
 	pim_sgaddr sg;
 	struct vrf *vrf;
-	char sg_str[PIM_SG_LEN];
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src.s_addr = htonl(msg->source_ip);
 	sg.grp.s_addr = htonl(msg->group_ip);
-	if (PIM_DEBUG_MLAG)
-		pim_str_sg_set(&sg, sg_str);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("peer MLAG mroute del %s:%s", msg->vrf_name,
-				sg_str);
+		zlog_debug("peer MLAG mroute del %s:%pSG", msg->vrf_name, &sg);
 
 	vrf = vrf_lookup_by_name(msg->vrf_name);
 	if  (!vrf) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("peer MLAG mroute del skipped %s:%s; no vrf",
-					msg->vrf_name, sg_str);
+			zlog_debug(
+				"peer MLAG mroute del skipped %s:%pSG; no vrf",
+				msg->vrf_name, &sg);
 		return;
 	}
 	pim = vrf->info;
@@ -353,8 +349,9 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	up = pim_upstream_find(pim, &sg);
 	if  (!up) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("peer MLAG mroute del skipped %s:%s; no up",
-					vrf->name, sg_str);
+			zlog_debug(
+				"peer MLAG mroute del skipped %s:%pSG; no up",
+				vrf->name, &sg);
 		return;
 	}
 
@@ -933,12 +930,12 @@ int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_mlag_register_handler(struct thread *thread)
+static void pim_mlag_register_handler(struct thread *thread)
 {
 	uint32_t bit_mask = 0;
 
 	if (!zclient)
-		return -1;
+		return;
 
 	SET_FLAG(bit_mask, (1 << MLAG_STATUS_UPDATE));
 	SET_FLAG(bit_mask, (1 << MLAG_MROUTE_ADD));
@@ -955,7 +952,6 @@ static int pim_mlag_register_handler(struct thread *thread)
 			   __func__, bit_mask);
 
 	zclient_send_mlag_register(zclient, bit_mask);
-	return 0;
 }
 
 void pim_mlag_register(void)
@@ -969,17 +965,16 @@ void pim_mlag_register(void)
 			 NULL);
 }
 
-static int pim_mlag_deregister_handler(struct thread *thread)
+static void pim_mlag_deregister_handler(struct thread *thread)
 {
 	if (!zclient)
-		return -1;
+		return;
 
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Posting Client De-Register to MLAG from PIM",
 			   __func__);
 	router->connected_to_mlag = false;
 	zclient_send_mlag_deregister(zclient);
-	return 0;
 }
 
 void pim_mlag_deregister(void)
@@ -1020,7 +1015,7 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 
 	if (router->pim_mlag_intf_cnt == 1) {
 		/*
-		 * atleast one Interface is configured for MLAG, send register
+		 * at least one Interface is configured for MLAG, send register
 		 * to Zebra for receiving MLAG Updates
 		 */
 		pim_mlag_register();

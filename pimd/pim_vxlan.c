@@ -184,11 +184,10 @@ void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 		pim_vxlan_del_work(vxlan_sg);
 }
 
-static int pim_vxlan_work_timer_cb(struct thread *t)
+static void pim_vxlan_work_timer_cb(struct thread *t)
 {
 	pim_vxlan_do_reg_work();
 	pim_vxlan_work_timer_setup(true /* start */);
-	return 0;
 }
 
 /* global 1second timer used for periodic processing */
@@ -354,9 +353,7 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		 * iif
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
-			nht_p.family = AF_INET;
-			nht_p.prefixlen = IPV4_MAX_BITLEN;
-			nht_p.u.prefix4 = up->upstream_addr;
+			pim_addr_to_prefix(&nht_p, up->upstream_addr);
 			pim_delete_tracked_nexthop(vxlan_sg->pim, &nht_p, up,
 						   NULL);
 		}
@@ -720,8 +717,7 @@ static unsigned int pim_vxlan_sg_hash_key_make(const void *p)
 {
 	const struct pim_vxlan_sg *vxlan_sg = p;
 
-	return (jhash_2words(vxlan_sg->sg.src.s_addr,
-				vxlan_sg->sg.grp.s_addr, 0));
+	return pim_sgaddr_hash(vxlan_sg->sg, 0);
 }
 
 static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
@@ -729,8 +725,7 @@ static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
 	const struct pim_vxlan_sg *sg1 = p1;
 	const struct pim_vxlan_sg *sg2 = p2;
 
-	return ((sg1->sg.src.s_addr == sg2->sg.src.s_addr)
-			&& (sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
+	return !pim_sgaddr_cmp(sg1->sg, sg2->sg);
 }
 
 static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
@@ -742,7 +737,7 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 
 	vxlan_sg->pim = pim;
 	vxlan_sg->sg = *sg;
-	pim_str_sg_set(sg, vxlan_sg->sg_str);
+	snprintfrr(vxlan_sg->sg_str, sizeof(vxlan_sg->sg_str), "%pSG", sg);
 
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s alloc", vxlan_sg->sg_str);
@@ -884,6 +879,12 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 	 * when that changes this will need to change to iterate all VRFs
 	 */
 	pim = pim_get_pim_instance(VRF_DEFAULT);
+
+	if (!pim) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("%s: Unable to find pim instance", __func__);
+		return;
+	}
 
 	if (enable)
 		vxlan_mlag.flags |= PIM_VXLAN_MLAGF_ENABLED;
@@ -1142,7 +1143,7 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 	/* enable pim on the term ifp */
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
-		PIM_IF_DO_PIM(pim_ifp->options);
+		pim_ifp->pim_enable = true;
 		/* ifp is already oper up; activate it as a term dev */
 		if (pim_ifp->mroute_vif_index >= 0)
 			pim_vxlan_term_oif_update(pim, ifp);
@@ -1170,8 +1171,8 @@ void pim_vxlan_del_term_dev(struct pim_instance *pim)
 
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
-		PIM_IF_DONT_PIM(pim_ifp->options);
-		if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+		pim_ifp->pim_enable = false;
+		if (!pim_ifp->igmp_enable)
 			pim_if_delete(ifp);
 	}
 }

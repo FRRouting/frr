@@ -29,7 +29,9 @@
 #include "vrf.h"
 #include "zclient.h"
 #include "nexthop_group.h"
+#include "linklist.h"
 #include "link_state.h"
+#include "cspf.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
@@ -102,7 +104,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 		p.family = AF_INET6;
 	} else {
 		type_import = true;
-		p = *(const struct prefix *)inhop;
+		prefix_copy(&p, inhop);
 	}
 
 	sharp_nh_tracker_get(&p);
@@ -147,7 +149,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	}
 	else {
 		type_import = true;
-		p = *(const struct prefix *)inhop;
+		prefix_copy(&p, inhop);
 	}
 
 	sharp_nh_tracker_get(&p);
@@ -425,7 +427,8 @@ DEFPY (install_seg6local_routes,
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
-	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table>\
+	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
+	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table>\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -443,6 +446,8 @@ DEFPY (install_seg6local_routes,
        "SRv6 End.DX4 function to use\n"
        "V4 Nexthop address to use\n"
        "SRv6 End.DT6 function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DT4 function to use\n"
        "Redirect table id to use\n"
        "How many to create\n"
        "Should we repeat this command\n"
@@ -494,6 +499,9 @@ DEFPY (install_seg6local_routes,
 	} else if (seg6l_enddt6) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		ctx.table = seg6l_enddt6_table;
+	} else if (seg6l_enddt4) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		ctx.table = seg6l_enddt4_table;
 	} else {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 	}
@@ -532,7 +540,7 @@ DEFPY(vrf_label, vrf_label_cmd,
 		vrf = vrf_lookup_by_name(vrf_name);
 
 	if (!vrf) {
-		vty_out(vty, "Unable to find vrf you silly head");
+		vty_out(vty, "Unable to find vrf you silly head\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -1150,6 +1158,167 @@ DEFPY (show_sharp_segment_routing_srv6,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_sharp_cspf,
+       show_sharp_cspf_cmd,
+       "show sharp cspf source <A.B.C.D$src4|X:X::X:X$src6> \
+        destination <A.B.C.D$dst4|X:X::X:X$dst6> \
+        <metric|te-metric|delay> (0-16777215)$cost \
+        [rsv-bw (0-7)$cos BANDWIDTH$bw]",
+       SHOW_STR
+       SHARP_STR
+       "Constraint Shortest Path First path computation\n"
+       "Source of the path\n"
+       "IPv4 Source address in dot decimal A.B.C.D\n"
+       "IPv6 Source address as X:X:X:X\n"
+       "Destination of the path\n"
+       "IPv4 Destination address in dot decimal A.B.C.D\n"
+       "IPv6 Destination address as X:X:X:X\n"
+       "Maximum Metric\n"
+       "Maximum TE Metric\n"
+       "Maxim Delay\n"
+       "Value of Maximum cost\n"
+       "Reserved Bandwidth of this path\n"
+       "Class of Service or Priority level\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+
+	struct cspf *algo;
+	struct constraints csts;
+	struct c_path *path;
+	struct listnode *node;
+	struct ls_edge *edge;
+	int idx;
+
+	if (sg.ted == NULL) {
+		vty_out(vty, "MPLS-TE import is not enabled\n");
+		return CMD_WARNING;
+	}
+
+	if ((src4.s_addr != INADDR_ANY && dst4.s_addr == INADDR_ANY) ||
+	    (src4.s_addr == INADDR_ANY && dst4.s_addr != INADDR_ANY)) {
+		vty_out(vty, "Don't mix IPv4 and IPv6 addresses\n");
+		return CMD_WARNING;
+	}
+
+	idx = 6;
+	memset(&csts, 0, sizeof(struct constraints));
+	if (argv_find(argv, argc, "metric", &idx)) {
+		csts.ctype = CSPF_METRIC;
+		csts.cost = cost;
+	}
+	idx = 6;
+	if (argv_find(argv, argc, "te-metric", &idx)) {
+		csts.ctype = CSPF_TE_METRIC;
+		csts.cost = cost;
+	}
+	idx = 6;
+	if (argv_find(argv, argc, "delay", &idx)) {
+		csts.ctype = CSPF_DELAY;
+		csts.cost = cost;
+	}
+	if (argc > 9) {
+		if (sscanf(bw, "%g", &csts.bw) != 1) {
+			vty_out(vty, "Bandwidth constraints: fscanf: %s\n",
+				safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		csts.cos = cos;
+	}
+
+	/* Initialize and call point-to-point Path computation */
+	if (src4.s_addr != INADDR_ANY)
+		algo = cspf_init_v4(NULL, sg.ted, src4, dst4, &csts);
+	else
+		algo = cspf_init_v6(NULL, sg.ted, src6, dst6, &csts);
+	path = compute_p2p_path(algo, sg.ted);
+	cspf_del(algo);
+
+	if (!path) {
+		vty_out(vty, "Path computation failed without error\n");
+		return CMD_SUCCESS;
+	}
+	if (path->status != SUCCESS) {
+		vty_out(vty, "Path computation failed: %d\n", path->status);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Path computation success\n");
+	vty_out(vty, "\tCost: %d\n", path->weight);
+	vty_out(vty, "\tEdges:");
+	for (ALL_LIST_ELEMENTS_RO(path->edges, node, edge)) {
+		if (src4.s_addr != INADDR_ANY)
+			vty_out(vty, " %pI4",
+				&edge->attributes->standard.remote);
+		else
+			vty_out(vty, " %pI6",
+				&edge->attributes->standard.remote6);
+	}
+	vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
+}
+
+static struct interface *if_lookup_vrf_all(const char *ifname)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		if (ifp)
+			return ifp;
+	}
+
+	return NULL;
+}
+
+DEFPY (sharp_interface_protodown,
+       sharp_interface_protodown_cmd,
+       "sharp interface IFNAME$ifname protodown",
+       SHARP_STR
+       INTERFACE_STR
+       IFNAME_STR
+       "Set interface protodown\n")
+{
+	struct interface *ifp;
+
+	ifp = if_lookup_vrf_all(ifname);
+
+	if (!ifp) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_zebra_send_interface_protodown(ifp, true) != 0)
+		return CMD_WARNING;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_sharp_interface_protodown,
+       no_sharp_interface_protodown_cmd,
+       "no sharp interface IFNAME$ifname protodown",
+       NO_STR
+       SHARP_STR
+       INTERFACE_STR
+       IFNAME_STR
+       "Set interface protodown\n")
+{
+	struct interface *ifp;
+
+	ifp = if_lookup_vrf_all(ifname);
+
+	if (!ifp) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_zebra_send_interface_protodown(ifp, false) != 0)
+		return CMD_WARNING;
+
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -1175,11 +1344,15 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
+	install_element(ENABLE_NODE, &show_sharp_cspf_cmd);
 
 	install_element(ENABLE_NODE, &sharp_srv6_manager_get_locator_chunk_cmd);
 	install_element(ENABLE_NODE,
 			&sharp_srv6_manager_release_locator_chunk_cmd);
 	install_element(ENABLE_NODE, &show_sharp_segment_routing_srv6_cmd);
+
+	install_element(ENABLE_NODE, &sharp_interface_protodown_cmd);
+	install_element(ENABLE_NODE, &no_sharp_interface_protodown_cmd);
 
 	return;
 }

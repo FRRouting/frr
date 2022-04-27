@@ -29,6 +29,9 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    Zebra, when started, will read in routes.  Those routes that Zebra
    identifies that it was the originator of will be swept in TIME seconds.
    If no time is specified then we will sweep those routes immediately.
+   Under the \*BSD's, there is no way to properly store the originating
+   route and the route types in this case will show up as a static route
+   with an admin distance of 255.
 
 .. option:: -r, --retain
 
@@ -77,6 +80,11 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    or notify_on_ack.  This signals to zebra to notify upper level
    protocols about route installation/update on ack received from
    the linux kernel or from offload notification.
+
+.. option:: -s <SIZE>, --nl-bufsize <SIZE>
+
+   Allow zebra to modify the default receive buffer size to SIZE
+   in bytes.  Under \*BSD only the -s option is available.
 
 .. _interface-commands:
 
@@ -247,6 +255,17 @@ Link Parameters Commands
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
+Global Commands
+------------------------
+
+.. clicmd:: zebra protodown reason-bit (0-31)
+
+   This command is only supported for linux and a kernel > 5.1.
+   Change reason-bit frr uses for setting protodown. We default to 7, but
+   if another userspace app ever conflicts with this, you can change it here.
+   The descriptor for this bit should exist in :file:`/etc/iproute2/protodown_reasons.d/`
+   to display with :clicmd:`ip -d link show`.
+
 Nexthop Tracking
 ================
 
@@ -264,6 +283,17 @@ the default route.
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
+.. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib]
+
+   Show nexthop tracking status for address resolution.  If vrf is not specified
+   then display the default vrf.  If ``all`` is specified show all vrf address
+   resolution output.  If an ipv4 or ipv6 address is not specified then display
+   all addresses tracked, else display the requested address.  The mrib keyword
+   indicates that the operator wants to see the multicast rib address resolution
+   table.  An alternative form of the command is ``show ip import-check`` and this
+   form of the command is deprecated at this point in time.
+
+
 Administrative Distance
 =======================
 
@@ -271,7 +301,7 @@ Administrative distance allows FRR to make decisions about what routes
 should be installed in the rib based upon the originating protocol.
 The lowest Admin Distance is the route selected.  This is purely a
 subjective decision about ordering and care has been taken to choose
-the same distances that other routing suites have choosen.
+the same distances that other routing suites have chosen.
 
 +------------+-----------+
 | Protocol   | Distance  |
@@ -331,7 +361,7 @@ has multiple routes for the same prefix from multiple sources.  An example
 here would be if someone else was running another routing suite besides
 FRR at the same time, the kernel must choose what route to use to forward
 on.  FRR choose the value of 20 because of two reasons.  FRR wanted a
-value small enough to be choosen but large enough that the operator could
+value small enough to be chosen but large enough that the operator could
 allow route prioritization by the kernel when multiple routing suites are
 being run and FRR wanted to take advantage of Route Replace semantics that
 the linux kernel offers.  In order for Route Replacement semantics to
@@ -522,7 +552,7 @@ via a ``ip route show X`` command:
       nexthop via 192.168.161.9 dev enp39s0 weight 1
 
 Once installed into the FIB, FRR currently has little control over what
-nexthops are choosen to forward packets on.  Currently the Linux kernel
+nexthops are chosen to forward packets on.  Currently the Linux kernel
 has a ``fib_multipath_hash_policy`` sysctl which dictates how the hashing
 algorithm is used to forward packets.
 
@@ -693,7 +723,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [function-bits-length 32]
+.. clicmd:: prefix X:X::X:X/M [func-bits 32]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
@@ -713,7 +743,7 @@ and this section also helps that case.
    will be ``2001:db8:1:1:1::``)
 
    The function bits range is 16bits by default.  If operator want to change
-   function bits range, they can configure with ``function-bits-length``
+   function bits range, they can configure with ``func-bits``
    option.
 
 ::
@@ -1155,13 +1185,15 @@ zebra Terminal Mode Commands
 .. clicmd:: show zebra
 
    Display various statistics related to the installation and deletion
-   of routes, neighbor updates, and LSP's into the kernel.
+   of routes, neighbor updates, and LSP's into the kernel.  In addition
+   show various zebra state that is useful when debugging an operator's
+   setup.
 
 .. clicmd:: show zebra client [summary]
 
    Display statistics about clients that are connected to zebra.  This is
    useful for debugging and seeing how much data is being passed between
-   zebra and it's clients.  If the summary form of the command is choosen
+   zebra and it's clients.  If the summary form of the command is chosen
    a table is displayed with shortened information.
 
 .. clicmd:: show zebra router table summary

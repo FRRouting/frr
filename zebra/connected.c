@@ -290,10 +290,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	}
 
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
+		false);
 
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
+		false);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -325,6 +327,8 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	if (!if_is_operative(ifp))
+		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	/* Allocate new connected address. */
 	p = prefix_ipv4_new();
@@ -546,6 +550,8 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	if (!if_is_operative(ifp))
+		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	/* Allocate new connected address. */
 	p = prefix_ipv6_new();

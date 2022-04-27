@@ -20,7 +20,7 @@
 #
 
 """
-Following tests are covered to test BGP Gracefull Restart functionality.
+Following tests are covered to test BGP Graceful Restart functionality.
 Basic Common Test steps for all the test case below :
 - Create topology (setup module)
   Creating 2 routers topology, r1, r2 in IBGP
@@ -81,7 +81,7 @@ Basic Common Test steps for all the test case below :
     Global Mode : GR Restart
     PerPeer Mode :  None
     GR Mode effective : GR Restart
-23. Transition from Peer-level disbale to Global inherit helper
+23. Transition from Peer-level disable to Global inherit helper
     Global Mode : None
     PerPeer Mode :  GR Disable
     GR Mode effective : GR Disable
@@ -176,7 +176,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON

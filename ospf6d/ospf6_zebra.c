@@ -155,8 +155,8 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 			   zserv_command_string(command), &prefix,
 			   ospf6->vrf_id);
 
-	if (zclient_send_rnh(zclient, command, &prefix, false, true,
-			     ospf6->vrf_id)
+	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
+			     true, ospf6->vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_send_rnh() failed",
 			 __func__);
@@ -166,19 +166,20 @@ static int ospf6_zebra_import_check_update(ZAPI_CALLBACK_ARGS)
 {
 	struct ospf6 *ospf6;
 	struct zapi_route nhr;
+	struct prefix matched;
 
 	ospf6 = ospf6_lookup_by_vrf_id(vrf_id);
 	if (ospf6 == NULL || !IS_OSPF6_ASBR(ospf6))
 		return 0;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("%s[%u]: Failure to decode route", __func__,
 			 ospf6->vrf_id);
 		return -1;
 	}
 
-	if (nhr.prefix.family != AF_INET6 || nhr.prefix.prefixlen != 0
-	    || nhr.type == ZEBRA_ROUTE_OSPF6)
+	if (matched.family != AF_INET6 || matched.prefixlen != 0 ||
+	    nhr.type == ZEBRA_ROUTE_OSPF6)
 		return 0;
 
 	ospf6->nssa_default_import_check.status = !!nhr.nexthop_num;
@@ -352,11 +353,9 @@ DEFUN(show_zebra,
 		json_object_object_add(json_zebra, "redistribute", json_array);
 		json_object_object_add(json, "zebraInformation", json_zebra);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_json(vty, json);
 	} else {
-		vty_out(vty, "Zebra Infomation\n");
+		vty_out(vty, "Zebra Information\n");
 		vty_out(vty, "  fail: %d\n", zclient->fail);
 		vty_out(vty, "  redistribute default: %d\n",
 			vrf_bitmap_check(zclient->default_information[AFI_IP6],

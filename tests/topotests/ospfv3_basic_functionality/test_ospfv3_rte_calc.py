@@ -48,17 +48,21 @@ from lib.common_config import (
     create_interfaces_cfg,
     topo_daemons,
     get_frr_ipv6_linklocal,
+    check_router_status,
+    create_static_routes,
 )
 
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
-
+from lib.bgp import create_router_bgp, verify_bgp_convergence
 from lib.ospf import (
     verify_ospf6_neighbor,
+    clear_ospf,
     verify_ospf6_rib,
+    verify_ospf_database,
     create_router_ospf,
-    verify_ospf6_interface,
     config_ospf6_interface,
+    verify_ospf6_interface,
 )
 
 
@@ -122,7 +126,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Creating configuration from JSON
@@ -162,7 +166,7 @@ def teardown_module(mod):
 
 def get_llip(onrouter, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -189,7 +193,7 @@ def get_llip(onrouter, intf):
 
 def get_glipv6(onrouter, intf):
     """
-    API to get the global ipv6 address of a perticular interface
+    API to get the global ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -251,6 +255,8 @@ def red_connected(dut, config=True):
 # ##################################
 # Test cases start here.
 # ##################################
+
+
 def test_ospfv3_redistribution_tc5_p0(request):
     """Test OSPF intra area route calculations."""
     tc_name = request.node.name
@@ -259,7 +265,7 @@ def test_ospfv3_redistribution_tc5_p0(request):
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+        check_router_status(tgen)
 
     global topo
     step("Bring up the base config.")
@@ -280,7 +286,11 @@ def test_ospfv3_redistribution_tc5_p0(request):
 
     nh = llip
     input_dict = {
-        "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
+        "r1": {
+            "static_routes": [
+                {"network": ip_net, "no_of_ip": 1, "routeType": "Network"}
+            ]
+        }
     }
 
     dut = "r1"
@@ -372,7 +382,7 @@ def test_ospfv3_redistribution_tc6_p0(request):
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+        check_router_status(tgen)
 
     global topo
     step("Bring up the base config.")
@@ -380,8 +390,8 @@ def test_ospfv3_redistribution_tc6_p0(request):
 
     step("Verify that OSPF neighbors are FULL.")
     ospf_covergence = verify_ospf6_neighbor(tgen, topo)
-    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
-        ospf_covergence
+    assert ospf_covergence is True, "Testcase {} : Failed \n Error: {}".format(
+        tc_name, ospf_covergence
     )
 
     step("verify intra area route is calculated for r0-r3 interface ip in R1")
@@ -391,7 +401,11 @@ def test_ospfv3_redistribution_tc6_p0(request):
     assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
     nh = llip
     input_dict = {
-        "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
+        "r1": {
+            "static_routes": [
+                {"network": ip_net, "no_of_ip": 1, "routeType": "Network"}
+            ]
+        }
     }
 
     dut = "r1"
@@ -460,9 +474,6 @@ def test_ospfv3_redistribution_tc6_p0(request):
     intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
 
-    step("Verify that intraroute calculated for R1 intf on R0 is deleted.")
-    dut = "r1"
-
     step("un shut the OSPF interface on R0")
     dut = "r0"
     shutdown_bringup_interface(tgen, dut, intf, True)
@@ -478,6 +489,168 @@ def test_ospfv3_redistribution_tc6_p0(request):
     write_test_footer(tc_name)
 
 
+def test_ospfv3_redistribution_tc8_p1(request):
+    """
+    Test OSPF redistribution of connected routes.
+
+    Verify OSPF redistribution of connected routes when bgp multi hop
+    neighbor is configured using ospf routes
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    step(
+        "Configure loopback interface on all routers, and redistribut"
+        "e connected routes into ospf"
+    )
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+    reset_config_on_routers(tgen)
+
+    step(
+        "verify that connected routes -loopback is found in all routers"
+        "advertised/exchaged via ospf"
+    )
+    for rtr in topo["routers"]:
+        red_static(rtr)
+        red_connected(rtr)
+
+    for node in topo["routers"]:
+        input_dict = {
+            "r0": {
+                "static_routes": [
+                    {
+                        "network": topo["routers"][node]["links"]["lo"]["ipv6"],
+                        "no_of_ip": 1,
+                    }
+                ]
+            }
+        }
+        for rtr in topo["routers"]:
+            result = verify_rib(tgen, "ipv6", rtr, input_dict)
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
+                tc_name, result
+            )
+
+    step("Configure E BGP multi hop using the loopback addresses.")
+    as_num = 100
+    for node in topo["routers"]:
+        as_num += 1
+        topo["routers"][node].update(
+            {
+                "bgp": {
+                    "local_as": as_num,
+                    "address_family": {"ipv6": {"unicast": {"neighbor": {}}}},
+                }
+            }
+        )
+    for node in topo["routers"]:
+        for rtr in topo["routers"]:
+            if node is not rtr:
+                topo["routers"][node]["bgp"]["address_family"]["ipv6"]["unicast"][
+                    "neighbor"
+                ].update(
+                    {
+                        rtr: {
+                            "dest_link": {
+                                "lo": {"source_link": "lo", "ebgp_multihop": 2}
+                            }
+                        }
+                    }
+                )
+
+    result = create_router_bgp(tgen, topo, topo["routers"])
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    # Modify router id
+    input_dict = {
+        "r0": {"bgp": {"router_id": "11.11.11.11"}},
+        "r1": {"bgp": {"router_id": "22.22.22.22"}},
+        "r2": {"bgp": {"router_id": "33.33.33.33"}},
+        "r3": {"bgp": {"router_id": "44.44.44.44"}},
+    }
+    result = create_router_bgp(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that BGP neighbor is ESTABLISHED")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+    step(
+        "Configure couple of static routes in R0 and "
+        "Redistribute static routes in R1 bgp."
+    )
+
+    for rtr in topo["routers"]:
+        ospf_red = {
+            rtr: {
+                "ospf6": {"redistribute": [{"redist_type": "static", "delete": True}]}
+            }
+        }
+        result = create_router_ospf(tgen, topo, ospf_red)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK["ipv6"][0],
+                    "no_of_ip": 5,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    configure_bgp_on_r0 = {
+        "r0": {
+            "bgp": {
+                "address_family": {
+                    "ipv6": {"unicast": {"redistribute": [{"redist_type": "static"}]}}
+                }
+            }
+        }
+    }
+    result = create_router_bgp(tgen, topo, configure_bgp_on_r0)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    protocol = "bgp"
+    for rtr in ["r1", "r2", "r3"]:
+        result = verify_rib(tgen, "ipv6", rtr, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    step("Clear ospf neighbours in R0")
+    for rtr in topo["routers"]:
+        clear_ospf(tgen, rtr)
+
+    step("Verify that OSPF neighbours are reset and forms new adjacencies.")
+    # Api call verify whether OSPF is converged
+    ospf_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step("Verify that BGP neighbours are reset and forms new adjacencies.")
+    result = verify_bgp_convergence(tgen, topo)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "bgp"
+    for rtr in ["r1", "r2", "r3"]:
+        result = verify_rib(tgen, "ipv6", rtr, input_dict, protocol=protocol)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
 def test_ospfv3_cost_tc52_p0(request):
     """OSPF Cost - verifying ospf interface cost functionality"""
     tc_name = request.node.name
@@ -485,6 +658,8 @@ def test_ospfv3_cost_tc52_p0(request):
     tgen = get_topogen()
     global topo
     step("Bring up the base config.")
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
     reset_config_on_routers(tgen)
 
     step(
@@ -560,6 +735,184 @@ def test_ospfv3_cost_tc52_p0(request):
         "r0": {"links": {"r1": {"ospf6": {"cost": 10}}, "r2": {"ospf6": {"cost": 10}}}}
     }
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_ospfv3_def_rte_tc9_p0(request):
+    """OSPF default route - Verify OSPF default route origination."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    step("Configure OSPF on all the routers of the topology.")
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+    reset_config_on_routers(tgen)
+
+    step(" Configure default-information originate always on R0.")
+    input_dict = {"r0": {"ospf6": {"default-information": {"originate": True}}}}
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r0"
+    step(" Configure default-information originate always on R0.")
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                    "always": True,
+                }
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that default route is originated in area always.")
+    dut = "r1"
+
+    step(" Configure default-information originate metric type 1 on R0.")
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                    "always": True,
+                    "metric-type": 1,
+                }
+            }
+        }
+    }
+
+    step(
+        "Verify that default route is originated in area when external "
+        "routes are present in R0 with metric type as 1."
+    )
+    dut = "r0"
+    step(
+        "Verify that on R1 default route with type 1 is installed"
+        " (R1 is DUT in this case)"
+    )
+    dut = "r1"
+    step("Configure default-information originate metric type 2 on R0.")
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                    "always": True,
+                    "metric-type": 2,
+                }
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that default route is originated in area when external"
+        " routes are present in R0 with metric type as 2."
+    )
+
+    dut = "r1"
+    step(" Configure default-information originate metric 100 on R0")
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                    "always": True,
+                    "metric-type": 2,
+                    "metric": 100,
+                }
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that default route is originated with cost as 100 on R0.")
+
+    dut = "r1"
+
+    step("Delete the default-information command")
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                    "always": True,
+                    "delete": True,
+                }
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r0"
+    step("Configure default-information originate always on R0.")
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                    "always": True,
+                }
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Configure default route originate with active def route in zebra")
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": "0::0/0",
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "default-information": {
+                    "originate": True,
+                }
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that default route is originated by R0.")
+    dut = "r1"
+
+    step("Delete static route")
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": "0::0/0",
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                    "delete": True,
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)

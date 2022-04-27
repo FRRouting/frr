@@ -100,7 +100,7 @@ static ptm_lib_handle_t *ptm_hdl;
 struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
-int zebra_ptm_sock_read(struct thread *);
+void zebra_ptm_sock_read(struct thread *thread);
 static void zebra_ptm_install_commands(void);
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
@@ -168,12 +168,12 @@ void zebra_ptm_finish(void)
 		close(ptm_cb.ptm_sock);
 }
 
-static int zebra_ptm_flush_messages(struct thread *thread)
+static void zebra_ptm_flush_messages(struct thread *thread)
 {
 	ptm_cb.t_write = NULL;
 
 	if (ptm_cb.ptm_sock == -1)
-		return -1;
+		return;
 
 	errno = 0;
 
@@ -187,7 +187,7 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	case BUFFER_PENDING:
 		ptm_cb.t_write = NULL;
 		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
@@ -196,8 +196,6 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 	case BUFFER_EMPTY:
 		break;
 	}
-
-	return 0;
 }
 
 static int zebra_ptm_send_message(char *data, int size)
@@ -226,7 +224,7 @@ static int zebra_ptm_send_message(char *data, int size)
 	return 0;
 }
 
-int zebra_ptm_connect(struct thread *t)
+void zebra_ptm_connect(struct thread *t)
 {
 	int init = 0;
 
@@ -255,8 +253,6 @@ int zebra_ptm_connect(struct thread *t)
 	} else if (ptm_cb.reconnect_time >= ZEBRA_PTM_RECONNECT_TIME_MAX) {
 		ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
 	}
-
-	return (errno);
 }
 
 DEFUN (zebra_ptm_enable,
@@ -354,7 +350,7 @@ DEFUN (no_zebra_ptm_enable_if,
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug("%s: Bringing up interface %s",
 					   __func__, ifp->name);
-			if_up(ifp);
+			if_up(ifp, true);
 		}
 	}
 
@@ -557,7 +553,7 @@ static int zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt,
 		ifp->ptm_status = ZEBRA_PTM_STATUS_UP;
 		if (ifp->ptm_enable && if_is_no_ptm_operative(ifp)
 		    && send_linkup)
-			if_up(ifp);
+			if_up(ifp, true);
 	} else if (!strcmp(cbl_str, ZEBRA_PTM_FAIL_STR)
 		   && (ifp->ptm_status != ZEBRA_PTM_STATUS_DOWN)) {
 		ifp->ptm_status = ZEBRA_PTM_STATUS_DOWN;
@@ -649,7 +645,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	}
 }
 
-int zebra_ptm_sock_read(struct thread *thread)
+void zebra_ptm_sock_read(struct thread *thread)
 {
 	int sock;
 	int rc;
@@ -658,7 +654,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 	sock = THREAD_FD(thread);
 
 	if (sock == -1)
-		return -1;
+		return;
 
 	/* PTM communicates in CSV format */
 	do {
@@ -679,14 +675,12 @@ int zebra_ptm_sock_read(struct thread *thread)
 		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time,
 				 &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_cb.t_read = NULL;
 	thread_add_read(zrouter.master, zebra_ptm_sock_read, NULL,
 			ptm_cb.ptm_sock, &ptm_cb.t_read);
-
-	return 0;
 }
 
 /* BFD peer/dst register/update */
@@ -1169,7 +1163,7 @@ void zebra_ptm_reset_status(int ptm_disable)
 						zlog_debug(
 							"%s: Bringing up interface %s",
 							__func__, ifp->name);
-					if_up(ifp);
+					if_up(ifp, true);
 				}
 			}
 		}

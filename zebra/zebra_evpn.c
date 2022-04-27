@@ -344,10 +344,10 @@ int zebra_evpn_add_macip_for_intf(struct interface *ifp,
 	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
 		struct ipaddr ip;
 
-		memset(&ip, 0, sizeof(struct ipaddr));
 		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
 			continue;
 
+		memset(&ip, 0, sizeof(struct ipaddr));
 		if (c->address->family == AF_INET) {
 			ip.ipa_type = IPADDR_V4;
 			memcpy(&(ip.ipaddr_v4), &(c->address->u.prefix4),
@@ -442,10 +442,8 @@ int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 
 	vxl = &zif->l2info.vxl;
 
-	if (zebra_evpn_mac_gw_macip_add(ifp, zevpn, ip, &mac, macaddr,
-					vxl->access_vlan, true)
-	    != 0)
-		return -1;
+	zebra_evpn_mac_gw_macip_add(ifp, zevpn, ip, &mac, macaddr,
+				    vxl->access_vlan, true);
 
 	return zebra_evpn_neigh_gw_macip_add(ifp, zevpn, ip, mac);
 }
@@ -651,10 +649,9 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 	struct zebra_l2info_vxlan *vxl = NULL;
 	struct zebra_from_svi_param *in_param =
 		(struct zebra_from_svi_param *)_in_param;
-	int found = 0;
 
-	if (!in_param)
-		return NS_WALK_STOP;
+	assert(p_zevpn && in_param);
+
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
@@ -678,17 +675,13 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 
 		if (!in_param->bridge_vlan_aware
 		    || vxl->access_vlan == in_param->vid) {
-			found = 1;
-			break;
+			zevpn = zebra_evpn_lookup(vxl->vni);
+			*p_zevpn = zevpn;
+			return NS_WALK_STOP;
 		}
 	}
-	if (!found)
-		return NS_WALK_CONTINUE;
 
-	zevpn = zebra_evpn_lookup(vxl->vni);
-	if (p_zevpn)
-		*p_zevpn = zevpn;
-	return NS_WALK_STOP;
+	return NS_WALK_CONTINUE;
 }
 
 /*
@@ -833,8 +826,7 @@ static int zvni_map_to_macvlan_ns(struct ns *ns,
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 
-	if (!in_param)
-		return NS_WALK_STOP;
+	assert(in_param && p_ifp);
 
 	/* Identify corresponding VLAN interface. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
@@ -848,8 +840,7 @@ static int zvni_map_to_macvlan_ns(struct ns *ns,
 			continue;
 
 		if (zif->link == in_param->svi_if) {
-			if (p_ifp)
-				*p_ifp = tmp_if;
+			*p_ifp = tmp_if;
 			return NS_WALK_STOP;
 		}
 	}

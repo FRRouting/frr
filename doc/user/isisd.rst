@@ -272,7 +272,7 @@ ISIS interface
 Showing ISIS information
 ========================
 
-.. clicmd:: show isis summary
+.. clicmd:: show isis [vrf <NAME|all>] summary [json]
 
    Show summary information about ISIS.
 
@@ -280,17 +280,17 @@ Showing ISIS information
 
    Show information about ISIS node.
 
-.. clicmd:: show isis interface [detail] [IFNAME]
+.. clicmd:: show isis [vrf <NAME|all>] interface [detail] [IFNAME] [json]
 
    Show state and configuration of ISIS specified interface, or all interfaces
    if no interface is given with or without details.
 
-.. clicmd:: show isis neighbor [detail] [SYSTEMID]
+.. clicmd:: show isis [vrf <NAME|all>] neighbor [detail] [SYSTEMID] [json]
 
    Show state and information of ISIS specified neighbor, or all neighbors if
    no system id is given with or without details.
 
-.. clicmd:: show isis database [detail] [LSPID]
+.. clicmd:: show isis [vrf <NAME|all>] database [detail] [LSPID] [json]
 
    Show the ISIS database globally, for a specific LSP id without or with
    details.
@@ -395,13 +395,6 @@ Known limitations:
    to store label in the MPLS FIB for Prefix SID. Note that the block size
    may not exceed 65535. Optionally sets also the Segment Routing Local Block.
    The negative command always unsets both.
-
-.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
-
-   Set the Segment Routing Local Block i.e. the label range used by MPLS
-   to store label in the MPLS FIB for Adjacency SID. Note that the block size
-   may not exceed 65535. This command is deprecated in favor of the combined
-   'segment-routing global-block A B local-block C D' command.
 
 .. clicmd:: segment-routing node-msd (1-16)
 

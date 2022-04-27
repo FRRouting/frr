@@ -65,7 +65,7 @@
 #include "isisd/isis_zebra.h"
 
 /*------------------------------------------------------------------------*
- * Followings are control functions for MPLS-TE parameters management.
+ * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
 
 /* Main initialization / update function of the MPLS TE Circuit context */
@@ -756,6 +756,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 		return LSP_ITER_CONTINUE;
 
 	attr->metric = metric;
+	SET_FLAG(attr->flags, LS_ATTR_METRIC);
 
 	/* Get corresponding Edge from Link State Data Base */
 	edge = get_edge(args->ted, attr);
@@ -1230,7 +1231,7 @@ void isis_te_init_ted(struct isis_area *area)
 			isis_te_parse_lsp(area->mta, lsp);
 }
 
-/* Followings are vty command functions */
+/* Following are vty command functions */
 #ifndef FABRICD
 
 static void show_router_id(struct vty *vty, struct isis_area *area)
@@ -1687,12 +1688,8 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 		ls_show_ted(ted, vty, json, detail);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }

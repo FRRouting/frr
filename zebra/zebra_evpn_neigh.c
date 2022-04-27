@@ -72,7 +72,7 @@ static bool neigh_cmp(const void *p1, const void *p2)
 	if (n1 == NULL || n2 == NULL)
 		return false;
 
-	return (memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr)) == 0);
+	return ipaddr_cmp(&n1->ip, &n2->ip) == 0;
 }
 
 int neigh_list_cmp(void *p1, void *p2)
@@ -80,7 +80,7 @@ int neigh_list_cmp(void *p1, void *p2)
 	const struct zebra_neigh *n1 = p1;
 	const struct zebra_neigh *n2 = p2;
 
-	return memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr));
+	return ipaddr_cmp(&n1->ip, &n2->ip);
 }
 
 struct hash *zebra_neigh_db_create(const char *desc)
@@ -411,7 +411,7 @@ void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
+static void zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 {
 	struct zebra_neigh *n;
 	bool old_bgp_ready;
@@ -424,7 +424,7 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 	 * flag
 	 */
 	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE))
-		return 0;
+		return;
 
 	old_bgp_ready = zebra_evpn_neigh_is_ready_for_bgp(n);
 	old_n_static = zebra_evpn_neigh_is_static(n);
@@ -448,8 +448,6 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 	if (old_bgp_ready != new_bgp_ready)
 		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready,
 							new_bgp_ready);
-
-	return 0;
 }
 
 static inline void zebra_evpn_neigh_start_hold_timer(struct zebra_neigh *n)
@@ -1092,7 +1090,7 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	return 0;
 }
 
-static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_neigh *nbr = NULL;
@@ -1103,15 +1101,15 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(nbr->zevpn->vrf_id);
 	if (!zvrf)
-		return 0;
+		return;
 
 	zevpn = zebra_evpn_lookup(nbr->zevpn->vni);
 	if (!zevpn)
-		return 0;
+		return;
 
 	nbr = zebra_evpn_neigh_lookup(zevpn, &nbr->ip);
 	if (!nbr)
-		return 0;
+		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
@@ -1135,8 +1133,6 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 	} else if (!!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE)) {
 		zebra_evpn_rem_neigh_install(zevpn, nbr, false /*was_static*/);
 	}
-
-	return 0;
 }
 
 static void zebra_evpn_dup_addr_detect_for_neigh(
@@ -1315,14 +1311,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	if (!n) {
 		/* New neighbor - create */
 		n = zebra_evpn_neigh_add(zevpn, ip, macaddr, zmac, 0);
-		if (!n) {
-			flog_err(
-				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %pIA MAC %pEA intf %s(%u) -> VNI %u",
-				ip, macaddr, ifp->name, ifp->ifindex,
-				zevpn->vni);
-			return -1;
-		}
+
 		/* Set "local" forwarding info. */
 		SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 		n->ifindex = ifp->ifindex;
@@ -2074,14 +2063,6 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 		if (!n) {
 			n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr,
 						 mac, 0);
-			if (!n) {
-				zlog_warn(
-					"Failed to add Neigh %pIA MAC %pEA VNI %u Remote VTEP %pI4",
-					ipaddr, &mac->macaddr, zevpn->vni,
-					&vtep_ip);
-				return;
-			}
-
 		} else {
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
@@ -2186,17 +2167,8 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 	assert(mac);
 
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
-	if (!n) {
+	if (!n)
 		n = zebra_evpn_neigh_add(zevpn, ip, &mac->macaddr, mac, 0);
-		if (!n) {
-			flog_err(
-				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %pIA MAC %pEA intf %s(%u) -> VNI %u",
-				ip, &mac->macaddr,
-				ifp->name, ifp->ifindex, zevpn->vni);
-			return -1;
-		}
-	}
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
@@ -2207,7 +2179,6 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 	/* Only advertise in BGP if the knob is enabled */
 	if (advertise_gw_macip_enabled(zevpn)) {
 
-		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 		SET_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW);
 		/* Set Router flag (R-bit) */
 		if (ip->ipa_type == IPADDR_V6)

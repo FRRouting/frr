@@ -57,9 +57,21 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = EC_LIB_STARVE_THREAD,
+		.title = "The Event subsystem has detected a thread starvation issue",
+		.description = "The event subsystem has detected a thread starvation issue.  This typically indicates that the system FRR is running on is heavily loaded and this load might be impacting FRR's ability to handle events in a timely fashion",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = EC_LIB_NO_THREAD,
 		.title = "The Event subsystem has detected an internal FD problem",
 		.description = "The Event subsystem has detected a file descriptor read/write event without an associated handling function.  This is a bug, please collect log data and open an issue.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_TIMER_TOO_LONG,
+		.title = "The Event subsystem has detected an internal timer that is scheduled to pop in greater than one year",
+		.description = "The Event subsystem has detected a timer being started that will pop in a timer that is greater than one year.  This is a bug, please collect log data and open an issue.",
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{

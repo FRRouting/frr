@@ -262,6 +262,9 @@ void zebra_router_terminate(void)
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
 #endif
+
+	/* OS-specific deinit */
+	kernel_router_terminate();
 }
 
 bool zebra_router_notify_on_ack(void)
@@ -307,4 +310,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();
 #endif
+
+	/* OS-specific init */
+	kernel_router_init();
 }

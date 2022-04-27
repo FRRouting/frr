@@ -135,10 +135,11 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
-		if (delay > 0)
+		if (delay > 0) {
 			thread_add_timer_msec(wq->master, work_queue_run, wq,
 					      delay, &wq->thread);
-		else
+			thread_ignore_late_timer(wq->thread);
+		} else
 			thread_add_event(wq->master, work_queue_run, wq, 0,
 					 &wq->thread);
 
@@ -237,7 +238,7 @@ void work_queue_unplug(struct work_queue *wq)
  * will reschedule itself if required,
  * otherwise work_queue_item_add
  */
-int work_queue_run(struct thread *thread)
+void work_queue_run(struct thread *thread)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
@@ -387,6 +388,4 @@ stats:
 
 	} else if (wq->spec.completion_func)
 		wq->spec.completion_func(wq);
-
-	return 0;
 }

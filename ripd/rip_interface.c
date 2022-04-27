@@ -311,7 +311,7 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 	return 0;
 }
 
-/* Inteface link down message processing. */
+/* Interface link down message processing. */
 static int rip_ifp_down(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
@@ -327,7 +327,7 @@ static int rip_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface link up message processing */
+/* Interface link up message processing */
 static int rip_ifp_up(struct interface *ifp)
 {
 	if (IS_RIP_DEBUG_ZEBRA)
@@ -351,7 +351,7 @@ static int rip_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 static int rip_ifp_create(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
@@ -617,7 +617,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 			hook_call(rip_ifaddr_del, ifc);
 
-			/* Chech wether this prefix needs to be removed */
+			/* Chech whether this prefix needs to be removed */
 			rip_apply_address_del(ifc);
 		}
 
@@ -628,7 +628,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 }
 
 /* Check interface is enabled by network statement. */
-/* Check wether the interface has at least a connected prefix that
+/* Check whether the interface has at least a connected prefix that
  * is within the ripng_enable_network table. */
 static int rip_enable_network_lookup_if(struct interface *ifp)
 {
@@ -663,7 +663,7 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check wether connected is within the ripng_enable_network table. */
+/* Check whether connected is within the ripng_enable_network table. */
 static int rip_enable_network_lookup2(struct connected *connected)
 {
 	struct rip_interface *ri = connected->ifp->info;
@@ -789,7 +789,7 @@ int rip_enable_if_delete(struct rip *rip, const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-static int rip_interface_wakeup(struct thread *t)
+static void rip_interface_wakeup(struct thread *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -804,7 +804,7 @@ static int rip_interface_wakeup(struct thread *t)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
-		return 0;
+		return;
 	}
 
 	/* Set running flag. */
@@ -812,8 +812,6 @@ static int rip_interface_wakeup(struct thread *t)
 
 	/* Send RIP request to the interface. */
 	rip_request_interface(ifp);
-
-	return 0;
 }
 
 static void rip_connect_set(struct interface *ifp, int set)
@@ -842,7 +840,7 @@ static void rip_connect_set(struct interface *ifp, int set)
 		nh.ifindex = connected->ifp->ifindex;
 		nh.type = NEXTHOP_TYPE_IFINDEX;
 		if (set) {
-			/* Check once more wether this prefix is within a
+			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
 			if ((rip_enable_if_lookup(rip, connected->ifp->name)
 			     >= 0)

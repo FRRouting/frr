@@ -26,12 +26,12 @@
 #include "log.h"
 
 static __inline int adj_compare(const struct adj *, const struct adj *);
-static int	 adj_itimer(struct thread *);
+static void adj_itimer(struct thread *);
 static __inline int tnbr_compare(const struct tnbr *, const struct tnbr *);
 static void	 tnbr_del(struct ldpd_conf *, struct tnbr *);
 static void	 tnbr_start(struct tnbr *);
 static void	 tnbr_stop(struct tnbr *);
-static int	 tnbr_hello_timer(struct thread *);
+static void tnbr_hello_timer(struct thread *);
 static void	 tnbr_start_hello_timer(struct tnbr *);
 static void	 tnbr_stop_hello_timer(struct tnbr *);
 
@@ -172,8 +172,7 @@ adj_get_af(const struct adj *adj)
 /* adjacency timers */
 
 /* ARGSUSED */
-static int
-adj_itimer(struct thread *thread)
+static void adj_itimer(struct thread *thread)
 {
 	struct adj *adj = THREAD_ARG(thread);
 
@@ -187,13 +186,11 @@ adj_itimer(struct thread *thread)
 		    adj->source.target->rlfa_count == 0) {
 			/* remove dynamic targeted neighbor */
 			tnbr_del(leconf, adj->source.target);
-			return (0);
+			return;
 		}
 	}
 
 	adj_del(adj, S_HOLDTIME_EXP);
-
-	return (0);
 }
 
 void
@@ -345,16 +342,13 @@ tnbr_get_hello_interval(struct tnbr *tnbr)
 /* target neighbors timers */
 
 /* ARGSUSED */
-static int
-tnbr_hello_timer(struct thread *thread)
+static void tnbr_hello_timer(struct thread *thread)
 {
 	struct tnbr	*tnbr = THREAD_ARG(thread);
 
 	tnbr->hello_timer = NULL;
 	send_hello(HELLO_TARGETED, NULL, tnbr);
 	tnbr_start_hello_timer(tnbr);
-
-	return (0);
 }
 
 static void

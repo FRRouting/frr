@@ -159,6 +159,9 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 #ifdef RTM_IFANNOUNCE
 				       {RTM_IFANNOUNCE, "RTM_IFANNOUNCE"},
 #endif /* RTM_IFANNOUNCE */
+#ifdef RTM_IEEE80211
+				       {RTM_IEEE80211, "RTM_IEEE80211"},
+#endif
 				       {0}};
 
 static const struct message rtm_flag_str[] = {{RTF_UP, "UP"},
@@ -450,12 +453,13 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 		if_get_metric(ifp);
 		if_add_update(ifp);
 	} else if (ifp != NULL && ifan->ifan_what == IFAN_DEPARTURE)
-		if_delete_update(ifp);
+		if_delete_update(&ifp);
 
-	if_get_flags(ifp);
-	if_get_mtu(ifp);
-	if_get_metric(ifp);
-
+	if (ifp) {
+		if_get_flags(ifp);
+		if_get_mtu(ifp);
+		if_get_metric(ifp);
+	}
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: interface %s index %d", __func__,
 			   ifan->ifan_name, ifan->ifan_index);
@@ -722,10 +726,10 @@ int ifm_read(struct if_msghdr *ifm)
 			 * will still behave correctly if run on a platform
 			 * without
 			 */
-			if_delete_update(ifp);
+			if_delete_update(&ifp);
 		}
 #endif /* RTM_IFANNOUNCE */
-		if (if_is_up(ifp)) {
+		if (ifp && if_is_up(ifp)) {
 #if defined(__bsdi__)
 			if_kvm_get_mtu(ifp);
 #else
@@ -735,14 +739,16 @@ int ifm_read(struct if_msghdr *ifm)
 		}
 	}
 
+	if (ifp) {
 #ifdef HAVE_NET_RT_IFLIST
-	ifp->stats = ifm->ifm_data;
+		ifp->stats = ifm->ifm_data;
 #endif /* HAVE_NET_RT_IFLIST */
-	ifp->speed = ifm->ifm_data.ifi_baudrate / 1000000;
+		ifp->speed = ifm->ifm_data.ifi_baudrate / 1000000;
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: interface %s index %d", __func__, ifp->name,
-			   ifp->ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: interface %s index %d", __func__,
+				   ifp->name, ifp->ifindex);
+	}
 
 	return 0;
 }
@@ -1011,6 +1017,8 @@ void rtm_read(struct rt_msghdr *rtm)
 	ifindex_t ifindex = 0;
 	afi_t afi;
 	char fbuf[64];
+	int32_t proto = ZEBRA_ROUTE_KERNEL;
+	uint8_t distance = 0;
 
 	zebra_flags = 0;
 
@@ -1042,8 +1050,11 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (!(flags & RTF_GATEWAY))
 		return;
 
-	if (flags & RTF_PROTO1)
+	if (flags & RTF_PROTO1) {
 		SET_FLAG(zebra_flags, ZEBRA_FLAG_SELFROUTE);
+		proto = ZEBRA_ROUTE_STATIC;
+		distance = 255;
+	}
 
 	memset(&nh, 0, sizeof(nh));
 
@@ -1111,13 +1122,13 @@ void rtm_read(struct rt_msghdr *rtm)
 			   0, true);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
-		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
-			zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN,
-			0, 0, 0, 0);
+		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
+			&p, NULL, &nh, 0, RT_TABLE_MAIN, 0, 0, distance, 0,
+			false);
 	else
-		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
-			   0, true);
+		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0,
+			   zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
+			   distance, true);
 }
 
 /* Interface function for the kernel routing table updates.  Support
@@ -1292,7 +1303,7 @@ static void rtmsg_debug(struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-static int kernel_read(struct thread *thread)
+static void kernel_read(struct thread *thread)
 {
 	int sock;
 	int nbytes;
@@ -1356,11 +1367,11 @@ static int kernel_read(struct thread *thread)
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
 				     safe_strerror(errno));
-		return 0;
+		return;
 	}
 
 	if (nbytes == 0)
-		return 0;
+		return;
 
 	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
@@ -1377,7 +1388,7 @@ static int kernel_read(struct thread *thread)
 		zlog_debug(
 			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d",
 			rtm->rtm_msglen, nbytes, rtm->rtm_type);
-		return -1;
+		return;
 	}
 
 	switch (rtm->rtm_type) {
@@ -1400,15 +1411,20 @@ static int kernel_read(struct thread *thread)
 #endif /* RTM_IFANNOUNCE */
 	default:
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Unprocessed RTM_type: %d", rtm->rtm_type);
+			zlog_debug(
+				"Unprocessed RTM_type: %s(%d)",
+				lookup_msg(rtm_type_str, rtm->rtm_type, NULL),
+				rtm->rtm_type);
 		break;
 	}
-	return 0;
 }
 
 /* Make routing socket. */
 static void routing_socket(struct zebra_ns *zns)
 {
+	uint32_t default_rcvbuf;
+	socklen_t optlen;
+
 	frr_with_privs(&zserv_privs) {
 		routing_sock = ns_socket(AF_ROUTE, SOCK_RAW, 0, zns->ns_id);
 
@@ -1443,6 +1459,23 @@ static void routing_socket(struct zebra_ns *zns)
 	/*if (fcntl (routing_sock, F_SETFL, O_NONBLOCK) < 0)
 	  zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
 
+	/*
+	 * Attempt to set a more useful receive buffer size
+	 */
+	optlen = sizeof(default_rcvbuf);
+	if (getsockopt(routing_sock, SOL_SOCKET, SO_RCVBUF, &default_rcvbuf,
+		       &optlen) == -1)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "routing_sock sockopt SOL_SOCKET SO_RCVBUF");
+	else {
+		for (; rcvbufsize > default_rcvbuf &&
+		       setsockopt(routing_sock, SOL_SOCKET, SO_RCVBUF,
+				  &rcvbufsize, sizeof(rcvbufsize)) == -1 &&
+		       errno == ENOBUFS;
+		     rcvbufsize /= 2)
+			;
+	}
+
 	/* kernel_read needs rewrite. */
 	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
@@ -1457,6 +1490,20 @@ void kernel_init(struct zebra_ns *zns)
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	return;
+}
+
+/*
+ * Global init for platform-/OS-specific things
+ */
+void kernel_router_init(void)
+{
+}
+
+/*
+ * Global deinit for platform-/OS-specific things
+ */
+void kernel_router_terminate(void)
+{
 }
 
 /*
@@ -1537,6 +1584,12 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 		case DPLANE_OP_RULE_DELETE:
 		case DPLANE_OP_RULE_UPDATE:
 			res = kernel_pbr_rule_update(ctx);
+			break;
+
+		case DPLANE_OP_INTF_INSTALL:
+		case DPLANE_OP_INTF_UPDATE:
+		case DPLANE_OP_INTF_DELETE:
+			res = kernel_intf_update(ctx);
 			break;
 
 		/* Ignore 'notifications' - no-op */

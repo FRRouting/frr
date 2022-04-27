@@ -41,7 +41,7 @@ static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
 
-static int frr_sr_read_cb(struct thread *thread);
+static void frr_sr_read_cb(struct thread *thread);
 static int frr_sr_finish(void);
 
 /* Convert FRR YANG data value to sysrepo YANG data value. */
@@ -77,11 +77,11 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 		return 0;
 	case LYS_LEAF:
 		sleaf = (struct lysc_node_leaf *)snode;
-		type = sleaf->type.base;
+		type = sleaf->type->basetype;
 		break;
 	case LYS_LEAFLIST:
 		sleaflist = (struct lysc_node_leaflist *)snode;
-		type = sleaflist->type.base;
+		type = sleaflist->type->basetype;
 		break;
 	default:
 		return -1;
@@ -301,7 +301,7 @@ static int frr_sr_config_change_cb_prepare(sr_session_ctx_t *session,
 	case NB_ERR_LOCKED:
 		return SR_ERR_LOCKED;
 	case NB_ERR_RESOURCE:
-		return SR_ERR_NOMEM;
+		return SR_ERR_NO_MEMORY;
 	default:
 		return SR_ERR_VALIDATION_FAILED;
 	}
@@ -339,7 +339,7 @@ static int frr_sr_config_change_cb_abort(sr_session_ctx_t *session,
 }
 
 /* Callback for changes in the running configuration. */
-static int frr_sr_config_change_cb(sr_session_ctx_t *session,
+static int frr_sr_config_change_cb(sr_session_ctx_t *session, uint32_t sub_id,
 				   const char *module_name, const char *xpath,
 				   sr_event_t sr_ev, uint32_t request_id,
 				   void *private_data)
@@ -364,10 +364,11 @@ static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 				     struct yang_data *data, void *arg)
 {
 	struct lyd_node *dnode = arg;
+	LY_ERR ly_errno;
 
 	ly_errno = 0;
-	dnode = lyd_new_path(dnode, ly_native_ctx, data->xpath, data->value, 0,
-			     LYD_PATH_OPT_UPDATE);
+	ly_errno = lyd_new_path(NULL, ly_native_ctx, data->xpath, data->value,
+				0, &dnode);
 	if (!dnode && ly_errno) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
 			  __func__);
@@ -380,10 +381,10 @@ static int frr_sr_state_data_iter_cb(const struct lysc_node *snode,
 }
 
 /* Callback for state retrieval. */
-static int frr_sr_state_cb(sr_session_ctx_t *session, const char *module_name,
-			   const char *xpath, const char *request_xpath,
-			   uint32_t request_id, struct lyd_node **parent,
-			   void *private_ctx)
+static int frr_sr_state_cb(sr_session_ctx_t *session, uint32_t sub_id,
+			   const char *module_name, const char *xpath,
+			   const char *request_xpath, uint32_t request_id,
+			   struct lyd_node **parent, void *private_ctx)
 {
 	struct lyd_node *dnode;
 
@@ -401,9 +402,8 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, const char *module_name,
 
 	return SR_ERR_OK;
 }
-
-static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, const char *xpath,
-				const sr_val_t *sr_input,
+static int frr_sr_config_rpc_cb(sr_session_ctx_t *session, uint32_t sub_id,
+				const char *xpath, const sr_val_t *sr_input,
 				const size_t input_cnt, sr_event_t sr_ev,
 				uint32_t request_id, sr_val_t **sr_output,
 				size_t *sr_output_cnt, void *private_ctx)
@@ -515,7 +515,7 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 		}
 	}
 
-	ret = sr_event_notif_send(session, xpath, values, values_cnt);
+	ret = sr_event_notif_send(session, xpath, values, values_cnt, 0, 0);
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO,
 			 "%s: sr_event_notif_send() failed for xpath %s",
@@ -526,7 +526,7 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 	return NB_OK;
 }
 
-static int frr_sr_read_cb(struct thread *thread)
+static void frr_sr_read_cb(struct thread *thread)
 {
 	struct yang_module *module = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
@@ -536,12 +536,10 @@ static int frr_sr_read_cb(struct thread *thread)
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO, "%s: sr_fd_event_process(): %s",
 			 __func__, sr_strerror(ret));
-		return -1;
+		return;
 	}
 
 	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
-
-	return 0;
 }
 
 static void frr_sr_subscribe_config(struct yang_module *module)

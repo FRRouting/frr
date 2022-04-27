@@ -134,6 +134,7 @@ def build_topo(tgen):
     switch = tgen.add_switch("s4")
     switch.add_link(tgen.gears["r4"], nodeif="r4-stubnet")
 
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(build_topo, mod.__name__)
@@ -585,10 +586,11 @@ def test_nssa_range():
     logger.info("Expecting NSSA range to be added on r3")
     routes = {
         "2001:db8:1000::/64": {
-            "metricType":2,
-            "metricCost":20,
-            "metricCostE2":10,
-        }}
+            "metricType": 2,
+            "metricCost": 20,
+            "metricCostE2": 10,
+        }
+    }
     expect_ospfv3_routes("r3", routes, wait=30, type="external-2", detail=True)
 
     # Change the NSSA range cost.
@@ -601,10 +603,11 @@ def test_nssa_range():
     logger.info("Expecting NSSA range to be updated with new cost")
     routes = {
         "2001:db8:1000::/64": {
-            "metricType":2,
-            "metricCost":20,
-            "metricCostE2":1000,
-        }}
+            "metricType": 2,
+            "metricCost": 20,
+            "metricCostE2": 1000,
+        }
+    }
     expect_ospfv3_routes("r3", routes, wait=30, type="external-2", detail=True)
 
     # Configure the NSSA range to not be advertised.
@@ -631,12 +634,12 @@ def test_nssa_range():
     logger.info("Expecting previously summarized routes to be re-added")
     routes = {
         "2001:db8:1000::1/128": {
-            "metricType":2,
-            "metricCost":20,
+            "metricType": 2,
+            "metricCostE2": 20,
         },
         "2001:db8:1000::2/128": {
-            "metricType":2,
-            "metricCost":20,
+            "metricType": 2,
+            "metricCostE2": 20,
         },
     }
     expect_ospfv3_routes("r3", routes, wait=30, type="external-2", detail=True)

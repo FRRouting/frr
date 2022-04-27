@@ -447,6 +447,7 @@ enum ext_subtlv_size {
 
 	/* RFC 8667 sections #2 & #3 */
 	ISIS_SUBTLV_SID_LABEL_SIZE = 3,
+	ISIS_SUBTLV_SID_INDEX_SIZE = 4,
 	ISIS_SUBTLV_SID_LABEL_RANGE_SIZE = 9,
 	ISIS_SUBTLV_ALGORITHM_SIZE = 4,
 	ISIS_SUBTLV_ADJ_SID_SIZE = 5,
@@ -548,7 +549,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs);
 struct isis_tlvs *isis_alloc_tlvs(void);
 int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 		     struct isis_tlvs **dest, const char **error_log);
-const char *isis_format_tlvs(struct isis_tlvs *tlvs);
+const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json);
 struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs);
 struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 

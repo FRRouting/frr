@@ -68,7 +68,7 @@ struct ospf_apiserver {
 	struct thread *t_async_write;
 };
 
-enum event {
+enum ospf_apiserver_event {
 	OSPF_APISERVER_ACCEPT,
 	OSPF_APISERVER_SYNC_READ,
 #ifdef USE_ASYNC_READ
@@ -79,7 +79,7 @@ enum event {
 };
 
 /* -----------------------------------------------------------
- * Followings are functions to manage client connections.
+ * Following are functions to manage client connections.
  * -----------------------------------------------------------
  */
 
@@ -88,18 +88,18 @@ extern int ospf_apiserver_init(void);
 extern void ospf_apiserver_term(void);
 extern struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async);
 extern void ospf_apiserver_free(struct ospf_apiserver *apiserv);
-extern void ospf_apiserver_event(enum event event, int fd,
+extern void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 				 struct ospf_apiserver *apiserv);
 extern int ospf_apiserver_serv_sock_family(unsigned short port, int family);
-extern int ospf_apiserver_accept(struct thread *thread);
-extern int ospf_apiserver_read(struct thread *thread);
-extern int ospf_apiserver_sync_write(struct thread *thread);
-extern int ospf_apiserver_async_write(struct thread *thread);
+extern void ospf_apiserver_accept(struct thread *thread);
+extern void ospf_apiserver_read(struct thread *thread);
+extern void ospf_apiserver_sync_write(struct thread *thread);
+extern void ospf_apiserver_async_write(struct thread *thread);
 extern int ospf_apiserver_send_reply(struct ospf_apiserver *apiserv,
 				     uint32_t seqnr, uint8_t rc);
 
 /* -----------------------------------------------------------
- * Followings are message handler functions
+ * Following are message handler functions
  * -----------------------------------------------------------
  */
 
@@ -147,7 +147,7 @@ extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 
 
 /* -----------------------------------------------------------
- * Followings are functions for LSA origination/deletion
+ * Following are functions for LSA origination/deletion
  * -----------------------------------------------------------
  */
 
@@ -169,7 +169,7 @@ extern void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa);
 
 
 /* -----------------------------------------------------------
- * Followings are callback functions to handle opaque types
+ * Following are callback functions to handle opaque types
  * -----------------------------------------------------------
  */
 
@@ -191,7 +191,7 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 					    uint8_t opaque_type);
 
 /* -----------------------------------------------------------
- * Followings are hooks when LSAs are updated or deleted
+ * Following are hooks when LSAs are updated or deleted
  * -----------------------------------------------------------
  */
 

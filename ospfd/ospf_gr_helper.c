@@ -346,14 +346,13 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf_handle_grace_timer_expiry(struct thread *thread)
+static void ospf_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf_neighbor *nbr = THREAD_ARG(thread);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
 	ospf_gr_helper_exit(nbr, OSPF_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF_GR_SUCCESS;
 }
 
 /*
@@ -847,8 +846,8 @@ void ospf_gr_helper_support_set(struct ospf *ospf, bool support)
 				lookup.advRtrAddr.s_addr =
 					nbr->router_id.s_addr;
 				/* check if helper support enabled for the
-				 * corresponding routerid.If enabled, dont
-				 * dont exit from helper role.
+				 * corresponding routerid.If enabled, don't
+				 * exit from helper role.
 				 */
 				if (hash_lookup(ospf->enable_rtr_list, &lookup))
 					continue;

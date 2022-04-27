@@ -81,11 +81,9 @@ static bool mtrace_fwd_info_weak(struct pim_instance *pim,
 		zlog_debug("mtrace pim_nexthop_lookup OK");
 
 	if (PIM_DEBUG_MTRACE)
-		zlog_debug("mtrace next_hop=%pI4",
-			   &nexthop.mrib_nexthop_addr.u.prefix4);
+		zlog_debug("mtrace next_hop=%pPAs", &nexthop.mrib_nexthop_addr);
 
-	if (nexthop.mrib_nexthop_addr.family == AF_INET)
-		nh_addr = nexthop.mrib_nexthop_addr.u.prefix4;
+	nh_addr = nexthop.mrib_nexthop_addr;
 
 	ifp_in = nexthop.interface;
 
@@ -119,7 +117,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	up = pim_upstream_find(pim, &sg);
 
 	if (!up) {
-		sg.src.s_addr = INADDR_ANY;
+		sg.src = PIMADDR_ANY;
 		up = pim_upstream_find(pim, &sg);
 	}
 
@@ -134,7 +132,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	}
 
 	ifp_in = up->rpf.source_nexthop.interface;
-	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4;
+	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr;
 	total = htonl(MTRACE_UNKNOWN_COUNT);
 
 	if (PIM_DEBUG_MTRACE)
@@ -154,7 +152,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 
 	/* 6.2.2. 4. Fill in ... S, and Src Mask */
-	if (sg.src.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(sg.src)) {
 		rspp->s = 1;
 		rspp->src_mask = MTRACE_SRC_MASK_SOURCE;
 	} else {
@@ -626,7 +624,7 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.mtrace_req++;
+	igmp->igmp_stats.mtrace_req++;
 
 	if (PIM_DEBUG_MTRACE)
 		mtrace_debug(pim_ifp, mtracep, igmp_msg_len);
@@ -843,7 +841,7 @@ int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 	mtracep->checksum = checksum;
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.mtrace_rsp++;
+	igmp->igmp_stats.mtrace_rsp++;
 
 	if (PIM_DEBUG_MTRACE)
 		mtrace_debug(pim_ifp, mtracep, igmp_msg_len);

@@ -63,12 +63,17 @@
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
+static struct thread *t_rpki;
+static struct thread *t_rpki_start;
+
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
+#define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -120,6 +125,7 @@ static int add_tcp_cache(const char *host, const char *port,
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static int is_synchronized(void);
 static int is_running(void);
+static int is_stopping(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
@@ -154,17 +160,17 @@ static const struct route_map_rule_cmd route_match_rpki_cmd = {
 
 static void *malloc_wrapper(size_t size)
 {
-	return XMALLOC(MTYPE_BGP_RPKI_CACHE, size);
+	return XMALLOC(MTYPE_BGP_RPKI_RTRLIB, size);
 }
 
 static void *realloc_wrapper(void *ptr, size_t size)
 {
-	return XREALLOC(MTYPE_BGP_RPKI_CACHE, ptr, size);
+	return XREALLOC(MTYPE_BGP_RPKI_RTRLIB, ptr, size);
 }
 
 static void free_wrapper(void *ptr)
 {
-	XFREE(MTYPE_BGP_RPKI_CACHE, ptr);
+	XFREE(MTYPE_BGP_RPKI_RTRLIB, ptr);
 }
 
 static void init_tr_socket(struct cache *cache)
@@ -329,12 +335,17 @@ static struct rtr_mgr_group *get_groups(void)
 
 inline int is_synchronized(void)
 {
-	return rtr_is_running && rtr_mgr_conf_in_sync(rtr_config);
+	return is_running() && rtr_mgr_conf_in_sync(rtr_config);
 }
 
 inline int is_running(void)
 {
 	return rtr_is_running;
+}
+
+inline int is_stopping(void)
+{
+	return rtr_is_stopping;
 }
 
 static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
@@ -355,34 +366,41 @@ static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
 	return prefix;
 }
 
-static int bgpd_sync_callback(struct thread *thread)
+static void bgpd_sync_callback(struct thread *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
 	struct prefix *prefix;
 	struct pfx_record rec;
+	int retval;
+	int socket = THREAD_FD(thread);
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	thread_add_read(bm->master, bgpd_sync_callback, NULL, socket, &t_rpki);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
-		while (read(rpki_sync_socket_bgpd, &rec,
-			    sizeof(struct pfx_record))
-		       != -1)
+		while (read(socket, &rec, sizeof(struct pfx_record)) != -1)
 			;
 
 		atomic_store_explicit(&rtr_update_overflow, 0,
 				      memory_order_seq_cst);
 		revalidate_all_routes();
-		return 0;
+		return;
 	}
 
-	int retval =
-		read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
+	retval = read(socket, &rec, sizeof(struct pfx_record));
 	if (retval != sizeof(struct pfx_record)) {
-		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
-		return retval;
+		RPKI_DEBUG("Could not read from socket");
+		return;
 	}
+
+	/* RTR-Server crashed/terminated, let's handle and switch
+	 * to the second available RTR-Server according to preference.
+	 */
+	if (rec.socket && rec.socket->state == RTR_ERROR_FATAL) {
+		reset(true);
+		return;
+	}
+
 	prefix = pfx_record_to_prefix(&rec);
 
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
@@ -412,7 +430,6 @@ static int bgpd_sync_callback(struct thread *thread)
 	}
 
 	prefix_free(&prefix);
-	return 0;
 }
 
 static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
@@ -441,35 +458,59 @@ static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
 	struct listnode *node;
+	afi_t afi;
+	safi_t safi;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		struct peer *peer;
 		struct listnode *peer_listnode;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (!peer->afc_nego[afi][safi])
+					continue;
 
-			for (size_t i = 0; i < 2; i++) {
-				safi_t safi;
-				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+				if (!peer->bgp->rib[afi][safi])
+					continue;
 
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					if (!peer->bgp->rib[afi][safi])
-						continue;
-
-					bgp_soft_reconfig_in(peer, afi, safi);
-				}
+				bgp_soft_reconfig_in(peer, afi, safi);
 			}
 		}
 	}
+}
+
+static void rpki_connection_status_cb(const struct rtr_mgr_group *group
+				      __attribute__((unused)),
+				      enum rtr_mgr_status status,
+				      const struct rtr_socket *socket
+				      __attribute__((unused)),
+				      void *data __attribute__((unused)))
+{
+	struct pfx_record rec = {0};
+	int retval;
+
+	if (is_stopping() ||
+	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
+		return;
+
+	if (status == RTR_MGR_ERROR)
+		rec.socket = socket;
+
+	retval = write(rpki_sync_socket_rtr, &rec, sizeof(rec));
+	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		atomic_store_explicit(&rtr_update_overflow, 1,
+				      memory_order_seq_cst);
+
+	else if (retval != sizeof(rec))
+		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 }
 
 static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				    const struct pfx_record rec,
 				    const bool added __attribute__((unused)))
 {
-	if (rtr_is_stopping
-	    || atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
+	if (is_stopping() ||
+	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
 	int retval =
@@ -505,9 +546,8 @@ static void rpki_init_sync_socket(void)
 		goto err;
 	}
 
-
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+			rpki_sync_socket_bgpd, &t_rpki);
 
 	return;
 
@@ -556,6 +596,18 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
+static void start_expired(struct thread *thread)
+{
+	if (!rtr_mgr_conf_in_sync(rtr_config)) {
+		thread_add_timer(bm->master, start_expired, NULL,
+				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
+				 &t_rpki_start);
+		return;
+	}
+
+	rtr_is_running = 1;
+}
+
 static int start(void)
 {
 	int ret;
@@ -575,7 +627,8 @@ static int start(void)
 	RPKI_DEBUG("Polling period: %d", polling_period);
 	ret = rtr_mgr_init(&rtr_config, groups, groups_len, polling_period,
 			   expire_interval, retry_interval,
-			   rpki_update_cb_sync_rtr, NULL, NULL, NULL);
+			   rpki_update_cb_sync_rtr, NULL,
+			   rpki_connection_status_cb, NULL);
 	if (ret == RTR_ERROR) {
 		RPKI_DEBUG("Init rtr_mgr failed.");
 		return ERROR;
@@ -588,7 +641,8 @@ static int start(void)
 		rtr_mgr_free(rtr_config);
 		return ERROR;
 	}
-	rtr_is_running = 1;
+
+	thread_add_timer(bm->master, start_expired, NULL, 0, &t_rpki_start);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
@@ -598,7 +652,8 @@ static int start(void)
 static void stop(void)
 {
 	rtr_is_stopping = 1;
-	if (rtr_is_running) {
+	if (is_running()) {
+		THREAD_OFF(t_rpki_start);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = 0;
@@ -607,7 +662,10 @@ static void stop(void)
 
 static int reset(bool force)
 {
-	if (rtr_is_running && !force)
+	if (is_running() && !force)
+		return SUCCESS;
+
+	if (thread_is_scheduled(t_rpki_start))
 		return SUCCESS;
 
 	RPKI_DEBUG("Resetting RPKI Session");
@@ -690,7 +748,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	enum pfxv_state result;
 
 	if (!is_synchronized())
-		return 0;
+		return RPKI_NOT_BEING_USED;
 
 	// No aspath means route comes from iBGP
 	if (!attr->aspath || !attr->aspath->segments) {
@@ -730,7 +788,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 		break;
 
 	default:
-		return 0;
+		return RPKI_NOT_BEING_USED;
 	}
 
 	// Do the actual validation
@@ -760,7 +818,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 			prefix, as_number);
 		break;
 	}
-	return 0;
+	return RPKI_NOT_BEING_USED;
 }
 
 static int add_cache(struct cache *cache)
@@ -772,7 +830,7 @@ static int add_cache(struct cache *cache)
 	group.sockets_len = 1;
 	group.sockets = &cache->rtr_socket;
 
-	if (rtr_is_running) {
+	if (is_running()) {
 		init_tr_socket(cache);
 
 		if (rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
@@ -870,9 +928,8 @@ static void free_cache(struct cache *cache)
 	if (cache->type == TCP) {
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->host);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->port);
-		if (cache->tr_config.tcp_config->bindaddr)
-			XFREE(MTYPE_BGP_RPKI_CACHE,
-			      cache->tr_config.tcp_config->bindaddr);
+		XFREE(MTYPE_BGP_RPKI_CACHE,
+		      cache->tr_config.tcp_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config);
 	}
 #if defined(FOUND_SSH)
@@ -884,9 +941,8 @@ static void free_cache(struct cache *cache)
 		      cache->tr_config.ssh_config->client_privkey_path);
 		XFREE(MTYPE_BGP_RPKI_CACHE,
 		      cache->tr_config.ssh_config->server_hostkey_path);
-		if (cache->tr_config.ssh_config->bindaddr)
-			XFREE(MTYPE_BGP_RPKI_CACHE,
-			      cache->tr_config.ssh_config->bindaddr);
+		XFREE(MTYPE_BGP_RPKI_CACHE,
+		      cache->tr_config.ssh_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.ssh_config);
 	}
 #endif
@@ -1139,9 +1195,9 @@ DEFPY (no_rpki_cache,
 		return CMD_WARNING;
 	}
 
-	if (rtr_is_running && listcount(cache_list) == 1) {
+	if (is_running() && listcount(cache_list) == 1) {
 		stop();
-	} else if (rtr_is_running) {
+	} else if (is_running()) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
 			vty_out(vty, "Could not remove cache %ld", preference);
 
@@ -1229,7 +1285,7 @@ DEFPY (show_rpki_prefix,
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
 				 asn, &addr, prefix->prefixlen, &result)
 	    != PFX_SUCCESS) {
-		vty_out(vty, "Prefix lookup failed");
+		vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
 	}
 

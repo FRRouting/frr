@@ -317,8 +317,8 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 				      struct pim_upstream *up);
 
 void pim_update_suppress_timers(uint32_t suppress_time);
-void pim_upstream_join_suppress(struct pim_upstream *up,
-				struct in_addr rpf_addr, int holdtime);
+void pim_upstream_join_suppress(struct pim_upstream *up, struct prefix rpf,
+				int holdtime);
 
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 						    struct pim_upstream *up);
@@ -326,7 +326,7 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 void pim_upstream_join_timer_restart(struct pim_upstream *up,
 				     struct pim_rpf *old);
 void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
-				    struct in_addr neigh_addr);
+				    pim_addr neigh_addr);
 void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
 					struct interface *old_rpf_ifp);
 

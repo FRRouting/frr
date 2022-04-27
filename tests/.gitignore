@@ -1,6 +1,8 @@
 *.log
 *.sum
 *.xml
+frr-northbound.proto
+frr_northbound*
 .pytest_cache
 /bgpd/test_aspath
 /bgpd/test_bgp_table
@@ -21,6 +23,7 @@
 /lib/cli/test_commands_defun.c
 /lib/northbound/test_oper_data
 /lib/cxxcompat
+/lib/fuzz_zlog
 /lib/test_assert
 /lib/test_atomlist
 /lib/test_buffer

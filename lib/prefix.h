@@ -95,6 +95,7 @@ struct evpn_ead_addr {
 	esi_t esi;
 	uint32_t eth_tag;
 	struct ipaddr ip;
+	uint16_t frag_id;
 };
 
 struct evpn_macip_addr {
@@ -341,9 +342,6 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
 } TRANSPARENT_UNION;
 
-#undef prefixtype
-#undef TRANSPARENT_UNION
-
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
 #endif /* INET_ADDRSTRLEN */
@@ -421,6 +419,11 @@ extern afi_t family2afi(int);
 extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
+
+static inline afi_t prefix_afi(union prefixconstptr pu)
+{
+	return family2afi(pu.p->family);
+}
 
 /*
  * Check bit of the prefix.
@@ -585,6 +588,71 @@ static inline int is_default_host_route(const struct prefix *p)
 			p->prefixlen == IPV6_MAX_BITLEN);
 	}
 	return 0;
+}
+
+/* IPv6 scope values, usable for IPv4 too (cf. below) */
+/* clang-format off */
+enum {
+	/* 0: reserved */
+	MCAST_SCOPE_IFACE  = 0x1,
+	MCAST_SCOPE_LINK   = 0x2,
+	MCAST_SCOPE_REALM  = 0x3,
+	MCAST_SCOPE_ADMIN  = 0x4,
+	MCAST_SCOPE_SITE   = 0x5,
+	/* 6-7: unassigned */
+	MCAST_SCOPE_ORG    = 0x8,
+	/* 9-d: unassigned */
+	MCAST_SCOPE_GLOBAL = 0xe,
+	/* f: reserved */
+};
+/* clang-format on */
+
+static inline uint8_t ipv6_mcast_scope(const struct in6_addr *addr)
+{
+	return addr->s6_addr[1] & 0xf;
+}
+
+static inline bool ipv6_mcast_nofwd(const struct in6_addr *addr)
+{
+	return (addr->s6_addr[1] & 0xf) <= MCAST_SCOPE_LINK;
+}
+
+static inline bool ipv6_mcast_ssm(const struct in6_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s6_addr32[0]);
+
+	/* ff3x:0000::/32 */
+	return (bits & 0xfff0ffff) == 0xff300000;
+}
+
+static inline uint8_t ipv4_mcast_scope(const struct in_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s_addr);
+
+	/* 224.0.0.0/24 - link scope */
+	if ((bits & 0xffffff00) == 0xe0000000)
+		return MCAST_SCOPE_LINK;
+	/* 239.0.0.0/8 - org scope */
+	if ((bits & 0xff000000) == 0xef000000)
+		return MCAST_SCOPE_ORG;
+
+	return MCAST_SCOPE_GLOBAL;
+}
+
+static inline bool ipv4_mcast_nofwd(const struct in_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s_addr);
+
+	/* 224.0.0.0/24 */
+	return (bits & 0xffffff00) == 0xe0000000;
+}
+
+static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s_addr);
+
+	/* 232.0.0.0/8 */
+	return (bits & 0xff000000) == 0xe8000000;
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR

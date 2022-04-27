@@ -503,11 +503,11 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->accept_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%d ms", "Advertisement Interval",
 		       vr->advertisement_interval * CS2MS);
-	ttable_add_row(tt, "%s|%d ms",
-		       "Master Advertisement Interval (v4)",
+	ttable_add_row(tt, "%s|%d ms (stale)",
+		       "Master Advertisement Interval (v4) Rx",
 		       vr->v4->master_adver_interval * CS2MS);
-	ttable_add_row(tt, "%s|%d ms",
-		       "Master Advertisement Interval (v6)",
+	ttable_add_row(tt, "%s|%d ms (stale)",
+		       "Master Advertisement Interval (v6) Rx",
 		       vr->v6->master_adver_interval * CS2MS);
 	ttable_add_row(tt, "%s|%u", "Advertisements Tx (v4)",
 		       vr->v4->stats.adver_tx_cnt);

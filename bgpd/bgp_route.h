@@ -154,6 +154,8 @@ struct bgp_sid_info {
 	uint8_t loc_node_len;
 	uint8_t func_len;
 	uint8_t arg_len;
+	uint8_t transposition_len;
+	uint8_t transposition_offset;
 };
 
 /* Ancillary information to struct bgp_path_info,
@@ -785,7 +787,7 @@ extern bool subgroup_announce_check(struct bgp_dest *dest,
 				    struct bgp_path_info *pi,
 				    struct update_subgroup *subgrp,
 				    const struct prefix *p, struct attr *attr,
-				    bool skip_rmap_check);
+				    struct attr *post_attr);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
@@ -838,4 +840,5 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 const char *
 bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
+extern bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_ROUTE_H */

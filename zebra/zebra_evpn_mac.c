@@ -383,7 +383,7 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 	return buf;
 }
 
-static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_mac *mac = NULL;
@@ -396,15 +396,15 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(mac->zevpn->vrf_id);
 	if (!zvrf)
-		return 0;
+		return;
 
 	zevpn = zebra_evpn_lookup(mac->zevpn->vni);
 	if (!zevpn)
-		return 0;
+		return;
 
 	mac = zebra_evpn_mac_lookup(zevpn, &mac->macaddr);
 	if (!mac)
-		return 0;
+		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		char mac_buf[MAC_BUF_SIZE];
@@ -445,7 +445,7 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 		if (zebra_evpn_mac_send_add_to_client(zevpn->vni, &mac->macaddr,
 						      mac->flags, mac->loc_seq,
 						      mac->es))
-			return -1;
+			return;
 
 		/* Process all neighbors associated with this MAC. */
 		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac, 0,
@@ -457,8 +457,6 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 		/* Install the entry. */
 		zebra_evpn_rem_mac_install(zevpn, mac, false /* was_static */);
 	}
-
-	return 0;
 }
 
 static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
@@ -1143,14 +1141,6 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 							  sizeof(mac_buf)));
 	}
 
-	/* If the MAC is freed before the neigh we will end up
-	 * with a stale pointer against the neigh
-	 */
-	if (!list_isempty(mac->neigh_list))
-		zlog_warn("%s: MAC %pEA flags 0x%x neigh list not empty %d",
-			  __func__, &mac->macaddr, mac->flags,
-			  listcount(mac->neigh_list));
-
 	/* force de-ref any ES entry linked to the MAC */
 	zebra_evpn_es_mac_deref_entry(mac);
 
@@ -1162,6 +1152,26 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 
 	/* Cancel auto recovery */
 	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+
+	/* If the MAC is freed before the neigh we will end up
+	 * with a stale pointer against the neigh.
+	 * The situation can arise when a MAC is in remote state
+	 * and its associated neigh is local state.
+	 * zebra_evpn_cfg_cleanup() cleans up remote neighs and MACs.
+	 * Instead of deleting remote MAC, if its neigh list is non-empty
+	 * (associated to local neighs), mark the MAC as AUTO.
+	 */
+	if (!list_isempty(mac->neigh_list)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"MAC %pEA (flags 0x%x vni %u) has non-empty neigh list "
+				"count %u, mark MAC as AUTO",
+				&mac->macaddr, mac->flags, zevpn->vni,
+				listcount(mac->neigh_list));
+
+		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+		return 0;
+	}
 
 	list_delete(&mac->neigh_list);
 
@@ -1470,7 +1480,7 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static int zebra_evpn_mac_hold_exp_cb(struct thread *t)
+static void zebra_evpn_mac_hold_exp_cb(struct thread *t)
 {
 	struct zebra_mac *mac;
 	bool old_bgp_ready;
@@ -1483,7 +1493,7 @@ static int zebra_evpn_mac_hold_exp_cb(struct thread *t)
 	 * flag
 	 */
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE))
-		return 0;
+		return;
 
 	old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 	old_static = zebra_evpn_mac_is_static(mac);
@@ -1514,8 +1524,6 @@ static int zebra_evpn_mac_hold_exp_cb(struct thread *t)
 	if (old_bgp_ready != new_bgp_ready)
 		zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
 						      new_bgp_ready);
-
-	return 0;
 }
 
 static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
@@ -1864,7 +1872,7 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(
 	return mac;
 }
 
-/* update local fowarding info. return true if a dest-ES change
+/* update local forwarding info. return true if a dest-ES change
  * is detected
  */
 static bool zebra_evpn_local_mac_update_fwd_info(struct zebra_mac *mac,
@@ -2456,11 +2464,12 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	return 0;
 }
 
-int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
-				const struct ipaddr *ip,
-				struct zebra_mac **macp,
-				const struct ethaddr *macaddr, vlanid_t vlan_id,
-				bool def_gw)
+void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
+				 struct zebra_evpn *zevpn,
+				 const struct ipaddr *ip,
+				 struct zebra_mac **macp,
+				 const struct ethaddr *macaddr,
+				 vlanid_t vlan_id, bool def_gw)
 {
 	struct zebra_mac *mac;
 	ns_id_t local_ns_id = NS_DEFAULT;
@@ -2470,9 +2479,13 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 	if (zvrf && zvrf->zns)
 		local_ns_id = zvrf->zns->ns_id;
 
-	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
-	if (!mac)
-		mac = zebra_evpn_mac_add(zevpn, macaddr);
+	if (!*macp) {
+		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+		if (!mac)
+			mac = zebra_evpn_mac_add(zevpn, macaddr);
+		*macp = mac;
+	} else
+		mac = *macp;
 
 	/* Set "local" forwarding info. */
 	zebra_evpn_mac_clear_fwd_info(mac);
@@ -2480,13 +2493,11 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	if (def_gw)
 		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
+	else
+		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
 	mac->fwd_info.local.ifindex = ifp->ifindex;
 	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vlan_id;
-
-	*macp = mac;
-
-	return 0;
 }
 
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
@@ -2539,10 +2550,7 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 				? true
 				: false;
 
-	mac = NULL;
 	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0, false);
-	if (mac)
-		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
 
 	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,

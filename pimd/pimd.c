@@ -32,7 +32,11 @@
 #include "bfd.h"
 
 #include "pimd.h"
+#if PIM_IPV == 4
 #include "pim_cmd.h"
+#else
+#include "pim6_cmd.h"
+#endif
 #include "pim_str.h"
 #include "pim_oil.h"
 #include "pim_pim.h"
@@ -49,15 +53,22 @@
 CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
 #endif /* MAXVIFS > 256 */
 
+#if PIM_IPV == 4
 const char *const PIM_ALL_SYSTEMS = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS = MCAST_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
+#else
+const char *const PIM_ALL_SYSTEMS = "ff02::1";
+const char *const PIM_ALL_ROUTERS = "ff02::2";
+const char *const PIM_ALL_PIM_ROUTERS = "ff02::d";
+const char *const PIM_ALL_IGMP_ROUTERS = "ff02::16";
+#endif
 
 DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
-struct in_addr qpim_all_pim_routers_addr;
+pim_addr qpim_all_pim_routers_addr;
 
 void pim_prefix_list_update(struct prefix_list *plist)
 {
@@ -103,7 +114,7 @@ void pim_router_init(void)
 		PIM_ASSERT_METRIC_PREFERENCE_MAX;
 	router->infinite_assert_metric.route_metric =
 		PIM_ASSERT_ROUTE_METRIC_MAX;
-	router->infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
+	router->infinite_assert_metric.ip_address = PIMADDR_ANY;
 	router->rpf_cache_refresh_delay_msec = 50;
 	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
@@ -120,7 +131,8 @@ void pim_router_terminate(void)
 
 void pim_init(void)
 {
-	if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
+	if (!inet_pton(PIM_AF, PIM_ALL_PIM_ROUTERS,
+		       &qpim_all_pim_routers_addr)) {
 		flog_err(
 			EC_LIB_SOCKET,
 			"%s %s: could not solve %s to group address: errno=%d: %s",

@@ -1779,7 +1779,7 @@ static int ospf_snmp_vl_add(struct ospf_vl_data *vl_data)
 	struct route_node *rn;
 
 	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = vl_data->vl_area_id;
 	lp.adv_router = vl_data->vl_peer;
@@ -1798,7 +1798,7 @@ static int ospf_snmp_vl_delete(struct ospf_vl_data *vl_data)
 	struct route_node *rn;
 
 	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = vl_data->vl_area_id;
 	lp.adv_router = vl_data->vl_peer;
@@ -1820,7 +1820,7 @@ static struct ospf_vl_data *ospf_snmp_vl_lookup(struct in_addr *area_id,
 	struct ospf_vl_data *vl_data;
 
 	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = *area_id;
 	lp.adv_router = *neighbor;
@@ -1843,7 +1843,7 @@ static struct ospf_vl_data *ospf_snmp_vl_lookup_next(struct in_addr *area_id,
 	struct ospf_vl_data *vl_data;
 
 	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = *area_id;
 	lp.adv_router = *neighbor;

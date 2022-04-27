@@ -239,7 +239,7 @@ void zlog_backtrace(int priority)
 {
 #ifdef HAVE_LIBUNWIND
 	char buf[100];
-	unw_cursor_t cursor;
+	unw_cursor_t cursor = {};
 	unw_context_t uc;
 	unw_word_t ip, off, sp;
 	Dl_info dlinfo;

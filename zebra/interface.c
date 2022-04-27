@@ -64,15 +64,13 @@ DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
-static int if_zebra_speed_update(struct thread *thread)
+static void if_zebra_speed_update(struct thread *thread)
 {
 	struct interface *ifp = THREAD_ARG(thread);
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;
 	int error = 0;
-
-	zif->speed_update = NULL;
 
 	new_speed = kernel_get_speed(ifp, &error);
 
@@ -81,7 +79,7 @@ static int if_zebra_speed_update(struct thread *thread)
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
 	if (error < 0)
-		return 1;
+		return;
 
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u", __func__,
@@ -91,10 +89,30 @@ static int if_zebra_speed_update(struct thread *thread)
 		changed = true;
 	}
 
-	if (changed || new_speed == UINT32_MAX)
-		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 5,
-				 &zif->speed_update);
-	return 1;
+	if (changed || new_speed == UINT32_MAX) {
+#define SPEED_UPDATE_SLEEP_TIME 5
+#define SPEED_UPDATE_COUNT_MAX (4 * 60 / SPEED_UPDATE_SLEEP_TIME)
+		/*
+		 * Some interfaces never actually have an associated speed
+		 * with them ( I am looking at you bridges ).
+		 * So instead of iterating forever, let's give the
+		 * system 4 minutes to try to figure out the speed
+		 * if after that it it's probably never going to become
+		 * useful.
+		 * Since I don't know all the wonderful types of interfaces
+		 * that may come into existence in the future I am going
+		 * to not update the system to keep track of that.  This
+		 * is far simpler to just stop trying after 4 minutes
+		 */
+		if (new_speed == UINT32_MAX &&
+		    zif->speed_update_count == SPEED_UPDATE_COUNT_MAX)
+			return;
+
+		zif->speed_update_count++;
+		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp,
+				 SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
+		thread_ignore_late_timer(zif->speed_update);
+	}
 }
 
 static void zebra_if_node_destroy(route_table_delegate_t *delegate,
@@ -155,6 +173,16 @@ static int if_zebra_new_hook(struct interface *ifp)
 		rtadv->AdvReachableTime = 0;
 		rtadv->AdvRetransTimer = 0;
 		rtadv->AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
+		memset(&rtadv->lastadvcurhoplimit, 0,
+		       sizeof(rtadv->lastadvcurhoplimit));
+		memset(&rtadv->lastadvmanagedflag, 0,
+		       sizeof(rtadv->lastadvmanagedflag));
+		memset(&rtadv->lastadvotherconfigflag, 0,
+		       sizeof(rtadv->lastadvotherconfigflag));
+		memset(&rtadv->lastadvreachabletime, 0,
+		       sizeof(rtadv->lastadvreachabletime));
+		memset(&rtadv->lastadvretranstimer, 0,
+		       sizeof(rtadv->lastadvretranstimer));
 		rtadv->AdvDefaultLifetime =
 			-1; /* derive from MaxRtrAdvInterval */
 		rtadv->HomeAgentPreference = 0;
@@ -185,17 +213,24 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * of seconds and ask again.  Hopefully it's all settled
 	 * down upon startup.
 	 */
+	zebra_if->speed_update_count = 0;
 	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
 			 &zebra_if->speed_update);
+	thread_ignore_late_timer(zebra_if->speed_update);
+
 	return 0;
 }
 
 static void if_nhg_dependents_check_valid(struct nhg_hash_entry *nhe)
 {
 	zebra_nhg_check_valid(nhe);
-	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
-		/* Assuming uninstalled as well here */
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
+		/* If we're in shutdown, this interface event needs to clean
+		 * up installed NHGs, so don't clear that flag directly.
+		 */
+		if (!zrouter.in_shutdown)
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+	}
 }
 
 static void if_down_nhg_dependents(const struct interface *ifp)
@@ -225,6 +260,13 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 	if (ifp->info) {
 		zebra_if = ifp->info;
+
+		/* If we set protodown, clear our reason now from the kernel */
+		if (ZEBRA_IF_IS_PROTODOWN(zebra_if) && zebra_if->protodown_rc &&
+		    !ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zebra_if))
+			zebra_if_update_protodown_rc(ifp, true,
+						     (zebra_if->protodown_rc &
+						      ~ZEBRA_PROTODOWN_ALL));
 
 		/* Free installed address chains tree. */
 		if (zebra_if->ipv4_subnets)
@@ -486,7 +528,7 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
 		/* inoperative -> operative? */
 		ifp->flags = newflags;
 		if (if_is_operative(ifp))
-			if_up(ifp);
+			if_up(ifp, true);
 	}
 }
 
@@ -764,9 +806,10 @@ static void if_delete_connected(struct interface *ifp)
 }
 
 /* Handle an interface delete event */
-void if_delete_update(struct interface *ifp)
+void if_delete_update(struct interface **pifp)
 {
 	struct zebra_if *zif;
+	struct interface *ifp = *pifp;
 
 	if (if_is_up(ifp)) {
 		flog_err(
@@ -829,7 +872,7 @@ void if_delete_update(struct interface *ifp)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s is being deleted from the system",
 				   ifp->name);
-		if_delete(&ifp);
+		if_delete(pifp);
 	}
 }
 
@@ -915,7 +958,7 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	/*
 	 * We need to note whether or not we originated a v6
 	 * neighbor entry for this interface.  So that when
-	 * someone unwisely accidently deletes this entry
+	 * someone unwisely accidentally deletes this entry
 	 * we can shove it back in.
 	 */
 	zif->v6_2_v4_ll_neigh_entry = !!add;
@@ -1014,7 +1057,7 @@ bool if_nhg_dependents_is_empty(const struct interface *ifp)
 }
 
 /* Interface is up. */
-void if_up(struct interface *ifp)
+void if_up(struct interface *ifp, bool install_connected)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
@@ -1046,7 +1089,8 @@ void if_up(struct interface *ifp)
 #endif
 
 	/* Install connected routes to the kernel. */
-	if_install_connected(ifp);
+	if (install_connected)
+		if_install_connected(ifp);
 
 	/* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
 	 * are checked to see if (remote) neighbor entries need to be installed
@@ -1074,6 +1118,7 @@ void if_up(struct interface *ifp)
 
 	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
 			 &zif->speed_update);
+	thread_ignore_late_timer(zif->speed_update);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1192,58 +1237,130 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 	}
 }
 
-void zebra_if_set_protodown(struct interface *ifp, bool down)
+static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
+				    uint32_t new_protodown_rc)
 {
+	struct zebra_if *zif;
+	bool old_down, old_set_down, old_unset_down;
+
+	zif = ifp->info;
+
+	/* Current state as we know it */
+	old_down = !!(ZEBRA_IF_IS_PROTODOWN(zif));
+	old_set_down = !!CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
+	old_unset_down = !!CHECK_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
+
+	if (new_protodown_rc == zif->protodown_rc) {
+		/* Early return if already down & reason bitfield matches */
+		if (new_down == old_down) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Ignoring request to set protodown %s for interface %s (%u): protodown %s is already set (reason bitfield: old 0x%x new 0x%x)",
+					new_down ? "on" : "off", ifp->name,
+					ifp->ifindex, new_down ? "on" : "off",
+					zif->protodown_rc, new_protodown_rc);
+
+			return true;
+		}
+
+		/* Early return if already set queued & reason bitfield matches
+		 */
+		if (new_down && old_set_down) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Ignoring request to set protodown %s for interface %s (%u): protodown %s is already queued to dplane (reason bitfield: old 0x%x new 0x%x)",
+					new_down ? "on" : "off", ifp->name,
+					ifp->ifindex, new_down ? "on" : "off",
+					zif->protodown_rc, new_protodown_rc);
+
+			return true;
+		}
+
+		/* Early return if already unset queued & reason bitfield
+		 * matches */
+		if (!new_down && old_unset_down) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Ignoring request to set protodown %s for interface %s (%u): protodown %s is already queued to dplane (reason bitfield: old 0x%x new 0x%x)",
+					new_down ? "on" : "off", ifp->name,
+					ifp->ifindex, new_down ? "on" : "off",
+					zif->protodown_rc, new_protodown_rc);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
+				 uint32_t new_protodown_rc)
+{
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+
+	/* Check if we already have this state or it's queued */
+	if (if_ignore_set_protodown(ifp, new_down, new_protodown_rc))
+		return 1;
+
+	zlog_info(
+		"Setting protodown %s - interface %s (%u): reason bitfield change from 0x%x --> 0x%x",
+		new_down ? "on" : "off", ifp->name, ifp->ifindex,
+		zif->protodown_rc, new_protodown_rc);
+
+	zif->protodown_rc = new_protodown_rc;
+
+	if (new_down)
+		SET_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
+	else
+		SET_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
+
 #ifdef HAVE_NETLINK
-	netlink_protodown(ifp, down);
+	dplane_intf_update(ifp);
 #else
 	zlog_warn("Protodown is not supported on this platform");
 #endif
+	return 0;
+}
+
+int zebra_if_set_protodown(struct interface *ifp, bool new_down,
+			   enum protodown_reasons new_reason)
+{
+	struct zebra_if *zif;
+	uint32_t new_protodown_rc;
+
+	zif = ifp->info;
+
+	if (new_down)
+		new_protodown_rc = zif->protodown_rc | new_reason;
+	else
+		new_protodown_rc = zif->protodown_rc & ~new_reason;
+
+	return zebra_if_update_protodown_rc(ifp, new_down, new_protodown_rc);
 }
 
 /*
- * Handle an interface addr event based on info in a dplane context object.
+ * Handle an interface events based on info in a dplane context object.
  * This runs in the main pthread, using the info in the context object to
  * modify an interface.
  */
-void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx)
+static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
+				     struct interface *ifp)
 {
-	struct interface *ifp;
 	uint8_t flags = 0;
 	const char *label = NULL;
-	ns_id_t ns_id;
-	struct zebra_ns *zns;
 	uint32_t metric = METRIC_MAX;
-	ifindex_t ifindex;
 	const struct prefix *addr, *dest = NULL;
 	enum dplane_op_e op;
 
 	op = dplane_ctx_get_op(ctx);
-	ns_id = dplane_ctx_get_ns_id(ctx);
-
-	zns = zebra_ns_lookup(ns_id);
-	if (zns == NULL) {
-		/* No ns - deleted maybe? */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: can't find zns id %u", __func__, ns_id);
-		goto done;
-	}
-
-	ifindex = dplane_ctx_get_ifindex(ctx);
-
-	ifp = if_lookup_by_index_per_ns(zns, ifindex);
-	if (ifp == NULL) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: can't find ifp at nsid %u index %d",
-				   __func__, ns_id, ifindex);
-		goto done;
-	}
-
 	addr = dplane_ctx_get_intf_addr(ctx);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s: ifindex %u, addr %pFX", __func__,
-			   dplane_op2str(op), ifindex, addr);
+		zlog_debug("%s: %s: ifindex %s(%u), addr %pFX", __func__,
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name,
+			   ifp->ifindex, addr);
 
 	/* Is there a peer or broadcast address? */
 	dest = dplane_ctx_get_intf_dest(ctx);
@@ -1298,9 +1415,177 @@ void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx)
 	 */
 	if (op != DPLANE_OP_INTF_ADDR_ADD)
 		rib_update(RIB_UPDATE_KERNEL);
+}
+
+static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
+				struct interface *ifp)
+{
+	enum zebra_dplane_result dp_res;
+	struct zebra_if *zif;
+	bool pd_reason_val;
+	bool down;
+
+	dp_res = dplane_ctx_get_status(ctx);
+	pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
+	down = dplane_ctx_intf_is_protodown(ctx);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: %s: if %s(%u) ctx-protodown %s ctx-reason %d",
+			   __func__, dplane_op2str(dplane_ctx_get_op(ctx)),
+			   ifp->name, ifp->ifindex, down ? "on" : "off",
+			   pd_reason_val);
+
+	zif = ifp->info;
+	if (!zif) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: if %s(%u) zebra info pointer is NULL",
+				   __func__, ifp->name, ifp->ifindex);
+		return;
+	}
+
+	if (dp_res != ZEBRA_DPLANE_REQUEST_SUCCESS) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: if %s(%u) dplane update failed",
+				   __func__, ifp->name, ifp->ifindex);
+		goto done;
+	}
+
+	/* Update our info */
+	COND_FLAG(zif->flags, ZIF_FLAG_PROTODOWN, down);
 
 done:
-	/* We're responsible for the ctx object */
+	/* Clear our dplane flags */
+	UNSET_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
+	UNSET_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
+}
+
+/*
+ * Handle netconf change from a dplane context object; runs in the main
+ * pthread so it can update zebra data structs.
+ */
+static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
+					struct interface *ifp)
+{
+	struct zebra_if *zif;
+	enum dplane_netconf_status_e mpls;
+
+	zif = ifp->info;
+	if (!zif) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: if %s(%u) zebra info pointer is NULL",
+				   __func__, ifp->name, ifp->ifindex);
+		return;
+	}
+
+	mpls = dplane_ctx_get_netconf_mpls(ctx);
+
+	if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
+		zif->mpls = true;
+	else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
+		zif->mpls = false;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: if %s, ifindex %d, mpls %s",
+			   __func__, ifp->name, ifp->ifindex,
+			   (zif->mpls ? "ON" : "OFF"));
+}
+
+void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_ns *zns;
+	struct interface *ifp;
+	ns_id_t ns_id;
+	enum dplane_op_e op;
+	enum zebra_dplane_result dp_res;
+	ifindex_t ifindex;
+
+	ns_id = dplane_ctx_get_ns_id(ctx);
+	dp_res = dplane_ctx_get_status(ctx);
+	op = dplane_ctx_get_op(ctx);
+	ifindex = dplane_ctx_get_ifindex(ctx);
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Intf dplane ctx %p, op %s, ifindex (%u), result %s",
+			   ctx, dplane_op2str(op), ifindex,
+			   dplane_res2str(dp_res));
+
+	zns = zebra_ns_lookup(ns_id);
+	if (zns == NULL) {
+		/* No ns - deleted maybe? */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: can't find zns id %u", __func__, ns_id);
+
+		goto done;
+	}
+
+	ifp = if_lookup_by_index_per_ns(zns, ifindex);
+	if (ifp == NULL) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: can't find ifp at nsid %u index %d",
+				   __func__, ns_id, ifindex);
+
+		goto done;
+	}
+
+	switch (op) {
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+		zebra_if_addr_update_ctx(ctx, ifp);
+		break;
+
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+		zebra_if_update_ctx(ctx, ifp);
+		break;
+
+	case DPLANE_OP_INTF_NETCONFIG:
+		zebra_if_netconf_update_ctx(ctx, ifp);
+		break;
+
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+	case DPLANE_OP_ROUTE_DELETE:
+	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+	case DPLANE_OP_LSP_INSTALL:
+	case DPLANE_OP_LSP_UPDATE:
+	case DPLANE_OP_LSP_DELETE:
+	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_NONE:
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	case DPLANE_OP_GRE_SET:
+		break; /* should never hit here */
+	}
+done:
 	dplane_ctx_fini(&ctx);
 }
 
@@ -1564,28 +1849,34 @@ static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 	}
 }
 
-const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
-				   char *pd_buf, uint32_t pd_buf_len)
+const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
+				   uint32_t pd_buf_len)
 {
-	bool first = true;
-
 	pd_buf[0] = '\0';
+	size_t len;
 
 	strlcat(pd_buf, "(", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY) {
-		if (first)
-			first = false;
-		else
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "startup-delay", pd_buf_len);
-	}
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_EXTERNAL))
+		strlcat(pd_buf, "external,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN) {
-		if (!first)
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "uplinks-down", pd_buf_len);
-	}
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY))
+		strlcat(pd_buf, "startup-delay,", pd_buf_len);
+
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN))
+		strlcat(pd_buf, "uplinks-down,", pd_buf_len);
+
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_VRRP))
+		strlcat(pd_buf, "vrrp,", pd_buf_len);
+
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_SHARP))
+		strlcat(pd_buf, "sharp,", pd_buf_len);
+
+	len = strnlen(pd_buf, pd_buf_len);
+
+	/* Remove trailing comma */
+	if (pd_buf[len - 1] == ',')
+		pd_buf[len - 1] = '\0';
 
 	strlcat(pd_buf, ")", pd_buf_len);
 
@@ -1655,6 +1946,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	if (ifp->mtu6 != ifp->mtu)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
+
+	if (zebra_if->mpls)
+		vty_out(vty, "  MPLS enabled\n");
 
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
@@ -1788,7 +2082,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	zebra_evpn_if_es_print(vty, NULL, zebra_if);
 	vty_out(vty, "  protodown: %s %s\n",
-		(zebra_if->flags & ZIF_FLAG_PROTODOWN) ? "on" : "off",
+		(ZEBRA_IF_IS_PROTODOWN(zebra_if)) ? "on" : "off",
 		if_is_protodown_applicable(ifp) ? "" : "(n/a)");
 	if (zebra_if->protodown_rc)
 		vty_out(vty, "  protodown reasons: %s\n",
@@ -1976,6 +2270,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		json_object_string_add(json_if, "OsDescription",
 				       zebra_if->desc);
 
+	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
+
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
 		return;
@@ -2137,7 +2433,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	if (if_is_protodown_applicable(ifp)) {
 		json_object_string_add(
 			json_if, "protodown",
-			(zebra_if->flags & ZIF_FLAG_PROTODOWN) ? "on" : "off");
+			(ZEBRA_IF_IS_PROTODOWN(zebra_if)) ? "on" : "off");
 		if (zebra_if->protodown_rc)
 			json_object_string_add(
 				json_if, "protodownReason",
@@ -2691,7 +2987,7 @@ int if_linkdetect(struct interface *ifp, bool detect)
 
 		/* Interface may come up after disabling link detection */
 		if (if_is_operative(ifp) && !if_was_operative)
-			if_up(ifp);
+			if_up(ifp, true);
 	}
 	/* FIXME: Will defer status change forwarding if interface
 	   does not come down! */
@@ -4207,11 +4503,7 @@ static int if_config_write(struct vty *vty)
 
 			if_data = ifp->info;
 
-			if (ifp->vrf->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
+			if_vty_config_start(vty, ifp);
 
 			if (if_data) {
 				if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
@@ -4277,7 +4569,7 @@ static int if_config_write(struct vty *vty)
 			zebra_evpn_mh_if_write(vty, ifp);
 			link_params_config_write(vty, ifp);
 
-			vty_endframe(vty, "exit\n!\n");
+			if_vty_config_end(vty);
 		}
 	return 0;
 }

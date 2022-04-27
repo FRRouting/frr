@@ -1401,7 +1401,7 @@ static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
 	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
 }
 
-static int isis_area_verify_routes_cb(struct thread *thread)
+static void isis_area_verify_routes_cb(struct thread *thread)
 {
 	struct isis_area *area = THREAD_ARG(thread);
 
@@ -1409,8 +1409,6 @@ static int isis_area_verify_routes_cb(struct thread *thread)
 		zlog_debug("ISIS-LFA: updating RLFAs in the RIB");
 
 	isis_area_verify_routes(area);
-
-	return 0;
 }
 
 static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
@@ -1647,6 +1645,11 @@ void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info)
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++) {
 				struct isis_spftree *spftree;
+
+				if (!(area->is_type & level))
+					continue;
+				if (!area->spftree[tree][level - 1])
+					continue;
 
 				spftree = area->spftree[tree][level - 1];
 				isis_rlfa_list_clear(spftree);

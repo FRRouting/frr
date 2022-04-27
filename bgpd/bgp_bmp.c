@@ -1315,7 +1315,7 @@ static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
-static int bmp_stats(struct thread *thread)
+static void bmp_stats(struct thread *thread)
 {
 	struct bmp_targets *bt = THREAD_ARG(thread);
 	struct stream *s;
@@ -1365,11 +1365,10 @@ static int bmp_stats(struct thread *thread)
 
 		bmp_send_all(bt->bmpbgp, s);
 	}
-	return 0;
 }
 
 /* read from the BMP socket to detect session termination */
-static int bmp_read(struct thread *t)
+static void bmp_read(struct thread *t)
 {
 	struct bmp *bmp = THREAD_ARG(t);
 	char buf[1024];
@@ -1383,16 +1382,14 @@ static int bmp_read(struct thread *t)
 	} else if (n == 0) {
 		/* the TCP session was terminated by the far end */
 		bmp_wrerr(bmp, NULL, true);
-		return 0;
+		return;
 	} else if (!(errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
 		/* the TCP session experienced a fatal error, likely a timeout */
 		bmp_wrerr(bmp, NULL, false);
-		return -1;
+		return;
 	}
 
 	thread_add_read(bm->master, bmp_read, bmp, bmp->socket, &bmp->t_read);
-
-	return 0;
 }
 
 static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
@@ -1475,7 +1472,7 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 }
 
 /* Accept BMP connection. */
-static int bmp_accept(struct thread *thread)
+static void bmp_accept(struct thread *thread)
 {
 	union sockunion su;
 	struct bmp_listener *bl = THREAD_ARG(thread);
@@ -1490,10 +1487,9 @@ static int bmp_accept(struct thread *thread)
 	bmp_sock = sockunion_accept(bl->sock, &su);
 	if (bmp_sock < 0) {
 		zlog_info("bmp: accept_sock failed: %s", safe_strerror(errno));
-		return -1;
+		return;
 	}
 	bmp_open(bl->targets, bmp_sock);
-	return 0;
 }
 
 static void bmp_close(struct bmp *bmp)
@@ -1622,6 +1618,8 @@ static void bmp_targets_put(struct bmp_targets *bt)
 {
 	struct bmp *bmp;
 	struct bmp_active *ba;
+
+	THREAD_OFF(bt->t_stats);
 
 	frr_each_safe (bmp_actives, &bt->actives, ba)
 		bmp_active_put(ba);
@@ -1837,7 +1835,7 @@ static void bmp_active_resolved(struct resolver_query *resq, const char *errstr,
 	bmp_active_connect(ba);
 }
 
-static int bmp_active_thread(struct thread *t)
+static void bmp_active_thread(struct thread *t)
 {
 	struct bmp_active *ba = THREAD_ARG(t);
 	socklen_t slen;
@@ -1861,7 +1859,7 @@ static int bmp_active_thread(struct thread *t)
 			vrf_id = ba->targets->bgp->vrf_id;
 		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
-		return 0;
+		return;
 	}
 
 	slen = sizeof(status);
@@ -1886,14 +1884,13 @@ static int bmp_active_thread(struct thread *t)
 	ba->bmp->active = ba;
 	ba->socket = -1;
 	ba->curretry = ba->minretry;
-	return 0;
+	return;
 
 out_next:
 	close(ba->socket);
 	ba->socket = -1;
 	ba->addrpos++;
 	bmp_active_connect(ba);
-	return 0;
 }
 
 static void bmp_active_disconnected(struct bmp_active *ba)
@@ -1933,6 +1930,28 @@ static struct cmd_node bmp_node = {
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-bgp-bmp)# "
 };
+
+static void bmp_targets_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct bgp *bgp;
+	struct bmp_targets *target;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+		if (!bmpbgp)
+			continue;
+
+		frr_each_safe (bmp_targets, &bmpbgp->targets, target)
+			vector_set(comps,
+				   XSTRDUP(MTYPE_COMPLETION, target->name));
+	}
+}
+
+static const struct cmd_variable_handler bmp_targets_var_handlers[] = {
+	{.tokenname = "BMPTARGETS", .completions = bmp_targets_autocomplete},
+	{.completions = NULL}};
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 
@@ -2427,6 +2446,9 @@ static int bgp_bmp_init(struct thread_master *tm)
 {
 	install_node(&bmp_node);
 	install_default(BMP_NODE);
+
+	cmd_variable_handler_register(bmp_targets_var_handlers);
+
 	install_element(BGP_NODE, &bmp_targets_cmd);
 	install_element(BGP_NODE, &no_bmp_targets_cmd);
 

@@ -50,7 +50,7 @@ man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
 
-zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
+zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
 zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
@@ -60,6 +60,7 @@ zebra_zebra_SOURCES = \
 	zebra/debug.c \
 	zebra/if_ioctl.c \
 	zebra/if_netlink.c \
+	zebra/if_socket.c \
 	zebra/if_sysctl.c \
 	zebra/interface.c \
 	zebra/ioctl.c \
@@ -69,6 +70,7 @@ zebra_zebra_SOURCES = \
 	zebra/kernel_socket.c \
 	zebra/label_manager.c \
 	zebra/main.c \
+	zebra/netconf_netlink.c \
 	zebra/redistribute.c \
 	zebra/router-id.c \
 	zebra/rt_netlink.c \
@@ -118,6 +120,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_routemap_nb_config.c \
 	zebra/zebra_script.c \
 	zebra/zebra_srte.c \
+	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
@@ -148,6 +151,7 @@ noinst_HEADERS += \
 	zebra/kernel_netlink.h \
 	zebra/kernel_socket.h \
 	zebra/label_manager.h \
+	zebra/netconf_netlink.h \
 	zebra/redistribute.h \
 	zebra/rib.h \
 	zebra/router-id.h \
@@ -188,6 +192,7 @@ noinst_HEADERS += \
 	zebra/zebra_router.h \
 	zebra/zebra_script.h \
 	zebra/zebra_srte.h \
+	zebra/zebra_trace.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \

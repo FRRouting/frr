@@ -39,7 +39,7 @@ struct pim_nexthop {
 	pim_addr last_lookup;
 	long long last_lookup_time;
 	struct interface *interface;     /* RPF_interface(S) */
-	struct prefix mrib_nexthop_addr; /* MRIB.next_hop(S) */
+	pim_addr mrib_nexthop_addr;      /* MRIB.next_hop(S) */
 	uint32_t mrib_metric_preference; /* MRIB.pref(S) */
 	uint32_t mrib_route_metric;      /* MRIB.metric(S) */
 	struct pim_neighbor *nbr;
@@ -58,13 +58,12 @@ unsigned int pim_rpf_hash_key(const void *arg);
 bool pim_rpf_equal(const void *arg1, const void *arg2);
 
 bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-			struct in_addr addr, int neighbor_needed);
+			pim_addr addr, int neighbor_needed);
 enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 				   struct pim_upstream *up,
 				   struct pim_rpf *old, const char *caller);
 void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up);
-int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf);
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf);
 
 int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2);

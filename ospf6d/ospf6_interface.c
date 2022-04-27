@@ -46,8 +46,13 @@
 #include "ospf6_zebra.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
+#include "ospf6_proto.h"
+#include "lib/keychain.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_IF, "OSPF6 interface");
+DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_KEYCHAIN, "OSPF6 auth keychain");
+DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_MANUAL_KEY, "OSPF6 auth key");
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names");
 DEFINE_QOBJ_TYPE(ospf6_interface);
 DEFINE_HOOK(ospf6_interface_change,
@@ -153,7 +158,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	ospf6 = oi->interface->vrf->info;
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
-	/* A specifed ip ospf cost overrides a calculated one. */
+	/* A specified ip ospf cost overrides a calculated one. */
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
 		cost = oi->cost;
 	else {
@@ -251,6 +256,8 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 
 	/* Compute cost. */
 	oi->cost = ospf6_interface_get_cost(oi);
+
+	oi->at_data.flags = 0;
 
 	return oi;
 }
@@ -724,7 +731,7 @@ static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
 #endif /* __FreeBSD__ */
 
 /* Interface State Machine */
-int interface_up(struct thread *thread)
+void interface_up(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6 *ospf6;
@@ -745,7 +752,7 @@ int interface_up(struct thread *thread)
 	if (!if_is_operative(oi->interface)) {
 		zlog_warn("Interface %s is down, can't execute [InterfaceUp]",
 			  oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* check interface has a link-local address */
@@ -754,7 +761,7 @@ int interface_up(struct thread *thread)
 		zlog_warn(
 			"Interface %s has no link local address, can't execute [InterfaceUp]",
 			oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* Recompute cost */
@@ -765,7 +772,7 @@ int interface_up(struct thread *thread)
 		if (IS_OSPF6_DEBUG_INTERFACE)
 			zlog_debug("Interface %s already enabled",
 				   oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* If no area assigned, return */
@@ -773,7 +780,7 @@ int interface_up(struct thread *thread)
 		zlog_warn(
 			"%s: Not scheduling Hello for %s as there is no area assigned yet",
 			__func__, oi->interface->name);
-		return 0;
+		return;
 	}
 
 #ifdef __FreeBSD__
@@ -792,7 +799,7 @@ int interface_up(struct thread *thread)
 		thread_add_timer(master, interface_up, oi,
 				 OSPF6_INTERFACE_SSO_RETRY_INT,
 				 &oi->thread_sso);
-		return 0;
+		return;
 	}
 #endif /* __FreeBSD__ */
 
@@ -810,7 +817,7 @@ int interface_up(struct thread *thread)
 					 OSPF6_INTERFACE_SSO_RETRY_INT,
 					 &oi->thread_sso);
 		}
-		return 0;
+		return;
 	}
 	oi->sso_try_cnt = 0; /* Reset on success */
 
@@ -836,11 +843,9 @@ int interface_up(struct thread *thread)
 		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
 				 &oi->thread_wait_timer);
 	}
-
-	return 0;
 }
 
-int wait_timer(struct thread *thread)
+void wait_timer(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -853,11 +858,9 @@ int wait_timer(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int backup_seen(struct thread *thread)
+void backup_seen(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -870,11 +873,9 @@ int backup_seen(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int neighbor_change(struct thread *thread)
+void neighbor_change(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -889,11 +890,9 @@ int neighbor_change(struct thread *thread)
 	    || oi->state == OSPF6_INTERFACE_BDR
 	    || oi->state == OSPF6_INTERFACE_DR)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int interface_down(struct thread *thread)
+void interface_down(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
@@ -935,7 +934,7 @@ int interface_down(struct thread *thread)
 	oi->bdrouter = oi->prev_bdrouter = htonl(0);
 
 	if (oi->area == NULL)
-		return 0;
+		return;
 
 	ospf6 = oi->area->ospf6;
 	/* Leave AllSPFRouters */
@@ -953,8 +952,6 @@ int interface_down(struct thread *thread)
 	}
 
 	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
-
-	return 0;
 }
 
 
@@ -990,6 +987,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	struct ospf6_lsa *lsa, *lsanext;
 	json_object *json_arr;
 	json_object *json_addr;
+	struct json_object *json_auth = NULL;
 
 	default_iftype = ospf6_default_iftype(ifp);
 
@@ -1237,6 +1235,48 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				oi->bfd_config.min_rx, oi->bfd_config.min_tx);
 		}
 	}
+
+	json_auth = json_object_new_object();
+	if (oi->at_data.flags != 0) {
+		if (use_json) {
+			if (CHECK_FLAG(oi->at_data.flags,
+				       OSPF6_AUTH_TRAILER_KEYCHAIN)) {
+				json_object_string_add(json_auth, "authType",
+						       "keychain");
+				json_object_string_add(json_auth,
+						       "keychainName",
+						       oi->at_data.keychain);
+			} else if (CHECK_FLAG(oi->at_data.flags,
+					      OSPF6_AUTH_TRAILER_MANUAL_KEY))
+				json_object_string_add(json_auth, "authType",
+						       "manualkey");
+			json_object_int_add(json_auth, "txPktDrop",
+					    oi->at_data.tx_drop);
+			json_object_int_add(json_auth, "rxPktDrop",
+					    oi->at_data.rx_drop);
+		} else {
+			if (CHECK_FLAG(oi->at_data.flags,
+				       OSPF6_AUTH_TRAILER_KEYCHAIN))
+				vty_out(vty,
+					"  Authentication Trailer is enabled with key-chain %s\n",
+					oi->at_data.keychain);
+			else if (CHECK_FLAG(oi->at_data.flags,
+					    OSPF6_AUTH_TRAILER_MANUAL_KEY))
+				vty_out(vty,
+					"  Authentication trailer is enabled with manual key\n");
+			vty_out(vty,
+				"    Packet drop Tx %u, Packet drop Rx %u\n",
+				oi->at_data.tx_drop, oi->at_data.rx_drop);
+		}
+	} else {
+		if (use_json)
+			json_object_string_add(json_auth, "authType", "NULL");
+		else
+			vty_out(vty, "  Authentication Trailer is disabled\n");
+	}
+
+	if (use_json)
+		json_object_object_add(json_obj, "authInfo", json_auth);
 
 	return 0;
 }
@@ -2522,11 +2562,7 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi == NULL)
 			continue;
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			vty_frame(vty, "interface %s\n", oi->interface->name);
-		else
-			vty_frame(vty, "interface %s vrf %s\n",
-				  oi->interface->name, vrf->name);
+		if_vty_config_start(vty, ifp);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -2581,7 +2617,8 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 
 		ospf6_bfd_write_config(vty, oi);
 
-		vty_endframe(vty, "exit\n!\n");
+		ospf6_auth_write_config(vty, &oi->at_data);
+		if_vty_config_end(vty);
 	}
 	return 0;
 }
@@ -2818,4 +2855,196 @@ void install_element_ospf6_debug_interface(void)
 	install_element(ENABLE_NODE, &no_debug_ospf6_interface_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_interface_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_interface_cmd);
+}
+
+void ospf6_auth_write_config(struct vty *vty, struct ospf6_auth_data *at_data)
+{
+	if (CHECK_FLAG(at_data->flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		vty_out(vty, " ipv6 ospf6 authentication keychain %s\n",
+			at_data->keychain);
+	else if (CHECK_FLAG(at_data->flags, OSPF6_AUTH_TRAILER_MANUAL_KEY))
+		vty_out(vty,
+			" ipv6 ospf6 authentication key-id %d hash-algo %s key %s\n",
+			at_data->key_id,
+			keychain_get_algo_name_by_id(at_data->hash_algo),
+			at_data->auth_key);
+}
+
+DEFUN(ipv6_ospf6_intf_auth_trailer_keychain,
+      ipv6_ospf6_intf_auth_trailer_keychain_cmd,
+      "ipv6 ospf6 authentication keychain KEYCHAIN_NAME",
+      IP6_STR OSPF6_STR
+      "Enable authentication on this interface\n"
+      "Keychain\n"
+      "Keychain name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int keychain_idx = 4;
+	struct ospf6_interface *oi;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY)) {
+		vty_out(vty,
+			"Manual key configured, unconfigure it before configuring key chain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN);
+	if (oi->at_data.keychain)
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+
+	oi->at_data.keychain =
+		XSTRDUP(MTYPE_OSPF6_AUTH_KEYCHAIN, argv[keychain_idx]->arg);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_intf_auth_trailer_keychain,
+      no_ipv6_ospf6_intf_auth_trailer_keychain_cmd,
+      "no ipv6 ospf6 authentication keychain [KEYCHAIN_NAME]",
+      NO_STR IP6_STR OSPF6_STR
+      "Enable authentication on this interface\n"
+      "Keychain\n"
+      "Keychain name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (!CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		return CMD_SUCCESS;
+
+	if (oi->at_data.keychain) {
+		oi->at_data.flags = 0;
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+		oi->at_data.keychain = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(ipv6_ospf6_intf_auth_trailer_key, ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "ipv6 ospf6 authentication key-id (1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD",
+      IP6_STR OSPF6_STR
+      "Authentication\n"
+      "Key ID\n"
+      "Key ID value\n"
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n"
+      "Password\n"
+      "Password string (key)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int key_id_idx = 4;
+	int hash_algo_idx = 6;
+	int password_idx = 8;
+	struct ospf6_interface *oi;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN)) {
+		vty_out(vty,
+			"key chain configured, unconfigure it before configuring manual key\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	hash_algo = keychain_get_algo_id_by_name(argv[hash_algo_idx]->arg);
+#ifndef CRYPTO_OPENSSL
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY);
+	oi->at_data.hash_algo = hash_algo;
+	oi->at_data.key_id = (uint16_t)strtol(argv[key_id_idx]->arg, NULL, 10);
+	if (oi->at_data.auth_key)
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+	oi->at_data.auth_key =
+		XSTRDUP(MTYPE_OSPF6_AUTH_MANUAL_KEY, argv[password_idx]->arg);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_intf_auth_trailer_key,
+      no_ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "no ipv6 ospf6 authentication key-id [(1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD]",
+      NO_STR IP6_STR OSPF6_STR
+      "Authentication\n"
+      "Key ID\n"
+      "Key ID value\n"
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n"
+      "Password\n"
+      "Password string (key)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+#ifndef CRYPTO_OPENSSL
+	int hash_algo_idx = 7;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+#endif /* CRYPTO_OPENSSL */
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (!CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY))
+		return CMD_SUCCESS;
+
+#ifndef CRYPTO_OPENSSL
+	hash_algo = keychain_get_algo_id_by_name(argv[hash_algo_idx]->arg);
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+
+	if (oi->at_data.auth_key) {
+		oi->at_data.flags = 0;
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+		oi->at_data.auth_key = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+void ospf6_interface_auth_trailer_cmd_init(void)
+{
+	/*Install OSPF6 auth trailer commands at interface level */
+	install_element(INTERFACE_NODE,
+			&ipv6_ospf6_intf_auth_trailer_keychain_cmd);
+	install_element(INTERFACE_NODE,
+			&no_ipv6_ospf6_intf_auth_trailer_keychain_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_intf_auth_trailer_key_cmd);
+	install_element(INTERFACE_NODE,
+			&no_ipv6_ospf6_intf_auth_trailer_key_cmd);
 }

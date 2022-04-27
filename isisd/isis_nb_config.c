@@ -393,30 +393,11 @@ int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args)
  */
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 {
-	struct listnode *node;
-	struct isis_circuit *circuit;
 	uint16_t lsp_mtu = yang_dnode_get_uint16(args->dnode, NULL);
 	struct isis_area *area;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, false);
-		if (!area)
-			break;
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-			if (circuit->state != C_STATE_INIT
-			    && circuit->state != C_STATE_UP)
-				continue;
-			if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"ISIS area contains circuit %s, which has a maximum PDU size of %zu",
-					circuit->interface->name,
-					isis_circuit_pdu_size(circuit));
-				return NB_ERR_VALIDATION;
-			}
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -1868,7 +1849,7 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	/* Remove Link State Database */
-	ls_ted_del_all(area->mta->ted);
+	ls_ted_del_all(&area->mta->ted);
 
 	/* Flush LSP if circuit engage */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
@@ -2552,43 +2533,14 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_isis_create(struct nb_cb_create_args *args)
 {
-	struct isis_area *area = NULL;
 	struct interface *ifp;
 	struct isis_circuit *circuit = NULL;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	uint32_t min_mtu, actual_mtu;
 
 	switch (args->event) {
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_VALIDATE:
-		/* check if interface mtu is sufficient. If the area has not
-		 * been created yet, assume default MTU for the area
-		 */
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		/* zebra might not know yet about the MTU - nothing we can do */
-		if (!ifp || ifp->mtu == 0)
-			break;
-		actual_mtu =
-			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
-
-		area = isis_area_lookup(area_tag, ifp->vrf->vrf_id);
-		if (area)
-			min_mtu = area->lsp_mtu;
-		else
-#ifndef FABRICD
-			min_mtu = yang_get_default_uint16(
-				"/frr-isisd:isis/instance/lsp/mtu");
-#else
-			min_mtu = DEFAULT_LSP_MTU;
-#endif /* ifndef FABRICD */
-		if (actual_mtu < min_mtu) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Interface %s has MTU %u, minimum MTU for the area is %u",
-				 ifp->name, actual_mtu, min_mtu);
-			return NB_ERR_VALIDATION;
-		}
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);

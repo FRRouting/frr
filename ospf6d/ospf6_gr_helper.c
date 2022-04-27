@@ -208,12 +208,11 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf6_handle_grace_timer_expiry(struct thread *thread)
+static void ospf6_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
 
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF6_SUCCESS;
 }
 
 /*
@@ -961,13 +960,22 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 			json, "supportedGracePeriod",
 			ospf6->ospf6_helper_cfg.supported_grace_time);
 
-		if (ospf6->ospf6_helper_cfg.last_exit_reason
-		    != OSPF6_GR_HELPER_EXIT_NONE)
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
+		if (ospf6->ospf6_helper_cfg.last_exit_reason !=
+		    OSPF6_GR_HELPER_EXIT_NONE) {
 			json_object_string_add(
 				json, "LastExitReason",
 				ospf6_exit_reason_desc
 					[ospf6->ospf6_helper_cfg
 						 .last_exit_reason]);
+			json_object_string_add(
+				json, "lastExitReason",
+				ospf6_exit_reason_desc
+					[ospf6->ospf6_helper_cfg
+						 .last_exit_reason]);
+		}
 
 		if (OSPF6_HELPER_ENABLE_RTR_COUNT(ospf6)) {
 			struct json_object *json_rid_array =
@@ -996,11 +1004,17 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 					json_object_object_get_ex(
 						json, "Neighbors",
 						&json_neighbors);
+					json_object_object_get_ex(
+						json, "neighbors",
+						&json_neighbors);
 					if (!json_neighbors) {
 						json_neighbors =
 						json_object_new_object();
 						json_object_object_add(
 							json, "Neighbors",
+							json_neighbors);
+						json_object_object_add(
+							json, "neighbors",
 							json_neighbors);
 					}
 				}

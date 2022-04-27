@@ -446,13 +446,20 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		json_area = json_object_new_object();
 		json_object_boolean_add(json_area, "areaIsStub",
 					IS_AREA_STUB(oa));
-		if (IS_AREA_STUB(oa)) {
+		json_object_boolean_add(json_area, "areaIsNSSA",
+					IS_AREA_NSSA(oa));
+		if (IS_AREA_STUB(oa) || IS_AREA_NSSA(oa)) {
 			json_object_boolean_add(json_area, "areaNoSummary",
 						oa->no_summary);
 		}
 
 		json_object_int_add(json_area, "numberOfAreaScopedLsa",
 				    oa->lsdb->count);
+		json_object_object_add(
+			json_area, "lsaStatistics",
+			JSON_OBJECT_NEW_ARRAY(json_object_new_int,
+					      oa->lsdb->stats,
+					      OSPF6_LSTYPE_SIZE));
 
 		/* Interfaces Attached */
 		array_interfaces = json_object_new_array();
@@ -490,14 +497,16 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 
 	} else {
 
-		if (!IS_AREA_STUB(oa))
+		if (!IS_AREA_STUB(oa) && !IS_AREA_NSSA(oa))
 			vty_out(vty, " Area %s\n", oa->name);
 		else {
 			if (oa->no_summary) {
-				vty_out(vty, " Area %s[Stub, No Summary]\n",
-					oa->name);
+				vty_out(vty, " Area %s[%s, No Summary]\n",
+					oa->name,
+					IS_AREA_STUB(oa) ? "Stub" : "NSSA");
 			} else {
-				vty_out(vty, " Area %s[Stub]\n", oa->name);
+				vty_out(vty, " Area %s[%s]\n", oa->name,
+					IS_AREA_STUB(oa) ? "Stub" : "NSSA");
 			}
 		}
 		vty_out(vty, "     Number of Area scoped LSAs is %u\n",
@@ -511,11 +520,13 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
 			result = monotime_since(&oa->ts_spf, NULL);
 			if (result / TIMER_SECOND_MICRO > 0) {
-				vty_out(vty, "SPF last executed %ld.%lds ago\n",
+				vty_out(vty,
+					"     SPF last executed %ld.%lds ago\n",
 					result / TIMER_SECOND_MICRO,
 					result % TIMER_SECOND_MICRO);
 			} else {
-				vty_out(vty, "SPF last executed %ldus ago\n",
+				vty_out(vty,
+					"     SPF last executed %ldus ago\n",
 					result);
 			}
 		} else

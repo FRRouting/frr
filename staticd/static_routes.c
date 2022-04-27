@@ -335,20 +335,11 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
+	case STATIC_IFNAME:
 		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			nh->ifindex = ifp->ifindex;
 		else
-			zlog_warn(
-				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
-				ifname);
-
-		break;
-	case STATIC_IFNAME:
-		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
-		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
-			nh->ifindex = ifp->ifindex;
-		} else
 			zlog_warn(
 				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
 				ifname);
@@ -378,13 +369,11 @@ void static_install_nexthop(struct static_nexthop *nh)
 	switch (nh->type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV6_GATEWAY:
-		if (!static_zebra_nh_update(nh))
-			static_zebra_nht_register(nh, true);
+		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		if (!static_zebra_nh_update(nh))
-			static_zebra_nht_register(nh, true);
+		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_BLACKHOLE:
 		static_install_path(pn);

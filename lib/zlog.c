@@ -401,7 +401,7 @@ void zlog_tls_buffer_flush(void)
 		return;
 
 	rcu_read_lock();
-	frr_each (zlog_targets, &zlog_targets, zt) {
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
 		if (!zt->logfn)
 			continue;
 
@@ -431,7 +431,7 @@ static void vzlog_notls(const struct xref_logmsg *xref, int prio,
 	msg->stackbufsz = sizeof(stackbuf);
 
 	rcu_read_lock();
-	frr_each (zlog_targets, &zlog_targets, zt) {
+	frr_each_safe (zlog_targets, &zlog_targets, zt) {
 		if (prio > zt->prio_min)
 			continue;
 		if (!zt->logfn)
@@ -906,6 +906,11 @@ size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
 		msg->ts_3164_flags = flags;
 	}
 	return bputs(out, msg->ts_3164_str);
+}
+
+void zlog_msg_tsraw(struct zlog_msg *msg, struct timespec *ts)
+{
+	memcpy(ts, &msg->ts, sizeof(*ts));
 }
 
 void zlog_set_prefix_ec(bool enable)

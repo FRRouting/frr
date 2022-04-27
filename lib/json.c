@@ -74,6 +74,19 @@ void json_object_string_addv(struct json_object *obj, const char *key,
 	json_object_object_add(obj, key, json_object_new_stringv(fmt, args));
 }
 
+void json_object_object_addv(struct json_object *parent,
+			     struct json_object *child, const char *keyfmt,
+			     va_list args)
+{
+	char *text, buf[256];
+
+	text = vasnprintfrr(MTYPE_TMP, buf, sizeof(buf), keyfmt, args);
+	json_object_object_add(parent, text, child);
+
+	if (text != buf)
+		XFREE(MTYPE_TMP, text);
+}
+
 void json_object_int_add(struct json_object *obj, const char *key, int64_t i)
 {
 	json_object_object_add(obj, key, json_object_new_int64(i));

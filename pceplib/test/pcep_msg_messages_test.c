@@ -143,7 +143,7 @@ void test_pcep_msg_create_request()
 
 	/* Test IPv6 */
 	rp_obj = pcep_obj_create_rp(0, false, false, false, false, 10, NULL);
-	struct in6_addr src_addr_ipv6, dst_addr_ipv6;
+	struct in6_addr src_addr_ipv6 = {}, dst_addr_ipv6 = {};
 	struct pcep_object_endpoints_ipv6 *ipv6_obj =
 		pcep_obj_create_endpoint_ipv6(&src_addr_ipv6, &dst_addr_ipv6);
 	message = pcep_msg_create_request_ipv6(rp_obj, ipv6_obj, NULL);

@@ -60,13 +60,7 @@ int pim_jp_agg_group_list_cmp(void *arg1, void *arg2)
 	const struct pim_jp_agg_group *jag2 =
 		(const struct pim_jp_agg_group *)arg2;
 
-	if (jag1->group.s_addr < jag2->group.s_addr)
-		return -1;
-
-	if (jag1->group.s_addr > jag2->group.s_addr)
-		return 1;
-
-	return 0;
+	return pim_addr_cmp(jag1->group, jag2->group);
 }
 
 static int pim_jp_agg_src_cmp(void *arg1, void *arg2)
@@ -80,13 +74,7 @@ static int pim_jp_agg_src_cmp(void *arg1, void *arg2)
 	if (!js1->is_join && js2->is_join)
 		return 1;
 
-	if ((uint32_t)js1->up->sg.src.s_addr < (uint32_t)js2->up->sg.src.s_addr)
-		return -1;
-
-	if ((uint32_t)js1->up->sg.src.s_addr > (uint32_t)js2->up->sg.src.s_addr)
-		return 1;
-
-	return 0;
+	return pim_addr_cmp(js1->up->sg.src, js2->up->sg.src);
 }
 
 /*
@@ -121,6 +109,7 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	struct pim_interface *pim_ifp;
 	struct pim_iface_upstream_switch *pius;
 	struct listnode *node, *nnode;
+	pim_addr rpf_addr;
 
 	if (!ifp)
 		return NULL;
@@ -131,16 +120,18 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	if (!pim_ifp)
 		return NULL;
 
+	rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
+
 	for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode,
 			       pius)) {
-		if (pius->address.s_addr == rpf->rpf_addr.u.prefix4.s_addr)
+		if (!pim_addr_cmp(pius->address, rpf_addr))
 			break;
 	}
 
 	if (!pius) {
 		pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			       sizeof(struct pim_iface_upstream_switch));
-		pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
+		pius->address = rpf_addr;
 		pius->us = list_new();
 		listnode_add_sort(pim_ifp->upstream_switch_list, pius);
 	}
@@ -156,7 +147,7 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
@@ -169,17 +160,10 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 	}
 
 	if (nbr) {
-		if (PIM_DEBUG_TRACE) {
-			char src_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<src?>", nbr->source_addr, src_str,
-					sizeof(src_str));
-			zlog_debug(
-				"up %s remove from nbr %s/%s jp-agg-list",
-				up->sg_str,
-				nbr->interface->name,
-				src_str);
-		}
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("up %s remove from nbr %s/%pPAs jp-agg-list",
+				   up->sg_str, nbr->interface->name,
+				   &nbr->source_addr);
 	}
 
 	if (js) {
@@ -202,7 +186,7 @@ int pim_jp_agg_is_in_list(struct list *group, struct pim_upstream *up)
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
@@ -276,14 +260,14 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
 	if (!jag) {
 		jag = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			      sizeof(struct pim_jp_agg_group));
-		jag->group.s_addr = up->sg.grp.s_addr;
+		jag->group = up->sg.grp;
 		jag->sources = list_new();
 		jag->sources->cmp = pim_jp_agg_src_cmp;
 		jag->sources->del = (void (*)(void *))pim_jp_agg_src_free;
@@ -296,17 +280,11 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 	}
 
 	if (nbr) {
-		if (PIM_DEBUG_TRACE) {
-			char src_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<src?>", nbr->source_addr, src_str,
-					sizeof(src_str));
-			zlog_debug(
-				"up %s add to nbr %s/%s jp-agg-list",
-				up->sg_str,
-				up->rpf.source_nexthop.interface->name,
-				src_str);
-		}
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("up %s add to nbr %s/%pPAs jp-agg-list",
+				   up->sg_str,
+				   up->rpf.source_nexthop.interface->name,
+				   &nbr->source_addr);
 	}
 
 	if (!js) {
@@ -378,7 +356,7 @@ void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 	listnode_add(&groups, &jag);
 	listnode_add(jag.sources, &js);
 
-	jag.group.s_addr = up->sg.grp.s_addr;
+	jag.group = up->sg.grp;
 	js.up = up;
 	js.is_join = is_join;
 

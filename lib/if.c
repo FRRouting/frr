@@ -490,7 +490,8 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 		addr.family = AF_INET6;
 		addr.u.prefix6 = *((struct in6_addr *)matchaddr);
 		addr.prefixlen = IPV6_MAX_BITLEN;
-	}
+	} else
+		assert(!"Attempted lookup of family not supported");
 
 	match = NULL;
 
@@ -1090,9 +1091,6 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 	struct if_link_params *iflp =
 		XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
 
-	/* Set TE metric equal to standard metric */
-	iflp->te_metric = ifp->metric;
-
 	/* Compute default bandwidth based on interface */
 	iflp->default_bw =
 		((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
@@ -1105,8 +1103,13 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 		iflp->unrsv_bw[i] = iflp->default_bw;
 
 	/* Update Link parameters status */
-	iflp->lp_status =
-		LP_TE_METRIC | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
+	iflp->lp_status = LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
+
+	/* Set TE metric equal to standard metric only if it is set */
+	if (ifp->metric != 0) {
+		iflp->te_metric = ifp->metric;
+		iflp->lp_status |= LP_TE_METRIC;
+	}
 
 	/* Finally attach newly created Link Parameters */
 	ifp->link_params = iflp;
@@ -1283,6 +1286,22 @@ static void cli_show_interface_end(struct vty *vty,
 				   const struct lyd_node *dnode)
 {
 	vty_out(vty, "exit\n");
+}
+
+void if_vty_config_start(struct vty *vty, struct interface *ifp)
+{
+	vty_frame(vty, "!\n");
+	vty_frame(vty, "interface %s", ifp->name);
+
+	if (vrf_is_backend_netns() && strcmp(ifp->vrf->name, VRF_DEFAULT_NAME))
+		vty_frame(vty, " vrf %s", ifp->vrf->name);
+
+	vty_frame(vty, "\n");
+}
+
+void if_vty_config_end(struct vty *vty)
+{
+	vty_endframe(vty, "exit\n!\n");
 }
 
 /*

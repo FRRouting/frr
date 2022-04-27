@@ -79,6 +79,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_trace.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -438,6 +439,10 @@ parse_encap_seg6local(struct rtattr *tb,
 	if (tb_encap[SEG6_LOCAL_TABLE])
 		ctx->table = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_TABLE]);
 
+	if (tb_encap[SEG6_LOCAL_VRFTABLE])
+		ctx->table =
+			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+
 	return act;
 }
 
@@ -696,6 +701,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
+	frrtrace(3, frr_zebra, netlink_route_change_read_unicast, h, ns_id,
+		 startup);
+
 	rtm = NLMSG_DATA(h);
 
 	if (startup && h->nlmsg_type != RTM_NEWROUTE)
@@ -920,7 +928,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			}
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
 				&src_p, &nh, nhe_id, table, metric, mtu,
-				distance, tag);
+				distance, tag, startup);
 		} else {
 			/* This is a multipath route */
 			struct route_entry *re;
@@ -964,7 +972,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 			if (nhe_id || ng)
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
-						  &src_p, re, ng);
+						  &src_p, re, ng, startup);
 			else
 				XFREE(MTYPE_RE, re);
 		}
@@ -1467,6 +1475,16 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   ctx->table))
 					return false;
 				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_DT4))
+					return false;
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_VRFTABLE,
+						   ctx->table))
+					return false;
+				break;
 			default:
 				zlog_err("%s: unsupport seg6local behaviour action=%u",
 					 __func__,
@@ -1884,6 +1902,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	union g_addr src;
 	const struct prefix *p, *src_p;
 	uint32_t table_id;
+	struct nlsock *nl;
 
 	struct {
 		struct nlmsghdr n;
@@ -1896,6 +1915,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 
 	if (datalen < sizeof(*req))
 		return 0;
+
+	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
 	memset(req, 0, sizeof(*req));
 
@@ -1910,7 +1931,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 
 	req->n.nlmsg_type = cmd;
 
-	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+	req->n.nlmsg_pid = nl->snl.nl_pid;
 
 	req->r.rtm_family = p->family;
 	req->r.rtm_dst_len = p->prefixlen;
@@ -2346,6 +2367,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 	int type = dplane_ctx_get_nhe_type(ctx);
 	struct rtattr *nest;
 	uint16_t encap;
+	struct nlsock *nl =
+		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
 	if (!id) {
 		flog_err(
@@ -2388,7 +2411,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 		req->n.nlmsg_flags |= NLM_F_REPLACE;
 
 	req->n.nlmsg_type = cmd;
-	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+	req->n.nlmsg_pid = nl->snl.nl_pid;
 
 	req->nhm.nh_family = AF_UNSPEC;
 	/* TODO: Scope? */
@@ -2570,6 +2593,18 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    ctx->table))
 							return 0;
 						break;
+					case SEG6_LOCAL_ACTION_END_DT4:
+						if (!nl_attr_put32(
+							    &req->n, buflen,
+							    SEG6_LOCAL_ACTION,
+							    SEG6_LOCAL_ACTION_END_DT4))
+							return 0;
+						if (!nl_attr_put32(
+							    &req->n, buflen,
+							    SEG6_LOCAL_VRFTABLE,
+							    ctx->table))
+							return 0;
+						break;
 					default:
 						zlog_err("%s: unsupport seg6local behaviour action=%u",
 							 __func__, action);
@@ -2702,7 +2737,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 			 */
 			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))
 			    && !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
-				netlink_batch_add_msg(
+				return netlink_batch_add_msg(
 					bth, ctx, netlink_delroute_msg_encoder,
 					true);
 		} else {
@@ -2875,6 +2910,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t grp_count = 0;
 	struct rtattr *tb[NHA_MAX + 1] = {};
 
+	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);
+
 	nhm = NLMSG_DATA(h);
 
 	if (ns_id)
@@ -3027,10 +3064,11 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 		 * this kernel must support them.
 		 */
 		supports_nh = true;
-
 	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
 		zlog_debug("Nexthop objects %ssupported on this kernel",
 			   supports_nh ? "" : "not ");
+
+	zebra_router_set_supports_nhgs(supports_nh);
 
 	return ret;
 }
@@ -3241,7 +3279,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
 
-	if ((NDA_VLAN <= NDA_MAX) && tb[NDA_VLAN]) {
+	if (tb[NDA_VLAN]) {
 		vid_present = 1;
 		vid = *(uint16_t *)RTA_DATA(tb[NDA_VLAN]);
 		snprintf(vid_buf, sizeof(vid_buf), " VLAN %u", vid);
@@ -3770,7 +3808,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * interface
 	 * and is linked to the bridge
 	 * (b) In the case of a VLAN-unaware bridge, the SVI is the bridge
-	 * inteface
+	 * interface
 	 * itself
 	 */
 	if (IS_ZEBRA_IF_VLAN(ifp)) {
@@ -4256,6 +4294,8 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	const char *routedesc;
 	int route_type;
 	struct prefix p = {0};
+	struct nlsock *nl =
+		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
 	struct {
 		struct nlmsghdr n;
@@ -4298,7 +4338,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 	req->n.nlmsg_type = cmd;
-	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+	req->n.nlmsg_pid = nl->snl.nl_pid;
 
 	req->r.rtm_family = AF_MPLS;
 	req->r.rtm_table = RT_TABLE_MAIN;

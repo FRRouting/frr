@@ -95,8 +95,8 @@ March/July/November.  Walking backwards from this date:
    are considered lowest priority (regardless of when they were opened.)
 
  - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and a ``rc1`` release candidate is
-   tagged.  Master is unfrozen and new features may again proceed.
+   ``dev/MAJOR.MINOR`` at this point) and tagged as ```base_X.Y``.
+   Master is unfrozen and new features may again proceed.
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
    :file:`configure.ac` to reflect the new development version that master
@@ -108,7 +108,48 @@ March/July/November.  Walking backwards from this date:
    (The :file:`configure.ac` edit and tag push are considered git housekeeping
    and are pushed directly to ``master``, not through a PR.)
 
- - 2 weeks earlier, a ``rc2`` release candidate is tagged.
+   Below is the snippet of the commands to use in this step.
+
+     .. code-block:: console
+
+        % git remote --verbose
+        upstream  git@github.com:frrouting/frr (fetch)
+        upstream  git@github.com:frrouting/frr (push)
+
+        % git checkout master
+        % git pull upstream master
+        % git checkout -b dev/8.2
+        % git tag base_8.2
+        % git push upstream base_8.2
+        % git push upstream dev/8.2
+        % git checkout master
+        % sed -i 's/8.2-dev/8.3-dev/' configure.ac
+        % git add configure.ac
+        % git commit -s -m "build: FRR 8.3 development version"
+        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
+        % git push upstream master
+        % git push upstream frr-8.3-dev
+
+   In this step, we also have to update package versions to reflect
+   the development version. Versions need to be updated using
+   a standard way of development (Pull Requests) based on master branch.
+
+   Only change the version number with no other changes. This will produce
+   packages with the a version number that is higher than any previous
+   version. Once the release is done, whatever updates we make to changelog
+   files on the release branch need to be cherry-picked to the master branch.
+
+ - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
+
+     .. code-block:: console
+
+        % git remote --verbose
+        upstream  git@github.com:frrouting/frr (fetch)
+        upstream  git@github.com:frrouting/frr (push)
+
+        % git checkout dev/8.2
+        % git tag frr-8.2-rc
+        % git push upstream frr-8.2-rc
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
@@ -121,26 +162,29 @@ as early as possible, i.e. the first 2-week window.
 
 For reference, the expected release schedule according to the above is:
 
-+------------+------------+------------+------------+------------+------------+
-| Release    | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
-+------------+------------+------------+------------+------------+------------+
-| rc2        | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
-+------------+------------+------------+------------+------------+------------+
-| rc1/branch | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
-+------------+------------+------------+------------+------------+------------+
-| freeze     | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
-+------------+------------+------------+------------+------------+------------+
++---------+------------+------------+------------+------------+------------+
+| Release | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
++---------+------------+------------+------------+------------+------------+
+| RC      | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
++---------+------------+------------+------------+------------+------------+
+| dev/X.Y | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
++---------+------------+------------+------------+------------+------------+
+| freeze  | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
++---------+------------+------------+------------+------------+------------+
 
 Each release is managed by one or more volunteer release managers from the FRR
-community.  To spread and distribute this workload, this should be rotated for
+community.  These release managers are expected to handle the branch for a period
+of one year.  To spread and distribute this workload, this should be rotated for
 subsequent releases.  The release managers are currently assumed/expected to
 run a release management meeting during the weeks listed above.  Barring other
 constraints, this would be scheduled before the regular weekly FRR community
 call such that important items can be carried over into that call.
 
-Bugfixes are applied to the two most recent releases. However, backporting of bug
-fixes to older than the two most recent releases will not be prevented, if acked
-under the classical development workflow applying for a pull request.
+Bugfixes are applied to the two most recent releases.  It is expected that
+each bugfix backported should include some reasoning for its inclusion
+as well as receiving approval by the release managers for that release before
+accepted into the release branch.  This does not necessarily preclude backporting of
+bug fixes to older than the two most recent releases.
 
 Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
@@ -301,6 +345,13 @@ Pre-submission Checklist
   requirement that automated testing must be written that exercises
   the new feature within our existing CI infrastructure.  Also the
   addition of automated testing to cover any pull request is encouraged.
+
+- All new code must use the current latest version of acceptable code.
+
+   - If a daemon is converted to YANG, then new code must use YANG.
+   - DEFPY's must be used for new cli
+   - Typesafe lists must be used
+   - printf formatting changes must be used
 
 .. _signing-off:
 
@@ -572,6 +623,8 @@ Please copy-paste this header verbatim. In particular:
 
 - Do not replace "This program" with "FRR"
 - Do not change the address of the FSF
+- keep ``#include <zebra.h>``.  The absolute first header included in any C
+  file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H guard)
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------
@@ -843,6 +896,26 @@ necessary replacements.
 +-----------+--------------------------+
 | u_long    | unsigned long            |
 +-----------+--------------------------+
+
+FRR also uses unnamed struct fields, enabled with ``-fms-extensions`` (cf.
+https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html).  The following two
+patterns can/should be used where contextually appropriate:
+
+.. code-block:: c
+
+   struct outer {
+           struct inner;
+   };
+
+.. code-block:: c
+
+   struct outer {
+           union {
+                   struct inner;
+                   struct inner inner_name;
+           };
+   };
+
 
 .. _style-exceptions:
 
@@ -1206,8 +1279,8 @@ CLI changes
 -----------
 
 CLI's are a complicated ugly beast. Additions or changes to the CLI should use
-a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
-DEFUN's are added to the system, documentation should be provided for the new
+a DEFPY to encapsulate one setting as much as is possible.  Additionally as new
+DEFPY's are added to the system, documentation should be provided for the new
 commands.
 
 Backwards Compatibility

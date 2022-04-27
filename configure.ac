@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [8.2-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [8.3-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -58,7 +58,7 @@ elif test "$host" != "$build"; then
 
   AC_MSG_NOTICE([...])
   AC_MSG_NOTICE([... cross-compilation: creating hosttools directory and self-configuring for build platform tools])
-  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if neccessary])
+  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if necessary])
   AC_MSG_NOTICE([...])
 
   (
@@ -325,9 +325,26 @@ else
    fi
 fi
 
+dnl just stick -g into LDFLAGS, if we don't have it in CFLAGS it won't do much
+LDFLAGS="$LDFLAGS -g"
+
 AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 
+dnl -fms-extensions causes clang to have a built-in __wchar_t on OpenBSD,
+dnl which just straight up breaks compiling any code.
+dnl (2022-04-04 / OpenBSD 7 / clang 11.1.0)
+AH_VERBATIM([OpenBSD], [
+#ifdef __OpenBSD__
+#define __wchar_t __wchar_t_ignore
+#include <stdint.h>
+#undef __wchar_t
+#endif
+])
+
 dnl always want these CFLAGS
+AC_C_FLAG([-fms-extensions], [
+  AC_MSG_ERROR([$CC does not support unnamed struct fields (-fms-extensions)])
+])
 AC_C_FLAG([-fno-omit-frame-pointer])
 AC_C_FLAG([-funwind-tables])
 AC_C_FLAG([-Wall])
@@ -765,7 +782,7 @@ AC_ARG_ENABLE([scripting],
     AS_HELP_STRING([--enable-scripting], [Build with scripting support]))
 
 AC_ARG_ENABLE([netlink-debug],
-  AS_HELP_STRING([--disable-netlink-debug], [pretty print netlink debug messages]))
+  AS_HELP_STRING([--disable-netlink-debug], [don't pretty print netlink debug messages]))
 
 if test "$enable_netlink_debug" != "no" ; then
   AC_DEFINE([NETLINK_DEBUG], [1], [Netlink extra debugging code])
@@ -1299,7 +1316,10 @@ AC_CHECK_FUNCS([ \
 	openat \
 	unlinkat \
 	posix_fallocate \
+	sendmmsg \
 	])
+
+AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
 
 dnl ##########################################################################
 dnl LARGE if block spans a lot of "configure"!
@@ -1368,6 +1388,8 @@ case "${enable_vtysh}" in
       AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
     ], [$LIBREADLINE])
   ], [])
+  LIBS="$LIBS -lreadline"
+  AC_CHECK_FUNCS([rl_clear_visible_line])
   LIBS="$prev_libs"
 
   AC_CHECK_HEADER([readline/history.h])
@@ -1517,6 +1539,13 @@ dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], FRR_INCLUDES)
 
 AC_CHECK_HEADERS([linux/mroute.h], [], [],[
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#define _LINUX_IN_H             /* For Linux <= 2.6.25 */
+	#include <linux/types.h>
+])
+
+AC_CHECK_HEADERS([linux/mroute6.h], [], [],[
 	#include <sys/socket.h>
 	#include <netinet/in.h>
 	#define _LINUX_IN_H             /* For Linux <= 2.6.25 */
@@ -2584,6 +2613,7 @@ AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra ap
 AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
 AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
 AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$frr_statedir/ospf6d-gr.json"], [ospf6d GR state information])
+AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$frr_statedir/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
 AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 

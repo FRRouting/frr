@@ -42,15 +42,15 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 	pim_sgaddr sg;
 	int i;
 
-	sg.src = c_oil->oil.mfcc_origin;
-	sg.grp = c_oil->oil.mfcc_mcastgrp;
-	ifp = pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
-	snprintf(buf, size, "%s IIF: %s, OIFS: ", pim_str_sg_dump(&sg),
-		 ifp ? ifp->name : "(?)");
+	sg.src = *oil_origin(c_oil);
+	sg.grp = *oil_mcastgrp(c_oil);
+	ifp = pim_if_find_by_vif_index(c_oil->pim, *oil_parent(c_oil));
+	snprintfrr(buf, size, "%pSG IIF: %s, OIFS: ", &sg,
+		   ifp ? ifp->name : "(?)");
 
 	out = buf + strlen(buf);
 	for (i = 0; i < MAXVIFS; i++) {
-		if (c_oil->oil.mfcc_ttls[i] != 0) {
+		if (oil_if_has(c_oil, i) != 0) {
 			ifp = pim_if_find_by_vif_index(c_oil->pim, i);
 			snprintf(out, buf + size - out, "%s ",
 				 ifp ? ifp->name : "(?)");
@@ -61,25 +61,19 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 	return buf;
 }
 
-int pim_channel_oil_compare(const struct channel_oil *c1,
-			    const struct channel_oil *c2)
+int pim_channel_oil_compare(const struct channel_oil *cc1,
+			    const struct channel_oil *cc2)
 {
-	if (ntohl(c1->oil.mfcc_mcastgrp.s_addr)
-	    < ntohl(c2->oil.mfcc_mcastgrp.s_addr))
-		return -1;
+	struct channel_oil *c1 = (struct channel_oil *)cc1;
+	struct channel_oil *c2 = (struct channel_oil *)cc2;
+	int rv;
 
-	if (ntohl(c1->oil.mfcc_mcastgrp.s_addr)
-	    > ntohl(c2->oil.mfcc_mcastgrp.s_addr))
-		return 1;
-
-	if (ntohl(c1->oil.mfcc_origin.s_addr)
-	    < ntohl(c2->oil.mfcc_origin.s_addr))
-		return -1;
-
-	if (ntohl(c1->oil.mfcc_origin.s_addr)
-	    > ntohl(c2->oil.mfcc_origin.s_addr))
-		return 1;
-
+	rv = pim_addr_cmp(*oil_mcastgrp(c1), *oil_mcastgrp(c2));
+	if (rv)
+		return rv;
+	rv = pim_addr_cmp(*oil_origin(c1), *oil_origin(c2));
+	if (rv)
+		return rv;
 	return 0;
 }
 
@@ -109,8 +103,8 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 	struct channel_oil *c_oil = NULL;
 	struct channel_oil lookup;
 
-	lookup.oil.mfcc_mcastgrp = sg->grp;
-	lookup.oil.mfcc_origin = sg->src;
+	*oil_mcastgrp(&lookup) = sg->grp;
+	*oil_origin(&lookup) = sg->src;
 
 	c_oil = rb_pim_oil_find(&pim->channel_oil_head, &lookup);
 
@@ -151,10 +145,10 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 
 	c_oil = XCALLOC(MTYPE_PIM_CHANNEL_OIL, sizeof(*c_oil));
 
-	c_oil->oil.mfcc_mcastgrp = sg->grp;
-	c_oil->oil.mfcc_origin = sg->src;
+	*oil_mcastgrp(c_oil) = sg->grp;
+	*oil_origin(c_oil) = sg->src;
 
-	c_oil->oil.mfcc_parent = MAXVIFS;
+	*oil_parent(c_oil) = MAXVIFS;
 	c_oil->oil_ref_count = 1;
 	c_oil->installed = 0;
 	c_oil->up = pim_upstream_find(pim, sg);
@@ -163,8 +157,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	rb_pim_oil_add(&pim->channel_oil_head, c_oil);
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s(%s): c_oil %s add",
-				__func__, name, pim_str_sg_dump(sg));
+		zlog_debug("%s(%s): c_oil %pSG add", __func__, name, sg);
 
 	return c_oil;
 }
@@ -173,8 +166,8 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name)
 {
 	if (PIM_DEBUG_MROUTE) {
-		pim_sgaddr sg = {.src = c_oil->oil.mfcc_mcastgrp,
-				 .grp = c_oil->oil.mfcc_origin};
+		pim_sgaddr sg = {.src = *oil_mcastgrp(c_oil),
+				 .grp = *oil_origin(c_oil)};
 
 		zlog_debug(
 			"%s(%s): Del oil for %pSG, Ref Count: %d (Predecrement)",
@@ -223,29 +216,25 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 	pim_ifp = oif->info;
 
+	assertf(pim_ifp->mroute_vif_index >= 0,
+		"trying to del OIF %s with VIF (%d)", oif->name,
+		pim_ifp->mroute_vif_index);
+
 	/*
 	 * Don't do anything if we've been asked to remove a source
 	 * that is not actually on it.
 	 */
 	if (!(channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask)) {
 		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
 			zlog_debug(
-				"%s %s: no existing protocol mask %u(%u) for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+				"%s %s: no existing protocol mask %u(%u) for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%pPAs,%pPAs)",
 				__FILE__, __func__, proto_mask,
 				channel_oil
 					->oif_flags[pim_ifp->mroute_vif_index],
 				oif->name, pim_ifp->mroute_vif_index,
-				channel_oil->oil
-					.mfcc_ttls[pim_ifp->mroute_vif_index],
-				source_str, group_str);
+				oil_if_has(channel_oil, pim_ifp->mroute_vif_index),
+				oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil));
 		}
 		return 0;
 	}
@@ -255,44 +244,29 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 	if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] &
 			PIM_OIF_FLAG_PROTO_ANY) {
 		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
 			zlog_debug(
-				"%s %s: other protocol masks remain for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+				"%s %s: other protocol masks remain for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%pPAs,%pPAs)",
 				__FILE__, __func__, oif->name,
 				pim_ifp->mroute_vif_index,
-				channel_oil->oil
-					.mfcc_ttls[pim_ifp->mroute_vif_index],
-				source_str, group_str);
+				oil_if_has(channel_oil, pim_ifp->mroute_vif_index),
+				oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil));
 		}
 		return 0;
 	}
 
-	channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = 0;
+	oil_if_set(channel_oil, pim_ifp->mroute_vif_index, false);
 	/* clear mute; will be re-evaluated when the OIF becomes valid again */
 	channel_oil->oif_flags[pim_ifp->mroute_vif_index] &= ~PIM_OIF_FLAG_MUTE;
 
 	if (pim_upstream_mroute_add(channel_oil, __func__)) {
 		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
 			zlog_debug(
-				"%s %s: could not remove output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
+				"%s %s: could not remove output interface %s (vif_index=%d) for channel (S,G)=(%pPAs,%pPAs)",
 				__FILE__, __func__, oif->name,
-				pim_ifp->mroute_vif_index, source_str,
-				group_str);
+				pim_ifp->mroute_vif_index,
+				oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil));
 		}
 		return -1;
 	}
@@ -300,16 +274,12 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 	--channel_oil->oil_size;
 
 	if (PIM_DEBUG_MROUTE) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp,
-			       group_str, sizeof(group_str));
-		pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin,
-			       source_str, sizeof(source_str));
 		zlog_debug(
-			"%s(%s): (S,G)=(%s,%s): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
-			__func__, caller, source_str, group_str, proto_mask,
-			channel_oil->oil.mfcc_parent, oif->name,
+			"%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
+			__func__, caller, oil_origin(channel_oil),
+			oil_mcastgrp(channel_oil),
+			proto_mask,
+			*oil_parent(channel_oil), oif->name,
 			pim_ifp->mroute_vif_index);
 	}
 
@@ -327,8 +297,8 @@ void pim_channel_del_inherited_oif(struct channel_oil *c_oil,
 	/* if an inherited OIF is being removed join-desired can change
 	 * if the inherited OIL is now empty and KAT is running
 	 */
-	if (up && up->sg.src.s_addr != INADDR_ANY &&
-			pim_upstream_empty_inherited_olist(up))
+	if (up && !pim_addr_is_any(up->sg.src) &&
+	    pim_upstream_empty_inherited_olist(up))
 		pim_upstream_update_join_desired(up->pim, up);
 }
 
@@ -398,7 +368,7 @@ void pim_channel_update_oif_mute(struct channel_oil *c_oil,
 	bool new_mute;
 
 	/* If pim_ifp is not a part of the OIL there is nothing to do */
-	if (!c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
+	if (!oil_if_has(c_oil, pim_ifp->mroute_vif_index))
 		return;
 
 	old_mute = !!(c_oil->oif_flags[pim_ifp->mroute_vif_index] &
@@ -452,25 +422,21 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 	pim_ifp = oif->info;
 
+	assertf(pim_ifp->mroute_vif_index >= 0,
+		"trying to add OIF %s with VIF (%d)", oif->name,
+		pim_ifp->mroute_vif_index);
+
 	/* Prevent single protocol from subscribing same interface to
 	   channel (S,G) multiple times */
 	if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask) {
 		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
 			zlog_debug(
-				"%s %s: existing protocol mask %u requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+				"%s %s: existing protocol mask %u requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%pPAs,%pPAs)",
 				__FILE__, __func__, proto_mask, oif->name,
 				pim_ifp->mroute_vif_index,
-				channel_oil->oil
-					.mfcc_ttls[pim_ifp->mroute_vif_index],
-				source_str, group_str);
+				oil_if_has(channel_oil, pim_ifp->mroute_vif_index),
+				oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil));
 		}
 		return -3;
 	}
@@ -488,36 +454,21 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 		channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
 		/* Check the OIF really exists before returning, and only log
 		   warning otherwise */
-		if (channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] < 1) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
+		if (oil_if_has(channel_oil, pim_ifp->mroute_vif_index) < 1) {
 			zlog_warn(
-				"%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+				"%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%pPAs,%pPAs)",
 				__FILE__, __func__, proto_mask, oif->name,
 				pim_ifp->mroute_vif_index,
-				channel_oil->oil
-					.mfcc_ttls[pim_ifp->mroute_vif_index],
-				source_str, group_str);
+				oil_if_has(channel_oil, pim_ifp->mroute_vif_index),
+				oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil));
 		}
 
 		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
 			zlog_debug(
-				"%s(%s): (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d added to 0x%x",
-				__func__, caller, source_str, group_str,
+				"%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u OIF=%s vif_index=%d added to 0x%x",
+				__func__, caller, oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil),
 				proto_mask, oif->name,
 				pim_ifp->mroute_vif_index,
 				channel_oil
@@ -526,29 +477,21 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 		return 0;
 	}
 
-	old_ttl = channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index];
+	old_ttl = oil_if_has(channel_oil, pim_ifp->mroute_vif_index);
 
 	if (old_ttl > 0) {
 		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
 			zlog_debug(
-				"%s %s: interface %s (vif_index=%d) is existing output for channel (S,G)=(%s,%s)",
+				"%s %s: interface %s (vif_index=%d) is existing output for channel (S,G)=(%pPAs,%pPAs)",
 				__FILE__, __func__, oif->name,
-				pim_ifp->mroute_vif_index, source_str,
-				group_str);
+				pim_ifp->mroute_vif_index,
+				oil_origin(channel_oil),
+				oil_mcastgrp(channel_oil));
 		}
 		return -4;
 	}
 
-	channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] =
-		PIM_MROUTE_MIN_TTL;
+	oil_if_set(channel_oil, pim_ifp->mroute_vif_index, PIM_MROUTE_MIN_TTL);
 
 	/* Some OIFs are held in a muted state i.e. the PIM state machine
 	 * decided to include the OIF but additional status check such as
@@ -565,26 +508,19 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	/* channel_oil->oil.mfcc_parent != MAXVIFS indicate this entry is not
 	 * valid to get installed in kernel.
 	 */
-	if (channel_oil->oil.mfcc_parent != MAXVIFS) {
+	if (*oil_parent(channel_oil) != MAXVIFS) {
 		if (pim_upstream_mroute_add(channel_oil, __func__)) {
 			if (PIM_DEBUG_MROUTE) {
-				char group_str[INET_ADDRSTRLEN];
-				char source_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<group?>",
-				      channel_oil->oil.mfcc_mcastgrp,
-				      group_str, sizeof(group_str));
-				pim_inet4_dump("<source?>",
-				      channel_oil->oil.mfcc_origin, source_str,
-				      sizeof(source_str));
 				zlog_debug(
-					"%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
+					"%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%pPAs,%pPAs)",
 					__FILE__, __func__, oif->name,
-					pim_ifp->mroute_vif_index, source_str,
-					group_str);
+					pim_ifp->mroute_vif_index,
+					oil_origin(channel_oil),
+					oil_mcastgrp(channel_oil));
 			}
 
-			channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index]
-				= old_ttl;
+			oil_if_set(channel_oil, pim_ifp->mroute_vif_index,
+				   old_ttl);
 			return -5;
 		}
 	}
@@ -595,15 +531,11 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
 
 	if (PIM_DEBUG_MROUTE) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp,
-			       group_str, sizeof(group_str));
-		pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin,
-			       source_str, sizeof(source_str));
 		zlog_debug(
-			"%s(%s): (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d: DONE",
-			__func__, caller, source_str, group_str, proto_mask,
+			"%s(%s): (S,G)=(%pPAs,%pPAs): proto_mask=%u OIF=%s vif_index=%d: DONE",
+			__func__, caller, oil_origin(channel_oil),
+			oil_mcastgrp(channel_oil),
+			proto_mask,
 			oif->name, pim_ifp->mroute_vif_index);
 	}
 
@@ -612,15 +544,27 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 int pim_channel_oil_empty(struct channel_oil *c_oil)
 {
+#if PIM_IPV == 4
 	static struct mfcctl null_oil;
+#else
+	static struct mf6cctl null_oil;
+#endif
 
 	if (!c_oil)
 		return 1;
+
 
 	/* exclude pimreg from the OIL when checking if the inherited_oil is
 	 * non-NULL.
 	 * pimreg device (in all vrfs) uses a vifi of
 	 * 0 (PIM_OIF_PIM_REGISTER_VIF) so we simply mfcc_ttls[0] */
-	return !memcmp(&c_oil->oil.mfcc_ttls[1], &null_oil.mfcc_ttls[1],
-		sizeof(null_oil.mfcc_ttls) - sizeof(null_oil.mfcc_ttls[0]));
+	if (oil_if_has(c_oil, 0)) {
+#if PIM_IPV == 4
+		null_oil.mfcc_ttls[0] = 1;
+#else
+		IF_SET(0, &null_oil.mf6cc_ifset);
+#endif
+	}
+
+	return !oil_if_cmp(&c_oil->oil, &null_oil);
 }

@@ -542,7 +542,7 @@ struct pcep_ro_subobj_asn {
 	uint16_t asn; /* Autonomous system number */
 };
 
-/* The SR ERO and SR RRO subojbects are the same, except
+/* The SR ERO and SR RRO subobjects are the same, except
  * the SR-RRO does not have the L flag in the Type field.
  * Defined in draft-ietf-pce-segment-routing-16 */
 enum pcep_sr_subobj_nai {

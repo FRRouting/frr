@@ -74,14 +74,14 @@ static const struct message eigrp_general_tlv_type_str[] = {
  *
  * @param[in]   thread  current execution thread timer is associated with
  *
- * @return int  always returns 0
+ * @return void
  *
  * @par
  * Called once per "hello" time interval, default 5 seconds
  * Sends hello packet via multicast for all interfaces eigrp
  * is configured for
  */
-int eigrp_hello_timer(struct thread *thread)
+void eigrp_hello_timer(struct thread *thread)
 {
 	struct eigrp_interface *ei;
 
@@ -97,8 +97,6 @@ int eigrp_hello_timer(struct thread *thread)
 	/* Hello timer set. */
 	thread_add_timer(master, eigrp_hello_timer, ei, ei->params.v_hello,
 			 &ei->t_hello);
-
-	return 0;
 }
 
 /**

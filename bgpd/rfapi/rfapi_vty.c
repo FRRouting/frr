@@ -417,8 +417,8 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 		}
 	}
 
-	if (bpi->attr->ecommunity) {
-		s = ecommunity_ecom2str(bpi->attr->ecommunity,
+	if (bgp_attr_get_ecommunity(bpi->attr)) {
+		s = ecommunity_ecom2str(bgp_attr_get_ecommunity(bpi->attr),
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 		vty_out(vty, " EC{%s}", s);
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
@@ -467,6 +467,8 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 	struct transit *transit;
 	struct cluster_list *cluster;
 	char buf[BUFSIZ];
+	struct ecommunity *ecomm;
+	struct community *comm;
 
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
 		return;
@@ -481,11 +483,14 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 
 	fp(out, "  aspath=%p, refcnt=%d%s", attr->aspath,
 	   (attr->aspath ? attr->aspath->refcnt : 0), HVTYNL);
-	fp(out, "  community=%p, refcnt=%d%s", attr->community,
-	   (attr->community ? attr->community->refcnt : 0), HVTYNL);
 
-	fp(out, "  ecommunity=%p, refcnt=%d%s", attr->ecommunity,
-	   (attr->ecommunity ? attr->ecommunity->refcnt : 0), HVTYNL);
+	comm = bgp_attr_get_community(attr);
+	fp(out, "  community=%p, refcnt=%d%s", comm, (comm ? comm->refcnt : 0),
+	   HVTYNL);
+
+	ecomm = bgp_attr_get_ecommunity(attr);
+	fp(out, "  ecommunity=%p, refcnt=%d%s", ecomm,
+	   (ecomm ? ecomm->refcnt : 0), HVTYNL);
 
 	cluster = bgp_attr_get_cluster(attr);
 	fp(out, "  cluster=%p, refcnt=%d%s", cluster,
@@ -623,8 +628,8 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	}
 
 	/* RT list */
-	if (bpi->attr->ecommunity) {
-		s = ecommunity_ecom2str(bpi->attr->ecommunity,
+	if (bgp_attr_get_ecommunity(bpi->attr)) {
+		s = ecommunity_ecom2str(bgp_attr_get_ecommunity(bpi->attr),
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 		r = snprintf(p, REMAIN, " %s", s);
 		INCP;

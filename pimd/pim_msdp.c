@@ -66,7 +66,7 @@ static void pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa,
 }
 
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
-static int pim_msdp_sa_adv_timer_cb(struct thread *t)
+static void pim_msdp_sa_adv_timer_cb(struct thread *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 
@@ -76,8 +76,8 @@ static int pim_msdp_sa_adv_timer_cb(struct thread *t)
 
 	pim_msdp_sa_adv_timer_setup(pim, true /* start */);
 	pim_msdp_pkt_sa_tx(pim);
-	return 0;
 }
+
 static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 {
 	THREAD_OFF(pim->msdp.sa_adv_timer);
@@ -89,7 +89,7 @@ static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 }
 
 /* RFC-3618:Sec-5.3 - SA cache state timer */
-static int pim_msdp_sa_state_timer_cb(struct thread *t)
+static void pim_msdp_sa_state_timer_cb(struct thread *t)
 {
 	struct pim_msdp_sa *sa;
 
@@ -100,8 +100,8 @@ static int pim_msdp_sa_state_timer_cb(struct thread *t)
 	}
 
 	pim_msdp_sa_deref(sa, PIM_MSDP_SAF_PEER);
-	return 0;
 }
+
 static void pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
 {
 	THREAD_OFF(sa->sa_state_timer);
@@ -244,7 +244,7 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 
 	sa->pim = pim;
 	sa->sg = *sg;
-	pim_str_sg_set(sg, sa->sg_str);
+	snprintfrr(sa->sg_str, sizeof(sa->sg_str), "%pSG", sg);
 	sa->rp = rp;
 	sa->uptime = pim_time_monotonic_sec();
 
@@ -314,7 +314,7 @@ static void pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa,
 	}
 
 	/* any time the peer ip changes also update the rp address */
-	if (PIM_INADDR_ISNOT_ANY(sa->peer)) {
+	if (sa->peer.s_addr != INADDR_ANY) {
 		old_mp = pim_msdp_peer_find(sa->pim, sa->peer);
 		if (old_mp && old_mp->sa_cnt) {
 			--old_mp->sa_cnt;
@@ -624,15 +624,14 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((xg_up->sg.src.s_addr != INADDR_ANY)
-	    || (xg_up->sg.grp.s_addr == INADDR_ANY)) {
+	if (!pim_addr_is_any(xg_up->sg.src) || pim_addr_is_any(xg_up->sg.grp)) {
 		return;
 	}
 
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != xg_up->sg.grp.s_addr) {
+		if (pim_addr_cmp(sa->sg.grp, xg_up->sg.grp)) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, xg_up, "up-jp-change");
@@ -645,18 +644,18 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 	struct pim_msdp_sa *sa;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
-		zlog_debug("MSDP %s del", pim_str_sg_dump(sg));
+		zlog_debug("MSDP %pSG del", sg);
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((sg->src.s_addr != INADDR_ANY) || (sg->grp.s_addr == INADDR_ANY)) {
+	if (!pim_addr_is_any(sg->src) || pim_addr_is_any(sg->grp)) {
 		return;
 	}
 
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != sg->grp.s_addr) {
+		if (pim_addr_cmp(sa->sg.grp, sg->grp)) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, NULL /* xg */, "up-jp-change");
@@ -666,9 +665,9 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	if (PIM_DEBUG_MSDP_INTERNAL) {
-		zlog_debug("MSDP up %s del", pim_str_sg_dump(sg));
+		zlog_debug("MSDP up %pSG del", sg);
 	}
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(sg->src)) {
 		pim_msdp_up_xg_del(pim, sg);
 	} else {
 		pim_msdp_sa_local_del_on_up_del(pim, sg);
@@ -680,7 +679,7 @@ static unsigned int pim_msdp_sa_hash_key_make(const void *p)
 {
 	const struct pim_msdp_sa *sa = p;
 
-	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
+	return pim_sgaddr_hash(sa->sg, 0);
 }
 
 static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
@@ -688,8 +687,7 @@ static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	return ((sa1->sg.src.s_addr == sa2->sg.src.s_addr)
-		&& (sa1->sg.grp.s_addr == sa2->sg.grp.s_addr));
+	return !pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
 static int pim_msdp_sa_comp(const void *p1, const void *p2)
@@ -697,19 +695,7 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	if (ntohl(sa1->sg.grp.s_addr) < ntohl(sa2->sg.grp.s_addr))
-		return -1;
-
-	if (ntohl(sa1->sg.grp.s_addr) > ntohl(sa2->sg.grp.s_addr))
-		return 1;
-
-	if (ntohl(sa1->sg.src.s_addr) < ntohl(sa2->sg.src.s_addr))
-		return -1;
-
-	if (ntohl(sa1->sg.src.s_addr) > ntohl(sa2->sg.src.s_addr))
-		return 1;
-
-	return 0;
+	return pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
 /* RFC-3618:Sec-10.1.3 - Peer-RPF forwarding */
@@ -723,8 +709,8 @@ bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 	}
 
 	/* check if the MSDP peer is the nexthop for the RP */
-	if (pim_nexthop_lookup(mp->pim, &nexthop, rp, 0)
-	    && nexthop.mrib_nexthop_addr.u.prefix4.s_addr == mp->peer.s_addr) {
+	if (pim_nexthop_lookup(mp->pim, &nexthop, rp, 0) &&
+	    nexthop.mrib_nexthop_addr.s_addr == mp->peer.s_addr) {
 		return true;
 	}
 
@@ -887,7 +873,7 @@ static void pim_msdp_peer_timer_expiry_log(struct pim_msdp_peer *mp,
 }
 
 /* RFC-3618:Sec-5.4 - peer hold timer */
-static int pim_msdp_peer_hold_timer_cb(struct thread *t)
+static void pim_msdp_peer_hold_timer_cb(struct thread *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -898,14 +884,13 @@ static int pim_msdp_peer_hold_timer_cb(struct thread *t)
 	}
 
 	if (mp->state != PIM_MSDP_ESTABLISHED) {
-		return 0;
+		return;
 	}
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_state_chg_log(mp);
 	}
 	pim_msdp_peer_reset_tcp_conn(mp, "ht-expired");
-	return 0;
 }
 
 static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
@@ -920,7 +905,7 @@ static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 
 
 /* RFC-3618:Sec-5.5 - peer keepalive timer */
-static int pim_msdp_peer_ka_timer_cb(struct thread *t)
+static void pim_msdp_peer_ka_timer_cb(struct thread *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -932,8 +917,8 @@ static int pim_msdp_peer_ka_timer_cb(struct thread *t)
 
 	pim_msdp_pkt_ka_tx(mp);
 	pim_msdp_peer_ka_timer_setup(mp, true /* start */);
-	return 0;
 }
+
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	THREAD_OFF(mp->ka_timer);
@@ -981,7 +966,7 @@ static void pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 }
 
 /* RFC-3618:Sec-5.6 - connection retry on active peer */
-static int pim_msdp_peer_cr_timer_cb(struct thread *t)
+static void pim_msdp_peer_cr_timer_cb(struct thread *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -992,12 +977,12 @@ static int pim_msdp_peer_cr_timer_cb(struct thread *t)
 	}
 
 	if (mp->state != PIM_MSDP_CONNECTING || PIM_MSDP_PEER_IS_LISTENER(mp)) {
-		return 0;
+		return;
 	}
 
 	pim_msdp_peer_active_connect(mp);
-	return 0;
 }
+
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	THREAD_OFF(mp->cr_timer);

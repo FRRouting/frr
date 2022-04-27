@@ -102,7 +102,7 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 					: OSPF_DEFAULT_BANDWIDTH;
 	refbw = oi->ospf->ref_bandwidth;
 
-	/* A specifed ip ospf cost overrides a calculated one. */
+	/* A specified ip ospf cost overrides a calculated one. */
 	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), output_cost_cmd)
 	    || OSPF_IF_PARAM_CONFIGURED(oi->params, output_cost_cmd))
 		cost = OSPF_IF_PARAM(oi, output_cost_cmd);
@@ -845,6 +845,8 @@ int ospf_if_down(struct ospf_interface *oi)
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
 
+	if (!ospf->new_table)
+		return 1;
 	for (rn = route_top(ospf->new_table); rn; rn = route_next(rn)) {
 		or = rn->info;
 

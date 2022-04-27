@@ -313,14 +313,14 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	/* If we RX multiple labels we will end up keeping only the last
 	 * one. We do not yet support a label stack greater than 1. */
 	if (label_depth > 1)
-		zlog_info("%s rcvd UPDATE with label stack %d deep", peer->host,
+		zlog_info("%pBP rcvd UPDATE with label stack %d deep", peer,
 			  label_depth);
 
 	if (!(bgp_is_withdraw_label(label) || label_bos(label)))
 		flog_warn(
 			EC_BGP_INVALID_LABEL_STACK,
-			"%s rcvd UPDATE with invalid label stack - no bottom of stack",
-			peer->host);
+			"%pBP rcvd UPDATE with invalid label stack - no bottom of stack",
+			peer);
 
 	return llen;
 }
@@ -335,7 +335,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	int prefixlen;
 	afi_t afi;
 	safi_t safi;
-	int addpath_encoded;
+	bool addpath_capable;
 	uint32_t addpath_id;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	uint8_t llen;
@@ -346,16 +346,13 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
-		if (addpath_encoded) {
+		if (addpath_capable) {
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)

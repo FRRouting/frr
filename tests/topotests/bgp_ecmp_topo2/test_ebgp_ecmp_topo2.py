@@ -29,7 +29,7 @@ Following tests are covered to test ecmp functionality on EBGP.
 3. Verify BGP table and RIB in DUT after clear BGP routes and neighbors.
 4. Verify routes are cleared from BGP and RIB table of DUT when
    redistribute static configuration is removed.
-5. Shut BGP neigbors one by one and verify BGP and routing table updated
+5. Shut BGP neighbors one by one and verify BGP and routing table updated
    accordingly in DUT
 6. Delete static routes and verify routers are cleared from BGP table and RIB
    of DUT.
@@ -105,7 +105,7 @@ def setup_module(mod):
     topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -475,7 +475,7 @@ def test_ecmp_remove_redistribute_static(request):
 
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_ecmp_shut_bgp_neighbor(request, test_type):
-    """Shut BGP neigbors one by one and verify BGP and routing table updated
+    """Shut BGP neighbors one by one and verify BGP and routing table updated
     accordingly in DUT"""
 
     tc_name = request.node.name

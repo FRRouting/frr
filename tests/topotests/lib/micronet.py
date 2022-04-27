@@ -358,11 +358,14 @@ class Commander(object):  # pylint: disable=R0205
             # wait for not supported in screen for now
             channel = None
             cmd = [self.get_exec_path("screen")]
+            if title:
+                cmd.append("-t")
+                cmd.append(title)
             if not os.path.exists(
                 "/run/screen/S-{}/{}".format(os.environ["USER"], os.environ["STY"])
             ):
                 cmd = ["sudo", "-u", os.environ["SUDO_USER"]] + cmd
-            cmd.append(nscmd)
+            cmd.extend(nscmd.split(" "))
         elif "DISPLAY" in os.environ:
             # We need it broken up for xterm
             user_cmd = cmd

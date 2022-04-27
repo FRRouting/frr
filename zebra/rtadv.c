@@ -47,6 +47,8 @@
 
 extern struct zebra_privs_t zserv_privs;
 
+static uint32_t interfaces_configured_for_ra_from_bgp;
+
 #if defined(HAVE_RTADV)
 
 #ifndef VTYSH_EXTRACT_PL
@@ -469,7 +471,7 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
-static int rtadv_timer(struct thread *thread)
+static void rtadv_timer(struct thread *thread)
 {
 	struct zebra_vrf *zvrf = THREAD_ARG(thread);
 	struct vrf *vrf;
@@ -488,9 +490,11 @@ static int rtadv_timer(struct thread *thread)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (if_is_loopback(ifp) || !if_is_operative(ifp)
-			    || (vrf_is_backend_netns()
-				&& ifp->vrf->vrf_id != zvrf->vrf->vrf_id))
+			if (if_is_loopback(ifp) || !if_is_operative(ifp) ||
+			    IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) ||
+			    !connected_get_linklocal(ifp) ||
+			    (vrf_is_backend_netns() &&
+			     ifp->vrf->vrf_id != zvrf->vrf->vrf_id))
 				continue;
 
 			zif = ifp->info;
@@ -532,8 +536,6 @@ static int rtadv_timer(struct thread *thread)
 				}
 			}
 		}
-
-	return 0;
 }
 
 static void rtadv_process_solicit(struct interface *ifp)
@@ -632,45 +634,66 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 
 	radvert = (struct nd_router_advert *)msg;
 
-	if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit)
-	    && (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit)) {
+#define SIXHOUR2USEC (int64_t)6 * 60 * 60 * 1000000
+
+	if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit) &&
+	    (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit) &&
+	    (monotime_since(&zif->rtadv.lastadvcurhoplimit, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvcurhoplimit.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvCurHopLimit doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvcurhoplimit);
 	}
 
-	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
-	    && !zif->rtadv.AdvManagedFlag) {
+	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED) &&
+	    !zif->rtadv.AdvManagedFlag &&
+	    (monotime_since(&zif->rtadv.lastadvmanagedflag, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvmanagedflag.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvManagedFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvmanagedflag);
 	}
 
-	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER)
-	    && !zif->rtadv.AdvOtherConfigFlag) {
+	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER) &&
+	    !zif->rtadv.AdvOtherConfigFlag &&
+	    (monotime_since(&zif->rtadv.lastadvotherconfigflag, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvotherconfigflag.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvOtherConfigFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvotherconfigflag);
 	}
 
-	if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime)
-	    && (ntohl(radvert->nd_ra_reachable)
-		!= zif->rtadv.AdvReachableTime)) {
+	if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime) &&
+	    (ntohl(radvert->nd_ra_reachable) != zif->rtadv.AdvReachableTime) &&
+	    (monotime_since(&zif->rtadv.lastadvreachabletime, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvreachabletime.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvReachableTime doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvreachabletime);
 	}
 
-	if ((ntohl(radvert->nd_ra_retransmit)
-	     != (unsigned int)zif->rtadv.AdvRetransTimer)) {
+	if ((ntohl(radvert->nd_ra_retransmit) !=
+	     (unsigned int)zif->rtadv.AdvRetransTimer) &&
+	    (monotime_since(&zif->rtadv.lastadvretranstimer, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvretranstimer.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvretranstimer);
 	}
 
 	/* Create entry for neighbor if not known. */
@@ -751,7 +774,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	return;
 }
 
-static int rtadv_read(struct thread *thread)
+static void rtadv_read(struct thread *thread)
 {
 	int sock;
 	int len;
@@ -774,12 +797,10 @@ static int rtadv_read(struct thread *thread)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "RA/RS recv failed, socket %u error %s", sock,
 			     safe_strerror(errno));
-		return len;
+		return;
 	}
 
 	rtadv_process_packet(buf, (unsigned)len, ifindex, hoplimit, &from, zvrf);
-
-	return 0;
 }
 
 static int rtadv_make_socket(ns_id_t ns_id)
@@ -1282,6 +1303,9 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 
 	zif = ifp->info;
 	if (enable) {
+		if (!CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			interfaces_configured_for_ra_from_bgp++;
+
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
@@ -1290,6 +1314,9 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
 	} else {
+		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			interfaces_configured_for_ra_from_bgp--;
+
 		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		if (!CHECK_FLAG(zif->rtadv.ra_configured,
 				VTY_RA_INTERVAL_CONFIGURED))
@@ -2766,6 +2793,8 @@ void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
 
 void rtadv_cmd_init(void)
 {
+	interfaces_configured_for_ra_from_bgp = 0;
+
 	hook_register(zebra_if_extra_info, nd_dump_vty);
 	hook_register(zebra_if_config_wr, rtadv_config_write);
 
@@ -2865,6 +2894,11 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 	return 0;
 }
 
+bool rtadv_compiled_in(void)
+{
+	return true;
+}
+
 #else
 void rtadv_vrf_init(struct zebra_vrf *zvrf)
 {
@@ -2920,4 +2954,14 @@ void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
 	return;
 }
 
+bool rtadv_compiled_in(void)
+{
+	return false;
+}
+
 #endif /* HAVE_RTADV */
+
+uint32_t rtadv_get_interfaces_configured_from_bgp(void)
+{
+	return interfaces_configured_for_ra_from_bgp;
+}

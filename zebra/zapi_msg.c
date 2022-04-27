@@ -62,7 +62,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
+DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
@@ -546,18 +546,19 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 }
 
 int zsend_redistribute_route(int cmd, struct zserv *client,
-			     const struct prefix *p,
-			     const struct prefix *src_p,
+			     const struct route_node *rn,
 			     const struct route_entry *re)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
+	const struct prefix *p, *src_p;
 	uint8_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 
+	srcdest_rnode_prefixes(rn, &p, &src_p);
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
@@ -742,11 +743,11 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
  * Common utility send route notification, called from a path using a
  * route_entry and from a path using a dataplane context.
  */
-static int route_notify_internal(const struct prefix *p, int type,
+static int route_notify_internal(const struct route_node *rn, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
-				 enum zapi_route_notify_owner note,
-				 afi_t afi, safi_t safi)
+				 enum zapi_route_notify_owner note, afi_t afi,
+				 safi_t safi)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -756,16 +757,16 @@ static int route_notify_internal(const struct prefix *p, int type,
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug(
-				"Not Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
-				zebra_route_string(type), p, table_id, note,
+				"Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
+				zebra_route_string(type), rn, table_id, note,
 				vrf_id);
 		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug(
-			"Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
-			zebra_route_string(type), p, table_id, note, vrf_id);
+			"Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
+			zebra_route_string(type), rn, table_id, note, vrf_id);
 
 	/* We're just allocating a small-ish buffer here, since we only
 	 * encode a small amount of data.
@@ -778,11 +779,11 @@ static int route_notify_internal(const struct prefix *p, int type,
 
 	stream_put(s, &note, sizeof(note));
 
-	stream_putc(s, p->family);
+	stream_putc(s, rn->p.family);
 
-	blen = prefix_blen(p);
-	stream_putc(s, p->prefixlen);
-	stream_put(s, &p->u.prefix, blen);
+	blen = prefix_blen(&rn->p);
+	stream_putc(s, rn->p.prefixlen);
+	stream_put(s, &rn->p.u.prefix, blen);
 
 	stream_putl(s, table_id);
 
@@ -795,11 +796,12 @@ static int route_notify_internal(const struct prefix *p, int type,
 	return zserv_send_message(client, s);
 }
 
-int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
-			     enum zapi_route_notify_owner note,
-			     afi_t afi, safi_t safi)
+int zsend_route_notify_owner(const struct route_node *rn,
+			     struct route_entry *re,
+			     enum zapi_route_notify_owner note, afi_t afi,
+			     safi_t safi)
 {
-	return (route_notify_internal(p, re->type, re->instance, re->vrf_id,
+	return (route_notify_internal(rn, re->type, re->instance, re->vrf_id,
 				      re->table, note, afi, safi));
 }
 
@@ -809,14 +811,11 @@ int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
 int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				 enum zapi_route_notify_owner note)
 {
-	return (route_notify_internal(dplane_ctx_get_dest(ctx),
-				      dplane_ctx_get_type(ctx),
-				      dplane_ctx_get_instance(ctx),
-				      dplane_ctx_get_vrf(ctx),
-				      dplane_ctx_get_table(ctx),
-				      note,
-				      dplane_ctx_get_afi(ctx),
-				      dplane_ctx_get_safi(ctx)));
+	return (route_notify_internal(
+		rib_find_rn_from_ctx(ctx), dplane_ctx_get_type(ctx),
+		dplane_ctx_get_instance(ctx), dplane_ctx_get_vrf(ctx),
+		dplane_ctx_get_table(ctx), note, dplane_ctx_get_afi(ctx),
+		dplane_ctx_get_safi(ctx)));
 }
 
 static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
@@ -1216,7 +1215,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), &exist);
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
 		if (!rnh)
 			return;
 
@@ -1488,6 +1487,7 @@ static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
 	ifindex_t ifindex;
 	struct interface *ifp;
 	char down;
+	enum protodown_reasons reason;
 
 	STREAM_GETL(msg, ifindex);
 	STREAM_GETC(msg, down);
@@ -1495,16 +1495,27 @@ static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
 	/* set ifdown */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 
-	if (ifp) {
-		zlog_info("Setting interface %s (%u): protodown %s", ifp->name,
-			  ifindex, down ? "on" : "off");
-		zebra_if_set_protodown(ifp, down);
-	} else {
+	if (!ifp) {
 		zlog_warn(
 			"Cannot set protodown %s for interface %u; does not exist",
 			down ? "on" : "off", ifindex);
+
+		return;
 	}
 
+	switch (client->proto) {
+	case ZEBRA_ROUTE_VRRP:
+		reason = ZEBRA_PROTODOWN_VRRP;
+		break;
+	case ZEBRA_ROUTE_SHARP:
+		reason = ZEBRA_PROTODOWN_SHARP;
+		break;
+	default:
+		reason = 0;
+		break;
+	}
+
+	zebra_if_set_protodown(ifp, down, reason);
 
 stream_failure:
 	return;
@@ -1578,7 +1589,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -1611,7 +1622,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -2080,8 +2091,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		re->mtu = api.mtu;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
-		re->opaque = XMALLOC(MTYPE_OPAQUE,
-				     sizeof(struct opaque) + api.opaque.length);
+		re->opaque =
+			XMALLOC(MTYPE_RE_OPAQUE,
+				sizeof(struct re_opaque) + api.opaque.length);
 		re->opaque->length = api.opaque.length;
 		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
 	}
@@ -2093,6 +2105,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2105,6 +2118,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2125,7 +2139,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		nhe.backup_info = bnhg;
 	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
-				    re, &nhe);
+				    re, &nhe, false);
 
 	/*
 	 * rib_add_multipath_nhe only fails in a couple spots
@@ -2133,6 +2147,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 	}
 
@@ -2161,9 +2176,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	}
 }
 
-void zapi_opaque_free(struct opaque *opaque)
+void zapi_re_opaque_free(struct re_opaque *opaque)
 {
-	XFREE(MTYPE_OPAQUE, opaque);
+	XFREE(MTYPE_RE_OPAQUE, opaque);
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)

@@ -21,18 +21,104 @@
 #define _PIMD_PIM_ADDR_H
 
 #include "jhash.h"
+#include "prefix.h"
 
-/* temporarily disable IPv6 types to keep code compiling.
- * Defining PIM_V6_TEMP_BREAK will show a lot of compile errors - they are
- * very useful to see TODOs.
- */
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+/* clang-format off */
+
+#if PIM_IPV == 4
 typedef struct in_addr pim_addr;
-#define PIM_ADDRSTRLEN INET_ADDRSTRLEN
+
+#define PIM_ADDRSTRLEN	INET_ADDRSTRLEN
+#define PIM_AF		AF_INET
+#define PIM_AFI		AFI_IP
+#define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
+#define PIM_AF_NAME     "ip"
+
+#define PIM_ADDR_FUNCNAME(name) ipv4_##name
+
+union pimprefixptr {
+	prefixtype(pimprefixptr, struct prefix,      p)
+	prefixtype(pimprefixptr, struct prefix_ipv4, p4)
+} TRANSPARENT_UNION;
+
+union pimprefixconstptr {
+	prefixtype(pimprefixconstptr, const struct prefix,      p)
+	prefixtype(pimprefixconstptr, const struct prefix_ipv4, p4)
+} TRANSPARENT_UNION;
+
 #else
 typedef struct in6_addr pim_addr;
-#define PIM_ADDRSTRLEN INET6_ADDRSTRLEN
+
+#define PIM_ADDRSTRLEN	INET6_ADDRSTRLEN
+#define PIM_AF		AF_INET6
+#define PIM_AFI		AFI_IP6
+#define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
+#define PIM_AF_NAME     "ipv6"
+
+#define PIM_ADDR_FUNCNAME(name) ipv6_##name
+
+union pimprefixptr {
+	prefixtype(pimprefixptr, struct prefix,      p)
+	prefixtype(pimprefixptr, struct prefix_ipv6, p6)
+} TRANSPARENT_UNION;
+
+union pimprefixconstptr {
+	prefixtype(pimprefixconstptr, const struct prefix,      p)
+	prefixtype(pimprefixconstptr, const struct prefix_ipv6, p6)
+} TRANSPARENT_UNION;
 #endif
+
+/* for assignment/initialization (C99 compound literal)
+ * named PIMADDR_ANY (not PIM_ADDR_ANY) to match INADDR_ANY
+ */
+#define PIMADDR_ANY (pim_addr){ }
+
+/* clang-format on */
+
+static inline bool pim_addr_is_any(pim_addr addr)
+{
+	pim_addr zero = {};
+
+	return memcmp(&addr, &zero, sizeof(zero)) == 0;
+}
+
+static inline int pim_addr_cmp(pim_addr a, pim_addr b)
+{
+	return memcmp(&a, &b, sizeof(a));
+}
+
+static inline void pim_addr_to_prefix(union pimprefixptr out, pim_addr in)
+{
+	out.p->family = PIM_AF;
+	out.p->prefixlen = PIM_MAX_BITLEN;
+	memcpy(out.p->u.val, &in, sizeof(in));
+}
+
+static inline pim_addr pim_addr_from_prefix(union pimprefixconstptr in)
+{
+	pim_addr ret;
+
+	if (in.p->family != PIM_AF)
+		return PIMADDR_ANY;
+
+	memcpy(&ret, in.p->u.val, sizeof(ret));
+	return ret;
+}
+
+static inline uint8_t pim_addr_scope(const pim_addr addr)
+{
+	return PIM_ADDR_FUNCNAME(mcast_scope)(&addr);
+}
+
+static inline bool pim_addr_nofwd(const pim_addr addr)
+{
+	return PIM_ADDR_FUNCNAME(mcast_nofwd)(&addr);
+}
+
+static inline bool pim_addr_ssm(const pim_addr addr)
+{
+	return PIM_ADDR_FUNCNAME(mcast_ssm)(&addr);
+}
 
 /* don't use this struct directly, use the pim_sgaddr typedef */
 struct _pim_sgaddr {

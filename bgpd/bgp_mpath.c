@@ -624,7 +624,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				prev_mpath = cur_mpath;
 				mpath_count++;
 				if (ecommunity_linkbw_present(
-					    cur_mpath->attr->ecommunity,
+					    bgp_attr_get_ecommunity(
+						    cur_mpath->attr),
 					    &bwval))
 					cum_bw += bwval;
 				else
@@ -714,7 +715,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				mpath_changed = 1;
 				mpath_count++;
 				if (ecommunity_linkbw_present(
-					    new_mpath->attr->ecommunity,
+					    bgp_attr_get_ecommunity(
+						    new_mpath->attr),
 					    &bwval))
 					cum_bw += bwval;
 				else
@@ -737,9 +739,9 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (new_best) {
 		bgp_path_info_mpath_count_set(new_best, mpath_count - 1);
-		if (mpath_count <= 1
-		    || !ecommunity_linkbw_present(new_best->attr->ecommunity,
-						  &bwval))
+		if (mpath_count <= 1 ||
+		    !ecommunity_linkbw_present(
+			    bgp_attr_get_ecommunity(new_best->attr), &bwval))
 			all_paths_lb = false;
 		else
 			cum_bw += bwval;
@@ -840,11 +842,15 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		aspath = aspath_dup(attr.aspath);
 		origin = attr.origin;
 		community =
-			attr.community ? community_dup(attr.community) : NULL;
-		ecomm = (attr.ecommunity) ? ecommunity_dup(attr.ecommunity)
-					  : NULL;
-		lcomm = (attr.lcommunity) ? lcommunity_dup(attr.lcommunity)
-					  : NULL;
+			bgp_attr_get_community(&attr)
+				? community_dup(bgp_attr_get_community(&attr))
+				: NULL;
+		ecomm = (bgp_attr_get_ecommunity(&attr))
+				? ecommunity_dup(bgp_attr_get_ecommunity(&attr))
+				: NULL;
+		lcomm = (bgp_attr_get_lcommunity(&attr))
+				? lcommunity_dup(bgp_attr_get_lcommunity(&attr))
+				: NULL;
 
 		for (mpinfo = bgp_path_info_mpath_first(new_best); mpinfo;
 		     mpinfo = bgp_path_info_mpath_next(mpinfo)) {
@@ -856,57 +862,55 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 			if (origin < mpinfo->attr->origin)
 				origin = mpinfo->attr->origin;
 
-			if (mpinfo->attr->community) {
+			if (bgp_attr_get_community(mpinfo->attr)) {
 				if (community) {
 					commerge = community_merge(
 						community,
-						mpinfo->attr->community);
+						bgp_attr_get_community(
+							mpinfo->attr));
 					community =
 						community_uniq_sort(commerge);
 					community_free(&commerge);
 				} else
 					community = community_dup(
-						mpinfo->attr->community);
+						bgp_attr_get_community(
+							mpinfo->attr));
 			}
 
-			if (mpinfo->attr->ecommunity) {
+			if (bgp_attr_get_ecommunity(mpinfo->attr)) {
 				if (ecomm) {
 					ecommerge = ecommunity_merge(
-						ecomm,
-						mpinfo->attr->ecommunity);
+						ecomm, bgp_attr_get_ecommunity(
+							       mpinfo->attr));
 					ecomm = ecommunity_uniq_sort(ecommerge);
 					ecommunity_free(&ecommerge);
 				} else
 					ecomm = ecommunity_dup(
-						mpinfo->attr->ecommunity);
+						bgp_attr_get_ecommunity(
+							mpinfo->attr));
 			}
-			if (mpinfo->attr->lcommunity) {
+			if (bgp_attr_get_lcommunity(mpinfo->attr)) {
 				if (lcomm) {
 					lcommerge = lcommunity_merge(
-						lcomm,
-						mpinfo->attr->lcommunity);
+						lcomm, bgp_attr_get_lcommunity(
+							       mpinfo->attr));
 					lcomm = lcommunity_uniq_sort(lcommerge);
 					lcommunity_free(&lcommerge);
 				} else
 					lcomm = lcommunity_dup(
-						mpinfo->attr->lcommunity);
+						bgp_attr_get_lcommunity(
+							mpinfo->attr));
 			}
 		}
 
 		attr.aspath = aspath;
 		attr.origin = origin;
-		if (community) {
-			attr.community = community;
-			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
-		}
-		if (ecomm) {
-			attr.ecommunity = ecomm;
-			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
-		}
-		if (lcomm) {
-			attr.lcommunity = lcomm;
-			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
-		}
+		if (community)
+			bgp_attr_set_community(&attr, community);
+		if (ecomm)
+			bgp_attr_set_ecommunity(&attr, ecomm);
+		if (lcomm)
+			bgp_attr_set_lcommunity(&attr, lcomm);
 
 		/* Zap multipath attr nexthop so we set nexthop to self */
 		attr.nexthop.s_addr = INADDR_ANY;

@@ -68,7 +68,7 @@ struct xrefdata_logmsg {
  * initialization and/or before config load.  There is no need to call e.g.
  * fprintf(stderr, ...) just because it's "too early" at startup.  Depending
  * on context, it may still be the right thing to use fprintf though -- try to
- * determine wether something is a log message or something else.
+ * determine whether something is a log message or something else.
  */
 
 extern void vzlogx(const struct xref_logmsg *xref, int prio,
@@ -183,8 +183,11 @@ extern void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen,
 /* default is local time zone */
 #define ZLOG_TS_UTC		(1 << 10)
 
+struct timespec;
+
 extern size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out,
 			  uint32_t flags);
+extern void zlog_msg_tsraw(struct zlog_msg *msg, struct timespec *ts);
 
 /* "mmm dd hh:mm:ss" for RFC3164 syslog.  Only ZLOG_TS_UTC for flags. */
 extern size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out,

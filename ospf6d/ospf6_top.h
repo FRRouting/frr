@@ -70,7 +70,7 @@ struct ospf6_gr_info {
 };
 
 struct ospf6_gr_helper {
-	/* Gracefull restart Helper supported configs*/
+	/* Graceful restart Helper supported configs*/
 	/* Supported grace interval*/
 	uint32_t supported_grace_time;
 
@@ -228,9 +228,11 @@ struct ospf6 {
 	/* Action for aggregation of external LSAs */
 	int aggr_action;
 
+	uint32_t seqnum_l; /* lower order Sequence Number */
+	uint32_t seqnum_h; /* higher order Sequence Number */
 #define OSPF6_EXTL_AGGR_DEFAULT_DELAY 5
 	/* For ASBR summary delay timer */
-	int aggr_delay_interval;
+	uint16_t aggr_delay_interval;
 	/* Table of configured Aggregate addresses */
 	struct route_table *rt_aggr_tbl;
 
@@ -251,6 +253,7 @@ extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
 extern bool ospf6_router_id_update(struct ospf6 *ospf6, bool init);
+void ospf6_restart_spf(struct ospf6 *ospf6);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
 extern struct ospf6 *ospf6_instance_create(const char *name);

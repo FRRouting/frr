@@ -198,7 +198,7 @@ static int ripng_if_down(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface link up message processing. */
+/* Interface link up message processing. */
 static int ripng_ifp_up(struct interface *ifp)
 {
 	if (IS_RIPNG_DEBUG_ZEBRA)
@@ -222,7 +222,7 @@ static int ripng_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface link down message processing. */
+/* Interface link down message processing. */
 static int ripng_ifp_down(struct interface *ifp)
 {
 	ripng_interface_sync(ifp);
@@ -238,7 +238,7 @@ static int ripng_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 static int ripng_ifp_create(struct interface *ifp)
 {
 	ripng_interface_sync(ifp);
@@ -432,7 +432,7 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 					"RIPng connected address %pFX delete",
 					p);
 
-			/* Check wether this prefix needs to be removed. */
+			/* Check whether this prefix needs to be removed. */
 			ripng_apply_address_del(ifc);
 		}
 		connected_free(&ifc);
@@ -442,7 +442,7 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 }
 
 /* Lookup RIPng enable network. */
-/* Check wether the interface has at least a connected prefix that
+/* Check whether the interface has at least a connected prefix that
  * is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
@@ -477,7 +477,7 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check wether connected is within the ripng->enable_network table. */
+/* Check whether connected is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup2(struct connected *connected)
 {
 	struct ripng_interface *ri = connected->ifp->info;
@@ -601,7 +601,7 @@ int ripng_enable_if_delete(struct ripng *ripng, const char *ifname)
 }
 
 /* Wake up interface. */
-static int ripng_interface_wakeup(struct thread *t)
+static void ripng_interface_wakeup(struct thread *t)
 {
 	struct interface *ifp;
 	struct ripng_interface *ri;
@@ -616,7 +616,7 @@ static int ripng_interface_wakeup(struct thread *t)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
-		return 0;
+		return;
 	}
 
 	/* Set running flag. */
@@ -624,8 +624,6 @@ static int ripng_interface_wakeup(struct thread *t)
 
 	/* Send RIP request to the interface. */
 	ripng_request(ifp);
-
-	return 0;
 }
 
 static void ripng_connect_set(struct interface *ifp, int set)
@@ -649,7 +647,7 @@ static void ripng_connect_set(struct interface *ifp, int set)
 		apply_mask_ipv6(&address);
 
 		if (set) {
-			/* Check once more wether this prefix is within a
+			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
 			if ((ripng_enable_if_lookup(ripng, connected->ifp->name)
 			     >= 0)

@@ -240,7 +240,7 @@ void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
-int pim_msdp_write(struct thread *thread);
+void pim_msdp_write(struct thread *thread);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,

@@ -61,7 +61,7 @@ void pim_register_join(struct pim_upstream *up)
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM, __func__);
 	up->reg_state = PIM_REG_JOIN;
-	pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
+	pim_vxlan_update_sg_reg_state(pim, up, true);
 }
 
 void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
@@ -72,12 +72,10 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	unsigned int b1length = 0;
 	unsigned int length;
 	uint8_t *b1;
-	struct prefix p;
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("Sending Register stop for %s to %pI4 on %s",
-			   pim_str_sg_dump(sg), &originator,
-			   ifp->name);
+		zlog_debug("Sending Register stop for %pSG to %pI4 on %s", sg,
+			   &originator, ifp->name);
 	}
 
 	memset(buffer, 0, 10000);
@@ -87,13 +85,11 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	b1length += length;
 	b1 += length;
 
-	p.family = AF_INET;
-	p.u.prefix4 = sg->src;
-	p.prefixlen = IPV4_MAX_BITLEN;
-	length = pim_encode_addr_ucast(b1, &p);
+	length = pim_encode_addr_ucast(b1, sg->src);
 	b1length += length;
 
-	pim_msg_build_header(buffer, b1length + PIM_MSG_REGISTER_STOP_LEN,
+	pim_msg_build_header(src, originator, buffer,
+			     b1length + PIM_MSG_REGISTER_STOP_LEN,
 			     PIM_MSG_TYPE_REG_STOP, false);
 
 	pinfo = (struct pim_interface *)ifp->info;
@@ -113,13 +109,39 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	++pinfo->pim_ifstat_reg_stop_send;
 }
 
+static void pim_reg_stop_upstream(struct pim_instance *pim,
+				  struct pim_upstream *up)
+{
+	switch (up->reg_state) {
+	case PIM_REG_NOINFO:
+	case PIM_REG_PRUNE:
+		return;
+	case PIM_REG_JOIN:
+		up->reg_state = PIM_REG_PRUNE;
+		pim_channel_del_oif(up->channel_oil, pim->regiface,
+				    PIM_OIF_FLAG_PROTO_PIM, __func__);
+		pim_upstream_start_register_stop_timer(up, 0);
+		pim_vxlan_update_sg_reg_state(pim, up, false);
+		break;
+	case PIM_REG_JOIN_PENDING:
+		up->reg_state = PIM_REG_PRUNE;
+		pim_upstream_start_register_stop_timer(up, 0);
+		return;
+	}
+}
+
 int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
-	struct pim_upstream *upstream = NULL;
-	struct prefix source;
+	struct pim_upstream *up = NULL;
+	struct pim_rpf *rp;
+	pim_addr rpf_addr;
 	pim_sgaddr sg;
+	struct listnode *up_node;
+	struct pim_upstream *child;
+	bool wrong_af = false;
+	bool handling_star = false;
 	int l;
 
 	++pim_ifp->pim_ifstat_reg_stop_recv;
@@ -128,33 +150,69 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	l = pim_parse_addr_group(&sg, buf, buf_size);
 	buf += l;
 	buf_size -= l;
-	pim_parse_addr_ucast(&source, buf, buf_size);
-	sg.src = source.u.prefix4;
+	pim_parse_addr_ucast(&sg.src, buf, buf_size, &wrong_af);
 
-	upstream = pim_upstream_find(pim, &sg);
-	if (!upstream) {
-		return 0;
+	if (wrong_af) {
+		zlog_err("invalid AF in Register-Stop on %s", ifp->name);
+		return -1;
 	}
 
-	if (PIM_DEBUG_PIM_REG)
-		zlog_debug("Received Register stop for %s", upstream->sg_str);
 
-	switch (upstream->reg_state) {
-	case PIM_REG_NOINFO:
-	case PIM_REG_PRUNE:
-		return 0;
-	case PIM_REG_JOIN:
-		upstream->reg_state = PIM_REG_PRUNE;
-		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_PIM, __func__);
-		pim_upstream_start_register_stop_timer(upstream, 0);
-		pim_vxlan_update_sg_reg_state(pim, upstream,
-			false/*reg_join*/);
-		break;
-	case PIM_REG_JOIN_PENDING:
-		upstream->reg_state = PIM_REG_PRUNE;
-		pim_upstream_start_register_stop_timer(upstream, 0);
-		return 0;
+	if (PIM_DEBUG_PIM_REG)
+		zlog_debug("Received Register stop for %pSG", &sg);
+
+	rp = RP(pim_ifp->pim, sg.grp);
+	if (rp) {
+		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
+		if (pim_addr_cmp(sg.src, rpf_addr) == 0) {
+			handling_star = true;
+			sg.src = PIMADDR_ANY;
+		}
+	}
+
+	/*
+	 * RFC 7761 Sec 4.4.1
+	 * Handling Register-Stop(*,G) Messages at the DR:
+	 *   A Register-Stop(*,G) should be treated as a
+	 *   Register-Stop(S,G) for all (S,G) Register state
+	 *   machines that are not in the NoInfo state.
+	 */
+	up = pim_upstream_find(pim, &sg);
+	if (up) {
+		/*
+		 * If the upstream find actually found a particular
+		 * S,G then we *know* that the following for loop
+		 * is not going to execute and this is ok
+		 */
+		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
+			if (PIM_DEBUG_PIM_REG)
+				zlog_debug("Executing Reg stop for %s",
+					   child->sg_str);
+
+			pim_reg_stop_upstream(pim, child);
+		}
+
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("Executing Reg stop for %s", up->sg_str);
+		pim_reg_stop_upstream(pim, up);
+	} else {
+		if (!handling_star)
+			return 0;
+		/*
+		 * Unfortunately pim was unable to find a *,G
+		 * but pim may still actually have individual
+		 * S,G's that need to be processed.  In that
+		 * case pim must do the expensive walk to find
+		 * and stop
+		 */
+		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+			if (pim_addr_cmp(up->sg.grp, sg.grp) == 0) {
+				if (PIM_DEBUG_PIM_REG)
+					zlog_debug("Executing Reg stop for %s",
+						   up->sg_str);
+				pim_reg_stop_upstream(pim, up);
+			}
+		}
 	}
 
 	return 0;
@@ -204,7 +262,8 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
-	pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN,
+	pim_msg_build_header(src, rpg->rpf_addr.u.prefix4, buffer,
+			     buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
 	++pinfo->pim_ifstat_reg_send;
@@ -312,30 +371,26 @@ void pim_null_register_send(struct pim_upstream *up)
  *      }
  *  }
  */
-int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
-		      struct in_addr src_addr, uint8_t *tlv_buf,
-		      int tlv_buf_size)
+int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
+		      pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size)
 {
 	int sentRegisterStop = 0;
-	struct ip *ip_hdr;
+	const void *ip_hdr;
 	pim_sgaddr sg;
 	uint32_t *bits;
 	int i_am_rp = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
+	pim_addr rp_addr;
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
-	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
+	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
-	if (!if_address_is_local(&dest_addr, AF_INET, pim->vrf->vrf_id)) {
-		if (PIM_DEBUG_PIM_REG) {
-			char dest[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<dst?>", dest_addr, dest, sizeof(dest));
+	if (!if_address_is_local(&dest_addr, PIM_AF, pim->vrf->vrf_id)) {
+		if (PIM_DEBUG_PIM_REG)
 			zlog_debug(
-				"%s: Received Register message for destination address: %s that I do not own",
-				__func__, dest);
-		}
+				"%s: Received Register message for destination address: %pPA that I do not own",
+				__func__, &dest_addr);
 		return 0;
 	}
 
@@ -368,72 +423,60 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	 * start of the actual Encapsulated data.
 	 */
 	memset(&sg, 0, sizeof(sg));
-	sg.src = ip_hdr->ip_src;
-	sg.grp = ip_hdr->ip_dst;
+	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
 	i_am_rp = I_am_RP(pim, sg.grp);
 
-	if (PIM_DEBUG_PIM_REG) {
-		char src_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_debug("Received Register message%s from %s on %s, rp: %d",
-			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
-	}
+	if (PIM_DEBUG_PIM_REG)
+		zlog_debug(
+			"Received Register message%pSG from %pPA on %s, rp: %d",
+			&sg, &src_addr, ifp->name, i_am_rp);
 
 	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
-		if (sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(sg.src)) {
 			zlog_warn(
-				"%s: Received Register message for Group(%pI4) is now in SSM, dropping the packet",
+				"%s: Received Register message for Group(%pPA) is now in SSM, dropping the packet",
 				__func__, &sg.grp);
 			/* Drop Packet Silently */
 			return 0;
 		}
 	}
 
-	if (i_am_rp
-	    && (dest_addr.s_addr
-		== ((RP(pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+	rp_addr = pim_addr_from_prefix(&(RP(pim, sg.grp))->rpf_addr);
+	if (i_am_rp && (!pim_addr_cmp(dest_addr, rp_addr))) {
 		sentRegisterStop = 0;
 
 		if (pim->register_plist) {
 			struct prefix_list *plist;
 			struct prefix src;
 
-			plist = prefix_list_lookup(AFI_IP, pim->register_plist);
+			plist = prefix_list_lookup(PIM_AFI,
+						   pim->register_plist);
 
-			src.family = AF_INET;
-			src.prefixlen = IPV4_MAX_BITLEN;
-			src.u.prefix4 = sg.src;
+			pim_addr_to_prefix(&src, sg.src);
 
 			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
 						       src_addr);
-				if (PIM_DEBUG_PIM_PACKETS) {
-					char src_str[INET_ADDRSTRLEN];
-
-					pim_inet4_dump("<src?>", src_addr,
-						       src_str,
-						       sizeof(src_str));
+				if (PIM_DEBUG_PIM_PACKETS)
 					zlog_debug(
-						"%s: Sending register-stop to %s for %pSG due to prefix-list denial, dropping packet",
-						__func__, src_str, &sg);
-				}
+						"%s: Sending register-stop to %pPA for %pSG due to prefix-list denial, dropping packet",
+						__func__, &src_addr, &sg);
 
 				return 0;
 			}
 		}
 
 		if (*bits & PIM_REGISTER_BORDER_BIT) {
-			struct in_addr pimbr = pim_br_get_pmbr(&sg);
+			pim_addr pimbr = pim_br_get_pmbr(&sg);
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s: Received Register message with Border bit set",
 					__func__);
 
-			if (pimbr.s_addr == pim_br_unknown.s_addr)
+			if (pim_addr_is_any(pimbr))
 				pim_br_set_pmbr(&sg, src_addr);
-			else if (src_addr.s_addr != pimbr.s_addr) {
+			else if (pim_addr_cmp(src_addr, pimbr)) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
 						       src_addr);
 				if (PIM_DEBUG_PIM_PACKETS)
@@ -515,13 +558,11 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	} else {
 		if (PIM_DEBUG_PIM_REG) {
 			if (!i_am_rp)
-				zlog_debug(
-					"Received Register packet for %s, Rejecting packet because I am not the RP configured for group",
-					pim_str_sg_dump(&sg));
+				zlog_debug("Received Register packet for %pSG, Rejecting packet because I am not the RP configured for group",
+					   &sg);
 			else
-				zlog_debug(
-					"Received Register packet for %s, Rejecting packet because the dst ip address is not the actual RP",
-					pim_str_sg_dump(&sg));
+				zlog_debug("Received Register packet for %pSG, Rejecting packet because the dst ip address is not the actual RP",
+					   &sg);
 		}
 		pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 	}

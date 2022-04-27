@@ -678,7 +678,7 @@ static void ospf_spf_flush_parents(struct vertex *w)
 
 /*
  * Consider supplied next-hop for inclusion to the supplied list of
- * equal-cost next-hops, adjust list as neccessary.
+ * equal-cost next-hops, adjust list as necessary.
  */
 static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 				struct vertex_nexthop *newhop,
@@ -1809,7 +1809,7 @@ void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 }
 
 /* Worker for SPF calculation scheduler. */
-static int ospf_spf_calculate_schedule_worker(struct thread *thread)
+static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
@@ -1929,8 +1929,6 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 	}
 
 	ospf_clear_spf_reason_flags();
-
-	return 0;
 }
 
 /*

@@ -207,7 +207,7 @@ struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 	struct as_external_lsa *al;
 	struct in_addr mask, id;
 
-	/* Fisrt search the lsdb with address specifc LSID
+	/* First search the lsdb with address specific LSID
 	 * where all the host bits are set, if there a matched
 	 * LSA, return.
 	 * Ex: For route 10.0.0.0/16, LSID is 10.0.255.255
@@ -223,8 +223,15 @@ struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 	id.s_addr = p->prefix.s_addr | (~mask.s_addr);
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA, id,
 				     ospf->router_id);
-	if (lsa)
+	if (lsa) {
+		if (p->prefixlen == IPV4_MAX_BITLEN) {
+			al = (struct as_external_lsa *)lsa->data;
+
+			if (mask.s_addr != al->mask.s_addr)
+				return NULL;
+		}
 		return lsa;
+	}
 
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
 				     p->prefix, ospf->router_id);
@@ -272,7 +279,7 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
 /* If there's redistribution configured, we need to refresh external
  * LSAs in order to install Type-7 and flood to all NSSA Areas
  */
-static int ospf_asbr_nssa_redist_update_timer(struct thread *thread)
+static void ospf_asbr_nssa_redist_update_timer(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	int type;
@@ -298,8 +305,6 @@ static int ospf_asbr_nssa_redist_update_timer(struct thread *thread)
 	}
 
 	ospf_external_lsa_refresh_default(ospf);
-
-	return 0;
 }
 
 void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
@@ -623,7 +628,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 	ospf_link_ei_to_aggr(aggr, ei);
 
 	lsa = ospf_external_info_find_lsa(ospf, &aggr->p);
-	/* Dont originate external LSA,
+	/* Don't originate external LSA,
 	 * If it is configured not to advertise.
 	 */
 	if (CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE)) {
@@ -780,12 +785,12 @@ static void ospf_handle_aggregated_exnl_rt(struct ospf *ospf,
 
 	/* Handling the case where the external route prefix
 	 * and aggregate prefix is same
-	 * If same dont flush the originated external LSA.
+	 * If same don't flush the originated external LSA.
 	 */
 	if (prefix_same((struct prefix *)&aggr->p, (struct prefix *)&ei->p)) {
 		if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 			zlog_debug(
-				"%s: External Route prefix same as Aggregator(%pI4/%d), so dont flush.",
+				"%s: External Route prefix same as Aggregator(%pI4/%d), so don't flush.",
 				__func__, &ei->p.prefix, ei->p.prefixlen);
 		return;
 	}
@@ -1057,7 +1062,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 	}
 }
 
-static int ospf_asbr_external_aggr_process(struct thread *thread)
+static void ospf_asbr_external_aggr_process(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	int operation = 0;
@@ -1079,8 +1084,6 @@ static int ospf_asbr_external_aggr_process(struct thread *thread)
 	default:
 		break;
 	}
-
-	return OSPF_SUCCESS;
 }
 static void ospf_external_aggr_timer(struct ospf *ospf,
 				     struct ospf_external_aggr_rt *aggr,
@@ -1108,7 +1111,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Start Aggregator delay timer %d(in seconds).",
+		zlog_debug("%s: Start Aggregator delay timer %u(in seconds).",
 			   __func__, ospf->aggr_delay_interval);
 
 	ospf->aggr_action = operation;
@@ -1232,7 +1235,7 @@ int ospf_asbr_external_rt_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
 	return OSPF_SUCCESS;
 }
 
-int ospf_external_aggregator_timer_set(struct ospf *ospf, unsigned int interval)
+int ospf_external_aggregator_timer_set(struct ospf *ospf, uint16_t interval)
 {
 	ospf->aggr_delay_interval = interval;
 	return OSPF_SUCCESS;

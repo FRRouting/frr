@@ -38,10 +38,36 @@
 #include "pim_jp_agg.h"
 #include "pim_oil.h"
 
-void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
-			  uint8_t pim_msg_type, bool no_fwd)
+void pim_msg_build_header(pim_addr src, pim_addr dst, uint8_t *pim_msg,
+			  size_t pim_msg_size, uint8_t pim_msg_type,
+			  bool no_fwd)
 {
 	struct pim_msg_header *header = (struct pim_msg_header *)pim_msg;
+	struct iovec iov[2], *iovp = iov;
+
+	/*
+	 * The checksum for Registers is done only on the first 8 bytes of the
+	 * packet, including the PIM header and the next 4 bytes, excluding the
+	 * data packet portion
+	 *
+	 * for IPv6, the pseudoheader upper-level protocol length is also
+	 * truncated, so let's just set it here before everything else.
+	 */
+	if (pim_msg_type == PIM_MSG_TYPE_REGISTER)
+		pim_msg_size = PIM_MSG_REGISTER_LEN;
+
+#if PIM_IPV == 6
+	struct ipv6_ph phdr = {
+		.src = src,
+		.dst = dst,
+		.ulpl = htonl(pim_msg_size),
+		.next_hdr = IPPROTO_PIM,
+	};
+
+	iovp->iov_base = &phdr;
+	iovp->iov_len = sizeof(phdr);
+	iovp++;
+#endif
 
 	/*
 	 * Write header
@@ -51,18 +77,12 @@ void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
 	header->Nbit = no_fwd;
 	header->reserved = 0;
 
-
 	header->checksum = 0;
-	/*
-	 * The checksum for Registers is done only on the first 8 bytes of the
-	 * packet,
-	 * including the PIM header and the next 4 bytes, excluding the data
-	 * packet portion
-	 */
-	if (pim_msg_type == PIM_MSG_TYPE_REGISTER)
-		header->checksum = in_cksum(pim_msg, PIM_MSG_REGISTER_LEN);
-	else
-		header->checksum = in_cksum(pim_msg, pim_msg_size);
+	iovp->iov_base = header;
+	iovp->iov_len = pim_msg_size;
+	iovp++;
+
+	header->checksum = in_cksumv(iov, iovp - iov);
 }
 
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr)
@@ -97,6 +117,68 @@ uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf, struct in_addr addr,
 	return buf + PIM_ENCODED_IPV4_SOURCE_SIZE;
 }
 
+uint8_t *pim_msg_addr_encode_ipv6_source(uint8_t *buf, struct in6_addr addr,
+					 uint8_t bits)
+{
+	buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV6; /* addr family */
+	buf[1] = '\0';			      /* native encoding */
+	buf[2] = bits;
+	buf[3] = 128; /* mask len */
+	buf += 4;
+
+	memcpy(buf, &addr, sizeof(addr));
+	buf += sizeof(addr);
+
+	return buf;
+}
+
+uint8_t *pim_msg_addr_encode_ipv6_ucast(uint8_t *buf, struct in6_addr addr)
+{
+	buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV6; /* addr family */
+	buf[1] = '\0';			      /* native encoding */
+	buf += 2;
+
+	memcpy(buf, &addr, sizeof(addr));
+	buf += sizeof(addr);
+
+	return buf;
+}
+
+uint8_t *pim_msg_addr_encode_ipv6_group(uint8_t *buf, struct in6_addr addr)
+{
+	buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV6; /* addr family */
+	buf[1] = '\0';			      /* native encoding */
+	buf[2] = '\0';			      /* reserved */
+	buf[3] = 128;			      /* mask len */
+	buf += 4;
+
+	memcpy(buf, &addr, sizeof(addr));
+	buf += sizeof(addr);
+
+	return buf;
+}
+
+#if PIM_IPV == 4
+#define pim_msg_addr_encode(what) pim_msg_addr_encode_ipv4_##what
+#else
+#define pim_msg_addr_encode(what) pim_msg_addr_encode_ipv6_##what
+#endif
+
+uint8_t *pim_msg_addr_encode_ucast(uint8_t *buf, pim_addr addr)
+{
+	return pim_msg_addr_encode(ucast)(buf, addr);
+}
+
+uint8_t *pim_msg_addr_encode_group(uint8_t *buf, pim_addr addr)
+{
+	return pim_msg_addr_encode(group)(buf, addr);
+}
+
+uint8_t *pim_msg_addr_encode_source(uint8_t *buf, pim_addr addr, uint8_t bits)
+{
+	return pim_msg_addr_encode(source)(buf, addr, bits);
+}
+
 /*
  * For the given 'struct pim_jp_sources' list
  * determine the size_t it would take up.
@@ -109,13 +191,13 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 	if (!sources)
 		return 0;
 
-	size += sizeof(struct pim_encoded_group_ipv4);
+	size += sizeof(pim_encoded_group);
 	size += 4; // Joined sources (2) + Pruned Sources (2)
 
-	size += sizeof(struct pim_encoded_source_ipv4) * sources->count;
+	size += sizeof(pim_encoded_source) * sources->count;
 
 	js = listgetdata(listhead(sources));
-	if (js && js->up->sg.src.s_addr == INADDR_ANY && js->is_join) {
+	if (js && pim_addr_is_any(js->up->sg.src) && js->is_join) {
 		struct pim_upstream *child, *up;
 		struct listnode *up_node;
 
@@ -137,8 +219,7 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 				if (child->rpf.source_nexthop.interface &&
 					!pim_rpf_is_same(&up->rpf,
 						&child->rpf)) {
-					size += sizeof(
-						struct pim_encoded_source_ipv4);
+					size += sizeof(pim_encoded_source);
 					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
 						child->flags);
 					if (PIM_DEBUG_PIM_PACKETS)
@@ -156,8 +237,7 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 				 * but it's inherited OIL is empty. So just
 				 * prune it off.
 				 */
-				size += sizeof(
-						struct pim_encoded_source_ipv4);
+				size += sizeof(pim_encoded_source);
 				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
 						child->flags);
 				if (PIM_DEBUG_PIM_PACKETS)
@@ -179,12 +259,12 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 	struct listnode *node, *nnode;
 	struct pim_jp_sources *source;
 	struct pim_upstream *up = NULL;
-	struct in_addr stosend;
+	pim_addr stosend;
 	uint8_t bits;
 	uint8_t tgroups = 0;
 
 	memset(grp, 0, size);
-	pim_msg_addr_encode_ipv4_group((uint8_t *)&grp->g, sgs->group);
+	pim_msg_addr_encode_group((uint8_t *)&grp->g, sgs->group);
 
 	for (ALL_LIST_ELEMENTS(sgs->sources, node, nnode, source)) {
 		/* number of joined/pruned sources */
@@ -193,12 +273,12 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 		else
 			grp->prunes++;
 
-		if (source->up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(source->up->sg.src)) {
 			struct pim_instance *pim = source->up->channel_oil->pim;
 			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT
 			       | PIM_ENCODE_RPT_BIT;
-			stosend = rpf->rpf_addr.u.prefix4;
+			stosend = pim_addr_from_prefix(&rpf->rpf_addr);
 			/* Only Send SGRpt in case of *,G Join */
 			if (source->is_join)
 				up = source->up;
@@ -207,8 +287,8 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 			stosend = source->up->sg.src;
 		}
 
-		pim_msg_addr_encode_ipv4_source((uint8_t *)&grp->s[tgroups],
-						stosend, bits);
+		pim_msg_addr_encode_source((uint8_t *)&grp->s[tgroups], stosend,
+					   bits);
 		tgroups++;
 	}
 
@@ -218,11 +298,11 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 		for (ALL_LIST_ELEMENTS(up->sources, node, nnode, child)) {
 			if (PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(
 				    child->flags)) {
-				pim_msg_addr_encode_ipv4_source(
+				pim_msg_addr_encode_source(
 					(uint8_t *)&grp->s[tgroups],
 					child->sg.src,
-					PIM_ENCODE_SPARSE_BIT
-						| PIM_ENCODE_RPT_BIT);
+					PIM_ENCODE_SPARSE_BIT |
+						PIM_ENCODE_RPT_BIT);
 				tgroups++;
 				PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(
 					child->flags);

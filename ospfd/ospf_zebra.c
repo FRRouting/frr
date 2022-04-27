@@ -524,7 +524,7 @@ bool ospf_external_default_routemap_apply_walk(struct ospf *ospf,
  * Function to originate or flush default after applying
  * route-map on all ei.
  */
-static int ospf_external_lsa_default_routemap_timer(struct thread *thread)
+static void ospf_external_lsa_default_routemap_timer(struct thread *thread)
 {
 	struct list *ext_list;
 	struct ospf *ospf = THREAD_ARG(thread);
@@ -545,7 +545,7 @@ static int ospf_external_lsa_default_routemap_timer(struct thread *thread)
 		/* Nothing to be done here. */
 		if (IS_DEBUG_OSPF_DEFAULT_INFO)
 			zlog_debug("Default originate info not present");
-		return 0;
+		return;
 	}
 
 	/* For all the ei apply route-map */
@@ -570,8 +570,6 @@ static int ospf_external_lsa_default_routemap_timer(struct thread *thread)
 		ospf_external_lsa_refresh(ospf, lsa, default_ei, true, false);
 	else if (!ret && lsa)
 		ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &default_ei->p, 0);
-
-	return 1;
 }
 
 
@@ -1282,6 +1280,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct prefix_ipv4 p;
+	struct prefix pgen;
 	unsigned long ifindex;
 	struct in_addr nexthop;
 	struct external_info *ei;
@@ -1304,13 +1303,17 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
 		return 0;
 
+	pgen.family = p.family;
+	pgen.prefixlen = p.prefixlen;
+	pgen.u.prefix4 = p.prefix;
+
 	/* Re-destributed route is default route.
 	 * Here, route type is used as 'ZEBRA_ROUTE_KERNEL' for
 	 * updating ex-info. But in resetting (no default-info
 	 * originate)ZEBRA_ROUTE_MAX is used to delete the ex-info.
 	 * Resolved this inconsistency by maintaining same route type.
 	 */
-	if (is_default_prefix4(&p))
+	if ((is_default_prefix(&pgen)) && (api.type != ZEBRA_ROUTE_OSPF))
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
@@ -1380,7 +1383,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 					/* Handling the case where the
 					 * external route prefix
 					 * and aggegate prefix is same
-					 * If same dont flush the
+					 * If same don't flush the
 					 * originated
 					 * external LSA.
 					 */
@@ -1522,7 +1525,7 @@ int ospf_distribute_list_out_unset(struct ospf *ospf, int type,
 }
 
 /* distribute-list update timer. */
-static int ospf_distribute_list_update_timer(struct thread *thread)
+static void ospf_distribute_list_update_timer(struct thread *thread)
 {
 	struct route_node *rn;
 	struct external_info *ei;
@@ -1532,7 +1535,7 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	struct ospf *ospf = THREAD_ARG(thread);
 
 	if (ospf == NULL)
-		return 0;
+		return;
 
 	ospf->t_distribute_update = NULL;
 
@@ -1639,8 +1642,6 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	}
 	if (default_refresh)
 		ospf_external_lsa_refresh_default(ospf);
-
-	return 0;
 }
 
 /* Update distribute-list and set timer to apply access-list. */

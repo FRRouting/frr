@@ -344,7 +344,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 /*
  * LDP-SYNC holddown timer routines
  */
-static int isis_ldp_sync_holddown_timer(struct thread *thread)
+static void isis_ldp_sync_holddown_timer(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
@@ -355,7 +355,7 @@ static int isis_ldp_sync_holddown_timer(struct thread *thread)
 	 */
 	circuit = THREAD_ARG(thread);
 	if (circuit->ldp_sync_info == NULL)
-		return 0;
+		return;
 
 	ldp_sync_info = circuit->ldp_sync_info;
 
@@ -366,7 +366,6 @@ static int isis_ldp_sync_holddown_timer(struct thread *thread)
 		  circuit->interface->name);
 
 	isis_ldp_sync_set_if_metric(circuit, true);
-	return 0;
 }
 
 void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
@@ -480,9 +479,9 @@ void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
 	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config
+	 *  specified on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
- 	 */
+	 */
 	if (if_is_loopback(circuit->interface))
 		return;
 
@@ -542,7 +541,7 @@ void isis_if_set_ldp_sync_holddown(struct isis_circuit *circuit)
 	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config.
+	 *  specified on interface overrides global config.
 	 */
 	if (if_is_loopback(circuit->interface))
 		return;

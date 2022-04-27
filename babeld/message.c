@@ -140,12 +140,12 @@ parse_update_subtlv(const unsigned char *a, int alen,
             continue;
         }
 
-        if(i + 1 > alen) {
+        if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
             return;
         }
         len = a[i + 1];
-        if(i + len > alen) {
+        if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
             return;
         }
@@ -182,19 +182,19 @@ parse_hello_subtlv(const unsigned char *a, int alen,
     int type, len, i = 0, ret = 0;
 
     while(i < alen) {
-        type = a[0];
+        type = a[i];
         if(type == SUBTLV_PAD1) {
             i++;
             continue;
         }
 
-        if(i + 1 > alen) {
+        if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
             return -1;
         }
         len = a[i + 1];
-        if(i + len > alen) {
+        if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
             return -1;
@@ -228,19 +228,19 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
     int type, len, i = 0, ret = 0;
 
     while(i < alen) {
-        type = a[0];
+        type = a[i];
         if(type == SUBTLV_PAD1) {
             i++;
             continue;
         }
 
-        if(i + 1 > alen) {
+        if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
             return -1;
         }
         len = a[i + 1];
-        if(i + len > alen) {
+        if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
             return -1;
@@ -288,13 +288,18 @@ channels_len(unsigned char *channels)
 static int
 babel_packet_examin(const unsigned char *packet, int packetlen)
 {
-    unsigned i = 0, bodylen;
+    int i = 0, bodylen;
     const unsigned char *message;
     unsigned char type, len;
 
     if(packetlen < 4 || packet[0] != 42 || packet[1] != 2)
         return 1;
     DO_NTOHS(bodylen, packet + 2);
+    if(bodylen + 4 > packetlen) {
+        debugf(BABEL_DEBUG_COMMON, "Received truncated packet (%d + 4 > %d).",
+                 bodylen, packetlen);
+        return 1;
+    }
     while (i < bodylen){
         message = packet + 4 + i;
         type = message[0];
@@ -302,12 +307,12 @@ babel_packet_examin(const unsigned char *packet, int packetlen)
             i++;
             continue;
         }
-        if(i + 1 > bodylen) {
+        if(i + 2 > bodylen) {
             debugf(BABEL_DEBUG_COMMON,"Received truncated message.");
             return 1;
         }
         len = message[1];
-        if(i + len > bodylen) {
+        if(i + len + 2 > bodylen) {
             debugf(BABEL_DEBUG_COMMON,"Received truncated message.");
             return 1;
         }
@@ -365,12 +370,6 @@ parse_packet(const unsigned char *from, struct interface *ifp,
     }
 
     DO_NTOHS(bodylen, packet + 2);
-
-    if(bodylen + 4 > packetlen) {
-        flog_err(EC_BABEL_PACKET, "Received truncated packet (%d + 4 > %d).",
-                 bodylen, packetlen);
-        bodylen = packetlen - 4;
-    }
 
     i = 0;
     while(i < bodylen) {

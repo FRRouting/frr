@@ -28,6 +28,8 @@ extern "C" {
 
 struct pltrie_table;
 
+PREDECL_RBTREE_UNIQ(plist);
+
 struct prefix_list {
 	char *name;
 	char *desc;
@@ -37,13 +39,12 @@ struct prefix_list {
 	int count;
 	int rangecount;
 
+	struct plist_item plist_item;
+
 	struct prefix_list_entry *head;
 	struct prefix_list_entry *tail;
 
 	struct pltrie_table *trie;
-
-	struct prefix_list *next;
-	struct prefix_list *prev;
 };
 
 /* Each prefix-list's entry. */

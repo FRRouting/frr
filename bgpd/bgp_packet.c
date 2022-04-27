@@ -386,7 +386,7 @@ static void bgp_write_proceed_actions(struct peer *peer)
  * update group a peer belongs to, encode this information into packets, and
  * enqueue the packets onto the peer's output buffer.
  */
-int bgp_generate_updgrp_packets(struct thread *thread)
+void bgp_generate_updgrp_packets(struct thread *thread)
 {
 	struct peer *peer = THREAD_ARG(thread);
 
@@ -407,14 +407,14 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 	 * update-delay processing).
 	 */
 	if (!peer_established(peer))
-		return 0;
+		return;
 
 	if ((peer->bgp->main_peers_update_hold)
 	    || bgp_update_delay_active(peer->bgp))
-		return 0;
+		return;
 
 	if (peer->t_routeadv)
-		return 0;
+		return;
 
 	do {
 		enum bgp_af_index index;
@@ -483,8 +483,8 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 						if (bgp_debug_neighbor_events(
 							    peer))
 							zlog_debug(
-								"%s sending route-refresh (EoRR) for %s/%s",
-								peer->host,
+								"%pBP sending route-refresh (EoRR) for %s/%s",
+								peer,
 								afi2str(afi),
 								safi2str(safi));
 					}
@@ -541,8 +541,6 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 		bgp_writes_on(peer);
 
 	bgp_write_proceed_actions(peer);
-
-	return 0;
 }
 
 /*
@@ -666,9 +664,6 @@ static void bgp_write_notify(struct peer *peer)
 		return;
 
 	assert(stream_get_endp(s) >= BGP_HEADER_SIZE);
-
-	/* Stop collecting data within the socket */
-	sockopt_cork(peer->fd, 0);
 
 	/*
 	 * socket is in nonblocking mode, if we can't deliver the NOTIFY, well,
@@ -918,9 +913,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 				stream_putc(s, ORF_COMMON_PART_REMOVE_ALL);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s sending REFRESH_REQ to remove ORF(%d) (%s) for afi/safi: %s/%s",
-						peer->host, orf_type,
-						(when_to_refresh == REFRESH_DEFER
+						"%pBP sending REFRESH_REQ to remove ORF(%d) (%s) for afi/safi: %s/%s",
+						peer, orf_type,
+						(when_to_refresh ==
+								 REFRESH_DEFER
 							 ? "defer"
 							 : "immediate"),
 						iana_afi2str(pkt_afi),
@@ -935,9 +931,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 					ORF_COMMON_PART_DENY);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s sending REFRESH_REQ with pfxlist ORF(%d) (%s) for afi/safi: %s/%s",
-						peer->host, orf_type,
-						(when_to_refresh == REFRESH_DEFER
+						"%pBP sending REFRESH_REQ with pfxlist ORF(%d) (%s) for afi/safi: %s/%s",
+						peer, orf_type,
+						(when_to_refresh ==
+								 REFRESH_DEFER
 							 ? "defer"
 							 : "immediate"),
 						iana_afi2str(pkt_afi),
@@ -954,9 +951,10 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!orf_refresh)
-			zlog_debug("%s sending REFRESH_REQ for afi/safi: %s/%s",
-				   peer->host, iana_afi2str(pkt_afi),
-				   iana_safi2str(pkt_safi));
+			zlog_debug(
+				"%pBP sending REFRESH_REQ for afi/safi: %s/%s",
+				peer, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 	}
 
 	/* Add packet to the peer. */
@@ -1000,8 +998,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s sending CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
-				peer->host,
+				"%pBP sending CAPABILITY has %s MP_EXT CAP for afi/safi: %s/%s",
+				peer,
 				action == CAPABILITY_ACTION_SET ? "Advertising"
 								: "Removing",
 				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
@@ -1540,7 +1538,7 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
-static int bgp_refresh_stalepath_timer_expire(struct thread *thread)
+static void bgp_refresh_stalepath_timer_expire(struct thread *thread)
 {
 	struct peer_af *paf;
 
@@ -1556,12 +1554,11 @@ static int bgp_refresh_stalepath_timer_expire(struct thread *thread)
 		bgp_clear_stale_route(peer, afi, safi);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s: route-refresh (BoRR) timer for %s/%s expired",
-			   peer->host, afi2str(afi), safi2str(safi));
+		zlog_debug(
+			"%pBP route-refresh (BoRR) timer expired for afi/safi: %d/%d",
+			peer, afi, safi);
 
 	bgp_timer_set(peer);
-
-	return 0;
 }
 
 /**
@@ -1682,7 +1679,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	 *
 	 * Complicates the flow a little though..
 	 */
-	bgp_attr_parse_ret_t attr_parse_ret = BGP_ATTR_PARSE_PROCEED;
+	enum bgp_attr_parse_ret attr_parse_ret = BGP_ATTR_PARSE_PROCEED;
 /* This define morphs the update case into a withdraw when lower levels
  * have signalled an error condition where this is best.
  */
@@ -1711,11 +1708,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
 			flog_err(
 				EC_BGP_UPDATE_RCV,
-				"%s rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
-				peer->host);
+				"%pBP rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
+				peer);
 
 		if (ret && bgp_debug_update(peer, NULL, NULL, 1)) {
-			zlog_debug("%s rcvd UPDATE w/ attr: %s", peer->host,
+			zlog_debug("%pBP rcvd UPDATE w/ attr: %s", peer,
 				   peer->rcvd_attr_str);
 			peer->rcvd_attr_printed = 1;
 		}
@@ -1745,8 +1742,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	if (BGP_DEBUG(update, UPDATE_IN))
-		zlog_debug("%s rcvd UPDATE wlen %d attrlen %d alen %d",
-			   peer->host, withdraw_len, attribute_len, update_len);
+		zlog_debug("%pBP rcvd UPDATE wlen %d attrlen %d alen %d", peer,
+			   withdraw_len, attribute_len, update_len);
 
 	/* Parse any given NLRIs */
 	for (int i = NLRI_UPDATE; i < NLRI_TYPE_MAX; i++) {
@@ -2099,8 +2096,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 				if (bgp_debug_neighbor_events(peer)) {
 					zlog_debug(
-						"%s rcvd Prefixlist ORF(%d) length %d",
-						peer->host, orf_type, orf_len);
+						"%pBP rcvd Prefixlist ORF(%d) length %d",
+						peer, orf_type, orf_len);
 				}
 
 				/* we're going to read at least 1 byte of common
@@ -2132,8 +2129,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 						if (bgp_debug_neighbor_events(
 							    peer))
 							zlog_debug(
-								"%s rcvd Remove-All pfxlist ORF request",
-								peer->host);
+								"%pBP rcvd Remove-All pfxlist ORF request",
+								peer);
 						prefix_bgp_orf_remove_all(afi,
 									  name);
 						break;
@@ -2184,8 +2181,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 						char buf[INET6_BUFSIZ];
 
 						zlog_debug(
-							"%s rcvd %s %s seq %u %s/%d ge %d le %d%s",
-							peer->host,
+							"%pBP rcvd %s %s seq %u %s/%d ge %d le %d%s",
+							peer,
 							(common & ORF_COMMON_PART_REMOVE
 								 ? "Remove"
 								 : "Add"),
@@ -2215,8 +2212,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 					if (!ok || (ok && ret != CMD_SUCCESS)) {
 						zlog_info(
-							"%s Received misformatted prefixlist ORF. Remove All pfxlist",
-							peer->host);
+							"%pBP Received misformatted prefixlist ORF. Remove All pfxlist",
+							peer);
 						prefix_bgp_orf_remove_all(afi,
 									  name);
 						break;
@@ -2229,7 +2226,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			stream_forward_getp(s, orf_len);
 		}
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s rcvd Refresh %s ORF request", peer->host,
+			zlog_debug("%pBP rcvd Refresh %s ORF request", peer,
 				   when_to_refresh == REFRESH_DEFER
 					   ? "Defer"
 					   : "Immediate");
@@ -2280,18 +2277,16 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 				   PEER_STATUS_EOR_RECEIVED)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s rcvd route-refresh (BoRR) for %s/%s before EoR",
-					peer->host, afi2str(afi),
-					safi2str(safi));
+					"%pBP rcvd route-refresh (BoRR) for %s/%s before EoR",
+					peer, afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
 		if (peer->t_refresh_stalepath) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
-					peer->host, afi2str(afi),
-					safi2str(safi));
+					"%pBP rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
+					peer, afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
@@ -2319,14 +2314,14 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s rcvd route-refresh (BoRR) for %s/%s, triggering timer for %u seconds",
-				peer->host, afi2str(afi), safi2str(safi),
+				"%pBP rcvd route-refresh (BoRR) for %s/%s, triggering timer for %u seconds",
+				peer, afi2str(afi), safi2str(safi),
 				peer->bgp->stalepath_time);
 	} else if (subtype == BGP_ROUTE_REFRESH_EORR) {
 		if (!peer->t_refresh_stalepath) {
 			zlog_err(
-				"%s rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
-				peer->host, afi2str(afi), safi2str(safi));
+				"%pBP rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
+				peer, afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
@@ -2338,15 +2333,16 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
-				peer->host, afi2str(afi), safi2str(safi));
+				"%pBP rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
+				peer, afi2str(afi), safi2str(safi));
 
 		if (peer->nsf[afi][safi])
 			bgp_clear_stale_route(peer, afi, safi);
 	} else {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s rcvd route-refresh (REQUEST) for %s/%s",
-				   peer->host, afi2str(afi), safi2str(safi));
+			zlog_debug(
+				"%pBP rcvd route-refresh (REQUEST) for %s/%s",
+				peer, afi2str(afi), safi2str(safi));
 
 		/* In response to a "normal route refresh request" from the
 		 * peer, the speaker MUST send a BoRR message.
@@ -2361,8 +2357,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					PEER_STATUS_EOR_SEND)) {
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"%s rcvd route-refresh (REQUEST) for %s/%s before EoR",
-						peer->host, afi2str(afi),
+						"%pBP rcvd route-refresh (REQUEST) for %s/%s before EoR",
+						peer, afi2str(afi),
 						safi2str(safi));
 				return BGP_PACKET_NOOP;
 			}
@@ -2372,9 +2368,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s sending route-refresh (BoRR) for %s/%s",
-					peer->host, afi2str(afi),
-					safi2str(safi));
+					"%pBP sending route-refresh (BoRR) for %s/%s",
+					peer, afi2str(afi), safi2str(safi));
 
 			/* Set flag Ready-To-Send to know when we can send EoRR
 			 * message.
@@ -2573,7 +2568,7 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
  * @param thread
  * @return 0
  */
-int bgp_process_packet(struct thread *thread)
+void bgp_process_packet(struct thread *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
@@ -2588,7 +2583,7 @@ int bgp_process_packet(struct thread *thread)
 
 	/* Guard against scheduled events that occur after peer deletion. */
 	if (peer->status == Deleted || peer->status == Clearing)
-		return 0;
+		return;
 
 	unsigned int processed = 0;
 
@@ -2602,7 +2597,7 @@ int bgp_process_packet(struct thread *thread)
 		}
 
 		if (peer->curr == NULL) // no packets to process, hmm...
-			return 0;
+			return;
 
 		/* skip the marker and copy the packet length */
 		stream_forward_getp(peer->curr, BGP_MARKER_SIZE);
@@ -2732,8 +2727,6 @@ int bgp_process_packet(struct thread *thread)
 					&peer->t_process_packet);
 		}
 	}
-
-	return 0;
 }
 
 /* Send EOR when routes are processed by selection deferral timer */
@@ -2752,7 +2745,7 @@ void bgp_send_delayed_eor(struct bgp *bgp)
  * having the io pthread try to enqueue fsm events or mess with the peer
  * struct.
  */
-int bgp_packet_process_error(struct thread *thread)
+void bgp_packet_process_error(struct thread *thread)
 {
 	struct peer *peer;
 	int code;
@@ -2777,6 +2770,4 @@ int bgp_packet_process_error(struct thread *thread)
 	}
 
 	bgp_event_update(peer, code);
-
-	return 0;
 }

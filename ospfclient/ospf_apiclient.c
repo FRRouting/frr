@@ -91,7 +91,7 @@ static unsigned short ospf_apiclient_getport(void)
 }
 
 /* -----------------------------------------------------------
- * Followings are functions for connection management
+ * Following are functions for connection management
  * -----------------------------------------------------------
  */
 
@@ -300,7 +300,7 @@ int ospf_apiclient_close(struct ospf_apiclient *oclient)
 }
 
 /* -----------------------------------------------------------
- * Followings are functions to send a request to OSPFd
+ * Following are functions to send a request to OSPFd
  * -----------------------------------------------------------
  */
 
@@ -498,7 +498,7 @@ int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 }
 
 /* -----------------------------------------------------------
- * Followings are handlers for messages from OSPF daemon
+ * Following are handlers for messages from OSPF daemon
  * -----------------------------------------------------------
  */
 

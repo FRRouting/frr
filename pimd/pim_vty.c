@@ -65,23 +65,28 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug igmp packets\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_TRACE) {
+	/* PIM_DEBUG_IGMP_TRACE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_IGMP_TRACE) {
 		vty_out(vty, "debug igmp trace\n");
 		++writes;
 	}
+	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+		vty_out(vty, "debug igmp trace detail\n");
+		++writes;
+	}
 
-	if (PIM_DEBUG_MROUTE) {
+	/* PIM_DEBUG_MROUTE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_MROUTE) {
 		vty_out(vty, "debug mroute\n");
+		++writes;
+	}
+	if (PIM_DEBUG_MROUTE_DETAIL) {
+		vty_out(vty, "debug mroute detail\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_MTRACE) {
 		vty_out(vty, "debug mtrace\n");
-		++writes;
-	}
-
-	if (PIM_DEBUG_MROUTE_DETAIL_ONLY) {
-		vty_out(vty, "debug mroute detail\n");
 		++writes;
 	}
 
@@ -102,11 +107,12 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
+	/* PIM_DEBUG_PIM_TRACE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_PIM_TRACE) {
 		vty_out(vty, "debug pim trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_PIM_TRACE_DETAIL_ONLY) {
+	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		vty_out(vty, "debug pim trace detail\n");
 		++writes;
 	}
@@ -161,6 +167,16 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+	if (PIM_DEBUG_PIM_NHT_RP) {
+		vty_out(vty, "debug pim nht rp\n");
+		++writes;
+	}
+
+	if (PIM_DEBUG_PIM_NHT_DETAIL) {
+		vty_out(vty, "debug pim nht detail\n");
+		++writes;
+	}
+
 	return writes;
 }
 
@@ -188,30 +204,30 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->vrf->vrf_id == VRF_DEFAULT) {
 		if (router->register_suppress_time
 		    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
-			vty_out(vty, "%sip pim register-suppress-time %d\n",
-					spaces, router->register_suppress_time);
+			vty_out(vty, "%s" PIM_AF_NAME " pim register-suppress-time %d\n",
+				spaces, router->register_suppress_time);
 			++writes;
 		}
 		if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
-			vty_out(vty, "%sip pim join-prune-interval %d\n",
+			vty_out(vty, "%s" PIM_AF_NAME " pim join-prune-interval %d\n",
 				spaces, router->t_periodic);
 			++writes;
 		}
 
 		if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
-			vty_out(vty, "%sip pim packets %d\n", spaces,
+			vty_out(vty, "%s" PIM_AF_NAME " pim packets %d\n", spaces,
 				router->packet_process);
 			++writes;
 		}
 	}
 	if (pim->keep_alive_time != PIM_KEEPALIVE_PERIOD) {
-		vty_out(vty, "%sip pim keep-alive-timer %d\n", spaces,
-			pim->keep_alive_time);
+		vty_out(vty, "%s" PIM_AF_NAME " pim keep-alive-timer %d\n",
+			spaces, pim->keep_alive_time);
 		++writes;
 	}
 	if (pim->rp_keep_alive_time != (unsigned int)PIM_RP_KEEPALIVE_PERIOD) {
-		vty_out(vty, "%sip pim rp keep-alive-timer %d\n", spaces,
-			pim->rp_keep_alive_time);
+		vty_out(vty, "%s" PIM_AF_NAME " pim rp keep-alive-timer %d\n",
+			spaces, pim->rp_keep_alive_time);
 		++writes;
 	}
 	if (ssm->plist_name) {
@@ -227,11 +243,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
 		if (pim->spt.plist)
 			vty_out(vty,
-				"%sip pim spt-switchover infinity-and-beyond prefix-list %s\n",
+				"%s" PIM_AF_NAME " pim spt-switchover infinity-and-beyond prefix-list %s\n",
 				spaces, pim->spt.plist);
 		else
 			vty_out(vty,
-				"%sip pim spt-switchover infinity-and-beyond\n",
+				"%s" PIM_AF_NAME " pim spt-switchover infinity-and-beyond\n",
 				spaces);
 		++writes;
 	}
@@ -254,10 +270,8 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		struct ssmpingd_sock *ss;
 		++writes;
 		for (ALL_LIST_ELEMENTS_RO(pim->ssmpingd_list, node, ss)) {
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<src?>", ss->source_addr, source_str,
-				       sizeof(source_str));
-			vty_out(vty, "%sip ssmpingd %s\n", spaces, source_str);
+			vty_out(vty, "%s" PIM_AF_NAME " ssmpingd %pPA\n",
+				spaces, &ss->source_addr);
 			++writes;
 		}
 	}
@@ -272,6 +286,134 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			vty_out(vty, " %u", pim->msdp.connection_retry);
 		vty_out(vty, "\n");
 	}
+
+	return writes;
+}
+
+#if PIM_IPV == 4
+static int pim_igmp_config_write(struct vty *vty, int writes,
+				 struct pim_interface *pim_ifp)
+{
+	/* IF ip igmp */
+	if (pim_ifp->igmp_enable) {
+		vty_out(vty, " ip igmp\n");
+		++writes;
+	}
+
+	/* ip igmp version */
+	if (pim_ifp->igmp_version != IGMP_DEFAULT_VERSION) {
+		vty_out(vty, " ip igmp version %d\n", pim_ifp->igmp_version);
+		++writes;
+	}
+
+	/* IF ip igmp query-max-response-time */
+	if (pim_ifp->gm_query_max_response_time_dsec !=
+	    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
+		vty_out(vty, " ip igmp query-max-response-time %d\n",
+			pim_ifp->gm_query_max_response_time_dsec);
+		++writes;
+	}
+
+	/* IF ip igmp query-interval */
+	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL) {
+		vty_out(vty, " ip igmp query-interval %d\n",
+			pim_ifp->gm_default_query_interval);
+		++writes;
+	}
+
+	/* IF ip igmp last-member_query-count */
+	if (pim_ifp->gm_last_member_query_count !=
+	    IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
+		vty_out(vty, " ip igmp last-member-query-count %d\n",
+			pim_ifp->gm_last_member_query_count);
+		++writes;
+	}
+
+	/* IF ip igmp last-member_query-interval */
+	if (pim_ifp->gm_specific_query_max_response_time_dsec !=
+	    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
+		vty_out(vty, " ip igmp last-member-query-interval %d\n",
+			pim_ifp->gm_specific_query_max_response_time_dsec);
+		++writes;
+	}
+
+	/* IF ip igmp join */
+	if (pim_ifp->gm_join_list) {
+		struct listnode *node;
+		struct gm_join *ij;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			char group_str[INET_ADDRSTRLEN];
+			char source_str[INET_ADDRSTRLEN];
+			pim_inet4_dump("<grp?>", ij->group_addr, group_str,
+				       sizeof(group_str));
+			if (ij->source_addr.s_addr == INADDR_ANY) {
+				vty_out(vty, " ip igmp join %s\n", group_str);
+			} else {
+				inet_ntop(AF_INET, &ij->source_addr, source_str,
+					  sizeof(source_str));
+				vty_out(vty, " ip igmp join %s %s\n", group_str,
+					source_str);
+			}
+			++writes;
+		}
+	}
+
+	return writes;
+}
+#endif
+
+int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
+		     struct pim_instance *pim)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (pim_ifp->pim_enable) {
+		vty_out(vty, " " PIM_AF_NAME " pim\n");
+		++writes;
+	}
+
+	/* IF ip pim drpriority */
+	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
+		vty_out(vty, " " PIM_AF_NAME " pim drpriority %u\n",
+			pim_ifp->pim_dr_priority);
+		++writes;
+	}
+
+	/* IF ip pim hello */
+	if (pim_ifp->pim_hello_period != PIM_DEFAULT_HELLO_PERIOD) {
+		vty_out(vty, " " PIM_AF_NAME " pim hello %d", pim_ifp->pim_hello_period);
+		if (pim_ifp->pim_default_holdtime != -1)
+			vty_out(vty, " %d", pim_ifp->pim_default_holdtime);
+		vty_out(vty, "\n");
+		++writes;
+	}
+
+#if PIM_IPV == 4
+	writes += pim_igmp_config_write(vty, writes, pim_ifp);
+#endif
+
+	/* update source */
+	if (!pim_addr_is_any(pim_ifp->update_source)) {
+		vty_out(vty, " " PIM_AF_NAME " pim use-source %pPA\n",
+			&pim_ifp->update_source);
+		++writes;
+	}
+
+	if (pim_ifp->activeactive)
+		vty_out(vty, " " PIM_AF_NAME " pim active-active\n");
+
+	/* boundary */
+	if (pim_ifp->boundary_oil_plist) {
+		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
+			pim_ifp->boundary_oil_plist);
+		++writes;
+	}
+
+	writes += pim_static_write_mroute(pim, vty, ifp);
+	pim_bsm_write_config(vty, ifp);
+	++writes;
+	pim_bfd_write_config(vty, ifp);
+	++writes;
 
 	return writes;
 }
@@ -297,11 +439,8 @@ int pim_interface_config_write(struct vty *vty)
 				continue;
 
 			/* IF name */
-			if (vrf->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
+			if_vty_config_start(vty, ifp);
+
 			++writes;
 
 			if (ifp->desc) {
@@ -310,147 +449,10 @@ int pim_interface_config_write(struct vty *vty)
 			}
 
 			if (ifp->info) {
-				struct pim_interface *pim_ifp = ifp->info;
-
-				if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-					vty_out(vty, " ip pim\n");
-					++writes;
-				}
-
-				/* IF ip pim drpriority */
-				if (pim_ifp->pim_dr_priority
-				    != PIM_DEFAULT_DR_PRIORITY) {
-					vty_out(vty, " ip pim drpriority %u\n",
-						pim_ifp->pim_dr_priority);
-					++writes;
-				}
-
-				/* IF ip pim hello */
-				if (pim_ifp->pim_hello_period
-				    != PIM_DEFAULT_HELLO_PERIOD) {
-					vty_out(vty, " ip pim hello %d",
-						pim_ifp->pim_hello_period);
-					if (pim_ifp->pim_default_holdtime != -1)
-						vty_out(vty, " %d",
-							pim_ifp->pim_default_holdtime);
-					vty_out(vty, "\n");
-					++writes;
-				}
-
-				/* update source */
-				if (PIM_INADDR_ISNOT_ANY(
-					    pim_ifp->update_source)) {
-					char src_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<src?>",
-						       pim_ifp->update_source,
-						       src_str,
-						       sizeof(src_str));
-					vty_out(vty, " ip pim use-source %s\n",
-						src_str);
-					++writes;
-				}
-
-				/* IF ip igmp */
-				if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
-					vty_out(vty, " ip igmp\n");
-					++writes;
-				}
-
-				/* ip igmp version */
-				if (pim_ifp->igmp_version
-				    != IGMP_DEFAULT_VERSION) {
-					vty_out(vty, " ip igmp version %d\n",
-						pim_ifp->igmp_version);
-					++writes;
-				}
-
-				/* IF ip igmp query-max-response-time */
-				if (pim_ifp->gm_query_max_response_time_dsec !=
-				    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
-					vty_out(vty,
-						" ip igmp query-max-response-time %d\n",
-						pim_ifp->gm_query_max_response_time_dsec);
-					++writes;
-				}
-
-				/* IF ip igmp query-interval */
-				if (pim_ifp->gm_default_query_interval !=
-				    IGMP_GENERAL_QUERY_INTERVAL) {
-					vty_out(vty,
-						" ip igmp query-interval %d\n",
-						pim_ifp->gm_default_query_interval);
-					++writes;
-				}
-
-				/* IF ip igmp last-member_query-count */
-				if (pim_ifp->gm_last_member_query_count !=
-				    IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
-					vty_out(vty,
-						" ip igmp last-member-query-count %d\n",
-						pim_ifp->gm_last_member_query_count);
-					++writes;
-				}
-
-				/* IF ip igmp last-member_query-interval */
-				if (pim_ifp->gm_specific_query_max_response_time_dsec !=
-				    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
-					vty_out(vty,
-						" ip igmp last-member-query-interval %d\n",
-						pim_ifp->gm_specific_query_max_response_time_dsec);
-					++writes;
-				}
-
-				/* IF ip igmp join */
-				if (pim_ifp->gm_join_list) {
-					struct listnode *node;
-					struct gm_join *ij;
-					for (ALL_LIST_ELEMENTS_RO(
-						     pim_ifp->gm_join_list,
-						     node, ij)) {
-						char group_str[INET_ADDRSTRLEN];
-						char source_str
-							[INET_ADDRSTRLEN];
-						pim_inet4_dump(
-							"<grp?>",
-							ij->group_addr,
-							group_str,
-							sizeof(group_str));
-						if (ij->source_addr.s_addr == INADDR_ANY) {
-							vty_out(vty,
-								" ip igmp join %s\n",
-								group_str);
-						} else {
-							inet_ntop(AF_INET,
-								  &ij->source_addr,
-								  source_str,
-								  sizeof(source_str));
-							vty_out(vty,
-								" ip igmp join %s %s\n",
-								group_str, source_str);
-						}
-						++writes;
-					}
-				}
-
-				if (pim_ifp->activeactive)
-					vty_out(vty, " ip pim active-active\n");
-
-				/* boundary */
-				if (pim_ifp->boundary_oil_plist) {
-					vty_out(vty,
-						" ip multicast boundary oil %s\n",
-						pim_ifp->boundary_oil_plist);
-					++writes;
-				}
-
-				writes +=
-					pim_static_write_mroute(pim, vty, ifp);
-				pim_bsm_write_config(vty, ifp);
-				++writes;
-				pim_bfd_write_config(vty, ifp);
-				++writes;
+				pim_config_write(vty, writes, ifp, pim);
 			}
-			vty_endframe(vty, "exit\n!\n");
+			if_vty_config_end(vty);
+
 			++writes;
 		}
 	}

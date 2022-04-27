@@ -34,7 +34,7 @@ Tests covered in this suite
 3.2 Verify if  no forwarding bit is set , FRR is not forwarding the
     BSM to other PIM nbrs
 3.3 Verify multicast BSM is sent to new router when unicast BSM is disabled
-4.1 Verfiy BSM arrived on non bsm capable interface is dropped and
+4.1 Verify BSM arrived on non bsm capable interface is dropped and
     not processed
 4.2 Verify group to RP info updated correctly in FRR node, after shut and
     no-shut of BSM enable interfaces
@@ -170,7 +170,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Don"t run this test if we have any failure.
@@ -313,7 +313,7 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
     result = add_rp_interfaces_and_pim_config(tgen, topo, "lo", rp, rp_mapping)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    # Add kernal routes to sender and receiver
+    # Add kernel routes to sender and receiver
     for group, rp_list in rp_mapping.items():
         mask = group.split("/")[1]
         if int(mask) == 32:
@@ -501,7 +501,7 @@ def test_BSR_higher_prefer_ip_p0(request):
 
     step("sleeping for 3 sec to leran new packet")
     do_countdown(3)
-    step("verify BSR1 is become prefered RP")
+    step("verify BSR1 has become preferred RP")
     dut = "l1"
 
     step("Verify if b1 chosen as BSR in f1")
@@ -521,7 +521,7 @@ def test_BSR_higher_prefer_ip_p0(request):
     do_countdown(3)
     f1_b2_eth1 = topo["routers"]["f1"]["links"]["b2"]["interface"]
     shutdown_bringup_interface(tgen, "f1", "f1-b2-eth1", True)
-    step("verify BSR2 is become prefered RP")
+    step("verify BSR2 has become preferred RP")
     dut = "l1"
 
     step("Send BSR packet from b1 and b2 to FHR")
@@ -865,7 +865,7 @@ def test_new_router_fwd_p0(request):
 
 def test_int_bsm_config_p1(request):
     """
-    1. Verfiy BSM arrived on non bsm capable interface is dropped and
+    1. Verify BSM arrived on non bsm capable interface is dropped and
        not processed
     2. Verify group to RP info updated correctly in FRR node, after shut and
        no-shut of BSM enable interfaces

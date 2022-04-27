@@ -49,6 +49,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
@@ -306,6 +307,7 @@ static void *updgrp_hash_alloc(void *p)
  *       14. encoding both global and link-local nexthop?
  *       15. If peer is configured to be a lonesoul, peer ip address
  *       16. Local-as should match, if configured.
+ *       17. maximum-prefix-out
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -340,6 +342,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
 	key = jhash_1word(peer->max_packet_size, key);
+	key = jhash_1word(peer->pmax_out[afi][safi], key);
 
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
@@ -451,6 +454,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 
 	/* If there is 'local-as' configured, it should match. */
 	if (pe1->change_local_as != pe2->change_local_as)
+		return false;
+
+	if (pe1->pmax_out[afi][safi] != pe2->pmax_out[afi][safi])
 		return false;
 
 	/* flags like route reflector client */
@@ -1151,7 +1157,7 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static int update_subgroup_merge_check_thread_cb(struct thread *thread)
+static void update_subgroup_merge_check_thread_cb(struct thread *thread)
 {
 	struct update_subgroup *subgrp;
 
@@ -1160,7 +1166,6 @@ static int update_subgroup_merge_check_thread_cb(struct thread *thread)
 	subgrp->t_merge_check = NULL;
 
 	update_subgroup_check_merge(subgrp, "triggered merge check");
-	return 0;
 }
 
 /*
@@ -1458,7 +1463,7 @@ static int update_group_periodic_merge_walkcb(struct update_group *updgrp,
  *             over multiple statements. Useful to set dirty flag on
  *             update groups.
  */
-void update_group_policy_update(struct bgp *bgp, bgp_policy_type_e ptype,
+void update_group_policy_update(struct bgp *bgp, enum bgp_policy_type ptype,
 				const char *pname, int route_update,
 				int start_event)
 {
@@ -1797,7 +1802,7 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-int update_group_refresh_default_originate_route_map(struct thread *thread)
+void update_group_refresh_default_originate_route_map(struct thread *thread)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
@@ -1807,8 +1812,6 @@ int update_group_refresh_default_originate_route_map(struct thread *thread)
 			  reason);
 	thread_cancel(&bgp->t_rmap_def_originate_eval);
 	bgp_unlock(bgp);
-
-	return 0;
 }
 
 /*
@@ -1920,9 +1923,17 @@ int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)
 }
 
 /* Return true if we should addpath encode NLRI to this peer */
-int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
+bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV)
 		&& CHECK_FLAG(peer->af_cap[afi][safi],
 			      PEER_CAP_ADDPATH_AF_RX_RCV));
+}
+
+bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
+			bool addpath_capable, afi_t afi, safi_t safi)
+{
+	return (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED) ||
+		(addpath_capable &&
+		 bgp_addpath_tx_path(peer->addpath_type[afi][safi], bpi)));
 }

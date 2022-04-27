@@ -60,20 +60,9 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
 
-int
-babel_interface_up (ZAPI_CALLBACK_ARGS)
+int babel_ifp_up(struct interface *ifp)
 {
-    struct stream *s = NULL;
-    struct interface *ifp = NULL;
-
     debugf(BABEL_DEBUG_IF, "receive a 'interface up'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf_id); /* it updates iflist */
-
-    if (ifp == NULL) {
-        return 0;
-    }
 
     interface_recalculate(ifp);
     return 0;
@@ -1235,11 +1224,6 @@ DEFUN (show_babel_parameters,
     return CMD_SUCCESS;
 }
 
-int babel_ifp_up(struct interface *ifp)
-{
-	return 0;
-}
-
 void
 babel_if_init(void)
 {
@@ -1308,7 +1292,7 @@ interface_config_write (struct vty *vty)
     int write = 0;
 
     FOR_ALL_INTERFACES (vrf, ifp) {
-        vty_frame (vty, "interface %s\n",ifp->name);
+        if_vty_config_start(vty, ifp);
         if (ifp->desc)
             vty_out (vty, " description %s\n",ifp->desc);
         babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
@@ -1385,7 +1369,7 @@ interface_config_write (struct vty *vty)
                 write++;
             }
         }
-        vty_endframe (vty, "exit\n!\n");
+        if_vty_config_end(vty);
         write++;
     }
     return write;

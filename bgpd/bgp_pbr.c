@@ -770,8 +770,8 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 	if (ret < 0)
 		return -1;
 	/* extract actiosn from flowspec ecom list */
-	if (path && path->attr->ecommunity) {
-		ecom = path->attr->ecommunity;
+	if (path && bgp_attr_get_ecommunity(path->attr)) {
+		ecom = bgp_attr_get_ecommunity(path->attr);
 		for (i = 0; i < ecom->size; i++) {
 			ecom_eval = (struct ecommunity_val *)
 				(ecom->val + (i * ECOMMUNITY_SIZE));
@@ -1314,10 +1314,7 @@ bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	if (r1->afi != r2->afi)
 		return false;
 
-	if (memcmp(&r1->nh, &r2->nh, sizeof(struct nexthop)))
-		return false;
-
-	return true;
+	return nexthop_same(&r1->nh, &r2->nh);
 }
 
 struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,

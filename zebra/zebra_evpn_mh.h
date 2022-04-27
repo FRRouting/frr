@@ -263,7 +263,7 @@ struct zebra_evpn_mh_info {
 	uint32_t uplink_oper_up_cnt;
 
 	/* These protodown bits are inherited by all ES bonds */
-	enum protodown_reasons protodown_rc;
+	uint32_t protodown_rc;
 };
 
 /* returns TRUE if the EVPN is ready to be sent to BGP */
@@ -369,17 +369,6 @@ extern void zebra_evpn_mh_json(json_object *json);
 extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
 				       struct zebra_evpn_es **local_es);
 extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);
-extern int zebra_evpn_mh_startup_delay_update(struct vty *vty,
-					      uint32_t duration,
-					      bool set_default);
-extern void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif);
-extern void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif,
-						    bool clear,
-						    const char *caller);
-extern bool zebra_evpn_is_es_bond(struct interface *ifp);
-extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
-extern void zebra_evpn_mh_print(struct vty *vty);
-extern void zebra_evpn_mh_json(json_object *json);
 extern void zebra_evpn_l2_nh_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 				      struct zebra_if *br_zif, bool is_up);

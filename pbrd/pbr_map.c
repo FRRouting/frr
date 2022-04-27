@@ -792,6 +792,12 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 			if (found_name) {
 				bool original = pbrm->valid;
 
+				/* Set data we were waiting on */
+				if (pbrms->nhgrp_name)
+					pbr_nht_set_seq_nhg_data(
+						pbrms,
+						nhgc_find(pbrms->nhgrp_name));
+
 				pbr_map_check_valid_internal(pbrm);
 
 				if (pbrm->valid && (original != pbrm->valid))

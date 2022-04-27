@@ -21,6 +21,7 @@
 #ifndef _ZEBRA_FRR_H
 #define _ZEBRA_FRR_H
 
+#include "typesafe.h"
 #include "sigevent.h"
 #include "privs.h"
 #include "thread.h"
@@ -51,6 +52,14 @@ extern "C" {
  * Does nothing if -d isn't used.
  */
 #define FRR_DETACH_LATER	(1 << 6)
+
+PREDECL_DLIST(log_args);
+struct log_arg {
+	struct log_args_item itm;
+
+	char target[0];
+};
+DECLARE_DLIST(log_args, struct log_arg, itm);
 
 enum frr_cli_mode {
 	FRR_CLI_CLASSIC = 0,
@@ -88,7 +97,7 @@ struct frr_daemon_info {
 	const char *pathspace;
 	bool zpathspace;
 
-	const char *early_logging;
+	struct log_args_head early_logging[1];
 	const char *early_loglevel;
 
 	const char *proghelp;
@@ -144,6 +153,7 @@ extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
 
 /* call order of these hooks is as ordered here */
+DECLARE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
 /* fork() happens between late_init and config_pre */
 DECLARE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));

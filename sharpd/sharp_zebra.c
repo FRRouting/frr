@@ -631,7 +631,8 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
-	if (zclient_send_rnh(zclient, command, p, connected, false, vrf_id)
+	if (zclient_send_rnh(zclient, command, p, SAFI_UNICAST, connected,
+			     false, vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
@@ -680,16 +681,17 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct sharp_nh_tracker *nht;
 	struct zapi_route nhr;
+	struct prefix matched;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("%s: Decode of update failed", __func__);
 		return 0;
 	}
 
-	zlog_debug("Received update for %pFX metric: %u", &nhr.prefix,
-		   nhr.metric);
+	zlog_debug("Received update for %pFX actual match: %pFX metric: %u",
+		   &matched, &nhr.prefix, nhr.metric);
 
-	nht = sharp_nh_tracker_get(&nhr.prefix);
+	nht = sharp_nh_tracker_get(&matched);
 	nht->nhop_num = nhr.nexthop_num;
 	nht->updates++;
 
@@ -799,10 +801,12 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 
 	if (info.type == LINK_STATE_UPDATE) {
 		lse = ls_stream2ted(sg.ted, s, false);
-		if (lse)
+		if (lse) {
 			zlog_debug(" |- Got %s %s from Link State Database",
 				   status2txt[lse->status],
 				   type2txt[lse->type]);
+			lse->status = SYNC;
+		}
 		else
 			zlog_debug(
 				"%s: Error to convert Stream into Link State",
@@ -963,6 +967,18 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	}
 
 	zlog_err("%s: can't get locator_chunk!!", __func__);
+	return 0;
+}
+
+int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
+{
+	zlog_debug("Sending zebra to set %s protodown %s", ifp->name,
+		   down ? "on" : "off");
+
+	if (zclient_send_interface_protodown(zclient, ifp->vrf->vrf_id, ifp,
+					     down) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
 	return 0;
 }
 

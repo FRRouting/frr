@@ -65,6 +65,18 @@ Certain signals have special meanings to *pimd*.
    prefix of group ranges covered. This command is vrf aware, to configure for
    a vrf, enter the vrf submode.
 
+.. clicmd:: ip pim rp keep-alive-timer (1-65535)
+
+   Modify the time out value for a S,G flow from 1-65535 seconds at RP.
+   The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
+   However, at the RP, the keepalive period must be at least the
+   Register_Suppression_Time, or the RP may time out the (S,G) state
+   before the next Null-Register arrives. Thus, the KAT(S,G) is set to
+   max(Keepalive_Period, RP_Keepalive_Period) when a Register-Stop is sent.
+   If choosing a value below 31 seconds be aware that some hardware platforms
+   cannot see data flowing in better than 30 second chunks. This command is
+   vrf aware, to configure for a vrf, enter the vrf submode.
+
 .. clicmd:: ip pim register-accept-list PLIST
 
    When pim receives a register packet the source of the packet will be compared
@@ -72,10 +84,14 @@ Certain signals have special meanings to *pimd*.
    processing continues.  If a deny is returned for the source address of the
    register packet a register stop message is sent to the source.
 
-.. clicmd:: ip pim spt-switchover infinity-and-beyond
+.. clicmd:: ip pim spt-switchover infinity-and-beyond [prefix-list PLIST]
 
-   On the last hop router if it is desired to not switch over to the SPT tree.
-   Configure this command. This command is vrf aware, to configure for a vrf,
+   On the last hop router if it is desired to not switch over to the SPT tree
+   configure this command. Optional parameter prefix-list can be use to control
+   which groups to switch or not switch. If a group is PERMIT as per the
+   PLIST, then the SPT switchover does not happen for it and if it is DENY,
+   then the SPT switchover happens.
+   This command is vrf aware, to configure for a vrf,
    enter the vrf submode.
 
 .. clicmd:: ip pim ecmp
@@ -103,7 +119,7 @@ Certain signals have special meanings to *pimd*.
 
 .. clicmd:: ip pim keep-alive-timer (1-65535)
 
-   Modify the time out value for a S,G flow from 1-60000 seconds. If choosing
+   Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
    flowing in better than 30 second chunks. This command is vrf aware, to
    configure for a vrf, enter the vrf submode.
@@ -160,7 +176,7 @@ Certain signals have special meanings to *pimd*.
 
    Generate IGMP query (v2/v3) on user requirement. This will not depend on
    the existing IGMP general query timer.If no version is provided in the cli,
-   it will be considered as default v2 query.This is a hidden command.
+   the default will be the igmp version enabled on that interface.
 
 .. clicmd:: ip igmp watermark-warn (1-65535)
 
@@ -377,7 +393,7 @@ cause great confusion.
 
    Display IGMP group retransmission information.
 
-.. clicmd:: show ip igmp sources
+.. clicmd:: show ip igmp [vrf NAME] sources [json]
 
    Display IGMP sources information.
 
@@ -436,6 +452,7 @@ cause great confusion.
 .. clicmd:: show ip pim assert
 
    Display information about asserts in the PIM system for S,G mroutes.
+   This command does not show S,G Channel states that in a NOINFO state.
 
 .. clicmd:: show ip pim assert-internal
 
@@ -488,9 +505,24 @@ cause great confusion.
    Display information about a S,G pair and how the RPF would be chosen. This
    is especially useful if there are ECMP's available from the RPF lookup.
 
-.. clicmd:: show ip pim rp-info
+.. clicmd:: show ip pim [vrf NAME] rp-info [A.B.C.D/M] [json]
 
    Display information about RP's that are configured on this router.
+
+   You can filter the output by specifying an arbitrary group range.
+
+   .. code-block:: frr
+
+      # show ip pim rp-info
+      RP address       group/prefix-list   OIF               I am RP    Source   Group-Type
+      192.168.10.123   225.0.0.0/24        eth2              yes        Static   ASM
+      192.168.10.123   239.0.0.0/8         eth2              yes        Static   ASM
+      192.168.10.123   239.4.0.0/24        eth2              yes        Static   SSM
+
+      # show ip pim rp-info 239.4.0.0/25
+      RP address       group/prefix-list   OIF               I am RP    Source   Group-Type
+      192.168.10.123   239.0.0.0/8         eth2              yes        Static   ASM
+      192.168.10.123   239.4.0.0/24        eth2              yes        Static   SSM
 
 .. clicmd:: show ip pim rpf
 
@@ -591,6 +623,11 @@ the config was written out.
 
    This turns on debugging for PIM nexthop tracking. It will display
    information about RPF lookups and information about when a nexthop changes.
+
+.. clicmd:: debug pim nht detail
+
+   This turns on debugging for PIM nexthop in detail. This is not enabled
+   by default.
 
 .. clicmd:: debug pim packet-dump
 

@@ -268,8 +268,10 @@ To start OSPF process you have to specify the OSPF router.
    the destination prefix. Otherwise, we test whether the network command prefix
    contains the local address prefix of the interface.
 
-   In some cases it may be more convenient to enable OSPF on a per
-   interface/subnet basis (:clicmd:`ip ospf area AREA [ADDR]`).
+   It is also possible to enable OSPF on a per interface/subnet basis
+   using the interface command (:clicmd:`ip ospf area AREA [ADDR]`).
+   However, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
 
 .. clicmd:: proactive-arp
 
@@ -313,9 +315,9 @@ To start OSPF process you have to specify the OSPF router.
 Areas
 -----
 
-.. clicmd:: area A.B.C.D range A.B.C.D/M
+.. clicmd:: area A.B.C.D range A.B.C.D/M [advertise [cost (0-16777215)]]
 
-.. clicmd:: area (0-4294967295) range A.B.C.D/M
+.. clicmd:: area (0-4294967295) range A.B.C.D/M [advertise [cost (0-16777215)]]
 
 
 
@@ -337,14 +339,18 @@ Areas
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
    network (i.e. described with router or network LSA) from this range.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
+.. clicmd:: area A.B.C.D range A.B.C.D/M not-advertise
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M not-advertise
 
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
+.. clicmd:: area A.B.C.D range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
 
 
    Substitute summarized prefix with another prefix.
@@ -360,6 +366,11 @@ Areas
    One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
    area 0.0.0.10 contains at least one intra-area network (i.e. described with router-LSA or
    network-LSA) from range 10.0.0.0/8.
+
+   By default, the metric of the summary route is calculated as the highest
+   metric among the summarized routes. The `cost` option, however, can be used
+   to set an explicit metric.
+
    This command makes sense in ABR only.
 
 .. clicmd:: area A.B.C.D virtual-link A.B.C.D
@@ -506,12 +517,14 @@ Interfaces
 
 
    Enable OSPF on the interface, optionally restricted to just the IP address
-   given by `ADDR`, putting it in the `AREA` area. Per interface area settings
-   take precedence to network commands
-   (:clicmd:`network A.B.C.D/M area A.B.C.D`).
+   given by `ADDR`, putting it in the `AREA` area. If you have a lot of
+   interfaces, and/or a lot of subnets, then enabling OSPF via this command
+   instead of (:clicmd:`network A.B.C.D/M area A.B.C.D`) may result in a
+   slight performance improvement.
 
-   If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
-   via this command may result in a slight performance improvement.
+   Notice that, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
+   If (:clicmd:`ip ospf`) is present, (:clicmd:`network`) commands will fail.
 
 .. clicmd:: ip ospf authentication-key AUTH_KEY
 

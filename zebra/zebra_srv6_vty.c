@@ -354,8 +354,12 @@ static int zebra_sr_config(struct vty *vty)
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
 				  str, sizeof(str));
 			vty_out(vty, "   locator %s\n", locator->name);
-			vty_out(vty, "    prefix %s/%u\n", str,
+			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
+			if (locator->function_bits_length)
+				vty_out(vty, " func-bits %u",
+					locator->function_bits_length);
+			vty_out(vty, "\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}

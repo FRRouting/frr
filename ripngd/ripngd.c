@@ -61,7 +61,7 @@ void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,
 				  int sock);
 static void ripng_instance_disable(struct ripng *ripng);
-int ripng_triggered_update(struct thread *);
+static void ripng_triggered_update(struct thread *);
 static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
 				 struct if_rmap *if_rmap);
 
@@ -423,7 +423,7 @@ static int ripng_lladdr_check(struct interface *ifp, struct in6_addr *addr)
 }
 
 /* RIPng route garbage collect timer. */
-static int ripng_garbage_collect(struct thread *t)
+static void ripng_garbage_collect(struct thread *t)
 {
 	struct ripng_info *rinfo;
 	struct agg_node *rp;
@@ -445,8 +445,6 @@ static int ripng_garbage_collect(struct thread *t)
 
 	/* Free RIPng routing information. */
 	ripng_info_free(rinfo);
-
-	return 0;
 }
 
 static void ripng_timeout_update(struct ripng *ripng, struct ripng_info *rinfo);
@@ -602,14 +600,12 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 }
 
 /* Timeout RIPng routes. */
-static int ripng_timeout(struct thread *t)
+static void ripng_timeout(struct thread *t)
 {
 	struct ripng_info *rinfo = THREAD_ARG(t);
 	struct ripng *ripng = ripng_info_get_instance(rinfo);
 
 	ripng_ecmp_delete(ripng, rinfo);
-
-	return 0;
 }
 
 static void ripng_timeout_update(struct ripng *ripng, struct ripng_info *rinfo)
@@ -1301,7 +1297,7 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 }
 
 /* First entry point of reading RIPng packet. */
-static int ripng_read(struct thread *thread)
+static void ripng_read(struct thread *thread)
 {
 	struct ripng *ripng = THREAD_ARG(thread);
 	int len;
@@ -1330,7 +1326,7 @@ static int ripng_read(struct thread *thread)
 	if (len < 0) {
 		zlog_warn("RIPng recvfrom failed (VRF %s): %s.",
 			  ripng->vrf_name, safe_strerror(errno));
-		return len;
+		return;
 	}
 
 	/* Check RTE boundary.  RTE size (Packet length - RIPng header size
@@ -1339,7 +1335,7 @@ static int ripng_read(struct thread *thread)
 		zlog_warn("RIPng invalid packet size %d from %pI6 (VRF %s)",
 			  len, &from.sin6_addr, ripng->vrf_name);
 		ripng_peer_bad_packet(ripng, &from);
-		return 0;
+		return;
 	}
 
 	packet = (struct ripng_packet *)STREAM_DATA(ripng->ibuf);
@@ -1361,7 +1357,7 @@ static int ripng_read(struct thread *thread)
 		zlog_warn(
 			"RIPng packet comes from unknown interface %d (VRF %s)",
 			ifindex, ripng->vrf_name);
-		return 0;
+		return;
 	}
 
 	/* Packet version mismatch checking. */
@@ -1370,7 +1366,7 @@ static int ripng_read(struct thread *thread)
 			"RIPng packet version %d doesn't fit to my version %d (VRF %s)",
 			packet->version, ripng->version, ripng->vrf_name);
 		ripng_peer_bad_packet(ripng, &from);
-		return 0;
+		return;
 	}
 
 	/* Process RIPng packet. */
@@ -1387,7 +1383,6 @@ static int ripng_read(struct thread *thread)
 		ripng_peer_bad_packet(ripng, &from);
 		break;
 	}
-	return 0;
 }
 
 /* Walk down the RIPng routing table then clear changed flag. */
@@ -1410,7 +1405,7 @@ static void ripng_clear_changed_flag(struct ripng *ripng)
 
 /* Regular update of RIPng route.  Send all routing formation to RIPng
    enabled interface. */
-static int ripng_update(struct thread *t)
+static void ripng_update(struct thread *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 	struct interface *ifp;
@@ -1455,12 +1450,10 @@ static int ripng_update(struct thread *t)
 
 	/* Reset flush event. */
 	ripng_event(ripng, RIPNG_UPDATE_EVENT, 0);
-
-	return 0;
 }
 
 /* Triggered update interval timer. */
-static int ripng_triggered_interval(struct thread *t)
+static void ripng_triggered_interval(struct thread *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 
@@ -1468,11 +1461,10 @@ static int ripng_triggered_interval(struct thread *t)
 		ripng->trigger = 0;
 		ripng_triggered_update(t);
 	}
-	return 0;
 }
 
 /* Execute triggered update. */
-int ripng_triggered_update(struct thread *t)
+void ripng_triggered_update(struct thread *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 	struct interface *ifp;
@@ -1518,8 +1510,6 @@ int ripng_triggered_update(struct thread *t)
 
 	thread_add_timer(master, ripng_triggered_interval, ripng, interval,
 			 &ripng->t_triggered_interval);
-
-	return 0;
 }
 
 /* Write routing table entry to the stream and return next index of

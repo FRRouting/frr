@@ -39,17 +39,10 @@ static ssize_t printfrr_pimaddr(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!addr)
 		return bputs(buf, "(null)");
 
-	if (use_star) {
-		pim_addr zero = {};
-
-		if (memcmp(addr, &zero, sizeof(zero)) == 0)
-			return bputch(buf, '*');
-	}
+	if (use_star && pim_addr_is_any(*addr))
+		return bputch(buf, '*');
 
 #if PIM_IPV == 4
-	return bprintfrr(buf, "%pI4", addr);
-#elif !defined(PIM_V6_TEMP_BREAK)
-	CPP_NOTICE("note IPv6 typing for pim_addr is temporarily disabled.");
 	return bprintfrr(buf, "%pI4", addr);
 #else
 	return bprintfrr(buf, "%pI6", addr);

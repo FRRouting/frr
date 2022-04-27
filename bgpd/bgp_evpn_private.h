@@ -316,12 +316,6 @@ static inline int is_export_rt_configured(struct bgpevpn *vpn)
 	return (CHECK_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD));
 }
 
-static inline int is_vni_param_configured(struct bgpevpn *vpn)
-{
-	return (is_rd_configured(vpn) || is_import_rt_configured(vpn)
-		|| is_export_rt_configured(vpn));
-}
-
 static inline void encode_es_rt_extcomm(struct ecommunity_val *eval,
 					struct ethaddr *mac)
 {
@@ -532,6 +526,7 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 	memcpy(global_p, vni_p, sizeof(*global_p));
 	global_p->prefix.ead_addr.ip.ipa_type = 0;
 	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
+	global_p->prefix.ead_addr.frag_id = 0;
 }
 
 /* EAD prefix in the global table doesn't include the VTEP-IP so
@@ -647,7 +642,6 @@ extern struct bgp_dest *
 bgp_global_evpn_node_lookup(struct bgp_table *table, afi_t afi, safi_t safi,
 			    const struct prefix_evpn *evp,
 			    struct prefix_rd *prd);
-extern void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 					      struct bgpevpn *vpn,
 					      struct bgp_node *rn,
@@ -657,4 +651,7 @@ extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 						     struct bgp_path_info *pi,
 						     int install);
 extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
+extern void bgp_evpn_xxport_delete_ecomm(void *val);
+extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
+				     struct ecommunity *ecom2);
 #endif /* _BGP_EVPN_PRIVATE_H */
