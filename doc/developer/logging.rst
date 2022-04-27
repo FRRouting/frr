@@ -158,7 +158,6 @@ Networking data types
 
    - :c:struct:`prefix_ls`
    - :c:struct:`prefix_rd`
-   - :c:struct:`prefix_ptr`
    - :c:struct:`prefix_sg` (use :frrfmt:`%pPSG4`)
    - :c:union:`prefixptr` (dereference to get :c:struct:`prefix`)
    - :c:union:`prefixconstptr` (dereference to get :c:struct:`prefix`)
