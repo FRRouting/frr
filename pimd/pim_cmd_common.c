@@ -3564,6 +3564,21 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
+struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
+{
+	struct vrf *vrf;
+
+	if (name)
+		vrf = vrf_lookup_by_name(name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf)
+		vty_out(vty, "Specified VRF: %s does not exist\n", name);
+
+	return vrf;
+}
+
 void clear_mroute(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
