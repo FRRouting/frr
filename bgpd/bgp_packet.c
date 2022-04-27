@@ -131,8 +131,8 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 					    safi_t safi)
 {
 	struct stream *s;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return NULL;
@@ -869,8 +869,8 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 	struct stream *s;
 	struct bgp_filter *filter;
 	int orf_refresh = 0;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -976,8 +976,8 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 			 int capability_code, int action)
 {
 	struct stream *s;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
