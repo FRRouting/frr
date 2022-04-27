@@ -1366,12 +1366,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		}
 	}
 
-#if PIM_IPV == 4
-	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr))
-#else
-	if (0)
-#endif
-	{
+	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr)) {
 		/* Multicast BSMs are only accepted if source interface & IP
 		 * match RPF towards the BSR's IP address, or they have
 		 * no-forward set
