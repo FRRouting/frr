@@ -571,6 +571,27 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 			return -2;
 		}
 
+#if PIM_IPV == 6
+		struct icmp6_filter filter[1];
+		int ret;
+
+		/* Unlike IPv4, this socket is not used for MLD, so just drop
+		 * everything with an empty ICMP6 filter.  Otherwise we get
+		 * all kinds of garbage here, possibly even non-multicast
+		 * related ICMPv6 traffic (e.g. ping)
+		 *
+		 * (mroute kernel upcall "packets" are injected directly on the
+		 * socket, this sockopt -or any other- has no effect on them)
+		 */
+		ICMP6_FILTER_SETBLOCKALL(filter);
+		ret = setsockopt(fd, SOL_ICMPV6, ICMP6_FILTER, filter,
+				 sizeof(filter));
+		if (ret)
+			zlog_err(
+				"(VRF %s) failed to set mroute control filter: %m",
+				pim->vrf->name);
+#endif
+
 #ifdef SO_BINDTODEVICE
 		if (pim->vrf->vrf_id != VRF_DEFAULT
 		    && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
