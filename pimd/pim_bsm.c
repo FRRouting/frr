@@ -1027,7 +1027,7 @@ struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 	return bsgrp;
 }
 
-static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
+static uint32_t hash_calc_on_grp_rp(struct prefix group, pim_addr rp,
 				    uint8_t hashmasklen)
 {
 	uint64_t temp;
@@ -1045,14 +1045,24 @@ static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
 	/* in_addr stores ip in big endian, hence network byte order
 	 * convert to uint32 before processing hash
 	 */
+#if PIM_IPV == 4
 	grpaddr = ntohl(group.u.prefix4.s_addr);
+#else
+	grpaddr = group.u.prefix6.s6_addr32[0] ^ group.u.prefix6.s6_addr32[1] ^
+		  group.u.prefix6.s6_addr32[2] ^ group.u.prefix6.s6_addr32[3];
+#endif
 	/* Avoid shifting by 32 bit on a 32 bit register */
 	if (hashmasklen)
 		grpaddr = grpaddr & ((mask << (32 - hashmasklen)));
 	else
 		grpaddr = grpaddr & mask;
 
+#if PIM_IPV == 4
 	rp_add = ntohl(rp.s_addr);
+#else
+	rp_add = rp.s6_addr32[0] ^ rp.s6_addr32[1] ^ rp.s6_addr32[2] ^
+		 rp.s6_addr32[3];
+#endif
 	temp = 1103515245 * ((1103515245 * (uint64_t)grpaddr + 12345) ^ rp_add)
 	       + 12345;
 	hash = temp & (0x7fffffff);
