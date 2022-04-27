@@ -1933,6 +1933,34 @@ static void put_hello_hdr(struct isis_circuit *circuit, int level,
 	}
 }
 
+static void isis_adj_check_stop_bfd(struct isis_adjacency *adj)
+{
+	if (CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV6))
+		bfd_handle_adj_down(adj, AF_INET6, NULL);
+	if (CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV4))
+		bfd_handle_adj_down(adj, AF_INET, NULL);
+}
+
+static void isis_adj_check_stop_circuit(struct isis_circuit *circuit, int level)
+{
+	struct list *adj_list;
+	struct listnode *node;
+	struct isis_adjacency *adj;
+
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		if (circuit->u.bc.adjdb[level - 1]) {
+			adj_list = list_new();
+			isis_adj_build_up_list(circuit->u.bc.adjdb[level - 1],
+					       adj_list);
+			for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj))
+				isis_adj_check_stop_bfd(adj);
+			list_delete(&adj_list);
+		}
+	} else if (circuit->circ_type == CIRCUIT_T_P2P &&
+		   circuit->u.p2p.neighbor)
+		isis_adj_check_stop_bfd(circuit->u.p2p.neighbor);
+}
+
 int send_hello(struct isis_circuit *circuit, int level)
 {
 	size_t len_pointer;
@@ -2042,6 +2070,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 		       ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6))
 		isis_tlvs_add_bfd_enabled(tlvs, ISIS_MT_IPV6_UNICAST,
 					  NLPID_IPV6);
+	isis_adj_check_stop_circuit(circuit, level);
 
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,
 			   should_pad_hello, false)) {
