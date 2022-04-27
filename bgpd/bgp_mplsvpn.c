@@ -767,6 +767,58 @@ static void unsetsids(struct bgp_path_info *bpi)
 	memset(extra->sid, 0, sizeof(extra->sid));
 }
 
+static bool leak_update_nexthop_valid(struct bgp *bgp, struct bgp_dest *bn,
+				      struct attr *new_attr, afi_t afi,
+				      safi_t safi,
+				      struct bgp_path_info *source_bpi,
+				      struct bgp_path_info *bpi,
+				      const struct prefix *p, int debug)
+{
+	struct bgp_path_info *bpi_ultimate;
+	struct bgp *bgp_nexthop = bgp;
+	bool nh_valid;
+
+	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
+
+	if (bpi->extra && bpi->extra->bgp_orig)
+		bgp_nexthop = bpi->extra->bgp_orig;
+
+	/*
+	 * No nexthop tracking for redistributed routes or for
+	 * EVPN-imported routes that get leaked.
+	 */
+	if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
+	    is_pi_family_evpn(bpi_ultimate))
+		nh_valid = 1;
+	else
+		/*
+		 * TBD do we need to do anything about the
+		 * 'connected' parameter?
+		 */
+		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
+						   bpi, NULL, 0, p);
+
+	/*
+	 * If you are using SRv6 VPN instead of MPLS, it need to check
+	 * the SID allocation. If the sid is not allocated, the rib
+	 * will be invalid.
+	 */
+	if (bgp->srv6_enabled &&
+	    (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
+		bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
+		nh_valid = false;
+	}
+
+	if (debug)
+		zlog_debug("%s: nexthop is %svalid (in vrf %s)", __func__,
+			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);
+
+	if (nh_valid)
+		bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
+
+	return nh_valid;
+}
+
 /*
  * returns pointer to new bgp_path_info upon success
  */
@@ -780,7 +832,6 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 {
 	const struct prefix *p = bgp_dest_get_prefix(bn);
 	struct bgp_path_info *bpi;
-	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra *extra;
 	uint32_t num_sids = 0;
@@ -809,7 +860,6 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	 * schemes that could be implemented in the future.
 	 *
 	 */
-	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
 
 	/*
 	 * match parent
@@ -914,45 +964,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
 
-		struct bgp *bgp_nexthop = bgp;
-		int nh_valid;
-
-		if (bpi->extra && bpi->extra->bgp_orig)
-			bgp_nexthop = bpi->extra->bgp_orig;
-
-		/*
-		 * No nexthop tracking for redistributed routes or for
-		 * EVPN-imported routes that get leaked.
-		 */
-		if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
-		    is_pi_family_evpn(bpi_ultimate))
-			nh_valid = 1;
-		else
-			/*
-			 * TBD do we need to do anything about the
-			 * 'connected' parameter?
-			 */
-			nh_valid = bgp_find_or_add_nexthop(
-				bgp, bgp_nexthop, afi, safi, bpi, NULL, 0, p);
-
-		/*
-		 * If you are using SRv6 VPN instead of MPLS, it need to check
-		 * the SID allocation. If the sid is not allocated, the rib
-		 * will be invalid.
-		 */
-		if (bgp->srv6_enabled
-		    && (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
-			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
-			nh_valid = false;
-		}
-
-		if (debug)
-			zlog_debug("%s: nexthop is %svalid (in vrf %s)",
-				__func__, (nh_valid ? "" : "not "),
-				bgp_nexthop->name_pretty);
-
-		if (nh_valid)
-			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
+		leak_update_nexthop_valid(bgp, bn, new_attr, afi, safi,
+					  source_bpi, bpi, p, debug);
 
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, bpi, afi, safi);
@@ -1019,50 +1032,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	if (nexthop_orig)
 		new->extra->nexthop_orig = *nexthop_orig;
 
-	/*
-	 * nexthop tracking for unicast routes
-	 */
-	struct bgp *bgp_nexthop = bgp;
-	int nh_valid;
-
-	if (new->extra->bgp_orig)
-		bgp_nexthop = new->extra->bgp_orig;
-
-	/*
-	 * No nexthop tracking for redistributed routes because
-	 * their originating protocols will do the tracking and
-	 * withdraw those routes if the nexthops become unreachable
-	 * This also holds good for EVPN-imported routes that get
-	 * leaked.
-	 */
-	if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
-	    is_pi_family_evpn(bpi_ultimate))
-		nh_valid = 1;
-	else
-		/*
-		 * TBD do we need to do anything about the
-		 * 'connected' parameter?
-		 */
-		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
-						   new, NULL, 0, p);
-
-	/*
-	 * If you are using SRv6 VPN instead of MPLS, it need to check
-	 * the SID allocation. If the sid is not allocated, the rib
-	 * will be invalid.
-	 */
-	if (bgp->srv6_enabled
-	    && (!new->attr->srv6_l3vpn && !new->attr->srv6_vpn)) {
-		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
-		nh_valid = false;
-	}
-
-	if (debug)
-		zlog_debug("%s: nexthop is %svalid (in vrf %s)",
-			__func__, (nh_valid ? "" : "not "),
-			bgp_nexthop->name_pretty);
-	if (nh_valid)
-		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
+	leak_update_nexthop_valid(bgp, bn, new_attr, afi, safi, source_bpi, new,
+				  p, debug);
 
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
