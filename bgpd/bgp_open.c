@@ -517,7 +517,7 @@ static int bgp_capability_restart(struct peer *peer,
 
 	SET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
 	restart_flag_time = stream_getw(s);
-	if (CHECK_FLAG(restart_flag_time, RESTART_R_BIT))
+	if (CHECK_FLAG(restart_flag_time, GRACEFUL_RESTART_R_BIT))
 		SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV);
 	else
 		UNSET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV);
@@ -567,7 +567,7 @@ static int bgp_capability_restart(struct peer *peer,
 
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_RESTART_AF_RCV);
-			if (CHECK_FLAG(flag, RESTART_F_BIT))
+			if (CHECK_FLAG(flag, GRACEFUL_RESTART_F_BIT))
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_RESTART_AF_PRESERVE_RCV);
 		}
@@ -1416,7 +1416,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	stream_putc(s, 0);
 	restart_time = peer->bgp->restart_time;
 	if (peer->bgp->t_startup) {
-		SET_FLAG(restart_time, RESTART_R_BIT);
+		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV);
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -1452,7 +1452,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 			stream_putc(s, pkt_safi);
 			if (CHECK_FLAG(peer->bgp->flags,
 				       BGP_FLAG_GR_PRESERVE_FWD))
-				stream_putc(s, RESTART_F_BIT);
+				stream_putc(s, GRACEFUL_RESTART_F_BIT);
 			else
 				stream_putc(s, 0);
 		}
