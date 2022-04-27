@@ -287,13 +287,6 @@ static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
 	return 0;
 }
 
-/* Prefix for a generic pointer */
-struct prefix_ptr {
-	uint8_t family;
-	uint16_t prefixlen;
-	uintptr_t prefix __attribute__((aligned(8)));
-};
-
 /* Prefix for a Flowspec entry */
 struct prefix_fs {
 	uint8_t family;
