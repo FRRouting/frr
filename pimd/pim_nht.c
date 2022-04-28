@@ -259,12 +259,12 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr addr)
 	pnc = hash_lookup(pim->rpf_hash, &lookup);
 
 	if (!pnc) {
-		zlog_warn("attempting to delete nonexistent NHT BSR entry %pI4",
+		zlog_warn("attempting to delete nonexistent NHT BSR entry %pPA",
 			  &addr);
 		return;
 	}
 
-	assertf(pnc->bsr_count > 0, "addr=%pI4", &addr);
+	assertf(pnc->bsr_count > 0, "addr=%pPA", &addr);
 	pnc->bsr_count--;
 
 	pim_nht_drop_maybe(pim, pnc);
