@@ -805,16 +805,12 @@ static bool leak_update_nexthop_valid(struct bgp *bgp, struct bgp_dest *bn,
 	 */
 	if (bgp->srv6_enabled &&
 	    (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
-		bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
 		nh_valid = false;
 	}
 
 	if (debug)
 		zlog_debug("%s: nexthop is %svalid (in vrf %s)", __func__,
 			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);
-
-	if (nh_valid)
-		bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
 
 	return nh_valid;
 }
@@ -964,8 +960,11 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
 
-		leak_update_nexthop_valid(bgp, bn, new_attr, afi, safi,
-					  source_bpi, bpi, p, debug);
+		if (leak_update_nexthop_valid(bgp, bn, new_attr, afi, safi,
+					      source_bpi, bpi, p, debug))
+			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
+		else
+			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
 
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, bpi, afi, safi);
@@ -1032,8 +1031,11 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	if (nexthop_orig)
 		new->extra->nexthop_orig = *nexthop_orig;
 
-	leak_update_nexthop_valid(bgp, bn, new_attr, afi, safi, source_bpi, new,
-				  p, debug);
+	if (leak_update_nexthop_valid(bgp, bn, new_attr, afi, safi, source_bpi,
+				      new, p, debug))
+		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
+	else
+		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
 
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
