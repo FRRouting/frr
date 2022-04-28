@@ -3985,7 +3985,7 @@ DEFUN (show_zebra,
 		       ipforward_ipv6() ? "On" : "Off");
 	ttable_add_row(table, "MPLS|%s", mpls_enabled ? "On" : "Off");
 	ttable_add_row(table, "EVPN|%s", is_evpn_enabled() ? "On" : "Off");
-
+	ttable_add_row(table, "Netlink buffer size|%d", rcvbufsize);
 
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())

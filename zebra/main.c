@@ -365,6 +365,8 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			rcvbufsize = atoi(optarg);
+			if (rcvbufsize < 4194304)
+				flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING, "rcvbufsize is smaller than recommended value");
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
