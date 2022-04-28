@@ -782,7 +782,11 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		 (table->safi == SAFI_UNICAST ||
 		  table->safi == SAFI_LABELED_UNICAST)) {
 		/* Routes from network statement */
-		if (!CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
+		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
+			nh_valid = bgp_find_or_add_nexthop(
+				to_bgp, bgp_nexthop, afi, safi, bpi_ultimate,
+				NULL, 0, p);
+		else
 			nh_valid = 1;
 	} else
 		/*
