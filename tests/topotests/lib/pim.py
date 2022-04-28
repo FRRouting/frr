@@ -960,7 +960,7 @@ def verify_join_state_and_timer(
 
 
 @retry(retry_timeout=120, diag_pct=0)
-def verify_ip_mroutes(
+def verify_mroutes(
     tgen,
     dut,
     src_address,
@@ -973,7 +973,7 @@ def verify_ip_mroutes(
 ):
     """
     Verify ip mroutes and make sure (*, G)/(S, G) is present in mroutes
-    by running "show ip pim upstream" cli
+    by running "show ip/ipv6 mroute" cli
 
     Parameters
     ----------
@@ -991,7 +991,7 @@ def verify_ip_mroutes(
     -----
     dut = "r1"
     group_address = "225.1.1.1"
-    result = verify_ip_mroutes(tgen, dut, src_address, group_address)
+    result = verify_mroutes(tgen, dut, src_address, group_address)
 
     Returns
     -------
@@ -1621,10 +1621,10 @@ def verify_pim_interface(
     return True
 
 
-def clear_ip_pim_interface_traffic(tgen, topo):
+def clear_pim_interface_traffic(tgen, topo):
     """
-    Clear ip pim interface traffice by running
-    "clear ip pim interface traffic" cli
+    Clear ip/ipv6 pim interface traffice by running
+    "clear ip/ipv6 pim interface traffic" cli
 
     Parameters
     ----------
@@ -1632,7 +1632,7 @@ def clear_ip_pim_interface_traffic(tgen, topo):
     Usage
     -----
 
-    result = clear_ip_pim_interface_traffic(tgen, topo)
+    result = clear_pim_interface_traffic(tgen, topo)
 
     Returns
     -------
@@ -1655,10 +1655,10 @@ def clear_ip_pim_interface_traffic(tgen, topo):
     return True
 
 
-def clear_ip_pim_interfaces(tgen, dut):
+def clear_pim_interfaces(tgen, dut):
     """
-    Clear ip pim interface by running
-    "clear ip pim interfaces" cli
+    Clear ip/ipv6 pim interface by running
+    "clear ip/ipv6 pim interfaces" cli
 
     Parameters
     ----------
@@ -1667,7 +1667,7 @@ def clear_ip_pim_interfaces(tgen, dut):
     Usage
     -----
 
-    result = clear_ip_pim_interfaces(tgen, dut)
+    result = clear_pim_interfaces(tgen, dut)
 
     Returns
     -------
@@ -1746,10 +1746,10 @@ def clear_ip_pim_interfaces(tgen, dut):
     return True
 
 
-def clear_ip_igmp_interfaces(tgen, dut):
+def clear_igmp_interfaces(tgen, dut):
     """
-    Clear ip igmp interfaces by running
-    "clear ip igmp interfaces" cli
+    Clear ip/ipv6 igmp interfaces by running
+    "clear ip/ipv6 igmp interfaces" cli
 
     Parameters
     ----------
@@ -1759,7 +1759,7 @@ def clear_ip_igmp_interfaces(tgen, dut):
     Usage
     -----
     dut = "r1"
-    result = clear_ip_igmp_interfaces(tgen, dut)
+    result = clear_igmp_interfaces(tgen, dut)
     Returns
     -------
     errormsg(str) or True
@@ -1826,9 +1826,9 @@ def clear_ip_igmp_interfaces(tgen, dut):
 
 
 @retry(retry_timeout=20)
-def clear_ip_mroute_verify(tgen, dut, expected=True):
+def clear_mroute_verify(tgen, dut, expected=True):
     """
-    Clear ip mroute by running "clear ip mroute" cli and verify
+    Clear ip/ipv6 mroute by running "clear ip/ipv6 mroute" cli and verify
     mroutes are up again after mroute clear
 
     Parameters
@@ -1840,7 +1840,7 @@ def clear_ip_mroute_verify(tgen, dut, expected=True):
     Usage
     -----
 
-    result = clear_ip_mroute_verify(tgen, dut)
+    result = clear_mroute_verify(tgen, dut)
 
     Returns
     -------
@@ -1926,9 +1926,9 @@ def clear_ip_mroute_verify(tgen, dut, expected=True):
     return True
 
 
-def clear_ip_mroute(tgen, dut=None):
+def clear_mroute(tgen, dut=None):
     """
-    Clear ip mroute by running "clear ip mroute" cli
+    Clear ip/ipv6 mroute by running "clear ip mroute" cli
 
     Parameters
     ----------
@@ -1937,7 +1937,7 @@ def clear_ip_mroute(tgen, dut=None):
 
     Usage
     -----
-    clear_ip_mroute(tgen, dut)
+    clear_mroute(tgen, dut)
     """
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
@@ -2352,12 +2352,12 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
 
 
 @retry(retry_timeout=60, diag_pct=0)
-def verify_ip_pim_upstream_rpf(
+def verify_pim_upstream_rpf(
     tgen, topo, dut, interface, group_addresses, rp=None, expected=True
 ):
     """
-    Verify IP PIM upstream rpf, config is verified
-    using "show ip pim neighbor" cli
+    Verify IP/IPv6 PIM upstream rpf, config is verified
+    using "show ip/ipv6 pim neighbor" cli
 
     Parameters
     ----------
@@ -2372,7 +2372,7 @@ def verify_ip_pim_upstream_rpf(
 
     Usage
     -----
-    result = verify_ip_pim_upstream_rpf(gen, topo, dut, interface,
+    result = verify_pim_upstream_rpf(gen, topo, dut, interface,
                                         group_addresses, rp=None)
 
     Returns
@@ -2552,11 +2552,11 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
 
 
 @retry(retry_timeout=60, diag_pct=0)
-def verify_ip_pim_join(
+def verify_pim_join(
     tgen, topo, dut, interface, group_addresses, src_address=None, expected=True
 ):
     """
-    Verify ip pim join by running "show ip pim join" cli
+    Verify ip/ipv6 pim join by running "show ip/ipv6 pim join" cli
 
     Parameters
     ----------
@@ -2573,7 +2573,7 @@ def verify_ip_pim_join(
     dut = "r1"
     interface = "r1-r0-eth0"
     group_address = "225.1.1.1"
-    result = verify_ip_pim_join(tgen, dut, star, group_address, interface)
+    result = verify_pim_join(tgen, dut, star, group_address, interface)
 
     Returns
     -------

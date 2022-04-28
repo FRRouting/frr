@@ -65,9 +65,9 @@ from lib.common_config import (
 from lib.pim import (
     create_pim_config,
     create_igmp_config,
-    verify_ip_mroutes,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    verify_mroutes,
+    clear_mroute,
+    clear_pim_interface_traffic,
     verify_pim_config,
     verify_upstream_iif,
     verify_multicast_traffic,
@@ -665,10 +665,10 @@ def test_mroute_when_transit_router_present_between_rp_and_source_dr_p1(request)
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     check_router_status(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -707,7 +707,7 @@ def test_mroute_when_transit_router_present_between_rp_and_source_dr_p1(request)
     ]
 
     for data in input_dict_r1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -743,7 +743,7 @@ def test_mroute_when_transit_router_present_between_rp_and_source_dr_p1(request)
     ]
 
     for data in input_dict_r5:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -808,7 +808,7 @@ def test_mroute_when_transit_router_present_between_rp_and_source_dr_p1(request)
     )
 
     for data in input_dict_r5:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
