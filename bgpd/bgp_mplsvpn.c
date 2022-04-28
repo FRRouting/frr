@@ -1034,13 +1034,19 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP &&
 		 bpi_ultimate->sub_type == BGP_ROUTE_STATIC && table &&
 		 (table->safi == SAFI_UNICAST ||
-		  table->safi == SAFI_LABELED_UNICAST) &&
-		 !CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK)) {
-		/* if the route is defined with the "network <prefix>" command
-		 * and "no bgp network import-check" is set,
-		 * then mark the nexthop as valid.
-		 */
-		nh_valid = true;
+		  table->safi == SAFI_LABELED_UNICAST)) {
+		/* the route is defined with the "network <prefix>" command */
+
+		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
+			nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop,
+							   afi, SAFI_UNICAST,
+							   bpi_ultimate, NULL,
+							   0, p);
+		else
+			/* if "no bgp network import-check" is set,
+			 * then mark the nexthop as valid.
+			 */
+			nh_valid = true;
 	} else
 		/*
 		 * TBD do we need to do anything about the
