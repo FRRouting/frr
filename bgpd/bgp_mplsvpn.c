@@ -1045,9 +1045,11 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 {
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp *bgp_nexthop;
+	struct bgp_table *table;
 	bool nh_valid;
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
+	table = bgp_dest_table(bpi_ultimate->net);
 
 	if (bpi->extra && bpi->extra->bgp_orig)
 		bgp_nexthop = bpi->extra->bgp_orig;
@@ -1063,7 +1065,14 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	    is_pi_family_evpn(bpi_ultimate) ||
 	    CHECK_FLAG(bpi_ultimate->flags, BGP_PATH_ACCEPT_OWN))
 		nh_valid = true;
-	else
+	else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP &&
+		 bpi_ultimate->sub_type == BGP_ROUTE_STATIC && table &&
+		 (table->safi == SAFI_UNICAST ||
+		  table->safi == SAFI_LABELED_UNICAST)) {
+		/* Routes from network statement */
+		if (!CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
+			nh_valid = true;
+	} else
 		/*
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
