@@ -2837,7 +2837,6 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
-
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 			     const char *src_str)
 {
@@ -2857,4 +2856,154 @@ int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, operation, src_str);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
+				time_t now)
+{
+	char uptime_scan_oil[10];
+	char uptime_mroute_add[10];
+	char uptime_mroute_del[10];
+
+	pim_time_uptime_begin(uptime_scan_oil, sizeof(uptime_scan_oil), now,
+			      pim->scan_oil_last);
+	pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now,
+			      pim->mroute_add_last);
+	pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now,
+			      pim->mroute_del_last);
+
+	vty_out(vty,
+		"Scan OIL - Last: %s  Events: %lld\n"
+		"MFC Add  - Last: %s  Events: %lld\n"
+		"MFC Del  - Last: %s  Events: %lld\n",
+		uptime_scan_oil, (long long)pim->scan_oil_events,
+		uptime_mroute_add, (long long)pim->mroute_add_events,
+		uptime_mroute_del, (long long)pim->mroute_del_events);
+}
+
+void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
+			       json_object *json)
+{
+	struct interface *ifp;
+	json_object *json_row = NULL;
+
+	vty_out(vty, "\n");
+
+	if (!json)
+		vty_out(vty,
+			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
+#if PIM_IPV == 4
+		struct sioc_vif_req vreq;
+#else
+		struct sioc_mif_req6 vreq;
+#endif
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		memset(&vreq, 0, sizeof(vreq));
+#if PIM_IPV == 4
+		vreq.vifi = pim_ifp->mroute_vif_index;
+		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
+			zlog_warn(
+				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+				(unsigned long)SIOCGETVIFCNT, ifp->name,
+				pim_ifp->mroute_vif_index, errno,
+				safe_strerror(errno));
+		}
+#else
+		vreq.mifi = pim_ifp->mroute_vif_index;
+		if (ioctl(pim->mroute_socket, SIOCGETMIFCNT_IN6, &vreq)) {
+			zlog_warn(
+				"ioctl(SIOCGETMIFCNT_IN6=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+				(unsigned long)SIOCGETMIFCNT_IN6, ifp->name,
+				pim_ifp->mroute_vif_index, errno,
+				safe_strerror(errno));
+		}
+#endif
+
+		if (json) {
+			json_row = json_object_new_object();
+			json_object_string_add(json_row, "name", ifp->name);
+			json_object_string_add(json_row, "state",
+					       if_is_up(ifp) ? "up" : "down");
+			json_object_string_addf(json_row, "address", "%pPA",
+						&pim_ifp->primary_address);
+			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
+			json_object_int_add(json_row, "vif",
+					    pim_ifp->mroute_vif_index);
+			json_object_int_add(json_row, "pktsIn",
+					    (unsigned long)vreq.icount);
+			json_object_int_add(json_row, "pktsOut",
+					    (unsigned long)vreq.ocount);
+			json_object_int_add(json_row, "bytesIn",
+					    (unsigned long)vreq.ibytes);
+			json_object_int_add(json_row, "bytesOut",
+					    (unsigned long)vreq.obytes);
+			json_object_object_add(json, ifp->name, json_row);
+		} else {
+			vty_out(vty,
+				"%-16s %-15pPAs %3d %3d %7lu %7lu %10lu %10lu\n",
+				ifp->name, &pim_ifp->primary_address,
+				ifp->ifindex, pim_ifp->mroute_vif_index,
+				(unsigned long)vreq.icount,
+				(unsigned long)vreq.ocount,
+				(unsigned long)vreq.ibytes,
+				(unsigned long)vreq.obytes);
+		}
+	}
+}
+
+void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
+{
+	struct vrf *vrf = pim->vrf;
+	time_t now = pim_time_monotonic_sec();
+	char uptime[10];
+	char mlag_role[80];
+
+	pim = vrf->info;
+
+	vty_out(vty, "Router MLAG Role: %s\n",
+		mlag_role2str(router->mlag_role, mlag_role, sizeof(mlag_role)));
+	vty_out(vty, "Mroute socket descriptor:");
+
+	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
+
+	pim_time_uptime(uptime, sizeof(uptime),
+			now - pim->mroute_socket_creation);
+	vty_out(vty, "Mroute socket uptime: %s\n", uptime);
+
+	vty_out(vty, "\n");
+
+	pim_zebra_zclient_update(vty);
+#if PIM_IPV == 4
+	pim_zlookup_show_ip_multicast(vty);
+#else
+	/* TBD */
+#endif
+
+	vty_out(vty, "\n");
+	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
+
+	vty_out(vty, "\n");
+	vty_out(vty, "Upstream Join Timer: %d secs\n", router->t_periodic);
+	vty_out(vty, "Join/Prune Holdtime: %d secs\n", PIM_JP_HOLDTIME);
+	vty_out(vty, "PIM ECMP: %s\n", pim->ecmp_enable ? "Enable" : "Disable");
+	vty_out(vty, "PIM ECMP Rebalance: %s\n",
+		pim->ecmp_rebalance_enable ? "Enable" : "Disable");
+
+	vty_out(vty, "\n");
+
+	pim_show_rpf_refresh_stats(vty, pim, now, NULL);
+
+	vty_out(vty, "\n");
+
+	show_scan_oil_stats(pim, vty, now);
+
+	show_multicast_interfaces(pim, vty, NULL);
 }

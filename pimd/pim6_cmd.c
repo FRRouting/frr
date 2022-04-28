@@ -1569,6 +1569,123 @@ DEFPY (show_ipv6_pim_nexthop_lookup,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_multicast,
+       show_ipv6_multicast_cmd,
+       "show ipv6 multicast [vrf NAME]",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_cmd_show_ip_multicast_helper(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast_vrf_all,
+       show_ipv6_multicast_vrf_all_cmd,
+       "show ipv6 multicast vrf all",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast_count,
+       show_ipv6_multicast_count_cmd,
+       "show ipv6 multicast count [vrf NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_multicast_interfaces(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast_count_vrf_all,
+       show_ipv6_multicast_count_vrf_all_cmd,
+       "show ipv6 multicast count vrf all [json$json]",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_multicast_interfaces(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1665,4 +1782,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_neighbor_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_nexthop_lookup_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_count_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_count_vrf_all_cmd);
 }

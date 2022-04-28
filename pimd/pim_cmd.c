@@ -1020,29 +1020,6 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 		vty_out(vty, "%% No such interface\n");
 }
 
-static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
-				time_t now)
-{
-	char uptime_scan_oil[10];
-	char uptime_mroute_add[10];
-	char uptime_mroute_del[10];
-
-	pim_time_uptime_begin(uptime_scan_oil, sizeof(uptime_scan_oil), now,
-			      pim->scan_oil_last);
-	pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now,
-			      pim->mroute_add_last);
-	pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now,
-			      pim->mroute_del_last);
-
-	vty_out(vty,
-		"Scan OIL - Last: %s  Events: %lld\n"
-		"MFC Add  - Last: %s  Events: %lld\n"
-		"MFC Del  - Last: %s  Events: %lld\n",
-		uptime_scan_oil, (long long)pim->scan_oil_events,
-		uptime_mroute_add, (long long)pim->mroute_add_events,
-		uptime_mroute_del, (long long)pim->mroute_del_events);
-}
-
 /* Display the bsm database details */
 static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 {
@@ -3672,225 +3649,119 @@ DEFPY (show_ip_pim_statistics,
 	return CMD_SUCCESS;
 }
 
-static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
-				      bool uj)
-{
-	struct interface *ifp;
-	char buf[PREFIX_STRLEN];
-	json_object *json = NULL;
-	json_object *json_row = NULL;
-
-	vty_out(vty, "\n");
-
-	if (uj)
-		json = json_object_new_object();
-	else
-		vty_out(vty,
-			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
-
-	FOR_ALL_INTERFACES (pim->vrf, ifp) {
-		struct pim_interface *pim_ifp;
-		struct in_addr ifaddr;
-		struct sioc_vif_req vreq;
-
-		pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			continue;
-
-		memset(&vreq, 0, sizeof(vreq));
-		vreq.vifi = pim_ifp->mroute_vif_index;
-
-		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
-			zlog_warn(
-				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
-				(unsigned long)SIOCGETVIFCNT, ifp->name,
-				pim_ifp->mroute_vif_index, errno,
-				safe_strerror(errno));
-		}
-
-		ifaddr = pim_ifp->primary_address;
-		if (uj) {
-			json_row = json_object_new_object();
-			json_object_string_add(json_row, "name", ifp->name);
-			json_object_string_add(json_row, "state",
-					       if_is_up(ifp) ? "up" : "down");
-			json_object_string_addf(json_row, "address", "%pI4",
-						&pim_ifp->primary_address);
-			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
-			json_object_int_add(json_row, "vif",
-					    pim_ifp->mroute_vif_index);
-			json_object_int_add(json_row, "pktsIn",
-					    (unsigned long)vreq.icount);
-			json_object_int_add(json_row, "pktsOut",
-					    (unsigned long)vreq.ocount);
-			json_object_int_add(json_row, "bytesIn",
-					    (unsigned long)vreq.ibytes);
-			json_object_int_add(json_row, "bytesOut",
-					    (unsigned long)vreq.obytes);
-			json_object_object_add(json, ifp->name, json_row);
-		} else {
-			vty_out(vty,
-				"%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
-				ifp->name,
-				inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
-				ifp->ifindex, pim_ifp->mroute_vif_index,
-				(unsigned long)vreq.icount,
-				(unsigned long)vreq.ocount,
-				(unsigned long)vreq.ibytes,
-				(unsigned long)vreq.obytes);
-		}
-	}
-
-	if (uj)
-		vty_json(vty, json);
-}
-
-static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
-					     struct vty *vty)
-{
-	struct vrf *vrf = pim->vrf;
-	time_t now = pim_time_monotonic_sec();
-	char uptime[10];
-	char mlag_role[80];
-
-	pim = vrf->info;
-
-	vty_out(vty, "Router MLAG Role: %s\n",
-		mlag_role2str(router->mlag_role, mlag_role, sizeof(mlag_role)));
-	vty_out(vty, "Mroute socket descriptor:");
-
-	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
-
-	pim_time_uptime(uptime, sizeof(uptime),
-			now - pim->mroute_socket_creation);
-	vty_out(vty, "Mroute socket uptime: %s\n", uptime);
-
-	vty_out(vty, "\n");
-
-	pim_zebra_zclient_update(vty);
-	pim_zlookup_show_ip_multicast(vty);
-
-	vty_out(vty, "\n");
-	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
-
-	vty_out(vty, "\n");
-	vty_out(vty, "Upstream Join Timer: %d secs\n", router->t_periodic);
-	vty_out(vty, "Join/Prune Holdtime: %d secs\n", PIM_JP_HOLDTIME);
-	vty_out(vty, "PIM ECMP: %s\n", pim->ecmp_enable ? "Enable" : "Disable");
-	vty_out(vty, "PIM ECMP Rebalance: %s\n",
-		pim->ecmp_rebalance_enable ? "Enable" : "Disable");
-
-	vty_out(vty, "\n");
-
-	pim_show_rpf_refresh_stats(vty, pim, now, NULL);
-
-	vty_out(vty, "\n");
-
-	show_scan_oil_stats(pim, vty, now);
-
-	show_multicast_interfaces(pim, vty, false);
-}
-
-DEFUN (show_ip_multicast,
+DEFPY (show_ip_multicast,
        show_ip_multicast_cmd,
        "show ip multicast [vrf NAME]",
        SHOW_STR
        IP_STR
-       VRF_CMD_HELP_STR
-       "Multicast global information\n")
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v;
+	struct pim_instance *pim;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_cmd_show_ip_multicast_helper(pim, vty);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_multicast_vrf_all,
+DEFPY (show_ip_multicast_vrf_all,
        show_ip_multicast_vrf_all_cmd,
        "show ip multicast vrf all",
        SHOW_STR
        IP_STR
-       VRF_CMD_HELP_STR
-       "Multicast global information\n")
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
 {
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
 
-	if (uj)
-		vty_out(vty, "{ ");
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
-			vty_out(vty, "VRF: %s\n", vrf->name);
+		vty_out(vty, "VRF: %s\n", vrf->name);
 		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_ip_multicast_count,
-      show_ip_multicast_count_cmd,
-      "show ip multicast count [vrf NAME] [json]",
-      SHOW_STR IP_STR
-      "Multicast global information\n"
-      "Data packet count\n"
-      VRF_CMD_HELP_STR JSON_STR)
+DEFPY (show_ip_multicast_count,
+       show_ip_multicast_count_cmd,
+       "show ip multicast count [vrf NAME] [json$json]",
+       SHOW_STR
+       IP_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
-	int idx = 3;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	show_multicast_interfaces(vrf->info, vty, uj);
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_multicast_interfaces(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN(show_ip_multicast_count_vrf_all,
-      show_ip_multicast_count_vrf_all_cmd,
-      "show ip multicast count vrf all [json]",
-      SHOW_STR IP_STR
-      "Multicast global information\n"
-      "Data packet count\n"
-      VRF_CMD_HELP_STR JSON_STR)
+DEFPY (show_ip_multicast_count_vrf_all,
+       show_ip_multicast_count_vrf_all_cmd,
+       "show ip multicast count vrf all [json$json]",
+       SHOW_STR
+       IP_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj)
-		vty_out(vty, "{ ");
+	if (json)
+		json_parent = json_object_new_object();
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
 
-		show_multicast_interfaces(vrf->info, vty, uj);
+		show_multicast_interfaces(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
-
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
