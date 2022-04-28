@@ -177,8 +177,10 @@ const char *safi2str(safi_t safi)
 }
 
 /* If n includes p prefix then return 1 else return 0. */
-int prefix_match(const struct prefix *n, const struct prefix *p)
+int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 {
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
@@ -274,9 +276,11 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 }
 
 /* If n includes p then return 1 else return 0. Prefix mask is not considered */
-int prefix_match_network_statement(const struct prefix *n,
-				   const struct prefix *p)
+int prefix_match_network_statement(union prefixconstptr unet,
+				   union prefixconstptr upfx)
 {
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
@@ -472,8 +476,10 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
  * address families don't match, return -1; otherwise the return value is
  * in range 0 ... maximum prefix length for the address family.
  */
-int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
+int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub)
 {
+	const struct prefix *p1 = ua.p;
+	const struct prefix *p2 = ub.p;
 	int pos, bit;
 	int length = 0;
 	uint8_t xor ;
@@ -509,8 +515,10 @@ int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
 }
 
 /* Return prefix family type string. */
-const char *prefix_family_str(const struct prefix *p)
+const char *prefix_family_str(union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
+
 	if (p->family == AF_INET)
 		return "inet";
 	if (p->family == AF_INET6)
@@ -815,14 +823,16 @@ void apply_mask_ipv6(struct prefix_ipv6 *p)
 	}
 }
 
-void apply_mask(struct prefix *p)
+void apply_mask(union prefixptr pu)
 {
+	struct prefix *p = pu.p;
+
 	switch (p->family) {
 	case AF_INET:
-		apply_mask_ipv4((struct prefix_ipv4 *)p);
+		apply_mask_ipv4(pu.p4);
 		break;
 	case AF_INET6:
-		apply_mask_ipv6((struct prefix_ipv6 *)p);
+		apply_mask_ipv6(pu.p6);
 		break;
 	default:
 		break;
@@ -868,8 +878,10 @@ void prefix2sockunion(const struct prefix *p, union sockunion *su)
 		       sizeof(struct in6_addr));
 }
 
-int prefix_blen(const struct prefix *p)
+int prefix_blen(union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
+
 	switch (p->family) {
 	case AF_INET:
 		return IPV4_MAX_BYTELEN;

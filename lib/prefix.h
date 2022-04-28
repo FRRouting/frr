@@ -287,13 +287,6 @@ static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
 	return 0;
 }
 
-/* Prefix for a generic pointer */
-struct prefix_ptr {
-	uint8_t family;
-	uint16_t prefixlen;
-	uintptr_t prefix __attribute__((aligned(8)));
-};
-
 /* Prefix for a Flowspec entry */
 struct prefix_fs {
 	uint8_t family;
@@ -442,8 +435,8 @@ extern void prefix_free(struct prefix **p);
  * Function to handle prefix_free being used as a del function.
  */
 extern void prefix_free_lists(void *arg);
-extern const char *prefix_family_str(const struct prefix *);
-extern int prefix_blen(const struct prefix *);
+extern const char *prefix_family_str(union prefixconstptr pu);
+extern int prefix_blen(union prefixconstptr pu);
 extern int str2prefix(const char *, struct prefix *);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
@@ -454,14 +447,14 @@ extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,
 				   const struct prefix *match_pfx);
-extern int prefix_match(const struct prefix *, const struct prefix *);
-extern int prefix_match_network_statement(const struct prefix *,
-					  const struct prefix *);
-extern int prefix_same(union prefixconstptr, union prefixconstptr);
-extern int prefix_cmp(union prefixconstptr, union prefixconstptr);
-extern int prefix_common_bits(const struct prefix *, const struct prefix *);
-extern void prefix_copy(union prefixptr, union prefixconstptr);
-extern void apply_mask(struct prefix *);
+extern int prefix_match(union prefixconstptr unet, union prefixconstptr upfx);
+extern int prefix_match_network_statement(union prefixconstptr unet,
+					  union prefixconstptr upfx);
+extern int prefix_same(union prefixconstptr ua, union prefixconstptr ub);
+extern int prefix_cmp(union prefixconstptr ua, union prefixconstptr ub);
+extern int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub);
+extern void prefix_copy(union prefixptr udst, union prefixconstptr usrc);
+extern void apply_mask(union prefixptr pu);
 
 #ifdef __clang_analyzer__
 /* clang-SA doesn't understand transparent unions, making it think that the
