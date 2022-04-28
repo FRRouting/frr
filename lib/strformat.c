@@ -361,6 +361,8 @@ static ssize_t printfrr_abstime(struct fbuf *buf, struct printfrr_eargs *ea,
 
 	if (flags & TIMEFMT_SKIP)
 		return 0;
+	if (!ts)
+		return bputch(buf, '-');
 
 	if (flags & TIMEFMT_REALTIME)
 		*real_ts = *ts;
@@ -452,6 +454,8 @@ static ssize_t printfrr_reltime(struct fbuf *buf, struct printfrr_eargs *ea,
 
 	if (flags & TIMEFMT_SKIP)
 		return 0;
+	if (!ts)
+		return bputch(buf, '-');
 
 	if (flags & TIMEFMT_ABSOLUTE) {
 		struct timespec anchor[1];
@@ -561,8 +565,6 @@ static ssize_t printfrr_ts(struct fbuf *buf, struct printfrr_eargs *ea,
 {
 	const struct timespec *ts = vptr;
 
-	if (!ts)
-		return bputs(buf, "(null)");
 	return printfrr_time(buf, ea, ts, 0);
 }
 
@@ -574,7 +576,7 @@ static ssize_t printfrr_tv(struct fbuf *buf, struct printfrr_eargs *ea,
 	struct timespec ts;
 
 	if (!tv)
-		return bputs(buf, "(null)");
+		return printfrr_time(buf, ea, NULL, 0);
 
 	ts.tv_sec = tv->tv_sec;
 	ts.tv_nsec = tv->tv_usec * 1000;
@@ -589,7 +591,7 @@ static ssize_t printfrr_tt(struct fbuf *buf, struct printfrr_eargs *ea,
 	struct timespec ts;
 
 	if (!tt)
-		return bputs(buf, "(null)");
+		return printfrr_time(buf, ea, NULL, TIMEFMT_SECONDS);
 
 	ts.tv_sec = *tt;
 	ts.tv_nsec = 0;
