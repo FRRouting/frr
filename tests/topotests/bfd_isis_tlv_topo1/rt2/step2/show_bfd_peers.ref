@@ -1,0 +1,9 @@
+[
+  {
+    "peer": "10.0.1.1",
+    "interface": "eth-rt1",
+    "status": "up",
+    "diagnostic": "ok",
+    "remote-diagnostic": "ok"
+  }
+]
