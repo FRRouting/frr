@@ -67,9 +67,9 @@ from lib.common_config import (
 from lib.pim import (
     create_pim_config,
     create_igmp_config,
-    verify_ip_mroutes,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    verify_mroutes,
+    clear_mroute,
+    clear_pim_interface_traffic,
     verify_pim_config,
     verify_upstream_iif,
     verify_multicast_flag_state,
@@ -217,6 +217,7 @@ def teardown_module():
         "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
     )
     logger.info("=" * 40)
+
 
 #####################################################
 #
@@ -693,10 +694,10 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     check_router_status(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -752,7 +753,7 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     ]
 
     for data in input_dict_r1_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -799,7 +800,7 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     step("R1 has mroute with none OIL and upstream with Not Join")
 
     for data in input_dict_r1_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -849,7 +850,7 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
 
     for data in input_dict_r1_r2:
         if data["dut"] == "r1":
-            result = verify_ip_mroutes(
+            result = verify_mroutes(
                 tgen,
                 data["dut"],
                 data["src_address"],
@@ -883,7 +884,7 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     )
 
     for data in input_dict_r1_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -892,9 +893,10 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
 
     step("start FRR for all the nodes")
@@ -908,7 +910,7 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_r1_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
