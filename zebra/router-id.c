@@ -342,7 +342,7 @@ DEFUN (ip_router_id_in_vrf,
        "Manually set the router-id\n"
        "IP address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 	int idx = 0;
 	struct prefix rid;
 
@@ -372,7 +372,7 @@ DEFUN (ipv6_router_id_in_vrf,
        "Manually set the IPv6 router-id\n"
        "IPV6 address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 	int idx = 0;
 	struct prefix rid;
 
@@ -458,7 +458,7 @@ DEFUN (no_ip_router_id_in_vrf,
        "Remove the manually configured router-id\n"
        "IP address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	struct prefix rid;
 
@@ -486,7 +486,7 @@ DEFUN (no_ipv6_router_id_in_vrf,
        "Remove the manually configured IPv6 router-id\n"
        "IPv6 address to use for router-id\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	struct prefix rid;
 
