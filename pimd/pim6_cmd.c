@@ -660,8 +660,11 @@ DEFPY (ipv6_mld_group_watermark,
        "Configure group limit for watermark warning\n"
        "Group count to generate watermark warning\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
+
 	/* TBD Depends on MLD data structure changes */
+	(void)pim;
+
 	return CMD_SUCCESS;
 }
 
@@ -674,8 +677,11 @@ DEFPY (no_ipv6_mld_group_watermark,
        "Unconfigure group limit for watermark warning\n"
        IGNORED_IN_NO_STR)
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
+
 	/* TBD Depends on MLD data structure changes */
+	(void)pim;
+
 	return CMD_SUCCESS;
 }
 

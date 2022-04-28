@@ -112,9 +112,9 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf
+#define PIM_DECLVAR_CONTEXT_VRF(vrfptr, pimptr)                                \
+	VTY_DECLVAR_CONTEXT_VRF(vrfptr);                                       \
+	struct pim_instance *pimptr = vrfptr->info;                            \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 #endif /* PIM_CMD_COMMON_H */
