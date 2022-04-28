@@ -715,7 +715,7 @@ static void delete_from_neigh_addr(struct interface *ifp,
 		struct listnode *neigh_node;
 		struct pim_neighbor *neigh;
 
-		if (addr->family != AF_INET)
+		if (addr->family != PIM_AF)
 			continue;
 
 		/*
