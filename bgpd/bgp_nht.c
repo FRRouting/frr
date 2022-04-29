@@ -903,8 +903,11 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
+	struct bgp_path_info *pi;
+	struct bgp_dest *dest;
 	struct bgp *bgp;
 	afi_t afi;
+	safi_t safi;
 
 	if (!vrf->info) {
 		flog_err(EC_BGP_NH_UPD,
@@ -928,9 +931,23 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 	tree = &bgp->import_check_table[afi];
 
 	bnc_import = bnc_find(tree, match, nhr->srte_color, 0);
-	if (bnc_import)
+	if (bnc_import) {
 		bgp_process_nexthop_update(bnc_import, nhr, true);
-	else if (BGP_DEBUG(nht, NHT))
+
+		safi = nhr->safi;
+		if (bgp->rib[afi][safi]) {
+			dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi,
+						match, NULL);
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+			     pi = pi->next)
+				if (pi->peer == bgp->peer_self &&
+				    pi->type == ZEBRA_ROUTE_BGP &&
+				    pi->sub_type == BGP_ROUTE_STATIC)
+					vpn_leak_from_vrf_update(bgp_get_default(),
+								 bgp, pi);
+		}
+	} else if (BGP_DEBUG(nht, NHT))
 		zlog_debug("parse nexthop update %pFX(%u)(%s): bnc info not found for import check",
 			   &nhr->prefix, nhr->srte_color,
 			   bgp->name_pretty);
