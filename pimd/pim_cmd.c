@@ -4848,7 +4848,7 @@ DEFPY (ip_igmp_group_watermark,
        "Configure group limit for watermark warning\n"
        "Group count to generate watermark warning\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
 	pim->igmp_watermark_limit = limit;
 
 	return CMD_SUCCESS;
@@ -4863,7 +4863,7 @@ DEFPY (no_ip_igmp_group_watermark,
        "Unconfigure group limit for watermark warning\n"
        IGNORED_IN_NO_STR)
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
 	pim->igmp_watermark_limit = 0;
 
 	return CMD_SUCCESS;
