@@ -162,21 +162,16 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	return 0;
 }
 
-#if PIM_IPV == 4
-void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
+void pim_nht_bsr_add(struct pim_instance *pim, pim_addr addr)
 {
 	struct pim_nexthop_cache *pnc;
 	struct prefix pfx;
 
-	pfx.family = AF_INET;
-	pfx.prefixlen = IPV4_MAX_BITLEN;
-	pfx.u.prefix4 = addr;
-
+	pim_addr_to_prefix(&pfx, addr);
 	pnc = pim_nht_get(pim, &pfx);
 
 	pnc->bsr_count++;
 }
-#endif /* PIM_IPV == 4 */
 
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
@@ -246,8 +241,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	pim_nht_drop_maybe(pim, pnc);
 }
 
-#if PIM_IPV == 4
-void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
+void pim_nht_bsr_del(struct pim_instance *pim, pim_addr addr)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
@@ -257,12 +251,10 @@ void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 	 * is 0.0.0.0 as that the BSR has not been registered
 	 * for tracking yet.
 	 */
-	if (addr.s_addr == INADDR_ANY)
+	if (pim_addr_is_any(addr))
 		return;
 
-	lookup.rpf.rpf_addr.family = AF_INET;
-	lookup.rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-	lookup.rpf.rpf_addr.u.prefix4 = addr;
+	pim_addr_to_prefix(&lookup.rpf.rpf_addr, addr);
 
 	pnc = hash_lookup(pim->rpf_hash, &lookup);
 
@@ -278,7 +270,7 @@ void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 	pim_nht_drop_maybe(pim, pnc);
 }
 
-bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
+bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -287,9 +279,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 	struct nexthop *nh;
 	struct interface *ifp;
 
-	lookup.rpf.rpf_addr.family = AF_INET;
-	lookup.rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-	lookup.rpf.rpf_addr.u.prefix4 = bsr_addr;
+	pim_addr_to_prefix(&lookup.rpf.rpf_addr, bsr_addr);
 
 	pnc = hash_lookup(pim->rpf_hash, &lookup);
 	if (!pnc || !CHECK_FLAG(pnc->flags, PIM_NEXTHOP_ANSWER_RECEIVED)) {
@@ -394,13 +384,11 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 		nbr = pim_neighbor_find(ifp, nhaddr);
 		if (!nbr)
 			continue;
-
-		return nh->ifindex == src_ifp->ifindex
-		       && nhaddr.s_addr == src_ip.s_addr;
+		return nh->ifindex == src_ifp->ifindex &&
+		       (!pim_addr_cmp(nhaddr, src_ip));
 	}
 	return false;
 }
-#endif /* PIM_IPV == 4 */
 
 void pim_rp_nexthop_del(struct rp_info *rp_info)
 {

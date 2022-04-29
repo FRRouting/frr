@@ -1044,15 +1044,15 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
 		char grp_str[PREFIX_STRLEN];
 		char rp_str[INET_ADDRSTRLEN];
-		char bsr_str[INET_ADDRSTRLEN];
 		struct bsmmsg_grpinfo *group;
-		struct bsmmsg_rpinfo *rpaddr;
+		struct bsmmsg_rpinfo *bsm_rpinfo;
 		struct prefix grp;
 		struct bsm_hdr *hdr;
 		uint32_t offset = 0;
 		uint8_t *buf;
 		uint32_t len = 0;
 		uint32_t frag_rp_cnt = 0;
+		pim_addr bsr_addr;
 
 		buf = bsfrag->data;
 		len = bsfrag->size;
@@ -1067,12 +1067,11 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		buf += sizeof(struct bsm_hdr);
 		len -= sizeof(struct bsm_hdr);
 
-		pim_inet4_dump("<BSR Address?>", hdr->bsr_addr.addr, bsr_str,
-			       sizeof(bsr_str));
-
+		memcpy(&bsr_addr, &hdr->bsr_addr.addr, sizeof(bsr_addr));
 
 		if (uj) {
-			json_object_string_add(json, "BSR address", bsr_str);
+			json_object_string_addf(json, "BSR address", "%pPAs",
+						&bsr_addr);
 			json_object_int_add(json, "BSR priority",
 					    hdr->bsr_prio);
 			json_object_int_add(json, "Hashmask Length",
@@ -1084,7 +1083,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 			vty_out(vty, "------------------\n");
 			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
 				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
-			vty_out(vty, "%-15s %-15d %-15d %-15d\n", bsr_str,
+			vty_out(vty, "%-15pPAs %-15d %-15d %-15d\n", &bsr_addr,
 				hdr->bsr_prio, hdr->hm_len,
 				ntohs(hdr->frag_tag));
 		}
@@ -1137,14 +1136,16 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 					"RpAddress     HoldTime     Priority\n");
 
 			while (frag_rp_cnt--) {
-				rpaddr = (struct bsmmsg_rpinfo *)buf;
+				pim_addr rp_addr;
+
+				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
 
 				buf += sizeof(struct bsmmsg_rpinfo);
 				offset += sizeof(struct bsmmsg_rpinfo);
 
-				pim_inet4_dump("<Rp addr?>",
-					       rpaddr->rpaddr.addr, rp_str,
-					       sizeof(rp_str));
+				rp_addr = bsm_rpinfo->rpaddr.addr;
+				snprintfrr(rp_str, sizeof(rp_str), "%pPAs",
+					   &rp_addr);
 
 				if (uj) {
 					json_row = json_object_new_object();
@@ -1152,16 +1153,16 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 						json_row, "Rp Address", rp_str);
 					json_object_int_add(
 						json_row, "Rp HoldTime",
-						ntohs(rpaddr->rp_holdtime));
+						ntohs(bsm_rpinfo->rp_holdtime));
 					json_object_int_add(json_row,
 							    "Rp Priority",
-							    rpaddr->rp_pri);
+							    bsm_rpinfo->rp_pri);
 					json_object_object_add(
 						json_group, rp_str, json_row);
 				} else {
 					vty_out(vty, "%-15s %-12d %d\n", rp_str,
-						ntohs(rpaddr->rp_holdtime),
-						rpaddr->rp_pri);
+						ntohs(bsm_rpinfo->rp_holdtime),
+						bsm_rpinfo->rp_pri);
 				}
 			}
 			vty_out(vty, "\n");
@@ -1186,19 +1187,14 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY)
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
-
-	else
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr, bsr_str,
-			       sizeof(bsr_str));
+	snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
+		   &pim->global_scope.current_bsr);
 
 	if (uj) {
 		json = json_object_new_object();
 		json_object_string_add(json, "BSR Address", bsr_str);
-	} else {
+	} else
 		vty_out(vty, "BSR Address  %s\n", bsr_str);
-	}
 
 	for (rn = route_top(pim->global_scope.bsrp_table); rn;
 	     rn = route_next(rn)) {
@@ -1230,13 +1226,14 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
 			char rp_str[INET_ADDRSTRLEN];
 
-			pim_inet4_dump("<Rp Address?>", bsm_rp->rp_address,
-				       rp_str, sizeof(rp_str));
+			snprintfrr(rp_str, sizeof(rp_str), "%pPAs",
+				   &bsm_rp->rp_address);
 
 			if (uj) {
 				json_row = json_object_new_object();
-				json_object_string_add(json_row, "Rp Address",
-						       rp_str);
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPAs",
+							&bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
@@ -1247,8 +1244,8 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 						       json_row);
 
 			} else {
-				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
-					rp_str, bsm_rp->rp_prio,
+				vty_out(vty, "%-15pPAs %-15u %-15u %-15u\n",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
 		}
@@ -1271,13 +1268,14 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
 			char rp_str[INET_ADDRSTRLEN];
 
-			pim_inet4_dump("<Rp Addr?>", bsm_rp->rp_address, rp_str,
-				       sizeof(rp_str));
+			snprintfrr(rp_str, sizeof(rp_str), "%pPAs",
+				   &bsm_rp->rp_address);
 
 			if (uj) {
 				json_row = json_object_new_object();
-				json_object_string_add(json_row, "Rp Address",
-						       rp_str);
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPAs",
+							&bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
@@ -1287,8 +1285,8 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 				json_object_object_add(json_group, rp_str,
 						       json_row);
 			} else {
-				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
-					rp_str, bsm_rp->rp_prio,
+				vty_out(vty, "%-15pPAs %-15u %-15u %-15u\n",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
 		}
@@ -1658,8 +1656,7 @@ static void pim_show_bsr(struct pim_instance *pim,
 	char bsr_str[PREFIX_STRLEN];
 	json_object *json = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY) {
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
 		pim_time_uptime(uptime, sizeof(uptime),
 				pim->global_scope.current_bsr_first_ts);
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
@@ -1667,14 +1664,15 @@ static void pim_show_bsr(struct pim_instance *pim,
 	}
 
 	else {
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr,
-			       bsr_str, sizeof(bsr_str));
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(uptime, sizeof(uptime),
 				(now - pim->global_scope.current_bsr_first_ts));
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
 				now - pim->global_scope.current_bsr_last_ts);
 	}
+
+	snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
+		   &pim->global_scope.current_bsr);
 
 	switch (pim->global_scope.state) {
 	case NO_INFO:
@@ -1689,6 +1687,7 @@ static void pim_show_bsr(struct pim_instance *pim,
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
+
 
 	if (uj) {
 		json = json_object_new_object();
