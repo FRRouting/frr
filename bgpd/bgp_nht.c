@@ -1065,7 +1065,8 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			 */
 			else if (pi->attr->mp_nexthop_len
 				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				if (pi->attr->mp_nexthop_prefer_global)
+				if (CHECK_FLAG(pi->attr->nh_flags,
+					       BGP_ATTR_NH_MP_PREFER_GLOBAL))
 					p->u.prefix6 =
 						pi->attr->mp_nexthop_global;
 				else
