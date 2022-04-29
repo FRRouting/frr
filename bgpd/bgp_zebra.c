@@ -943,7 +943,8 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 	    || path->attr->mp_nexthop_len
 		       == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 		/* Check if route-map is set to prefer global over link-local */
-		if (path->attr->mp_nexthop_prefer_global) {
+		if (CHECK_FLAG(path->attr->nh_flags,
+			       BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
 			nexthop = &path->attr->mp_nexthop_global;
 			if (IN6_IS_ADDR_LINKLOCAL(nexthop))
 				*ifindex = path->attr->nh_ifindex;
