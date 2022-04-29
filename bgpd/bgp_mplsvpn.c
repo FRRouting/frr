@@ -1485,6 +1485,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	uint32_t num_labels = 0;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
+	struct bgp_path_info *bpi;
 	int origin_local = 0;
 	struct bgp *src_vrf;
 
@@ -1544,6 +1545,18 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	}
+
+	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+		if (bpi->extra && bpi->extra->parent == path_vpn)
+			break;
+	}
+
+	if (bpi &&
+	    leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi,
+				      path_vpn, bpi, src_vrf, p, debug))
+		SET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_VALID);
+	else
+		UNSET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_VALID);
 
 	/*
 	 * Nexthop: stash and clear

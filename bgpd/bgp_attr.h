@@ -178,6 +178,9 @@ struct attr {
 	uint32_t med;
 	uint32_t local_pref;
 	ifindex_t nh_ifindex;
+	uint8_t nh_flag;
+
+#define BGP_ATTR_NH_VALID 0x01
 
 	/* Path origin attribute */
 	uint8_t origin;
