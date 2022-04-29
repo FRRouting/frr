@@ -15012,7 +15012,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 	char buf[PREFIX_STRLEN * 2];
 	char buf2[SU_ADDRSTRLEN];
 	char rdbuf[RD_ADDRSTRLEN];
-	char esi_buf[ESI_BYTES];
+	char esi_buf[ESI_STR_LEN];
 
 	/* Network configuration. */
 	for (pdest = bgp_table_top(bgp->route[afi][safi]); pdest;
