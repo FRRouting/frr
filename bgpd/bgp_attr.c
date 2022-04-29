@@ -866,6 +866,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->df_pref == attr2->df_pref
 		    && attr1->df_alg == attr2->df_alg
 		    && attr1->nh_ifindex == attr2->nh_ifindex
+		    && attr1->nh_flag == attr2->nh_flag
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
 		    && attr1->distance == attr2->distance
 		    && srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn)
