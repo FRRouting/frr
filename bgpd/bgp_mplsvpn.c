@@ -1490,6 +1490,17 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
+	/*
+	 * For VRF-2-VRF route-leaking,
+	 * the source will be the originating VRF.
+	 */
+	if (path_vpn->extra && path_vpn->extra->bgp_orig)
+		src_vrf = path_vpn->extra->bgp_orig;
+	else
+		src_vrf = from_bgp;
+
+	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
+
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
 			zlog_debug("%s: skipping: %s", __func__, debugmsg);
@@ -1656,15 +1667,6 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	if (debug)
 		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
 			   path_vpn->net, num_labels);
-
-	/*
-	 * For VRF-2-VRF route-leaking,
-	 * the source will be the originating VRF.
-	 */
-	if (path_vpn->extra && path_vpn->extra->bgp_orig)
-		src_vrf = path_vpn->extra->bgp_orig;
-	else
-		src_vrf = from_bgp;
 
 	leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
 		    num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,
