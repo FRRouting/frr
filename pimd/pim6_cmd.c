@@ -535,75 +535,33 @@ DEFPY (interface_no_ipv6_mld_join,
 
 DEFPY (interface_ipv6_mld,
        interface_ipv6_mld_cmd,
-       "ipv6 mld",
-       IPV6_STR
-       IFACE_MLD_STR)
-{
-	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
-}
-
-DEFPY (interface_no_ipv6_mld,
-       interface_no_ipv6_mld_cmd,
-       "no ipv6 mld",
+       "[no] ipv6 mld",
        NO_STR
        IPV6_STR
        IFACE_MLD_STR)
 {
-	const struct lyd_node *pim_enable_dnode;
-	char pim_if_xpath[XPATH_MAXLEN + 64];
+	const char *value = no ? "false" : "true";
 
-	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
-		 "%s/frr-pim:pim/address-family[address-family='%s']",
-		 VTY_CURR_XPATH, "frr-routing:ipv6");
-
-	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
-					   "frr-routing:ipv6");
-	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY, NULL);
-		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-	} else {
-		if (!yang_dnode_get_bool(pim_enable_dnode, ".")) {
-			nb_cli_enqueue_change(vty, pim_if_xpath, NB_OP_DESTROY,
-					      NULL);
-			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-		} else
-			nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
-					      "false");
-	}
-
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, value);
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    "frr-routing:ipv6");
 }
 
 DEFPY (interface_ipv6_mld_version,
        interface_ipv6_mld_version_cmd,
-       "ipv6 mld version (1-2)$version",
-       IPV6_STR
-       IFACE_MLD_STR
-       "MLD version\n"
-       "MLD version number\n")
-{
-	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
-	nb_cli_enqueue_change(vty, "./mld-version", NB_OP_MODIFY, version_str);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
-}
-
-DEFPY (interface_no_ipv6_mld_version,
-       interface_no_ipv6_mld_version_cmd,
-       "no ipv6 mld version [(1-2)]",
+       "[no] ipv6 mld version ![(1-2)$version]",
        NO_STR
        IPV6_STR
        IFACE_MLD_STR
        "MLD version\n"
        "MLD version number\n")
 {
-	nb_cli_enqueue_change(vty, "./mld-version", NB_OP_DESTROY, NULL);
+	if (no)
+		nb_cli_enqueue_change(vty, "./mld-version", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./mld-version", NB_OP_MODIFY,
+				      version_str);
 
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    "frr-routing:ipv6");
@@ -611,42 +569,19 @@ DEFPY (interface_no_ipv6_mld_version,
 
 DEFPY (interface_ipv6_mld_query_interval,
        interface_ipv6_mld_query_interval_cmd,
-       "ipv6 mld query-interval (1-65535)$q_interval",
+       "[no] ipv6 mld query-interval ![(1-65535)$q_interval]",
+       NO_STR
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_QUERY_INTERVAL_STR
        "Query interval in seconds\n")
 {
-	const struct lyd_node *pim_enable_dnode;
-
-	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
-					   "frr-routing:ipv6");
-	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
-	} else {
-		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
-					      "true");
-	}
-
-	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
-			      q_interval_str);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv6");
-}
-
-DEFPY (interface_no_ipv6_mld_query_interval,
-      interface_no_ipv6_mld_query_interval_cmd,
-      "no ipv6 mld query-interval [(1-65535)]",
-      NO_STR
-      IPV6_STR
-      IFACE_MLD_STR
-      IFACE_MLD_QUERY_INTERVAL_STR
-      IGNORED_IN_NO_STR)
-{
-	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
+	if (no)
+		nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY,
+				      NULL);
+	else
+		nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+				      q_interval_str);
 
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    "frr-routing:ipv6");
@@ -687,71 +622,44 @@ DEFPY (no_ipv6_mld_group_watermark,
 
 DEFPY (interface_ipv6_mld_query_max_response_time,
        interface_ipv6_mld_query_max_response_time_cmd,
-       "ipv6 mld query-max-response-time (1-65535)$qmrt",
+       "[no] ipv6 mld query-max-response-time ![(1-65535)$qmrt]",
+       NO_STR
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
-       "Query response value in deci-seconds\n")
+       "Query response value in milliseconds\n")
 {
+	if (no)
+		return gm_process_no_query_max_response_time_cmd(vty);
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
 
-DEFPY (interface_no_ipv6_mld_query_max_response_time,
-       interface_no_ipv6_mld_query_max_response_time_cmd,
-       "no ipv6 mld query-max-response-time [(1-65535)]",
+DEFPY (interface_ipv6_mld_robustness,
+       interface_ipv6_mld_robustness_cmd,
+       "[no] ipv6 mld robustness ![(1-7)]",
        NO_STR
        IPV6_STR
        IFACE_MLD_STR
-       IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
-       IGNORED_IN_NO_STR)
+       "MLD Robustness variable\n"
+       "MLD Robustness variable\n")
 {
-	return gm_process_no_query_max_response_time_cmd(vty);
-}
-
-DEFPY (interface_ipv6_mld_last_member_query_count,
-       interface_ipv6_mld_last_member_query_count_cmd,
-       "ipv6 mld last-member-query-count (1-255)$lmqc",
-       IPV6_STR
-       IFACE_MLD_STR
-       IFACE_MLD_LAST_MEMBER_QUERY_COUNT_STR
-       "Last member query count\n")
-{
-	return gm_process_last_member_query_count_cmd(vty, lmqc_str);
-}
-
-DEFPY (interface_no_ipv6_mld_last_member_query_count,
-       interface_no_ipv6_mld_last_member_query_count_cmd,
-       "no ipv6 mld last-member-query-count [(1-255)]",
-       NO_STR
-       IPV6_STR
-       IFACE_MLD_STR
-       IFACE_MLD_LAST_MEMBER_QUERY_COUNT_STR
-       IGNORED_IN_NO_STR)
-{
-	return gm_process_no_last_member_query_count_cmd(vty);
+	if (no)
+		return gm_process_no_last_member_query_count_cmd(vty);
+	return gm_process_last_member_query_count_cmd(vty, robustness_str);
 }
 
 DEFPY (interface_ipv6_mld_last_member_query_interval,
        interface_ipv6_mld_last_member_query_interval_cmd,
-       "ipv6 mld last-member-query-interval (1-65535)$lmqi",
-       IPV6_STR
-       IFACE_MLD_STR
-       IFACE_MLD_LAST_MEMBER_QUERY_INTERVAL_STR
-       "Last member query interval in deciseconds\n")
-{
-	return gm_process_last_member_query_interval_cmd(vty, lmqi_str);
-}
-
-DEFPY (interface_no_ipv6_mld_last_member_query_interval,
-       interface_no_ipv6_mld_last_member_query_interval_cmd,
-       "no ipv6 mld last-member-query-interval [(1-65535)]",
+       "[no] ipv6 mld last-member-query-interval ![(1-65535)$lmqi]",
        NO_STR
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_LAST_MEMBER_QUERY_INTERVAL_STR
-       IGNORED_IN_NO_STR)
+       "Last member query interval in milliseconds\n")
 {
-	return gm_process_no_last_member_query_interval_cmd(vty);
+	if (no)
+		return gm_process_no_last_member_query_interval_cmd(vty);
+	return gm_process_last_member_query_interval_cmd(vty, lmqi_str);
 }
 
 DEFPY (show_ipv6_pim_rp,
@@ -1966,31 +1874,23 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_ssmpingd_cmd);
 	install_element(VRF_NODE, &no_ipv6_ssmpingd_cmd);
+
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_join_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
-	install_element(INTERFACE_NODE,
-			&interface_no_ipv6_mld_query_interval_cmd);
 	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
 	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_mld_group_watermark_cmd);
 	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
+
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,
-			&interface_no_ipv6_mld_query_max_response_time_cmd);
-	install_element(INTERFACE_NODE,
-			&interface_ipv6_mld_last_member_query_count_cmd);
-	install_element(INTERFACE_NODE,
-			&interface_no_ipv6_mld_last_member_query_count_cmd);
+			&interface_ipv6_mld_robustness_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_last_member_query_interval_cmd);
-	install_element(INTERFACE_NODE,
-			&interface_no_ipv6_mld_last_member_query_interval_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_vrf_all_cmd);

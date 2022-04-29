@@ -40,6 +40,7 @@
 #include "pim_bfd.h"
 #include "pim_bsm.h"
 #include "pim_vxlan.h"
+#include "pim6_mld.h"
 
 int pim_debug_config_write(struct vty *vty)
 {
@@ -291,8 +292,8 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 }
 
 #if PIM_IPV == 4
-static int pim_igmp_config_write(struct vty *vty, int writes,
-				 struct pim_interface *pim_ifp)
+static int gm_config_write(struct vty *vty, int writes,
+			   struct pim_interface *pim_ifp)
 {
 	/* IF ip igmp */
 	if (pim_ifp->igmp_enable) {
@@ -360,6 +361,17 @@ static int pim_igmp_config_write(struct vty *vty, int writes,
 
 	return writes;
 }
+#else
+static int gm_config_write(struct vty *vty, int writes,
+			   struct pim_interface *pim_ifp)
+{
+	if (pim_ifp->mld_version != MLD_DEFAULT_VERSION)
+		vty_out(vty, " ipv6 mld version %d\n", pim_ifp->mld_version);
+	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
+		vty_out(vty, " ipv6 mld query-interval %d\n",
+			pim_ifp->gm_default_query_interval);
+	return 0;
+}
 #endif
 
 int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
@@ -388,9 +400,7 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
-#if PIM_IPV == 4
-	writes += pim_igmp_config_write(vty, writes, pim_ifp);
-#endif
+	writes += gm_config_write(vty, writes, pim_ifp);
 
 	/* update source */
 	if (!pim_addr_is_any(pim_ifp->update_source)) {
