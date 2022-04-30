@@ -1,0 +1,8 @@
+/results*
+/network.dot
+/network.png
+/assets/
+/reportato/
+*.pcapng
+*.pcap
+.venv

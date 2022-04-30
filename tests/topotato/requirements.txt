@@ -1,0 +1,11 @@
+attrs==21.4.0
+commonmark==0.9.1
+configparser==5.2.0
+distlib==0.3.4
+filelock==3.6.0
+graphviz==0.20; python_version >= "3.8"
+Jinja2==3.1.2; python_version >= "3.8"
+lxml==4.8.0; python_version >= "3.8"
+MarkupSafe==2.0.1; python_version >= "3.8"
+pytest==6.2.4; python_version >= "3.8"
+typing_extensions==4.2.0; python_version >= "3.8"
