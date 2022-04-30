@@ -135,16 +135,16 @@ from lib.pim import (
     verify_igmp_groups,
     verify_upstream_iif,
     verify_join_state_and_timer,
-    verify_ip_mroutes,
+    verify_mroutes,
     verify_pim_neighbors,
     get_pim_interface_traffic,
     verify_pim_rp_info,
     verify_pim_state,
-    clear_ip_pim_interface_traffic,
-    clear_ip_igmp_interfaces,
-    clear_ip_pim_interfaces,
-    clear_ip_mroute,
-    clear_ip_mroute_verify,
+    clear_pim_interface_traffic,
+    clear_igmp_interfaces,
+    clear_pim_interfaces,
+    clear_mroute,
+    clear_mroute_verify,
     McastTesterHelper,
 )
 
@@ -419,7 +419,7 @@ def test_add_delete_static_RP_p0(request):
     result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
     step("r1: Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify ip pim join")
@@ -480,7 +480,7 @@ def test_add_delete_static_RP_p0(request):
     )
 
     step("r1: Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: mroutes are still present \n Error: {}".format(
@@ -531,8 +531,8 @@ def test_SPT_RPT_path_same_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     dut = "r1"
     intf = "r1-r3-eth2"
@@ -585,7 +585,7 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -598,7 +598,7 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -613,7 +613,7 @@ def test_SPT_RPT_path_same_p1(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -626,7 +626,7 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -648,7 +648,7 @@ def test_SPT_RPT_path_same_p1(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r2-eth1"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -683,8 +683,8 @@ def test_not_reachable_static_RP_p0(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     dut = "r1"
     intf = "r1-r3-eth2"
@@ -741,7 +741,7 @@ def test_not_reachable_static_RP_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 :Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Make RP un-reachable")
@@ -811,7 +811,7 @@ def test_not_reachable_static_RP_p0(request):
     assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
 
     step("r1: (*, G) cleared from mroute table using show ip mroute")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*, G) are not cleared from mroute table \n Error: {}".format(
@@ -847,8 +847,8 @@ def test_add_RP_after_join_received_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on R1 interface")
     step("Configure r2 loopback interface as RP")
@@ -932,7 +932,7 @@ def test_add_RP_after_join_received_p1(request):
     )
 
     step("r1: Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: mroutes are still present\n Error: {}".format(
@@ -975,7 +975,7 @@ def test_add_RP_after_join_received_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
     logger.info("Expected behavior: %s", result)
 
@@ -1015,8 +1015,8 @@ def test_reachable_static_RP_after_join_p0(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
     step("Configure r2 loopback interface as RP")
@@ -1084,7 +1084,7 @@ def test_reachable_static_RP_after_join_p0(request):
     )
 
     step("r1 : Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "r1: mroutes are still present\n Error: {}".format(
@@ -1118,7 +1118,7 @@ def test_reachable_static_RP_after_join_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Verify ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
     logger.info("Expected behavior: %s", result)
 
@@ -1180,8 +1180,8 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range " "224.0.0.0/4")
@@ -1273,7 +1273,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
 
     step("r1 : Verify ip mroutes")
     iif = "r1-r4-eth3"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Verify PIM state")
@@ -1288,7 +1288,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("r1 : Verify joinTx, pruneTx count before RP gets deleted")
     state_dict = {"r1": {"r1-r2-eth1": ["joinTx"], "r1-r4-eth3": ["pruneTx"]}}
@@ -1342,7 +1342,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
         "RP gets deleted"
     )
     iif = "r1-r2-eth1"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
     logger.info("Expected behavior: %s", result)
 
@@ -1417,8 +1417,8 @@ def test_RP_configured_as_LHR_1_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r1 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -1560,7 +1560,7 @@ def test_RP_configured_as_LHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -1573,7 +1573,7 @@ def test_RP_configured_as_LHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -1594,7 +1594,7 @@ def test_RP_configured_as_LHR_1_p1(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -1629,8 +1629,8 @@ def test_RP_configured_as_LHR_2_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r1 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -1765,7 +1765,7 @@ def test_RP_configured_as_LHR_2_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -1778,7 +1778,7 @@ def test_RP_configured_as_LHR_2_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -1800,7 +1800,7 @@ def test_RP_configured_as_LHR_2_p1(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -1835,8 +1835,8 @@ def test_RP_configured_as_FHR_1_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 225.1.1.0/24")
@@ -1972,7 +1972,7 @@ def test_RP_configured_as_FHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -1984,7 +1984,7 @@ def test_RP_configured_as_FHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -2006,7 +2006,7 @@ def test_RP_configured_as_FHR_1_p1(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -2040,8 +2040,8 @@ def test_RP_configured_as_FHR_2_p2(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 225.1.1.0/24")
@@ -2178,7 +2178,7 @@ def test_RP_configured_as_FHR_2_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -2191,7 +2191,7 @@ def test_RP_configured_as_FHR_2_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -2213,7 +2213,7 @@ def test_RP_configured_as_FHR_2_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -2249,8 +2249,8 @@ def test_SPT_RPT_path_different_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to r1")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2288,7 +2288,7 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -2301,7 +2301,7 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -2316,7 +2316,7 @@ def test_SPT_RPT_path_different_p1(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -2338,7 +2338,7 @@ def test_SPT_RPT_path_different_p1(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -2362,7 +2362,7 @@ def test_SPT_RPT_path_different_p1(request):
 
     step("r2: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -2400,8 +2400,8 @@ def test_clear_pim_configuration_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2444,19 +2444,19 @@ def test_clear_pim_configuration_p1(request):
 
     step("r1: Verify (*, G) ip mroutes")
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups timer restarted")
-    result = clear_ip_igmp_interfaces(tgen, dut)
+    result = clear_igmp_interfaces(tgen, dut)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify PIM neighbor timer restarted")
-    result = clear_ip_pim_interfaces(tgen, dut)
+    result = clear_pim_interfaces(tgen, dut)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify PIM mroute timer restarted")
-    result = clear_ip_mroute_verify(tgen, dut)
+    result = clear_mroute_verify(tgen, dut)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Uncomment next line for debugging
@@ -2493,8 +2493,8 @@ def test_restart_pimd_process_p2(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to R1")
     step("Configure RP on r3 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2535,7 +2535,7 @@ def test_restart_pimd_process_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -2548,7 +2548,7 @@ def test_restart_pimd_process_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -2563,7 +2563,7 @@ def test_restart_pimd_process_p2(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -2585,7 +2585,7 @@ def test_restart_pimd_process_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     dut = "r1"
@@ -2594,7 +2594,7 @@ def test_restart_pimd_process_p2(request):
     logger.info("waiting for 10 sec to make sure old mroute time is higher")
     sleep(10)
     # Why do we then wait 60 seconds below before checking the routes?
-    uptime_before = verify_ip_mroutes(
+    uptime_before = verify_mroutes(
         tgen, dut, STAR, GROUP_ADDRESS, iif, oil, return_uptime=True, mwait=60
     )
     assert isinstance(uptime_before, dict), "Testcase{} : Failed Error: {}".format(
@@ -2611,7 +2611,7 @@ def test_restart_pimd_process_p2(request):
     sleep(5)
 
     # Why do we then wait 10 seconds below before checking the routes?
-    uptime_after = verify_ip_mroutes(
+    uptime_after = verify_mroutes(
         tgen, dut, STAR, GROUP_ADDRESS, iif, oil, return_uptime=True, mwait=10
     )
     assert isinstance(uptime_after, dict), "Testcase{} : Failed Error: {}".format(
@@ -2650,8 +2650,8 @@ def test_multiple_groups_same_RP_address_p2(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to r1")
     step("Configure RP on r2 (loopback interface) for the group range" "225.1.1.0/24")
@@ -2701,7 +2701,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r1: Verify (*, G) ip mroutes")
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -2716,7 +2716,7 @@ def test_multiple_groups_same_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -2731,7 +2731,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -2753,7 +2753,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -2777,7 +2777,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r2: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Delete RP configuration")
@@ -2844,7 +2844,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r1: Verify (*, G) ip mroutes")
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -2859,7 +2859,7 @@ def test_multiple_groups_same_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -2874,7 +2874,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -2898,7 +2898,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r2: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -2920,7 +2920,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, group_address_list, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
@@ -2955,8 +2955,8 @@ def test_multiple_groups_different_RP_address_p2(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Delete existing RP configuration")
     input_dict = {
@@ -3043,7 +3043,7 @@ def test_multiple_groups_different_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -3058,9 +3058,7 @@ def test_multiple_groups_different_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -3075,7 +3073,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -3098,9 +3096,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r2: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -3122,9 +3118,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -3139,7 +3133,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r1: Verify (*, G) ip mroutes")
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -3154,9 +3148,7 @@ def test_multiple_groups_different_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r4: Verify (*, G) upstream IIF interface")
@@ -3171,7 +3163,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r4: Verify (*, G) ip mroutes")
     oif = "r4-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r4: Verify (S, G) upstream IIF interface")
@@ -3194,9 +3186,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r4: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -3215,9 +3205,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Delete RP configuration")
@@ -3316,7 +3304,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r1: Verify (*, G) ip mroutes")
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -3331,9 +3319,7 @@ def test_multiple_groups_different_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) upstream IIF interface")
@@ -3348,7 +3334,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r2: Verify (*, G) ip mroutes")
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (S, G) upstream IIF interface")
@@ -3371,9 +3357,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r2: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -3395,9 +3379,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_1, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -3412,7 +3394,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r1: Verify (*, G) ip mroutes")
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) upstream IIF interface")
@@ -3427,9 +3409,7 @@ def test_multiple_groups_different_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (S, G) ip mroutes")
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r4: Verify (*, G) upstream IIF interface")
@@ -3444,7 +3424,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r4: Verify (*, G) ip mroutes")
     oif = "r4-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r4: Verify (S, G) upstream IIF interface")
@@ -3467,9 +3447,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r4: Verify (S, G) ip mroutes")
     oif = "none"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (S, G) upstream IIF interface")
@@ -3491,9 +3469,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("r3: Verify (S, G) ip mroutes")
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(
-        tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif
-    )
+    result = verify_mroutes(tgen, dut, SOURCE_ADDRESS, GROUP_ADDRESS_LIST_2, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
@@ -3522,8 +3498,8 @@ def test_shutdown_primary_path_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     # Steps to execute
     step("Enable IGMP on r1 interface")
@@ -3552,14 +3528,14 @@ def test_shutdown_primary_path_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes")
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Shut the interface r1-r2-eth1 from R1 to R2")
@@ -3578,21 +3554,21 @@ def test_shutdown_primary_path_p1(request):
     dut = "r1"
     iif = "r1-r3-eth2"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes")
     dut = "r2"
     iif = "lo"
     oif = "r2-r3-eth1"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (*, G) ip mroutes")
     dut = "r3"
     iif = "r3-r2-eth1"
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Shut the link from R1 to R3 from R3 node")
@@ -3609,7 +3585,7 @@ def test_shutdown_primary_path_p1(request):
     dut = "r1"
     iif = "r1-r3-eth2"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
@@ -3621,7 +3597,7 @@ def test_shutdown_primary_path_p1(request):
     dut = "r2"
     iif = "lo"
     oif = "r2-r3-eth1"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
@@ -3633,7 +3609,7 @@ def test_shutdown_primary_path_p1(request):
     dut = "r3"
     iif = "r3-r2-eth1"
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (*,G) mroutes are not cleared after shut of R1 to R3 link\n Error: {}".format(
@@ -3650,21 +3626,21 @@ def test_shutdown_primary_path_p1(request):
     dut = "r1"
     iif = "r1-r3-eth2"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes")
     dut = "r2"
     iif = "lo"
     oif = "r2-r3-eth1"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r3: Verify (*, G) ip mroutes")
     dut = "r3"
     iif = "r3-r2-eth1"
     oif = "r3-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: No shutdown the link from R1 to R2 from R1 node")
@@ -3676,14 +3652,14 @@ def test_shutdown_primary_path_p1(request):
     dut = "r1"
     iif = "r1-r2-eth1"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes")
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
@@ -3711,8 +3687,8 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -3740,14 +3716,14 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes created")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes created")
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Delete RP configuration")
@@ -3794,7 +3770,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     dut = "r1"
     iif = "r1-r2-eth1"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*,G) mroutes are not cleared after shut of R1 to R0 link\n Error: {}".format(
@@ -3806,7 +3782,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (*,G) mroutes are not cleared after shut of R1 to R0 link\n Error: {}".format(
@@ -3840,8 +3816,8 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
-    clear_ip_pim_interface_traffic(tgen, TOPO)
+    clear_mroute(tgen)
+    clear_pim_interface_traffic(tgen, TOPO)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (lo) for the group range" " 224.0.0.0/4")
@@ -3868,14 +3844,14 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) ip mroutes created")
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Verify (*, G) ip mroutes created")
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r2: Delete RP configuration")
@@ -3917,7 +3893,7 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     dut = "r1"
     iif = "r1-r2-eth1"
     oif = "r1-r0-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: (*,G) mroutes are not cleared after shut of R1 to R2 and R3 link\n Error: {}".format(
@@ -3929,7 +3905,7 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     dut = "r2"
     iif = "lo"
     oif = "r2-r1-eth0"
-    result = verify_ip_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
+    result = verify_mroutes(tgen, dut, STAR, GROUP_ADDRESS, iif, oif, expected=False)
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r2: (*,G) mroutes are not cleared after shut of R1 to R2 and R3 link\n Error: {}".format(
