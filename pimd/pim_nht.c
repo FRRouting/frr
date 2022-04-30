@@ -469,6 +469,37 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 	return 0;
 }
 
+static int pim_upstream_nh_if_update_helper(struct hash_bucket *bucket,
+					    void *arg)
+{
+	struct pim_nexthop_cache *pnc = bucket->data;
+	struct pnc_hash_walk_data *pwd = arg;
+	struct pim_instance *pim = pwd->pim;
+	struct interface *ifp = pwd->ifp;
+	struct nexthop *nh_node = NULL;
+	ifindex_t first_ifindex;
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		first_ifindex = nh_node->ifindex;
+		if (ifp != if_lookup_by_index(first_ifindex, pim->vrf->vrf_id))
+			return HASHWALK_CONTINUE;
+
+		if (pnc->upstream_hash->count)
+			pim_update_upstream_nh(pim, pnc);
+	}
+	return HASHWALK_CONTINUE;
+}
+
+void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp)
+{
+	struct pnc_hash_walk_data pwd;
+
+	pwd.pim = pim;
+	pwd.ifp = ifp;
+
+	hash_walk(pim->rpf_hash, pim_upstream_nh_if_update_helper, &pwd);
+}
+
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 {
 	uint32_t hash_val;
@@ -509,6 +540,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 	// Current Nexthop is VALID, check to stay on the current path.
 	if (nexthop->interface && nexthop->interface->info &&
+	    ((struct pim_interface *)nexthop->interface->info)->options &&
 	    (!pim_addr_is_any(nh_addr))) {
 		/* User configured knob to explicitly switch
 		   to new path is disabled or current path
@@ -623,6 +655,19 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			continue;
 		}
 
+		if (!PIM_IF_TEST_PIM(
+			    ((struct pim_interface *)ifp->info)->options)) {
+			if (PIM_DEBUG_PIM_NHT)
+				zlog_debug(
+					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pI4)",
+					__func__, ifp->name, pim->vrf->name,
+					first_ifindex, &src->u.prefix4);
+			if (nh_iter == mod_val)
+				mod_val++; // Select nexthpath
+			nh_iter++;
+			continue;
+		}
+
 		if (neighbor_needed &&
 		    !pim_if_connected_to_source(ifp, src_addr)) {
 			nbr = nbrs[nh_iter];
@@ -633,7 +678,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 						__func__, ifp->name,
 						pim->vrf->name);
 				if (nh_iter == mod_val)
-					mod_val++; // Select nexthpath
+					/* Select nexthpath */
+					mod_val++;
 				nh_iter++;
 				continue;
 			}
@@ -977,6 +1023,21 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			i++;
 			continue;
 		}
+
+
+		if (!PIM_IF_TEST_PIM(
+			    ((struct pim_interface *)ifp->info)->options)) {
+			if (PIM_DEBUG_PIM_NHT)
+				zlog_debug(
+					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pI4)",
+					__func__, ifp->name, pim->vrf->name,
+					first_ifindex, &src->u.prefix4);
+			if (i == mod_val)
+				mod_val++;
+			i++;
+			continue;
+		}
+
 		if (neighbor_needed &&
 		    !pim_if_connected_to_source(ifp, src_addr)) {
 			nbr = nbrs[i];

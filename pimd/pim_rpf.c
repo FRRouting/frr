@@ -122,6 +122,13 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 					__func__, ifp->name, first_ifindex,
 					&addr);
 			i++;
+		} else if (!((struct pim_interface *)ifp->info)->pim_enable) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug(
+					"%s: pim not enabled on input interface %s (ifindex=%d, RPF for source %pPA)",
+					__func__, ifp->name, first_ifindex,
+					&addr);
+			i++;
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
 			nbr = pim_neighbor_find(ifp,
