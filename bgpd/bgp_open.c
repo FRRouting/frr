@@ -517,22 +517,39 @@ static int bgp_capability_restart(struct peer *peer,
 
 	SET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
 	restart_flag_time = stream_getw(s);
+
+	/* The most significant bit is defined in [RFC4724] as
+	 * the Restart State ("R") bit.
+	 */
 	if (CHECK_FLAG(restart_flag_time, GRACEFUL_RESTART_R_BIT))
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
 	else
 		UNSET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
 
+	/* The second most significant bit is defined in this
+	 * document as the Graceful Notification ("N") bit.
+	 */
+	if (CHECK_FLAG(restart_flag_time, GRACEFUL_RESTART_N_BIT))
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
+	else
+		UNSET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
+
 	UNSET_FLAG(restart_flag_time, 0xF000);
 	peer->v_gr_restart = restart_flag_time;
 
 	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug("%s Peer has%srestarted. Restart Time : %d",
-			   peer->host,
-			   CHECK_FLAG(peer->cap,
-				      PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
-				   ? " "
-				   : " not ",
-			   peer->v_gr_restart);
+		zlog_debug(
+			"%s Peer has%srestarted. Restart Time: %d, N-bit set: %s",
+			peer->host,
+			CHECK_FLAG(peer->cap,
+				   PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
+				? " "
+				: " not ",
+			peer->v_gr_restart,
+			CHECK_FLAG(peer->cap,
+				   PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)
+				? "yes"
+				: "no");
 	}
 
 	while (stream_get_getp(s) + 4 <= end) {
@@ -1418,10 +1435,12 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	restart_time = peer->bgp->restart_time;
 	if (peer->bgp->t_startup) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
+		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] Sending R-Bit for Peer :%s :",
+			zlog_debug("[BGP_GR] Sending R-Bit/N-Bit for peer: %s",
 				   peer->host);
 	}
 
