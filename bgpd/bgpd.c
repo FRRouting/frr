@@ -1153,7 +1153,7 @@ static void peer_free(struct peer *peer)
 
 	XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
 
-	XFREE(MTYPE_TMP, peer->notify.data);
+	XFREE(MTYPE_BGP_NOTIFICATION, peer->notify.data);
 	memset(&peer->notify, 0, sizeof(struct bgp_notify));
 
 	if (peer->clear_node_queue)

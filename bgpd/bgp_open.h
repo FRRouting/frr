@@ -88,6 +88,7 @@ struct graceful_restart_af {
 
 /* Graceful Restart */
 #define GRACEFUL_RESTART_R_BIT 0x8000
+#define GRACEFUL_RESTART_N_BIT 0x4000
 #define GRACEFUL_RESTART_F_BIT 0x80
 
 /* Long-lived Graceful Restart */

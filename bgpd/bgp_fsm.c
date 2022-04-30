@@ -2160,7 +2160,8 @@ static int bgp_establish(struct peer *peer)
 	} else {
 		/* Peer sends R-bit. In this case, we need to send
 		 * ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE to Zebra. */
-		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
+		if (CHECK_FLAG(peer->cap,
+			       PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
 			FOREACH_AFI_SAFI (afi, safi)
 				/* Send route processing complete
 				   message to RIB */
