@@ -1413,7 +1413,7 @@ DEFUN (ip_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -1752,7 +1752,7 @@ DEFUN (no_ip_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -1772,7 +1772,7 @@ DEFUN (ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -1793,7 +1793,7 @@ DEFUN (no_ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -2676,77 +2676,6 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	}
 }
 
-/*
- * Show IPv6 mroute command.Used to dump
- * the Multicast routing table.
- */
-DEFUN (show_ipv6_mroute,
-       show_ipv6_mroute_cmd,
-       "show ipv6 mroute [vrf NAME]",
-       SHOW_STR
-       IP_STR
-       "IPv6 Multicast routing table\n"
-       VRF_CMD_HELP_STR)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct route_entry *re;
-	int first = 1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (argc == 5)
-		VRF_GET_ID(vrf_id, argv[4]->arg, false);
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_MULTICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	/* Show all IPv6 route. */
-	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-		RNODE_FOREACH_RE (rn, re) {
-			if (first) {
-				vty_out(vty, SHOW_ROUTE_V6_HEADER);
-				first = 0;
-			}
-			vty_show_ip_route(vty, rn, re, NULL, false, false);
-		}
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_mroute_vrf_all,
-       show_ipv6_mroute_vrf_all_cmd,
-       "show ipv6 mroute vrf all",
-       SHOW_STR
-       IP_STR
-       "IPv6 Multicast routing table\n"
-       VRF_ALL_CMD_HELP_STR)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct route_entry *re;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-	int first = 1;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if ((zvrf = vrf->info) == NULL
-		    || (table = zvrf->table[AFI_IP6][SAFI_MULTICAST]) == NULL)
-			continue;
-
-		/* Show all IPv6 route. */
-		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE (rn, re) {
-				if (first) {
-					vty_out(vty, SHOW_ROUTE_V6_HEADER);
-					first = 0;
-				}
-				vty_show_ip_route(vty, rn, re, NULL, false,
-						  false);
-			}
-	}
-	return CMD_SUCCESS;
-}
-
 DEFUN (allow_external_route_update,
        allow_external_route_update_cmd,
        "allow-external-route-update",
@@ -2950,7 +2879,7 @@ DEFUN (vrf_vni_mapping,
 {
 	int filter = 0;
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	assert(vrf);
 	assert(zvrf);
@@ -2979,7 +2908,7 @@ DEFUN (no_vrf_vni_mapping,
 {
 	int filter = 0;
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 
 	assert(vrf);
@@ -4395,7 +4324,7 @@ DEFUN(ip_table_range, ip_table_range_cmd,
       "Start Routing Table\n"
       "End Routing Table\n")
 {
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -4528,11 +4457,6 @@ void zebra_vty_init(void)
 	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
 	install_element(VRF_NODE, &no_ipv6_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &rnh_hide_backups_cmd);
-
-	install_element(VIEW_NODE, &show_ipv6_mroute_cmd);
-
-	/* Commands for VRF */
-	install_element(VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
 
 	install_element(VIEW_NODE, &show_frr_cmd);
 	install_element(VIEW_NODE, &show_evpn_global_cmd);

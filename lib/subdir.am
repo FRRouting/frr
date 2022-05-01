@@ -611,7 +611,7 @@ DISTCLEANFILES += lib/route_types.h
 
 if GIT_VERSION
 # bit of a trick here to always have up-to-date git stamps without triggering
-# unneccessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
+# unnecessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
 # but if we use that on gitversion.h it'll ripple through the .c file deps.
 # (even if gitversion.h's file timestamp doesn't change, make will think it
 # did, because of .PHONY...)

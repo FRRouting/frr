@@ -79,6 +79,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_trace.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -700,6 +701,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
+	frrtrace(3, frr_zebra, netlink_route_change_read_unicast, h, ns_id,
+		 startup);
+
 	rtm = NLMSG_DATA(h);
 
 	if (startup && h->nlmsg_type != RTM_NEWROUTE)
@@ -1041,11 +1045,23 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	if (tb[RTA_IIF])
 		iif = *(int *)RTA_DATA(tb[RTA_IIF]);
 
-	if (tb[RTA_SRC])
-		m->sg.src = *(struct in_addr *)RTA_DATA(tb[RTA_SRC]);
+	if (tb[RTA_SRC]) {
+		if (rtm->rtm_family == RTNL_FAMILY_IPMR)
+			m->src.ipaddr_v4 =
+				*(struct in_addr *)RTA_DATA(tb[RTA_SRC]);
+		else
+			m->src.ipaddr_v6 =
+				*(struct in6_addr *)RTA_DATA(tb[RTA_SRC]);
+	}
 
-	if (tb[RTA_DST])
-		m->sg.grp = *(struct in_addr *)RTA_DATA(tb[RTA_DST]);
+	if (tb[RTA_DST]) {
+		if (rtm->rtm_family == RTNL_FAMILY_IPMR)
+			m->grp.ipaddr_v4 =
+				*(struct in_addr *)RTA_DATA(tb[RTA_DST]);
+		else
+			m->grp.ipaddr_v6 =
+				*(struct in6_addr *)RTA_DATA(tb[RTA_DST]);
+	}
 
 	if (tb[RTA_EXPIRES])
 		m->lastused = *(unsigned long long *)RTA_DATA(tb[RTA_EXPIRES]);
@@ -1070,6 +1086,17 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 		}
 	}
 
+	if (rtm->rtm_family == RTNL_FAMILY_IPMR) {
+		SET_IPADDR_V4(&m->src);
+		SET_IPADDR_V4(&m->grp);
+	} else if (rtm->rtm_family == RTNL_FAMILY_IP6MR) {
+		SET_IPADDR_V6(&m->src);
+		SET_IPADDR_V6(&m->grp);
+	} else {
+		zlog_warn("%s: Invalid rtm_family received", __func__);
+		return 0;
+	}
+
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		struct interface *ifp = NULL;
 		struct zebra_vrf *zvrf = NULL;
@@ -1085,11 +1112,10 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 		zvrf = zebra_vrf_lookup_by_id(vrf);
 		ifp = if_lookup_by_index(iif, vrf);
 		zlog_debug(
-			"MCAST VRF: %s(%d) %s (%pI4,%pI4) IIF: %s(%d) OIF: %s jiffies: %lld",
+			"MCAST VRF: %s(%d) %s (%pIA,%pIA) IIF: %s(%d) OIF: %s jiffies: %lld",
 			zvrf_name(zvrf), vrf, nl_msg_type_to_str(h->nlmsg_type),
-			&m->sg.src, &m->sg.grp, ifp ? ifp->name : "Unknown",
-			iif, oif_list,
-			m->lastused);
+			&m->src, &m->grp, ifp ? ifp->name : "Unknown", iif,
+			oif_list, m->lastused);
 	}
 	return 0;
 }
@@ -2259,13 +2285,29 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 
-	req.ndm.ndm_family = RTNL_FAMILY_IPMR;
 	req.n.nlmsg_type = RTM_GETROUTE;
 
 	nl_attr_put32(&req.n, sizeof(req), RTA_IIF, mroute->ifindex);
 	nl_attr_put32(&req.n, sizeof(req), RTA_OIF, mroute->ifindex);
-	nl_attr_put32(&req.n, sizeof(req), RTA_SRC, mroute->sg.src.s_addr);
-	nl_attr_put32(&req.n, sizeof(req), RTA_DST, mroute->sg.grp.s_addr);
+
+	if (mroute->family == AF_INET) {
+		req.ndm.ndm_family = RTNL_FAMILY_IPMR;
+		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
+			    &mroute->src.ipaddr_v4,
+			    sizeof(mroute->src.ipaddr_v4));
+		nl_attr_put(&req.n, sizeof(req), RTA_DST,
+			    &mroute->grp.ipaddr_v4,
+			    sizeof(mroute->grp.ipaddr_v4));
+	} else {
+		req.ndm.ndm_family = RTNL_FAMILY_IP6MR;
+		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
+			    &mroute->src.ipaddr_v6,
+			    sizeof(mroute->src.ipaddr_v6));
+		nl_attr_put(&req.n, sizeof(req), RTA_DST,
+			    &mroute->grp.ipaddr_v6,
+			    sizeof(mroute->grp.ipaddr_v6));
+	}
+
 	/*
 	 * What?
 	 *
@@ -2905,6 +2947,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* Count of nexthops in group array */
 	uint8_t grp_count = 0;
 	struct rtattr *tb[NHA_MAX + 1] = {};
+
+	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);
 
 	nhm = NLMSG_DATA(h);
 
@@ -3802,7 +3846,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * interface
 	 * and is linked to the bridge
 	 * (b) In the case of a VLAN-unaware bridge, the SVI is the bridge
-	 * inteface
+	 * interface
 	 * itself
 	 */
 	if (IS_ZEBRA_IF_VLAN(ifp)) {

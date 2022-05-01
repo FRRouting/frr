@@ -102,21 +102,25 @@ int gm_process_no_last_member_query_count_cmd(struct vty *vty);
 int gm_process_last_member_query_interval_cmd(struct vty *vty,
 					      const char *lmqi_str);
 int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
-/*
- * Special Macro to allow us to get the correct pim_instance
- */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf
+int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
+			     const char *src_str);
+void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
+				      struct vty *vty);
+void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
+			       json_object *json);
+void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
+		 bool fill, json_object *json);
+void show_mroute_count(struct pim_instance *pim, struct vty *vty,
+		       json_object *json);
+void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
+			 json_object *json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf
+#define PIM_DECLVAR_CONTEXT_VRF(vrfptr, pimptr)                                \
+	VTY_DECLVAR_CONTEXT_VRF(vrfptr);                                       \
+	struct pim_instance *pimptr = vrfptr->info;                            \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 #endif /* PIM_CMD_COMMON_H */

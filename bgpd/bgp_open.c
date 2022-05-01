@@ -1324,8 +1324,8 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 	unsigned long orfp;
 	unsigned long numberp;
 	int number_of_orfs = 0;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1389,10 +1389,10 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					bool ext_opt_params)
 {
 	int len;
-	iana_afi_t pkt_afi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	afi_t afi;
 	safi_t safi;
-	iana_safi_t pkt_safi;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	uint32_t restart_time;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
@@ -1472,10 +1472,10 @@ static void bgp_peer_send_llgr_capability(struct stream *s, struct peer *peer,
 					  bool ext_opt_params)
 {
 	int len;
-	iana_afi_t pkt_afi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	afi_t afi;
 	safi_t safi;
-	iana_safi_t pkt_safi;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
 
@@ -1523,10 +1523,10 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 {
 	uint16_t len;
 	unsigned long cp, capp, rcapp, eopl = 0;
-	iana_afi_t pkt_afi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	afi_t afi;
 	safi_t safi;
-	iana_safi_t pkt_safi;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	as_t local_as;
 	uint8_t afi_safi_count = 0;
 	int adv_addpath_tx = 0;

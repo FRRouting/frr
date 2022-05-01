@@ -678,7 +678,8 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 		/* If Interface matches vrfname, then bypass iface check */
 		if (vrf_is_backend_netns() || strcmp(ifp->name, vrf->name)) {
 			/* Interface name mismatch. */
-			if (strcmp(ifp->name, bs->key.ifname))
+			if (bs->key.ifname[0] &&
+			    strcmp(ifp->name, bs->key.ifname))
 				continue;
 		}
 

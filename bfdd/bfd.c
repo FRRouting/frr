@@ -769,7 +769,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 * Apply profile last: it also calls `bfd_set_shutdown`.
 	 *
 	 * There is no problem calling `shutdown` twice if the value doesn't
-	 * change or if it is overriden by peer specific configuration.
+	 * change or if it is overridden by peer specific configuration.
 	 */
 	if (bpc->bpc_has_profile)
 		bfd_profile_apply(bpc->bpc_profile, bs);

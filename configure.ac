@@ -58,7 +58,7 @@ elif test "$host" != "$build"; then
 
   AC_MSG_NOTICE([...])
   AC_MSG_NOTICE([... cross-compilation: creating hosttools directory and self-configuring for build platform tools])
-  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if neccessary])
+  AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if necessary])
   AC_MSG_NOTICE([...])
 
   (
@@ -330,7 +330,21 @@ LDFLAGS="$LDFLAGS -g"
 
 AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 
+dnl -fms-extensions causes clang to have a built-in __wchar_t on OpenBSD,
+dnl which just straight up breaks compiling any code.
+dnl (2022-04-04 / OpenBSD 7 / clang 11.1.0)
+AH_VERBATIM([OpenBSD], [
+#ifdef __OpenBSD__
+#define __wchar_t __wchar_t_ignore
+#include <stdint.h>
+#undef __wchar_t
+#endif
+])
+
 dnl always want these CFLAGS
+AC_C_FLAG([-fms-extensions], [
+  AC_MSG_ERROR([$CC does not support unnamed struct fields (-fms-extensions)])
+])
 AC_C_FLAG([-fno-omit-frame-pointer])
 AC_C_FLAG([-funwind-tables])
 AC_C_FLAG([-Wall])

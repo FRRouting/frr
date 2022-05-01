@@ -22,8 +22,9 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
-#include <json-c/json_object.h>
+
 #include <zebra.h>
+#include <json-c/json_object.h>
 
 #ifdef CRYPTO_INTERNAL
 #include "md5.h"

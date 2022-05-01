@@ -170,7 +170,7 @@ DEFPY (ipv6_pim_rp_keep_alive,
        "ipv6 pim rp keep-alive-timer (1-65535)$kat",
        IPV6_STR
        PIM_STR
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
@@ -183,7 +183,7 @@ DEFPY (no_ipv6_pim_rp_keep_alive,
        NO_STR
        IPV6_STR
        PIM_STR
-       "Rendevous Point\n"
+       "Rendezvous Point\n"
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
@@ -451,6 +451,33 @@ DEFPY (no_ipv6_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
+
+DEFPY (ipv6_ssmpingd,
+      ipv6_ssmpingd_cmd,
+      "ipv6 ssmpingd [X:X::X:X]$source",
+      IPV6_STR
+      CONF_SSMPINGD_STR
+      "Source address\n")
+{
+	const char *src_str = (source_str) ? source_str : "::";
+
+	return pim_process_ssmpingd_cmd(vty, NB_OP_CREATE, src_str);
+}
+
+
+DEFPY (no_ipv6_ssmpingd,
+      no_ipv6_ssmpingd_cmd,
+      "no ipv6 ssmpingd [X:X::X:X]$source",
+      NO_STR
+      IPV6_STR
+      CONF_SSMPINGD_STR
+      "Source address\n")
+{
+	const char *src_str = (source_str) ? source_str : "::";
+
+	return pim_process_ssmpingd_cmd(vty, NB_OP_DESTROY, src_str);
+}
+
 DEFPY (interface_ipv6_mld_join,
        interface_ipv6_mld_join_cmd,
        "ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
@@ -625,21 +652,24 @@ DEFPY (interface_no_ipv6_mld_query_interval,
 				    "frr-routing:ipv6");
 }
 
-DEFPY (mld_group_watermark,
-       mld_group_watermark_cmd,
+DEFPY (ipv6_mld_group_watermark,
+       ipv6_mld_group_watermark_cmd,
        "ipv6 mld watermark-warn (1-65535)$limit",
        IPV6_STR
        MLD_STR
        "Configure group limit for watermark warning\n"
        "Group count to generate watermark warning\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
+
 	/* TBD Depends on MLD data structure changes */
+	(void)pim;
+
 	return CMD_SUCCESS;
 }
 
-DEFPY (no_mld_group_watermark,
-       no_mld_group_watermark_cmd,
+DEFPY (no_ipv6_mld_group_watermark,
+       no_ipv6_mld_group_watermark_cmd,
        "no ipv6 mld watermark-warn [(1-65535)$limit]",
        NO_STR
        IPV6_STR
@@ -647,8 +677,11 @@ DEFPY (no_mld_group_watermark,
        "Unconfigure group limit for watermark warning\n"
        IGNORED_IN_NO_STR)
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
+	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
+
 	/* TBD Depends on MLD data structure changes */
+	(void)pim;
+
 	return CMD_SUCCESS;
 }
 
@@ -1514,7 +1547,6 @@ DEFPY (show_ipv6_pim_nexthop_lookup,
 	pim_addr vif_source;
 	struct prefix grp;
 	struct pim_nexthop nexthop;
-	char nexthop_addr_str[PIM_ADDRSTRLEN];
 	struct vrf *v;
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
@@ -1537,10 +1569,352 @@ DEFPY (show_ipv6_pim_nexthop_lookup,
 		return CMD_SUCCESS;
 	}
 
-	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
-		      nexthop_addr_str, sizeof(nexthop_addr_str));
-	vty_out(vty, "Group %s --- Nexthop %s Interface %s\n", group_str,
-		nexthop_addr_str, nexthop.interface->name);
+	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s\n", group_str,
+		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast,
+       show_ipv6_multicast_cmd,
+       "show ipv6 multicast [vrf NAME]",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_cmd_show_ip_multicast_helper(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast_vrf_all,
+       show_ipv6_multicast_vrf_all_cmd,
+       "show ipv6 multicast vrf all",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast_count,
+       show_ipv6_multicast_count_cmd,
+       "show ipv6 multicast count [vrf NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_multicast_interfaces(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_multicast_count_vrf_all,
+       show_ipv6_multicast_count_vrf_all_cmd,
+       "show ipv6 multicast count vrf all [json$json]",
+       SHOW_STR
+       IPV6_STR
+       "Multicast global information\n"
+       "Data packet count\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_multicast_interfaces(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute,
+       show_ipv6_mroute_cmd,
+       "show ipv6 mroute [vrf NAME] [X:X::X:X$s_or_g [X:X::X:X$g]] [fill$fill] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "The Source or Group\n"
+       "The Group\n"
+       "Fill in Assumed data\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	if (!pim_addr_is_any(s_or_g)) {
+		if (!pim_addr_is_any(g)) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+
+	show_mroute(pim, vty, &sg, !!fill, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute_vrf_all,
+       show_ipv6_mroute_vrf_all_cmd,
+       "show ipv6 mroute vrf all [fill$fill] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Fill in Assumed data\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		show_mroute(vrf->info, vty, &sg, !!fill, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute_count,
+       show_ipv6_mroute_count_cmd,
+       "show ipv6 mroute [vrf NAME] count [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Route and packet count data\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_count(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute_count_vrf_all,
+       show_ipv6_mroute_count_vrf_all_cmd,
+       "show ipv6 mroute vrf all count [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Route and packet count data\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		show_mroute_count(vrf->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute_summary,
+       show_ipv6_mroute_summary_cmd,
+       "show ipv6 mroute [vrf NAME] summary [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Summary of all mroutes\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_summary(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_mroute_summary_vrf_all,
+       show_ipv6_mroute_summary_vrf_all_cmd,
+       "show ipv6 mroute vrf all summary [json$json]",
+       SHOW_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Summary of all mroutes\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_mroute_summary(vrf->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
@@ -1588,6 +1962,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
 	install_element(VRF_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
+	install_element(CONFIG_NODE, &ipv6_ssmpingd_cmd);
+	install_element(VRF_NODE, &ipv6_ssmpingd_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_ssmpingd_cmd);
+	install_element(VRF_NODE, &no_ipv6_ssmpingd_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);
@@ -1597,10 +1975,10 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
-	install_element(CONFIG_NODE, &mld_group_watermark_cmd);
-	install_element(VRF_NODE, &mld_group_watermark_cmd);
-	install_element(CONFIG_NODE, &no_mld_group_watermark_cmd);
-	install_element(VRF_NODE, &no_mld_group_watermark_cmd);
+	install_element(CONFIG_NODE, &ipv6_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &ipv6_mld_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,
@@ -1637,4 +2015,14 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_neighbor_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_nexthop_lookup_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_count_cmd);
+	install_element(VIEW_NODE, &show_ipv6_multicast_count_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_count_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_count_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
+	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
 }

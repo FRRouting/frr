@@ -142,7 +142,7 @@ struct isis_lsp_hdr {
 /*
  * Since the length field of LSP Entries TLV is one byte long, and each LSP
  * entry is LSP_ENTRIES_LEN (16) bytes long, the maximum number of LSP entries
- * can be accomodated in a TLV is
+ * can be accommodated in a TLV is
  * 255 / 16 = 15.
  *
  * Therefore, the maximum length of the LSP Entries TLV is

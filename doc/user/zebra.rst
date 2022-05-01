@@ -283,6 +283,17 @@ the default route.
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
+.. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib]
+
+   Show nexthop tracking status for address resolution.  If vrf is not specified
+   then display the default vrf.  If ``all`` is specified show all vrf address
+   resolution output.  If an ipv4 or ipv6 address is not specified then display
+   all addresses tracked, else display the requested address.  The mrib keyword
+   indicates that the operator wants to see the multicast rib address resolution
+   table.  An alternative form of the command is ``show ip import-check`` and this
+   form of the command is deprecated at this point in time.
+
+
 Administrative Distance
 =======================
 
@@ -290,7 +301,7 @@ Administrative distance allows FRR to make decisions about what routes
 should be installed in the rib based upon the originating protocol.
 The lowest Admin Distance is the route selected.  This is purely a
 subjective decision about ordering and care has been taken to choose
-the same distances that other routing suites have choosen.
+the same distances that other routing suites have chosen.
 
 +------------+-----------+
 | Protocol   | Distance  |
@@ -350,7 +361,7 @@ has multiple routes for the same prefix from multiple sources.  An example
 here would be if someone else was running another routing suite besides
 FRR at the same time, the kernel must choose what route to use to forward
 on.  FRR choose the value of 20 because of two reasons.  FRR wanted a
-value small enough to be choosen but large enough that the operator could
+value small enough to be chosen but large enough that the operator could
 allow route prioritization by the kernel when multiple routing suites are
 being run and FRR wanted to take advantage of Route Replace semantics that
 the linux kernel offers.  In order for Route Replacement semantics to
@@ -541,7 +552,7 @@ via a ``ip route show X`` command:
       nexthop via 192.168.161.9 dev enp39s0 weight 1
 
 Once installed into the FIB, FRR currently has little control over what
-nexthops are choosen to forward packets on.  Currently the Linux kernel
+nexthops are chosen to forward packets on.  Currently the Linux kernel
 has a ``fib_multipath_hash_policy`` sysctl which dictates how the hashing
 algorithm is used to forward packets.
 
@@ -1182,7 +1193,7 @@ zebra Terminal Mode Commands
 
    Display statistics about clients that are connected to zebra.  This is
    useful for debugging and seeing how much data is being passed between
-   zebra and it's clients.  If the summary form of the command is choosen
+   zebra and it's clients.  If the summary form of the command is chosen
    a table is displayed with shortened information.
 
 .. clicmd:: show zebra router table summary

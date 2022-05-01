@@ -138,7 +138,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	if (ch->upstream->channel_oil) {
 		uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
 		if (ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
-			mask |= PIM_OIF_FLAG_PROTO_IGMP;
+			mask |= PIM_OIF_FLAG_PROTO_GM;
 
 		/*
 		 * A S,G RPT channel can have an empty oil, we also
@@ -1227,14 +1227,13 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 				    == PREFIX_DENY) {
 					pim_channel_add_oif(
 						up->channel_oil, pim->regiface,
-						PIM_OIF_FLAG_PROTO_IGMP,
+						PIM_OIF_FLAG_PROTO_GM,
 						__func__);
 				}
 			}
 		} else
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
-					PIM_OIF_FLAG_PROTO_IGMP,
-					__func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}
 
 	return 1;

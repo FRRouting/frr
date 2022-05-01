@@ -141,7 +141,7 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 
 	ldp_sync_info = params->ldp_sync_info;
 
-	/* specifed on interface overrides global config. */
+	/* specified on interface overrides global config. */
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
 		ldp_sync_info->holddown = oi->ospf->ldp_sync_cmd.holddown;
 
@@ -441,7 +441,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 	struct ldp_sync_info *ldp_sync_info;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config
+	 *  specified on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
 	 */
 	if (if_is_loopback(ifp))
@@ -479,7 +479,7 @@ void ospf_if_set_ldp_sync_holddown(struct ospf *ospf, struct interface *ifp)
 	struct ldp_sync_info *ldp_sync_info;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config.
+	 *  specified on interface overrides global config.
 	 */
 	if (if_is_loopback(ifp))
 		return;

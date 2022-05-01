@@ -739,8 +739,8 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 	pim_ifp = ifp_out->info;
 	if (!pim_ifp)
 		return false;
-	if ((c_oil->oif_flags[oif_index] & PIM_OIF_FLAG_PROTO_IGMP) &&
-			PIM_I_am_DR(pim_ifp))
+	if ((c_oil->oif_flags[oif_index] & PIM_OIF_FLAG_PROTO_GM) &&
+	    PIM_I_am_DR(pim_ifp))
 		return true;
 
 	return false;
@@ -1047,14 +1047,14 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 	memset(&sgreq, 0, sizeof(sgreq));
 
+	pim_zlookup_sg_statistics(c_oil);
+
 #if PIM_IPV == 4
 	sgreq.src = *oil_origin(c_oil);
 	sgreq.grp = *oil_mcastgrp(c_oil);
-	pim_zlookup_sg_statistics(c_oil);
 #else
 	sgreq.src = c_oil->oil.mf6cc_origin;
 	sgreq.grp = c_oil->oil.mf6cc_mcastgrp;
-	/* TODO Zlookup_sg_statistics for V6 to be added */
 #endif
 	if (ioctl(pim->mroute_socket, PIM_SIOCGETSGCNT, &sgreq)) {
 		pim_sgaddr sg;

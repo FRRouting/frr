@@ -54,6 +54,7 @@
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
+#define DEFAULT_OPERATIONAL_TIMEOUT 60
 
 #define DEFAULT_RESTART_CMD	WATCHFRR_SH_PATH " restart %s"
 #define DEFAULT_START_CMD	WATCHFRR_SH_PATH " start %s"
@@ -70,14 +71,14 @@ struct thread_master *master;
 static bool watch_only = false;
 const char *pathspace;
 
-typedef enum {
+enum restart_phase {
 	PHASE_NONE = 0,
 	PHASE_INIT,
 	PHASE_STOPS_PENDING,
 	PHASE_WAITING_DOWN,
 	PHASE_ZEBRA_RESTART_PENDING,
 	PHASE_WAITING_ZEBRA_UP
-} restart_phase_t;
+};
 
 static const char *const phase_str[] = {
 	"Idle",
@@ -103,15 +104,17 @@ struct restart_info {
 };
 
 static struct global_state {
-	restart_phase_t phase;
+	enum restart_phase phase;
 	struct thread *t_phase_hanging;
 	struct thread *t_startup_timeout;
+	struct thread *t_operational;
 	const char *vtydir;
 	long period;
 	long timeout;
 	long restart_timeout;
 	long min_restart_interval;
 	long max_restart_interval;
+	long operational_timeout;
 	struct daemon *daemons;
 	const char *restart_command;
 	const char *start_command;
@@ -131,18 +134,19 @@ static struct global_state {
 	.loglevel = DEFAULT_LOGLEVEL,
 	.min_restart_interval = DEFAULT_MIN_RESTART,
 	.max_restart_interval = DEFAULT_MAX_RESTART,
+	.operational_timeout = DEFAULT_OPERATIONAL_TIMEOUT,
 	.restart_command = DEFAULT_RESTART_CMD,
 	.start_command = DEFAULT_START_CMD,
 	.stop_command = DEFAULT_STOP_CMD,
 };
 
-typedef enum {
+enum daemon_state {
 	DAEMON_INIT,
 	DAEMON_DOWN,
 	DAEMON_CONNECTING,
 	DAEMON_UP,
 	DAEMON_UNRESPONSIVE
-} daemon_state_t;
+};
 
 #define IS_UP(DMN)                                                             \
 	(((DMN)->state == DAEMON_UP) || ((DMN)->state == DAEMON_UNRESPONSIVE))
@@ -153,7 +157,7 @@ static const char *const state_str[] = {
 
 struct daemon {
 	const char *name;
-	daemon_state_t state;
+	enum daemon_state state;
 	int fd;
 	struct timeval echo_sent;
 	unsigned int connect_tries;
@@ -177,6 +181,7 @@ struct daemon {
 #define OPTION_MAXRESTART 2001
 #define OPTION_DRY        2002
 #define OPTION_NETNS      2003
+#define OPTION_MAXOPERATIONAL 2004
 
 static const struct option longopts[] = {
 	{"daemon", no_argument, NULL, 'd'},
@@ -191,6 +196,7 @@ static const struct option longopts[] = {
 	{"dry", no_argument, NULL, OPTION_DRY},
 	{"min-restart-interval", required_argument, NULL, OPTION_MINRESTART},
 	{"max-restart-interval", required_argument, NULL, OPTION_MAXRESTART},
+	{"operational-timeout", required_argument, NULL, OPTION_MAXOPERATIONAL},
 	{"pid-file", required_argument, NULL, 'p'},
 	{"blank-string", required_argument, NULL, 'b'},
 #ifdef GNU_LINUX
@@ -265,6 +271,9 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
     --max-restart-interval\n\
 		Set the maximum seconds to wait between invocations of daemon\n\
 		restart commands (default is %d).\n\
+    --operational-timeout\n\
+                Set the time before systemd is notified that we are considered\n\
+                operational again after a daemon restart (default is %d).\n\
 -i, --interval	Set the status polling interval in seconds (default is %d)\n\
 -t, --timeout	Set the unresponsiveness timeout in seconds (default is %d)\n\
 -T, --restart-timeout\n\
@@ -296,10 +305,10 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n",
 		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
-		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT,
-		DEFAULT_RESTART_CMD, DEFAULT_START_CMD, DEFAULT_STOP_CMD,
-		frr_vtydir);
+		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART,
+		DEFAULT_OPERATIONAL_TIMEOUT, DEFAULT_PERIOD, DEFAULT_TIMEOUT,
+		DEFAULT_RESTART_TIMEOUT, DEFAULT_RESTART_CMD, DEFAULT_START_CMD,
+		DEFAULT_STOP_CMD, frr_vtydir);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -502,8 +511,6 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 			restart->pid = 0;
 	}
 
-	systemd_send_status("FRR Operational");
-
 	/* Calculate the new restart interval. */
 	if (update_interval) {
 		if (delay.tv_sec > 2 * gs.max_restart_interval)
@@ -584,6 +591,11 @@ static void restart_done(struct daemon *dmn)
 		SET_WAKEUP_DOWN(dmn);
 }
 
+static void daemon_restarting_operational(struct thread *thread)
+{
+	systemd_send_status("FRR Operational");
+}
+
 static void daemon_down(struct daemon *dmn, const char *why)
 {
 	if (IS_UP(dmn) || (dmn->state == DAEMON_INIT))
@@ -603,6 +615,8 @@ static void daemon_down(struct daemon *dmn, const char *why)
 	THREAD_OFF(dmn->t_wakeup);
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
+
+	systemd_send_status("FRR partially operational");
 	phase_check();
 }
 
@@ -721,8 +735,15 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	gs.numdown--;
 	dmn->connect_tries = 0;
 	zlog_notice("%s state -> up : %s", dmn->name, why);
-	if (gs.numdown == 0)
+	if (gs.numdown == 0) {
 		daemon_send_ready(0);
+
+		THREAD_OFF(gs.t_operational);
+
+		thread_add_timer(master, daemon_restarting_operational, NULL,
+				 gs.operational_timeout, &gs.t_operational);
+	}
+
 	SET_WAKEUP_ECHO(dmn);
 	phase_check();
 }
@@ -848,7 +869,7 @@ static void phase_hanging(struct thread *t_hanging)
 	gs.phase = PHASE_NONE;
 }
 
-static void set_phase(restart_phase_t new_phase)
+static void set_phase(enum restart_phase new_phase)
 {
 	gs.phase = new_phase;
 	thread_cancel(&gs.t_phase_hanging);
@@ -889,6 +910,7 @@ static void phase_check(void)
 	case PHASE_WAITING_DOWN:
 		if (gs.numdown + IS_UP(gs.special) < gs.numdaemons)
 			break;
+		systemd_send_status("Phased Restart");
 		zlog_info("Phased restart: all routing daemons now down.");
 		run_job(&gs.special->restart, "restart", gs.restart_command, 1,
 			1);
@@ -898,6 +920,7 @@ static void phase_check(void)
 	case PHASE_ZEBRA_RESTART_PENDING:
 		if (gs.special->restart.pid)
 			break;
+		systemd_send_status("Zebra Restarting");
 		zlog_info("Phased restart: %s restart job completed.",
 			  gs.special->name);
 		set_phase(PHASE_WAITING_ZEBRA_UP);
@@ -1030,6 +1053,12 @@ void watchfrr_status(struct vty *vty)
 	struct timeval delay;
 
 	vty_out(vty, "watchfrr global phase: %s\n", phase_str[gs.phase]);
+	vty_out(vty, " Restart Command: %pSQq\n", gs.restart_command);
+	vty_out(vty, " Start Command: %pSQq\n", gs.start_command);
+	vty_out(vty, " Stop Command: %pSQq\n", gs.stop_command);
+	vty_out(vty, " Min Restart Interval: %ld\n", gs.min_restart_interval);
+	vty_out(vty, " Max Restart Interval: %ld\n", gs.max_restart_interval);
+	vty_out(vty, " Restart Timeout: %ld\n", gs.restart_timeout);
 	if (gs.restart.pid)
 		vty_out(vty, "    global restart running, pid %ld\n",
 			(long)gs.restart.pid);
@@ -1391,6 +1420,18 @@ int main(int argc, char **argv)
 			    || (gs.max_restart_interval < 0)) {
 				fprintf(stderr,
 					"Invalid max_restart_interval argument: %s\n",
+					optarg);
+				frr_help_exit(1);
+			}
+		} break;
+		case OPTION_MAXOPERATIONAL: {
+			char garbage[3];
+
+			if ((sscanf(optarg, "%ld%1s", &gs.operational_timeout,
+				    garbage) != 1) ||
+			    (gs.max_restart_interval < 0)) {
+				fprintf(stderr,
+					"Invalid Operational_timeout argument: %s\n",
 					optarg);
 				frr_help_exit(1);
 			}

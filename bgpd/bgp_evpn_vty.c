@@ -3867,19 +3867,19 @@ DEFUN (bgp_evpn_advertise_type5,
 
 	if (!(afi == AFI_IP || afi == AFI_IP6)) {
 		vty_out(vty,
-			"%%only ipv4 or ipv6 address families are supported\n");
+			"%% Only ipv4 or ipv6 address families are supported\n");
 		return CMD_WARNING;
 	}
 
 	if (safi != SAFI_UNICAST) {
 		vty_out(vty,
-			"%%only ipv4 unicast or ipv6 unicast are supported\n");
+			"%% Only ipv4 unicast or ipv6 unicast are supported\n");
 		return CMD_WARNING;
 	}
 
 	if ((oly != OVERLAY_INDEX_TYPE_NONE)
 	    && (oly != OVERLAY_INDEX_GATEWAY_IP)) {
-		vty_out(vty, "%%Unknown overlay-index type specified\n");
+		vty_out(vty, "%% Unknown overlay-index type specified\n");
 		return CMD_WARNING;
 	}
 
@@ -4058,13 +4058,13 @@ DEFUN (no_bgp_evpn_advertise_type5,
 
 	if (!(afi == AFI_IP || afi == AFI_IP6)) {
 		vty_out(vty,
-			"%%only ipv4 or ipv6 address families are supported\n");
+			"%% Only ipv4 or ipv6 address families are supported\n");
 		return CMD_WARNING;
 	}
 
 	if (safi != SAFI_UNICAST) {
 		vty_out(vty,
-			"%%only ipv4 unicast or ipv6 unicast are supported\n");
+			"%% Only ipv4 unicast or ipv6 unicast are supported\n");
 		return CMD_WARNING;
 	}
 
@@ -4495,7 +4495,7 @@ DEFPY(show_bgp_l2vpn_evpn_es,
 
 	if (esi_str) {
 		if (!str_to_esi(esi_str, &esi)) {
-			vty_out(vty, "%%Malformed ESI\n");
+			vty_out(vty, "%% Malformed ESI\n");
 			return CMD_WARNING;
 		}
 		bgp_evpn_es_show_esi(vty, &esi, uj);
@@ -4517,7 +4517,7 @@ DEFPY(show_bgp_l2vpn_evpn_es_vrf, show_bgp_l2vpn_evpn_es_vrf_cmd,
 
 	if (esi_str) {
 		if (!str_to_esi(esi_str, &esi)) {
-			vty_out(vty, "%%Malformed ESI\n");
+			vty_out(vty, "%% Malformed ESI\n");
 			return CMD_WARNING;
 		}
 		bgp_evpn_es_vrf_show_esi(vty, &esi, uj);
@@ -5132,7 +5132,7 @@ DEFPY_HIDDEN(
 
 	if (esi_str) {
 		if (!str_to_esi(esi_str, &esi)) {
-			vty_out(vty, "%%Malformed ESI\n");
+			vty_out(vty, "%% Malformed ESI\n");
 			return CMD_WARNING;
 		}
 		esi_p = &esi;
@@ -5165,7 +5165,7 @@ DEFPY_HIDDEN(
 
 	if (esi_str) {
 		if (!str_to_esi(esi_str, &esi)) {
-			vty_out(vty, "%%Malformed ESI\n");
+			vty_out(vty, "%% Malformed ESI\n");
 			return CMD_WARNING;
 		}
 		esi_p = &esi;
@@ -5267,19 +5267,19 @@ DEFPY_HIDDEN(test_es_add,
 
 	bgp = bgp_get_evpn();
 	if (!bgp) {
-		vty_out(vty, "%%EVPN BGP instance not yet created\n");
+		vty_out(vty, "%% EVPN BGP instance not yet created\n");
 		return CMD_WARNING;
 	}
 
 	if (!str_to_esi(esi_str, &esi)) {
-		vty_out(vty, "%%Malformed ESI\n");
+		vty_out(vty, "%% Malformed ESI\n");
 		return CMD_WARNING;
 	}
 
 	if (no) {
 		ret = bgp_evpn_local_es_del(bgp, &esi);
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to delete ES\n");
+			vty_out(vty, "%% Failed to delete ES\n");
 			return CMD_WARNING;
 		}
 	} else {
@@ -5292,7 +5292,7 @@ DEFPY_HIDDEN(test_es_add,
 		ret = bgp_evpn_local_es_add(bgp, &esi, vtep_ip, oper_up,
 					    EVPN_MH_DF_PREF_MIN, false);
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to add ES\n");
+			vty_out(vty, "%% Failed to add ES\n");
 			return CMD_WARNING;
 		}
 	}
@@ -5316,25 +5316,25 @@ DEFPY_HIDDEN(test_es_vni_add,
 
 	bgp = bgp_get_evpn();
 	if (!bgp) {
-		vty_out(vty, "%%EVPN BGP instance not yet created\n");
+		vty_out(vty, "%% EVPN BGP instance not yet created\n");
 		return CMD_WARNING;
 	}
 
 	if (!str_to_esi(esi_str, &esi)) {
-		vty_out(vty, "%%Malformed ESI\n");
+		vty_out(vty, "%% Malformed ESI\n");
 		return CMD_WARNING;
 	}
 
 	if (no) {
 		ret = bgp_evpn_local_es_evi_del(bgp, &esi, vni);
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to deref ES VNI\n");
+			vty_out(vty, "%% Failed to deref ES VNI\n");
 			return CMD_WARNING;
 		}
 	} else {
 		ret = bgp_evpn_local_es_evi_add(bgp, &esi, vni);
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to ref ES VNI\n");
+			vty_out(vty, "%% Failed to ref ES VNI\n");
 			return CMD_WARNING;
 		}
 	}
@@ -5747,9 +5747,13 @@ DEFUN (show_bgp_vrf_l3vni_info,
 
 	name = argv[idx_vrf]->arg;
 	bgp = bgp_lookup_by_name(name);
+	if (strmatch(name, VRF_DEFAULT_NAME))
+		bgp = bgp_get_default();
+
 	if (!bgp) {
 		if (!uj)
-			vty_out(vty, "BGP instance for VRF %s not found", name);
+			vty_out(vty, "BGP instance for VRF %s not found\n",
+				name);
 		else {
 			json_object_string_add(json, "warning",
 					       "BGP instance not found");

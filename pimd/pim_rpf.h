@@ -39,7 +39,7 @@ struct pim_nexthop {
 	pim_addr last_lookup;
 	long long last_lookup_time;
 	struct interface *interface;     /* RPF_interface(S) */
-	struct prefix mrib_nexthop_addr; /* MRIB.next_hop(S) */
+	pim_addr mrib_nexthop_addr;      /* MRIB.next_hop(S) */
 	uint32_t mrib_metric_preference; /* MRIB.pref(S) */
 	uint32_t mrib_route_metric;      /* MRIB.metric(S) */
 	struct pim_neighbor *nbr;

@@ -52,6 +52,7 @@
 #include "pim_sock.h"
 #include "pim_ssm.h"
 #include "pim_addr.h"
+#include "pim_static.h"
 
 /**
  * Get current node VRF name.
@@ -882,15 +883,11 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char rpf_addr_str[PREFIX_STRLEN];
-		char rib_nexthop_str[PREFIX_STRLEN];
 		const char *rpf_ifname;
 		struct pim_rpf *rpf = &up->rpf;
 
 		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
 			      sizeof(rpf_addr_str));
-		pim_addr_dump("<nexthop?>",
-			      &rpf->source_nexthop.mrib_nexthop_addr,
-			      rib_nexthop_str, sizeof(rib_nexthop_str));
 
 		rpf_ifname =
 			rpf->source_nexthop.interface ? rpf->source_nexthop
@@ -921,8 +918,9 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 					       rpf_ifname);
 			json_object_string_add(json_row, "rpfAddress",
 					       rpf_addr_str);
-			json_object_string_add(json_row, "ribNexthop",
-					       rib_nexthop_str);
+			json_object_string_addf(
+				json_row, "ribNexthop", "%pPAs",
+				&rpf->source_nexthop.mrib_nexthop_addr);
 			json_object_int_add(
 				json_row, "routeMetric",
 				rpf->source_nexthop.mrib_route_metric);
@@ -933,9 +931,10 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 
 		} else {
 			vty_out(vty,
-				"%-15pPAs %-15pPAs %-16s %-15s %-15s %6d %4d\n",
+				"%-15pPAs %-15pPAs %-16s %-15s %-15pPAs %6d %4d\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
-				rpf_addr_str, rib_nexthop_str,
+				rpf_addr_str,
+				&rpf->source_nexthop.mrib_nexthop_addr,
 				rpf->source_nexthop.mrib_route_metric,
 				rpf->source_nexthop.mrib_metric_preference);
 		}
@@ -1166,7 +1165,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						out_ifname,
 						(c_oil->oif_flags
 							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_IGMP)
+						 PIM_OIF_FLAG_PROTO_GM)
 							? 'I'
 							: ' ',
 						(c_oil->oif_flags
@@ -1194,7 +1193,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						out_ifname,
 						(c_oil->oif_flags
 							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_IGMP)
+						 PIM_OIF_FLAG_PROTO_GM)
 							? 'I'
 							: ' ',
 						(c_oil->oif_flags
@@ -1519,16 +1518,12 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		char rpf_nexthop_str[PREFIX_STRLEN];
 		char rpf_addr_str[PREFIX_STRLEN];
 		struct pim_rpf *rpf;
 		const char *rpf_ifname;
 
 		rpf = &up->rpf;
 
-		pim_addr_dump("<nexthop?>",
-			      &rpf->source_nexthop.mrib_nexthop_addr,
-			      rpf_nexthop_str, sizeof(rpf_nexthop_str));
 		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
 			      sizeof(rpf_addr_str));
 
@@ -1559,15 +1554,17 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			json_object_string_add(json_row, "group", grp_str);
 			json_object_string_add(json_row, "rpfInterface",
 					       rpf_ifname);
-			json_object_string_add(json_row, "ribNexthop",
-					       rpf_nexthop_str);
+			json_object_string_addf(
+				json_row, "ribNexthop", "%pPAs",
+				&rpf->source_nexthop.mrib_nexthop_addr);
 			json_object_string_add(json_row, "rpfAddress",
 					       rpf_addr_str);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty, "%-15pPAs %-15pPAs %-16s %-15s %-15s\n",
+			vty_out(vty, "%-15pPAs %-15pPAs %-16s %-15pPA %-15s\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
-				rpf_nexthop_str, rpf_addr_str);
+				&rpf->source_nexthop.mrib_nexthop_addr,
+				rpf_addr_str);
 		}
 	}
 
@@ -2839,4 +2836,706 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
+			     const char *src_str)
+{
+	const char *vrfname;
+	char ssmpingd_ip_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(ssmpingd_ip_xpath, "/ssm-pingd-source-ip",
+		sizeof(ssmpingd_ip_xpath));
+
+	nb_cli_enqueue_change(vty, ssmpingd_ip_xpath, operation, src_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
+				time_t now)
+{
+	char uptime_scan_oil[10];
+	char uptime_mroute_add[10];
+	char uptime_mroute_del[10];
+
+	pim_time_uptime_begin(uptime_scan_oil, sizeof(uptime_scan_oil), now,
+			      pim->scan_oil_last);
+	pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now,
+			      pim->mroute_add_last);
+	pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now,
+			      pim->mroute_del_last);
+
+	vty_out(vty,
+		"Scan OIL - Last: %s  Events: %lld\n"
+		"MFC Add  - Last: %s  Events: %lld\n"
+		"MFC Del  - Last: %s  Events: %lld\n",
+		uptime_scan_oil, (long long)pim->scan_oil_events,
+		uptime_mroute_add, (long long)pim->mroute_add_events,
+		uptime_mroute_del, (long long)pim->mroute_del_events);
+}
+
+void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
+			       json_object *json)
+{
+	struct interface *ifp;
+	json_object *json_row = NULL;
+
+	vty_out(vty, "\n");
+
+	if (!json)
+		vty_out(vty,
+			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
+#if PIM_IPV == 4
+		struct sioc_vif_req vreq;
+#else
+		struct sioc_mif_req6 vreq;
+#endif
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		memset(&vreq, 0, sizeof(vreq));
+#if PIM_IPV == 4
+		vreq.vifi = pim_ifp->mroute_vif_index;
+		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
+			zlog_warn(
+				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+				(unsigned long)SIOCGETVIFCNT, ifp->name,
+				pim_ifp->mroute_vif_index, errno,
+				safe_strerror(errno));
+		}
+#else
+		vreq.mifi = pim_ifp->mroute_vif_index;
+		if (ioctl(pim->mroute_socket, SIOCGETMIFCNT_IN6, &vreq)) {
+			zlog_warn(
+				"ioctl(SIOCGETMIFCNT_IN6=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+				(unsigned long)SIOCGETMIFCNT_IN6, ifp->name,
+				pim_ifp->mroute_vif_index, errno,
+				safe_strerror(errno));
+		}
+#endif
+
+		if (json) {
+			json_row = json_object_new_object();
+			json_object_string_add(json_row, "name", ifp->name);
+			json_object_string_add(json_row, "state",
+					       if_is_up(ifp) ? "up" : "down");
+			json_object_string_addf(json_row, "address", "%pPA",
+						&pim_ifp->primary_address);
+			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
+			json_object_int_add(json_row, "vif",
+					    pim_ifp->mroute_vif_index);
+			json_object_int_add(json_row, "pktsIn",
+					    (unsigned long)vreq.icount);
+			json_object_int_add(json_row, "pktsOut",
+					    (unsigned long)vreq.ocount);
+			json_object_int_add(json_row, "bytesIn",
+					    (unsigned long)vreq.ibytes);
+			json_object_int_add(json_row, "bytesOut",
+					    (unsigned long)vreq.obytes);
+			json_object_object_add(json, ifp->name, json_row);
+		} else {
+			vty_out(vty,
+				"%-16s %-15pPAs %3d %3d %7lu %7lu %10lu %10lu\n",
+				ifp->name, &pim_ifp->primary_address,
+				ifp->ifindex, pim_ifp->mroute_vif_index,
+				(unsigned long)vreq.icount,
+				(unsigned long)vreq.ocount,
+				(unsigned long)vreq.ibytes,
+				(unsigned long)vreq.obytes);
+		}
+	}
+}
+
+void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
+{
+	struct vrf *vrf = pim->vrf;
+	time_t now = pim_time_monotonic_sec();
+	char uptime[10];
+	char mlag_role[80];
+
+	pim = vrf->info;
+
+	vty_out(vty, "Router MLAG Role: %s\n",
+		mlag_role2str(router->mlag_role, mlag_role, sizeof(mlag_role)));
+	vty_out(vty, "Mroute socket descriptor:");
+
+	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
+
+	pim_time_uptime(uptime, sizeof(uptime),
+			now - pim->mroute_socket_creation);
+	vty_out(vty, "Mroute socket uptime: %s\n", uptime);
+
+	vty_out(vty, "\n");
+
+	pim_zebra_zclient_update(vty);
+#if PIM_IPV == 4
+	pim_zlookup_show_ip_multicast(vty);
+#else
+	/* TBD */
+#endif
+
+	vty_out(vty, "\n");
+	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
+
+	vty_out(vty, "\n");
+	vty_out(vty, "Upstream Join Timer: %d secs\n", router->t_periodic);
+	vty_out(vty, "Join/Prune Holdtime: %d secs\n", PIM_JP_HOLDTIME);
+	vty_out(vty, "PIM ECMP: %s\n", pim->ecmp_enable ? "Enable" : "Disable");
+	vty_out(vty, "PIM ECMP Rebalance: %s\n",
+		pim->ecmp_rebalance_enable ? "Enable" : "Disable");
+
+	vty_out(vty, "\n");
+
+	pim_show_rpf_refresh_stats(vty, pim, now, NULL);
+
+	vty_out(vty, "\n");
+
+	show_scan_oil_stats(pim, vty, now);
+
+	show_multicast_interfaces(pim, vty, NULL);
+}
+
+void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
+		 bool fill, json_object *json)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *s_route;
+	time_t now;
+	json_object *json_group = NULL;
+	json_object *json_source = NULL;
+	json_object *json_oil = NULL;
+	json_object *json_ifp_out = NULL;
+	int found_oif;
+	int first;
+	char grp_str[PIM_ADDRSTRLEN];
+	char src_str[PIM_ADDRSTRLEN];
+	char in_ifname[INTERFACE_NAMSIZ + 1];
+	char out_ifname[INTERFACE_NAMSIZ + 1];
+	int oif_vif_index;
+	struct interface *ifp_in;
+	char proto[100];
+	char state_str[PIM_REG_STATE_STR_LEN];
+	char mroute_uptime[10];
+
+	if (!json) {
+		vty_out(vty, "IP Multicast Routing Table\n");
+		vty_out(vty, "Flags: S - Sparse, C - Connected, P - Pruned\n");
+		vty_out(vty,
+			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
+		vty_out(vty,
+			"\nSource          Group           Flags    Proto  Input            Output           TTL  Uptime\n");
+	}
+
+	now = pim_time_monotonic_sec();
+
+	/* print list of PIM and IGMP routes */
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
+		found_oif = 0;
+		first = 1;
+		if (!c_oil->installed)
+			continue;
+
+		if (!pim_addr_is_any(sg->grp) &&
+		    pim_addr_cmp(sg->grp, *oil_mcastgrp(c_oil)))
+			continue;
+		if (!pim_addr_is_any(sg->src) &&
+		    pim_addr_cmp(sg->src, *oil_origin(c_oil)))
+			continue;
+
+		snprintfrr(grp_str, sizeof(grp_str), "%pPAs",
+			   oil_mcastgrp(c_oil));
+		snprintfrr(src_str, sizeof(src_str), "%pPAs",
+			   oil_origin(c_oil));
+
+		strlcpy(state_str, "S", sizeof(state_str));
+		/* When a non DR receives a igmp join, it creates a (*,G)
+		 * channel_oil without any upstream creation
+		 */
+		if (c_oil->up) {
+			if (PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(c_oil->up->flags))
+				strlcat(state_str, "C", sizeof(state_str));
+			if (pim_upstream_is_sg_rpt(c_oil->up))
+				strlcat(state_str, "R", sizeof(state_str));
+			if (PIM_UPSTREAM_FLAG_TEST_FHR(c_oil->up->flags))
+				strlcat(state_str, "F", sizeof(state_str));
+			if (c_oil->up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+				strlcat(state_str, "T", sizeof(state_str));
+		}
+		if (pim_channel_oil_empty(c_oil))
+			strlcat(state_str, "P", sizeof(state_str));
+
+		ifp_in = pim_if_find_by_vif_index(pim, *oil_parent(c_oil));
+
+		if (ifp_in)
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
+		else
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
+
+
+		pim_time_uptime(mroute_uptime, sizeof(mroute_uptime),
+				now - c_oil->mroute_creation);
+
+		if (json) {
+
+			/* Find the group, create it if it doesn't exist */
+			json_object_object_get_ex(json, grp_str, &json_group);
+
+			if (!json_group) {
+				json_group = json_object_new_object();
+				json_object_object_add(json, grp_str,
+						       json_group);
+			}
+
+			/* Find the source nested under the group, create it if
+			 * it doesn't exist
+			 */
+			json_object_object_get_ex(json_group, src_str,
+						  &json_source);
+
+			if (!json_source) {
+				json_source = json_object_new_object();
+				json_object_object_add(json_group, src_str,
+						       json_source);
+			}
+
+			/* Find the inbound interface nested under the source,
+			 * create it if it doesn't exist
+			 */
+			json_object_string_add(json_source, "source", src_str);
+			json_object_string_add(json_source, "group", grp_str);
+			json_object_int_add(json_source, "installed",
+					    c_oil->installed);
+			json_object_int_add(json_source, "refCount",
+					    c_oil->oil_ref_count);
+			json_object_int_add(json_source, "oilSize",
+					    c_oil->oil_size);
+			json_object_int_add(json_source, "OilInheritedRescan",
+					    c_oil->oil_inherited_rescan);
+			json_object_int_add(json_source, "oilInheritedRescan",
+					    c_oil->oil_inherited_rescan);
+			json_object_string_add(json_source, "iif", in_ifname);
+			json_object_string_add(json_source, "upTime",
+					       mroute_uptime);
+			json_oil = NULL;
+		}
+
+		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
+		     ++oif_vif_index) {
+			struct interface *ifp_out;
+			int ttl;
+
+			ttl = oil_if_has(c_oil, oif_vif_index);
+			if (ttl < 1)
+				continue;
+
+			/* do not display muted OIFs */
+			if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_MUTE)
+				continue;
+
+			if (*oil_parent(c_oil) == oif_vif_index &&
+			    !pim_mroute_allow_iif_in_oil(c_oil, oif_vif_index))
+				continue;
+
+			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
+			found_oif = 1;
+
+			if (ifp_out)
+				strlcpy(out_ifname, ifp_out->name,
+					sizeof(out_ifname));
+			else
+				strlcpy(out_ifname, "<oif?>",
+					sizeof(out_ifname));
+
+			if (json) {
+				json_ifp_out = json_object_new_object();
+				json_object_string_add(json_ifp_out, "source",
+						       src_str);
+				json_object_string_add(json_ifp_out, "group",
+						       grp_str);
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_PIM)
+					json_object_boolean_true_add(
+						json_ifp_out, "protocolPim");
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_GM)
+#if PIM_IPV == 4
+					json_object_boolean_true_add(
+						json_ifp_out, "protocolIgmp");
+#else
+					json_object_boolean_true_add(
+						json_ifp_out, "protocolMld");
+#endif
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_VXLAN)
+					json_object_boolean_true_add(
+						json_ifp_out, "protocolVxlan");
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_STAR)
+					json_object_boolean_true_add(
+						json_ifp_out,
+						"protocolInherited");
+
+				json_object_string_add(json_ifp_out,
+						       "inboundInterface",
+						       in_ifname);
+				json_object_int_add(json_ifp_out, "iVifI",
+						    *oil_parent(c_oil));
+				json_object_string_add(json_ifp_out,
+						       "outboundInterface",
+						       out_ifname);
+				json_object_int_add(json_ifp_out, "oVifI",
+						    oif_vif_index);
+				json_object_int_add(json_ifp_out, "ttl", ttl);
+				json_object_string_add(json_ifp_out, "upTime",
+						       mroute_uptime);
+				json_object_string_add(json_source, "flags",
+						       state_str);
+				if (!json_oil) {
+					json_oil = json_object_new_object();
+					json_object_object_add(json_source,
+							       "oil", json_oil);
+				}
+				json_object_object_add(json_oil, out_ifname,
+						       json_ifp_out);
+			} else {
+				proto[0] = '\0';
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_PIM) {
+					strlcpy(proto, "PIM", sizeof(proto));
+				}
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_GM) {
+#if PIM_IPV == 4
+					strlcpy(proto, "IGMP", sizeof(proto));
+#else
+					strlcpy(proto, "MLD", sizeof(proto));
+#endif
+				}
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_VXLAN) {
+					strlcpy(proto, "VxLAN", sizeof(proto));
+				}
+
+				if (c_oil->oif_flags[oif_vif_index] &
+				    PIM_OIF_FLAG_PROTO_STAR) {
+					strlcpy(proto, "STAR", sizeof(proto));
+				}
+
+				vty_out(vty,
+					"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
+					oil_origin(c_oil), oil_mcastgrp(c_oil),
+					state_str, proto, in_ifname, out_ifname,
+					ttl, mroute_uptime);
+
+				if (first) {
+					src_str[0] = '\0';
+					grp_str[0] = '\0';
+					in_ifname[0] = '\0';
+					state_str[0] = '\0';
+					mroute_uptime[0] = '\0';
+					first = 0;
+				}
+			}
+		}
+
+		if (!json && !found_oif) {
+			vty_out(vty,
+				"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
+				oil_origin(c_oil), oil_mcastgrp(c_oil),
+				state_str, "none", in_ifname, "none", 0,
+				"--:--:--");
+		}
+	}
+
+	/* Print list of static routes */
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+		first = 1;
+
+		if (!s_route->c_oil.installed)
+			continue;
+
+		snprintfrr(grp_str, sizeof(grp_str), "%pPAs", &s_route->group);
+		snprintfrr(src_str, sizeof(src_str), "%pPAs", &s_route->source);
+		ifp_in = pim_if_find_by_vif_index(pim, s_route->iif);
+		found_oif = 0;
+
+		if (ifp_in)
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
+		else
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
+
+		if (json) {
+
+			/* Find the group, create it if it doesn't exist */
+			json_object_object_get_ex(json, grp_str, &json_group);
+
+			if (!json_group) {
+				json_group = json_object_new_object();
+				json_object_object_add(json, grp_str,
+						       json_group);
+			}
+
+			/* Find the source nested under the group, create it if
+			 * it doesn't exist
+			 */
+			json_object_object_get_ex(json_group, src_str,
+						  &json_source);
+
+			if (!json_source) {
+				json_source = json_object_new_object();
+				json_object_object_add(json_group, src_str,
+						       json_source);
+			}
+
+			json_object_string_add(json_source, "iif", in_ifname);
+			json_oil = NULL;
+		} else {
+			strlcpy(proto, "STATIC", sizeof(proto));
+		}
+
+		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
+		     ++oif_vif_index) {
+			struct interface *ifp_out;
+			char oif_uptime[10];
+			int ttl;
+
+			ttl = s_route->oif_ttls[oif_vif_index];
+			if (ttl < 1)
+				continue;
+
+			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
+			pim_time_uptime(
+				oif_uptime, sizeof(oif_uptime),
+				now - s_route->c_oil
+						.oif_creation[oif_vif_index]);
+			found_oif = 1;
+
+			if (ifp_out)
+				strlcpy(out_ifname, ifp_out->name,
+					sizeof(out_ifname));
+			else
+				strlcpy(out_ifname, "<oif?>",
+					sizeof(out_ifname));
+
+			if (json) {
+				json_ifp_out = json_object_new_object();
+				json_object_string_add(json_ifp_out, "source",
+						       src_str);
+				json_object_string_add(json_ifp_out, "group",
+						       grp_str);
+				json_object_boolean_true_add(json_ifp_out,
+							     "protocolStatic");
+				json_object_string_add(json_ifp_out,
+						       "inboundInterface",
+						       in_ifname);
+				json_object_int_add(
+					json_ifp_out, "iVifI",
+					*oil_parent(&s_route->c_oil));
+				json_object_string_add(json_ifp_out,
+						       "outboundInterface",
+						       out_ifname);
+				json_object_int_add(json_ifp_out, "oVifI",
+						    oif_vif_index);
+				json_object_int_add(json_ifp_out, "ttl", ttl);
+				json_object_string_add(json_ifp_out, "upTime",
+						       oif_uptime);
+				if (!json_oil) {
+					json_oil = json_object_new_object();
+					json_object_object_add(json_source,
+							       "oil", json_oil);
+				}
+				json_object_object_add(json_oil, out_ifname,
+						       json_ifp_out);
+			} else {
+				vty_out(vty,
+					"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
+					&s_route->source, &s_route->group, "-",
+					proto, in_ifname, out_ifname, ttl,
+					oif_uptime);
+				if (first && !fill) {
+					src_str[0] = '\0';
+					grp_str[0] = '\0';
+					in_ifname[0] = '\0';
+					first = 0;
+				}
+			}
+		}
+
+		if (!json && !found_oif) {
+			vty_out(vty,
+				"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
+				&s_route->source, &s_route->group, "-", proto,
+				in_ifname, "none", 0, "--:--:--");
+		}
+	}
+}
+
+static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
+					      json_object *json,
+					      struct vty *vty)
+{
+	json_object *json_group = NULL;
+	json_object *json_source = NULL;
+
+	if (!c_oil->installed)
+		return;
+
+	pim_mroute_update_counters(c_oil);
+
+	if (json) {
+		char group_str[PIM_ADDRSTRLEN];
+		char source_str[PIM_ADDRSTRLEN];
+
+		snprintfrr(group_str, sizeof(group_str), "%pPAs",
+			   oil_mcastgrp(c_oil));
+		snprintfrr(source_str, sizeof(source_str), "%pPAs",
+			   oil_origin(c_oil));
+
+		json_object_object_get_ex(json, group_str, &json_group);
+
+		if (!json_group) {
+			json_group = json_object_new_object();
+			json_object_object_add(json, group_str, json_group);
+		}
+
+		json_source = json_object_new_object();
+		json_object_object_add(json_group, source_str, json_source);
+		json_object_int_add(json_source, "lastUsed",
+				    c_oil->cc.lastused / 100);
+		json_object_int_add(json_source, "packets", c_oil->cc.pktcnt);
+		json_object_int_add(json_source, "bytes", c_oil->cc.bytecnt);
+		json_object_int_add(json_source, "wrongIf", c_oil->cc.wrong_if);
+
+	} else {
+		vty_out(vty, "%-15pPAs %-15pPAs %-8llu %-7ld %-10ld %-7ld\n",
+			oil_origin(c_oil), oil_mcastgrp(c_oil),
+			c_oil->cc.lastused / 100,
+			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
+			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
+			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
+	}
+}
+
+void show_mroute_count(struct pim_instance *pim, struct vty *vty,
+		       json_object *json)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *sr;
+
+	if (!json) {
+		vty_out(vty, "\n");
+
+		vty_out(vty,
+			"Source          Group           LastUsed Packets Bytes WrongIf  \n");
+	}
+
+	/* Print PIM and IGMP route counts */
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
+		show_mroute_count_per_channel_oil(c_oil, json, vty);
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
+		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
+}
+
+void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
+			 json_object *json)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *s_route;
+	uint32_t starg_sw_mroute_cnt = 0;
+	uint32_t sg_sw_mroute_cnt = 0;
+	uint32_t starg_hw_mroute_cnt = 0;
+	uint32_t sg_hw_mroute_cnt = 0;
+	json_object *json_starg = NULL;
+	json_object *json_sg = NULL;
+
+	if (!json)
+		vty_out(vty, "Mroute Type    Installed/Total\n");
+
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
+		if (!c_oil->installed) {
+			if (pim_addr_is_any(*oil_origin(c_oil)))
+				starg_sw_mroute_cnt++;
+			else
+				sg_sw_mroute_cnt++;
+		} else {
+			if (pim_addr_is_any(*oil_origin(c_oil)))
+				starg_hw_mroute_cnt++;
+			else
+				sg_hw_mroute_cnt++;
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+		if (!s_route->c_oil.installed) {
+			if (pim_addr_is_any(*oil_origin(&s_route->c_oil)))
+				starg_sw_mroute_cnt++;
+			else
+				sg_sw_mroute_cnt++;
+		} else {
+			if (pim_addr_is_any(*oil_origin(&s_route->c_oil)))
+				starg_hw_mroute_cnt++;
+			else
+				sg_hw_mroute_cnt++;
+		}
+	}
+
+	if (!json) {
+		vty_out(vty, "%-20s %u/%u\n", "(*, G)", starg_hw_mroute_cnt,
+			starg_sw_mroute_cnt + starg_hw_mroute_cnt);
+		vty_out(vty, "%-20s %u/%u\n", "(S, G)", sg_hw_mroute_cnt,
+			sg_sw_mroute_cnt + sg_hw_mroute_cnt);
+		vty_out(vty, "------\n");
+		vty_out(vty, "%-20s %u/%u\n", "Total",
+			(starg_hw_mroute_cnt + sg_hw_mroute_cnt),
+			(starg_sw_mroute_cnt + starg_hw_mroute_cnt +
+			 sg_sw_mroute_cnt + sg_hw_mroute_cnt));
+	} else {
+		/* (*,G) route details */
+		json_starg = json_object_new_object();
+		json_object_object_add(json, "wildcardGroup", json_starg);
+
+		json_object_int_add(json_starg, "installed",
+				    starg_hw_mroute_cnt);
+		json_object_int_add(json_starg, "total",
+				    starg_sw_mroute_cnt + starg_hw_mroute_cnt);
+
+		/* (S, G) route details */
+		json_sg = json_object_new_object();
+		json_object_object_add(json, "sourceGroup", json_sg);
+
+		json_object_int_add(json_sg, "installed", sg_hw_mroute_cnt);
+		json_object_int_add(json_sg, "total",
+				    sg_sw_mroute_cnt + sg_hw_mroute_cnt);
+
+		json_object_int_add(json, "totalNumOfInstalledMroutes",
+				    starg_hw_mroute_cnt + sg_hw_mroute_cnt);
+		json_object_int_add(json, "totalNumOfMroutes",
+				    starg_sw_mroute_cnt + starg_hw_mroute_cnt +
+					    sg_sw_mroute_cnt +
+					    sg_hw_mroute_cnt);
+	}
 }

@@ -3286,7 +3286,7 @@ DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
 	} else {
 		if (!zebra_evpn_is_if_es_capable(zif)) {
 			vty_out(vty,
-				"%%DF bypass cannot be associated with this interface type\n");
+				"%% DF bypass cannot be associated with this interface type\n");
 			return CMD_WARNING;
 		}
 		zebra_evpn_es_bypass_cfg_update(zif, true);
@@ -3311,7 +3311,7 @@ DEFPY(zebra_evpn_es_pref, zebra_evpn_es_pref_cmd,
 	} else {
 		if (!zebra_evpn_is_if_es_capable(zif)) {
 			vty_out(vty,
-				"%%DF preference cannot be associated with this interface type\n");
+				"%% DF preference cannot be associated with this interface type\n");
 			return CMD_WARNING;
 		}
 		zebra_evpn_es_df_pref_update(zif, df_pref);
@@ -3341,25 +3341,26 @@ DEFPY(zebra_evpn_es_sys_mac,
 
 		ret = zebra_evpn_es_sys_mac_update(zif, &zero_mac);
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to clear ES sysmac\n");
+			vty_out(vty, "%% Failed to clear ES sysmac\n");
 			return CMD_WARNING;
 		}
 	} else {
 
 		if (!zebra_evpn_is_if_es_capable(zif)) {
 			vty_out(vty,
-				"%%ESI cannot be associated with this interface type\n");
+				"%% ESI cannot be associated with this interface type\n");
 			return CMD_WARNING;
 		}
 
 		if  (!mac || is_zero_mac(&mac->eth_addr)) {
-			vty_out(vty, "%%ES sysmac value is invalid\n");
+			vty_out(vty, "%% ES sysmac value is invalid\n");
 			return CMD_WARNING;
 		}
 
 		ret = zebra_evpn_es_sys_mac_update(zif, &mac->eth_addr);
 		if (ret == -1) {
-			vty_out(vty, "%%ESI already exists on a different interface\n");
+			vty_out(vty,
+				"%% ESI already exists on a different interface\n");
 			return CMD_WARNING;
 		}
 	}
@@ -3392,25 +3393,27 @@ DEFPY(zebra_evpn_es_id,
 			ret = zebra_evpn_es_type0_esi_update(zif, zero_esi);
 
 		if (ret == -1) {
-			vty_out(vty, "%%Failed to clear ES local id\n");
+			vty_out(vty,
+				"%% Failed to clear ES local id or ESI name\n");
 			return CMD_WARNING;
 		}
 	} else {
 		if (!zebra_evpn_is_if_es_capable(zif)) {
 			vty_out(vty,
-				"%%ESI cannot be associated with this interface type\n");
+				"%% ESI cannot be associated with this interface type\n");
 			return CMD_WARNING;
 		}
 
 		if (esi_str) {
 			if (!str_to_esi(esi_str, &esi)) {
-				vty_out(vty, "%% Malformed ESI\n");
+				vty_out(vty, "%% Malformed ESI name\n");
 				return CMD_WARNING;
 			}
 			ret = zebra_evpn_es_type0_esi_update(zif, &esi);
 		} else {
 			if (!es_lid) {
-				vty_out(vty, "%%Specify local ES ID\n");
+				vty_out(vty,
+					"%% Specify ES local id or ESI name\n");
 				return CMD_WARNING;
 			}
 			ret = zebra_evpn_es_lid_update(zif, es_lid);
@@ -3418,7 +3421,7 @@ DEFPY(zebra_evpn_es_id,
 
 		if (ret == -1) {
 			vty_out(vty,
-					"%%ESI already exists on a different interface\n");
+				"%% ESI already exists on a different interface\n");
 			return CMD_WARNING;
 		}
 	}
@@ -3758,18 +3761,10 @@ static inline bool zebra_evpn_mh_is_all_uplinks_down(void)
 static void zebra_evpn_mh_uplink_oper_flags_update(struct zebra_if *zif,
 						   bool set)
 {
-	if (set) {
-		if (if_is_operative(zif->ifp)) {
-			if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)) {
-				zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
-				++zmh_info->uplink_oper_up_cnt;
-			}
-		} else {
-			if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP) {
-				zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
-				if (zmh_info->uplink_oper_up_cnt)
-					--zmh_info->uplink_oper_up_cnt;
-			}
+	if (set && if_is_operative(zif->ifp)) {
+		if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)) {
+			zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP;
+			++zmh_info->uplink_oper_up_cnt;
 		}
 	} else {
 		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP) {

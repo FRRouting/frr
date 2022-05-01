@@ -64,6 +64,7 @@
 #endif
 
 static struct thread *t_rpki;
+static struct thread *t_rpki_start;
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
@@ -72,6 +73,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
+#define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -123,6 +125,7 @@ static int add_tcp_cache(const char *host, const char *port,
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static int is_synchronized(void);
 static int is_running(void);
+static int is_stopping(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
@@ -332,12 +335,17 @@ static struct rtr_mgr_group *get_groups(void)
 
 inline int is_synchronized(void)
 {
-	return rtr_is_running && rtr_mgr_conf_in_sync(rtr_config);
+	return is_running() && rtr_mgr_conf_in_sync(rtr_config);
 }
 
 inline int is_running(void)
 {
 	return rtr_is_running;
+}
+
+inline int is_stopping(void)
+{
+	return rtr_is_stopping;
 }
 
 static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
@@ -481,7 +489,7 @@ static void rpki_connection_status_cb(const struct rtr_mgr_group *group
 	struct pfx_record rec = {0};
 	int retval;
 
-	if (rtr_is_stopping ||
+	if (is_stopping() ||
 	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
@@ -501,8 +509,8 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				    const struct pfx_record rec,
 				    const bool added __attribute__((unused)))
 {
-	if (rtr_is_stopping
-	    || atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
+	if (is_stopping() ||
+	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
 	int retval =
@@ -588,6 +596,18 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
+static void start_expired(struct thread *thread)
+{
+	if (!rtr_mgr_conf_in_sync(rtr_config)) {
+		thread_add_timer(bm->master, start_expired, NULL,
+				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
+				 &t_rpki_start);
+		return;
+	}
+
+	rtr_is_running = 1;
+}
+
 static int start(void)
 {
 	int ret;
@@ -621,7 +641,8 @@ static int start(void)
 		rtr_mgr_free(rtr_config);
 		return ERROR;
 	}
-	rtr_is_running = 1;
+
+	thread_add_timer(bm->master, start_expired, NULL, 0, &t_rpki_start);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
@@ -631,7 +652,8 @@ static int start(void)
 static void stop(void)
 {
 	rtr_is_stopping = 1;
-	if (rtr_is_running) {
+	if (is_running()) {
+		THREAD_OFF(t_rpki_start);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = 0;
@@ -640,7 +662,10 @@ static void stop(void)
 
 static int reset(bool force)
 {
-	if (rtr_is_running && !force)
+	if (is_running() && !force)
+		return SUCCESS;
+
+	if (thread_is_scheduled(t_rpki_start))
 		return SUCCESS;
 
 	RPKI_DEBUG("Resetting RPKI Session");
@@ -723,7 +748,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	enum pfxv_state result;
 
 	if (!is_synchronized())
-		return 0;
+		return RPKI_NOT_BEING_USED;
 
 	// No aspath means route comes from iBGP
 	if (!attr->aspath || !attr->aspath->segments) {
@@ -763,7 +788,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 		break;
 
 	default:
-		return 0;
+		return RPKI_NOT_BEING_USED;
 	}
 
 	// Do the actual validation
@@ -793,7 +818,7 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 			prefix, as_number);
 		break;
 	}
-	return 0;
+	return RPKI_NOT_BEING_USED;
 }
 
 static int add_cache(struct cache *cache)
@@ -805,7 +830,7 @@ static int add_cache(struct cache *cache)
 	group.sockets_len = 1;
 	group.sockets = &cache->rtr_socket;
 
-	if (rtr_is_running) {
+	if (is_running()) {
 		init_tr_socket(cache);
 
 		if (rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
@@ -1170,9 +1195,9 @@ DEFPY (no_rpki_cache,
 		return CMD_WARNING;
 	}
 
-	if (rtr_is_running && listcount(cache_list) == 1) {
+	if (is_running() && listcount(cache_list) == 1) {
 		stop();
-	} else if (rtr_is_running) {
+	} else if (is_running()) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
 			vty_out(vty, "Could not remove cache %ld", preference);
 

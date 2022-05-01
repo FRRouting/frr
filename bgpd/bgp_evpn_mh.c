@@ -196,9 +196,8 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 
 	/* Check if route entry is already present. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->extra
-				&& (struct bgp_path_info *)pi->extra->parent ==
-				parent_pi)
+		if (pi->extra &&
+		    (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
 	if (!pi) {
@@ -287,7 +286,7 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 	return ret;
 }
 
-/* Install or unistall a Tyoe-4 route in the per-ES routing table */
+/* Install or unistall a Type-4 route in the per-ES routing table */
 int bgp_evpn_es_route_install_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 		afi_t afi, safi_t safi, struct prefix_evpn *evp,
 		struct bgp_path_info *pi, int install)
@@ -378,16 +377,16 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			remote_pi = tmp_pi;
 	}
 
-	/* we don't expect to see a remote_ri at this point as
+	/* we don't expect to see a remote_pi at this point as
 	 * an ES route has {esi, vtep_ip} as the key in the ES-rt-table
 	 * in the VNI-rt-table.
 	 */
 	if (remote_pi) {
 		flog_err(
 			EC_BGP_ES_INVALID,
-			"%u ERROR: local es route for ESI: %s Vtep %pI4 also learnt from remote",
+			"%u ERROR: local es route for ESI: %s vtep %pI4 also learnt from remote",
 			bgp->vrf_id, es ? es->esi_str : "Null",
-			&es->originator_ip);
+			es ? &es->originator_ip : NULL);
 		return -1;
 	}
 
@@ -622,8 +621,6 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	bgp_attr_set_ecommunity(
 		attr,
 		ecommunity_merge(bgp_attr_get_ecommunity(attr), &ecom_df));
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /* Create or update local type-4 route */
@@ -904,8 +901,6 @@ bgp_evpn_type1_es_route_extcomm_build(struct bgp_evpn_es_frag *es_frag,
 							       ecom));
 		}
 	}
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /* Extended communities associated with EAD-per-EVI */
@@ -932,8 +927,6 @@ static void bgp_evpn_type1_evi_route_extcomm_build(struct bgp_evpn_es *es,
 		bgp_attr_set_ecommunity(
 			attr,
 			ecommunity_merge(bgp_attr_get_ecommunity(attr), ecom));
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /* Update EVPN EAD (type-1) route -
@@ -1688,7 +1681,7 @@ static bool bgp_evpn_is_macip_path(struct bgp_path_info *pi)
  * This is done indirectly by re-attempting an install of the
  * route in the associated VRFs. As a part of the VRF install use
  * of l3 NHG is evaluated and this results in the
- * attr.es_flag ATTR_ES_USE_L3_NHG being set or cleared.
+ * attr.es_flag ATTR_ES_L3_NHG_USE being set or cleared.
  */
 static void
 bgp_evpn_es_path_update_on_es_vrf_chg(struct bgp_evpn_es_vrf *es_vrf,
@@ -2875,7 +2868,7 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 
 static bool bgp_evpn_l3nhg_zebra_ok(struct bgp_evpn_es_vrf *es_vrf)
 {
-	if (!bgp_mh_info->host_routes_use_l3nhg && !bgp_mh_info->install_l3nhg)
+	if (!bgp_mh_info->host_routes_use_l3nhg)
 		return false;
 
 	/* Check socket. */
@@ -3449,14 +3442,11 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 			   new_active ? "active" : "inactive");
 
 	/* add VTEP to parent es */
-	if (new_active) {
-		struct bgp_evpn_es_vtep *es_vtep;
-
-		es_vtep = bgp_evpn_es_vtep_add(bgp, evi_vtep->es_evi->es,
-					       evi_vtep->vtep_ip, false /*esr*/,
-					       0, 0);
-		evi_vtep->es_vtep = es_vtep;
-	} else {
+	if (new_active)
+		evi_vtep->es_vtep = bgp_evpn_es_vtep_add(
+			bgp, evi_vtep->es_evi->es, evi_vtep->vtep_ip,
+			false /*esr*/, 0, 0);
+	else {
 		if (evi_vtep->es_vtep) {
 			bgp_evpn_es_vtep_do_del(bgp, evi_vtep->es_vtep,
 					false /*esr*/);
@@ -3850,13 +3840,13 @@ int bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
 	es = bgp_evpn_es_find(&p->prefix.ead_addr.esi);
 	if (!es) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("del remote %s es %s evi %u vtep %pI4, NO es",
-				   p->prefix.ead_addr.eth_tag ? "ead-es"
-							      : "ead-evi",
-				   esi_to_str(&p->prefix.ead_addr.esi, buf,
-					      sizeof(buf)),
-				   vpn->vni,
-    			   &p->prefix.ead_addr.ip.ipaddr_v4);
+			zlog_debug(
+				"del remote %s es %s evi %u vtep %pI4, NO es",
+				p->prefix.ead_addr.eth_tag ? "ead-es"
+							   : "ead-evi",
+				esi_to_str(&p->prefix.ead_addr.esi, buf,
+					   sizeof(buf)),
+				vpn->vni, &p->prefix.ead_addr.ip.ipaddr_v4);
 		return 0;
 	}
 	es_evi = bgp_evpn_es_evi_find(es, vpn);
@@ -4401,14 +4391,12 @@ static uint32_t bgp_evpn_es_run_consistency_checks(struct bgp_evpn_es *es)
 static void bgp_evpn_run_consistency_checks(struct thread *t)
 {
 	int proc_cnt = 0;
-	int es_cnt = 0;
 	struct listnode *node;
 	struct listnode *nextnode;
 	struct bgp_evpn_es *es;
 
 	for (ALL_LIST_ELEMENTS(bgp_mh_info->pend_es_list,
 				node, nextnode, es)) {
-		++es_cnt;
 		++proc_cnt;
 		/* run consistency checks on the ES and remove it from the
 		 * pending list
@@ -4948,7 +4936,6 @@ void bgp_evpn_mh_init(void)
 	/* config knobs - XXX add cli to control it */
 	bgp_mh_info->ead_evi_adv_for_down_links = true;
 	bgp_mh_info->consistency_checking = true;
-	bgp_mh_info->install_l3nhg = false;
 	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
 	bgp_mh_info->suppress_l3_ecomm_on_inactive_es = true;
 	bgp_mh_info->bgp_evpn_nh_setup = true;

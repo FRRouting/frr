@@ -520,8 +520,10 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 	ecomadd = ecommunity_new();
 	ecommunity_add_val(ecomadd, &eval, false, false);
 	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
-		if (ecommunity_cmp(ecomadd, ecom))
+		if (ecommunity_cmp(ecomadd, ecom)) {
 			ecom_found = true;
+			break;
+		}
 
 	if (!ecom_found)
 		listnode_add_sort(rtl, ecomadd);
@@ -759,8 +761,6 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac,
 				   true, true);
 	}
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /*
@@ -870,8 +870,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
 					       &ecom_na));
 	}
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 }
 
 /*
@@ -3370,7 +3368,9 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 
 	assert(attr);
 
-	/* Only type-2, type-3, type-4 and type-5 are supported currently */
+	/* Only type-1, type-2, type-3, type-4 and type-5
+	 * are supported currently
+	 */
 	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
 	      || evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
 	      || evp->prefix.route_type == BGP_EVPN_ES_ROUTE
@@ -3475,7 +3475,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		if (evp->prefix.route_type == BGP_EVPN_ES_ROUTE) {
 
 			/* we will match based on the entire esi to avoid
-			 * imoort of an es route for esi2 into esi1
+			 * import of an es route for esi2 into esi1
 			 */
 			es = bgp_evpn_es_find(&evp->prefix.es_addr.esi);
 			if (es && bgp_evpn_is_es_local(es))
@@ -4558,6 +4558,7 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl)
 		if (ecommunity_match(ecom, ecom_auto)) {
 			ecommunity_free(&ecom);
 			node_to_del = node;
+			break;
 		}
 	}
 
@@ -5106,7 +5107,6 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 /*
  * Map the RTs (configured or automatically derived) of a VRF to the VRF.
  * The mapping will be used during route processing.
- * bgp_def: default bgp instance
  * bgp_vrf: specific bgp vrf instance on which RT is configured
  */
 void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
@@ -6101,8 +6101,9 @@ bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx)
 	 * EVPN routes should be marked as valid only if the nexthop is
 	 * reachable. Only if this happens, the route should be imported
 	 * (into VNI or VRF routing tables) and/or advertised.
-	 * Note: This is currently applied for EVPN type-2, type-3 and
-	 * type-5 routes. It may be tweaked later on for other routes, or
+	 * Note: This is currently applied for EVPN type-1, type-2,
+	 * type-3, type-4 and type-5 routes.
+	 * It may be tweaked later on for other routes, or
 	 * even removed completely when all routes are handled.
 	 */
 	if (pfx && pfx->family == AF_EVPN

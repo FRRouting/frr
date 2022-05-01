@@ -123,7 +123,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
-	pim_ifp->options = 0;
 	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
@@ -1526,7 +1525,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
 /*
  * PIM wants to have an interface pointer for everything it does.
  * The pimreg is a special interface that we have that is not
- * quite an inteface but a VIF is created for it.
+ * quite an interface but a VIF is created for it.
  */
 void pim_if_create_pimreg(struct pim_instance *pim)
 {

@@ -557,7 +557,7 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = community_str(com, false);
+		str = community_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
 
@@ -631,7 +631,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = lcommunity_str(com, false);
+		str = lcommunity_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
 

@@ -2103,7 +2103,7 @@ void send_hello_sched(struct isis_circuit *circuit, int level, long delay)
 
 
 /*
- * Count the maximum number of lsps that can be accomodated by a given size.
+ * Count the maximum number of lsps that can be accommodated by a given size.
  */
 #define LSP_ENTRIES_LEN (10 + ISIS_SYS_ID_LEN)
 static uint16_t get_max_lsp_count(uint16_t size)

@@ -39,20 +39,37 @@ void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 	int suc = -1;
 
 	memset(&mroute, 0, sizeof(mroute));
-	STREAM_GET(&mroute.sg.src, msg, 4);
-	STREAM_GET(&mroute.sg.grp, msg, 4);
+	STREAM_GETL(msg, mroute.family);
+
+	switch (mroute.family) {
+	case AF_INET:
+		SET_IPADDR_V4(&mroute.src);
+		SET_IPADDR_V4(&mroute.grp);
+		STREAM_GET(&mroute.src.ipaddr_v4, msg,
+			   sizeof(mroute.src.ipaddr_v4));
+		STREAM_GET(&mroute.grp.ipaddr_v4, msg,
+			   sizeof(mroute.grp.ipaddr_v4));
+		break;
+	case AF_INET6:
+		SET_IPADDR_V6(&mroute.src);
+		SET_IPADDR_V6(&mroute.grp);
+		STREAM_GET(&mroute.src.ipaddr_v6, msg,
+			   sizeof(mroute.src.ipaddr_v6));
+		STREAM_GET(&mroute.grp.ipaddr_v6, msg,
+			   sizeof(mroute.grp.ipaddr_v6));
+		break;
+	default:
+		zlog_warn("%s: Invalid address family received while parsing",
+			  __func__);
+		return;
+	}
+
 	STREAM_GETL(msg, mroute.ifindex);
 
-	if (IS_ZEBRA_DEBUG_KERNEL) {
-		char sbuf[40];
-		char gbuf[40];
-
-		inet_ntop(AF_INET, &mroute.sg.src, sbuf, sizeof(sbuf));
-		inet_ntop(AF_INET, &mroute.sg.grp, gbuf, sizeof(gbuf));
-
-		zlog_debug("Asking for (%s,%s)[%s(%u)] mroute information",
-			   sbuf, gbuf, zvrf->vrf->name, zvrf->vrf->vrf_id);
-	}
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Asking for (%pIA,%pIA)[%s(%u)] mroute information",
+			   &mroute.src, &mroute.grp, zvrf->vrf->name,
+			   zvrf->vrf->vrf_id);
 
 	suc = kernel_get_ipmr_sg_stats(zvrf, &mroute);
 
@@ -62,8 +79,19 @@ stream_failure:
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, zvrf_id(zvrf));
-	stream_put_in_addr(s, &mroute.sg.src);
-	stream_put_in_addr(s, &mroute.sg.grp);
+
+	if (mroute.family == AF_INET) {
+		stream_write(s, &mroute.src.ipaddr_v4,
+			     sizeof(mroute.src.ipaddr_v4));
+		stream_write(s, &mroute.grp.ipaddr_v4,
+			     sizeof(mroute.grp.ipaddr_v4));
+	} else {
+		stream_write(s, &mroute.src.ipaddr_v6,
+			     sizeof(mroute.src.ipaddr_v6));
+		stream_write(s, &mroute.grp.ipaddr_v6,
+			     sizeof(mroute.grp.ipaddr_v6));
+	}
+
 	stream_put(s, &mroute.lastused, sizeof(mroute.lastused));
 	stream_putl(s, (uint32_t)suc);
 

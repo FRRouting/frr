@@ -113,6 +113,14 @@ Certain signals have special meanings to *pim6d*.
    notifications to the kernel. This command is vrf aware, to configure for a
    vrf, enter the vrf submode.
 
+.. clicmd:: ipv6 ssmpingd [X:X::X:X]
+
+   Enable ipv6 ssmpingd configuration. A network level management tool
+   to check whether one can receive multicast packets via SSM from host.
+   The host target given to ssmping must run the ssmpingd daemon which listens
+   for IPv4 and IPv6 unicast requests. When it receives one, it responds to a
+   well known SSM multicast group which ssmping just have joined.
+
 .. _pimv6-interface-configuration:
 
 PIMv6 Interface Configuration
@@ -276,6 +284,47 @@ cause great confusion.
 .. clicmd:: show ipv6 pim [vrf NAME] upstream-rpf [json]
 
    Display upstream information for S,G's and the RPF data associated with them.
+
+.. clicmd:: show ipv6 multicast
+
+   Display various information about the interfaces used in this pim instance.
+
+.. clicmd:: show ipv6 multicast count [vrf NAME] [json]
+
+   Display multicast data packets count per interface for a vrf.
+
+.. clicmd:: show ipv6 multicast count vrf all [json]
+
+   Display multicast data packets count per interface for all vrf.
+
+.. clicmd:: show ipv6 mroute [vrf NAME] [X:X::X:X [X:X::X:X]] [fill] [json]
+
+   Display information about installed into the kernel S,G mroutes.  If
+   one address is specified we assume it is the Group we are interested
+   in displaying data on.  If the second address is specified then it is
+   Source Group.  The keyword ``fill`` says to fill in all assumed data
+   for test/data gathering purposes.
+
+.. clicmd:: show ipv6 mroute [vrf NAME] count [json]
+
+   Display information about installed into the kernel S,G mroutes and in
+   addition display data about packet flow for the mroutes for a specific
+   vrf.
+
+.. clicmd:: show ipv6 mroute vrf all count [json]
+
+   Display information about installed into the kernel S,G mroutes and in
+   addition display data about packet flow for the mroutes for all vrfs.
+
+.. clicmd:: show ipv6 mroute [vrf NAME] summary [json]
+
+   Display total number of S,G mroutes and number of S,G mroutes installed
+   into the kernel for a specific vrf.
+
+.. clicmd:: show ipv6 mroute vrf all summary [json]
+
+   Display total number of S,G mroutes and number of S,G mroutes
+   installed into the kernel for all vrfs.
 
 PIMv6 Debug Commands
 ====================

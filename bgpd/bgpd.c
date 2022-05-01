@@ -565,7 +565,7 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as)
 	   AS change.  Just Reset EBGP sessions, not CONFED sessions.  If we
 	   were not doing confederation before, reset all EBGP sessions.  */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		bgp_peer_sort_t ptype = peer_sort(peer);
+		enum bgp_peer_sort ptype = peer_sort(peer);
 
 		/* We're looking for peers who's AS is not local or part of our
 		   confederation.  */
@@ -1004,7 +1004,7 @@ void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* Check peer's AS number and determines if this peer is IBGP or EBGP */
-static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
+static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 {
 	struct bgp *bgp;
 
@@ -1091,13 +1091,13 @@ static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 }
 
 /* Calculate and cache the peer "sort" */
-bgp_peer_sort_t peer_sort(struct peer *peer)
+enum bgp_peer_sort peer_sort(struct peer *peer)
 {
 	peer->sort = peer_calc_sort(peer);
 	return peer->sort;
 }
 
-bgp_peer_sort_t peer_sort_lookup(struct peer *peer)
+enum bgp_peer_sort peer_sort_lookup(struct peer *peer)
 {
 	return peer->sort;
 }
@@ -1826,7 +1826,7 @@ int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 /* Change peer's AS number.  */
 void peer_as_change(struct peer *peer, as_t as, int as_specified)
 {
-	bgp_peer_sort_t origtype, newtype;
+	enum bgp_peer_sort origtype, newtype;
 
 	/* Stop peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -1931,8 +1931,8 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 				return BGP_ERR_PEER_GROUP_MEMBER;
 			}
 
-			bgp_peer_sort_t peer_sort_type =
-						peer_sort(peer->group->conf);
+			enum bgp_peer_sort peer_sort_type =
+				peer_sort(peer->group->conf);
 
 			/* Explicit AS numbers used, compare AS numbers */
 			if (as_type == AS_SPECIFIED) {
@@ -2101,6 +2101,20 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 		PEER_STR_ATTR_INHERIT(peer, group, filter[afi][safi].usmap.name,
 				      MTYPE_BGP_FILTER_NAME);
 		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].usmap.map);
+	}
+
+	/* Conditional Advertisements */
+	if (!CHECK_FLAG(pfilter_ovrd[RMAP_OUT], PEER_FT_ADVERTISE_MAP)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].advmap.aname,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].advmap.amap);
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].advmap.cname,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].advmap.cmap);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].advmap.condition);
 	}
 
 	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_NONE) {
@@ -2898,7 +2912,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	int first_member = 0;
 	afi_t afi;
 	safi_t safi;
-	bgp_peer_sort_t ptype, gtype;
+	enum bgp_peer_sort ptype, gtype;
 
 	/* Lookup the peer.  */
 	if (!peer)
@@ -3766,7 +3780,7 @@ void bgp_free(struct bgp *bgp)
 	XFREE(MTYPE_BGP_EVPN_INFO, bgp->evpn_info);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		vpn_policy_direction_t dir;
+		enum vpn_policy_direction dir;
 
 		if (bgp->vpn_policy[afi].import_vrf)
 			list_delete(&bgp->vpn_policy[afi].import_vrf);
@@ -4542,7 +4556,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	struct peer *member;
 	struct listnode *node, *nnode;
 	struct peer_flag_action action;
-	bgp_peer_sort_t ptype;
+	enum bgp_peer_sort ptype;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
 	size = sizeof(peer_af_flag_action_list)
@@ -5909,7 +5923,7 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
-	bgp_peer_sort_t ptype = peer_sort(peer);
+	enum bgp_peer_sort ptype = peer_sort(peer);
 
 	if (ptype != BGP_PEER_EBGP && ptype != BGP_PEER_INTERNAL)
 		return BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP;

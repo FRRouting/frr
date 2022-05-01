@@ -274,6 +274,15 @@ static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 	struct structname *ptr = VTY_GET_CONTEXT(structname);                  \
 	VTY_CHECK_CONTEXT(ptr);
 
+#define VTY_DECLVAR_CONTEXT_VRF(vrfptr)                                        \
+	struct vrf *vrfptr;                                                    \
+	if (vty->node == CONFIG_NODE)                                          \
+		vrfptr = vrf_lookup_by_id(VRF_DEFAULT);                        \
+	else                                                                   \
+		vrfptr = VTY_GET_CONTEXT(vrf);                                 \
+	VTY_CHECK_CONTEXT(vrfptr);                                             \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 /* XPath macros. */
 #define VTY_PUSH_XPATH(nodeval, value)                                         \
 	do {                                                                   \

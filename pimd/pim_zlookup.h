@@ -28,7 +28,7 @@
 
 struct pim_zlookup_nexthop {
 	vrf_id_t vrf_id;
-	struct prefix nexthop_addr;
+	pim_addr nexthop_addr;
 	ifindex_t ifindex;
 	uint32_t route_metric;
 	uint8_t protocol_distance;

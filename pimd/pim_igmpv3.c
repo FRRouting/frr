@@ -465,6 +465,9 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 
 	src = XCALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
 
+	if (new)
+		*new = true;
+
 	src->t_source_timer = NULL;
 	src->source_group = group; /* back pointer */
 	src->source_addr = src_addr;
@@ -516,7 +519,7 @@ static void allow(struct gm_sock *igmp, struct in_addr from,
 		return;
 	}
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -669,7 +672,7 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 	if (pim_is_group_filtered(ifp->info, &group_addr))
 		return;
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -790,7 +793,7 @@ void igmpv3_report_toin(struct gm_sock *igmp, struct in_addr from,
 	 * entry is present, the request is ignored.
 	 */
 	if (num_sources) {
-		/* non-existant group is created as INCLUDE {empty} */
+		/* non-existent group is created as INCLUDE {empty} */
 		group = igmp_add_group_by_addr(igmp, group_addr);
 		if (!group) {
 			return;
@@ -944,7 +947,7 @@ void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;
@@ -1465,7 +1468,7 @@ void igmpv3_report_block(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return;

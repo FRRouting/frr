@@ -151,27 +151,24 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv4";
-		ada.ada_name = name;
-		ada.ada_action = action;
-		if (host_str && mask_str == NULL) {
-			ada.ada_xpath[0] = "./host";
-			ada.ada_value[0] = host_str;
-		} else if (host_str && mask_str) {
-			ada.ada_xpath[0] = "./network/address";
-			ada.ada_value[0] = host_str;
-			ada.ada_xpath[1] = "./network/mask";
-			ada.ada_value[1] = mask_str;
-		} else {
-			ada.ada_xpath[0] = "./source-any";
-			ada.ada_value[0] = "";
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (host_str && mask_str == NULL) {
+		ada.ada_xpath[0] = "./host";
+		ada.ada_value[0] = host_str;
+	} else if (host_str && mask_str) {
+		ada.ada_xpath[0] = "./network/address";
+		ada.ada_value[0] = host_str;
+		ada.ada_xpath[1] = "./network/mask";
+		ada.ada_value[1] = mask_str;
+	} else {
+		ada.ada_xpath[0] = "./source-any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -280,48 +277,45 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv4";
-		ada.ada_name = name;
-		ada.ada_action = action;
-		if (src_str && src_mask_str == NULL) {
-			ada.ada_xpath[idx] = "./host";
-			ada.ada_value[idx] = src_str;
-			idx++;
-		} else if (src_str && src_mask_str) {
-			ada.ada_xpath[idx] = "./network/address";
-			ada.ada_value[idx] = src_str;
-			idx++;
-			ada.ada_xpath[idx] = "./network/mask";
-			ada.ada_value[idx] = src_mask_str;
-			idx++;
-		} else {
-			ada.ada_xpath[idx] = "./source-any";
-			ada.ada_value[idx] = "";
-			idx++;
-		}
-
-		if (dst_str && dst_mask_str == NULL) {
-			ada.ada_xpath[idx] = "./destination-host";
-			ada.ada_value[idx] = dst_str;
-			idx++;
-		} else if (dst_str && dst_mask_str) {
-			ada.ada_xpath[idx] = "./destination-network/address";
-			ada.ada_value[idx] = dst_str;
-			idx++;
-			ada.ada_xpath[idx] = "./destination-network/mask";
-			ada.ada_value[idx] = dst_mask_str;
-			idx++;
-		} else {
-			ada.ada_xpath[idx] = "./destination-any";
-			ada.ada_value[idx] = "";
-			idx++;
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (src_str && src_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./host";
+		ada.ada_value[idx] = src_str;
+		idx++;
+	} else if (src_str && src_mask_str) {
+		ada.ada_xpath[idx] = "./network/address";
+		ada.ada_value[idx] = src_str;
+		idx++;
+		ada.ada_xpath[idx] = "./network/mask";
+		ada.ada_value[idx] = src_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./source-any";
+		ada.ada_value[idx] = "";
+		idx++;
 	}
+
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./destination-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./destination-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./destination-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./destination-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -466,27 +460,24 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv4";
-		ada.ada_name = name;
-		ada.ada_action = action;
+	ada.ada_type = "ipv4";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-		if (prefix_str) {
-			ada.ada_xpath[0] = "./ipv4-prefix";
-			ada.ada_value[0] = prefix_str;
-			if (exact) {
-				ada.ada_xpath[1] = "./ipv4-exact-match";
-				ada.ada_value[1] = "true";
-			}
-		} else {
-			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "";
+	if (prefix_str) {
+		ada.ada_xpath[0] = "./ipv4-prefix";
+		ada.ada_value[0] = prefix_str;
+		if (exact) {
+			ada.ada_xpath[1] = "./ipv4-exact-match";
+			ada.ada_value[1] = "true";
 		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -656,27 +647,24 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "ipv6";
-		ada.ada_name = name;
-		ada.ada_action = action;
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-		if (prefix_str) {
-			ada.ada_xpath[0] = "./ipv6-prefix";
-			ada.ada_value[0] = prefix_str;
-			if (exact) {
-				ada.ada_xpath[1] = "./ipv6-exact-match";
-				ada.ada_value[1] = "true";
-			}
-		} else {
-			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "";
+	if (prefix_str) {
+		ada.ada_xpath[0] = "./ipv6-prefix";
+		ada.ada_value[0] = prefix_str;
+		if (exact) {
+			ada.ada_xpath[1] = "./ipv6-exact-match";
+			ada.ada_value[1] = "true";
 		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -850,23 +838,20 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		ada.ada_type = "mac";
-		ada.ada_name = name;
-		ada.ada_action = action;
+	ada.ada_type = "mac";
+	ada.ada_name = name;
+	ada.ada_action = action;
 
-		if (mac_str) {
-			ada.ada_xpath[0] = "./mac";
-			ada.ada_value[0] = mac_str;
-		} else {
-			ada.ada_xpath[0] = "./any";
-			ada.ada_value[0] = "";
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (acl_is_dup(vty->candidate_config->dnode, &ada))
-			return CMD_SUCCESS;
+	if (mac_str) {
+		ada.ada_xpath[0] = "./mac";
+		ada.ada_value[0] = mac_str;
+	} else {
+		ada.ada_xpath[0] = "./any";
+		ada.ada_value[0] = "";
 	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the access-list first, so we can generate sequence if
@@ -1272,22 +1257,19 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		pda.pda_type = "ipv4";
-		pda.pda_name = name;
-		pda.pda_action = action;
-		if (prefix_str) {
-			prefix_copy(&pda.prefix, prefix);
-			pda.ge = ge;
-			pda.le = le;
-		} else {
-			pda.any = true;
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (plist_is_dup(vty->candidate_config->dnode, &pda))
-			return CMD_SUCCESS;
+	pda.pda_type = "ipv4";
+	pda.pda_name = name;
+	pda.pda_action = action;
+	if (prefix_str) {
+		prefix_copy(&pda.prefix, prefix);
+		pda.ge = ge;
+		pda.le = le;
+	} else {
+		pda.any = true;
 	}
+
+	if (plist_is_dup(vty->candidate_config->dnode, &pda))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if
@@ -1476,22 +1458,19 @@ DEFPY_YANG(
 	 * Backward compatibility: don't complain about duplicated values,
 	 * just silently accept.
 	 */
-	if (seq_str == NULL) {
-		pda.pda_type = "ipv6";
-		pda.pda_name = name;
-		pda.pda_action = action;
-		if (prefix_str) {
-			prefix_copy(&pda.prefix, prefix);
-			pda.ge = ge;
-			pda.le = le;
-		} else {
-			pda.any = true;
-		}
-
-		/* Duplicated entry without sequence, just quit. */
-		if (plist_is_dup(vty->candidate_config->dnode, &pda))
-			return CMD_SUCCESS;
+	pda.pda_type = "ipv6";
+	pda.pda_name = name;
+	pda.pda_action = action;
+	if (prefix_str) {
+		prefix_copy(&pda.prefix, prefix);
+		pda.ge = ge;
+		pda.le = le;
+	} else {
+		pda.any = true;
 	}
+
+	if (plist_is_dup(vty->candidate_config->dnode, &pda))
+		return CMD_SUCCESS;
 
 	/*
 	 * Create the prefix-list first, so we can generate sequence if

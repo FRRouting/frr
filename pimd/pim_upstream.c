@@ -838,8 +838,7 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 	up->rpf.source_nexthop.interface = incoming;
 
 	/* reset other parameters to matched a connected incoming interface */
-	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
-			   PIMADDR_ANY);
+	up->rpf.source_nexthop.mrib_nexthop_addr = PIMADDR_ANY;
 	up->rpf.source_nexthop.mrib_metric_preference =
 		ZEBRA_CONNECT_DISTANCE_DEFAULT;
 	up->rpf.source_nexthop.mrib_route_metric = 0;
@@ -899,8 +898,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
-	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
-			   PIMADDR_ANY);
+	up->rpf.source_nexthop.mrib_nexthop_addr = PIMADDR_ANY;
 	up->rpf.source_nexthop.mrib_metric_preference =
 		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
@@ -1838,7 +1836,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 				flag = PIM_OIF_FLAG_PROTO_STAR;
 			else {
 				if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
-					flag = PIM_OIF_FLAG_PROTO_IGMP;
+					flag = PIM_OIF_FLAG_PROTO_GM;
 				if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 					flag |= PIM_OIF_FLAG_PROTO_PIM;
 				if (starch)
@@ -2062,6 +2060,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	if ((up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE) &&
 	    (up->rpf.source_nexthop.interface)) {
 		pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);
+		pim_upstream_update_could_assert(up);
 	}
 
 	return rv;
@@ -2116,7 +2115,7 @@ void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 			continue;
 
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
+				    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}
 }
 
@@ -2161,18 +2160,17 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 
 		if (!nlist) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
-					PIM_OIF_FLAG_PROTO_IGMP, __func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 			continue;
 		}
 		pim_addr_to_prefix(&g, up->sg.grp);
 		apply_new = prefix_list_apply(np, &g);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP,
-						__func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 		else
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
-					PIM_OIF_FLAG_PROTO_IGMP, __func__);
+					    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}
 }
 

@@ -2158,6 +2158,7 @@ DEFUN (debug_isis_bfd,
        PROTO_NAME " interaction with BFD\n")
 {
 	debug_bfd |= DEBUG_BFD;
+	bfd_protocol_integration_set_debug(true);
 	print_debug(vty, DEBUG_BFD, 1);
 
 	return CMD_SUCCESS;
@@ -2172,6 +2173,7 @@ DEFUN (no_debug_isis_bfd,
        PROTO_NAME " interaction with BFD\n")
 {
 	debug_bfd &= ~DEBUG_BFD;
+	bfd_protocol_integration_set_debug(false);
 	print_debug(vty, DEBUG_BFD, 0);
 
 	return CMD_SUCCESS;

@@ -370,25 +370,25 @@ struct transit {
 		 ? bgp_attr_get_cluster((attr))->length                        \
 		 : 0)
 
-typedef enum {
+enum bgp_attr_parse_ret {
 	BGP_ATTR_PARSE_PROCEED = 0,
 	BGP_ATTR_PARSE_ERROR = -1,
 	BGP_ATTR_PARSE_WITHDRAW = -2,
 
 	/* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR
-	   */
+	 */
 	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
 	BGP_ATTR_PARSE_EOR = -4,
-} bgp_attr_parse_ret_t;
+};
 
 struct bpacket_attr_vec_arr;
 
 /* Prototypes. */
 extern void bgp_attr_init(void);
 extern void bgp_attr_finish(void);
-extern bgp_attr_parse_ret_t bgp_attr_parse(struct peer *, struct attr *,
-					   bgp_size_t, struct bgp_nlri *,
-					   struct bgp_nlri *);
+extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer *, struct attr *,
+					      bgp_size_t, struct bgp_nlri *,
+					      struct bgp_nlri *);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern void bgp_attr_unintern_sub(struct attr *);
 extern void bgp_attr_unintern(struct attr **);
@@ -432,7 +432,7 @@ extern int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			      struct bgp_nlri *);
 extern int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 				struct bgp_nlri *);
-extern bgp_attr_parse_ret_t
+extern enum bgp_attr_parse_ret
 bgp_attr_prefix_sid(struct bgp_attr_parser_args *args);
 
 extern struct bgp_attr_encap_subtlv *
@@ -471,8 +471,8 @@ extern void bgp_packet_mpunreach_prefix(
 	bool addpath_capable, uint32_t addpath_tx_id, struct attr *attr);
 extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
-extern bgp_attr_parse_ret_t bgp_attr_nexthop_valid(struct peer *peer,
-						   struct attr *attr);
+extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
+						      struct attr *attr);
 
 static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 					uint32_t in_rmap_flags)
@@ -516,6 +516,11 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 					   struct ecommunity *ecomm)
 {
 	attr->ecommunity = ecomm;
+
+	if (ecomm)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 }
 
 static inline struct lcommunity *
@@ -528,6 +533,12 @@ static inline void bgp_attr_set_lcommunity(struct attr *attr,
 					   struct lcommunity *lcomm)
 {
 	attr->lcommunity = lcomm;
+
+	if (lcomm)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag,
+			   ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 }
 
 static inline struct community *bgp_attr_get_community(const struct attr *attr)
@@ -539,6 +550,11 @@ static inline void bgp_attr_set_community(struct attr *attr,
 					  struct community *comm)
 {
 	attr->community = comm;
+
+	if (comm)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 }
 
 static inline struct ecommunity *
@@ -551,6 +567,13 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
 	attr->ipv6_ecommunity = ipv6_ecomm;
+
+	if (ipv6_ecomm)
+		SET_FLAG(attr->flag,
+			 ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
+	else
+		UNSET_FLAG(attr->flag,
+			   ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 }
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)

@@ -3205,7 +3205,7 @@ DEFUN (vtysh_write_terminal,
        "Skip \"Building configuration...\" header\n")
 {
 	unsigned int i;
-	char line[] = "do write terminal\n";
+	char line[] = "do write terminal";
 
 	if (!strcmp(argv[argc - 1]->arg, "no-header"))
 		argc--;
@@ -3284,7 +3284,7 @@ static void backup_config_file(const char *fbackup)
 int vtysh_write_config_integrated(void)
 {
 	unsigned int i;
-	char line[] = "do write terminal\n";
+	char line[] = "do write terminal";
 	FILE *fp;
 	int fd;
 #ifdef FRR_USER
@@ -3362,6 +3362,18 @@ int vtysh_write_config_integrated(void)
 		err++;
 	}
 
+	if (fflush(fp) != 0) {
+		printf("%% Warning: fflush() failed on %s: %s\n", frr_config,
+		       safe_strerror(errno));
+		err++;
+	}
+
+	if (fsync(fd) < 0) {
+		printf("%% Warning: fsync() failed on %s: %s\n", frr_config,
+		       safe_strerror(errno));
+		err++;
+	}
+
 	fclose(fp);
 
 	printf("Integrated configuration saved to %s\n", frr_config);
@@ -3397,7 +3409,7 @@ DEFUN (vtysh_write_memory,
        "Write configuration to the file (same as write memory)\n")
 {
 	int ret = CMD_SUCCESS;
-	char line[] = "do write memory\n";
+	char line[] = "do write memory";
 	unsigned int i;
 
 	vty_out(vty, "Note: this version of vtysh never writes vtysh.conf\n");
@@ -3724,7 +3736,7 @@ DEFPY (vtysh_terminal_monitor,
        "Receive log messages to active VTY session\n"
        DAEMONS_STR)
 {
-	static const char line[] = "terminal monitor\n";
+	static const char line[] = "terminal monitor";
 	int ret_all = CMD_SUCCESS, ret, fd;
 	size_t i, ok = 0;
 
@@ -3776,7 +3788,7 @@ DEFPY (no_vtysh_terminal_monitor,
        "Receive log messages to active VTY session\n"
        DAEMONS_STR)
 {
-	static const char line[] = "no terminal monitor\n";
+	static const char line[] = "no terminal monitor";
 	int ret_all = CMD_SUCCESS, ret;
 	size_t i, ok = 0;
 

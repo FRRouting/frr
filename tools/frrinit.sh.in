@@ -127,6 +127,9 @@ reload)
 	;;
 
 *)
-	log_failure_msg "Unknown command: $1" >&2
+	echo "Usage:"
+	echo "    ${0} <start|stop|restart|force-reload|reload|status> [namespace]"
+	echo "    ${0} stop namespace1"
 	exit 1
+	;;
 esac

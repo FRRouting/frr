@@ -73,10 +73,10 @@ from lib.common_config import (
 from lib.pim import (
     create_pim_config,
     create_igmp_config,
-    verify_ip_mroutes,
-    clear_ip_pim_interface_traffic,
+    verify_mroutes,
+    clear_pim_interface_traffic,
     verify_upstream_iif,
-    clear_ip_mroute,
+    clear_mroute,
     verify_pim_rp_info,
     get_pim_interface_traffic,
     McastTesterHelper,
@@ -273,9 +273,9 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step(
         "Remove c1-c2 connected link to simulate topo "
@@ -357,7 +357,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -373,7 +373,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -416,7 +416,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     step("Verify mroute not present after Delete of static routes on c1")
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -448,7 +448,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -510,7 +510,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     step("Verify (s,g) populated after adding default route ")
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -528,7 +528,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     step("Verify (*,g) populated after adding default route ")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -562,9 +562,9 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step(
         "Remove c1-c2 connected link to simulate topo "
@@ -646,7 +646,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -662,7 +662,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -714,7 +714,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -788,7 +788,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     step("Verify (s,g) populated after adding default route ")
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -806,7 +806,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     step("Verify (*,g) populated after adding default route ")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -840,9 +840,9 @@ def test_PIM_hello_tx_rx_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step(
         "Remove c1-c2 connected link to simulate topo "
@@ -923,7 +923,7 @@ def test_PIM_hello_tx_rx_p1(request):
 
     step("(*,G) and (S,G) created on f1 and node verify using 'show ip mroute'")
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -934,7 +934,7 @@ def test_PIM_hello_tx_rx_p1(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],

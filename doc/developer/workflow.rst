@@ -623,6 +623,8 @@ Please copy-paste this header verbatim. In particular:
 
 - Do not replace "This program" with "FRR"
 - Do not change the address of the FSF
+- keep ``#include <zebra.h>``.  The absolute first header included in any C
+  file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H guard)
 
 Adding Copyright Claims to Existing Files
 -----------------------------------------
@@ -894,6 +896,26 @@ necessary replacements.
 +-----------+--------------------------+
 | u_long    | unsigned long            |
 +-----------+--------------------------+
+
+FRR also uses unnamed struct fields, enabled with ``-fms-extensions`` (cf.
+https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html).  The following two
+patterns can/should be used where contextually appropriate:
+
+.. code-block:: c
+
+   struct outer {
+           struct inner;
+   };
+
+.. code-block:: c
+
+   struct outer {
+           union {
+                   struct inner;
+                   struct inner inner_name;
+           };
+   };
+
 
 .. _style-exceptions:
 

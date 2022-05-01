@@ -31,8 +31,12 @@ typedef struct in_addr pim_addr;
 #define PIM_ADDRSTRLEN	INET_ADDRSTRLEN
 #define PIM_AF		AF_INET
 #define PIM_AFI		AFI_IP
+#define PIM_IPADDR	IPADDR_V4
+#define ipaddr_pim	ipaddr_v4
 #define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
 #define PIM_AF_NAME     "ip"
+
+#define PIM_ADDR_FUNCNAME(name) ipv4_##name
 
 union pimprefixptr {
 	prefixtype(pimprefixptr, struct prefix,      p)
@@ -50,8 +54,12 @@ typedef struct in6_addr pim_addr;
 #define PIM_ADDRSTRLEN	INET6_ADDRSTRLEN
 #define PIM_AF		AF_INET6
 #define PIM_AFI		AFI_IP6
+#define PIM_IPADDR	IPADDR_V6
+#define ipaddr_pim	ipaddr_v6
 #define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
 #define PIM_AF_NAME     "ipv6"
+
+#define PIM_ADDR_FUNCNAME(name) ipv6_##name
 
 union pimprefixptr {
 	prefixtype(pimprefixptr, struct prefix,      p)
@@ -99,6 +107,21 @@ static inline pim_addr pim_addr_from_prefix(union pimprefixconstptr in)
 
 	memcpy(&ret, in.p->u.val, sizeof(ret));
 	return ret;
+}
+
+static inline uint8_t pim_addr_scope(const pim_addr addr)
+{
+	return PIM_ADDR_FUNCNAME(mcast_scope)(&addr);
+}
+
+static inline bool pim_addr_nofwd(const pim_addr addr)
+{
+	return PIM_ADDR_FUNCNAME(mcast_nofwd)(&addr);
+}
+
+static inline bool pim_addr_ssm(const pim_addr addr)
+{
+	return PIM_ADDR_FUNCNAME(mcast_ssm)(&addr);
 }
 
 /* don't use this struct directly, use the pim_sgaddr typedef */

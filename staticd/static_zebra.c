@@ -57,6 +57,7 @@ struct static_nht_data {
 
 	uint32_t refcount;
 	uint8_t nh_num;
+	bool registered;
 };
 
 static int static_nht_data_cmp(const struct static_nht_data *nhtd1,
@@ -176,9 +177,12 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	return 0;
 }
+
 static void zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
 }
 
 /* API to check whether the configured nexthop address is
@@ -263,8 +267,12 @@ static_nht_hash_getref(const struct static_nht_data *ref)
 	return nhtd;
 }
 
-static bool static_nht_hash_decref(struct static_nht_data *nhtd)
+static bool static_nht_hash_decref(struct static_nht_data **nhtd_p)
 {
+	struct static_nht_data *nhtd = *nhtd_p;
+
+	*nhtd_p = NULL;
+
 	if (--nhtd->refcount > 0)
 		return true;
 
@@ -281,133 +289,110 @@ static void static_nht_hash_clear(void)
 		XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
 }
 
+static bool static_zebra_nht_get_prefix(const struct static_nexthop *nh,
+					struct prefix *p)
+{
+	switch (nh->type) {
+	case STATIC_IFNAME:
+	case STATIC_BLACKHOLE:
+		p->family = AF_UNSPEC;
+		return false;
+
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		p->family = AF_INET;
+		p->prefixlen = IPV4_MAX_BITLEN;
+		p->u.prefix4 = nh->addr.ipv4;
+		return true;
+
+	case STATIC_IPV6_GATEWAY:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		p->family = AF_INET6;
+		p->prefixlen = IPV6_MAX_BITLEN;
+		p->u.prefix6 = nh->addr.ipv6;
+		return true;
+	}
+
+	assertf(0, "BUG: someone forgot to add nexthop type %u", nh->type);
+}
+
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
 	struct static_route_info *si = static_route_info_from_rnode(rn);
-	struct static_nht_data lookup;
+	struct static_nht_data *nhtd, lookup = {};
 	uint32_t cmd;
-	struct prefix p;
-	afi_t afi = AFI_IP;
 
-	cmd = (reg) ?
-		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
-
-	if (nh->nh_registered && reg)
+	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return;
-
-	if (!nh->nh_registered && !reg)
-		return;
-
-	memset(&p, 0, sizeof(p));
-	switch (nh->type) {
-	case STATIC_IFNAME:
-	case STATIC_BLACKHOLE:
-		return;
-	case STATIC_IPV4_GATEWAY:
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		p.family = AF_INET;
-		p.prefixlen = IPV4_MAX_BITLEN;
-		p.u.prefix4 = nh->addr.ipv4;
-		afi = AFI_IP;
-		break;
-	case STATIC_IPV6_GATEWAY:
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		p.family = AF_INET6;
-		p.prefixlen = IPV6_MAX_BITLEN;
-		p.u.prefix6 = nh->addr.ipv6;
-		afi = AFI_IP6;
-		break;
-	}
-
-	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 	lookup.safi = si->safi;
+
+	if (nh->nh_registered) {
+		/* nh->nh_registered means we own a reference on the nhtd */
+		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
+
+		assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
+			&lookup.nh);
+	} else if (reg) {
+		nhtd = static_nht_hash_getref(&lookup);
+
+		if (nhtd->refcount > 1)
+			DEBUGD(&static_dbg_route,
+			       "Reusing registered nexthop(%pFX) for %pRN %d",
+			       &lookup.nh, rn, nhtd->nh_num);
+	} else {
+		/* !reg && !nh->nh_registered */
+		zlog_warn("trying to unregister nexthop %pFX twice",
+			  &lookup.nh);
+		return;
+	}
 
 	nh->nh_registered = reg;
 
 	if (reg) {
-		struct static_nht_data *nhtd;
+		if (nhtd->nh_num) {
+			/* refresh with existing data */
+			afi_t afi = prefix_afi(&lookup.nh);
 
-		nhtd = static_nht_hash_getref(&lookup);
-
-		if (nhtd->refcount > 1) {
-			DEBUGD(&static_dbg_route,
-			       "Already registered nexthop(%pFX) for %pRN %d",
-			       &p, rn, nhtd->nh_num);
-			if (nhtd->nh_num)
-				static_nht_update(&rn->p, &nhtd->nh,
-						  nhtd->nh_num, afi, si->safi,
-						  nh->nh_vrf_id);
+			if (nh->state == STATIC_NOT_INSTALLED)
+				nh->state = STATIC_START;
+			static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
+					  si->safi, nh->nh_vrf_id);
 			return;
 		}
+
+		if (nhtd->registered)
+			/* have no data, but did send register */
+			return;
+
+		cmd = ZEBRA_NEXTHOP_REGISTER;
+		DEBUGD(&static_dbg_route, "Registering nexthop(%pFX) for %pRN",
+		       &lookup.nh, rn);
 	} else {
-		struct static_nht_data *nhtd;
+		bool was_zebra_registered;
 
-		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
-		if (!nhtd)
+		was_zebra_registered = nhtd->registered;
+		if (static_nht_hash_decref(&nhtd))
+			/* still got references alive */
 			return;
-		if (static_nht_hash_decref(nhtd))
+
+		/* NB: nhtd is now NULL. */
+		if (!was_zebra_registered)
 			return;
+
+		cmd = ZEBRA_NEXTHOP_UNREGISTER;
+		DEBUGD(&static_dbg_route,
+		       "Unregistering nexthop(%pFX) for %pRN", &lookup.nh, rn);
 	}
 
-	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
-	       reg ? "Registering" : "Unregistering", &p, rn);
-
-	if (zclient_send_rnh(zclient, cmd, &p, si->safi, false, false,
+	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, false, false,
 			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
-		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
-}
-/*
- * When nexthop gets updated via configuration then use the
- * already registered NH and resend the route to zebra
- */
-int static_zebra_nh_update(struct static_nexthop *nh)
-{
-	struct static_path *pn = nh->pn;
-	struct route_node *rn = pn->rn;
-	struct static_route_info *si = static_route_info_from_rnode(rn);
-	struct static_nht_data *nhtd, lookup = {};
-	struct prefix p = {};
-	afi_t afi = AFI_IP;
-
-	if (!nh->nh_registered)
-		return 0;
-
-	switch (nh->type) {
-	case STATIC_IFNAME:
-	case STATIC_BLACKHOLE:
-		return 0;
-	case STATIC_IPV4_GATEWAY:
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		p.family = AF_INET;
-		p.prefixlen = IPV4_MAX_BITLEN;
-		p.u.prefix4 = nh->addr.ipv4;
-		afi = AFI_IP;
-		break;
-	case STATIC_IPV6_GATEWAY:
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		p.family = AF_INET6;
-		p.prefixlen = IPV6_MAX_BITLEN;
-		p.u.prefix6 = nh->addr.ipv6;
-		afi = AFI_IP6;
-		break;
-	}
-
-	lookup.nh = p;
-	lookup.nh_vrf_id = nh->nh_vrf_id;
-	lookup.safi = si->safi;
-
-	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
-	if (nhtd && nhtd->nh_num) {
-		nh->state = STATIC_START;
-		static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
-				  si->safi, nh->nh_vrf_id);
-		return 1;
-	}
-	return 0;
+		zlog_warn("%s: Failure to send nexthop %pFX for %pRN to zebra",
+			  __func__, &lookup.nh, rn);
+	else if (reg)
+		nhtd->registered = true;
 }
 
 extern void static_zebra_route_add(struct static_path *pn, bool install)

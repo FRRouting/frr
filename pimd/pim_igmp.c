@@ -242,8 +242,7 @@ void igmp_source_forward_stop(struct gm_source *source)
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
  * in pim_mroute_msg()
  */
-static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
-			  uint32_t pim_options)
+static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp)
 {
 	int fd;
 	int join = 0;
@@ -669,7 +668,7 @@ static int igmp_v1_recv_report(struct gm_sock *igmp, struct in_addr from,
 	if (pim_is_group_filtered(ifp->info, &group_addr))
 		return -1;
 
-	/* non-existant group is created as INCLUDE {empty} */
+	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
 		return -1;
@@ -1254,14 +1253,11 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				  struct in_addr ifaddr, struct interface *ifp,
 				  bool mtrace_only)
 {
-	struct pim_interface *pim_ifp;
 	struct gm_sock *igmp;
 	struct sockaddr_in sin;
 	int fd;
 
-	pim_ifp = ifp->info;
-
-	fd = igmp_sock_open(ifaddr, ifp, pim_ifp->options);
+	fd = igmp_sock_open(ifaddr, ifp);
 	if (fd < 0) {
 		zlog_warn("Could not open IGMP socket for %pI4 on %s",
 			  &ifaddr, ifp->name);

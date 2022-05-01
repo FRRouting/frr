@@ -3,6 +3,10 @@
  * For details, see http://sourceforge.net/projects/libb64
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "base64.h"
 
 static const int CHARS_PER_LINE = 72;

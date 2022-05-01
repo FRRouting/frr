@@ -286,7 +286,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 {
 	int ret;
 	struct listnode *node, *nnode;
-	struct prefix_ipv6 *chunk;
+	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
@@ -934,12 +934,12 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 	switch (error) {
 	case BGP_ERR_AF_UNCONFIGURED:
 		vty_out(vty,
-			"%%BGP: Enable %s address family for the neighbor %s\n",
+			"%% BGP: Enable %s address family for the neighbor %s\n",
 			get_afi_safi_str(afi, safi, false), peer->host);
 		break;
 	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
 		vty_out(vty,
-			"%%BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
+			"%% BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
 			peer->host);
 		break;
 	default:
@@ -1086,7 +1086,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			peer = peer_lookup(bgp, &su);
 			if (!peer) {
 				vty_out(vty,
-					"%%BGP: Unknown neighbor - \"%s\"\n",
+					"%% BGP: Unknown neighbor - \"%s\"\n",
 					arg);
 				return CMD_WARNING;
 			}
@@ -1113,7 +1113,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		group = peer_group_lookup(bgp, arg);
 		if (!group) {
-			vty_out(vty, "%%BGP: No such peer-group %s\n", arg);
+			vty_out(vty, "%% BGP: No such peer-group %s\n", arg);
 			return CMD_WARNING;
 		}
 
@@ -1128,7 +1128,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		if (!found)
 			vty_out(vty,
-				"%%BGP: No %s peer belonging to peer-group %s is configured\n",
+				"%% BGP: No %s peer belonging to peer-group %s is configured\n",
 				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
@@ -1163,7 +1163,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		if (!found)
 			vty_out(vty,
-				"%%BGP: No external %s peer is configured\n",
+				"%% BGP: No external %s peer is configured\n",
 				get_afi_safi_str(afi, safi, false));
 
 		return CMD_SUCCESS;
@@ -1200,7 +1200,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 		if (!found)
 			vty_out(vty,
-				"%%BGP: No %s peer is configured with AS %s\n",
+				"%% BGP: No %s peer is configured with AS %s\n",
 				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
@@ -7434,7 +7434,7 @@ DEFPY (bgp_condadv_period,
 
 DEFPY (neighbor_advertise_map,
        neighbor_advertise_map_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -7455,7 +7455,7 @@ DEFPY (neighbor_advertise_map,
 }
 
 ALIAS_HIDDEN(neighbor_advertise_map, neighbor_advertise_map_hidden_cmd,
-	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map WORD$advertise_str <exist-map|non-exist-map>$exist WORD$condition_str",
+	     "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor advertise-map RMAP_NAME$advertise_str <exist-map|non-exist-map>$exist RMAP_NAME$condition_str",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Route-map to conditionally advertise routes\n"
 	     "Name of advertise map\n"
@@ -8700,7 +8700,7 @@ DEFPY (af_rt_vpn_imexport,
 	int ret;
 	struct ecommunity *ecom = NULL;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 	afi_t afi;
 	int idx = 0;
 	bool yes = true;
@@ -8780,7 +8780,7 @@ DEFPY (af_route_map_vpn_imexport,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 	afi_t afi;
 	int idx = 0;
 	bool yes = true;
@@ -8843,7 +8843,7 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
       "name of route-map\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
 	afi_t afi;
 	struct bgp *bgp_default;
 
@@ -8896,7 +8896,7 @@ DEFPY(af_no_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
       "name of route-map\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
 	afi_t afi;
 
 	afi = vpn_policy_getafi(vty, bgp, true);
@@ -9027,7 +9027,7 @@ DEFPY (bgp_imexport_vpn,
 	int idx = 0;
 	bool yes = true;
 	int flag;
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
@@ -9316,7 +9316,7 @@ DEFPY (show_bgp_srv6,
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct prefix_ipv6 *chunk;
+	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct in6_addr *tovpn4_sid;
 	struct in6_addr *tovpn6_sid;
@@ -9331,7 +9331,7 @@ DEFPY (show_bgp_srv6,
 	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
 	vty_out(vty, "locator_chunks:\n");
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
-		prefix2str(chunk, buf, sizeof(buf));
+		prefix2str(&chunk->prefix, buf, sizeof(buf));
 		vty_out(vty, "- %s\n", buf);
 	}
 
@@ -12559,6 +12559,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		else
 			json_object_boolean_false_add(
 				json_neigh, "extendedOptionalParametersLength");
+
+		/* Conditional advertisements */
+		json_object_int_add(
+			json_neigh,
+			"bgpTimerConfiguredConditionalAdvertisementsSec",
+			bgp->condition_check_period);
+		if (thread_is_scheduled(bgp->t_condition_check))
+			json_object_int_add(
+				json_neigh,
+				"bgpTimerUntilConditionalAdvertisementsSec",
+				thread_timer_remain_second(
+					bgp->t_condition_check));
 	} else {
 		/* Administrative shutdown. */
 		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
@@ -12636,6 +12648,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(p))
 			vty_out(vty,
 				"  Extended Optional Parameters Length is enabled\n");
+
+		/* Conditional advertisements */
+		vty_out(vty,
+			"  Configured conditional advertisements interval is %d seconds\n",
+			bgp->condition_check_period);
+		if (thread_is_scheduled(bgp->t_condition_check))
+			vty_out(vty,
+				"  Time until conditional advertisements begin is %lu seconds\n",
+				thread_timer_remain_second(
+					bgp->t_condition_check));
 	}
 	/* Capability. */
 	if (peer_established(p) &&
@@ -14473,7 +14495,7 @@ static void community_show_all_iterator(struct hash_bucket *bucket,
 
 	com = (struct community *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
-		community_str(com, false));
+		community_str(com, false, false));
 }
 
 /* Show BGP's community internal data. */
@@ -14502,7 +14524,7 @@ static void lcommunity_show_all_iterator(struct hash_bucket *bucket,
 
 	lcom = (struct lcommunity *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
-		lcommunity_str(lcom, false));
+		lcommunity_str(lcom, false, false));
 }
 
 /* Show BGP's community internal data. */
@@ -14604,7 +14626,7 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 	char *vname;
 	char buf1[INET6_ADDRSTRLEN];
 	char *ecom_str;
-	vpn_policy_direction_t dir;
+	enum vpn_policy_direction dir;
 
 	if (json) {
 		json_object *json_import_vrfs = NULL;
@@ -19354,9 +19376,9 @@ static const char *community_list_config_str(struct community_entry *entry)
 		str = "";
 	else {
 		if (entry->style == COMMUNITY_LIST_STANDARD)
-			str = community_str(entry->u.com, false);
+			str = community_str(entry->u.com, false, false);
 		else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
-			str = lcommunity_str(entry->u.lcom, false);
+			str = lcommunity_str(entry->u.lcom, false, false);
 		else
 			str = entry->config;
 	}
