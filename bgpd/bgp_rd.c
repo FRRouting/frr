@@ -99,26 +99,24 @@ void decode_rd_vnc_eth(const uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
 
 int str2prefix_rd(const char *str, struct prefix_rd *prd)
 {
-	int ret;  /* ret of called functions */
-	int lret; /* local ret, of this func */
+	int ret = 0;
 	char *p;
 	char *p2;
 	struct stream *s = NULL;
 	char *half = NULL;
 	struct in_addr addr;
 
-	s = stream_new(8);
-
 	prd->family = AF_UNSPEC;
 	prd->prefixlen = 64;
 
-	lret = 0;
 	p = strchr(str, ':');
 	if (!p)
 		goto out;
 
 	if (!all_digit(p + 1))
 		goto out;
+
+	s = stream_new(RD_BYTES);
 
 	half = XMALLOC(MTYPE_TMP, (p - str) + 1);
 	memcpy(half, str, (p - str));
@@ -143,8 +141,7 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 			stream_putl(s, atol(p + 1));
 		}
 	} else {
-		ret = inet_aton(half, &addr);
-		if (!ret)
+		if (!inet_aton(half, &addr))
 			goto out;
 
 		stream_putw(s, RD_TYPE_IP);
@@ -152,13 +149,13 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 		stream_putw(s, atol(p + 1));
 	}
 	memcpy(prd->val, s->data, 8);
-	lret = 1;
+	ret = 1;
 
 out:
 	if (s)
 		stream_free(s);
 	XFREE(MTYPE_TMP, half);
-	return lret;
+	return ret;
 }
 
 char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size)
