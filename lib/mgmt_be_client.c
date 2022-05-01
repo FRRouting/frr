@@ -454,21 +454,30 @@ mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client_ctx *client_ctx,
 	return mgmt_be_client_send_msg(client_ctx, &be_msg);
 }
 
-static int mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
+static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 {
 	char errmsg[BUFSIZ] = {0};
 
 	assert(txn && txn->client_ctx);
-	if (!txn->nb_txn
-	    || !CHECK_FLAG(txn->flags, MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED))
-		return -1;
+	if (txn->nb_txn) {
+		MGMTD_BE_CLIENT_ERR(
+			"Aborting configurations after prep for Txn 0x%llx",
+			(unsigned long long)txn->txn_id);
+		nb_candidate_commit_abort(txn->nb_txn, errmsg, sizeof(errmsg));
+		txn->nb_txn = 0;
+	}
 
-	MGMTD_BE_CLIENT_ERR("Aborting configurations for Txn 0x%llx",
-			     (unsigned long long)txn->txn_id);
-	nb_candidate_commit_abort(txn->nb_txn, errmsg, sizeof(errmsg));
-	txn->nb_txn = 0;
-
-	return 0;
+	/*
+	 * revert candidate back to running
+	 *
+	 * This is one txn ctx but the candidate_config is per client ctx, how
+	 * does that work?
+	 */
+	MGMTD_BE_CLIENT_DBG(
+		"Reset candidate configurations after abort of Txn 0x%llx",
+		(unsigned long long)txn->txn_id);
+	nb_config_replace(txn->client_ctx->candidate_config,
+			  txn->client_ctx->running_config, true);
 }
 
 static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
@@ -571,11 +580,11 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 				(uint32_t)num_processed, err_buf);
 		error = true;
 		SET_FLAG(txn->flags, MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED);
-	}
-
-	MGMTD_BE_CLIENT_DBG(
-		"Prepared configs for Txn %llx, %u Batches! successfully!",
-		(unsigned long long)txn->txn_id, (uint32_t)num_processed);
+	} else
+		MGMTD_BE_CLIENT_DBG(
+			"Prepared configs for Txn %llx, %u Batches! successfully!",
+			(unsigned long long)txn->txn_id,
+			(uint32_t)num_processed);
 	if (debug_be) {
 		gettimeofday(&prep_nb_cfg_end, NULL);
 		prep_nb_cfg_tm =
