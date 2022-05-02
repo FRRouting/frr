@@ -103,7 +103,7 @@ enum zebra_link_type {
    #define IFNAMSIZ        16
 */
 
-#define INTERFACE_NAMSIZ      20
+#define INTERFACE_NAMSIZ      IFNAMSIZ
 #define INTERFACE_HWADDR_MAX  20
 
 typedef signed int ifindex_t;
