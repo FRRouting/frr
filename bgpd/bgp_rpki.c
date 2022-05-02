@@ -599,17 +599,22 @@ static int bgp_rpki_module_init(void)
 static void start_expired(struct thread *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
+		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
 		thread_add_timer(bm->master, start_expired, NULL,
 				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
 				 &t_rpki_start);
 		return;
 	}
 
+	RPKI_DEBUG("rtr_mgr sync is done, starting.");
+
 	rtr_is_running = 1;
 }
 
 static int start(void)
 {
+	RPKI_DEBUG("Starting RPKI Session");
+
 	int ret;
 
 	rtr_is_stopping = 0;
@@ -651,6 +656,8 @@ static int start(void)
 
 static void stop(void)
 {
+	RPKI_DEBUG("Stopping RPKI Session");
+
 	rtr_is_stopping = 1;
 	if (is_running()) {
 		THREAD_OFF(t_rpki_start);
@@ -662,13 +669,14 @@ static void stop(void)
 
 static int reset(bool force)
 {
+	RPKI_DEBUG("Resetting RPKI Session");
+
 	if (is_running() && !force)
 		return SUCCESS;
 
 	if (thread_is_scheduled(t_rpki_start))
 		return SUCCESS;
 
-	RPKI_DEBUG("Resetting RPKI Session");
 	stop();
 	return start();
 }
