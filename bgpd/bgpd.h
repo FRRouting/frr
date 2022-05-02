@@ -819,6 +819,7 @@ struct bgp_notify {
 	char *data;
 	bgp_size_t length;
 	uint8_t *raw_data;
+	bool hard_reset;
 };
 
 /* Next hop self address. */
@@ -1176,8 +1177,10 @@ struct peer {
 #define PEER_CAP_RESTART_RCV                (1U << 6) /* restart received */
 #define PEER_CAP_AS4_ADV                    (1U << 7) /* as4 advertised */
 #define PEER_CAP_AS4_RCV                    (1U << 8) /* as4 received */
-#define PEER_CAP_RESTART_BIT_ADV            (1U << 9) /* sent restart state */
-#define PEER_CAP_RESTART_BIT_RCV            (1U << 10) /* peer restart state */
+/* sent graceful-restart restart (R) bit */
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV (1U << 9)
+/* received graceful-restart restart (R) bit */
+#define PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV (1U << 10)
 #define PEER_CAP_ADDPATH_ADV                (1U << 11) /* addpath advertised */
 #define PEER_CAP_ADDPATH_RCV                (1U << 12) /* addpath received */
 #define PEER_CAP_ENHE_ADV                   (1U << 13) /* Extended nexthop advertised */
@@ -1190,6 +1193,10 @@ struct peer {
 #define PEER_CAP_EXTENDED_MESSAGE_RCV (1U << 20)
 #define PEER_CAP_LLGR_ADV (1U << 21)
 #define PEER_CAP_LLGR_RCV (1U << 22)
+/* sent graceful-restart notification (N) bit */
+#define PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV (1U << 23)
+/* received graceful-restart notification (N) bit */
+#define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1U << 24)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1850,6 +1857,7 @@ struct bgp_nlri {
 #define BGP_NOTIFY_CEASE_CONFIG_CHANGE           6
 #define BGP_NOTIFY_CEASE_COLLISION_RESOLUTION    7
 #define BGP_NOTIFY_CEASE_OUT_OF_RESOURCE         8
+#define BGP_NOTIFY_CEASE_HARD_RESET 9
 
 /* BGP_NOTIFY_ROUTE_REFRESH_ERR sub codes (RFC 7313). */
 #define BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN 1
