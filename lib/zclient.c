@@ -3551,7 +3551,7 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_reset(s);
 
 	zclient_create_header(s, command, VRF_DEFAULT);
-	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
 	stream_putl(s, pw->ifindex);
 
 	/* Put type */
@@ -3598,7 +3598,7 @@ int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 	s = zclient->ibuf;
 
 	/* Get data. */
-	stream_get(pw->ifname, s, IF_NAMESIZE);
+	stream_get(pw->ifname, s, INTERFACE_NAMSIZ);
 	STREAM_GETL(s, pw->ifindex);
 	STREAM_GETL(s, pw->status);
 
