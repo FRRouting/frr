@@ -190,8 +190,8 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
+	char ifname[INTERFACE_NAMSIZ];
+	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 
 struct bfd_session_stats {
