@@ -635,6 +635,8 @@ AC_ARG_ENABLE([isisd],
   AS_HELP_STRING([--disable-isisd], [do not build isisd]))
 AC_ARG_ENABLE([pimd],
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
+AC_ARG_ENABLE([pim6d],
+  AS_HELP_STRING([--enable-pim6d], [build pim6d]))
 AC_ARG_ENABLE([pbrd],
   AS_HELP_STRING([--disable-pbrd], [do not build pbrd]))
 AC_ARG_ENABLE([sharpd],
@@ -1751,6 +1753,10 @@ AS_IF([test "$enable_pimd" != "no"], [
   AC_DEFINE([HAVE_PIMD], [1], [pimd])
 ])
 
+AS_IF([test "$enable_pim6d" = "yes"], [
+  AC_DEFINE([HAVE_PIM6D], [1], [pim6d])
+])
+
 AS_IF([test "$enable_pbrd" != "no"], [
   AC_DEFINE([HAVE_PBRD], [1], [pbrd])
 ])
@@ -2711,6 +2717,7 @@ AM_CONDITIONAL([BABELD], [test "$enable_babeld" != "no"])
 AM_CONDITIONAL([OSPF6D], [test "$enable_ospf6d" != "no"])
 AM_CONDITIONAL([ISISD], [test "$enable_isisd" != "no"])
 AM_CONDITIONAL([PIMD], [test "$enable_pimd" != "no"])
+AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" = "yes"])
 AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
 AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
