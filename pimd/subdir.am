@@ -171,15 +171,13 @@ pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
 
 if PIMD
-if DEV_BUILD
 #
 # pim6d is only enabled for --enable-dev-build, and NOT installed currently
 # (change noinst_ to sbin_ below to install it.)
 #
-noinst_PROGRAMS += pimd/pim6d
+sbin_PROGRAMS += pimd/pim6d
 pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
 pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
-endif
 endif
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
