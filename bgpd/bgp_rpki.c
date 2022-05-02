@@ -658,9 +658,10 @@ static void stop(void)
 {
 	RPKI_DEBUG("Stopping RPKI Session");
 
+	THREAD_OFF(t_rpki_start);
+
 	rtr_is_stopping = 1;
 	if (is_running()) {
-		THREAD_OFF(t_rpki_start);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = 0;
@@ -672,9 +673,6 @@ static int reset(bool force)
 	RPKI_DEBUG("Resetting RPKI Session");
 
 	if (is_running() && !force)
-		return SUCCESS;
-
-	if (thread_is_scheduled(t_rpki_start))
 		return SUCCESS;
 
 	stop();
