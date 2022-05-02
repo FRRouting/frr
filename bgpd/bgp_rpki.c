@@ -1036,10 +1036,11 @@ DEFPY (rpki_polling_period,
 
 DEFUN (no_rpki_polling_period,
        no_rpki_polling_period_cmd,
-       "no rpki polling_period",
+       "no rpki polling_period [(1-86400)]",
        NO_STR
        RPKI_OUTPUT_STRING
-       "Set polling period back to default\n")
+       "Set polling period back to default\n"
+       "Polling period value\n")
 {
 	polling_period = POLLING_PERIOD_DEFAULT;
 	return CMD_SUCCESS;
@@ -1063,10 +1064,11 @@ DEFPY (rpki_expire_interval,
 
 DEFUN (no_rpki_expire_interval,
        no_rpki_expire_interval_cmd,
-       "no rpki expire_interval",
+       "no rpki expire_interval [(600-172800)]",
        NO_STR
        RPKI_OUTPUT_STRING
-       "Set expire interval back to default\n")
+       "Set expire interval back to default\n"
+       "Expire interval value\n")
 {
 	expire_interval = polling_period * 2;
 	return CMD_SUCCESS;
@@ -1085,10 +1087,11 @@ DEFPY (rpki_retry_interval,
 
 DEFUN (no_rpki_retry_interval,
        no_rpki_retry_interval_cmd,
-       "no rpki retry_interval",
+       "no rpki retry_interval [(1-7200)]",
        NO_STR
        RPKI_OUTPUT_STRING
-       "Set retry interval back to default\n")
+       "Set retry interval back to default\n"
+       "retry interval value\n")
 {
 	retry_interval = RETRY_INTERVAL_DEFAULT;
 	return CMD_SUCCESS;
