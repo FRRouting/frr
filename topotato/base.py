@@ -42,7 +42,7 @@ from .exceptions import (
     TopotatoEarlierFailSkip,
     TopotatoDaemonCrash,
 )
-from .liveshark import LiveShark
+from .liveshark import LiveShark, LiveScapy
 from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
@@ -680,6 +680,9 @@ class TopotatoInstance(_pytest.python.Instance):
         self.started_ts = time.time()
         self.liveshark = LiveShark(pdml_rd, self.started_ts)
         netinst.poller.append(self.liveshark)
+
+        self.livescapy = LiveScapy(netinst, self.started_ts)
+        netinst.poller.append(self.livescapy)
 
     def do_stop(self, stopitem):
         netinst = stopitem.instance

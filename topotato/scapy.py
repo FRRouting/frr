@@ -65,3 +65,4 @@ class ScapySend(TopotatoModifier):
         with router:
             sock = NetnsL2Socket(iface=self._iface, promisc=False)
             sock.send(self._pkt)
+            sock.close()

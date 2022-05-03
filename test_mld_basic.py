@@ -91,13 +91,9 @@ class MLDBasic(TestBase):
             pkt = ip/udp,
         )
 
-        def expect_pkt(pkt):
-            if "ipv6" not in pkt or "udp" not in pkt:
-                return False
-            return (
-                pkt["ipv6/.src"].val == srcaddr,
-                pkt["ipv6/.dst"].val == 'ff05::2345',
-            )
+        def expect_pkt(ipv6: IPv6, udp: UDP):
+            return ipv6.src == str(srcaddr) and ipv6.dst == 'ff05::2345' \
+                and udp.dport == 9999
 
         yield from AssertPacket.make("h1_dut", maxwait=2.0, pkt=expect_pkt)
 

@@ -16,6 +16,9 @@ import subprocess
 import tempfile
 import time
 
+import scapy.all
+import scapy.config
+
 from typing import Union, Dict, List, Any, Optional
 
 try:
@@ -428,10 +431,16 @@ class NetworkInstance(ClassHooks):
                     ]
                 )
 
+        self.scapys = {}
         self.pcapfile = self.tempfile("dump.pcapng")
         args = []
-        for br in self.bridges:
-            args.extend(["-i", br])
+
+        with self.switch_ns:
+            for br in self.bridges:
+                args.extend(["-i", br])
+
+                self.scapys[br] = scapy.config.conf.L2socket(iface=br)
+                os.set_blocking(self.scapys[br].fileno(), False)
 
         if self._exec.get("dumpcap"):
             self.dumpcap = self.switch_ns.popen(
@@ -458,8 +467,10 @@ class NetworkInstance(ClassHooks):
                 if len(r[0]) == 0:
                     raise TimeoutError("failed to start dumpcap")
                 out += self.dumpcap.stderr.read(4096).decode("UTF-8")
-                if out.find("Capturing on") >= 0:
+                if out.find("File") >= 0:
                     break
+
+            time.sleep(0.25)
 
     def stop(self):
         dumpcap_pid = find_child(self.dumpcap.pid)

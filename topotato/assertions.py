@@ -13,6 +13,7 @@ import json
 import logging
 import tempfile
 import re
+import inspect
 from collections import OrderedDict
 
 from typing import (
@@ -20,7 +21,7 @@ from typing import (
     ClassVar,
     List,
     Optional,
-    Tuple,
+    Type,
     Union,
 )
 
@@ -29,12 +30,12 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
+from scapy.packet import Packet
 import pytest
 
 from .utils import json_cmp, text_rich_cmp
 from .base import TopotatoItem, TopotatoInstance, skiptrace
 from .livelog import LogMessage
-from .pdmlpacket import PDMLPacket
 from .exceptions import (
     TopotatoCLICompareFail,
     TopotatoCLIUnsuccessfulFail,
@@ -274,6 +275,7 @@ class AssertPacket(TopotatoAssertion):
     _link: str
     _pkt: Any
     _maxwait: Optional[float]
+    _argtypes: List[Type[Packet]]
 
     matched: Optional[Any]
 
@@ -287,25 +289,53 @@ class AssertPacket(TopotatoAssertion):
         self._pkt = pkt
         self._maxwait = maxwait
         self.matched = None
+
+        self._argtypes = []
+        argspec = inspect.getfullargspec(self._pkt)
+        for arg in argspec.args:
+            if arg not in argspec.annotations:
+                raise TypeError(
+                    "%r needs a type annotation for parameter %r" % (self._pkt, arg)
+                )
+            argtype = argspec.annotations[arg]
+            if not issubclass(argtype, Packet):
+                raise TypeError(
+                    "%r argument %r (%r) is not a scapy.Packet subtype"
+                    % (self._pkt, arg, argtype)
+                )
+            self._argtypes.append(argtype)
+
         return self
 
     def __call__(self):
         netinst = self.getparent(TopotatoInstance).netinst
 
         for _, pkt in netinst.poller.run_iter(time.time() + self._maxwait):
-            if not isinstance(pkt, PDMLPacket):
+            if not isinstance(pkt, Packet):
                 continue
-            if pkt["frame/.interface_id/frame.interface_name"].val != self._link:
+            if pkt.sniffed_on != self._link:
                 continue
-            try:
-                if self._pkt(pkt):
-                    self.matched = pkt
-                    pkt.match_for.append(self)
+
+            args = []
+            cur_layer = pkt
+
+            for argtype in self._argtypes:
+                cur_layer = cur_layer.getlayer(argtype)
+                if cur_layer is None:
                     break
-            except KeyError:
-                pass
+                args.append(cur_layer)
+
+            if cur_layer is None:
+                continue
+
+            if self._pkt(*args):
+                self.matched = pkt
+                break
         else:
-            raise TopotatoPacketFail("no pkt")
+            raise TopotatoPacketFail(
+                "did not receive a matching packet for:\n%s"
+                % inspect.getsource(self._pkt)
+            )
 
 
 class AssertLog(TopotatoAssertion):
