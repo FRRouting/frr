@@ -72,6 +72,8 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
 
+static struct thread *t_rpki_sync;
+
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
 		zlog_debug("RPKI: " __VA_ARGS__);                              \
@@ -120,7 +122,7 @@ static struct cache *find_cache(const uint8_t preference);
 static int add_tcp_cache(const char *host, const char *port,
 			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty);
-static int is_synchronized(void);
+static bool is_synchronized(void);
 static int is_running(void);
 static int is_stopping(void);
 static void route_match_free(void *rule);
@@ -136,6 +138,7 @@ static struct rtr_mgr_config *rtr_config;
 static struct list *cache_list;
 static int rtr_is_running;
 static int rtr_is_stopping;
+static bool rtr_is_synced;
 static _Atomic int rtr_update_overflow;
 static int rpki_debug;
 static unsigned int polling_period;
@@ -330,9 +333,9 @@ static struct rtr_mgr_group *get_groups(void)
 	return rtr_mgr_groups;
 }
 
-inline int is_synchronized(void)
+inline bool is_synchronized(void)
 {
-	return is_running() && rtr_mgr_conf_in_sync(rtr_config);
+	return rtr_is_synced;
 }
 
 inline int is_running(void)
@@ -529,6 +532,7 @@ static int bgp_rpki_init(struct thread_master *master)
 	rpki_debug = 0;
 	rtr_is_running = 0;
 	rtr_is_stopping = 0;
+	rtr_is_synced = false;
 
 	cache_list = list_new();
 	cache_list->del = (void (*)(void *)) & free_cache;
@@ -563,16 +567,19 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void start_expired(struct thread *thread)
+static void sync_expired(struct thread *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
-		thread_add_timer(bm->master, start_expired, NULL,
+		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
+		thread_add_timer(bm->master, sync_expired, NULL,
 				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
-				 &t_rpki_start);
+				 &t_rpki_sync);
 		return;
 	}
 
-	rtr_is_running = 1;
+	RPKI_DEBUG("rtr_mgr sync is done.");
+
+	rtr_is_synced = true;
 }
 
 static int start(void)
@@ -580,6 +587,7 @@ static int start(void)
 	int ret;
 
 	rtr_is_stopping = 0;
+	rtr_is_synced = false;
 	rtr_update_overflow = 0;
 
 	if (list_isempty(cache_list)) {
@@ -608,9 +616,11 @@ static int start(void)
 		return ERROR;
 	}
 
-	thread_add_timer(bm->master, start_expired, NULL, 0, &t_rpki_start);
+	thread_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
+
+	rtr_is_running = 1;
 
 	return SUCCESS;
 }
@@ -619,7 +629,7 @@ static void stop(void)
 {
 	rtr_is_stopping = 1;
 	if (is_running()) {
-		THREAD_OFF(t_rpki_start);
+		THREAD_OFF(t_rpki_sync);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = 0;
@@ -629,9 +639,6 @@ static void stop(void)
 static int reset(bool force)
 {
 	if (is_running() && !force)
-		return SUCCESS;
-
-	if (thread_is_scheduled(t_rpki_start))
 		return SUCCESS;
 
 	RPKI_DEBUG("Resetting RPKI Session");
