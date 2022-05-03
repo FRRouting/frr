@@ -1450,6 +1450,7 @@ static void install_cli_commands(void)
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);
 
 	/* Install rpki reset command */
+	install_element(ENABLE_NODE, &rpki_reset_cmd);
 	install_element(RPKI_NODE, &rpki_reset_cmd);
 
 	/* Install rpki polling period commands */
