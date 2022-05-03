@@ -2041,10 +2041,12 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		bgp_notify_print(peer, &inner, "received", hard_reset);
 		if (inner.data) {
 			XFREE(MTYPE_BGP_NOTIFICATION, inner.data);
+			XFREE(MTYPE_BGP_NOTIFICATION, inner.raw_data);
 			inner.length = 0;
 		}
 		if (outer.length) {
 			XFREE(MTYPE_BGP_NOTIFICATION, outer.data);
+			XFREE(MTYPE_BGP_NOTIFICATION, outer.raw_data);
 			outer.length = 0;
 		}
 	}
