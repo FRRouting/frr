@@ -35,7 +35,13 @@ from .utils import json_cmp, text_rich_cmp
 from .base import TopotatoItem, TopotatoInstance, skiptrace
 from .livelog import LogMessage
 from .pdmlpacket import PDMLPacket
-from .exceptions import *
+from .exceptions import (
+    TopotatoCLICompareFail,
+    TopotatoCLIUnsuccessfulFail,
+    TopotatoLogFail,
+    TopotatoPacketFail,
+    TopotatoRouteCompareFail,
+)
 
 __all__ = [
     "AssertKernelRoutesV4",
@@ -269,6 +275,8 @@ class AssertPacket(TopotatoAssertion):
     _pkt: Any
     _maxwait: Optional[float]
 
+    matched: Optional[Any]
+
     # pylint: disable=arguments-differ,protected-access
     @classmethod
     def from_parent(cls, parent, name, link, pkt, *, maxwait=None):
@@ -306,8 +314,11 @@ class AssertLog(TopotatoAssertion):
     _daemon: str
     _pkt: Any
     _maxwait: Optional[float]
+    _msg = Union[re.Pattern, str]
 
-    # pylint: disable=arguments-differ,protected-access
+    matched: Optional[Any]
+
+    # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
     def from_parent(cls, parent, name, rtr, daemon, msg, *, maxwait=None):
         name = "%s:%s/%s/log" % (name, rtr.name, daemon)
@@ -322,7 +333,7 @@ class AssertLog(TopotatoAssertion):
 
     @skiptrace
     def __call__(self):
-        inst = self.getparent(TopotatoInstance)
+        # inst = self.getparent(TopotatoInstance)
         deadline = time.time() + self._maxwait
 
         for _, msg in self.instance.poller.run_iter(deadline):
@@ -428,7 +439,7 @@ class BackgroundCommand:
         def __call__(self):
             router = self.instance.routers[self._rtr.name]
 
-            ifd = open("/dev/null", "r")
+            ifd = open("/dev/null", "rb")
             self._cmdobj.tmpfile = tmpfile = tempfile.TemporaryFile()
 
             self._cmdobj.proc = router.popen(
