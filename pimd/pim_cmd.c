@@ -1536,7 +1536,7 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 			json_object_int_add(json_row, "registerRx",
 					    pim_ifp->pim_ifstat_reg_recv);
 			json_object_int_add(json_row, "registerTx",
-					    pim_ifp->pim_ifstat_reg_recv);
+					    pim_ifp->pim_ifstat_reg_send);
 			json_object_int_add(json_row, "registerStopRx",
 					    pim_ifp->pim_ifstat_reg_stop_recv);
 			json_object_int_add(json_row, "registerStopTx",
@@ -2935,6 +2935,7 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			}
 
 			json_row = json_object_new_object();
+<<<<<<< HEAD
 			json_object_string_add(json_row, "source", src_str);
 			json_object_string_add(json_row, "group", grp_str);
 			json_object_string_add(json_row, "rpfInterface",
@@ -2950,6 +2951,37 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 				json_row, "routePreference",
 				rpf->source_nexthop.mrib_metric_preference);
 			json_object_object_add(json_group, src_str, json_row);
+=======
+			json_object_pim_ifp_add(json_row, ifp);
+			json_object_int_add(json_row, "helloRx",
+					    pim_ifp->pim_ifstat_hello_recv);
+			json_object_int_add(json_row, "helloTx",
+					    pim_ifp->pim_ifstat_hello_sent);
+			json_object_int_add(json_row, "joinRx",
+					    pim_ifp->pim_ifstat_join_recv);
+			json_object_int_add(json_row, "joinTx",
+					    pim_ifp->pim_ifstat_join_send);
+			json_object_int_add(json_row, "pruneRx",
+					    pim_ifp->pim_ifstat_prune_recv);
+			json_object_int_add(json_row, "pruneTx",
+					    pim_ifp->pim_ifstat_prune_send);
+			json_object_int_add(json_row, "registerRx",
+					    pim_ifp->pim_ifstat_reg_recv);
+			json_object_int_add(json_row, "registerTx",
+					    pim_ifp->pim_ifstat_reg_send);
+			json_object_int_add(json_row, "registerStopRx",
+					    pim_ifp->pim_ifstat_reg_stop_recv);
+			json_object_int_add(json_row, "registerStopTx",
+					    pim_ifp->pim_ifstat_reg_stop_send);
+			json_object_int_add(json_row, "assertRx",
+					    pim_ifp->pim_ifstat_assert_recv);
+			json_object_int_add(json_row, "assertTx",
+					    pim_ifp->pim_ifstat_assert_send);
+			json_object_int_add(json_row, "bsmRx",
+					    pim_ifp->pim_ifstat_bsm_rx);
+			json_object_int_add(json_row, "bsmTx",
+					    pim_ifp->pim_ifstat_bsm_tx);
+>>>>>>> 007784ccf (pimd: fixing wrong diplay registerTx)
 
 		} else {
 			vty_out(vty, "%-15s %-15s %-16s %-15s %-15s %6d %4d\n",
