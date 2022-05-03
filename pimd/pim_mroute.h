@@ -158,8 +158,10 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 		   ifindex_t ifindex);
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg);
-int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf);
+int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
+			    size_t len);
 int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg);
-int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf);
+int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
+			      size_t len);
 int pim_mroute_set(struct pim_instance *pim, int enable);
 #endif /* PIM_MROUTE_H */

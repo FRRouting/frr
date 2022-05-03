@@ -226,10 +226,12 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 						      msg);
 		case IGMPMSG_WHOLEPKT:
 			return pim_mroute_msg_wholepkt(pim->mroute_socket, ifp,
-						       (const char *)msg);
+						       (const char *)msg,
+						       buf_size);
 		case IGMPMSG_WRVIFWHOLE:
-			return pim_mroute_msg_wrvifwhole(
-				pim->mroute_socket, ifp, (const char *)msg);
+			return pim_mroute_msg_wrvifwhole(pim->mroute_socket,
+							 ifp, (const char *)msg,
+							 buf_size);
 		default:
 			break;
 		}
