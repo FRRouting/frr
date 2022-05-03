@@ -123,7 +123,7 @@ class FRRConfigs(dict, ClassHooks):
 
         logger.debug("FRR build directory: %r", frrpath)
         try:
-            with open(os.path.join(frrpath, "Makefile")) as fd:
+            with open(os.path.join(frrpath, "Makefile"), encoding="utf-8") as fd:
                 makefile = fd.read()
         except FileNotFoundError as exc:
             raise FRRSetupError(
@@ -193,7 +193,7 @@ class FRRConfigs(dict, ClassHooks):
 
         xrefpath = os.path.join(frrpath, "frr.xref")
         if os.path.exists(xrefpath):
-            with open(xrefpath, "r") as fd:
+            with open(xrefpath, "r", encoding="utf-8") as fd:
                 cls.xrefs = json.load(fd)
 
     def __init__(self, topology: "toponom.Network"):
@@ -219,7 +219,9 @@ class FRRConfigs(dict, ClassHooks):
                     or rname in self.daemon_rtrs[daemon]
                 ):
                     ritem[daemon] = template.render(
-                        daemon=daemon, router=router, routers=rtrmap,
+                        daemon=daemon,
+                        router=router,
+                        routers=rtrmap,
                         topo=topo,
                     )
         return self
@@ -277,6 +279,7 @@ class FRRNetworkInstance(NetworkInstance):
         logpos: Dict[str, int]
         rundir: Optional[str]
         rtrcfg: Dict[str, str]
+        livelogs: Dict[str, LiveLog]
 
         def __init__(self, instance: "FRRNetworkInstance", name: str):
             super().__init__(instance, name)
@@ -318,7 +321,7 @@ class FRRNetworkInstance(NetworkInstance):
             binmap = self.instance.configs.binmap
 
             cfgpath = self.tempfile(daemon + ".conf")
-            with open(cfgpath, "w") as fd:
+            with open(cfgpath, "w", encoding="utf-8") as fd:
                 fd.write(self.rtrcfg[daemon])
 
             assert self.rundir is not None
@@ -343,7 +346,7 @@ class FRRNetworkInstance(NetworkInstance):
                     "-i",
                     "%s/%s.pid" % (self.rundir, daemon),
                 ],
-                pass_fds = [logfd.fileno()],
+                pass_fds=[logfd.fileno()],
             )
 
             # want record-priority & timestamp precision...
@@ -355,7 +358,7 @@ class FRRNetworkInstance(NetworkInstance):
 
         def restart(self, daemon: str):
             pidfile = "%s/%s.pid" % (self.rundir, daemon)
-            with open(pidfile, "r") as fd:
+            with open(pidfile, "r", encoding="utf-8") as fd:
                 pid = int(fd.read())
             self.check_call(["kill", "-TERM", str(pid)])
             for _ in range(0, 5):
@@ -372,7 +375,7 @@ class FRRNetworkInstance(NetworkInstance):
                 self.instance.poller.remove(livelog)
                 livelog.close()
 
-            super().stop()
+            super().end()
 
         def iter_logs(self) -> Iterator[Tuple[str, str]]:
             """
@@ -383,7 +386,7 @@ class FRRNetworkInstance(NetworkInstance):
 
             for daemon, logfile in self.logfiles.items():
                 try:
-                    with open(logfile, "r") as fd:
+                    with open(logfile, "r", encoding="utf-8") as fd:
                         data = fd.read()
                 except FileNotFoundError:
                     continue

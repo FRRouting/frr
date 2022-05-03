@@ -11,9 +11,8 @@ import os
 import select
 import time
 import logging
-import io
 
-from typing import Union, List, Any, Optional, TextIO, Callable, Iterable
+from typing import List, Any, Optional, Callable, Iterable
 
 from xml.etree.ElementTree import XMLPullParser
 from .utils import MiniPollee
@@ -44,12 +43,14 @@ class LiveShark(MiniPollee):
 
     def __init__(
         self,
-        pdmlfd: Optional[Union[int, TextIO]] = None,
+        pdmlfd: Optional[int] = None,
         abs_start_ts: Optional[float] = None,
     ):
-        self._pdmlfd = getattr(pdmlfd, "fileno", lambda: pdmlfd)()
+        self._pdmlfd = pdmlfd
+
         self._abs_start_ts = abs_start_ts or time.time()
 
+        self.xml = None
         self.receivers = []
         self.packets = []
         self.expect_eof = False
@@ -78,6 +79,8 @@ class LiveShark(MiniPollee):
             yield (self._pdmlfd, self._pdml_read)
 
     def _pdml_read(self, fd):
+        _ = fd  # unused
+
         rddata = os.read(self._pdmlfd, 16384)
         if not rddata:
             self.close()
@@ -157,10 +160,10 @@ if __name__ == "__main__":
         level=logging.DEBUG, format="%(asctime)s %(name)s %(levelname)5s: %(message)s"
     )
 
-    pdml_rd: Union[int, TextIO]
     if len(sys.argv) >= 2:
         # pylint: disable=consider-using-with
-        pdml_rd = open(sys.argv[1])
+        pdml_rd_buf = open(sys.argv[1], encoding="utf-8")
+        pdml_rd = pdml_rd_buf.fileno()
     else:
         import subprocess
 

@@ -40,7 +40,8 @@ def find_child(parent: int) -> int:
         pid = int(piddir)
 
         try:
-            status = open("/proc/%d/status" % pid, "r").read().splitlines()
+            with open("/proc/%d/status" % pid, "r", encoding="ascii") as fd:
+                status = fd.read().splitlines()
         except FileNotFoundError:
             continue
 

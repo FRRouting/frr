@@ -82,10 +82,10 @@ class NetworkInstance(ClassHooks):
     # pylint: disable=arguments-differ
     @classmethod
     def _check_env(cls, *, result, **kwargs):
-        for name in cls._exec:
-            if cls._exec[name] is None:
-                cls._exec[name] = exec_find(name)
-            if cls._exec[name] is None:
+        for name, cur in cls._exec.items():
+            if cur is None:
+                cls._exec[name] = cur = exec_find(name)
+            if cur is None:
                 if name not in cls._exec_optional:
                     result.error("%s is required to run on Linux systems", name)
                 else:
@@ -373,7 +373,8 @@ class NetworkInstance(ClassHooks):
                         "up",
                         "type",
                         "bridge",
-                    ] + self._bridge_settings
+                    ]
+                    + self._bridge_settings
                 )
                 self.switch_ns.check_call(
                     [
@@ -411,7 +412,8 @@ class NetworkInstance(ClassHooks):
                     "up",
                     "type",
                     "bridge",
-                ] + self._bridge_settings
+                ]
+                + self._bridge_settings
             )
             for iface in lan.ifaces:
                 self.switch_ns.check_call(

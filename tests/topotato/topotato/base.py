@@ -13,7 +13,6 @@ import time
 import subprocess
 import signal
 import logging
-import struct
 from abc import ABC, abstractmethod
 
 import typing
@@ -38,7 +37,11 @@ from _pytest import nodes
 
 # from _pytest.mark.structures import Mark
 
-from .exceptions import *
+from .exceptions import (
+    TopotatoFail,
+    TopotatoEarlierFailSkip,
+    TopotatoDaemonCrash,
+)
 from .liveshark import LiveShark
 from .utils import ClassHooks
 
@@ -106,6 +109,7 @@ class TimedElement(ABC):
 
     Sortable by timestamp, and possibly with a HTML conversion function.
     """
+
     def __init__(self):
         super().__init__()
         self.match_for = []
@@ -229,7 +233,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
         cls: Type["TopotatoItem"], namesuffix, codeloc, *args, **kwargs
     ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], None]:
 
-        parent, name = yield None
+        parent, _ = yield None
         self = cls.from_parent(parent, namesuffix, *args, **kwargs)
         self._codeloc = codeloc
         yield self
@@ -516,14 +520,19 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
         return self
 
     @skiptrace
-    def collect(self) -> Union[
+    def collect(
+        self,
+    ) -> Union[
         None, nodes.Item, nodes.Collector, List[Union[nodes.Item, nodes.Collector]]
     ]:
+        assert isinstance(self.parent, TopotatoInstance)
+
         # obj contains unbound methods; get bound instead
         method = getattr(self.parent.obj, self.name)
         assert callable(method)
 
         tcls = self.getparent(TopotatoClass)
+        assert tcls is not None
         topo = tcls.obj.instancefn.net
 
         # pylint: disable=protected-access
@@ -567,6 +576,15 @@ class TopotatoInstance(_pytest.python.Instance):
     """
     Parent in the pytest sense, in this case the class definition.
     """
+
+    skipall: Optional[Exception]
+
+    starting_ts: float
+    started_ts: float
+    liveshark: LiveShark
+    netinst: "FRRNetworkInstance"
+    pcap_tail_f: Optional[subprocess.Popen]
+    tshark_proc: Optional[subprocess.Popen]
 
     # pylint: disable=protected-access
     @classmethod
@@ -619,7 +637,7 @@ class TopotatoInstance(_pytest.python.Instance):
 
                 try:
                     out, rc = router.vtysh_fast(daemon, "show version")
-                except ConnectionRefusedError as e:
+                except ConnectionRefusedError:
                     failed.append((rtr, daemon))
                 startitem.commands.setdefault((rtr, daemon), []).append(
                     ("show version", out, rc, None)
@@ -678,7 +696,7 @@ class TopotatoInstance(_pytest.python.Instance):
             for daemonlog in router.livelogs.values():
                 daemonlog.close_prep()
 
-        netinst.poller.sleep(2, final=True) # FIXME
+        netinst.poller.sleep(2, final=True)  # FIXME
 
         if self.tshark_proc:
             if self.tshark_proc.wait(timeout=2.0) != 0:

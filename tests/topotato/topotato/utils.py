@@ -435,9 +435,9 @@ class MiniPoller(list):
             pass
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, super().__repr__())
+        return "<%s %s>" % (self.__class__.__name__, super().__repr__())
 
-    def run_iter(self, deadline=float('inf'), final=False):
+    def run_iter(self, deadline=float("inf"), final=False):
         relist = True
         first = True
 
@@ -470,7 +470,7 @@ class MiniPoller(list):
                 if ret:
                     relist = True
             first = False
- 
+
 
 class ClassHooks:
     _hooked_classes: List[type] = []
