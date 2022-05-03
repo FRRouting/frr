@@ -102,13 +102,23 @@ The following commands are independent of a specific cache server.
 
 .. clicmd:: rpki polling_period (1-3600)
 
-
    Set the number of seconds the router waits until the router asks the cache
    again for updated data.
 
    The default value is 300 seconds.
 
-   The following commands configure one or multiple cache servers.
+.. clicmd:: rpki expire_interval (600-172800)
+
+   Set the number of seconds the router waits until the router expires the cache.
+
+   The default value is 7200 seconds.
+
+.. clicmd:: rpki retry_interval (1-7200)
+
+   Set the number of seconds the router waits until retrying to connect to the
+   cache server.
+
+   The default value is 600 seconds.
 
 .. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] PREFERENCE
 
