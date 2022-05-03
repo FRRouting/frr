@@ -1332,32 +1332,33 @@ DEFUN (show_rpki_cache_connection,
 	}
 	vty_out(vty, "Connected to group %d\n", group->preference);
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-		if (cache->preference == group->preference) {
-			struct tr_tcp_config *tcp_config;
+		struct tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
-			struct tr_ssh_config *ssh_config;
+		struct tr_ssh_config *ssh_config;
 #endif
-
-			switch (cache->type) {
-			case TCP:
-				tcp_config = cache->tr_config.tcp_config;
-				vty_out(vty, "rpki tcp cache %s %s pref %hhu\n",
-					tcp_config->host, tcp_config->port,
-					cache->preference);
-				break;
-
+		switch (cache->type) {
+		case TCP:
+			tcp_config = cache->tr_config.tcp_config;
+			vty_out(vty, "rpki tcp cache %s %s pref %hhu%s\n",
+				tcp_config->host, tcp_config->port,
+				cache->preference,
+				cache->rtr_socket->state == RTR_ESTABLISHED
+					? " (connected)"
+					: "");
+			break;
 #if defined(FOUND_SSH)
-			case SSH:
-				ssh_config = cache->tr_config.ssh_config;
-				vty_out(vty, "rpki ssh cache %s %u pref %hhu\n",
-					ssh_config->host, ssh_config->port,
-					cache->preference);
-				break;
+		case SSH:
+			ssh_config = cache->tr_config.ssh_config;
+			vty_out(vty, "rpki ssh cache %s %u pref %hhu%s\n",
+				ssh_config->host, ssh_config->port,
+				cache->preference,
+				cache->rtr_socket->state == RTR_ESTABLISHED
+					? " (connected)"
+					: "");
+			break;
 #endif
-
-			default:
-				break;
-			}
+		default:
+			break;
 		}
 	}
 
