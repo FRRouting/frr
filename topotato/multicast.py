@@ -119,13 +119,12 @@ class MulticastReceiver:
 
             sock, ifindex = self._cmdobj._get_sock_ifindex(router, af)
 
+            # 64-bit architectures have padding between ifindex and sockaddr
+            arg = struct.pack('@I', ifindex).ljust(struct.calcsize('@L'), b'\0')
+            arg += Sockaddr(self._group).bytes()
             if self._source is None:
-                arg = struct.pack('@II', ifindex, 0)
-                arg += Sockaddr(self._group).bytes()
                 sock.setsockopt(sol, self.group_opt, arg)
             else:
-                arg = struct.pack('@II', ifindex, 0)
-                arg += Sockaddr(self._group).bytes()
                 arg += Sockaddr(self._source).bytes()
                 sock.setsockopt(sol, self.source_opt, arg)
 
