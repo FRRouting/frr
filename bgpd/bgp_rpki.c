@@ -123,8 +123,8 @@ static int add_tcp_cache(const char *host, const char *port,
 			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static bool is_synchronized(void);
-static int is_running(void);
-static int is_stopping(void);
+static bool is_running(void);
+static bool is_stopping(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
@@ -136,11 +136,11 @@ static void revalidate_all_routes(void);
 
 static struct rtr_mgr_config *rtr_config;
 static struct list *cache_list;
-static int rtr_is_running;
-static int rtr_is_stopping;
+static bool rtr_is_running;
+static bool rtr_is_stopping;
 static bool rtr_is_synced;
 static _Atomic int rtr_update_overflow;
-static int rpki_debug;
+static bool rpki_debug;
 static unsigned int polling_period;
 static unsigned int expire_interval;
 static unsigned int retry_interval;
@@ -338,12 +338,12 @@ inline bool is_synchronized(void)
 	return rtr_is_synced;
 }
 
-inline int is_running(void)
+inline bool is_running(void)
 {
 	return rtr_is_running;
 }
 
-inline int is_stopping(void)
+inline bool is_stopping(void)
 {
 	return rtr_is_stopping;
 }
@@ -528,9 +528,9 @@ err:
 
 static int bgp_rpki_init(struct thread_master *master)
 {
-	rpki_debug = 0;
-	rtr_is_running = 0;
-	rtr_is_stopping = 0;
+	rpki_debug = false;
+	rtr_is_running = false;
+	rtr_is_stopping = false;
 	rtr_is_synced = false;
 
 	cache_list = list_new();
@@ -585,7 +585,7 @@ static int start(void)
 {
 	int ret;
 
-	rtr_is_stopping = 0;
+	rtr_is_stopping = false;
 	rtr_is_synced = false;
 	rtr_update_overflow = 0;
 
@@ -619,19 +619,19 @@ static int start(void)
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
-	rtr_is_running = 1;
+	rtr_is_running = true;
 
 	return SUCCESS;
 }
 
 static void stop(void)
 {
-	rtr_is_stopping = 1;
+	rtr_is_stopping = true;
 	if (is_running()) {
 		THREAD_OFF(t_rpki_sync);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
-		rtr_is_running = 0;
+		rtr_is_running = false;
 	}
 }
 
@@ -1385,7 +1385,7 @@ DEFUN (debug_rpki,
        DEBUG_STR
        "Enable debugging for rpki\n")
 {
-	rpki_debug = 1;
+	rpki_debug = true;
 	return CMD_SUCCESS;
 }
 
@@ -1396,7 +1396,7 @@ DEFUN (no_debug_rpki,
        DEBUG_STR
        "Disable debugging for rpki\n")
 {
-	rpki_debug = 0;
+	rpki_debug = false;
 	return CMD_SUCCESS;
 }
 
