@@ -887,7 +887,7 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 			json_object_int_add(json_row, "registerRx",
 					    pim_ifp->pim_ifstat_reg_recv);
 			json_object_int_add(json_row, "registerTx",
-					    pim_ifp->pim_ifstat_reg_recv);
+					    pim_ifp->pim_ifstat_reg_send);
 			json_object_int_add(json_row, "registerStopRx",
 					    pim_ifp->pim_ifstat_reg_stop_recv);
 			json_object_int_add(json_row, "registerStopTx",
@@ -980,7 +980,7 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 			json_object_int_add(json_row, "registerRx",
 					    pim_ifp->pim_ifstat_reg_recv);
 			json_object_int_add(json_row, "registerTx",
-					    pim_ifp->pim_ifstat_reg_recv);
+					    pim_ifp->pim_ifstat_reg_send);
 			json_object_int_add(json_row, "registerStopRx",
 					    pim_ifp->pim_ifstat_reg_stop_recv);
 			json_object_int_add(json_row, "registerStopTx",
