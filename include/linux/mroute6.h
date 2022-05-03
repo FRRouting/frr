@@ -63,7 +63,8 @@ typedef	uint32_t	if_mask;
 #define NIFBITS (sizeof(if_mask) * 8)        /* bits per mask */
 
 typedef struct if_set {
-	if_mask ifs_bits[__KERNEL_DIV_ROUND_UP(IF_SETSIZE, NIFBITS)];
+	/* __KERNEL_DIV_ROUND_UP() */
+	if_mask ifs_bits[(IF_SETSIZE + NIFBITS - 1) / NIFBITS];
 } if_set;
 
 #define IF_SET(n, p)    ((p)->ifs_bits[(n)/NIFBITS] |= (1 << ((n) % NIFBITS)))
