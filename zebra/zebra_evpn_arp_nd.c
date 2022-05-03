@@ -358,7 +358,8 @@ static int zebra_evpn_arp_nd_recvmsg(int fd, uint8_t *buf, size_t len, uint16_t 
 
 			if (aux->tp_vlan_tci != 0 ||
 			    aux->tp_status & TP_STATUS_VLAN_VALID)
-				*vlan_p = aux->tp_vlan_tci & 0xffff;
+				/* vlan-id is 12 bits, only copy the 12 LSB */
+				*vlan_p = aux->tp_vlan_tci & 0x0fff;
 
 			return 0;
 		}
