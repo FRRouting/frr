@@ -4487,7 +4487,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 			if (set) {
 				bgp_zebra_initiate_radv(peer->bgp, peer);
 			} else if (peer_group_active(peer)) {
-				if (!CHECK_FLAG(peer->group->conf->flags, flag))
+				if (!CHECK_FLAG(peer->group->conf->flags,
+						flag) &&
+				    !peer->conf_if)
 					bgp_zebra_terminate_radv(peer->bgp,
 								 peer);
 			} else
@@ -4525,7 +4527,7 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag on peer-group member. */
 		COND_FLAG(member->flags, flag, set != member_invert);
 
-		if (flag == PEER_FLAG_CAPABILITY_ENHE)
+		if (flag == PEER_FLAG_CAPABILITY_ENHE && !member->conf_if)
 			set ? bgp_zebra_initiate_radv(member->bgp, member)
 			    : bgp_zebra_terminate_radv(member->bgp, member);
 
