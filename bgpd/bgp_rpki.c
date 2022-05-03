@@ -63,9 +63,6 @@
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
-static struct thread *t_rpki;
-static struct thread *t_rpki_start;
-
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
@@ -372,13 +369,13 @@ static int bgpd_sync_callback(struct thread *thread)
 	struct listnode *node;
 	struct prefix *prefix;
 	struct pfx_record rec;
-	int retval;
-	int socket = THREAD_FD(thread);
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL, socket, &t_rpki);
+	thread_add_read(bm->master, bgpd_sync_callback, NULL,
+			rpki_sync_socket_bgpd, NULL);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
-		while (read(socket, &rec, sizeof(struct pfx_record) != -1))
+		while (read(rpki_sync_socket_bgpd, &rec,
+			    sizeof(struct pfx_record)) != -1)
 			;
 
 		atomic_store_explicit(&rtr_update_overflow, 0,
@@ -387,20 +384,12 @@ static int bgpd_sync_callback(struct thread *thread)
 		return 0;
 	}
 
-	retval = read(socket, &rec, sizeof(struct pfx_record));
+	int retval =
+		read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
 	if (retval != sizeof(struct pfx_record)) {
-		RPKI_DEBUG("Could not read from socket");
-		return retval;
+		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
+		return;
 	}
-
-	/* RTR-Server crashed/terminated, let's handle and switch
-	 * to the second available RTR-Server according to preference.
-	 */
-	if (rec.socket && rec.socket->state == RTR_ERROR_FATAL) {
-		reset(true);
-		return 0;
-	}
-
 	prefix = pfx_record_to_prefix(&rec);
 
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
@@ -459,51 +448,27 @@ static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	afi_t afi;
-	safi_t safi;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		struct peer *peer;
 		struct listnode *peer_listnode;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				if (!peer->afc_nego[afi][safi])
-					continue;
 
-				if (!peer->bgp->rib[afi][safi])
-					continue;
+			for (size_t i = 0; i < 2; i++) {
+				safi_t safi;
+				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
 
-				bgp_soft_reconfig_in(peer, afi, safi);
+				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
+				     safi++) {
+					if (!peer->bgp->rib[afi][safi])
+						continue;
+
+					bgp_soft_reconfig_in(peer, afi, safi);
+				}
 			}
 		}
 	}
-}
-
-static void rpki_connection_status_cb(const struct rtr_mgr_group *group
-				      __attribute__((unused)),
-				      enum rtr_mgr_status status,
-				      const struct rtr_socket *socket
-				      __attribute__((unused)),
-				      void *data __attribute__((unused)))
-{
-	struct pfx_record rec = {0};
-	int retval;
-
-	if (is_stopping() ||
-	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
-		return;
-
-	if (status == RTR_MGR_ERROR)
-		rec.socket = socket;
-
-	retval = write(rpki_sync_socket_rtr, &rec, sizeof(rec));
-	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
-		atomic_store_explicit(&rtr_update_overflow, 1,
-				      memory_order_seq_cst);
-
-	else if (retval != sizeof(rec))
-		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 }
 
 static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
@@ -547,8 +512,9 @@ static void rpki_init_sync_socket(void)
 		goto err;
 	}
 
+
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, &t_rpki);
+			rpki_sync_socket_bgpd, NULL);
 
 	return;
 
@@ -628,8 +594,7 @@ static int start(void)
 	RPKI_DEBUG("Polling period: %d", polling_period);
 	ret = rtr_mgr_init(&rtr_config, groups, groups_len, polling_period,
 			   expire_interval, retry_interval,
-			   rpki_update_cb_sync_rtr, NULL,
-			   rpki_connection_status_cb, NULL);
+			   rpki_update_cb_sync_rtr, NULL, NULL, NULL);
 	if (ret == RTR_ERROR) {
 		RPKI_DEBUG("Init rtr_mgr failed.");
 		return ERROR;
