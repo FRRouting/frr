@@ -639,6 +639,14 @@ void bfd_recv_cb(struct thread *t)
 		return;
 	}
 
+	/* Ensure that existing good sessions are not overridden. */
+	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
+	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "'remote discriminator' is zero, not overridden");
+		return;
+	}
+
 	/*
 	 * Multi hop: validate packet TTL.
 	 */
