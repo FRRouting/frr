@@ -119,18 +119,6 @@ message BeCfgDataCreateReply {
   optional string error_if_any = 4;
 }
 
-message BeCfgDataValidateReq {
-  required uint64 txn_id = 1;
-  repeated uint64 batch_ids = 2;
-}
-
-message BeCfgDataValidateReply {
-  required uint64 txn_id = 1;
-  repeated uint64 batch_ids = 2;
-  required bool success = 3;
-  optional string error_if_any = 4;
-}
-
 message BeCfgDataApplyReq {
   required uint64 txn_id = 1;
 }
@@ -194,17 +182,15 @@ message BeMessage {
     BeTxnReply txn_reply = 5;
     BeCfgDataCreateReq cfg_data_req = 6;
     BeCfgDataCreateReply cfg_data_reply = 7;
-    BeCfgDataValidateReq cfg_validate_req = 8;
-    BeCfgDataValidateReply cfg_validate_reply = 9;
-    BeCfgDataApplyReq cfg_apply_req = 10;
-    BeCfgDataApplyReply cfg_apply_reply = 11;
-    BeOperDataGetReq get_req = 12;
-    BeOperDataGetReply get_reply = 13;
-    BeOperDataNotify notify_data = 14;
-    BeConfigCmdReq cfg_cmd_req = 15;
-    BeConfigCmdReply cfg_cmd_reply = 16;
-    BeShowCmdReq show_cmd_req = 17;
-    BeShowCmdReply show_cmd_reply = 18;
+    BeCfgDataApplyReq cfg_apply_req = 8;
+    BeCfgDataApplyReply cfg_apply_reply = 9;
+    BeOperDataGetReq get_req = 10;
+    BeOperDataGetReply get_reply = 11;
+    BeOperDataNotify notify_data = 12;
+    BeConfigCmdReq cfg_cmd_req = 13;
+    BeConfigCmdReply cfg_cmd_reply = 14;
+    BeShowCmdReq show_cmd_req = 15;
+    BeShowCmdReply show_cmd_reply = 16;
   }
 }
 
