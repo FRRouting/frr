@@ -860,7 +860,6 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
 		char grp_str[PREFIX_STRLEN];
-		char rp_str[INET_ADDRSTRLEN];
 		struct bsmmsg_grpinfo *group;
 		struct bsmmsg_rpinfo *bsm_rpinfo;
 		struct prefix grp;
@@ -884,8 +883,9 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		len -= sizeof(struct bsm_hdr);
 
 		if (uj) {
-			json_object_string_addf(json, "BSR address", "%pPA",
-						&hdr->bsr_addr.addr);
+			json_object_string_addf(
+				json, "BSR address", "%pPA",
+				(pim_addr *)&hdr->bsr_addr.addr);
 			json_object_int_add(json, "BSR priority",
 					    hdr->bsr_prio);
 			json_object_int_add(json, "Hashmask Length",
@@ -898,9 +898,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
 				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
 			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n",
-				&hdr->bsr_addr.addr,
-				hdr->bsr_prio, hdr->hm_len,
-				ntohs(hdr->frag_tag));
+				(pim_addr *)&hdr->bsr_addr.addr, hdr->bsr_prio,
+				hdr->hm_len, ntohs(hdr->frag_tag));
 		}
 
 		vty_out(vty, "\n");
@@ -910,9 +909,16 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 			if (group->group.family == PIM_MSG_ADDRESS_FAMILY_IPV4)
 				grp.family = AF_INET;
+			else if (group->group.family ==
+				 PIM_MSG_ADDRESS_FAMILY_IPV6)
+				grp.family = AF_INET6;
 
 			grp.prefixlen = group->group.mask;
-			grp.u.prefix4.s_addr = group->group.addr.s_addr;
+#if PIM_IPV == 4
+			grp.u.prefix4 = group->group.addr;
+#else
+			grp.u.prefix6 = group->group.addr;
+#endif
 
 			prefix2str(&grp, grp_str, sizeof(grp_str));
 
@@ -960,7 +966,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 					json_row = json_object_new_object();
 					json_object_string_addf(
 						json_row, "Rp Address", "%pPA",
-						(pim_addr *)&bsm_rpinfo->rpaddr.addr);
+						(pim_addr *)&bsm_rpinfo->rpaddr
+							.addr);
 					json_object_int_add(
 						json_row, "Rp HoldTime",
 						ntohs(bsm_rpinfo->rp_holdtime));
@@ -969,10 +976,12 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 							    bsm_rpinfo->rp_pri);
 					json_object_object_addf(
 						json_group, json_row, "%pPA",
-						(pim_addr *)&bsm_rpinfo->rpaddr.addr);
+						(pim_addr *)&bsm_rpinfo->rpaddr
+							.addr);
 				} else {
 					vty_out(vty, "%-15pPA %-12d %d\n",
-						(pim_addr *)&bsm_rpinfo->rpaddr.addr,
+						(pim_addr *)&bsm_rpinfo->rpaddr
+							.addr,
 						ntohs(bsm_rpinfo->rp_holdtime),
 						bsm_rpinfo->rp_pri);
 				}
@@ -1001,9 +1010,10 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	if (uj) {
 		json = json_object_new_object();
 		json_object_string_addf(json, "BSR Address", "%pPA",
-				       &pim->global_scope.current_bsr);
+					&pim->global_scope.current_bsr);
 	} else
-		vty_out(vty, "BSR Address  %pPA\n", &pim->global_scope.current_bsr);
+		vty_out(vty, "BSR Address  %pPA\n",
+			&pim->global_scope.current_bsr);
 
 	for (rn = route_top(pim->global_scope.bsrp_table); rn;
 	     rn = route_next(rn)) {
@@ -1036,8 +1046,8 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 			if (uj) {
 				json_row = json_object_new_object();
 				json_object_string_addf(json_row, "Rp Address",
-						        "%pPA",
-						        &bsm_rp->rp_address);
+							"%pPA",
+							&bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
@@ -1045,7 +1055,8 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 				json_object_int_add(json_row, "Hash Val",
 						    bsm_rp->hash);
 				json_object_object_addf(json_group, json_row,
-							"%pPA", &bsm_rp->rp_address);
+							"%pPA",
+							&bsm_rp->rp_address);
 
 			} else {
 				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
@@ -1083,7 +1094,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 						    bsm_rp->hash);
 				json_object_object_addf(json_group, json_row,
 							"%pPA",
-						        &bsm_rp->rp_address);
+							&bsm_rp->rp_address);
 			} else {
 				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
 					&bsm_rp->rp_address, bsm_rp->rp_prio,
