@@ -352,6 +352,19 @@ int pim_process_ip_pim_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
+				      "true");
+	else
+		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
+				      "false");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 int pim_process_no_ip_pim_cmd(struct vty *vty)
 {
 	const struct lyd_node *mld_enable_dnode;
