@@ -334,6 +334,13 @@ module frr-pim {
         "Enable PIM flag on the interface.";
     }
 
+    leaf pim-passive-enable {
+      type boolean;
+      default "false";
+      description
+        "Disable exchange of protocol packets.";
+    }
+
     leaf hello-interval {
       type uint8 {
         range "1..max";

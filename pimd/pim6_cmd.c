@@ -222,20 +222,14 @@ DEFPY (interface_ipv6_pim,
        "Disable exchange of protocol packets\n")
 {
 	int ret;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp;
 
 	ret = pim_process_ip_pim_cmd(vty);
 
 	if (ret != NB_OK)
 		return ret;
 
-	pim_ifp = ifp->info;
-	if (!pim_ifp)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	if (passive)
-		pim_ifp->pim_passive_enable = true;
+		return pim_process_ip_pim_passive_cmd(vty, true);
 
 	return CMD_SUCCESS;
 }
@@ -248,23 +242,10 @@ DEFPY (interface_no_ipv6_pim,
        PIM_STR
        "Disable exchange of protocol packets\n")
 {
-	int ret;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp;
-
-	ret = pim_process_no_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	pim_ifp = ifp->info;
-	if (!pim_ifp)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	if (passive)
-		pim_ifp->pim_passive_enable = false;
+		return pim_process_ip_pim_passive_cmd(vty, false);
 
-	return CMD_SUCCESS;
+	return pim_process_no_ip_pim_cmd(vty);
 }
 
 DEFPY (interface_ipv6_pim_drprio,
