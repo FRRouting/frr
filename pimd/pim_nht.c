@@ -151,7 +151,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	}
 
 	if (up != NULL)
-		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
+		(void)hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
 	if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		if (out_pnc)

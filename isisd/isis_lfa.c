@@ -267,8 +267,8 @@ void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
 void isis_lfa_excluded_iface_add(struct isis_circuit *circuit, int level,
 				 const char *ifname)
 {
-	hash_get(circuit->lfa_excluded_ifaces[level - 1], (char *)ifname,
-		 lfa_excl_interface_hash_alloc);
+	(void)hash_get(circuit->lfa_excluded_ifaces[level - 1], (char *)ifname,
+		       lfa_excl_interface_hash_alloc);
 }
 
 /**

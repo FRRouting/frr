@@ -553,7 +553,6 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 	memset(&tmp_n, 0, sizeof(struct zebra_neigh));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(zevpn->neigh_table, &tmp_n, zebra_evpn_neigh_alloc);
-	assert(n);
 
 	n->state = ZEBRA_NEIGH_INACTIVE;
 	n->zevpn = zevpn;

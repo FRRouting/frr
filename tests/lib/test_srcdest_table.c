@@ -160,7 +160,7 @@ static void test_state_add_route(struct test_state *test,
 	}
 
 	rn->info = (void *)0xdeadbeef;
-	hash_get(test->log, hash_entry, log_alloc);
+	(void)hash_get(test->log, hash_entry, log_alloc);
 };
 
 static void test_state_del_route(struct test_state *test,

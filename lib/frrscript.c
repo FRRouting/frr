@@ -333,7 +333,7 @@ void frrscript_register_type_codec(struct frrscript_codec *codec)
 		assert(!"Type codec double-registered.");
 	}
 
-	assert(hash_get(codec_hash, &c, codec_alloc));
+	(void)hash_get(codec_hash, &c, codec_alloc);
 }
 
 void frrscript_register_type_codecs(struct frrscript_codec *codecs)
@@ -399,7 +399,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* Add the Lua function state to frrscript */
 	struct lua_function_state key = {.name = function_name, .L = L};
 
-	hash_get(fs->lua_function_hash, &key, lua_function_alloc);
+	(void)hash_get(fs->lua_function_hash, &key, lua_function_alloc);
 
 	return 0;
 fail:

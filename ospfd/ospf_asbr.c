@@ -595,7 +595,7 @@ static void ospf_link_ei_to_aggr(struct ospf_external_aggr_rt *aggr,
 			"%s: Linking extrenal route(%pI4/%d) to aggregator(%pI4/%d)",
 			__func__, &ei->p.prefix, ei->p.prefixlen,
 			&aggr->p.prefix, aggr->p.prefixlen);
-	hash_get(aggr->match_extnl_hash, ei, hash_alloc_intern);
+	(void)hash_get(aggr->match_extnl_hash, ei, hash_alloc_intern);
 	ei->aggr_route = aggr;
 }
 

@@ -2350,7 +2350,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		pbr_rule.action = bpa;
 		bpr = hash_get(bgp->pbr_rule_hash, &pbr_rule,
 			       bgp_pbr_rule_alloc_intern);
-		if (bpr && bpr->unique == 0) {
+		if (bpr->unique == 0) {
 			bpr->unique = ++bgp_pbr_action_counter_unique;
 			bpr->installed = false;
 			bpr->install_in_progress = false;
@@ -2359,7 +2359,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		} else
 			bpr_found = true;
 		/* already installed */
-		if (bpr_found && bpr) {
+		if (bpr_found) {
 			struct bgp_path_info_extra *extra =
 				bgp_path_info_extra_get(path);
 
@@ -2376,7 +2376,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		bgp_pbr_bpa_add(bpa);
 
 		/* ip rule add */
-		if (bpr && !bpr->installed)
+		if (!bpr->installed)
 			bgp_send_pbr_rule_action(bpa, bpr, true);
 
 		/* A previous entry may already exist

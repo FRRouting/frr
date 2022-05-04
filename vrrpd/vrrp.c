@@ -654,7 +654,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 
 	vrrp_set_advertisement_interval(vr, vd.advertisement_interval);
 
-	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
+	(void)hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
 	return vr;
 }
