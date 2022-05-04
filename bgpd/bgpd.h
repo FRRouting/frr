@@ -488,6 +488,8 @@ struct bgp {
 #define BGP_FLAG_SUPPRESS_FIB_PENDING (1 << 26)
 #define BGP_FLAG_SUPPRESS_DUPLICATES (1 << 27)
 #define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 29)
+/* Indicate Graceful Restart support for BGP NOTIFICATION messages */
+#define BGP_FLAG_GRACEFUL_NOTIFICATION (1 << 30)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.

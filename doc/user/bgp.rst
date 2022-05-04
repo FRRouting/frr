@@ -947,6 +947,15 @@ However, it MUST defer route selection for an address family until it either.
    expires. The stale path timer is started when the router receives a Route-Refresh
    BoRR message.
 
+.. clicmd:: bgp graceful-restart notification
+
+   Indicate Graceful Restart support for BGP NOTIFICATION messages.
+
+   After changing this parameter, you have to reset the peers in order to advertise
+   N-bit in Graceful Restart capability.
+
+   Enabled by default.
+
 .. _bgp-per-peer-graceful-restart:
 
 BGP Per Peer Graceful Restart

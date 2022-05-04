@@ -1435,12 +1435,17 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	restart_time = peer->bgp->restart_time;
 	if (peer->bgp->t_startup) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
-		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
-		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
-
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] Sending R-Bit/N-Bit for peer: %s",
+			zlog_debug("[BGP_GR] Sending R-Bit for peer: %s",
+				   peer->host);
+	}
+
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION)) {
+		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("[BGP_GR] Sending N-Bit for peer: %s",
 				   peer->host);
 	}
 
