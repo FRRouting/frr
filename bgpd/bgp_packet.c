@@ -1973,8 +1973,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
  */
 static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 {
-	struct bgp_notify outer;
-	struct bgp_notify inner;
+	struct bgp_notify outer = {};
+	struct bgp_notify inner = {};
 	bool hard_reset = false;
 
 	if (peer->notify.data) {
@@ -2039,12 +2039,13 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		}
 
 		bgp_notify_print(peer, &inner, "received", hard_reset);
-		if (inner.data) {
+		if (inner.length) {
 			XFREE(MTYPE_BGP_NOTIFICATION, inner.data);
 			inner.length = 0;
 		}
 		if (outer.length) {
 			XFREE(MTYPE_BGP_NOTIFICATION, outer.data);
+			XFREE(MTYPE_BGP_NOTIFICATION, outer.raw_data);
 			outer.length = 0;
 		}
 	}
