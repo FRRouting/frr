@@ -1568,6 +1568,32 @@ DEFUN (no_router_bgp,
 	return CMD_SUCCESS;
 }
 
+/* bgp session-dscp */
+
+DEFPY (bgp_session_dscp,
+       bgp_session_dscp_cmd,
+       "bgp session-dscp (0-63)$dscp",
+       BGP_STR
+       "Override default (C6) bgp TCP session DSCP value\n"
+       "Manually configured dscp parameter\n")
+{
+	bm->tcp_dscp = dscp << 2;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_session_dscp,
+       no_bgp_session_dscp_cmd,
+       "no bgp session-dscp [(0-63)]",
+       NO_STR
+       BGP_STR
+       "Override default (C6) bgp TCP session DSCP value\n"
+       "Manually configured dscp parameter\n")
+{
+	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
+
+	return CMD_SUCCESS;
+}
 
 /* BGP router-id.  */
 
@@ -17126,6 +17152,10 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
+	/* BGP session DSCP value */
+	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
+		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -17828,6 +17858,10 @@ void bgp_vty_init(void)
 
 	/* "no router bgp" commands. */
 	install_element(CONFIG_NODE, &no_router_bgp_cmd);
+
+	/* "bgp session-dscp command */
+	install_element(CONFIG_NODE, &bgp_session_dscp_cmd);
+	install_element(CONFIG_NODE, &no_bgp_session_dscp_cmd);
 
 	/* "bgp router-id" commands. */
 	install_element(BGP_NODE, &bgp_router_id_cmd);

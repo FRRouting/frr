@@ -4014,6 +4014,11 @@ behavior in BGP is not to send this data. If the routes were sent to zebra and
 the option is changed, bgpd doesn't reinstall the routes to comply with the new
 setting.
 
+.. clicmd:: bgp session-dscp (0-63)
+
+This command allows bgp to control, at a global level, the TCP dscp values
+in the TCP header.
+
 .. _bgp-suppress-fib:
 
 Suppressing routes not installed in FIB

@@ -3259,7 +3259,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp->evpn_info = XCALLOC(MTYPE_BGP_EVPN_INFO,
 				 sizeof(struct bgp_evpn_info));
-
 	bgp_evpn_init(bgp);
 	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
@@ -7854,6 +7853,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
+	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
 
 	bgp_mac_init();
 	/* init the rd id space.
