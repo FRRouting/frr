@@ -772,16 +772,19 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 				      safi_t safi,
 				      struct bgp_path_info *source_bpi,
 				      struct bgp_path_info *bpi,
+				      struct bgp *bgp_orig,
 				      const struct prefix *p, int debug)
 {
 	struct bgp_path_info *bpi_ultimate;
-	struct bgp *bgp_nexthop = to_bgp;
+	struct bgp *bgp_nexthop;
 	bool nh_valid;
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
 
 	if (bpi->extra && bpi->extra->bgp_orig)
 		bgp_nexthop = bpi->extra->bgp_orig;
+	else
+		bgp_nexthop = bgp_orig;
 
 	/*
 	 * No nexthop tracking for redistributed routes or for
@@ -963,7 +966,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
 
 		if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
-					      source_bpi, bpi, p, debug))
+					      source_bpi, bpi, bgp_orig, p,
+					      debug))
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
 		else
 			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
@@ -1034,7 +1038,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		new->extra->nexthop_orig = *nexthop_orig;
 
 	if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
-				      source_bpi, new, p, debug))
+				      source_bpi, new, bgp_orig, p, debug))
 		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
 	else
 		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
