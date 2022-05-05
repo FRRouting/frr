@@ -275,7 +275,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (pi && is_route_parent_evpn(pi))
 		bnc->is_evpn_gwip_nexthop = true;
 
-	if (is_bgp_static_route) {
+	if (is_bgp_static_route && !CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE)) {
 		SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
 
 		/* If we're toggling the type, re-register */
@@ -310,8 +310,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
-	} else if (peer && !connected
-		   && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)) {
+	} else if (peer && !connected &&
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)) {
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
