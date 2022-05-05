@@ -178,7 +178,7 @@ class AssertKernelRoutesV6(AssertKernelRoutes):
 
 
 class AssertVtysh(TopotatoAssertion, TimedMixin):
-    commands: OrderedDict[Tuple[str, str], List[Tuple[float, str, str, int, Any]]]
+    commands: OrderedDict
 
     # pylint does not understand that from_parent is our __init__
     _rtr: str
