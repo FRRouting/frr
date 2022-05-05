@@ -90,7 +90,6 @@ pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim6_main.c \
 	pimd/pim6_mld.c \
-	pimd/pim6_stubs.c \
 	pimd/pim6_cmd.c \
 	# end
 
