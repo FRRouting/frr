@@ -1600,7 +1600,7 @@ AC_CHECK_HEADER([net/if_media.h],
   ])
   AC_CHECK_MEMBERS([struct ifmediareq.ifm_status],
     AC_DEFINE([HAVE_BSD_LINK_DETECT], [1], [BSD link-detect]),
-    [], LINK_DETECT_INCLUDES)], 
+    [], LINK_DETECT_INCLUDES)],
   [],
   FRR_INCLUDES)
 
@@ -1616,7 +1616,7 @@ dnl ------------------------
 dnl TCP_MD5SIG socket option
 dnl ------------------------
 
-AC_CHECK_HEADER([netinet/tcp.h], 
+AC_CHECK_HEADER([netinet/tcp.h],
    [m4_define([MD5_INCLUDES],
       FRR_INCLUDES
       [#include <netinet/tcp.h>
