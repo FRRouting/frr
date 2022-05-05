@@ -275,7 +275,7 @@ parts:
            - usr/lib/x86_64-linux-gnu/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
-        source-tag: v0.7.0
+        source-tag: v0.8.0
         plugin: cmake
         configflags:
            - -DCMAKE_BUILD_TYPE=Release
