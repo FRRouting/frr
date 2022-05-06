@@ -27,6 +27,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_igmp.h"
 #include "pim_igmpv2.h"
 #include "pim_igmpv3.h"

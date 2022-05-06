@@ -22,6 +22,7 @@
 #include "pim_tib.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_iface.h"
 #include "pim_upstream.h"
 #include "pim_oil.h"

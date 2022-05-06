@@ -22,6 +22,8 @@
 
 #include "vty.h"
 
+struct pim_instance;
+
 int pim_debug_config_write(struct vty *vty);
 int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty);
 int pim_interface_config_write(struct vty *vty);

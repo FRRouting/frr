@@ -28,7 +28,6 @@
 #include "plist.h"
 
 #include "pim_addr.h"
-#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_memory.h"
 #include "pim_assert.h"

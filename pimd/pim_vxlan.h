@@ -22,6 +22,8 @@
 #ifndef PIM_VXLAN_H
 #define PIM_VXLAN_H
 
+#include "pim_instance.h"
+
 /* global timer used for miscellaneous staggered processing */
 #define PIM_VXLAN_WORK_TIME 1
 /* number of SG entries processed at one shot */

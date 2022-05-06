@@ -26,6 +26,7 @@
 #include "plist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_vty.h"
 #include "pim_pim.h"
 #include "pim_msg.h"

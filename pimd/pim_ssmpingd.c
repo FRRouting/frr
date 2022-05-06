@@ -27,6 +27,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_ssmpingd.h"
 #include "pim_time.h"
 #include "pim_sock.h"

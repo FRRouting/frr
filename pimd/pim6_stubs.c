@@ -25,6 +25,7 @@
 #include "pim_pim.h"
 #include "pim_register.h"
 #include "pim_cmd.h"
+#include "pim_bsm.h"
 
 /*
  * NH lookup / NHT

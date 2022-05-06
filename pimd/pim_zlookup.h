@@ -26,6 +26,8 @@
 
 #define PIM_NEXTHOP_LOOKUP_MAX (3) /* max. recursive route lookup */
 
+struct channel_oil;
+
 struct pim_zlookup_nexthop {
 	vrf_id_t vrf_id;
 	pim_addr nexthop_addr;

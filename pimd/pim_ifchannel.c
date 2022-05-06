@@ -29,6 +29,7 @@
 #include "prefix.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"

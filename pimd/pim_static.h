@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 #include "pim_mroute.h"
+#include "pim_oil.h"
 #include "if.h"
 
 struct static_route {

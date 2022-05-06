@@ -30,6 +30,7 @@
 
 #include "pimd.h"
 #include "pimd/pim_nht.h"
+#include "pim_instance.h"
 #include "log.h"
 #include "pim_time.h"
 #include "pim_oil.h"

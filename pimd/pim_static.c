@@ -26,6 +26,7 @@
 #include "linklist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_oil.h"
 #include "pim_static.h"
 #include "pim_time.h"
