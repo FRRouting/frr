@@ -2279,13 +2279,6 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 		 * zebra
 		 */
 		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0, mcast_grp, 0);
-		if (!vpn) {
-			flog_err(
-				EC_BGP_VNI,
-				"%u: Failed to allocate VNI entry for VNI %u - at Config",
-				bgp->vrf_id, vni);
-			return NULL;
-		}
 	}
 
 	/* Mark as configured. */
