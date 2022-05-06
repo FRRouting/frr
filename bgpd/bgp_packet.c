@@ -751,7 +751,8 @@ struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
 /*
  * Check if to send BGP CEASE Notification/Hard Reset?
  */
-bool bgp_notify_is_hard_reset(struct peer *peer, uint8_t code, uint8_t subcode)
+bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
+				uint8_t subcode)
 {
 	/* When the "N" bit has been exchanged, a Hard Reset message is used to
 	 * indicate to the peer that the session is to be fully terminated.
@@ -763,17 +764,45 @@ bool bgp_notify_is_hard_reset(struct peer *peer, uint8_t code, uint8_t subcode)
 	/*
 	 * https://datatracker.ietf.org/doc/html/rfc8538#section-5.1
 	 */
-	if (code == BGP_NOTIFY_CEASE || code == BGP_NOTIFY_HOLD_ERR) {
+	if (code == BGP_NOTIFY_CEASE) {
 		switch (subcode) {
 		case BGP_NOTIFY_CEASE_MAX_PREFIX:
 		case BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN:
 		case BGP_NOTIFY_CEASE_PEER_UNCONFIG:
 		case BGP_NOTIFY_CEASE_HARD_RESET:
 			return true;
+		case BGP_NOTIFY_CEASE_ADMIN_RESET:
+			/* Provide user control:
+			 * `bgp hard-adminstrative-reset`
+			 */
+			if (CHECK_FLAG(peer->bgp->flags,
+				       BGP_FLAG_HARD_ADMIN_RESET))
+				return true;
+			else
+				return false;
 		default:
 			break;
 		}
 	}
+
+	return false;
+}
+
+/*
+ * Check if received BGP CEASE Notification/Hard Reset?
+ */
+bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
+				    uint8_t subcode)
+{
+	/* When the "N" bit has been exchanged, a Hard Reset message is used to
+	 * indicate to the peer that the session is to be fully terminated.
+	 */
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) ||
+	    !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV))
+		return false;
+
+	if (code == BGP_NOTIFY_CEASE && subcode == BGP_NOTIFY_CEASE_HARD_RESET)
+		return true;
 
 	return false;
 }
@@ -802,7 +831,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 			       uint8_t sub_code, uint8_t *data, size_t datalen)
 {
 	struct stream *s;
-	bool hard_reset = bgp_notify_is_hard_reset(peer, code, sub_code);
+	bool hard_reset = bgp_notify_send_hard_reset(peer, code, sub_code);
 
 	/* Lock I/O mutex to prevent other threads from pushing packets */
 	frr_mutex_lock_autounlock(&peer->io_mtx);
@@ -1992,7 +2021,8 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		memcpy(outer.raw_data, stream_pnt(peer->curr), outer.length);
 	}
 
-	hard_reset = bgp_notify_is_hard_reset(peer, outer.code, outer.subcode);
+	hard_reset =
+		bgp_notify_received_hard_reset(peer, outer.code, outer.subcode);
 	if (hard_reset && outer.length) {
 		inner = bgp_notify_decapsulate_hard_reset(&outer);
 		peer->notify.hard_reset = true;
