@@ -1202,6 +1202,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		if (debug)
 			zlog_debug("%s: ->%s: %pBD Found route, changed attr",
 				   __func__, to_bgp->name_pretty, bn);
+		UNSET_FLAG(bpi->attr->nh_flag, BGP_ATTR_NH_REFRESH);
 
 		bgp_dest_unlock_node(bn);
 
