@@ -136,6 +136,7 @@ typedef struct sioc_sg_req6 pim_sioc_sg_req;
 */
 
 struct channel_oil;
+struct pim_instance;
 
 int pim_mroute_socket_enable(struct pim_instance *pim);
 int pim_mroute_socket_disable(struct pim_instance *pim);

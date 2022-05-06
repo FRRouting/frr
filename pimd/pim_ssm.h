@@ -21,6 +21,8 @@
 
 #define PIM_SSM_STANDARD_RANGE "232.0.0.0/8"
 
+struct pim_instance;
+
 /* SSM error codes */
 enum pim_ssm_err {
 	PIM_SSM_ERR_NONE = 0,

@@ -28,6 +28,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_neighbor.h"
 #include "pim_time.h"
 #include "pim_str.h"

@@ -29,6 +29,7 @@
 #include "lib/network.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_str.h"

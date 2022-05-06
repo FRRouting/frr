@@ -34,6 +34,7 @@
 #include "lib/linklist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_vty.h"
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"

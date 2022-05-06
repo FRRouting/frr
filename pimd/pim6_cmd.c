@@ -40,6 +40,7 @@
 #include "pim_nb.h"
 #include "pim_addr.h"
 #include "pim_nht.h"
+#include "pim_bsm.h"
 
 
 #ifndef VTYSH_EXTRACT_PL
