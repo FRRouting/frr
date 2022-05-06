@@ -103,7 +103,6 @@ def setup_module(module):
     # Starting Routers
     #
     for i in range(1, 4):
-        net["r%s" % i].loadConf("mgmtd", "%s/r%s/mgmtd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripd", "%s/r%s/ripd.conf" % (thisDir, i))
         tgen.gears["r%s" % i].start()
