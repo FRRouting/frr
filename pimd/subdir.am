@@ -170,7 +170,7 @@ clippy_scan += \
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
 
-if PIMD
+if PIM6D
 #
 # pim6d is only enabled for --enable-dev-build, and NOT installed currently
 # (change noinst_ to sbin_ below to install it.)

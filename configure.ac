@@ -635,6 +635,8 @@ AC_ARG_ENABLE([isisd],
   AS_HELP_STRING([--disable-isisd], [do not build isisd]))
 AC_ARG_ENABLE([pimd],
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
+AC_ARG_ENABLE([pim6d],
+  AS_HELP_STRING([--disable-pim6d], [do not build pim6d]))
 AC_ARG_ENABLE([pbrd],
   AS_HELP_STRING([--disable-pbrd], [do not build pbrd]))
 AC_ARG_ENABLE([sharpd],
@@ -2079,6 +2081,22 @@ case "$host_os" in
 esac
 fi
 
+dnl ----------------------------------------
+dnl PIMv6 is only supported on linux for now
+dnl ----------------------------------------
+if test "$enable_pim6d" != "no"; then
+  AC_MSG_CHECKING([for pim6d OS support])
+  case "$host_os" in
+    linux*)
+      AC_MSG_RESULT([yes])
+      ;;
+    *)
+      AC_MSG_RESULT([no])
+      enable_pim6d="no"
+      ;;
+  esac
+fi
+
 dnl -------------------------------------
 dnl VRRP is only supported on linux
 dnl -------------------------------------
@@ -2711,6 +2729,7 @@ AM_CONDITIONAL([BABELD], [test "$enable_babeld" != "no"])
 AM_CONDITIONAL([OSPF6D], [test "$enable_ospf6d" != "no"])
 AM_CONDITIONAL([ISISD], [test "$enable_isisd" != "no"])
 AM_CONDITIONAL([PIMD], [test "$enable_pimd" != "no"])
+AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" != "no"])
 AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
 AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
