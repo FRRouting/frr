@@ -147,7 +147,6 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_upstream *up;
-	struct pim_rpf *rpg;
 	pim_sgaddr sg;
 	bool desync = false;
 
@@ -163,23 +162,29 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		return 0;
 	}
 
-	rpg = RP(pim_ifp->pim, msg->msg_im_dst);
-	/*
-	 * If the incoming interface is unknown OR
-	 * the Interface type is SSM we don't need to
-	 * do anything here
-	 */
-	if (!rpg) {
-		if (PIM_DEBUG_MROUTE)
-			zlog_debug("%s: no RPF for packet to %pSG", ifp->name,
-				   &sg);
-		return 0;
-	}
-	if (pim_rpf_addr_is_inaddr_any(rpg)) {
-		if (PIM_DEBUG_MROUTE)
-			zlog_debug("%s: null RPF for packet to %pSG", ifp->name,
-				   &sg);
-		return 0;
+	if (!pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
+		/* for ASM, check that we have enough information (i.e. path
+		 * to RP) to make a decision on what to do with this packet.
+		 *
+		 * for SSM, this is meaningless, everything is join-driven,
+		 * and for NOCACHE we need to install an empty OIL MFC entry
+		 * so the kernel doesn't keep nagging us.
+		 */
+		struct pim_rpf *rpg;
+
+		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
+		if (!rpg) {
+			if (PIM_DEBUG_MROUTE)
+				zlog_debug("%s: no RPF for packet to %pSG",
+					   ifp->name, &sg);
+			return 0;
+		}
+		if (pim_rpf_addr_is_inaddr_any(rpg)) {
+			if (PIM_DEBUG_MROUTE)
+				zlog_debug("%s: null RPF for packet to %pSG",
+					   ifp->name, &sg);
+			return 0;
+		}
 	}
 
 	/*
