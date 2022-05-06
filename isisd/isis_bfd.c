@@ -585,6 +585,53 @@ static int bfd_handle_circuit_del_addr(struct isis_circuit *circuit,
 	return 0;
 }
 
+static int bfd_handle_nlpids_update(struct isis_circuit *circuit)
+{
+	struct list *adj_list;
+	struct listnode *node;
+	struct isis_adjacency *adj;
+
+	if (circuit->area == 0)
+		return 0;
+
+	switch (circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		adj_list = list_new();
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			struct list *adjdb = circuit->u.bc.adjdb[level - 1];
+
+			if (!adjdb)
+				continue;
+			isis_adj_build_up_list(circuit->u.bc.adjdb[level - 1],
+					       adj_list);
+		}
+		for (ALL_LIST_ELEMENTS_RO(adj_list, node, adj)) {
+			isis_bfd_update_rfc6213(adj);
+			if (isis_bfd_config_rfc6213_enabled(
+				    &adj->circuit->bfd_config)) {
+				isis_bfd_update_status_rfc6213(adj, AF_INET);
+				isis_bfd_update_status_rfc6213(adj, AF_INET6);
+			}
+		}
+		list_delete(&adj_list);
+		break;
+	case CIRCUIT_T_P2P:
+		adj = circuit->u.p2p.neighbor;
+		if (adj && adj->adj_state == ISIS_ADJ_UP) {
+			isis_bfd_update_rfc6213(adj);
+			if (isis_bfd_config_rfc6213_enabled(
+				    &adj->circuit->bfd_config)) {
+				isis_bfd_update_status_rfc6213(adj, AF_INET);
+				isis_bfd_update_status_rfc6213(adj, AF_INET6);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 void isis_bfd_init(struct event_loop *tm)
 {
 	bfd_protocol_integration_init(zclient, tm);
@@ -594,6 +641,7 @@ void isis_bfd_init(struct event_loop *tm)
 	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);
 	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
 	hook_register(isis_circuit_del_addr_hook, bfd_handle_circuit_del_addr);
+	hook_register(isis_circuit_update_nlpids_hook, bfd_handle_nlpids_update);
 }
 
 static uint8_t isis_bfd_mtpid_nlpid2mtnplid(uint16_t mtid, uint8_t nlpid)

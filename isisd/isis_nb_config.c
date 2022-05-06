@@ -1451,6 +1451,8 @@ static int isis_multi_topology_common(enum nb_event event,
 	struct isis_area *area;
 	struct isis_area_mt_setting *setting;
 	uint16_t mtid = isis_str2mtid(topology);
+	struct listnode *node;
+	struct isis_circuit *circuit;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1467,6 +1469,8 @@ static int isis_multi_topology_common(enum nb_event event,
 		area = nb_running_get_entry(dnode, NULL, true);
 		setting = area_get_mt_setting(area, mtid);
 		setting->enabled = create;
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			circuit_update_nlpids(circuit);
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 		break;
 	}

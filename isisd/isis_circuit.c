@@ -278,6 +278,8 @@ DEFINE_HOOK(isis_circuit_add_addr_hook,
 	    (struct isis_circuit * circuit, uint8_t family), (circuit, family));
 DEFINE_HOOK(isis_circuit_del_addr_hook,
 	    (struct isis_circuit * circuit, uint8_t family), (circuit, family));
+DEFINE_HOOK(isis_circuit_update_nlpids_hook, (struct isis_circuit * circuit),
+	    (circuit));
 
 void isis_circuit_add_addr(struct isis_circuit *circuit,
 			   struct connected *connected)
@@ -948,6 +950,7 @@ void circuit_update_nlpids(struct isis_circuit *circuit)
 		circuit->nlpids.nlpids[circuit->nlpids.count] = NLPID_IPV6;
 		circuit->nlpids.count++;
 	}
+	hook_call(isis_circuit_update_nlpids_hook, circuit);
 	return;
 }
 
