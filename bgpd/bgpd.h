@@ -453,7 +453,7 @@ struct bgp {
 #define BGP_LINK_BW_REF_BW                1
 
 	/* BGP flags. */
-	uint32_t flags;
+	uint64_t flags;
 #define BGP_FLAG_ALWAYS_COMPARE_MED       (1 << 0)
 #define BGP_FLAG_DETERMINISTIC_MED        (1 << 1)
 #define BGP_FLAG_MED_MISSING_AS_WORST     (1 << 2)
