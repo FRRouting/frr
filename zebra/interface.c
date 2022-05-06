@@ -3557,12 +3557,20 @@ DEFUN (link_params_delay,
 	uint8_t update = 0;
 
 	if (argc == 2) {
-		/* Check new delay value against old Min and Max delays if set
+		/*
+		 * Check new delay value against old Min and Max delays if set
+		 *
+		 * RFC 7471 Section 4.2.7:
+		 *    It is possible for min delay and max delay to be
+		 *    the same value.
+		 *
+		 * Therefore, it is also allowed that the average
+		 * delay be equal to the min delay or max delay.
 		 */
 		if (IS_PARAM_SET(iflp, LP_MM_DELAY)
-		    && (delay <= iflp->min_delay || delay >= iflp->max_delay)) {
+		    && (delay < iflp->min_delay || delay > iflp->max_delay)) {
 			vty_out(vty,
-				"Average delay should be comprise between Min (%d) and Max (%d) delay\n",
+				"Average delay should be in range Min (%d) - Max (%d) delay\n",
 				iflp->min_delay, iflp->max_delay);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -3580,10 +3588,13 @@ DEFUN (link_params_delay,
 			update = 1;
 		}
 	} else {
-		/* Check new delays value coherency */
-		if (delay <= low || delay >= high) {
+		/*
+		 * Check new delays value coherency. See above note
+		 * regarding average delay equal to min/max allowed
+		 */
+		if (delay < low || delay > high) {
 			vty_out(vty,
-				"Average delay should be comprise between Min (%d) and Max (%d) delay\n",
+				"Average delay should be in range Min (%d) - Max (%d) delay\n",
 				low, high);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
