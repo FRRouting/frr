@@ -1309,6 +1309,26 @@ DEFPY (clear_ipv6_mroute_count,
 	return clear_ip_mroute_count_command(vty, name);
 }
 
+DEFPY (clear_ipv6_pim_bsr_db,
+       clear_ipv6_pim_bsr_db_cmd,
+       "clear ipv6 pim [vrf NAME] bsr-data",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset pim bsr data\n")
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+	if (!v)
+		return CMD_WARNING;
+
+	pim_bsm_clear(v->info);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_pimv6,
        debug_pimv6_cmd,
        "[no] debug pimv6",
@@ -1578,6 +1598,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_count_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_bsr_db_cmd);
+
 	install_element(ENABLE_NODE, &debug_pimv6_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);
