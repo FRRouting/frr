@@ -408,10 +408,16 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct listnode *node, *nnode;
+	struct bgp_path_info *pi;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
 	struct connected *ifc;
 	struct peer *peer;
-	struct bgp *bgp;
+	struct bgp *bgp, *from_bgp, *bgp_default;
+	struct listnode *next;
 	struct prefix *addr;
+	afi_t afi;
+	safi_t safi;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
@@ -439,9 +445,6 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		 * we do not want the peering to bounce.
 		 */
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			afi_t afi;
-			safi_t safi;
-
 			if (addr->family == AF_INET)
 				continue;
 
@@ -454,6 +457,44 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 					bgp_announce_route(peer, afi, safi,
 							   true);
 			}
+		}
+	}
+
+	bgp_default = bgp_get_default();
+	afi = family2afi(addr->family);
+	safi = SAFI_UNICAST;
+
+	/* When the last IPv4 address was deleted, Linux removes all routes
+	 * using the interface so that bgpd needs to re-send them.
+	 */
+	if (bgp_default && afi == AFI_IP) {
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, from_bgp)) {
+			table = from_bgp->rib[afi][safi];
+			if (!table)
+				continue;
+
+			for (dest = bgp_table_top(table); dest;
+			     dest = bgp_route_next(dest)) {
+				for (pi = bgp_dest_get_bgp_path_info(dest); pi;
+				     pi = pi->next) {
+					if (pi->type == ZEBRA_ROUTE_BGP &&
+					    pi->attr &&
+					    pi->attr->nh_ifindex ==
+						    ifc->ifp->ifindex) {
+						SET_FLAG(pi->attr->nh_flag,
+							 BGP_ATTR_NH_REFRESH);
+					}
+				}
+			}
+
+			if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+				continue;
+
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+					    bgp_default, from_bgp);
+
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
+					    bgp_default, from_bgp);
 		}
 	}
 
