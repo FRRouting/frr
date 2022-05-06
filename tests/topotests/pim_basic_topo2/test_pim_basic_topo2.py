@@ -68,10 +68,6 @@ def setup_module(mod):
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_PIM, daemon_file)
 
-        daemon_file = "{}/{}/mgmtd.conf".format(CWD, rname)
-        if os.path.isfile(daemon_file):
-            router.load_config(TopoRouter.RD_MGMTD, daemon_file)
-
         daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_ZEBRA, daemon_file)

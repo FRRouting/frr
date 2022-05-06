@@ -47,10 +47,6 @@ def setup_module(mod):
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        daemon_file = "{}/{}/mgmtd.conf".format(CWD, rname)
-        if os.path.isfile(daemon_file):
-            router.load_config(TopoRouter.RD_MGMTD, daemon_file)
-
         daemon_file = "{}/{}/bfdd.conf".format(CWD, rname)
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_BFD, daemon_file)
