@@ -82,7 +82,7 @@ def setup_module(module):
     #
     # Main router
     for i in range(1, 2):
-        net["r%s" % i].loadConf("mgmtd", "%s/r%s/mgmtd.conf" % (thisDir, i))
+        net["r%s" % i].loadConf("mgmtd", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripd", "%s/r%s/ripd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripngd", "%s/r%s/ripngd.conf" % (thisDir, i))
