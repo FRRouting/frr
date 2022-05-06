@@ -389,6 +389,12 @@ Clear commands reset various variables.
 
    Rescan PIMv6 OIL (output interface list).
 
+.. clicmd:: clear ipv6 pim [vrf NAME] bsr-data
+
+   This command will clear the BSM scope data struct. This command also
+   removes the next hop tracking for the bsr and resets the upstreams
+   for the dynamically learnt RPs.
+
 PIMv6 Debug Commands
 ====================
 
