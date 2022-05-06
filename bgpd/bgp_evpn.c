@@ -260,9 +260,6 @@ static struct irt_node *import_rt_new(struct bgp *bgp,
 {
 	struct irt_node *irt;
 
-	if (!bgp)
-		return NULL;
-
 	irt = XCALLOC(MTYPE_BGP_EVPN_IMPORT_RT, sizeof(struct irt_node));
 
 	irt->rt = *rt;
@@ -436,10 +433,8 @@ static void map_vni_to_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			/* Already mapped. */
 			return;
 
-	if (!irt) {
+	if (!irt)
 		irt = import_rt_new(bgp, &eval_tmp);
-		assert(irt);
-	}
 
 	/* Add VNI to the hash list for this RT. */
 	listnode_add(irt->vnis, vpn);
@@ -5302,9 +5297,6 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 {
 	struct bgpevpn *vpn;
 
-	if (!bgp)
-		return NULL;
-
 	vpn = XCALLOC(MTYPE_BGP_EVPN, sizeof(struct bgpevpn));
 
 	/* Set values - RD and RT set to defaults. */
@@ -5882,19 +5874,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		 */
 		if (is_vni_live(vpn))
 			update_routes_for_vni(bgp, vpn);
-	}
-
-	/* Create or update as appropriate. */
-	if (!vpn) {
+	} else {
+		/* Create or update as appropriate. */
 		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id,
-				mcast_grp, svi_ifindex);
-		if (!vpn) {
-			flog_err(
-				EC_BGP_VNI,
-				"%u: Failed to allocate VNI entry for VNI %u - at Add",
-				bgp->vrf_id, vni);
-			return -1;
-		}
+				   mcast_grp, svi_ifindex);
 	}
 
 	/* if the VNI is live already, there is nothing more to do */
