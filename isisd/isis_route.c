@@ -655,6 +655,11 @@ static void _isis_route_verify_table(struct isis_area *area,
 #endif /* EXTREME_DEBUG */
 	uint8_t algorithm = isis_route_table_algorithm(table);
 
+#ifdef EXTREME_DEBUG
+	zlog_debug("ISIS-Rte (%s A:%u): %s entry", area->area_tag, algorithm,
+		   __func__);
+#endif
+
 	for (rnode = route_top(table); rnode;
 	     rnode = srcdest_route_next(rnode)) {
 		if (rnode->info == NULL)
@@ -693,8 +698,8 @@ static void _isis_route_verify_table(struct isis_area *area,
 		if (IS_DEBUG_RTE_EVENTS) {
 			srcdest2str(dst_p, src_p, buff, sizeof(buff));
 			zlog_debug(
-				"ISIS-Rte (%s): route validate: %s %s %s %s",
-				area->area_tag,
+				"ISIS-Rte (%s A:%u): route validate: %s %s %s %s",
+				area->area_tag, algorithm,
 				(CHECK_FLAG(rinfo->flag,
 					    ISIS_ROUTE_FLAG_ZEBRA_SYNCED)
 					 ? "synced"
