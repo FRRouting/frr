@@ -501,6 +501,19 @@ Suppress duplicate updates
    Suppress duplicate updates if the route actually not changed.
    Default: enabled.
 
+Send Hard Reset CEASE Notification for Administrative Reset
+-----------------------------------------------------------
+
+.. clicmd:: bgp hard-administrative-reset
+
+   Send Hard Reset CEASE Notification for 'Administrative Reset' events.
+
+   When disabled, and Graceful Restart Notification capability is exchanged
+   between the peers, Graceful Restart procedures apply, and routes will be
+   retained.
+
+   Enabled by default.
+
 Disable checking if nexthop is connected on EBGP sessions
 ---------------------------------------------------------
 

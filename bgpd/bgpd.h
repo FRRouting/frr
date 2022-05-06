@@ -490,6 +490,8 @@ struct bgp {
 #define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 29)
 /* Indicate Graceful Restart support for BGP NOTIFICATION messages */
 #define BGP_FLAG_GRACEFUL_NOTIFICATION (1 << 30)
+/* Send Hard Reset CEASE Notification for 'Administrative Reset' */
+#define BGP_FLAG_HARD_ADMIN_RESET (1 << 31)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
