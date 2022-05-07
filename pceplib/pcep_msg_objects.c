@@ -674,8 +674,9 @@ pcep_obj_create_ro_subobj_sr_ipv4_node(bool loose_hop, bool sid_absent,
 	}
 	obj->nai_list = dll_initialize();
 	/* Since the IP has to be stored in the list, copy it so the caller
-	 * doesnt have any restrictions about the type of memory used externally
-	 * for the IP. This memory will be freed with the object is freed. */
+	 * doesn't have any restrictions about the type of memory used
+	 * externally for the IP. This memory will be freed with the object is
+	 * freed. */
 	struct in_addr *ipv4_node_id_copy =
 		pceplib_malloc(PCEPLIB_MESSAGES, sizeof(struct in_addr));
 	ipv4_node_id_copy->s_addr = ipv4_node_id->s_addr;

@@ -354,7 +354,7 @@ void handle_writes(pcep_socket_comm_handle *socket_comm_handle)
 		if (comm_session->close_after_write == true) {
 			if (comm_session->message_queue->num_entries == 0) {
 				/* TODO check to make sure modifying the
-				 * write_list while iterating it doesnt cause
+				 * write_list while iterating it doesn't cause
 				 * problems. */
 				pcep_log(
 					LOG_DEBUG,

@@ -281,7 +281,7 @@ void test_handle_timer_event_open_keep_alive()
 
 void test_handle_socket_comm_event_null_params()
 {
-	/* Verify it doesnt core dump */
+	/* Verify it doesn't core dump */
 	handle_socket_comm_event(NULL);
 	verify_socket_comm_times_called(0, 0, 0, 0, 0, 0, 0);
 	reset_mock_socket_comm_info();
