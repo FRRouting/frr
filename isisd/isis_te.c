@@ -439,7 +439,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 			SET_FLAG(lnode.flags, LS_NODE_ROUTER_ID6);
 		}
 		if (tlvs->hostname) {
-			memcpy(&lnode.name, tlvs->hostname, MAX_NAME_LENGTH);
+			strlcpy(lnode.name, tlvs->hostname, MAX_NAME_LENGTH);
 			SET_FLAG(lnode.flags, LS_NODE_NAME);
 		}
 		if (tlvs->router_cap) {
