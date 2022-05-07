@@ -439,4 +439,5 @@ void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
 	MD5Update(&context, digest, 16);       /* then results of 1st
 						* hash */
 	MD5Final(digest, &context); /* finish up 2nd pass */
+	explicit_bzero(&context, sizeof(context));
 }

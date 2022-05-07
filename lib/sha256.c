@@ -186,10 +186,10 @@ static void SHA256_Transform(uint32_t *state, const unsigned char block[64])
 		state[i] += S[i];
 
 	/* Clean the stack. */
-	memset(W, 0, 256);
-	memset(S, 0, 32);
-	memset(&t0, 0, sizeof(t0));
-	memset(&t1, 0, sizeof(t0));
+	explicit_bzero(W, 256);
+	explicit_bzero(S, 32);
+	explicit_bzero(&t0, sizeof(t0));
+	explicit_bzero(&t1, sizeof(t0));
 }
 
 static unsigned char PAD[64] = {
@@ -292,7 +292,7 @@ void SHA256_Final(unsigned char digest[32], SHA256_CTX *ctx)
 	be32enc_vect(digest, ctx->state, 32);
 
 	/* Clear the context state */
-	memset((void *)ctx, 0, sizeof(*ctx));
+	explicit_bzero((void *)ctx, sizeof(*ctx));
 }
 
 /* Initialize an HMAC-SHA256 operation with the given key. */
@@ -327,7 +327,7 @@ void HMAC__SHA256_Init(HMAC_SHA256_CTX *ctx, const void *_K, size_t Klen)
 	SHA256_Update(&ctx->octx, pad, 64);
 
 	/* Clean the stack. */
-	memset(khash, 0, 32);
+	explicit_bzero(khash, 32);
 }
 
 /* Add bytes to the HMAC-SHA256 operation. */
@@ -353,7 +353,7 @@ void HMAC__SHA256_Final(unsigned char digest[32], HMAC_SHA256_CTX *ctx)
 	SHA256_Final(digest, &ctx->octx);
 
 	/* Clean the stack. */
-	memset(ihash, 0, 32);
+	explicit_bzero(ihash, 32);
 }
 
 /**
@@ -409,5 +409,5 @@ void PBKDF2_SHA256(const uint8_t *passwd, size_t passwdlen, const uint8_t *salt,
 	}
 
 	/* Clean PShctx, since we never called _Final on it. */
-	memset(&PShctx, 0, sizeof(HMAC_SHA256_CTX));
+	explicit_bzero(&PShctx, sizeof(HMAC_SHA256_CTX));
 }

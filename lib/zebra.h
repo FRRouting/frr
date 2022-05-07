@@ -230,6 +230,10 @@ size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
 #endif
 
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *buf, size_t len);
+#endif
+
 #if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
 /* avoid conflicts in case we have partial support */
 #define mmsghdr frr_mmsghdr
