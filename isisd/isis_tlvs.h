@@ -31,10 +31,8 @@
 DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
-struct isis_subtlvs;
 struct sr_prefix_cfg;
 
-struct isis_area_address;
 struct isis_area_address {
 	struct isis_area_address *next;
 
@@ -45,7 +43,6 @@ struct isis_area_address {
 #define ISIS_WIDE_METRIC_INFINITY   0xFFFFFE
 #define ISIS_NARROW_METRIC_INFINITY 62
 
-struct isis_oldstyle_reach;
 struct isis_oldstyle_reach {
 	struct isis_oldstyle_reach *next;
 
@@ -53,7 +50,6 @@ struct isis_oldstyle_reach {
 	uint8_t metric;
 };
 
-struct isis_oldstyle_ip_reach;
 struct isis_oldstyle_ip_reach {
 	struct isis_oldstyle_ip_reach *next;
 
@@ -61,7 +57,6 @@ struct isis_oldstyle_ip_reach {
 	struct prefix_ipv4 prefix;
 };
 
-struct isis_lsp_entry;
 struct isis_lsp_entry {
 	struct isis_lsp_entry *next;
 
@@ -73,8 +68,6 @@ struct isis_lsp_entry {
 	struct isis_lsp *lsp;
 };
 
-struct isis_extended_reach;
-struct isis_ext_subtlvs;
 struct isis_extended_reach {
 	struct isis_extended_reach *next;
 
@@ -84,7 +77,6 @@ struct isis_extended_reach {
 	struct isis_ext_subtlvs *subtlvs;
 };
 
-struct isis_extended_ip_reach;
 struct isis_extended_ip_reach {
 	struct isis_extended_ip_reach *next;
 
@@ -95,7 +87,6 @@ struct isis_extended_ip_reach {
 	struct isis_subtlvs *subtlvs;
 };
 
-struct isis_ipv6_reach;
 struct isis_ipv6_reach {
 	struct isis_ipv6_reach *next;
 
@@ -162,7 +153,6 @@ struct isis_sr_block {
 #define ISIS_PREFIX_SID_VALUE         0x08
 #define ISIS_PREFIX_SID_LOCAL         0x04
 
-struct isis_prefix_sid;
 struct isis_prefix_sid {
 	struct isis_prefix_sid *next;
 
@@ -179,7 +169,6 @@ struct isis_prefix_sid {
 #define EXT_SUBTLV_LINK_ADJ_SID_SFLG	0x08
 #define EXT_SUBTLV_LINK_ADJ_SID_PFLG	0x04
 
-struct isis_adj_sid;
 struct isis_adj_sid {
 	struct isis_adj_sid *next;
 
@@ -189,7 +178,6 @@ struct isis_adj_sid {
 	uint32_t sid;
 };
 
-struct isis_lan_adj_sid;
 struct isis_lan_adj_sid {
 	struct isis_lan_adj_sid *next;
 
@@ -230,33 +218,28 @@ struct isis_router_cap {
 	uint8_t msd;
 };
 
-struct isis_item;
 struct isis_item {
 	struct isis_item *next;
 };
 
-struct isis_lan_neighbor;
 struct isis_lan_neighbor {
 	struct isis_lan_neighbor *next;
 
 	uint8_t mac[6];
 };
 
-struct isis_ipv4_address;
 struct isis_ipv4_address {
 	struct isis_ipv4_address *next;
 
 	struct in_addr addr;
 };
 
-struct isis_ipv6_address;
 struct isis_ipv6_address {
 	struct isis_ipv6_address *next;
 
 	struct in6_addr addr;
 };
 
-struct isis_mt_router_info;
 struct isis_mt_router_info {
 	struct isis_mt_router_info *next;
 
@@ -265,7 +248,6 @@ struct isis_mt_router_info {
 	uint16_t mtid;
 };
 
-struct isis_auth;
 struct isis_auth {
 	struct isis_auth *next;
 
@@ -279,7 +261,6 @@ struct isis_auth {
 	size_t offset; /* Only valid after packing */
 };
 
-struct isis_item_list;
 struct isis_item_list {
 	struct isis_item *head;
 	struct isis_item **tail;
