@@ -909,7 +909,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 			p.u.prefix6 = std->local6;
 	}
 	if (!std)
-		p = *prefix;
+		prefix_copy(&p, prefix);
 	else
 		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
 			 prefix, &p);
