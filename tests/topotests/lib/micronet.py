@@ -266,7 +266,7 @@ class Commander(object):  # pylint: disable=R0205
                 )
             if raises:
                 # error = Exception("stderr: {}".format(stderr))
-                # This annoyingly doesnt' show stderr when printed normally
+                # This annoyingly doesn't' show stderr when printed normally
                 error = subprocess.CalledProcessError(rc, actual_cmd)
                 error.stdout, error.stderr = stdout, stderr
                 raise error
