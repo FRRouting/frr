@@ -448,6 +448,7 @@ isis_route_create(struct prefix *prefix, struct prefix_ipv6 *src_p,
 		  struct list *adjacencies, bool allow_ecmp,
 		  struct isis_area *area, struct route_table *table)
 {
+	struct isis_route_table_info *tinfo;
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
 	char change_buf[64];
@@ -457,8 +458,13 @@ isis_route_create(struct prefix *prefix, struct prefix_ipv6 *src_p,
 
 	rinfo_new = isis_route_info_new(prefix, src_p, cost, depth, sr,
 					adjacencies, allow_ecmp);
-	route_node = srcdest_rnode_get(table, prefix, src_p);
+	if (table->info) {
+		tinfo = table->info;
+		if (tinfo->algorithm > 0)
+			SET_FLAG(rinfo_new->flag, ISIS_ROUTE_FLAG_SR_ALGO);
+	}
 
+	route_node = srcdest_rnode_get(table, prefix, src_p);
 	rinfo_old = route_node->info;
 	if (!rinfo_old) {
 		if (IS_DEBUG_RTE_EVENTS)

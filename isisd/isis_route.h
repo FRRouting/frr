@@ -27,6 +27,8 @@ struct isis_route_info {
 #define ISIS_ROUTE_FLAG_ACTIVE       0x01  /* active route for the prefix */
 #define ISIS_ROUTE_FLAG_ZEBRA_SYNCED 0x02  /* set when route synced to zebra */
 #define ISIS_ROUTE_FLAG_ZEBRA_RESYNC 0x04  /* set when route needs to sync */
+#define ISIS_ROUTE_FLAG_SR_ALGO                                                \
+	0x08 /* set when this node is in a flex-algo tree */
 	uint8_t flag;
 	uint32_t cost;
 	uint32_t depth;
