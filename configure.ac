@@ -1317,6 +1317,7 @@ AC_CHECK_FUNCS([ \
 	unlinkat \
 	posix_fallocate \
 	sendmmsg \
+	explicit_bzero \
 	])
 
 AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
