@@ -81,6 +81,7 @@ bool v6_rr_semantics = false;
 /* Receive buffer size for kernel control sockets */
 #ifdef HAVE_NETLINK
 uint32_t rcvbufsize = 4194304;
+#define RCVBUFSIZE_MIN 4194304
 #else
 uint32_t rcvbufsize = 128 * 1024;
 #endif
@@ -365,8 +366,9 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			rcvbufsize = atoi(optarg);
-			if (rcvbufsize < 4194304)
-				flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING, "rcvbufsize is smaller than recommended value");
+			if (rcvbufsize < RCVBUFSIZE_MIN)
+				fprintf(stderr,
+					"rcvbufsize is smaller than recommended value");
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
