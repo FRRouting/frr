@@ -248,7 +248,7 @@ lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args)
 	if (args->list_entry == NULL)
 		rn = route_top(zrt->table);
 	else
-		rn = srcdest_route_next((struct route_node *)rn);
+		rn = srcdest_route_next(rn);
 	/* Optimization: skip empty route nodes. */
 	while (rn && rn->info == NULL)
 		rn = route_next(rn);

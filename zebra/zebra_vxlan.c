@@ -1078,9 +1078,7 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 
 static void zevpn_build_hash_table(void)
 {
-	ns_walk_func(zevpn_build_hash_table_zns,
-		     (void *)NULL,
-		     (void **)NULL);
+	ns_walk_func(zevpn_build_hash_table_zns, NULL, NULL);
 }
 
 /*

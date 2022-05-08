@@ -706,7 +706,7 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	if (vtype >= VTYPE_IPREACH_INTERNAL) {
 		memcpy(&p, id, sizeof(p));
 		apply_mask(&p.dest);
-		apply_mask((struct prefix *)&p.src);
+		apply_mask(&p.src);
 		id = &p;
 	}
 

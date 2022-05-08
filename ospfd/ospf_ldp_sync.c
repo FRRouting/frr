@@ -326,7 +326,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
 		ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	if (remove) {
-		ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
+		ldp_sync_info_free(&ldp_sync_info);
 		params->ldp_sync_info = NULL;
 	}
 }

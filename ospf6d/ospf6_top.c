@@ -1761,8 +1761,8 @@ bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p)
 	memset(&addr_zero, 0, sizeof(struct in6_addr));
 
 	 /* Default prefix validation*/
-	if ((is_default_prefix((struct prefix *)p))
-	   || (!memcmp(&p->u.prefix6, &addr_zero, sizeof(struct in6_addr)))) {
+	if ((is_default_prefix(p)) ||
+	    (!memcmp(&p->u.prefix6, &addr_zero, sizeof(struct in6_addr)))) {
 		vty_out(vty, "Default address should not be configured as summary address.\n");
 		return false;
 	}
@@ -1802,7 +1802,7 @@ DEFPY (ospf6_external_route_aggregation,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!ospf6_is_valid_summary_addr(vty, &p))
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1850,7 +1850,7 @@ DEFPY(no_ospf6_external_route_aggregation,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!ospf6_is_valid_summary_addr(vty, &p))
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1881,7 +1881,7 @@ DEFPY (ospf6_external_route_aggregation_no_advertise,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!ospf6_is_valid_summary_addr(vty, &p))
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1913,7 +1913,7 @@ DEFPY (no_ospf6_external_route_aggregation_no_advertise,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!ospf6_is_valid_summary_addr(vty, &p))
 		return CMD_WARNING_CONFIG_FAILED;

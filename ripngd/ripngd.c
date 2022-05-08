@@ -217,7 +217,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
-	msg.msg_control = (void *)adata;
+	msg.msg_control = adata;
 	msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
 
 	iov.iov_base = buf;

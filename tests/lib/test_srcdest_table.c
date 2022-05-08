@@ -328,7 +328,7 @@ static void get_rand_prefix(struct prng *prng, struct prefix_ipv6 *p)
 	p->prefixlen = prng_rand(prng) % 129;
 	p->family = AF_INET6;
 
-	apply_mask((struct prefix *)p);
+	apply_mask(p);
 }
 
 static void get_rand_prefix_pair(struct prng *prng, struct prefix_ipv6 *dst_p,

@@ -1185,8 +1185,7 @@ pcep_decode_tlv_pol_id(struct pcep_object_tlv_header *tlv_hdr,
 		return (struct pcep_object_tlv_header *)ipv4;
 	} else {
 		ipv4->is_ipv4 = false;
-		struct pcep_object_tlv_srpag_pol_id *ipv6 =
-			(struct pcep_object_tlv_srpag_pol_id *)ipv4;
+		struct pcep_object_tlv_srpag_pol_id *ipv6 = ipv4;
 		ipv6->color = ntohl(uint32_ptr[0]);
 		decode_ipv6(&uint32_ptr[1], &ipv6->end_point.ipv6);
 		return (struct pcep_object_tlv_header *)ipv6;

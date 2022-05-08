@@ -396,8 +396,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		dest = bgp_node_get(bgp->connected_table[AFI_IP],
-				    (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP], &p);
 		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
 			bc->refcnt++;
@@ -430,8 +429,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		dest = bgp_node_get(bgp->connected_table[AFI_IP6],
-				    (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP6], &p);
 
 		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
