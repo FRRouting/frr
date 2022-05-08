@@ -1330,6 +1330,7 @@ class Router(Node):
             "isisd": 0,
             "bgpd": 0,
             "pimd": 0,
+            "pim6d": 0,
             "ldpd": 0,
             "eigrpd": 0,
             "nhrpd": 0,
