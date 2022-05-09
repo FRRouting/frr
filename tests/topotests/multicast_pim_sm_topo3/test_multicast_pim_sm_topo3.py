@@ -54,6 +54,7 @@ import sys
 import time
 import datetime
 import pytest
+from time import sleep
 
 pytestmark = pytest.mark.pimd
 
@@ -95,6 +96,7 @@ from lib.pim import (
     verify_pim_rp_info,
     verify_multicast_flag_state,
     McastTesterHelper,
+    verify_pim_interface_traffic,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -351,6 +353,45 @@ def find_tos_in_tcpdump(tgen, router, message, cap_file):
         logger.info(
             "[DUT: %s]: Found message: %s in tcpdump " "[PASSED!!]", router, message
         )
+    return True
+
+
+def verify_pim_stats_increament(stats_before, stats_after):
+    """
+    API to compare pim interface control plane traffic
+
+    Parameters
+    ----------
+    * `stats_before` : Stats dictionary for any particular instance
+    * `stats_after` : Stats dictionary for any particular instance
+    """
+
+    for router, stats_data in stats_before.items():
+        for stats, value in stats_data.items():
+            if stats_before[router][stats] >= stats_after[router][stats]:
+                errormsg = (
+                    "[DUT: %s]: state %s value has not"
+                    " incremented, Initial value: %s, "
+                    "Current value: %s [FAILED!!]"
+                    % (
+                        router,
+                        stats,
+                        stats_before[router][stats],
+                        stats_after[router][stats],
+                    )
+                )
+                return errormsg
+
+            logger.info(
+                "[DUT: %s]: State %s value is "
+                "incremented, Initial value: %s, Current value: %s"
+                " [PASSED!!]",
+                router,
+                stats,
+                stats_before[router][stats],
+                stats_after[router][stats],
+            )
+
     return True
 
 
@@ -4486,6 +4527,259 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
             tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
+
+    write_test_footer(tc_name)
+
+
+def test_PIM_passive_p1(request):
+    """
+    TC Verify PIM passive functionality"
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    app_helper.stop_all_hosts()
+    # Creating configuration from JSON
+    clear_mroute(tgen)
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
+
+    step("Enable the PIM on all the interfaces of FRR1, FRR2, FRR3")
+    step(
+        "Enable IGMP of FRR1 interface and send IGMP joins "
+        " from FRR1 node for group range (225.1.1.1-5)"
+    )
+
+    intf_c1_i4 = topo["routers"]["c1"]["links"]["i4"]["interface"]
+
+    step(
+        "configure PIM passive on receiver interface to verify no impact on IGMP join"
+        "and multicast traffic on pim passive interface"
+    )
+
+    raw_config = {
+        "c1": {"raw_config": ["interface {}".format(intf_c1_i4), "ip pim passive"]}
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("configure IGMPv2 and send IGMP joinon on PIM passive interface")
+    input_dict = {
+        "c1": {"igmp": {"interfaces": {intf_c1_i4: {"igmp": {"version": "2"}}}}}
+    }
+    result = create_igmp_config(tgen, topo, input_dict)
+    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+
+    input_join = {"i4": topo["routers"]["i4"]["links"]["c1"]["interface"]}
+    for recvr, recvr_intf in input_join.items():
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
+        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+
+    step("Configure static RP for (225.1.1.1-5) as R2")
+
+    input_dict = {
+        "r2": {
+            "pim": {
+                "rp": [
+                    {
+                        "rp_addr": topo["routers"]["r2"]["links"]["lo"]["ipv4"].split(
+                            "/"
+                        )[0],
+                        "group_addr_range": GROUP_RANGE_1,
+                    }
+                ]
+            }
+        }
+    }
+
+    result = create_pim_config(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Send Mcast traffic from C2 to all the groups ( 225.1.1.1 to 225.1.1.5)")
+
+    input_src = {"i5": topo["routers"]["i5"]["links"]["c2"]["interface"]}
+    for src, src_intf in input_src.items():
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    source_i5 = topo["routers"]["i5"]["links"]["c2"]["ipv4"].split("/")[0]
+
+    input_dict_starg = [
+        {
+            "dut": "c1",
+            "src_address": "*",
+            "iif": topo["routers"]["c1"]["links"]["l1"]["interface"],
+            "oil": topo["routers"]["c1"]["links"]["i4"]["interface"],
+        }
+    ]
+
+    input_dict_sg = [
+        {
+            "dut": "c1",
+            "src_address": source_i5,
+            "iif": topo["routers"]["c1"]["links"]["c2"]["interface"],
+            "oil": topo["routers"]["c1"]["links"]["i4"]["interface"],
+        }
+    ]
+
+    step("(*,G) and (S,G) created on f1 and node verify using 'show ip mroute'")
+
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_starg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    intf_c1_c2 = topo["routers"]["c1"]["links"]["c2"]["interface"]
+    intf_c2_c1 = topo["routers"]["c2"]["links"]["c1"]["interface"]
+
+    step(
+        "configure PIM passive on upstream interface to verify"
+        "hello tx/rx counts are not incremented"
+    )
+
+    # Changing hello timer to 3sec for checking more number of packets
+
+    raw_config = {
+        "c1": {
+            "raw_config": [
+                "interface {}".format(intf_c1_c2),
+                "ip pim passive",
+                "ip pim hello 3",
+            ]
+        },
+        "c2": {"raw_config": ["interface {}".format(intf_c2_c1), "ip pim hello 3"]},
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("verify PIM hello tx/rx stats on C1")
+    state_dict = {
+        "c1": {
+            intf_c1_c2: ["helloTx", "helloRx"],
+        }
+    }
+
+    logger.info("waiting for 5 sec config to get apply and hello count update")
+    sleep(5)
+
+    c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
+    assert isinstance(
+        c1_state_before, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
+
+    logger.info(
+        "sleeping for 30 sec hello interval timer to verify count are not increamented"
+    )
+    sleep(35)
+
+    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
+    assert isinstance(
+        c1_state_after, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
+
+    step("verify stats not increamented on c1")
+    result = verify_pim_stats_increament(c1_state_before, c1_state_after)
+    assert (
+        result is not True
+    ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
+
+    step("No impact observed on mroutes")
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_starg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("remove PIM passive and verify hello tx/rx is increamented")
+    raw_config = {
+        "c1": {
+            "raw_config": [
+                "interface {}".format(intf_c1_c2),
+                "no ip pim passive",
+                "ip pim hello 3",
+            ]
+        }
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    logger.info("waiting for 30 sec for pim hello to receive")
+    sleep(30)
+
+    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
+    assert isinstance(
+        c1_state_after, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
+
+    step("verify stats increamented on c1 after removing pim passive")
+    result = verify_pim_stats_increament(c1_state_before, c1_state_after)
+    assert result is True, "Testcase{} : Failed Error: {}" "stats incremented".format(
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 
