@@ -10036,7 +10036,7 @@ DEFUN (ospf_external_route_aggregation,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!is_valid_summary_addr(&p)) {
 		vty_out(vty, "Not a valid summary address.\n");
@@ -10077,7 +10077,7 @@ DEFUN (no_ospf_external_route_aggregation,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!is_valid_summary_addr(&p)) {
 		vty_out(vty, "Not a valid summary address.\n");
@@ -10377,7 +10377,7 @@ DEFUN (ospf_external_route_aggregation_no_adrvertise,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!is_valid_summary_addr(&p)) {
 		vty_out(vty, "Not a valid summary address.\n");
@@ -10413,7 +10413,7 @@ DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
 	}
 
 	/* Apply mask for given prefix. */
-	apply_mask((struct prefix *)&p);
+	apply_mask(&p);
 
 	if (!is_valid_summary_addr(&p)) {
 		vty_out(vty, "Not a valid summary address.\n");
