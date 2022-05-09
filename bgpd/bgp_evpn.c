@@ -3683,8 +3683,8 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 
 			es = bgp_evpn_es_find(&evp->prefix.ead_addr.esi);
 			bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi,
-						 global_dest, attr, 1,
-						 &global_pi, &route_changed);
+						 global_dest, attr, &global_pi,
+						 &route_changed);
 		}
 
 		/* Schedule for processing and unlock node. */
