@@ -93,7 +93,9 @@ static int nb_node_new_cb(const struct lysc_node *snode, void *arg)
 {
 	struct nb_node *nb_node;
 	struct lysc_node *sparent, *sparent_list;
+	struct frr_yang_module_info *module;
 
+	module = (struct frr_yang_module_info *)arg;
 	nb_node = XCALLOC(MTYPE_NB_NODE, sizeof(*nb_node));
 	yang_snode_get_path(snode, YANG_PATH_DATA, nb_node->xpath,
 			    sizeof(nb_node->xpath));
@@ -127,6 +129,9 @@ static int nb_node_new_cb(const struct lysc_node *snode, void *arg)
 	nb_node->snode = snode;
 	assert(snode->priv == NULL);
 	((struct lysc_node *)snode)->priv = nb_node;
+
+	if (module && module->ignore_cbs)
+		SET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -229,6 +234,9 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 
 {
 	unsigned int error = 0;
+
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return error;
 
 	error += nb_node_validate_cb(nb_node, NB_OP_CREATE,
 				     !!nb_node->cbs.create, false);
@@ -1215,6 +1223,8 @@ static int nb_callback_create(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
+
 	nb_log_config_callback(event, NB_OP_CREATE, dnode);
 
 	args.context = context;
@@ -1263,6 +1273,8 @@ static int nb_callback_modify(struct nb_context *context,
 	struct nb_cb_modify_args args = {};
 	bool unexpected_error = false;
 	int ret;
+
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
 
 	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
 
@@ -1313,6 +1325,8 @@ static int nb_callback_destroy(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
+
 	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
 
 	args.context = context;
@@ -1355,6 +1369,8 @@ static int nb_callback_move(struct nb_context *context,
 	struct nb_cb_move_args args = {};
 	bool unexpected_error = false;
 	int ret;
+
+	assert(!CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS));
 
 	nb_log_config_callback(event, NB_OP_MOVE, dnode);
 
@@ -1399,6 +1415,9 @@ static int nb_callback_pre_validate(struct nb_context *context,
 	bool unexpected_error = false;
 	int ret;
 
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return 0;
+
 	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
 
 	args.dnode = dnode;
@@ -1430,6 +1449,9 @@ static void nb_callback_apply_finish(struct nb_context *context,
 {
 	struct nb_cb_apply_finish_args args = {};
 
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return;
+
 	nb_log_config_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, dnode);
 
 	args.context = context;
@@ -1444,6 +1466,9 @@ struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
 				       const void *list_entry)
 {
 	struct nb_cb_get_elem_args args = {};
+
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return NULL;
 
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
@@ -1460,6 +1485,9 @@ const void *nb_callback_get_next(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_next_args args = {};
 
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return NULL;
+
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_next): node [%s] parent_list_entry [%p] list_entry [%p]",
 	       nb_node->xpath, parent_list_entry, list_entry);
@@ -1473,6 +1501,9 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 			 struct yang_list_keys *keys)
 {
 	struct nb_cb_get_keys_args args = {};
+
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return 0;
 
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_keys): node [%s] list_entry [%p]",
@@ -1489,6 +1520,9 @@ const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 {
 	struct nb_cb_lookup_entry_args args = {};
 
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return NULL;
+
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
 	       nb_node->xpath, parent_list_entry);
@@ -1503,6 +1537,9 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 		    size_t errmsg_len)
 {
 	struct nb_cb_rpc_args args = {};
+
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return 0;
 
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
 
@@ -1529,6 +1566,9 @@ static int nb_callback_configuration(struct nb_context *context,
 	const struct lyd_node *dnode = change->cb.dnode;
 	union nb_resource *resource;
 	int ret = NB_ERR;
+
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CBS))
+		return NB_OK;
 
 	if (event == NB_EV_VALIDATE)
 		resource = NULL;
@@ -1933,7 +1973,7 @@ static int nb_oper_data_iter_list(const struct nb_node *nb_node,
 	/* Iterate over all list entries. */
 	do {
 		const struct lysc_node_leaf *skey;
-		struct yang_list_keys list_keys;
+		struct yang_list_keys list_keys = {};
 		char xpath[XPATH_MAXLEN * 2];
 		int ret;
 
@@ -2598,6 +2638,10 @@ const char *nb_client_name(enum nb_client client)
 
 static void nb_load_callbacks(const struct frr_yang_module_info *module)
 {
+
+	if (module->ignore_cbs)
+		return;
+
 	for (size_t i = 0; module->nodes[i].xpath; i++) {
 		struct nb_node *nb_node;
 		uint32_t priority;
@@ -2671,7 +2715,8 @@ void nb_init(struct thread_master *tm,
 
 	/* Initialize the compiled nodes with northbound data */
 	for (size_t i = 0; i < nmodules; i++) {
-		yang_snodes_iterate(loaded[i]->info, nb_node_new_cb, 0, NULL);
+		yang_snodes_iterate(loaded[i]->info, nb_node_new_cb, 0,
+				    (void *)modules[i]);
 		nb_load_callbacks(modules[i]);
 	}
 

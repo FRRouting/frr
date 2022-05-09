@@ -117,9 +117,15 @@ union mgmt_be_xpath_subscr_info {
 };
 
 struct mgmt_be_client_subscr_info {
-	union mgmt_be_xpath_subscr_info
-		xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
+	union mgmt_be_xpath_subscr_info xpath_subscr[MGMTD_BE_CLIENT_ID_MAX];
 };
+
+/*
+ * NOTE: List of YANG modules for every Backend Clients gets added here.
+ * These will typically have to be defined in mgmtd_be_adapter.c file
+ * first.
+ */
+extern const struct frr_yang_module_info frr_mgmt_staticd_info;
 
 /* Initialise backend adapter module. */
 extern int mgmt_be_adapter_init(struct thread_master *tm);
