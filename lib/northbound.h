@@ -597,6 +597,8 @@ struct nb_node {
 #define F_NB_NODE_CONFIG_ONLY 0x01
 /* The YANG list doesn't contain key leafs. */
 #define F_NB_NODE_KEYLESS_LIST 0x02
+/* Ignore callbacks for this node */
+#define F_NB_NODE_IGNORE_CBS 0x04
 
 /*
  * HACK: old gcc versions (< 5.x) have a bug that prevents C99 flexible arrays
@@ -608,6 +610,12 @@ struct nb_node {
 struct frr_yang_module_info {
 	/* YANG module name. */
 	const char *name;
+
+	/*
+	 * Ignore callbacks for this module. Set this to true to
+	 * load module without any callbacks.
+	 */
+	bool ignore_cbs;
 
 	/* Northbound callbacks. */
 	const struct {
