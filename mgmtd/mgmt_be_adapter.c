@@ -124,10 +124,24 @@ static struct mgmt_be_adapter_list_head mgmt_be_adapters;
 static struct mgmt_be_client_adapter
 	*mgmt_be_adapters_by_id[MGMTD_BE_CLIENT_ID_MAX];
 
+
+/*
+ * List of YANG modules for every Backend Clients gets added here.
+ * These will typically have to be prototyped in mgmtd_be_adapter.h
+ * and then added under mgmt_yang_modules[] in mgmt_main.c.
+ *
+ * NOTE: The .ignore_cbs for all entries to be set to 'true' to
+ * avoid validating backend northbound callback loading.
+ */
+const struct frr_yang_module_info frr_mgmt_staticd_info = {
+	.name = "frr-staticd",
+	.ignore_cbs = true
+};
+
 /* Forward declarations */
 static void
 mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
-				enum mgmt_be_event event);
+			       enum mgmt_be_event event);
 
 static struct mgmt_be_client_adapter *
 mgmt_be_find_adapter_by_fd(int conn_fd)
