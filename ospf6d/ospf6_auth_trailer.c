@@ -144,8 +144,6 @@ unsigned char *ospf6_hash_message_xor(unsigned char *mes1,
 	uint32_t i;
 
 	result = XCALLOC(MTYPE_OSPF6_AUTH_HASH_XOR, len);
-	if (!result)
-		return NULL;
 
 	for (i = 0; i < len; i++)
 		result[i] = mes1[i] ^ mes2[i];
