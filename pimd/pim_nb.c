@@ -142,6 +142,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/originator-id",
+			.cbs = {
+				.modify = pim_msdp_originator_id_modify,
+				.destroy = pim_msdp_originator_id_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/shutdown",
 			.cbs = {
 				.modify = pim_msdp_shutdown_modify,

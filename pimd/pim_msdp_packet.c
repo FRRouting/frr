@@ -409,7 +409,6 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
-	struct rp_info *rp_info;
 	struct prefix group_all;
 	struct in_addr rp;
 	int sa_count;
@@ -420,14 +419,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		zlog_debug("  sa gen  %d", local_cnt);
 	}
 
-	rp = pim->msdp.originator_id;
-	if (pim_get_all_mcast_group(&group_all)) {
-	    rp_info = pim_rp_find_match_group(pim, &group_all);
-	    if (rp_info) {
-	        rp = rp_info->rp.rpf_addr;
-	    }
-	}
-
+	pim_get_all_mcast_group(&group_all);
+	pim_msdp_originator_id(pim, &group_all, &rp);
 	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, rp);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
@@ -457,8 +450,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 				zlog_debug("  sa gen for remainder %d",
 					   local_cnt);
 			}
-			local_cnt = pim_msdp_pkt_sa_fill_hdr(
-				pim, local_cnt, rp);
+			local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, rp);
 		}
 	}
 
