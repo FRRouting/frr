@@ -56,6 +56,7 @@ int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args);
 int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args);
 int pim_msdp_log_neighbor_events_modify(struct nb_cb_modify_args *args);
 int pim_msdp_log_sa_events_modify(struct nb_cb_modify_args *args);
+int pim_msdp_shutdown_modify(struct nb_cb_modify_args *args);
 int pim_msdp_mesh_group_create(struct nb_cb_create_args *args);
 int pim_msdp_mesh_group_destroy(struct nb_cb_destroy_args *args);
 int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args);
