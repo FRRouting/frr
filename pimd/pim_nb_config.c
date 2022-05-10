@@ -1595,7 +1595,7 @@ int pim_msdp_peer_sa_limit_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_get_entry(args->dnode, NULL, true);
-		/* TODO: apply limitation. */
+		mp->sa_limit = yang_dnode_get_uint32(args->dnode, NULL);
 		break;
 	}
 
@@ -1614,7 +1614,7 @@ int pim_msdp_peer_sa_limit_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_get_entry(args->dnode, NULL, true);
-		/* TODO: remove limitation. */
+		mp->sa_limit = 0;
 		break;
 	}
 

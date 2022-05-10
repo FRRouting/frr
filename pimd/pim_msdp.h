@@ -152,6 +152,9 @@ struct pim_msdp_peer {
 	char *acl_in;
 	/** SA output access list name. */
 	char *acl_out;
+
+	/** SA maximum amount. */
+	uint32_t sa_limit;
 };
 
 struct pim_msdp_mg_mbr {
