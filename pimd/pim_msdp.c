@@ -44,6 +44,26 @@ static void pim_msdp_sa_deref(struct pim_msdp_sa *sa,
 static int pim_msdp_mg_mbr_comp(const void *p1, const void *p2);
 static void pim_msdp_mg_mbr_free(struct pim_msdp_mg_mbr *mbr);
 
+void pim_msdp_originator_id(struct pim_instance *pim, const struct prefix *group,
+			    struct in_addr *originator_id)
+{
+	struct rp_info *rp_info;
+
+	originator_id->s_addr = INADDR_ANY;
+
+	/* Originator ID was configured, use it. */
+	if (pim->msdp.originator_id.s_addr != INADDR_ANY) {
+		*originator_id = pim->msdp.originator_id;
+		return;
+	}
+
+	rp_info = pim_rp_find_match_group(pim, group);
+	if (rp_info) {
+		*originator_id = rp_info->rp.rpf_addr;
+		return;
+	}
+}
+
 /************************ SA cache management ******************************/
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
 static void pim_msdp_sa_adv_timer_cb(struct event *t)
@@ -354,7 +374,6 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
-	struct rp_info *rp_info;
 	struct prefix grp;
 
 	/* Check peer SA limit. */
@@ -395,12 +414,7 @@ void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 
 			/* send an immediate SA update to peers */
 			pim_addr_to_prefix(&grp, sa->sg.grp);
-			rp_info = pim_rp_find_match_group(pim, &grp);
-			if (rp_info) {
-				sa->rp = rp_info->rp.rpf_addr;
-			} else {
-				sa->rp = pim->msdp.originator_id;
-			}
+			pim_msdp_originator_id(pim, &grp, &sa->rp);
 			pim_msdp_pkt_sa_tx_one(sa);
 		}
 		sa->flags &= ~PIM_MSDP_SAF_STALE;
@@ -1013,8 +1027,6 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 	mp->peer = *peer;
 	pim_inet4_dump("<peer?>", mp->peer, mp->key_str, sizeof(mp->key_str));
 	mp->local = *local;
-	/* XXX: originator_id setting needs to move to the mesh group */
-	pim->msdp.originator_id = *local;
 	if (mesh_group_name)
 		mp->mesh_group_name =
 			XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
@@ -1339,6 +1351,12 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim)
 
 		written = true;
 	}
+
+	if (pim->msdp.originator_id.s_addr != INADDR_ANY)
+		vty_out(vty, " msdp originator-id %pI4\n", &pim->msdp.originator_id);
+
+	if (pim->msdp.shutdown)
+		vty_out(vty, " msdp shutdown\n");
 
 	return written;
 }
