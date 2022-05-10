@@ -391,7 +391,7 @@ static int bgpd_sync_callback(struct thread *thread)
 		read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
 	if (retval != sizeof(struct pfx_record)) {
 		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
-		return;
+		return 0;
 	}
 	prefix = pfx_record_to_prefix(&rec);
 
@@ -567,19 +567,21 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void sync_expired(struct thread *thread)
+static int sync_expired(struct thread *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
 		thread_add_timer(bm->master, sync_expired, NULL,
 				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
 				 &t_rpki_sync);
-		return;
+		return 0;
 	}
 
 	RPKI_DEBUG("rtr_mgr sync is done.");
 
 	rtr_is_synced = true;
+
+	return 0;
 }
 
 static int start(void)
