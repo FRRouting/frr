@@ -2009,6 +2009,7 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	if (peer->notify.data) {
 		XFREE(MTYPE_BGP_NOTIFICATION, peer->notify.data);
 		peer->notify.length = 0;
+		peer->notify.hard_reset = false;
 	}
 
 	outer.code = stream_getc(peer->curr);
