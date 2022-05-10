@@ -148,10 +148,18 @@ struct pim_msdp_peer {
 	/* timestamps */
 	int64_t uptime;
 
+	/** RPF lookup failures count. */
+	uint32_t rpf_lookup_failure_count;
+
 	/** SA input access list name. */
 	char *acl_in;
+	/** Number of input filtered SAs. */
+	uint32_t acl_in_count;
+
 	/** SA output access list name. */
 	char *acl_out;
+	/** Number of output filtered SAs. */
+	uint32_t acl_out_count;
 
 	/** SA maximum amount. */
 	uint32_t sa_limit;
