@@ -135,6 +135,7 @@ struct bgp_master {
 #define BGP_OPT_NO_FIB                   (1 << 0)
 #define BGP_OPT_NO_LISTEN                (1 << 1)
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
+#define BGP_OPT_AUTO_RD_RT               (1 << 3)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;

@@ -189,6 +189,7 @@ int bgp_option_set(int flag)
 	case BGP_OPT_NO_FIB:
 	case BGP_OPT_NO_LISTEN:
 	case BGP_OPT_NO_ZEBRA:
+	case BGP_OPT_AUTO_RD_RT:
 		SET_FLAG(bm->options, flag);
 		break;
 	default:
@@ -203,6 +204,7 @@ int bgp_option_unset(int flag)
 	/* Fall through.  */
 	case BGP_OPT_NO_ZEBRA:
 	case BGP_OPT_NO_FIB:
+	case BGP_OPT_AUTO_RD_RT:
 		UNSET_FLAG(bm->options, flag);
 		break;
 	default:
@@ -294,7 +296,8 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, true);
 
-	vpn_handle_router_id_update(bgp, true, is_config);
+	if (bgp_option_check(BGP_OPT_AUTO_RD_RT))
+		vpn_handle_router_id_update(bgp, true, is_config);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
 
@@ -313,7 +316,8 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, false);
 
-	vpn_handle_router_id_update(bgp, false, is_config);
+	if (bgp_option_check(BGP_OPT_AUTO_RD_RT))
+		vpn_handle_router_id_update(bgp, false, is_config);
 
 	return 0;
 }

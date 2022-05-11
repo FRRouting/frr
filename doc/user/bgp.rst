@@ -2708,6 +2708,12 @@ address-family:
    extended community values as described in
    :ref:`bgp-extended-communities-attribute`.
 
+.. clicmd:: bgp auto-rd-rt
+
+   Update automatically the ``rd vpn export`` and ``rt vpn export`` attributes
+   after a ``bgp router-id`` modification. Values before the semi-column are
+   replaced automatically by the new router-id.
+
 .. clicmd:: label vpn export (0..1048575)|auto
 
    Enables an MPLS label to be attached to a route exported from the current
