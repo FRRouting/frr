@@ -748,6 +748,13 @@ struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
 	return bn;
 }
 
+/* Check if Graceful-Restart N-bit is exchanged */
+bool bgp_has_graceful_restart_notification(struct peer *peer)
+{
+	return CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) &&
+	       CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+}
+
 /*
  * Check if to send BGP CEASE Notification/Hard Reset?
  */
@@ -757,8 +764,7 @@ bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
 	/* When the "N" bit has been exchanged, a Hard Reset message is used to
 	 * indicate to the peer that the session is to be fully terminated.
 	 */
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) ||
-	    !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV))
+	if (!bgp_has_graceful_restart_notification(peer))
 		return false;
 
 	/*
@@ -797,8 +803,7 @@ bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
 	/* When the "N" bit has been exchanged, a Hard Reset message is used to
 	 * indicate to the peer that the session is to be fully terminated.
 	 */
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) ||
-	    !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV))
+	if (!bgp_has_graceful_restart_notification(peer))
 		return false;
 
 	if (code == BGP_NOTIFY_CEASE && subcode == BGP_NOTIFY_CEASE_HARD_RESET)
@@ -2093,6 +2098,13 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	if (inner.code == BGP_NOTIFY_OPEN_ERR &&
 	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
+
+	/* If Graceful-Restart N-bit (Notification) is exchanged,
+	 * and it's not a Hard Reset, let's retain the routes.
+	 */
+	if (bgp_has_graceful_restart_notification(peer) && !hard_reset &&
+	    CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+		SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,

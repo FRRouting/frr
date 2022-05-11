@@ -88,6 +88,7 @@ extern void bgp_send_delayed_eor(struct bgp *bgp);
 void bgp_packet_process_error(struct thread *thread);
 extern struct bgp_notify
 bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify);
+extern bool bgp_has_graceful_restart_notification(struct peer *peer);
 extern bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
 				       uint8_t subcode);
 extern bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,

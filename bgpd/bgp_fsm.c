@@ -1961,6 +1961,15 @@ static int bgp_fsm_holdtime_expire(struct peer *peer)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire", peer->host);
 
+	/* RFC8538 updates RFC 4724 by defining an extension that permits
+	 * the Graceful Restart procedures to be performed when the BGP
+	 * speaker receives a BGP NOTIFICATION message or the Hold Time expires.
+	 */
+	if (peer_established(peer) &&
+	    bgp_has_graceful_restart_notification(peer))
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_HOLD_ERR, 0);
 }
 
