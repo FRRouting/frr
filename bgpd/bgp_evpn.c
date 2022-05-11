@@ -4167,7 +4167,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	char temp[16];
 	const struct evpn_addr *p_evpn_p;
 
-	memset(&temp, 0, 16);
+	memset(&temp, 0, sizeof(temp));
 	if (p->family != AF_EVPN)
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
