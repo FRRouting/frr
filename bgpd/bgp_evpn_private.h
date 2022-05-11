@@ -450,8 +450,7 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 	p->prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 	memcpy(&p->prefix.macip_addr.mac.octet, mac->octet, ETH_ALEN);
 	p->prefix.macip_addr.ip.ipa_type = IPADDR_NONE;
-	if (ip)
-		memcpy(&p->prefix.macip_addr.ip, ip, sizeof(*ip));
+	memcpy(&p->prefix.macip_addr.ip, ip, sizeof(*ip));
 }
 
 static inline void
