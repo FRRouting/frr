@@ -32,6 +32,7 @@
 
 #include "pimd.h"
 #include "pim_memory.h"
+#include "pim_instance.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
 #include "pim_str.h"

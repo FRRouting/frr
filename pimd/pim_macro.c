@@ -25,6 +25,7 @@
 #include "plist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_macro.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"

@@ -37,6 +37,7 @@
 #include "network.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_mroute.h"
 #include "pim_iface.h"
 #include "pim_sock.h"

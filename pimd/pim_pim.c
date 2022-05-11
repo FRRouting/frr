@@ -26,6 +26,7 @@
 #include "network.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_pim.h"
 #include "pim_time.h"
 #include "pim_iface.h"
