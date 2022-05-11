@@ -3127,6 +3127,12 @@ address-family:
    `per-nexthop` will use a unique label for all prefixes that are reachable
    via the same nexthop.
 
+.. clicmd:: bgp auto-rd-rt
+
+   Update automatically the `rd vpn export` and `rt vpn export` attributes
+   after a `bgp router-id` modification. Values before the semi-column are
+   replaced automatically by the new router-id.
+
 .. clicmd:: label vpn export (0..1048575)|auto
 
    Enables an MPLS label to be attached to a route exported from the current
