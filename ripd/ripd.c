@@ -1287,10 +1287,9 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			uint32_t destination;
 
 			if (subnetted == -1) {
-				memcpy(&ifaddr, ifc->address,
-				       sizeof(struct prefix_ipv4));
+				memcpy(&ifaddr, ifc->address, sizeof(ifaddr));
 				memcpy(&ifaddrclass, &ifaddr,
-				       sizeof(struct prefix_ipv4));
+				       sizeof(ifaddrclass));
 				apply_classful_mask_ipv4(&ifaddrclass);
 				subnetted = 0;
 				if (ifaddr.prefixlen > ifaddrclass.prefixlen)
@@ -2103,7 +2102,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	}
 
 	if (version == RIPv1) {
-		memcpy(&ifaddrclass, ifc->address, sizeof(struct prefix_ipv4));
+		memcpy(&ifaddrclass, ifc->address, sizeof(ifaddrclass));
 		apply_classful_mask_ipv4(&ifaddrclass);
 		subnetted = 0;
 		if (ifc->address->prefixlen > ifaddrclass.prefixlen)
