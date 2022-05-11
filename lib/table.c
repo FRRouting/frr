@@ -228,7 +228,7 @@ struct route_node *route_node_match_ipv4(struct route_table *table,
 {
 	struct prefix_ipv4 p;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = *addr;
@@ -241,7 +241,7 @@ struct route_node *route_node_match_ipv6(struct route_table *table,
 {
 	struct prefix_ipv6 p;
 
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = *addr;

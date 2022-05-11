@@ -648,7 +648,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 	}
 
 	/* Prepare the extrenal_info for aggregator */
-	memset(&ei_aggr, 0, sizeof(struct external_info));
+	memset(&ei_aggr, 0, sizeof(ei_aggr));
 	ei_aggr.p = aggr->p;
 	ei_aggr.tag = aggr->tag;
 	ei_aggr.type = 0;
@@ -1011,7 +1011,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 			aggr->action = OSPF_ROUTE_AGGR_NONE;
 
 			/* Prepare the extrenal_info for aggregator */
-			memset(&ei_aggr, 0, sizeof(struct external_info));
+			memset(&ei_aggr, 0, sizeof(ei_aggr));
 			ei_aggr.p = aggr->p;
 			ei_aggr.tag = aggr->tag;
 			ei_aggr.type = 0;

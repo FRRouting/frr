@@ -600,7 +600,7 @@ int sock_open_unix(const char *path)
 	if (fd < 0)
 		return -1;
 
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
 

@@ -275,7 +275,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 	 * size, we try to be a bit more elegant in display by first computing
 	 * the maximum width.
 	 */
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
@@ -341,7 +341,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 		return;
 	}
 
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
@@ -625,7 +625,7 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
 	} else
 		json_object_int_add(json_evpn, "numNextHops", num_nh);
 
-	memset(&wctx, 0, sizeof(struct nh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json_evpn;
 	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
@@ -668,7 +668,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
 	 * under the vni. Re-assign primary json object to fill
 	 * next vni information.
 	 */
-	memset(&wctx, 0, sizeof(struct rmac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json_evpn;
 	hash_iterate(zl3vni->rmac_table, zl3vni_print_rmac_hash, &wctx);
@@ -1184,7 +1184,7 @@ static struct zebra_mac *zl3vni_rmac_add(struct zebra_l3vni *zl3vni,
 	struct zebra_mac tmp_rmac;
 	struct zebra_mac *zrmac = NULL;
 
-	memset(&tmp_rmac, 0, sizeof(struct zebra_mac));
+	memset(&tmp_rmac, 0, sizeof(tmp_rmac));
 	memcpy(&tmp_rmac.macaddr, rmac, ETH_ALEN);
 	zrmac = hash_get(zl3vni->rmac_table, &tmp_rmac, zl3vni_rmac_alloc);
 	zrmac->nh_list = list_new();
@@ -1367,7 +1367,7 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 	struct ipaddr ipv4_vtep;
 
 	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		memset(&ipv4_vtep, 0, sizeof(struct ipaddr));
+		memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
 		ipv4_vtep.ipa_type = IPADDR_V4;
 		if (vtep_ip->ipa_type == IPADDR_V6)
 			ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
@@ -1459,7 +1459,7 @@ static struct zebra_neigh *zl3vni_nh_add(struct zebra_l3vni *zl3vni,
 	struct zebra_neigh tmp_n;
 	struct zebra_neigh *n = NULL;
 
-	memset(&tmp_n, 0, sizeof(struct zebra_neigh));
+	memset(&tmp_n, 0, sizeof(tmp_n));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(zl3vni->nh_table, &tmp_n, zl3vni_nh_alloc);
 
@@ -1672,7 +1672,7 @@ struct zebra_l3vni *zl3vni_lookup(vni_t vni)
 	struct zebra_l3vni tmp_l3vni;
 	struct zebra_l3vni *zl3vni = NULL;
 
-	memset(&tmp_l3vni, 0, sizeof(struct zebra_l3vni));
+	memset(&tmp_l3vni, 0, sizeof(tmp_l3vni));
 	tmp_l3vni.vni = vni;
 	zl3vni = hash_lookup(zrouter.l3vni_table, &tmp_l3vni);
 
@@ -1687,7 +1687,7 @@ static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 	struct zebra_l3vni tmp_zl3vni;
 	struct zebra_l3vni *zl3vni = NULL;
 
-	memset(&tmp_zl3vni, 0, sizeof(struct zebra_l3vni));
+	memset(&tmp_zl3vni, 0, sizeof(tmp_zl3vni));
 	tmp_zl3vni.vni = vni;
 
 	zl3vni = hash_get(zrouter.l3vni_table, &tmp_zl3vni, zl3vni_alloc);
@@ -1988,7 +1988,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	assert(zvrf);
 
 	/* get the svi and vrr rmac values */
-	memset(&svi_rmac, 0, sizeof(struct ethaddr));
+	memset(&svi_rmac, 0, sizeof(svi_rmac));
 	zl3vni_get_svi_rmac(zl3vni, &svi_rmac);
 	zl3vni_get_vrr_rmac(zl3vni, &vrr_rmac);
 
@@ -2276,7 +2276,7 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 	 * address. Rmac is programmed against the ipv4 vtep because we only
 	 * support ipv4 tunnels in the h/w right now
 	 */
-	memset(&ipv4_vtep, 0, sizeof(struct ipaddr));
+	memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
 	ipv4_vtep.ipa_type = IPADDR_V4;
 	if (vtep_ip->ipa_type == IPADDR_V6)
 		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
@@ -2386,7 +2386,7 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct rmac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json;
 	if (!use_json) {
@@ -2637,7 +2637,7 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	 * size, we try to be a bit more elegant in display by first computing
 	 * the maximum width.
 	 */
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
@@ -2781,7 +2781,7 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
@@ -2834,7 +2834,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 	 * size, we try to be a bit more elegant in display by first computing
 	 * the maximum width.
 	 */
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
@@ -2890,7 +2890,7 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json_mac = json_object_new_object();
 	}
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.json = json_mac;
@@ -2931,7 +2931,7 @@ void zebra_vxlan_print_macs_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json;
 	wctx.print_dup = print_dup;
@@ -2959,7 +2959,7 @@ void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.json = json;
 	wctx.print_dup = print_dup;
@@ -2986,7 +2986,7 @@ void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.vty = vty;
 	wctx.flags = SHOW_REMOTE_MAC_FROM_VTEP;
 	wctx.r_vtep_ip = vtep_ip;
@@ -3071,7 +3071,7 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 		json_mac = json_object_new_object();
 	}
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.json = json_mac;
@@ -3320,7 +3320,7 @@ static void zevpn_clear_dup_detect_hash_vni_all(struct hash_bucket *bucket,
 	zvrf = (struct zebra_vrf *)args[0];
 
 	if (hashcount(zevpn->neigh_table)) {
-		memset(&n_wctx, 0, sizeof(struct neigh_walk_ctx));
+		memset(&n_wctx, 0, sizeof(n_wctx));
 		n_wctx.zevpn = zevpn;
 		n_wctx.zvrf = zvrf;
 		hash_iterate(zevpn->neigh_table,
@@ -3328,7 +3328,7 @@ static void zevpn_clear_dup_detect_hash_vni_all(struct hash_bucket *bucket,
 	}
 
 	if (num_valid_macs(zevpn)) {
-		memset(&m_wctx, 0, sizeof(struct mac_walk_ctx));
+		memset(&m_wctx, 0, sizeof(m_wctx));
 		m_wctx.zevpn = zevpn;
 		m_wctx.zvrf = zvrf;
 		hash_iterate(zevpn->mac_table, zevpn_clear_dup_mac_hash, &m_wctx);
@@ -3368,7 +3368,7 @@ int zebra_vxlan_clear_dup_detect_vni(struct zebra_vrf *zvrf, vni_t vni)
 	}
 
 	if (hashcount(zevpn->neigh_table)) {
-		memset(&n_wctx, 0, sizeof(struct neigh_walk_ctx));
+		memset(&n_wctx, 0, sizeof(n_wctx));
 		n_wctx.zevpn = zevpn;
 		n_wctx.zvrf = zvrf;
 		hash_iterate(zevpn->neigh_table,
@@ -3376,7 +3376,7 @@ int zebra_vxlan_clear_dup_detect_vni(struct zebra_vrf *zvrf, vni_t vni)
 	}
 
 	if (num_valid_macs(zevpn)) {
-		memset(&m_wctx, 0, sizeof(struct mac_walk_ctx));
+		memset(&m_wctx, 0, sizeof(m_wctx));
 		m_wctx.zevpn = zevpn;
 		m_wctx.zvrf = zvrf;
 		hash_iterate(zevpn->mac_table, zevpn_clear_dup_mac_hash, &m_wctx);
@@ -3417,7 +3417,7 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 		json_mac = json_object_new_object();
 	}
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.flags = SHOW_REMOTE_MAC_FROM_VTEP;
@@ -4467,8 +4467,8 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 	struct ethaddr macaddr;
 	struct zebra_evpn *zevpn = NULL;
 
-	memset(&ip, 0, sizeof(struct ipaddr));
-	memset(&macaddr, 0, sizeof(struct ethaddr));
+	memset(&ip, 0, sizeof(ip));
+	memset(&macaddr, 0, sizeof(macaddr));
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -4683,7 +4683,7 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 			zebra_evpn_send_add_to_client(zevpn);
 
 		/* Install any remote neighbors for this VNI. */
-		memset(&n_wctx, 0, sizeof(struct neigh_walk_ctx));
+		memset(&n_wctx, 0, sizeof(n_wctx));
 		n_wctx.zevpn = zevpn;
 		hash_iterate(zevpn->neigh_table, zebra_evpn_install_neigh_hash,
 			     &n_wctx);
@@ -5153,12 +5153,12 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 
-			memset(&m_wctx, 0, sizeof(struct mac_walk_ctx));
+			memset(&m_wctx, 0, sizeof(m_wctx));
 			m_wctx.zevpn = zevpn;
 			hash_iterate(zevpn->mac_table,
 				     zebra_evpn_install_mac_hash, &m_wctx);
 
-			memset(&n_wctx, 0, sizeof(struct neigh_walk_ctx));
+			memset(&n_wctx, 0, sizeof(n_wctx));
 			n_wctx.zevpn = zevpn;
 			hash_iterate(zevpn->neigh_table,
 				     zebra_evpn_install_neigh_hash, &n_wctx);

@@ -1000,7 +1000,7 @@ struct zebra_evpn *zebra_evpn_lookup(vni_t vni)
 
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
-	memset(&tmp_vni, 0, sizeof(struct zebra_evpn));
+	memset(&tmp_vni, 0, sizeof(tmp_vni));
 	tmp_vni.vni = vni;
 	zevpn = hash_lookup(zvrf->evpn_table, &tmp_vni);
 
@@ -1019,7 +1019,7 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni)
 
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
-	memset(&tmp_zevpn, 0, sizeof(struct zebra_evpn));
+	memset(&tmp_zevpn, 0, sizeof(tmp_zevpn));
 	tmp_zevpn.vni = vni;
 	zevpn = hash_get(zvrf->evpn_table, &tmp_zevpn, zebra_evpn_alloc);
 

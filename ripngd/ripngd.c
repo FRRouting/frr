@@ -196,7 +196,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 		zlog_debug("  send packet size %d", bufsize);
 	}
 
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin6_family = AF_INET6;
 #ifdef SIN6_LEN
 	addr.sin6_len = sizeof(struct sockaddr_in6);
@@ -259,7 +259,7 @@ static int ripng_recv_packet(int sock, uint8_t *buf, int bufsize,
 	struct cmsghdr *cmsgptr;
 	struct in6_addr dst = {.s6_addr = {0}};
 
-	memset(&dst, 0, sizeof(struct in6_addr));
+	memset(&dst, 0, sizeof(dst));
 
 	/* Ancillary data.  This store cmsghdr and in6_pktinfo.  But at this
 	   point I can't determine size of cmsghdr */
@@ -940,7 +940,7 @@ void ripng_redistribute_add(struct ripng *ripng, int type, int sub_type,
 
 	rp = agg_node_get(ripng->table, (struct prefix *)p);
 
-	memset(&newinfo, 0, sizeof(struct ripng_info));
+	memset(&newinfo, 0, sizeof(newinfo));
 	newinfo.type = type;
 	newinfo.sub_type = sub_type;
 	newinfo.ifindex = ifindex;
@@ -1145,7 +1145,7 @@ static void ripng_response_process(struct ripng_packet *packet, int size,
 	ripng_peer_update(ripng, from, packet->version);
 
 	/* Reset nexthop. */
-	memset(&nexthop, 0, sizeof(struct ripng_nexthop));
+	memset(&nexthop, 0, sizeof(nexthop));
 	nexthop.flag = RIPNG_NEXTHOP_UNSPEC;
 
 	/* Set RTE pointer. */
@@ -1272,7 +1272,7 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 		   field.  Once all the entries have been filled in, change the
 		   command from Request to Response and send the datagram back
 		   to the requestor. */
-		memset(&p, 0, sizeof(struct prefix_ipv6));
+		memset(&p, 0, sizeof(p));
 		p.family = AF_INET6;
 
 		for (; ((caddr_t)rte) < lim; rte++) {

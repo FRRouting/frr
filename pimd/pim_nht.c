@@ -114,7 +114,7 @@ static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
 	struct zclient *zclient = NULL;
 
 	zclient = pim_zebra_zclient_get();
-	memset(&rpf, 0, sizeof(struct pim_rpf));
+	memset(&rpf, 0, sizeof(rpf));
 	rpf.rpf_addr = *addr;
 
 	pnc = pim_nexthop_cache_find(pim, &rpf);

@@ -55,7 +55,7 @@ int bgp_parse_fec_update(void)
 
 	s = zclient->ibuf;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = stream_getw(s);
 	p.prefixlen = stream_getc(s);
 	stream_get(p.u.val, s, PSIZE(p.prefixlen));
@@ -350,7 +350,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
 		if (addpath_capable) {
 

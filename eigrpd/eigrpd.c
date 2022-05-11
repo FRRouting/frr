@@ -123,7 +123,7 @@ void eigrp_master_init(void)
 {
 	struct timeval tv;
 
-	memset(&eigrp_master, 0, sizeof(struct eigrp_master));
+	memset(&eigrp_master, 0, sizeof(eigrp_master));
 
 	eigrp_om = &eigrp_master;
 	eigrp_om->eigrp = list_new();

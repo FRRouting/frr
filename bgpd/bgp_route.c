@@ -1594,7 +1594,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 
 	/* Route map apply. */
 	if (rmap) {
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		memset(&rmap_path, 0, sizeof(rmap_path));
 		/* Duplicate current value to new structure for modification. */
 		rmap_path.peer = peer;
 		rmap_path.attr = attr;
@@ -1650,7 +1650,7 @@ static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
 	if (rmap == NULL)
 		return RMAP_DENY;
 
-	memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+	memset(&rmap_path, 0, sizeof(rmap_path));
 	/* Route map apply. */
 	/* Duplicate current value to new structure for modification. */
 	rmap_path.peer = peer;
@@ -2695,7 +2695,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */
 
 	/* Announcement to the subgroup. If the route is filtered withdraw it.
@@ -3755,7 +3755,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (orig_safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	memset(&new_attr, 0, sizeof(struct attr));
+	memset(&new_attr, 0, sizeof(new_attr));
 	new_attr.label_index = BGP_INVALID_LABEL_INDEX;
 	new_attr.label = MPLS_INVALID_LABEL;
 
@@ -5653,7 +5653,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	   then the Error Subcode is set to Invalid Network Field. */
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
 		if (addpath_capable) {
 
@@ -5830,7 +5830,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
 
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		memset(&rmap_path, 0, sizeof(rmap_path));
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
 
@@ -6142,7 +6142,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
 			struct bgp_encap_type_vxlan bet;
-			memset(&bet, 0, sizeof(struct bgp_encap_type_vxlan));
+			memset(&bet, 0, sizeof(bet));
 			bet.vnid = p->u.prefix_evpn.prefix_addr.eth_tag;
 			bgp_encap_type_vxlan_to_tlv(&bet, &attr);
 		}
@@ -6642,7 +6642,7 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		if (gwip) {
-			memset(&gw_ip, 0, sizeof(struct prefix));
+			memset(&gw_ip, 0, sizeof(gw_ip));
 			ret = str2prefix(gwip, &gw_ip);
 			if (!ret) {
 				vty_out(vty, "%% Malformed GatewayIp\n");
@@ -8369,7 +8369,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
-			memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+			memset(&rmap_path, 0, sizeof(rmap_path));
 			rmap_path.peer = bgp->peer_self;
 			rmap_path.attr = &attr_new;
 

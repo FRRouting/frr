@@ -114,7 +114,7 @@ int ospf_ext_init(void)
 {
 	int rc = 0;
 
-	memset(&OspfEXT, 0, sizeof(struct ospf_ext_lp));
+	memset(&OspfEXT, 0, sizeof(OspfEXT));
 	OspfEXT.enabled = false;
 	/* Only Area flooding is supported yet */
 	OspfEXT.scope = OSPF_OPAQUE_AREA_LSA;

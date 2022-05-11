@@ -696,7 +696,7 @@ static void ospf_write(struct thread *thread)
 		/* reset get pointer */
 		stream_set_getp(op->s, 0);
 
-		memset(&iph, 0, sizeof(struct ip));
+		memset(&iph, 0, sizeof(iph));
 		memset(&sa_dst, 0, sizeof(sa_dst));
 
 		sa_dst.sin_family = AF_INET;
@@ -2310,7 +2310,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	char buff[CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
 	struct msghdr msgh;
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	msgh.msg_iov = &iov;
 	msgh.msg_iovlen = 1;
 	msgh.msg_control = (caddr_t)buff;

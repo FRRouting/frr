@@ -542,7 +542,7 @@ static time_t key_str2time(const char *time_str, const char *day_str,
 	/* Check year_str.  Year must be <1993-2035>. */
 	GET_LONG_RANGE(year, year_str, 1993, 2035);
 
-	memset(&tm, 0, sizeof(struct tm));
+	memset(&tm, 0, sizeof(tm));
 	tm.tm_sec = sec;
 	tm.tm_min = min;
 	tm.tm_hour = hour;

@@ -97,7 +97,7 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 		switch (type) {
 		case FLOWSPEC_DEST_PREFIX:
 		case FLOWSPEC_SRC_PREFIX:
-			memset(&compare, 0, sizeof(struct prefix));
+			memset(&compare, 0, sizeof(compare));
 			ret = bgp_flowspec_ip_address(
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content+offset,
@@ -185,7 +185,7 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 	uint8_t prefix_offset = 0;
 
 	*error = 0;
-	memset(&prefix_local, 0, sizeof(struct prefix));
+	memset(&prefix_local, 0, sizeof(prefix_local));
 	/* read the prefix length */
 	prefix_local.prefixlen = nlri_ptr[offset];
 	psize = PSIZE(prefix_local.prefixlen);
@@ -665,7 +665,7 @@ bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
 	struct bgp_dest *dest = pi->net;
 	struct bgp_pbr_entry_action *api_action;
 
-	memset(&api, 0, sizeof(struct bgp_pbr_entry_main));
+	memset(&api, 0, sizeof(api));
 	if (bgp_pbr_build_and_validate_entry(bgp_dest_get_prefix(dest), pi,
 					     &api)
 	    < 0)

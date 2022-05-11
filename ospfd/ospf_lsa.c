@@ -3149,7 +3149,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 	struct route_node *rn;
 	struct prefix lsa_prefix;
 
-	memset(&lsa_prefix, 0, sizeof(struct prefix));
+	memset(&lsa_prefix, 0, sizeof(lsa_prefix));
 	lsa_prefix.family = AF_UNSPEC;
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
@@ -3190,7 +3190,7 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 		return;
 	}
 
-	memset(&lsa_prefix, 0, sizeof(struct prefix));
+	memset(&lsa_prefix, 0, sizeof(lsa_prefix));
 	lsa_prefix.family = AF_UNSPEC;
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
@@ -3865,8 +3865,7 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 			if (aggr) {
 				struct external_info ei_aggr;
 
-				memset(&ei_aggr, 0,
-					sizeof(struct external_info));
+				memset(&ei_aggr, 0, sizeof(ei_aggr));
 				ei_aggr.p = aggr->p;
 				ei_aggr.tag = aggr->tag;
 				ei_aggr.instance = ospf->instance;

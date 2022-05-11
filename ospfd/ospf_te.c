@@ -159,7 +159,7 @@ int ospf_mpls_te_init(void)
 		return rc;
 	}
 
-	memset(&OspfMplsTE, 0, sizeof(struct ospf_mpls_te));
+	memset(&OspfMplsTE, 0, sizeof(OspfMplsTE));
 	OspfMplsTE.enabled = false;
 	OspfMplsTE.export = false;
 	OspfMplsTE.inter_as = Off;

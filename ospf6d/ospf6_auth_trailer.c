@@ -406,7 +406,7 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
-	memset(&ospf6_auth_info, 0, sizeof(struct ospf6_auth_hdr));
+	memset(&ospf6_auth_info, 0, sizeof(ospf6_auth_info));
 	if ((*pkt_len - hdr_len - (*lls_block_len)) > sizeof(ospf6_auth_info)) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
 			zlog_err("RECV[%s] : Wrong auth data in %s packet",

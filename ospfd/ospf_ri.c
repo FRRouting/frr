@@ -90,7 +90,7 @@ int ospf_router_info_init(void)
 
 	zlog_info("RI (%s): Initialize Router Information", __func__);
 
-	memset(&OspfRI, 0, sizeof(struct ospf_router_info));
+	memset(&OspfRI, 0, sizeof(OspfRI));
 	OspfRI.enabled = false;
 	OspfRI.registered = 0;
 	OspfRI.scope = OSPF_OPAQUE_AS_LSA;

@@ -2679,9 +2679,9 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	struct bgp_pbr_val_mask bpvm;
 
 	memset(&range, 0, sizeof(range));
-	memset(&nh, 0, sizeof(struct nexthop));
-	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
-	memset(&bpof, 0, sizeof(struct bgp_pbr_or_filter));
+	memset(&nh, 0, sizeof(nh));
+	memset(&bpf, 0, sizeof(bpf));
+	memset(&bpof, 0, sizeof(bpof));
 	if (api->match_bitmask & PREFIX_SRC_PRESENT ||
 	    (api->type == BGP_PBR_IPRULE &&
 	     api->match_bitmask_iprule & PREFIX_SRC_PRESENT))
@@ -2692,7 +2692,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 		dst = &api->dst_prefix;
 	if (api->type == BGP_PBR_IPRULE)
 		bpf.type = api->type;
-	memset(&nh, 0, sizeof(struct nexthop));
+	memset(&nh, 0, sizeof(nh));
 	nh.vrf_id = VRF_UNKNOWN;
 	if (api->match_protocol_num) {
 		proto = (uint8_t)api->protocol[0].value;

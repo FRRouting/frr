@@ -929,7 +929,7 @@ int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *from)
 	struct prefix_ipv4 p;
 	struct route_node *node;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefix = from->sin_addr;
 	p.prefixlen = IPV4_MAX_BITLEN;

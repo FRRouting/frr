@@ -599,7 +599,7 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
 
 	/* ES import RT */
-	memset(&mac, 0, sizeof(struct ethaddr));
+	memset(&mac, 0, sizeof(mac));
 	memset(&ecom_es_rt, 0, sizeof(ecom_es_rt));
 	es_get_system_mac(&es->esi, &mac);
 	encode_es_rt_extcomm(&eval_es_rt, &mac);
@@ -633,7 +633,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	struct bgp_dest *dest = NULL;
 	struct bgp_path_info *pi = NULL;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
 	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
@@ -943,7 +943,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	int route_changed = 0;
 	struct prefix_rd *global_rd;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
 	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
@@ -4507,7 +4507,7 @@ static struct bgp_evpn_nh *bgp_evpn_nh_add(struct bgp *bgp_vrf,
 	struct bgp_evpn_nh tmp_n;
 	struct bgp_evpn_nh *n = NULL;
 
-	memset(&tmp_n, 0, sizeof(struct bgp_evpn_nh));
+	memset(&tmp_n, 0, sizeof(tmp_n));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(bgp_vrf->evpn_nh_table, &tmp_n, bgp_evpn_nh_alloc);
 	ipaddr2str(ip, n->nh_str, sizeof(n->nh_str));

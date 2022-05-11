@@ -144,7 +144,7 @@ static int open_packet_socket(struct isis_circuit *circuit)
 	/*
 	 * Bind to the physical interface
 	 */
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 	s_addr.sll_family = AF_PACKET;
 	s_addr.sll_protocol = htons(ETH_P_ALL);
 	s_addr.sll_ifindex = circuit->interface->ifindex;
@@ -233,7 +233,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	addr_len = sizeof(s_addr);
 
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 
 	bytesread =
 		recvfrom(circuit->fd, (void *)&llc, LLC_LEN, MSG_PEEK,
@@ -306,7 +306,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 	int bytesread, addr_len;
 	struct sockaddr_ll s_addr;
 
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 	addr_len = sizeof(s_addr);
 
 	/* we can read directly to the stream */
@@ -351,7 +351,7 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	struct sockaddr_ll sa;
 
 	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
+	memset(&sa, 0, sizeof(sa));
 	sa.sll_family = AF_PACKET;
 
 	size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
@@ -398,7 +398,7 @@ int isis_send_pdu_p2p(struct isis_circuit *circuit, int level)
 	ssize_t rv;
 
 	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
+	memset(&sa, 0, sizeof(sa));
 	sa.sll_family = AF_PACKET;
 	sa.sll_ifindex = circuit->interface->ifindex;
 	sa.sll_halen = ETH_ALEN;

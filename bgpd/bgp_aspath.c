@@ -854,7 +854,7 @@ struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit)
 	if (length % AS16_VALUE_SIZE)
 		return NULL;
 
-	memset(&as, 0, sizeof(struct aspath));
+	memset(&as, 0, sizeof(as));
 	if (assegments_parse(s, length, &as.segments, use32bit) < 0)
 		return NULL;
 

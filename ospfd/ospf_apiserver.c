@@ -615,7 +615,7 @@ void ospf_apiserver_accept(struct thread *thread)
 	/* Get port address and port number of peer to make reverse connection.
 	   The reverse channel uses the port number of the peer port+1. */
 
-	memset(&peer_sync, 0, sizeof(struct sockaddr_in));
+	memset(&peer_sync, 0, sizeof(peer_sync));
 	peerlen = sizeof(struct sockaddr_in);
 
 	ret = getpeername(new_sync_sock, (struct sockaddr *)&peer_sync,

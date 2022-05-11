@@ -1710,7 +1710,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* Set initial values. */
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
@@ -2249,8 +2249,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					 * to maximise debug information.
 					 */
 					int ok;
-					memset(&orfp, 0,
-					       sizeof(struct orf_prefix));
+					memset(&orfp, 0, sizeof(orfp));
 					common = *p_pnt++;
 					/* after ++: p_pnt <= p_end */
 					if (common

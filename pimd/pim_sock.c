@@ -360,7 +360,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			*tolen = sizeof(*to);
 	}
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	iov.iov_base = buf;
 	iov.iov_len = len;
 	msgh.msg_control = cbuf;

@@ -2890,8 +2890,8 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 	ifindex_t svi_ifindex;
 	bool is_anycast_mac = false;
 
-	memset(&svi_rmac, 0, sizeof(struct ethaddr));
-	memset(&originator_ip, 0, sizeof(struct in_addr));
+	memset(&svi_rmac, 0, sizeof(svi_rmac));
+	memset(&originator_ip, 0, sizeof(originator_ip));
 	s = zclient->ibuf;
 	l3vni = stream_getl(s);
 	if (cmd == ZEBRA_L3VNI_ADD) {
@@ -3048,7 +3048,7 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp_vrf = NULL;
 	struct prefix p;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	s = zclient->ibuf;
 	stream_get(&p, s, sizeof(struct prefix));
 
@@ -3519,7 +3519,7 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 	if (!vrf_is_backend_netns() && bgp->vrf_id != nh->vrf_id)
 		return;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	if (afi != AFI_IP && afi != AFI_IP6)
 		return;
 	p.family = afi2family(afi);
@@ -3620,7 +3620,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 	/* Check if capability is already sent. If the flag force is set
 	 * send the capability since this can be initial bgp configuration
 	 */
-	memset(&api, 0, sizeof(struct zapi_cap));
+	memset(&api, 0, sizeof(api));
 	if (disable) {
 		api.cap = ZEBRA_CLIENT_GR_DISABLE;
 		api.vrf_id = bgp->vrf_id;
@@ -3700,7 +3700,7 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 		return BGP_GR_FAILURE;
 	}
 
-	memset(&api, 0, sizeof(struct zapi_cap));
+	memset(&api, 0, sizeof(api));
 	api.cap = ZEBRA_CLIENT_RIB_STALE_TIME;
 	api.stale_removal_time = bgp->rib_stale_time;
 	api.vrf_id = bgp->vrf_id;

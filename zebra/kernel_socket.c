@@ -1156,7 +1156,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		return ZEBRA_ERR_EPERM;
 
 	/* Clear and set rt_msghdr values */
-	memset(&msg, 0, sizeof(struct rt_msghdr));
+	memset(&msg, 0, sizeof(msg));
 	msg.rtm.rtm_version = RTM_VERSION;
 	msg.rtm.rtm_type = message;
 	msg.rtm.rtm_seq = msg_seq++;

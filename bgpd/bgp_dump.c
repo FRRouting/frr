@@ -851,9 +851,9 @@ static int config_write_bgp_dump(struct vty *vty)
 /* Initialize BGP packet dump functionality. */
 void bgp_dump_init(void)
 {
-	memset(&bgp_dump_all, 0, sizeof(struct bgp_dump));
-	memset(&bgp_dump_updates, 0, sizeof(struct bgp_dump));
-	memset(&bgp_dump_routes, 0, sizeof(struct bgp_dump));
+	memset(&bgp_dump_all, 0, sizeof(bgp_dump_all));
+	memset(&bgp_dump_updates, 0, sizeof(bgp_dump_updates));
+	memset(&bgp_dump_routes, 0, sizeof(bgp_dump_routes));
 
 	bgp_dump_obuf =
 		stream_new((BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE * 2)

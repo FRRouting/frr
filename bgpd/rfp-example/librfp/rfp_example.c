@@ -287,7 +287,7 @@ static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
 void *rfp_start(struct thread_master *master, struct rfapi_rfp_cfg **cfgp,
 		struct rfapi_rfp_cb_methods **cbmp)
 {
-	memset(&global_rfi, 0, sizeof(struct rfp_instance_t));
+	memset(&global_rfi, 0, sizeof(global_rfi));
 	global_rfi.master = master; /* for BGPD threads */
 
 	/* initilize struct rfapi_rfp_cfg, see rfapi.h */

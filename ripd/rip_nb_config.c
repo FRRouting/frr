@@ -132,7 +132,7 @@ int ripd_instance_default_information_originate_modify(
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	default_information = yang_dnode_get_bool(args->dnode, NULL);
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	if (default_information) {
 		struct nexthop nh;
