@@ -512,14 +512,14 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 	struct prefix p, d;
 	struct connected *ifc;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.u.prefix4 = *addr;
 	p.prefixlen =
 		CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_BITLEN : prefixlen;
 
 	if (dest) {
-		memset(&d, 0, sizeof(struct prefix));
+		memset(&d, 0, sizeof(d));
 		d.family = AF_INET;
 		d.u.prefix4 = *dest;
 		d.prefixlen = prefixlen;
@@ -603,7 +603,7 @@ void connected_delete_ipv6(struct interface *ifp,
 	struct prefix p, d;
 	struct connected *ifc;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	memcpy(&p.u.prefix6, address, sizeof(struct in6_addr));
 	p.prefixlen = prefixlen;
@@ -613,7 +613,7 @@ void connected_delete_ipv6(struct interface *ifp,
 		rtadv_delete_prefix(ifp->info, &p);
 
 	if (dest) {
-		memset(&d, 0, sizeof(struct prefix));
+		memset(&d, 0, sizeof(d));
 		d.family = AF_INET6;
 		IPV6_ADDR_COPY(&d.u.prefix6, dest);
 		d.prefixlen = prefixlen;

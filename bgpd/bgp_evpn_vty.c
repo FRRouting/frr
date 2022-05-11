@@ -2367,7 +2367,7 @@ static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp,
 	num_vnis = hashcount(bgp->vnihash);
 	if (!num_vnis)
 		return;
-	memset(&wctx, 0, sizeof(struct vni_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.bgp = bgp;
 	wctx.vty = vty;
 	wctx.vtep_ip = vtep_ip;

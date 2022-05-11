@@ -381,7 +381,7 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	if (!table)
 		return 0;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = afi;
 	if (afi == AFI_IP) {
 		p.u.prefix4 = addr->ipv4;

@@ -798,7 +798,7 @@ static int try_connect(struct daemon *dmn)
 		zlog_debug("%s: attempting to connect", dmn->name);
 	dmn->connect_tries++;
 
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s.vty", gs.vtydir,
 		 dmn->name);

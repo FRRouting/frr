@@ -550,7 +550,7 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 	struct zebra_neigh tmp_n;
 	struct zebra_neigh *n = NULL;
 
-	memset(&tmp_n, 0, sizeof(struct zebra_neigh));
+	memset(&tmp_n, 0, sizeof(tmp_n));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(zevpn->neigh_table, &tmp_n, zebra_evpn_neigh_alloc);
 
@@ -881,7 +881,7 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 	if (!zevpn->neigh_table)
 		return;
 
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
@@ -1653,7 +1653,7 @@ void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn)
 {
 	struct neigh_walk_ctx wctx;
 
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 
 	hash_iterate(zevpn->neigh_table,

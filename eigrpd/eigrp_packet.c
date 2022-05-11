@@ -370,7 +370,7 @@ void eigrp_write(struct thread *thread)
 	if (ep->dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS))
 		eigrp_if_ipmulticast(eigrp, &ei->address, ei->ifp->ifindex);
 
-	memset(&iph, 0, sizeof(struct ip));
+	memset(&iph, 0, sizeof(iph));
 	memset(&sa_dst, 0, sizeof(sa_dst));
 
 	/*
@@ -713,7 +713,7 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 	char buff[CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
 	struct msghdr msgh;
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	msgh.msg_iov = &iov;
 	msgh.msg_iovlen = 1;
 	msgh.msg_control = (caddr_t)buff;

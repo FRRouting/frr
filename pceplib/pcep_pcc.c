@@ -215,7 +215,7 @@ void handle_signal_action(int sig_number)
 int setup_signals()
 {
 	struct sigaction sa;
-	memset(&sa, 0, sizeof(struct sigaction));
+	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = handle_signal_action;
 	if (sigaction(SIGINT, &sa, 0) != 0) {
 		perror("sigaction()");

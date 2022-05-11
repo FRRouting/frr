@@ -579,7 +579,7 @@ static void ospf6_disable(struct ospf6 *o)
 
 void ospf6_master_init(struct thread_master *master)
 {
-	memset(&ospf6_master, 0, sizeof(struct ospf6_master));
+	memset(&ospf6_master, 0, sizeof(ospf6_master));
 
 	om6 = &ospf6_master;
 	om6->ospf6 = list_new();
@@ -1758,7 +1758,7 @@ bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p)
 {
 	struct in6_addr addr_zero;
 
-	memset(&addr_zero, 0, sizeof(struct in6_addr));
+	memset(&addr_zero, 0, sizeof(addr_zero));
 
 	 /* Default prefix validation*/
 	if ((is_default_prefix(p)) ||

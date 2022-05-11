@@ -3783,7 +3783,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
-	memset(&ip, 0, sizeof(struct ipaddr));
+	memset(&ip, 0, sizeof(ip));
 	ip.ipa_type = (ndm->ndm_family == AF_INET) ? IPADDR_V4 : IPADDR_V6;
 	memcpy(&ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
 
@@ -3863,7 +3863,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
-	memset(&mac, 0, sizeof(struct ethaddr));
+	memset(&mac, 0, sizeof(mac));
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
 		if (tb[NDA_LLADDR]) {
 			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {

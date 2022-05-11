@@ -305,7 +305,7 @@ void pim_null_register_send(struct pim_upstream *up)
 		return;
 	}
 
-	memset(&ip_hdr, 0, sizeof(struct ip));
+	memset(&ip_hdr, 0, sizeof(ip_hdr));
 	ip_hdr.ip_p = PIM_IP_PROTO_PIM;
 	ip_hdr.ip_hl = 5;
 	ip_hdr.ip_v = 4;

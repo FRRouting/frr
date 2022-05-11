@@ -2847,7 +2847,7 @@ static int if_join_all_router(int sock, struct interface *ifp)
 
 	struct ipv6_mreq mreq;
 
-	memset(&mreq, 0, sizeof(struct ipv6_mreq));
+	memset(&mreq, 0, sizeof(mreq));
 	inet_pton(AF_INET6, ALLROUTER, &mreq.ipv6mr_multiaddr);
 	mreq.ipv6mr_interface = ifp->ifindex;
 
@@ -2873,7 +2873,7 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 
 	struct ipv6_mreq mreq;
 
-	memset(&mreq, 0, sizeof(struct ipv6_mreq));
+	memset(&mreq, 0, sizeof(mreq));
 	inet_pton(AF_INET6, ALLROUTER, &mreq.ipv6mr_multiaddr);
 	mreq.ipv6mr_interface = ifp->ifindex;
 

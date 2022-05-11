@@ -639,7 +639,7 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 		return CMD_WARNING;
 
 	if (evpn_type == BGP_EVPN_MAC_IP_ROUTE) {
-		memset(&ip, 0, sizeof(struct ipaddr));
+		memset(&ip, 0, sizeof(ip));
 
 		argv_find(argv, argc, "mac", &mac_idx);
 		(void)prefix_str2mac(argv[mac_idx + 1]->arg, &mac);
@@ -650,7 +650,7 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 		build_evpn_type2_prefix((struct prefix_evpn *)argv_p,
 					&mac, &ip);
 	} else if (evpn_type == BGP_EVPN_IMET_ROUTE) {
-		memset(&ip, 0, sizeof(struct ipaddr));
+		memset(&ip, 0, sizeof(ip));
 
 		argv_find(argv, argc, "ip", &ip_idx);
 		str2ipaddr(argv[ip_idx + 1]->arg, &ip);
@@ -660,7 +660,7 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 	} else if (evpn_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		struct prefix ip_prefix;
 
-		memset(&ip_prefix, 0, sizeof(struct prefix));
+		memset(&ip_prefix, 0, sizeof(ip_prefix));
 		if (argv_find(argv, argc, "ip", &ip_idx)) {
 			(void)str2prefix(argv[ip_idx + 1]->arg, &ip_prefix);
 			apply_mask(&ip_prefix);
