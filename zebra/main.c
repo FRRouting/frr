@@ -209,6 +209,7 @@ struct quagga_signal_t zebra_signals[] = {
 
 void infnh_init(void);
 struct prefix g_infovlay_prefix;
+struct in_addr g_infovlay_ipv4;
 struct trkr_client *g_infovlay_trkr;
 uint8_t g_infovlay_cfgread = 0;
 #define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/infgw/inf_config.json"
@@ -282,14 +283,21 @@ static int infnh_readcfg()
 		goto error;
 	}
 	const char *ovlay_netmask_str = json_object_get_string(json_ovlay_netmask);
-	
-	struct in_addr nm, ipv4;
+
+	json_object_object_get_ex(dcfg_overlay, "ovlay_netmask_extended", &json_ovlay_netmask);
+
+	if (json_ovlay_netmask != NULL) {
+		ovlay_netmask_str = json_object_get_string(json_ovlay_netmask);
+	}
+
+	struct in_addr nm;
 	inet_pton(AF_INET, ovlay_netmask_str, &nm);
-	inet_pton(AF_INET, ovlay_ipv4_str, &ipv4);
-	g_infovlay_prefix.u.prefix4.s_addr = (ipv4.s_addr & nm.s_addr);
+	inet_pton(AF_INET, ovlay_ipv4_str, &g_infovlay_ipv4);
+	g_infovlay_prefix.u.prefix4.s_addr = (g_infovlay_ipv4.s_addr & nm.s_addr);
 
 	g_infovlay_prefix.family = AF_INET;
 	g_infovlay_prefix.prefixlen = ip_masklen(nm);
+
 	char bufn[INET6_ADDRSTRLEN];
 	prefix2str(&g_infovlay_prefix, bufn, INET6_ADDRSTRLEN);
 	//inet_pton(AF_INET, ovlay_ipv4_str, &g_infovlay_prefix.u.prefix4);

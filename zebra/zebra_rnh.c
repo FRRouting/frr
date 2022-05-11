@@ -71,6 +71,7 @@ DECLARE_HOOK(evaluate_custom_nexthop, (struct prefix *pp, uint8_t *isreachable),
 DEFINE_HOOK(evaluate_custom_nexthop, (struct prefix *pp, uint8_t *isreachable),
 		(pp, isreachable));
 extern struct prefix g_infovlay_prefix;
+struct in_addr g_infovlay_ipv4;
 extern struct trkr_client *g_infovlay_trkr;
 #endif
 
@@ -140,6 +141,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(p);
+	prefix2str(p, buf, sizeof(buf));
 
 	/* Lookup (or add) route node.*/
 	rn = route_node_get(table, p);
@@ -535,10 +537,10 @@ static void zebra_rnh_process_pbr_tables(int family,
 #include "tracker_api.h"
 static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable)
 {
-	char via[PREFIX2STR_BUFFER];
+	char via[PREFIX2STR_BUFFER], selfip[PREFIX2STR_BUFFER];
 	char cntrname[256 + 1];
 
-	*isreachable = 1;
+	*isreachable = 0;
 
 	inet_ntop(g_infovlay_prefix.family, &g_infovlay_prefix.u.prefix, via, PREFIX2STR_BUFFER);
 	if (IS_ZEBRA_DEBUG_NHT) {
@@ -549,8 +551,17 @@ static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable)
 		*isreachable = 1;
 		if (IS_ZEBRA_DEBUG_NHT) {
 			inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
-			zlog_debug("Infiot non-overlay via: %s, val %d", via, 0); 
+			zlog_debug("Infiot non-overlay via: %s, val %d", via, 0);
 		}
+		return *isreachable;
+	}
+
+	//self ip it is always reachable 
+	if (g_infovlay_ipv4.s_addr == pp->u.prefix){
+		inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
+		inet_ntop(AF_INET, &g_infovlay_ipv4, selfip, PREFIX2STR_BUFFER);
+		zlog_debug("self ip so always reachable ip %s , pp %s",selfip, via);
+		*isreachable = 1;
 		return *isreachable;
 	}
 
@@ -560,18 +571,33 @@ static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable)
 	if (g_infovlay_trkr == NULL) {
 		trkr_client_create("click.tr", &g_infovlay_trkr);
 		if (g_infovlay_trkr == NULL) {
+			zlog_debug("infiot overlay trkr null reachable %d", *isreachable);
 			return *isreachable;
 		}
 	}
+
+	//get the nextop to check if it is connected. 
 	inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
-	snprintf(cntrname, 256, "overlay.%s", via);
+	snprintf(cntrname, 256, "nh.%s", via);
 	const trkr_t *trkr = trkr_client_get_trkr(g_infovlay_trkr, cntrname, 0, 1);
-	if (trkr && trkr->val == 0) {
-		*isreachable = 0;
+
+	if ( trkr && trkr->val > 0 ) {
+		inet_ntop(pp->family, &trkr->val, via, PREFIX2STR_BUFFER);
+		snprintf(cntrname, 256, "overlay.%s", via);
+	}else{
+		inet_ntop(pp->family, &pp->u.prefix, via, PREFIX2STR_BUFFER);
+		snprintf(cntrname, 256, "overlay.%s", via);
 	}
-	if (IS_ZEBRA_DEBUG_NHT) {
-		zlog_debug("Infiot via: %s, cntrname %s val %lu", via, cntrname, 
-			trkr == NULL ? 1 : trkr->val);
+
+	trkr = trkr_client_get_trkr(g_infovlay_trkr, cntrname, 0, 1);
+	if ( trkr && trkr->val > 0 ) {
+			*isreachable = 1;
+	}
+
+	if (IS_ZEBRA_DEBUG_NHT) 
+	{
+		zlog_debug("Infiot via: %s, cntrname %s val %lu reachable %d", via, cntrname, 
+			trkr == NULL ? 1 : trkr->val, *isreachable);
 	}
 	return *isreachable;
 
@@ -593,6 +619,7 @@ static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable)
 }
 #endif
 
+
 /*
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
@@ -605,7 +632,6 @@ zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid, int family,
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
-
 	*prn = NULL;
 
 	route_table = zebra_vrf_table(family2afi(family), SAFI_UNICAST, vrfid);
@@ -634,17 +660,21 @@ zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid, int family,
 		RNODE_FOREACH_RE (rn, re) {
 
 #ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
-			//char bufn[INET6_ADDRSTRLEN];
-			//prefix2str(&rn->p, bufn, INET6_ADDRSTRLEN);
+			char bufn[INET6_ADDRSTRLEN];
+			prefix2str(&rn->p, bufn, INET6_ADDRSTRLEN);
 			uint8_t isreachable = 1;
-			//zlog_debug(
-			//	"%u:%s: RNH resolve re %p rn %p re_status=%d re_flags=%d "
-			//	"re_type=%d rnh_flags=%d",
-			//	vrfid, bufn, re, rn, re->status, re->flags, re->type, rnh->flags);
-
+			if (IS_ZEBRA_DEBUG_NHT){
+				zlog_debug(
+					"%u:%s: RNH resolve re %p rn %p re_status=%d re_flags=%d "
+					"re_type=%d rnh_flags=%d",
+					vrfid, bufn, re, rn, re->status, re->flags, re->type, rnh->flags);
+			}
 			hook_call(evaluate_custom_nexthop, &nrn->p, &isreachable);
 			if (isreachable) {
 				break;
+			}else if (prefix_match(&g_infovlay_prefix, &rn->p)){
+				zlog_debug("overlay supernet prefix node, so look for next re entry");
+				continue;
 			}
 #endif
 			//if (!check_overlay(NULL, &nrn->p)) {
