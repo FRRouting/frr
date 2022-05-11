@@ -1189,7 +1189,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 			if (adjin->peer == peer)
 				break;
 		}
-		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L, &bqe->p, prd,
+		bmp_monitor(bmp, peer, 0, &bqe->p, prd,
 			    adjin ? adjin->attr : NULL, afi, safi,
 			    adjin ? adjin->uptime : monotime(NULL));
 		written = true;
