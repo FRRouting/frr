@@ -3917,7 +3917,8 @@ the daemons RIB from Zebra and unsetting it will announce all routes in the
 daemons RIB to Zebra. If the option is passed as a command line argument when
 starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
-configuration write operation.
+configuration write operation.  At this point in time non SAFI_UNICAST BGP
+data is not properly withdrawn from zebra when this command is issued.
 
 .. clicmd:: bgp send-extra-data zebra
 

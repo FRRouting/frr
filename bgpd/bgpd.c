@@ -232,8 +232,17 @@ void bgp_option_norib_set_runtime(void)
 	zlog_info("Disabled BGP route installation to RIB (Zebra)");
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		FOREACH_AFI_SAFI(afi, safi)
+		FOREACH_AFI_SAFI (afi, safi) {
+			/*
+			 * Stop a crash, more work is needed
+			 * here to properly add/remove these types of
+			 * routes from zebra.
+			 */
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
 			bgp_zebra_withdraw_table_all_subtypes(bgp, afi, safi);
+		}
 	}
 
 	zlog_info("All routes have been withdrawn from RIB (Zebra)");
@@ -255,8 +264,17 @@ void bgp_option_norib_unset_runtime(void)
 	zlog_info("Enabled BGP route installation to RIB (Zebra)");
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		FOREACH_AFI_SAFI(afi, safi)
+		FOREACH_AFI_SAFI (afi, safi) {
+			/*
+			 * Stop a crash, more work is needed
+			 * here to properly add/remove these types
+			 * of routes from zebra
+			 */
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
 			bgp_zebra_announce_table_all_subtypes(bgp, afi, safi);
+		}
 	}
 
 	zlog_info("All routes have been installed in RIB (Zebra)");
