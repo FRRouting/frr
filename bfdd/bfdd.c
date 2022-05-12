@@ -337,6 +337,8 @@ int main(int argc, char *argv[])
 	bool ctlsockused = false;
 	int opt;
 
+	bglobal.bg_use_dplane = false;
+
 	/* Initialize system sockets. */
 	bg_init();
 
