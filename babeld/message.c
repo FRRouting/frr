@@ -286,7 +286,7 @@ channels_len(unsigned char *channels)
    followed by a sequence of TLVs. TLVs of known types are also checked to meet
    minimum length constraints defined for each. Return 0 for no errors. */
 static int
-babel_packet_examin(const unsigned char *packet, int packetlen)
+babel_packet_examin(const unsigned char *packet, int packetlen, int *blength)
 {
     int i = 0, bodylen;
     const unsigned char *message;
@@ -323,6 +323,8 @@ babel_packet_examin(const unsigned char *packet, int packetlen)
         }
         i += len + 2;
     }
+
+    *blength = bodylen;
     return 0;
 }
 
@@ -356,7 +358,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         return;
     }
 
-    if (babel_packet_examin (packet, packetlen)) {
+    if (babel_packet_examin (packet, packetlen, &bodylen)) {
         flog_err(EC_BABEL_PACKET,
 		  "Received malformed packet on %s from %s.",
                   ifp->name, format_address(from));
@@ -368,8 +370,6 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         flog_err(EC_BABEL_PACKET, "Couldn't allocate neighbour.");
         return;
     }
-
-    DO_NTOHS(bodylen, packet + 2);
 
     i = 0;
     while(i < bodylen) {
