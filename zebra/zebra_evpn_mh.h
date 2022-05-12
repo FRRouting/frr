@@ -38,7 +38,7 @@
  *   access port is associated with an ES-ID
  * - Remotes ESs are added by BGP based on received/remote EAD/Type-1 routes
  *   (ZEBRA_EVPNES_REMOTE)
- * - An ES can be simulatenously LOCAL and REMOTE; infact all LOCAL ESs are
+ * - An ES can be simultaneously LOCAL and REMOTE; infact all LOCAL ESs are
  *   expected to have REMOTE ES peers.
  */
 struct zebra_evpn_es {

@@ -990,7 +990,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		if (ret != 0) {
 			flog_err(
 				EC_BGP_ES_INVALID,
-				"%u ERROR: Failed to updated EAD-EVI route ESI: %s VTEP %pI4",
+				"%u ERROR: Failed to updated EAD-ES route ESI: %s VTEP %pI4",
 				bgp->vrf_id, es->esi_str, &es->originator_ip);
 		}
 		global_rd = &es_frag->prd;
