@@ -51,8 +51,9 @@ struct bgp_path_info_mpath {
 };
 
 /* Functions to support maximum-paths configuration */
-extern int bgp_maximum_paths_set(struct bgp *, afi_t, safi_t, int, uint16_t,
-				 uint16_t);
+extern int bgp_maximum_paths_set(struct bgp *bgp, afi_t afi, safi_t safi,
+				 int peertype, uint16_t maxpaths,
+				 bool clusterlen);
 extern int bgp_maximum_paths_unset(struct bgp *, afi_t, safi_t, int);
 
 /* Functions used by bgp_best_selection to record current
