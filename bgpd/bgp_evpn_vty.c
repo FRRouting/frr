@@ -2256,9 +2256,6 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 	struct bgpevpn *vpn;
 	struct in_addr mcast_grp = {INADDR_ANY};
 
-	if (!bgp->vnihash)
-		return NULL;
-
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
 		/* Check if this L2VNI is already configured as L3VNI */
@@ -2290,8 +2287,6 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
  */
 static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	assert(bgp->vnihash);
-
 	if (!is_vni_live(vpn)) {
 		bgp_evpn_free(bgp, vpn);
 		return;
@@ -6291,7 +6286,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
 
-	if (bgp->vnihash) {
+	if (hashcount(bgp->vnihash)) {
 		struct list *vnilist = hash_to_list(bgp->vnihash);
 		struct listnode *ln;
 		struct bgpevpn *data;
