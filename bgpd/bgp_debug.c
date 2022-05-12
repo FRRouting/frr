@@ -642,10 +642,16 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 		memset(&ip, 0, sizeof(struct ipaddr));
 
 		if (argv_find(argv, argc, "mac", &mac_idx))
-			(void)prefix_str2mac(argv[mac_idx + 1]->arg, &mac);
+			if (!prefix_str2mac(argv[mac_idx + 1]->arg, &mac)) {
+				vty_out(vty, "%% Malformed MAC address\n");
+				return CMD_WARNING;
+			}
 
 		if (argv_find(argv, argc, "ip", &ip_idx))
-			str2ipaddr(argv[ip_idx + 1]->arg, &ip);
+			if (str2ipaddr(argv[ip_idx + 1]->arg, &ip) != 0) {
+				vty_out(vty, "%% Malformed IP address\n");
+				return CMD_WARNING;
+			}
 
 		build_evpn_type2_prefix((struct prefix_evpn *)argv_p,
 					&mac, &ip);
@@ -653,7 +659,10 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 		memset(&ip, 0, sizeof(struct ipaddr));
 
 		if (argv_find(argv, argc, "ip", &ip_idx))
-			str2ipaddr(argv[ip_idx + 1]->arg, &ip);
+			if (str2ipaddr(argv[ip_idx + 1]->arg, &ip) != 0) {
+				vty_out(vty, "%% Malformed IP address\n");
+				return CMD_WARNING;
+			}
 
 		build_evpn_type3_prefix((struct prefix_evpn *)argv_p,
 					ip.ipaddr_v4);
