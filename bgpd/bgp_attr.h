@@ -386,14 +386,14 @@ struct bpacket_attr_vec_arr;
 /* Prototypes. */
 extern void bgp_attr_init(void);
 extern void bgp_attr_finish(void);
-extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer *, struct attr *,
-					      bgp_size_t, struct bgp_nlri *,
-					      struct bgp_nlri *);
+extern enum bgp_attr_parse_ret
+bgp_attr_parse(struct peer *peer, struct attr *attr, bgp_size_t size,
+	       struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw);
 extern struct attr *bgp_attr_intern(struct attr *attr);
-extern void bgp_attr_unintern_sub(struct attr *);
-extern void bgp_attr_unintern(struct attr **);
-extern void bgp_attr_flush(struct attr *);
-extern struct attr *bgp_attr_default_set(struct attr *attr, uint8_t);
+extern void bgp_attr_unintern_sub(struct attr *attr);
+extern void bgp_attr_unintern(struct attr **pattr);
+extern void bgp_attr_flush(struct attr *attr);
+extern struct attr *bgp_attr_default_set(struct attr *attr, uint8_t origin);
 extern struct attr *bgp_attr_aggregate_intern(
 	struct bgp *bgp, uint8_t origin, struct aspath *aspath,
 	struct community *community, struct ecommunity *ecommunity,
@@ -410,13 +410,14 @@ extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 extern void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
-extern unsigned int attrhash_key_make(const void *);
-extern void attr_show_all(struct vty *);
+extern unsigned int attrhash_key_make(const void *p);
+extern void attr_show_all(struct vty *vty);
 extern unsigned long int attr_count(void);
 extern unsigned long int attr_unknown_count(void);
 
 /* Cluster list prototypes. */
-extern bool cluster_loop_check(struct cluster_list *, struct in_addr);
+extern bool cluster_loop_check(struct cluster_list *cluster,
+			       struct in_addr originator);
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
@@ -429,9 +430,9 @@ struct bgp_attr_parser_args {
 	uint8_t *startp;
 };
 extern int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
-			      struct bgp_nlri *);
+			      struct bgp_nlri *mp_update);
 extern int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
-				struct bgp_nlri *);
+				struct bgp_nlri *mp_withdraw);
 extern enum bgp_attr_parse_ret
 bgp_attr_prefix_sid(struct bgp_attr_parser_args *args);
 
