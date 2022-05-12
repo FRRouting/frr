@@ -19243,8 +19243,7 @@ DEFUN (community_list_standard,
 	int style = COMMUNITY_LIST_STANDARD;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19292,8 +19291,7 @@ DEFUN (no_community_list_standard_all,
 	char *seq = NULL;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19356,8 +19354,7 @@ DEFUN (community_list_expanded_all,
 	int style = COMMUNITY_LIST_EXPANDED;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19406,8 +19403,7 @@ DEFUN (no_community_list_expanded_all,
 	int style = COMMUNITY_LIST_EXPANDED;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
