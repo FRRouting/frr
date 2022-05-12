@@ -166,10 +166,10 @@ struct bgp_debug_filter {
 
 extern const char *const bgp_type_str[];
 
-extern bool bgp_dump_attr(struct attr *, char *, size_t);
+extern bool bgp_dump_attr(struct attr *attr, char *buf, size_t size);
 extern bool bgp_debug_peer_updout_enabled(char *host);
-extern const char *bgp_notify_code_str(char);
-extern const char *bgp_notify_subcode_str(char, char);
+extern const char *bgp_notify_code_str(char code);
+extern const char *bgp_notify_subcode_str(char code, char subcode);
 extern void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 			     const char *direct, bool hard_reset);
 
