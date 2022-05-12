@@ -48,7 +48,15 @@ class BgpRib:
         for pfx in pfxtbl.keys():
             if debug:
                 self.log("trying pfx %s" % pfx)
-            if pfx != want["p"]:
+            if "exist" in want and want["exist"] == False:
+                if pfx == want["p"]:
+                    if debug:
+                        self.log("unexpected route: pfx=" + want["p"])
+                    return 0
+                if debug:
+                    self.log("unwant pfx=" + want["p"] + ", not " + pfx)
+                continue
+            elif pfx != want["p"]:
                 if debug:
                     self.log("want pfx=" + want["p"] + ", not " + pfx)
                 continue
@@ -75,6 +83,9 @@ class BgpRib:
             if debug:
                 self.log("missing route: pfx=" + want["p"] + ", nh=" + want["n"])
             return 0
+        if "exist" in want and want["exist"] == False:
+            return 1
+        return 0
 
     def RequireVpnRoutes(self, target, title, wantroutes, debug=0):
         import json
