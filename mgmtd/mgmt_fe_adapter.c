@@ -45,8 +45,8 @@
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
-#define FOREACH_ADAPTER_IN_LIST(adapter)                                           \
-	frr_each_safe(mgmt_fe_adapter_list, &mgmt_fe_adapters, (adapter))
+#define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
+	frr_each_safe(mgmt_fe_adapters, &mgmt_fe_adapters, (adapter))
 
 enum mgmt_session_event {
 	MGMTD_FE_SESSION_CFG_TXN_CLNUP = 1,
@@ -65,19 +65,18 @@ struct mgmt_fe_session_ctx {
 	struct thread *proc_cfg_txn_clnp;
 	struct thread *proc_show_txn_clnp;
 
-	struct mgmt_fe_session_list_item list_linkage;
+	struct mgmt_fe_sessions_item list_linkage;
 };
 
-DECLARE_LIST(mgmt_fe_session_list, struct mgmt_fe_session_ctx,
-	     list_linkage);
+DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
 
-#define FOREACH_SESSION_IN_LIST(adapter, session)                               \
-	frr_each_safe(mgmt_fe_session_list, &(adapter)->fe_sessions, (session))
+#define FOREACH_SESSION_IN_LIST(adapter, session)                              \
+	frr_each_safe(mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
 
 static struct thread_master *mgmt_fe_adapter_tm;
 static struct mgmt_master *mgmt_fe_adapter_mm;
 
-static struct mgmt_fe_adapter_list_head mgmt_fe_adapters;
+static struct mgmt_fe_adapters_head mgmt_fe_adapters;
 
 static struct hash *mgmt_fe_sessions;
 static uint64_t mgmt_fe_next_session_id;
@@ -259,15 +258,15 @@ static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **session)
 	if ((*session)->adapter) {
 		mgmt_fe_session_cfg_txn_cleanup((*session));
 		mgmt_fe_session_show_txn_cleanup((*session));
-		mgmt_fe_session_unlock_db(
-			MGMTD_DB_CANDIDATE, mgmt_fe_adapter_mm->candidate_db,
-			*session, true, true);
+		mgmt_fe_session_unlock_db(MGMTD_DB_CANDIDATE,
+					  mgmt_fe_adapter_mm->candidate_db,
+					  *session, true, true);
 		mgmt_fe_session_unlock_db(MGMTD_DB_RUNNING,
-					      mgmt_fe_adapter_mm->running_db,
-					      *session, true, true);
+					  mgmt_fe_adapter_mm->running_db,
+					  *session, true, true);
 
-		mgmt_fe_session_list_del(&(*session)->adapter->fe_sessions,
-					   *session);
+		mgmt_fe_sessions_del(&(*session)->adapter->fe_sessions,
+				     *session);
 		mgmt_fe_adapter_unlock(&(*session)->adapter);
 	}
 
@@ -357,7 +356,7 @@ mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 	session->txn_id = MGMTD_TXN_ID_NONE;
 	session->cfg_txn_id = MGMTD_TXN_ID_NONE;
 	mgmt_fe_adapter_lock(adapter);
-	mgmt_fe_session_list_add_tail(&adapter->fe_sessions, session);
+	mgmt_fe_sessions_add_tail(&adapter->fe_sessions, session);
 	if (!mgmt_fe_next_session_id)
 		mgmt_fe_next_session_id++;
 	session->session_id = mgmt_fe_next_session_id++;
@@ -407,7 +406,7 @@ mgmt_fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
 	uint8_t msg_buf[MGMTD_FE_MSG_MAX_LEN];
 	struct mgmt_fe_msg *msg;
 
-	if (adapter->conn_fd == 0) {
+	if (adapter->conn_fd < 0) {
 		MGMTD_FE_ADAPTER_ERR("Connection already reset");
 		return -1;
 	}
@@ -731,18 +730,17 @@ mgmt_fe_find_adapter_by_name(const char *name)
 	return NULL;
 }
 
-static void
-mgmt_fe_adapter_disconnect(struct mgmt_fe_client_adapter *adapter)
+static void mgmt_fe_adapter_disconnect(struct mgmt_fe_client_adapter *adapter)
 {
-	if (adapter->conn_fd) {
+	if (adapter->conn_fd >= 0) {
 		close(adapter->conn_fd);
-		adapter->conn_fd = 0;
+		adapter->conn_fd = -1;
 	}
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
 	mgmt_fe_cleanup_sessions(adapter);
-	mgmt_fe_session_list_fini(&adapter->fe_sessions);
-	mgmt_fe_adapter_list_del(&mgmt_fe_adapters, adapter);
+	mgmt_fe_sessions_fini(&adapter->fe_sessions);
+	mgmt_fe_adapters_del(&mgmt_fe_adapters, adapter);
 
 	mgmt_fe_adapter_unlock(&adapter);
 }
@@ -1504,11 +1502,11 @@ static void mgmt_fe_adapter_proc_msgbufs(struct thread *thread)
 	int processed = 0;
 
 	adapter = (struct mgmt_fe_client_adapter *)THREAD_ARG(thread);
-	assert(adapter && adapter->conn_fd);
+	assert(adapter && adapter->conn_fd >= 0);
 
 	MGMTD_FE_ADAPTER_DBG("Have %d ibufs for client '%s' to process",
-			       (int)stream_fifo_count_safe(adapter->ibuf_fifo),
-			       adapter->name);
+			     (int)stream_fifo_count_safe(adapter->ibuf_fifo),
+			     adapter->name);
 
 	for (; processed < MGMTD_FE_MAX_NUM_MSG_PROC;) {
 		work = stream_fifo_pop_safe(adapter->ibuf_fifo);
@@ -1749,7 +1747,7 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 
 	(*adapter)->refcount--;
 	if (!(*adapter)->refcount) {
-		mgmt_fe_adapter_list_del(&mgmt_fe_adapters, *adapter);
+		mgmt_fe_adapters_del(&mgmt_fe_adapters, *adapter);
 
 		stream_fifo_free((*adapter)->ibuf_fifo);
 		stream_free((*adapter)->ibuf_work);
@@ -1771,13 +1769,12 @@ int mgmt_fe_adapter_init(struct thread_master *tm, struct mgmt_master *mm)
 	if (!mgmt_fe_adapter_tm) {
 		mgmt_fe_adapter_tm = tm;
 		mgmt_fe_adapter_mm = mm;
-		mgmt_fe_adapter_list_init(&mgmt_fe_adapters);
+		mgmt_fe_adapters_init(&mgmt_fe_adapters);
 
 		assert(!mgmt_fe_sessions);
-		mgmt_fe_sessions =
-			hash_create(mgmt_fe_session_hash_key,
-				    mgmt_fe_session_hash_cmp,
-				    "MGMT Frontend Sessions");
+		mgmt_fe_sessions = hash_create(mgmt_fe_session_hash_key,
+					       mgmt_fe_session_hash_cmp,
+					       "MGMT Frontend Sessions");
 	}
 
 	return 0;
@@ -1804,7 +1801,7 @@ mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 		memcpy(&adapter->conn_su, from, sizeof(adapter->conn_su));
 		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
 			 adapter->conn_fd);
-		mgmt_fe_session_list_init(&adapter->fe_sessions);
+		mgmt_fe_sessions_init(&adapter->fe_sessions);
 		adapter->ibuf_fifo = stream_fifo_new();
 		adapter->ibuf_work = stream_new(MGMTD_FE_MSG_MAX_LEN);
 		adapter->obuf_fifo = stream_fifo_new();
@@ -1813,7 +1810,7 @@ mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 		mgmt_fe_adapter_lock(adapter);
 
 		mgmt_fe_adapter_register_event(adapter, MGMTD_FE_CONN_READ);
-		mgmt_fe_adapter_list_add_tail(&mgmt_fe_adapters, adapter);
+		mgmt_fe_adapters_add_tail(&mgmt_fe_adapters, adapter);
 
 		adapter->setcfg_stats.min_tm = ULONG_MAX;
 		adapter->cmt_stats.min_tm = ULONG_MAX;
@@ -2094,13 +2091,13 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 				vty_out(vty, "          None\n");
 		}
 		vty_out(vty, "    Total-Sessions: \t\t\t%d\n",
-			(int)mgmt_fe_session_list_count(
-				&adapter->fe_sessions));
+			(int)mgmt_fe_sessions_count(&adapter->fe_sessions));
 		vty_out(vty, "    Msg-Sent: \t\t\t\t%u\n", adapter->num_msg_tx);
-		vty_out(vty, "    Msg-Recvd: \t\t\t\t%u\n", adapter->num_msg_rx);
+		vty_out(vty, "    Msg-Recvd: \t\t\t\t%u\n",
+			adapter->num_msg_rx);
 	}
 	vty_out(vty, "  Total: %d\n",
-		(int)mgmt_fe_adapter_list_count(&mgmt_fe_adapters));
+		(int)mgmt_fe_adapters_count(&mgmt_fe_adapters));
 }
 
 void mgmt_fe_adapter_perf_measurement(struct vty *vty, bool config)

@@ -52,7 +52,7 @@
  * the list of arguments passed to ./configure
  */
 
-PREDECL_LIST(mgmt_txn_list);
+PREDECL_LIST(mgmt_txns);
 
 struct mgmt_master;
 

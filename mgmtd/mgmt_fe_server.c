@@ -50,7 +50,7 @@ static void mgmt_fe_conn_accept(struct thread *thread)
 	int client_conn_fd;
 	union sockunion su;
 
-	if (!mgmt_fe_listen_fd)
+	if (mgmt_fe_listen_fd < 0)
 		return;
 
 	/* We continue hearing server listen socket. */
@@ -134,7 +134,7 @@ mgmt_fe_server_start_failed:
 	if (sock)
 		close(sock);
 
-	mgmt_fe_listen_fd = 0;
+	mgmt_fe_listen_fd = -1;
 	exit(-1);
 }
 
@@ -162,9 +162,9 @@ void mgmt_fe_server_destroy(void)
 			mgmt_fe_listen_ev = NULL;
 		}
 
-		if (mgmt_fe_listen_fd) {
+		if (mgmt_fe_listen_fd >= 0) {
 			close(mgmt_fe_listen_fd);
-			mgmt_fe_listen_fd = 0;
+			mgmt_fe_listen_fd = -1;
 		}
 
 		mgmt_fe_listen_tm = NULL;
