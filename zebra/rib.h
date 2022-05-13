@@ -357,8 +357,6 @@ enum rib_update_event {
 	RIB_UPDATE_MAX
 };
 
-extern void route_entry_copy_nexthops(struct route_entry *re,
-				      struct nexthop *nh);
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe);
 

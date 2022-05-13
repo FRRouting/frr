@@ -292,15 +292,6 @@ int zebra_check_addr(const struct prefix *p)
 	return 1;
 }
 
-/**
- * copy_nexthop - copy a nexthop to the rib structure.
- */
-void route_entry_copy_nexthops(struct route_entry *re, struct nexthop *nh)
-{
-	assert(!re->nhe->nhg.nexthop);
-	copy_nexthops(&re->nhe->nhg.nexthop, nh, NULL);
-}
-
 static void route_entry_attach_ref(struct route_entry *re,
 				   struct nhg_hash_entry *new)
 {
