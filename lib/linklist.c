@@ -370,9 +370,14 @@ void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 	int i = -1;
 	void *data;
 	size_t n = list->count;
-	void **items = XCALLOC(MTYPE_TMP, (sizeof(void *)) * n);
+	void **items;
 	int (*realcmp)(const void *, const void *) =
 		(int (*)(const void *, const void *))cmp;
+
+	if (!n)
+		return;
+
+	items = XCALLOC(MTYPE_TMP, (sizeof(void *)) * n);
 
 	for (ALL_LIST_ELEMENTS(list, ln, nn, data)) {
 		items[++i] = data;
