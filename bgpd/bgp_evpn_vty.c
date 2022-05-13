@@ -1571,7 +1571,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 	int ret;
 	struct peer *peer;
 	char *peerstr = NULL;
-	struct prefix_rd prd;
+	struct prefix_rd prd = {};
 	bool uj = use_json(argc, argv);
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
