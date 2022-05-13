@@ -70,7 +70,7 @@ struct mgmt_be_txn_req {
 	} req;
 };
 
-PREDECL_LIST(mgmt_be_batch_list);
+PREDECL_LIST(mgmt_be_batches);
 struct mgmt_be_batch_ctx {
 	/* Batch-Id as assigned by MGMTD */
 	uint64_t batch_id;
@@ -79,15 +79,15 @@ struct mgmt_be_batch_ctx {
 
 	uint32_t flags;
 
-	struct mgmt_be_batch_list_item list_linkage;
+	struct mgmt_be_batches_item list_linkage;
 };
 #define MGMTD_BE_BATCH_FLAGS_CFG_PREPARED (1U << 0)
 #define MGMTD_BE_TXN_FLAGS_CFG_APPLIED (1U << 1)
-DECLARE_LIST(mgmt_be_batch_list, struct mgmt_be_batch_ctx, list_linkage);
+DECLARE_LIST(mgmt_be_batches, struct mgmt_be_batch_ctx, list_linkage);
 
 struct mgmt_be_client_ctx;
 
-PREDECL_LIST(mgmt_be_txn_list);
+PREDECL_LIST(mgmt_be_txns);
 struct mgmt_be_txn_ctx {
 	/* Txn-Id as assigned by MGMTD */
 	uint64_t txn_id;
@@ -97,23 +97,23 @@ struct mgmt_be_txn_ctx {
 	struct mgmt_be_client_ctx *client_ctx;
 
 	/* List of batches belonging to this transaction */
-	struct mgmt_be_batch_list_head cfg_batches;
-	struct mgmt_be_batch_list_head apply_cfgs;
+	struct mgmt_be_batches_head cfg_batches;
+	struct mgmt_be_batches_head apply_cfgs;
 
-	struct mgmt_be_txn_list_item list_linkage;
+	struct mgmt_be_txns_item list_linkage;
 
 	struct nb_transaction *nb_txn;
 	uint32_t nb_txn_id;
 };
 #define MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED (1U << 1)
 
-DECLARE_LIST(mgmt_be_txn_list, struct mgmt_be_txn_ctx, list_linkage);
+DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 
-#define FOREACH_BE_TXN_BATCH_IN_LIST(txn, batch)                          \
-	frr_each_safe(mgmt_be_batch_list, &(txn)->cfg_batches, (batch))
+#define FOREACH_BE_TXN_BATCH_IN_LIST(txn, batch)                               \
+	frr_each_safe(mgmt_be_batches, &(txn)->cfg_batches, (batch))
 
-#define FOREACH_BE_APPLY_BATCH_IN_LIST(txn, batch)                         \
-	frr_each_safe(mgmt_be_batch_list, &(txn)->apply_cfgs, (batch))
+#define FOREACH_BE_APPLY_BATCH_IN_LIST(txn, batch)                             \
+	frr_each_safe(mgmt_be_batches, &(txn)->apply_cfgs, (batch))
 
 struct mgmt_be_client_ctx {
 	int conn_fd;
@@ -145,14 +145,14 @@ struct mgmt_be_client_ctx {
 	unsigned long num_apply_nb_cfg;
 	unsigned long avg_apply_nb_cfg_tm;
 
-	struct mgmt_be_txn_list_head txn_head;
+	struct mgmt_be_txns_head txn_head;
 	struct mgmt_be_client_params client_params;
 };
 
 #define MGMTD_BE_CLIENT_FLAGS_WRITES_OFF (1U << 0)
 
-#define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                             \
-	frr_each_safe(mgmt_be_txn_list, &(client_ctx)->txn_head, (txn))
+#define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
+	frr_each_safe(mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
 static bool mgmt_debug_be_client;
 
@@ -222,10 +222,10 @@ mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn, uint64_t batch_id)
 		assert(batch);
 
 		batch->batch_id = batch_id;
-		mgmt_be_batch_list_add_tail(&txn->cfg_batches, batch);
+		mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
 
 		MGMTD_BE_CLIENT_DBG("Added new batch 0x%llx to transaction",
-				     (unsigned long long)batch_id);
+				    (unsigned long long)batch_id);
 	}
 
 	return batch;
@@ -239,7 +239,7 @@ static void mgmt_be_batch_delete(struct mgmt_be_txn_ctx *txn,
 	if (!batch)
 		return;
 
-	mgmt_be_batch_list_del(&txn->cfg_batches, *batch);
+	mgmt_be_batches_del(&txn->cfg_batches, *batch);
 	if ((*batch)->txn_req.event == MGMTD_BE_TXN_PROC_SETCFG) {
 		for (indx = 0; indx < MGMTD_MAX_CFG_CHANGES_IN_BATCH; indx++) {
 			if ((*batch)->txn_req.req.set_cfg.cfg_changes[indx]
@@ -297,12 +297,12 @@ mgmt_be_txn_create(struct mgmt_be_client_ctx *client_ctx,
 
 		txn->txn_id = txn_id;
 		txn->client_ctx = client_ctx;
-		mgmt_be_batch_list_init(&txn->cfg_batches);
-		mgmt_be_batch_list_init(&txn->apply_cfgs);
-		mgmt_be_txn_list_add_tail(&client_ctx->txn_head, txn);
+		mgmt_be_batches_init(&txn->cfg_batches);
+		mgmt_be_batches_init(&txn->apply_cfgs);
+		mgmt_be_txns_add_tail(&client_ctx->txn_head, txn);
 
 		MGMTD_BE_CLIENT_DBG("Added new transaction 0x%llx",
-				     (unsigned long long)txn_id);
+				    (unsigned long long)txn_id);
 	}
 
 	return txn;
@@ -321,7 +321,7 @@ static void mgmt_be_txn_delete(struct mgmt_be_client_ctx *client_ctx,
 	 * so that future lookups with the same transaction id
 	 * does not return this one.
 	 */
-	mgmt_be_txn_list_del(&client_ctx->txn_head, *txn);
+	mgmt_be_txns_del(&client_ctx->txn_head, *txn);
 
 	/*
 	 * Time to delete the transaction which should also
@@ -604,9 +604,8 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 		if (!error) {
 			SET_FLAG(batch->flags,
 				 MGMTD_BE_BATCH_FLAGS_CFG_PREPARED);
-			mgmt_be_batch_list_del(&txn->cfg_batches, batch);
-			mgmt_be_batch_list_add_tail(&txn->apply_cfgs,
-						       batch);
+			mgmt_be_batches_del(&txn->cfg_batches, batch);
+			mgmt_be_batches_add_tail(&txn->apply_cfgs, batch);
 		}
 	}
 
@@ -789,8 +788,8 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 		 * transaction cleanup on receiving TXN_DELETE_REQ.
 		 */
 		SET_FLAG(batch->flags, MGMTD_BE_TXN_FLAGS_CFG_APPLIED);
-		mgmt_be_batch_list_del(&txn->apply_cfgs, batch);
-		mgmt_be_batch_list_add_tail(&txn->cfg_batches, batch);
+		mgmt_be_batches_del(&txn->apply_cfgs, batch);
+		mgmt_be_batches_add_tail(&txn->cfg_batches, batch);
 
 		batch_ids[num_processed] = batch->batch_id;
 		num_processed++;
@@ -1390,11 +1389,10 @@ uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
 		mgmt_be_client_ctx.client_params.conn_retry_intvl_sec =
 			MGMTD_BE_DEFAULT_CONN_RETRY_INTVL_SEC;
 
-	assert(!mgmt_be_client_ctx.ibuf_fifo && !mgmt_be_client_ctx.ibuf_work
-	       && !mgmt_be_client_ctx.obuf_fifo
-	       && !mgmt_be_client_ctx.obuf_work);
+	assert(!mgmt_be_client_ctx.ibuf_fifo && !mgmt_be_client_ctx.ibuf_work &&
+	       !mgmt_be_client_ctx.obuf_fifo && !mgmt_be_client_ctx.obuf_work);
 
-	mgmt_be_txn_list_init(&mgmt_be_client_ctx.txn_head);
+	mgmt_be_txns_init(&mgmt_be_client_ctx.txn_head);
 	mgmt_be_client_ctx.ibuf_fifo = stream_fifo_new();
 	mgmt_be_client_ctx.ibuf_work = stream_new(MGMTD_BE_MSG_MAX_LEN);
 	mgmt_be_client_ctx.obuf_fifo = stream_fifo_new();
@@ -1499,5 +1497,5 @@ void mgmt_be_client_lib_destroy(uintptr_t lib_hndl)
 	THREAD_OFF(client_ctx->conn_writes_on);
 	THREAD_OFF(client_ctx->msg_proc_ev);
 	mgmt_be_cleanup_all_txns(client_ctx);
-	mgmt_be_txn_list_fini(&client_ctx->txn_head);
+	mgmt_be_txns_fini(&client_ctx->txn_head);
 }

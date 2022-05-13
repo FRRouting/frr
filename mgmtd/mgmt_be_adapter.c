@@ -44,8 +44,8 @@
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
-#define FOREACH_ADAPTER_IN_LIST(adapter)                                           \
-	frr_each_safe(mgmt_be_adapter_list, &mgmt_be_adapters, (adapter))
+#define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
+	frr_each_safe(mgmt_be_adapters, &mgmt_be_adapters, (adapter))
 
 /*
  * Static mapping of YANG XPath regular expressions and
@@ -119,7 +119,7 @@ static int mgmt_num_xpath_maps;
 
 static struct thread_master *mgmt_be_adapter_tm;
 
-static struct mgmt_be_adapter_list_head mgmt_be_adapters;
+static struct mgmt_be_adapters_head mgmt_be_adapters;
 
 static struct mgmt_be_client_adapter
 	*mgmt_be_adapters_by_id[MGMTD_BE_CLIENT_ID_MAX];
@@ -346,12 +346,11 @@ static int mgmt_be_eval_regexp_match(const char *xpath_regexp,
 	return match_len;
 }
 
-static void
-mgmt_be_adapter_disconnect(struct mgmt_be_client_adapter *adapter)
+static void mgmt_be_adapter_disconnect(struct mgmt_be_client_adapter *adapter)
 {
-	if (adapter->conn_fd) {
+	if (adapter->conn_fd >= 0) {
 		close(adapter->conn_fd);
-		adapter->conn_fd = 0;
+		adapter->conn_fd = -1;
 	}
 
 	/*
@@ -364,7 +363,7 @@ mgmt_be_adapter_disconnect(struct mgmt_be_client_adapter *adapter)
 		adapter->id = MGMTD_BE_CLIENT_ID_MAX;
 	}
 
-	mgmt_be_adapter_list_del(&mgmt_be_adapters, adapter);
+	mgmt_be_adapters_del(&mgmt_be_adapters, adapter);
 
 	mgmt_be_adapter_unlock(&adapter);
 }
@@ -541,7 +540,7 @@ static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 	uint8_t *msg_buf = adapter->msg_buf;
 	struct mgmt_be_msg *msg;
 
-	if (adapter->conn_fd == 0)
+	if (adapter->conn_fd < 0)
 		return -1;
 
 	msg_size = mgmtd__be_message__get_packed_size(be_msg);
@@ -695,7 +694,7 @@ static void mgmt_be_adapter_proc_msgbufs(struct thread *thread)
 	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
 	assert(adapter);
 
-	if (adapter->conn_fd == 0)
+	if (adapter->conn_fd < 0)
 		return;
 
 	for (; processed < MGMTD_BE_MAX_NUM_MSG_PROC;) {
@@ -731,14 +730,14 @@ static void mgmt_be_adapter_read(struct thread *thread)
 	bool incomplete = false;
 
 	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
-	assert(adapter && adapter->conn_fd);
+	assert(adapter && adapter->conn_fd >= 0);
 
 	total_bytes = 0;
-	bytes_left = STREAM_SIZE(adapter->ibuf_work)
-		     - stream_get_endp(adapter->ibuf_work);
+	bytes_left = STREAM_SIZE(adapter->ibuf_work) -
+		     stream_get_endp(adapter->ibuf_work);
 	for (; bytes_left > MGMTD_BE_MSG_HDR_LEN;) {
-		bytes_read = stream_read_try(adapter->ibuf_work, adapter->conn_fd,
-					     bytes_left);
+		bytes_read = stream_read_try(adapter->ibuf_work,
+					     adapter->conn_fd, bytes_left);
 		MGMTD_BE_ADAPTER_DBG(
 			"Got %d bytes of message from MGMTD Backend adapter '%s'",
 			bytes_read, adapter->name);
@@ -826,7 +825,7 @@ static void mgmt_be_adapter_write(struct thread *thread)
 	struct mgmt_be_client_adapter *adapter;
 
 	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
-	assert(adapter && adapter->conn_fd);
+	assert(adapter && adapter->conn_fd >= 0);
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (adapter->obuf_work) {
@@ -880,7 +879,7 @@ static void mgmt_be_adapter_resume_writes(struct thread *thread)
 	struct mgmt_be_client_adapter *adapter;
 
 	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
-	assert(adapter && adapter->conn_fd);
+	assert(adapter && adapter->conn_fd >= 0);
 
 	mgmt_be_adapter_writes_on(adapter);
 }
@@ -917,7 +916,7 @@ static void mgmt_be_adapter_conn_init(struct thread *thread)
 	struct mgmt_be_client_adapter *adapter;
 
 	adapter = (struct mgmt_be_client_adapter *)THREAD_ARG(thread);
-	assert(adapter && adapter->conn_fd);
+	assert(adapter && adapter->conn_fd >= 0);
 
 	/*
 	 * Check first if the current session can run a CONFIG
@@ -1001,7 +1000,7 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 
 	(*adapter)->refcount--;
 	if (!(*adapter)->refcount) {
-		mgmt_be_adapter_list_del(&mgmt_be_adapters, *adapter);
+		mgmt_be_adapters_del(&mgmt_be_adapters, *adapter);
 
 		stream_fifo_free((*adapter)->ibuf_fifo);
 		stream_free((*adapter)->ibuf_work);
@@ -1027,7 +1026,7 @@ int mgmt_be_adapter_init(struct thread_master *tm)
 		mgmt_num_xpath_maps = 0;
 		memset(mgmt_be_adapters_by_id, 0,
 		       sizeof(mgmt_be_adapters_by_id));
-		mgmt_be_adapter_list_init(&mgmt_be_adapters);
+		mgmt_be_adapters_init(&mgmt_be_adapters);
 		mgmt_be_xpath_map_init();
 	}
 
@@ -1063,7 +1062,7 @@ mgmt_be_create_adapter(int conn_fd, union sockunion *from)
 		mgmt_be_adapter_lock(adapter);
 
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_READ);
-		mgmt_be_adapter_list_add_tail(&mgmt_be_adapters, adapter);
+		mgmt_be_adapters_add_tail(&mgmt_be_adapters, adapter);
 
 		RB_INIT(nb_config_cbs, &adapter->cfg_chgs);
 
@@ -1225,7 +1224,7 @@ void mgmt_be_adapter_status_write(struct vty *vty)
 		vty_out(vty, "    Msg-Recvd: \t\t\t%u\n", adapter->num_msg_rx);
 	}
 	vty_out(vty, "  Total: %d\n",
-		(int)mgmt_be_adapter_list_count(&mgmt_be_adapters));
+		(int)mgmt_be_adapters_count(&mgmt_be_adapters));
 }
 
 void mgmt_be_xpath_register_write(struct vty *vty)
