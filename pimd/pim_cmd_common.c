@@ -352,6 +352,19 @@ int pim_process_ip_pim_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
+				      "true");
+	else
+		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
+				      "false");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 int pim_process_no_ip_pim_cmd(struct vty *vty)
 {
 	const struct lyd_node *mld_enable_dnode;
@@ -2110,6 +2123,10 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 						       sec_list);
 			}
 
+			if (pim_ifp->pim_passive_enable)
+				json_object_boolean_true_add(json_row,
+							     "passive");
+
 			/* PIM neighbors */
 			if (pim_ifp->pim_neighbor_list->count) {
 				json_pim_neighbors = json_object_new_object();
@@ -2276,6 +2293,12 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 			} else {
 				vty_out(vty, "Address    : %pPAs\n", &ifaddr);
 			}
+
+			if (pim_ifp->pim_passive_enable)
+				vty_out(vty, "Passive    : %s\n",
+					(pim_ifp->pim_passive_enable) ? "yes"
+								      : "no");
+
 			vty_out(vty, "\n");
 
 			/* PIM neighbors */

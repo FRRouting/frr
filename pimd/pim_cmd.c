@@ -5262,13 +5262,24 @@ DEFUN_HIDDEN (interface_ip_pim_sm,
 	return pim_process_ip_pim_cmd(vty);
 }
 
-DEFUN (interface_ip_pim,
+DEFPY (interface_ip_pim,
        interface_ip_pim_cmd,
-       "ip pim",
+       "ip pim [passive$passive]",
        IP_STR
-       PIM_STR)
+       PIM_STR
+       "Disable exchange of protocol packets\n")
 {
-	return pim_process_ip_pim_cmd(vty);
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, true);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
@@ -5293,13 +5304,17 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	return pim_process_no_ip_pim_cmd(vty);
 }
 
-DEFUN (interface_no_ip_pim,
+DEFPY (interface_no_ip_pim,
        interface_no_ip_pim_cmd,
-       "no ip pim",
+       "no ip pim [passive$passive]",
        NO_STR
        IP_STR
-       PIM_STR)
+       PIM_STR
+       "Disable exchange of protocol packets\n")
 {
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, false);
+
 	return pim_process_no_ip_pim_cmd(vty);
 }
 
