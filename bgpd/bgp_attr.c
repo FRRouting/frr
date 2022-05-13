@@ -4430,7 +4430,7 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 				 bool addpath_capable, uint32_t addpath_tx_id,
 				 struct attr *attr)
 {
-	uint8_t wlabel[3] = {0x80, 0x00, 0x00};
+	uint8_t wlabel[4] = {0x80, 0x00, 0x00};
 
 	if (safi == SAFI_LABELED_UNICAST) {
 		label = (mpls_label_t *)wlabel;
