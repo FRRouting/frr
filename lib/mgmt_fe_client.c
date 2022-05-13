@@ -44,7 +44,7 @@
 
 struct mgmt_fe_client_ctx;
 
-PREDECL_LIST(mgmt_session_list);
+PREDECL_LIST(mgmt_sessions);
 
 struct mgmt_fe_client_session {
 	uint64_t client_id;
@@ -52,11 +52,10 @@ struct mgmt_fe_client_session {
 	struct mgmt_fe_client_ctx *client_ctx;
 	uintptr_t user_ctx;
 
-	struct mgmt_session_list_item list_linkage;
+	struct mgmt_sessions_item list_linkage;
 };
 
-DECLARE_LIST(mgmt_session_list, struct mgmt_fe_client_session,
-	     list_linkage);
+DECLARE_LIST(mgmt_sessions, struct mgmt_fe_client_session, list_linkage);
 
 DEFINE_MTYPE_STATIC(LIB, MGMTD_FE_SESSION, "MGMTD Frontend session");
 
@@ -79,13 +78,13 @@ struct mgmt_fe_client_ctx {
 
 	struct mgmt_fe_client_params client_params;
 
-	struct mgmt_session_list_head client_sessions;
+	struct mgmt_sessions_head client_sessions;
 };
 
 #define MGMTD_FE_CLIENT_FLAGS_WRITES_OFF (1U << 0)
 
-#define FOREACH_SESSION_IN_LIST(client_ctx, session)                                 \
-	frr_each_safe(mgmt_session_list, &(client_ctx)->client_sessions, (session))
+#define FOREACH_SESSION_IN_LIST(client_ctx, session)                           \
+	frr_each_safe(mgmt_sessions, &(client_ctx)->client_sessions, (session))
 
 static bool mgmt_debug_fe_client;
 
@@ -1069,7 +1068,7 @@ uintptr_t mgmt_fe_client_lib_init(struct mgmt_fe_client_params *params,
 
 	mgmt_fe_client_ctx.obuf_work = NULL;
 
-	mgmt_session_list_init(&mgmt_fe_client_ctx.client_sessions);
+	mgmt_sessions_init(&mgmt_fe_client_ctx.client_sessions);
 
 	/* Start trying to connect to MGMTD frontend server immediately */
 	mgmt_fe_client_schedule_conn_retry(&mgmt_fe_client_ctx, 1);
@@ -1100,7 +1099,7 @@ enum mgmt_result mgmt_fe_create_client_session(uintptr_t lib_hndl,
 	session->client_id = client_id;
 	session->client_ctx = client_ctx;
 	session->session_id = 0;
-	mgmt_session_list_add_tail(&client_ctx->client_sessions, session);
+	mgmt_sessions_add_tail(&client_ctx->client_sessions, session);
 
 	if (mgmt_fe_send_session_req(client_ctx, session, true) != 0)
 		return MGMTD_INTERNAL_ERROR;
@@ -1128,7 +1127,7 @@ enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
 	if (mgmt_fe_send_session_req(client_ctx, session, false) != 0)
 		return MGMTD_INTERNAL_ERROR;
 
-	mgmt_session_list_del(&client_ctx->client_sessions, session);
+	mgmt_sessions_del(&client_ctx->client_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
 
 	return MGMTD_SUCCESS;

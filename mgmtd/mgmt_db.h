@@ -51,7 +51,7 @@ extern struct nb_config *running_config;
 
 struct mgmt_db_ctx;
 
-PREDECL_DLIST(mgmt_cmt_info_dlist);
+PREDECL_DLIST(mgmt_cmt_infos);
 
 /***************************************************************
  * Global data exported
