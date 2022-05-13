@@ -50,7 +50,7 @@ struct mgmt_master {
 	uint32_t socket_buffer;
 
 	/* The single instance of config transaction allowed at any time */
-	struct mgmt_txn_list_head txn_list;
+	struct mgmt_txns_head txn_list;
 
 	/* Map of Transactions and its ID */
 	struct hash *txn_hash;
@@ -68,8 +68,7 @@ struct mgmt_master {
 	bool perf_stats_en; /* to enable performance stats measurement */
 
 	/* List of commit infos */
-	struct mgmt_cmt_info_dlist_head
-		cmt_dlist; /* List of last 10 commits executed. */
+	struct mgmt_cmt_infos_head cmts; /* List of last 10 commits executed. */
 };
 
 extern struct mgmt_master *mm;

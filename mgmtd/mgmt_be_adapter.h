@@ -52,8 +52,8 @@ struct mgmt_be_datareq {
 	size_t num_reqs;
 };
 
-PREDECL_LIST(mgmt_be_adapter_list);
-PREDECL_LIST(mgmt_txn_badapter_list);
+PREDECL_LIST(mgmt_be_adapters);
+PREDECL_LIST(mgmt_txn_badapters);
 
 struct mgmt_be_client_adapter {
 	enum mgmt_be_client_id id;
@@ -95,16 +95,15 @@ struct mgmt_be_client_adapter {
 	 */
 	struct nb_config_cbs cfg_chgs;
 
-	struct mgmt_be_adapter_list_item list_linkage;
-	struct mgmt_txn_badapter_list_item txn_list_linkage;
+	struct mgmt_be_adapters_item list_linkage;
+	struct mgmt_txn_badapters_item txn_list_linkage;
 };
 
 #define MGMTD_BE_ADAPTER_FLAGS_WRITES_OFF (1U << 0)
 #define MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED (1U << 1)
 
-DECLARE_LIST(mgmt_be_adapter_list, struct mgmt_be_client_adapter,
-	     list_linkage);
-DECLARE_LIST(mgmt_txn_badapter_list, struct mgmt_be_client_adapter,
+DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
+DECLARE_LIST(mgmt_txn_badapters, struct mgmt_be_client_adapter,
 	     txn_list_linkage);
 
 union mgmt_be_xpath_subscr_info {

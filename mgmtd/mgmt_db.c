@@ -54,22 +54,22 @@ struct mgmt_db_ctx {
 };
 
 struct mgmt_cmt_info_t {
-	struct mgmt_cmt_info_dlist_item cmt_dlist;
+	struct mgmt_cmt_infos_item cmts;
 
 	char cmtid_str[MGMTD_MD5_HASH_STR_HEX_LEN];
 	char time_str[MGMTD_COMMIT_TIME_STR_LEN];
 	char cmt_json_file[MGMTD_MAX_COMMIT_FILE_PATH_LEN];
 };
 
-DECLARE_DLIST(mgmt_cmt_info_dlist, struct mgmt_cmt_info_t, cmt_dlist);
+DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
 
 #define FOREACH_CMT_REC(mm, cmt_info)                                          \
-	frr_each_safe(mgmt_cmt_info_dlist, &mm->cmt_dlist, cmt_info)
+	frr_each_safe(mgmt_cmt_infos, &mm->cmts, cmt_info)
 
 const char *mgmt_db_names[MGMTD_DB_MAX_ID + 1] = {
 	MGMTD_DB_NAME_NONE,	/* MGMTD_DB_NONE */
 	MGMTD_DB_NAME_RUNNING,     /* MGMTD_DB_RUNNING */
-	MGMTD_DB_NAME_CANDIDATE,   /* MGMTD_DB_RUNNING */
+	MGMTD_DB_NAME_CANDIDATE,   /* MGMTD_DB_CANDIDATE */
 	MGMTD_DB_NAME_OPERATIONAL, /* MGMTD_DB_OPERATIONAL */
 	"Unknown/Invalid",	 /* MGMTD_DB_ID_MAX */
 };
@@ -261,19 +261,18 @@ static struct mgmt_cmt_info_t *mgmt_db_create_cmt_rec(void)
 	snprintf(new->cmt_json_file, MGMTD_MAX_COMMIT_FILE_PATH_LEN,
 		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
 
-	if (mgmt_cmt_info_dlist_count(&mm->cmt_dlist)
-	    == MGMTD_MAX_COMMIT_LIST) {
+	if (mgmt_cmt_infos_count(&mm->cmts) == MGMTD_MAX_COMMIT_LIST) {
 		FOREACH_CMT_REC (mm, cmt_info)
 			last_cmt_info = cmt_info;
 
 		if (last_cmt_info) {
 			mgmt_db_remove_cmt_file(last_cmt_info->cmt_json_file);
-			mgmt_cmt_info_dlist_del(&mm->cmt_dlist, last_cmt_info);
+			mgmt_cmt_infos_del(&mm->cmts, last_cmt_info);
 			XFREE(MTYPE_MGMTD_CMT_INFO, last_cmt_info);
 		}
 	}
 
-	mgmt_cmt_info_dlist_add_head(&mm->cmt_dlist, new);
+	mgmt_cmt_infos_add_head(&mm->cmts, new);
 	return new;
 }
 
@@ -317,7 +316,7 @@ static bool mgmt_db_read_cmt_record_index(void)
 			new = XCALLOC(MTYPE_MGMTD_CMT_INFO,
 				      sizeof(struct mgmt_cmt_info_t));
 			memcpy(new, &cmt_info, sizeof(struct mgmt_cmt_info_t));
-			mgmt_cmt_info_dlist_add_tail(&mm->cmt_dlist, new);
+			mgmt_cmt_infos_add_tail(&mm->cmts, new);
 		} else {
 			zlog_err("More records found in index file %s",
 				 MGMTD_COMMIT_INDEX_FILE_NAME);
@@ -490,7 +489,7 @@ int mgmt_db_init(struct mgmt_master *mm)
 	mgmt_db_mm = mm;
 
 	/* Create commit record for previously stored commit-apply */
-	mgmt_cmt_info_dlist_init(&mgmt_db_mm->cmt_dlist);
+	mgmt_cmt_infos_init(&mgmt_db_mm->cmts);
 	mgmt_db_read_cmt_record_index();
 
 	return 0;
@@ -505,15 +504,15 @@ void mgmt_db_destroy(void)
 	 */
 
 	FOREACH_CMT_REC (mgmt_db_mm, cmt_info) {
-		mgmt_cmt_info_dlist_del(&mgmt_db_mm->cmt_dlist, cmt_info);
+		mgmt_cmt_infos_del(&mgmt_db_mm->cmts, cmt_info);
 		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
 
-	mgmt_cmt_info_dlist_fini(&mgmt_db_mm->cmt_dlist);
+	mgmt_cmt_infos_fini(&mgmt_db_mm->cmts);
 }
 
 struct mgmt_db_ctx *mgmt_db_get_ctx_by_id(struct mgmt_master *mm,
-					    Mgmtd__DatabaseId db_id)
+					  Mgmtd__DatabaseId db_id)
 {
 	switch (db_id) {
 	case MGMTD_DB_CANDIDATE:
@@ -956,8 +955,8 @@ int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str)
 	int ret = 0;
 	struct mgmt_cmt_info_t *cmt_info;
 
-	if (!mgmt_cmt_info_dlist_count(&mm->cmt_dlist)
-	    || !mgmt_db_find_cmt_record(cmtid_str)) {
+	if (!mgmt_cmt_infos_count(&mm->cmts) ||
+	    !mgmt_db_find_cmt_record(cmtid_str)) {
 		vty_out(vty, "Invalid commit Id\n");
 		return -1;
 	}
@@ -971,7 +970,7 @@ int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str)
 		}
 
 		mgmt_db_remove_cmt_file(cmt_info->cmt_json_file);
-		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, cmt_info);
+		mgmt_cmt_infos_del(&mm->cmts, cmt_info);
 		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
 
@@ -988,7 +987,7 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 	if (!num_cmts)
 		num_cmts = 1;
 
-	cmts = mgmt_cmt_info_dlist_count(&mm->cmt_dlist);
+	cmts = mgmt_cmt_infos_count(&mm->cmts);
 	if ((int)cmts < num_cmts) {
 		vty_out(vty,
 			"Number of commits found (%d) less than required to rollback\n",
@@ -1011,11 +1010,11 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 
 		cnt++;
 		mgmt_db_remove_cmt_file(cmt_info->cmt_json_file);
-		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, cmt_info);
+		mgmt_cmt_infos_del(&mm->cmts, cmt_info);
 		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
 
-	if (!mgmt_cmt_info_dlist_count(&mm->cmt_dlist)) {
+	if (!mgmt_cmt_infos_count(&mm->cmts)) {
 		ret = mgmt_db_reset((struct mgmt_db_ctx *)mm->candidate_db);
 		if (ret < 0)
 			return ret;
