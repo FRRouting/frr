@@ -48,6 +48,7 @@ void ifreq_set_name(struct ifreq *ifreq, struct interface *ifp)
 	strlcpy(ifreq->ifr_name, ifp->name, sizeof(ifreq->ifr_name));
 }
 
+#ifndef HAVE_NETLINK
 /* call ioctl system call */
 int if_ioctl(unsigned long request, caddr_t buffer)
 {
@@ -73,6 +74,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	}
 	return 0;
 }
+#endif
 
 /* call ioctl system call */
 int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
@@ -127,7 +129,6 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	}
 	return 0;
 }
-#endif /* ! HAVE_NETLINK */
 
 /*
  * get interface metric
@@ -174,6 +175,7 @@ void if_get_mtu(struct interface *ifp)
 	ifp->mtu6 = ifp->mtu = -1;
 #endif
 }
+#endif /* ! HAVE_NETLINK */
 
 /*
  * Handler for interface address programming via the zebra dplane,
@@ -217,13 +219,6 @@ enum zebra_dplane_result kernel_address_update_ctx(
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
-#endif	/* !HAVE_NETLINK */
-
-#ifdef HAVE_NETLINK
-
-/* TODO -- remove; no use of these apis with netlink any longer */
-
-#else /* ! HAVE_NETLINK */
 #ifdef HAVE_STRUCT_IFALIASREQ
 
 /*
