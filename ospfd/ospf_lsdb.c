@@ -198,7 +198,7 @@ struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, uint8_t type,
 
 	table = lsdb->type[type].db;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
+	memset(&lp, 0, sizeof(lp));
 	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = id;
@@ -225,7 +225,7 @@ struct ospf_lsa *ospf_lsdb_lookup_by_id_next(struct ospf_lsdb *lsdb,
 
 	table = lsdb->type[type].db;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
+	memset(&lp, 0, sizeof(lp));
 	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = id;

@@ -4119,7 +4119,7 @@ static int vtysh_connect(struct vtysh_client *vclient)
 		return -1;
 	}
 
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN

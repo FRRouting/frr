@@ -206,7 +206,7 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	ret = str2prefix(prefix, &p);
 	if (ret <= 0) {
 		vty_out(vty, "%% Malformed address\n");

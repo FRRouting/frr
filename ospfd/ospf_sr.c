@@ -608,7 +608,7 @@ int ospf_sr_init(void)
 
 	osr_debug("SR (%s): Initialize SR Data Base", __func__);
 
-	memset(&OspfSR, 0, sizeof(struct ospf_sr_db));
+	memset(&OspfSR, 0, sizeof(OspfSR));
 	OspfSR.status = SR_OFF;
 	/* Only AREA flooding is supported in this release */
 	OspfSR.scope = OSPF_OPAQUE_AREA_LSA;

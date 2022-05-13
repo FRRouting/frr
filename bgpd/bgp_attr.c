@@ -980,7 +980,7 @@ struct attr *bgp_attr_aggregate_intern(
 	struct attr *new;
 	int ret;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 
 	/* Origin attribute. */
 	attr.origin = origin;
@@ -1043,7 +1043,7 @@ struct attr *bgp_attr_aggregate_intern(
 		struct attr attr_tmp = attr;
 		struct bgp_path_info rmap_path;
 
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		memset(&rmap_path, 0, sizeof(rmap_path));
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
 

@@ -121,7 +121,7 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 
 		bgp_keepalive_send(pkat->peer);
 		monotime(&pkat->last);
-		memset(&elapsed, 0x00, sizeof(struct timeval));
+		memset(&elapsed, 0, sizeof(elapsed));
 		diff = ka;
 	}
 
@@ -220,7 +220,7 @@ void *bgp_keepalives_start(void *arg)
 
 		hash_iterate(peerhash, peer_process, &next_update);
 		if (next_update.tv_sec == -1)
-			memset(&next_update, 0x00, sizeof(next_update));
+			memset(&next_update, 0, sizeof(next_update));
 
 		monotime_since(&currtime, &aftertime);
 

@@ -7838,7 +7838,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 {
 	qobj_init();
 
-	memset(&bgp_master, 0, sizeof(struct bgp_master));
+	memset(&bgp_master, 0, sizeof(bgp_master));
 
 	bm = &bgp_master;
 	bm->bgp = list_new();

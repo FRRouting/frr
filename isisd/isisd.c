@@ -177,7 +177,7 @@ struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 
 void isis_master_init(struct thread_master *master)
 {
-	memset(&isis_master, 0, sizeof(struct isis_master));
+	memset(&isis_master, 0, sizeof(isis_master));
 	im = &isis_master;
 	im->isis = list_new();
 	im->master = master;

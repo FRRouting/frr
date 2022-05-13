@@ -131,7 +131,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 #define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
 	while (STREAM_READABLE(data) > 0) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
 		if (addpath_capable) {
 			STREAM_GET(&addpath_id, data, BGP_ADDPATH_ID_LEN);

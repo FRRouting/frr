@@ -612,7 +612,7 @@ static int nhlfe_nexthop_active_ipv4(struct zebra_nhlfe *nhlfe,
 		return 0;
 
 	/* Lookup nexthop in IPv4 routing table. */
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv4;
@@ -661,7 +661,7 @@ static int nhlfe_nexthop_active_ipv6(struct zebra_nhlfe *nhlfe,
 		return 0;
 
 	/* Lookup nexthop in IPv6 routing table. */
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv6;
