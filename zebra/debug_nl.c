@@ -26,6 +26,7 @@
 #include <linux/rtnetlink.h>
 #include <net/if_arp.h>
 #include <linux/fib_rules.h>
+#include <linux/lwtunnel.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -1234,6 +1235,42 @@ next_rta:
 	goto next_rta;
 }
 
+static const char *lwt_type2str(uint16_t type)
+{
+	switch (type) {
+	case LWTUNNEL_ENCAP_NONE:
+		return "NONE";
+	case LWTUNNEL_ENCAP_MPLS:
+		return "MPLS";
+	case LWTUNNEL_ENCAP_IP:
+		return "IPv4";
+	case LWTUNNEL_ENCAP_ILA:
+		return "ILA";
+	case LWTUNNEL_ENCAP_IP6:
+		return "IPv6";
+	case LWTUNNEL_ENCAP_SEG6:
+		return "SEG6";
+	case LWTUNNEL_ENCAP_BPF:
+		return "BPF";
+	case LWTUNNEL_ENCAP_SEG6_LOCAL:
+		return "SEG6_LOCAL";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *nhg_type2str(uint16_t type)
+{
+	switch (type) {
+	case NEXTHOP_GRP_TYPE_MPATH:
+		return "MULTIPATH";
+	case NEXTHOP_GRP_TYPE_RES:
+		return "RESILIENT MULTIPATH";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 static void nlnh_dump(struct nhmsg *nhm, size_t msglen)
 {
 	struct rtattr *rta;
@@ -1275,9 +1312,12 @@ next_rta:
 				   nhgrp[i].weight);
 		break;
 	case NHA_ENCAP_TYPE:
+		u16v = *(uint16_t *)RTA_DATA(rta);
+		zlog_debug("      %s", lwt_type2str(u16v));
+		break;
 	case NHA_GROUP_TYPE:
 		u16v = *(uint16_t *)RTA_DATA(rta);
-		zlog_debug("      %d", u16v);
+		zlog_debug("      %s", nhg_type2str(u16v));
 		break;
 	case NHA_BLACKHOLE:
 		/* NOTHING */
