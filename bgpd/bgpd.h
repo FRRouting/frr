@@ -620,8 +620,7 @@ struct bgp {
 	struct bgp_maxpaths_cfg {
 		uint16_t maxpaths_ebgp;
 		uint16_t maxpaths_ibgp;
-		uint16_t ibgp_flags;
-#define BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN (1 << 0)
+		bool same_clusterlen;
 	} maxpaths[AFI_MAX][SAFI_MAX];
 
 	_Atomic uint32_t wpkt_quanta; // max # packets to write per i/o cycle
