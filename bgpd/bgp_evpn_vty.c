@@ -1419,8 +1419,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd,
 	struct prefix_rd prd;
 	int rd_all = 0;
 
-	argv_find(argv, argc, "all", &rd_all);
-	if (rd_all)
+	if (argv_find(argv, argc, "all", &rd_all))
 		return bgp_show_ethernet_vpn(vty, NULL, bgp_show_type_normal,
 					     NULL, SHOW_DISPLAY_STANDARD,
 					     use_json(argc, argv));
@@ -1469,8 +1468,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_tags,
 	struct prefix_rd prd;
 	int rd_all = 0;
 
-	argv_find(argv, argc, "all", &rd_all);
-	if (rd_all)
+	if (argv_find(argv, argc, "all", &rd_all))
 		return bgp_show_ethernet_vpn(vty, NULL, bgp_show_type_normal,
 					     NULL, SHOW_DISPLAY_TAGS, 0);
 
@@ -1587,8 +1585,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 		return CMD_WARNING;
 	}
 
-	argv_find(argv, argc, "all", &rd_all);
-	if (!rd_all) {
+	if (argv_find(argv, argc, "all", &rd_all)) {
 		argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			  &idx_ext_community);
 		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
@@ -1797,8 +1794,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 		return CMD_WARNING;
 	}
 
-	argv_find(argv, argc, "all", &rd_all);
-	if (rd_all)
+	if (argv_find(argv, argc, "all", &rd_all))
 		return show_adj_route_vpn(vty, peer, NULL, AFI_L2VPN, SAFI_EVPN,
 					  uj);
 	else {
@@ -1860,8 +1856,7 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
 	struct prefix_rd prd;
 	int rd_all = 0;
 
-	argv_find(argv, argc, "all", &rd_all);
-	if (rd_all)
+	if (argv_find(argv, argc, "all", &rd_all))
 		return bgp_show_ethernet_vpn(vty, NULL, bgp_show_type_normal,
 					     NULL, SHOW_DISPLAY_OVERLAY,
 					     use_json(argc, argv));
@@ -4693,7 +4688,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
       JSON_STR)
 {
 	struct bgp *bgp;
-	int ret;
+	int ret = 0;
 	struct prefix_rd prd;
 	int type = 0;
 	bool uj = false;
@@ -4710,15 +4705,16 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	if (uj)
 		json = json_object_new_object();
 
-	argv_find(argv, argc, "all", &rd_all);
-	if (!rd_all) {
+	if (argv_find(argv, argc, "all", &rd_all)) {
 		/* get the RD */
-		argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
-			  &idx_ext_community);
-		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
-		if (!ret) {
-			vty_out(vty, "%% Malformed Route Distinguisher\n");
-			return CMD_WARNING;
+		if (argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
+			      &idx_ext_community)) {
+			ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
+			if (!ret) {
+				vty_out(vty,
+					"%% Malformed Route Distinguisher\n");
+				return CMD_WARNING;
+			}
 		}
 	}
 
@@ -4757,7 +4753,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
       JSON_STR)
 {
 	struct bgp *bgp;
-	int ret;
+	int ret = 0;
 	struct prefix_rd prd;
 	struct ethaddr mac;
 	struct ipaddr ip;
@@ -4781,14 +4777,15 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
 		json = json_object_new_object();
 
 	/* get the prd */
-	argv_find(argv, argc, "all", &rd_all);
-	if (!rd_all) {
-		argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
-			  &idx_ext_community);
-		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
-		if (!ret) {
-			vty_out(vty, "%% Malformed Route Distinguisher\n");
-			return CMD_WARNING;
+	if (argv_find(argv, argc, "all", &rd_all)) {
+		if (argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
+			      &idx_ext_community)) {
+			ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
+			if (!ret) {
+				vty_out(vty,
+					"%% Malformed Route Distinguisher\n");
+				return CMD_WARNING;
+			}
 		}
 	}
 
