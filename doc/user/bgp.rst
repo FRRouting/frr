@@ -967,6 +967,13 @@ However, it MUST defer route selection for an address family until it either.
    After changing this parameter, you have to reset the peers in order to advertise
    N-bit in Graceful Restart capability.
 
+   Without Graceful-Restart Notification capability (N-bit not set), GR is not
+   activated when receiving CEASE/HOLDTIME expire notifications.
+
+   When sending ``CEASE/Administrative Reset`` (``clear bgp``), the session is closed
+   and routes are not retained. When N-bit is set and ``bgp hard-administrative-reset``
+   is turned off Graceful-Restart is activated and routes are retained.
+
    Enabled by default.
 
 .. _bgp-per-peer-graceful-restart:
