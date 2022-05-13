@@ -587,6 +587,21 @@ void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
+bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
+		 unsigned int len)
+{
+	if (NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len) > maxlen) {
+		zlog_err("ERROR message exceeded bound of %d\n", maxlen);
+		return false;
+	}
+
+	memcpy(NLMSG_TAIL(n), data, len);
+	memset((uint8_t *)NLMSG_TAIL(n) + len, 0, NLMSG_ALIGN(len) - len);
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len);
+
+	return true;
+}
+
 bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 		 const void *data, unsigned int alen)
 {
@@ -665,6 +680,58 @@ struct rtnexthop *nl_attr_rtnh(struct nlmsghdr *n, unsigned int maxlen)
 void nl_attr_rtnh_end(struct nlmsghdr *n, struct rtnexthop *rtnh)
 {
 	rtnh->rtnh_len = (uint8_t *)NLMSG_TAIL(n) - (uint8_t *)rtnh;
+}
+
+bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
+		const void *data, int alen)
+{
+	struct rtattr *subrta;
+	int len = RTA_LENGTH(alen);
+
+	if (RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len) > maxlen) {
+		zlog_err("ERROR max allowed bound %d exceeded for rtattr",
+			 maxlen);
+		return false;
+	}
+	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
+	subrta->rta_type = type;
+	subrta->rta_len = len;
+	if (alen)
+		memcpy(RTA_DATA(subrta), data, alen);
+	rta->rta_len = NLMSG_ALIGN(rta->rta_len) + RTA_ALIGN(len);
+
+	return true;
+}
+
+bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type,
+		  uint16_t data)
+{
+	return nl_rta_put(rta, maxlen, type, &data, sizeof(uint16_t));
+}
+
+bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type,
+		  uint64_t data)
+{
+	return nl_rta_put(rta, maxlen, type, &data, sizeof(uint64_t));
+}
+
+struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen, int type)
+{
+	struct rtattr *nest = RTA_TAIL(rta);
+
+	if (nl_rta_put(rta, maxlen, type, NULL, 0))
+		return NULL;
+
+	nest->rta_type |= NLA_F_NESTED;
+
+	return nest;
+}
+
+int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest)
+{
+	nest->rta_len = (uint8_t *)RTA_TAIL(rta) - (uint8_t *)nest;
+
+	return rta->rta_len;
 }
 
 const char *nl_msg_type_to_str(uint16_t msg_type)
