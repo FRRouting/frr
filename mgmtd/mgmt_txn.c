@@ -53,7 +53,7 @@ enum mgmt_txn_event {
 	MGMTD_TXN_CLEANUP
 };
 
-PREDECL_LIST(mgmt_txn_req_list);
+PREDECL_LIST(mgmt_txn_reqs);
 
 struct mgmt_set_cfg_req {
 	Mgmtd__DatabaseId db_id;
@@ -96,7 +96,7 @@ mgmt_commit_phase2str(enum mgmt_commit_phase cmt_phase)
 	return "Invalid/Unknown";
 }
 
-PREDECL_LIST(mgmt_txn_batch_list);
+PREDECL_LIST(mgmt_txn_batches);
 
 struct mgmt_txn_be_cfg_batch {
 	struct mgmt_txn_ctx *txn;
@@ -112,14 +112,13 @@ struct mgmt_txn_be_cfg_batch {
 	size_t num_cfg_data;
 	int buf_space_left;
 	enum mgmt_commit_phase comm_phase;
-	struct mgmt_txn_batch_list_item list_linkage;
+	struct mgmt_txn_batches_item list_linkage;
 };
 
-DECLARE_LIST(mgmt_txn_batch_list, struct mgmt_txn_be_cfg_batch,
-	     list_linkage);
+DECLARE_LIST(mgmt_txn_batches, struct mgmt_txn_be_cfg_batch, list_linkage);
 
-#define FOREACH_TXN_CFG_BATCH_IN_LIST(list, batch)                            \
-	frr_each_safe(mgmt_txn_batch_list, list, batch)
+#define FOREACH_TXN_CFG_BATCH_IN_LIST(list, batch)                             \
+	frr_each_safe(mgmt_txn_batches, list, batch)
 
 struct mgmt_commit_cfg_req {
 	Mgmtd__DatabaseId src_db_id;
@@ -161,10 +160,8 @@ struct mgmt_commit_cfg_req {
 	 * the set of notifiers for the same. We may need to have
 	 * separate list of batches for VALIDATE and APPLY.
 	 */
-	struct mgmt_txn_batch_list_head
-		curr_batches[MGMTD_BE_CLIENT_ID_MAX];
-	struct mgmt_txn_batch_list_head
-		next_batches[MGMTD_BE_CLIENT_ID_MAX];
+	struct mgmt_txn_batches_head curr_batches[MGMTD_BE_CLIENT_ID_MAX];
+	struct mgmt_txn_batches_head next_batches[MGMTD_BE_CLIENT_ID_MAX];
 	/*
 	 * The last batch added for any backend client. This is always on
 	 * 'curr_batches'
@@ -215,13 +212,13 @@ struct mgmt_txn_req {
 	} req;
 
 	bool pending_be_proc;
-	struct mgmt_txn_req_list_item list_linkage;
+	struct mgmt_txn_reqs_item list_linkage;
 };
 
-DECLARE_LIST(mgmt_txn_req_list, struct mgmt_txn_req, list_linkage);
+DECLARE_LIST(mgmt_txn_reqs, struct mgmt_txn_req, list_linkage);
 
-#define FOREACH_TXN_REQ_IN_LIST(list, req)                                    \
-	frr_each_safe(mgmt_txn_req_list, list, req)
+#define FOREACH_TXN_REQ_IN_LIST(list, req)                                     \
+	frr_each_safe(mgmt_txn_reqs, list, req)
 
 struct mgmt_txn_ctx {
 	uint64_t session_id; /* One transaction per client session */
@@ -238,11 +235,11 @@ struct mgmt_txn_ctx {
 	struct thread *clnup;
 
 	/* List of backend adapters involved in this transaction */
-	struct mgmt_txn_badapter_list_head be_adapters;
+	struct mgmt_txn_badapters_head be_adapters;
 
 	int refcount;
 
-	struct mgmt_txn_list_item list_linkage;
+	struct mgmt_txns_item list_linkage;
 
 	/*
 	 * List of pending set-config requests for a given
@@ -250,22 +247,22 @@ struct mgmt_txn_ctx {
 	 * not processed at all. There's no backend interaction
 	 * involved.
 	 */
-	struct mgmt_txn_req_list_head set_cfg_reqs;
+	struct mgmt_txn_reqs_head set_cfg_reqs;
 	/*
 	 * List of pending get-config requests for a given
 	 * transaction/session. Just one list for requests
 	 * not processed at all. There's no backend interaction
 	 * involved.
 	 */
-	struct mgmt_txn_req_list_head get_cfg_reqs;
+	struct mgmt_txn_reqs_head get_cfg_reqs;
 	/*
 	 * List of pending get-data requests for a given
 	 * transaction/session Two lists, one for requests
 	 * not processed at all, and one for requests that
 	 * has been sent to backend for processing.
 	 */
-	struct mgmt_txn_req_list_head get_data_reqs;
-	struct mgmt_txn_req_list_head pending_get_datas;
+	struct mgmt_txn_reqs_head get_data_reqs;
+	struct mgmt_txn_reqs_head pending_get_datas;
 	/*
 	 * There will always be one commit-config allowed for a given
 	 * transaction/session. No need to maintain lists for it.
@@ -273,14 +270,14 @@ struct mgmt_txn_ctx {
 	struct mgmt_txn_req *commit_cfg_req;
 };
 
-DECLARE_LIST(mgmt_txn_list, struct mgmt_txn_ctx, list_linkage);
+DECLARE_LIST(mgmt_txns, struct mgmt_txn_ctx, list_linkage);
 
-#define FOREACH_TXN_IN_LIST(mm, txn)                                         \
-	frr_each_safe(mgmt_txn_list, &(mm)->txn_list, (txn))
+#define FOREACH_TXN_IN_LIST(mm, txn)                                           \
+	frr_each_safe(mgmt_txns, &(mm)->txn_list, (txn))
 
 static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
-					   enum mgmt_result result,
-					   const char *error_if_any);
+					  enum mgmt_result result,
+					  const char *error_if_any);
 
 static inline const char *
 mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn, bool curr)
@@ -326,7 +323,7 @@ mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn,
 	cfg_btch->txn = txn;
 	MGMTD_TXN_LOCK(txn);
 	assert(txn->commit_cfg_req);
-	mgmt_txn_batch_list_add_tail(
+	mgmt_txn_batches_add_tail(
 		&txn->commit_cfg_req->req.commit_cfg.curr_batches[id],
 		cfg_btch);
 	cfg_btch->be_adapter = be_adapter;
@@ -359,10 +356,10 @@ mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **cfg_btch)
 
 	cmtcfg_req = &(*cfg_btch)->txn->commit_cfg_req->req.commit_cfg;
 	hash_release(cmtcfg_req->batches, *cfg_btch);
-	mgmt_txn_batch_list_del(
-		&cmtcfg_req->curr_batches[(*cfg_btch)->be_id], *cfg_btch);
-	mgmt_txn_batch_list_del(
-		&cmtcfg_req->next_batches[(*cfg_btch)->be_id], *cfg_btch);
+	mgmt_txn_batches_del(&cmtcfg_req->curr_batches[(*cfg_btch)->be_id],
+			     *cfg_btch);
+	mgmt_txn_batches_del(&cmtcfg_req->next_batches[(*cfg_btch)->be_id],
+			     *cfg_btch);
 
 	if ((*cfg_btch)->be_adapter)
 		mgmt_be_adapter_unlock(&(*cfg_btch)->be_adapter);
@@ -420,22 +417,22 @@ mgmt_txn_cfgbatch_id2ctx(struct mgmt_txn_ctx *txn, uint64_t batch_id)
 }
 
 static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
-						enum mgmt_be_client_id id)
+					    enum mgmt_be_client_id id)
 {
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
-	struct mgmt_txn_batch_list_head *list;
+	struct mgmt_txn_batches_head *list;
 
 	list = &txn->commit_cfg_req->req.commit_cfg.curr_batches[id];
 	FOREACH_TXN_CFG_BATCH_IN_LIST (list, cfg_btch)
 		mgmt_txn_cfg_batch_free(&cfg_btch);
 
-	mgmt_txn_batch_list_fini(list);
+	mgmt_txn_batches_fini(list);
 
 	list = &txn->commit_cfg_req->req.commit_cfg.next_batches[id];
 	FOREACH_TXN_CFG_BATCH_IN_LIST (list, cfg_btch)
 		mgmt_txn_cfg_batch_free(&cfg_btch);
 
-	mgmt_txn_batch_list_fini(list);
+	mgmt_txn_batches_fini(list);
 
 	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = NULL;
 }
@@ -456,11 +453,10 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 
 	switch (txn_req->req_event) {
 	case MGMTD_TXN_PROC_SETCFG:
-		txn_req->req.set_cfg =
-			XCALLOC(MTYPE_MGMTD_TXN_SETCFG_REQ,
-				sizeof(struct mgmt_set_cfg_req));
+		txn_req->req.set_cfg = XCALLOC(MTYPE_MGMTD_TXN_SETCFG_REQ,
+					       sizeof(struct mgmt_set_cfg_req));
 		assert(txn_req->req.set_cfg);
-		mgmt_txn_req_list_add_tail(&txn->set_cfg_reqs, txn_req);
+		mgmt_txn_reqs_add_tail(&txn->set_cfg_reqs, txn_req);
 		MGMTD_TXN_DBG(
 			"Added a new SETCFG Req: %p for Txn: %p, Sessn: 0x%llx",
 			txn_req, txn, (unsigned long long)txn->session_id);
@@ -472,9 +468,9 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			txn_req, txn, (unsigned long long)txn->session_id);
 
 		FOREACH_MGMTD_BE_CLIENT_ID (id) {
-			mgmt_txn_batch_list_init(
+			mgmt_txn_batches_init(
 				&txn_req->req.commit_cfg.curr_batches[id]);
-			mgmt_txn_batch_list_init(
+			mgmt_txn_batches_init(
 				&txn_req->req.commit_cfg.next_batches[id]);
 		}
 
@@ -488,7 +484,7 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REQ,
 				sizeof(struct mgmt_get_data_req));
 		assert(txn_req->req.get_data);
-		mgmt_txn_req_list_add_tail(&txn->get_cfg_reqs, txn_req);
+		mgmt_txn_reqs_add_tail(&txn->get_cfg_reqs, txn_req);
 		MGMTD_TXN_DBG(
 			"Added a new GETCFG Req: %p for Txn: %p, Sessn: 0x%llx",
 			txn_req, txn, (unsigned long long)txn->session_id);
@@ -498,7 +494,7 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 			XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REQ,
 				sizeof(struct mgmt_get_data_req));
 		assert(txn_req->req.get_data);
-		mgmt_txn_req_list_add_tail(&txn->get_data_reqs, txn_req);
+		mgmt_txn_reqs_add_tail(&txn->get_data_reqs, txn_req);
 		MGMTD_TXN_DBG(
 			"Added a new GETDATA Req: %p for Txn: %p, Sessn: 0x%llx",
 			txn_req, txn, (unsigned long long)txn->session_id);
@@ -516,8 +512,8 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 {
 	int indx;
-	struct mgmt_txn_req_list_head *req_list = NULL;
-	struct mgmt_txn_req_list_head *pending_list = NULL;
+	struct mgmt_txn_reqs_head *req_list = NULL;
+	struct mgmt_txn_reqs_head *pending_list = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 
@@ -616,15 +612,13 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	}
 
 	if ((*txn_req)->pending_be_proc && pending_list) {
-		mgmt_txn_req_list_del(pending_list, *txn_req);
+		mgmt_txn_reqs_del(pending_list, *txn_req);
 		MGMTD_TXN_DBG("Removed Req: %p from pending-list (left:%d)",
-			       *txn_req,
-			       (int)mgmt_txn_req_list_count(pending_list));
+			      *txn_req, (int)mgmt_txn_reqs_count(pending_list));
 	} else if (req_list) {
-		mgmt_txn_req_list_del(req_list, *txn_req);
+		mgmt_txn_reqs_del(req_list, *txn_req);
 		MGMTD_TXN_DBG("Removed Req: %p from request-list (left:%d)",
-			       *txn_req,
-			       (int)mgmt_txn_req_list_count(req_list));
+			      *txn_req, (int)mgmt_txn_reqs_count(req_list));
 	}
 
 	(*txn_req)->pending_be_proc = false;
@@ -652,7 +646,7 @@ static void mgmt_txn_process_set_cfg(struct thread *thread)
 
 	MGMTD_TXN_DBG(
 		"Processing %d SET_CONFIG requests for Txn:%p Session:0x%llx",
-		(int)mgmt_txn_req_list_count(&txn->set_cfg_reqs), txn,
+		(int)mgmt_txn_reqs_count(&txn->set_cfg_reqs), txn,
 		(unsigned long long)txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->set_cfg_reqs, txn_req) {
@@ -696,8 +690,7 @@ static void mgmt_txn_process_set_cfg(struct thread *thread)
 		}
 
 		if (txn_req->req.set_cfg->implicit_commit) {
-			assert(mgmt_txn_req_list_count(&txn->set_cfg_reqs)
-			       == 1);
+			assert(mgmt_txn_reqs_count(&txn->set_cfg_reqs) == 1);
 			assert(txn_req->req.set_cfg->dst_db_ctx);
 
 			ret = mgmt_db_write_lock(
@@ -748,7 +741,7 @@ static void mgmt_txn_process_set_cfg(struct thread *thread)
 			break;
 	}
 
-	left = mgmt_txn_req_list_count(&txn->set_cfg_reqs);
+	left = mgmt_txn_reqs_count(&txn->set_cfg_reqs);
 	if (left) {
 		MGMTD_TXN_DBG(
 			"Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.",
@@ -881,31 +874,31 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 
 static void
 mgmt_move_txn_cfg_batch_to_next(struct mgmt_commit_cfg_req *cmtcfg_req,
-				 struct mgmt_txn_be_cfg_batch *cfg_btch,
-				 struct mgmt_txn_batch_list_head *src_list,
-				 struct mgmt_txn_batch_list_head *dst_list,
-				 bool update_commit_phase,
-				 enum mgmt_commit_phase to_phase)
+				struct mgmt_txn_be_cfg_batch *cfg_btch,
+				struct mgmt_txn_batches_head *src_list,
+				struct mgmt_txn_batches_head *dst_list,
+				bool update_commit_phase,
+				enum mgmt_commit_phase to_phase)
 {
-	mgmt_txn_batch_list_del(src_list, cfg_btch);
+	mgmt_txn_batches_del(src_list, cfg_btch);
 
 	if (update_commit_phase) {
-		MGMTD_TXN_DBG(
-			"Move Txn-Id %p Batch-Id %p from '%s' --> '%s'",
-			cfg_btch->txn, cfg_btch,
-			mgmt_commit_phase2str(cfg_btch->comm_phase),
-			mgmt_txn_commit_phase_str(cfg_btch->txn, false));
+		MGMTD_TXN_DBG("Move Txn-Id %p Batch-Id %p from '%s' --> '%s'",
+			      cfg_btch->txn, cfg_btch,
+			      mgmt_commit_phase2str(cfg_btch->comm_phase),
+			      mgmt_txn_commit_phase_str(cfg_btch->txn, false));
 		cfg_btch->comm_phase = to_phase;
 	}
 
-	mgmt_txn_batch_list_add_tail(dst_list, cfg_btch);
+	mgmt_txn_batches_add_tail(dst_list, cfg_btch);
 }
 
-static void mgmt_move_txn_cfg_batches(
-	struct mgmt_txn_ctx *txn, struct mgmt_commit_cfg_req *cmtcfg_req,
-	struct mgmt_txn_batch_list_head *src_list,
-	struct mgmt_txn_batch_list_head *dst_list, bool update_commit_phase,
-	enum mgmt_commit_phase to_phase)
+static void mgmt_move_txn_cfg_batches(struct mgmt_txn_ctx *txn,
+				      struct mgmt_commit_cfg_req *cmtcfg_req,
+				      struct mgmt_txn_batches_head *src_list,
+				      struct mgmt_txn_batches_head *dst_list,
+				      bool update_commit_phase,
+				      enum mgmt_commit_phase to_phase)
 {
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
 
@@ -920,20 +913,19 @@ static int
 mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 				   struct mgmt_commit_cfg_req *cmtcfg_req)
 {
-	struct mgmt_txn_batch_list_head *curr_list, *next_list;
+	struct mgmt_txn_batches_head *curr_list, *next_list;
 	enum mgmt_be_client_id id;
 
 	MGMTD_TXN_DBG("Txn-Id %p, Phase(current:'%s' next:'%s')", txn,
-		       mgmt_txn_commit_phase_str(txn, true),
-		       mgmt_txn_commit_phase_str(txn, false));
+		      mgmt_txn_commit_phase_str(txn, true),
+		      mgmt_txn_commit_phase_str(txn, false));
 
 	/*
 	 * Check if all clients has moved to next phase or not.
 	 */
 	FOREACH_MGMTD_BE_CLIENT_ID (id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscribed
-		    && mgmt_txn_batch_list_count(
-			       &cmtcfg_req->curr_batches[id])) {
+		if (cmtcfg_req->subscr_info.xpath_subscr[id].subscribed &&
+		    mgmt_txn_batches_count(&cmtcfg_req->curr_batches[id])) {
 			/*
 			 * There's atleast once client who hasn't moved to
 			 * next phase.
@@ -973,10 +965,10 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 
 static int
 mgmt_move_be_commit_to_next_phase(struct mgmt_txn_ctx *txn,
-				     struct mgmt_be_client_adapter *adapter)
+				  struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_batch_list_head *curr_list, *next_list;
+	struct mgmt_txn_batches_head *curr_list, *next_list;
 
 	if (txn->type != MGMTD_TXN_TYPE_CONFIG || !txn->commit_cfg_req)
 		return -1;
@@ -1410,10 +1402,10 @@ mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 	assert(cmtcfg_req->subscr_info.xpath_subscr[adapter->id].subscribed);
 
 	indx = 0;
-	num_batches = mgmt_txn_batch_list_count(
-		&cmtcfg_req->curr_batches[adapter->id]);
+	num_batches =
+		mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id]);
 	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->curr_batches[adapter->id],
-					cfg_btch) {
+				       cfg_btch) {
 		assert(cmtcfg_req->next_phase == MGMTD_COMMIT_PHASE_SEND_CFG);
 
 		cfg_req.cfgdata_reqs = cfg_btch->cfg_datap;
@@ -1512,7 +1504,7 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_batch_list_head *btch_list;
+	struct mgmt_txn_batches_head *btch_list;
 	struct mgmt_txn_be_cfg_batch *cfg_btch;
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
@@ -1803,11 +1795,11 @@ mgmtd_ignore_get_cfg_reply_data:
 }
 
 static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
-				struct mgmt_txn_req *txn_req,
-				struct mgmt_db_ctx *db_ctx)
+			       struct mgmt_txn_req *txn_req,
+			       struct mgmt_db_ctx *db_ctx)
 {
-	struct mgmt_txn_req_list_head *req_list = NULL;
-	struct mgmt_txn_req_list_head *pending_list = NULL;
+	struct mgmt_txn_reqs_head *req_list = NULL;
+	struct mgmt_txn_reqs_head *pending_list = NULL;
 	int indx;
 	struct mgmt_get_data_req *get_data;
 	struct mgmt_get_data_reply *get_reply;
@@ -1876,9 +1868,9 @@ mgmt_txn_get_config_failed:
 		 * Move the transaction to corresponding pending list.
 		 */
 		if (req_list)
-			mgmt_txn_req_list_del(req_list, txn_req);
+			mgmt_txn_reqs_del(req_list, txn_req);
 		txn_req->pending_be_proc = true;
-		mgmt_txn_req_list_add_tail(pending_list, txn_req);
+		mgmt_txn_reqs_add_tail(pending_list, txn_req);
 		MGMTD_TXN_DBG(
 			"Moved Req: %p for Txn: %p from Req-List to Pending-List",
 			txn_req, txn_req->txn);
@@ -1906,7 +1898,7 @@ static void mgmt_txn_process_get_cfg(struct thread *thread)
 
 	MGMTD_TXN_DBG(
 		"Processing %d GET_CONFIG requests for Txn:%p Session:0x%llx",
-		(int)mgmt_txn_req_list_count(&txn->get_cfg_reqs), txn,
+		(int)mgmt_txn_reqs_count(&txn->get_cfg_reqs), txn,
 		(unsigned long long)txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_cfg_reqs, txn_req) {
@@ -1952,7 +1944,7 @@ static void mgmt_txn_process_get_cfg(struct thread *thread)
 			break;
 	}
 
-	if (mgmt_txn_req_list_count(&txn->get_cfg_reqs)) {
+	if (mgmt_txn_reqs_count(&txn->get_cfg_reqs)) {
 		MGMTD_TXN_DBG(
 			"Processed maximum number of Get-Config requests (%d/%d). Rescheduling for rest.",
 			num_processed, MGMTD_TXN_MAX_NUM_GETCFG_PROC);
@@ -1973,7 +1965,7 @@ static void mgmt_txn_process_get_data(struct thread *thread)
 
 	MGMTD_TXN_DBG(
 		"Processing %d GET_DATA requests for Txn:%p Session:0x%llx",
-		(int)mgmt_txn_req_list_count(&txn->get_data_reqs), txn,
+		(int)mgmt_txn_reqs_count(&txn->get_data_reqs), txn,
 		(unsigned long long)txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_data_reqs, txn_req) {
@@ -2033,7 +2025,7 @@ static void mgmt_txn_process_get_data(struct thread *thread)
 			break;
 	}
 
-	if (mgmt_txn_req_list_count(&txn->get_data_reqs)) {
+	if (mgmt_txn_reqs_count(&txn->get_data_reqs)) {
 		MGMTD_TXN_DBG(
 			"Processed maximum number of Get-Data requests (%d/%d). Rescheduling for rest.",
 			num_processed, MGMTD_TXN_MAX_NUM_GETDATA_PROC);
@@ -2078,12 +2070,12 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 
 		txn->session_id = session_id;
 		txn->type = type;
-		mgmt_txn_badapter_list_init(&txn->be_adapters);
-		mgmt_txn_list_add_tail(&mgmt_txn_mm->txn_list, txn);
-		mgmt_txn_req_list_init(&txn->set_cfg_reqs);
-		mgmt_txn_req_list_init(&txn->get_cfg_reqs);
-		mgmt_txn_req_list_init(&txn->get_data_reqs);
-		mgmt_txn_req_list_init(&txn->pending_get_datas);
+		mgmt_txn_badapters_init(&txn->be_adapters);
+		mgmt_txns_add_tail(&mgmt_txn_mm->txn_list, txn);
+		mgmt_txn_reqs_init(&txn->set_cfg_reqs);
+		mgmt_txn_reqs_init(&txn->get_cfg_reqs);
+		mgmt_txn_reqs_init(&txn->get_data_reqs);
+		mgmt_txn_reqs_init(&txn->pending_get_datas);
 		txn->commit_cfg_req = NULL;
 		txn->refcount = 0;
 		if (!mgmt_txn_mm->next_txn_id)
@@ -2194,11 +2186,11 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 		THREAD_OFF((*txn)->proc_comm_cfg);
 		THREAD_OFF((*txn)->comm_cfg_timeout);
 		hash_release(mgmt_txn_mm->txn_hash, *txn);
-		mgmt_txn_list_del(&mgmt_txn_mm->txn_list, *txn);
+		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
 
 		MGMTD_TXN_DBG("Deleted %s Txn %p for Sessn: 0x%llx",
-			       mgmt_txn_type2str((*txn)->type), *txn,
-			       (unsigned long long)(*txn)->session_id);
+			      mgmt_txn_type2str((*txn)->type), *txn,
+			      (unsigned long long)(*txn)->session_id);
 
 		XFREE(MTYPE_MGMTD_TXN, *txn);
 	}
@@ -2286,7 +2278,7 @@ int mgmt_txn_init(struct mgmt_master *mm, struct thread_master *tm)
 
 	mgmt_txn_mm = mm;
 	mgmt_txn_tm = tm;
-	mgmt_txn_list_init(&mm->txn_list);
+	mgmt_txns_init(&mm->txn_list);
 	mgmt_txn_hash_init();
 	assert(!mm->cfg_txn);
 	mm->cfg_txn = NULL;
@@ -2362,7 +2354,7 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	if (!txn)
 		return -1;
 
-	if (implicit_commit && mgmt_txn_req_list_count(&txn->set_cfg_reqs)) {
+	if (implicit_commit && mgmt_txn_reqs_count(&txn->set_cfg_reqs)) {
 		MGMTD_TXN_ERR(
 			"For implicit commit config only one SETCFG-REQ can be allowed!");
 		return -1;
@@ -2718,7 +2710,7 @@ mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 			MGMTD_COMMIT_PHASE_TXN_DELETE);
 	}
 
-	if (!mgmt_txn_batch_list_count(&cmtcfg_req->curr_batches[adapter->id])) {
+	if (!mgmt_txn_batches_count(&cmtcfg_req->curr_batches[adapter->id])) {
 		/*
 		 * All configuration for the specific backend has been applied.
 		 * Send TXN-DELETE to wrap up the transaction for this backend.
@@ -2833,11 +2825,11 @@ void mgmt_txn_status_write(struct vty *vty)
 		vty_out(vty, "    Ref-Count: \t\t\t%d\n", txn->refcount);
 	}
 	vty_out(vty, "  Total: %d\n",
-		(int)mgmt_txn_list_count(&mgmt_txn_mm->txn_list));
+		(int)mgmt_txns_count(&mgmt_txn_mm->txn_list));
 }
 
 int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_db_ctx *src_db_ctx,
-					 struct mgmt_db_ctx *dst_db_ctx)
+					struct mgmt_db_ctx *dst_db_ctx)
 {
 	static struct nb_config_cbs changes;
 	struct nb_config_cbs *cfg_chgs = NULL;

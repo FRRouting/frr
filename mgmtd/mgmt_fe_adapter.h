@@ -57,9 +57,9 @@ struct mgmt_setcfg_stats {
 	unsigned long set_cfg_count;
 };
 
-PREDECL_LIST(mgmt_fe_session_list);
+PREDECL_LIST(mgmt_fe_sessions);
 
-PREDECL_LIST(mgmt_fe_adapter_list);
+PREDECL_LIST(mgmt_fe_adapters);
 
 struct mgmt_fe_client_adapter {
 	int conn_fd;
@@ -73,7 +73,7 @@ struct mgmt_fe_client_adapter {
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
 	/* List of sessions created and being maintained for this client. */
-	struct mgmt_fe_session_list_head fe_sessions;
+	struct mgmt_fe_sessions_head fe_sessions;
 
 	/* IO streams for read and write */
 	/* pthread_mutex_t ibuf_mtx; */
@@ -91,17 +91,16 @@ struct mgmt_fe_client_adapter {
 	struct mgmt_commit_stats cmt_stats;
 	struct mgmt_setcfg_stats setcfg_stats;
 
-	struct mgmt_fe_adapter_list_item list_linkage;
+	struct mgmt_fe_adapters_item list_linkage;
 };
 
 #define MGMTD_FE_ADAPTER_FLAGS_WRITES_OFF (1U << 0)
 
-DECLARE_LIST(mgmt_fe_adapter_list, struct mgmt_fe_client_adapter,
-	     list_linkage);
+DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 
 /* Initialise frontend adapter module */
 extern int mgmt_fe_adapter_init(struct thread_master *tm,
-				    struct mgmt_master *cm);
+				struct mgmt_master *cm);
 
 /* Destroy frontend adapter module */
 extern void mgmt_fe_adapter_destroy(void);
