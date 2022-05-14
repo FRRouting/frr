@@ -2576,9 +2576,9 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 /* Return true if this peer is on the per_peer_list of peers to debug
  * for BGP_DEBUG_TYPE
  */
-static int bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
-			      unsigned int BGP_DEBUG_TYPE,
-			      struct list *per_peer_list)
+static bool bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
+			       unsigned int BGP_DEBUG_TYPE,
+			       struct list *per_peer_list)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
@@ -2586,25 +2586,25 @@ static int bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
 	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
 		/* We are debugging all peers so return true */
 		if (!per_peer_list || list_isempty(per_peer_list))
-			return 1;
+			return true;
 
 		else {
 			if (!host)
-				return 0;
+				return false;
 
 			for (ALL_LIST_ELEMENTS(per_peer_list, node, nnode,
 					       filter))
 				if (strcmp(filter->host, host) == 0)
-					return 1;
+					return true;
 
-			return 0;
+			return false;
 		}
 	}
 
-	return 0;
+	return false;
 }
 
-int bgp_debug_neighbor_events(struct peer *peer)
+bool bgp_debug_neighbor_events(const struct peer *peer)
 {
 	char *host = NULL;
 
@@ -2616,7 +2616,7 @@ int bgp_debug_neighbor_events(struct peer *peer)
 				  bgp_debug_neighbor_events_peers);
 }
 
-int bgp_debug_keepalive(struct peer *peer)
+bool bgp_debug_keepalive(const struct peer *peer)
 {
 	char *host = NULL;
 
@@ -2628,7 +2628,7 @@ int bgp_debug_keepalive(struct peer *peer)
 				  bgp_debug_keepalive_peers);
 }
 
-bool bgp_debug_update(struct peer *peer, const struct prefix *p,
+bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 		      struct update_group *updgrp, unsigned int inbound)
 {
 	char *host = NULL;
