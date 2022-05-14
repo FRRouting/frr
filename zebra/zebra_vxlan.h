@@ -45,18 +45,13 @@ extern "C" {
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
 static inline int is_evpn_enabled(void)
 {
-	struct zebra_vrf *zvrf = NULL;
-	zvrf = zebra_vrf_get_evpn();
-	return zvrf ? EVPN_ENABLED(zvrf) : 0;
+	return EVPN_ENABLED(zebra_vrf_get_evpn());
 }
 
 static inline int
 is_vxlan_flooding_head_end(void)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
-
-	if (!zvrf)
-		return 0;
 	return (zvrf->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL);
 }
 

@@ -4493,8 +4493,6 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
 	struct zebra_ns *zns;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return -1;
 	zns = zvrf->zns;
 
 	memset(&req, 0, sizeof(req));
@@ -4534,8 +4532,6 @@ static int netlink_fdb_nh_del(uint32_t nh_id)
 	struct zebra_ns *zns;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return -1;
 	zns = zvrf->zns;
 
 	memset(&req, 0, sizeof(req));
@@ -4572,8 +4568,6 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 	uint32_t i;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return -1;
 	zns = zvrf->zns;
 
 	memset(&req, 0, sizeof(req));

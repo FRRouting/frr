@@ -1718,9 +1718,6 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return;
-
 	uptime = monotime(NULL);
 	uptime -= n->uptime;
 
