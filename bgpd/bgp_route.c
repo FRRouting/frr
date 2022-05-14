@@ -5694,12 +5694,12 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		}
 
 		/* Defensive coding, double-check the psize fits in a struct
-		 * prefix */
-		if (psize > (ssize_t)sizeof(p.u)) {
+		 * prefix for the v4 and v6 afi's and unicast/multicast */
+		if (psize > (ssize_t)sizeof(p.u.val)) {
 			flog_err(
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (prefix length %d too large for prefix storage %zu)",
-				peer->host, p.prefixlen, sizeof(p.u));
+				peer->host, p.prefixlen, sizeof(p.u.val));
 			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 		}
 
