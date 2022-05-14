@@ -928,9 +928,6 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 
 	zvrf = zebra_vrf_get_evpn();
 
-	if (!zvrf)
-		return NS_WALK_STOP;
-
 	/* Walk VxLAN interfaces and create EVPN hash. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
@@ -1744,9 +1741,6 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_get_evpn();
-
-	if (!zvrf)
-		return NS_WALK_STOP;
 
 	assert(_pifp);
 
@@ -3496,8 +3490,6 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		return;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return;
 
 	num_l3vnis = hashcount(zrouter.l3vni_table);
 	num_l2vnis = hashcount(zvrf->evpn_table);
@@ -4199,12 +4191,6 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	}
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf) {
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("        No Evpn Global Vrf found");
-		return -1;
-	}
-
 	return zebra_evpn_add_update_local_mac(zvrf, zevpn, ifp, macaddr, vid,
 					       sticky, local_inactive,
 					       dp_static, NULL);
@@ -5275,8 +5261,6 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 	struct zebra_vrf *zvrf_evpn = NULL;
 
 	zvrf_evpn = zebra_vrf_get_evpn();
-	if (!zvrf_evpn)
-		return -1;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("vrf %s vni %u %s", zvrf_name(zvrf), vni,
@@ -5873,8 +5857,6 @@ void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
 {
 	struct zebra_vrf *evpn_zvrf = zebra_vrf_get_evpn();
 
-	if (!zvrf)
-		return;
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
 	zebra_vxlan_cleanup_sg_table(zvrf);
 
@@ -6252,7 +6234,7 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 
-	if (zvrf && CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG)) {
+	if (CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VxLAN SG updates to PIM, stop");
 		UNSET_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG);

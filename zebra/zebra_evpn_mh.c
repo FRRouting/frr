@@ -2066,11 +2066,6 @@ static void zebra_evpn_mh_dup_addr_detect_off(void)
 		return;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf) {
-		zmh_info->flags |= ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF;
-		return;
-	}
-
 	old_detect = zebra_evpn_do_dup_addr_detect(zvrf);
 	zmh_info->flags |= ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF;
 	new_detect = zebra_evpn_do_dup_addr_detect(zvrf);
