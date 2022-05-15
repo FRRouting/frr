@@ -453,6 +453,12 @@ const char *rtm_protocol2str(int type)
 		return "MRT";
 	case RTPROT_ZEBRA:
 		return "ZEBRA";
+	case RTPROT_BGP:
+		return "BGP";
+	case RTPROT_ISIS:
+		return "ISIS";
+	case RTPROT_OSPF:
+		return "OSPF";
 	case RTPROT_BIRD:
 		return "BIRD";
 	case RTPROT_DNROUTED:
