@@ -77,57 +77,7 @@ static struct interface_master{
  */
 int if_cmp_name_func(const char *p1, const char *p2)
 {
-	unsigned int l1, l2;
-	long int x1, x2;
-	int res;
-
-	while (*p1 && *p2) {
-		/* look up to any number */
-		l1 = strcspn(p1, "0123456789");
-		l2 = strcspn(p2, "0123456789");
-
-		/* name lengths are different -> compare names */
-		if (l1 != l2)
-			return (strcmp(p1, p2));
-
-		/* Note that this relies on all numbers being less than all
-		 * letters, so
-		 * that de0 < del0.
-		 */
-		res = strncmp(p1, p2, l1);
-
-		/* names are different -> compare them */
-		if (res)
-			return res;
-
-		/* with identical name part, go to numeric part */
-		p1 += l1;
-		p2 += l1;
-
-		if (!*p1 && !*p2)
-			return 0;
-		if (!*p1)
-			return -1;
-		if (!*p2)
-			return 1;
-
-		x1 = strtol(p1, (char **)&p1, 10);
-		x2 = strtol(p2, (char **)&p2, 10);
-
-		/* let's compare numbers now */
-		if (x1 < x2)
-			return -1;
-		if (x1 > x2)
-			return 1;
-
-		/* numbers were equal, lets do it again..
-		(it happens with name like "eth123.456:789") */
-	}
-	if (*p1)
-		return 1;
-	if (*p2)
-		return -1;
-	return 0;
+	return strverscmp(p1, p2);
 }
 
 static int if_cmp_func(const struct interface *ifp1,

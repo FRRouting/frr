@@ -95,6 +95,7 @@ lib_libfrr_la_SOURCES = \
 	lib/strformat.c \
 	lib/strlcat.c \
 	lib/strlcpy.c \
+	lib/strverscmp.c \
 	lib/systemd.c \
 	lib/table.c \
 	lib/termtable.c \
