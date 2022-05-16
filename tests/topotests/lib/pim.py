@@ -273,18 +273,20 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                 config_data.append(cmd)
                 protocol = "igmp"
                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
+                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 cmd = "ip igmp"
                 if del_action:
                     cmd = "no {}".format(cmd)
-                config_data.append(cmd)
+                if not del_attr:
+                    config_data.append(cmd)
 
-                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 for attribute, data in intf_data[intf_name]["igmp"].items():
                     if attribute == "version":
                         cmd = "ip {} {} {}".format(protocol, attribute, data)
                         if del_action:
                             cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
+                        if not del_attr:
+                            config_data.append(cmd)
 
                     if attribute == "join":
                         for group in data:
