@@ -894,36 +894,36 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Delete local join from DR node")
-    input_dict = {
-        "r1": {
-            "igmp": {
-                "interfaces": {
-                    vlan_intf_r1_s1: {
-                        "igmp": {
-                            "version": "2",
-                            "join": IGMP_JOIN_RANGE_3,
-                            "delete_attr": True,
+    for _join in IGMP_JOIN_RANGE_3:
+        input_dict = {
+            "r1": {
+                "igmp": {
+                    "interfaces": {
+                        vlan_intf_r1_s1: {
+                            "igmp": {
+                                "join": [_join],
+                                "delete_attr": True,
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
-    result = create_igmp_config(tgen, topo, input_dict)
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+        result = create_igmp_config(tgen, topo, input_dict)
+        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-    step(
-        "After removing local join 227.1.1.1 group removed from IGMP join "
-        "of R1, R2 node , using 'show ip igmp groups json'"
-    )
-
-    for dut, intf in zip(["r1", "r2"], [intf_r1_s1, intf_r2_s1]):
-        result = verify_igmp_groups(tgen, dut, intf, IGMP_JOIN_RANGE_3, expected=False)
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "IGMP groups are still present \n Error: {}".format(tc_name, result)
+        step(
+            "After removing local join 227.1.1.1 group removed from IGMP join "
+            "of R1, R2 node , using 'show ip igmp groups json'"
         )
+
+        for dut, intf in zip(["r1", "r2"], [intf_r1_s1, intf_r2_s1]):
+            result = verify_igmp_groups(tgen, dut, intf, IGMP_JOIN_RANGE_3, expected=False)
+            assert result is not True, (
+                "Testcase {} : Failed \n "
+                "IGMP groups are still present \n Error: {}".format(tc_name, result)
+            )
 
     step("(*,G) mroute for 227.1.1.1 group removed from R1 node")
     step(
