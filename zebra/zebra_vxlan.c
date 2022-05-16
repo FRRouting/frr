@@ -5288,10 +5288,6 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 		/* add the L3-VNI to the global table */
 		zl3vni = zl3vni_add(vni, zvrf_id(zvrf));
-		if (!zl3vni) {
-			snprintf(err, err_str_sz, "Could not add L3-VNI");
-			return -1;
-		}
 
 		/* associate the vrf with vni */
 		zvrf->l3vni = vni;
