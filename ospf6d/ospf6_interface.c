@@ -1130,9 +1130,9 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 			ospf6_interface_state_str[oi->state], oi->transdelay,
 			oi->priority);
 		vty_out(vty, "  Timer intervals configured:\n");
-		vty_out(vty, "   Hello %d, Dead %d, Retransmit %d\n",
-			oi->hello_interval, oi->dead_interval,
-			oi->rxmt_interval);
+		vty_out(vty, "   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
+			oi->hello_interval, oi->thread_send_hello,
+			oi->dead_interval, oi->rxmt_interval);
 	}
 
 	inet_ntop(AF_INET, &oi->drouter, drouter, sizeof(drouter));
