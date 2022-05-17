@@ -1940,9 +1940,19 @@ void isis_spf_timer_free(void *run)
 int _isis_spf_schedule(struct isis_area *area, int level,
 		       const char *func, const char *file, int line)
 {
-	struct isis_spftree *spftree = area->spftree[SPFTREE_IPV4][level - 1];
-	time_t now = monotime(NULL);
-	int diff = now - spftree->last_run_monotime;
+	struct isis_spftree *spftree;
+	time_t now;
+	long tree_diff, diff;
+	int tree;
+
+	now = monotime(NULL);
+	diff = 0;
+	for (tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		spftree = area->spftree[tree][level - 1];
+		tree_diff = difftime(now - spftree->last_run_monotime, 0);
+		if (tree_diff != now && (diff == 0 || tree_diff < diff))
+			diff = tree_diff;
+	}
 
 	if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return 0;
@@ -1952,7 +1962,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 	if (IS_DEBUG_SPF_EVENTS) {
 		zlog_debug(
-			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %d sec ago Caller: %s %s:%d",
+			"ISIS-SPF (%s) L%d SPF schedule called, lastrun %ld sec ago Caller: %s %s:%d",
 			area->area_tag, level, diff, func, file, line);
 	}
 
