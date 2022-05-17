@@ -1756,14 +1756,10 @@ DEFUN(show_ipv6_ospf6_route_type_detail, show_ipv6_ospf6_route_type_detail_cmd,
 
 bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p)
 {
-	struct in6_addr addr_zero;
-
-	memset(&addr_zero, 0, sizeof(addr_zero));
-
-	 /* Default prefix validation*/
-	if ((is_default_prefix(p)) ||
-	    (!memcmp(&p->u.prefix6, &addr_zero, sizeof(struct in6_addr)))) {
-		vty_out(vty, "Default address should not be configured as summary address.\n");
+	/* Default prefix validation*/
+	if (is_default_prefix(p)) {
+		vty_out(vty,
+			"Default address should not be configured as summary address.\n");
 		return false;
 	}
 
