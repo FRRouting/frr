@@ -1372,9 +1372,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		} else
 			json_object_boolean_false_add(json, "spfHasRun");
 
-
-		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
-		if (o->t_spf_calc) {
+		if (thread_is_scheduled(o->t_spf_calc)) {
 			long time_store;
 
 			json_object_boolean_true_add(json, "spfTimerActive");
@@ -1467,7 +1465,9 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 
 		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
 		vty_out(vty, " SPF timer %s%s\n",
-			(o->t_spf_calc ? "due in " : "is "), buf);
+			(thread_is_scheduled(o->t_spf_calc) ? "due in "
+							    : "is "),
+			buf);
 
 		if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER))
 			vty_out(vty, " Router Is Stub Router\n");
