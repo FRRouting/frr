@@ -1121,7 +1121,7 @@ void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
 {
 	SET_FLAG(red->flag, OSPF6_IS_RMAP_CHANGED);
 
-	if (ospf6->t_distribute_update)
+	if (thread_is_scheduled(ospf6->t_distribute_update))
 		return;
 
 	if (IS_OSPF6_DEBUG_ASBR)
@@ -3360,7 +3360,7 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 {
 	aggr->action = operation;
 
-	if (ospf6->t_external_aggr) {
+	if (thread_is_scheduled(ospf6->t_external_aggr)) {
 		if (ospf6->aggr_action == OSPF6_ROUTE_AGGR_ADD) {
 
 			if (IS_OSPF6_DEBUG_AGGR)

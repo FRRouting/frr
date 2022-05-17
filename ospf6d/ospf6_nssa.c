@@ -1007,7 +1007,7 @@ static void ospf6_abr_task_timer(struct thread *thread)
 
 void ospf6_schedule_abr_task(struct ospf6 *ospf6)
 {
-	if (ospf6->t_abr_task) {
+	if (thread_is_scheduled(ospf6->t_abr_task)) {
 		if (IS_OSPF6_DEBUG_ABR)
 			zlog_debug("ABR task already scheduled");
 		return;

@@ -400,8 +400,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		if (restarter->gr_helper_info.t_grace_timer)
-			THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+		THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;

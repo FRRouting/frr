@@ -615,7 +615,6 @@ static void ospf6_spf_calculation_thread(struct thread *t)
 	char rbuf[32];
 
 	ospf6 = (struct ospf6 *)THREAD_ARG(t);
-	ospf6->t_spf_calc = NULL;
 
 	/* execute SPF calculation */
 	monotime(&start);
@@ -703,7 +702,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	/* SPF calculation timer is already scheduled. */
-	if (ospf6->t_spf_calc) {
+	if (thread_is_scheduled(ospf6->t_spf_calc)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 			zlog_debug(
 				"SPF: calculation timer is already scheduled: %p",
@@ -740,7 +739,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	ospf6->t_spf_calc = NULL;
+	THREAD_OFF(ospf6->t_spf_calc);
 	thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6,
 			      delay, &ospf6->t_spf_calc);
 }
@@ -1253,7 +1252,6 @@ static void ospf6_ase_calculate_timer(struct thread *t)
 	uint16_t type;
 
 	ospf6 = THREAD_ARG(t);
-	ospf6->t_ase_calc = NULL;
 
 	/* Calculate external route for each AS-external-LSA */
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
