@@ -50,6 +50,8 @@
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
 
+#include "pim6_mld.h"
+
 #if PIM_IPV == 4
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
@@ -127,6 +129,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
+	pim_ifp->mld_version = MLD_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
 		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
 	pim_ifp->gm_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
@@ -651,6 +654,7 @@ void pim_if_addr_add(struct connected *ifc)
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 }
 
@@ -763,6 +767,8 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 				"%s: removed link-local %pI6, lowest now %pI6, highest %pI6",
 				ifc->ifp->name, &ifc->address->u.prefix6,
 				&pim_ifp->ll_lowest, &pim_ifp->ll_highest);
+
+		gm_ifp_update(ifp);
 	}
 #endif
 
@@ -822,6 +828,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
+	gm_ifp_update(ifp);
 	pim_ifchannel_scan_forward_start(ifp);
 
 	pim_rp_setup(pim_ifp->pim);
@@ -1000,12 +1007,15 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	}
 
 	ifaddr = pim_ifp->primary_address;
+#if PIM_IPV != 6
+	/* IPv6 API is always by interface index */
 	if (!ispimreg && !is_vxlan_term && pim_addr_is_any(ifaddr)) {
 		zlog_warn(
 			"%s: could not get address for interface %s ifindex=%d",
 			__func__, ifp->name, ifp->ifindex);
 		return -4;
 	}
+#endif
 
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
 
@@ -1030,9 +1040,10 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
 
+	gm_ifp_update(ifp);
+
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
-
 	return 0;
 }
 
@@ -1050,6 +1061,8 @@ int pim_if_del_vif(struct interface *ifp)
 	/* if the device was a pim_vxlan iif/oif update vxlan mroute entries */
 	pim_vxlan_del_vif(ifp);
 
+	gm_ifp_teardown(ifp);
+
 	pim_mroute_del_vif(ifp);
 
 	/*
@@ -1058,7 +1071,6 @@ int pim_if_del_vif(struct interface *ifp)
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 0;
 
 	pim_ifp->mroute_vif_index = -1;
-
 	return 0;
 }
 

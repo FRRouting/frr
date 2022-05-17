@@ -218,6 +218,9 @@ vrf is specified then the default vrf is assumed. Finally the special keyword
 'all' allows you to look at all vrfs for the command. Naming a vrf 'all' will
 cause great confusion.
 
+PIM protocol state
+------------------
+
 .. clicmd:: show ipv6 pim [vrf NAME] group-type [json]
 
    Display SSM group ranges.
@@ -288,6 +291,39 @@ cause great confusion.
 .. clicmd:: show ipv6 pim [vrf NAME] upstream-rpf [json]
 
    Display upstream information for S,G's and the RPF data associated with them.
+
+
+MLD state
+---------
+
+.. clicmd:: show ipv6 mld [vrf NAME] interface [IFNAME] [detail|json]
+
+   Display per-interface MLD state, elected querier and related timers.  Use
+   the ``detail`` or ``json`` options for further information (the JSON output
+   always contains all details.)
+
+.. clicmd:: show ipv6 mld [vrf NAME] statistics [interface IFNAME] [json]
+
+   Display packet and error counters for MLD interfaces.  All counters are
+   packet counters (not bytes) and wrap at 64 bit.  In some rare cases,
+   malformed received MLD reports may be partially processed and counted on
+   multiple counters.
+
+.. clicmd:: show ipv6 mld [vrf NAME] joins [{interface IFNAME|groups X:X::X:X/M|sources X:X::X:X/M|detail}] [json]
+
+   Display joined groups tracked by MLD.  ``interface``, ``groups`` and
+   ``sources`` options may be used to limit output to a subset (note ``sources``
+   refers to the multicast traffic sender, not the host that joined to receive
+   the traffic.)
+
+   The ``detail`` option also reports which hosts have joined (subscribed) to
+   particular ``S,G``.  This information is only available for MLDv2 hosts with
+   a MLDv2 querier.  MLDv1 joins are recorded as "untracked" and shown in the
+   ``NonTrkSeen`` output column.
+
+
+General multicast routing state
+-------------------------------
 
 .. clicmd:: show ipv6 multicast
 
