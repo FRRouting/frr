@@ -2242,7 +2242,6 @@ void ospf6_hello_send(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_send_hello = (struct thread *)NULL;
 
 	if (oi->state <= OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
