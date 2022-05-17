@@ -42,6 +42,7 @@
 #include "pim_nht.h"
 #include "pim_bsm.h"
 #include "pim_iface.h"
+#include "pim_zebra.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
@@ -1935,6 +1936,74 @@ DEFPY (show_ipv6_mroute_summary_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (clear_ipv6_pim_statistics,
+       clear_ipv6_pim_statistics_cmd,
+       "clear ipv6 pim statistics [vrf NAME]$name",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset PIM statistics\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	clear_pim_statistics(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_mroute,
+       clear_ipv6_mroute_cmd,
+       "clear ipv6 mroute [vrf NAME]$name",
+       CLEAR_STR
+       IPV6_STR
+       "Reset multicast routes\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	clear_mroute(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_pim_oil,
+       clear_ipv6_pim_oil_cmd,
+       "clear ipv6 pim [vrf NAME]$name oil",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Rescan PIMv6 OIL (output interface list)\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_scan_oil(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_mroute_count,
+       clear_ipv6_mroute_count_cmd,
+       "clear ipv6 mroute [vrf NAME]$name count",
+       CLEAR_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Route and packet count data\n")
+{
+	return clear_ip_mroute_count_command(vty, name);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -2041,4 +2110,9 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_count_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
+
+	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_mroute_count_cmd);
 }

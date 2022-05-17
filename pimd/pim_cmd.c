@@ -1303,27 +1303,6 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		vty_json(vty, json);
 }
 
-static void clear_pim_statistics(struct pim_instance *pim)
-{
-	struct interface *ifp;
-
-	pim->bsm_rcvd = 0;
-	pim->bsm_sent = 0;
-	pim->bsm_dropped = 0;
-
-	/* scan interfaces */
-	FOR_ALL_INTERFACES (pim->vrf, ifp) {
-		struct pim_interface *pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			continue;
-
-		pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
-		pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
-		pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
-	}
-}
-
 static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
@@ -1842,79 +1821,39 @@ DEFUN (clear_ip_igmp_interfaces,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_pim_statistics,
+DEFPY (clear_ip_pim_statistics,
        clear_ip_pim_statistics_cmd,
-       "clear ip pim statistics [vrf NAME]",
+       "clear ip pim statistics [vrf NAME]$name",
        CLEAR_STR
        IP_STR
        CLEAR_IP_PIM_STR
        VRF_CMD_HELP_STR
        "Reset PIM statistics\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v = pim_cmd_lookup(vty, name);
 
-	if (!vrf)
+	if (!v)
 		return CMD_WARNING;
 
-	clear_pim_statistics(vrf->info);
+	clear_pim_statistics(v->info);
+
 	return CMD_SUCCESS;
 }
 
-static void clear_mroute(struct pim_instance *pim)
-{
-	struct pim_upstream *up;
-	struct interface *ifp;
-
-	/* scan interfaces */
-	FOR_ALL_INTERFACES (pim->vrf, ifp) {
-		struct pim_interface *pim_ifp = ifp->info;
-		struct pim_ifchannel *ch;
-
-		if (!pim_ifp)
-			continue;
-
-		/* deleting all ifchannels */
-		while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
-			ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
-
-			pim_ifchannel_delete(ch);
-		}
-
-#if PIM_IPV == 4
-		/* clean up all igmp groups */
-		struct gm_group *grp;
-
-		if (pim_ifp->gm_group_list) {
-			while (pim_ifp->gm_group_list->count) {
-				grp = listnode_head(pim_ifp->gm_group_list);
-				igmp_group_delete(grp);
-			}
-		}
-#endif
-	}
-
-	/* clean up all upstreams*/
-	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
-		pim_upstream_del(pim, up, __func__);
-
-}
-
-DEFUN (clear_ip_mroute,
+DEFPY (clear_ip_mroute,
        clear_ip_mroute_cmd,
-       "clear ip mroute [vrf NAME]",
+       "clear ip mroute [vrf NAME]$name",
        CLEAR_STR
        IP_STR
        "Reset multicast routes\n"
        VRF_CMD_HELP_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v = pim_cmd_lookup(vty, name);
 
-	if (!vrf)
+	if (!v)
 		return CMD_WARNING;
 
-	clear_mroute(vrf->info);
+	clear_mroute(v->info);
 
 	return CMD_SUCCESS;
 }
@@ -1985,22 +1924,21 @@ DEFUN (clear_ip_pim_interface_traffic,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_pim_oil,
+DEFPY (clear_ip_pim_oil,
        clear_ip_pim_oil_cmd,
-       "clear ip pim [vrf NAME] oil",
+       "clear ip pim [vrf NAME]$name oil",
        CLEAR_STR
        IP_STR
        CLEAR_IP_PIM_STR
        VRF_CMD_HELP_STR
        "Rescan PIM OIL (output interface list)\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v = pim_cmd_lookup(vty, name);
 
-	if (!vrf)
+	if (!v)
 		return CMD_WARNING;
 
-	pim_scan_oil(vrf->info);
+	pim_scan_oil(v->info);
 
 	return CMD_SUCCESS;
 }
@@ -3848,47 +3786,16 @@ DEFPY (show_ip_mroute_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_mroute_count,
+DEFPY (clear_ip_mroute_count,
        clear_ip_mroute_count_cmd,
-       "clear ip mroute [vrf NAME] count",
+       "clear ip mroute [vrf NAME]$name count",
        CLEAR_STR
        IP_STR
        MROUTE_STR
        VRF_CMD_HELP_STR
        "Route and packet count data\n")
 {
-	int idx = 2;
-	struct listnode *node;
-	struct channel_oil *c_oil;
-	struct static_route *sr;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct pim_instance *pim;
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	pim = vrf->info;
-	frr_each(rb_pim_oil, &pim->channel_oil_head, c_oil) {
-		if (!c_oil->installed)
-			continue;
-
-		pim_mroute_update_counters(c_oil);
-		c_oil->cc.origpktcnt = c_oil->cc.pktcnt;
-		c_oil->cc.origbytecnt = c_oil->cc.bytecnt;
-		c_oil->cc.origwrong_if = c_oil->cc.wrong_if;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
-		if (!sr->c_oil.installed)
-			continue;
-
-		pim_mroute_update_counters(&sr->c_oil);
-
-		sr->c_oil.cc.origpktcnt = sr->c_oil.cc.pktcnt;
-		sr->c_oil.cc.origbytecnt = sr->c_oil.cc.bytecnt;
-		sr->c_oil.cc.origwrong_if = sr->c_oil.cc.wrong_if;
-	}
-	return CMD_SUCCESS;
+	return clear_ip_mroute_count_command(vty, name);
 }
 
 DEFPY (show_ip_mroute_count,
