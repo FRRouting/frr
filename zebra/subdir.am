@@ -185,6 +185,7 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
 	zebra/zebra_neigh.h \
+	zebra/zebra_l2_bridge_if.h \
 	zebra/zserv.h \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
