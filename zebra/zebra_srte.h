@@ -52,7 +52,7 @@ void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy,
 void zebra_srte_init(void);
 int zebra_sr_policy_label_update(mpls_label_t label,
 				 enum zebra_sr_policy_update_label_mode mode);
-
+void zebra_sr_policy_show(struct vty *vty, bool uj);
 #ifdef __cplusplus
 }
 #endif

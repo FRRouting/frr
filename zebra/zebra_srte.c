@@ -7,6 +7,7 @@
 
 #include "lib/zclient.h"
 #include "lib/lib_errors.h"
+#include "lib/termtable.h"
 
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_mpls.h"
@@ -383,6 +384,55 @@ static int zebra_srte_client_close_cleanup(struct zserv *client)
 			zebra_sr_policy_del(policy);
 	}
 	return 1;
+}
+
+void zebra_sr_policy_show(struct vty *vty, bool uj)
+{
+	struct zebra_sr_policy *policy;
+	struct ttable *tt;
+	struct json_object *json;
+	char endpoint[INET6_ADDRSTRLEN];
+	char *path;
+	char *table;
+
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+	ttable_add_row(tt,
+		       "Endpoint|Color|Name|Status|Local Label|Segment List");
+	path = XMALLOC(MTYPE_TMP, 1024);
+
+	RB_FOREACH (policy, zebra_sr_policy_instance_head,
+		    &zebra_sr_policy_instances) {
+		*path = 0;
+		mpls_label2str(policy->segment_list.label_num,
+			       policy->segment_list.labels, path, 1024, 0, 0);
+		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		ttable_add_row(tt, "%s|%u|%s|%s|%u|%s", endpoint, policy->color,
+			       policy->name,
+			       policy->status == ZEBRA_SR_POLICY_UP
+				       ? "Active"
+				       : "Inactive",
+			       policy->segment_list.local_label, path);
+	}
+
+	if (uj) {
+		json = ttable_json(tt, "sdssds");
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+		goto out;
+	}
+	XFREE(MTYPE_TMP, path);
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+
+out:
+	ttable_del(tt);
 }
 
 void zebra_srte_init(void)

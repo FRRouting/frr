@@ -53,6 +53,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_srte.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -4158,6 +4159,20 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_zebra_srte,
+       show_zebra_srte_cmd,
+       "show zebra sr-te [json]",
+       SHOW_STR
+       ZEBRA_STR
+       "Zebra SR-TE Policies\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+
+	zebra_sr_policy_show(vty, uj);
+	return CMD_SUCCESS;
+}
+
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
@@ -4468,6 +4483,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
+	install_element(VIEW_NODE, &show_zebra_srte_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 
