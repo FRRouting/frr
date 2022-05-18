@@ -519,7 +519,7 @@ Bug Reports
 
 For information on reporting bugs, please see :ref:`bug-reports`.
 
-.. _frr: |package-url|
+.. _frr: |PACKAGE_URL|
 .. _github: https://github.com/frrouting/frr/
 .. _github issues: https://github.com/frrouting/frr/issues
-.. _slack: https://frrouting.org/#participate
+.. _slack: https://frrouting.org/community
