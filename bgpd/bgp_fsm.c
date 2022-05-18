@@ -1701,6 +1701,12 @@ static int bgp_connect_success(struct peer *peer)
 		return -1;
 	}
 
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1738,6 +1744,12 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 		bgp_writes_on(peer);
 		return -1;
 	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	bgp_reads_on(peer);
 
