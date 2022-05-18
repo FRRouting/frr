@@ -375,6 +375,8 @@ BGP
   :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
 - :rfc:`8277`
   :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
+- :rfc:`8538`
+  :t:`Notification Message Support for BGP Graceful Restart. K. Patel, R. Fernando, J. Scudder, J. Haas. March 2019`
 - :rfc:`8654`
   :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
 - :rfc:`9003`
