@@ -591,7 +591,7 @@ bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
 		 unsigned int len)
 {
 	if (NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len) > maxlen) {
-		zlog_err("ERROR message exceeded bound of %d\n", maxlen);
+		zlog_err("ERROR message exceeded bound of %d", maxlen);
 		return false;
 	}
 
