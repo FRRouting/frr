@@ -273,6 +273,99 @@ void isis_bfd_init(struct event_loop *tm)
 	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
 }
 
+static uint16_t isis_bfd_mtnplid2mtpid(uint8_t mtid_nlpid)
+{
+	if (mtid_nlpid == ISIS_BFD_MT_STANDARD_NLP_IPV4 ||
+	    mtid_nlpid == ISIS_BFD_MT_STANDARD_NLP_IPV6)
+		return ISIS_MT_STANDARD;
+
+	if (mtid_nlpid == ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6)
+		return ISIS_MT_IPV6_UNICAST;
+
+	return ISIS_MT_DISABLE;
+}
+
+static uint8_t isis_bfd_mtnplid2nlpid(uint8_t mtid_nlpid)
+{
+	if (mtid_nlpid == ISIS_BFD_MT_STANDARD_NLP_IPV4)
+		return NLPID_IP;
+
+	if (mtid_nlpid == ISIS_BFD_MT_STANDARD_NLP_IPV6 ||
+	    mtid_nlpid == ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6)
+		return NLPID_IPV6;
+
+	return NLPID_NULL;
+}
+
+static void isis_bfd_update_adj_bfd_debug(struct isis_adjacency *adj,
+					  uint8_t prev_mtid_nlpid,
+					  uint8_t mtid_nlpid,
+					  uint8_t mtid_nlpid_flag)
+{
+	bool flag;
+
+	flag = CHECK_FLAG(prev_mtid_nlpid, mtid_nlpid_flag) !=
+	       CHECK_FLAG(mtid_nlpid, mtid_nlpid_flag);
+	if (!flag)
+		return;
+
+	flag = !CHECK_FLAG(prev_mtid_nlpid, mtid_nlpid_flag) &&
+	       CHECK_FLAG(mtid_nlpid, mtid_nlpid_flag);
+
+	zlog_debug("ISIS-BFD: peer MT %s NLPID %s %s L%u adjacency %s",
+		   isis_mtid2str(isis_bfd_mtnplid2mtpid(mtid_nlpid_flag)),
+		   nlpid2str(isis_bfd_mtnplid2nlpid(mtid_nlpid_flag)),
+		   flag ? "added to" : "removed from", adj->level,
+		   isis_adj_name(adj));
+}
+
+void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
+			     struct isis_adjacency *adj, bool *changed)
+{
+	uint8_t prev_mtid_nlpid, *mtid_nlpid, mtid_nlpid_flag;
+	struct isis_bfd_enabled *niter;
+	bool bfd_tlv_changed;
+
+	mtid_nlpid = &adj->bfd_rfc6213.neighbor_mtid_nlpid;
+	prev_mtid_nlpid = *mtid_nlpid;
+	*mtid_nlpid = 0;
+
+	/* add new TLVs in MTID NLPID list */
+	for (niter = head; niter; niter = niter->next) {
+		if (niter->mtid == ISIS_MT_STANDARD && niter->nlpid == NLPID_IP)
+			SET_FLAG(*mtid_nlpid, ISIS_BFD_MT_STANDARD_NLP_IPV4);
+		else if (niter->mtid == ISIS_MT_STANDARD &&
+			 niter->nlpid == NLPID_IPV6)
+			SET_FLAG(*mtid_nlpid, ISIS_BFD_MT_STANDARD_NLP_IPV6);
+		else if (niter->mtid == ISIS_MT_IPV6_UNICAST &&
+			 niter->nlpid == NLPID_IPV6)
+			SET_FLAG(*mtid_nlpid, ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6);
+		else if (IS_DEBUG_BFD)
+			zlog_debug("ISIS-BFD: received unsupported MTID %s NLPID %s from L%u adjacency %s",
+				   isis_mtid2str(niter->mtid),
+				   nlpid2str(niter->nlpid), adj->level,
+				   isis_adj_name(adj));
+	}
+
+	bfd_tlv_changed = prev_mtid_nlpid != *mtid_nlpid;
+
+	if (IS_DEBUG_BFD && bfd_tlv_changed &&
+	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+		for (unsigned int i = 0; i < sizeof(mtid_nlpid_flag) * 8; i++) {
+			mtid_nlpid_flag = 0x1 << i;
+			if (CHECK_FLAG(*mtid_nlpid, mtid_nlpid_flag))
+				isis_bfd_update_adj_bfd_debug(adj,
+							      prev_mtid_nlpid,
+							      *mtid_nlpid,
+							      mtid_nlpid_flag);
+		}
+	}
+
+	if (bfd_tlv_changed &&
+	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config))
+		*changed = true;
+}
+
 void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 {
 	struct isis_area_mt_setting **area_settings;

@@ -12,6 +12,7 @@
 #define ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6 0x4
 
 struct isis_circuit;
+struct isis_bfd_enabled;
 struct event_loop;
 struct isis_adjacency;
 struct bfd_conf;
@@ -28,6 +29,9 @@ struct bfd_local_mtid {
 };
 
 struct bfd_rfc6213_params {
+	/* Neighbor enabled RFC6213 MTID/NLPID pairs */
+	uint8_t neighbor_mtid_nlpid;
+
 	/* list of locally supported MTID/NLPID pairs */
 	struct list *local_mtnlpid_lst;
 	/* list of locally supported MTID*/
@@ -40,6 +44,8 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit);
 void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit);
 bool isis_bfd_config_rfc6213_enabled(struct bfd_conf *config);
 void isis_bfd_init_adjacency(struct isis_adjacency *adj);
+void isis_bfd_update_adj_bfd(struct isis_bfd_enabled *head,
+			     struct isis_adjacency *adj, bool *changed);
 
 void isis_bfd_init(struct event_loop *tm);
 

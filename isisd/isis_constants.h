@@ -96,6 +96,7 @@
 /*
  * NLPID values
  */
+#define NLPID_NULL 0
 #define NLPID_IP   204
 #define NLPID_IPV6 142
 #define NLPID_SNAP 128

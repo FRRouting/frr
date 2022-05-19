@@ -100,6 +100,13 @@ struct isis_protocols_supported {
 	uint8_t *protocols;
 };
 
+struct isis_bfd_enabled {
+	struct isis_bfd_enabled *next;
+
+	uint16_t mtid;
+	uint8_t nlpid;
+};
+
 #define ISIS_TIER_UNDEFINED 15
 
 struct isis_spine_leaf {
@@ -415,6 +422,7 @@ struct isis_tlvs {
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
 	struct isis_mt_item_list srv6_locator;
+	struct isis_item_list bfd_enabled;
 };
 
 enum isis_tlv_context {
@@ -469,6 +477,7 @@ enum isis_tlv_type {
 	ISIS_TLV_EXTENDED_IP_REACH = 135,
 	ISIS_TLV_DYNAMIC_HOSTNAME = 137,
 	ISIS_TLV_TE_ROUTER_ID_IPV6 = 140,
+	ISIS_TLV_BFD_ENABLED = 148,
 	ISIS_TLV_SPINE_LEAF_EXT = 150,
 	ISIS_TLV_MT_REACH = 222,
 	ISIS_TLV_MT_ROUTER_INFO = 229,
@@ -790,6 +799,8 @@ void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs,
 				 struct list *neighbors);
 void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
 				       struct nlpids *nlpids);
+void isis_tlvs_add_bfd_enabled(struct isis_tlvs *tlvs, uint16_t mtid,
+			       uint8_t nlpid);
 void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid,
 				  bool overload, bool attached);
 void isis_tlvs_add_ipv4_address(struct isis_tlvs *tlvs, struct in_addr *addr);

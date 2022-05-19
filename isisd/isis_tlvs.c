@@ -105,7 +105,8 @@ static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(MT_IP_REACH, ISIS_MT_ITEMS, mt_ip_reach),
 	PACK_ENTRY(IPV6_REACH, ISIS_ITEMS, ipv6_reach),
 	PACK_ENTRY(MT_IPV6_REACH, ISIS_MT_ITEMS, mt_ipv6_reach),
-	PACK_ENTRY(SRV6_LOCATOR, ISIS_MT_ITEMS, srv6_locator)
+	PACK_ENTRY(SRV6_LOCATOR, ISIS_MT_ITEMS, srv6_locator),
+	PACK_ENTRY(BFD_ENABLED, ISIS_ITEMS, bfd_enabled),
 };
 
 /* This is a forward definition. The table is actually initialized
@@ -3626,6 +3627,82 @@ static int unpack_tlv_protocols_supported(enum isis_tlv_context context,
 	return 0;
 }
 
+/* Functions related to TLV 148 bfd */
+static struct isis_item *copy_item_bfd_enabled(struct isis_item *i)
+{
+	struct isis_bfd_enabled *bfd = (struct isis_bfd_enabled *)i;
+	struct isis_bfd_enabled *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->nlpid = bfd->nlpid;
+	rv->mtid = bfd->mtid;
+	return (struct isis_item *)rv;
+}
+
+static void format_item_bfd_enabled(uint16_t mtid, struct isis_item *i,
+				    struct sbuf *buf, struct json_object *json,
+				    int indent)
+{
+	struct isis_bfd_enabled *bfd = (struct isis_bfd_enabled *)i;
+
+	if (json) {
+		struct json_object *bfd_json;
+		bfd_json = json_object_new_object();
+		json_object_object_add(json, "bfdEnabled", bfd_json);
+		json_object_string_add(bfd_json, "mtid",
+				       isis_mtid2str(bfd->mtid));
+		json_object_string_add(bfd_json, "nlpid", nlpid2str(bfd->nlpid));
+		return;
+	}
+
+	sbuf_push(buf, indent, "BFD Enabled: %s%s\n", isis_mtid2str(bfd->mtid),
+		  nlpid2str(bfd->nlpid));
+}
+
+static void free_item_bfd_enabled(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_TLV, i);
+}
+
+static int pack_item_bfd_enabled(struct isis_item *i, struct stream *s,
+				 size_t *min_len)
+{
+	struct isis_bfd_enabled *bfd = (struct isis_bfd_enabled *)i;
+
+	if (STREAM_WRITEABLE(s) < 3) {
+		*min_len = 3;
+		return 1;
+	}
+
+	stream_putw(s, bfd->mtid);
+	stream_putc(s, bfd->nlpid);
+
+	return 0;
+}
+
+static int unpack_item_bfd_enabled(uint16_t mtid, uint8_t len, struct stream *s,
+				   struct sbuf *log, void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpack BFD Enabled...\n");
+	if (len < 3) {
+		sbuf_push(log, indent,
+			  "Not enough data left.(Expected 3 bytes of BFD Enabled, got %hhu)\n",
+			  len);
+		return 1;
+	}
+
+	struct isis_bfd_enabled *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->mtid = stream_getw(s);
+	rv->nlpid = stream_getc(s);
+
+	format_item_bfd_enabled(mtid, (struct isis_item *)rv, log, NULL,
+				indent + 3);
+	append_item(&tlvs->bfd_enabled, (struct isis_item *)rv);
+	return 0;
+}
+
 /* Functions related to TLV 132 IPv4 Interface addresses */
 static struct isis_item *copy_item_ipv4_address(struct isis_item *i)
 {
@@ -6694,6 +6771,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	init_item_list(&result->ipv6_reach);
 	RB_INIT(isis_mt_item_list, &result->mt_ipv6_reach);
 	RB_INIT(isis_mt_item_list, &result->srv6_locator);
+	init_item_list(&result->bfd_enabled);
 
 	return result;
 }
@@ -6767,6 +6845,9 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	copy_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach, &rv->mt_ipv6_reach);
+
+	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_BFD_ENABLED, &tlvs->bfd_enabled,
+		   &rv->bfd_enabled);
 
 	rv->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
 
@@ -6860,6 +6941,11 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR,
 			&tlvs->srv6_locator, buf, json, indent);
+
+	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
+
+	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_BFD_ENABLED, &tlvs->bfd_enabled,
+		     buf, json, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
@@ -6919,6 +7005,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_REACH, &tlvs->ipv6_reach);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach);
+	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_BFD_ENABLED, &tlvs->bfd_enabled);
 	free_tlv_threeway_adj(tlvs->threeway_adj);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
@@ -7357,6 +7444,7 @@ TLV_OPS(te_router_id, "TLV 134 TE Router ID");
 ITEM_TLV_OPS(extended_ip_reach, "TLV 135 Extended IP Reachability");
 TLV_OPS(dynamic_hostname, "TLV 137 Dynamic Hostname");
 TLV_OPS(te_router_id_ipv6, "TLV 140 IPv6 TE Router ID");
+ITEM_TLV_OPS(bfd_enabled, "TLV 148 BFD Enabled");
 TLV_OPS(spine_leaf, "TLV 150 Spine Leaf Extensions");
 ITEM_TLV_OPS(mt_router_info, "TLV 229 MT Router Information");
 TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
@@ -7387,6 +7475,7 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
 		[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
 		[ISIS_TLV_TE_ROUTER_ID_IPV6] = &tlv_te_router_id_ipv6_ops,
+		[ISIS_TLV_BFD_ENABLED] = &tlv_bfd_enabled_ops,
 		[ISIS_TLV_EXTENDED_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
 		[ISIS_TLV_SPINE_LEAF_EXT] = &tlv_spine_leaf_ops,
@@ -7896,6 +7985,15 @@ static void tlvs_global_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
 		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET6, true);
 }
 
+static void tlvs_bfd_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
+			    bool *changed)
+{
+	struct isis_bfd_enabled *addr_head;
+
+	addr_head = (struct isis_bfd_enabled *)tlvs->bfd_enabled.head;
+	isis_bfd_update_adj_bfd(addr_head, adj, changed);
+}
+
 void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
 		      bool *changed)
 {
@@ -7906,6 +8004,7 @@ void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
 	tlvs_ipv4_addresses_to_adj(tlvs, adj, changed);
 	tlvs_ipv6_addresses_to_adj(tlvs, adj, changed);
 	tlvs_global_ipv6_addresses_to_adj(tlvs, adj, changed);
+	tlvs_bfd_to_adj(tlvs, adj, changed);
 }
 
 bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa)
@@ -8285,6 +8384,32 @@ void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 	else
 		l = isis_get_mt_items(&tlvs->mt_reach, mtid);
 	append_item(l, (struct isis_item *)r);
+}
+
+static bool isis_tlvs_bfd_enabled_match(struct isis_tlvs *tlvs, uint16_t mtid,
+					uint8_t nlpid)
+{
+	struct isis_bfd_enabled *addr_head, *bfd;
+
+	addr_head = (struct isis_bfd_enabled *)tlvs->bfd_enabled.head;
+	for (bfd = addr_head; bfd; bfd = bfd->next) {
+		if (bfd->mtid == mtid && bfd->nlpid == nlpid)
+			return true;
+	}
+	return false;
+}
+
+void isis_tlvs_add_bfd_enabled(struct isis_tlvs *tlvs, uint16_t mtid,
+			       uint8_t nlpid)
+{
+	struct isis_bfd_enabled *bfd;
+
+	if (isis_tlvs_bfd_enabled_match(tlvs, mtid, nlpid))
+		return;
+	bfd = XCALLOC(MTYPE_ISIS_TLV, sizeof(*bfd));
+	bfd->nlpid = nlpid;
+	bfd->mtid = mtid;
+	append_item(&tlvs->bfd_enabled, (struct isis_item *)bfd);
 }
 
 void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
