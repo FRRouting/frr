@@ -1168,9 +1168,10 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
                     for (ctx_keys, add_line) in lines_to_add:
                         if ctx_keys[0].startswith("router bgp"):
-                            re_add_nbr_bfd_timers = re.search(
-                                bfd_search_string, add_line
-                            )
+                            if add_line:
+                                re_add_nbr_bfd_timers = re.search(
+                                    bfd_search_string, add_line
+                                )
 
                             if re_add_nbr_bfd_timers:
                                 found_add_bfd_nbr = line_exist(
