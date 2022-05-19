@@ -3383,6 +3383,10 @@ def verify_rib(
                             st_found = True
                             found_routes.append(st_rt)
 
+                            if "queued" in rib_routes_json[st_rt][0]:
+                                errormsg = "Route {} is queued\n".format(st_rt)
+                                return errormsg
+
                             if fib and next_hop:
                                 if type(next_hop) is not list:
                                     next_hop = [next_hop]
@@ -3606,6 +3610,10 @@ def verify_rib(
                     if st_rt in rib_routes_json:
                         st_found = True
                         found_routes.append(st_rt)
+
+                        if "queued" in rib_routes_json[st_rt][0]:
+                            errormsg = "Route {} is queued\n".format(st_rt)
+                            return errormsg
 
                         if next_hop:
                             if type(next_hop) is not list:
