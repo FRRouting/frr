@@ -1163,22 +1163,20 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 		 * if zebra vrf already mapped to different vni id.
 		 */
 		pn_dnode = yang_dnode_get_parent(args->dnode, "vrf");
-		if (pn_dnode) {
-			vrfname = yang_dnode_get_string(pn_dnode, "./name");
-			zvrf = zebra_vrf_lookup_by_name(vrfname);
-			if (!zvrf) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "zebra vrf info not found for vrf:%s.",
-					 vrfname);
-				return NB_ERR_VALIDATION;
-			}
-			if (zvrf->l3vni && zvrf->l3vni != vni) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"vni %u cannot be configured as vni %u is already configured under the vrf",
-					vni, zvrf->l3vni);
-				return NB_ERR_VALIDATION;
-			}
+		vrfname = yang_dnode_get_string(pn_dnode, "./name");
+		zvrf = zebra_vrf_lookup_by_name(vrfname);
+		if (!zvrf) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "zebra vrf info not found for vrf:%s.",
+				 vrfname);
+			return NB_ERR_VALIDATION;
+		}
+		if (zvrf->l3vni && zvrf->l3vni != vni) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"vni %u cannot be configured as vni %u is already configured under the vrf",
+				vni, zvrf->l3vni);
+			return NB_ERR_VALIDATION;
 		}
 
 		/* Check if this VNI is already present in the system */
