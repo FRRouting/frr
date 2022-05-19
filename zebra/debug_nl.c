@@ -33,6 +33,7 @@
 
 #include "zebra/rt_netlink.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/vxlan.h"
 
 const char *nlmsg_type2str(uint16_t type)
 {
@@ -91,6 +92,13 @@ const char *nlmsg_type2str(uint16_t type)
 		return "DELNEXTHOP";
 	case RTM_GETNEXTHOP:
 		return "GETNEXTHOP";
+
+	case RTM_NEWTUNNEL:
+		return "NEWTUNNEL";
+	case RTM_DELTUNNEL:
+		return "DELTUNNEL";
+	case RTM_GETTUNNEL:
+		return "GETTUNNEL";
 
 	case RTM_NEWNETCONF:
 		return "RTM_NEWNETCONF";
@@ -1241,6 +1249,44 @@ next_rta:
 	goto next_rta;
 }
 
+static void nltnl_dump(struct tunnel_msg *tnlm, size_t msglen)
+{
+	struct rtattr *attr;
+	vni_t vni_start = 0, vni_end = 0;
+	struct rtattr *ttb[VXLAN_VNIFILTER_ENTRY_MAX + 1];
+	uint8_t rta_type;
+
+	attr = TUNNEL_RTA(tnlm);
+next_attr:
+	/* Check the header for valid length and for outbound access. */
+	if (RTA_OK(attr, msglen) == 0)
+		return;
+
+	rta_type = attr->rta_type & NLA_TYPE_MASK;
+
+	if (rta_type != VXLAN_VNIFILTER_ENTRY) {
+		attr = RTA_NEXT(attr, msglen);
+		goto next_attr;
+	}
+
+	memset(ttb, 0, sizeof(ttb));
+
+	netlink_parse_rtattr_flags(ttb, VXLAN_VNIFILTER_ENTRY_MAX,
+				   RTA_DATA(attr), RTA_PAYLOAD(attr),
+				   NLA_F_NESTED);
+
+	if (ttb[VXLAN_VNIFILTER_ENTRY_START])
+		vni_start =
+			*(uint32_t *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_START]);
+
+	if (ttb[VXLAN_VNIFILTER_ENTRY_END])
+		vni_end = *(uint32_t *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_END]);
+	zlog_debug("  vni_start %u, vni_end %u", vni_start, vni_end);
+
+	attr = RTA_NEXT(attr, msglen);
+	goto next_attr;
+}
+
 static const char *lwt_type2str(uint16_t type)
 {
 	switch (type) {
@@ -1529,6 +1575,7 @@ void nl_dump(void *msg, size_t msglen)
 	struct nhmsg *nhm;
 	struct netconfmsg *ncm;
 	struct ifinfomsg *ifi;
+	struct tunnel_msg *tnlm;
 	struct fib_rule_hdr *frh;
 	char fbuf[128];
 	char ibuf[128];
@@ -1644,6 +1691,18 @@ next_header:
 			nh_flags2str(nhm->nh_flags, fbuf, sizeof(fbuf)));
 		nlnh_dump(nhm, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*nhm)));
 		break;
+
+	case RTM_NEWTUNNEL:
+	case RTM_DELTUNNEL:
+	case RTM_GETTUNNEL:
+		tnlm = NLMSG_DATA(nlmsg);
+		zlog_debug("  tnlm [family=(%d) %s ifindex=%d ", tnlm->family,
+			   af_type2str(tnlm->family), tnlm->ifindex);
+		nltnl_dump(tnlm,
+			   nlmsg->nlmsg_len -
+				   NLMSG_LENGTH(sizeof(struct tunnel_msg)));
+		break;
+
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
