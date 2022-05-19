@@ -177,6 +177,8 @@ struct bmp_active {
 	struct bmp *bmp;
 
 	char *hostname;
+
+	union sockunion srcaddr;
 	int port;
 	unsigned minretry, maxretry;
 

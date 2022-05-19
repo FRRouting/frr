@@ -204,7 +204,8 @@ static int bmp_active_cmp(const struct bmp_active *a,
 		return -1;
 	if (a->port > b->port)
 		return 1;
-	return 0;
+
+	return sockunion_cmp(&a->srcaddr, &b->srcaddr);
 }
 
 DECLARE_SORTLIST_UNIQ(bmp_actives, struct bmp_active, bai, bmp_active_cmp);
@@ -1718,20 +1719,23 @@ static void bmp_listener_stop(struct bmp_listener *bl)
 }
 
 static struct bmp_active *bmp_active_find(struct bmp_targets *bt,
-					  const char *hostname, int port)
+					  const char *hostname, int port,
+					  union sockunion *srcaddr)
 {
 	struct bmp_active dummy;
 	dummy.hostname = (char *)hostname;
 	dummy.port = port;
+	dummy.srcaddr = *srcaddr;
 	return bmp_actives_find(&bt->actives, &dummy);
 }
 
 static struct bmp_active *bmp_active_get(struct bmp_targets *bt,
-					 const char *hostname, int port)
+					 const char *hostname, int port,
+					 union sockunion *srcaddr)
 {
 	struct bmp_active *ba;
 
-	ba = bmp_active_find(bt, hostname, port);
+	ba = bmp_active_find(bt, hostname, port, srcaddr);
 	if (ba)
 		return ba;
 
@@ -1739,6 +1743,7 @@ static struct bmp_active *bmp_active_get(struct bmp_targets *bt,
 	ba->targets = bt;
 	ba->hostname = XSTRDUP(MTYPE_TMP, hostname);
 	ba->port = port;
+	ba->srcaddr = *srcaddr;
 	ba->minretry = BMP_DFLT_MINRETRY;
 	ba->maxretry = BMP_DFLT_MAXRETRY;
 	ba->socket = -1;
@@ -1769,9 +1774,11 @@ static void bmp_active_put(struct bmp_active *ba)
 
 static void bmp_active_setup(struct bmp_active *ba);
 
+
 static void bmp_active_connect(struct bmp_active *ba)
 {
 	enum connect_result res;
+	int res_bind;
 	char buf[SU_ADDRSTRLEN];
 
 	for (; ba->addrpos < ba->addrtotal; ba->addrpos++) {
@@ -1780,6 +1787,23 @@ static void bmp_active_connect(struct bmp_active *ba)
 			zlog_warn("bmp[%s]: failed to create socket",
 				  ba->hostname);
 			continue;
+		}
+
+		if (!sockunion_is_null(&ba->srcaddr)) {
+			res_bind = sockunion_bind(ba->socket, &ba->srcaddr, 0,
+						  &ba->srcaddr);
+			if (res_bind < 0) {
+				sockunion2str(&ba->srcaddr, buf, sizeof(buf));
+				zlog_warn(
+					"bmp[%s]: failed to bind to source address %s:%d",
+					ba->hostname, buf, ba->port);
+				close(ba->socket);
+				ba->socket = -1;
+				/* retry later */
+				ba->curretry += ba->curretry / 2;
+				bmp_active_setup(ba);
+				return;
+			}
 		}
 
 		set_nonblocking(ba->socket);
@@ -2039,11 +2063,9 @@ DEFPY(no_bmp_listener_main,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_connect,
-      bmp_connect_cmd,
-      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)}",
-      NO_STR
-      BMP_STR
+DEFPY(bmp_connect, bmp_connect_cmd,
+      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)} [source <X:X::X:X|A.B.C.D>]",
+      NO_STR BMP_STR
       "Actively establish connection to monitoring station\n"
       "Monitoring station hostname or address\n"
       "TCP port\n"
@@ -2051,13 +2073,24 @@ DEFPY(bmp_connect,
       "Minimum connection retry interval\n"
       "Minimum connection retry interval (milliseconds)\n"
       "Maximum connection retry interval\n"
-      "Maximum connection retry interval (milliseconds)\n")
+      "Maximum connection retry interval (milliseconds)\n"
+      "Source address to use\n"
+      "Define an IPv6 source address\n"
+      "Define an IPv4 source address\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 	struct bmp_active *ba;
+	union sockunion newsrcaddr;
 
+	memset(&newsrcaddr, 0, sizeof(union sockunion));
+	if (source_str) {
+		if (str2sockunion(source_str, &newsrcaddr)) {
+			vty_out(vty, "Invalid source address %s\n", source_str);
+			return CMD_WARNING;
+		}
+	}
 	if (no) {
-		ba = bmp_active_find(bt, hostname, port);
+		ba = bmp_active_find(bt, hostname, port, &newsrcaddr);
 		if (!ba) {
 			vty_out(vty, "%% No such active connection found\n");
 			return CMD_WARNING;
@@ -2066,7 +2099,8 @@ DEFPY(bmp_connect,
 		return CMD_SUCCESS;
 	}
 
-	ba = bmp_active_get(bt, hostname, port);
+	ba = bmp_active_get(bt, hostname, port, &newsrcaddr);
+
 	if (min_retry_str)
 		ba->minretry = min_retry;
 	if (max_retry_str)
@@ -2309,7 +2343,7 @@ DEFPY(show_bmp,
 
 			vty_out(vty, "\n    Outbound connections:\n");
 			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-			ttable_add_row(tt, "remote|state||timer");
+			ttable_add_row(tt, "local|remote|state||timer");
 			ttable_rowseps(tt, 0, BOTTOM, true, '-');
 			frr_each (bmp_actives, &bt->actives, ba) {
 				const char *state_str = "?";
@@ -2318,9 +2352,12 @@ DEFPY(show_bmp,
 					peer_uptime(ba->bmp->t_up.tv_sec,
 						    uptime, sizeof(uptime),
 						    false, NULL);
-					ttable_add_row(tt, "%s:%d|Up|%s|%s",
-						       ba->hostname, ba->port,
-						       ba->bmp->remote, uptime);
+					ttable_add_row(
+						tt, "%s|%s:%d|Up|%s|%s",
+						sockunion2str(&ba->srcaddr, buf,
+							      SU_ADDRSTRLEN),
+						ba->hostname, ba->port,
+						ba->bmp->remote, uptime);
 					continue;
 				}
 
@@ -2432,11 +2469,17 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 				sockunion2str(&bl->addr, buf, SU_ADDRSTRLEN),
 				bl->port);
 
-		frr_each (bmp_actives, &bt->actives, ba)
-			vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u\n",
-				ba->hostname, ba->port, ba->minretry, ba->maxretry);
-
-		vty_out(vty, " exit\n");
+		frr_each (bmp_actives, &bt->actives, ba) {
+			vty_out(vty,
+				"  bmp connect %s port %u min-retry %u max-retry %u",
+				ba->hostname, ba->port, ba->minretry,
+				ba->maxretry);
+			if (!sockunion_is_null(&ba->srcaddr))
+				vty_out(vty, " source %s\n",
+					sockunion2str(&ba->srcaddr, buf,
+						      SU_ADDRSTRLEN));
+			vty_out(vty, "\n");
+		}
 	}
 
 	return 0;

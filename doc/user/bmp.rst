@@ -108,13 +108,15 @@ BMP session configuration
 Inside a ``bmp targets`` block, the following commands control session
 establishment:
 
-.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC}
+.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC} [source <X:X::X:X|A.B.C.D>]
 
    Add/remove an active outbound BMP session.  HOSTNAME is resolved via DNS,
    if multiple addresses are returned they are tried in nondeterministic
    order.  Only one connection will be established even if multiple addresses
    are returned.  ``min-retry`` and ``max-retry`` specify (in milliseconds)
-   bounds for exponential backoff.
+   bounds for exponential backoff. ``source `` is used to choice a deterministic
+   source address for the connection. Each connect command will lead to one
+   connection.
 
 .. warning::
 
