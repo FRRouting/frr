@@ -2115,7 +2115,7 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		zebra_evpn_mac_del_all(zevpn, 0, 0, DEL_ALL_MAC);
 
 		/* Free up all remote VTEPs, if any. */
-		zebra_evpn_vtep_del_all(zevpn, 0);
+		zebra_evpn_vtep_del_all(zevpn, 1);
 
 		/* Delete the hash entry. */
 		if (zebra_evpn_vxlan_del(zevpn)) {
