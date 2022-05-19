@@ -3245,7 +3245,7 @@ def configure_interface_mac(tgen, input_dict):
 #############################################
 # Verification APIs
 #############################################
-@retry(retry_timeout=12)
+@retry(retry_timeout=40)
 def verify_rib(
     tgen,
     addr_type,
