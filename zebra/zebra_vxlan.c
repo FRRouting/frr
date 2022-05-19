@@ -5273,10 +5273,6 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 			   add ? "ADD" : "DEL");
 
 	if (add) {
-
-		/* Remove L2VNI if present */
-		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
-
 		/* check if the vni is already present under zvrf */
 		if (zvrf->l3vni) {
 			snprintf(err, err_str_sz,
@@ -5291,6 +5287,9 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 				 "VNI is already configured as L3-VNI");
 			return -1;
 		}
+
+		/* Remove L2VNI if present */
+		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
 
 		/* add the L3-VNI to the global table */
 		zl3vni = zl3vni_add(vni, zvrf_id(zvrf));
