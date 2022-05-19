@@ -853,6 +853,9 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					? ""
 					: bfd_get_status_str(bfd_sess_status(
 						  adj->bfd_session)));
+			if (isis_bfd_config_rfc6213_enabled(
+				    &adj->circuit->bfd_config))
+				isis_bfd_show_adjacency(vty, adj);
 		}
 		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
 			const char *adj_type;

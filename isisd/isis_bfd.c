@@ -605,3 +605,39 @@ bool isis_bfd_config_rfc6213_enabled(struct bfd_conf *config)
 		return true;
 	return false;
 }
+
+static void isis_bfd_show_mtid_nlpid(struct vty *vty, uint8_t mtid_nlpid)
+{
+	uint8_t mtid_nlpid_flag, nlpid, i;
+	bool first = true;
+	uint16_t mtid;
+
+	if (!mtid_nlpid) {
+		vty_out(vty, "null\n");
+		return;
+	}
+
+	for (i = 0; i < sizeof(mtid_nlpid_flag) * 8; i++) {
+		mtid_nlpid_flag = 0x1 << i;
+		if (!CHECK_FLAG(mtid_nlpid, mtid_nlpid_flag))
+			continue;
+
+		mtid = isis_bfd_mtnplid2mtpid(mtid_nlpid_flag);
+		nlpid = isis_bfd_mtnplid2nlpid(mtid_nlpid_flag);
+		vty_out(vty, "%s(%s,%s)", first ? "" : ", ",
+			isis_mtid2str(mtid), nlpid2str(nlpid));
+		first = false;
+	}
+	vty_out(vty, "\n");
+}
+
+void isis_bfd_show_adjacency(struct vty *vty, struct isis_adjacency *adj)
+{
+	if (!adj->bfd_rfc6213.neighbor_mtid_nlpid)
+		return;
+	vty_out(vty, "    RFC6213 (MTID,NLPID):\n");
+	vty_out(vty, "        Local   : ");
+	isis_bfd_show_mtid_nlpid(vty, adj->circuit->bfd_config.mtid_nlpid);
+	vty_out(vty, "        Neighbor: ");
+	isis_bfd_show_mtid_nlpid(vty, adj->bfd_rfc6213.neighbor_mtid_nlpid);
+}
