@@ -819,6 +819,102 @@ def test_rib_ipv6_step19():
         )
 
 
+#
+# Step 20
+#
+# Action(s):
+# - Unshut the switch from rt1 to rt2
+#
+# Expected changes:
+# - The routing table goes back to the nominal state
+#
+def test_rib_ipv6_step20():
+    logger.info("Test (step 20): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "rt1"
+
+    logger.info("Unsetting spf-delay-ietf init-delay of 15s")
+    tgen.net[rname].cmd('vtysh -c "conf t" -c "router isis 1" -c "no spf-delay-ietf"')
+
+    logger.info(
+        "Unshut the interface to rt2 from the switch side and check fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set s1 up")
+
+    logger.info("Setting spf-delay-ietf init-delay of 15s")
+    tgen.net[rname].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 15000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"'
+    )
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][14]["show_ipv6_route.ref"],
+    )
+
+
+#
+# Step 21
+#
+# Action(s):
+# - clear the rt2 ISIS neighbor on rt1
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step21():
+    logger.info("Test (step 21): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "rt1"
+
+    logger.info("Clear the rt2 ISIS neighbor on rt1 and check fast-reroute")
+    tgen.gears[rname].vtysh_cmd("clear isis neighbor rt2")
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][15]["show_ipv6_route.ref"],
+        count=2,
+        wait=0.05,
+    )
+
+
+#
+# Step 22
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step22():
+    logger.info("Test (step 22): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
+        )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
