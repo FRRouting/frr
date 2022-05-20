@@ -147,7 +147,9 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 		 * timer that ticks down SendHoldTime, as we'll be here sooner
 		 * or later anyway and will see the checks below failing.
 		 */
-		if (delta > 2 * (intmax_t)holdtime) {
+		if (!holdtime) {
+			/* no holdtime, do nothing. */
+		} else if (delta > 2 * (intmax_t)holdtime) {
 			flog_err(
 				EC_BGP_SENDQ_STUCK_PROPER,
 				"%s has not made any SendQ progress for 2 holdtimes, terminating session",
