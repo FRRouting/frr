@@ -1639,9 +1639,14 @@ static int isis_ifp_up(struct interface *ifp)
 
 static int isis_ifp_down(struct interface *ifp)
 {
+	afi_t afi;
 	struct isis_circuit *circuit = ifp->info;
 
 	if (circuit) {
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+			isis_circuit_switchover_routes(
+				circuit, afi == AFI_IP ? AF_INET : AF_INET6,
+				NULL, ifp->ifindex);
 		isis_csm_state_change(IF_DOWN_FROM_Z, circuit, ifp);
 
 		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
