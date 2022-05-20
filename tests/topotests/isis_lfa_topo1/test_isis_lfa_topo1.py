@@ -56,6 +56,7 @@ import sys
 import pytest
 import json
 import re
+import time
 import tempfile
 from time import sleep
 from functools import partial
@@ -692,6 +693,111 @@ def test_rib_ipv6_step15():
 #
 def test_rib_ipv6_step16():
     logger.info("Test (step 16): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 17
+#
+# Action(s):
+# - Setting spf-delay-ietf init-delay of 15s
+#
+# Expected changes:
+# - No routing table change
+# - At the end of test, SPF reacts to a failure in 15s
+#
+def test_rib_ipv6_step17():
+    logger.info("Test (step 17): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Unshut the interface to rt2 from the switch side and check fast-reroute")
+    os.system("ip link set %s up" % tgen.net["s1"].intfs[1].name)
+
+    logger.info("Unset link-detect on rt1 eth-rt2")
+    # Unset link detection. We want zebra to consider linkdow as operationaly up
+    # in order that BFD triggers LFA instead of the interface down
+    tgen.net["rt1"].cmd('vtysh -c "conf t" -c "int eth-rt2" -c "no link-detect"')
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][14]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 18
+#
+# Action(s):
+# - shut the eth-rt2 interface on rt1
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step18():
+    logger.info("Test (step 18): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
+    os.system("ip link set %s down" % tgen.net["s1"].intfs[1].name)
+
+    rname = "rt1"
+
+    retry = 200 + 1
+
+    while retry:
+        retry -= 1
+        output = tgen.gears[rname].vtysh_cmd("show isis neighbor rt2")
+        found = False
+        if "rt2" in output and "State: Up" in output:
+            found = True
+        else:
+            break
+        time.sleep(0.05)
+
+    assert not found, "rt2 neighbor is still present"
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][15]["show_ipv6_route.ref"],
+        count=2,
+        wait=0.05,
+    )
+
+
+#
+# Step 19
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step19():
+    logger.info("Test (step 19): verify IPv6 RIB")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
