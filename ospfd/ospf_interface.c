@@ -1341,10 +1341,12 @@ static int ospf_ifp_create(struct interface *ifp)
 	oii = ifp->info;
 	oii->curr_mtu = ifp->mtu;
 
-	if (IF_DEF_PARAMS(ifp)
-	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
-		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
-		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+	if (!IF_IS_GRE(ifp)) {
+		if (IF_DEF_PARAMS(ifp) &&
+		    !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
+			SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
+			IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+		}
 	}
 
 	ospf = ifp->vrf->info;
@@ -1413,6 +1415,14 @@ static int ospf_ifp_down(struct interface *ifp)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to down.",
 			   ifp->name);
+
+	if (IF_IS_GRE(ifp)) {
+		if (IF_DEF_PARAMS(ifp) &&
+		    !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
+			SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
+			IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+		}
+	}
 
 	for (node = route_top(IF_OIFS(ifp)); node; node = route_next(node)) {
 		if ((oi = node->info) == NULL)

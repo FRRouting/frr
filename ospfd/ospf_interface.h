@@ -32,6 +32,8 @@
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
 #define IF_OIFS(I)  (IF_OSPF_IF_INFO (I)->oifs)
 #define IF_OIFS_PARAMS(I) (IF_OSPF_IF_INFO (I)->params)
+#define IF_IS_GRE(I)                                                           \
+	((I)->ll_type == ZEBRA_LLT_IPGRE || (I)->ll_type == ZEBRA_LLT_IP6GRE)
 
 /* Despite the name, this macro probably is for specialist use only */
 #define OSPF_IF_PARAM_CONFIGURED(S, P) ((S) && (S)->P##__config)
