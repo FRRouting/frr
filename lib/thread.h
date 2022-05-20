@@ -283,7 +283,14 @@ extern pthread_key_t thread_current;
 extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
 		struct thread *t_timer);
 
-extern bool thread_is_scheduled(struct thread *thread);
+static inline bool thread_is_scheduled(struct thread *thread)
+{
+	if (thread)
+		return true;
+
+	return false;
+}
+
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
 
