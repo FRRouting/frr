@@ -175,6 +175,9 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
+        router.load_config(
+            TopoRouter.RD_BFD, os.path.join(CWD, "/dev/null".format(rname))
+        )
 
     tgen.start_router()
 
@@ -899,6 +902,110 @@ def test_rib_ipv6_step21():
 #
 def test_rib_ipv6_step22():
     logger.info("Test (step 22): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 23
+#
+# Action(s):
+# - Setting BFD
+#
+# Expected changes:
+# - No routing table change
+# - BFD comes up
+#
+def test_rib_ipv6_step23():
+    logger.info("Test (step 23): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Setup BFD on rt1 and rt2")
+    for rname in ["rt1", "rt2"]:
+        conf_file = os.path.join(CWD, "{}/bfdd.conf".format(rname))
+        tgen.net[rname].cmd("vtysh -f {}".format(conf_file))
+
+    rname = "rt1"
+    expect = '[{"multihop":true,"peer":"2001:db8:1000::2","local":"2001:db8:1000::1","status":"up"}]'
+    router_compare_json_output(rname, "show bfd peers json", expect)
+
+    logger.info("Set ISIS BFD")
+    tgen.net["rt1"].cmd('vtysh -c "conf t" -c "int eth-rt2" -c "isis bfd"')
+    tgen.net["rt2"].cmd('vtysh -c "conf t" -c "int eth-rt1" -c "isis bfd"')
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][14]["show_ipv6_route.ref"],
+    )
+
+
+#
+# Step 24
+#
+# Action(s):
+# - drop traffic between rt1 and rt2 by shutting down the bridge between
+#   the routers. Interfaces on rt1 and rt2 stay up.
+#
+# Expected changes:
+# - BFD comes down before IS-IS
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step24():
+    logger.info("Test (step 24): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
+    tgen.net.cmd_raises("ip link set s1 down")
+
+    rname = "rt1"
+    expect = '[{"multihop":true,"peer":"2001:db8:1000::2","local":"2001:db8:1000::1","status":"down"}]'
+    router_compare_json_output(
+        rname,
+        "show bfd peers json",
+        expect,
+        count=40,
+        wait=0.05,
+    )
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][15]["show_ipv6_route.ref"],
+        count=4,
+    )
+
+
+#
+# Step 25
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step25():
+    logger.info("Test (step 25): verify IPv6 RIB")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
