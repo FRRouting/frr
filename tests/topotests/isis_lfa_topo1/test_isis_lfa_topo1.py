@@ -55,6 +55,7 @@ import os
 import sys
 import pytest
 import json
+import time
 import tempfile
 from functools import partial
 
@@ -687,6 +688,121 @@ def test_rib_ipv6_step15():
 #
 def test_rib_ipv6_step16():
     logger.info("Test (step 16): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 17
+#
+# Action(s):
+# - Unshut the interface to rt2 from the switch sid
+#
+# Expected changes:
+# - The routing table converges
+#
+def test_rib_ipv6_step17():
+    logger.info("Test (step 17): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "rt1"
+
+    logger.info("Unsetting spf-delay-ietf init-delay of 15s")
+    tgen.net[rname].cmd('vtysh -c "conf t" -c "router isis 1" -c "no spf-delay-ietf"')
+
+    logger.info(
+        "Unshut the interface to rt2 from the switch side and check fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set %s up" % tgen.net["s1"].intfs[0])
+
+    logger.info("Setting spf-delay-ietf init-delay of 15s")
+    tgen.net[rname].cmd(
+        'vtysh -c "conf t" -c "router isis 1" -c "spf-delay-ietf init-delay 15000 short-delay 0 long-delay 0 holddown 0 time-to-learn 0"'
+    )
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][14]["show_ipv6_route.ref"],
+    )
+
+
+#
+# Step 18
+#
+# Action(s):
+# - drop traffic between rt1 and rt2 by shutting down the bridge between
+#   the routers. Interfaces on rt1 and rt2 stay up.
+#
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step18():
+    logger.info("Test (step 18): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Drop traffic between rt1 and rt2")
+    tgen.net.cmd_raises("ip link set s1 down")
+
+    rname = "rt1"
+
+    retry = 200 + 1
+
+    while retry:
+        retry -= 1
+        output = tgen.gears[rname].vtysh_cmd("show isis neighbor json")
+        output_json = json.loads(output)
+        found = False
+        for neighbor in output_json["areas"][0]["circuits"]:
+            if "adj" in neighbor and neighbor["adj"] == "rt2":
+                found = True
+                break
+        if not found:
+            break
+        time.sleep(0.05)
+
+    assert not found, "rt2 neighbor is still present"
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][15]["show_ipv6_route.ref"],
+        count=2,
+        wait=0.05,
+    )
+
+
+#
+# Step 19
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step19():
+    logger.info("Test (step 19): verify IPv6 RIB")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
