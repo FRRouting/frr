@@ -814,6 +814,92 @@ def test_rib_ipv6_step19():
         )
 
 
+#
+# Step 20
+#
+# Action(s):
+# - Setting spf-delay-ietf init-delay of 15s
+#
+# Expected changes:
+# - No routing table change
+# - At the end of test, SPF reacts to a failure in 15s
+#
+def test_rib_ipv6_step20():
+    logger.info("Test (step 20): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Unshut the interface to rt2 from the switch side and check fast-reroute")
+    os.system("ip link set %s up" % tgen.net["s1"].intfs[1].name)
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][14]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 21
+#
+# Action(s):
+# - shut the eth-rt2 interface on rt1
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step21():
+    logger.info("Test (step 21): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "rt1"
+
+    logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
+    tgen.gears[rname].vtysh_cmd("clear isis neighbor rt2")
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][15]["show_ipv6_route.ref"],
+        count=2,
+        wait=0.05,
+    )
+
+
+#
+# Step 22
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step22():
+    logger.info("Test (step 22): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
+        )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
