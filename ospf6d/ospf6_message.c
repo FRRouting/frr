@@ -2339,7 +2339,6 @@ void ospf6_dbdesc_send(struct thread *thread)
 	struct ospf6_packet *op;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_dbdesc = (struct thread *)NULL;
 
 	if (on->state < OSPF6_NEIGHBOR_EXSTART) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_DBDESC, SEND))
@@ -2505,7 +2504,6 @@ void ospf6_lsreq_send(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_lsreq = (struct thread *)NULL;
 
 	/* LSReq will be sent only in ExStart or Loading */
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE
@@ -2685,7 +2683,6 @@ void ospf6_lsupdate_send_neighbor(struct thread *thread)
 	int lsa_cnt = 0;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_lsupdate = (struct thread *)NULL;
 
 	if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND_HDR))
 		zlog_debug("LSUpdate to neighbor %s", on->name);
@@ -2821,7 +2818,6 @@ void ospf6_lsupdate_send_interface(struct thread *thread)
 	int lsa_cnt = 0;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_send_lsupdate = (struct thread *)NULL;
 
 	if (oi->state <= OSPF6_INTERFACE_WAITING) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE,
@@ -2862,7 +2858,6 @@ void ospf6_lsack_send_neighbor(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_lsack = (struct thread *)NULL;
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSACK, SEND_HDR))
@@ -2939,7 +2934,6 @@ void ospf6_lsack_send_interface(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_send_lsack = (struct thread *)NULL;
 
 	if (oi->state <= OSPF6_INTERFACE_WAITING) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSACK, SEND_HDR))
