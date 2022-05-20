@@ -1008,9 +1008,7 @@ def test_rt6_step14():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info(
-        "Drop traffic between rt5 and rt6"
-    )
+    logger.info("Drop traffic between rt5 and rt6")
     tgen.net.cmd_raises("ip link set s8 down")
 
     rname = "rt6"
