@@ -5522,88 +5522,47 @@ DEFUN (no_debug_pim_static,
 }
 
 
-DEFUN (debug_pim,
+DEFPY (debug_pim,
        debug_pim_cmd,
-       "debug pim",
-       DEBUG_STR
-       DEBUG_PIM_STR)
-{
-	PIM_DO_DEBUG_PIM_EVENTS;
-	PIM_DO_DEBUG_PIM_PACKETS;
-	PIM_DO_DEBUG_PIM_TRACE;
-	PIM_DO_DEBUG_MSDP_EVENTS;
-	PIM_DO_DEBUG_MSDP_PACKETS;
-	PIM_DO_DEBUG_BSM;
-	PIM_DO_DEBUG_VXLAN;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim,
-       no_debug_pim_cmd,
-       "no debug pim",
+       "[no] debug pim",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR)
 {
-	PIM_DONT_DEBUG_PIM_EVENTS;
-	PIM_DONT_DEBUG_PIM_PACKETS;
-	PIM_DONT_DEBUG_PIM_TRACE;
-	PIM_DONT_DEBUG_MSDP_EVENTS;
-	PIM_DONT_DEBUG_MSDP_PACKETS;
-
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
-	PIM_DONT_DEBUG_BSM;
-	PIM_DONT_DEBUG_VXLAN;
-
-	return CMD_SUCCESS;
+	if (!no)
+		return pim_debug_pim_cmd();
+	else
+		return pim_no_debug_pim_cmd();
 }
 
-DEFUN (debug_pim_nht,
+DEFPY (debug_pim_nht,
        debug_pim_nht_cmd,
-       "debug pim nht",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       "Nexthop Tracking\n")
-{
-	PIM_DO_DEBUG_PIM_NHT;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_nht,
-       no_debug_pim_nht_cmd,
-       "no debug pim nht",
+       "[no] debug pim nht",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        "Nexthop Tracking\n")
 {
-	PIM_DONT_DEBUG_PIM_NHT;
+	if (!no)
+		PIM_DO_DEBUG_PIM_NHT;
+	else
+		PIM_DONT_DEBUG_PIM_NHT;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_nht_det,
+DEFPY (debug_pim_nht_det,
        debug_pim_nht_det_cmd,
-       "debug pim nht detail",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       "Nexthop Tracking\n"
-       "Detailed Information\n")
-{
-	PIM_DO_DEBUG_PIM_NHT_DETAIL;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_nht_det,
-       no_debug_pim_nht_det_cmd,
-       "no debug pim nht detail",
+       "[no] debug pim nht detail",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        "Nexthop Tracking\n"
        "Detailed Information\n")
 {
-	PIM_DONT_DEBUG_PIM_NHT_DETAIL;
+	if (!no)
+		PIM_DO_DEBUG_PIM_NHT_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_NHT_DETAIL;
 	return CMD_SUCCESS;
 }
 
@@ -5632,179 +5591,98 @@ DEFUN (no_debug_pim_nht_rp,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_events,
+DEFPY (debug_pim_events,
        debug_pim_events_cmd,
-       "debug pim events",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_EVENTS_STR)
-{
-	PIM_DO_DEBUG_PIM_EVENTS;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_events,
-       no_debug_pim_events_cmd,
-       "no debug pim events",
+       "[no] debug pim events",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_EVENTS_STR)
 {
-	PIM_DONT_DEBUG_PIM_EVENTS;
+	if (!no)
+		PIM_DO_DEBUG_PIM_EVENTS;
+	else
+		PIM_DONT_DEBUG_PIM_EVENTS;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_packets,
+DEFPY (debug_pim_packets,
        debug_pim_packets_cmd,
-       "debug pim packets [<hello|joins|register>]",
-       DEBUG_STR
+       "[no] debug pim packets [<hello$hello|joins$joins|register$registers>]",
+       NO_STR DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETS_STR
        DEBUG_PIM_HELLO_PACKETS_STR
        DEBUG_PIM_J_P_PACKETS_STR
        DEBUG_PIM_PIM_REG_PACKETS_STR)
 {
-	int idx = 0;
-	if (argv_find(argv, argc, "hello", &idx)) {
-		PIM_DO_DEBUG_PIM_HELLO;
-		vty_out(vty, "PIM Hello debugging is on\n");
-	} else if (argv_find(argv, argc, "joins", &idx)) {
-		PIM_DO_DEBUG_PIM_J_P;
-		vty_out(vty, "PIM Join/Prune debugging is on\n");
-	} else if (argv_find(argv, argc, "register", &idx)) {
-		PIM_DO_DEBUG_PIM_REG;
-		vty_out(vty, "PIM Register debugging is on\n");
-	} else {
-		PIM_DO_DEBUG_PIM_PACKETS;
-		vty_out(vty, "PIM Packet debugging is on \n");
-	}
-	return CMD_SUCCESS;
+	if (!no)
+		return pim_debug_pim_packets_cmd(hello, joins, registers, vty);
+	else
+		return pim_no_debug_pim_packets_cmd(hello, joins, registers,
+						    vty);
 }
 
-DEFUN (no_debug_pim_packets,
-       no_debug_pim_packets_cmd,
-       "no debug pim packets [<hello|joins|register>]",
-       NO_STR
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETS_STR
-       DEBUG_PIM_HELLO_PACKETS_STR
-       DEBUG_PIM_J_P_PACKETS_STR
-       DEBUG_PIM_PIM_REG_PACKETS_STR)
-{
-	int idx = 0;
-	if (argv_find(argv, argc, "hello", &idx)) {
-		PIM_DONT_DEBUG_PIM_HELLO;
-		vty_out(vty, "PIM Hello debugging is off \n");
-	} else if (argv_find(argv, argc, "joins", &idx)) {
-		PIM_DONT_DEBUG_PIM_J_P;
-		vty_out(vty, "PIM Join/Prune debugging is off \n");
-	} else if (argv_find(argv, argc, "register", &idx)) {
-		PIM_DONT_DEBUG_PIM_REG;
-		vty_out(vty, "PIM Register debugging is off\n");
-	} else
-		PIM_DONT_DEBUG_PIM_PACKETS;
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (debug_pim_packetdump_send,
+DEFPY (debug_pim_packetdump_send,
        debug_pim_packetdump_send_cmd,
-       "debug pim packet-dump send",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETDUMP_STR
-       DEBUG_PIM_PACKETDUMP_SEND_STR)
-{
-	PIM_DO_DEBUG_PIM_PACKETDUMP_SEND;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_packetdump_send,
-       no_debug_pim_packetdump_send_cmd,
-       "no debug pim packet-dump send",
+       "[no] debug pim packet-dump send",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETDUMP_STR
        DEBUG_PIM_PACKETDUMP_SEND_STR)
 {
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_SEND;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_packetdump_recv,
+DEFPY (debug_pim_packetdump_recv,
        debug_pim_packetdump_recv_cmd,
-       "debug pim packet-dump receive",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETDUMP_STR
-       DEBUG_PIM_PACKETDUMP_RECV_STR)
-{
-	PIM_DO_DEBUG_PIM_PACKETDUMP_RECV;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_packetdump_recv,
-       no_debug_pim_packetdump_recv_cmd,
-       "no debug pim packet-dump receive",
+       "[no] debug pim packet-dump receive",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETDUMP_STR
        DEBUG_PIM_PACKETDUMP_RECV_STR)
 {
-	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_RECV;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_trace,
+DEFPY (debug_pim_trace,
        debug_pim_trace_cmd,
-       "debug pim trace",
+       "[no] debug pim trace",
+       NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_TRACE_STR)
 {
-	PIM_DO_DEBUG_PIM_TRACE;
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE;
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_trace_detail,
+DEFPY (debug_pim_trace_detail,
        debug_pim_trace_detail_cmd,
-       "debug pim trace detail",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR
-       "Detailed Information\n")
-{
-	PIM_DO_DEBUG_PIM_TRACE_DETAIL;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_trace,
-       no_debug_pim_trace_cmd,
-       "no debug pim trace",
-       NO_STR
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR)
-{
-	PIM_DONT_DEBUG_PIM_TRACE;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_trace_detail,
-       no_debug_pim_trace_detail_cmd,
-       "no debug pim trace detail",
+       "[no] debug pim trace detail",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_TRACE_STR
        "Detailed Information\n")
 {
-	PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
 	return CMD_SUCCESS;
 }
 
@@ -5829,26 +5707,18 @@ DEFUN (no_debug_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_pim_zebra,
+DEFPY (debug_pim_zebra,
        debug_pim_zebra_cmd,
-       "debug pim zebra",
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_ZEBRA_STR)
-{
-	PIM_DO_DEBUG_ZEBRA;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_pim_zebra,
-       no_debug_pim_zebra_cmd,
-       "no debug pim zebra",
+       "[no] debug pim zebra",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_ZEBRA_STR)
 {
-	PIM_DONT_DEBUG_ZEBRA;
+	if (!no)
+		PIM_DO_DEBUG_ZEBRA;
+	else
+		PIM_DONT_DEBUG_ZEBRA;
 	return CMD_SUCCESS;
 }
 
@@ -7872,29 +7742,19 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pim_static_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_static_cmd);
 	install_element(ENABLE_NODE, &debug_pim_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_nht_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_det_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_nht_det_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &debug_pim_events_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_events_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_packets_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_send_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_packetdump_send_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_packetdump_recv_cmd);
 	install_element(ENABLE_NODE, &debug_pim_trace_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_trace_cmd);
 	install_element(ENABLE_NODE, &debug_pim_trace_detail_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_trace_detail_cmd);
 	install_element(ENABLE_NODE, &debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
-	install_element(ENABLE_NODE, &no_debug_pim_zebra_cmd);
 	install_element(ENABLE_NODE, &debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
@@ -7927,29 +7787,19 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pim_static_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_static_cmd);
 	install_element(CONFIG_NODE, &debug_pim_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_nht_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_det_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_nht_det_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &debug_pim_events_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_packets_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_packetdump_send_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_packetdump_recv_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_trace_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_trace_detail_cmd);
 	install_element(CONFIG_NODE, &debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_debug_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &debug_pim_zebra_cmd);
-	install_element(CONFIG_NODE, &no_debug_pim_zebra_cmd);
 	install_element(CONFIG_NODE, &debug_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &debug_pim_vxlan_cmd);

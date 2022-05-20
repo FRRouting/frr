@@ -45,6 +45,18 @@
 #define DEBUG_MLD_PACKETS_STR "MLD protocol packets\n"
 #define DEBUG_MLD_TRACE_STR "MLD internal daemon activity\n"
 #define CONF_SSMPINGD_STR "Enable ssmpingd operation\n"
+#define DEBUG_PIMV6_STR "PIMv6 protocol activity\n"
+#define DEBUG_PIMV6_EVENTS_STR "PIMv6 protocol events\n"
+#define DEBUG_PIMV6_PACKETS_STR "PIMv6 protocol packets\n"
+#define DEBUG_PIMV6_HELLO_PACKETS_STR "PIMv6 Hello protocol packets\n"
+#define DEBUG_PIMV6_J_P_PACKETS_STR "PIMv6 Join/Prune protocol packets\n"
+#define DEBUG_PIMV6_PIM_REG_PACKETS_STR                                        \
+	"PIMv6 Register/Reg-Stop protocol packets\n"
+#define DEBUG_PIMV6_PACKETDUMP_STR "PIMv6 packet dump\n"
+#define DEBUG_PIMV6_PACKETDUMP_SEND_STR "Dump sent packets\n"
+#define DEBUG_PIMV6_PACKETDUMP_RECV_STR "Dump received packets\n"
+#define DEBUG_PIMV6_TRACE_STR "PIMv6 internal daemon activity\n"
+#define DEBUG_PIMV6_ZEBRA_STR "ZEBRA protocol activity\n"
 
 void pim_cmd_init(void);
 

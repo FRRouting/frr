@@ -3673,3 +3673,67 @@ void clear_pim_statistics(struct pim_instance *pim)
 		pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
 	}
 }
+
+int pim_debug_pim_cmd(void)
+{
+	PIM_DO_DEBUG_PIM_EVENTS;
+	PIM_DO_DEBUG_PIM_PACKETS;
+	PIM_DO_DEBUG_PIM_TRACE;
+	PIM_DO_DEBUG_MSDP_EVENTS;
+	PIM_DO_DEBUG_MSDP_PACKETS;
+	PIM_DO_DEBUG_BSM;
+	PIM_DO_DEBUG_VXLAN;
+	return CMD_SUCCESS;
+}
+
+int pim_no_debug_pim_cmd(void)
+{
+	PIM_DONT_DEBUG_PIM_EVENTS;
+	PIM_DONT_DEBUG_PIM_PACKETS;
+	PIM_DONT_DEBUG_PIM_TRACE;
+	PIM_DONT_DEBUG_MSDP_EVENTS;
+	PIM_DONT_DEBUG_MSDP_PACKETS;
+
+	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	return CMD_SUCCESS;
+}
+
+int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
+			      const char *registers, struct vty *vty)
+{
+	if (hello) {
+		PIM_DO_DEBUG_PIM_HELLO;
+		vty_out(vty, "PIM Hello debugging is on\n");
+	} else if (joins) {
+		PIM_DO_DEBUG_PIM_J_P;
+		vty_out(vty, "PIM Join/Prune debugging is on\n");
+	} else if (registers) {
+		PIM_DO_DEBUG_PIM_REG;
+		vty_out(vty, "PIM Register debugging is on\n");
+	} else {
+		PIM_DO_DEBUG_PIM_PACKETS;
+		vty_out(vty, "PIM Packet debugging is on\n");
+	}
+	return CMD_SUCCESS;
+}
+
+int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
+				 const char *registers, struct vty *vty)
+{
+	if (hello) {
+		PIM_DONT_DEBUG_PIM_HELLO;
+		vty_out(vty, "PIM Hello debugging is off\n");
+	} else if (joins) {
+		PIM_DONT_DEBUG_PIM_J_P;
+		vty_out(vty, "PIM Join/Prune debugging is off\n");
+	} else if (registers) {
+		PIM_DONT_DEBUG_PIM_REG;
+		vty_out(vty, "PIM Register debugging is off\n");
+	} else {
+		PIM_DONT_DEBUG_PIM_PACKETS;
+		vty_out(vty, "PIM Packet debugging is off\n");
+	}
+
+	return CMD_SUCCESS;
+}
