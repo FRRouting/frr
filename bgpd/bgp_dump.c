@@ -154,13 +154,13 @@ static int bgp_dump_interval_add(struct bgp_dump *bgp_dump, int interval)
 			interval = interval
 				   - secs_into_day % interval; /* always > 0 */
 		}
-		thread_add_timer(bm->master, bgp_dump_interval_func, bgp_dump,
-				 interval, &bgp_dump->t_interval);
+		event_add_timer(bm->master, bgp_dump_interval_func, bgp_dump,
+				interval, &bgp_dump->t_interval);
 	} else {
 		/* One-off dump: execute immediately, don't affect any scheduled
 		 * dumps */
-		thread_add_event(bm->master, bgp_dump_interval_func, bgp_dump,
-				 0, &bgp_dump->t_interval);
+		event_add_event(bm->master, bgp_dump_interval_func, bgp_dump, 0,
+				&bgp_dump->t_interval);
 	}
 
 	return 0;

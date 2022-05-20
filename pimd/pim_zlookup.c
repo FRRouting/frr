@@ -65,15 +65,15 @@ static void zclient_lookup_connect(struct event *t)
 		return;
 	}
 
-	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
-			 &zlookup_read);
+	event_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
+			&zlookup_read);
 }
 
 /* Schedule connection with delay. */
 static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 {
-	thread_add_timer(router->master, zclient_lookup_connect, zlookup, delay,
-			 &zlookup->t_connect);
+	event_add_timer(router->master, zclient_lookup_connect, zlookup, delay,
+			&zlookup->t_connect);
 
 	zlog_notice("%s: zclient lookup connection scheduled for %d seconds",
 		    __func__, delay);
@@ -82,8 +82,8 @@ static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 /* Schedule connection for now. */
 static void zclient_lookup_sched_now(struct zclient *zlookup)
 {
-	thread_add_event(router->master, zclient_lookup_connect, zlookup, 0,
-			 &zlookup->t_connect);
+	event_add_event(router->master, zclient_lookup_connect, zlookup, 0,
+			&zlookup->t_connect);
 
 	zlog_notice("%s: zclient lookup immediate connection scheduled",
 		    __func__);
@@ -378,8 +378,8 @@ void zclient_lookup_read_pipe(struct event *thread)
 	}
 
 	zclient_lookup_nexthop_once(pim, nexthop_tab, 10, l);
-	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
-			 &zlookup_read);
+	event_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
+			&zlookup_read);
 }
 
 int zclient_lookup_nexthop(struct pim_instance *pim,

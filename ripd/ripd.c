@@ -299,8 +299,8 @@ static void rip_timeout_update(struct rip *rip, struct rip_info *rinfo)
 {
 	if (rinfo->metric != RIP_METRIC_INFINITY) {
 		THREAD_OFF(rinfo->t_timeout);
-		thread_add_timer(master, rip_timeout, rinfo, rip->timeout_time,
-				 &rinfo->t_timeout);
+		event_add_timer(master, rip_timeout, rinfo, rip->timeout_time,
+				&rinfo->t_timeout);
 	}
 }
 
@@ -2558,8 +2558,8 @@ static void rip_triggered_update(struct event *t)
 	 update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	thread_add_timer(master, rip_triggered_interval, rip, interval,
-			 &rip->t_triggered_interval);
+	event_add_timer(master, rip_triggered_interval, rip, interval,
+			&rip->t_triggered_interval);
 }
 
 /* Withdraw redistributed route. */
@@ -2766,21 +2766,21 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 
 	switch (event) {
 	case RIP_READ:
-		thread_add_read(master, rip_read, rip, sock, &rip->t_read);
+		event_add_read(master, rip_read, rip, sock, &rip->t_read);
 		break;
 	case RIP_UPDATE_EVENT:
 		THREAD_OFF(rip->t_update);
 		jitter = rip_update_jitter(rip->update_time);
-		thread_add_timer(master, rip_update, rip,
-				 sock ? 2 : rip->update_time + jitter,
-				 &rip->t_update);
+		event_add_timer(master, rip_update, rip,
+				sock ? 2 : rip->update_time + jitter,
+				&rip->t_update);
 		break;
 	case RIP_TRIGGERED_UPDATE:
 		if (rip->t_triggered_interval)
 			rip->trigger = 1;
 		else
-			thread_add_event(master, rip_triggered_update, rip, 0,
-					 &rip->t_triggered_update);
+			event_add_event(master, rip_triggered_update, rip, 0,
+					&rip->t_triggered_update);
 		break;
 	default:
 		break;

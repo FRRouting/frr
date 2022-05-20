@@ -68,8 +68,8 @@ static void clear_something(struct event *thread)
 		slow_func(ws->vty, ws->str, ws->i);
 		ws->i++;
 		if (thread_should_yield(thread)) {
-			thread_add_timer_msec(master, clear_something, ws, 0,
-					      NULL);
+			event_add_timer_msec(master, clear_something, ws, 0,
+					     NULL);
 			return;
 		}
 	}
@@ -102,7 +102,7 @@ DEFUN (clear_foo,
 	ws->vty = vty;
 	ws->i = ITERS_FIRST;
 
-	thread_add_timer_msec(master, clear_something, ws, 0, NULL);
+	event_add_timer_msec(master, clear_something, ws, 0, NULL);
 
 	return CMD_SUCCESS;
 }

@@ -271,11 +271,11 @@ static bool is_thread_sched(const char *name, size_t len)
 {
 #define thread_prefix "_"
 	static const char *const names[] = {
-		thread_prefix "thread_add_read_write",
-		thread_prefix "thread_add_timer",
-		thread_prefix "thread_add_timer_msec",
-		thread_prefix "thread_add_timer_tv",
-		thread_prefix "thread_add_event",
+		thread_prefix "event_add_read_write",
+		thread_prefix "event_add_timer",
+		thread_prefix "event_add_timer_msec",
+		thread_prefix "event_add_timer_tv",
+		thread_prefix "event_add_event",
 		thread_prefix "thread_execute",
 	};
 	size_t i;

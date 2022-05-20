@@ -92,8 +92,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 
 	/* RFC 2332 5.2.3 - Registration is recommend to be renewed
 	 * every one third of holdtime */
-	thread_add_timer(master, nhrp_reg_send_req, r, holdtime / 3,
-			 &r->t_register);
+	event_add_timer(master, nhrp_reg_send_req, r, holdtime / 3,
+			&r->t_register);
 
 	r->proto_addr = p->dst_proto;
 	c = nhrp_cache_get(ifp, &p->dst_proto, 1);
@@ -133,7 +133,7 @@ static void nhrp_reg_timeout(struct event *t)
 		}
 		r->timeout = 2;
 	}
-	thread_add_timer_msec(master, nhrp_reg_send_req, r, 10, &r->t_register);
+	event_add_timer_msec(master, nhrp_reg_send_req, r, 10, &r->t_register);
 }
 
 static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
@@ -149,8 +149,8 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %pSU",
 		       &r->peer->vc->remote.nbma);
 		THREAD_OFF(r->t_register);
-		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
-				      &r->t_register);
+		event_add_timer_msec(master, nhrp_reg_send_req, r, 10,
+				     &r->t_register);
 		break;
 	}
 }
@@ -171,13 +171,13 @@ static void nhrp_reg_send_req(struct event *t)
 	if (!nhrp_peer_check(r->peer, 2)) {
 		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
 		       &r->peer->vc->remote.nbma);
-		thread_add_timer(master, nhrp_reg_send_req, r, 120,
-				 &r->t_register);
+		event_add_timer(master, nhrp_reg_send_req, r, 120,
+				&r->t_register);
 		return;
 	}
 
-	thread_add_timer(master, nhrp_reg_timeout, r, r->timeout,
-			 &r->t_register);
+	event_add_timer(master, nhrp_reg_timeout, r, r->timeout,
+			&r->t_register);
 
 	/* RFC2332 5.2.3 NHC uses it's own address as dst if NHS is unknown */
 	dst_proto = &nhs->proto_addr;
@@ -269,13 +269,13 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 
 	if (n < 0) {
 		/* Failed, retry in a moment */
-		thread_add_timer(master, nhrp_nhs_resolve, nhs, 5,
-				 &nhs->t_resolve);
+		event_add_timer(master, nhrp_nhs_resolve, nhs, 5,
+				&nhs->t_resolve);
 		return;
 	}
 
-	thread_add_timer(master, nhrp_nhs_resolve, nhs, 2 * 60 * 60,
-			 &nhs->t_resolve);
+	event_add_timer(master, nhrp_nhs_resolve, nhs, 2 * 60 * 60,
+			&nhs->t_resolve);
 
 	frr_each (nhrp_reglist, &nhs->reglist_head, reg)
 		reg->mark = 1;
@@ -300,8 +300,8 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 		nhrp_reglist_add_tail(&nhs->reglist_head, reg);
 		nhrp_peer_notify_add(reg->peer, &reg->peer_notifier,
 				     nhrp_reg_peer_notify);
-		thread_add_timer_msec(master, nhrp_reg_send_req, reg, 50,
-				      &reg->t_register);
+		event_add_timer_msec(master, nhrp_reg_send_req, reg, 50,
+				     &reg->t_register);
 	}
 
 	frr_each_safe (nhrp_reglist, &nhs->reglist_head, reg)
@@ -347,8 +347,8 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		.reglist_head = INIT_DLIST(nhs->reglist_head),
 	};
 	nhrp_nhslist_add_tail(&nifp->afi[afi].nhslist_head, nhs);
-	thread_add_timer_msec(master, nhrp_nhs_resolve, nhs, 1000,
-			      &nhs->t_resolve);
+	event_add_timer_msec(master, nhrp_nhs_resolve, nhs, 1000,
+			     &nhs->t_resolve);
 
 	return NHRP_OK;
 }

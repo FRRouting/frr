@@ -78,8 +78,8 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 	}
 
 	/* Update timeout thread. */
-	thread_add_timer(master, rip_peer_timeout, peer, RIP_PEER_TIMER_DEFAULT,
-			 &peer->t_timeout);
+	event_add_timer(master, rip_peer_timeout, peer, RIP_PEER_TIMER_DEFAULT,
+			&peer->t_timeout);
 
 	/* Last update time set. */
 	time(&peer->uptime);

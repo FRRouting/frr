@@ -2789,8 +2789,8 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	if (lifetime > UINT32_MAX / 1001) {
 		/* sub-optimal case, but will probably never happen */
 		bpi->extra->vnc.import.timer = NULL;
-		thread_add_timer(bm->master, timer_service_func, wcb, lifetime,
-				 &bpi->extra->vnc.import.timer);
+		event_add_timer(bm->master, timer_service_func, wcb, lifetime,
+				&bpi->extra->vnc.import.timer);
 	} else {
 		static uint32_t jitter;
 		uint32_t lifetime_msec;
@@ -2805,9 +2805,9 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 		lifetime_msec = (lifetime * 1000) + jitter;
 
 		bpi->extra->vnc.import.timer = NULL;
-		thread_add_timer_msec(bm->master, timer_service_func, wcb,
-				      lifetime_msec,
-				      &bpi->extra->vnc.import.timer);
+		event_add_timer_msec(bm->master, timer_service_func, wcb,
+				     lifetime_msec,
+				     &bpi->extra->vnc.import.timer);
 	}
 
 	/* re-sort route list (BGP_PATH_REMOVED routes are last) */

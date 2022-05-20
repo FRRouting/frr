@@ -425,7 +425,7 @@ nbr_start_ktimer(struct nbr *nbr)
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
 	THREAD_OFF(nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
-	thread_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
+	event_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
 
 void
@@ -452,8 +452,8 @@ nbr_start_ktimeout(struct nbr *nbr)
 {
 	THREAD_OFF(nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
-	thread_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
-			 &nbr->keepalive_timeout);
+	event_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
+			&nbr->keepalive_timeout);
 }
 
 void
@@ -481,7 +481,7 @@ nbr_start_itimeout(struct nbr *nbr)
 	secs = INIT_FSM_TIMEOUT;
 	THREAD_OFF(nbr->init_timeout);
 	nbr->init_timeout = NULL;
-	thread_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
+	event_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
 
 void
@@ -527,8 +527,7 @@ nbr_start_idtimer(struct nbr *nbr)
 
 	THREAD_OFF(nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
-	thread_add_timer(master, nbr_idtimer, nbr, secs,
-			 &nbr->initdelay_timer);
+	event_add_timer(master, nbr_idtimer, nbr, secs, &nbr->initdelay_timer);
 }
 
 void
@@ -650,8 +649,8 @@ nbr_establish_connection(struct nbr *nbr)
 	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa))
 	    == -1) {
 		if (errno == EINPROGRESS) {
-			thread_add_write(master, nbr_connect_cb, nbr, nbr->fd,
-					 &nbr->ev_connect);
+			event_add_write(master, nbr_connect_cb, nbr, nbr->fd,
+					&nbr->ev_connect);
 			return (0);
 		}
 		log_warn("%s: error while connecting to %s", __func__,

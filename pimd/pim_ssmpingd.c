@@ -300,8 +300,8 @@ static void ssmpingd_sock_read(struct event *t)
 
 static void ssmpingd_read_on(struct ssmpingd_sock *ss)
 {
-	thread_add_read(router->master, ssmpingd_sock_read, ss, ss->sock_fd,
-			&ss->t_sock_read);
+	event_add_read(router->master, ssmpingd_sock_read, ss, ss->sock_fd,
+		       &ss->t_sock_read);
 }
 
 static struct ssmpingd_sock *ssmpingd_new(struct pim_instance *pim,

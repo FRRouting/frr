@@ -80,7 +80,7 @@ void pullwr_bump(struct pullwr *pullwr)
 	if (pullwr->writer)
 		return;
 
-	thread_add_timer(pullwr->tm, pullwr_run, pullwr, 0, &pullwr->writer);
+	event_add_timer(pullwr->tm, pullwr_run, pullwr, 0, &pullwr->writer);
 }
 
 static size_t pullwr_iov(struct pullwr *pullwr, struct iovec *iov)
@@ -206,7 +206,7 @@ static void pullwr_run(struct event *t)
 		if (pullwr->valid == 0) {
 			/* we made a fill() call above that didn't feed any
 			 * data in, and we have nothing more queued, so we go
-			 * into idle, i.e. no calling thread_add_write()
+			 * into idle, i.e. no calling event_add_write()
 			 */
 			pullwr_resize(pullwr, 0);
 			return;
@@ -237,7 +237,7 @@ static void pullwr_run(struct event *t)
 	 * is full and we go wait until it's available for writing again.
 	 */
 
-	thread_add_write(pullwr->tm, pullwr_run, pullwr, pullwr->fd,
+	event_add_write(pullwr->tm, pullwr_run, pullwr, pullwr->fd,
 			&pullwr->writer);
 
 	/* if we hit the time limit, just keep the buffer, we'll probably need

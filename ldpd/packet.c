@@ -129,7 +129,7 @@ void disc_recv_packet(struct event *thread)
 	struct in_addr		 lsr_id;
 
 	/* reschedule read */
-	thread_add_read(master, disc_recv_packet, threadp, fd, threadp);
+	event_add_read(master, disc_recv_packet, threadp, fd, threadp);
 
 	/* setup buffer */
 	memset(&m, 0, sizeof(m));
@@ -406,7 +406,7 @@ static void session_read(struct event *thread)
 	uint16_t	 pdu_len, msg_len, msg_size, max_pdu_len;
 	int		 ret;
 
-	thread_add_read(master, session_read, nbr, fd, &tcp->rev);
+	event_add_read(master, session_read, nbr, fd, &tcp->rev);
 
 	if ((n = read(fd, tcp->rbuf->buf + tcp->rbuf->wpos,
 	    sizeof(tcp->rbuf->buf) - tcp->rbuf->wpos)) == -1) {
@@ -721,7 +721,7 @@ tcp_new(int fd, struct nbr *nbr)
 		if ((tcp->rbuf = calloc(1, sizeof(struct ibuf_read))) == NULL)
 			fatal(__func__);
 
-		thread_add_read(master, session_read, nbr, tcp->fd, &tcp->rev);
+		event_add_read(master, session_read, nbr, tcp->fd, &tcp->rev);
 		tcp->nbr = nbr;
 	}
 
@@ -768,8 +768,8 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 	pconn->addr = *addr;
 	TAILQ_INSERT_TAIL(&global.pending_conns, pconn, entry);
 	pconn->ev_timeout = NULL;
-	thread_add_timer(master, pending_conn_timeout, pconn, PENDING_CONN_TIMEOUT,
-			 &pconn->ev_timeout);
+	event_add_timer(master, pending_conn_timeout, pconn,
+			PENDING_CONN_TIMEOUT, &pconn->ev_timeout);
 
 	return (pconn);
 }

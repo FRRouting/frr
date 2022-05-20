@@ -809,8 +809,8 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	thread_add_read(router->master, mroute_read, pim, pim->mroute_socket,
-			&pim->thread);
+	event_add_read(router->master, mroute_read, pim, pim->mroute_socket,
+		       &pim->thread);
 }
 
 static void mroute_read_off(struct pim_instance *pim)

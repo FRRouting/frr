@@ -385,8 +385,8 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
 	new->maxage_lsa = route_table_init();
 	new->t_maxage_walker = NULL;
-	thread_add_timer(master, ospf_lsa_maxage_walker, new,
-			 OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
+	event_add_timer(master, ospf_lsa_maxage_walker, new,
+			OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
 
 	/* Max paths initialization */
 	new->max_multipath = MULTIPATH_NUM;
@@ -398,8 +398,8 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
 	new->lsa_refresh_timer = OSPF_LS_REFRESH_TIME;
 	new->t_lsa_refresher = NULL;
-	thread_add_timer(master, ospf_lsa_refresh_walker, new,
-			 new->lsa_refresh_interval, &new->t_lsa_refresher);
+	event_add_timer(master, ospf_lsa_refresh_walker, new,
+			new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
 	new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1);
@@ -441,7 +441,7 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 		return new;
 	}
 
-	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
+	event_add_read(master, ospf_read, new, new->fd, &new->t_read);
 
 	new->oi_running = 1;
 	ospf_router_id_update(new);
@@ -1860,8 +1860,8 @@ int ospf_timers_refresh_set(struct ospf *ospf, int interval)
 
 	if (time_left > interval) {
 		THREAD_OFF(ospf->t_lsa_refresher);
-		thread_add_timer(master, ospf_lsa_refresh_walker, ospf,
-				 interval, &ospf->t_lsa_refresher);
+		event_add_timer(master, ospf_lsa_refresh_walker, ospf, interval,
+				&ospf->t_lsa_refresher);
 	}
 	ospf->lsa_refresh_interval = interval;
 
@@ -1878,9 +1878,9 @@ int ospf_timers_refresh_unset(struct ospf *ospf)
 	if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT) {
 		THREAD_OFF(ospf->t_lsa_refresher);
 		ospf->t_lsa_refresher = NULL;
-		thread_add_timer(master, ospf_lsa_refresh_walker, ospf,
-				 OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
-				 &ospf->t_lsa_refresher);
+		event_add_timer(master, ospf_lsa_refresh_walker, ospf,
+				OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
+				&ospf->t_lsa_refresher);
 	}
 
 	ospf->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
@@ -2247,8 +2247,8 @@ static int ospf_vrf_enable(struct vrf *vrf)
 			ret = ospf_sock_init(ospf);
 			if (ret < 0 || ospf->fd <= 0)
 				return 0;
-			thread_add_read(master, ospf_read, ospf, ospf->fd,
-					&ospf->t_read);
+			event_add_read(master, ospf_read, ospf, ospf->fd,
+				       &ospf->t_read);
 			ospf->oi_running = 1;
 			ospf_router_id_update(ospf);
 		}

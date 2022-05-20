@@ -952,8 +952,8 @@ void pim_mlag_register(void)
 
 	router->mlag_process_register = true;
 
-	thread_add_event(router->master, pim_mlag_register_handler, NULL, 0,
-			 NULL);
+	event_add_event(router->master, pim_mlag_register_handler, NULL, 0,
+			NULL);
 }
 
 static void pim_mlag_deregister_handler(struct event *thread)
@@ -980,8 +980,8 @@ void pim_mlag_deregister(void)
 
 	router->mlag_process_register = false;
 
-	thread_add_event(router->master, pim_mlag_deregister_handler, NULL, 0,
-			 NULL);
+	event_add_event(router->master, pim_mlag_deregister_handler, NULL, 0,
+			NULL);
 }
 
 void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)

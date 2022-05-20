@@ -630,8 +630,8 @@ void ospf_ase_calculate_timer_add(struct ospf *ospf)
 	if (ospf == NULL)
 		return;
 
-	thread_add_timer(master, ospf_ase_calculate_timer, ospf,
-			 OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
+	event_add_timer(master, ospf_ase_calculate_timer, ospf,
+			OSPF_ASE_CALC_INTERVAL, &ospf->t_ase_calc);
 }
 
 void ospf_ase_register_external_lsa(struct ospf_lsa *lsa, struct ospf *top)

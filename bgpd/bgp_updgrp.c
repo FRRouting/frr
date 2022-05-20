@@ -1449,8 +1449,8 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 		return false;
 
 	subgrp->t_merge_check = NULL;
-	thread_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
-			      subgrp, 0, &subgrp->t_merge_check);
+	event_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
+			     subgrp, 0, &subgrp->t_merge_check);
 
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
@@ -2215,7 +2215,7 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 */
 	SUBGRP_FOREACH_PEER (subgrp, paf)
 		if (peer_established(paf->peer))
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				bm->master, bgp_generate_updgrp_packets,
 				paf->peer, 0,
 				&paf->peer->t_generate_updgrp_packets);

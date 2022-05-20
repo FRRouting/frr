@@ -387,7 +387,7 @@ enum rip_event {
 };
 
 /* Macro for timer turn on. */
-#define RIP_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
+#define RIP_TIMER_ON(T, F, V) event_add_timer(master, (F), rinfo, (V), &(T))
 
 #define RIP_OFFSET_LIST_IN  0
 #define RIP_OFFSET_LIST_OUT 1

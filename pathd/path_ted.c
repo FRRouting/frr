@@ -583,9 +583,9 @@ enum zclient_send_status path_ted_link_state_sync(void)
 		PATH_TED_DEBUG("%s: PATHD-TED: Opaque asked for TED sync ",
 			       __func__);
 	}
-	thread_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
-			 &ted_state_g, ted_state_g.link_state_delay_interval,
-			 &ted_state_g.t_link_state_sync);
+	event_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
+			&ted_state_g, ted_state_g.link_state_delay_interval,
+			&ted_state_g.t_link_state_sync);
 
 	return status;
 }
@@ -619,10 +619,9 @@ int path_ted_segment_list_refresh(void)
 	int status = 0;
 
 	path_ted_timer_refresh_cancel();
-	thread_add_timer(ted_state_g.main, path_ted_timer_handler_refresh,
-			 &ted_state_g,
-			 ted_state_g.segment_list_refresh_interval,
-			 &ted_state_g.t_segment_list_refresh);
+	event_add_timer(ted_state_g.main, path_ted_timer_handler_refresh,
+			&ted_state_g, ted_state_g.segment_list_refresh_interval,
+			&ted_state_g.t_segment_list_refresh);
 
 	return status;
 }

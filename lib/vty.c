@@ -2807,13 +2807,13 @@ static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 {
 	switch (event) {
 	case VTY_SERV:
-		thread_add_read(vty_master, vty_accept, vty_serv,
-				vty_serv->sock, &vty_serv->t_accept);
+		event_add_read(vty_master, vty_accept, vty_serv, vty_serv->sock,
+			       &vty_serv->t_accept);
 		break;
 #ifdef VTYSH
 	case VTYSH_SERV:
-		thread_add_read(vty_master, vtysh_accept, vty_serv,
-				vty_serv->sock, &vty_serv->t_accept);
+		event_add_read(vty_master, vtysh_accept, vty_serv,
+			       vty_serv->sock, &vty_serv->t_accept);
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
@@ -2830,34 +2830,34 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	switch (event) {
 #ifdef VTYSH
 	case VTYSH_READ:
-		thread_add_read(vty_master, vtysh_read, vty, vty->fd,
-				&vty->t_read);
+		event_add_read(vty_master, vtysh_read, vty, vty->fd,
+			       &vty->t_read);
 		break;
 	case VTYSH_WRITE:
-		thread_add_write(vty_master, vtysh_write, vty, vty->wfd,
-				 &vty->t_write);
+		event_add_write(vty_master, vtysh_write, vty, vty->wfd,
+				&vty->t_write);
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
-		thread_add_read(vty_master, vty_read, vty, vty->fd,
-				&vty->t_read);
+		event_add_read(vty_master, vty_read, vty, vty->fd,
+			       &vty->t_read);
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
 			THREAD_OFF(vty->t_timeout);
-			thread_add_timer(vty_master, vty_timeout, vty,
-					 vty->v_timeout, &vty->t_timeout);
+			event_add_timer(vty_master, vty_timeout, vty,
+					vty->v_timeout, &vty->t_timeout);
 		}
 		break;
 	case VTY_WRITE:
-		thread_add_write(vty_master, vty_flush, vty, vty->wfd,
-				 &vty->t_write);
+		event_add_write(vty_master, vty_flush, vty, vty->wfd,
+				&vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
 		THREAD_OFF(vty->t_timeout);
 		if (vty->v_timeout)
-			thread_add_timer(vty_master, vty_timeout, vty,
-					 vty->v_timeout, &vty->t_timeout);
+			event_add_timer(vty_master, vty_timeout, vty,
+					vty->v_timeout, &vty->t_timeout);
 		break;
 	case VTY_SERV:
 	case VTYSH_SERV:

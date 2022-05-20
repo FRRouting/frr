@@ -1338,8 +1338,8 @@ static void kernel_read(struct event *thread)
 			 * shortage and is not harmful for consistency of
 			 * reading the routing socket.  Ignore it.
 			 */
-			thread_add_read(zrouter.master, kernel_read, NULL, sock,
-					NULL);
+			event_add_read(zrouter.master, kernel_read, NULL, sock,
+				       NULL);
 			return;
 #else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
@@ -1362,7 +1362,7 @@ static void kernel_read(struct event *thread)
 	if (nbytes == 0)
 		return;
 
-	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1465,7 +1465,7 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
 /* Exported interface function.  This function simply calls

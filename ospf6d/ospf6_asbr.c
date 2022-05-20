@@ -1110,9 +1110,8 @@ void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
 	if (IS_OSPF6_DEBUG_ASBR)
 		zlog_debug("%s: trigger redistribute reset thread", __func__);
 
-	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer, ospf6,
-			      OSPF_MIN_LS_INTERVAL,
-			      &ospf6->t_distribute_update);
+	event_add_timer_msec(master, ospf6_asbr_routemap_update_timer, ospf6,
+			     OSPF_MIN_LS_INTERVAL, &ospf6->t_distribute_update);
 }
 
 void ospf6_asbr_routemap_update(const char *mapname)
@@ -3024,8 +3023,8 @@ static void ospf6_aggr_handle_external_info(void *data)
 				zlog_debug("%s: LSA found, refresh it",
 					   __func__);
 			THREAD_OFF(lsa->refresh);
-			thread_add_event(master, ospf6_lsa_refresh, lsa, 0,
-					 &lsa->refresh);
+			event_add_event(master, ospf6_lsa_refresh, lsa, 0,
+					&lsa->refresh);
 			return;
 		}
 	}
@@ -3227,8 +3226,8 @@ static void ospf6_handle_exnl_rt_after_aggr_del(struct ospf6 *ospf6,
 
 	if (lsa) {
 		THREAD_OFF(lsa->refresh);
-		thread_add_event(master, ospf6_lsa_refresh, lsa, 0,
-				 &lsa->refresh);
+		event_add_event(master, ospf6_lsa_refresh, lsa, 0,
+				&lsa->refresh);
 	} else {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug("%s: Originate external route(%pFX)",
@@ -3386,10 +3385,8 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 			   __func__, ospf6->aggr_delay_interval);
 
 	ospf6->aggr_action = operation;
-	thread_add_timer(master,
-			ospf6_asbr_summary_process,
-			ospf6, ospf6->aggr_delay_interval,
-			&ospf6->t_external_aggr);
+	event_add_timer(master, ospf6_asbr_summary_process, ospf6,
+			ospf6->aggr_delay_interval, &ospf6->t_external_aggr);
 }
 
 int ospf6_asbr_external_rt_advertise(struct ospf6 *ospf6,

@@ -18784,8 +18784,8 @@ static void bgp_config_start(void)
 {
 #define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
 	THREAD_OFF(t_bgp_cfg);
-	thread_add_timer(bm->master, bgp_config_finish, NULL,
-			 BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
+	event_add_timer(bm->master, bgp_config_finish, NULL,
+			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
 
 /* When we receive a hook the configuration is read,
@@ -18812,8 +18812,8 @@ static void bgp_config_end(void)
 	/* Start a new timer to make sure we don't send EoR
 	 * before route-maps are processed.
 	 */
-	thread_add_timer(bm->master, bgp_config_finish, NULL,
-			 bgp_post_config_delay, &t_bgp_cfg);
+	event_add_timer(bm->master, bgp_config_finish, NULL,
+			bgp_post_config_delay, &t_bgp_cfg);
 }
 
 static int config_write_interface_one(struct vty *vty, struct vrf *vrf)

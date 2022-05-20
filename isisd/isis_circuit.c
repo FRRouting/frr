@@ -627,12 +627,12 @@ void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
 void isis_circuit_prepare(struct isis_circuit *circuit)
 {
 #if ISIS_METHOD != ISIS_METHOD_DLPI
-	thread_add_read(master, isis_receive, circuit, circuit->fd,
-			&circuit->t_read);
+	event_add_read(master, isis_receive, circuit, circuit->fd,
+		       &circuit->t_read);
 #else
-	thread_add_timer_msec(master, isis_receive, circuit,
-			      listcount(circuit->area->circuit_list) * 100,
-			      &circuit->t_read);
+	event_add_timer_msec(master, isis_receive, circuit,
+			     listcount(circuit->area->circuit_list) * 100,
+			     &circuit->t_read);
 #endif
 }
 
@@ -722,10 +722,10 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 			circuit->u.bc.lan_neighs[level - 1] = list_new();
 
-			thread_add_timer(master, isis_run_dr,
-					 &circuit->level_arg[level - 1],
-					 2 * circuit->hello_interval[level - 1],
-					 &circuit->u.bc.t_run_dr[level - 1]);
+			event_add_timer(master, isis_run_dr,
+					&circuit->level_arg[level - 1],
+					2 * circuit->hello_interval[level - 1],
+					&circuit->u.bc.t_run_dr[level - 1]);
 		}
 
 		/* 8.4.1 b) FIXME: solicit ES - 8.4.6 */
@@ -740,13 +740,13 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	/* initializing PSNP timers */
 	if (circuit->is_type & IS_LEVEL_1)
-		thread_add_timer(
+		event_add_timer(
 			master, send_l1_psnp, circuit,
 			isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
 			&circuit->t_send_psnp[0]);
 
 	if (circuit->is_type & IS_LEVEL_2)
-		thread_add_timer(
+		event_add_timer(
 			master, send_l2_psnp, circuit,
 			isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
 			&circuit->t_send_psnp[1]);

@@ -420,9 +420,9 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 			other_querier_present_interval_msec % 1000);
 	}
 
-	thread_add_timer_msec(router->master, pim_igmp_other_querier_expire,
-			      igmp, other_querier_present_interval_msec,
-			      &igmp->t_other_querier_timer);
+	event_add_timer_msec(router->master, pim_igmp_other_querier_expire,
+			     igmp, other_querier_present_interval_msec,
+			     &igmp->t_other_querier_timer);
 }
 
 void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
@@ -865,8 +865,8 @@ void pim_igmp_general_query_on(struct gm_sock *igmp)
 			ifaddr_str, query_interval,
 			startup_mode ? "startup" : "non-startup", igmp->fd);
 	}
-	thread_add_timer(router->master, pim_igmp_general_query, igmp,
-			 query_interval, &igmp->t_igmp_query_timer);
+	event_add_timer(router->master, pim_igmp_general_query, igmp,
+			query_interval, &igmp->t_igmp_query_timer);
 }
 
 void pim_igmp_general_query_off(struct gm_sock *igmp)
@@ -1243,8 +1243,8 @@ static void igmp_read_on(struct gm_sock *igmp)
 		zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 			   igmp->fd);
 	}
-	thread_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
-			&igmp->t_igmp_read);
+	event_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
+		       &igmp->t_igmp_read);
 }
 
 struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
@@ -1375,8 +1375,8 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 	*/
 	assert(group->group_filtermode_isexcl);
 
-	thread_add_timer_msec(router->master, igmp_group_timer, group,
-			      interval_msec, &group->t_group_timer);
+	event_add_timer_msec(router->master, igmp_group_timer, group,
+			     interval_msec, &group->t_group_timer);
 }
 
 struct gm_group *find_group_by_addr(struct gm_sock *igmp,

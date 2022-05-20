@@ -431,8 +431,8 @@ static void pim_sock_read_on(struct interface *ifp)
 		zlog_debug("Scheduling READ event on PIM socket fd=%d",
 			   pim_ifp->pim_sock_fd);
 	}
-	thread_add_read(router->master, pim_sock_read, ifp,
-			pim_ifp->pim_sock_fd, &pim_ifp->t_pim_sock_read);
+	event_add_read(router->master, pim_sock_read, ifp, pim_ifp->pim_sock_fd,
+		       &pim_ifp->t_pim_sock_read);
 }
 
 static int pim_sock_open(struct interface *ifp)
@@ -822,9 +822,8 @@ static void hello_resched(struct interface *ifp)
 			   pim_ifp->pim_hello_period, ifp->name);
 	}
 	THREAD_OFF(pim_ifp->t_pim_hello_timer);
-	thread_add_timer(router->master, on_pim_hello_send, ifp,
-			 pim_ifp->pim_hello_period,
-			 &pim_ifp->t_pim_hello_timer);
+	event_add_timer(router->master, on_pim_hello_send, ifp,
+			pim_ifp->pim_hello_period, &pim_ifp->t_pim_hello_timer);
 }
 
 /*
@@ -935,8 +934,8 @@ void pim_hello_restart_triggered(struct interface *ifp)
 			   random_msec, ifp->name);
 	}
 
-	thread_add_timer_msec(router->master, on_pim_hello_send, ifp,
-			      random_msec, &pim_ifp->t_pim_hello_timer);
+	event_add_timer_msec(router->master, on_pim_hello_send, ifp,
+			     random_msec, &pim_ifp->t_pim_hello_timer);
 }
 
 int pim_sock_add(struct interface *ifp)

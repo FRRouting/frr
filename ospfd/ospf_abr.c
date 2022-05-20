@@ -2040,9 +2040,9 @@ void ospf_abr_task(struct ospf *ospf)
 			 * giving time for route synchronization in
 			 * all the routers.
 			 */
-			thread_add_timer(
-				master, ospf_abr_announce_non_dna_routers, ospf,
-				OSPF_ABR_DNA_TIMER, &ospf->t_abr_fr);
+			event_add_timer(master,
+					ospf_abr_announce_non_dna_routers, ospf,
+					OSPF_ABR_DNA_TIMER, &ospf->t_abr_fr);
 		}
 	}
 
@@ -2077,6 +2077,6 @@ void ospf_schedule_abr_task(struct ospf *ospf)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Scheduling ABR task");
 
-	thread_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
-			 &ospf->t_abr_task);
+	event_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
+			&ospf->t_abr_task);
 }

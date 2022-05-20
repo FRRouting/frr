@@ -1001,8 +1001,8 @@ void ospf6_schedule_abr_task(struct ospf6 *ospf6)
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("Scheduling ABR task");
 
-	thread_add_timer(master, ospf6_abr_task_timer, ospf6,
-			 OSPF6_ABR_TASK_DELAY, &ospf6->t_abr_task);
+	event_add_timer(master, ospf6_abr_task_timer, ospf6,
+			OSPF6_ABR_TASK_DELAY, &ospf6->t_abr_task);
 }
 
 /* Flush the NSSA LSAs from the area */
@@ -1090,8 +1090,8 @@ static void ospf6_ase_lsa_refresh(struct ospf6 *o)
 					o->lsdb);
 		if (old) {
 			THREAD_OFF(old->refresh);
-			thread_add_event(master, ospf6_lsa_refresh, old, 0,
-					 &old->refresh);
+			event_add_event(master, ospf6_lsa_refresh, old, 0,
+					&old->refresh);
 		} else {
 			ospf6_as_external_lsa_originate(route, o);
 		}
@@ -1165,8 +1165,8 @@ void ospf6_area_nssa_update(struct ospf6_area *area)
 				if (IS_OSPF6_DEBUG_NSSA)
 					ospf6_lsa_header_print(lsa);
 				THREAD_OFF(lsa->refresh);
-				thread_add_event(master, ospf6_lsa_refresh, lsa,
-						 0, &lsa->refresh);
+				event_add_event(master, ospf6_lsa_refresh, lsa,
+						0, &lsa->refresh);
 			}
 		}
 	}

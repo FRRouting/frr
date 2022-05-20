@@ -1765,8 +1765,8 @@ void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
 
 	if (!eti->timer && eti->lifetime <= INT32_MAX) {
 		eti->timer = NULL;
-		thread_add_timer(bm->master, vncExportWithdrawTimer, eti,
-				 eti->lifetime, &eti->timer);
+		event_add_timer(bm->master, vncExportWithdrawTimer, eti,
+				eti->lifetime, &eti->timer);
 		vnc_zlog_debug_verbose(
 			"%s: set expiration timer for %u seconds", __func__,
 			eti->lifetime);

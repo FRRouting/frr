@@ -75,7 +75,7 @@ struct bfd_session_params {
 	 * Next event.
 	 *
 	 * This variable controls what action to execute when the command batch
-	 * finishes. Normally we'd use `thread_add_event` value, however since
+	 * finishes. Normally we'd use `event_add_event` value, however since
 	 * that function is going to be called multiple times and the value
 	 * might be different we'll use this variable to keep track of it.
 	 */
@@ -733,13 +733,13 @@ void bfd_sess_set_auto_source(struct bfd_session_params *bsp, bool enable)
 void bfd_sess_install(struct bfd_session_params *bsp)
 {
 	bsp->lastev = BSE_INSTALL;
-	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
+	event_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
 
 void bfd_sess_uninstall(struct bfd_session_params *bsp)
 {
 	bsp->lastev = BSE_UNINSTALL;
-	thread_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
+	event_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
 
 enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)

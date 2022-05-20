@@ -409,7 +409,7 @@ static void frr_confd_cdb_read_cb(struct event *thread)
 	int *subp = NULL;
 	int reslen = 0;
 
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &t_cdb_sub);
+	event_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &t_cdb_sub);
 
 	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
 	    != CONFD_OK) {
@@ -574,8 +574,8 @@ static int frr_confd_init_cdb(void)
 	}
 	pthread_detach(cdb_trigger_thread);
 
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, cdb_sub_sock,
-			&t_cdb_sub);
+	event_add_read(master, frr_confd_cdb_read_cb, NULL, cdb_sub_sock,
+		       &t_cdb_sub);
 
 	return 0;
 
@@ -1178,7 +1178,7 @@ static void frr_confd_dp_ctl_read(struct event *thread)
 	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
 
-	thread_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
+	event_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
 
 	frr_confd_dp_read(dctx, fd);
 }
@@ -1188,7 +1188,8 @@ static void frr_confd_dp_worker_read(struct event *thread)
 	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
 
-	thread_add_read(master, frr_confd_dp_worker_read, dctx, fd, &t_dp_worker);
+	event_add_read(master, frr_confd_dp_worker_read, dctx, fd,
+		       &t_dp_worker);
 
 	frr_confd_dp_read(dctx, fd);
 }
@@ -1320,10 +1321,10 @@ static int frr_confd_init_dp(const char *program_name)
 		goto error;
 	}
 
-	thread_add_read(master, frr_confd_dp_ctl_read, dctx, dp_ctl_sock,
-			&t_dp_ctl);
-	thread_add_read(master, frr_confd_dp_worker_read, dctx, dp_worker_sock,
-			&t_dp_worker);
+	event_add_read(master, frr_confd_dp_ctl_read, dctx, dp_ctl_sock,
+		       &t_dp_ctl);
+	event_add_read(master, frr_confd_dp_worker_read, dctx, dp_worker_sock,
+		       &t_dp_worker);
 
 	return 0;
 

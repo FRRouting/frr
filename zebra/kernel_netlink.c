@@ -493,8 +493,8 @@ static void kernel_read(struct event *thread)
 	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
 			   5, false);
 
-	thread_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
-			&zns->t_netlink);
+	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
+		       &zns->t_netlink);
 }
 
 /*
@@ -1939,8 +1939,8 @@ void kernel_init(struct zebra_ns *zns)
 
 	zns->t_netlink = NULL;
 
-	thread_add_read(zrouter.master, kernel_read, zns,
-			zns->netlink.sock, &zns->t_netlink);
+	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
+		       &zns->t_netlink);
 
 	rt_netlink_init();
 }

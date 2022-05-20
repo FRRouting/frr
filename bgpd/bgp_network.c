@@ -362,8 +362,8 @@ static void bgp_accept(struct event *thread)
 		return;
 	}
 
-	thread_add_read(bm->master, bgp_accept, listener, accept_sock,
-			&listener->thread);
+	event_add_read(bm->master, bgp_accept, listener, accept_sock,
+		       &listener->thread);
 
 	/* Accept client connection. */
 	bgp_sock = sockunion_accept(accept_sock, &su);
@@ -861,8 +861,8 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
-	thread_add_read(bm->master, bgp_accept, listener, sock,
-			&listener->thread);
+	event_add_read(bm->master, bgp_accept, listener, sock,
+		       &listener->thread);
 	listnode_add(bm->listen_sockets, listener);
 
 	return 0;

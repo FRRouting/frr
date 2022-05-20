@@ -373,9 +373,8 @@ void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
 	ils_debug("%s: start holddown timer for %s time %d", __func__,
 		  circuit->interface->name, ldp_sync_info->holddown);
 
-	thread_add_timer(master, isis_ldp_sync_holddown_timer,
-			 circuit, ldp_sync_info->holddown,
-			 &ldp_sync_info->t_holddown);
+	event_add_timer(master, isis_ldp_sync_holddown_timer, circuit,
+			ldp_sync_info->holddown, &ldp_sync_info->t_holddown);
 }
 
 /*

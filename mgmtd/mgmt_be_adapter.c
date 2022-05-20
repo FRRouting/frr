@@ -733,14 +733,14 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 
 	switch (event) {
 	case MGMTD_BE_CONN_INIT:
-		thread_add_timer_msec(mgmt_be_adapter_tm,
+		event_add_timer_msec(mgmt_be_adapter_tm,
 				      mgmt_be_adapter_conn_init, adapter,
 				      MGMTD_BE_CONN_INIT_DELAY_MSEC,
 				      &adapter->conn_init_ev);
 		assert(adapter->conn_init_ev);
 		break;
 	case MGMTD_BE_CONN_READ:
-		thread_add_read(mgmt_be_adapter_tm, mgmt_be_adapter_read,
+		event_add_read(mgmt_be_adapter_tm, mgmt_be_adapter_read,
 				adapter, adapter->conn_fd, &adapter->conn_read_ev);
 		assert(adapter->conn_read_ev);
 		break;
@@ -753,19 +753,19 @@ mgmt_be_adapter_register_event(struct mgmt_be_client_adapter *adapter,
 			MGMTD_BE_ADAPTER_DBG(
 				"scheduling write ready notify for client %s",
 				adapter->name);
-		thread_add_write(mgmt_be_adapter_tm, mgmt_be_adapter_write,
+		event_add_write(mgmt_be_adapter_tm, mgmt_be_adapter_write,
 				 adapter, adapter->conn_fd, &adapter->conn_write_ev);
 		assert(adapter->conn_write_ev);
 		break;
 	case MGMTD_BE_PROC_MSG:
 		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
-		thread_add_timer_tv(mgmt_be_adapter_tm,
+		event_add_timer_tv(mgmt_be_adapter_tm,
 				    mgmt_be_adapter_proc_msgbufs, adapter, &tv,
 				    &adapter->proc_msg_ev);
 		assert(adapter->proc_msg_ev);
 		break;
 	case MGMTD_BE_CONN_WRITES_ON:
-		thread_add_timer_msec(mgmt_be_adapter_tm,
+		event_add_timer_msec(mgmt_be_adapter_tm,
 				      mgmt_be_adapter_resume_writes, adapter,
 				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
 				      &adapter->conn_writes_on);

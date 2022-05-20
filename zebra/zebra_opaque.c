@@ -148,8 +148,8 @@ void zebra_opaque_start(void)
 	atomic_store_explicit(&zo_info.run, 1, memory_order_relaxed);
 
 	/* Enqueue an initial event for the pthread */
-	thread_add_event(zo_info.master, process_messages, NULL, 0,
-			 &zo_info.t_msgs);
+	event_add_event(zo_info.master, process_messages, NULL, 0,
+			&zo_info.t_msgs);
 
 	/* And start the pthread */
 	frr_pthread_run(zo_info.pthread, NULL);
@@ -248,8 +248,8 @@ uint32_t zebra_opaque_enqueue_batch(struct stream_fifo *batch)
 		if (IS_ZEBRA_DEBUG_RECV && IS_ZEBRA_DEBUG_DETAIL)
 			zlog_debug("%s: received %u messages",
 				   __func__, counter);
-		thread_add_event(zo_info.master, process_messages, NULL, 0,
-				 &zo_info.t_msgs);
+		event_add_event(zo_info.master, process_messages, NULL, 0,
+				&zo_info.t_msgs);
 	}
 
 	return counter;
@@ -317,8 +317,8 @@ done:
 	if (need_resched) {
 		atomic_fetch_add_explicit(&zo_info.yields, 1,
 					  memory_order_relaxed);
-		thread_add_event(zo_info.master, process_messages, NULL, 0,
-				 &zo_info.t_msgs);
+		event_add_event(zo_info.master, process_messages, NULL, 0,
+				&zo_info.t_msgs);
 	}
 
 	/* This will also free any leftover messages, in the shutdown case */

@@ -134,8 +134,8 @@ lde(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
-	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
-		        &iev_main->ev_read);
+	event_add_read(master, iev_main->handler_read, iev_main,
+		       iev_main->ibuf.fd, &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
 
 	memset(&iev_main_sync_data, 0, sizeof(iev_main_sync_data));
@@ -523,8 +523,8 @@ static void lde_dispatch_parent(struct event *thread)
 				fatal(NULL);
 			imsg_init(&iev_ldpe->ibuf, fd);
 			iev_ldpe->handler_read = lde_dispatch_imsg;
-			thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
-					&iev_ldpe->ev_read);
+			event_add_read(master, iev_ldpe->handler_read, iev_ldpe,
+				       iev_ldpe->ibuf.fd, &iev_ldpe->ev_read);
 			iev_ldpe->handler_write = ldp_write_handler;
 			iev_ldpe->ev_write = NULL;
 			break;
@@ -2178,7 +2178,7 @@ retry:
 	zclient_sync = NULL;
 
 	/* Retry using a timer */
-	thread_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
+	event_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
 }
 
 static void

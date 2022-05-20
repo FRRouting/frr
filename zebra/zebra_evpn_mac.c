@@ -588,10 +588,10 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 					zvrf->dad_freeze_time);
 			}
 
-			thread_add_timer(zrouter.master,
-					 zebra_evpn_dad_mac_auto_recovery_exp,
-					 mac, zvrf->dad_freeze_time,
-					 &mac->dad_mac_auto_recovery_timer);
+			event_add_timer(zrouter.master,
+					zebra_evpn_dad_mac_auto_recovery_exp,
+					mac, zvrf->dad_freeze_time,
+					&mac->dad_mac_auto_recovery_timer);
 		}
 
 		/* In case of local update, do not inform to client (BGPd),
@@ -1561,8 +1561,8 @@ static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)));
 	}
-	thread_add_timer(zrouter.master, zebra_evpn_mac_hold_exp_cb, mac,
-			 zmh_info->mac_hold_time, &mac->hold_timer);
+	event_add_timer(zrouter.master, zebra_evpn_mac_hold_exp_cb, mac,
+			zmh_info->mac_hold_time, &mac->hold_timer);
 }
 
 void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)

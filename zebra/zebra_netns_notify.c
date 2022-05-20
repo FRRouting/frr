@@ -133,9 +133,9 @@ static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 		XFREE(MTYPE_NETNS_MISC, zns_info);
 		return 0;
 	}
-	thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
-			      (void *)zns_info, ZEBRA_NS_POLLING_INTERVAL_MSEC,
-			      NULL);
+	event_add_timer_msec(zrouter.master, zebra_ns_ready_read,
+			     (void *)zns_info, ZEBRA_NS_POLLING_INTERVAL_MSEC,
+			     NULL);
 	return 0;
 }
 
@@ -288,8 +288,8 @@ static void zebra_ns_notify_read(struct event *t)
 	ssize_t len;
 	char event_name[NAME_MAX + 1];
 
-	thread_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
-			&zebra_netns_notify_current);
+	event_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
+		       &zebra_netns_notify_current);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
 		flog_err_sys(EC_ZEBRA_NS_NOTIFY_READ,
@@ -361,8 +361,8 @@ static void zebra_ns_notify_read(struct event *t)
 				    sizeof(struct zebra_netns_info));
 		netnsinfo->retries = ZEBRA_NS_POLLING_MAX_RETRIES;
 		netnsinfo->netnspath = netnspath;
-		thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
-				      (void *)netnsinfo, 0, NULL);
+		event_add_timer_msec(zrouter.master, zebra_ns_ready_read,
+				     (void *)netnsinfo, 0, NULL);
 	}
 }
 
@@ -427,8 +427,8 @@ void zebra_ns_notify_init(void)
 			     "NS notify watch: failed to add watch (%s)",
 			     safe_strerror(errno));
 	}
-	thread_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
-			&zebra_netns_notify_current);
+	event_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
+		       &zebra_netns_notify_current);
 }
 
 void zebra_ns_notify_close(void)

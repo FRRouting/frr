@@ -186,8 +186,8 @@ static void isis_config_start(void)
 	/* Max wait time for config to load before generating lsp */
 #define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
 	THREAD_OFF(t_isis_cfg);
-	thread_add_timer(im->master, isis_config_finish, NULL,
-			 ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
+	event_add_timer(im->master, isis_config_finish, NULL,
+			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
 
 static void isis_config_end(void)

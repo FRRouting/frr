@@ -35,8 +35,8 @@ void dyn_cache_init(struct isis *isis)
 {
 	isis->dyn_cache = list_new();
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
-		thread_add_timer(master, dyn_cache_cleanup, isis, 120,
-				 &isis->t_dync_clean);
+		event_add_timer(master, dyn_cache_cleanup, isis, 120,
+				&isis->t_dync_clean);
 }
 
 void dyn_cache_finish(struct isis *isis)
@@ -72,7 +72,7 @@ static void dyn_cache_cleanup(struct event *thread)
 		XFREE(MTYPE_ISIS_DYNHN, dyn);
 	}
 
-	thread_add_timer(master, dyn_cache_cleanup, isis, 120,
+	event_add_timer(master, dyn_cache_cleanup, isis, 120,
 			&isis->t_dync_clean);
 }
 

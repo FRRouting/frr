@@ -160,8 +160,8 @@ static void netlink_mcast_log_recv(struct event *t)
 		}
 	}
 
-	thread_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
-			&netlink_mcast_log_thread);
+	event_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
+		       &netlink_mcast_log_thread);
 }
 
 static void netlink_mcast_log_register(int fd, int group)
@@ -202,9 +202,8 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_mcast_log_register(netlink_mcast_log_fd, nlgroup);
-		thread_add_read(master, netlink_mcast_log_recv, 0,
-				netlink_mcast_log_fd,
-				&netlink_mcast_log_thread);
+		event_add_read(master, netlink_mcast_log_recv, 0,
+			       netlink_mcast_log_fd, &netlink_mcast_log_thread);
 		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d",
 		       netlink_mcast_nflog_group);
 	}

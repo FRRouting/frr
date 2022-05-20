@@ -122,8 +122,8 @@ static void control_accept(struct event *thread)
 	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler_read = control_dispatch_imsg;
 	c->iev.ev_read = NULL;
-	thread_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
-			&c->iev.ev_read);
+	event_add_read(master, c->iev.handler_read, &c->iev, c->iev.ibuf.fd,
+		       &c->iev.ev_read);
 	c->iev.handler_write = ldp_write_handler;
 	c->iev.ev_write = NULL;
 

@@ -77,7 +77,7 @@ static void vici_connection_error(struct vici_conn *vici)
 
 	close(vici->fd);
 	vici->fd = -1;
-	thread_add_timer(master, vici_reconnect, vici, 2, &vici->t_reconnect);
+	event_add_timer(master, vici_reconnect, vici, 2, &vici->t_reconnect);
 }
 
 static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
@@ -384,7 +384,7 @@ static void vici_read(struct event *t)
 		vici_recv_message(vici, &pktbuf);
 	} while (1);
 
-	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
+	event_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 }
 
 static void vici_write(struct event *t)
@@ -394,8 +394,8 @@ static void vici_write(struct event *t)
 
 	r = zbufq_write(&vici->obuf, vici->fd);
 	if (r > 0) {
-		thread_add_write(master, vici_write, vici, vici->fd,
-				 &vici->t_write);
+		event_add_write(master, vici_write, vici, vici->fd,
+				&vici->t_write);
 	} else if (r < 0) {
 		vici_connection_error(vici);
 	}
@@ -409,7 +409,7 @@ static void vici_submit(struct vici_conn *vici, struct zbuf *obuf)
 	}
 
 	zbufq_queue(&vici->obuf, obuf);
-	thread_add_write(master, vici_write, vici, vici->fd, &vici->t_write);
+	event_add_write(master, vici_write, vici, vici->fd, &vici->t_write);
 }
 
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...)
@@ -519,14 +519,14 @@ static void vici_reconnect(struct event *t)
 		debugf(NHRP_DEBUG_VICI,
 		       "%s: failure connecting VICI socket: %s", __func__,
 		       strerror(errno));
-		thread_add_timer(master, vici_reconnect, vici, 2,
-				 &vici->t_reconnect);
+		event_add_timer(master, vici_reconnect, vici, 2,
+				&vici->t_reconnect);
 		return;
 	}
 
 	debugf(NHRP_DEBUG_COMMON, "VICI: Connected");
 	vici->fd = fd;
-	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
+	event_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
 	/* Send event subscribtions */
 	// vici_register_event(vici, "child-updown");
@@ -547,8 +547,8 @@ void vici_init(void)
 	vici->fd = -1;
 	zbuf_init(&vici->ibuf, vici->ibuf_data, sizeof(vici->ibuf_data), 0);
 	zbufq_init(&vici->obuf);
-	thread_add_timer_msec(master, vici_reconnect, vici, 10,
-			      &vici->t_reconnect);
+	event_add_timer_msec(master, vici_reconnect, vici, 10,
+			     &vici->t_reconnect);
 }
 
 void vici_terminate(void)

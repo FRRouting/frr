@@ -97,7 +97,7 @@ int irdp_sock_init(void)
 		return ret;
 	};
 
-	thread_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
+	event_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
 
 	return sock;
 }
@@ -229,8 +229,8 @@ void irdp_send_thread(struct event *t_advert)
 			   timer);
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 void irdp_advert_off(struct interface *ifp)
@@ -285,8 +285,8 @@ void process_solicit(struct interface *ifp)
 	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
-			 &irdp->t_advertise);
+	event_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
+			&irdp->t_advertise);
 }
 
 static int irdp_finish(void)

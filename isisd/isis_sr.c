@@ -1108,8 +1108,8 @@ int isis_sr_start(struct isis_area *area)
 	if (!isis_zebra_label_manager_ready())
 		if (isis_zebra_label_manager_connect() < 0) {
 			/* Re-attempt to connect to Label Manager in 1 sec. */
-			thread_add_timer(master, sr_start_label_manager, area,
-					 1, &srdb->t_start_lm);
+			event_add_timer(master, sr_start_label_manager, area, 1,
+					&srdb->t_start_lm);
 			return -1;
 		}
 

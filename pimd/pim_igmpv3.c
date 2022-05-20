@@ -209,8 +209,8 @@ static void igmp_source_timer_on(struct gm_group *group,
 			source_str, group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_source_timer, source,
-			      interval_msec, &source->t_source_timer);
+	event_add_timer_msec(router->master, igmp_source_timer, source,
+			     interval_msec, &source->t_source_timer);
 
 	/*
 	  RFC 3376: 6.3. IGMPv3 Source-Specific Forwarding Rules
@@ -1281,9 +1281,8 @@ static void group_retransmit_timer_on(struct gm_group *group)
 			group->interface->name);
 	}
 
-	thread_add_timer_msec(router->master, igmp_group_retransmit, group,
-			      lmqi_msec,
-			      &group->t_group_query_retransmit_timer);
+	event_add_timer_msec(router->master, igmp_group_retransmit, group,
+			     lmqi_msec, &group->t_group_query_retransmit_timer);
 }
 
 static long igmp_group_timer_remain_msec(struct gm_group *group)

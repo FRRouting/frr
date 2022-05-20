@@ -284,8 +284,8 @@ void hello_received(struct event *thread)
 
 	/* reset Inactivity Timer */
 	THREAD_OFF(on->inactivity_timer);
-	thread_add_timer(master, inactivity_timer, on,
-			 on->ospf6_if->dead_interval, &on->inactivity_timer);
+	event_add_timer(master, inactivity_timer, on,
+			on->ospf6_if->dead_interval, &on->inactivity_timer);
 
 	if (on->state <= OSPF6_NEIGHBOR_DOWN)
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_INIT, on,
@@ -305,7 +305,7 @@ void twoway_received(struct event *thread)
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *2Way-Received*", on->name);
 
-	thread_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
+	event_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
 	if (!need_adjacency(on)) {
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_TWOWAY, on,
@@ -320,8 +320,8 @@ void twoway_received(struct event *thread)
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
 	THREAD_OFF(on->thread_send_dbdesc);
-	thread_add_event(master, ospf6_dbdesc_send, on, 0,
-			 &on->thread_send_dbdesc);
+	event_add_event(master, ospf6_dbdesc_send, on, 0,
+			&on->thread_send_dbdesc);
 }
 
 void negotiation_done(struct event *thread)
@@ -400,9 +400,9 @@ void exchange_done(struct event *thread)
 	/* RFC 2328 (10.8): Release the last dbdesc after dead_interval */
 	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)) {
 		THREAD_OFF(on->last_dbdesc_release_timer);
-		thread_add_timer(master, ospf6_neighbor_last_dbdesc_release, on,
-				 on->ospf6_if->dead_interval,
-				 &on->last_dbdesc_release_timer);
+		event_add_timer(master, ospf6_neighbor_last_dbdesc_release, on,
+				on->ospf6_if->dead_interval,
+				&on->last_dbdesc_release_timer);
 	}
 
 	if (on->request_list->count == 0)
@@ -412,8 +412,8 @@ void exchange_done(struct event *thread)
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_LOADING, on,
 					    OSPF6_NEIGHBOR_EVENT_EXCHANGE_DONE);
 
-		thread_add_event(master, ospf6_lsreq_send, on, 0,
-				 &on->thread_send_lsreq);
+		event_add_event(master, ospf6_lsreq_send, on, 0,
+				&on->thread_send_lsreq);
 	}
 }
 
@@ -428,11 +428,11 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 	if ((on->state == OSPF6_NEIGHBOR_LOADING)
 	    || (on->state == OSPF6_NEIGHBOR_EXCHANGE)) {
 		if (on->request_list->count == 0)
-			thread_add_event(master, loading_done, on, 0, NULL);
+			event_add_event(master, loading_done, on, 0, NULL);
 		else if (on->last_ls_req == NULL) {
 			THREAD_OFF(on->thread_send_lsreq);
-			thread_add_event(master, ospf6_lsreq_send, on, 0,
-					 &on->thread_send_lsreq);
+			event_add_event(master, ospf6_lsreq_send, on, 0,
+					&on->thread_send_lsreq);
 		}
 	}
 }
@@ -474,8 +474,8 @@ void adj_ok(struct event *thread)
 		SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
 		THREAD_OFF(on->thread_send_dbdesc);
-		thread_add_event(master, ospf6_dbdesc_send, on, 0,
-				 &on->thread_send_dbdesc);
+		event_add_event(master, ospf6_dbdesc_send, on, 0,
+				&on->thread_send_dbdesc);
 
 	} else if (on->state >= OSPF6_NEIGHBOR_EXSTART && !need_adjacency(on)) {
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_TWOWAY, on,
@@ -508,8 +508,8 @@ void seqnumber_mismatch(struct event *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
-	thread_add_event(master, ospf6_dbdesc_send, on, 0,
-			 &on->thread_send_dbdesc);
+	event_add_event(master, ospf6_dbdesc_send, on, 0,
+			&on->thread_send_dbdesc);
 }
 
 void bad_lsreq(struct event *thread)
@@ -536,9 +536,8 @@ void bad_lsreq(struct event *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
-	thread_add_event(master, ospf6_dbdesc_send, on, 0,
-			 &on->thread_send_dbdesc);
-
+	event_add_event(master, ospf6_dbdesc_send, on, 0,
+			&on->thread_send_dbdesc);
 }
 
 void oneway_received(struct event *thread)
@@ -556,7 +555,7 @@ void oneway_received(struct event *thread)
 
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_INIT, on,
 				    OSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD);
-	thread_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
+	event_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
 	ospf6_neighbor_clear_ls_lists(on);
 
@@ -588,8 +587,7 @@ void inactivity_timer(struct event *thread)
 		ospf6_neighbor_state_change(
 			OSPF6_NEIGHBOR_DOWN, on,
 			OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
-		thread_add_event(master, neighbor_change, on->ospf6_if, 0,
-				 NULL);
+		event_add_event(master, neighbor_change, on->ospf6_if, 0, NULL);
 
 		listnode_delete(on->ospf6_if->neighbor_list, on);
 		ospf6_neighbor_delete(on);
@@ -600,9 +598,9 @@ void inactivity_timer(struct event *thread)
 				"%s, Acting as HELPER for this neighbour, So restart the dead timer.",
 				__PRETTY_FUNCTION__);
 
-		thread_add_timer(master, inactivity_timer, on,
-				 on->ospf6_if->dead_interval,
-				 &on->inactivity_timer);
+		event_add_timer(master, inactivity_timer, on,
+				on->ospf6_if->dead_interval,
+				&on->inactivity_timer);
 	}
 }
 

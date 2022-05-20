@@ -218,8 +218,8 @@ void irdp_read_raw(struct event *r)
 	int ret, ifindex = 0;
 
 	int irdp_sock = THREAD_FD(r);
-	thread_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
-			&t_irdp_raw);
+	event_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
+		       &t_irdp_raw);
 
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 

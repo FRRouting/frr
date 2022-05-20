@@ -383,9 +383,8 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 	ols_debug("%s: start holddown timer for %s time %d", __func__,
 		  ifp->name, ldp_sync_info->holddown);
 
-	thread_add_timer(master, ospf_ldp_sync_holddown_timer,
-			 ifp, ldp_sync_info->holddown,
-			 &ldp_sync_info->t_holddown);
+	event_add_timer(master, ospf_ldp_sync_holddown_timer, ifp,
+			ldp_sync_info->holddown, &ldp_sync_info->t_holddown);
 }
 
 /*

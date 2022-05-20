@@ -148,9 +148,11 @@ babel_create_routing_process (void)
     }
 
     /* Threads. */
-    thread_add_read(master, babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    event_add_read(master, babel_read_protocol, NULL, protocol_socket,
+		   &babel_routing_process->t_read);
     /* wait a little: zebra will announce interfaces, addresses, routes... */
-    thread_add_timer_msec(master, babel_init_routing_process, NULL, 200L, &babel_routing_process->t_update);
+    event_add_timer_msec(master, babel_init_routing_process, NULL, 200L,
+			 &babel_routing_process->t_update);
 
     /* Distribute list install. */
     babel_routing_process->distribute_ctx = distribute_list_ctx_create (vrf_lookup_by_id(VRF_DEFAULT));
@@ -193,7 +195,8 @@ static void babel_read_protocol(struct event *thread)
     }
 
     /* re-add thread */
-    thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
+    event_add_read(master, &babel_read_protocol, NULL, protocol_socket,
+		   &babel_routing_process->t_read);
 }
 
 /* Zebra will give some information, especially about interfaces. This function
@@ -483,7 +486,8 @@ babel_set_timer(struct timeval *timeout)
 {
     long msecs = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
     thread_cancel(&(babel_routing_process->t_update));
-    thread_add_timer_msec(master, babel_main_loop, NULL, msecs, &babel_routing_process->t_update);
+    event_add_timer_msec(master, babel_main_loop, NULL, msecs,
+			 &babel_routing_process->t_update);
 }
 
 void

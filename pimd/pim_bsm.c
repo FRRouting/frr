@@ -204,8 +204,8 @@ static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
 		zlog_debug(
 			"%s : starting bs timer for scope %d with timeout %d secs",
 			__func__, scope->sz_id, bs_timeout);
-	thread_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
-			 &scope->bs_timer);
+	event_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
+			&scope->bs_timer);
 }
 
 static inline void pim_bs_timer_restart(struct bsm_scope *scope, int bs_timeout)
@@ -338,8 +338,8 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 			__func__, &bsrp->bsgrp_node->group, &bsrp->rp_address,
 			hold_time, bsrp->rp_holdtime);
 
-	thread_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
-			 &bsrp->g2rp_timer);
+	event_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
+			&bsrp->g2rp_timer);
 }
 
 static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,

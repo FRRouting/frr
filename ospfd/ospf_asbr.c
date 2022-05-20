@@ -297,9 +297,9 @@ void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Scheduling ASBR NSSA redistribution update");
 
-	thread_add_timer(master, ospf_asbr_nssa_redist_update_timer, ospf,
-			 OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY,
-			 &ospf->t_asbr_nssa_redist_update);
+	event_add_timer(master, ospf_asbr_nssa_redist_update_timer, ospf,
+			OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY,
+			&ospf->t_asbr_nssa_redist_update);
 }
 
 void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
@@ -1093,8 +1093,8 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 			   __func__, ospf->aggr_delay_interval);
 
 	ospf->aggr_action = operation;
-	thread_add_timer(master, ospf_asbr_external_aggr_process, ospf,
-			 ospf->aggr_delay_interval, &ospf->t_external_aggr);
+	event_add_timer(master, ospf_asbr_external_aggr_process, ospf,
+			ospf->aggr_delay_interval, &ospf->t_external_aggr);
 }
 
 int ospf_asbr_external_aggregator_set(struct ospf *ospf, struct prefix_ipv4 *p,
