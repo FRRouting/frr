@@ -113,8 +113,8 @@ static void resolver_cb_socket_readable(struct event *t)
 	struct resolver_fd *resfd = THREAD_ARG(t);
 	struct resolver_state *r = resfd->state;
 
-	thread_add_read(r->master, resolver_cb_socket_readable, resfd,
-			resfd->fd, &resfd->t_read);
+	event_add_read(r->master, resolver_cb_socket_readable, resfd, resfd->fd,
+		       &resfd->t_read);
 	/* ^ ordering important:
 	 * ares_process_fd may transitively call THREAD_OFF(resfd->t_read)
 	 * combined with resolver_fd_drop_maybe, so resfd may be free'd after!
@@ -128,8 +128,8 @@ static void resolver_cb_socket_writable(struct event *t)
 	struct resolver_fd *resfd = THREAD_ARG(t);
 	struct resolver_state *r = resfd->state;
 
-	thread_add_write(r->master, resolver_cb_socket_writable, resfd,
-			 resfd->fd, &resfd->t_write);
+	event_add_write(r->master, resolver_cb_socket_writable, resfd,
+			resfd->fd, &resfd->t_write);
 	/* ^ ordering important:
 	 * ares_process_fd may transitively call THREAD_OFF(resfd->t_write)
 	 * combined with resolver_fd_drop_maybe, so resfd may be free'd after!
@@ -147,8 +147,8 @@ static void resolver_update_timeouts(struct resolver_state *r)
 	if (tv) {
 		unsigned int timeoutms = tv->tv_sec * 1000 + tv->tv_usec / 1000;
 
-		thread_add_timer_msec(r->master, resolver_cb_timeout, r,
-				      timeoutms, &r->timeout);
+		event_add_timer_msec(r->master, resolver_cb_timeout, r,
+				     timeoutms, &r->timeout);
 	}
 }
 
@@ -167,14 +167,14 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	if (!readable)
 		THREAD_OFF(resfd->t_read);
 	else if (!resfd->t_read)
-		thread_add_read(r->master, resolver_cb_socket_readable, resfd,
-				fd, &resfd->t_read);
+		event_add_read(r->master, resolver_cb_socket_readable, resfd,
+			       fd, &resfd->t_read);
 
 	if (!writable)
 		THREAD_OFF(resfd->t_write);
 	else if (!resfd->t_write)
-		thread_add_write(r->master, resolver_cb_socket_writable, resfd,
-				 fd, &resfd->t_write);
+		event_add_write(r->master, resolver_cb_socket_writable, resfd,
+				fd, &resfd->t_write);
 
 	resolver_fd_drop_maybe(resfd);
 }
@@ -264,8 +264,8 @@ void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		/* for consistency with proper name lookup, don't call the
 		 * callback immediately; defer to thread loop
 		 */
-		thread_add_timer_msec(state.master, resolver_cb_literal,
-				      query, 0, &query->literal_cb);
+		event_add_timer_msec(state.master, resolver_cb_literal, query,
+				     0, &query->literal_cb);
 		return;
 	}
 

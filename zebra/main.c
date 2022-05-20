@@ -435,8 +435,8 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	thread_add_timer(zrouter.master, rib_sweep_route, NULL,
-			 graceful_restart, &zrouter.sweeper);
+	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
+			&zrouter.sweeper);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();

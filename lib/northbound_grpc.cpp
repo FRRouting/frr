@@ -157,8 +157,7 @@ class RpcStateBase
 		 * state will either be MORE or FINISH. It will always be FINISH
 		 * for Unary RPCs.
 		 */
-		thread_add_event(main_master, c_callback, (void *)this, 0,
-				 NULL);
+		event_add_event(main_master, c_callback, (void *)this, 0, NULL);
 
 		pthread_mutex_lock(&this->cmux);
 		while (this->state == PROCESS)
@@ -1303,7 +1302,7 @@ static int frr_grpc_module_late_init(struct thread_master *tm)
 {
 	main_master = tm;
 	hook_register(frr_fini, frr_grpc_finish);
-	thread_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
+	event_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
 	return 0;
 }
 

@@ -118,12 +118,12 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 		 * as an 'event'
 		 */
 		if (delay > 0) {
-			thread_add_timer_msec(wq->master, work_queue_run, wq,
-					      delay, &wq->thread);
+			event_add_timer_msec(wq->master, work_queue_run, wq,
+					     delay, &wq->thread);
 			thread_ignore_late_timer(wq->thread);
 		} else
-			thread_add_event(wq->master, work_queue_run, wq, 0,
-					 &wq->thread);
+			event_add_event(wq->master, work_queue_run, wq, 0,
+					&wq->thread);
 
 		/* set thread yield time, if needed */
 		if (thread_is_scheduled(wq->thread) &&

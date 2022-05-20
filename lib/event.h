@@ -172,24 +172,26 @@ struct cpu_thread_history {
 
 #define _xref_t_a(addfn, type, m, f, a, v, t)                                  \
 	({                                                                     \
-		static const struct xref_threadsched _xref                     \
-				__attribute__((used)) = {                      \
+		static const struct xref_threadsched _xref __attribute__(      \
+			(used)) = {                                            \
 			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
 			.funcname = #f,                                        \
 			.dest = #t,                                            \
-			.thread_type = THREAD_ ## type,                        \
+			.thread_type = THREAD_##type,                          \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		_thread_add_ ## addfn(&_xref, m, f, a, v, t);                  \
-	})                                                                     \
-	/* end */
+		_event_add_##addfn(&_xref, m, f, a, v, t);                     \
+	}) /* end */
 
-#define thread_add_read(m,f,a,v,t)       _xref_t_a(read_write, READ,  m,f,a,v,t)
-#define thread_add_write(m,f,a,v,t)      _xref_t_a(read_write, WRITE, m,f,a,v,t)
-#define thread_add_timer(m,f,a,v,t)      _xref_t_a(timer,      TIMER, m,f,a,v,t)
-#define thread_add_timer_msec(m,f,a,v,t) _xref_t_a(timer_msec, TIMER, m,f,a,v,t)
-#define thread_add_timer_tv(m,f,a,v,t)   _xref_t_a(timer_tv,   TIMER, m,f,a,v,t)
-#define thread_add_event(m,f,a,v,t)      _xref_t_a(event,      EVENT, m,f,a,v,t)
+#define event_add_read(m, f, a, v, t) _xref_t_a(read_write, READ, m, f, a, v, t)
+#define event_add_write(m, f, a, v, t)                                         \
+	_xref_t_a(read_write, WRITE, m, f, a, v, t)
+#define event_add_timer(m, f, a, v, t) _xref_t_a(timer, TIMER, m, f, a, v, t)
+#define event_add_timer_msec(m, f, a, v, t)                                    \
+	_xref_t_a(timer_msec, TIMER, m, f, a, v, t)
+#define event_add_timer_tv(m, f, a, v, t)                                      \
+	_xref_t_a(timer_tv, TIMER, m, f, a, v, t)
+#define event_add_event(m, f, a, v, t) _xref_t_a(event, EVENT, m, f, a, v, t)
 
 #define thread_execute(m,f,a,v)                                                \
 	({                                                                     \
@@ -210,30 +212,30 @@ void thread_master_set_name(struct thread_master *master, const char *name);
 extern void thread_master_free(struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern void _thread_add_read_write(const struct xref_threadsched *xref,
-				   struct thread_master *master,
-				   void (*fn)(struct event *), void *arg,
-				   int fd, struct event **tref);
+extern void _event_add_read_write(const struct xref_threadsched *xref,
+				  struct thread_master *master,
+				  void (*fn)(struct event *), void *arg, int fd,
+				  struct event **tref);
 
-extern void _thread_add_timer(const struct xref_threadsched *xref,
-			      struct thread_master *master,
-			      void (*fn)(struct event *), void *arg, long t,
-			      struct event **tref);
+extern void _event_add_timer(const struct xref_threadsched *xref,
+			     struct thread_master *master,
+			     void (*fn)(struct event *), void *arg, long t,
+			     struct event **tref);
 
-extern void _thread_add_timer_msec(const struct xref_threadsched *xref,
-				   struct thread_master *master,
-				   void (*fn)(struct event *), void *arg,
-				   long t, struct event **tref);
+extern void _event_add_timer_msec(const struct xref_threadsched *xref,
+				  struct thread_master *master,
+				  void (*fn)(struct event *), void *arg, long t,
+				  struct event **tref);
 
-extern void _thread_add_timer_tv(const struct xref_threadsched *xref,
-				 struct thread_master *master,
-				 void (*fn)(struct event *), void *arg,
-				 struct timeval *tv, struct event **tref);
+extern void _event_add_timer_tv(const struct xref_threadsched *xref,
+				struct thread_master *master,
+				void (*fn)(struct event *), void *arg,
+				struct timeval *tv, struct event **tref);
 
-extern void _thread_add_event(const struct xref_threadsched *xref,
-			      struct thread_master *master,
-			      void (*fn)(struct event *), void *arg, int val,
-			      struct event **tref);
+extern void _event_add_event(const struct xref_threadsched *xref,
+			     struct thread_master *master,
+			     void (*fn)(struct event *), void *arg, int val,
+			     struct event **tref);
 
 extern void _thread_execute(const struct xref_threadsched *xref,
 			    struct thread_master *master,

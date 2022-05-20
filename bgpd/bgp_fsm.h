@@ -11,14 +11,14 @@
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
 		if ((peer->status != Deleted))                                 \
-			thread_add_timer(bm->master, (F), peer, (V), &(T));    \
+			event_add_timer(bm->master, (F), peer, (V), &(T));     \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                    \
 	do {                                                                   \
 		if ((P)->status != Deleted)                                    \
-			thread_add_event(bm->master, bgp_event, (P), (E),      \
-					 NULL);                                \
+			event_add_event(bm->master, bgp_event, (P), (E),       \
+					NULL);                                 \
 	} while (0)
 
 #define BGP_EVENT_FLUSH(P)                                                     \
@@ -27,17 +27,18 @@
 		thread_cancel_event_ready(bm->master, (P));                    \
 	} while (0)
 
-#define BGP_UPDATE_GROUP_TIMER_ON(T, F)					       \
-	do {								       \
-		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&		       \
-		    PEER_ROUTE_ADV_DELAY(peer))				       \
-			thread_add_timer_msec(bm->master, (F), peer,	       \
-				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME * 1000),\
-				(T));					       \
-		else							       \
-			thread_add_timer_msec(bm->master, (F), peer,	       \
-					      0, (T));			       \
-	} while (0)							       \
+#define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                        \
+	do {                                                                   \
+		if (BGP_SUPPRESS_FIB_ENABLED(peer->bgp) &&                     \
+		    PEER_ROUTE_ADV_DELAY(peer))                                \
+			event_add_timer_msec(                                  \
+				bm->master, (F), peer,                         \
+				(BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME *       \
+				 1000),                                        \
+				(T));                                          \
+		else                                                           \
+			event_add_timer_msec(bm->master, (F), peer, 0, (T));   \
+	} while (0)
 
 #define BGP_MSEC_JITTER 10
 

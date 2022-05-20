@@ -105,7 +105,7 @@ static void *logpump_run(void *arg)
 	getrusage(RUSAGE_SELF, &lp_rusage);
 #endif
 
-	thread_add_timer_msec(master, logpump_done, NULL, 0, NULL);
+	event_add_timer_msec(master, logpump_done, NULL, 0, NULL);
 	return NULL;
 }
 

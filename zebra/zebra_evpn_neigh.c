@@ -444,8 +444,8 @@ static inline void zebra_evpn_neigh_start_hold_timer(struct zebra_neigh *n)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold start",
 			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
-	thread_add_timer(zrouter.master, zebra_evpn_neigh_hold_exp_cb, n,
-			 zmh_info->neigh_hold_time, &n->hold_timer);
+	event_add_timer(zrouter.master, zebra_evpn_neigh_hold_exp_cb, n,
+			zmh_info->neigh_hold_time, &n->hold_timer);
 }
 
 static void zebra_evpn_local_neigh_deref_mac(struct zebra_neigh *n,
@@ -1231,10 +1231,10 @@ static void zebra_evpn_dup_addr_detect_for_neigh(
 					__func__, &nbr->emac, &nbr->ip,
 					nbr->flags, zvrf->dad_freeze_time);
 
-			thread_add_timer(zrouter.master,
-					 zebra_evpn_dad_ip_auto_recovery_exp,
-					 nbr, zvrf->dad_freeze_time,
-					 &nbr->dad_ip_auto_recovery_timer);
+			event_add_timer(zrouter.master,
+					zebra_evpn_dad_ip_auto_recovery_exp,
+					nbr, zvrf->dad_freeze_time,
+					&nbr->dad_ip_auto_recovery_timer);
 		}
 		if (zvrf->dad_freeze)
 			*is_dup_detect = true;

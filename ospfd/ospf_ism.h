@@ -39,15 +39,15 @@
 			oi->on_write_q = 1;                                    \
 		}                                                              \
 		if (!list_isempty((O)->oi_write_q))                            \
-			thread_add_write(master, ospf_write, (O), (O)->fd,     \
-					 &(O)->t_write);                       \
+			event_add_write(master, ospf_write, (O), (O)->fd,      \
+					&(O)->t_write);                        \
 	} while (0)
 
 /* Macro for OSPF ISM timer turn on. */
-#define OSPF_ISM_TIMER_ON(T, F, V) thread_add_timer(master, (F), oi, (V), &(T))
+#define OSPF_ISM_TIMER_ON(T, F, V) event_add_timer(master, (F), oi, (V), &(T))
 
 #define OSPF_ISM_TIMER_MSEC_ON(T, F, V)                                        \
-	thread_add_timer_msec(master, (F), oi, (V), &(T))
+	event_add_timer_msec(master, (F), oi, (V), &(T))
 
 /* convenience macro to set hello timer correctly, according to
  * whether fast-hello is set or not
@@ -65,7 +65,7 @@
 
 /* Macro for OSPF schedule event. */
 #define OSPF_ISM_EVENT_SCHEDULE(I, E)                                          \
-	thread_add_event(master, ospf_ism_event, (I), (E), NULL)
+	event_add_event(master, ospf_ism_event, (I), (E), NULL)
 
 /* Macro for OSPF execute event. */
 #define OSPF_ISM_EVENT_EXECUTE(I, E)                                           \

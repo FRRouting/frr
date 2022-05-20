@@ -325,8 +325,8 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:
 		if (!c->t_auth)
-			thread_add_timer_msec(master, nhrp_cache_do_free, c, 10,
-					      &c->t_timeout);
+			event_add_timer_msec(master, nhrp_cache_do_free, c, 10,
+					     &c->t_timeout);
 		break;
 	case NHRP_CACHE_INCOMPLETE:
 	case NHRP_CACHE_NEGATIVE:
@@ -337,9 +337,9 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 	case NHRP_CACHE_LOCAL:
 	case NHRP_CACHE_NUM_TYPES:
 		if (c->cur.expires)
-			thread_add_timer(master, nhrp_cache_do_timeout, c,
-					 c->cur.expires - monotime(NULL),
-					 &c->t_timeout);
+			event_add_timer(master, nhrp_cache_do_timeout, c,
+					c->cur.expires - monotime(NULL),
+					&c->t_timeout);
 		break;
 	}
 }
@@ -413,8 +413,8 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
 		if (nhrp_peer_check(c->new.peer, 1)) {
 			evmgr_notify("authorize-binding", c,
 				     nhrp_cache_authorize_binding);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
-					 10, &c->t_auth);
+			event_add_timer(master, nhrp_cache_do_auth_timeout, c,
+					10, &c->t_auth);
 		}
 		break;
 	case NOTIFY_PEER_DOWN:
@@ -506,8 +506,8 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 					     nhrp_cache_newpeer_notifier);
 			nhrp_cache_newpeer_notifier(&c->newpeer_notifier,
 						    NOTIFY_PEER_UP);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
-					 60, &c->t_auth);
+			event_add_timer(master, nhrp_cache_do_auth_timeout, c,
+					60, &c->t_auth);
 		}
 	}
 	nhrp_cache_update_timers(c);

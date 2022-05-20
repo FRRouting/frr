@@ -479,7 +479,7 @@ void *grpc_client_test_start(void *arg)
 
 	// Signal FRR event loop to stop
 	test_debug("client: pthread: adding event to stop us");
-	thread_add_event(master, grpc_thread_stop, NULL, 0, NULL);
+	event_add_event(master, grpc_thread_stop, NULL, 0, NULL);
 
 	test_debug("client: pthread: DONE (returning)");
 
@@ -542,7 +542,7 @@ int main(int argc, char **argv)
 
 	static_startup();
 
-	thread_add_event(master, grpc_thread_start, NULL, 0, NULL);
+	event_add_event(master, grpc_thread_start, NULL, 0, NULL);
 
 	/* Event Loop */
 	struct event thread;

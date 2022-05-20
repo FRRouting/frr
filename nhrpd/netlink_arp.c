@@ -118,8 +118,8 @@ static void netlink_log_recv(struct event *t)
 		}
 	}
 
-	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-			&netlink_log_thread);
+	event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+		       &netlink_log_thread);
 }
 
 void netlink_set_nflog_group(int nlgroup)
@@ -136,8 +136,8 @@ void netlink_set_nflog_group(int nlgroup)
 			return;
 
 		netlink_log_register(netlink_log_fd, nlgroup);
-		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-				&netlink_log_thread);
+		event_add_read(master, netlink_log_recv, 0, netlink_log_fd,
+			       &netlink_log_thread);
 	}
 }
 

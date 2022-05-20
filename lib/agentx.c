@@ -103,8 +103,8 @@ static void agentx_events_update(void)
 	snmp_select_info(&maxfd, &fds, &timeout, &block);
 
 	if (!block) {
-		thread_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
-				    &timeout_thr);
+		event_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
+				   &timeout_thr);
 	}
 
 	ln = listhead(events);
@@ -133,7 +133,7 @@ static void agentx_events_update(void)
 
 			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, thr);
-			thread_add_read(agentx_tm, agentx_read, newln, fd, thr);
+			event_add_read(agentx_tm, agentx_read, newln, fd, thr);
 		}
 	}
 

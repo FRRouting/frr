@@ -579,8 +579,8 @@ void ospf_external_del(struct ospf *ospf, uint8_t type, unsigned short instance)
 	/*
 	 * Check if default needs to be flushed too.
 	 */
-	thread_add_event(master, ospf_external_lsa_default_routemap_timer, ospf,
-			 0, &ospf->t_default_routemap_timer);
+	event_add_event(master, ospf_external_lsa_default_routemap_timer, ospf,
+			0, &ospf->t_default_routemap_timer);
 }
 
 /* Update NHLFE for Prefix SID */
@@ -1124,9 +1124,9 @@ static bool ospf_external_lsa_default_routemap_apply(struct ospf *ospf,
 		 * there are any other external info which can still trigger
 		 * default route origination else flush it.
 		 */
-		thread_add_event(master,
-				 ospf_external_lsa_default_routemap_timer, ospf,
-				 0, &ospf->t_default_routemap_timer);
+		event_add_event(master,
+				ospf_external_lsa_default_routemap_timer, ospf,
+				0, &ospf->t_default_routemap_timer);
 	}
 
 	return true;
@@ -1641,9 +1641,8 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 		return;
 
 	/* Set timer. If timer is already started, this call does nothing. */
-	thread_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
-			      ospf->min_ls_interval,
-			      &ospf->t_distribute_update);
+	event_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
+			     ospf->min_ls_interval, &ospf->t_distribute_update);
 }
 
 /* If access-list is updated, apply some check. */

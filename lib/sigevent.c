@@ -133,8 +133,8 @@ void frr_signal_timer(struct event *t)
 
 	sigm = THREAD_ARG(t);
 	sigm->t = NULL;
-	thread_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
-			 FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
+	event_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
+			FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
 	frr_sigevent_process();
 }
 #endif /* SIGEVENT_SCHEDULE_THREAD */
@@ -354,7 +354,7 @@ void signal_init(struct thread_master *m, int sigc,
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
 	sigmaster.t = NULL;
-	thread_add_timer(m, frr_signal_timer, &sigmaster,
-			 FRR_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
+	event_add_timer(m, frr_signal_timer, &sigmaster,
+			FRR_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 }

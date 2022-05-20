@@ -239,7 +239,7 @@ static void fpt_finish(struct event *thread)
 /* stop function, called from other threads to halt this one */
 static int fpt_halt(struct frr_pthread *fpt, void **res)
 {
-	thread_add_event(fpt->master, &fpt_finish, fpt, 0, NULL);
+	event_add_event(fpt->master, &fpt_finish, fpt, 0, NULL);
 	pthread_join(fpt->thread, res);
 
 	return 0;
@@ -281,7 +281,7 @@ static void *fpt_run(void *arg)
 
 	int sleeper[2];
 	pipe(sleeper);
-	thread_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
+	event_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
 
 	fpt->master->handle_signals = false;
 

@@ -1048,8 +1048,8 @@ static void gm_t_expire(struct event *t)
 					log_ifp("next general expiry in %" PRId64 "ms"),
 					remain_ms / 1000);
 
-			thread_add_timer_tv(router->master, gm_t_expire, gm_ifp,
-					    &remain, &gm_ifp->t_expire);
+			event_add_timer_tv(router->master, gm_t_expire, gm_ifp,
+					   &remain, &gm_ifp->t_expire);
 			return;
 		}
 
@@ -1119,8 +1119,8 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 			zlog_debug(
 				log_ifp("starting general timer @ 0: %pTVMu"),
 				&pend->expiry);
-		thread_add_timer_tv(router->master, gm_t_expire, gm_ifp,
-				    &timers->expire_wait, &gm_ifp->t_expire);
+		event_add_timer_tv(router->master, gm_t_expire, gm_ifp,
+				   &timers->expire_wait, &gm_ifp->t_expire);
 	} else if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("appending general timer @ %u: %pTVMu"),
 			   gm_ifp->n_pending, &pend->expiry);
@@ -1215,8 +1215,8 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 		THREAD_OFF(sg->t_sg_expire);
 	}
 
-	thread_add_timer_tv(router->master, gm_t_sg_expire, sg, &expire_wait,
-			    &sg->t_sg_expire);
+	event_add_timer_tv(router->master, gm_t_sg_expire, sg, &expire_wait,
+			   &sg->t_sg_expire);
 }
 
 static void gm_handle_q_groupsrc(struct gm_if *gm_ifp,
@@ -1329,8 +1329,8 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 	}
 
 	monotime(&pend->query);
-	thread_add_timer_tv(router->master, gm_t_grp_expire, pend,
-			    &timers->expire_wait, &pend->t_expire);
+	event_add_timer_tv(router->master, gm_t_grp_expire, pend,
+			   &timers->expire_wait, &pend->t_expire);
 
 	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("*,%pPAs S,G timer started: %pTHD"), &grp,
@@ -1470,9 +1470,8 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		THREAD_OFF(gm_ifp->t_other_querier);
 
 		other_ms = timers.qrv * timers.qqic_ms + timers.max_resp_ms / 2;
-		thread_add_timer_msec(router->master, gm_t_other_querier,
-				      gm_ifp, other_ms,
-				      &gm_ifp->t_other_querier);
+		event_add_timer_msec(router->master, gm_t_other_querier, gm_ifp,
+				     other_ms, &gm_ifp->t_other_querier);
 	}
 
 	if (len == sizeof(struct mld_v1_pkt)) {
@@ -1607,8 +1606,8 @@ static void gm_t_recv(struct event *t)
 	ssize_t nread;
 	size_t pktlen;
 
-	thread_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
-			&pim->t_gm_recv);
+	event_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
+		       &pim->t_gm_recv);
 
 	iov->iov_base = rxbuf;
 	iov->iov_len = sizeof(rxbuf);
@@ -1868,8 +1867,8 @@ static void gm_t_query(struct event *t)
 		gm_ifp->n_startup--;
 	}
 
-	thread_add_timer_msec(router->master, gm_t_query, gm_ifp, timer_ms,
-			      &gm_ifp->t_query);
+	event_add_timer_msec(router->master, gm_t_query, gm_ifp, timer_ms,
+			     &gm_ifp->t_query);
 
 	gm_send_query(gm_ifp, PIMADDR_ANY, NULL, 0, false);
 }
@@ -1910,9 +1909,9 @@ static void gm_trigger_specific(struct gm_sg *sg)
 
 	sg->n_query--;
 	if (sg->n_query)
-		thread_add_timer_msec(router->master, gm_t_sg_query, sg,
-				      gm_ifp->cur_query_intv_trig,
-				      &sg->t_sg_query);
+		event_add_timer_msec(router->master, gm_t_sg_query, sg,
+				     gm_ifp->cur_query_intv_trig,
+				     &sg->t_sg_query);
 
 	if (!IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest))
 		return;
@@ -1938,9 +1937,8 @@ static void gm_trigger_specific(struct gm_sg *sg)
 		pend_gsq->iface = gm_ifp;
 		gm_gsq_pends_add(gm_ifp->gsq_pends, pend_gsq);
 
-		thread_add_timer_tv(router->master, gm_t_gsq_pend, pend_gsq,
-				    &gm_ifp->cfg_timing_fuzz,
-				    &pend_gsq->t_send);
+		event_add_timer_tv(router->master, gm_t_gsq_pend, pend_gsq,
+				   &gm_ifp->cfg_timing_fuzz, &pend_gsq->t_send);
 	}
 
 	assert(pend_gsq->n_src < array_size(pend_gsq->srcs));
@@ -2046,8 +2044,8 @@ static void gm_vrf_socket_incref(struct pim_instance *pim)
 				vrf->name);
 	}
 
-	thread_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
-			&pim->t_gm_recv);
+	event_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
+		       &pim->t_gm_recv);
 }
 
 static void gm_vrf_socket_decref(struct pim_instance *pim)

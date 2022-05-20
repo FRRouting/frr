@@ -648,9 +648,9 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 				zlog_debug(
 					"GR: remaining time until grace period expires: %lu(s)",
 					remaining_time);
-			thread_add_timer(master, ospf_gr_grace_period_expired,
-					 ospf, remaining_time,
-					 &ospf->gr_info.t_grace_period);
+			event_add_timer(master, ospf_gr_grace_period_expired,
+					ospf, remaining_time,
+					&ospf->gr_info.t_grace_period);
 		}
 	}
 

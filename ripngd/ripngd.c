@@ -597,8 +597,8 @@ static void ripng_timeout_update(struct ripng *ripng, struct ripng_info *rinfo)
 {
 	if (rinfo->metric != RIPNG_METRIC_INFINITY) {
 		THREAD_OFF(rinfo->t_timeout);
-		thread_add_timer(master, ripng_timeout, rinfo,
-				 ripng->timeout_time, &rinfo->t_timeout);
+		event_add_timer(master, ripng_timeout, rinfo,
+				ripng->timeout_time, &rinfo->t_timeout);
 	}
 }
 
@@ -1493,8 +1493,8 @@ void ripng_triggered_update(struct event *t)
 	   update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	thread_add_timer(master, ripng_triggered_interval, ripng, interval,
-			 &ripng->t_triggered_interval);
+	event_add_timer(master, ripng_triggered_interval, ripng, interval,
+			&ripng->t_triggered_interval);
 }
 
 /* Write routing table entry to the stream and return next index of
@@ -1898,8 +1898,7 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 
 	switch (event) {
 	case RIPNG_READ:
-		thread_add_read(master, ripng_read, ripng, sock,
-				&ripng->t_read);
+		event_add_read(master, ripng_read, ripng, sock, &ripng->t_read);
 		break;
 	case RIPNG_UPDATE_EVENT:
 		THREAD_OFF(ripng->t_update);
@@ -1907,16 +1906,16 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 		/* Update timer jitter. */
 		jitter = ripng_update_jitter(ripng->update_time);
 
-		thread_add_timer(master, ripng_update, ripng,
-				 sock ? 2 : ripng->update_time + jitter,
-				 &ripng->t_update);
+		event_add_timer(master, ripng_update, ripng,
+				sock ? 2 : ripng->update_time + jitter,
+				&ripng->t_update);
 		break;
 	case RIPNG_TRIGGERED_UPDATE:
 		if (ripng->t_triggered_interval)
 			ripng->trigger = 1;
 		else
-			thread_add_event(master, ripng_triggered_update, ripng,
-					 0, &ripng->t_triggered_update);
+			event_add_event(master, ripng_triggered_update, ripng,
+					0, &ripng->t_triggered_update);
 		break;
 	case RIPNG_ZEBRA:
 	case RIPNG_REQUEST_EVENT:

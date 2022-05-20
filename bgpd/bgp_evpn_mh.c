@@ -4174,9 +4174,9 @@ static void bgp_evpn_es_cons_checks_timer_start(void)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("periodic consistency checking started");
 
-	thread_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
-			 BGP_EVPN_CONS_CHECK_INTERVAL,
-			 &bgp_mh_info->t_cons_check);
+	event_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
+			BGP_EVPN_CONS_CHECK_INTERVAL,
+			&bgp_mh_info->t_cons_check);
 }
 
 /* queue up the es for background consistency checks */
@@ -4380,7 +4380,7 @@ static void bgp_evpn_run_consistency_checks(struct event *t)
 	}
 
 	/* restart the timer */
-	thread_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
+	event_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
 			BGP_EVPN_CONS_CHECK_INTERVAL,
 			&bgp_mh_info->t_cons_check);
 }

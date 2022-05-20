@@ -63,23 +63,23 @@ static void circuit_commence_level(struct isis_circuit *circuit, int level)
 
 	if (!circuit->is_passive) {
 		if (level == 1) {
-			thread_add_timer(master, send_l1_psnp, circuit,
-					 isis_jitter(circuit->psnp_interval[0],
-						     PSNP_JITTER),
-					 &circuit->t_send_psnp[0]);
+			event_add_timer(master, send_l1_psnp, circuit,
+					isis_jitter(circuit->psnp_interval[0],
+						    PSNP_JITTER),
+					&circuit->t_send_psnp[0]);
 		} else {
-			thread_add_timer(master, send_l2_psnp, circuit,
-					 isis_jitter(circuit->psnp_interval[1],
-						     PSNP_JITTER),
-					 &circuit->t_send_psnp[1]);
+			event_add_timer(master, send_l2_psnp, circuit,
+					isis_jitter(circuit->psnp_interval[1],
+						    PSNP_JITTER),
+					&circuit->t_send_psnp[1]);
 		}
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		thread_add_timer(master, isis_run_dr,
-				 &circuit->level_arg[level - 1],
-				 2 * circuit->hello_interval[level - 1],
-				 &circuit->u.bc.t_run_dr[level - 1]);
+		event_add_timer(master, isis_run_dr,
+				&circuit->level_arg[level - 1],
+				2 * circuit->hello_interval[level - 1],
+				&circuit->u.bc.t_run_dr[level - 1]);
 
 		send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 		circuit->u.bc.lan_neighs[level - 1] = list_new();

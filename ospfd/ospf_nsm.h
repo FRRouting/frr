@@ -41,11 +41,11 @@
 #define OSPF_NSM_EVENT_MAX     14
 
 /* Macro for OSPF NSM timer turn on. */
-#define OSPF_NSM_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr, (V), &(T))
+#define OSPF_NSM_TIMER_ON(T, F, V) event_add_timer(master, (F), nbr, (V), &(T))
 
 /* Macro for OSPF NSM schedule event. */
 #define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
-	thread_add_event(master, ospf_nsm_event, (N), (E), NULL)
+	event_add_event(master, ospf_nsm_event, (N), (E), NULL)
 
 /* Macro for OSPF NSM execute event. */
 #define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \

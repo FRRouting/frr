@@ -1344,8 +1344,8 @@ static void bmp_stats(struct event *thread)
 	struct timeval tv;
 
 	if (bt->stat_msec)
-		thread_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
-				&bt->t_stats);
+		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
+				     &bt->t_stats);
 
 	gettimeofday(&tv, NULL);
 
@@ -1409,7 +1409,7 @@ static void bmp_read(struct event *t)
 		return;
 	}
 
-	thread_add_read(bm->master, bmp_read, bmp, bmp->socket, &bmp->t_read);
+	event_add_read(bm->master, bmp_read, bmp, bmp->socket, &bmp->t_read);
 }
 
 static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
@@ -1485,7 +1485,7 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 	bmp->state = BMP_PeerUp;
 	bmp->pullwr = pullwr_new(bm->master, bmp_sock, bmp, bmp_wrfill,
 			bmp_wrerr);
-	thread_add_read(bm->master, bmp_read, bmp, bmp_sock, &bmp->t_read);
+	event_add_read(bm->master, bmp_read, bmp, bmp_sock, &bmp->t_read);
 	bmp_send_initiation(bmp);
 
 	return bmp;
@@ -1499,7 +1499,7 @@ static void bmp_accept(struct event *thread)
 	int bmp_sock;
 
 	/* We continue hearing BMP socket. */
-	thread_add_read(bm->master, bmp_accept, bl, bl->sock, &bl->t_accept);
+	event_add_read(bm->master, bmp_accept, bl, bl->sock, &bl->t_accept);
 
 	memset(&su, 0, sizeof(union sockunion));
 
@@ -1721,7 +1721,7 @@ static void bmp_listener_start(struct bmp_listener *bl)
 		goto out_sock;
 
 	bl->sock = sock;
-	thread_add_read(bm->master, bmp_accept, bl, sock, &bl->t_accept);
+	event_add_read(bm->master, bmp_accept, bl, sock, &bl->t_accept);
 	return;
 out_sock:
 	close(sock);
@@ -1980,12 +1980,12 @@ static void bmp_active_setup(struct bmp_active *ba)
 		ba->curretry = ba->maxretry;
 
 	if (ba->socket == -1)
-		thread_add_timer_msec(bm->master, bmp_active_thread, ba,
-				      ba->curretry, &ba->t_timer);
+		event_add_timer_msec(bm->master, bmp_active_thread, ba,
+				     ba->curretry, &ba->t_timer);
 	else {
-		thread_add_read(bm->master, bmp_active_thread, ba, ba->socket,
-				&ba->t_read);
-		thread_add_write(bm->master, bmp_active_thread, ba, ba->socket,
+		event_add_read(bm->master, bmp_active_thread, ba, ba->socket,
+			       &ba->t_read);
+		event_add_write(bm->master, bmp_active_thread, ba, ba->socket,
 				&ba->t_write);
 	}
 }
@@ -2199,8 +2199,8 @@ DEFPY(bmp_stats_cfg,
 		bt->stat_msec = BMP_STAT_DEFAULT_TIMER;
 
 	if (bt->stat_msec)
-		thread_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
-				      &bt->t_stats);
+		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec,
+				     &bt->t_stats);
 	return CMD_SUCCESS;
 }
 

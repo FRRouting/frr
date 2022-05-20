@@ -187,8 +187,8 @@ adj_start_itimer(struct adj *adj)
 {
 	THREAD_OFF(adj->inactivity_timer);
 	adj->inactivity_timer = NULL;
-	thread_add_timer(master, adj_itimer, adj, adj->holdtime,
-			 &adj->inactivity_timer);
+	event_add_timer(master, adj_itimer, adj, adj->holdtime,
+			&adj->inactivity_timer);
 }
 
 void
@@ -345,8 +345,8 @@ tnbr_start_hello_timer(struct tnbr *tnbr)
 {
 	THREAD_OFF(tnbr->hello_timer);
 	tnbr->hello_timer = NULL;
-	thread_add_timer(master, tnbr_hello_timer, tnbr, tnbr_get_hello_interval(tnbr),
-			 &tnbr->hello_timer);
+	event_add_timer(master, tnbr_hello_timer, tnbr,
+			tnbr_get_hello_interval(tnbr), &tnbr->hello_timer);
 }
 
 static void

@@ -218,8 +218,8 @@ static struct event *vtysh_rl_read_thread;
 
 static void vtysh_rl_read(struct event *thread)
 {
-	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
-			&vtysh_rl_read_thread);
+	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
 }
 
@@ -231,8 +231,8 @@ static void vtysh_rl_run(void)
 	master = thread_master_create(NULL);
 
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
-	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
-			&vtysh_rl_read_thread);
+	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+		       &vtysh_rl_read_thread);
 
 	while (!vtysh_loop_exited && thread_fetch(master, &thread))
 		thread_call(&thread);

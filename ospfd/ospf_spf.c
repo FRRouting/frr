@@ -2044,8 +2044,8 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 		zlog_debug("SPF: calculation timer delay = %ld msec", delay);
 
 	ospf->t_spf_calc = NULL;
-	thread_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
-			      delay, &ospf->t_spf_calc);
+	event_add_timer_msec(master, ospf_spf_calculate_schedule_worker, ospf,
+			     delay, &ospf->t_spf_calc);
 }
 
 /* Restart OSPF SPF algorithm*/

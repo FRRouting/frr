@@ -82,8 +82,8 @@ static void __nhrp_peer_check(struct nhrp_peer *p)
 			 * the up notification a bit to allow things
 			 * settle down. This allows IKE to install
 			 * SPDs and SAs. */
-			thread_add_timer_msec(master, nhrp_peer_notify_up, p,
-					      50, &p->t_fallback);
+			event_add_timer_msec(master, nhrp_peer_notify_up, p, 50,
+					     &p->t_fallback);
 		} else {
 			nhrp_peer_ref(p);
 			p->online = online;
@@ -264,8 +264,8 @@ static void nhrp_peer_request_timeout(struct event *t)
 		p->fallback_requested = 1;
 		vici_request_vc(nifp->ipsec_fallback_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
-		thread_add_timer(master, nhrp_peer_request_timeout, p, 30,
-				 &p->t_fallback);
+		event_add_timer(master, nhrp_peer_request_timeout, p, 30,
+				&p->t_fallback);
 	} else {
 		p->requested = p->fallback_requested = 0;
 	}
@@ -287,10 +287,10 @@ static void nhrp_peer_defer_vici_request(struct event *t)
 	} else {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
-		thread_add_timer(
-			master, nhrp_peer_request_timeout, p,
-			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
-			&p->t_fallback);
+		event_add_timer(master, nhrp_peer_request_timeout, p,
+				(nifp->ipsec_fallback_profile && !p->prio) ? 15
+									   : 30,
+				&p->t_fallback);
 	}
 }
 
@@ -320,10 +320,10 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	if (p->prio) {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
-		thread_add_timer(
-			master, nhrp_peer_request_timeout, p,
-			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
-			&p->t_fallback);
+		event_add_timer(master, nhrp_peer_request_timeout, p,
+				(nifp->ipsec_fallback_profile && !p->prio) ? 15
+									   : 30,
+				&p->t_fallback);
 	} else {
 		/* Maximum timeout is 1 second */
 		int r_time_ms = frr_weak_random() % 1000;
@@ -331,8 +331,8 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 		debugf(NHRP_DEBUG_COMMON,
 		       "Initiating IPsec connection request to %pSU after %d ms:",
 		       &vc->remote.nbma, r_time_ms);
-		thread_add_timer_msec(master, nhrp_peer_defer_vici_request,
-				      p, r_time_ms, &p->t_timer);
+		event_add_timer_msec(master, nhrp_peer_defer_vici_request, p,
+				     r_time_ms, &p->t_timer);
 	}
 
 	return 0;

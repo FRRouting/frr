@@ -354,8 +354,8 @@ void join_timer_start(struct pim_upstream *up)
 		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
 	else {
 		THREAD_OFF(up->t_join_timer);
-		thread_add_timer(router->master, on_join_timer, up,
-				 router->t_periodic, &up->t_join_timer);
+		event_add_timer(router->master, on_join_timer, up,
+				router->t_periodic, &up->t_join_timer);
 	}
 	pim_jp_agg_upstream_verification(up, true);
 }
@@ -383,8 +383,8 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 	}
 
 	THREAD_OFF(up->t_join_timer);
-	thread_add_timer_msec(router->master, on_join_timer, up, interval_msec,
-			      &up->t_join_timer);
+	event_add_timer_msec(router->master, on_join_timer, up, interval_msec,
+			     &up->t_join_timer);
 }
 
 void pim_update_suppress_timers(uint32_t suppress_time)
@@ -1483,8 +1483,8 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 				   up->sg_str);
 	}
 	THREAD_OFF(up->t_ka_timer);
-	thread_add_timer(router->master, pim_upstream_keep_alive_timer, up,
-			 time, &up->t_ka_timer);
+	event_add_timer(router->master, pim_upstream_keep_alive_timer, up, time,
+			&up->t_ka_timer);
 
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
@@ -1506,8 +1506,8 @@ static void pim_upstream_msdp_reg_timer(struct event *t)
 void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
 {
 	THREAD_OFF(up->t_msdp_reg_timer);
-	thread_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
-			 PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
+	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
+			PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
 
 	pim_msdp_sa_local_update(up);
 }
@@ -1768,8 +1768,8 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 			"%s: (S,G)=%s Starting upstream register stop timer %d",
 			__func__, up->sg_str, time);
 	}
-	thread_add_timer(router->master, pim_upstream_register_stop_timer, up,
-			 time, &up->t_rs_timer);
+	event_add_timer(router->master, pim_upstream_register_stop_timer, up,
+			time, &up->t_rs_timer);
 }
 
 int pim_upstream_inherited_olist_decide(struct pim_instance *pim,

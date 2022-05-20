@@ -1015,8 +1015,8 @@ void frr_config_fork(void)
 			exit(0);
 		}
 
-		thread_add_event(master, frr_config_read_in, NULL, 0,
-				 &di->read_in);
+		event_add_event(master, frr_config_read_in, NULL, 0,
+				&di->read_in);
 	}
 
 	if (di->daemon_mode || di->terminal)
@@ -1129,8 +1129,8 @@ static void frr_daemon_ctl(struct event *t)
 	}
 
 out:
-	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
-			&daemon_ctl_thread);
+	event_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
+		       &daemon_ctl_thread);
 }
 
 void frr_detach(void)
@@ -1158,8 +1158,8 @@ void frr_run(struct thread_master *master)
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
-			thread_add_read(master, frr_daemon_ctl, NULL,
-					daemon_ctl_sock, &daemon_ctl_thread);
+			event_add_read(master, frr_daemon_ctl, NULL,
+				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);

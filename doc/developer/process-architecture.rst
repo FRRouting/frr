@@ -95,7 +95,7 @@ irrelevant for the time being) for the specific type. For example, to add a
 
 ::
 
-   thread_add_read(struct thread_master *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
+   event_add_read(struct thread_master *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
 
 The ``struct event`` is then created and added to the appropriate internal
 datastructure within the ``threadmaster``. Note that the ``READ`` and
@@ -137,14 +137,14 @@ Mapping the general names used in the figure to specific FRR functions:
 - ``fetch`` is ``thread_fetch()``
 - ``exec()`` is ``thread_call``
 - ``cancel()`` is ``thread_cancel()``
-- ``schedule()`` is any of the various task-specific ``thread_add_*`` functions
+- ``schedule()`` is any of the various task-specific ``event_add_*`` functions
 
 Adding tasks is done with various task-specific function-like macros. These
 macros wrap underlying functions in :file:`thread.c` to provide additional
 information added at compile time, such as the line number the task was
 scheduled from, that can be accessed at runtime for debugging, logging and
 informational purposes. Each task type has its own specific scheduling function
-that follow the naming convention ``thread_add_<type>``; see :file:`event.h`
+that follow the naming convention ``event_add_<type>``; see :file:`event.h`
 for details.
 
 There are some gotchas to keep in mind:

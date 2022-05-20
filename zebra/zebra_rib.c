@@ -4420,8 +4420,8 @@ void rib_update(enum rib_update_event event)
 
 	ctx = rib_update_ctx_init(0, event);
 
-	thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
-			 &t_rib_update_threads[event]);
+	event_add_event(zrouter.master, rib_update_handler, ctx, 0,
+			&t_rib_update_threads[event]);
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%s: Scheduled VRF (ALL), event %s", __func__,
@@ -4793,8 +4793,8 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 	}
 
 	/* Ensure event is signalled to zebra main pthread */
-	thread_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
-			 &t_dplane);
+	event_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
+			&t_dplane);
 
 	return 0;
 }

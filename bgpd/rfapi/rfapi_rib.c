@@ -345,8 +345,8 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 	vnc_zlog_debug_verbose("%s: rfd %p pfx %pRN life %u", __func__, rfd, rn,
 			       ri->lifetime);
 
-	thread_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
-			 &ri->timer);
+	event_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
+			&ri->timer);
 }
 
 extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */

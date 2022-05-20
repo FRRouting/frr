@@ -209,8 +209,8 @@ int pim_mlag_signal_zpthread(void)
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(":%s: Scheduling PIM MLAG write Thread",
 				   __func__);
-		thread_add_event(router->master, pim_mlag_zthread_handler, NULL,
-				 0, &router->zpthread_mlag_write);
+		event_add_event(router->master, pim_mlag_zthread_handler, NULL,
+				0, &router->zpthread_mlag_write);
 	}
 	return (0);
 }

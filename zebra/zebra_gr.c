@@ -159,7 +159,7 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 		    && (info->t_stale_removal == NULL)) {
 			struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 
-			thread_add_timer(
+			event_add_timer(
 				zrouter.master,
 				zebra_gr_route_stale_delete_timer_expiry, info,
 				info->stale_removal_time,
@@ -482,10 +482,10 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 		       __func__, zebra_route_string(client->proto),
 		       VRF_LOGNAME(vrf), info->vrf_id, cnt);
 
-		thread_add_timer(zrouter.master,
-				 zebra_gr_route_stale_delete_timer_expiry, info,
-				 ZEBRA_DEFAULT_STALE_UPDATE_DELAY,
-				 &info->t_stale_removal);
+		event_add_timer(zrouter.master,
+				zebra_gr_route_stale_delete_timer_expiry, info,
+				ZEBRA_DEFAULT_STALE_UPDATE_DELAY,
+				&info->t_stale_removal);
 	} else {
 		/* No routes to delete for the VRF */
 		LOG_GR("%s: Client %s vrf %s(%u) all stale routes processed",

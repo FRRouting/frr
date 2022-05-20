@@ -3355,8 +3355,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
 
-	thread_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-			 bgp->restart_time, &bgp->t_startup);
+	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
+			bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {

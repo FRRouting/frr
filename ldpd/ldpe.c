@@ -111,8 +111,8 @@ ldpe(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = ldpe_dispatch_main;
-	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
-		        &iev_main->ev_read);
+	event_add_read(master, iev_main->handler_read, iev_main,
+		       iev_main->ibuf.fd, &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
 
 	memset(&iev_main_data, 0, sizeof(iev_main_data));
@@ -137,8 +137,8 @@ ldpe_init(struct ldpd_init *init)
 	/* This socket must be open before dropping privileges. */
 	global.pfkeysock = pfkey_init();
 	if (sysdep.no_pfkey == 0) {
-		thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
-				&pfkey_ev);
+		event_add_read(master, ldpe_dispatch_pfkey, NULL,
+			       global.pfkeysock, &pfkey_ev);
 	}
 #endif
 
@@ -363,8 +363,8 @@ static void ldpe_dispatch_main(struct event *thread)
 				fatal(NULL);
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
-			thread_add_read(master, iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd,
-					&iev_lde->ev_read);
+			event_add_read(master, iev_lde->handler_read, iev_lde,
+				       iev_lde->ibuf.fd, &iev_lde->ev_read);
 			iev_lde->handler_write = ldp_write_handler;
 			iev_lde->ev_write = NULL;
 			break;
@@ -763,8 +763,8 @@ static void ldpe_dispatch_pfkey(struct event *thread)
 {
 	int	 fd = THREAD_FD(thread);
 
-	thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
-			&pfkey_ev);
+	event_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
+		       &pfkey_ev);
 
 	if (pfkey_read(fd, NULL) == -1)
 		fatal("pfkey_read failed, exiting...");
@@ -781,13 +781,13 @@ ldpe_setup_sockets(int af, int disc_socket, int edisc_socket,
 
 	/* discovery socket */
 	af_global->ldp_disc_socket = disc_socket;
-	thread_add_read(master, disc_recv_packet, &af_global->disc_ev, af_global->ldp_disc_socket,
-			&af_global->disc_ev);
+	event_add_read(master, disc_recv_packet, &af_global->disc_ev,
+		       af_global->ldp_disc_socket, &af_global->disc_ev);
 
 	/* extended discovery socket */
 	af_global->ldp_edisc_socket = edisc_socket;
-	thread_add_read(master, disc_recv_packet, &af_global->edisc_ev, af_global->ldp_edisc_socket,
-			&af_global->edisc_ev);
+	event_add_read(master, disc_recv_packet, &af_global->edisc_ev,
+		       af_global->ldp_edisc_socket, &af_global->edisc_ev);
 
 	/* session socket */
 	af_global->ldp_session_socket = session_socket;

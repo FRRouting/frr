@@ -204,12 +204,12 @@ struct pim_msdp {
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
-	thread_add_read(mp->pim->msdp.master, pim_msdp_read, mp, mp->fd,       \
-			&mp->t_read)
+	event_add_read(mp->pim->msdp.master, pim_msdp_read, mp, mp->fd,        \
+		       &mp->t_read)
 
 #define PIM_MSDP_PEER_WRITE_ON(mp)                                             \
-	thread_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,     \
-			 &mp->t_write)
+	event_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,      \
+			&mp->t_write)
 
 #define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
 #define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)

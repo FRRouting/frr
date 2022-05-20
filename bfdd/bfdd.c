@@ -375,8 +375,8 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
 
-	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
-			&bglobal.bg_csockev);
+	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
+		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();

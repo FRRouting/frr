@@ -1961,9 +1961,9 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 		if (area->spf_timer[level - 1])
 			return ISIS_OK;
 
-		thread_add_timer_msec(master, isis_run_spf_cb,
-				      isis_run_spf_arg(area, level), delay,
-				      &area->spf_timer[level - 1]);
+		event_add_timer_msec(master, isis_run_spf_cb,
+				     isis_run_spf_arg(area, level), delay,
+				     &area->spf_timer[level - 1]);
 		return ISIS_OK;
 	}
 
@@ -1990,8 +1990,8 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 		timer = area->min_spf_interval[level - 1] - diff;
 	}
 
-	thread_add_timer(master, isis_run_spf_cb, isis_run_spf_arg(area, level),
-			 timer, &area->spf_timer[level - 1]);
+	event_add_timer(master, isis_run_spf_cb, isis_run_spf_arg(area, level),
+			timer, &area->spf_timer[level - 1]);
 
 	if (IS_DEBUG_SPF_EVENTS)
 		zlog_debug("ISIS-SPF (%s) L%d SPF scheduled %ld sec from now",

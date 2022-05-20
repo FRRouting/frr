@@ -55,8 +55,8 @@ static int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 
 static void zebra_mlag_sched_read(void)
 {
-	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
-			&zrouter.mlag_info.t_read);
+	event_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
+		       &zrouter.mlag_info.t_read);
 }
 
 static void zebra_mlag_read(struct event *thread)
@@ -173,8 +173,8 @@ static void zebra_mlag_connect(struct event *thread)
 				svr.sun_path);
 		close(mlag_socket);
 		zrouter.mlag_info.timer_running = true;
-		thread_add_timer(zmlag_master, zebra_mlag_connect, NULL, 10,
-				 &zrouter.mlag_info.t_read);
+		event_add_timer(zmlag_master, zebra_mlag_connect, NULL, 10,
+				&zrouter.mlag_info.t_read);
 		return;
 	}
 
@@ -184,8 +184,8 @@ static void zebra_mlag_connect(struct event *thread)
 		zlog_debug("%s: Connection with MLAG is established ",
 			   __func__);
 
-	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
-			&zrouter.mlag_info.t_read);
+	event_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
+		       &zrouter.mlag_info.t_read);
 	/*
 	 * Connection is established with MLAGD, post to clients
 	 */
@@ -197,8 +197,8 @@ static void zebra_mlag_connect(struct event *thread)
  */
 static int zebra_mlag_private_monitor_state(void)
 {
-	thread_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
-			 &zrouter.mlag_info.t_read);
+	event_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
+			&zrouter.mlag_info.t_read);
 	return 0;
 }
 
@@ -225,8 +225,8 @@ static int zebra_mlag_private_open_channel(void)
 		/*
 		 * Connect only if any clients are showing interest
 		 */
-		thread_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
-				 &zrouter.mlag_info.t_read);
+		event_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
+				&zrouter.mlag_info.t_read);
 	}
 	return 0;
 }

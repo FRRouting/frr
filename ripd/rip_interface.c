@@ -885,8 +885,8 @@ void rip_enable_apply(struct interface *ifp)
 			zlog_debug("turn on %s", ifp->name);
 
 		/* Add interface wake up thread. */
-		thread_add_timer(master, rip_interface_wakeup, ifp, 1,
-				 &ri->t_wakeup);
+		event_add_timer(master, rip_interface_wakeup, ifp, 1,
+				&ri->t_wakeup);
 		rip_connect_set(ifp, 1);
 	} else if (ri->running) {
 		/* Might as well clean up the route table as well

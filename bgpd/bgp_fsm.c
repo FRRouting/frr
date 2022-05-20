@@ -343,8 +343,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
-	thread_add_event(bm->master, bgp_process_packet, peer, 0,
-			 &peer->t_process_packet);
+	event_add_event(bm->master, bgp_process_packet, peer, 0,
+			&peer->t_process_packet);
 
 	return (peer);
 }
@@ -583,8 +583,8 @@ void bgp_routeadv_timer(struct event *thread)
 
 	peer->synctime = monotime(NULL);
 
-	thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
-			      &peer->t_generate_updgrp_packets);
+	event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
+			     &peer->t_generate_updgrp_packets);
 
 	/* MRAI timer will be started again when FIFO is built, no need to
 	 * do it here.
@@ -820,10 +820,9 @@ static void bgp_graceful_restart_timer_expire(struct event *thread)
 			bgp_set_llgr_stale(peer, afi, safi);
 			bgp_clear_stale_route(peer, afi, safi);
 
-			thread_add_timer(bm->master,
-					 bgp_llgr_stale_timer_expire, paf,
-					 peer->llgr[afi][safi].stale_time,
-					 &peer->t_llgr_stale[afi][safi]);
+			event_add_timer(bm->master, bgp_llgr_stale_timer_expire,
+					paf, peer->llgr[afi][safi].stale_time,
+					&peer->t_llgr_stale[afi][safi]);
 
 			for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode,
 					       tmp_peer))
@@ -1147,8 +1146,8 @@ static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
 	zlog_info("Begin maxmed onstartup mode - timer %d seconds",
 		  bgp->v_maxmed_onstartup);
 
-	thread_add_timer(bm->master, bgp_maxmed_onstartup_timer, bgp,
-			 bgp->v_maxmed_onstartup, &bgp->t_maxmed_onstartup);
+	event_add_timer(bm->master, bgp_maxmed_onstartup_timer, bgp,
+			bgp->v_maxmed_onstartup, &bgp->t_maxmed_onstartup);
 
 	if (!bgp->v_maxmed_admin) {
 		bgp->maxmed_active = 1;
@@ -1206,12 +1205,12 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 		peer->update_delay_over = 0;
 
 	/* Start the update-delay timer */
-	thread_add_timer(bm->master, bgp_update_delay_timer, bgp,
-			 bgp->v_update_delay, &bgp->t_update_delay);
+	event_add_timer(bm->master, bgp_update_delay_timer, bgp,
+			bgp->v_update_delay, &bgp->t_update_delay);
 
 	if (bgp->v_establish_wait != bgp->v_update_delay)
-		thread_add_timer(bm->master, bgp_establish_wait_timer, bgp,
-				 bgp->v_establish_wait, &bgp->t_establish_wait);
+		event_add_timer(bm->master, bgp_establish_wait_timer, bgp,
+				bgp->v_establish_wait, &bgp->t_establish_wait);
 
 	frr_timestamp(3, bgp->update_delay_begin_time,
 		      sizeof(bgp->update_delay_begin_time));
@@ -1941,10 +1940,10 @@ enum bgp_fsm_state_progress bgp_start(struct peer *peer)
 		 * bgp_connect_check() as the handler for each and cancel the
 		 * unused event in that function.
 		 */
-		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd,
-				&peer->t_connect_check_r);
-		thread_add_write(bm->master, bgp_connect_check, peer, peer->fd,
-				 &peer->t_connect_check_w);
+		event_add_read(bm->master, bgp_connect_check, peer, peer->fd,
+			       &peer->t_connect_check_r);
+		event_add_write(bm->master, bgp_connect_check, peer, peer->fd,
+				&peer->t_connect_check_w);
 		break;
 	}
 	return BGP_FSM_SUCCESS;
@@ -2046,9 +2045,9 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 		thread_info->safi = safi;
 		thread_info->bgp = bgp;
 
-		thread_add_timer(bm->master, bgp_graceful_deferral_timer_expire,
-				 thread_info, bgp->select_defer_time,
-				 &gr_info->t_select_deferral);
+		event_add_timer(bm->master, bgp_graceful_deferral_timer_expire,
+				thread_info, bgp->select_defer_time,
+				&gr_info->t_select_deferral);
 	}
 	gr_info->eor_required++;
 	/* Send message to RIB indicating route update pending */

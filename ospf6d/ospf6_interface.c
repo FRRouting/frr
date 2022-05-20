@@ -671,8 +671,8 @@ uint8_t dr_election(struct ospf6_interface *oi)
 			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
 				continue;
 			/* Schedule AdjOK. */
-			thread_add_event(master, adj_ok, on, 0,
-					 &on->thread_adj_ok);
+			event_add_event(master, adj_ok, on, 0,
+					&on->thread_adj_ok);
 		}
 	}
 
@@ -785,9 +785,8 @@ void interface_up(struct event *thread)
 		zlog_info(
 			"Interface %s is still in all routers group, rescheduling for SSO",
 			oi->interface->name);
-		thread_add_timer(master, interface_up, oi,
-				 OSPF6_INTERFACE_SSO_RETRY_INT,
-				 &oi->thread_sso);
+		event_add_timer(master, interface_up, oi,
+				OSPF6_INTERFACE_SSO_RETRY_INT, &oi->thread_sso);
 		return;
 	}
 #endif /* __FreeBSD__ */
@@ -802,9 +801,9 @@ void interface_up(struct event *thread)
 			zlog_info(
 				"Scheduling %s for sso retry, trial count: %d",
 				oi->interface->name, oi->sso_try_cnt);
-			thread_add_timer(master, interface_up, oi,
-					 OSPF6_INTERFACE_SSO_RETRY_INT,
-					 &oi->thread_sso);
+			event_add_timer(master, interface_up, oi,
+					OSPF6_INTERFACE_SSO_RETRY_INT,
+					&oi->thread_sso);
 		}
 		return;
 	}
@@ -816,8 +815,8 @@ void interface_up(struct event *thread)
 	/* Schedule Hello */
 	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
 	    && !if_is_loopback(oi->interface)) {
-		thread_add_timer(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 	}
 
 	/* decide next interface state */
@@ -829,8 +828,8 @@ void interface_up(struct event *thread)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
 	else {
 		ospf6_interface_state_change(OSPF6_INTERFACE_WAITING, oi);
-		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
-				 &oi->thread_wait_timer);
+		event_add_timer(master, wait_timer, oi, oi->dead_interval,
+				&oi->thread_wait_timer);
 	}
 }
 
@@ -1880,7 +1879,7 @@ DEFUN (ipv6_ospf6_ifmtu,
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -1926,7 +1925,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -2111,8 +2110,8 @@ DEFUN (ipv6_ospf6_hellointerval,
 	if (thread_is_scheduled(oi->thread_send_hello)) {
 		THREAD_OFF(oi->thread_send_hello);
 
-		thread_add_timer(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 	}
 	return CMD_SUCCESS;
 }
@@ -2330,7 +2329,7 @@ DEFUN (ipv6_ospf6_passive,
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		THREAD_OFF(on->inactivity_timer);
-		thread_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -2360,8 +2359,8 @@ DEFUN (no_ipv6_ospf6_passive,
 
 	/* don't send hellos over loopback interface */
 	if (!if_is_loopback(oi->interface))
-		thread_add_timer(master, ospf6_hello_send, oi, 0,
-				 &oi->thread_send_hello);
+		event_add_timer(master, ospf6_hello_send, oi, 0,
+				&oi->thread_send_hello);
 
 	return CMD_SUCCESS;
 }

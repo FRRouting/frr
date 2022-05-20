@@ -96,8 +96,8 @@ static void if_zebra_speed_update(struct event *thread)
 			return;
 
 		zif->speed_update_count++;
-		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp,
-				 SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
+		event_add_timer(zrouter.master, if_zebra_speed_update, ifp,
+				SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
 		thread_ignore_late_timer(zif->speed_update);
 	}
 }
@@ -161,8 +161,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * down upon startup.
 	 */
 	zebra_if->speed_update_count = 0;
-	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
-			 &zebra_if->speed_update);
+	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
+			&zebra_if->speed_update);
 	thread_ignore_late_timer(zebra_if->speed_update);
 
 	return 0;
@@ -1038,8 +1038,8 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		zebra_evpn_mh_uplink_oper_update(zif);
 
-	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
-			 &zif->speed_update);
+	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
+			&zif->speed_update);
 	thread_ignore_late_timer(zif->speed_update);
 }
 

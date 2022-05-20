@@ -100,7 +100,7 @@ enum zserv_event {
 /*
  * Zebra server event driver for all client threads.
  *
- * This is essentially a wrapper around thread_add_event() that centralizes
+ * This is essentially a wrapper around event_add_event() that centralizes
  * those scheduling calls into one place.
  *
  * All calls to this function schedule an event on the pthread running the
@@ -118,7 +118,7 @@ static void zserv_client_event(struct zserv *client,
 /*
  * Zebra server event driver for the main thread.
  *
- * This is essentially a wrapper around thread_add_event() that centralizes
+ * This is essentially a wrapper around event_add_event() that centralizes
  * those scheduling calls into one place.
  *
  * All calls to this function schedule an event on Zebra's main pthread.
@@ -462,12 +462,12 @@ static void zserv_client_event(struct zserv *client,
 {
 	switch (event) {
 	case ZSERV_CLIENT_READ:
-		thread_add_read(client->pthread->master, zserv_read, client,
-				client->sock, &client->t_read);
+		event_add_read(client->pthread->master, zserv_read, client,
+			       client->sock, &client->t_read);
 		break;
 	case ZSERV_CLIENT_WRITE:
-		thread_add_write(client->pthread->master, zserv_write, client,
-				 client->sock, &client->t_write);
+		event_add_write(client->pthread->master, zserv_write, client,
+				client->sock, &client->t_write);
 		break;
 	}
 }
@@ -831,9 +831,9 @@ void zserv_release_client(struct zserv *client)
 			 * main pthread.
 			 */
 			if (client->is_closed)
-				thread_add_event(zrouter.master,
-						 zserv_handle_client_fail,
-						 client, 0, &client->t_cleanup);
+				event_add_event(zrouter.master,
+						zserv_handle_client_fail,
+						client, 0, &client->t_cleanup);
 		}
 	}
 
@@ -953,16 +953,15 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 {
 	switch (event) {
 	case ZSERV_ACCEPT:
-		thread_add_read(zrouter.master, zserv_accept, NULL, zsock,
-				NULL);
+		event_add_read(zrouter.master, zserv_accept, NULL, zsock, NULL);
 		break;
 	case ZSERV_PROCESS_MESSAGES:
-		thread_add_event(zrouter.master, zserv_process_messages, client,
-				 0, &client->t_process);
+		event_add_event(zrouter.master, zserv_process_messages, client,
+				0, &client->t_process);
 		break;
 	case ZSERV_HANDLE_CLIENT_FAIL:
-		thread_add_event(zrouter.master, zserv_handle_client_fail,
-				 client, 0, &client->t_cleanup);
+		event_add_event(zrouter.master, zserv_handle_client_fail,
+				client, 0, &client->t_cleanup);
 	}
 }
 

@@ -278,28 +278,28 @@ void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 {
 	switch (event) {
 	case OSPF_APISERVER_ACCEPT:
-		(void)thread_add_read(master, ospf_apiserver_accept, apiserv,
-				      fd, NULL);
+		(void)event_add_read(master, ospf_apiserver_accept, apiserv, fd,
+				     NULL);
 		break;
 	case OSPF_APISERVER_SYNC_READ:
 		apiserv->t_sync_read = NULL;
-		thread_add_read(master, ospf_apiserver_read, apiserv, fd,
-				&apiserv->t_sync_read);
+		event_add_read(master, ospf_apiserver_read, apiserv, fd,
+			       &apiserv->t_sync_read);
 		break;
 #ifdef USE_ASYNC_READ
 	case OSPF_APISERVER_ASYNC_READ:
 		apiserv->t_async_read = NULL;
-		thread_add_read(master, ospf_apiserver_read, apiserv, fd,
-				&apiserv->t_async_read);
+		event_add_read(master, ospf_apiserver_read, apiserv, fd,
+			       &apiserv->t_async_read);
 		break;
 #endif /* USE_ASYNC_READ */
 	case OSPF_APISERVER_SYNC_WRITE:
-		thread_add_write(master, ospf_apiserver_sync_write, apiserv, fd,
-				 &apiserv->t_sync_write);
+		event_add_write(master, ospf_apiserver_sync_write, apiserv, fd,
+				&apiserv->t_sync_write);
 		break;
 	case OSPF_APISERVER_ASYNC_WRITE:
-		thread_add_write(master, ospf_apiserver_async_write, apiserv,
-				 fd, &apiserv->t_async_write);
+		event_add_write(master, ospf_apiserver_async_write, apiserv, fd,
+				&apiserv->t_async_write);
 		break;
 	}
 }

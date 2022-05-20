@@ -72,17 +72,17 @@ extern void frrzmq_finish(void);
 	/* end */
 
 /* core event registration, one of these 2 macros should be used */
-#define frrzmq_thread_add_read_msg(m, f, e, a, z, d)                           \
+#define frrzmq_event_add_read_msg(m, f, e, a, z, d)                            \
 	_xref_zmq_a(READ, f, d,                                                \
-		_frrzmq_thread_add_read(&_xref, m, f, NULL, e, a, z, d))
+		    _frrzmq_event_add_read(&_xref, m, f, NULL, e, a, z, d))
 
-#define frrzmq_thread_add_read_part(m, f, e, a, z, d)                          \
+#define frrzmq_event_add_read_part(m, f, e, a, z, d)                           \
 	_xref_zmq_a(READ, f, d,                                                \
-		_frrzmq_thread_add_read(&_xref, m, NULL, f, e, a, z, d))
+		    _frrzmq_event_add_read(&_xref, m, NULL, f, e, a, z, d))
 
-#define frrzmq_thread_add_write_msg(m, f, e, a, z, d)                          \
+#define frrzmq_event_add_write_msg(m, f, e, a, z, d)                           \
 	_xref_zmq_a(WRITE, f, d,                                               \
-		_frrzmq_thread_add_write(&_xref, m, f, e, a, z, d))
+		    _frrzmq_event_add_write(&_xref, m, f, e, a, z, d))
 
 struct cb_core;
 struct frrzmq_cb;
@@ -108,18 +108,20 @@ struct frrzmq_cb;
  *   may schedule the event to run as soon as libfrr is back in its main
  *   loop.
  */
-extern int _frrzmq_thread_add_read(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	void (*msgfunc)(void *arg, void *zmqsock),
-	void (*partfunc)(void *arg, void *zmqsock, zmq_msg_t *msg,
-			 unsigned partnum),
-	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
-	struct frrzmq_cb **cb);
-extern int _frrzmq_thread_add_write(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	void (*msgfunc)(void *arg, void *zmqsock),
-	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
-	struct frrzmq_cb **cb);
+extern int
+_frrzmq_event_add_read(const struct xref_threadsched *xref,
+		       struct thread_master *master,
+		       void (*msgfunc)(void *arg, void *zmqsock),
+		       void (*partfunc)(void *arg, void *zmqsock,
+					zmq_msg_t *msg, unsigned partnum),
+		       void (*errfunc)(void *arg, void *zmqsock), void *arg,
+		       void *zmqsock, struct frrzmq_cb **cb);
+extern int _frrzmq_event_add_write(const struct xref_threadsched *xref,
+				   struct thread_master *master,
+				   void (*msgfunc)(void *arg, void *zmqsock),
+				   void (*errfunc)(void *arg, void *zmqsock),
+				   void *arg, void *zmqsock,
+				   struct frrzmq_cb **cb);
 
 extern void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core);
 

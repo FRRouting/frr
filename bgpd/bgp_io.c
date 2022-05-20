@@ -55,8 +55,8 @@ void bgp_writes_on(struct peer *peer)
 	assert(!peer->t_connect_check_w);
 	assert(peer->fd);
 
-	thread_add_write(fpt->master, bgp_process_writes, peer, peer->fd,
-			 &peer->t_write);
+	event_add_write(fpt->master, bgp_process_writes, peer, peer->fd,
+			&peer->t_write);
 	SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
@@ -85,8 +85,8 @@ void bgp_reads_on(struct peer *peer)
 	assert(!peer->t_connect_check_w);
 	assert(peer->fd);
 
-	thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
-			&peer->t_read);
+	event_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
+		       &peer->t_read);
 
 	SET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 }
@@ -142,8 +142,8 @@ static void bgp_process_writes(struct event *thread)
 	 * sent in the update message
 	 */
 	if (reschedule) {
-		thread_add_write(fpt->master, bgp_process_writes, peer,
-				 peer->fd, &peer->t_write);
+		event_add_write(fpt->master, bgp_process_writes, peer, peer->fd,
+				&peer->t_write);
 	} else if (!fatal) {
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
@@ -247,8 +247,8 @@ static void bgp_process_reads(struct event *thread)
 		/* Handle the error in the main pthread, include the
 		 * specific state change from 'bgp_read'.
 		 */
-		thread_add_event(bm->master, bgp_packet_process_error,
-				 peer, code, &peer->t_process_packet_error);
+		event_add_event(bm->master, bgp_packet_process_error, peer,
+				code, &peer->t_process_packet_error);
 		goto done;
 	}
 
@@ -292,11 +292,11 @@ done:
 	if (!ibuf_full)
 		assert(ringbuf_space(peer->ibuf_work) >= peer->max_packet_size);
 
-	thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
-			&peer->t_read);
+	event_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
+		       &peer->t_read);
 	if (added_pkt)
-		thread_add_event(bm->master, bgp_process_packet, peer, 0,
-				 &peer->t_process_packet);
+		event_add_event(bm->master, bgp_process_packet, peer, 0,
+				&peer->t_process_packet);
 }
 
 /*

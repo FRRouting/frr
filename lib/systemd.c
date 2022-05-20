@@ -70,8 +70,8 @@ static void systemd_send_watchdog(struct event *t)
 	systemd_send_information("WATCHDOG=1");
 
 	assert(watchdog_msec > 0);
-	thread_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
-			      watchdog_msec, NULL);
+	event_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
+			     watchdog_msec, NULL);
 }
 
 void systemd_send_started(struct thread_master *m)

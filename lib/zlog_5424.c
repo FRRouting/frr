@@ -800,8 +800,8 @@ static void zlog_5424_reconnect(struct event *t)
 		ret = read(fd, dummy, sizeof(dummy));
 		if (ret > 0) {
 			/* logger is sending us something?!?! */
-			thread_add_read(t->master, zlog_5424_reconnect, zcf, fd,
-					&zcf->t_reconnect);
+			event_add_read(t->master, zlog_5424_reconnect, zcf, fd,
+				       &zcf->t_reconnect);
 			return;
 		}
 
@@ -1030,14 +1030,14 @@ static int zlog_5424_open(struct zlog_cfg_5424 *zcf, int sock_type)
 		assert(zcf->master);
 
 		if (fd != -1) {
-			thread_add_read(zcf->master, zlog_5424_reconnect, zcf,
-					fd, &zcf->t_reconnect);
+			event_add_read(zcf->master, zlog_5424_reconnect, zcf,
+				       fd, &zcf->t_reconnect);
 			zcf->reconn_backoff_cur = zcf->reconn_backoff;
 
 		} else {
-			thread_add_timer_msec(zcf->master, zlog_5424_reconnect,
-					      zcf, zcf->reconn_backoff_cur,
-					      &zcf->t_reconnect);
+			event_add_timer_msec(zcf->master, zlog_5424_reconnect,
+					     zcf, zcf->reconn_backoff_cur,
+					     &zcf->t_reconnect);
 
 			zcf->reconn_backoff_cur += zcf->reconn_backoff_cur / 2;
 			if (zcf->reconn_backoff_cur > zcf->reconn_backoff_max)

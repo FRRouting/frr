@@ -46,7 +46,7 @@ int accept_add(int fd, void (*cb)(struct event *), void *arg)
 	av->arg = arg;
 	LIST_INSERT_HEAD(&accept_queue.queue, av, entry);
 
-	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
+	event_add_read(master, accept_cb, av, av->fd, &av->ev);
 
 	log_debug("%s: accepting on fd %d", __func__, fd);
 
@@ -73,7 +73,7 @@ accept_pause(void)
 {
 	log_debug(__func__);
 	accept_unarm();
-	thread_add_timer(master, accept_timeout, NULL, 1, &accept_queue.evt);
+	event_add_timer(master, accept_timeout, NULL, 1, &accept_queue.evt);
 }
 
 void
@@ -91,7 +91,7 @@ accept_arm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry) {
-		thread_add_read(master, accept_cb, av, av->fd, &av->ev);
+		event_add_read(master, accept_cb, av, av->fd, &av->ev);
 	}
 }
 
@@ -106,7 +106,7 @@ accept_unarm(void)
 static void accept_cb(struct event *thread)
 {
 	struct accept_ev	*av = THREAD_ARG(thread);
-	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
+	event_add_read(master, accept_cb, av, av->fd, &av->ev);
 	av->accept_cb(thread);
 }
 

@@ -266,8 +266,8 @@ static void zclient_flush_data(struct event *thread)
 		return;
 	case BUFFER_PENDING:
 		zclient->t_write = NULL;
-		thread_add_write(zclient->master, zclient_flush_data, zclient,
-				 zclient->sock, &zclient->t_write);
+		event_add_write(zclient->master, zclient_flush_data, zclient,
+				zclient->sock, &zclient->t_write);
 		break;
 	case BUFFER_EMPTY:
 		if (zclient->zebra_buffer_write_ready)
@@ -298,8 +298,8 @@ enum zclient_send_status zclient_send_message(struct zclient *zclient)
 		THREAD_OFF(zclient->t_write);
 		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
-		thread_add_write(zclient->master, zclient_flush_data, zclient,
-				 zclient->sock, &zclient->t_write);
+		event_add_write(zclient->master, zclient_flush_data, zclient,
+				zclient->sock, &zclient->t_write);
 		return ZCLIENT_SEND_BUFFERED;
 	}
 
@@ -4204,22 +4204,22 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
 	case ZCLIENT_SCHEDULE:
-		thread_add_event(zclient->master, zclient_connect, zclient, 0,
-				 &zclient->t_connect);
+		event_add_event(zclient->master, zclient_connect, zclient, 0,
+				&zclient->t_connect);
 		break;
 	case ZCLIENT_CONNECT:
 		if (zclient_debug)
 			zlog_debug(
 				"zclient connect failures: %d schedule interval is now %d",
 				zclient->fail, zclient->fail < 3 ? 10 : 60);
-		thread_add_timer(zclient->master, zclient_connect, zclient,
-				 zclient->fail < 3 ? 10 : 60,
-				 &zclient->t_connect);
+		event_add_timer(zclient->master, zclient_connect, zclient,
+				zclient->fail < 3 ? 10 : 60,
+				&zclient->t_connect);
 		break;
 	case ZCLIENT_READ:
 		zclient->t_read = NULL;
-		thread_add_read(zclient->master, zclient_read, zclient,
-				zclient->sock, &zclient->t_read);
+		event_add_read(zclient->master, zclient_read, zclient,
+			       zclient->sock, &zclient->t_read);
 		break;
 	}
 }

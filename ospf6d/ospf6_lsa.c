@@ -875,8 +875,8 @@ void ospf6_lsa_refresh(struct event *thread)
 
 	new = ospf6_lsa_create(self->header);
 	new->lsdb = old->lsdb;
-	thread_add_timer(master, ospf6_lsa_refresh, new, OSPF_LS_REFRESH_TIME,
-			 &new->refresh);
+	event_add_timer(master, ospf6_lsa_refresh, new, OSPF_LS_REFRESH_TIME,
+			&new->refresh);
 
 	/* store it in the LSDB for self-originated LSAs */
 	ospf6_lsdb_add(ospf6_lsa_copy(new), lsdb_self);

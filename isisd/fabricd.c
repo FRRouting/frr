@@ -267,8 +267,8 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 	if (f->initial_sync_timeout)
 		return;
 
-	thread_add_timer(master, fabricd_initial_sync_timeout, f,
-			 timeout, &f->initial_sync_timeout);
+	event_add_timer(master, fabricd_initial_sync_timeout, f, timeout,
+			&f->initial_sync_timeout);
 	f->initial_sync_start = monotime(NULL);
 
 	if (IS_DEBUG_ADJ_PACKETS)
@@ -408,10 +408,9 @@ static void fabricd_tier_calculation_cb(struct event *thread)
 	zlog_info("OpenFabric: Got tier %hhu from algorithm. Arming timer.",
 		  tier);
 	f->tier_pending = tier;
-	thread_add_timer(master, fabricd_tier_set_timer, f,
-			 f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
-			 &f->tier_set_timer);
-
+	event_add_timer(master, fabricd_tier_set_timer, f,
+			f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
+			&f->tier_set_timer);
 }
 
 static void fabricd_bump_tier_calculation_timer(struct fabricd *f)
@@ -427,9 +426,9 @@ static void fabricd_bump_tier_calculation_timer(struct fabricd *f)
 	 * the calculation */
 	THREAD_OFF(f->tier_calculation_timer);
 
-	thread_add_timer(master, fabricd_tier_calculation_cb, f,
-			 2 * f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
-			 &f->tier_calculation_timer);
+	event_add_timer(master, fabricd_tier_calculation_cb, f,
+			2 * f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
+			&f->tier_calculation_timer);
 }
 
 static void fabricd_set_tier(struct fabricd *f, uint8_t tier)
@@ -711,9 +710,9 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 			continue;
 
 		THREAD_OFF(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
-		thread_add_timer_msec(master, send_l2_csnp, circuit,
-				      isis_jitter(f->csnp_delay, CSNP_JITTER),
-				      &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
+		event_add_timer_msec(master, send_l2_csnp, circuit,
+				     isis_jitter(f->csnp_delay, CSNP_JITTER),
+				     &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
 	}
 }
 

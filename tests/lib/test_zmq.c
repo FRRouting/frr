@@ -212,8 +212,8 @@ static void serverpartfn(void *arg, void *zmqsock, zmq_msg_t *msg,
 	printf("server recv: %s\n", buf);
 	fflush(stdout);
 
-	frrzmq_thread_add_write_msg(master, serverwritefn, NULL, msg_id,
-				    zmqsock, &cb);
+	frrzmq_event_add_write_msg(master, serverwritefn, NULL, msg_id, zmqsock,
+				   &cb);
 }
 
 static void serverfn(void *arg, void *zmqsock)
@@ -242,8 +242,8 @@ static void serverfn(void *arg, void *zmqsock)
 	frrzmq_thread_cancel(&cb, &cb->read);
 	frrzmq_thread_cancel(&cb, &cb->write);
 
-	frrzmq_thread_add_read_part(master, serverpartfn, NULL, NULL, zmqsock,
-				    &cb);
+	frrzmq_event_add_read_part(master, serverpartfn, NULL, NULL, zmqsock,
+				   &cb);
 }
 
 static void sigchld(void)
@@ -276,7 +276,7 @@ static void run_server(int syncfd)
 		exit(1);
 	}
 
-	frrzmq_thread_add_read_msg(master, serverfn, NULL, NULL, zmqsock, &cb);
+	frrzmq_event_add_read_msg(master, serverfn, NULL, NULL, zmqsock, &cb);
 
 	write(syncfd, &dummy, sizeof(dummy));
 	while (thread_fetch(master, &t))

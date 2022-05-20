@@ -3738,8 +3738,8 @@ static void vtysh_log_read(struct event *thread)
 	const char *text;
 	ssize_t ret;
 
-	thread_add_read(master, vtysh_log_read, vclient, vclient->log_fd,
-			&vclient->log_reader);
+	event_add_read(master, vtysh_log_read, vclient, vclient->log_fd,
+		       &vclient->log_reader);
 
 	ret = recv(vclient->log_fd, &buf, sizeof(buf), 0);
 
@@ -3835,9 +3835,9 @@ DEFPY (vtysh_terminal_monitor,
 			if (fd != -1) {
 				set_nonblocking(fd);
 				vclient->log_fd = fd;
-				thread_add_read(master, vtysh_log_read, vclient,
-						vclient->log_fd,
-						&vclient->log_reader);
+				event_add_read(master, vtysh_log_read, vclient,
+					       vclient->log_fd,
+					       &vclient->log_reader);
 			}
 			if (ret != CMD_SUCCESS) {
 				vty_out(vty, "%% failed to enable logs on %s\n",

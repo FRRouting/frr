@@ -496,8 +496,8 @@ static int ospf_sr_start(struct ospf *ospf)
 	if (!ospf_zebra_label_manager_ready())
 		if (ospf_zebra_label_manager_connect() < 0) {
 			/* Re-attempt to connect to Label Manager in 1 sec. */
-			thread_add_timer(master, sr_start_label_manager, ospf,
-					 1, &OspfSR.t_start_lm);
+			event_add_timer(master, sr_start_label_manager, ospf, 1,
+					&OspfSR.t_start_lm);
 			osr_debug("  |- Failed to start the Label Manager");
 			return -1;
 		}

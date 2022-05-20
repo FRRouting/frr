@@ -2226,27 +2226,27 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 
 	switch (event) {
 	case MGMTD_TXN_PROC_SETCFG:
-		thread_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_set_cfg,
+		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_set_cfg,
 				    txn, &tv, &txn->proc_set_cfg);
 		assert(txn->proc_set_cfg);
 		break;
 	case MGMTD_TXN_PROC_COMMITCFG:
-		thread_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_commit_cfg,
+		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_commit_cfg,
 				    txn, &tv, &txn->proc_comm_cfg);
 		assert(txn->proc_comm_cfg);
 		break;
 	case MGMTD_TXN_PROC_GETCFG:
-		thread_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg,
+		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg,
 				    txn, &tv, &txn->proc_get_cfg);
 		assert(txn->proc_get_cfg);
 		break;
 	case MGMTD_TXN_PROC_GETDATA:
-		thread_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_data,
+		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_data,
 				    txn, &tv, &txn->proc_get_data);
 		assert(txn->proc_get_data);
 		break;
 	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		thread_add_timer_msec(mgmt_txn_tm,
+		event_add_timer_msec(mgmt_txn_tm,
 				      mgmt_txn_cfg_commit_timedout, txn,
 				      MGMTD_TXN_CFG_COMMIT_MAX_DELAY_MSEC,
 				      &txn->comm_cfg_timeout);
@@ -2254,7 +2254,7 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 		break;
 	case MGMTD_TXN_CLEANUP:
 		tv.tv_usec = MGMTD_TXN_CLEANUP_DELAY_USEC;
-		thread_add_timer_tv(mgmt_txn_tm, mgmt_txn_cleanup, txn, &tv,
+		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_cleanup, txn, &tv,
 				    &txn->clnup);
 		assert(txn->clnup);
 	}

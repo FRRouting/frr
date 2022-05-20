@@ -460,8 +460,8 @@ static inline void zfpm_read_on(void)
 	assert(!zfpm_g->t_read);
 	assert(zfpm_g->sock >= 0);
 
-	thread_add_read(zfpm_g->master, zfpm_read_cb, 0, zfpm_g->sock,
-			&zfpm_g->t_read);
+	event_add_read(zfpm_g->master, zfpm_read_cb, 0, zfpm_g->sock,
+		       &zfpm_g->t_read);
 }
 
 /*
@@ -472,8 +472,8 @@ static inline void zfpm_write_on(void)
 	assert(!zfpm_g->t_write);
 	assert(zfpm_g->sock >= 0);
 
-	thread_add_write(zfpm_g->master, zfpm_write_cb, 0, zfpm_g->sock,
-			 &zfpm_g->t_write);
+	event_add_write(zfpm_g->master, zfpm_write_cb, 0, zfpm_g->sock,
+			&zfpm_g->t_write);
 }
 
 /*
@@ -542,8 +542,8 @@ static void zfpm_conn_up_thread_cb(struct event *thread)
 
 		zfpm_g->stats.t_conn_up_yields++;
 		zfpm_rnodes_iter_pause(iter);
-		thread_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb,
-				      NULL, 0, &zfpm_g->t_conn_up);
+		event_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb,
+				     NULL, 0, &zfpm_g->t_conn_up);
 		return;
 	}
 
@@ -575,8 +575,8 @@ static void zfpm_connection_up(const char *detail)
 
 	zfpm_debug("Starting conn_up thread");
 
-	thread_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb, NULL, 0,
-			      &zfpm_g->t_conn_up);
+	event_add_timer_msec(zfpm_g->master, zfpm_conn_up_thread_cb, NULL, 0,
+			     &zfpm_g->t_conn_up);
 	zfpm_g->stats.t_conn_up_starts++;
 }
 
@@ -668,8 +668,8 @@ static void zfpm_conn_down_thread_cb(struct event *thread)
 		zfpm_g->stats.t_conn_down_yields++;
 		zfpm_rnodes_iter_pause(iter);
 		zfpm_g->t_conn_down = NULL;
-		thread_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb,
-				      NULL, 0, &zfpm_g->t_conn_down);
+		event_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb,
+				     NULL, 0, &zfpm_g->t_conn_down);
 		return;
 	}
 
@@ -713,8 +713,8 @@ static void zfpm_connection_down(const char *detail)
 	assert(!zfpm_g->t_conn_down);
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_down_state.iter);
 	zfpm_g->t_conn_down = NULL;
-	thread_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
-			      &zfpm_g->t_conn_down);
+	event_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
+			     &zfpm_g->t_conn_down);
 	zfpm_g->stats.t_conn_down_starts++;
 
 	zfpm_set_state(ZFPM_STATE_IDLE, detail);
@@ -1388,8 +1388,8 @@ static void zfpm_start_connect_timer(const char *reason)
 	delay_secs = zfpm_calc_connect_delay();
 	zfpm_debug("scheduling connect in %ld seconds", delay_secs);
 
-	thread_add_timer(zfpm_g->master, zfpm_connect_cb, 0, delay_secs,
-			 &zfpm_g->t_connect);
+	event_add_timer(zfpm_g->master, zfpm_connect_cb, 0, delay_secs,
+			&zfpm_g->t_connect);
 	zfpm_set_state(ZFPM_STATE_ACTIVE, reason);
 }
 
@@ -1707,8 +1707,8 @@ void zfpm_start_stats_timer(void)
 {
 	assert(!zfpm_g->t_stats);
 
-	thread_add_timer(zfpm_g->master, zfpm_stats_timer_cb, 0,
-			 ZFPM_STATS_IVL_SECS, &zfpm_g->t_stats);
+	event_add_timer(zfpm_g->master, zfpm_stats_timer_cb, 0,
+			ZFPM_STATS_IVL_SECS, &zfpm_g->t_stats);
 }
 
 /*

@@ -107,8 +107,8 @@ static void bgp_reuse_timer(struct event *t)
 	struct bgp_damp_config *bdc = THREAD_ARG(t);
 
 	bdc->t_reuse = NULL;
-	thread_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
-			 &bdc->t_reuse);
+	event_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
+			&bdc->t_reuse);
 
 	t_now = monotime(NULL);
 
@@ -395,8 +395,8 @@ int bgp_damp_enable(struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
 	bgp_damp_parameter_set(half, reuse, suppress, max, bdc);
 
 	/* Register reuse timer.  */
-	thread_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
-			 &bdc->t_reuse);
+	event_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
+			&bdc->t_reuse);
 
 	return 0;
 }

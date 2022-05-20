@@ -764,8 +764,8 @@ static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 			m->rfd->response_lifetime);
 	}
 
-	thread_add_timer(bm->master, rfapiMonitorTimerExpire, m,
-			 m->rfd->response_lifetime, &m->timer);
+	event_add_timer(bm->master, rfapiMonitorTimerExpire, m,
+			m->rfd->response_lifetime, &m->timer);
 }
 
 /*
@@ -1072,8 +1072,8 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 			m->rfd->response_lifetime);
 	}
 
-	thread_add_timer(bm->master, rfapiMonitorEthTimerExpire, m,
-			 m->rfd->response_lifetime, &m->timer);
+	event_add_timer(bm->master, rfapiMonitorEthTimerExpire, m,
+			m->rfd->response_lifetime, &m->timer);
 }
 
 static int mon_eth_cmp(const void *a, const void *b)

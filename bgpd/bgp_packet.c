@@ -2595,10 +2595,10 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		}
 
 		if (peer_established(peer))
-			thread_add_timer(bm->master,
-					 bgp_refresh_stalepath_timer_expire,
-					 paf, peer->bgp->stalepath_time,
-					 &peer->t_refresh_stalepath);
+			event_add_timer(bm->master,
+					bgp_refresh_stalepath_timer_expire, paf,
+					peer->bgp->stalepath_time,
+					&peer->t_refresh_stalepath);
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -3021,9 +3021,9 @@ void bgp_process_packet(struct event *thread)
 		frr_with_mutex (&peer->io_mtx) {
 			// more work to do, come back later
 			if (peer->ibuf->count > 0)
-				thread_add_event(
-					bm->master, bgp_process_packet, peer, 0,
-					&peer->t_process_packet);
+				event_add_event(bm->master, bgp_process_packet,
+						peer, 0,
+						&peer->t_process_packet);
 		}
 	}
 }

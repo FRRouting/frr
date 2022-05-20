@@ -38,12 +38,12 @@ static void test_timer(struct event *thread)
 	int *count = THREAD_ARG(thread);
 
 	printf("run %d of timer\n", (*count)++);
-	thread_add_timer(master, test_timer, count, 5, NULL);
+	event_add_timer(master, test_timer, count, 5, NULL);
 }
 
 static void test_timer_init(void)
 {
-	thread_add_timer(master, test_timer, &timer_count, 10, NULL);
+	event_add_timer(master, test_timer, &timer_count, 10, NULL);
 }
 
 static void test_vty_init(void)

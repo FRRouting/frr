@@ -87,8 +87,8 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	}
 
 	/* Update timeout thread. */
-	thread_add_timer(master, ripng_peer_timeout, peer,
-			 RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
+	event_add_timer(master, ripng_peer_timeout, peer,
+			RIPNG_PEER_TIMER_DEFAULT, &peer->t_timeout);
 
 	/* Last update time set. */
 	time(&peer->uptime);

@@ -528,7 +528,7 @@ static void frr_sr_read_cb(struct event *thread)
 		return;
 	}
 
-	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
+	event_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
 }
 
 static void frr_sr_subscribe_config(struct yang_module *module)
@@ -688,8 +688,8 @@ static int frr_sr_init(void)
 				 sr_strerror(ret));
 			goto cleanup;
 		}
-		thread_add_read(master, frr_sr_read_cb, module,
-				event_pipe, &module->sr_thread);
+		event_add_read(master, frr_sr_read_cb, module, event_pipe,
+			       &module->sr_thread);
 	}
 
 	hook_register(nb_notification_send, frr_sr_notification_send);

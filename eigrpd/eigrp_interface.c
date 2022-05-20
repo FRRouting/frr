@@ -251,7 +251,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	/* Set multicast memberships appropriately for new state. */
 	eigrp_if_set_multicast(ei);
 
-	thread_add_event(master, eigrp_hello_timer, ei, (1), &ei->t_hello);
+	event_add_event(master, eigrp_hello_timer, ei, (1), &ei->t_hello);
 
 	/*Prepare metrics*/
 	metric.bandwidth = eigrp_bandwidth_to_scaled(ei->params.bandwidth);

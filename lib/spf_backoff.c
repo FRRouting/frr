@@ -139,21 +139,21 @@ long spf_backoff_schedule(struct spf_backoff *backoff)
 	switch (backoff->state) {
 	case SPF_BACKOFF_QUIET:
 		backoff->state = SPF_BACKOFF_SHORT_WAIT;
-		thread_add_timer_msec(
+		event_add_timer_msec(
 			backoff->m, spf_backoff_timetolearn_elapsed, backoff,
 			backoff->timetolearn, &backoff->t_timetolearn);
-		thread_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
-				      backoff, backoff->holddown,
-				      &backoff->t_holddown);
+		event_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
+				     backoff, backoff->holddown,
+				     &backoff->t_holddown);
 		backoff->first_event_time = now;
 		rv = backoff->init_delay;
 		break;
 	case SPF_BACKOFF_SHORT_WAIT:
 	case SPF_BACKOFF_LONG_WAIT:
 		thread_cancel(&backoff->t_holddown);
-		thread_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
-				      backoff, backoff->holddown,
-				      &backoff->t_holddown);
+		event_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
+				     backoff, backoff->holddown,
+				     &backoff->t_holddown);
 		if (backoff->state == SPF_BACKOFF_SHORT_WAIT)
 			rv = backoff->short_delay;
 		else

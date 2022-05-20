@@ -409,8 +409,8 @@ static void bgpd_sync_callback(struct event *thread)
 	struct prefix prefix;
 	struct pfx_record rec;
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	event_add_read(bm->master, bgpd_sync_callback, NULL,
+		       rpki_sync_socket_bgpd, NULL);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
 		while (read(rpki_sync_socket_bgpd, &rec,
@@ -448,8 +448,8 @@ static void bgpd_sync_callback(struct event *thread)
 			rrp->prefix = prefix;
 			rrp->afi = afi;
 			rrp->safi = safi;
-			thread_add_event(bm->master, rpki_revalidate_prefix,
-					 rrp, 0, &bgp->t_revalidate[afi][safi]);
+			event_add_event(bm->master, rpki_revalidate_prefix, rrp,
+					0, &bgp->t_revalidate[afi][safi]);
 		}
 	}
 }
@@ -529,7 +529,7 @@ static void revalidate_all_routes(void)
 				rvp->afi = afi;
 				rvp->safi = safi;
 
-				thread_add_event(
+				event_add_event(
 					bm->master, bgp_rpki_revalidate_peer,
 					rvp, 0,
 					&peer->t_revalidate_all[afi][safi]);
@@ -580,8 +580,8 @@ static void rpki_init_sync_socket(void)
 	}
 
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	event_add_read(bm->master, bgpd_sync_callback, NULL,
+		       rpki_sync_socket_bgpd, NULL);
 
 	return;
 
@@ -635,9 +635,9 @@ static void sync_expired(struct event *thread)
 {
 	if (!rtr_mgr_conf_in_sync(rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");
-		thread_add_timer(bm->master, sync_expired, NULL,
-				 BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
-				 &t_rpki_sync);
+		event_add_timer(bm->master, sync_expired, NULL,
+				BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT,
+				&t_rpki_sync);
 		return;
 	}
 
@@ -680,7 +680,7 @@ static int start(void)
 		return ERROR;
 	}
 
-	thread_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
+	event_add_timer(bm->master, sync_expired, NULL, 0, &t_rpki_sync);
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 

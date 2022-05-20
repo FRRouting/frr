@@ -180,8 +180,8 @@ static void pim_vxlan_work_timer_setup(bool start)
 {
 	THREAD_OFF(vxlan_info.work_timer);
 	if (start)
-		thread_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
-			PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
+		event_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
+				PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
 }
 
 /**************************** vxlan origination mroutes ***********************

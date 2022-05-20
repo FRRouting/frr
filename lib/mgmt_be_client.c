@@ -1053,25 +1053,25 @@ mgmt_be_client_register_event(struct mgmt_be_client_ctx *client_ctx,
 
 	switch (event) {
 	case MGMTD_BE_CONN_READ:
-		thread_add_read(client_ctx->tm, mgmt_be_client_read,
+		event_add_read(client_ctx->tm, mgmt_be_client_read,
 				client_ctx, client_ctx->conn_fd,
 				&client_ctx->conn_read_ev);
 		assert(client_ctx->conn_read_ev);
 		break;
 	case MGMTD_BE_CONN_WRITE:
-		thread_add_write(client_ctx->tm, mgmt_be_client_write,
+		event_add_write(client_ctx->tm, mgmt_be_client_write,
 				 client_ctx, client_ctx->conn_fd,
 				 &client_ctx->conn_write_ev);
 		assert(client_ctx->conn_write_ev);
 		break;
 	case MGMTD_BE_PROC_MSG:
 		tv.tv_usec = MGMTD_BE_MSG_PROC_DELAY_USEC;
-		thread_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
+		event_add_timer_tv(client_ctx->tm, mgmt_be_client_proc_msgbufs,
 				    client_ctx, &tv, &client_ctx->msg_proc_ev);
 		assert(client_ctx->msg_proc_ev);
 		break;
 	case MGMTD_BE_CONN_WRITES_ON:
-		thread_add_timer_msec(client_ctx->tm,
+		event_add_timer_msec(client_ctx->tm,
 				      mgmt_be_client_resume_writes, client_ctx,
 				      MGMTD_BE_MSG_WRITE_DELAY_MSEC,
 				      &client_ctx->conn_writes_on);
@@ -1095,7 +1095,7 @@ mgmt_be_client_schedule_conn_retry(struct mgmt_be_client_ctx *client_ctx,
 	MGMTD_BE_CLIENT_DBG(
 		"Scheduling MGMTD Backend server connection retry after %lu seconds",
 		intvl_secs);
-	thread_add_timer(client_ctx->tm, mgmt_be_client_conn_timeout,
+	event_add_timer(client_ctx->tm, mgmt_be_client_conn_timeout,
 			 (void *)client_ctx, intvl_secs,
 			 &client_ctx->conn_retry_tmr);
 }

@@ -207,8 +207,8 @@ static int ospf6_vrf_enable(struct vrf *vrf)
 			ret = ospf6_serv_sock(ospf6);
 			if (ret < 0 || ospf6->fd <= 0)
 				return 0;
-			thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
-					&ospf6->t_ospf6_receive);
+			event_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+				       &ospf6->t_ospf6_receive);
 
 			ospf6_router_id_update(ospf6, true);
 		}
@@ -471,8 +471,8 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	 */
 	ospf6_gr_nvm_read(ospf6);
 
-	thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
-			&ospf6->t_ospf6_receive);
+	event_add_read(master, ospf6_receive, ospf6, ospf6->fd,
+		       &ospf6->t_ospf6_receive);
 
 	return ospf6;
 }
@@ -619,9 +619,9 @@ static void ospf6_maxage_remover(struct event *thread)
 void ospf6_maxage_remove(struct ospf6 *o)
 {
 	if (o)
-		thread_add_timer(master, ospf6_maxage_remover, o,
-				 OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
-				 &o->maxage_remover);
+		event_add_timer(master, ospf6_maxage_remover, o,
+				OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
+				&o->maxage_remover);
 }
 
 bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)

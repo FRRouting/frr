@@ -2269,9 +2269,9 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 
 	/* Start the DF delay timer on the local ES */
 	if (!es->df_delay_timer)
-		thread_add_timer(zrouter.master, zebra_evpn_es_df_delay_exp_cb,
-				 es, ZEBRA_EVPN_MH_DF_DELAY_TIME,
-				 &es->df_delay_timer);
+		event_add_timer(zrouter.master, zebra_evpn_es_df_delay_exp_cb,
+				es, ZEBRA_EVPN_MH_DF_DELAY_TIME,
+				&es->df_delay_timer);
 
 	/* See if the local VTEP can function as DF on the ES */
 	if (!zebra_evpn_es_run_df_election(es, __func__)) {
@@ -3939,10 +3939,10 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 			zlog_debug(
 				"startup-delay timer started for %d sec on %s",
 				zmh_info->startup_delay_time, rc);
-		thread_add_timer(zrouter.master,
-				 zebra_evpn_mh_startup_delay_exp_cb, NULL,
-				 zmh_info->startup_delay_time,
-				 &zmh_info->startup_delay_timer);
+		event_add_timer(zrouter.master,
+				zebra_evpn_mh_startup_delay_exp_cb, NULL,
+				zmh_info->startup_delay_time,
+				&zmh_info->startup_delay_timer);
 		zebra_evpn_mh_update_protodown(
 			ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY, true /* set */);
 	} else {

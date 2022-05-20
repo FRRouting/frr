@@ -906,8 +906,8 @@ void eigrp_update_send_GR_thread(struct event *thread)
 	/* if there is packet waiting in queue,
 	 * schedule this thread again with small delay */
 	if (nbr->retrans_queue->count > 0) {
-		thread_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
-				      10, &nbr->t_nbr_send_gr);
+		event_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
+				     10, &nbr->t_nbr_send_gr);
 		return;
 	}
 

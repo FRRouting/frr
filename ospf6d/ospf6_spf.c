@@ -725,8 +725,8 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
 	THREAD_OFF(ospf6->t_spf_calc);
-	thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6,
-			      delay, &ospf6->t_spf_calc);
+	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
+			     &ospf6->t_spf_calc);
 }
 
 void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
@@ -1272,6 +1272,6 @@ void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6)
 	if (ospf6 == NULL)
 		return;
 
-	thread_add_timer(master, ospf6_ase_calculate_timer, ospf6,
-			 OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
+	event_add_timer(master, ospf6_ase_calculate_timer, ospf6,
+			OSPF6_ASE_CALC_INTERVAL, &ospf6->t_ase_calc);
 }

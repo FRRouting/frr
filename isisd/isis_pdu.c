@@ -193,8 +193,8 @@ static int process_p2p_hello(struct iih_info *iih)
 
 	/* lets take care of the expiry */
 	THREAD_OFF(adj->t_expire);
-	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
-			 &adj->t_expire);
+	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
+			&adj->t_expire);
 
 	/* While fabricds initial sync is in progress, ignore hellos from other
 	 * interfaces than the one we are performing the initial sync on. */
@@ -466,8 +466,8 @@ static int process_lan_hello(struct iih_info *iih)
 				       : iih->circuit->u.bc.l2_desig_is;
 
 		if (memcmp(dis, iih->dis, ISIS_SYS_ID_LEN + 1)) {
-			thread_add_event(master, isis_event_dis_status_change,
-					 iih->circuit, 0, NULL);
+			event_add_event(master, isis_event_dis_status_change,
+					iih->circuit, 0, NULL);
 			memcpy(dis, iih->dis, ISIS_SYS_ID_LEN + 1);
 		}
 	}
@@ -485,8 +485,8 @@ static int process_lan_hello(struct iih_info *iih)
 
 	/* lets take care of the expiry */
 	THREAD_OFF(adj->t_expire);
-	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
-			 &adj->t_expire);
+	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
+			&adj->t_expire);
 
 	/*
 	 * If the snpa for this circuit is found from LAN Neighbours TLV
@@ -2059,10 +2059,9 @@ static void _send_hello_sched(struct isis_circuit *circuit,
 		THREAD_OFF(*threadp);
 	}
 
-	thread_add_timer_msec(master, send_hello_cb,
-			      &circuit->level_arg[level - 1],
-			      isis_jitter(delay, IIH_JITTER),
-			      threadp);
+	event_add_timer_msec(master, send_hello_cb,
+			     &circuit->level_arg[level - 1],
+			     isis_jitter(delay, IIH_JITTER), threadp);
 }
 
 void send_hello_sched(struct isis_circuit *circuit, int level, long delay)
@@ -2254,9 +2253,9 @@ void send_l1_csnp(struct event *thread)
 		send_csnp(circuit, 1);
 	}
 	/* set next timer thread */
-	thread_add_timer(master, send_l1_csnp, circuit,
-			 isis_jitter(circuit->csnp_interval[0], CSNP_JITTER),
-			 &circuit->t_send_csnp[0]);
+	event_add_timer(master, send_l1_csnp, circuit,
+			isis_jitter(circuit->csnp_interval[0], CSNP_JITTER),
+			&circuit->t_send_csnp[0]);
 }
 
 void send_l2_csnp(struct event *thread)
@@ -2274,9 +2273,9 @@ void send_l2_csnp(struct event *thread)
 		send_csnp(circuit, 2);
 	}
 	/* set next timer thread */
-	thread_add_timer(master, send_l2_csnp, circuit,
-			 isis_jitter(circuit->csnp_interval[1], CSNP_JITTER),
-			 &circuit->t_send_csnp[1]);
+	event_add_timer(master, send_l2_csnp, circuit,
+			isis_jitter(circuit->csnp_interval[1], CSNP_JITTER),
+			&circuit->t_send_csnp[1]);
 }
 
 /*
@@ -2405,9 +2404,9 @@ void send_l1_psnp(struct event *thread)
 
 	send_psnp(1, circuit);
 	/* set next timer thread */
-	thread_add_timer(master, send_l1_psnp, circuit,
-			 isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
-			 &circuit->t_send_psnp[0]);
+	event_add_timer(master, send_l1_psnp, circuit,
+			isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
+			&circuit->t_send_psnp[0]);
 }
 
 /*
@@ -2426,9 +2425,9 @@ void send_l2_psnp(struct event *thread)
 	send_psnp(2, circuit);
 
 	/* set next timer thread */
-	thread_add_timer(master, send_l2_psnp, circuit,
-			 isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
-			 &circuit->t_send_psnp[1]);
+	event_add_timer(master, send_l2_psnp, circuit,
+			isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
+			&circuit->t_send_psnp[1]);
 }
 
 /*

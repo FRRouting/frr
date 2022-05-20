@@ -457,7 +457,7 @@ static void ospf_ls_req_timer(struct event *thread)
 void ospf_ls_req_event(struct ospf_neighbor *nbr)
 {
 	THREAD_OFF(nbr->t_ls_req);
-	thread_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
+	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
 /* Cyclic timer function.  Fist registered in ospf_nbr_new () in
@@ -847,8 +847,8 @@ static void ospf_write(struct event *thread)
 
 	/* If packets still remain in queue, call write thread. */
 	if (!list_isempty(ospf->oi_write_q))
-		thread_add_write(master, ospf_write, ospf, ospf->fd,
-				 &ospf->t_write);
+		event_add_write(master, ospf_write, ospf, ospf->fd,
+				&ospf->t_write);
 }
 
 /* OSPF Hello message read -- RFC2328 Section 10.5. */
@@ -3213,7 +3213,7 @@ void ospf_read(struct event *thread)
 	ospf = THREAD_ARG(thread);
 
 	/* prepare for next packet. */
-	thread_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
+	event_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
 
 	while (count < ospf->write_oi_count) {
 		count++;
@@ -4140,8 +4140,8 @@ static void ospf_ls_upd_send_queue_event(struct event *thread)
 				"%s: update lists not cleared, %d nodes to try again, raising new event",
 				__func__, again);
 		oi->t_ls_upd_event = NULL;
-		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
-				 &oi->t_ls_upd_event);
+		event_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
+				&oi->t_ls_upd_event);
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -4212,8 +4212,8 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 					       rn->p.u.prefix4, 1);
 		}
 	} else
-		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
-				 &oi->t_ls_upd_event);
+		event_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
+				&oi->t_ls_upd_event);
 }
 
 static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
@@ -4276,8 +4276,8 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 
 	listnode_add(oi->ls_ack_direct.ls_ack, ospf_lsa_lock(lsa));
 
-	thread_add_event(master, ospf_ls_ack_send_event, oi, 0,
-			 &oi->t_ls_ack_direct);
+	event_add_event(master, ospf_ls_ack_send_event, oi, 0,
+			&oi->t_ls_ack_direct);
 }
 
 /* Send Link State Acknowledgment delayed. */

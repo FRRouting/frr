@@ -65,7 +65,7 @@ static void mgmt_fe_conn_accept(struct event *thread)
 static void mgmt_fe_server_register_event(enum mgmt_fe_event event)
 {
 	if (event == MGMTD_FE_SERVER) {
-		thread_add_read(mgmt_fe_listen_tm, mgmt_fe_conn_accept,
+		event_add_read(mgmt_fe_listen_tm, mgmt_fe_conn_accept,
 				NULL, mgmt_fe_listen_fd,
 				&mgmt_fe_listen_ev);
 		assert(mgmt_fe_listen_ev);

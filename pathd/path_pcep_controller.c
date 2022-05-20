@@ -319,8 +319,8 @@ int pcep_ctrl_send_error(struct frr_pthread *fpt, int pcc_id,
 
 int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res)
 {
-	thread_add_event(fpt->master, pcep_thread_finish_event_handler,
-			 (void *)fpt, 0, NULL);
+	event_add_event(fpt->master, pcep_thread_finish_event_handler,
+			(void *)fpt, 0, NULL);
 	pthread_join(fpt->thread, res);
 
 	return 0;
@@ -469,8 +469,8 @@ int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,
 	data->continue_lsp_update_handler = cb;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->main, pcep_refine_path_event_cb,
-			 (void *)data, 0, NULL);
+	event_add_event(ctrl_state->main, pcep_refine_path_event_cb,
+			(void *)data, 0, NULL);
 	return 0;
 }
 
@@ -535,8 +535,8 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_timer(ctrl_state->self, timer_cb, (void *)data, delay,
-			 thread);
+	event_add_timer(ctrl_state->self, timer_cb, (void *)data, delay,
+			thread);
 
 	return 0;
 }
@@ -640,11 +640,11 @@ int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
 	data->payload = payload;
 
 	if (is_read) {
-		thread_add_read(ctrl_state->self, socket_cb, (void *)data, fd,
-				thread);
+		event_add_read(ctrl_state->self, socket_cb, (void *)data, fd,
+			       thread);
 	} else {
-		thread_add_write(ctrl_state->self, socket_cb, (void *)data, fd,
-				 thread);
+		event_add_write(ctrl_state->self, socket_cb, (void *)data, fd,
+				thread);
 	}
 
 	return 0;
@@ -702,7 +702,7 @@ int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->self, event_cb, (void *)data, 0, NULL);
+	event_add_event(ctrl_state->self, event_cb, (void *)data, 0, NULL);
 
 	return 0;
 }
@@ -964,8 +964,8 @@ int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
-	thread_add_event(ctrl_state->main, pcep_main_event_handler,
-			 (void *)data, 0, NULL);
+	event_add_event(ctrl_state->main, pcep_main_event_handler, (void *)data,
+			0, NULL);
 	return 0;
 }
 

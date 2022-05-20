@@ -2800,26 +2800,26 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 
 	switch (event) {
 	case RTADV_START:
-		thread_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
-				&rtadv->ra_read);
-		thread_add_event(zrouter.master, rtadv_timer, zvrf, 0,
-				 &rtadv->ra_timer);
+		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
+			       &rtadv->ra_read);
+		event_add_event(zrouter.master, rtadv_timer, zvrf, 0,
+				&rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
 		THREAD_OFF(rtadv->ra_timer);
 		THREAD_OFF(rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
-		thread_add_timer(zrouter.master, rtadv_timer, zvrf, val,
-				 &rtadv->ra_timer);
+		event_add_timer(zrouter.master, rtadv_timer, zvrf, val,
+				&rtadv->ra_timer);
 		break;
 	case RTADV_TIMER_MSEC:
-		thread_add_timer_msec(zrouter.master, rtadv_timer, zvrf, val,
-				      &rtadv->ra_timer);
+		event_add_timer_msec(zrouter.master, rtadv_timer, zvrf, val,
+				     &rtadv->ra_timer);
 		break;
 	case RTADV_READ:
-		thread_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
-				&rtadv->ra_read);
+		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
+			       &rtadv->ra_read);
 		break;
 	default:
 		break;

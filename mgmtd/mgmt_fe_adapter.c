@@ -656,13 +656,13 @@ mgmt_fe_session_register_event(struct mgmt_fe_session_ctx *session,
 
 	switch (event) {
 	case MGMTD_FE_SESSION_CFG_TXN_CLNUP:
-		thread_add_timer_tv(mgmt_fe_adapter_tm,
+		event_add_timer_tv(mgmt_fe_adapter_tm,
 				    mgmt_fe_session_cfg_txn_clnup, session,
 				    &tv, &session->proc_cfg_txn_clnp);
 		assert(session->proc_cfg_txn_clnp);
 		break;
 	case MGMTD_FE_SESSION_SHOW_TXN_CLNUP:
-		thread_add_timer_tv(mgmt_fe_adapter_tm,
+		event_add_timer_tv(mgmt_fe_adapter_tm,
 				    mgmt_fe_session_show_txn_clnup, session,
 				    &tv, &session->proc_show_txn_clnp);
 		assert(session->proc_show_txn_clnp);
@@ -1495,25 +1495,25 @@ mgmt_fe_adapter_register_event(struct mgmt_fe_client_adapter *adapter,
 
 	switch (event) {
 	case MGMTD_FE_CONN_READ:
-		thread_add_read(mgmt_fe_adapter_tm, mgmt_fe_adapter_read,
+		event_add_read(mgmt_fe_adapter_tm, mgmt_fe_adapter_read,
 				adapter, adapter->conn_fd, &adapter->conn_read_ev);
 		assert(adapter->conn_read_ev);
 		break;
 	case MGMTD_FE_CONN_WRITE:
-		thread_add_write(mgmt_fe_adapter_tm,
+		event_add_write(mgmt_fe_adapter_tm,
 				 mgmt_fe_adapter_write, adapter,
 				 adapter->conn_fd, &adapter->conn_write_ev);
 		assert(adapter->conn_write_ev);
 		break;
 	case MGMTD_FE_PROC_MSG:
 		tv.tv_usec = MGMTD_FE_MSG_PROC_DELAY_USEC;
-		thread_add_timer_tv(mgmt_fe_adapter_tm,
+		event_add_timer_tv(mgmt_fe_adapter_tm,
 				    mgmt_fe_adapter_proc_msgbufs, adapter,
 				    &tv, &adapter->proc_msg_ev);
 		assert(adapter->proc_msg_ev);
 		break;
 	case MGMTD_FE_CONN_WRITES_ON:
-		thread_add_timer_msec(mgmt_fe_adapter_tm,
+		event_add_timer_msec(mgmt_fe_adapter_tm,
 				      mgmt_fe_adapter_resume_writes, adapter,
 				      MGMTD_FE_MSG_WRITE_DELAY_MSEC,
 				      &adapter->conn_writes_on);

@@ -358,8 +358,8 @@ static void restart_kill(struct event *t_kill)
 		zlog_err(
 			"%s %s child process appears to still be reading configuration, delaying for another %lu time",
 			restart->what, restart->name, gs.restart_timeout);
-		thread_add_timer(master, restart_kill, restart,
-				 gs.restart_timeout, &restart->t_kill);
+		event_add_timer(master, restart_kill, restart,
+				gs.restart_timeout, &restart->t_kill);
 		return;
 	}
 
@@ -369,8 +369,8 @@ static void restart_kill(struct event *t_kill)
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
 	restart->kills++;
-	thread_add_timer(master, restart_kill, restart, gs.restart_timeout,
-			 &restart->t_kill);
+	event_add_timer(master, restart_kill, restart, gs.restart_timeout,
+			&restart->t_kill);
 }
 
 static struct restart_info *find_child(pid_t child)
@@ -505,8 +505,8 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 		snprintf(cmd, sizeof(cmd), command, restart->name);
 #pragma GCC diagnostic pop
 		if ((restart->pid = run_background(cmd)) > 0) {
-			thread_add_timer(master, restart_kill, restart,
-					 gs.restart_timeout, &restart->t_kill);
+			event_add_timer(master, restart_kill, restart,
+					gs.restart_timeout, &restart->t_kill);
 			restart->what = cmdtype;
 			gs.numpids++;
 		} else
@@ -529,29 +529,29 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 #define SET_READ_HANDLER(DMN)                                                  \
 	do {                                                                   \
 		(DMN)->t_read = NULL;                                          \
-		thread_add_read(master, handle_read, (DMN), (DMN)->fd,         \
-				&(DMN)->t_read);                               \
+		event_add_read(master, handle_read, (DMN), (DMN)->fd,          \
+			       &(DMN)->t_read);                                \
 	} while (0);
 
 #define SET_WAKEUP_DOWN(DMN)                                                   \
 	do {                                                                   \
 		(DMN)->t_wakeup = NULL;                                        \
-		thread_add_timer_msec(master, wakeup_down, (DMN),              \
-				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
+		event_add_timer_msec(master, wakeup_down, (DMN),               \
+				     FUZZY(gs.period), &(DMN)->t_wakeup);      \
 	} while (0);
 
 #define SET_WAKEUP_UNRESPONSIVE(DMN)                                           \
 	do {                                                                   \
 		(DMN)->t_wakeup = NULL;                                        \
-		thread_add_timer_msec(master, wakeup_unresponsive, (DMN),      \
-				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
+		event_add_timer_msec(master, wakeup_unresponsive, (DMN),       \
+				     FUZZY(gs.period), &(DMN)->t_wakeup);      \
 	} while (0);
 
 #define SET_WAKEUP_ECHO(DMN)                                                   \
 	do {                                                                   \
 		(DMN)->t_wakeup = NULL;                                        \
-		thread_add_timer_msec(master, wakeup_send_echo, (DMN),         \
-				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
+		event_add_timer_msec(master, wakeup_send_echo, (DMN),          \
+				     FUZZY(gs.period), &(DMN)->t_wakeup);      \
 	} while (0);
 
 static void wakeup_down(struct event *t_wakeup)
@@ -742,8 +742,8 @@ static void daemon_up(struct daemon *dmn, const char *why)
 
 		THREAD_OFF(gs.t_operational);
 
-		thread_add_timer(master, daemon_restarting_operational, NULL,
-				 gs.operational_timeout, &gs.t_operational);
+		event_add_timer(master, daemon_restarting_operational, NULL,
+				gs.operational_timeout, &gs.t_operational);
 	}
 
 	SET_WAKEUP_ECHO(dmn);
@@ -848,10 +848,10 @@ static int try_connect(struct daemon *dmn)
 			zlog_debug("%s: connection in progress", dmn->name);
 		dmn->state = DAEMON_CONNECTING;
 		dmn->fd = sock;
-		thread_add_write(master, check_connect, dmn, dmn->fd,
-				 &dmn->t_write);
-		thread_add_timer(master, wakeup_connect_hanging, dmn,
-				 gs.timeout, &dmn->t_wakeup);
+		event_add_write(master, check_connect, dmn, dmn->fd,
+				&dmn->t_write);
+		event_add_timer(master, wakeup_connect_hanging, dmn, gs.timeout,
+				&dmn->t_wakeup);
 		SET_READ_HANDLER(dmn);
 		return 0;
 	}
@@ -876,8 +876,8 @@ static void set_phase(enum restart_phase new_phase)
 	gs.phase = new_phase;
 	thread_cancel(&gs.t_phase_hanging);
 
-	thread_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
-			 &gs.t_phase_hanging);
+	event_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
+			&gs.t_phase_hanging);
 }
 
 static void phase_check(void)
@@ -1031,8 +1031,8 @@ static void wakeup_send_echo(struct event *t_wakeup)
 		daemon_down(dmn, why);
 	} else {
 		gettimeofday(&dmn->echo_sent, NULL);
-		thread_add_timer(master, wakeup_no_answer, dmn, gs.timeout,
-				 &dmn->t_wakeup);
+		event_add_timer(master, wakeup_no_answer, dmn, gs.timeout,
+				&dmn->t_wakeup);
 	}
 }
 
@@ -1282,8 +1282,8 @@ static void watchfrr_init(int argc, char **argv)
 	struct daemon *dmn, **add = &gs.daemons;
 	char alldaemons[512] = "", *p = alldaemons;
 
-	thread_add_timer_msec(master, startup_timeout, NULL, STARTUP_TIMEOUT,
-			      &gs.t_startup_timeout);
+	event_add_timer_msec(master, startup_timeout, NULL, STARTUP_TIMEOUT,
+			     &gs.t_startup_timeout);
 
 	for (i = optind; i < argc; i++) {
 		dmn = XCALLOC(MTYPE_WATCHFRR_DAEMON, sizeof(*dmn));
@@ -1293,8 +1293,8 @@ static void watchfrr_init(int argc, char **argv)
 		gs.numdaemons++;
 		gs.numdown++;
 		dmn->fd = -1;
-		thread_add_timer_msec(master, wakeup_init, dmn, 0,
-				      &dmn->t_wakeup);
+		event_add_timer_msec(master, wakeup_init, dmn, 0,
+				     &dmn->t_wakeup);
 		dmn->restart.interval = gs.min_restart_interval;
 		*add = dmn;
 		add = &dmn->next;

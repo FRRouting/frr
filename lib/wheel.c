@@ -47,8 +47,8 @@ static void wheel_timer_thread_helper(struct event *t)
 		slots_to_skip++;
 
 	wheel->slots_to_skip = slots_to_skip;
-	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
-			      wheel->nexttime * slots_to_skip, &wheel->timer);
+	event_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+			     wheel->nexttime * slots_to_skip, &wheel->timer);
 }
 
 static void wheel_timer_thread(struct event *t)
@@ -85,8 +85,8 @@ struct timer_wheel *wheel_init(struct thread_master *master, int period,
 	for (i = 0; i < slots; i++)
 		wheel->wheel_slot_lists[i] = list_new();
 
-	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
-			      wheel->nexttime, &wheel->timer);
+	event_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+			     wheel->nexttime, &wheel->timer);
 
 	return wheel;
 }

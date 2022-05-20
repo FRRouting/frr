@@ -68,8 +68,8 @@ static void pim_msdp_sock_accept(struct event *thread)
 		return;
 	}
 	pim->msdp.listener.thread = NULL;
-	thread_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
-			&pim->msdp.listener.thread);
+	event_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
+		       &pim->msdp.listener.thread);
 
 	/* accept client connection. */
 	msdp_sock = sockunion_accept(accept_sock, &su);
@@ -192,8 +192,8 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	/* add accept thread */
 	listener->fd = sock;
 	memcpy(&listener->su, &sin, socklen);
-	thread_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
-			&listener->thread);
+	event_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
+		       &listener->thread);
 
 	pim->msdp.flags |= PIM_MSDPF_LISTENER;
 	return 0;

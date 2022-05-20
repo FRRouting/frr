@@ -1384,9 +1384,9 @@ int lsp_generate(struct isis_area *area, int level)
 		overload_time = isis_restart_read_overload_time(area);
 		if (overload_time > 0) {
 			isis_area_overload_bit_set(area, true);
-			thread_add_timer(master, set_overload_on_start_timer,
-					 area, overload_time,
-					 &area->t_overload_on_startup_timer);
+			event_add_timer(master, set_overload_on_start_timer,
+					area, overload_time,
+					&area->t_overload_on_startup_timer);
 		}
 		device_startup = false;
 	}
@@ -1420,9 +1420,8 @@ int lsp_generate(struct isis_area *area, int level)
 
 	THREAD_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
-	thread_add_timer(master, lsp_refresh,
-			 &area->lsp_refresh_arg[level - 1], refresh_time,
-			 &area->t_lsp_refresh[level - 1]);
+	event_add_timer(master, lsp_refresh, &area->lsp_refresh_arg[level - 1],
+			refresh_time, &area->t_lsp_refresh[level - 1]);
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Building L%d LSP %s, len %hu, seq 0x%08x, cksum 0x%04hx, lifetime %hus refresh %hus",
@@ -1501,9 +1500,8 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp_seqno_update(lsp);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
-	thread_add_timer(master, lsp_refresh,
-			 &area->lsp_refresh_arg[level - 1], refresh_time,
-			 &area->t_lsp_refresh[level - 1]);
+	event_add_timer(master, lsp_refresh, &area->lsp_refresh_arg[level - 1],
+			refresh_time, &area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
@@ -1668,10 +1666,9 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 		}
 
 		area->lsp_regenerate_pending[lvl - 1] = 1;
-		thread_add_timer_msec(master, lsp_refresh,
-				      &area->lsp_refresh_arg[lvl - 1],
-				      timeout,
-				      &area->t_lsp_refresh[lvl - 1]);
+		event_add_timer_msec(master, lsp_refresh,
+				     &area->lsp_refresh_arg[lvl - 1], timeout,
+				     &area->t_lsp_refresh[lvl - 1]);
 	}
 
 	if (all_pseudo) {
@@ -1825,13 +1822,13 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	circuit->lsp_regenerate_pending[level - 1] = 0;
 	if (level == IS_LEVEL_1)
-		thread_add_timer(
-			master, lsp_l1_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l1_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	else if (level == IS_LEVEL_2)
-		thread_add_timer(
-			master, lsp_l2_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l2_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
@@ -1880,13 +1877,13 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
 	if (level == IS_LEVEL_1)
-		thread_add_timer(
-			master, lsp_l1_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l1_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	else if (level == IS_LEVEL_2)
-		thread_add_timer(
-			master, lsp_l2_refresh_pseudo, circuit, refresh_time,
-			&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+		event_add_timer(master, lsp_l2_refresh_pseudo, circuit,
+				refresh_time,
+				&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 
 	if (IS_DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
@@ -2032,11 +2029,11 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		circuit->lsp_regenerate_pending[lvl - 1] = 1;
 
 		if (lvl == IS_LEVEL_1) {
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				master, lsp_l1_refresh_pseudo, circuit, timeout,
 				&circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		} else if (lvl == IS_LEVEL_2) {
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				master, lsp_l2_refresh_pseudo, circuit, timeout,
 				&circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		}
@@ -2060,7 +2057,7 @@ void lsp_tick(struct event *thread)
 	area = THREAD_ARG(thread);
 	assert(area);
 	area->t_tick = NULL;
-	thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
+	event_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 
 	struct isis_circuit *fabricd_init_c = fabricd_initial_sync_circuit(area);
 

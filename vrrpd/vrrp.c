@@ -901,10 +901,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
 			THREAD_OFF(r->t_adver_timer);
-			thread_add_timer_msec(
-				master, vrrp_adver_timer_expire, r,
-				r->vr->advertisement_interval * CS2MS,
-				&r->t_adver_timer);
+			event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+					     r->vr->advertisement_interval *
+						     CS2MS,
+					     &r->t_adver_timer);
 		} else if (pkt->hdr.priority > r->priority
 			   || ((pkt->hdr.priority == r->priority)
 			       && addrcmp > 0)) {
@@ -920,10 +920,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			}
 			vrrp_recalculate_timers(r);
 			THREAD_OFF(r->t_master_down_timer);
-			thread_add_timer_msec(master,
-					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * CS2MS,
-					      &r->t_master_down_timer);
+			event_add_timer_msec(master,
+					     vrrp_master_down_timer_expire, r,
+					     r->master_down_interval * CS2MS,
+					     &r->t_master_down_timer);
 			vrrp_change_state(r, VRRP_STATE_BACKUP);
 		} else {
 			/* Discard advertisement */
@@ -937,7 +937,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 	case VRRP_STATE_BACKUP:
 		if (pkt->hdr.priority == 0) {
 			THREAD_OFF(r->t_master_down_timer);
-			thread_add_timer_msec(
+			event_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
 				r->skew_time * CS2MS, &r->t_master_down_timer);
 		} else if (!r->vr->preempt_mode
@@ -948,10 +948,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			}
 			vrrp_recalculate_timers(r);
 			THREAD_OFF(r->t_master_down_timer);
-			thread_add_timer_msec(master,
-					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * CS2MS,
-					      &r->t_master_down_timer);
+			event_add_timer_msec(master,
+					     vrrp_master_down_timer_expire, r,
+					     r->master_down_interval * CS2MS,
+					     &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode
 			   && pkt->hdr.priority < r->priority) {
 			/* Discard advertisement */
@@ -1039,7 +1039,7 @@ done:
 	memset(r->ibuf, 0x00, sizeof(r->ibuf));
 
 	if (resched)
-		thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
+		event_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 }
 
 /*
@@ -1487,9 +1487,9 @@ static void vrrp_adver_timer_expire(struct event *thread)
 		vrrp_send_advertisement(r);
 
 		/* Reset the Adver_Timer to Advertisement_Interval */
-		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * CS2MS,
-				      &r->t_adver_timer);
+		event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+				     r->vr->advertisement_interval * CS2MS,
+				     &r->t_adver_timer);
 	} else {
 		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			 "Adver_Timer expired in state '%s'; this is a bug",
@@ -1509,9 +1509,9 @@ static void vrrp_master_down_timer_expire(struct event *thread)
 		  "Master_Down_Timer expired",
 		  r->vr->vrid, family2str(r->family));
 
-	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-			      r->vr->advertisement_interval * CS2MS,
-			      &r->t_adver_timer);
+	event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+			     r->vr->advertisement_interval * CS2MS,
+			     &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
 }
 
@@ -1561,7 +1561,7 @@ static int vrrp_startup(struct vrrp_router *r)
 	}
 
 	/* Schedule listener */
-	thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
+	event_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 
 	/* Configure effective priority */
 	assert(listhead(r->addrs));
@@ -1583,16 +1583,16 @@ static int vrrp_startup(struct vrrp_router *r)
 	}
 
 	if (r->priority == VRRP_PRIO_MASTER) {
-		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * CS2MS,
-				      &r->t_adver_timer);
+		event_add_timer_msec(master, vrrp_adver_timer_expire, r,
+				     r->vr->advertisement_interval * CS2MS,
+				     &r->t_adver_timer);
 		vrrp_change_state(r, VRRP_STATE_MASTER);
 	} else {
 		r->master_adver_interval = r->vr->advertisement_interval;
 		vrrp_recalculate_timers(r);
-		thread_add_timer_msec(master, vrrp_master_down_timer_expire, r,
-				      r->master_down_interval * CS2MS,
-				      &r->t_master_down_timer);
+		event_add_timer_msec(master, vrrp_master_down_timer_expire, r,
+				     r->master_down_interval * CS2MS,
+				     &r->t_master_down_timer);
 		vrrp_change_state(r, VRRP_STATE_BACKUP);
 	}
 
