@@ -3268,10 +3268,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				}
 
 				vty_out(vty,
-					"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
-					oil_origin(c_oil), oil_mcastgrp(c_oil),
-					state_str, proto, in_ifname, out_ifname,
-					ttl, mroute_uptime);
+					"%-15s %-15s %-8s %-6s %-16s %-16s %-3d  %8s\n",
+					src_str, grp_str, state_str, proto,
+					in_ifname, out_ifname, ttl,
+					mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';
