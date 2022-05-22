@@ -408,9 +408,7 @@ int main(int argc, char **argv)
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
-#if defined(HAVE_RTADV)
 	rtadv_cmd_init();
-#endif
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();
