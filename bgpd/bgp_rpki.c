@@ -1312,28 +1312,51 @@ DEFUN (show_rpki_cache_server,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_rpki_cache_connection,
+DEFPY (show_rpki_cache_connection,
        show_rpki_cache_connection_cmd,
-       "show rpki cache-connection",
+       "show rpki cache-connection [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "Show to which RPKI Cache Servers we have a connection\n")
+       "Show to which RPKI Cache Servers we have a connection\n"
+       JSON_STR)
 {
-	if (!is_synchronized()) {
-		vty_out(vty, "No connection to RPKI cache server.\n");
-
-		return CMD_SUCCESS;
-	}
-
+	struct json_object *json = NULL;
+	struct json_object *json_conn = NULL;
+	struct json_object *json_conns = NULL;
 	struct listnode *cache_node;
 	struct cache *cache;
-	struct rtr_mgr_group *group = get_connected_group();
+	struct rtr_mgr_group *group;
 
-	if (!group) {
-		vty_out(vty, "Cannot find a connected group.\n");
+	if (uj)
+		json = json_object_new_object();
+
+	if (!is_synchronized()) {
+		if (!json)
+			vty_out(vty, "No connection to RPKI cache server.\n");
+		else
+			vty_json(vty, json);
+
 		return CMD_SUCCESS;
 	}
-	vty_out(vty, "Connected to group %d\n", group->preference);
+
+	group = get_connected_group();
+	if (!group) {
+		if (!json)
+			vty_out(vty, "Cannot find a connected group.\n");
+		else
+			vty_json(vty, json);
+
+		return CMD_SUCCESS;
+	}
+
+	if (!json) {
+		vty_out(vty, "Connected to group %d\n", group->preference);
+	} else {
+		json_conns = json_object_new_array();
+		json_object_int_add(json, "connectedGroup", group->preference);
+		json_object_object_add(json, "connections", json_conns);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		struct tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
@@ -1342,28 +1365,75 @@ DEFUN (show_rpki_cache_connection,
 		switch (cache->type) {
 		case TCP:
 			tcp_config = cache->tr_config.tcp_config;
-			vty_out(vty, "rpki tcp cache %s %s pref %hhu%s\n",
-				tcp_config->host, tcp_config->port,
-				cache->preference,
-				cache->rtr_socket->state == RTR_ESTABLISHED
-					? " (connected)"
-					: "");
+
+			if (!json) {
+				vty_out(vty,
+					"rpki tcp cache %s %s pref %hhu%s\n",
+					tcp_config->host, tcp_config->port,
+					cache->preference,
+					cache->rtr_socket->state ==
+							RTR_ESTABLISHED
+						? " (connected)"
+						: "");
+			} else {
+				json_conn = json_object_new_object();
+				json_object_string_add(json_conn, "mode",
+						       "tcp");
+				json_object_string_add(json_conn, "host",
+						       tcp_config->host);
+				json_object_string_add(json_conn, "port",
+						       tcp_config->port);
+				json_object_int_add(json_conn, "preference",
+						    cache->preference);
+				json_object_string_add(
+					json_conn, "state",
+					cache->rtr_socket->state ==
+							RTR_ESTABLISHED
+						? "connected"
+						: "disconnected");
+				json_object_array_add(json_conns, json_conn);
+			}
 			break;
 #if defined(FOUND_SSH)
 		case SSH:
 			ssh_config = cache->tr_config.ssh_config;
-			vty_out(vty, "rpki ssh cache %s %u pref %hhu%s\n",
-				ssh_config->host, ssh_config->port,
-				cache->preference,
-				cache->rtr_socket->state == RTR_ESTABLISHED
-					? " (connected)"
-					: "");
+
+			if (!json) {
+				vty_out(vty,
+					"rpki ssh cache %s %u pref %hhu%s\n",
+					ssh_config->host, ssh_config->port,
+					cache->preference,
+					cache->rtr_socket->state ==
+							RTR_ESTABLISHED
+						? " (connected)"
+						: "");
+			} else {
+				json_conn = json_object_new_object();
+				json_object_string_add(json_conn, "mode",
+						       "ssh");
+				json_object_string_add(json_conn, "host",
+						       ssh_config->host);
+				json_object_string_add(json_conn, "port",
+						       ssh_config->port);
+				json_object_int_add(json_conn, "preference",
+						    cache->preference);
+				json_object_string_add(
+					json_conn, "state",
+					cache->rtr_socket->state ==
+							RTR_ESTABLISHED
+						? "connected"
+						: "disconnected");
+				json_object_array_add(json_conns, json_conn);
+			}
 			break;
 #endif
 		default:
 			break;
 		}
 	}
+
+	if (json)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }

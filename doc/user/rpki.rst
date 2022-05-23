@@ -216,7 +216,7 @@ Displaying RPKI
    received from the cache servers and stored in the router. Based on this data,
    the router validates BGP Updates.
 
-.. clicmd:: show rpki cache-connection
+.. clicmd:: show rpki cache-connection [json]
 
    Display all configured cache servers, whether active or not.
 
