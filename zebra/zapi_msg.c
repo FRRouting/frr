@@ -876,9 +876,24 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct stream *s;
 	struct zebra_pbr_iptable ipt;
 	uint16_t cmd = ZEBRA_IPTABLE_NOTIFY_OWNER;
+	struct zebra_pbr_iptable *ipt_hash;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
 	dplane_ctx_get_pbr_iptable(ctx, &ipt);
 
+	ipt_hash = hash_lookup(zrouter.iptable_hash, &ipt);
+	if (ipt_hash) {
+		if (op == DPLANE_OP_IPTABLE_ADD &&
+		    CHECK_FLAG(ipt_hash->internal_flags,
+			       IPTABLE_INSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_INSTALL_QUEUED);
+		else if (op == DPLANE_OP_IPTABLE_DELETE &&
+			 CHECK_FLAG(ipt_hash->internal_flags,
+				    IPTABLE_UNINSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_UNINSTALL_QUEUED);
+	}
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipt.unique, note);
