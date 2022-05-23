@@ -4550,6 +4550,17 @@ iptable_update_internal(enum dplane_op_e op, struct zebra_pbr_iptable *iptable)
 	struct zebra_dplane_ctx *ctx;
 	int ret;
 
+	if ((op == DPLANE_OP_IPTABLE_ADD &&
+	     CHECK_FLAG(iptable->internal_flags, IPTABLE_INSTALL_QUEUED)) ||
+	    (op == DPLANE_OP_IPTABLE_DELETE &&
+	     CHECK_FLAG(iptable->internal_flags, IPTABLE_UNINSTALL_QUEUED))) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug(
+				"update dplane ctx %s: iptable %s already in progress",
+				dplane_op2str(op), iptable->ipset_name);
+		return result;
+	}
+
 	ctx = dplane_ctx_alloc();
 
 	ret = dplane_ctx_iptable_init(ctx, op, iptable);
@@ -4562,14 +4573,19 @@ done:
 	atomic_fetch_add_explicit(&zdplane_info.dg_iptable_in, 1,
 				  memory_order_relaxed);
 
-	if (ret == AOK)
+	if (ret == AOK) {
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
-	else {
+		if (op == DPLANE_OP_IPTABLE_ADD)
+			SET_FLAG(iptable->internal_flags,
+				 IPTABLE_INSTALL_QUEUED);
+		else
+			SET_FLAG(iptable->internal_flags,
+				 IPTABLE_UNINSTALL_QUEUED);
+	} else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_iptable_errors, 1,
 					  memory_order_relaxed);
 		dplane_ctx_free(&ctx);
 	}
-
 	return result;
 }
 
