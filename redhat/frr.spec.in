@@ -267,7 +267,7 @@ developing OSPF-API and frr applications.
 %package rpki-rtrlib
 Summary: BGP RPKI support (rtrlib)
 Group: System Environment/Daemons
-BuildRequires:  librtr-devel >= 0.5
+BuildRequires:  librtr-devel >= 0.8
 Requires: %{name} = %{version}-%{release}
 
 %description rpki-rtrlib
