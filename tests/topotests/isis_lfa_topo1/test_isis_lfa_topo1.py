@@ -1004,6 +1004,12 @@ def test_rib_ipv6_step23():
     )
 
 
+def _bfd_down(router):
+    output = json.loads(router.vtysh_cmd("show bfd peers json"))
+    expected = []
+    return topotest.json_cmp(output, expected, exact=True)
+
+
 #
 # Step 24
 #
@@ -1016,11 +1022,6 @@ def test_rib_ipv6_step23():
 # - Route switchover of routes via eth-rt2
 #
 def test_rib_ipv6_step24():
-    def _bfd_down(router):
-        output = json.loads(router.vtysh_cmd("show bfd peers json"))
-        expected = []
-        return topotest.json_cmp(output, expected, exact=True)
-
     logger.info("Test (step 24): verify IPv6 RIB")
     tgen = get_topogen()
 
@@ -1035,7 +1036,7 @@ def test_rib_ipv6_step24():
     router = tgen.gears[rname]
     test_func = partial(_bfd_down, router)
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.3)
-    assert result is None, 'BFD session is still up on "{}"'.format(router)
+    assert result is None, 'BFD session is still up on "{}"'.format(rname)
 
     router_compare_json_output(
         rname,
@@ -1055,6 +1056,126 @@ def test_rib_ipv6_step24():
 #
 def test_rib_ipv6_step25():
     logger.info("Test (step 25): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Check SPF convergence")
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][16]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 26
+#
+# Action(s):
+# - unshut the link between rt2 and rt1
+# - enable bfd tlv for ipv6 on rt2 and rt1
+#
+# Expected changes:
+# - No routing table change
+#
+def test_rib_ipv6_step26():
+    logger.info("Test (step 26): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Unshut the interface to rt2 from the switch side and check fast-reroute")
+    tgen.net.cmd_raises("ip link set s1 up")
+
+    # No need to unconfigure previous BFD, configure BFD tlv ipv6 support
+    logger.info("Set ISIS BFD TLV")
+    tgen.net["rt1"].cmd('vtysh -c "conf t" -c "int eth-rt2" -c "isis bfd" -c "isis bfd use-tlv-ipv6"')
+    tgen.net["rt2"].cmd('vtysh -c "conf t" -c "int eth-rt1" -c "isis bfd" -c "isis bfd use-tlv-ipv6"')
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            outputs[rname][14]["show_ipv6_route.ref"],
+        )
+
+
+#
+# Step 27
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step27():
+    logger.info("Test (step 27): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rname = "rt1"
+    expect = '[{"multihop":false, "status":"up"}]'
+    router_compare_json_output(rname, "show bfd peers json", expect)
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][14]["show_ipv6_route.ref"],
+    )
+
+
+#
+# Step 28
+#
+# Action(s):
+# - shut the eth-rt2 interface on rt1
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt2
+#
+def test_rib_ipv6_step28():
+    logger.info("Test (step 28): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
+    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s1"].intfs[1])
+
+    rname = "rt1"
+    router = tgen.gears[rname]
+    test_func = partial(_bfd_down, router)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.3)
+    assert result is None, 'BFD session is still up on "{}"'.format(rname)
+
+    router_compare_json_output(
+        rname,
+        "show ipv6 route isis json",
+        outputs[rname][15]["show_ipv6_route.ref"],
+        count=10,
+        wait=0.5,
+    )
+
+
+#
+# Step 29
+#
+# Action(s): wait for the convergence and SPF computation on rt1
+#
+# Expected changes:
+# - convergence of IPv6 RIB
+#
+def test_rib_ipv6_step29():
+    logger.info("Test (step 29): verify IPv6 RIB")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
