@@ -107,7 +107,7 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 }
 
 static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
-					     pim_addr *addr)
+					     pim_addr addr)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_rpf rpf;
@@ -115,7 +115,7 @@ static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
 
 	zclient = pim_zebra_zclient_get();
 	memset(&rpf, 0, sizeof(rpf));
-	rpf.rpf_addr = *addr;
+	rpf.rpf_addr = addr;
 
 	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (!pnc) {
@@ -125,7 +125,7 @@ static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
 			zlog_debug(
 				"%s: NHT cache and zebra notification added for %pPA(%s)",
-				__func__, addr, pim->vrf->name);
+				__func__, &addr, pim->vrf->name);
 	}
 
 	return pnc;
@@ -134,7 +134,7 @@ static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
 /* TBD: this does several distinct things and should probably be split up.
  * (checking state vs. returning pnc vs. adding upstream vs. adding rp)
  */
-int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr *addr,
+int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
 			      struct pim_upstream *up, struct rp_info *rp,
 			      struct pim_nexthop_cache *out_pnc)
 {
@@ -143,7 +143,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr *addr,
 
 	pnc = pim_nht_get(pim, addr);
 
-	assertf(up || rp, "addr=%pPA", addr);
+	assertf(up || rp, "addr=%pPA", &addr);
 
 	if (rp != NULL) {
 		ch_node = listnode_lookup(pnc->rp_list, rp);
@@ -167,11 +167,8 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr *addr,
 void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 {
 	struct pim_nexthop_cache *pnc;
-	pim_addr rpf_addr;
 
-	rpf_addr = addr;
-
-	pnc = pim_nht_get(pim, &rpf_addr);
+	pnc = pim_nht_get(pim, addr);
 
 	pnc->bsr_count++;
 }
@@ -204,7 +201,7 @@ static void pim_nht_drop_maybe(struct pim_instance *pim,
 	}
 }
 
-void pim_delete_tracked_nexthop(struct pim_instance *pim, pim_addr *addr,
+void pim_delete_tracked_nexthop(struct pim_instance *pim, pim_addr addr,
 				struct pim_upstream *up, struct rp_info *rp)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -212,11 +209,11 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, pim_addr *addr,
 	struct pim_upstream *upstream = NULL;
 
 	/* Remove from RPF hash if it is the last entry */
-	lookup.rpf.rpf_addr = *addr;
+	lookup.rpf.rpf_addr = addr;
 	pnc = hash_lookup(pim->rpf_hash, &lookup);
 	if (!pnc) {
 		zlog_warn("attempting to delete nonexistent NHT entry %pPA",
-			  addr);
+			  &addr);
 		return;
 	}
 
@@ -390,8 +387,8 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 		if (!nbr)
 			continue;
 
-		return nh->ifindex == src_ifp->ifindex
-		       && nhaddr.s_addr == src_ip.s_addr;
+		return nh->ifindex == src_ifp->ifindex &&
+		       (!pim_addr_cmp(nhaddr, src_ip));
 	}
 	return false;
 }
@@ -421,7 +418,7 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 
 		// Compute PIM RPF using cached nexthop
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
-					     &rp_info->rp.rpf_addr,
+					     rp_info->rp.rpf_addr,
 					     &rp_info->group, 1))
 			pim_rp_nexthop_del(rp_info);
 	}
@@ -491,7 +488,7 @@ uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 
 static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 				   struct pim_nexthop_cache *pnc,
-				   struct pim_nexthop *nexthop, pim_addr *src,
+				   struct pim_nexthop *nexthop, pim_addr src,
 				   struct prefix *grp, int neighbor_needed)
 {
 	struct pim_neighbor *nbrs[router->multipath], *nbr = NULL;
@@ -536,7 +533,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 			if (curr_route_valid &&
 			    !pim_if_connected_to_source(nexthop->interface,
-							*src)) {
+							src)) {
 				nbr = pim_neighbor_find(
 					nexthop->interface,
 					nexthop->mrib_nexthop_addr);
@@ -557,7 +554,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 					if (PIM_DEBUG_PIM_NHT)
 						zlog_debug(
 							"%s: (%pPA,%pPA)(%s) current nexthop %s is valid, skipping new path selection",
-							__func__, src,
+							__func__, &src,
 							&grp_addr,
 							pim->vrf->name,
 							nexthop->interface->name);
@@ -582,8 +579,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			pim_addr nhaddr = nh_node->gate.ipv6;
 #endif
 			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
-			if (nbrs[i] ||
-			    pim_if_connected_to_source(ifps[i], *src))
+			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
 	}
@@ -598,7 +594,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			return 0;
 
 		// PIM ECMP flag is enable then choose ECMP path.
-		pim_addr_to_prefix(&src_pfx, *src);
+		pim_addr_to_prefix(&src_pfx, src);
 		hash_val = pim_compute_ecmp_hash(&src_pfx, grp);
 		mod_val = hash_val % consider;
 	}
@@ -611,7 +607,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
 					"%s %s: could not find interface for ifindex %d (address %pPA(%s))",
-					__FILE__, __func__, first_ifindex, src,
+					__FILE__, __func__, first_ifindex, &src,
 					pim->vrf->name);
 			if (nh_iter == mod_val)
 				mod_val++; // Select nexthpath
@@ -623,14 +619,14 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 				zlog_debug(
 					"%s: multicast not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
 					__func__, ifp->name, pim->vrf->name,
-					first_ifindex, src);
+					first_ifindex, &src);
 			if (nh_iter == mod_val)
 				mod_val++; // Select nexthpath
 			nh_iter++;
 			continue;
 		}
 
-		if (neighbor_needed && !pim_if_connected_to_source(ifp, *src)) {
+		if (neighbor_needed && !pim_if_connected_to_source(ifp, src)) {
 			nbr = nbrs[nh_iter];
 			if (!nbr && !if_is_loopback(ifp)) {
 				if (PIM_DEBUG_PIM_NHT)
@@ -654,14 +650,14 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 #endif
 			nexthop->mrib_metric_preference = pnc->distance;
 			nexthop->mrib_route_metric = pnc->metric;
-			nexthop->last_lookup = *src;
+			nexthop->last_lookup = src;
 			nexthop->last_lookup_time = pim_time_monotonic_usec();
 			nexthop->nbr = nbr;
 			found = 1;
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
 					"%s: (%pPA,%pPA)(%s) selected nhop interface %s addr %pPAs mod_val %u iter %d ecmp %d",
-					__func__, src, &grp_addr,
+					__func__, &src, &grp_addr,
 					pim->vrf->name, ifp->name, &nh_addr,
 					mod_val, nh_iter, pim->ecmp_enable);
 		}
@@ -875,7 +871,7 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 }
 
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
-			    struct pim_nexthop *nexthop, pim_addr *src,
+			    struct pim_nexthop *nexthop, pim_addr src,
 			    struct prefix *grp, int neighbor_needed)
 {
 	struct pim_nexthop_cache *pnc;
@@ -892,10 +888,10 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
 		zlog_debug("%s: Looking up: %pPA(%s), last lookup time: %lld",
-			   __func__, src, pim->vrf->name,
+			   __func__, &src, pim->vrf->name,
 			   nexthop->last_lookup_time);
 
-	rpf.rpf_addr = *src;
+	rpf.rpf_addr = src;
 
 	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (pnc) {
@@ -913,7 +909,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_warn(
 				"%s: could not find nexthop ifindex for address %pPA(%s)",
-				__func__, src, pim->vrf->name);
+				__func__, &src, pim->vrf->name);
 		return 0;
 	}
 
@@ -930,8 +926,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		if (ifps[i]) {
 			nbrs[i] = pim_neighbor_find(
 				ifps[i], nexthop_tab[i].nexthop_addr);
-			if (nbrs[i] ||
-			    pim_if_connected_to_source(ifps[i], *src))
+			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
 	}
@@ -947,7 +942,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		if (consider == 0)
 			return 0;
 
-		pim_addr_to_prefix(&src_pfx, *src);
+		pim_addr_to_prefix(&src_pfx, src);
 		hash_val = pim_compute_ecmp_hash(&src_pfx, grp);
 		mod_val = hash_val % consider;
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
@@ -964,7 +959,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
 					"%s %s: could not find interface for ifindex %d (address %pPA(%s))",
-					__FILE__, __func__, first_ifindex, src,
+					__FILE__, __func__, first_ifindex, &src,
 					pim->vrf->name);
 			if (i == mod_val)
 				mod_val++;
@@ -977,13 +972,13 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				zlog_debug(
 					"%s: multicast not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
 					__func__, ifp->name, pim->vrf->name,
-					first_ifindex, src);
+					first_ifindex, &src);
 			if (i == mod_val)
 				mod_val++;
 			i++;
 			continue;
 		}
-		if (neighbor_needed && !pim_if_connected_to_source(ifp, *src)) {
+		if (neighbor_needed && !pim_if_connected_to_source(ifp, src)) {
 			nbr = nbrs[i];
 			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug("ifp name: %s(%s), pim nbr: %p",
@@ -996,7 +991,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 						"%s: NBR (%pPA) not found on input interface %s(%s) (RPF for source %pPA)",
 						__func__,
 						&nexthop_tab[i].nexthop_addr,
-						ifp->name, pim->vrf->name, src);
+						ifp->name, pim->vrf->name,
+						&src);
 				i++;
 				continue;
 			}
@@ -1007,7 +1003,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				zlog_debug(
 					"%s: found nhop %pPA for addr %pPA interface %s(%s) metric %d dist %d",
 					__func__, &nexthop_tab[i].nexthop_addr,
-					src, ifp->name, pim->vrf->name,
+					&src, ifp->name, pim->vrf->name,
 					nexthop_tab[i].route_metric,
 					nexthop_tab[i].protocol_distance);
 			/* update nexthop data */
@@ -1018,7 +1014,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				nexthop_tab[i].protocol_distance;
 			nexthop->mrib_route_metric =
 				nexthop_tab[i].route_metric;
-			nexthop->last_lookup = *src;
+			nexthop->last_lookup = src;
 			nexthop->last_lookup_time = pim_time_monotonic_usec();
 			nexthop->nbr = nbr;
 			found = 1;
@@ -1032,7 +1028,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		return 0;
 }
 
-int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr *src,
+int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr src,
 				     struct prefix *grp)
 {
 	struct pim_nexthop nhop;
@@ -1044,7 +1040,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr *src,
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
 				"%s: could not find nexthop ifindex for address %pPA(%s)",
-				__func__, src, pim->vrf->name);
+				__func__, &src, pim->vrf->name);
 		return -1;
 	}
 
@@ -1054,7 +1050,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr *src,
 			"%s: found nexthop ifindex=%d (interface %s(%s)) for address %pPA",
 			__func__, ifindex,
 			ifindex2ifname(ifindex, pim->vrf->vrf_id),
-			pim->vrf->name, src);
+			pim->vrf->name, &src);
 
 	vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
 
@@ -1062,7 +1058,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim, pim_addr *src,
 		if (PIM_DEBUG_PIM_NHT) {
 			zlog_debug(
 				"%s: low vif_index=%d(%s) < 1 nexthop for address %pPA",
-				__func__, vif_index, pim->vrf->name, src);
+				__func__, vif_index, pim->vrf->name, &src);
 		}
 		return -2;
 	}

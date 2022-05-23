@@ -270,7 +270,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pPA with Zebra NHT",
 				__func__, up->sg_str, &up->upstream_addr);
-		pim_delete_tracked_nexthop(pim, &up->upstream_addr, up, NULL);
+		pim_delete_tracked_nexthop(pim, up->upstream_addr, up, NULL);
 	}
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);

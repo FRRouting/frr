@@ -352,8 +352,8 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		 * iif
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
-			pim_delete_tracked_nexthop(
-				vxlan_sg->pim, &up->upstream_addr, up, NULL);
+			pim_delete_tracked_nexthop(vxlan_sg->pim,
+						   up->upstream_addr, up, NULL);
 		}
 		/* We are acting FHR; clear out use_rpt setting if any */
 		pim_upstream_update_use_rpt(up, false /*update_mroute*/);

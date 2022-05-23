@@ -406,7 +406,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pPA with Zebra NHT",
 				__func__, up->sg_str, &old_upstream_addr);
-		pim_delete_tracked_nexthop(pim, &old_upstream_addr, up, NULL);
+		pim_delete_tracked_nexthop(pim, old_upstream_addr, up, NULL);
 	}
 
 	/* Update the upstream address */
@@ -558,12 +558,12 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 
 			pim_rp_check_interfaces(pim, rp_all);
 			pim_rp_refresh_group_to_rp_mapping(pim);
-			pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_all,
+			pim_find_or_track_nexthop(pim, nht_p, NULL, rp_all,
 						  NULL);
 
 			if (!pim_ecmp_nexthop_lookup(pim,
 						     &rp_all->rp.source_nexthop,
-						     &nht_p, &rp_all->group, 1))
+						     nht_p, &rp_all->group, 1))
 				return PIM_RP_NO_PATH;
 			return PIM_SUCCESS;
 		}
@@ -655,8 +655,8 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: NHT Register RP addr %pPA grp %pFX with Zebra ",
 			   __func__, &nht_p, &rp_info->group);
-	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
-	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, &nht_p,
+	pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
+	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, nht_p,
 				     &rp_info->group, 1))
 		return PIM_RP_NO_PATH;
 
@@ -748,7 +748,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: Deregister RP addr %pPA with Zebra ", __func__,
 			   &nht_p);
-	pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
+	pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
 
 	if (!pim_get_all_mcast_group(&g_all))
 		return PIM_RP_BAD_ADDRESS;
@@ -882,7 +882,7 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Deregister RP addr %pPA with Zebra ",
 				   __func__, &nht_p);
-		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
+		pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
 	}
 
 	pim_rp_nexthop_del(rp_info);
@@ -919,8 +919,8 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 		zlog_debug("%s: NHT Register RP addr %pPA grp %pFX with Zebra ",
 			   __func__, &nht_p, &rp_info->group);
 
-	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
-	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, &nht_p,
+	pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
+	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, nht_p,
 				     &rp_info->group, 1)) {
 		route_unlock_node(rn);
 		return PIM_RP_NO_PATH;
@@ -947,9 +947,9 @@ void pim_rp_setup(struct pim_instance *pim)
 
 		nht_p = rp_info->rp.rpf_addr;
 
-		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
+		pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
-					     &nht_p, &rp_info->group, 1))
+					     nht_p, &rp_info->group, 1))
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug(
 					"Unable to lookup nexthop for rp specified");
@@ -1024,9 +1024,10 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 						   __func__,
 						   &rp_info->rp.rpf_addr);
 				else
-					zlog_debug("%s: %pPA: i am no longer rp",
-						   __func__,
-						   &rp_info->rp.rpf_addr);
+					zlog_debug(
+						"%s: %pPA: i am no longer rp",
+						__func__,
+						&rp_info->rp.rpf_addr);
 			}
 		}
 	}
@@ -1081,10 +1082,10 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 			zlog_debug(
 				"%s: NHT Register RP addr %pPA grp %pFX with Zebra",
 				__func__, &nht_p, &rp_info->group);
-		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
+		pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
 		pim_rpf_set_refresh_time(pim);
 		(void)pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
-					      &nht_p, &rp_info->group, 1);
+					      nht_p, &rp_info->group, 1);
 		return (&rp_info->rp);
 	}
 
@@ -1288,8 +1289,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 
 		nht_p = rp_info->rp.rpf_addr;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if (!pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info,
-					       &pnc))
+		if (!pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, &pnc))
 			continue;
 
 		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {
