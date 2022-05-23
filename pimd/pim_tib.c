@@ -49,13 +49,13 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	if (up) {
 		memcpy(&nexthop, &up->rpf.source_nexthop,
 		       sizeof(struct pim_nexthop));
-		pim_ecmp_nexthop_lookup(pim, &nexthop, &vif_source, &grp, 0);
+		pim_ecmp_nexthop_lookup(pim, &nexthop, vif_source, &grp, 0);
 		if (nexthop.interface)
 			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
 				pim, nexthop.interface->ifindex);
 	} else
-		input_iface_vif_index = pim_ecmp_fib_lookup_if_vif_index(
-			pim, &vif_source, &grp);
+		input_iface_vif_index =
+			pim_ecmp_fib_lookup_if_vif_index(pim, vif_source, &grp);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT %pSG vif_source %pPAs vif_index:%d",
