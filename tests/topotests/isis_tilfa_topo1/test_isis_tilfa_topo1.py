@@ -945,6 +945,156 @@ def test_mpls_lib_step10():
         )
 
 
+# Action(s):
+# - unshut a rt6 interface
+# - Setup BFD TLV
+#
+# Expected changes:
+# - All route tables go back to previous state situation
+# - At the end of test, next SPF is scheduled in approximatively 15s
+#
+def test_rib_ipv4_step11():
+    logger.info("verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Set ISIS BFD TLV")
+    tgen.gears["rt5"].vtysh_cmd(
+        """
+conf t
+ int eth-rt6
+  isis bfd
+  isis bfd use-tlv-ipv4
+"""
+    )
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+conf t
+ int eth-rt5
+  isis bfd
+  isis bfd use-tlv-ipv4
+"""
+    )
+
+    logger.info("Unshut the rt6 interface to rt5 from the switch side")
+    tgen.net.cmd_raises("ip link set %s up" % tgen.net["s8"].intfs[0])
+
+    router_compare_json_output(
+        "rt6", "show bfd peer 10.0.8.5 json", 10, "show_bfd_peer_up.ref"
+    )
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", 9, "show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step11():
+    logger.info("verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            9,
+            "show_ipv6_route.ref",
+        )
+
+
+def test_mpls_lib_step11():
+    logger.info("verify MPLS LIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", 9, "show_mpls_table.ref"
+        )
+
+
+# Action(s):
+# - shut the eth-rt5 interface on rt6
+#
+# Expected changes:
+# - Route switchover of routes via eth-rt5
+#
+def test_rib_ipv4_step12():
+    logger.info("verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Shut a rt6 interface to rt5 from the switch side and check fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s8"].intfs[0])
+
+    rname = "rt6"
+
+    router_compare_json_output(
+        "rt6", "show bfd peer 10.0.8.5 json", 10, "show_bfd_peer_down.ref"
+    )
+
+    logger.info(
+        "Shutting down rt5 interface to rt6 from the switch side to test fast-reroute"
+    )
+    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s8"].intfs[0])
+
+    logger.info("Verifying if the BFD session is down")
+    router_compare_json_output(
+        "rt6", "show bfd peer 10.0.8.5 json", 10, "show_bfd_peer_down.ref"
+    )
+
+    for rname in ["rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", 10, "show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step12():
+    logger.info("verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt5", "rt6"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route isis json",
+            10,
+            "show_ipv6_route.ref",
+        )
+
+
+def test_mpls_lib_step12():
+    logger.info("verify MPLS LIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["rt5", "rt6"]:
+        router_compare_json_output(
+            rname, "show mpls table json", 10, "show_mpls_table.ref"
+        )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
