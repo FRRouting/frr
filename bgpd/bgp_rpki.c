@@ -1413,8 +1413,8 @@ DEFPY (show_rpki_cache_connection,
 						       "ssh");
 				json_object_string_add(json_conn, "host",
 						       ssh_config->host);
-				json_object_string_add(json_conn, "port",
-						       ssh_config->port);
+				json_object_int_add(json_conn, "port",
+						    ssh_config->port);
 				json_object_int_add(json_conn, "preference",
 						    cache->preference);
 				json_object_string_add(
