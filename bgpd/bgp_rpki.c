@@ -1278,36 +1278,88 @@ DEFPY (show_rpki_prefix,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_rpki_cache_server,
+DEFPY (show_rpki_cache_server,
        show_rpki_cache_server_cmd,
-       "show rpki cache-server",
+       "show rpki cache-server [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "SHOW configured cache server\n")
+       "Show configured cache server\n"
+       JSON_STR)
 {
+	struct json_object *json = NULL;
+	struct json_object *json_server = NULL;
+	struct json_object *json_servers = NULL;
 	struct listnode *cache_node;
 	struct cache *cache;
 
+	if (uj) {
+		json = json_object_new_object();
+		json_servers = json_object_new_array();
+		json_object_object_add(json, "servers", json_servers);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		if (cache->type == TCP) {
-			vty_out(vty, "host: %s port: %s\n",
-				cache->tr_config.tcp_config->host,
-				cache->tr_config.tcp_config->port);
+			if (!json) {
+				vty_out(vty, "host: %s port: %s\n",
+					cache->tr_config.tcp_config->host,
+					cache->tr_config.tcp_config->port);
+			} else {
+				json_server = json_object_new_object();
+				json_object_string_add(json_server, "mode",
+						       "tcp");
+				json_object_string_add(
+					json_server, "host",
+					cache->tr_config.tcp_config->host);
+				json_object_string_add(
+					json_server, "port",
+					cache->tr_config.tcp_config->port);
+				json_object_array_add(json_servers,
+						      json_server);
+			}
 
 #if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
-			vty_out(vty,
-				"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
-				cache->tr_config.ssh_config->host,
-				cache->tr_config.ssh_config->port,
-				cache->tr_config.ssh_config->username,
-				cache->tr_config.ssh_config
-					->server_hostkey_path,
-				cache->tr_config.ssh_config
-					->client_privkey_path);
+			if (!json) {
+				vty_out(vty,
+					"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
+					cache->tr_config.ssh_config->host,
+					cache->tr_config.ssh_config->port,
+					cache->tr_config.ssh_config->username,
+					cache->tr_config.ssh_config
+						->server_hostkey_path,
+					cache->tr_config.ssh_config
+						->client_privkey_path);
+			} else {
+				json_server = json_object_new_object();
+				json_object_string_add(json_server, "mode",
+						       "ssh");
+				json_object_string_add(
+					json_server, "host",
+					cache->tr_config.ssh_config->host);
+				json_object_int_add(
+					json_server, "port",
+					cache->tr_config.ssh_config->port);
+				json_object_string_add(
+					json_server, "username",
+					cache->tr_config.ssh_config->username);
+				json_object_string_add(
+					json_server, "serverHostkeyPath",
+					cache->tr_config.ssh_config
+						->server_hostkey_path);
+				json_object_string_add(
+					json_server, "clientPrivkeyPath",
+					cache->tr_config.ssh_config
+						->client_privkey_path);
+				json_object_array_add(json_servers,
+						      json_server);
+			}
 #endif
 		}
 	}
+
+	if (json)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
