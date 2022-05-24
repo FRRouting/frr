@@ -1194,14 +1194,6 @@ DEFUN (show_rpki_prefix_table,
        RPKI_OUTPUT_STRING
        "Show validated prefixes which were received from RPKI Cache\n")
 {
-	struct listnode *cache_node;
-	struct cache *cache;
-
-	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-		vty_out(vty, "host: %s port: %s\n",
-			cache->tr_config.tcp_config->host,
-			cache->tr_config.tcp_config->port);
-	}
 	if (is_synchronized())
 		print_prefix_table(vty);
 	else
