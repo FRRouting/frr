@@ -1,7 +1,7 @@
 name: Add base branch label
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - reopened
@@ -13,7 +13,6 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v2
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: |
