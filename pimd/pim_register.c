@@ -234,6 +234,48 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	return 0;
 }
 
+#if PIM_IPV == 6
+struct in6_addr pim_register_get_unicast_v6_addr(struct pim_interface *p_ifp)
+{
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct pim_secondary_addr *sec_addr;
+	struct pim_interface *pim_ifp;
+	struct interface *ifp;
+	struct pim_instance *pim = p_ifp->pim;
+
+	/* Trying to get the unicast address from the RPF interface first */
+	for (ALL_LIST_ELEMENTS(p_ifp->sec_addr_list, node, nextnode,
+			       sec_addr)) {
+		if (!is_ipv6_global_unicast(&sec_addr->addr.u.prefix6))
+			continue;
+
+		return sec_addr->addr.u.prefix6;
+	}
+
+	/* Loop through all the pim interface and try to return a global
+	 * unicast ipv6 address
+	 */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		for (ALL_LIST_ELEMENTS(pim_ifp->sec_addr_list, node, nextnode,
+				       sec_addr)) {
+			if (!is_ipv6_global_unicast(&sec_addr->addr.u.prefix6))
+				continue;
+
+			return sec_addr->addr.u.prefix6;
+		}
+	}
+
+	zlog_warn("No global address found for use to send register message");
+	return PIMADDR_ANY;
+}
+#endif
+
 void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up)
@@ -278,6 +320,13 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
+#if PIM_IPV == 6
+	/* While sending Register message to RP, we cannot use link-local
+	 * address therefore using unicast ipv6 address here, choosing it
+	 * from the RPF Interface
+	 */
+	src = pim_register_get_unicast_v6_addr(pinfo);
+#endif
 	pim_msg_build_header(src, dst, buffer, buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
