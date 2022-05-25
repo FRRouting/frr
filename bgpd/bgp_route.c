@@ -12812,6 +12812,11 @@ static const char *table_stats_strs[][2] = {
 struct bgp_table_stats {
 	struct bgp_table *table;
 	unsigned long long counts[BGP_STATS_MAX];
+
+	unsigned long long
+		prefix_len_count[MAX(EVPN_ROUTE_PREFIXLEN, IPV6_MAX_BITLEN) +
+				 1];
+
 	double total_space;
 };
 
@@ -12829,6 +12834,7 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	ts->counts[BGP_STATS_PREFIXES]++;
 	ts->counts[BGP_STATS_TOTPLEN] += rn_p->prefixlen;
 
+	ts->prefix_len_count[rn_p->prefixlen]++;
 	/* check if the prefix is included by any other announcements */
 	while (pdest && !bgp_dest_has_bgp_path_info_data(pdest))
 		pdest = bgp_dest_parent_nolock(pdest);
@@ -12935,6 +12941,8 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 	int ret = CMD_SUCCESS;
 	char temp_buf[20];
 	struct json_object *json = NULL;
+	uint32_t bitlen = 0;
+	struct json_object *json_bitlen;
 
 	if (json_array)
 		json = json_object_new_object();
@@ -13133,6 +13141,38 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (!json)
 			vty_out(vty, "\n");
 	}
+
+	switch (afi) {
+	case AFI_IP:
+		bitlen = IPV4_MAX_BITLEN;
+		break;
+	case AFI_IP6:
+		bitlen = IPV6_MAX_BITLEN;
+		break;
+	case AFI_L2VPN:
+		bitlen = EVPN_ROUTE_PREFIXLEN;
+		break;
+	default:
+		break;
+	}
+
+	if (json) {
+		json_bitlen = json_object_new_array();
+
+		for (i = 0; i <= bitlen; i++) {
+			struct json_object *ind_bit = json_object_new_object();
+
+			if (!ts.prefix_len_count[i])
+				continue;
+
+			snprintf(temp_buf, sizeof(temp_buf), "%u", i);
+			json_object_int_add(ind_bit, temp_buf,
+					    ts.prefix_len_count[i]);
+			json_object_array_add(json_bitlen, ind_bit);
+		}
+		json_object_object_add(json, "prefixLength", json_bitlen);
+	}
+
 end_table_stats:
 	if (json)
 		json_object_array_add(json_array, json);
