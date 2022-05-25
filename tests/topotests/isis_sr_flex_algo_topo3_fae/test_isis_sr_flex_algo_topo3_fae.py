@@ -370,6 +370,133 @@ def _ping(tgen, hidx, addr, count=5):
     return success
 
 
+#
+# List of labels we'll look for in traffic filters below
+#
+_traf_labels_of_interest = [20109, 20209, 20309, 20409]
+
+
+def _add_nft_counter(tgen, hostname, device, addr):
+    "Add nftables entry that matches addr so we can count packets"
+
+    # Need "sudo apt install nftables"
+
+    host = tgen.gears[hostname]
+    devparam = ""
+    if device != "":
+        devparam = f"device {device}"
+
+    # need a different chain name per-device
+    n_chain = f"c-fa1-{device}"
+
+    cmd = f"nft add table netdev t-fa1"
+    logger.info(f"{hostname}: {cmd}")
+    rc, out, err = host.net.cmd_status(cmd)
+    if rc != 0:
+        logger.info(f"{hostname}: nft returned {rc}")
+        return False
+
+    cmd = f"nft add chain netdev t-fa1 {n_chain} '{{type filter hook ingress device {device} priority -500;}}'"
+    logger.info(f"{hostname}: {cmd}")
+    rc, out, err = host.net.cmd_status(cmd)
+    if rc != 0:
+        logger.info(f"{hostname}: nft returned {rc}")
+        return False
+
+    #
+    # despite "nft describe ether_type" output listing ip == 0x0008,
+    # the correct symbolic value to use here is not byte-swapped
+    #
+    cmd = f"nft add rule netdev t-fa1 {n_chain} ether type 0x8847 counter"
+    logger.info(f"{hostname}: {cmd}")
+    rc, out, err = host.net.cmd_status(cmd)
+    if rc != 0:
+        logger.info(f"{hostname}: nft returned {rc}")
+        return False
+
+    #
+    # We have to left-shift the labels 4 bits for alignment on 8-bit boundary,
+    # then mask top 20 bits.
+    #
+    # nftables raw matching offset and length are expressed in bits
+    #
+    for v in _traf_labels_of_interest:
+        vs = v << 4
+        cmd = f"nft add rule netdev t-fa1 {n_chain} ether type 0x8847 @ll,112,24 '&' 0xfffff0 {vs} counter"
+        logger.info(f"{hostname}: {cmd}")
+        rc, out, err = host.net.cmd_status(cmd)
+        if rc != 0:
+            logger.info(f"{hostname}: nft returned {rc}")
+            return False
+
+    cmd = f"nft add rule netdev t-fa1 {n_chain} ip daddr {addr} counter"
+    logger.info(f"{hostname}: {cmd}")
+    rc, out, err = host.net.cmd_status(cmd)
+    if rc != 0:
+        logger.info(f"{hostname}: nft returned {rc}")
+        return False
+
+    return True
+
+
+#
+# Returns a dict keyed by numeric mpls label and/or string ip address
+#
+# Each value is a dict with keys p and b (for packets and bytes)
+#
+def _read_nft_counter(tgen, hostname, device, addr=None):
+    "Get the value of an nftables counter for address addr"
+
+    counters = {}
+
+    host = tgen.gears[hostname]
+
+    # need a different chain name per-device
+    n_chain = f"c-fa1-{device}"
+
+    cmd = f"nft list chain netdev t-fa1 {n_chain}"
+    logger.info(f"{hostname}: {cmd}")
+    rc, out, err = host.net.cmd_status(cmd)
+    if rc != 0:
+        logger.info(f"{hostname}: nft list returned {rc}")
+        return ""
+
+    logger.info(f'{hostname}: nft list output: "{out}"')
+
+    if addr:
+        for line in out.splitlines():
+            m = re.search(
+                re.escape(addr) + r"\s+counter\s+packets\s+(\d+)\s+bytes\s+(\d+)", line
+            )
+            if m:
+                logger.info(f'{hostname}: match: "{line}"')
+                # count = line.split()[0]
+                counters[addr] = {"p": m.group(1), "b": m.group(2)}
+                break
+
+    #
+    # extract packet counts for all labels of interest
+    #
+    for v in _traf_labels_of_interest:
+        # shifted value used in rule
+        vs = v << 4
+        pat = (
+            r"ether\s+type\s+0x8847\s+@ll,112,24\s+&\s+16777200\s+==\s+"
+            + re.escape(f"{vs}")
+            + r"\s+counter\s+packets\s+(\d+)\s+bytes\s+(\d+)"
+        )
+        for line in out.splitlines():
+            m = re.search(pat, line)
+            if m:
+                count_p = m.group(1)
+                count_b = m.group(2)
+                counters[v] = {"p": m.group(1), "b": m.group(2)}
+                logger.info(f"{hostname}: mlabel {v} packets: {m.group(1)}")
+                break
+
+    return counters
+
+
 def build_topo(tgen):
     "Build function"
 
@@ -757,6 +884,30 @@ def test_step2_fae_registration():
         )
 
 
+_nft = (
+    [[car, f"eth-{cadr}"] for car, cadr, *cdr in router_links]
+    + [[cadr, f"eth-{car}"] for car, cadr, *cdr in router_links]
+    + [[cadr, f"eth-{switch_names[car]}"] for car, cadr, *cdr in router_switch_links]
+)
+
+
+def add_nft_all_counters(tgen, addr):
+    for i in _nft:
+        hostname = router_names[i[0]]
+        _add_nft_counter(tgen, hostname, i[1], addr)
+
+
+def read_nft_all_counters(tgen, addr):
+    c = {}
+    for i in _nft:
+        hostname = router_names[i[0]]
+        if not hostname in c:
+            c[hostname] = {}
+        c[hostname][i[1]] = _read_nft_counter(tgen, hostname, i[1], addr)
+
+    return c
+
+
 def test_step2_bgp_routes():
     logger.info(
         "Test (step 2): checkroutes from BGP to ensure active candidate path is taken"
@@ -776,7 +927,14 @@ def test_step2_bgp_routes():
 
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+
+    add_nft_all_counters(tgen, addr)
+
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
+    after = read_nft_all_counters(tgen, addr)
+    ## TODO: compare `before` and `after` to make sure the right number
+    ## of packets with the right labels were received on the right interfaces.
 
 
 ####
@@ -886,6 +1044,7 @@ def test_step3_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -979,6 +1138,7 @@ def test_step4_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -1061,6 +1221,7 @@ def test_step5_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -1130,6 +1291,7 @@ def test_step6_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -1235,6 +1397,7 @@ def test_step7_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -1321,6 +1484,7 @@ def test_step8_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -1396,6 +1560,7 @@ def test_step9_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 ####
@@ -1475,6 +1640,7 @@ def test_step10_bgp_routes():
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
     assert _ping(tgen, 0, addr) == True
+    read_nft_all_counters(tgen, addr)
 
 
 #####
