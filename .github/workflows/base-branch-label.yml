@@ -1,0 +1,17 @@
+name: Add base branch label
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: |
+            ${{ github.event.pull_request.base.ref }}
