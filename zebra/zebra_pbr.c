@@ -812,8 +812,11 @@ static void *pbr_iptable_alloc_intern(void *arg)
 
 void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable)
 {
-	(void)hash_get(zrouter.iptable_hash, iptable, pbr_iptable_alloc_intern);
-	(void)dplane_pbr_iptable_add(iptable);
+	struct zebra_pbr_iptable *ipt_hash;
+
+	ipt_hash = hash_get(zrouter.iptable_hash, iptable,
+			    pbr_iptable_alloc_intern);
+	(void)dplane_pbr_iptable_add(ipt_hash);
 }
 
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
