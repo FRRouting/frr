@@ -3630,9 +3630,9 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* If NEXT_HOP is present, validate it. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
-		if (attr->nexthop.s_addr == INADDR_ANY
-		    || IPV4_CLASS_DE(ntohl(attr->nexthop.s_addr))
-		    || bgp_nexthop_self(bgp, afi, type, stype, attr, dest))
+		if (attr->nexthop.s_addr == INADDR_ANY ||
+		    IPV4_CLASS_D(ntohl(attr->nexthop.s_addr)) ||
+		    bgp_nexthop_self(bgp, afi, type, stype, attr, dest))
 			return true;
 	}
 
@@ -3649,11 +3649,12 @@ bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		switch (attr->mp_nexthop_len) {
 		case BGP_ATTR_NHLEN_IPV4:
 		case BGP_ATTR_NHLEN_VPNV4:
-			ret = (attr->mp_nexthop_global_in.s_addr == INADDR_ANY
-			       || IPV4_CLASS_DE(
-				       ntohl(attr->mp_nexthop_global_in.s_addr))
-			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
-						   dest));
+			ret = (attr->mp_nexthop_global_in.s_addr ==
+				       INADDR_ANY ||
+			       IPV4_CLASS_D(ntohl(
+				       attr->mp_nexthop_global_in.s_addr)) ||
+			       bgp_nexthop_self(bgp, afi, type, stype, attr,
+						dest));
 			break;
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:

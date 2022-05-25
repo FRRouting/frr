@@ -529,7 +529,7 @@ static inline int ipv4_martian(const struct in_addr *addr)
 {
 	in_addr_t ip = ntohl(addr->s_addr);
 
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_DE(ip)) {
+	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_D(ip)) {
 		return 1;
 	}
 	return 0;
