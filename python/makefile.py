@@ -32,7 +32,12 @@ for clippy_file in clippy_scan:
     assert clippy_file.endswith(".c")
 
 xref_targets = []
-for varname in ["bin_PROGRAMS", "sbin_PROGRAMS", "lib_LTLIBRARIES", "module_LTLIBRARIES"]:
+for varname in [
+    "bin_PROGRAMS",
+    "sbin_PROGRAMS",
+    "lib_LTLIBRARIES",
+    "module_LTLIBRARIES",
+]:
     xref_targets.extend(mv[varname].strip().split())
 
 # check for files using clippy but not listed in clippy_scan
@@ -120,11 +125,11 @@ while lines:
     target, dep = m.group(1), m.group(2)
 
     filename = os.path.basename(target)
-    if '-' in filename:
+    if "-" in filename:
         # dashes in output filename = building same .c with different CFLAGS
-        am_name, _ = filename.split('-', 1)
+        am_name, _ = filename.split("-", 1)
         am_name = os.path.join(os.path.dirname(target), am_name)
-        am_name = am_name.replace('/', '_')
+        am_name = am_name.replace("/", "_")
         extraflags = " $(%s_CFLAGS)" % (am_name,)
     else:
         # this path isn't really triggered because automake is using a generic
@@ -135,7 +140,10 @@ while lines:
         if not dep.endswith(".h"):
             # LLVM bitcode targets for analysis tools
             bcdeps.append("%s.bc: %s" % (target, target))
-            bcdeps.append("\t$(AM_V_LLVM_BC)$(COMPILE)%s -emit-llvm -c -o $@ %s" % (extraflags, dep))
+            bcdeps.append(
+                "\t$(AM_V_LLVM_BC)$(COMPILE)%s -emit-llvm -c -o $@ %s"
+                % (extraflags, dep)
+            )
     if m.group(2) in clippy_scan:
         # again - this is only hit for targets with custom CFLAGS, because
         # automake uses a generic .c -> .o rule for standard CFLAGS
@@ -152,13 +160,15 @@ for clippy_file in clippy_scan:
 
 # combine daemon .xref files into frr.xref
 out_lines.append("")
-out_lines.append("xrefs = %s" % (" ".join(["%s.xref" % target for target in xref_targets])))
+out_lines.append(
+    "xrefs = %s" % (" ".join(["%s.xref" % target for target in xref_targets]))
+)
 out_lines.append("frr.xref: $(xrefs)")
 out_lines.append("")
 
 # analog but slower way to get the same frr.xref
-#frr.xref: $(bin_PROGRAMS) $(sbin_PROGRAMS) $(lib_LTLIBRARIES) $(module_LTLIBRARIES)
-#	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+# frr.xref: $(bin_PROGRAMS) $(sbin_PROGRAMS) $(lib_LTLIBRARIES) $(module_LTLIBRARIES)
+# 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
 
 # LLVM bitcode link targets creating a .bc file for whole daemon or lib
 out_lines.append("")
