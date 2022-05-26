@@ -155,6 +155,10 @@ def setup_module(mod):
     r3.cmd_raises("ip link set up dev  R3-eth4")
     r3.cmd_raises("ip link set up dev  R3-eth5")
 
+    r1.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")
+    r2.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")
+    r3.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")
+
     # This is a sample of configuration loading.
     router_list = tgen.routers()
 
@@ -397,49 +401,6 @@ def check_vrf_peer_change_passwords(vrf="", prefix="no"):
     check_all_peers_established(vrf)
 
 
-def test_default_peer_established(tgen):
-    "default vrf 3 peers same password"
-
-    reset_with_new_configs(tgen, "bgpd.conf", "ospfd.conf")
-    check_all_peers_established()
-
-
-def test_default_peer_remove_passwords(tgen):
-    "selectively remove passwords checking state"
-
-    reset_with_new_configs(tgen, "bgpd.conf", "ospfd.conf")
-    check_vrf_peer_remove_passwords()
-
-
-def test_default_peer_change_passwords(tgen):
-    "selectively change passwords checking state"
-
-    reset_with_new_configs(tgen, "bgpd.conf", "ospfd.conf")
-    check_vrf_peer_change_passwords()
-
-
-def test_default_prefix_peer_established(tgen):
-    "default vrf 3 peers same password with prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_prefix.conf", "ospfd.conf")
-    check_all_peers_established()
-
-
-def test_prefix_peer_remove_passwords(tgen):
-    "selectively remove passwords checking state with prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_prefix.conf", "ospfd.conf")
-    check_vrf_peer_remove_passwords(prefix="yes")
-
-
 def test_prefix_peer_change_passwords(tgen):
     "selecively change passwords checkig state with prefix config"
 
@@ -471,107 +432,6 @@ def test_vrf_peer_change_passwords(tgen):
 
     reset_with_new_configs(tgen, "bgpd_vrf.conf", "ospfd_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue")
-
-
-def test_vrf_prefix_peer_established(tgen):
-    "default vrf 3 peers same password with VRF prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_vrf_prefix.conf", "ospfd_vrf.conf")
-    check_all_peers_established("blue")
-
-
-def test_vrf_prefix_peer_remove_passwords(tgen):
-    "selectively remove passwords checking state with VRF prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_vrf_prefix.conf", "ospfd_vrf.conf")
-    check_vrf_peer_remove_passwords(vrf="blue", prefix="yes")
-
-
-def test_vrf_prefix_peer_change_passwords(tgen):
-    "selectively change passwords checking state with VRF prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_vrf_prefix.conf", "ospfd_vrf.conf")
-    check_vrf_peer_change_passwords(vrf="blue", prefix="yes")
-
-
-def test_multiple_vrf_peer_established(tgen):
-    "default vrf 3 peers same password with multiple VRFs"
-
-    reset_with_new_configs(tgen, "bgpd_multi_vrf.conf", "ospfd_multi_vrf.conf")
-    check_all_peers_established("blue")
-    check_all_peers_established("red")
-
-
-def test_multiple_vrf_peer_remove_passwords(tgen):
-    "selectively remove passwords checking state with multiple VRFs"
-
-    reset_with_new_configs(tgen, "bgpd_multi_vrf.conf", "ospfd_multi_vrf.conf")
-    check_vrf_peer_remove_passwords("blue")
-    check_all_peers_established("red")
-    check_vrf_peer_remove_passwords("red")
-    check_all_peers_established("blue")
-
-
-def test_multiple_vrf_peer_change_passwords(tgen):
-    "selectively change passwords checking state with multiple VRFs"
-
-    reset_with_new_configs(tgen, "bgpd_multi_vrf.conf", "ospfd_multi_vrf.conf")
-    check_vrf_peer_change_passwords("blue")
-    check_all_peers_established("red")
-    check_vrf_peer_change_passwords("red")
-    check_all_peers_established("blue")
-
-
-def test_multiple_vrf_prefix_peer_established(tgen):
-    "default vrf 3 peers same password with multilpe VRFs and prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_multi_vrf_prefix.conf", "ospfd_multi_vrf.conf")
-    check_all_peers_established("blue")
-    check_all_peers_established("red")
-
-
-def test_multiple_vrf_prefix_peer_remove_passwords(tgen):
-    "selectively remove passwords checking state with multiple vrfs and prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_multi_vrf_prefix.conf", "ospfd_multi_vrf.conf")
-    check_vrf_peer_remove_passwords(vrf="blue", prefix="yes")
-    check_all_peers_established("red")
-    check_vrf_peer_remove_passwords(vrf="red", prefix="yes")
-    check_all_peers_established("blue")
-
-
-def test_multiple_vrf_prefix_peer_change_passwords(tgen):
-    "selectively change passwords checking state with multiple vrfs and prefix config"
-
-    # only supported in kernel > 5.3
-    if topotest.version_cmp(platform.release(), "5.3") < 0:
-        return
-
-    reset_with_new_configs(tgen, "bgpd_multi_vrf_prefix.conf", "ospfd_multi_vrf.conf")
-    check_vrf_peer_change_passwords(vrf="blue", prefix="yes")
-    check_all_peers_established("red")
-    check_vrf_peer_change_passwords(vrf="red", prefix="yes")
-    check_all_peers_established("blue")
 
 
 def test_memory_leak(tgen):
