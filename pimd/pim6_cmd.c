@@ -1228,6 +1228,22 @@ DEFPY (show_ipv6_mroute_summary_vrf_all,
 	return pim_show_mroute_summary_vrf_all_helper(vty, !!json);
 }
 
+DEFPY (show_ipv6_pim_interface_traffic,
+       show_ipv6_pim_interface_traffic_cmd,
+       "show ipv6 pim [vrf NAME] interface traffic [WORD$if_name] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface information\n"
+       "Protocol Packet counters\n"
+       "Interface name\n"
+       JSON_STR)
+{
+	return pim_show_interface_traffic_helper(vrf, if_name, vty, !!json);
+}
+
+
 DEFPY (clear_ipv6_pim_statistics,
        clear_ipv6_pim_statistics_cmd,
        "clear ipv6 pim statistics [vrf NAME]$name",
@@ -1559,6 +1575,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_count_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_interface_traffic_cmd);
 
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
