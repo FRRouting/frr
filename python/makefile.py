@@ -113,10 +113,19 @@ while lines:
 
     target, dep = m.group(1), m.group(2)
 
+    filename = os.path.basename(target)
+    if '-' in filename:
+        am_name, _ = filename.split('-', 1)
+        am_name = os.path.join(os.path.dirname(target), am_name)
+        am_name = am_name.replace('/', '_')
+        extraflags = " $(%s_CFLAGS)" % (am_name,)
+    else:
+        extraflags = ""
+
     if target.endswith(".lo") or target.endswith(".o"):
         if not dep.endswith(".h"):
             bcdeps.append("%s.bc: %s" % (target, target))
-            bcdeps.append("\t$(AM_V_LLVM_BC)$(COMPILE) -emit-llvm -c -o $@ %s" % (dep))
+            bcdeps.append("\t$(AM_V_LLVM_BC)$(COMPILE)%s -emit-llvm -c -o $@ %s" % (extraflags, dep))
     if m.group(2) in clippy_scan:
         out_lines.append(
             clippyauxdep.substitute(target=m.group(1), clippybase=m.group(2)[:-2])
