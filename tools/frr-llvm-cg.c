@@ -561,7 +561,6 @@ static void process_call(struct json_object *js_calls,
 	unsigned n_args = LLVMGetNumArgOperands(instr);
 
 	bool is_external = LLVMIsDeclaration(called);
-	enum called_fn called_type = FN_GENERIC;
 
 	js_call = json_object_new_object();
 	json_object_array_add(js_calls, js_call);
@@ -570,7 +569,6 @@ static void process_call(struct json_object *js_calls,
 			       json_object_new_boolean(is_external));
 
 	if (!called_name || called_len == 0) {
-		called_type = FN_NONAME;
 		json_object_object_add(js_call, "type",
 				       json_object_new_string("indirect"));
 
@@ -653,8 +651,6 @@ static void process_call(struct json_object *js_calls,
 		}
 #ifdef FRR_SPECIFIC
 	} else if (!strcmp(called_name, "_install_element")) {
-		called_type = FN_INSTALL_ELEMENT;
-
 		LLVMValueRef param0 = LLVMGetOperand(instr, 0);
 		if (!LLVMIsAConstantInt(param0))
 			goto out_nonconst;
@@ -694,8 +690,6 @@ static void process_call(struct json_object *js_calls,
 			json_object_new_string("install_element"));
 		return;
 	} else if (is_thread_sched(called_name, called_len)) {
-		called_type = FN_THREAD_ADD;
-
 		json_object_object_add(js_call, "type",
 				       json_object_new_string("thread_sched"));
 		json_object_object_add(
