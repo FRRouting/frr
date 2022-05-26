@@ -277,3 +277,8 @@ bool pim_msdp_log_neighbor_events(const struct pim_instance *pim)
 {
 	return (pim->log_flags & PIM_MSDP_LOG_NEIGHBOR_EVENTS);
 }
+
+bool pim_msdp_log_sa_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_SA_EVENTS);
+}

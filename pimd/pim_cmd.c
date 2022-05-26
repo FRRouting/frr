@@ -8282,6 +8282,22 @@ DEFPY(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
+      "[no] msdp log sa-events",
+      NO_STR
+      MSDP_STR
+      "MSDP log messages\n"
+      "MSDP log SA event messages\n")
+{
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/msdp/log-sa-events", VTY_CURR_XPATH);
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 struct pim_sg_cache_walk_data {
 	struct vty *vty;
 	json_object *json;
@@ -8914,6 +8930,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_cmd);
 	install_element(PIM_NODE, &msdp_log_neighbor_changes_cmd);
+	install_element(PIM_NODE, &msdp_log_sa_changes_cmd);
 
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);

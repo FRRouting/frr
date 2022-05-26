@@ -257,6 +257,13 @@ module frr-pim {
         description
           "Log all MSDP neighbor related events.";
       }
+
+      leaf log-sa-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP SA related events.";
+      }
     }
 
     list msdp-mesh-groups {

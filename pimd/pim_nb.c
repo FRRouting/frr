@@ -136,6 +136,12 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/log-sa-events",
+			.cbs = {
+				.modify = pim_msdp_log_sa_events_modify,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups",
 			.cbs = {
 				.create = pim_msdp_mesh_group_create,
