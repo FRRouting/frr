@@ -292,6 +292,10 @@ PIM protocol state
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. clicmd:: show ipv6 pim [vrf NAME] interface traffic [WORD] [json]
+
+   Display information about the number of PIM protocol packets sent/received
+   on an interface.
 
 MLD state
 ---------
