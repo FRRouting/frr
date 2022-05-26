@@ -192,6 +192,11 @@ struct pim_instance {
 
 	uint64_t gm_rx_drop_sys;
 
+	/** Log information flags. */
+	uint32_t log_flags;
+/** Log neighbor event messages. */
+#define PIM_MSDP_LOG_NEIGHBOR_EVENTS 0x01
+
 	bool stopping;
 
 #if PIM_IPV == 6
@@ -217,5 +222,7 @@ void pim_vrf_terminate(void);
 extern struct pim_router *router;
 
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
+
+extern bool pim_msdp_log_neighbor_events(const struct pim_instance *pim);
 
 #endif

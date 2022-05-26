@@ -250,6 +250,13 @@ module frr-pim {
     container msdp {
       description "Global MSDP configuration.";
       uses msdp-timers;
+
+      leaf log-neighbor-events {
+        type boolean;
+        default false;
+        description
+          "Log all MSDP neighbor related events.";
+      }
     }
 
     list msdp-mesh-groups {

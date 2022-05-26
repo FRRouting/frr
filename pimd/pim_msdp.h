@@ -165,6 +165,7 @@ struct pim_msdp_mg {
 	struct in_addr src_ip;
 	uint32_t mbr_cnt;
 	struct list *mbr_list;
+	struct pim_instance *pim;
 
 	/** Belongs to PIM instance list. */
 	SLIST_ENTRY(pim_msdp_mg) mg_entry;
