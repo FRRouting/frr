@@ -2310,7 +2310,7 @@ static void *route_set_community_compile(const char *arg)
 	}
 
 	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_com_set));
-	rcs->com = com;
+	rcs->com = community_intern(com);
 	rcs->additive = additive;
 	rcs->none = none;
 
@@ -2421,7 +2421,7 @@ static void *route_set_lcommunity_compile(const char *arg)
 	}
 
 	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_com_set));
-	rcs->lcom = lcom;
+	rcs->lcom = lcommunity_intern(lcom);
 	rcs->additive = additive;
 	rcs->none = none;
 
