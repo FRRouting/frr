@@ -1414,7 +1414,7 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
 		return;
 
-	/* Parse main LSP. */
+	/* Parse LSP. */
 	if (lsp->tlvs) {
 		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
 			head = lsp->tlvs->oldstyle_reach.head;
@@ -1445,6 +1445,9 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 			}
 		}
 	}
+
+	if (LSP_FRAGMENT(lsp->hdr.lsp_id))
+		return;
 
 	/* Parse LSP fragments. */
 	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
