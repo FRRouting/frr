@@ -796,8 +796,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct peer *peer;
 	struct bgp_adj_out *adj;
 	route_map_result_t ret = RMAP_DENYMATCH;
+	route_map_result_t new_ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
+	int pref = 65536;
+	int new_pref = 0;
 
 	if (!subgrp)
 		return;
@@ -853,28 +856,27 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				tmp_pi.attr = &tmp_attr;
 
-				ret = route_map_apply_ext(
+				new_ret = route_map_apply_ext(
 					peer->default_rmap[afi][safi].map,
-					bgp_dest_get_prefix(dest), pi, &tmp_pi);
+					bgp_dest_get_prefix(dest), pi, &tmp_pi,
+					&new_pref);
 
-				if (ret == RMAP_DENYMATCH) {
-					bgp_attr_flush(&tmp_attr);
-					continue;
-				} else {
-					new_attr = bgp_attr_intern(&tmp_attr);
-
+				if (new_ret == RMAP_PERMITMATCH) {
+					if (new_pref < pref) {
+						pref = new_pref;
+						bgp_attr_flush(new_attr);
+						new_attr = bgp_attr_intern(
+							tmp_pi.attr);
+						bgp_attr_flush(tmp_pi.attr);
+					}
 					subgroup_announce_reset_nhop(
 						(peer_cap_enhe(peer, afi, safi)
 							 ? AF_INET6
 							 : AF_INET),
 						new_attr);
-
-					break;
-				}
-			}
-			if (ret == RMAP_PERMITMATCH) {
-				bgp_dest_unlock_node(dest);
-				break;
+					ret = new_ret;
+				} else
+					bgp_attr_flush(&tmp_attr);
 			}
 		}
 		bgp->peer_self->rmap_type = 0;
