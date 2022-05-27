@@ -112,8 +112,9 @@ router isis {}
  topology ipv6-unicast
  !
  affinity-map red bit-position 0
- affinity-map blue bit-position 1
- affinity-map purple bit-position 2
+ affinity-map green bit-position 1
+ affinity-map blue bit-position 2
+ affinity-map purple bit-position 3
  !"""
 
 isisd_conf_area_sr_fmt = """\
@@ -171,8 +172,8 @@ sr_flex_algo_participation = (
     (True, True, True, True),  # rt9
 )
 sr_flex_algos_affinity = (
-    None,  # algo 128
-    None,  # algo 129
+    "include-any green",  # algo 128
+    "include-any red",  # algo 129
     "include-any blue",  # algo 130
     "include-any purple",  # algo 131
 )
@@ -221,52 +222,70 @@ router_links = (
         1,
         ip_network("10.1.0.0/24"),
         ip_network("2001:db8:0:1::/64"),
-        ["blue", "purple"],
+        ["green", "blue", "purple"],
     ),
-    (0, 5, ip_network("10.5.0.0/24"), ip_network("2001:db8:0:5::/64"), ["blue"]),
+    (0, 5, ip_network("10.5.0.0/24"), ip_network("2001:db8:0:5::/64"), ["red", "blue"]),
     (
         1,
         2,
         ip_network("10.12.0.0/24"),
         ip_network("2001:db8:1:2::/64"),
-        ["blue", "purple"],
+        ["green", "blue", "purple"],
     ),
-    (1, 4, ip_network("10.14.0.0/24"), ip_network("2001:db8:1:4::/64"), []),
+    (1, 4, ip_network("10.14.0.0/24"), ip_network("2001:db8:1:4::/64"), ["green"]),
     (1, 5, ip_network("10.15.0.0/24"), ip_network("2001:db8:1:5::/64"), []),
     (
         2,
         3,
         ip_network("10.23.0.0/24"),
         ip_network("2001:db8:2:3::/64"),
-        ["blue", "purple"],
+        ["green", "blue", "purple"],
     ),
     (2, 6, ip_network("10.26.0.0/24"), ip_network("2001:db8:2:6::/64"), []),
-    (3, 4, ip_network("10.34.0.0/24"), ip_network("2001:db8:3:4::/64"), ["purple"]),
+    (
+        3,
+        4,
+        ip_network("10.34.0.0/24"),
+        ip_network("2001:db8:3:4::/64"),
+        ["green", "purple"],
+    ),
     (3, 7, ip_network("10.37.0.0/24"), ip_network("2001:db8:3:7::/64"), []),
-    (3, 9, ip_network("10.39.0.0/24"), ip_network("2001:db8:3:9::/64"), ["blue"]),
+    (
+        3,
+        9,
+        ip_network("10.39.0.0/24"),
+        ip_network("2001:db8:3:9::/64"),
+        ["green", "blue"],
+    ),
     (4, 8, ip_network("10.48.0.0/24"), ip_network("2001:db8:4:8::/64"), ["purple"]),
     (
         5,
         6,
         ip_network("10.56.0.0/24"),
         ip_network("2001:db8:5:6::/64"),
-        ["blue", "purple"],
+        ["red", "blue", "purple"],
     ),
-    (5, 8, ip_network("10.58.0.0/24"), ip_network("2001:db8:5:8::/64"), ["purple"]),
+    (
+        5,
+        8,
+        ip_network("10.58.0.0/24"),
+        ip_network("2001:db8:5:8::/64"),
+        ["red", "purple"],
+    ),
     (
         6,
         7,
         ip_network("10.67.0.0/24"),
         ip_network("2001:db8:6:7::/64"),
-        ["blue", "purple"],
+        ["red", "blue", "purple"],
     ),
-    (7, 8, ip_network("10.78.0.0/24"), ip_network("2001:db8:7:8::/64"), []),
+    (7, 8, ip_network("10.78.0.0/24"), ip_network("2001:db8:7:8::/64"), ["red"]),
     (
         7,
         9,
         ip_network("10.79.0.0/24"),
         ip_network("2001:db8:7:9::/64"),
-        ["blue", "purple"],
+        ["red", "blue", "purple"],
     ),
 )
 lo_v4_base = ip_network("10.254.0.0/32")
@@ -301,6 +320,10 @@ host_links = (
         faconfig.v6net(9, network_v6_base, 1).split("/")[0],
     ),
 )
+
+_nft_links = [[car, f"eth-{cadr}"] for car, cadr, *cdr in router_links] + [
+    [cadr, f"eth-{car}"] for car, cadr, *cdr in router_links
+]
 
 
 def _num_mpls_nexthops(router):
@@ -373,7 +396,7 @@ def _ping(tgen, hidx, addr, count=5):
 #
 # List of labels we'll look for in traffic filters below
 #
-_traf_labels_of_interest = [20109, 20209, 20309, 20409]
+_traf_labels_of_interest = [20109, 20209, 20309, 20409, 20509]
 
 
 def _add_nft_counter(tgen, hostname, device, addr):
@@ -471,7 +494,7 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
             if m:
                 logger.info(f'{hostname}: match: "{line}"')
                 # count = line.split()[0]
-                counters[addr] = {"p": m.group(1), "b": m.group(2)}
+                counters[addr] = {"p": int(m.group(1)), "b": int(m.group(2))}
                 break
 
     #
@@ -490,11 +513,110 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
             if m:
                 count_p = m.group(1)
                 count_b = m.group(2)
-                counters[v] = {"p": m.group(1), "b": m.group(2)}
+                counters[v] = {"p": int(m.group(1)), "b": int(m.group(2))}
                 logger.info(f"{hostname}: mlabel {v} packets: {m.group(1)}")
                 break
 
     return counters
+
+
+def add_nft_all_counters(tgen, addr):
+    for i in _nft_links:
+        hostname = router_names[i[0]]
+        _add_nft_counter(tgen, hostname, i[1], addr)
+
+
+def read_nft_all_counters(tgen, addr):
+    c = {}
+    for i in _nft_links:
+        hostname = router_names[i[0]]
+        if not hostname in c:
+            c[hostname] = {}
+        c[hostname][i[1]] = _read_nft_counter(tgen, hostname, i[1], addr)
+
+    return c
+
+
+def diff_nft_all_counters(before, after):
+    diff = {}
+    for hostname in before.keys():
+        diff[hostname] = {}
+        for itf in before[hostname].keys():
+            diff[hostname][itf] = {}
+            for item in before[hostname][itf].keys():
+                tmp = {}
+                tmp["p"] = (
+                    after[hostname][itf][item]["p"] - before[hostname][itf][item]["p"]
+                )
+                tmp["b"] = (
+                    after[hostname][itf][item]["b"] - before[hostname][itf][item]["b"]
+                )
+                diff[hostname][itf][item] = tmp
+    return diff
+
+
+def check_nft_counters_by_link_affinity(counters, affinities, packets, label):
+    """Check that packets are incremented only links with particular affinities
+
+    `counters`   - a dictionary as returned by diff_nft_all_counters()
+    `affinities` - a list of link affinities ("green", "red", etc.)
+    `packets`    - the expected number of packets counted on any link
+    `label`      - the expected MPLS label in the counted packets
+
+    Return True if the expected number of packets was sampled only on
+    links with the specified affinities.  Return False if a packet count
+    is wrong, if a link with an incorrect affinity was used or if no
+    packets were found on any of the links with the desired affinities.
+    """
+
+    tot_pkts = 0
+    for rtr in counters:
+        idx_a = router_names.index(rtr)
+        for itf in counters[rtr]:
+            idx_b = int(itf[4:])
+            if label not in counters[rtr][itf]:
+                logger.error(
+                    f"router {rtr} interface {itf} has no label {label}: {counters[rtr][itf]}"
+                )
+                continue
+            label_packets = counters[rtr][itf][label]["p"]
+            if label_packets == 0:
+                continue
+            if label_packets != packets:
+                return False
+            tot_pkts += label_packets
+
+            # Find the link attached to router `rtr` interface `itf`
+            # and get its affinities.
+            idx = sorted([idx_a, idx_b])
+            links = [
+                link[-1]
+                for link in router_links
+                if link[0] == idx[0] and link[1] == idx[1]
+            ]
+            link = links[0]
+            match = False
+            for aff in affinities:
+                if aff in link:
+                    match = True
+                    break
+
+            if not match:
+                logger.error(
+                    f"Found packets with MPLS label {label} on a "
+                    + f'link with none of these affinities: {",".join(affinities)}'
+                )
+                return False
+            logger.info(
+                f"OK - {packets} packets on router {rtr} interface {itf} label {label}"
+            )
+
+    if tot_pkts == 0:
+        logger.error(
+            f'No packets found on links with affinity for {",".join(affinities)}'
+        )
+        return False
+    return True
 
 
 def build_topo(tgen):
@@ -884,30 +1006,6 @@ def test_step2_fae_registration():
         )
 
 
-_nft = (
-    [[car, f"eth-{cadr}"] for car, cadr, *cdr in router_links]
-    + [[cadr, f"eth-{car}"] for car, cadr, *cdr in router_links]
-    + [[cadr, f"eth-{switch_names[car]}"] for car, cadr, *cdr in router_switch_links]
-)
-
-
-def add_nft_all_counters(tgen, addr):
-    for i in _nft:
-        hostname = router_names[i[0]]
-        _add_nft_counter(tgen, hostname, i[1], addr)
-
-
-def read_nft_all_counters(tgen, addr):
-    c = {}
-    for i in _nft:
-        hostname = router_names[i[0]]
-        if not hostname in c:
-            c[hostname] = {}
-        c[hostname][i[1]] = _read_nft_counter(tgen, hostname, i[1], addr)
-
-    return c
-
-
 def test_step2_bgp_routes():
     logger.info(
         "Test (step 2): checkroutes from BGP to ensure active candidate path is taken"
@@ -933,8 +1031,11 @@ def test_step2_bgp_routes():
     before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
     after = read_nft_all_counters(tgen, addr)
-    ## TODO: compare `before` and `after` to make sure the right number
-    ## of packets with the right labels were received on the right interfaces.
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][0]
+    # The 'red' and 'green' links are mutually exclusive.
+    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1043,8 +1144,12 @@ def test_step3_bgp_routes():
 
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
-    read_nft_all_counters(tgen, addr)
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][3]
+    assert check_nft_counters_by_link_affinity(diff, ["purple"], 5, label) == True
 
 
 ####
@@ -1056,7 +1161,7 @@ def test_step3_bgp_routes():
 #   algo 131.
 #  -FAE registrations for algo 128 are active
 #  -The SR-TE policy is still active but has switched to the algo 128 path
-#  -The BGP route has been updated with the MPLS label for the algo 131
+#  -The BGP route has been updated with the MPLS label for the algo 128
 #   candidate path
 
 
@@ -1137,13 +1242,18 @@ def test_step4_bgp_routes():
 
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
-    read_nft_all_counters(tgen, addr)
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][0]
+    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
 # step 5: check candidate policy preferences (add isis route)
-def test_step5_disable_algo():
+def test_step5_enable_algo():
     logger.info("Test (step 5) - Add IPv4 prefix-sids for algo 131")
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -1220,8 +1330,12 @@ def test_step5_bgp_routes():
 
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
-    read_nft_all_counters(tgen, addr)
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][3]
+    assert check_nft_counters_by_link_affinity(diff, ["purple"], 5, label) == True
 
 
 ####
@@ -1290,8 +1404,13 @@ def test_step6_bgp_routes():
 
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
-    read_nft_all_counters(tgen, addr)
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][0]
+    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1394,10 +1513,18 @@ def test_step7_bgp_routes():
         "step7/show_ip_route_bgp.ref",
     )
 
+    idx = 9
+    new_v4sid = list(ipv4_indices[idx])[-1] + 100
+
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
-    read_nft_all_counters(tgen, addr)
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + new_v4sid
+    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1559,8 +1686,13 @@ def test_step9_bgp_routes():
 
     # Try to ping the host attached to RT9 from the host attached to RT0
     addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 0, addr) == True
-    read_nft_all_counters(tgen, addr)
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][0]
+    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
