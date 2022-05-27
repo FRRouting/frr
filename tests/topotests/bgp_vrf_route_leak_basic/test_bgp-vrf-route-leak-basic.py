@@ -174,6 +174,20 @@ def check_bgp_ping(router, vrf):
     return result, output
 
 
+def check_bgp_ping_own_ip(router):
+    cmd = "ip vrf exec DONNA ping -c1 10.0.0.1 -I 10.0.0.1"
+
+    output = ""
+    try:
+        output = router.cmd_raises(cmd)
+        result = True
+    except:
+        result = False
+        pass
+
+    return result, output
+
+
 def test_vrf_route_leak_test1():
     logger.info("Ensure that routes are leaked back and forth")
     tgen = get_topogen()
@@ -182,6 +196,13 @@ def test_vrf_route_leak_test1():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+
+    result, output = check_bgp_ping_own_ip(r1)
+    assert (
+        result
+    ), "Ping from VRF fails - check https://bugzilla.kernel.org/show_bug.cgi?id=203483\n:{}".format(
+        output
+    )
 
     for vrf in ["EVA", "DONNA"]:
         result, diff = check_bgp_rib(r1, vrf, True)
