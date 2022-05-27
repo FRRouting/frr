@@ -442,6 +442,8 @@ extern struct zclient *zclient_new_notify(struct thread_master *m,
 
 extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);
+extern void zclient_init_sync(struct zclient *, int, unsigned short,
+			 struct zebra_privs_t *privs);			 
 extern int zclient_start(struct zclient *);
 extern void zclient_stop(struct zclient *);
 extern void zclient_reset(struct zclient *);

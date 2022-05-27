@@ -645,6 +645,62 @@ static int zclient_connect(struct thread *t)
 	return zclient_start(zclient);
 }
 
+static int zclient_connect_sync(struct zclient *zclient)
+{
+//	struct zclient *zclient;
+
+//	zclient = THREAD_ARG(t);
+	zclient->t_connect = NULL;
+
+	if (zclient_debug)
+		zlog_debug("zclient_connect is called");
+
+	return zclient_start(zclient);
+}
+
+void zclient_init_sync(struct zclient *zclient, int redist_default,
+		  unsigned short instance, struct zebra_privs_t *privs)
+{
+	int afi, i;
+
+	/* Set -1 to the default socket value. */
+	zclient->sock = -1;
+	zclient->privs = privs;
+
+	/* Clear redistribution flags. */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+			zclient->redist[afi][i] = vrf_bitmap_init();
+
+	/* Set unwanted redistribute route.  bgpd does not need BGP route
+	   redistribution. */
+	zclient->redist_default = redist_default;
+	zclient->instance = instance;
+	/* Pending: make afi(s) an arg. */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		redist_add_instance(&zclient->mi_redist[afi][redist_default],
+				    instance);
+
+	/* Set default-information redistribute to zero. */
+	zclient->default_information = vrf_bitmap_init();
+
+	if (zclient_debug)
+		zlog_debug("zclient_start is called");
+
+	int retry =12;
+	while ( (retry > 0) && (zclient->sock < 0) ) {
+	//zclient_event(ZCLIENT_SCHEDULE, zclient);
+		if ( zclient_connect_sync(zclient) < 0 ){
+			fprintf(stdout, "zclient_connect failed\n");
+			retry = retry-1;
+			sleep(10);
+			continue;
+		}
+		fprintf(stdout, "zebra client connect successful %d\n", zclient->sock);	
+	}
+}
+
+
 int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
 		     bool exact_match, vrf_id_t vrf_id)
 {
