@@ -720,9 +720,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 			zlog_debug(
 				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
-		return;
-	}
-	bgp_process_nexthop_update(bnc_import, &nhr, true);
+	} else
+		bgp_process_nexthop_update(bnc_import, &nhr, true);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -740,9 +739,9 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
-			if (!prefix_same(&bnc_import->prefix, &bnc_iter->prefix)
-			    || bnc_iter->srte_color == 0
-			    || CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
+			if (!prefix_same(&bnc_nhc->prefix, &bnc_iter->prefix) ||
+			    bnc_iter->srte_color == 0 ||
+			    CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
 
 			bgp_process_nexthop_update(bnc_iter, &nhr, false);
