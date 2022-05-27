@@ -72,6 +72,13 @@ luCommand(
     "wait",
     "CE4->PE4 ping",
 )
+ret = luCommand(
+    "r1",
+    "ip vrf exec r1-cust5 ping 29.0.0.1 -I 29.0.0.1 -c 1",
+    " 0. packet loss",
+    "pass",
+    "Ping its own IP. Check https://bugzilla.kernel.org/show_bug.cgi?id=203483 if it fails",
+)
 luCommand(
     "r1",
     "ip vrf exec r1-cust5 ping 192.168.1.1 -I 29.0.0.1 -c 1",
