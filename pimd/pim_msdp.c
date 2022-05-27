@@ -1012,16 +1012,6 @@ void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp)
 	}
 }
 
-static void pim_msdp_addr2su(union sockunion *su, struct in_addr addr)
-{
-	sockunion_init(su);
-	su->sin.sin_addr = addr;
-	su->sin.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	su->sin.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-}
-
 /* 11.2.A1: create a new peer and transition state to listen or connecting */
 struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 					const struct in_addr *peer,
@@ -1037,11 +1027,9 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 	mp->pim = pim;
 	mp->peer = *peer;
 	pim_inet4_dump("<peer?>", mp->peer, mp->key_str, sizeof(mp->key_str));
-	pim_msdp_addr2su(&mp->su_peer, mp->peer);
 	mp->local = *local;
 	/* XXX: originator_id setting needs to move to the mesh group */
 	pim->msdp.originator_id = *local;
-	pim_msdp_addr2su(&mp->su_local, mp->local);
 	if (mesh_group_name)
 		mp->mesh_group_name =
 			XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);

@@ -114,9 +114,6 @@ struct pim_msdp_peer {
 	enum pim_msdp_peer_state state;
 	enum pim_msdp_peer_flags flags;
 
-	/* TCP socket info */
-	union sockunion su_local;
-	union sockunion su_peer;
 	int fd;
 
 /* protocol timers */
