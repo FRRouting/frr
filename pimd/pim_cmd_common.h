@@ -180,6 +180,11 @@ int pim_show_mroute_count_vrf_all_helper(struct vty *vty, bool json);
 int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json);
 int pim_show_mroute_summary_vrf_all_helper(struct vty *vty, bool json);
 
+void pim_show_interface_traffic_single(struct pim_instance *pim,
+				       struct vty *vty, const char *ifname,
+				       bool uj);
+void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
+				bool uj);
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */

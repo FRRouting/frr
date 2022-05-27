@@ -4646,3 +4646,182 @@ int pim_show_mroute_summary_vrf_all_helper(struct vty *vty, bool json)
 
 	return CMD_SUCCESS;
 }
+
+void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
+				bool uj)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
+	json_object *json = NULL;
+	json_object *json_row = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+	else {
+		vty_out(vty, "\n");
+		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s%-17s\n",
+			"Interface", "       HELLO", "       JOIN",
+			"      PRUNE", "   REGISTER", "REGISTER-STOP",
+			"  ASSERT", "  BSM");
+		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s%-17s\n", "",
+			"       Rx/Tx", "       Rx/Tx", "      Rx/Tx",
+			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "   Rx/Tx");
+		vty_out(vty,
+			"---------------------------------------------------------------------------------------------------------------\n");
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		if (uj) {
+			json_row = json_object_new_object();
+			json_object_pim_ifp_add(json_row, ifp);
+			json_object_int_add(json_row, "helloRx",
+					    pim_ifp->pim_ifstat_hello_recv);
+			json_object_int_add(json_row, "helloTx",
+					    pim_ifp->pim_ifstat_hello_sent);
+			json_object_int_add(json_row, "joinRx",
+					    pim_ifp->pim_ifstat_join_recv);
+			json_object_int_add(json_row, "joinTx",
+					    pim_ifp->pim_ifstat_join_send);
+			json_object_int_add(json_row, "pruneTx",
+					    pim_ifp->pim_ifstat_prune_send);
+			json_object_int_add(json_row, "pruneRx",
+					    pim_ifp->pim_ifstat_prune_recv);
+			json_object_int_add(json_row, "registerRx",
+					    pim_ifp->pim_ifstat_reg_recv);
+			json_object_int_add(json_row, "registerTx",
+					    pim_ifp->pim_ifstat_reg_send);
+			json_object_int_add(json_row, "registerStopRx",
+					    pim_ifp->pim_ifstat_reg_stop_recv);
+			json_object_int_add(json_row, "registerStopTx",
+					    pim_ifp->pim_ifstat_reg_stop_send);
+			json_object_int_add(json_row, "assertRx",
+					    pim_ifp->pim_ifstat_assert_recv);
+			json_object_int_add(json_row, "assertTx",
+					    pim_ifp->pim_ifstat_assert_send);
+			json_object_int_add(json_row, "bsmRx",
+					    pim_ifp->pim_ifstat_bsm_rx);
+			json_object_int_add(json_row, "bsmTx",
+					    pim_ifp->pim_ifstat_bsm_tx);
+			json_object_object_add(json, ifp->name, json_row);
+		} else {
+			vty_out(vty,
+				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7" PRIu64
+				"/%-7" PRIu64 "\n",
+				ifp->name, pim_ifp->pim_ifstat_hello_recv,
+				pim_ifp->pim_ifstat_hello_sent,
+				pim_ifp->pim_ifstat_join_recv,
+				pim_ifp->pim_ifstat_join_send,
+				pim_ifp->pim_ifstat_prune_recv,
+				pim_ifp->pim_ifstat_prune_send,
+				pim_ifp->pim_ifstat_reg_recv,
+				pim_ifp->pim_ifstat_reg_send,
+				pim_ifp->pim_ifstat_reg_stop_recv,
+				pim_ifp->pim_ifstat_reg_stop_send,
+				pim_ifp->pim_ifstat_assert_recv,
+				pim_ifp->pim_ifstat_assert_send,
+				pim_ifp->pim_ifstat_bsm_rx,
+				pim_ifp->pim_ifstat_bsm_tx);
+		}
+	}
+	if (uj)
+		vty_json(vty, json);
+}
+
+void pim_show_interface_traffic_single(struct pim_instance *pim,
+				       struct vty *vty, const char *ifname,
+				       bool uj)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
+	json_object *json = NULL;
+	json_object *json_row = NULL;
+	uint8_t found_ifname = 0;
+
+	if (uj)
+		json = json_object_new_object();
+	else {
+		vty_out(vty, "\n");
+		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s%-17s\n",
+			"Interface", "    HELLO", "    JOIN", "   PRUNE",
+			"   REGISTER", "  REGISTER-STOP", "  ASSERT",
+			"    BSM");
+		vty_out(vty, "%-14s%-18s%-17s%-17s%-17s%-17s%-17s%-17s\n", "",
+			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
+			"     Rx/Tx", "    Rx/Tx", "    Rx/Tx");
+		vty_out(vty,
+			"-------------------------------------------------------------------------------------------------------------------------------\n");
+	}
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		if (strcmp(ifname, ifp->name))
+			continue;
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		found_ifname = 1;
+		if (uj) {
+			json_row = json_object_new_object();
+			json_object_pim_ifp_add(json_row, ifp);
+			json_object_int_add(json_row, "helloRx",
+					    pim_ifp->pim_ifstat_hello_recv);
+			json_object_int_add(json_row, "helloTx",
+					    pim_ifp->pim_ifstat_hello_sent);
+			json_object_int_add(json_row, "joinRx",
+					    pim_ifp->pim_ifstat_join_recv);
+			json_object_int_add(json_row, "joinTx",
+					    pim_ifp->pim_ifstat_join_send);
+			json_object_int_add(json_row, "pruneRx",
+					    pim_ifp->pim_ifstat_prune_recv);
+			json_object_int_add(json_row, "pruneTx",
+					    pim_ifp->pim_ifstat_prune_send);
+			json_object_int_add(json_row, "registerRx",
+					    pim_ifp->pim_ifstat_reg_recv);
+			json_object_int_add(json_row, "registerTx",
+					    pim_ifp->pim_ifstat_reg_send);
+			json_object_int_add(json_row, "registerStopRx",
+					    pim_ifp->pim_ifstat_reg_stop_recv);
+			json_object_int_add(json_row, "registerStopTx",
+					    pim_ifp->pim_ifstat_reg_stop_send);
+			json_object_int_add(json_row, "assertRx",
+					    pim_ifp->pim_ifstat_assert_recv);
+			json_object_int_add(json_row, "assertTx",
+					    pim_ifp->pim_ifstat_assert_send);
+			json_object_int_add(json_row, "bsmRx",
+					    pim_ifp->pim_ifstat_bsm_rx);
+			json_object_int_add(json_row, "bsmTx",
+					    pim_ifp->pim_ifstat_bsm_tx);
+
+			json_object_object_add(json, ifp->name, json_row);
+		} else {
+			vty_out(vty,
+				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7" PRIu64
+				"/%-7" PRIu64 "\n",
+				ifp->name, pim_ifp->pim_ifstat_hello_recv,
+				pim_ifp->pim_ifstat_hello_sent,
+				pim_ifp->pim_ifstat_join_recv,
+				pim_ifp->pim_ifstat_join_send,
+				pim_ifp->pim_ifstat_prune_recv,
+				pim_ifp->pim_ifstat_prune_send,
+				pim_ifp->pim_ifstat_reg_recv,
+				pim_ifp->pim_ifstat_reg_send,
+				pim_ifp->pim_ifstat_reg_stop_recv,
+				pim_ifp->pim_ifstat_reg_stop_send,
+				pim_ifp->pim_ifstat_assert_recv,
+				pim_ifp->pim_ifstat_assert_send,
+				pim_ifp->pim_ifstat_bsm_rx,
+				pim_ifp->pim_ifstat_bsm_tx);
+		}
+	}
+	if (uj)
+		vty_json(vty, json);
+	else if (!found_ifname)
+		vty_out(vty, "%% No such interface\n");
+}
