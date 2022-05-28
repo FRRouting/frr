@@ -4676,6 +4676,12 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 
 		/* Link the SVI from the access VLAN */
 		zebra_evpn_acc_bd_svi_set(ifp->info, link_if->info, true);
+
+		/* Update MACIP routes created by advertise-svi-ip */
+		if (advertise_svi_macip_enabled(zevpn)) {
+			zebra_evpn_del_macip_for_intf(ifp, zevpn);
+			zebra_evpn_add_macip_for_intf(ifp, zevpn);
+		}
 	}
 
 	return 0;
