@@ -40,6 +40,7 @@
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_packet.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
@@ -68,6 +69,12 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 			return;
 		}
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
+
+		/* draft-ietf-idr-bfd-subcode */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_BFD_DOWN);
+
 		BGP_EVENT_ADD(peer, BGP_Stop);
 	}
 
