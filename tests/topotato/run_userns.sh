@@ -17,7 +17,7 @@ if [ "$1" = "ns_inner" ]; then
 
 	ip link set lo up
 
-	exec pytest-3 "$@"
+	exec python3 -mpytest "$@"
 else
 	exec unshare -U -m -p -n -r -f --mount-proc tini -g "$0" -- ns_inner "$@"
 fi
