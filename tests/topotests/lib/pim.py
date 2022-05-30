@@ -259,6 +259,124 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
                         config_data_dict[dut].extend(config_data)
 
 
+# def create_igmp_config(tgen, topo, input_dict=None, build=False):
+#     """
+#     API to configure igmp on router
+
+#     Parameters
+#     ----------
+#     * `tgen` : Topogen object
+#     * `topo` : json file data
+#     * `input_dict` : Input dict data, required when configuring from
+#                      testcase
+#     * `build` : Only for initial setup phase this is set as True.
+
+#     Usage
+#     -----
+#     input_dict = {
+#         "r1": {
+#             "igmp": {
+#                 "interfaces": {
+#                     "r1-r0-eth0" :{
+#                         "igmp":{
+#                             "version":  "2",
+#                             "delete": True
+#                             "query": {
+#                                 "query-interval" : 100,
+#                                 "query-max-response-time": 200
+#                             }
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     }
+
+#     Returns
+#     -------
+#     True or False
+#     """
+#     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+#     result = False
+#     if not input_dict:
+#         input_dict = deepcopy(topo)
+#     else:
+#         topo = topo["routers"]
+#         input_dict = deepcopy(input_dict)
+
+#     config_data_dict = {}
+
+#     for router in input_dict.keys():
+#         if "igmp" not in input_dict[router]:
+#             logger.debug("Router %s: 'igmp' is not present in " "input_dict", router)
+#             continue
+
+#         igmp_data = input_dict[router]["igmp"]
+
+#         if "interfaces" in igmp_data:
+#             config_data = []
+#             intf_data = igmp_data["interfaces"]
+
+#             for intf_name in intf_data.keys():
+#                 cmd = "interface {}".format(intf_name)
+#                 config_data.append(cmd)
+#                 protocol = "igmp"
+#                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
+#                 del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
+#                 source = intf_data[intf_name]['igmp'].setdefault("source", None)
+#                 cmd = "ip igmp"
+#                 if del_action:
+#                     cmd = "no {}".format(cmd)
+#                 if not del_attr:
+#                     config_data.append(cmd)
+
+#                 for attribute, data in intf_data[intf_name]["igmp"].items():
+
+#                     if attribute == "version":
+#                         cmd = "ip {} {} {}".format(protocol, attribute, data)
+#                         if del_action:
+#                             cmd = "no {}".format(cmd)
+#                         if not del_attr:
+#                             config_data.append(cmd)
+
+#                     if attribute == "join":
+#                         for group in data:
+#                             cmd = "ip {} {} {}".format(protocol, attribute, group)
+#                             if del_attr:
+#                                 cmd = "no {}".format(cmd)
+#                             config_data.append(cmd)
+#                     if attribute == "source":
+#                         import pdb;pdb.set_trace()
+#                         cmd = "ip {} {} {}".format(protocol, attribute, data)
+#                         if del_action:
+#                             cmd = "no {}".format(cmd)
+#                         if not del_attr:
+#                             config_data.append(cmd)
+
+#                     if attribute == "query":
+#                         for query, value in data.items():
+#                             if query != "delete":
+#                                 cmd = "ip {} {} {}".format(protocol, query, value)
+
+#                                 if "delete" in intf_data[intf_name][protocol]["query"]:
+#                                     cmd = "no {}".format(cmd)
+
+#                             config_data.append(cmd)
+#         if config_data:
+#             config_data_dict[router] = config_data
+
+#     try:
+#         result = create_common_configurations(
+#             tgen, config_data_dict, "interface_config", build=build
+#         )
+#     except InvalidCLIError:
+#         logger.error("create_igmp_config", exc_info=True)
+#         result = False
+
+#     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+#     return result
+
+
 def create_igmp_config(tgen, topo, input_dict=None, build=False):
     """
     API to configure igmp on router
@@ -303,9 +421,6 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
     else:
         topo = topo["routers"]
         input_dict = deepcopy(input_dict)
-
-    config_data_dict = {}
-
     for router in input_dict.keys():
         if "igmp" not in input_dict[router]:
             logger.debug("Router %s: 'igmp' is not present in " "input_dict", router)
@@ -322,47 +437,58 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                 config_data.append(cmd)
                 protocol = "igmp"
                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
-                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 cmd = "ip igmp"
                 if del_action:
                     cmd = "no {}".format(cmd)
-                if not del_attr:
+                config_data.append(cmd)
+
+                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
+                join = intf_data[intf_name]["igmp"].setdefault("join", None)
+                source = intf_data[intf_name]["igmp"].setdefault("source", None)
+                version = intf_data[intf_name]["igmp"].setdefault("version", False)
+                query = intf_data[intf_name]["igmp"].setdefault("query", {})
+
+                # for attribute, data in intf_data[intf_name]['igmp'].items():
+                if version:
+                    cmd = "ip {} version {}".format(protocol, version)
+                    if del_action:
+                        cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
-                for attribute, data in intf_data[intf_name]["igmp"].items():
-                    if attribute == "version":
-                        cmd = "ip {} {} {}".format(protocol, attribute, data)
-                        if del_action:
+                if source and join:
+                    for group in join:
+                        cmd = "ip {} join {} {}".format(protocol, group, source)
+
+                        if del_attr:
                             cmd = "no {}".format(cmd)
-                        if not del_attr:
-                            config_data.append(cmd)
+                        config_data.append(cmd)
 
-                    if attribute == "join":
-                        for group in data:
-                            cmd = "ip {} {} {}".format(protocol, attribute, group)
-                            if del_attr:
+                elif join:
+                    for group in join:
+                        cmd = "ip {} join {}".format(protocol, group)
+
+                        if del_attr:
+                            cmd = "no {}".format(cmd)
+                        config_data.append(cmd)
+
+                if query:
+                    for _query, value in query.items():
+                        if _query != "delete":
+                            cmd = "ip {} {} {}".format(protocol, _query, value)
+
+                            if "delete" in intf_data[intf_name][protocol]["query"]:
                                 cmd = "no {}".format(cmd)
-                            config_data.append(cmd)
 
-                    if attribute == "query":
-                        for query, value in data.items():
-                            if query != "delete":
-                                cmd = "ip {} {} {}".format(protocol, query, value)
+                        config_data.append(cmd)
+        try:
 
-                                if "delete" in intf_data[intf_name][protocol]["query"]:
-                                    cmd = "no {}".format(cmd)
-
-                            config_data.append(cmd)
-        if config_data:
-            config_data_dict[router] = config_data
-
-    try:
-        result = create_common_configurations(
-            tgen, config_data_dict, "interface_config", build=build
-        )
-    except InvalidCLIError:
-        logger.error("create_igmp_config", exc_info=True)
-        result = False
+            result = create_common_configuration(
+                tgen, router, config_data, "interface_config", build=build
+            )
+        except InvalidCLIError:
+            errormsg = traceback.format_exc()
+            logger.error(errormsg)
+            return errormsg
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
