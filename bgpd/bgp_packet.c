@@ -814,6 +814,7 @@ bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
 		case BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN:
 		case BGP_NOTIFY_CEASE_PEER_UNCONFIG:
 		case BGP_NOTIFY_CEASE_HARD_RESET:
+		case BGP_NOTIFY_CEASE_BFD_DOWN:
 			return true;
 		case BGP_NOTIFY_CEASE_ADMIN_RESET:
 			/* Provide user control:
