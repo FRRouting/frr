@@ -1342,7 +1342,7 @@ class Router(Node):
             "pathd": 0,
             "snmpd": 0
         }
-        self.daemons_options = {"mgmtd": "", "zebra": ""}
+        self.daemons_options = {"zebra": ""}
         self.reportCores = True
         self.version = None
 
@@ -1386,14 +1386,13 @@ class Router(Node):
             self._config_frr(**params)
         else:
             # Test the provided path
-            cpath = os.path.join(self.daemondir, "mgmtd")
-            if not os.path.isfile(zpath):
-                raise Exception("No MGMTD binary found in {}".format(cpath))
-
             zpath = os.path.join(self.daemondir, "zebra")
             if not os.path.isfile(zpath):
                 raise Exception("No zebra binary found in {}".format(zpath))
 
+            cpath = os.path.join(self.daemondir, "mgmtd")
+            if not os.path.isfile(zpath):
+                raise Exception("No MGMTD binary found in {}".format(cpath))
             # Allow user to specify routertype when the path was specified.
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
@@ -1519,7 +1518,6 @@ class Router(Node):
         directly, or a file name with no path components which is first looked for
         directly and then looked for under a sub-directory named after router.
         """
-
         # Unfortunately this API allowsfor source to not exist for any and all routers.
         if source:
             head, tail = os.path.split(source)
@@ -1541,6 +1539,12 @@ class Router(Node):
             if param is not None:
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
+
+            if source and daemon == 'zebra' or source and daemon == 'mgmtd':
+                conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, 'mgmtd')
+                self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
+                logger.info("mgmtd.conf file is created using zebra.conf".format(daemon))
+
             if source is None or not os.path.exists(source):
                 if daemon == "frr" or not self.unified_config:
                     self.cmd_raises("rm -f " + conf_file)
@@ -1557,9 +1561,18 @@ class Router(Node):
                 self.cmd('echo "agentXSocket /etc/frr/agentx" >> /etc/snmp/frr.conf')
                 self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
 
-            if (daemon == "zebra" or daemon == "mgmtd") and (
-                self.daemons["staticd"] == 0
-            ):
+            if (daemon == "zebra") and (self.daemons["mgmtd"] == 0):
+                # Add mgmtd with zebra - if it exists
+                try:
+                    mgmtd_path = os.path.join(self.daemondir, "mgmtd")
+                except:
+                    pdb.set_trace()
+                if os.path.isfile(mgmtd_path):
+                    self.daemons["mgmtd"] = 1
+                    self.daemons_options["mgmtd"] = ""
+                    # Auto-Started mgmtd has no config, so it will read from zebra config
+
+            if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
                 try:
                     staticd_path = os.path.join(self.daemondir, "staticd")
