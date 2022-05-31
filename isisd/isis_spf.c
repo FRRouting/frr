@@ -273,7 +273,7 @@ isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
 
 	vadj = XCALLOC(MTYPE_ISIS_VERTEX_ADJ, sizeof(*vadj));
 	vadj->sadj = sadj;
-	if (psid) {
+	if (spftree->area->srdb.enabled && psid) {
 		if (vertex->N.ip.sr.present
 		    && vertex->N.ip.sr.sid.value != psid->value)
 			zlog_warn(
@@ -575,7 +575,7 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	vertex = isis_vertex_new(spftree, id, vtype);
 	vertex->d_N = cost;
 	vertex->depth = depth;
-	if (VTYPE_IP(vtype) && psid) {
+	if (VTYPE_IP(vtype) && spftree->area->srdb.enabled && psid) {
 		struct isis_area *area = spftree->area;
 		struct isis_vertex *vertex_psid;
 
@@ -975,9 +975,9 @@ lspfragloop:
 			ip_info.dest.u.prefix4 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
 
-			/* Parse list of Prefix-SID subTLVs */
+			/* Parse list of Prefix-SID subTLVs if SR is enabled */
 			has_valid_psid = false;
-			if (r->subtlvs) {
+			if (spftree->area->srdb.enabled && r->subtlvs) {
 				for (struct isis_item *i =
 					     r->subtlvs->prefix_sids.head;
 				     i; i = i->next) {
@@ -1026,9 +1026,9 @@ lspfragloop:
 			ip_info.dest.u.prefix6 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
 
-			if (r->subtlvs
-			    && r->subtlvs->source_prefix
-			    && r->subtlvs->source_prefix->prefixlen) {
+			if (spftree->area->srdb.enabled && r->subtlvs &&
+			    r->subtlvs->source_prefix &&
+			    r->subtlvs->source_prefix->prefixlen) {
 				if (spftree->tree_id != SPFTREE_DSTSRC) {
 					char buff[VID2STR_BUFFER];
 					zlog_warn("Ignoring dest-src route %s in non dest-src topology",
@@ -1169,8 +1169,8 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 	else
 		vtype = VTYPE_IP6REACH_INTERNAL;
 
-	/* Parse list of Prefix-SID subTLVs */
-	if (subtlvs) {
+	/* Parse list of Prefix-SID subTLVs if SR is enabled */
+	if (spftree->area->srdb.enabled && subtlvs) {
 		for (struct isis_item *i = subtlvs->prefix_sids.head; i;
 		     i = i->next) {
 			struct isis_prefix_sid *psid =
