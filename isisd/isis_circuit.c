@@ -276,6 +276,8 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 
 DEFINE_HOOK(isis_circuit_add_addr_hook,
 	    (struct isis_circuit * circuit, uint8_t family), (circuit, family));
+DEFINE_HOOK(isis_circuit_del_addr_hook,
+	    (struct isis_circuit * circuit, uint8_t family), (circuit, family));
 
 void isis_circuit_add_addr(struct isis_circuit *circuit,
 			   struct connected *connected)
@@ -386,6 +388,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		if (ip) {
 			listnode_delete(circuit->ip_addrs, ip);
 			prefix_ipv4_free(&ip);
+			hook_call(isis_circuit_del_addr_hook, circuit, AF_INET);
 			if (circuit->area)
 				lsp_regenerate_schedule(circuit->area,
 							circuit->is_type, 0);
@@ -449,9 +452,11 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 						  ip6))
 				zlog_warn("  %pFX", (struct prefix *)ip6);
 			zlog_warn("End of addresses");
-		} else if (circuit->area)
+		} else if (circuit->area) {
+			hook_call(isis_circuit_del_addr_hook, circuit, AF_INET6);
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
 						0);
+		}
 
 		prefix_ipv6_free(&ipv6);
 	}

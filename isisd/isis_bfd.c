@@ -559,6 +559,30 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit,
 	return 0;
 }
 
+static int bfd_handle_circuit_del_addr(struct isis_circuit *circuit,
+				       uint8_t family)
+{
+	struct isis_adjacency *adj;
+	struct listnode *node;
+
+	if (circuit->area == 0)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->area->adjacency_list, node, adj)) {
+		if (family == AF_INET && !adj->bfd_session_ipv4)
+			continue;
+
+		if (family == AF_INET6 && !adj->bfd_session_ipv6)
+			continue;
+
+		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+			isis_bfd_update_rfc6213(adj);
+			isis_bfd_update_status_rfc6213(adj, family);
+		}
+	}
+	return 0;
+}
+
 void isis_bfd_init(struct event_loop *tm)
 {
 	bfd_protocol_integration_init(zclient, tm);
@@ -567,6 +591,7 @@ void isis_bfd_init(struct event_loop *tm)
 	hook_register(isis_adj_delete_hook, bfd_handle_delete);
 	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);
 	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
+	hook_register(isis_circuit_del_addr_hook, bfd_handle_circuit_del_addr);
 }
 
 static uint8_t isis_bfd_mtpid_nlpid2mtnplid(uint16_t mtid, uint8_t nlpid)

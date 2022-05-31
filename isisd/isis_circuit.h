@@ -244,6 +244,8 @@ DECLARE_HOOK(isis_circuit_config_write,
 
 DECLARE_HOOK(isis_circuit_add_addr_hook,
 	     (struct isis_circuit * circuit, uint8_t family), (circuit, family));
+DECLARE_HOOK(isis_circuit_del_addr_hook,
+	     (struct isis_circuit * circuit, uint8_t family), (circuit, family));
 
 DECLARE_HOOK(isis_circuit_new_hook, (struct isis_circuit *circuit), (circuit));
 DECLARE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
