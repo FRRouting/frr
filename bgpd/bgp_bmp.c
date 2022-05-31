@@ -50,6 +50,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_network.h"
 
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
@@ -1763,6 +1764,7 @@ static void bmp_active_put(struct bmp_active *ba)
 	if (ba->socket != -1)
 		close(ba->socket);
 
+	XFREE(MTYPE_TMP, ba->ifsrc);
 	XFREE(MTYPE_TMP, ba->hostname);
 	XFREE(MTYPE_BMP_ACTIVE, ba);
 }
@@ -1773,8 +1775,37 @@ static void bmp_active_connect(struct bmp_active *ba)
 {
 	enum connect_result res;
 	char buf[SU_ADDRSTRLEN];
+	struct interface *ifp;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	int res_bind;
 
 	for (; ba->addrpos < ba->addrtotal; ba->addrpos++) {
+		if (ba->ifsrc) {
+			if (ba->targets && ba->targets->bgp)
+				vrf_id = ba->targets->bgp->vrf_id;
+
+			/* find interface and related */
+			/* address with same family   */
+			ifp = if_lookup_by_name(ba->ifsrc, vrf_id);
+			if (!ifp) {
+				zlog_warn("bmp[%s]: failed to find interface",
+					  ba->ifsrc);
+				continue;
+			}
+
+			if (bgp_update_address(ifp, &ba->addrs[ba->addrpos],
+					       &ba->addrsrc)){
+				zlog_warn("bmp[%s]: failed to find matching address",
+					  ba->ifsrc);
+				continue;
+			}
+			zlog_info("bmp[%s]: selected source address : %s",
+				  ba->ifsrc,
+				  sockunion2str(&ba->addrsrc,
+						buf,
+						SU_ADDRSTRLEN));
+		}
+
 		ba->socket = sockunion_socket(&ba->addrs[ba->addrpos]);
 		if (ba->socket < 0) {
 			zlog_warn("bmp[%s]: failed to create socket",
@@ -1783,6 +1814,23 @@ static void bmp_active_connect(struct bmp_active *ba)
 		}
 
 		set_nonblocking(ba->socket);
+
+		if (!sockunion_is_null(&ba->addrsrc)) {
+			res_bind = sockunion_bind(ba->socket, &ba->addrsrc, 0,
+						  &ba->addrsrc);
+			if (res_bind < 0) {
+				sockunion2str(&ba->addrsrc, buf, sizeof(buf));
+				zlog_warn(
+					"bmp[%s]: no bind currently to source address %s:%d",
+					ba->hostname, buf, ba->port);
+				close(ba->socket);
+				ba->socket = -1;
+				sockunion_init(&ba->addrsrc);
+				continue;
+			}
+		}
+
+
 		res = sockunion_connect(ba->socket, &ba->addrs[ba->addrpos],
 				      htons(ba->port), 0);
 		switch (res) {
@@ -1793,10 +1841,19 @@ static void bmp_active_connect(struct bmp_active *ba)
 				  ba->hostname, buf, ba->port);
 			close(ba->socket);
 			ba->socket = -1;
+			sockunion_init(&ba->addrsrc);
 			continue;
 		case connect_success:
+			sockunion2str(&ba->addrs[ba->addrpos], buf,
+				      sizeof(buf));
+			zlog_info("bmp[%s]: connected to  %s:%d",
+				  ba->hostname, buf, ba->port);
 			break;
 		case connect_in_progress:
+			 sockunion2str(&ba->addrs[ba->addrpos], buf,
+				      sizeof(buf));
+			zlog_warn("bmp[%s]: connect in progress  %s:%d",
+				  ba->hostname, buf, ba->port);
 			bmp_active_setup(ba);
 			return;
 		}
@@ -2041,7 +2098,7 @@ DEFPY(no_bmp_listener_main,
 
 DEFPY(bmp_connect,
       bmp_connect_cmd,
-      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)}",
+      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)} [source-interface <WORD$srcif>]",
       NO_STR
       BMP_STR
       "Actively establish connection to monitoring station\n"
@@ -2051,7 +2108,9 @@ DEFPY(bmp_connect,
       "Minimum connection retry interval\n"
       "Minimum connection retry interval (milliseconds)\n"
       "Maximum connection retry interval\n"
-      "Maximum connection retry interval (milliseconds)\n")
+      "Maximum connection retry interval (milliseconds)\n"
+      "Source interface to use\n"
+      "Define an interface\n")
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 	struct bmp_active *ba;
@@ -2062,11 +2121,21 @@ DEFPY(bmp_connect,
 			vty_out(vty, "%% No such active connection found\n");
 			return CMD_WARNING;
 		}
+		/* connection deletion need same hostname port and interface */
+		if (ba->ifsrc || srcif)
+			if ((!ba->ifsrc) || (!srcif) ||
+			    !strcmp(ba->ifsrc, srcif)) {
+				vty_out(vty,
+					"%% No such active connection found\n");
+				return CMD_WARNING;
+			}
 		bmp_active_put(ba);
 		return CMD_SUCCESS;
 	}
 
 	ba = bmp_active_get(bt, hostname, port);
+	if (srcif)
+		ba->ifsrc = XSTRDUP(MTYPE_TMP, srcif);
 	if (min_retry_str)
 		ba->minretry = min_retry;
 	if (max_retry_str)
@@ -2309,7 +2378,7 @@ DEFPY(show_bmp,
 
 			vty_out(vty, "\n    Outbound connections:\n");
 			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-			ttable_add_row(tt, "remote|state||timer");
+			ttable_add_row(tt, "remote|state||timer|local");
 			ttable_rowseps(tt, 0, BOTTOM, true, '-');
 			frr_each (bmp_actives, &bt->actives, ba) {
 				const char *state_str = "?";
@@ -2318,9 +2387,13 @@ DEFPY(show_bmp,
 					peer_uptime(ba->bmp->t_up.tv_sec,
 						    uptime, sizeof(uptime),
 						    false, NULL);
-					ttable_add_row(tt, "%s:%d|Up|%s|%s",
+					ttable_add_row(tt, "%s:%d|Up|%s|%s|%s",
 						       ba->hostname, ba->port,
-						       ba->bmp->remote, uptime);
+						       ba->bmp->remote, uptime,
+						       sockunion2str(
+								&ba->addrsrc,
+								buf,
+								SU_ADDRSTRLEN));
 					continue;
 				}
 
@@ -2340,11 +2413,15 @@ DEFPY(show_bmp,
 					state_str = "Resolving";
 				}
 
-				ttable_add_row(tt, "%s:%d|%s|%s|%s",
+				sockunion2str(&ba->addrsrc,
+					      buf,
+					      SU_ADDRSTRLEN);
+				ttable_add_row(tt, "%s:%d|%s|%s|%s|%s",
 					       ba->hostname, ba->port,
 					       state_str,
 					       ba->last_err ? ba->last_err : "",
-					       uptime);
+					       uptime,
+					       buf);
 				continue;
 			}
 			out = ttable_dump(tt, "\n");
@@ -2432,10 +2509,16 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 				sockunion2str(&bl->addr, buf, SU_ADDRSTRLEN),
 				bl->port);
 
-		frr_each (bmp_actives, &bt->actives, ba)
-			vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u\n",
-				ba->hostname, ba->port, ba->minretry, ba->maxretry);
+		frr_each (bmp_actives, &bt->actives, ba) {
+			vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u",
+				ba->hostname, ba->port,
+				ba->minretry, ba->maxretry);
 
+			if (ba->ifsrc)
+				vty_out(vty, " source-interface %s\n", ba->ifsrc);
+			else
+				vty_out(vty, "\n");
+		}
 		vty_out(vty, " exit\n");
 	}
 
