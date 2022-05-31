@@ -309,9 +309,16 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 		snl.nl_groups = groups;
 
 #if defined SOL_NETLINK
-		if (ext_groups)
-			setsockopt(sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
-				   &ext_groups, sizeof(ext_groups));
+		if (ext_groups) {
+			ret = setsockopt(sock, SOL_NETLINK,
+					 NETLINK_ADD_MEMBERSHIP, &ext_groups,
+					 sizeof(ext_groups));
+			if (ret < 0) {
+				zlog_notice(
+					"can't setsockopt NETLINK_ADD_MEMBERSHIP: %s(%d)",
+					safe_strerror(errno), errno);
+			}
+		}
 #endif
 
 		/* Bind the socket to the netlink structure for anything. */
