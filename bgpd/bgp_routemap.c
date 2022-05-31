@@ -263,10 +263,14 @@ route_match_peer(void *rule, const struct prefix *prefix, void *object)
 	peer = ((struct bgp_path_info *)object)->peer;
 
 	if (pc->interface) {
-		if (!peer->conf_if)
+		if (!peer->conf_if || !peer->group)
 			return RMAP_NOMATCH;
 
-		if (strcmp(peer->conf_if, pc->interface) == 0)
+		if (peer->conf_if && strcmp(peer->conf_if, pc->interface) == 0)
+			return RMAP_MATCH;
+
+		if (peer->group &&
+		    strcmp(peer->group->name, pc->interface) == 0)
 			return RMAP_MATCH;
 
 		return RMAP_NOMATCH;
@@ -4519,7 +4523,7 @@ DEFPY_YANG (match_peer,
        "Match peer address\n"
        "IP address of peer\n"
        "IPv6 address of peer\n"
-       "Interface name of peer\n")
+       "Interface name of peer or peer group name\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:peer']";
