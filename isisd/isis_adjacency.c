@@ -930,15 +930,17 @@ void isis_adj_build_neigh_list(struct list *adjdb, struct list *list)
 		 * IS Neighbors TLV advertising the Media Access Control (MAC)
 		 * address of the neighbor MUST be omitted in all transmitted IIHs.
 		 */
-		/* RFC6213, 3.2
-		 * "ISIS_NEIGHBOR_USEABLE" MUST be "TRUE" before the adjacency can
-		 * transition from "INIT" to "UP" state.
-		 */
-		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
-		    adj->bfd_rfc6213.bfd_required &&
-		    !adj->bfd_rfc6213.neighbor_useable)
-			continue;
-
+		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config)) {
+			/* RFC6213, 3.2
+			 * "ISIS_NEIGHBOR_USEABLE" MUST be "TRUE" before the adjacency can
+			 * transition from "INIT" to "UP" state.
+			 */
+			if (adj->bfd_rfc6213.bfd_required &&
+			    !adj->bfd_rfc6213.neighbor_useable)
+				continue;
+			if (!isis_bfd_is_bfd_state_up(adj))
+				continue;
+		}
 		listnode_add(list, adj->snpa);
 	}
 	return;

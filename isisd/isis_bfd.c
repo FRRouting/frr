@@ -161,6 +161,8 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 	    isis_bfd_session_is_admin_down(adj, bsp, true))
 		return;
 
+	SET_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_REFRESH);
+
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
 		adj->circuit->area->bfd_signalled_down = true;
