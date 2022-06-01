@@ -377,7 +377,6 @@ def test_BSR_higher_prefer_ip_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
     step("Configure cisco-1 as BSR1 1.1.2.7")
     result = pre_config_to_bsm(
@@ -583,7 +582,6 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
     step("Configure cisco-1 as BSR1 1.1.2.7")
     result = pre_config_to_bsm(
@@ -760,8 +758,6 @@ def test_new_router_fwd_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
-
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
     )
@@ -900,8 +896,6 @@ def test_int_bsm_config_p1(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1062,8 +1056,6 @@ def test_static_rp_override_p1(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
-
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
     )
@@ -1212,8 +1204,6 @@ def test_bsmp_stress_add_del_restart_p2(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1537,8 +1527,6 @@ def test_iif_join_state_p0(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
