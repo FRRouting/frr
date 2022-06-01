@@ -1394,3 +1394,23 @@ bool isis_bfd_dont_update_adjacency_holdtime(struct isis_adjacency *adj)
 
 	return ipv4 || ipv6 || state;
 }
+
+bool isis_bfd_is_bfd_state_up(struct isis_adjacency *adj)
+{
+	/* if no bfd session, consider adjacency useable */
+	if (!adj->bfd_session_ipv4 && !adj->bfd_session_ipv6)
+		return true;
+
+	/* if both bfd sessions are working, both should be up
+	* which is a valid case for BFD RFC6213
+	*/
+	if (adj->bfd_session_ipv4 &&
+	    bfd_sess_status(adj->bfd_session_ipv4) != BFD_STATUS_UP)
+		return false;
+
+	if (adj->bfd_session_ipv6 &&
+	    bfd_sess_status(adj->bfd_session_ipv6) != BFD_STATUS_UP)
+		return false;
+
+	return true;
+}
