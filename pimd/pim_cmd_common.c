@@ -4825,3 +4825,29 @@ void pim_show_interface_traffic_single(struct pim_instance *pim,
 	else if (!found_ifname)
 		vty_out(vty, "%% No such interface\n");
 }
+
+int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
+				      struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (if_name)
+		pim_show_interface_traffic_single(v->info, vty, if_name, uj);
+	else
+		pim_show_interface_traffic(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}

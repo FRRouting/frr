@@ -185,6 +185,8 @@ void pim_show_interface_traffic_single(struct pim_instance *pim,
 				       bool uj);
 void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
 				bool uj);
+int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
+				      struct vty *vty, bool uj);
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
