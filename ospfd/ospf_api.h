@@ -26,6 +26,9 @@
 #ifndef _OSPF_API_H
 #define _OSPF_API_H
 
+#include <zebra.h>
+#include "ospf_lsa.h"
+
 #define OSPF_API_VERSION           1
 
 /* MTYPE definition is not reflected to "memory.h". */
@@ -112,6 +115,7 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_SYNC_LSDB             4
 #define MSG_ORIGINATE_REQUEST     5
 #define MSG_DELETE_REQUEST        6
+#define MSG_SYNC_REACHABLE        7
 
 /* Messages from OSPF daemon. */
 #define MSG_REPLY                10
@@ -122,6 +126,7 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_DEL_IF               15
 #define MSG_ISM_CHANGE           16
 #define MSG_NSM_CHANGE           17
+#define MSG_REACHABLE_CHANGE     18
 
 struct msg_register_opaque_type {
 	uint8_t lsatype;
@@ -247,6 +252,12 @@ struct msg_nsm_change {
 	uint8_t pad[3];
 };
 
+struct msg_reachable_change {
+	uint16_t nadd;
+	uint16_t nremove;
+	struct in_addr router_ids[]; /* add followed by remove */
+};
+
 /* We make use of a union to define a structure that covers all
    possible API messages. This allows us to find out how much memory
    needs to be reserved for the largest API message. */
@@ -265,6 +276,7 @@ struct apimsg {
 		struct msg_ism_change ism_change;
 		struct msg_nsm_change nsm_change;
 		struct msg_lsa_change_notify lsa_change_notify;
+		struct msg_reachable_change reachable_change;
 	} u;
 };
 
@@ -320,6 +332,10 @@ extern struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 					     uint8_t is_self_originated,
 					     struct lsa_header *data);
 
+extern struct msg *new_msg_reachable_change(uint32_t seqnum, uint16_t nadd,
+					    struct in_addr *add,
+					    uint16_t nremove,
+					    struct in_addr *remove);
 /* string printing functions */
 extern const char *ospf_api_errname(int errcode);
 extern const char *ospf_api_typename(int msgtype);
