@@ -2806,9 +2806,9 @@ DEFPY (show_ip_pim_nexthop_lookup,
 	return pim_show_nexthop_lookup_cmd_helper(vrf, vty, source, group);
 }
 
-DEFUN (show_ip_pim_interface_traffic,
+DEFPY (show_ip_pim_interface_traffic,
        show_ip_pim_interface_traffic_cmd,
-       "show ip pim [vrf NAME] interface traffic [WORD] [json]",
+       "show ip pim [vrf NAME] interface traffic [WORD$if_name] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2818,20 +2818,7 @@ DEFUN (show_ip_pim_interface_traffic,
        "Interface name\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	if (argv_find(argv, argc, "WORD", &idx))
-		pim_show_interface_traffic_single(vrf->info, vty,
-						  argv[idx]->arg, uj);
-	else
-		pim_show_interface_traffic(vrf->info, vty, uj);
-
-	return CMD_SUCCESS;
+	return pim_show_interface_traffic_helper(vrf, if_name, vty, !!json);
 }
 
 DEFUN (show_ip_pim_bsm_db,
