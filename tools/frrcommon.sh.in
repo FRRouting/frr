@@ -195,7 +195,7 @@ daemon_stop() {
 	is_user_root || exit 1
 
 	all=false
-	[ "$1" = "--all" ] && { all=true; shift; }
+	[ "$2" = "--reallyall" ] && all=true
 
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
@@ -277,7 +277,7 @@ all_stop() {
 	done
 
 	for dmninst in $reversed; do
-		daemon_stop --all "$dmninst" "$1" &
+		daemon_stop "$dmninst" "$1" &
 		pids="$pids $!"
 	done
 	for pid in $pids; do
