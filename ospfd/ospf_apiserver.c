@@ -726,6 +726,7 @@ static int ospf_apiserver_send_msg(struct ospf_apiserver *apiserv,
 	case MSG_DEL_IF:
 	case MSG_ISM_CHANGE:
 	case MSG_NSM_CHANGE:
+	case MSG_REACHABLE_CHANGE:
 		fifo = apiserv->out_async_fifo;
 		fd = apiserv->fd_async;
 		event = OSPF_APISERVER_ASYNC_WRITE;
@@ -798,6 +799,9 @@ int ospf_apiserver_handle_msg(struct ospf_apiserver *apiserv, struct msg *msg)
 		break;
 	case MSG_DELETE_REQUEST:
 		rc = ospf_apiserver_handle_delete_request(apiserv, msg);
+		break;
+	case MSG_SYNC_REACHABLE:
+		rc = ospf_apiserver_handle_sync_reachable(apiserv, msg);
 		break;
 	default:
 		zlog_warn("ospf_apiserver_handle_msg: Unknown message type: %d",
@@ -1340,6 +1344,59 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 
 	/* Send a reply back to client with return code */
 	rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
+	return rc;
+}
+
+/* -----------------------------------------------------------
+ * Followings are functions for Reachability synchronization.
+ * -----------------------------------------------------------
+ */
+
+int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
+					 struct msg *msg)
+{
+	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	struct route_table *rt = ospf->all_rtrs;
+	uint32_t seqnum = msg_get_seq(msg);
+	struct in_addr *a, *abuf;
+	struct msg_reachable_change *areach;
+	struct msg *amsg;
+	uint mcount, count;
+	int _rc, rc = 0;
+
+	if (!rt)
+		goto out;
+
+	/* send all adds based on current reachable routers */
+	a = abuf = XCALLOC(MTYPE_OSPF_APISERVER,
+			   sizeof(struct in_addr) * rt->count);
+	for (struct route_node *rn = route_top(rt); rn; rn = route_next(rn))
+		if (listhead((struct list *)rn->info))
+			*a++ = rn->p.u.prefix4;
+
+	assert((a - abuf) <= (long)rt->count);
+	count = (a - abuf);
+
+	a = abuf;
+	while (count && !rc) {
+		amsg = new_msg_reachable_change(seqnum, count, a, 0, NULL);
+		areach = (struct msg_reachable_change *)STREAM_DATA(amsg->s);
+		mcount = ntohs(areach->nadd) + ntohs(areach->nremove);
+		assert(mcount <= count);
+		a = a + mcount;
+		count -= mcount;
+		rc = ospf_apiserver_send_msg(apiserv, amsg);
+		msg_free(amsg);
+	}
+	XFREE(MTYPE_OSPF_APISERVER, abuf);
+
+out:
+	zlog_info("ospf_apiserver_handle_sync_reachable: rc %d", rc);
+	/* Send a reply back to client with return code */
+	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
+	zlog_info("ospf_apiserver_handle_sync_reachable: _rc %d", _rc);
+	rc = rc ? rc : _rc;
+	apiserv->reachable_sync = !rc;
 	return rc;
 }
 
@@ -2470,5 +2527,116 @@ int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa)
 {
 	return apiserver_notify_clients_lsa(MSG_LSA_DELETE_NOTIFY, lsa);
 }
+
+/* -------------------------------------------------------------
+ * Reachable functions
+ * -------------------------------------------------------------
+ */
+
+static inline int cmp_route_nodes(struct route_node *orn,
+				  struct route_node *nrn)
+{
+	if (!orn)
+		return 1;
+	else if (!nrn)
+		return -1;
+	else if (orn->p.u.prefix4.s_addr < nrn->p.u.prefix4.s_addr)
+		return -1;
+	else if (orn->p.u.prefix4.s_addr > nrn->p.u.prefix4.s_addr)
+		return 1;
+	else
+		return 0;
+}
+
+void ospf_apiserver_notify_reachable(struct route_table *ort,
+				     struct route_table *nrt)
+{
+	struct msg *msg;
+	struct msg_reachable_change *areach;
+	struct route_node *orn, *nrn;
+	const uint insz = sizeof(struct in_addr);
+	struct in_addr *abuf = NULL, *dbuf = NULL;
+	struct in_addr *a = NULL, *d = NULL;
+	uint nadd, nremove;
+	int cmp;
+
+	if (!ort && !nrt) {
+		if (IS_DEBUG_OSPF_CLIENT_API)
+			zlog_debug("%s: no routing tables", __func__);
+		return;
+	}
+	if (nrt && nrt->count)
+		a = abuf = XCALLOC(MTYPE_OSPF_APISERVER, insz * nrt->count);
+	if (ort && ort->count)
+		d = dbuf = XCALLOC(MTYPE_OSPF_APISERVER, insz * ort->count);
+
+	/* walk both tables */
+	orn = ort ? route_top(ort) : NULL;
+	nrn = nrt ? route_top(nrt) : NULL;
+	while (orn || nrn) {
+		if (orn && !listhead((struct list *)orn->info)) {
+			orn = route_next(orn);
+			continue;
+		}
+		if (nrn && !listhead((struct list *)nrn->info)) {
+			nrn = route_next(nrn);
+			continue;
+		}
+		cmp = cmp_route_nodes(orn, nrn);
+		if (!cmp) {
+			/* if old == new advance old and new */
+			if (IS_DEBUG_OSPF_CLIENT_API)
+				zlog_debug("keeping router id: %pI4",
+					   &orn->p.u.prefix4);
+			orn = route_next(orn);
+			nrn = route_next(nrn);
+		} else if (cmp < 0) {
+			assert(d != NULL); /* Silence SA warning */
+
+			/* if old < new, delete old, advance old */
+			*d++ = orn->p.u.prefix4;
+			if (IS_DEBUG_OSPF_CLIENT_API)
+				zlog_debug("removing router id: %pI4",
+					   &orn->p.u.prefix4);
+			orn = route_next(orn);
+		} else {
+			assert(a != NULL); /* Silence SA warning */
+
+			/* if new < old, add new, advance new */
+			*a++ = nrn->p.u.prefix4;
+			if (IS_DEBUG_OSPF_CLIENT_API)
+				zlog_debug("adding router id: %pI4",
+					   &nrn->p.u.prefix4);
+			nrn = route_next(nrn);
+		}
+	}
+
+	nadd = abuf ? (a - abuf) : 0;
+	nremove = dbuf ? (d - dbuf) : 0;
+	a = abuf;
+	d = dbuf;
+
+	while (nadd + nremove) {
+		msg = new_msg_reachable_change(0, nadd, a, nremove, d);
+		areach = (struct msg_reachable_change *)STREAM_DATA(msg->s);
+
+		a += ntohs(areach->nadd);
+		nadd = nadd - ntohs(areach->nadd);
+
+		d += ntohs(areach->nremove);
+		nremove = nremove - ntohs(areach->nremove);
+
+		if (IS_DEBUG_OSPF_CLIENT_API)
+			zlog_debug("%s: adding %d removing %d", __func__,
+				   ntohs(areach->nadd), ntohs(areach->nremove));
+		ospf_apiserver_clients_notify_all(msg);
+		msg_free(msg);
+	}
+	if (abuf)
+		XFREE(MTYPE_OSPF_APISERVER, abuf);
+	if (dbuf)
+		XFREE(MTYPE_OSPF_APISERVER, dbuf);
+}
+
 
 #endif /* SUPPORT_OSPF_API */

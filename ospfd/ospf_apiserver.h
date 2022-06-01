@@ -22,6 +22,10 @@
 #ifndef _OSPF_APISERVER_H
 #define _OSPF_APISERVER_H
 
+#include <zebra.h>
+#include "ospf_api.h"
+#include "ospf_lsdb.h"
+
 /* MTYPE definition is not reflected to "memory.h". */
 #define MTYPE_OSPF_APISERVER MTYPE_TMP
 #define MTYPE_OSPF_APISERVER_MSGFILTER MTYPE_TMP
@@ -51,6 +55,9 @@ struct ospf_apiserver {
 
 	/* Temporary storage for LSA instances to be refreshed. */
 	struct ospf_lsdb reserve;
+
+	/* Sync reachable routers */
+	bool reachable_sync;
 
 	/* filter for LSA update/delete notifies */
 	struct lsa_filter_type *filter;
@@ -144,8 +151,11 @@ extern int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 						struct msg *msg);
 extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 					   struct msg *msg);
+extern int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
+						struct msg *msg);
 
-
+extern void ospf_apiserver_notify_reachable(struct route_table *ort,
+					    struct route_table *nrt);
 /* -----------------------------------------------------------
  * Following are functions for LSA origination/deletion
  * -----------------------------------------------------------
