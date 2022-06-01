@@ -2958,8 +2958,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 						    dest->flags,
 						    BGP_NODE_LABEL_REQUESTED))
 						bgp_unregister_for_label(dest);
-					label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
-						   &dest->local_label);
+					dest->local_label = mpls_lse_encode(
+						MPLS_LABEL_IMPLICIT_NULL, 0, 0,
+						1);
 					bgp_set_valid_label(&dest->local_label);
 				} else
 					bgp_register_for_label(dest,
@@ -9872,6 +9873,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	int i;
 	char *nexthop_hostname =
 		bgp_nexthop_hostname(path->peer, path->nexthop);
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10614,7 +10619,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Remote Label */
 	if (path->extra && bgp_is_valid_label(&path->extra->label[0])
 	    && (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
-		mpls_label_t label = label_pton(&path->extra->label[0]);
+		mpls_lse_decode(path->extra->label[0], &label, &ttl, &exp,
+				&bos);
 
 		if (json_paths)
 			json_object_int_add(json_path, "remoteLabel", label);
@@ -11433,12 +11439,14 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int has_valid_label = 0;
 	mpls_label_t label = 0;
 	json_object *json_adv_to = NULL;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+
+	mpls_lse_decode(dest->local_label, &label, &ttl, &exp, &bos);
 
 	p = bgp_dest_get_prefix(dest);
-	has_valid_label = bgp_is_valid_label(&dest->local_label);
-
-	if (has_valid_label)
-		label = label_pton(&dest->local_label);
+	has_valid_label = bgp_is_valid_label(&label);
 
 	if (safi == SAFI_EVPN) {
 
