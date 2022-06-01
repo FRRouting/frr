@@ -104,6 +104,7 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 			"Could not set non blocking on socket fd=%d: errno=%d: %s",
 			pim->mroute_socket, errno,
 			safe_strerror(errno));
+		return -1;
 	}
 
 	if (enable) {
