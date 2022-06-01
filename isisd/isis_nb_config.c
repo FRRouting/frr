@@ -3929,6 +3929,40 @@ int lib_interface_isis_bfd_monitoring_profile_destroy(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/use-tlv-ipv4
+ */
+int lib_interface_isis_bfd_monitoring_use_tlv_ipv4_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->bfd_config.rfc6213_ipv4 = yang_dnode_get_bool(args->dnode,
+							       NULL);
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/use-tlv-ipv6
+ */
+int lib_interface_isis_bfd_monitoring_use_tlv_ipv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->bfd_config.rfc6213_ipv6 = yang_dnode_get_bool(args->dnode,
+							       NULL);
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1
  */
 int lib_interface_isis_csnp_interval_level_1_modify(

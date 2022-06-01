@@ -141,9 +141,11 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_IF_DOWN_FROM_Z 0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
-	struct {
+	struct bfd_conf {
 		bool enabled;
 		char *profile;
+		bool rfc6213_ipv4; /* bfd ipv4 configuration */
+		bool rfc6213_ipv6; /* bfd ipv6 configuration */
 	} bfd_config;
 	struct ldp_sync_info *ldp_sync_info;
 	bool lfa_protection[ISIS_LEVELS];

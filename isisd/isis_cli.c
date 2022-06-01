@@ -245,6 +245,38 @@ DEFPY_YANG(isis_bfd,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/use-tlv-ipv4
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/use-tlv-ipv6
+ */
+DEFPY_YANG(isis_bfd_tlv,
+      isis_bfd_tlv_cmd,
+      "[no] isis bfd <use-tlv-ipv4|use-tlv-ipv6>$rfc6213",
+      NO_STR PROTO_HELP
+      "Enable BFD support\n"
+      "Enable BFD support as per RFC6213 for IPv4\n"
+      "Enable BFD support as per RFC6213 for IPv6\n")
+{
+	const struct lyd_node *dnode;
+
+	dnode = yang_dnode_getf(vty->candidate_config->dnode,
+				"%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+	if (strmatch(rfc6213, "use-tlv-ipv4"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/bfd-monitoring/use-tlv-ipv4",
+				      NB_OP_MODIFY, no ? "false" : "true");
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/bfd-monitoring/use-tlv-ipv6",
+				      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring/profile
  */
 DEFPY_YANG(isis_bfd_profile,
@@ -280,6 +312,11 @@ void cli_show_ip_isis_bfd_monitoring(struct vty *vty,
 				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
+	if (yang_dnode_get_bool(dnode, "use-tlv-ipv4"))
+		vty_out(vty, " isis bfd use-tlv-ipv4\n");
+	if (yang_dnode_get_bool(dnode, "use-tlv-ipv6"))
+		vty_out(vty, " isis bfd use-tlv-ipv6\n");
+
 	if (!yang_dnode_get_bool(dnode, "enabled")) {
 		if (show_defaults)
 			vty_out(vty, " no isis bfd\n");
@@ -3961,6 +3998,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_vrf_cmd);
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
+	install_element(INTERFACE_NODE, &isis_bfd_tlv_cmd);
 	install_element(INTERFACE_NODE, &isis_bfd_profile_cmd);
 
 	install_element(ISIS_NODE, &net_cmd);

@@ -571,6 +571,18 @@ module frr-isisd {
         description
           "Let BFD use a pre-configured profile.";
       }
+      leaf use-tlv-ipv4 {
+        type boolean;
+        default "false";
+        description
+          "Enable IPv4 BFD TLV support and behaviour from RFC6213, when './enabled' is TRUE";
+      }
+      leaf use-tlv-ipv6 {
+        type boolean;
+        default "false";
+        description
+          "Enable IPv6 BFD TLV support and behaviour from RFC6213, when './enabled' is TRUE";
+      }
     }
 
     container csnp-interval {

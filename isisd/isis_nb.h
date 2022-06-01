@@ -233,6 +233,10 @@ int lib_interface_isis_bfd_monitoring_profile_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_bfd_monitoring_profile_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_isis_bfd_monitoring_use_tlv_ipv4_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_isis_bfd_monitoring_use_tlv_ipv6_modify(
+	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_enabled_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_enabled_modify(
