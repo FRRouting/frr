@@ -34,6 +34,8 @@
 #include "pim_msg.h"
 
 static void mroute_read_on(struct pim_instance *pim);
+static int pim_upstream_mroute_update(struct channel_oil *c_oil,
+				      const char *name);
 
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
@@ -147,6 +149,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	struct pim_upstream *up;
 	struct pim_rpf *rpg;
 	pim_sgaddr sg;
+	bool desync = false;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = msg->msg_im_src;
@@ -219,6 +222,12 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
 				      __func__);
+	if (up->channel_oil->installed) {
+		zlog_warn(
+			"%s: NOCACHE for %pSG, MFC entry disappeared - reinstalling",
+			ifp->name, &sg);
+		desync = true;
+	}
 
 	/*
 	 * I moved this debug till after the actual add because
@@ -242,6 +251,11 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
+	/* we just got NOCACHE from the kernel, so...  MFC is not in the
+	 * kernel for some reason or another.  Try installing again.
+	 */
+	if (desync)
+		pim_upstream_mroute_update(up->channel_oil, __func__);
 	return 0;
 }
 
