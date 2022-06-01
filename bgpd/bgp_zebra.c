@@ -1274,6 +1274,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint64_t cum_bw = 0;
 	uint32_t nhg_id = 0;
 	bool is_add;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1465,7 +1468,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		if (mpinfo->extra
 		    && bgp_is_valid_label(&mpinfo->extra->label[0])
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			label = label_pton(&mpinfo->extra->label[0]);
+			mpls_lse_decode(mpinfo->extra->label[0], &label, &ttl,
+					&exp, &bos);
 
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
 
@@ -1493,7 +1497,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 					    &mpinfo->extra->label[0]))
 					continue;
 
-				label = label_pton(&mpinfo->extra->label[0]);
+				mpls_lse_decode(mpinfo->extra->label[0], &label,
+						&ttl, &exp, &bos);
 				transpose_sid(&api_nh->seg6_segs, label,
 					      sid_info->transposition_offset,
 					      sid_info->transposition_len);
