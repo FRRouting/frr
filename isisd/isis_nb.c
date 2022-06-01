@@ -899,10 +899,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast",
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/standard",
 			.cbs = {
-				.cli_show = cli_show_ip_isis_mt_ipv4_unicast,
-				.modify = lib_interface_isis_multi_topology_ipv4_unicast_modify,
+				.cli_show = cli_show_ip_isis_mt_standard,
+				.modify = lib_interface_isis_multi_topology_standard_modify,
 			},
 		},
 		{

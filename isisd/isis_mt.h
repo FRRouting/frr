@@ -38,7 +38,7 @@
 #define ISIS_MT_DISABLE        4096
 
 #define ISIS_MT_NAMES                                                          \
-	"<ipv4-unicast"                                                        \
+	"<standard"                                                            \
 	"|ipv4-mgmt"                                                           \
 	"|ipv6-unicast"                                                        \
 	"|ipv4-multicast"                                                      \

@@ -733,11 +733,11 @@ module frr-isisd {
     container multi-topology {
       description
         "IS-IS topologies configured on this circuit.";
-      leaf ipv4-unicast {
+      leaf standard {
         type boolean;
         default "true";
         description
-          "IPv4 unicast topology.";
+          "Standard (IPV4 unicast) topology.";
       }
 
       leaf ipv4-multicast {

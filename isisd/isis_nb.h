@@ -291,7 +291,7 @@ int lib_interface_isis_password_password_type_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(
 	struct nb_cb_modify_args *args);
-int lib_interface_isis_multi_topology_ipv4_unicast_modify(
+int lib_interface_isis_multi_topology_standard_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_multicast_modify(
 	struct nb_cb_modify_args *args);
@@ -543,9 +543,8 @@ void cli_show_ip_isis_csnp_interval(struct vty *vty,
 void cli_show_ip_isis_psnp_interval(struct vty *vty,
 				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty,
-				      const struct lyd_node *dnode,
-				      bool show_defaults);
+void cli_show_ip_isis_mt_standard(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
 void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty,
 					const struct lyd_node *dnode,
 					bool show_defaults);
