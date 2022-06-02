@@ -1945,6 +1945,20 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_json(vty, json);
 }
 
+int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_channel(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 			 json_object *json)
 {
