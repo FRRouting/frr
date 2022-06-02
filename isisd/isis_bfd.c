@@ -16,11 +16,15 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_circuit.h"
+#include "isisd/isis_misc.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isisd.h"
 #include "isisd/fabricd.h"
 
 DEFINE_MTYPE_STATIC(ISISD, BFD_SESSION, "ISIS BFD Session");
+DEFINE_MTYPE_STATIC(ISISD, BFD_LOCAL_MTID_NLPID, "ISIS BFD local MTID/NLPID");
+DEFINE_MTYPE_STATIC(ISISD, BFD_LOCAL_MTID, "ISIS BFD local MTID");
+
 
 static void adj_bfd_cb(struct bfd_session_params *bsp,
 		       const struct bfd_session_status *bss, void *arg)
@@ -45,6 +49,43 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 static void bfd_handle_adj_down(struct isis_adjacency *adj)
 {
 	bfd_sess_free(&adj->bfd_session);
+}
+
+
+static int bfd_handle_delete(struct isis_adjacency *adj)
+{
+	struct listnode *node, *nnode;
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct bfd_local_mtid *bfd_local_topo;
+
+	if (IS_DEBUG_BFD &&
+	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config))
+		zlog_debug("ISIS-BFD: L%u adjacency %s becomes down. Cleaning RFC6213 structures.",
+			   adj->level, isis_adj_name(adj));
+
+	if (adj->bfd_rfc6213.local_mtnlpid_lst) {
+		for (ALL_LIST_ELEMENTS(adj->bfd_rfc6213.local_mtnlpid_lst, node,
+				       nnode, bfd_local_pair)) {
+			listnode_delete(adj->bfd_rfc6213.local_mtnlpid_lst,
+					bfd_local_pair);
+			XFREE(MTYPE_BFD_LOCAL_MTID_NLPID, bfd_local_pair);
+		}
+		list_delete(&adj->bfd_rfc6213.local_mtnlpid_lst);
+	}
+
+
+	if (adj->bfd_rfc6213.local_mtid_lst) {
+		for (ALL_LIST_ELEMENTS(adj->bfd_rfc6213.local_mtid_lst, node,
+				       nnode, bfd_local_topo)) {
+			listnode_delete(adj->bfd_rfc6213.local_mtid_lst,
+					bfd_local_topo);
+			XFREE(MTYPE_BFD_LOCAL_MTID, bfd_local_topo);
+		}
+		list_delete(&adj->bfd_rfc6213.local_mtid_lst);
+	}
+
+	bfd_handle_adj_down(adj);
+	return 0;
 }
 
 static void bfd_handle_adj_up(struct isis_adjacency *adj)
@@ -128,6 +169,18 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 out:
 	bfd_handle_adj_down(adj);
 }
+
+void isis_bfd_init_adjacency(struct isis_adjacency *adj)
+{
+	if (IS_DEBUG_BFD &&
+	    isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config))
+		zlog_debug("ISIS-BFD: L%u adjacency %s becomes up. Initializing RFC6213 structures.",
+			   adj->level, isis_adj_name(adj));
+
+	adj->bfd_rfc6213.local_mtnlpid_lst = list_new();
+	adj->bfd_rfc6213.local_mtid_lst = list_new();
+}
+
 
 static int bfd_handle_adj_state_change(struct isis_adjacency *adj)
 {
@@ -215,6 +268,7 @@ void isis_bfd_init(struct event_loop *tm)
 	bfd_protocol_integration_init(zclient, tm);
 
 	hook_register(isis_adj_state_change_hook, bfd_handle_adj_state_change);
+	hook_register(isis_adj_delete_hook, bfd_handle_delete);
 	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);
 	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
 }
@@ -289,4 +343,172 @@ void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
 		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
 			   ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6);
 	}
+}
+
+
+static struct bfd_local_mtnlpid *
+isis_bfd_local_mtnlpid_get(struct isis_adjacency *adj, uint16_t mtid,
+			   uint8_t nlpid)
+{
+	struct bfd_local_mtnlpid *bfd_pair;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
+				  bfd_pair)) {
+		if (bfd_pair->mtid == mtid && bfd_pair->nlpid == nlpid)
+			return bfd_pair;
+	}
+
+	return NULL;
+}
+
+static struct bfd_local_mtnlpid *
+isis_bfd_local_mtnlpid_add(struct isis_adjacency *adj, uint16_t mtid,
+			   uint8_t nlpid)
+{
+	struct bfd_local_mtnlpid *bfd_pair;
+
+	bfd_pair = isis_bfd_local_mtnlpid_get(adj, mtid, nlpid);
+	if (bfd_pair)
+		return bfd_pair;
+
+	bfd_pair = XCALLOC(MTYPE_BFD_LOCAL_MTID_NLPID,
+			   sizeof(struct bfd_local_mtnlpid));
+	bfd_pair->mtid = mtid;
+	bfd_pair->nlpid = nlpid;
+	listnode_add(adj->bfd_rfc6213.local_mtnlpid_lst, bfd_pair);
+
+	if (IS_DEBUG_BFD)
+		zlog_debug("ISIS-BFD: local MT %s NLPID %s added to L%u adjacency %s",
+			   isis_mtid2str(mtid), nlpid2str(nlpid), adj->level,
+			   isis_adj_name(adj));
+
+	return bfd_pair;
+}
+
+static void isis_bfd_local_mtnlpid_del(struct isis_adjacency *adj,
+				       uint16_t mtid, uint8_t nlpid)
+{
+	struct bfd_local_mtnlpid *bfd_pair;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(adj->bfd_rfc6213.local_mtnlpid_lst, node, nnode,
+			       bfd_pair)) {
+		if (bfd_pair->mtid == mtid && bfd_pair->nlpid == nlpid) {
+			listnode_delete(adj->bfd_rfc6213.local_mtnlpid_lst,
+					bfd_pair);
+			XFREE(MTYPE_BFD_LOCAL_MTID_NLPID, bfd_pair);
+			if (IS_DEBUG_BFD)
+				zlog_debug("ISIS-BFD: local MT %s NLPID %s removed from L%u adjacency %s",
+					   isis_mtid2str(mtid), nlpid2str(nlpid),
+					   adj->level, isis_adj_name(adj));
+			return;
+		}
+	}
+}
+
+static struct bfd_local_mtid *isis_bfd_local_mtid_get(struct isis_adjacency *adj,
+						      uint16_t mtid)
+{
+	struct bfd_local_mtid *bfd_topo;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtid_lst, node,
+				  bfd_topo)) {
+		if (bfd_topo->mtid == mtid)
+			return bfd_topo;
+	}
+	return NULL;
+}
+
+static struct bfd_local_mtid *isis_bfd_local_mtid_add(struct isis_adjacency *adj,
+						      uint16_t mtid)
+{
+	struct bfd_local_mtid *bfd_topo;
+
+	bfd_topo = isis_bfd_local_mtid_get(adj, mtid);
+	if (bfd_topo)
+		return bfd_topo;
+
+	bfd_topo = XCALLOC(MTYPE_BFD_LOCAL_MTID, sizeof(struct bfd_local_mtid));
+	bfd_topo->mtid = mtid;
+	listnode_add(adj->bfd_rfc6213.local_mtid_lst, bfd_topo);
+
+	if (IS_DEBUG_BFD)
+		zlog_debug("ISIS-BFD: local MT %s added to L%u adjacency %s",
+			   isis_mtid2str(mtid), adj->level, isis_adj_name(adj));
+
+	return bfd_topo;
+}
+
+void isis_bfd_adjacency_update_rfc6213_local_params(struct isis_adjacency *adj)
+{
+	struct listnode *node, *mtnode, *nmtnode;
+	struct bfd_local_mtnlpid *bfd_local_pair;
+	struct bfd_local_mtid *bfd_local_topo;
+	struct bfd_conf *bfd_conf;
+	bool found;
+
+	bfd_conf = &adj->circuit->bfd_config;
+
+	if (IS_DEBUG_BFD && isis_bfd_config_rfc6213_enabled(bfd_conf))
+		zlog_debug("ISIS-BFD: updating RFC6213 local variables for L%u adjacency %s",
+			   adj->level, isis_adj_name(adj));
+
+	isis_bfd_circuit_update_rfc6213(adj->circuit);
+
+	/* Update the locally supported MTID/NLPID pairs. */
+	if (CHECK_FLAG(bfd_conf->mtid_nlpid, ISIS_BFD_MT_STANDARD_NLP_IPV4))
+		/* MTID ISIS_MT_STANDARD is always enabled */
+		isis_bfd_local_mtnlpid_add(adj, ISIS_MT_STANDARD, NLPID_IP);
+	else
+		isis_bfd_local_mtnlpid_del(adj, ISIS_MT_STANDARD, NLPID_IP);
+
+	if (CHECK_FLAG(bfd_conf->mtid_nlpid, ISIS_BFD_MT_STANDARD_NLP_IPV6))
+		/* MTID ISIS_MT_STANDARD is always enabled */
+		isis_bfd_local_mtnlpid_add(adj, ISIS_MT_STANDARD, NLPID_IPV6);
+	else
+		isis_bfd_local_mtnlpid_del(adj, ISIS_MT_STANDARD, NLPID_IPV6);
+
+	if (CHECK_FLAG(bfd_conf->mtid_nlpid, ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6))
+		/* MTID ISIS_MT_IPV6_UNICAST is enabled topology ipv6 is set*/
+		isis_bfd_local_mtnlpid_add(adj, ISIS_MT_IPV6_UNICAST,
+					   NLPID_IPV6);
+	else
+		isis_bfd_local_mtnlpid_del(adj, ISIS_MT_IPV6_UNICAST,
+					   NLPID_IPV6);
+
+	/* Update the locally supported topology (MTID). */
+	for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst, node,
+				  bfd_local_pair)) {
+		isis_bfd_local_mtid_add(adj, bfd_local_pair->mtid);
+	}
+
+	for (ALL_LIST_ELEMENTS(adj->bfd_rfc6213.local_mtid_lst, mtnode, nmtnode,
+			       bfd_local_topo)) {
+		found = false;
+		for (ALL_LIST_ELEMENTS_RO(adj->bfd_rfc6213.local_mtnlpid_lst,
+					  node, bfd_local_pair)) {
+			if (bfd_local_topo->mtid == bfd_local_pair->mtid) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			listnode_delete(adj->bfd_rfc6213.local_mtid_lst,
+					bfd_local_topo);
+			if (IS_DEBUG_BFD)
+				zlog_debug("ISIS-BFD: local MT %s removed from L%u adjacency %s",
+					   isis_mtid2str(bfd_local_topo->mtid),
+					   adj->level, isis_adj_name(adj));
+			XFREE(MTYPE_BFD_LOCAL_MTID, bfd_local_topo);
+		}
+	}
+}
+
+bool isis_bfd_config_rfc6213_enabled(struct bfd_conf *config)
+{
+	if (config->rfc6213_ipv4 || config->rfc6213_ipv6)
+		return true;
+	return false;
 }

@@ -91,6 +91,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 	}
 	adj->adj_sids = list_new();
 	adj->srv6_endx_sids = list_new();
+	isis_bfd_init_adjacency(adj);
 	listnode_add(circuit->area->adjacency_list, adj);
 
 	return adj;
@@ -139,6 +140,7 @@ struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
 }
 
 DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
+DEFINE_HOOK(isis_adj_delete_hook, (struct isis_adjacency * adj), (adj));
 
 void isis_delete_adj(void *arg)
 {
@@ -154,6 +156,7 @@ void isis_delete_adj(void *arg)
 		adj->adj_state = ISIS_ADJ_DOWN;
 
 	hook_call(isis_adj_state_change_hook, adj);
+	hook_call(isis_adj_delete_hook, adj);
 
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);

@@ -13,6 +13,7 @@
 #define _ZEBRA_ISIS_ADJACENCY_H
 
 #include "isisd/isis_tlvs.h"
+#include "isisd/isis_bfd.h"
 
 DECLARE_MTYPE(ISIS_ADJACENCY_INFO);
 
@@ -93,6 +94,7 @@ struct isis_adjacency {
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
 	unsigned int mt_count; /* Number of entries in mt_set */
 	struct bfd_session_params *bfd_session;
+	struct bfd_rfc6213_params bfd_rfc6213;
 	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 	uint32_t snmp_idx;
 	struct listnode *snmp_list_node;
@@ -115,6 +117,7 @@ void isis_adj_process_threeway(struct isis_adjacency **padj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
+DECLARE_HOOK(isis_adj_delete_hook, (struct isis_adjacency * adj), (adj));
 DECLARE_HOOK(isis_adj_ip_enabled_hook,
 	     (struct isis_adjacency * adj, int family, bool global),
 	     (adj, family, global));
