@@ -224,7 +224,7 @@ def test_step4():
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing node-msd 16"'
     )
     tgen.net["r2"].cmd(
-        'vtysh -c "conf t" -c "router ospf" -c "segment-routing local-block 5000 6999"'
+        'vtysh -c "conf t" -c "router ospf" -c "segment-routing global-block 16000 23999 local-block 5000 6999"'
     )
     tgen.net["r2"].cmd(
         'vtysh -c "conf t" -c "router ospf" -c "segment-routing prefix 10.0.255.2/32 index 20 explicit-null"'
