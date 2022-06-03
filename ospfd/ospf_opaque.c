@@ -147,7 +147,7 @@ int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
 
 void ospf_opaque_type9_lsa_term(struct ospf_interface *oi)
 {
-	OSPF_TIMER_OFF(oi->t_opaque_lsa_self);
+	THREAD_OFF(oi->t_opaque_lsa_self);
 	if (oi->opaque_lsa_self != NULL)
 		list_delete(&oi->opaque_lsa_self);
 	oi->opaque_lsa_self = NULL;
@@ -176,7 +176,7 @@ void ospf_opaque_type10_lsa_term(struct ospf_area *area)
 	area->lsdb->new_lsa_hook = area->lsdb->del_lsa_hook = NULL;
 #endif /* MONITOR_LSDB_CHANGE */
 
-	OSPF_TIMER_OFF(area->t_opaque_lsa_self);
+	THREAD_OFF(area->t_opaque_lsa_self);
 	if (area->opaque_lsa_self != NULL)
 		list_delete(&area->opaque_lsa_self);
 	return;
@@ -204,7 +204,7 @@ void ospf_opaque_type11_lsa_term(struct ospf *top)
 	top->lsdb->new_lsa_hook = top->lsdb->del_lsa_hook = NULL;
 #endif /* MONITOR_LSDB_CHANGE */
 
-	OSPF_TIMER_OFF(top->t_opaque_lsa_self);
+	THREAD_OFF(top->t_opaque_lsa_self);
 	if (top->opaque_lsa_self != NULL)
 		list_delete(&top->opaque_lsa_self);
 	return;
@@ -603,7 +603,7 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 		ospf_opaque_lsa_flush_schedule(lsa);
 	}
 
-	OSPF_TIMER_OFF(oipt->t_opaque_lsa_self);
+	THREAD_OFF(oipt->t_opaque_lsa_self);
 	list_delete(&oipt->id_list);
 	if (cleanup_owner) {
 		/* Remove from its owner's self-originated LSA list. */
@@ -711,7 +711,7 @@ static void free_opaque_info_per_id(void *val)
 {
 	struct opaque_info_per_id *oipi = (struct opaque_info_per_id *)val;
 
-	OSPF_TIMER_OFF(oipi->t_opaque_lsa_self);
+	THREAD_OFF(oipi->t_opaque_lsa_self);
 	if (oipi->lsa != NULL)
 		ospf_lsa_unlock(&oipi->lsa);
 	XFREE(MTYPE_OPAQUE_INFO_PER_ID, oipi);

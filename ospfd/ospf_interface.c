@@ -302,7 +302,7 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	/* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
 	/* delete all static neighbors attached to this interface */
 	for (ALL_LIST_ELEMENTS(oi->nbr_nbma, node, nnode, nbr_nbma)) {
-		OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
+		THREAD_OFF(nbr_nbma->t_poll);
 
 		if (nbr_nbma->nbr) {
 			nbr_nbma->nbr->nbr_nbma = NULL;
@@ -513,7 +513,7 @@ void ospf_if_stream_unset(struct ospf_interface *oi)
 	if (oi->on_write_q) {
 		listnode_delete(ospf->oi_write_q, oi);
 		if (list_isempty(ospf->oi_write_q))
-			OSPF_TIMER_OFF(ospf->t_write);
+			THREAD_OFF(ospf->t_write);
 		oi->on_write_q = 0;
 	}
 }
@@ -1474,7 +1474,7 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 			ospf_hello_send(oi);
 
 			/* Restart hello timer for this interface */
-			OSPF_ISM_TIMER_OFF(oi->t_hello);
+			THREAD_OFF(oi->t_hello);
 			OSPF_HELLO_TIMER_ON(oi);
 		}
 
@@ -1498,7 +1498,7 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 		ospf_hello_send(oi);
 
 		/* Restart the hello timer. */
-		OSPF_ISM_TIMER_OFF(oi->t_hello);
+		THREAD_OFF(oi->t_hello);
 		OSPF_HELLO_TIMER_ON(oi);
 	}
 }

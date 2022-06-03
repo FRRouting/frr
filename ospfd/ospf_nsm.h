@@ -58,9 +58,6 @@
 /* Macro for OSPF NSM timer turn on. */
 #define OSPF_NSM_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr, (V), &(T))
 
-/* Macro for OSPF NSM timer turn off. */
-#define OSPF_NSM_TIMER_OFF(X) thread_cancel(&(X))
-
 /* Macro for OSPF NSM schedule event. */
 #define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
 	thread_add_event(master, ospf_nsm_event, (N), (E), NULL)

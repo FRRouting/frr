@@ -216,7 +216,7 @@ static void ospf_gr_restart_exit(struct ospf *ospf, const char *reason)
 		zlog_debug("GR: exiting graceful restart: %s", reason);
 
 	ospf->gr_info.restart_in_progress = false;
-	OSPF_TIMER_OFF(ospf->gr_info.t_grace_period);
+	THREAD_OFF(ospf->gr_info.t_grace_period);
 
 	/* Record in non-volatile memory that the restart is complete. */
 	ospf_gr_nvm_delete(ospf);
