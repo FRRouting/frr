@@ -29,11 +29,6 @@
 			thread_add_timer(bm->master, (F), peer, (V), &(T));    \
 	} while (0)
 
-#define BGP_TIMER_OFF(T)                                                       \
-	do {                                                                   \
-		THREAD_OFF((T));					       \
-	} while (0)
-
 #define BGP_EVENT_ADD(P, E)                                                    \
 	do {                                                                   \
 		if ((P)->status != Deleted)                                    \

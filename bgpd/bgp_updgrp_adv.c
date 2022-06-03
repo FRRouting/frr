@@ -347,7 +347,7 @@ static void subgroup_coalesce_timer(struct thread *thread)
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			peer = PAF_PEER(paf);
-			BGP_TIMER_OFF(peer->t_routeadv);
+			THREAD_OFF(peer->t_routeadv);
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 		}
 	}
