@@ -2571,7 +2571,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				zlog_debug("%s: pi %p dmed", __func__, pi);
 			continue;
 		}
-
 		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 
 		reason = dest->reason;
@@ -2978,8 +2977,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (debug)
 		zlog_debug(
-			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
-			__func__, dest, bgp->name_pretty, afi2str(afi),
+			"%s (%d): p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
+			__func__, __LINE__, dest, bgp->name_pretty, afi2str(afi),
 			safi2str(safi), old_select, new_select);
 
 	/* If best route remains the same and this is not due to user-initiated

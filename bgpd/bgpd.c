@@ -3876,6 +3876,32 @@ struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname)
 	return NULL;
 }
 
+struct peer *peer_lookup_by_host(struct bgp *bgp, const char *host) {
+	struct peer *peer;
+	struct listnode *node, *nnode;
+
+	if (!host)
+		return NULL;
+
+	if (bgp != NULL) {
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+			if (peer->hostname && !strcmp(peer->host, host)
+			    && !CHECK_FLAG(peer->sflags,
+					   PEER_STATUS_ACCEPT_PEER))
+				return peer;
+	} else if (bm->bgp != NULL) {
+		struct listnode *bgpnode, *nbgpnode;
+
+		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+				if (!strcmp(host, peer->host)
+					&& !CHECK_FLAG(peer->sflags,
+						PEER_STATUS_ACCEPT_PEER))
+					return peer;
+	}
+	return NULL;
+}
+
 struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 {
 	struct peer *peer = NULL;

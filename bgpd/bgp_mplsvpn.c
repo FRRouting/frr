@@ -552,8 +552,8 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 			break;
 		}
 
-		for (size_t i = 1; i < 255; i++) {
-			label = i << 12;
+		for (size_t i = 1; i < 65535; i++) {
+			label = i << 4;
 			transpose_sid(sid, label, offset, len);
 			if (sid_exist(bgp, sid))
 				continue;

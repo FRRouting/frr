@@ -2011,6 +2011,7 @@ extern void bgp_set_evpn(struct bgp *bgp);
 extern struct peer *peer_lookup(struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
+extern struct peer *peer_lookup_by_host(struct bgp *bgp, const char *host);
 extern void bgp_peer_conf_if_to_su_update(struct peer *);
 extern int peer_group_listen_range_del(struct peer_group *, struct prefix *);
 extern struct peer_group *peer_group_lookup(struct bgp *, const char *);

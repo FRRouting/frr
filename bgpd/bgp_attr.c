@@ -3599,6 +3599,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	afi_t nh_afi;
+	struct peer *plk;
 
 	/* Set extended bit always to encode the attribute length as 2 bytes */
 	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN);
@@ -3635,10 +3636,22 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put_ipv4(s, attr->nexthop.s_addr);
 			break;
 		case SAFI_MPLS_VPN:
-			stream_putc(s, 12);
-			stream_putl(s, 0); /* RD = 0, per RFC */
-			stream_putl(s, 0);
-			stream_put(s, &attr->mp_nexthop_global_in, 4);
+			plk = peer_lookup_by_host(NULL, peer->host);
+			if (attr->srv6_l3vpn &&
+				plk &&
+				plk->update_source &&
+				plk->update_source->sin6.sin6_family == AF_INET6) {
+					stream_putc(s, 24);
+					stream_putl(s, 0); /* RD = 0, per RFC */
+					stream_putl(s, 0);
+					stream_put(s, &plk->update_source->sin6.sin6_addr,
+						IPV6_MAX_BYTELEN);
+			} else {
+				stream_putc(s, 12);
+				stream_putl(s, 0); /* RD = 0, per RFC */
+				stream_putl(s, 0);
+				stream_put(s, &attr->mp_nexthop_global_in, 4);
+			}
 			break;
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -3679,11 +3692,20 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		case SAFI_MPLS_VPN: {
 			if (attr->mp_nexthop_len
 			    == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+				plk = peer_lookup_by_host(NULL, peer->host);
 				stream_putc(s, 24);
 				stream_putl(s, 0); /* RD = 0, per RFC */
 				stream_putl(s, 0);
-				stream_put(s, &attr->mp_nexthop_global,
-					   IPV6_MAX_BYTELEN);
+				if (attr->srv6_l3vpn &&
+					plk &&
+					plk->update_source &&
+					plk->update_source->sin6.sin6_family == AF_INET6) {
+					stream_put(s, &plk->update_source->sin6.sin6_addr,
+						IPV6_MAX_BYTELEN);
+				} else {
+					stream_put(s, &attr->mp_nexthop_global,
+						IPV6_MAX_BYTELEN);
+				}
 			} else if (attr->mp_nexthop_len
 				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				stream_putc(s, 48);
@@ -4297,7 +4319,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
-			stream_putw(s, 0xffff); /* endpoint */
+			stream_putw(s, attr->srv6_l3vpn->endpoint_behavior); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
 			stream_putc(
 				s,
