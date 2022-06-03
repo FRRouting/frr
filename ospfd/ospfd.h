@@ -647,8 +647,6 @@ struct ospf_nbr_nbma {
 #define OSPF_TIMER_ON(T,F,V) thread_add_timer (master,(F),ospf,(V),&(T))
 #define OSPF_AREA_TIMER_ON(T,F,V) thread_add_timer (master, (F), area, (V), &(T))
 #define OSPF_POLL_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr_nbma, (V), &(T))
-#define OSPF_POLL_TIMER_OFF(X) OSPF_TIMER_OFF((X))
-#define OSPF_TIMER_OFF(X) thread_cancel(&(X))
 
 /* Extern variables. */
 extern struct ospf_master *om;
