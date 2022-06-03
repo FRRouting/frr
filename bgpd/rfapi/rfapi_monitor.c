@@ -620,7 +620,7 @@ void rfapiMonitorDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		rfapiMonitorDetachImport(m);
 	}
 
-	thread_cancel(&m->timer);
+	THREAD_OFF(m->timer);
 
 	/*
 	 * remove from rfd list
@@ -657,7 +657,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 					rfapiMonitorDetachImport(m);
 				}
 
-				thread_cancel(&m->timer);
+				THREAD_OFF(m->timer);
 
 				XFREE(MTYPE_RFAPI_MONITOR, m);
 				rn->info = NULL;
@@ -691,7 +691,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 #endif
 			}
 
-			thread_cancel(&mon_eth->timer);
+			THREAD_OFF(mon_eth->timer);
 
 			/*
 			 * remove from rfd list
@@ -733,7 +733,7 @@ void rfapiMonitorResponseRemovalOn(struct bgp *bgp)
 
 static void rfapiMonitorTimerExpire(struct thread *t)
 {
-	struct rfapi_monitor_vpn *m = t->arg;
+	struct rfapi_monitor_vpn *m = THREAD_ARG(t);
 
 	/* forget reference to thread, it's gone */
 	m->timer = NULL;
@@ -1039,7 +1039,7 @@ void rfapiMonitorMovedUp(struct rfapi_import_table *import_table,
 
 static void rfapiMonitorEthTimerExpire(struct thread *t)
 {
-	struct rfapi_monitor_eth *m = t->arg;
+	struct rfapi_monitor_eth *m = THREAD_ARG(t);
 
 	/* forget reference to thread, it's gone */
 	m->timer = NULL;
@@ -1400,7 +1400,7 @@ void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		rfapiMonitorEthDetachImport(bgp, val);
 	}
 
-	thread_cancel(&val->timer);
+	THREAD_OFF(val->timer);
 
 	/*
 	 * remove from rfd list

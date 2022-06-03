@@ -465,7 +465,7 @@ int bgp_damp_disable(struct bgp *bgp, afi_t afi, safi_t safi)
 		return 0;
 
 	/* Cancel reuse event. */
-	thread_cancel(&(bdc->t_reuse));
+	THREAD_OFF(bdc->t_reuse);
 
 	/* Clean BGP dampening information.  */
 	bgp_damp_info_clean(afi, safi);

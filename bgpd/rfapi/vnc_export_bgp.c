@@ -1712,7 +1712,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	 * export expiration timer is already running on
 	 * this route: cancel it
 	 */
-	thread_cancel(&eti->timer);
+	THREAD_OFF(eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1726,7 +1726,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 
 static void vncExportWithdrawTimer(struct thread *t)
 {
-	struct vnc_export_info *eti = t->arg;
+	struct vnc_export_info *eti = THREAD_ARG(t);
 	const struct prefix *p = agg_node_get_prefix(eti->node);
 
 	/*
@@ -1943,7 +1943,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					 * already running on
 					 * this route: cancel it
 					 */
-					thread_cancel(&eti->timer);
+					THREAD_OFF(eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -2012,7 +2012,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					thread_cancel(&eti->timer);
+					THREAD_OFF(eti->timer);
 					vnc_eti_delete(eti);
 				}
 
