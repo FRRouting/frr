@@ -3526,7 +3526,7 @@ static void rip_instance_disable(struct rip *rip)
 	THREAD_OFF(rip->t_triggered_interval);
 
 	/* Cancel read thread. */
-	thread_cancel(&rip->t_read);
+	THREAD_OFF(rip->t_read);
 
 	/* Close RIP socket. */
 	close(rip->sock);
