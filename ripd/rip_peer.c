@@ -38,7 +38,7 @@ static struct rip_peer *rip_peer_new(void)
 
 static void rip_peer_free(struct rip_peer *peer)
 {
-	RIP_TIMER_OFF(peer->t_timeout);
+	THREAD_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIP_PEER, peer);
 }
 
