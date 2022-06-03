@@ -198,7 +198,7 @@ class RpcStateBase
 
 	static void c_callback(struct thread *thread)
 	{
-		auto _tag = static_cast<RpcStateBase *>(thread->arg);
+		auto _tag = static_cast<RpcStateBase *>(THREAD_ARG(thread));
 		/*
 		 * We hold the lock until the callback finishes and has updated
 		 * _tag->state, then we signal done and release.
