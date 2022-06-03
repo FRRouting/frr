@@ -16,6 +16,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_circuit.h"
+#include "isisd/isis_mt.h"
 #include "isisd/isisd.h"
 #include "isisd/fabricd.h"
 
@@ -216,4 +217,76 @@ void isis_bfd_init(struct event_loop *tm)
 	hook_register(isis_adj_state_change_hook, bfd_handle_adj_state_change);
 	hook_register(isis_adj_ip_enabled_hook, bfd_handle_adj_ip_enabled);
 	hook_register(isis_circuit_add_addr_hook, bfd_handle_circuit_add_addr);
+}
+
+void isis_bfd_circuit_update_rfc6213(struct isis_circuit *circuit)
+{
+	struct isis_area_mt_setting **area_settings;
+	unsigned int mt_count = 0, i;
+	bool rfc6213_ipv4 = false;
+	bool rfc6213_ipv6 = false;
+	uint8_t cnt;
+	uint16_t mtid;
+
+	/* Update the locally supported MTID/NLPID pairs. */
+	if (circuit->bfd_config.rfc6213_ipv4 && circuit->bfd_config.enabled &&
+	    circuit->ip_router && fabricd_ip_addrs(circuit)) {
+		for (cnt = 0; cnt < circuit->nlpids.count; cnt++) {
+			if (circuit->nlpids.nlpids[cnt] == NLPID_IP) {
+				rfc6213_ipv4 = true;
+				break;
+			}
+		}
+	}
+
+	if (rfc6213_ipv4)
+		SET_FLAG(circuit->bfd_config.mtid_nlpid,
+			 ISIS_BFD_MT_STANDARD_NLP_IPV4);
+	else
+		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
+			   ISIS_BFD_MT_STANDARD_NLP_IPV4);
+
+	if (circuit->bfd_config.rfc6213_ipv6 && circuit->bfd_config.enabled &&
+	    circuit->ipv6_router &&
+	    (listcount(circuit->ipv6_link) > 0 ||
+	     listcount(circuit->ipv6_non_link) > 0)) {
+		for (cnt = 0; cnt < circuit->nlpids.count; cnt++) {
+			if (circuit->nlpids.nlpids[cnt] == NLPID_IPV6) {
+				rfc6213_ipv6 = true;
+				break;
+			}
+		}
+	}
+
+	if (rfc6213_ipv6) {
+		area_settings = area_mt_settings(circuit->area, &mt_count);
+
+		/* MTID ISIS_MT_STANDARD is always enabled
+		 * ISIS_MT_IPV6_UNICAST is enabled only if
+		 * "topology ipv6-unicast" is configured.
+		 */
+		mtid = ISIS_MT_STANDARD;
+		for (i = 0; i < mt_count; i++) {
+			if (area_settings[i]->mtid == ISIS_MT_IPV6_UNICAST) {
+				mtid = ISIS_MT_IPV6_UNICAST;
+				break;
+			}
+		}
+		if (mtid == ISIS_MT_STANDARD) {
+			SET_FLAG(circuit->bfd_config.mtid_nlpid,
+				 ISIS_BFD_MT_STANDARD_NLP_IPV6);
+			UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
+				   ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6);
+		} else {
+			SET_FLAG(circuit->bfd_config.mtid_nlpid,
+				 ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6);
+			UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
+				   ISIS_BFD_MT_STANDARD_NLP_IPV6);
+		}
+	} else {
+		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
+			   ISIS_BFD_MT_STANDARD_NLP_IPV6);
+		UNSET_FLAG(circuit->bfd_config.mtid_nlpid,
+			   ISIS_BFD_MT_IPV6_UNICAST_NLP_IPV6);
+	}
 }

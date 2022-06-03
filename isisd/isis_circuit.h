@@ -146,6 +146,8 @@ struct isis_circuit {
 		char *profile;
 		bool rfc6213_ipv4; /* bfd ipv4 configuration */
 		bool rfc6213_ipv6; /* bfd ipv6 configuration */
+		/* Locally enabled RFC6213 MTID/NLPID pairs */
+		uint8_t mtid_nlpid;
 	} bfd_config;
 	struct ldp_sync_info *ldp_sync_info;
 	bool lfa_protection[ISIS_LEVELS];
