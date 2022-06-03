@@ -1902,7 +1902,7 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
-	thread_cancel(&zns->t_netlink);
+	THREAD_OFF(zns->t_netlink);
 
 	kernel_nlsock_fini(&zns->netlink);
 

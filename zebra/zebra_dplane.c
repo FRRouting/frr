@@ -6043,8 +6043,8 @@ static void dplane_check_shutdown_status(struct thread *event)
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
 		if (zdplane_info.dg_master) {
-			thread_cancel(&zi->t_read);
-			thread_cancel(&zi->t_request);
+			THREAD_OFF(zi->t_read);
+			THREAD_OFF(zi->t_request);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);
