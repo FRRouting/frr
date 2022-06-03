@@ -1938,7 +1938,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			area->area_tag, level, diff, func, file, line);
 	}
 
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_rlfa_rib_update);
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running
 		 * to

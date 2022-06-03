@@ -161,7 +161,7 @@ void isis_delete_adj(void *arg)
 	/* Remove self from snmp list without walking the list*/
 	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
-	thread_cancel(&adj->t_expire);
+	THREAD_OFF(adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
 

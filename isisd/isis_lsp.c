@@ -1390,7 +1390,7 @@ int lsp_generate(struct isis_area *area, int level)
 
 	refresh_time = lsp_refresh_time(newlsp, rem_lifetime);
 
-	thread_cancel(&area->t_lsp_refresh[level - 1]);
+	THREAD_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 	thread_add_timer(master, lsp_refresh,
 			 &area->lsp_refresh_arg[level - 1], refresh_time,
@@ -1601,7 +1601,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			"ISIS (%s): Will schedule regen timer. Last run was: %lld, Now is: %lld",
 			area->area_tag, (long long)lsp->last_generated,
 			(long long)now);
-		thread_cancel(&area->t_lsp_refresh[lvl - 1]);
+		THREAD_OFF(area->t_lsp_refresh[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < area->lsp_gen_interval[lvl - 1]
 		    && !(area->bfd_signalled_down)) {
@@ -1794,7 +1794,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	lsp_flood(lsp, NULL);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
-	thread_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+	THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	circuit->lsp_regenerate_pending[level - 1] = 0;
 	if (level == IS_LEVEL_1)
 		thread_add_timer(
@@ -1985,7 +1985,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 			"ISIS (%s): Will schedule PSN regen timer. Last run was: %lld, Now is: %lld",
 			area->area_tag, (long long)lsp->last_generated,
 			(long long)now);
-		thread_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
+		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < circuit->area->lsp_gen_interval[lvl - 1]) {
 			timeout =

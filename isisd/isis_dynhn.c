@@ -57,7 +57,7 @@ void dyn_cache_finish(struct isis *isis)
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;
 
-	thread_cancel(&isis->t_dync_clean);
+	THREAD_OFF(isis->t_dync_clean);
 
 	for (ALL_LIST_ELEMENTS(isis->dyn_cache, node, nnode, dyn)) {
 		list_delete_node(isis->dyn_cache, node);
