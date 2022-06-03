@@ -13821,9 +13821,15 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		}
 	} else {
 		/* advertisement-interval */
+		unsigned long mrai_remaining = 0;
+
+		if (thread_is_scheduled(p->t_routeadv))
+			mrai_remaining =
+				thread_timer_remain_second(p->t_routeadv);
+
 		vty_out(vty,
-			"  Minimum time between advertisement runs is %d seconds\n",
-			p->v_routeadv);
+			"  Minimum time between advertisement runs is %d seconds (%lu seconds left)\n",
+			p->v_routeadv, mrai_remaining);
 
 		/* Update-source. */
 		if (p->update_if || p->update_source) {
