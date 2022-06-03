@@ -1428,7 +1428,7 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 		}
 
 	/* remove update event */
-	thread_cancel(&oi->t_ls_upd_event);
+	THREAD_OFF(oi->t_ls_upd_event);
 }
 
 void ospf_if_update(struct ospf *ospf, struct interface *ifp)
@@ -2263,7 +2263,7 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: ospf old_vrf_id %d unlinked", __func__,
 				   old_vrf_id);
-		thread_cancel(&ospf->t_read);
+		THREAD_OFF(ospf->t_read);
 		close(ospf->fd);
 		ospf->fd = -1;
 	}
