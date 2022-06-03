@@ -43,7 +43,7 @@ static struct ripng_peer *ripng_peer_new(void)
 
 static void ripng_peer_free(struct ripng_peer *peer)
 {
-	RIPNG_TIMER_OFF(peer->t_timeout);
+	THREAD_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIPNG_PEER, peer);
 }
 
