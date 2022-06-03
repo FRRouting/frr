@@ -312,8 +312,6 @@ enum ripng_event {
 /* RIPng timer on/off macro. */
 #define RIPNG_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
 
-#define RIPNG_TIMER_OFF(T)  thread_cancel(&(T))
-
 #define RIPNG_OFFSET_LIST_IN  0
 #define RIPNG_OFFSET_LIST_OUT 1
 #define RIPNG_OFFSET_LIST_MAX 2
