@@ -1270,7 +1270,9 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
-		static_attr.srv6_l3vpn->endpoint_behavior = p && p->family == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 : (p->family == AFI_IP6 ? ZEBRA_SEG6_LOCAL_ACTION_END_DT6 : 0xffff);
+		static_attr.srv6_l3vpn->endpoint_behavior = p && p->family == AFI_IP ?
+					IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT4 :
+						(p && p->family == AFI_IP6 ? IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT6 : 0xffff);
 		if (chunk) {
 			static_attr.srv6_l3vpn->loc_block_len =
 				chunk->block_bits_length;
