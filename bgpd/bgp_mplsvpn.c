@@ -1259,24 +1259,41 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 
 	/* Set SID for SRv6 VPN */
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid_locator) {
+		struct listnode *node;
+		struct srv6_locator_chunk *chunk;
+		for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk))
+			if (!strcmp(bgp_vpn->srv6_locator_name, chunk->locator_name))
+				break;
+
 		encode_label(bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label,
 			     &label);
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
-		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
-		static_attr.srv6_l3vpn->loc_block_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
-		static_attr.srv6_l3vpn->loc_node_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+		static_attr.srv6_l3vpn->endpoint_behavior = p && p->family == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 : (p->family == AFI_IP6 ? ZEBRA_SEG6_LOCAL_ACTION_END_DT6 : 0xffff);
+		if (chunk) {
+			static_attr.srv6_l3vpn->loc_block_len =
+				chunk->block_bits_length;
+			static_attr.srv6_l3vpn->loc_node_len =
+				chunk->node_bits_length;
+			static_attr.srv6_l3vpn->transposition_len =
+				chunk->function_bits_length ?: 16;
+			static_attr.srv6_l3vpn->transposition_offset =
+				chunk->block_bits_length + chunk->node_bits_length;
+		} else {
+			static_attr.srv6_l3vpn->loc_block_len =
+				BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+			static_attr.srv6_l3vpn->loc_node_len =
+				BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+			static_attr.srv6_l3vpn->transposition_len =
+				BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+			static_attr.srv6_l3vpn->transposition_offset =
+				BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
+		}
 		static_attr.srv6_l3vpn->func_len =
 			BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
 		static_attr.srv6_l3vpn->arg_len =
 			BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
-		static_attr.srv6_l3vpn->transposition_len =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
-		static_attr.srv6_l3vpn->transposition_offset =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
 		memcpy(&static_attr.srv6_l3vpn->sid,
 		       bgp_vrf->vpn_policy[afi].tovpn_sid_locator,
 		       sizeof(struct in6_addr));
