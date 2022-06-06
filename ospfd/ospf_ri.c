@@ -45,7 +45,9 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ri.h"
 #include "ospfd/ospf_errors.h"
+#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_ri_clippy.c"
+#endif
 
 /*
  * Global variable to manage Opaque-LSA/Router Information on this node.
@@ -72,6 +74,7 @@ static void ospf_router_info_register_vty(void);
 static int ospf_router_info_lsa_update(struct ospf_lsa *lsa);
 static void del_area_info(void *val);
 static void del_pce_info(void *val);
+static void flush_ri_fad_tlvs(void);
 
 int ospf_router_info_init(void)
 {
@@ -98,6 +101,7 @@ int ospf_router_info_init(void)
 
 	/* Initialize the Flex-Algo database */
 	OspfRI.fad_info.fads = flex_algos_alloc(NULL, NULL);
+	tlv_list_init(&OspfRI.fad_info.ri_fad_tlvs);
 
 	ospf_router_info_register_vty();
 
@@ -162,6 +166,7 @@ void ospf_router_info_term(void)
 	list_delete(&OspfRI.area_info);
 	list_delete(&OspfRI.pce_info.pce_domain);
 	list_delete(&OspfRI.pce_info.pce_neighbor);
+	flush_ri_fad_tlvs();
 	if (OspfRI.enabled && OspfRI.fad_info.fads) {
 		flex_algos_free(OspfRI.fad_info.fads);
 		OspfRI.fad_info.fads = NULL;
@@ -186,6 +191,7 @@ void ospf_router_info_finish(void)
 
 	list_delete_all_node(OspfRI.pce_info.pce_domain);
 	list_delete_all_node(OspfRI.pce_info.pce_neighbor);
+	flush_ri_fad_tlvs();
 	if (OspfRI.enabled && OspfRI.fad_info.fads) {
 		flex_algos_free(OspfRI.fad_info.fads);
 		OspfRI.fad_info.fads = NULL;
@@ -667,6 +673,278 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 	}
 }
 
+static void flush_ri_fad_subtlvs(struct ri_fad_tlv *fad_tlv)
+{
+	struct tlv *subtlv;
+
+	FOREACH_TLV_IN_LIST (&fad_tlv->sub_tlvs, subtlv) {
+		tlv_list_del(&fad_tlv->sub_tlvs, subtlv);
+
+		switch (ntohs(subtlv->hdr.type)) {
+		case RI_FAD_EXC_ADMINGRP_SUBTLV:
+			/* SubTLV-specific cleanup */
+			XFREE(MTYPE_OSPF_RI_FAD_EXC_ADMNGRP_SUBTLV, subtlv);
+			break;
+		case RI_FAD_INCANY_ADMINGRP_SUBTLV:
+			/* SubTLV-specific cleanup */
+			XFREE(MTYPE_OSPF_RI_FAD_INCANY_ADMNGRP_SUBTLV, subtlv);
+			break;
+		case RI_FAD_INCALL_ADMINGRP_SUBTLV:
+			/* SubTLV-specific cleanup */
+			XFREE(MTYPE_OSPF_RI_FAD_INCALL_ADMNGRP_SUBTLV, subtlv);
+			break;
+		case RI_FAD_FLAGS_SUBTLV:
+			/* SubTLV-specific cleanup */
+			XFREE(MTYPE_OSPF_RI_FAD_FLAGS_SUBTLV, subtlv);
+			break;
+		case RI_FAD_EXC_SRLG_SUBTLV:
+			/* SubTLV-specific cleanup */
+			XFREE(MTYPE_OSPF_RI_FAD_EXC_SRLG_SUBTLV, subtlv);
+			break;
+		default:
+			break;
+		}
+	}
+
+	tlv_list_fini(&fad_tlv->sub_tlvs);
+}
+
+static void flush_ri_fad_tlvs(void)
+{
+	struct tlv *tlv;
+	struct ri_fad_tlv *fad_tlv;
+
+	if (OspfRI.fad_info.num_fads) {
+		FOREACH_TLV_IN_LIST (&OspfRI.fad_info.ri_fad_tlvs, tlv) {
+			fad_tlv = (struct ri_fad_tlv *)&tlv->hdr;
+			flush_ri_fad_subtlvs(fad_tlv);
+			tlv_list_del(&OspfRI.fad_info.ri_fad_tlvs, tlv);
+			XFREE(MTYPE_OSPF_RI_FAD_TLV, tlv);
+		}
+	}
+}
+
+static void update_ri_fad_tlv(struct flex_algo *fad)
+{
+	struct tlv *tlv, *subtlv;
+	struct ri_fad_tlv *fad_tlv;
+	struct ri_fad_exclude_admingrp_subtlv *exc_admngrp_subtlv;
+	struct ri_fad_include_any_admingrp_subtlv *incany_admngrp_subtlv;
+	struct ri_fad_include_all_admingrp_subtlv *incall_admngrp_subtlv;
+	struct ri_fad_flags_subtlv *flags_subtlv;
+	struct ri_fad_exclude_srlg_subtlv *exc_srlg_subtlv;
+	uint16_t tlv_len, subtlv_len;
+	size_t num_items;
+	struct admin_group *ag;
+
+	tlv = XCALLOC(MTYPE_OSPF_RI_FAD_TLV,
+		      sizeof(tlv) + sizeof(struct ri_fad_tlv));
+	assert(tlv);
+	fad_tlv = (struct ri_fad_tlv *)&tlv->hdr;
+
+	tlv_list_init(&fad_tlv->sub_tlvs);
+	tlv_len = RI_FAD_TLV_MIN_LEN;
+	fad_tlv->header.type = htons(RI_FAD_TLV);
+	fad_tlv->algorithm_id = fad->algorithm;
+	fad_tlv->calc_type = fad->calc_type;
+	fad_tlv->metric_type = fad->metric_type;
+	fad_tlv->priority = fad->priority;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("Generate RI-FAD-TLV (type:%u, id:%u)",
+			   ntohs(fad_tlv->header.type), fad_tlv->algorithm_id);
+
+	/* Add Exclude Admin Group SubTLVs (if any) */
+	num_items = admin_group_size(&fad->admin_group_exclude_any);
+	if (num_items) {
+		ag = &fad->admin_group_exclude_any;
+		subtlv_len = (bf_word_size(ag->bitmap) * sizeof(uint32_t));
+		subtlv = XCALLOC(
+			MTYPE_OSPF_RI_FAD_EXC_ADMNGRP_SUBTLV,
+			sizeof(tlv) +
+				sizeof(struct ri_fad_exclude_admingrp_subtlv) +
+				subtlv_len);
+		assert(subtlv);
+		exc_admngrp_subtlv =
+			(struct ri_fad_exclude_admingrp_subtlv *)&subtlv->hdr;
+		exc_admngrp_subtlv->header.type =
+			htons(RI_FAD_EXC_ADMINGRP_SUBTLV);
+
+		flex_algo_encode_admin_group(ag,
+				(uint8_t *)exc_admngrp_subtlv->admin_groups,
+				&subtlv_len);
+		exc_admngrp_subtlv->header.length = htons(subtlv_len);
+		tlv_len += subtlv_len + sizeof(struct tlv_header);
+
+		tlv_list_add_tail(&fad_tlv->sub_tlvs, subtlv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Generate RI-FAD-EXC-ADMGRP-SUBTLV (type:%u/%u, "
+				"len: %u/%u, num-admin-groups: %u), total_len: %u",
+				ntohs(exc_admngrp_subtlv->header.type),
+				ntohs(subtlv->hdr.type), subtlv_len,
+				ntohs(subtlv->hdr.length), (uint32_t)num_items,
+				tlv_len);
+	}
+
+	/* Add Include-Any Admin Group SubTLVs (if any) */
+	num_items = admin_group_size(&fad->admin_group_include_any);
+	if (num_items) {
+		ag = &fad->admin_group_include_any;
+		subtlv_len = (bf_word_size(ag->bitmap) * sizeof(uint32_t));
+		subtlv = XCALLOC(
+			MTYPE_OSPF_RI_FAD_INCANY_ADMNGRP_SUBTLV,
+			sizeof(tlv) +
+				sizeof(struct
+				       ri_fad_include_any_admingrp_subtlv) +
+				subtlv_len);
+		assert(subtlv);
+		incany_admngrp_subtlv =
+			(struct ri_fad_include_any_admingrp_subtlv *)&subtlv
+				->hdr;
+		incany_admngrp_subtlv->header.type =
+			htons(RI_FAD_INCANY_ADMINGRP_SUBTLV);
+
+		flex_algo_encode_admin_group(ag,
+				(uint8_t *)incany_admngrp_subtlv->admin_groups,
+				&subtlv_len);
+		incany_admngrp_subtlv->header.length = htons(subtlv_len);
+		tlv_len += subtlv_len + sizeof(struct tlv_header);
+
+		tlv_list_add_tail(&fad_tlv->sub_tlvs, subtlv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Generate RI-FAD-INCANY-ADMGRP-SUBTLV (type:%u, "
+				"len: %u, num-admin-groups: %u), total_len: %u",
+				ntohs(incany_admngrp_subtlv->header.type),
+				ntohs(incany_admngrp_subtlv->header.length),
+				(uint32_t)num_items, tlv_len);
+	}
+
+	/* Add Include-All Admin Group SubTLVs (if any) */
+	num_items = admin_group_size(&fad->admin_group_include_all);
+	if (num_items) {
+		ag = &fad->admin_group_include_all;
+		subtlv_len = (bf_word_size(ag->bitmap) * sizeof(uint32_t));
+		subtlv = XCALLOC(
+			MTYPE_OSPF_RI_FAD_INCALL_ADMNGRP_SUBTLV,
+			sizeof(tlv) +
+				sizeof(struct
+				       ri_fad_include_all_admingrp_subtlv) +
+				subtlv_len);
+		assert(subtlv);
+		incall_admngrp_subtlv =
+			(struct ri_fad_include_all_admingrp_subtlv *)&subtlv
+				->hdr;
+		incall_admngrp_subtlv->header.type =
+			htons(RI_FAD_INCALL_ADMINGRP_SUBTLV);
+
+		flex_algo_encode_admin_group(ag,
+				(uint8_t *)incall_admngrp_subtlv->admin_groups,
+				&subtlv_len);
+		incall_admngrp_subtlv->header.length = htons(subtlv_len);
+		tlv_len += subtlv_len + sizeof(struct tlv_header);
+
+		tlv_list_add_tail(&fad_tlv->sub_tlvs, subtlv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Generate RI-FAD-INCALL-ADMGRP-SUBTLV (type:%u, "
+				"len: %u, num-admin-groups: %u), total_len: %u",
+				ntohs(incall_admngrp_subtlv->header.type),
+				ntohs(incall_admngrp_subtlv->header.length),
+				(uint32_t)num_items, tlv_len);
+	}
+
+	/* Add Flags SubTLVs (if any) */
+	if (fad->flags) {
+		subtlv_len = ROUNDUP(sizeof(fad->flags), sizeof(uint32_t));
+		subtlv = XCALLOC(MTYPE_OSPF_RI_FAD_FLAGS_SUBTLV,
+				 sizeof(tlv) +
+					 sizeof(struct ri_fad_flags_subtlv) +
+					 subtlv_len);
+		assert(subtlv);
+		flags_subtlv = (struct ri_fad_flags_subtlv *)&subtlv->hdr;
+		flags_subtlv->header.type = htons(RI_FAD_FLAGS_SUBTLV);
+		flags_subtlv->header.length = htons(subtlv_len);
+		memcpy(flags_subtlv->flags, &fad->flags, sizeof(fad->flags));
+		tlv_len += subtlv_len + sizeof(struct tlv_header);
+
+		tlv_list_add_tail(&fad_tlv->sub_tlvs, subtlv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Generate RI-FAD-FLAGS-SUBTLV (type:%u, "
+				"len: %u/%u), total_len: %u",
+				ntohs(flags_subtlv->header.type),
+				ntohs(flags_subtlv->header.length),
+				(uint32_t)subtlv_len, tlv_len);
+	}
+
+	/* Add Exclude SRLG SubTLVs (if any) */
+	num_items = admin_group_size(&fad->srlgs_exclude);
+	if (num_items) {
+		ag = &fad->srlgs_exclude;
+		subtlv_len = (bf_word_size(ag->bitmap) * sizeof(uint32_t));
+		subtlv = XCALLOC(
+			MTYPE_OSPF_RI_FAD_EXC_SRLG_SUBTLV,
+			sizeof(tlv) +
+				sizeof(struct
+				       ri_fad_exclude_srlg_subtlv) +
+				subtlv_len);
+		assert(subtlv);
+		exc_srlg_subtlv =
+			(struct ri_fad_exclude_srlg_subtlv *)&subtlv
+				->hdr;
+		exc_srlg_subtlv->header.type =
+			htons(RI_FAD_EXC_SRLG_SUBTLV);
+
+		flex_algo_encode_admin_group(ag,
+				(uint8_t *)exc_srlg_subtlv->srlgs,
+				&subtlv_len);
+		exc_srlg_subtlv->header.length = htons(subtlv_len);
+		tlv_len += subtlv_len + sizeof(struct tlv_header);
+
+		tlv_list_add_tail(&fad_tlv->sub_tlvs, subtlv);
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"Generate RI-FAD-EXC-SRLG-SUBTLV (type:%u, "
+				"len: %u, num-srlgs: %u), total_len: %u",
+				ntohs(exc_srlg_subtlv->header.type),
+				ntohs(exc_srlg_subtlv->header.length),
+				(uint32_t)num_items, tlv_len);
+	}
+
+	fad_tlv->header.length = htons(tlv_len);
+	tlv_list_add_tail(&OspfRI.fad_info.ri_fad_tlvs, tlv);
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("Final RI-FAD-TLV (len:%u/%u)",
+			   ntohs(fad_tlv->header.length), tlv_len);
+}
+
+static void update_ri_fad_tlvs(void)
+{
+	struct flex_algo *fad;
+	struct listnode *curr, *next;
+
+	flush_ri_fad_tlvs();
+
+	if (OspfRI.fad_info.fads && OspfRI.fad_info.num_fads) {
+		FOREACH_FLEX_ALGO_DEFN (OspfRI.fad_info.fads, curr, next, fad) {
+			update_ri_fad_tlv(fad);
+		}
+
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("Added total %u RI-FAD-TLVs",
+				   (uint32_t)tlv_list_count(
+					   &OspfRI.fad_info.ri_fad_tlvs));
+	}
+}
+
 /*------------------------------------------------------------------------*
  * Following are callback functions against generic Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
@@ -711,6 +989,87 @@ static void build_tlv(struct stream *s, struct tlv_header *tlvh)
 		stream_put(s, TLV_DATA(tlvh), TLV_BODY_SIZE(tlvh));
 	}
 	return;
+}
+
+static void ri_lsa_add_fad_tlvs(struct stream *s)
+{
+	struct tlv *tlv, *subtlv;
+	struct tlv_header *tlvh, *hdr;
+	struct ri_fad_tlv *fad_tlv;
+	uint16_t *tlv_lenp, orig_len;
+	size_t tlv_begin, tlv_end;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"Adding %d/%d Flex-Algo-Definitions",
+			OspfRI.fad_info.num_fads,
+			(uint32_t)tlv_list_count(&OspfRI.fad_info.ri_fad_tlvs));
+
+	if (OspfRI.fad_info.num_fads) {
+		FOREACH_TLV_IN_LIST (&OspfRI.fad_info.ri_fad_tlvs, tlv) {
+			fad_tlv = (struct ri_fad_tlv *)&tlv->hdr;
+
+			/*
+			 * Prepare TLV to write it onto the stream without
+			 * the sub-TLVs.
+			 */
+			hdr = &fad_tlv->header;
+			tlv_lenp = &hdr->length;
+			orig_len = ntohs(*tlv_lenp);
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"Got %u bytes of RI-FAD-TLV (type:%u, "
+					"len: %u, id:%u/%u, metric:%u/%u, calc:%u/%u, prio:%u/%u)",
+					orig_len, ntohs(hdr->type),
+					ntohs(hdr->length), tlv->body[0],
+					fad_tlv->algorithm_id, tlv->body[1],
+					fad_tlv->metric_type, tlv->body[2],
+					fad_tlv->calc_type, tlv->body[3],
+					fad_tlv->priority);
+
+			/* Note the tlv header position in the stream buffer */
+			tlv_begin = stream_get_endp(s);
+			tlvh = (struct tlv_header *)(STREAM_DATA(s) +
+						     stream_get_endp(s));
+
+			/* Write out the tlv header in the stream buffer */
+			*tlv_lenp = htons(RI_FAD_TLV_MIN_LEN);
+			build_tlv(s, hdr);
+
+			FOREACH_TLV_IN_LIST (&fad_tlv->sub_tlvs, subtlv) {
+				switch (ntohs(subtlv->hdr.type)) {
+				case RI_FAD_EXC_ADMINGRP_SUBTLV:
+				case RI_FAD_INCANY_ADMINGRP_SUBTLV:
+				case RI_FAD_INCALL_ADMINGRP_SUBTLV:
+				case RI_FAD_FLAGS_SUBTLV:
+				case RI_FAD_EXC_SRLG_SUBTLV:
+					build_tlv(s, &subtlv->hdr);
+
+					if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+						zlog_debug(
+							"Wrote Sub-TLV (type:%u, len: %u)",
+							ntohs(subtlv->hdr.type),
+							ntohs(subtlv->hdr
+								      .length));
+					break;
+				default:
+					break;
+				}
+			}
+
+			/* Restore the original TLV-len in the stream buffer */
+			tlv_end = stream_get_endp(s);
+			tlv_lenp = &tlvh->length;
+			*tlv_lenp = htons(orig_len);
+
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"Wrote %u/%u bytes of RI-FAD-TLV (type:%u, len: %u)",
+					orig_len,
+					(uint32_t)(tlv_end - tlv_begin),
+					ntohs(tlvh->type), ntohs(tlvh->length));
+		}
+	}
 }
 
 static void ospf_router_info_lsa_body_set(struct stream *s)
@@ -763,6 +1122,10 @@ static void ospf_router_info_lsa_body_set(struct stream *s)
 		/* Build PCE cap flag sub-tlv */
 		build_tlv(s, &OspfRI.pce_info.pce_cap_flag.header);
 	}
+
+	/* Add Flex-Algo definitions */
+	update_ri_fad_tlvs();
+	ri_lsa_add_fad_tlvs(s);
 
 	return;
 }
@@ -1230,13 +1593,55 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 		}                                                              \
 	} while (0)
 
-static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
+#define check_tlv_min_size(size, msg)                                          \
+	do {                                                                   \
+		if (ntohs(tlvh->length) < size) {                              \
+			if (vty != NULL)                                       \
+				vty_out(vty,                                   \
+					"  Insuffcient %s TLV size: %d, "      \
+					"Minimum expected: %d\n",              \
+					msg, ntohs(tlvh->length), size);       \
+			else                                                   \
+				zlog_debug(                                    \
+					"   Insuffcient %s TLV size: %d,"      \
+					"Minimum expected: %d",                \
+					msg, ntohs(tlvh->length), size);       \
+			return size + TLV_HDR_SIZE;                            \
+		}                                                              \
+	} while (0)
+
+#define check_tlv_size_multiple_of(unitsize, msg)                              \
+	do {                                                                   \
+		if (ntohs(tlvh->length) % unitsize) {                          \
+			if (vty != NULL)                                       \
+				vty_out(vty,                                   \
+					"  %s TLV size: %d not mutiple of"     \
+					" %d bytes\n",                         \
+					msg, ntohs(tlvh->length),              \
+					(int)unitsize);                        \
+			else                                                   \
+				zlog_debug(                                    \
+					"  %s TLV size: %d not mutiple of "    \
+					"%d bytes",                            \
+					msg, ntohs(tlvh->length),              \
+					(int)unitsize);                        \
+			return ntohs(tlvh->length) + TLV_HDR_SIZE;             \
+		}                                                              \
+	} while (0)
+
+
+static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh,
+				    json_object *json)
 {
 	struct ri_tlv_router_cap *top = (struct ri_tlv_router_cap *)tlvh;
 
 	check_tlv_size(RI_TLV_CAPABILITIES_SIZE, "Router Capabilities");
 
-	if (vty != NULL)
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Router Capabilities TLV");
+		json_object_string_addf(json, "capabilities", "0x%x",
+					ntohl(top->value));
+	} else if (vty != NULL)
 		vty_out(vty, "  Router Capabilities: 0x%x\n",
 			ntohl(top->value));
 	else
@@ -1246,14 +1651,19 @@ static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
 }
 
 static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
-					    struct tlv_header *tlvh)
+					    struct tlv_header *tlvh,
+					    json_object *json)
 {
 	struct ri_pce_subtlv_address *top =
 		(struct ri_pce_subtlv_address *)tlvh;
 
 	if (ntohs(top->address.type) == PCE_ADDRESS_IPV4) {
 		check_tlv_size(PCE_ADDRESS_IPV4_SIZE, "PCE Address");
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Address SubTLV");
+			json_object_string_addf(json, "pceAddress", "%pI4",
+						&top->address.value);
+		} else if (vty != NULL)
 			vty_out(vty, "  PCE Address: %pI4\n",
 				&top->address.value);
 		else
@@ -1281,14 +1691,18 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
-					       struct tlv_header *tlvh)
+					       struct tlv_header *tlvh,
+					       json_object *json)
 {
 	struct ri_pce_subtlv_path_scope *top =
 		(struct ri_pce_subtlv_path_scope *)tlvh;
 
 	check_tlv_size(RI_PCE_SUBTLV_PATH_SCOPE_SIZE, "PCE Path Scope");
 
-	if (vty != NULL)
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "PCE Path Scope SubTLV");
+		json_object_int_add(json, "pcePathScope", ntohl(top->value));
+	} else if (vty != NULL)
 		vty_out(vty, "  PCE Path Scope: 0x%x\n", ntohl(top->value));
 	else
 		zlog_debug("    PCE Path Scope: 0x%x", ntohl(top->value));
@@ -1297,7 +1711,8 @@ static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
-					   struct tlv_header *tlvh)
+					   struct tlv_header *tlvh,
+					   json_object *json)
 {
 	struct ri_pce_subtlv_domain *top = (struct ri_pce_subtlv_domain *)tlvh;
 	struct in_addr tmp;
@@ -1306,18 +1721,33 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Domain SubTLV");
+			json_object_string_add(json, "domainType", "Area");
+			json_object_string_addf(json, "domainArea", "%pI4",
+						&tmp);
+		} else if (vty != NULL)
 			vty_out(vty, "  PCE Domain Area: %pI4\n", &tmp);
 		else
 			zlog_debug("    PCE Domain Area: %pI4", &tmp);
 	} else if (ntohs(top->type) == PCE_DOMAIN_TYPE_AS) {
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Domain SubTLV");
+			json_object_string_add(json, "domainType", "AS");
+			json_object_int_add(json, "pceDomainAS",
+					    ntohl(top->value));
+		} else if (vty != NULL)
 			vty_out(vty, "  PCE Domain AS: %d\n",
 				ntohl(top->value));
 		else
 			zlog_debug("    PCE Domain AS: %d", ntohl(top->value));
 	} else {
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Domain SubTLV");
+			json_object_string_addf(json, "domainType",
+						"Unknown (%d)",
+						ntohl(top->type));
+		} else if (vty != NULL)
 			vty_out(vty, "  Wrong PCE Domain type: %d\n",
 				ntohl(top->type));
 		else
@@ -1329,7 +1759,8 @@ static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
-					     struct tlv_header *tlvh)
+					     struct tlv_header *tlvh,
+					     json_object *json)
 {
 
 	struct ri_pce_subtlv_neighbor *top =
@@ -1340,19 +1771,34 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 
 	if (ntohs(top->type) == PCE_DOMAIN_TYPE_AREA) {
 		tmp.s_addr = top->value;
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Neighbor SubTLV");
+			json_object_string_add(json, "domainType", "Area");
+			json_object_string_addf(json, "neighborArea", "%pI4",
+						&tmp);
+		} else if (vty != NULL)
 			vty_out(vty, "  PCE Neighbor Area: %pI4\n", &tmp);
 		else
 			zlog_debug("    PCE Neighbor Area: %pI4", &tmp);
 	} else if (ntohs(top->type) == PCE_DOMAIN_TYPE_AS) {
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Neighbor SubTLV");
+			json_object_string_add(json, "domainType", "AS");
+			json_object_int_add(json, "neighborAS",
+					    ntohl(top->value));
+		} else if (vty != NULL)
 			vty_out(vty, "  PCE Neighbor AS: %d\n",
 				ntohl(top->value));
 		else
 			zlog_debug("    PCE Neighbor AS: %d",
 				   ntohl(top->value));
 	} else {
-		if (vty != NULL)
+		if (json) {
+			tlvh_get_json_values(tlvh, json, "PCE Neighbor SubTLV");
+			json_object_string_addf(json, "domainType",
+						"Unknown (%d)",
+						ntohl(top->type));
+		} else if (vty != NULL)
 			vty_out(vty, "  Wrong PCE Neighbor type: %d\n",
 				ntohl(top->type));
 		else
@@ -1364,14 +1810,19 @@ static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 }
 
 static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
-					     struct tlv_header *tlvh)
+					     struct tlv_header *tlvh,
+					     json_object *json)
 {
 	struct ri_pce_subtlv_cap_flag *top =
 		(struct ri_pce_subtlv_cap_flag *)tlvh;
 
 	check_tlv_size(RI_PCE_SUBTLV_CAP_FLAG_SIZE, "PCE Capabilities");
 
-	if (vty != NULL)
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "PCE Capabilities SubTLV");
+		json_object_string_addf(json, "flag", "0x%x",
+					ntohl(top->value));
+	} else if (vty != NULL)
 		vty_out(vty, "  PCE Capabilities Flag: 0x%x\n",
 			ntohl(top->value));
 	else
@@ -1382,21 +1833,25 @@ static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
 }
 
 static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
-				     size_t buf_size)
+				     size_t buf_size, json_object *json)
 {
 	if (TLV_SIZE(tlvh) > buf_size) {
 		if (vty != NULL)
 			vty_out(vty,
-				"    TLV size %d exceeds buffer size. Abort!",
-				TLV_SIZE(tlvh));
+				"    TLV type %d, size %d exceeds buffer size %d. Abort!\n",
+				ntohs(tlvh->length), TLV_SIZE(tlvh),
+				(int)buf_size);
 		else
 			zlog_debug(
-				"    TLV size %d exceeds buffer size. Abort!",
-				TLV_SIZE(tlvh));
+				"    TLV type %d, size %d exceeds buffer size %d. Abort!",
+				ntohs(tlvh->length), TLV_SIZE(tlvh),
+				(int)buf_size);
 		return buf_size;
 	}
 
-	if (vty != NULL)
+	if (json)
+		tlvh_get_json_values(tlvh, json, "Unknown");
+	else if (vty != NULL)
 		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
 			ntohs(tlvh->type), ntohs(tlvh->length));
 	else
@@ -1407,11 +1862,13 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 }
 
 static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
-				  size_t buf_size)
+				  size_t buf_size, json_object *json)
 {
 	struct tlv_header *tlvh;
 	uint16_t length = ntohs(ri->length);
 	uint16_t sum = 0;
+	json_object *stlvs_json = NULL;
+	json_object *stlv_json = NULL;
 
 	/* Verify that TLV length is valid against remaining buffer size */
 	if (length > buf_size) {
@@ -1421,25 +1878,41 @@ static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 		return buf_size;
 	}
 
+	if (json) {
+		tlvh_get_json_values(ri, json, "PCE Information TLV");
+		stlvs_json = json_object_new_array();
+		json_object_object_add(json, "subTLVs", stlvs_json);
+	}
+
 	for (tlvh = ri; sum < length; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (stlvs_json) {
+			stlv_json = json_object_new_object();
+			json_object_array_add(stlvs_json, stlv_json);
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case RI_PCE_SUBTLV_ADDRESS:
-			sum += show_vty_pce_subtlv_address(vty, tlvh);
+			sum += show_vty_pce_subtlv_address(vty, tlvh,
+							   stlv_json);
 			break;
 		case RI_PCE_SUBTLV_PATH_SCOPE:
-			sum += show_vty_pce_subtlv_path_scope(vty, tlvh);
+			sum += show_vty_pce_subtlv_path_scope(vty, tlvh,
+							      stlv_json);
 			break;
 		case RI_PCE_SUBTLV_DOMAIN:
-			sum += show_vty_pce_subtlv_domain(vty, tlvh);
+			sum += show_vty_pce_subtlv_domain(vty, tlvh, stlv_json);
 			break;
 		case RI_PCE_SUBTLV_NEIGHBOR:
-			sum += show_vty_pce_subtlv_neighbor(vty, tlvh);
+			sum += show_vty_pce_subtlv_neighbor(vty, tlvh,
+							    stlv_json);
 			break;
 		case RI_PCE_SUBTLV_CAP_FLAG:
-			sum += show_vty_pce_subtlv_cap_flag(vty, tlvh);
+			sum += show_vty_pce_subtlv_cap_flag(vty, tlvh,
+							    stlv_json);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    stlv_json);
 			break;
 		}
 	}
@@ -1447,15 +1920,27 @@ static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 }
 
 /* Display Segment Routing Algorithm TLV information */
-static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh,
+				      json_object *json)
 {
 	struct ri_sr_tlv_sr_algorithm *algo =
 		(struct ri_sr_tlv_sr_algorithm *)tlvh;
 	int i;
+	json_object *algos_json;
+	json_object *algo_json;
 
 	check_tlv_size(ALGORITHM_COUNT, "Segment Routing Algorithm");
 
-	if (vty != NULL) {
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "SR Algorithm TLV");
+		algos_json = json_object_new_array();
+		json_object_object_add(json, "algorithms", algos_json);
+		for (i = 0; i < ntohs(algo->header.length); i++) {
+			algo_json =
+				json_object_new_int((int64_t)algo->value[i]);
+			json_object_array_add(algos_json, algo_json);
+		}
+	} else if (vty != NULL) {
 		vty_out(vty, "  Segment Routing Algorithm TLV:\n");
 		for (i = 0; i < ntohs(algo->header.length); i++) {
 			switch (algo->value[i]) {
@@ -1494,14 +1979,25 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Display Segment Routing SID/Label Range TLV information */
-static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh,
+				  json_object *json)
 {
 	struct ri_sr_tlv_sid_label_range *range =
 		(struct ri_sr_tlv_sid_label_range *)tlvh;
 
 	check_tlv_size(RI_SR_TLV_LABEL_RANGE_SIZE, "SR Label Range");
 
-	if (vty != NULL) {
+	if (json) {
+		tlvh_get_json_values(tlvh, json,
+				     ntohs(range->header.type) ==
+						     RI_SR_TLV_SRGB_LABEL_RANGE
+					     ? "SR Global Label Range TLV"
+					     : "SR Local Label Range TLV");
+		json_object_int_add(json, "rangeSize",
+				    GET_RANGE_SIZE(ntohl(range->size)));
+		json_object_int_add(json, "rangeStartLabel",
+				    GET_LABEL(ntohl(range->lower.value)));
+	} else if (vty != NULL) {
 		vty_out(vty,
 			"  Segment Routing %s Range TLV:\n"
 			"    Range Size = %d\n"
@@ -1525,13 +2021,19 @@ static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Display Segment Routing Maximum Stack Depth TLV information */
-static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh,
+				json_object *json)
 {
 	struct ri_sr_tlv_node_msd *msd = (struct ri_sr_tlv_node_msd *)tlvh;
 
 	check_tlv_size(RI_SR_TLV_NODE_MSD_SIZE, "Node Maximum Stack Depth");
 
-	if (vty != NULL) {
+	if (json) {
+		tlvh_get_json_values(tlvh, json,
+				     "Node Maxomum Stack Depth TLV");
+		json_object_int_add(json, "maximumStackDepth",
+				    (int64_t)msd->value);
+	} else if (vty != NULL) {
 		vty_out(vty,
 			"  Segment Routing MSD TLV:\n"
 			"    Node Maximum Stack Depth = %d\n",
@@ -1545,6 +2047,317 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
+static void show_vty_admin_groups(struct vty *vty,
+				  struct admin_group *grp,
+				  json_object *admngrps_json,
+				  bool map_affinity)
+{
+	uint16_t indx = 0;
+	json_object *admngrp_json = NULL;
+	uint32_t admn_grp;
+	char *name = NULL;
+
+	FOREACH_FLEX_ALGO_ADMIN_GROUP (grp, admn_grp) {
+		if (map_affinity)
+			name = affinity_map_name_get(admn_grp);
+		if (admngrps_json) {
+			if (!map_affinity) {
+				admngrp_json = json_object_new_int(admn_grp);
+
+			} else if(name) {
+				admngrp_json = json_object_new_string(name);
+			} else {
+				admngrp_json = json_object_new_stringf(
+							"unknown(%u)",
+							admn_grp);
+			}
+			json_object_array_add(admngrps_json, admngrp_json);
+		}  else if (vty != NULL) {
+			if (!(indx % 16))
+				vty_out(vty, "      [ ");
+			else
+				vty_out(vty, ", ");
+
+			if (!map_affinity) {
+				vty_out(vty, "%u", admn_grp);
+			} else if (name)
+				vty_out(vty, "%s", name);
+			else
+				vty_out(vty, "unknown(%u)", admn_grp);
+
+			if ((indx % 16) == 15)
+				vty_out(vty, " ]\n");
+		}
+		indx ++;
+	}
+
+	if (!admngrps_json && vty && (indx % 16))
+		vty_out(vty, " ]\n");
+}
+
+static uint16_t show_vty_fad_exc_admngrp(struct vty *vty,
+					 struct tlv_header *tlvh,
+					 json_object *json)
+{
+	struct ri_fad_exclude_admingrp_subtlv *top =
+		(struct ri_fad_exclude_admingrp_subtlv *)tlvh;
+	json_object *admngrps_json = NULL;
+	struct admin_group grp = { 0 };
+
+	check_tlv_min_size(RI_FAD_EXC_ADMINGRP_SUBTLV_MIN_LEN,
+			   "FAD Exclude Admin Groups");
+	check_tlv_size_multiple_of(sizeof(uint32_t),
+				   "FAD Exclude Admin Groups");
+
+	flex_algo_decode_admin_group(&grp, (uint8_t *)top->admin_groups,
+				     ntohs(tlvh->length));
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Exclude Admin Groups SubTLV");
+		admngrps_json = json_object_new_array();
+		json_object_object_add(json, "adminGroups", admngrps_json);
+	} else if (vty != NULL) {
+		vty_out(vty, "    FAD Exclude Admin Groups: \n");
+	}
+
+	show_vty_admin_groups(vty, &grp, admngrps_json, true);
+
+	return TLV_SIZE(tlvh);
+}
+
+static uint16_t show_vty_fad_incany_admngrp(struct vty *vty,
+					    struct tlv_header *tlvh,
+					    json_object *json)
+{
+	struct ri_fad_include_any_admingrp_subtlv *top =
+		(struct ri_fad_include_any_admingrp_subtlv *)tlvh;
+	json_object *admngrps_json = NULL;
+	struct admin_group grp = { 0 };
+
+	check_tlv_min_size(RI_FAD_INCANY_ADMINGRP_SUBTLV_MIN_LEN,
+			   "FAD Include Any Admin Groups");
+	check_tlv_size_multiple_of(sizeof(uint32_t),
+				   "FAD Include Any Admin Groups");
+
+	flex_algo_decode_admin_group(&grp, (uint8_t *)top->admin_groups,
+				     ntohs(tlvh->length));
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Include-Any Admin Groups SubTLV");
+		admngrps_json = json_object_new_array();
+		json_object_object_add(json, "adminGroups", admngrps_json);
+	} else if (vty != NULL) {
+		vty_out(vty, "    FAD Include-Any Admin Groups: \n");
+	}
+
+	show_vty_admin_groups(vty, &grp, admngrps_json, true);
+
+	return TLV_SIZE(tlvh);
+}
+
+static uint16_t show_vty_fad_incall_admngrp(struct vty *vty,
+					    struct tlv_header *tlvh,
+					    json_object *json)
+{
+	struct ri_fad_include_all_admingrp_subtlv *top =
+		(struct ri_fad_include_all_admingrp_subtlv *)tlvh;
+	json_object *admngrps_json = NULL;
+	struct admin_group grp = { 0 };
+
+	check_tlv_min_size(RI_FAD_INCALL_ADMINGRP_SUBTLV_MIN_LEN,
+			   "FAD Include All Admin Groups");
+	check_tlv_size_multiple_of(sizeof(uint32_t),
+				   "FAD Include All Admin Groups");
+
+	flex_algo_decode_admin_group(&grp, (uint8_t *)top->admin_groups,
+				     ntohs(tlvh->length));
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Include-All Admin Groups SubTLV");
+		admngrps_json = json_object_new_array();
+		json_object_object_add(json, "adminGroups", admngrps_json);
+	} else if (vty != NULL) {
+		vty_out(vty, "    FAD Include-All Admin Groups: \n");
+	}
+
+	show_vty_admin_groups(vty, &grp, admngrps_json, true);
+
+	return TLV_SIZE(tlvh);
+}
+
+static uint16_t show_vty_fad_exc_srlg(struct vty *vty, struct tlv_header *tlvh,
+				      json_object *json)
+{
+	struct ri_fad_exclude_srlg_subtlv *top =
+		(struct ri_fad_exclude_srlg_subtlv *)tlvh;
+	json_object *srlgs_json = NULL;
+	struct admin_group grp = { 0 };
+
+	check_tlv_min_size(RI_FAD_EXC_SRLG_SUBTLV_MIN_LEN, "FAD Exclude SRLGs");
+	check_tlv_size_multiple_of(sizeof(uint32_t), "FAD Exclude SRLGs");
+
+	flex_algo_decode_admin_group(&grp, (uint8_t *)top->srlgs,
+				     ntohs(tlvh->length));
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Exclude SRLGs SubTLV");
+		srlgs_json = json_object_new_array();
+		json_object_object_add(json, "srlgs", srlgs_json);
+	} else if (vty != NULL) {
+		vty_out(vty, "    FAD Exclude SRLGs: \n");
+	}
+
+	show_vty_admin_groups(vty, &grp, srlgs_json, false);
+
+	return TLV_SIZE(tlvh);
+}
+
+static uint16_t show_vty_fad_flags(struct vty *vty, struct tlv_header *tlvh,
+				   json_object *json)
+{
+	struct ri_fad_flags_subtlv *top = (struct ri_fad_flags_subtlv *)tlvh;
+	uint16_t num_flags = ntohs(tlvh->length) / sizeof(top->flags[0]);
+	uint16_t indx;
+	json_object *flags_json = NULL;
+	json_object *flag_json = NULL;
+
+	check_tlv_min_size(RI_FAD_FLAGS_SUBTLV_MIN_LEN, "FAD Flags");
+	check_tlv_size_multiple_of(sizeof(uint8_t), "FAD Flags");
+
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Flexible-Algo Flags SubTLV");
+		flags_json = json_object_new_array();
+		json_object_object_add(json, "flags", flags_json);
+		for (indx = 0; indx < num_flags; indx++) {
+			flag_json = json_object_new_int64(
+				(int64_t)ntohl(top->flags[indx]));
+			json_object_array_add(flags_json, flag_json);
+		}
+	} else if (vty != NULL) {
+		vty_out(vty, "    FAD Flags: \n");
+		for (indx = 0; indx < num_flags; indx++) {
+			if (!(indx % 16))
+				vty_out(vty, "      [ 0x%02x",
+					ntohl(top->flags[indx]));
+			else if (!(indx % 15))
+				vty_out(vty, ", 0x%02x ]\n",
+					ntohl(top->flags[indx]));
+			else
+				vty_out(vty, ", 0x%02x",
+					ntohl(top->flags[indx]));
+		}
+		if ((indx % 15))
+			vty_out(vty, " ]\n");
+	} else {
+		char list_str[1024] = {0};
+		char disp_str[32];
+
+		zlog_debug("    FAD Flags:");
+		for (indx = 0; indx < num_flags; indx++) {
+			snprintf(disp_str, sizeof(disp_str), "0x%02x ",
+				 ntohl(top->flags[indx]));
+			strlcat(list_str, disp_str, sizeof(list_str));
+			if (!(indx % 15)) {
+				zlog_debug("      %s", list_str);
+				list_str[0] = '\0';
+			}
+		}
+		zlog_debug("      %s", list_str);
+	}
+
+	return TLV_SIZE(tlvh);
+}
+
+static uint16_t show_vty_fad_info(struct vty *vty, struct tlv_header *ri,
+				  size_t buf_size, json_object *json)
+{
+	struct tlv_header *tlvh = ri;
+	uint16_t length = ntohs(tlvh->length);
+	uint16_t sum = 0;
+	struct ri_fad_tlv *fad_tlv = (struct ri_fad_tlv *)tlvh;
+	uint8_t *tlv_start = (uint8_t *)ri;
+	json_object *stlvs_json = NULL;
+	json_object *stlv_json = NULL;
+
+	/* Verify that TLV length is valid against remaining buffer size */
+	if (length > buf_size) {
+		vty_out(vty, "  FAD TLV size %d exceeds buffer size. Abort!\n",
+			length);
+		return buf_size;
+	}
+
+	check_tlv_min_size(RI_FAD_TLV_MIN_LEN, "Flexible Algorithm Definition");
+
+	if (json) {
+		tlvh_get_json_values(tlvh, json,
+				     "Flexible Algorithm Defintion TLV");
+		json_object_int_add(json, "algorithmId",
+				    (int64_t)fad_tlv->algorithm_id);
+		json_object_int_add(json, "priority",
+				    (int64_t)fad_tlv->priority);
+		json_object_string_add(
+			json, "metricType",
+			flex_algo_metric_type2str(fad_tlv->metric_type));
+		json_object_string_add(
+			json, "caculationType",
+			flex_algo_calc_type2str(fad_tlv->calc_type));
+		stlvs_json = json_object_new_array();
+		json_object_object_add(json, "subTLVs", stlvs_json);
+	} else if (vty != NULL) {
+		vty_out(vty,
+			"  Flexible Algorithm Defintion TLV: Length: %u\n"
+			"    Algorithm-Identifier = %d\n"
+			"    Priority = %d\n"
+			"    Metric-Type = %s\n"
+			"    Calculation-Type = %s\n",
+			ntohs(fad_tlv->header.length), fad_tlv->algorithm_id,
+			fad_tlv->priority,
+			flex_algo_metric_type2str(fad_tlv->metric_type),
+			flex_algo_calc_type2str(fad_tlv->calc_type));
+	} else {
+		zlog_debug(
+			"  Flexible Algorithm Defintion TLV: Algorithm-Identifier = %d",
+			fad_tlv->algorithm_id);
+		zlog_debug(
+			"    Priority = %d, Metric-Type = %s, Calculation-Type = %s",
+			fad_tlv->priority,
+			flex_algo_metric_type2str(fad_tlv->metric_type),
+			flex_algo_calc_type2str(fad_tlv->calc_type));
+	}
+
+	tlv_start += RI_FAD_TLV_MIN_LEN + TLV_HDR_SIZE;
+	sum += RI_FAD_TLV_MIN_LEN;
+	for (tlvh = (struct tlv_header *)tlv_start; sum < length;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (stlvs_json) {
+			stlv_json = json_object_new_object();
+			json_object_array_add(stlvs_json, stlv_json);
+		}
+
+		switch (ntohs(tlvh->type)) {
+		case RI_FAD_EXC_ADMINGRP_SUBTLV:
+			sum += show_vty_fad_exc_admngrp(vty, tlvh, stlv_json);
+			break;
+		case RI_FAD_INCANY_ADMINGRP_SUBTLV:
+			sum += show_vty_fad_incany_admngrp(vty, tlvh,
+							   stlv_json);
+			break;
+		case RI_FAD_INCALL_ADMINGRP_SUBTLV:
+			sum += show_vty_fad_incall_admngrp(vty, tlvh,
+							   stlv_json);
+			break;
+		case RI_FAD_FLAGS_SUBTLV:
+			sum += show_vty_fad_flags(vty, tlvh, stlv_json);
+			break;
+		case RI_FAD_EXC_SRLG_SUBTLV:
+			sum += show_vty_fad_exc_srlg(vty, tlvh, stlv_json);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    stlv_json);
+			break;
+		}
+	}
+
+	return TLV_SIZE(&fad_tlv->header);
+}
+
 static void ospf_router_info_show_info(struct vty *vty,
 				       struct json_object *json,
 				       struct ospf_lsa *lsa)
@@ -1552,37 +2365,52 @@ static void ospf_router_info_show_info(struct vty *vty,
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+	json_object *tlvs_json = NULL;
+	json_object *tlv_json = NULL;
 
-	if (json)
-		return;
+	if (json) {
+		tlvs_json = json_object_new_array();
+		json_object_object_add(json, "tlvs", tlvs_json);
+	}
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (tlvs_json) {
+			tlv_json = json_object_new_object();
+			json_object_array_add(tlvs_json, tlv_json);
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case RI_TLV_CAPABILITIES:
-			sum += show_vty_router_cap(vty, tlvh);
+			sum += show_vty_router_cap(vty, tlvh, tlv_json);
 			break;
 		case RI_TLV_PCE:
 			tlvh++;
 			sum += TLV_HDR_SIZE;
-			sum += show_vty_pce_info(vty, tlvh, length - sum);
+			sum += show_vty_pce_info(vty, tlvh, length - sum,
+						 tlv_json);
 			break;
 		case RI_SR_TLV_SR_ALGORITHM:
-			sum += show_vty_sr_algorithm(vty, tlvh);
+			sum += show_vty_sr_algorithm(vty, tlvh, tlv_json);
 			break;
 		case RI_SR_TLV_SRGB_LABEL_RANGE:
 		case RI_SR_TLV_SRLB_LABEL_RANGE:
-			sum += show_vty_sr_range(vty, tlvh);
+			sum += show_vty_sr_range(vty, tlvh, tlv_json);
 			break;
 		case RI_SR_TLV_NODE_MSD:
-			sum += show_vty_sr_msd(vty, tlvh);
+			sum += show_vty_sr_msd(vty, tlvh, tlv_json);
+			break;
+		case RI_FAD_TLV:
+			sum += show_vty_fad_info(vty, tlvh, length - sum,
+						 tlv_json);
 			break;
 
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length);
+			sum += show_vty_unknown_tlv(vty, tlvh, length,
+						    tlv_json);
 			break;
 		}
 	}
@@ -2282,31 +3110,39 @@ static int ospf_flex_algo_admin_group_update(
 	const char *name, bool update_lsa)
 {
 	struct affinity_map *map = NULL;
-	int found_ag;
+	int found_ag = 0;
+	uint32_t bitpos;
 
 	if (!delete && !name) 
 		return CMD_ERR_INCOMPLETE;
 	
-	map = affinity_map_get(name);
+	if (name)
+		map = affinity_map_get(name);
 	if (name && !map) {
 		zlog_err("Couldn't find any affinity by name '%s'", name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	found_ag = admin_group_get(admin_group, map->bit_position);
+	if (map)
+		found_ag = admin_group_get(admin_group, map->bit_position);
 	if (!delete) {
-		if (!found_ag) {
+		if (map && !found_ag) {
 			admin_group_set(admin_group,
 					map->bit_position);
 			/* Refresh RI LSA if already engaged */
 			update_lsa = true;
 		}
 	} else {
-		if (!found_ag)
+		if (!found_ag && name)
 			return CMD_ERR_NO_MATCH;
 
-		admin_group_unset(admin_group,
-				  map->bit_position);
+		if (!name)
+			FOREACH_FLEX_ALGO_ADMIN_GROUP(admin_group, bitpos)
+				admin_group_unset(admin_group, bitpos);
+		else if(map)
+			admin_group_unset(admin_group,
+					  map->bit_position);
+
 		/* Refresh RI LSA if already engaged */
 		update_lsa = true;
 	}
@@ -2408,97 +3244,56 @@ DEFPY(flex_algo_incany_admngrp, flex_algo_incany_admngrp_cmd,
 			&fad->admin_group_include_any, name, update_lsa);
 }
 
-#if 0
 DEFPY(flex_algo_exc_srlg, flex_algo_exc_srlg_cmd,
-      "flexible-algorithm (128-255)$id exclude-srlg (0-4294967295)$srlgval",
+      "[no$no] flexible-algorithm (128-255)$id exclude-srlg [(0-4294967295)$srlgval]",
+      NO_STR
       "Specify a Flexible Algorithm Definition\n"
       "Unique number assigned to the new Flexible Algorithm\n"
-      "Add a SRLG to the Exclude list\n"
-      "SRLG to be included\n")
+      "Add or remove a SRLG to or from the Exclude list\n"
+      "SRLG to be added or removed\n")
 {
-	uint32_t srlg;
 	struct flex_algo *fad;
-	struct flex_algo_srlg *fsrlg;
+	int found_srlg;
+	uint32_t bitpos;
+
 	bool update_lsa = false;
-	bool new_fad = false;
-	bool new_srlg = false;
 
 	if (!ospf_ri_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	srlg = (uint32_t)srlgval;
-
 	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
-	assert(fad);
-	if (new_fad) {
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
 		OspfRI.fad_info.num_fads++;
-		new_fad = true;
+		/* Refresh RI LSA if already engaged */
 		update_lsa = true;
 	}
 
-	fsrlg = flex_algo_lookup_srlg(&fad->srlgs_exclude, srlg, true,
-				      &new_srlg);
-	assert(fsrlg);
-	if (new_srlg)
-		update_lsa = true;
-
-	/* Refresh/Re-originate RI LSA if already engaged */
-	if (update_lsa)
-		ospf_router_info_schedule(REFRESH_THIS_LSA);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_flex_algo_exc_srlg, no_flex_algo_exc_srlg_cmd,
-      "no flexible-algorithm (128-255)$id exclude-srlg (0-4294967295)$srlgval",
-      NO_STR
-      "Specify a Flexible Algorithm Definition\n"
-      "Unique number assigned to the new Flexible Algorithm\n"
-      "Remove a specfic or all SRLG(s) from the Exclude list\n"
-      "SRLG to be removed\n")
-{
-	uint32_t srlg;
-	struct flex_algo *fad;
-	bool update_lsa = false;
-
-	if (!ospf_ri_enabled(vty))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	srlg = (uint32_t)srlgval;
-
-	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
-	if (!fad)
+	if (no && !fad)
 		return CMD_ERR_NO_MATCH;
 
-	flex_algo_delete_srlg(&fad->srlgs_exclude, srlg, &update_lsa);
+	bitpos = (uint32_t) srlgval;
+	found_srlg = admin_group_get(&fad->srlgs_exclude, bitpos);
+	if (!no) {
+		if (!found_srlg) {
+			admin_group_set(&fad->srlgs_exclude, bitpos);
+			/* Refresh RI LSA if already engaged */
+			update_lsa = true;
+		}
+	} else {
+		if (argc < 5)
+			FOREACH_FLEX_ALGO_SRLG(&fad->srlgs_exclude, bitpos)
+				admin_group_unset(&fad->srlgs_exclude, bitpos);
+		else {
+			if (!found_srlg)
+				return CMD_ERR_NO_MATCH;
 
-	/* Refresh/Re-originate RI LSA if already engaged */
-	if (update_lsa)
-		ospf_router_info_schedule(REFRESH_THIS_LSA);
+			admin_group_unset(&fad->srlgs_exclude, bitpos);
+		}
 
-	return CMD_SUCCESS;
-}
-
-DEFPY(no_flex_algo_exc_srlg_all, no_flex_algo_exc_srlg_all_cmd,
-      "no flexible-algorithm (128-255)$id exclude-srlg",
-      NO_STR
-      "Specify a Flexible Algorithm Definition\n"
-      "Unique number assigned to the new Flexible Algorithm\n"
-      "Remove a specfic or all SRLG(s) from the Exclude list\n")
-{
-	struct flex_algo *fad;
-	bool update_lsa = false;
-
-	if (!ospf_ri_enabled(vty))
-		return CMD_WARNING_CONFIG_FAILED;
-
-	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
-	if (!fad)
-		return CMD_ERR_NO_MATCH;
-
-	if (flxalg_srlgs_count(&fad->srlgs_exclude)) {
+		/* Refresh RI LSA if already engaged */
 		update_lsa = true;
-		flex_algo_flush_srlgs(&fad->srlgs_exclude);
 	}
 
 	/* Refresh/Re-originate RI LSA if already engaged */
@@ -2507,44 +3302,54 @@ DEFPY(no_flex_algo_exc_srlg_all, no_flex_algo_exc_srlg_all_cmd,
 
 	return CMD_SUCCESS;
 }
-#endif
 
 DEFPY(flex_algo_prfx_metric, flex_algo_prfx_metric_cmd,
-      "flexible-algorithm (128-255)$id prefix-advertise-metric (0-4294967295)$prefmetric",
+      "[no$no] flexible-algorithm (128-255)$id advertise-prefix-metric [(0-4294967295)$prefmetric]",
+      NO_STR
       "Specify a Flexible Algorithm Definition\n"
       "Unique number assigned to the new Flexible Algorithm\n"
-      "Specify a default prefix advertise metric\n"
-      "Default prefix metric to be advertised\n")
+      "Advertise prefix metric TLV\n"
+      "Specify the metric to override all individual prefix metric with\n")
 {
 	uint32_t metric;
 	struct flex_algo *fad;
 	bool update_lsa = false;
-	bool new_fad = false;
 
 	if (!ospf_ri_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	metric = (uint32_t)prefmetric;
-
 	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
-	assert(fad);
-	if (new_fad) {
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
 		OspfRI.fad_info.num_fads++;
-		new_fad = true;
+		/* Refresh RI LSA if already engaged */
 		update_lsa = true;
 	}
 
-	if (!!FLEX_ALGO_PREFIX_METRIC_SET(fad) ||
-		fad->prefix_adv_metric != metric) {
-		flex_algo_set_prefix_metric(fad, metric);
- 		update_lsa = true;
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	if (!no) {
+		metric = prefmetric ? (uint32_t)prefmetric
+			: fad->prefix_adv_metric;
+
+		if (!FLEX_ALGO_PREFIX_METRIC_SET(fad) ||
+			fad->prefix_adv_metric != metric) {
+			flex_algo_set_prefix_metric(fad, metric);
+			update_lsa = true;
+		}
+	} else if (FLEX_ALGO_PREFIX_METRIC_SET(fad)) {
+		flex_algo_reset_prefix_metric(fad);
+		update_lsa = true;
 	}
 
-	/* 
-	 * TODO: Refresh/Re-originate all EXT Prefix LSAs if already engaged.
-	if (update_lsa)
-		ospf_ext_update_all_prefix_fapms();
+	/*
+	 * Refresh/Re-originate the Router-Info LSA along with
+	 * all the EXT Prefix LSAs if already engaged.
 	 */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
 }
@@ -2556,7 +3361,7 @@ DEFUN(show_ip_ospf_router_info, show_ip_ospf_router_info_cmd,
 
 	if (OspfRI.enabled) {
 		vty_out(vty, "--- Router Information parameters ---\n");
-		show_vty_router_cap(vty, &OspfRI.router_cap.header);
+		show_vty_router_cap(vty, &OspfRI.router_cap.header, NULL);
 	} else {
 		if (vty != NULL)
 			vty_out(vty,
@@ -2581,28 +3386,28 @@ DEFUN(show_ip_opsf_router_info_pce, show_ip_ospf_router_info_pce_cmd,
 		vty_out(vty, "--- PCE parameters ---\n");
 
 		if (pce->pce_address.header.type != 0)
-			show_vty_pce_subtlv_address(vty,
-						    &pce->pce_address.header);
+			show_vty_pce_subtlv_address(
+				vty, &pce->pce_address.header, NULL);
 
 		if (pce->pce_scope.header.type != 0)
-			show_vty_pce_subtlv_path_scope(vty,
-						       &pce->pce_scope.header);
+			show_vty_pce_subtlv_path_scope(
+				vty, &pce->pce_scope.header, NULL);
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
 			if (domain->header.type != 0)
-				show_vty_pce_subtlv_domain(vty,
-							   &domain->header);
+				show_vty_pce_subtlv_domain(vty, &domain->header,
+							   NULL);
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
 			if (neighbor->header.type != 0)
-				show_vty_pce_subtlv_neighbor(vty,
-							     &neighbor->header);
+				show_vty_pce_subtlv_neighbor(
+					vty, &neighbor->header, NULL);
 		}
 
 		if (pce->pce_cap_flag.header.type != 0)
-			show_vty_pce_subtlv_cap_flag(vty,
-						     &pce->pce_cap_flag.header);
+			show_vty_pce_subtlv_cap_flag(
+				vty, &pce->pce_cap_flag.header, NULL);
 
 	} else {
 		vty_out(vty, "  PCE info is disabled on this router\n");
@@ -2614,7 +3419,8 @@ DEFUN(show_ip_opsf_router_info_pce, show_ip_ospf_router_info_pce_cmd,
 static void show_vty_flxalg_info(struct vty *vty, struct flex_algo *fad)
 {
 	uint32_t admin_grp;
-	// uint32_t srlg;
+	uint32_t srlg;
+	const char *name;
 
 	vty_out(vty, " Flexible-Algorithm: %u\n", fad->algorithm);
 	vty_out(vty, "  Metric-Type: \t%s\n",
@@ -2633,7 +3439,9 @@ static void show_vty_flxalg_info(struct vty *vty, struct flex_algo *fad)
 		vty_out(vty, "  Exclude-Admin-Groups: \n");
 		FOREACH_FLEX_ALGO_ADMIN_GROUP(&fad->admin_group_exclude_any, admin_grp)
 		{
-			vty_out(vty, "  \t - %u\n", admin_grp);
+			name = affinity_map_name_get(admin_grp);
+			vty_out(vty, "  \t - %s(%u)\n", name ? name : "Unknown",
+				admin_grp);
 		}
 	}
 
@@ -2641,7 +3449,9 @@ static void show_vty_flxalg_info(struct vty *vty, struct flex_algo *fad)
 		vty_out(vty, "  Include-Any-Admin-Groups: \n");
 		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_include_any,
 					       admin_grp) {
-			vty_out(vty, "  \t - %u\n", admin_grp);
+			name = affinity_map_name_get(admin_grp);
+			vty_out(vty, "  \t - %s(%u)\n", name ? name : "Unknown",
+				admin_grp);
 		}
 	}
 
@@ -2649,16 +3459,18 @@ static void show_vty_flxalg_info(struct vty *vty, struct flex_algo *fad)
 		vty_out(vty, "  Include-All-Admin-Groups: \n");
 		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_include_all,
 					       admin_grp) {
-			vty_out(vty, "  \t - %u\n", admin_grp);
+			name = affinity_map_name_get(admin_grp);
+			vty_out(vty, "  \t - %s(%u)\n", name ? name : "Unknown",
+				admin_grp);
 		}
 	}
 
-	// if (flxalg_srlgs_count(&fad->srlgs_exclude)) {
-	// 	vty_out(vty, "  Exclude-SRLGs: \n");
-	// 	FOREACH_FLEX_ALGO_SRLG (&fad->srlgs_exclude, srlg) {
-	// 		vty_out(vty, "  \t - %u\n", srlg);
-	// 	}
-	// }
+	if (admin_group_size(&fad->srlgs_exclude)) {
+		vty_out(vty, "  Exclude-SRLGs: \n");
+		FOREACH_FLEX_ALGO_SRLG (&fad->srlgs_exclude, srlg) {
+			vty_out(vty, "  \t - %u\n", srlg);
+		}
+	}
 }
 
 DEFPY(show_ip_opsf_router_info_flxalg, show_ip_ospf_router_info_flxalg_cmd,
@@ -2666,7 +3478,7 @@ DEFPY(show_ip_opsf_router_info_flxalg, show_ip_ospf_router_info_flxalg_cmd,
       SHOW_STR IP_STR OSPF_STR
       "Router Information\n"
       "Flexible-Algorithm information\n"
-      "Unique identifier for the flexible algorithm\n")
+      "Unique identifier assigned to the Flexible-Algorithm\n")
 {
 	struct flex_algo *fad;
 	struct listnode *curr, *next;
@@ -2724,9 +3536,7 @@ static void ospf_router_info_register_vty(void)
 	install_element(OSPF_NODE, &flex_algo_exc_admngrp_cmd);
 	install_element(OSPF_NODE, &flex_algo_incany_admngrp_cmd);
 	install_element(OSPF_NODE, &flex_algo_incall_admngrp_cmd);
-	// install_element(OSPF_NODE, &flex_algo_exc_srlg_cmd);
-	// install_element(OSPF_NODE, &no_flex_algo_exc_srlg_cmd);
-	// install_element(OSPF_NODE, &no_flex_algo_exc_srlg_all_cmd);
+	install_element(OSPF_NODE, &flex_algo_exc_srlg_cmd);
 	install_element(OSPF_NODE, &flex_algo_prfx_metric_cmd);
 
 	return;

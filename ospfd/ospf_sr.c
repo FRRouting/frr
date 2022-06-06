@@ -125,7 +125,7 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_node));
 
 	/* Default Algorithm, SRGB and MSD */
-	for (int i = 0; i < ALGORITHM_COUNT; i++)
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
 		new->algo[i] = SR_ALGORITHM_UNSET;
 
 	new->srgb.range_size = 0;
@@ -603,7 +603,7 @@ int ospf_sr_init(void)
 	/* Initialize Algorithms, SRGB, SRLB and MSD TLVs */
 	/* Only Algorithm SPF is supported */
 	OspfSR.algo[0] = SR_ALGORITHM_SPF;
-	for (int i = 1; i < ALGORITHM_COUNT; i++)
+	for (int i = 1; i < SR_ALGORITHM_COUNT; i++)
 		OspfSR.algo[i] = SR_ALGORITHM_UNSET;
 
 	OspfSR.srgb.size = DEFAULT_SRGB_SIZE;
@@ -1460,7 +1460,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		int i;
 		for (i = 0; i < ntohs(algo->header.length); i++)
 			srn->algo[i] = algo->value[0];
-		for (; i < ALGORITHM_COUNT; i++)
+		for (; i < SR_ALGORITHM_COUNT; i++)
 			srn->algo[i] = SR_ALGORITHM_UNSET;
 	} else {
 		srn->algo[0] = SR_ALGORITHM_SPF;
@@ -2735,13 +2735,13 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 				    srn->srlb.lower_bound);
 		json_algo = json_object_new_array();
 		json_object_object_add(json_node, "algorithms", json_algo);
-		for (int i = 0; i < ALGORITHM_COUNT; i++) {
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			if (srn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 			json_obj = json_object_new_object();
-			char tmp[2];
+			char tmp[16];
 
-			snprintf(tmp, sizeof(tmp), "%u", i);
+			snprintf(tmp, sizeof(tmp)-1, "%u", i);
 			json_object_string_add(json_obj, tmp,
 					       srn->algo[i] == SR_ALGORITHM_SPF
 						       ? "SPF"
@@ -2760,7 +2760,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			  srn->srlb.lower_bound, upper);
 		sbuf_push(&sbuf, 0, "\tAlgo.(s): %s",
 			  srn->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
-		for (int i = 1; i < ALGORITHM_COUNT; i++) {
+		for (int i = 1; i < SR_ALGORITHM_COUNT; i++) {
 			if (srn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 			sbuf_push(&sbuf, 0, "/%s",

@@ -200,14 +200,88 @@ struct ospf_ri_sr_info {
 };
 
 /*
+ * Flexible Algorithm Definition (FAD) TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 5.2
+ */
+#define RI_FAD_TLV 0x10
+struct ri_fad_tlv {
+	struct tlv_header header; /* Type = 16; Length = Variable. */
+	uint8_t algorithm_id;     /* Algorithm. 1 byte */
+	uint8_t metric_type;      /* Metric-Type. 1 Byte */
+	uint8_t calc_type;	/* Calculation Type */
+	uint8_t priority;	 /* Priority */
+	// struct list *sub_tlvs; /* Bunch of Sub-TLVs follows */
+	struct tlv_list_head sub_tlvs; /* Bunch of Sub-TLVs follows */
+};
+#define RI_FAD_TLV_MIN_LEN 4
+
+/*
+ * FAD Exclude AdminGroup Sub-TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 7.1
+ */
+#define RI_FAD_EXC_ADMINGRP_SUBTLV 0x1
+#define RI_FAD_EXC_ADMINGRP_SUBTLV_MIN_LEN 4
+struct ri_fad_exclude_admingrp_subtlv {
+	struct tlv_header header; /* Type = 1; Length = Variable. */
+	uint32_t admin_groups[0]; /* Admin-Groups as defined in RFC7308 */
+};
+
+/*
+ * FAD Include-Any AdminGroup Sub-TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 7.2
+ */
+#define RI_FAD_INCANY_ADMINGRP_SUBTLV 0x2
+#define RI_FAD_INCANY_ADMINGRP_SUBTLV_MIN_LEN 4
+struct ri_fad_include_any_admingrp_subtlv {
+	struct tlv_header header; /* Type = 2; Length = Variable. */
+	uint32_t admin_groups[0]; /* Admin-Groups as defined in RFC7308 */
+};
+
+/*
+ * FAD Include-All AdminGroup Sub-TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 7.3
+ */
+#define RI_FAD_INCALL_ADMINGRP_SUBTLV 0x3
+#define RI_FAD_INCALL_ADMINGRP_SUBTLV_MIN_LEN 4
+struct ri_fad_include_all_admingrp_subtlv {
+	struct tlv_header header; /* Type = 3; Length = Variable. */
+	uint32_t admin_groups[0]; /* Admin-Groups as defined in RFC7308 */
+};
+
+/*
+ * FAD Flags Sub-TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 7.4
+ */
+#define RI_FAD_FLAGS_SUBTLV 0x4
+#define RI_FAD_FLAGS_SUBTLV_MIN_LEN 4
+struct ri_fad_flags_subtlv {
+	struct tlv_header header; /* Type = 4; Length = Variable. */
+	uint32_t flags[0];	/* Flags. Variable length. */
+};
+
+/*
+ * FAD Exclude SRLG Sub-TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 7.5
+ */
+#define RI_FAD_EXC_SRLG_SUBTLV 0x5
+#define RI_FAD_EXC_SRLG_SUBTLV_MIN_LEN 4
+struct ri_fad_exclude_srlg_subtlv {
+	struct tlv_header header; /* Type = 5; Length = Variable. */
+	uint32_t srlgs[0];	/* SRLGs as defined in RFC4203 */
+};
+
+/*
  * Store Flexibe Algorithm Definition information
- */	
-#define MAX_NUM_FLEX_ALGO_DEFN	16
+ */
+#define MAX_NUM_FLEX_ALGO_DEFN 16
 struct ospf_ri_fad_info {
-	uint8_t	num_fads;
+	uint8_t num_fads;
 
 	/* Algorithms supported by the node */
 	struct flex_algos *fads;
+
+	/* List of corresponding FAD TLVs */
+	struct tlv_list_head ri_fad_tlvs;
 };
 
 /* Store area information to flood LSA per area */
@@ -248,7 +322,7 @@ struct ospf_router_info {
  * Global variable to manage Opaque-LSA/Router Information on this node.
  * Note that all parameter values are stored in network byte order.
  */
- extern struct ospf_router_info OspfRI;
+extern struct ospf_router_info OspfRI;
 
 /* Prototypes. */
 extern int ospf_router_info_init(void);

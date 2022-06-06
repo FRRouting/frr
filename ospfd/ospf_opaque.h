@@ -110,6 +110,16 @@ DECLARE_LIST(tlv_list, struct tlv, linkage);
 #define TLV_LEN(tlvh)	tlvh.header.length
 #define TLV_HDR(tlvh)	tlvh.header
 
+static inline void tlvh_get_json_values(struct tlv_header *tlvh,
+					json_object *json, const char *type)
+{
+	if (json) {
+		json_object_string_add(json, "name", type);
+		json_object_int_add(json, "type", ntohs(tlvh->type));
+		json_object_int_add(json, "length", ntohs(tlvh->length));
+	}
+}
+
 /* Following declaration concerns the Opaque LSA management */
 enum lsa_opcode { REORIGINATE_THIS_LSA, REFRESH_THIS_LSA, FLUSH_THIS_LSA };
 
