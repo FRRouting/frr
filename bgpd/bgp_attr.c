@@ -1605,9 +1605,9 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 	in_addr_t nexthop_h;
 
 	nexthop_h = ntohl(attr->nexthop.s_addr);
-	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
-	     || IPV4_CLASS_DE(nexthop_h))
-	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h) ||
+	     !ipv4_unicast_valid(&attr->nexthop)) &&
+	    !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
 		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
 		char buf[INET_ADDRSTRLEN];
 
