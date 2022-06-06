@@ -257,7 +257,24 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, uint8_t family)
 			isis_bfd_update_status_rfc6213(adj, AF_INET6);
 		} else
 			isis_bfd_update_status_rfc6213(adj, family);
-	} else
+	}
+
+	/* RFC6213, 3.2
+	 * When the IS-IS adjacency is "UP" and "ISIS_NEIGHBOR_USEABLE"
+	 * becomes "FALSE", the IS-IS adjacency MUST transition to "DOWN".
+	 */
+	if (isis_bfd_config_rfc6213_enabled(&circuit->bfd_config) &&
+	    adj->adj_state == ISIS_ADJ_UP && adj->bfd_rfc6213.bfd_required &&
+	    !adj->bfd_rfc6213.neighbor_useable) {
+		if (IS_DEBUG_BFD)
+			zlog_debug("ISIS-BFD: neighbor is not useable for L%u adjacency %s",
+				   adj->level, isis_adj_name(adj));
+		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
+				      "BFD-TLV, neighbor is not useable");
+		goto out;
+	}
+
+	if (!isis_bfd_config_rfc6213_enabled(&circuit->bfd_config))
 		bfd_handle_run_bfd(adj, AF_UNSPEC);
 	return;
 out:
