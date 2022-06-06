@@ -21,9 +21,50 @@
 #include "prefix.h"
 #include "segment_routing.h"
 
+#define FLEX_ALGO_PRIO_MIN 0
 #define FLEX_ALGO_PRIO_DEFAULT 128
+#define FLEX_ALGO_PRIO_MAX 255
 
-#define CALC_TYPE_SPF 0
+enum flex_algo_calc_type {
+	CALC_TYPE_MIN = 0,
+	CALC_TYPE_SPF  = CALC_TYPE_MIN,
+	CALC_TYPE_MAX,
+};
+
+#define CALC_TYPE_DEFAULT		CALC_TYPE_SPF
+#define CALC_TYPE_SPF_STR		"spf"
+
+static const char *flexalgo_ct2str[CALC_TYPE_MAX] = {
+	CALC_TYPE_SPF_STR, /* CALC_TYPE_SPF */
+};
+
+static inline const char*
+flex_algo_calc_type2str(enum flex_algo_calc_type ct)
+{
+	switch(ct) {
+	case CALC_TYPE_SPF:
+		return flexalgo_ct2str[ct];
+	case CALC_TYPE_MAX:
+	default:
+		break;
+	}
+
+	return "Invalid";
+}
+
+static inline enum flex_algo_calc_type
+flex_algo_str2calc_type(const char* str)
+{
+	size_t len = strlen(str);
+	enum flex_algo_calc_type ct;
+
+	for (ct = CALC_TYPE_MIN; ct < CALC_TYPE_MAX; ct++) {
+		if (!strncmp(str, flexalgo_ct2str[ct], len))
+			return ct;
+	}
+
+	return CALC_TYPE_MAX;
+}
 
 /* flex-algo definition flags */
 
@@ -32,15 +73,60 @@
  */
 #define FAD_FLAG_M 0x80
 
+#define FLEX_ALGO_PREFIX_METRIC_SET(fad)				\
+	((fad)->flags & FAD_FLAG_M)
+
 /*
  * Metric Type values from RFC9350 section 5.1
  */
 enum flex_algo_metric_type {
-	MT_IGP = 0,
+	MT_MIN = 0,
+	MT_IGP = MT_MIN,
 	MT_MIN_UNI_LINK_DELAY = 1,
 	MT_TE_DEFAULT = 2,
+	MT_MAX
 };
 
+#define MT_DEFAULT			MT_IGP
+#define MT_IGP_STR			"igp"
+#define MT_MIN_UNI_LINK_DELAY_STR	"delay"
+#define MT_TE_DEFAULT_STR		"te"
+
+static const char *flexalgo_mt2str[MT_MAX] = {
+	MT_IGP_STR, /* MT_IGP */
+	MT_MIN_UNI_LINK_DELAY_STR, /* MT_MIN_UNI_LINK_DELAY */
+	MT_TE_DEFAULT_STR, /* MT_TE_DEFAULT */
+};
+
+static inline const char*
+flex_algo_metric_type2str(enum flex_algo_metric_type mt)
+{
+	switch(mt) {
+	case MT_IGP:
+	case MT_MIN_UNI_LINK_DELAY:
+	case MT_TE_DEFAULT:
+		return flexalgo_mt2str[mt];
+	case MT_MAX:
+	default:
+		break;
+	}
+
+	return "Invalid";
+}
+
+static inline enum flex_algo_metric_type
+flex_algo_str2metric_type(const char* str)
+{
+	size_t len = strlen(str);
+	enum flex_algo_metric_type mt;
+
+	for (mt = MT_MIN; mt < MT_MAX; mt++) {
+		if (!strncmp(str, flexalgo_mt2str[mt], len))
+			return mt;
+	}
+
+	return MT_MAX;
+}
 
 /* Flex-Algo data about a given algorithm.
  * It includes the definition and some local data.
@@ -62,6 +148,17 @@ struct flex_algo {
 	 * True if a Exclude SRLG Sub-TLV has been found
 	 */
 	bool exclude_srlg;
+	/*
+	 * For now used admin_groups for Exclude SRLGs.
+	 */
+	struct admin_group srlgs_exclude;
+
+	/*
+	 * The prefix advertise metric to be added to the corresponding
+	  * FAPM SubTLVs. Applicable only when the M-Flag is set for
+	  * the Flex-Algo Definition.
+	 */
+	uint32_t prefix_adv_metric;
 
 	/* True if an unsupported sub-TLV other Exclude SRLG
 	 * has been received.
@@ -98,6 +195,15 @@ struct flex_algo {
 	void *data;
 };
 
+#define FLEX_ALGO_ALGO_MIN	128
+#define FLEX_ALGO_ALGO_MAX	255
+
+#define FOREACH_FLEX_ALGO_ADMIN_GROUP(admngrps, admingroup) 		\
+	FOREACH_ADMIN_GROUP_BITS(admngrps, admingroup)
+
+#define FOREACH_FLEX_ALGO_SRLG(srlgs, srlg) 				\
+	FOREACH_ADMIN_GROUP_BITS(srlgs, srlg)
+
 typedef void *(*flex_algo_allocator_t)(void *);
 typedef void (*flex_algo_releaser_t)(void *);
 
@@ -106,6 +212,22 @@ struct flex_algos {
 	flex_algo_releaser_t releaser;
 	struct list *flex_algos;
 };
+
+#define FOREACH_FLEX_ALGO_DEFN(flxalgs, node, nnode, flexalgo)		\
+	for (ALL_LIST_ELEMENTS ((flxalgs)->flex_algos, node, nnode, 	\
+				flexalgo))
+
+static inline size_t
+flex_algos_count(struct flex_algos *flex_algos)
+{
+	return (flex_algos->flex_algos ? flex_algos->flex_algos->count : 0);
+}
+
+static inline bool
+flex_algos_empty(struct flex_algos *flex_algos)
+{
+	return (flex_algos_count(flex_algos) ? false : true);
+}
 
 /*
  * Flex-Algo Utilities
@@ -117,7 +239,6 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 				  uint8_t algorithm, void *arg);
 struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,
 				   uint8_t algorithm);
-void flex_algos_free(struct flex_algos *flex_algos);
 bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2);
 void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm);
 bool flex_algo_id_valid(uint16_t algorithm);
@@ -128,4 +249,33 @@ bool flex_algo_get_state(struct flex_algos *flex_algos, uint8_t algorithm);
 
 void flex_algo_set_state(struct flex_algos *flex_algos, uint8_t algorithm,
 			 bool state);
+
+static inline void
+flex_algo_set_prefix_metric(struct flex_algo *fa, uint32_t metric)
+{
+	fa->flags |= FAD_FLAG_M;
+	fa->prefix_adv_metric = metric;
+}
+
+static inline void
+flex_algo_reset_prefix_metric(struct flex_algo *fa)
+{
+	fa->flags &= ~FAD_FLAG_M;
+	fa->prefix_adv_metric = 0;
+}
+
+static inline void
+flex_algo_encode_admin_group(struct admin_group *ag, uint8_t *buf,
+			     uint16_t *buflen)
+{
+	bf_encode_to_buf(&ag->bitmap, buf, buflen);
+}
+
+static inline void
+flex_algo_decode_admin_group(struct admin_group *ag, uint8_t *buf,
+			     uint16_t buflen)
+{
+	bf_decode_from_buf(&ag->bitmap, buf, buflen);
+}
+
 #endif /* _FRR_FLEX_ALGO_H */

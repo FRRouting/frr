@@ -39,6 +39,37 @@ static struct cmd_node affinitymap_node = {
 	.config_write = affinity_map_config_write,
 };
 
+static bool bypass_nb;
+
+static int affinity_map_update(struct vty *vty, const char *name,
+			       const int position, bool delete)
+{
+	char *old = NULL;
+	struct affinity_map *map;
+
+	if (position >= 0)
+		old = affinity_map_name_get(position);
+	map = affinity_map_get(name);
+	if (!delete) {
+		if (old && strncmp(old, name, AFFINITY_NAME_SIZE)) {
+			vty_out(vty, "Bit '%d' already mapped to name '%s'\n",
+				position, old);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (!old)
+			affinity_map_set(name, position);
+	} else {
+		if (map)
+			affinity_map_unset(name);
+	}
+
+	zlog_err("%s: %sd affinity-map '%s', bit %d",
+		 __func__, delete ? "Delete" : "Update", name, position);
+
+	return CMD_SUCCESS;
+}
+
 /* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
 DEFPY_YANG_NOSH(affinity_map, affinity_map_cmd,
 		"affinity-map NAME$name bit-position (0-1023)$position",
@@ -48,6 +79,9 @@ DEFPY_YANG_NOSH(affinity_map, affinity_map_cmd,
 		"Bit position\n")
 {
 	char xpathr[XPATH_MAXLEN];
+
+	if (bypass_nb)
+		return affinity_map_update(vty, name, position, false);
 
 	snprintf(
 		xpathr, sizeof(xpathr),
@@ -67,6 +101,10 @@ DEFPY_YANG_NOSH(no_affinity_map, no_affinity_map_cmd,
 		"Bit position\n")
 {
 	char xpathr[XPATH_MAXLEN];
+
+	if (bypass_nb)
+		return affinity_map_update(
+			vty, name, argc > 3 ? (int) position : -1, true);
 
 	snprintf(xpathr, sizeof(xpathr),
 		 "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']",
@@ -104,4 +142,9 @@ void affinity_map_init(void)
 	install_node(&affinitymap_node);
 	install_element(CONFIG_NODE, &affinity_map_cmd);
 	install_element(CONFIG_NODE, &no_affinity_map_cmd);
+}
+
+void affinity_map_set_nb_bypass(bool bypass)
+{
+	bypass_nb = bypass;
 }

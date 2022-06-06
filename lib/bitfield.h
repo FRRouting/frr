@@ -95,6 +95,15 @@ DECLARE_MTYPE(BITFIELD);
 /* compare two bitmaps of the same length */
 #define bf_cmp(v1, v2) (memcmp((v1).data, (v2).data, ((v1).m * sizeof(word_t))))
 
+/* return number bits in the allocated bitmap data so far */
+#define bf_bit_size(v) ((v).m * WORD_SIZE)
+
+/* return number of bytes in the allocated bitmap data so far */
+#define bf_byte_size(v) ((v).m * sizeof(word_t))
+
+/* return number of words in the allocated bitmap data so far */
+#define bf_word_size(v) (v).m
+
 /*
  * return 0th index back to bitfield
  */
@@ -266,6 +275,61 @@ static inline bitfield_t bf_copy(bitfield_t src)
 		dst.data[i] = src.data[i];
 	dst.n = src.n;
 	return dst;
+}
+
+/*
+ * Encode a bitmap to a word-stream. Returns the number of bytes encoded
+ * instead of words.
+ */
+static inline void bf_encode_to_buf(bitfield_t *v, u_int8_t *buf,
+				    u_int16_t *buflen)
+{
+	u_int16_t bm_len, len;
+	int indx;
+	word_t *w;
+
+	if (!bf_is_inited(*v) || !buflen)
+		return;
+
+	bm_len = (u_int16_t)bf_byte_size(*v);
+	len = (u_int16_t)bf_word_size(*v);
+	if (*buflen < bm_len) {
+		*buflen = 0;
+		return;
+	}
+
+	w = (word_t *)buf;
+	*buflen = 0;
+	for (indx = 0; indx < len; indx++) {
+		w[indx] = htonl(v->data[indx]);
+
+		/* Avoid encoding trailing zeroes */
+		if (w[indx])
+			*buflen = indx + 1;
+	}
+	(*buflen) *= sizeof(word_t);
+}
+
+/*
+ * Decode a bitmap from a word-stream.
+ */
+static inline void bf_decode_from_buf(bitfield_t *v, u_int8_t *buf,
+				      u_int16_t buflen)
+{
+	size_t indx;
+	word_t *w;
+
+	assert(buflen);
+	v->n = 0;
+	v->m = buflen / sizeof(word_t);
+	v->data = (word_t *)XCALLOC(MTYPE_BITFIELD, v->m * sizeof(word_t));
+
+	w = (word_t *)buf;
+	for (indx = 0; indx < v->m; indx++) {
+		v->data[indx] = ntohl(w[indx]);
+		if (v->data[indx])
+			v->n = indx + 1;
+	}
 }
 
 

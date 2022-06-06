@@ -54,6 +54,9 @@ struct flex_algo *flex_algo_alloc(struct flex_algos *flex_algos,
 
 	fa = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct flex_algo));
 	fa->algorithm = algorithm;
+	fa->metric_type = MT_DEFAULT;
+	fa->calc_type = CALC_TYPE_DEFAULT;
+	fa->priority = FLEX_ALGO_PRIO_DEFAULT;
 	if (flex_algos->allocator)
 		fa->data = flex_algos->allocator(arg);
 	admin_group_init(&fa->admin_group_exclude_any);
