@@ -41,6 +41,9 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 			   bfd_get_status_str(bss->previous_state),
 			   bfd_get_status_str(bss->state));
 
+	if (bss->state != bss->previous_state)
+		isis_bfd_update_rfc6213(adj);
+
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
 		adj->circuit->area->bfd_signalled_down = true;
