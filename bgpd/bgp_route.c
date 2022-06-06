@@ -5812,7 +5812,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
 	attr.nexthop = bgp_static->igpnexthop;
 	attr.med = bgp_static->igpmetric;
@@ -6115,7 +6115,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p,
 				&bgp_static->prd);
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
 	attr.nexthop = bgp_static->igpnexthop;
 	attr.med = bgp_static->igpmetric;
@@ -8316,7 +8316,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	struct bgp_redist *red;
 
 	/* Make default attribute. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/*
 	 * This must not be NULL to satisfy Coverity SA
 	 */

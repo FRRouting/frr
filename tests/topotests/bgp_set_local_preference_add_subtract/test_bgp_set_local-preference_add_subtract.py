@@ -89,22 +89,26 @@ def test_bgp_set_local_preference():
         expected = {
             "192.168.255.2": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 2}},
+                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 3}},
             },
             "192.168.255.3": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 2}},
+                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 3}},
             },
         }
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_local_preference(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.254/32 json"))
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
         expected = {
-            "paths": [
-                {"locPrf": 50, "nexthops": [{"ip": "192.168.255.3"}]},
-                {"locPrf": 150, "nexthops": [{"ip": "192.168.255.2"}]},
-            ]
+            "routes": {
+                "10.10.10.2/32": [{"locPrf": 160}],
+                "10.10.10.3/32": [{"locPrf": 40}],
+                "172.16.255.254/32": [
+                    {"locPrf": 50, "nexthops": [{"ip": "192.168.255.3"}]},
+                    {"locPrf": 150, "nexthops": [{"ip": "192.168.255.2"}]},
+                ],
+            }
         }
         return topotest.json_cmp(output, expected)
 

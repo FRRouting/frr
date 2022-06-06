@@ -393,7 +393,8 @@ extern struct attr *bgp_attr_intern(struct attr *attr);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
-extern struct attr *bgp_attr_default_set(struct attr *attr, uint8_t origin);
+extern struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
+					 uint8_t origin);
 extern struct attr *bgp_attr_aggregate_intern(
 	struct bgp *bgp, uint8_t origin, struct aspath *aspath,
 	struct community *community, struct ecommunity *ecommunity,

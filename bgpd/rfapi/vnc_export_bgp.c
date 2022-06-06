@@ -731,7 +731,7 @@ void vnc_direct_bgp_add_prefix(struct bgp *bgp,
 		return;
 	}
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/* TBD set some configured med, see add_vnc_route() */
 
 	vnc_zlog_debug_verbose(
@@ -980,7 +980,7 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 				return;
 			}
 
-			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+			bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 			/* TBD set some configured med, see add_vnc_route() */
 
 			/*
@@ -1307,7 +1307,7 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 		return;
 	}
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/* TBD set some configured med, see add_vnc_route() */
 
 	/*
