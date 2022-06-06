@@ -168,9 +168,10 @@ enum bfd_session_flags {
 						 * expires
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
 	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
 };
 
 /*
@@ -290,6 +291,8 @@ struct bfd_session {
 	struct peer_label *pl;
 
 	struct bfd_dplane_ctx *bdc;
+	struct sockaddr_any local_address;
+	uint8_t peer_hw_addr[ETH_ALEN];
 	struct interface *ifp;
 	struct vrf *vrf;
 
@@ -554,6 +557,7 @@ int bp_echov6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
+void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
 
 void bfd_recv_cb(struct thread *t);
 
