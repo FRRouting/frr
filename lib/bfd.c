@@ -489,6 +489,9 @@ static void _bfd_sess_send(struct event *t)
 {
 	struct bfd_session_params *bsp = EVENT_ARG(t);
 	int rv;
+	char buf[BUFSIZ];
+	struct in6_addr src = {}, dst = {};
+	int family = AF_UNSPEC;
 
 	/* Validate configuration before trying to send bogus data. */
 	if (!_bfd_sess_valid(bsp))
@@ -508,10 +511,24 @@ static void _bfd_sess_send(struct event *t)
 	/* Command was sent successfully. */
 	if (rv == 0) {
 		/* Update installation status. */
-		if (bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
+		if (bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER) {
 			bsp->installed = false;
-		else if (bsp->args.command == ZEBRA_BFD_DEST_REGISTER)
+			snprintf(buf, sizeof(buf), "Uninstalling");
+		} else if (bsp->args.command == ZEBRA_BFD_DEST_REGISTER) {
 			bsp->installed = true;
+			snprintf(buf, sizeof(buf), "Installing");
+		} else
+			snprintf(buf, sizeof(buf), "Updating");
+		if (bsglobal.debugging) {
+			bfd_sess_addresses(bsp, &family, &src, &dst);
+			if (family == AF_INET)
+				zlog_debug("LIB-BFD: %s %s BFD src %pI4 dst %pI4",
+					   buf, family2str(family), &src, &dst);
+			else
+				zlog_debug("LIB-BFD: %s %s BFD src %pI6 dst %pI6",
+					   buf, family2str(family), &src, &dst);
+		}
+
 	} else {
 		struct ipaddr src, dst;
 
