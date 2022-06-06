@@ -118,16 +118,28 @@ static void adj_bfd_cb(struct bfd_session_params *bsp,
 {
 	struct isis_adjacency *adj = arg;
 	bool neighbor_useable_last;
+	uint32_t family;
+
+	bfd_sess_addresses(bsp, (int *)&family, NULL, NULL);
 
 	if (IS_DEBUG_BFD)
-		zlog_debug("ISIS-BFD: BFD changed status for L%u adjacency %s old %s new %s",
-			   adj->level, isis_adj_name(adj),
+		zlog_debug("ISIS-BFD: BFD %s changed status for L%u adjacency %s old %s new %s",
+			   family2str(family), adj->level, isis_adj_name(adj),
 			   bfd_get_status_str(bss->previous_state),
 			   bfd_get_status_str(bss->state));
 
 	neighbor_useable_last = adj->bfd_rfc6213.neighbor_useable;
 	if (bss->state != bss->previous_state) {
 		isis_bfd_update_rfc6213(adj);
+
+		if (isis_adj_check_stop_bfd_family(adj, family)) {
+			if (IS_DEBUG_BFD)
+				zlog_debug("ISIS-BFD: keep L%u adjacency %s to %s, as BFD %s has been unconfigured",
+					   adj->level, isis_adj_name(adj),
+					   adj_state2string(adj->adj_state),
+					   family2str(family));
+			return;
+		}
 		if (isis_bfd_config_rfc6213_enabled(&adj->circuit->bfd_config) &&
 		    bss->state == BFD_STATUS_DOWN &&
 		    isis_bfd_is_required_changed_up(adj, true))

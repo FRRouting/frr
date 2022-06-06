@@ -1959,8 +1959,7 @@ static void put_hello_hdr(struct isis_circuit *circuit, int level,
 	}
 }
 
-static bool isis_adj_check_stop_bfd_family(struct isis_adjacency *adj,
-					   uint8_t family)
+bool isis_adj_check_stop_bfd_family(struct isis_adjacency *adj, uint8_t family)
 {
 	if (family == AF_INET6 &&
 	    CHECK_FLAG(adj->bfd_rfc6213.flags, BFD_ADJ_STOP_IPV6)) {

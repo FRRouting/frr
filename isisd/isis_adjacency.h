@@ -143,4 +143,5 @@ void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
 void isis_bfd_startup_timer(struct event *thread);
 const char *isis_adj_name(const struct isis_adjacency *adj);
+bool isis_adj_check_stop_bfd_family(struct isis_adjacency *adj, uint8_t family);
 #endif /* ISIS_ADJACENCY_H */
