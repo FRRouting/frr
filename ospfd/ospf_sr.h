@@ -68,7 +68,6 @@ struct ri_sr_tlv_sr_algorithm {
 	struct tlv_header header;
 #define SR_ALGORITHM_SPF         0
 #define SR_ALGORITHM_STRICT_SPF  1
-#define SR_ALGORITHM_UNSET       255
 #define ALGORITHM_COUNT          4
 	/* Only 4 algorithms supported in this code */
 	uint8_t value[ALGORITHM_COUNT];

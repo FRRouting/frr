@@ -24,6 +24,8 @@
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "mpls.h"
+#include "affinitymap.h"
+#include "segment_routing.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -43,12 +45,13 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ri.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_ri_clippy.c"
 
 /*
  * Global variable to manage Opaque-LSA/Router Information on this node.
  * Note that all parameter values are stored in network byte order.
  */
-static struct ospf_router_info OspfRI;
+struct ospf_router_info OspfRI;
 
 /*------------------------------------------------------------------------------*
  * Following are initialize/terminate functions for Router Information
@@ -92,6 +95,9 @@ int ospf_router_info_init(void)
 
 	/* Initialize Segment Routing information structure */
 	OspfRI.sr_info.enabled = false;
+
+	/* Initialize the Flex-Algo database */
+	OspfRI.fad_info.fads = flex_algos_alloc(NULL, NULL);
 
 	ospf_router_info_register_vty();
 
@@ -156,6 +162,10 @@ void ospf_router_info_term(void)
 	list_delete(&OspfRI.area_info);
 	list_delete(&OspfRI.pce_info.pce_domain);
 	list_delete(&OspfRI.pce_info.pce_neighbor);
+	if (OspfRI.enabled && OspfRI.fad_info.fads) {
+		flex_algos_free(OspfRI.fad_info.fads);
+		OspfRI.fad_info.fads = NULL;
+	}
 
 	OspfRI.enabled = false;
 
@@ -176,6 +186,10 @@ void ospf_router_info_finish(void)
 
 	list_delete_all_node(OspfRI.pce_info.pce_domain);
 	list_delete_all_node(OspfRI.pce_info.pce_neighbor);
+	if (OspfRI.enabled && OspfRI.fad_info.fads) {
+		flex_algos_free(OspfRI.fad_info.fads);
+		OspfRI.fad_info.fads = NULL;
+	}
 
 	OspfRI.enabled = false;
 }
@@ -1583,6 +1597,9 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 	struct ri_pce_subtlv_domain *domain;
 	struct ri_pce_subtlv_neighbor *neighbor;
 	struct in_addr tmp;
+	struct flex_algo *fad;
+	struct listnode *curr, *next;
+	uint32_t admin_grp, srlg;
 
 	if (!OspfRI.enabled)
 		return;
@@ -1633,14 +1650,53 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 			vty_out(vty, "  pce scope 0x%x\n",
 				ntohl(OspfRI.pce_info.pce_scope.value));
 	}
+
+	FOREACH_FLEX_ALGO_DEFN (OspfRI.fad_info.fads, curr, next, fad) {
+		vty_out(vty, " flexible-algorithm %u\n", fad->algorithm);
+		if (fad->metric_type != MT_DEFAULT)
+			vty_out(vty, " flexible-algorithm %u metric-type %s\n", fad->algorithm,
+				flex_algo_metric_type2str(fad->metric_type));
+		if (fad->calc_type != CALC_TYPE_DEFAULT)
+			vty_out(vty, " flexible-algorithm %u calculation-type %s\n",
+				fad->algorithm, flex_algo_calc_type2str(fad->calc_type));
+		if (fad->priority != FLEX_ALGO_PRIO_DEFAULT)
+			vty_out(vty, " flexible-algorithm %u priority %u\n", fad->algorithm,
+				fad->priority);
+		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_exclude_any, admin_grp) {
+			vty_out(vty,
+				" flexible-algorithm %u exclude-admin-group %s\n",
+				fad->algorithm, affinity_map_name_get((int)admin_grp));
+		}
+		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_include_all,
+					       admin_grp) {
+			vty_out(vty,
+				" flexible-algorithm %u include-all-admin-group %s\n",
+				fad->algorithm, affinity_map_name_get((int)admin_grp));
+		}
+		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_include_any,
+					       admin_grp) {
+			vty_out(vty,
+				" flexible-algorithm %u include-any-admin-group %s\n",
+				fad->algorithm, affinity_map_name_get((int)admin_grp));
+		}
+		FOREACH_FLEX_ALGO_SRLG (&fad->srlgs_exclude, srlg) {
+			vty_out(vty, " flexible-algorithm %u exclude-srlg %u\n",
+				fad->algorithm, srlg);
+		}
+		if (FLEX_ALGO_PREFIX_METRIC_SET(fad)) {
+			vty_out(vty,
+				" flexible-algorithm %u advertise-prefix-metric %u\n",
+				fad->algorithm, fad->prefix_adv_metric);
+		}
+	}
+
 	return;
 }
 
-/*------------------------------------------------------------------------*
- * Following are vty command functions.
- *------------------------------------------------------------------------*/
-/* Simple wrapper schedule RI LSA action in function of the scope */
-static void ospf_router_info_schedule(enum lsa_opcode opcode)
+/* 
+ * Schedule RI LSA action in function of the scope
+ */
+void ospf_router_info_schedule(enum lsa_opcode opcode)
 {
 	struct listnode *node, *nnode;
 	struct ospf_ri_area_info *ai;
@@ -1658,6 +1714,9 @@ static void ospf_router_info_schedule(enum lsa_opcode opcode)
 	}
 }
 
+/*------------------------------------------------------------------------*
+ * Following are vty command functions.
+ *------------------------------------------------------------------------*/
 DEFUN (router_info,
        router_info_area_cmd,
        "router-info <as|area [A.B.C.D]>",
@@ -1720,19 +1779,25 @@ DEFUN (router_info,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_router_info,
        no_router_info_cmd,
        "no router-info",
        NO_STR
        "Disable the Router Information functionality\n")
 {
+	struct flex_algo *fad;
+	struct listnode *curr, *next;
 
 	if (!OspfRI.enabled)
 		return CMD_SUCCESS;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("RI-> Router Information: ON -> OFF");
+
+	/* Remove all Flexible-Algo-Defns from DB. */
+	FOREACH_FLEX_ALGO_DEFN (OspfRI.fad_info.fads, curr, next, fad) {
+		flex_algo_delete(OspfRI.fad_info.fads, fad->algorithm);;
+	}
 
 	ospf_router_info_schedule(FLUSH_THIS_LSA);
 
@@ -2032,13 +2097,461 @@ DEFUN (no_pce_cap_flag,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_ospf_router_info,
-       show_ip_ospf_router_info_cmd,
-       "show ip ospf router-info",
-       SHOW_STR
-       IP_STR
-       OSPF_STR
-       "Router Information\n")
+DEFPY(flex_algo_defn, flex_algo_defn_cmd,
+      "[no$no] flexible-algorithm (128-255)$id",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the Flexible Algorithm\n")
+{
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && fad) {
+		flex_algo_delete(OspfRI.fad_info.fads, fad->algorithm);;
+		OspfRI.fad_info.num_fads--;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	/* Re-originate RI LSA if required */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	if (!fad)
+		return CMD_ERR_NO_MATCH;
+
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(flex_algo_metric_type, flex_algo_metric_type_cmd,
+      "[no$no] flexible-algorithm (128-255)$id metric-type [<igp>$typestr]",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Metric type to be used for the Flexible Algorithm\n"
+      "IGP metric type\n")
+{
+	enum flex_algo_metric_type metric_type;
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		metric_type = MT_DEFAULT;
+	else {
+		if (!typestr)
+			return CMD_ERR_INCOMPLETE;
+		metric_type = flex_algo_str2metric_type(typestr);
+		if (metric_type < MT_MIN || metric_type >= MT_MAX)
+			return CMD_ERR_NO_MATCH;
+	}
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	if (fad->metric_type != metric_type) {
+		fad->metric_type = metric_type;
+		update_lsa = true;
+	}
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(flex_algo_calc_type, flex_algo_calc_type_cmd,
+      "[no$no] flexible-algorithm (128-255)$id calculation-type [<spf>$typestr]",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Calculation type to be used for the Flexible Algorithm\n"
+      "Shortest Path First\n")
+{
+	enum flex_algo_calc_type calc_type;
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		calc_type = CALC_TYPE_DEFAULT;
+	else {
+		if (!typestr)
+			return CMD_ERR_INCOMPLETE;
+		calc_type = flex_algo_str2calc_type(typestr);
+		if (calc_type < CALC_TYPE_MIN ||
+			calc_type < CALC_TYPE_MIN)
+			return CMD_ERR_NO_MATCH;
+	}
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	if (fad->calc_type != calc_type) {
+		fad->calc_type = calc_type;
+		update_lsa = true;
+	}
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(flex_algo_priority, flex_algo_priority_cmd,
+      "[no$no] flexible-algorithm (128-255)$id priority [(0-4294967295)$prio]",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Assign a priority to be used for the Flexible Algorithm\n"
+      "Priority to be used for the Flexible Algorithm\n")
+{
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		prio = FLEX_ALGO_PRIO_DEFAULT;
+	else {
+		if (prio > FLEX_ALGO_PRIO_MAX)
+			return CMD_ERR_NO_MATCH;
+	}
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	if (fad->priority != (uint8_t)prio) {
+		fad->priority = (uint8_t)prio;
+		update_lsa = true;
+	}
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+
+static int ospf_flex_algo_admin_group_update(
+	bool delete, struct admin_group *admin_group,
+	const char *name, bool update_lsa)
+{
+	struct affinity_map *map = NULL;
+	int found_ag;
+
+	if (!delete && !name) 
+		return CMD_ERR_INCOMPLETE;
+	
+	map = affinity_map_get(name);
+	if (name && !map) {
+		zlog_err("Couldn't find any affinity by name '%s'", name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	found_ag = admin_group_get(admin_group, map->bit_position);
+	if (!delete) {
+		if (!found_ag) {
+			admin_group_set(admin_group,
+					map->bit_position);
+			/* Refresh RI LSA if already engaged */
+			update_lsa = true;
+		}
+	} else {
+		if (!found_ag)
+			return CMD_ERR_NO_MATCH;
+
+		admin_group_unset(admin_group,
+				  map->bit_position);
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(flex_algo_exc_admngrp, flex_algo_exc_admngrp_cmd,
+      "[no$no] flexible-algorithm (128-255)$id exclude-admin-group [NAME$name]",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Add a Admin-Group to the Exclude list\n"
+      "Name of the admin group to be added(or deleted)\n")
+{
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	return ospf_flex_algo_admin_group_update(no ? true : false,
+			&fad->admin_group_exclude_any, name, update_lsa);
+}
+
+DEFPY(flex_algo_incall_admngrp, flex_algo_incall_admngrp_cmd,
+      "[no$no] flexible-algorithm (128-255)$id include-all-admin-group [NAME$name]",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Add a Admin-Group to the Include-All list\n"
+      "Name of the admin group to be added(or deleted)\n")
+{
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	return ospf_flex_algo_admin_group_update(no ? true : false,
+			&fad->admin_group_include_all, name, update_lsa);
+}
+
+DEFPY(flex_algo_incany_admngrp, flex_algo_incany_admngrp_cmd,
+      "[no$no] flexible-algorithm (128-255)$id include-any-admin-group [NAME$name]",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Add a Admin-Group to the Include-Any list\n"
+      "Name of the admin group to be added (or deleted)\n")
+{
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!no && !fad) {
+		fad = flex_algo_alloc(OspfRI.fad_info.fads, (uint8_t)id, NULL);
+		assert(fad);
+		OspfRI.fad_info.num_fads++;
+		/* Refresh RI LSA if already engaged */
+		update_lsa = true;
+	}
+
+	if (no && !fad)
+		return CMD_ERR_NO_MATCH;
+
+	return ospf_flex_algo_admin_group_update(no ? true : false,
+			&fad->admin_group_include_any, name, update_lsa);
+}
+
+#if 0
+DEFPY(flex_algo_exc_srlg, flex_algo_exc_srlg_cmd,
+      "flexible-algorithm (128-255)$id exclude-srlg (0-4294967295)$srlgval",
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Add a SRLG to the Exclude list\n"
+      "SRLG to be included\n")
+{
+	uint32_t srlg;
+	struct flex_algo *fad;
+	struct flex_algo_srlg *fsrlg;
+	bool update_lsa = false;
+	bool new_fad = false;
+	bool new_srlg = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	srlg = (uint32_t)srlgval;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	assert(fad);
+	if (new_fad) {
+		OspfRI.fad_info.num_fads++;
+		new_fad = true;
+		update_lsa = true;
+	}
+
+	fsrlg = flex_algo_lookup_srlg(&fad->srlgs_exclude, srlg, true,
+				      &new_srlg);
+	assert(fsrlg);
+	if (new_srlg)
+		update_lsa = true;
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_flex_algo_exc_srlg, no_flex_algo_exc_srlg_cmd,
+      "no flexible-algorithm (128-255)$id exclude-srlg (0-4294967295)$srlgval",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Remove a specfic or all SRLG(s) from the Exclude list\n"
+      "SRLG to be removed\n")
+{
+	uint32_t srlg;
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	srlg = (uint32_t)srlgval;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!fad)
+		return CMD_ERR_NO_MATCH;
+
+	flex_algo_delete_srlg(&fad->srlgs_exclude, srlg, &update_lsa);
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_flex_algo_exc_srlg_all, no_flex_algo_exc_srlg_all_cmd,
+      "no flexible-algorithm (128-255)$id exclude-srlg",
+      NO_STR
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Remove a specfic or all SRLG(s) from the Exclude list\n")
+{
+	struct flex_algo *fad;
+	bool update_lsa = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	if (!fad)
+		return CMD_ERR_NO_MATCH;
+
+	if (flxalg_srlgs_count(&fad->srlgs_exclude)) {
+		update_lsa = true;
+		flex_algo_flush_srlgs(&fad->srlgs_exclude);
+	}
+
+	/* Refresh/Re-originate RI LSA if already engaged */
+	if (update_lsa)
+		ospf_router_info_schedule(REFRESH_THIS_LSA);
+
+	return CMD_SUCCESS;
+}
+#endif
+
+DEFPY(flex_algo_prfx_metric, flex_algo_prfx_metric_cmd,
+      "flexible-algorithm (128-255)$id prefix-advertise-metric (0-4294967295)$prefmetric",
+      "Specify a Flexible Algorithm Definition\n"
+      "Unique number assigned to the new Flexible Algorithm\n"
+      "Specify a default prefix advertise metric\n"
+      "Default prefix metric to be advertised\n")
+{
+	uint32_t metric;
+	struct flex_algo *fad;
+	bool update_lsa = false;
+	bool new_fad = false;
+
+	if (!ospf_ri_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	metric = (uint32_t)prefmetric;
+
+	fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint8_t)id);
+	assert(fad);
+	if (new_fad) {
+		OspfRI.fad_info.num_fads++;
+		new_fad = true;
+		update_lsa = true;
+	}
+
+	if (!!FLEX_ALGO_PREFIX_METRIC_SET(fad) ||
+		fad->prefix_adv_metric != metric) {
+		flex_algo_set_prefix_metric(fad, metric);
+ 		update_lsa = true;
+	}
+
+	/* 
+	 * TODO: Refresh/Re-originate all EXT Prefix LSAs if already engaged.
+	if (update_lsa)
+		ospf_ext_update_all_prefix_fapms();
+	 */
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ip_ospf_router_info, show_ip_ospf_router_info_cmd,
+      "show ip ospf router-info",
+      SHOW_STR IP_STR OSPF_STR "Router Information\n")
 {
 
 	if (OspfRI.enabled) {
@@ -2052,14 +2565,11 @@ DEFUN (show_ip_ospf_router_info,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_opsf_router_info_pce,
-       show_ip_ospf_router_info_pce_cmd,
-       "show ip ospf router-info pce",
-       SHOW_STR
-       IP_STR
-       OSPF_STR
-       "Router Information\n"
-       "PCE information\n")
+DEFUN(show_ip_opsf_router_info_pce, show_ip_ospf_router_info_pce_cmd,
+      "show ip ospf router-info pce",
+      SHOW_STR IP_STR OSPF_STR
+      "Router Information\n"
+      "PCE information\n")
 {
 
 	struct ospf_pce_info *pce = &OspfRI.pce_info;
@@ -2101,11 +2611,99 @@ DEFUN (show_ip_opsf_router_info_pce,
 	return CMD_SUCCESS;
 }
 
+static void show_vty_flxalg_info(struct vty *vty, struct flex_algo *fad)
+{
+	uint32_t admin_grp;
+	// uint32_t srlg;
+
+	vty_out(vty, " Flexible-Algorithm: %u\n", fad->algorithm);
+	vty_out(vty, "  Metric-Type: \t%s\n",
+		flex_algo_metric_type2str(fad->metric_type));
+	vty_out(vty, "  Calculation-Type: \t%s\n",
+		flex_algo_calc_type2str(fad->calc_type));
+	vty_out(vty, "  Priority: \t%u\n", fad->priority);
+	vty_out(vty, "  Flags: \t0x%02x\n", fad->flags);
+	vty_out(vty, "  Advt-Prefix-Metric: \t%s\n",
+		FLEX_ALGO_PREFIX_METRIC_SET(fad) ? "Y" : "N");
+	if (FLEX_ALGO_PREFIX_METRIC_SET(fad))
+		vty_out(vty, "    Prefix-Metric: \t%u\n",
+			fad->prefix_adv_metric);
+
+	if (admin_group_size(&fad->admin_group_exclude_any)) {
+		vty_out(vty, "  Exclude-Admin-Groups: \n");
+		FOREACH_FLEX_ALGO_ADMIN_GROUP(&fad->admin_group_exclude_any, admin_grp)
+		{
+			vty_out(vty, "  \t - %u\n", admin_grp);
+		}
+	}
+
+	if (admin_group_size(&fad->admin_group_include_any)) {
+		vty_out(vty, "  Include-Any-Admin-Groups: \n");
+		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_include_any,
+					       admin_grp) {
+			vty_out(vty, "  \t - %u\n", admin_grp);
+		}
+	}
+
+	if (admin_group_size(&fad->admin_group_include_all)) {
+		vty_out(vty, "  Include-All-Admin-Groups: \n");
+		FOREACH_FLEX_ALGO_ADMIN_GROUP (&fad->admin_group_include_all,
+					       admin_grp) {
+			vty_out(vty, "  \t - %u\n", admin_grp);
+		}
+	}
+
+	// if (flxalg_srlgs_count(&fad->srlgs_exclude)) {
+	// 	vty_out(vty, "  Exclude-SRLGs: \n");
+	// 	FOREACH_FLEX_ALGO_SRLG (&fad->srlgs_exclude, srlg) {
+	// 		vty_out(vty, "  \t - %u\n", srlg);
+	// 	}
+	// }
+}
+
+DEFPY(show_ip_opsf_router_info_flxalg, show_ip_ospf_router_info_flxalg_cmd,
+      "show ip ospf router-info flexible-algorithms [(128-255)$id]",
+      SHOW_STR IP_STR OSPF_STR
+      "Router Information\n"
+      "Flexible-Algorithm information\n"
+      "Unique identifier for the flexible algorithm\n")
+{
+	struct flex_algo *fad;
+	struct listnode *curr, *next;
+
+	if ((OspfRI.enabled) && !flex_algos_empty(OspfRI.fad_info.fads)) {
+		if (!id) {
+			vty_out(vty, "--- Flexible-Algorithm parameters ---\n");
+
+			FOREACH_FLEX_ALGO_DEFN (OspfRI.fad_info.fads, curr, next, fad) {
+				show_vty_flxalg_info(vty, fad);
+			}
+		} else {
+			if (id < FLEX_ALGO_ALGO_MIN || id > FLEX_ALGO_ALGO_MAX) {
+				vty_out(vty, " Invalid algorithm identifier '%ld'!\n", id);
+				return CMD_SUCCESS;
+			}
+
+			fad = flex_algo_lookup(OspfRI.fad_info.fads, (uint32_t)id);
+			if (!fad) {
+				vty_out(vty, "No such Flexible algorithm '%ld'!\n", id);
+			} else {
+				show_vty_flxalg_info(vty, fad);
+			}
+		}
+	} else {
+		vty_out(vty, "  No Flexible-Algoritthms on this router\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* Install new CLI commands */
 static void ospf_router_info_register_vty(void)
 {
 	install_element(VIEW_NODE, &show_ip_ospf_router_info_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_router_info_pce_cmd);
+	install_element(VIEW_NODE, &show_ip_ospf_router_info_flxalg_cmd);
 
 	install_element(OSPF_NODE, &router_info_area_cmd);
 	install_element(OSPF_NODE, &no_router_info_cmd);
@@ -2119,6 +2717,17 @@ static void ospf_router_info_register_vty(void)
 	install_element(OSPF_NODE, &no_pce_neighbor_cmd);
 	install_element(OSPF_NODE, &pce_cap_flag_cmd);
 	install_element(OSPF_NODE, &no_pce_cap_flag_cmd);
+	install_element(OSPF_NODE, &flex_algo_defn_cmd);
+	install_element(OSPF_NODE, &flex_algo_metric_type_cmd);
+	install_element(OSPF_NODE, &flex_algo_calc_type_cmd);
+	install_element(OSPF_NODE, &flex_algo_priority_cmd);
+	install_element(OSPF_NODE, &flex_algo_exc_admngrp_cmd);
+	install_element(OSPF_NODE, &flex_algo_incany_admngrp_cmd);
+	install_element(OSPF_NODE, &flex_algo_incall_admngrp_cmd);
+	// install_element(OSPF_NODE, &flex_algo_exc_srlg_cmd);
+	// install_element(OSPF_NODE, &no_flex_algo_exc_srlg_cmd);
+	// install_element(OSPF_NODE, &no_flex_algo_exc_srlg_all_cmd);
+	install_element(OSPF_NODE, &flex_algo_prfx_metric_cmd);
 
 	return;
 }

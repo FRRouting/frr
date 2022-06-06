@@ -78,6 +78,17 @@ struct tlv_header {
 	uint16_t length; /* Length of Value portion only, in bytes */
 };
 
+PREDECL_LIST(tlv_list);
+struct tlv {
+	struct tlv_list_item	linkage;
+	struct tlv_header	hdr;
+	/* Body follows */
+	uint8_t			body[0];
+};
+DECLARE_LIST(tlv_list, struct tlv, linkage);
+#define FOREACH_TLV_IN_LIST(list, tlv)                            	\
+	frr_each_safe(tlv_list, list, tlv)
+
 #define TLV_HDR_SIZE	(sizeof(struct tlv_header))
 
 #define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))

@@ -158,17 +158,8 @@ bool flex_algo_id_valid(uint16_t algorithm)
 char *flex_algo_metric_type_print(char *type_str, size_t sz,
 				  enum flex_algo_metric_type metric_type)
 {
-	switch (metric_type) {
-	case MT_IGP:
-		snprintf(type_str, sz, "igp");
-		break;
-	case MT_MIN_UNI_LINK_DELAY:
-		snprintf(type_str, sz, "delay");
-		break;
-	case MT_TE_DEFAULT:
-		snprintf(type_str, sz, "te");
-		break;
-	}
+	snprintf(type_str, sz, "%s",
+		 flex_algo_metric_type2str(metric_type));
 	return type_str;
 }
 

@@ -44,6 +44,7 @@
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_routemap_nb.h"
+#include "ospfd/ospf_affinitymap.h"
 
 /* ospfd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
@@ -233,6 +234,9 @@ int main(int argc, char **argv)
 	ospf_vty_init();
 	ospf_vty_show_init();
 	ospf_vty_clear_init();
+
+	/* OSPF Affinity maps init */
+	ospf_affinity_map_init();
 
 	/* OSPF BFD init */
 	ospf_bfd_init(master);

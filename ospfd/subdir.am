@@ -20,6 +20,7 @@ ospfd_libfrrospfclient_a_SOURCES = \
 
 ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_abr.c \
+	ospfd/ospf_affinitymap.c \
 	ospfd/ospf_api.c \
 	ospfd/ospf_apiserver.c \
 	ospfd/ospf_asbr.c \
@@ -80,10 +81,12 @@ clippy_scan += \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_dump.c \
 	ospfd/ospf_gr.c \
+	ospfd/ospf_ri.c \
 	# end
 
 noinst_HEADERS += \
 	ospfd/ospf_abr.h \
+	ospfd/ospf_affinitymap.h \
 	ospfd/ospf_apiserver.h \
 	ospfd/ospf_ase.h \
 	ospfd/ospf_bfd.h \

@@ -199,6 +199,17 @@ struct ospf_ri_sr_info {
 	struct ri_sr_tlv_node_msd msd;
 };
 
+/*
+ * Store Flexibe Algorithm Definition information
+ */	
+#define MAX_NUM_FLEX_ALGO_DEFN	16
+struct ospf_ri_fad_info {
+	uint8_t	num_fads;
+
+	/* Algorithms supported by the node */
+	struct flex_algos *fads;
+};
+
 /* Store area information to flood LSA per area */
 struct ospf_ri_area_info {
 
@@ -228,7 +239,16 @@ struct ospf_router_info {
 
 	/* Store SR capability LSA */
 	struct ospf_ri_sr_info sr_info;
+
+	/* Store Flex-Algo Definitions */
+	struct ospf_ri_fad_info fad_info;
 };
+
+/*
+ * Global variable to manage Opaque-LSA/Router Information on this node.
+ * Note that all parameter values are stored in network byte order.
+ */
+ extern struct ospf_router_info OspfRI;
 
 /* Prototypes. */
 extern int ospf_router_info_init(void);
@@ -237,4 +257,6 @@ extern void ospf_router_info_finish(void);
 extern int ospf_router_info_enable(void);
 extern void ospf_router_info_update_sr(bool enable, struct sr_node *self);
 extern struct scope_info ospf_router_info_get_flooding_scope(void);
+extern void ospf_router_info_schedule(enum lsa_opcode opcode);
+
 #endif /* _ZEBRA_OSPF_ROUTER_INFO_H */

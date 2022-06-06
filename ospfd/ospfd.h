@@ -16,6 +16,7 @@
 #include "filter.h"
 #include "log.h"
 #include "vrf.h"
+#include "flex_algo.h"
 
 #include "ospf_memory.h"
 #include "ospf_dump_api.h"
