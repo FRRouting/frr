@@ -814,12 +814,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	bgp = peer->bgp;
 	from = bgp->peer_self;
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
 	/* make coverity happy */
 	assert(attr.aspath);
-
-	attr.local_pref = bgp->default_local_pref;
 
 	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
 		/* IPv6 global nexthop must be included. */

@@ -1294,8 +1294,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 	if (src_attr)
 		attr = *src_attr;
 	else {
-		memset(&attr, 0, sizeof(struct attr));
-		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+		memset(&attr, 0, sizeof(attr));
+		bgp_attr_default_set(&attr, bgp_vrf, BGP_ORIGIN_IGP);
 	}
 
 	/* Advertise Primary IP (PIP) is enabled, send individual
@@ -1734,7 +1734,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	memset(&attr, 0, sizeof(struct attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -1997,7 +1997,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	 * some other values could differ for different routes. The
 	 * attributes will be shared in the hash table.
 	 */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
