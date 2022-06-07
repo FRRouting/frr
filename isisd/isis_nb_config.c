@@ -3070,10 +3070,6 @@ int lib_interface_isis_disable_three_way_handshake_modify(
 	return NB_OK;
 }
 
-/*
- * XPath:
- * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast
- */
 static int lib_interface_isis_multi_topology_common(
 	enum nb_event event, const struct lyd_node *dnode, char *errmsg,
 	size_t errmsg_len, uint16_t mtid)
@@ -3104,12 +3100,16 @@ static int lib_interface_isis_multi_topology_common(
 	return NB_OK;
 }
 
-int lib_interface_isis_multi_topology_ipv4_unicast_modify(
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/standard
+ */
+int lib_interface_isis_multi_topology_standard_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
 		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV4_UNICAST);
+		ISIS_MT_STANDARD);
 }
 
 /*
