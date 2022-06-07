@@ -991,6 +991,12 @@ dataplane.
    Block, i.e. the label range used for Adjacency SID. The negative version
    of the command always unsets both ranges.
 
+.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
+
+   Set the Segment Routing Local Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Adjacency SID. This command is deprecated
+   in favor of the combined command above.
+
 .. clicmd:: segment-routing node-msd (1-16)
 
    Fix the Maximum Stack Depth supported by the router. The value depend of the

@@ -310,7 +310,8 @@ Routing.
     ospf router-id 192.168.1.11
     capability opaque
     segment-routing on
-    segment-routing global-block 10000 19999 local-block 5000 5999
+    segment-routing global-block 10000 19999
+    segment-routing local-block 5000 5999
     segment-routing node-msd 8
     segment-routing prefix 192.168.1.11/32 index 1100
 
