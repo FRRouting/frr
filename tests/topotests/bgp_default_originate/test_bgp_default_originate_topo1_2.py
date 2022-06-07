@@ -20,16 +20,10 @@
 #
 """
 Following tests are covered.
-1. Verify BGP default-originate route with IBGP peer
-2. Verify BGP default-originate route with EBGP peer
-3. Verify BGP default route when default-originate configured with route-map over IBGP peer
-4. Verify BGP default route when default-originate configured with route-map over EBGP peer"
 5. Verify BGP  default originate route-map with OUT route-map
 6. Verify BGP  default originate route-map with IN route-map
 8. Verify BGP default route after removing default-originate
 9. Verify default-originate route with GR
-10.Verify default-originate route after BGP zebra and FRR process restart
-11.Verify default-originate route after shut/no shut and clear BGP neighbor
 """
 import os
 import sys
@@ -364,2197 +358,6 @@ def configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut, peer):
 #####################################################
 
 
-def test_verify_bgp_default_originate_in_IBGP_p0(request):
-    """
-    Verify BGP default-originate route with IBGP peer
-    """
-    tgen = get_topogen()
-    global BGP_CONVERGENCE
-    global topo
-    # test case name
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        check_router_status(tgen)
-    reset_config_on_routers(tgen)
-
-    if BGP_CONVERGENCE != True:
-        pytest.skip("skipped because of BGP Convergence failure")
-
-    step("Configure IPv4 and IPv6 , IBGP neighbor between R1 and R2")
-    step("Configure IPv4 and IPv6 Loopback interface on R1, R0 and R2")
-    step("Configure IPv4 and IPv6 EBGP neighbor between R0 and R1")
-
-    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
-    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
-    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
-    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
-    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
-
-    input_dict = {
-        "r0": {
-            "bgp": {
-                "local_as": 1000,
-            }
-        },
-        "r1": {
-            "bgp": {
-                "local_as": 2000,
-            }
-        },
-        "r2": {
-            "bgp": {
-                "local_as": 2000,
-            }
-        },
-        "r3": {
-            "bgp": {
-                "local_as": r3_local_as,
-            }
-        },
-        "r4": {
-            "bgp": {
-                "local_as": r4_local_as,
-            }
-        },
-    }
-    result = modify_as_number(tgen, topo, input_dict)
-    try:
-        assert result is True
-    except AssertionError:
-        logger.info("Expected behaviour: {}".format(result))
-        logger.info("BGP config is not created because of invalid ASNs")
-
-    step("After changing the BGP AS Path Verify the BGP Convergence")
-    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error: {}".format(
-        BGP_CONVERGENCE
-    )
-
-    step("Configure IPv4 and IPv6 static route on R1 next-hop as NULL0")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r1": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    }
-                ]
-            }
-        }
-        result = create_static_routes(tgen, static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-    step("verify IPv4 and IPv6 static route are configured and up on R1")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r1": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    }
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r1", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure redistribute static and connected on R0 and R1,  for IPv4 and IPv6 address family "
-    )
-    redistribute_static = {
-        "r0": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                }
-            }
-        },
-        "r1": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                }
-            }
-        },
-    }
-    result = create_router_bgp(tgen, topo, redistribute_static)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "After configuring redistribute command , verify static and connected routes ( loopback connected routes)  are advertised on R2"
-    )
-
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [R0_NETWORK_LOOPBACK[addr_type]],
-                        "next_hop": R0_NETWORK_LOOPBACK_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R0_NETWORK_CONNECTED[addr_type]],
-                        "next_hop": R0_NETWORK_CONNECTED_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R1_NETWORK_LOOPBACK[addr_type]],
-                        "next_hop": R1_NETWORK_LOOPBACK_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R1_NETWORK_CONNECTED[addr_type]],
-                        "next_hop": R1_NETWORK_CONNECTED_NXTHOP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Taking the snapshot of the prefix count before configuring the default originate"
-    )
-    snapshot1 = get_prefix_count_route(tgen, topo, dut="r2", peer="r1")
-
-    step(
-        "Configure Default originate on R1 for R1 to R2, for  IPv4 and IPv6 BGP address family "
-    )
-    local_as = get_dut_as_number(tgen, dut="r1")
-    default_originate_config = {
-        "r1": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {"unicast": {"default_originate": {"r2": {}}}},
-                    "ipv6": {"unicast": {"default_originate": {"r2": {}}}},
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "After configuring default-originate command , verify default  routes are advertised on R2 "
-        " R1 static and loopback routes received on R2 BGP and FIB"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [R1_NETWORK_LOOPBACK[addr_type]],
-                        "next_hop": R1_NETWORK_LOOPBACK_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R1_NETWORK_CONNECTED[addr_type]],
-                        "next_hop": R1_NETWORK_CONNECTED_NXTHOP[addr_type],
-                    },
-                ]
-            }
-        }
-
-        result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-    step(
-        "Verify default route for IPv4 and IPv6  present with path=igp   metric =0 , local-preference= 100 "
-    )
-    result = verify_rib_default_route(
-        tgen,
-        topo,
-        dut="r2",
-        routes=DEFAULT_ROUTES,
-        expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R1,
-        metric=0,
-        locPrf=100,
-    )
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-    step(
-        "Taking the snapshot2 of the prefix count after configuring the default originate"
-    )
-    snapshot2 = get_prefix_count_route(tgen, topo, dut="r2", peer="r1")
-
-    step("verifying the prefix count incrementing or not ")
-    isIPv4prefix_incremented = False
-    isIPv6prefix_incremented = False
-    if snapshot1["ipv4_count"] < snapshot2["ipv4_count"]:
-        isIPv4prefix_incremented = True
-    if snapshot1["ipv6_count"] < snapshot2["ipv6_count"]:
-        isIPv6prefix_incremented = True
-
-    assert (
-        isIPv4prefix_incremented is True
-    ), "Testcase {} : Failed Error: IPV4 Prefix is not incremented on receiveing ".format(
-        tc_name
-    )
-
-    assert (
-        isIPv6prefix_incremented is True
-    ), "Testcase {} : Failed Error: IPV6 Prefix is not incremented on receiveing ".format(
-        tc_name
-    )
-    write_test_footer(tc_name)
-
-
-def test_verify_bgp_default_originate_in_EBGP_p0(request):
-    """
-    Verify BGP default-originate route with EBGP peer
-    """
-    tgen = get_topogen()
-    global BGP_CONVERGENCE
-    global topo
-    # test case name
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        check_router_status(tgen)
-    reset_config_on_routers(tgen)
-
-    if BGP_CONVERGENCE != True:
-        pytest.skip("skipped because of BGP Convergence failure")
-
-    step("Configure IPv4 and IPv6 , EBGP neighbor between R3 and R2")
-    step("Configure lPv4 and IPv6 Loopback interface on R3, R4  and R2")
-    step("Configure IPv4 and IPv6 IBGP neighbor between R4 and R3")
-    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
-    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
-    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
-    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
-    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
-
-    input_dict = {
-        "r0": {
-            "bgp": {
-                "local_as": r0_local_as,
-            }
-        },
-        "r1": {
-            "bgp": {
-                "local_as": r1_local_as,
-            }
-        },
-        "r2": {
-            "bgp": {
-                "local_as": r2_local_as,
-            }
-        },
-        "r3": {
-            "bgp": {
-                "local_as": 4000,
-            }
-        },
-        "r4": {
-            "bgp": {
-                "local_as": 4000,
-            }
-        },
-    }
-    result = modify_as_number(tgen, topo, input_dict)
-    try:
-        assert result is True
-    except AssertionError:
-        logger.info("Expected behaviour: {}".format(result))
-        logger.info("BGP config is not created because of invalid ASNs")
-    step("After changing the BGP AS Path Verify the BGP Convergence")
-
-    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error: {}".format(
-        BGP_CONVERGENCE
-    )
-
-    step(" Configure IPv4 and IPv6 static route on R3 next-hop on R4 interface")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r3": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    }
-                ]
-            }
-        }
-        result = create_static_routes(tgen, static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-    step("verify IPv4 and IPv6 static route are configured and up on R1")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r3": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    }
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r3", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure redistribute static and connected on R3 and R4 for IPv4 and IPv6 address family  "
-    )
-    redistribute_static = {
-        "r3": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                }
-            }
-        },
-        "r4": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "redistribute": [
-                                {"redist_type": "static"},
-                                {"redist_type": "connected"},
-                            ]
-                        }
-                    },
-                }
-            }
-        },
-    }
-    result = create_router_bgp(tgen, topo, redistribute_static)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "After configuring redistribute command , verify static and connected routes ( loopback connected routes)  are advertised on R2"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [R3_NETWORK_LOOPBACK[addr_type]],
-                        "next_hop": R3_NETWORK_LOOPBACK_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R3_NETWORK_CONNECTED[addr_type]],
-                        "next_hop": R3_NETWORK_CONNECTED_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R4_NETWORK_LOOPBACK[addr_type]],
-                        "next_hop": R4_NETWORK_LOOPBACK_NXTHOP[addr_type],
-                    },
-                    {
-                        "network": [R4_NETWORK_CONNECTED[addr_type]],
-                        "next_hop": R4_NETWORK_CONNECTED_NXTHOP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-    snapshot1 = get_prefix_count_route(tgen, topo, dut="r2", peer="r3")
-    step(
-        "Configure Default originate on R3 for R3 to R2, on  IPv4 and IPv6 BGP address family"
-    )
-    local_as = get_dut_as_number(tgen, dut="r3")
-    default_originate_config = {
-        "r3": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {"unicast": {"default_originate": {"r2": {}}}},
-                    "ipv6": {"unicast": {"default_originate": {"r2": {}}}},
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "After configuring default-originate command , verify default  routes are advertised on R2 on both BGP RIB and FIB"
-    )
-
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    },
-                ]
-            }
-        }
-
-        result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Verify default route for IPv4 and IPv6 present with path = ebgp as path, metric =0 "
-    )
-    # local preference will bgp not applicable for eBGP
-    result = verify_rib_default_route(
-        tgen,
-        topo,
-        dut="r2",
-        routes=DEFAULT_ROUTES,
-        expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
-        metric=0,
-        expected_aspath="4000",
-    )
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step(
-        "Taking the snapshot2 of the prefix count after configuring the default originate"
-    )
-    snapshot2 = get_prefix_count_route(tgen, topo, dut="r2", peer="r3")
-    step(
-        "Verify out-prefix count is incremented default route on IPv4 and IPv6 neighbor"
-    )
-    isIPv4prefix_incremented = False
-    isIPv6prefix_incremented = False
-    if snapshot1["ipv4_count"] < snapshot2["ipv4_count"]:
-        isIPv4prefix_incremented = True
-    if snapshot1["ipv6_count"] < snapshot2["ipv6_count"]:
-        isIPv6prefix_incremented = True
-
-    assert (
-        isIPv4prefix_incremented is True
-    ), "Testcase {} : Failed Error: IPV4 Prefix is not incremented on receiveing ".format(
-        tc_name
-    )
-
-    assert (
-        isIPv6prefix_incremented is True
-    ), "Testcase {} : Failed Error: IPV6 Prefix is not incremented on receiveing ".format(
-        tc_name
-    )
-    write_test_footer(tc_name)
-
-
-def test_verify_bgp_default_originate_in_IBGP_with_route_map_p0(request):
-    """
-    test_verify_bgp_default_originate_in_IBGP_with_route_map_p0
-    """
-    tgen = get_topogen()
-    global BGP_CONVERGENCE
-    global topo
-    # test case name
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        check_router_status(tgen)
-    reset_config_on_routers(tgen)
-
-    if BGP_CONVERGENCE != True:
-        pytest.skip("skipped because of BGP Convergence failure")
-
-    step("Configure IPv4 and IPv6 , IBGP neighbor between R1 and R2")
-    step("Configure IPv4 and IPv6 , EBGP neighbor between R1 and R0")
-    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
-    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
-    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
-    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
-    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
-
-    input_dict = {
-        "r0": {
-            "bgp": {
-                "local_as": r0_local_as,
-            }
-        },
-        "r1": {
-            "bgp": {
-                "local_as": 1000,
-            }
-        },
-        "r2": {
-            "bgp": {
-                "local_as": 1000,
-            }
-        },
-        "r3": {
-            "bgp": {
-                "local_as": r3_local_as,
-            }
-        },
-        "r4": {
-            "bgp": {
-                "local_as": r4_local_as,
-            }
-        },
-    }
-    result = modify_as_number(tgen, topo, input_dict)
-    try:
-        assert result is True
-    except AssertionError:
-        logger.info("Expected behaviour: {}".format(result))
-        logger.info("BGP config is not created because of invalid ASNs")
-
-    step("After changing the BGP AS Path Verify the BGP Convergence")
-    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error: {}".format(
-        BGP_CONVERGENCE
-    )
-
-    step("Configure 2 IPv4 and 2 IPv6 Static route on R0 with next-hop as Null0")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r0": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [NETWORK2_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = create_static_routes(tgen, static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("verify IPv4 and IPv6 static route are configured and up on R0")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r0": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [NETWORK2_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r0", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure  redistribute static on IPv4 and IPv6 address family on R0 for R0 to R1 neighbor "
-    )
-    redistribute_static = {
-        "r0": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {"unicast": {"redistribute": [{"redist_type": "static"}]}},
-                    "ipv6": {"unicast": {"redistribute": [{"redist_type": "static"}]}},
-                }
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, redistribute_static)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("verify IPv4 and IPv6 static route are configured and up on R1")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r0": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [NETWORK2_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r1", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(tgen, addr_type, "r1", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure IPv4 prefix-list Pv4 and and IPv6 prefix-list Pv6 on R1 to match BGP route Sv41, Sv42, IPv6 route Sv61 Sv62 permit "
-    )
-    input_dict_3 = {
-        "r1": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Configure IPV4 and IPv6 route-map (RMv4 and RMv6 ) matching prefix-list (Pv4 and Pv6) respectively on R1"
-    )
-    input_dict_3 = {
-        "r1": {
-            "route_maps": {
-                "RMv4": [
-                    {
-                        "action": "permit",
-                        "seq_id": "1",
-                        "match": {"ipv4": {"prefix_lists": "Pv4"}},
-                    },
-                ],
-                "RMv6": [
-                    {
-                        "action": "permit",
-                        "seq_id": "1",
-                        "match": {"ipv6": {"prefix_lists": "Pv6"}},
-                    },
-                ],
-            }
-        }
-    }
-    result = create_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Configure default-originate with route-map (RMv4 and RMv6) on R1, on BGP IPv4 and IPv6 address family "
-    )
-    local_as = get_dut_as_number(tgen, dut="r1")
-    default_originate_config = {
-        "r1": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv4"}}}
-                    },
-                    "ipv6": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv6"}}}
-                    },
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("Verify the default route is received in BGP RIB and FIB")
-    step(
-        "After configuring default-originate command , verify default  routes are advertised on R2 "
-    )
-    DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-                    }
-                ]
-            }
-        }
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-    step("Remove route-map RMv4 and RMv6 from default-originate command in R1")
-    NOTE = """ Configuring the default-originate should remove the  previously applied default originate with condtional route-map"""
-    local_as = get_dut_as_number(tgen, dut="r1")
-    default_originate_config = {
-        "r1": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {"unicast": {"default_originate": {"r2": {}}}},
-                    "ipv6": {"unicast": {"default_originate": {"r2": {}}}},
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify BGP RIB and FIB After removing route-map , default route still present on R2"
-    )
-    DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Configure default-originate with route-map (RMv4 and RMv6) on R1 ")
-    local_as = get_dut_as_number(tgen, dut="r1")
-    default_originate_config = {
-        "r1": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {
-                            "default_originate": {
-                                "r2": {
-                                    "route_map": "RMv4",
-                                }
-                            }
-                        }
-                    },
-                    "ipv6": {
-                        "unicast": {
-                            "default_originate": {
-                                "r2": {
-                                    "route_map": "RMv6",
-                                }
-                            }
-                        }
-                    },
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "After configuring default-originate command , verify default  routes are advertised on R2 "
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Delete prefix list using no prefix-list")
-    input_dict_3 = {
-        "r1": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step(
-        "Verify BGP RIB and FIB After deleting prefix-list , verify IPv4 and IPv6 default route got removed from DUT "
-    )
-    DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-                    }
-                ]
-            }
-        }
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed\n After deleteing prefix default route is not expected in FIB  \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n After deleteing prefix default route is not expected in RIB \n  Error: {}".format(
-            tc_name, result
-        )
-
-    step("Configure prefix-list and delete route-map using no route-map")
-    input_dict_3 = {
-        "r1": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step(
-        "After configuring the Prefixlist cross checking the BGP Default route is configured again , before deleting the route map"
-    )
-
-    DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-                    }
-                ]
-            }
-        }
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-            expected=True,
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-            expected=True,
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Deleting the routemap")
-    input_dict = {"r1": {"route_maps": ["RMv4", "RMv6"]}}
-    result = delete_route_maps(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify BGP RIB and FIB ,After deleting route-map , verify IPv4 and IPv6 default route got removed from DUT"
-    )
-    DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n After deteling route-map default route is not expected in FIB \nError: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n After deteling route-map default route is not expected in RIB \n Error: {}".format(
-            tc_name, result
-        )
-
-    write_test_footer(tc_name)
-
-
-def test_verify_bgp_default_originate_in_EBGP_with_route_map_p0(request):
-    """
-    test_verify_bgp_default_originate_in_EBGP_with_route_map_p0
-    """
-    tgen = get_topogen()
-    global BGP_CONVERGENCE
-    global topo
-    # test case name
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        check_router_status(tgen)
-    reset_config_on_routers(tgen)
-
-    if BGP_CONVERGENCE != True:
-        pytest.skip("skipped because of BGP Convergence failure")
-
-    step("Configure IPv4 and IPv6 , EBGP neighbor between R3 and R2")
-    step("Configure IPv4 and IPv6 IBGP neighbor between R3 and R4")
-    r0_local_as = topo["routers"]["r0"]["bgp"]["local_as"]
-    r1_local_as = topo["routers"]["r1"]["bgp"]["local_as"]
-    r2_local_as = topo["routers"]["r2"]["bgp"]["local_as"]
-    r3_local_as = topo["routers"]["r3"]["bgp"]["local_as"]
-    r4_local_as = topo["routers"]["r4"]["bgp"]["local_as"]
-
-    input_dict = {
-        "r0": {
-            "bgp": {
-                "local_as": r0_local_as,
-            }
-        },
-        "r1": {
-            "bgp": {
-                "local_as": r1_local_as,
-            }
-        },
-        "r2": {
-            "bgp": {
-                "local_as": r2_local_as,
-            }
-        },
-        "r3": {
-            "bgp": {
-                "local_as": 4000,
-            }
-        },
-        "r4": {
-            "bgp": {
-                "local_as": 4000,
-            }
-        },
-    }
-    result = modify_as_number(tgen, topo, input_dict)
-    try:
-        assert result is True
-    except AssertionError:
-        logger.info("Expected behaviour: {}".format(result))
-        logger.info("BGP config is not created because of invalid ASNs")
-    step("After changing the BGP AS Path Verify the BGP Convergence")
-    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error: {}".format(
-        BGP_CONVERGENCE
-    )
-
-    step(
-        "Configure 2 IPv4 and 2 IPv6, Static route on R4 with next-hop as Null0 IPv4 route Sv41, Sv42, IPv6 route Sv61 Sv62"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r4": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [NETWORK2_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = create_static_routes(tgen, static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-    step("verify IPv4 and IPv6 static route are configured and up on R4")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r4": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [NETWORK2_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r4", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure  redistribute static on IPv4 and IPv6 address family on R4 for R4 to R3 neighbo"
-    )
-    redistribute_static = {
-        "r4": {
-            "bgp": {
-                "address_family": {
-                    "ipv4": {"unicast": {"redistribute": [{"redist_type": "static"}]}},
-                    "ipv6": {"unicast": {"redistribute": [{"redist_type": "static"}]}},
-                }
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, redistribute_static)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("verify IPv4 and IPv6 static route are configured and up on R3")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r3": {
-                "static_routes": [
-                    {
-                        "network": [NETWORK1_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                    {
-                        "network": [NETWORK2_1[addr_type]],
-                        "next_hop": NEXT_HOP_IP[addr_type],
-                    },
-                ]
-            }
-        }
-        result = verify_fib_routes(tgen, addr_type, "r3", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-        result = verify_bgp_rib(tgen, addr_type, "r3", static_routes_input)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure IPv4 prefix-list Pv4 and and IPv6 prefix-list Pv6 on R3 so new route which is not present on R3"
-    )
-    input_dict_3 = {
-        "r3": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK3_1["ipv4"],
-                            "action": "permit",
-                        }
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK3_1["ipv6"],
-                            "action": "permit",
-                        }
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("verify IPv4 and IPv6 Prefix list got configured on R3")
-    input_dict = {"r3": {"prefix_lists": ["Pv4", "Pv6"]}}
-    result = verify_prefix_lists(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Configure IPv4 and IPv6 route-map ( RMv4 and RMv6 ) matching prefix-list (Pv4 and Pv6 ) respectively on R3"
-    )
-    input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "RMv4": [
-                    {
-                        "action": "permit",
-                        "seq_id": "1",
-                        "match": {"ipv4": {"prefix_lists": "Pv4"}},
-                    },
-                ],
-                "RMv6": [
-                    {
-                        "action": "permit",
-                        "seq_id": "1",
-                        "match": {"ipv6": {"prefix_lists": "Pv6"}},
-                    },
-                ],
-            }
-        }
-    }
-    result = create_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-    step(
-        "Taking the snapshot of the prefix count before configuring the default originate"
-    )
-    snapshot1 = get_prefix_count_route(tgen, topo, dut="r2", peer="r3")
-    step(
-        "Configure default-originate with IPv4 and IPv6  route-map (RMv4 and RMv6) on R3"
-    )
-    local_as = get_dut_as_number(tgen, dut="r3")
-    default_originate_config = {
-        "r3": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv4"}}}
-                    },
-                    "ipv6": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv6"}}}
-                    },
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("Verify the default route is NOT received in BGP RIB and FIB on R2 ")
-    step(
-        "After configuring default-originate command , verify default  routes are not Received on R2 "
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n Default route is not expected due to deny in prefix list \nError: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \nDefault route is not expected due to deny in prefix list\n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Add route Sv41, Sv42, IPv6 route Sv61 Sv62 on prefix list Pv4 and Pv6")
-    input_dict_3 = {
-        "r3": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step("Verify BGP default route for IPv4 and IPv6 is received on R2")
-
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Remove route  Sv41, Sv42, IPv6 route Sv61 Sv62 on prefix list Pv4 and Pv6")
-    input_dict_3 = {
-        "r3": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                            "delete": True,
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step(
-        "After Removing route  BGP default route for IPv4 and IPv6 is NOT received on R2"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n After Removing route in prefix list the default route is not expected in FIB \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n After Removing route in prefix list the default route is not expected in RIB\n Error: {}".format(
-            tc_name, result
-        )
-
-    step(" Add route Sv41, Sv42, IPv6 route Sv61 Sv62 on prefix list Pv4 and Pv6")
-    input_dict_3 = {
-        "r3": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step("Verify BGP default route for IPv4 and IPv6 is received on R2")
-
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Change IPv4 and IPv6 prefix-list permit and deny ")
-    input_dict_3 = {
-        "r3": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {"seqid": "1", "network": NETWORK1_1["ipv4"], "action": "deny"},
-                        {"seqid": "2", "network": NETWORK2_1["ipv4"], "action": "deny"},
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {"seqid": "1", "network": NETWORK1_1["ipv6"], "action": "deny"},
-                        {"seqid": "2", "network": NETWORK2_1["ipv6"], "action": "deny"},
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step("Verify BGP default route for IPv4 and IPv6 is not received on R2")
-
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n after denying the prefix list default route is not expected in FIB \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n after denying the prefix list default route is not expected in RIB \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Change IPv4 and IPv6 prefix-list deny to permit ")
-    input_dict_3 = {
-        "r3": {
-            "prefix_lists": {
-                "ipv4": {
-                    "Pv4": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv4"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv4"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-                "ipv6": {
-                    "Pv6": [
-                        {
-                            "seqid": "1",
-                            "network": NETWORK1_1["ipv6"],
-                            "action": "permit",
-                        },
-                        {
-                            "seqid": "2",
-                            "network": NETWORK2_1["ipv6"],
-                            "action": "permit",
-                        },
-                    ]
-                },
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
-    step("Verify BGP default route for IPv4 and IPv6 is  received on R2")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Taking the snapshot2 of the prefix count after configuring the default originate"
-    )
-    snapshot2 = get_prefix_count_route(tgen, topo, dut="r2", peer="r3")
-
-    step("verifying the prefix count incrementing or not ")
-    isIPv4prefix_incremented = False
-    isIPv6prefix_incremented = False
-    if snapshot1["ipv4_count"] < snapshot2["ipv4_count"]:
-        isIPv4prefix_incremented = True
-    if snapshot1["ipv6_count"] < snapshot2["ipv6_count"]:
-        isIPv6prefix_incremented = True
-
-    assert (
-        isIPv4prefix_incremented is True
-    ), "Testcase {} : Failed Error: IPV4 Prefix is not incremented on receiveing ".format(
-        tc_name
-    )
-
-    assert (
-        isIPv6prefix_incremented is True
-    ), "Testcase {} : Failed Error: IPV6 Prefix is not incremented on receiveing ".format(
-        tc_name
-    )
-
-    step(
-        "Configure another IPv4 and IPv6 route-map and match same prefix-list (Sv41, Sv42, IPv6 route Sv61 Sv62) with deny statement "
-    )
-    input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "RMv41": [
-                    {
-                        "action": "deny",
-                        "seq_id": "1",
-                        "match": {"ipv4": {"prefix_lists": "Pv4"}},
-                    },
-                ],
-                "RMv61": [
-                    {
-                        "action": "deny",
-                        "seq_id": "1",
-                        "match": {"ipv6": {"prefix_lists": "Pv6"}},
-                    },
-                ],
-            }
-        }
-    }
-    result = create_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("Attach route-map on IPv4 and IP6 BGP neighbor on fly")
-    local_as = get_dut_as_number(tgen, dut="r3")
-    default_originate_config = {
-        "r3": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv41"}}}
-                    },
-                    "ipv6": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv61"}}}
-                    },
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "After attaching route-map verify IPv4 and IPv6 default route is withdrawn from the R2"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step("Change the recently added Routemap from deny to permit")
-    input_dict_3 = {
-        "r3": {
-            "route_maps": {
-                "RMv41": [
-                    {
-                        "action": "permit",
-                        "seq_id": "1",
-                        "match": {"ipv4": {"prefix_lists": "Pv4"}},
-                    },
-                ],
-                "RMv61": [
-                    {
-                        "action": "permit",
-                        "seq_id": "1",
-                        "match": {"ipv6": {"prefix_lists": "Pv6"}},
-                    },
-                ],
-            }
-        }
-    }
-    result = create_route_maps(tgen, input_dict_3)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step("Verify IPv4 and IPv6 default route is advertised from the R2")
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Delete default-originate route-map command while configuring ( neighbor x.x.x default-originate) for IPv4 and IPv6 BGP neighbor "
-    )
-    """ Configuring the Default originate on neighbor  must remove the previously assigned  deault-originate with routemap config  """
-    local_as = get_dut_as_number(tgen, dut="r3")
-    default_originate_config = {
-        "r3": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {"unicast": {"default_originate": {"r2": {}}}},
-                    "ipv6": {"unicast": {"default_originate": {"r2": {}}}},
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify in running config from BGP that default-originate with route-map command is removed and default-originate command is still present and default route for IPv4 and IPv6 present in RIB and FIB"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Configure default-originate with conditional route-map command on IPv4 and IPv6 address family  "
-    )
-    local_as = get_dut_as_number(tgen, dut="r3")
-    default_originate_config = {
-        "r3": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv41"}}}
-                    },
-                    "ipv6": {
-                        "unicast": {"default_originate": {"r2": {"route_map": "RMv61"}}}
-                    },
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify in running config from BGP that default-originate with route-map command is present and default route for IPv4 and IPv6 present"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-    step(
-        "Delete default originate with 'no bgp default-originate' from IPV4 and IPV6 address family "
-    )
-    local_as = get_dut_as_number(tgen, dut="r3")
-    default_originate_config = {
-        "r3": {
-            "bgp": {
-                "local_as": local_as,
-                "address_family": {
-                    "ipv4": {
-                        "unicast": {"default_originate": {"r2": {"delete": True}}}
-                    },
-                    "ipv6": {
-                        "unicast": {"default_originate": {"r2": {"delete": True}}}
-                    },
-                },
-            }
-        }
-    }
-    result = create_router_bgp(tgen, topo, default_originate_config)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        " Verify in running config from BGP that default-originate complete CLI is removed for IPV4 and IPV6 address family and default originate routes got deleted"
-    )
-    for addr_type in ADDR_TYPES:
-        static_routes_input = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": [DEFAULT_ROUTES[addr_type]],
-                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-                    }
-                ]
-            }
-        }
-
-        result = verify_fib_routes(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n Default Route is not expected in FIB \nError: {}".format(
-            tc_name, result
-        )
-
-        result = verify_bgp_rib(
-            tgen,
-            addr_type,
-            "r2",
-            static_routes_input,
-            next_hop=DEFAULT_ROUTE_NXT_HOP_R3[addr_type],
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n Default Route is not expected in RIB\nError: {}".format(
-            tc_name, result
-        )
-
-    write_test_footer(tc_name)
-
-
 def test_verify_bgp_default_originate_route_map_in_OUT_p1(request):
     """
     test_verify_bgp_default_originate_route_map_in_OUT_p1
@@ -2688,7 +491,6 @@ def test_verify_bgp_default_originate_route_map_in_OUT_p1(request):
             {"network": NETWORK2_1["ipv6"], "nexthop": NEXT_HOP_IP["ipv4"]},
         ],
     }
-    sleep(10)
     result = verify_bgp_advertised_routes_from_neighbor(
         tgen, topo, dut="r4", peer="r3", expected_routes=expected_routes
     )
@@ -3163,7 +965,6 @@ def test_verify_bgp_default_originate_route_map_in_OUT_p1(request):
 
     write_test_footer(tc_name)
 
-
 def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
     """Verify BGP  default originate route-map with IN route-map"""
     tgen = get_topogen()
@@ -3495,7 +1296,6 @@ def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
             {"network": NETWORK2_1["ipv6"], "nexthop": NEXT_HOP_IP["ipv6"]},
         ],
     }
-    sleep(10)
     result = verify_bgp_received_routes_from_neighbor(
         tgen, topo, dut="r1", peer="r0", expected_routes=expected_routes
     )
@@ -3528,7 +1328,6 @@ def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
             {"network": "::/0", "nexthop": ""},
         ],
     }
-    sleep(10)
     result = verify_bgp_advertised_routes_from_neighbor(
         tgen, topo, dut="r1", peer="r2", expected_routes=expected_routes
     )
@@ -3589,7 +1388,6 @@ def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
         "ipv4": [{"network": NETWORK1_1["ipv4"], "nexthop": NEXT_HOP_IP["ipv4"]}],
         "ipv6": [{"network": NETWORK1_1["ipv6"], "nexthop": NEXT_HOP_IP["ipv4"]}],
     }
-    sleep(10)
     result = verify_bgp_received_routes_from_neighbor(
         tgen, topo, dut="r1", peer="r0", expected_routes=expected_routes
     )
@@ -3683,7 +1481,6 @@ def test_verify_bgp_default_originate_route_map_in_IN_p1(request):
             tc_name, result
         )
     write_test_footer(tc_name)
-
 
 def test_verify_default_originate_after_removing_default_originate_p1(request):
     """Verify BGP default route after removing default-originate"""
@@ -4445,6 +2242,195 @@ def test_verify_default_originate_after_removing_default_originate_p1(request):
         )
     write_test_footer(tc_name)
 
+def test_verify_default_originate_route_with_GR_p1(request):
+    """ "Verify default-originate route with GR "
+    """
+    tgen = get_topogen()
+    global BGP_CONVERGENCE
+    global topo
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+    reset_config_on_routers(tgen)
+
+    if BGP_CONVERGENCE != True:
+        pytest.skip("skipped because of BGP Convergence failure")
+
+
+    step("Configure IPV4 and IPV6 IBGP between R1 and R2 ")
+    step("Configure IPV4 and IPV6 EBGP between R2 to R3 ")
+    r0_local_as = topo['routers']['r0']['bgp']['local_as']
+    r1_local_as = topo['routers']['r1']['bgp']['local_as']
+    r2_local_as = topo['routers']['r2']['bgp']['local_as']
+    r3_local_as = topo['routers']['r3']['bgp']['local_as']
+    r4_local_as = topo['routers']['r4']['bgp']['local_as']
+    input_dict = {
+        "r0": {
+            "bgp": {
+                "local_as": r0_local_as,
+            }
+        },
+        "r1": {
+            "bgp": {
+                "local_as": 1000,
+            }
+        },
+        "r2": {
+            "bgp": {
+                "local_as": 1000,
+            }
+        },
+        "r3": {
+            "bgp": {
+                "local_as": r3_local_as,
+            }
+        },
+        "r4": {
+            "bgp": {
+                "local_as": r4_local_as,
+            }
+        },
+    }
+    result = modify_as_number(tgen, topo, input_dict)
+    try:
+        assert result is True
+    except AssertionError:
+        logger.info("Expected behaviour: {}".format(result))
+        logger.info("BGP config is not created because of invalid ASNs")
+    step("After changing the BGP AS Path Verify the BGP Convergence")
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
+    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error: {}".format(
+        BGP_CONVERGENCE
+    )
+
+    step(
+        "Configure per peer Graceful restart on R2 ( restarting router) and  R3  helper router "
+    )
+    input_dict = {
+        "r2": {
+            "bgp": {
+                "local_as": get_dut_as_number(tgen, "r2"),
+                "graceful-restart": {
+                    "graceful-restart": True,
+                    "preserve-fw-state": True,
+                },
+            }
+        },
+        "r3": {
+            "bgp": {
+                "local_as": get_dut_as_number(tgen, "r3"),
+                "graceful-restart": {"graceful-restart-helper": True},
+            }
+        },
+    }
+
+    configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r2", peer="r3")
+
+    step("verify Graceful restart at R2")
+    for addr_type in ADDR_TYPES:
+        result = verify_graceful_restart(
+            tgen, topo, addr_type, input_dict, dut="r2", peer="r3"
+        )
+        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    step(
+        "Configure default-originate on R1 for R1-R2 neighbor for IPv4 and IPv6 BGP peers "
+    )
+    local_as = get_dut_as_number(tgen, dut="r1")
+    default_originate_config = {
+        "r1": {
+            "bgp": {
+                "local_as": local_as,
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "default_originate":{
+                                "r2":{
+
+                                }
+
+                            }
+
+                        }
+                    }, "ipv6": {
+                        "unicast": {
+                            "default_originate":{
+                                "r2":{
+
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    result = create_router_bgp(tgen, topo, default_originate_config)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result)
+
+    step(
+        "R2 received default-originate routes and advertised it to R3 , verify on R2 and R3"
+    )
+    DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
+    step(
+        "After configuring default-originate command , verify default  routes are advertised on R2 "
+    )
+    for addr_type in ADDR_TYPES:
+        static_routes_input = {
+            "r2": {
+                "static_routes": [
+                    {
+                        "network": [DEFAULT_ROUTES[addr_type]],
+                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+                    }
+                ]
+            }
+        }
+
+        result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+
+    step(" Kill BGPd session on R2")
+    kill_router_daemons(tgen, "r2", ["bgpd"])
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    step("verify default  route is relearned after clear bgp  on R2 on BGP RIB and")
+    for addr_type in ADDR_TYPES:
+        static_routes_input = {
+            "r2": {
+                "static_routes": [
+                    {
+                        "network": [DEFAULT_ROUTES[addr_type]],
+                        "next_hop": DEFAULT_ROUTE_NXT_HOP_R1[addr_type],
+                    }
+                ]
+            }
+        }
+
+        result = verify_fib_routes(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        result = verify_bgp_rib(tgen, addr_type, "r2", static_routes_input,next_hop=DEFAULT_ROUTE_NXT_HOP_R1[addr_type])
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+    write_test_footer(tc_name)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
