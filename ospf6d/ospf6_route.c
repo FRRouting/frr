@@ -1550,7 +1550,7 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	int arg_end = use_json ? (argc - 1) : argc;
 	json_object *json = NULL;
 
-	memset(&prefix, 0, sizeof(struct prefix));
+	memset(&prefix, 0, sizeof(prefix));
 
 	if (use_json)
 		json = json_object_new_object();
@@ -1723,9 +1723,9 @@ int ospf6_linkstate_table_show(struct vty *vty, int idx_ipv4, int argc,
 	int i, ret;
 	struct prefix router, id, prefix;
 
-	memset(&router, 0, sizeof(struct prefix));
-	memset(&id, 0, sizeof(struct prefix));
-	memset(&prefix, 0, sizeof(struct prefix));
+	memset(&router, 0, sizeof(router));
+	memset(&id, 0, sizeof(id));
+	memset(&prefix, 0, sizeof(prefix));
 
 	for (i = idx_ipv4; i < argc; i++) {
 		if (strmatch(argv[i]->text, "detail")) {

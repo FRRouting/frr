@@ -436,7 +436,6 @@ def test_restart_frr_p2(request):
     step("Activate same IPv6 nbr from IPv4 unicast family")
     step("Enable cap ext nh on r1 and r2 and activate in ipv4 addr family")
     step("Verify bgp convergence as ipv6 nbr is enabled on ipv4 addr family.")
-    reset_config_on_routers(tgen)
     bgp_convergence = verify_bgp_convergence(tgen, topo)
     assert bgp_convergence is True, "Testcase {} :Failed \n Error: {}".format(
         tc_name, bgp_convergence

@@ -124,7 +124,7 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 
 	/* Prepare socket for asynchronous messages */
 	/* Initialize async address structure */
-	memset(&myaddr_async, 0, sizeof(struct sockaddr_in));
+	memset(&myaddr_async, 0, sizeof(myaddr_async));
 	myaddr_async.sin_family = AF_INET;
 	myaddr_async.sin_addr.s_addr = htonl(INADDR_ANY);
 	myaddr_async.sin_port = htons(syncport + 1);
@@ -219,7 +219,7 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 	   want the sync port number on a fixed port number. The reverse
 	   async channel will be at this port+1 */
 
-	memset(&myaddr_sync, 0, sizeof(struct sockaddr_in));
+	memset(&myaddr_sync, 0, sizeof(myaddr_sync));
 	myaddr_sync.sin_family = AF_INET;
 	myaddr_sync.sin_port = htons(syncport);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN

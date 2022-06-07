@@ -200,25 +200,29 @@ Debugging
 Displaying RPKI
 ---------------
 
-.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
+.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [json]
 
    Display validated prefixes received from the cache servers filtered
    by the specified prefix.
 
-.. clicmd:: show rpki as-number ASN
+.. clicmd:: show rpki as-number ASN [json]
 
    Display validated prefixes received from the cache servers filtered
    by ASN.
 
-.. clicmd:: show rpki prefix-table
+.. clicmd:: show rpki prefix-table [json]
 
    Display all validated prefix to origin AS mappings/records which have been
    received from the cache servers and stored in the router. Based on this data,
    the router validates BGP Updates.
 
-.. clicmd:: show rpki cache-connection
+.. clicmd:: show rpki cache-server [json]
 
    Display all configured cache servers, whether active or not.
+
+.. clicmd:: show rpki cache-connection [json]
+
+   Display all cache connections, and show which is connected or not.
 
 .. clicmd:: show bgp [afi] [safi] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> rpki <valid|invalid|notfound>
 

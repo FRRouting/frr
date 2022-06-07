@@ -52,6 +52,7 @@
 #include "pim_nht.h"
 #include "pim_sock.h"
 #include "pim_ssm.h"
+#include "pim_static.h"
 #include "pim_addr.h"
 #include "pim_static.h"
 
@@ -347,6 +348,19 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 int pim_process_ip_pim_cmd(struct vty *vty)
 {
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
+				      "true");
+	else
+		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
+				      "false");
 
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
@@ -2110,6 +2124,10 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 						       sec_list);
 			}
 
+			if (pim_ifp->pim_passive_enable)
+				json_object_boolean_true_add(json_row,
+							     "passive");
+
 			/* PIM neighbors */
 			if (pim_ifp->pim_neighbor_list->count) {
 				json_pim_neighbors = json_object_new_object();
@@ -2276,6 +2294,12 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 			} else {
 				vty_out(vty, "Address    : %pPAs\n", &ifaddr);
 			}
+
+			if (pim_ifp->pim_passive_enable)
+				vty_out(vty, "Passive    : %s\n",
+					(pim_ifp->pim_passive_enable) ? "yes"
+								      : "no");
+
 			vty_out(vty, "\n");
 
 			/* PIM neighbors */
@@ -3539,4 +3563,177 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 					    sg_sw_mroute_cnt +
 					    sg_hw_mroute_cnt);
 	}
+}
+
+int clear_ip_mroute_count_command(struct vty *vty, const char *name)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *sr;
+	struct vrf *v = pim_cmd_lookup(vty, name);
+	struct pim_instance *pim;
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = v->info;
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
+		if (!c_oil->installed)
+			continue;
+
+		pim_mroute_update_counters(c_oil);
+		c_oil->cc.origpktcnt = c_oil->cc.pktcnt;
+		c_oil->cc.origbytecnt = c_oil->cc.bytecnt;
+		c_oil->cc.origwrong_if = c_oil->cc.wrong_if;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
+		if (!sr->c_oil.installed)
+			continue;
+
+		pim_mroute_update_counters(&sr->c_oil);
+
+		sr->c_oil.cc.origpktcnt = sr->c_oil.cc.pktcnt;
+		sr->c_oil.cc.origbytecnt = sr->c_oil.cc.bytecnt;
+		sr->c_oil.cc.origwrong_if = sr->c_oil.cc.wrong_if;
+	}
+	return CMD_SUCCESS;
+}
+
+struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
+{
+	struct vrf *vrf;
+
+	if (name)
+		vrf = vrf_lookup_by_name(name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf)
+		vty_out(vty, "Specified VRF: %s does not exist\n", name);
+
+	return vrf;
+}
+
+void clear_mroute(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+	struct interface *ifp;
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct pim_ifchannel *ch;
+
+		if (!pim_ifp)
+			continue;
+
+		/* deleting all ifchannels */
+		while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
+			ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
+
+			pim_ifchannel_delete(ch);
+		}
+
+#if PIM_IPV == 4
+		/* clean up all igmp groups */
+		struct gm_group *grp;
+
+		if (pim_ifp->gm_group_list) {
+			while (pim_ifp->gm_group_list->count) {
+				grp = listnode_head(pim_ifp->gm_group_list);
+				igmp_group_delete(grp);
+			}
+		}
+#endif
+	}
+
+	/* clean up all upstreams*/
+	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
+		pim_upstream_del(pim, up, __func__);
+}
+
+void clear_pim_statistics(struct pim_instance *pim)
+{
+	struct interface *ifp;
+
+	pim->bsm_rcvd = 0;
+	pim->bsm_sent = 0;
+	pim->bsm_dropped = 0;
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
+		pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
+		pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
+	}
+}
+
+int pim_debug_pim_cmd(void)
+{
+	PIM_DO_DEBUG_PIM_EVENTS;
+	PIM_DO_DEBUG_PIM_PACKETS;
+	PIM_DO_DEBUG_PIM_TRACE;
+	PIM_DO_DEBUG_MSDP_EVENTS;
+	PIM_DO_DEBUG_MSDP_PACKETS;
+	PIM_DO_DEBUG_BSM;
+	PIM_DO_DEBUG_VXLAN;
+	return CMD_SUCCESS;
+}
+
+int pim_no_debug_pim_cmd(void)
+{
+	PIM_DONT_DEBUG_PIM_EVENTS;
+	PIM_DONT_DEBUG_PIM_PACKETS;
+	PIM_DONT_DEBUG_PIM_TRACE;
+	PIM_DONT_DEBUG_MSDP_EVENTS;
+	PIM_DONT_DEBUG_MSDP_PACKETS;
+
+	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	return CMD_SUCCESS;
+}
+
+int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
+			      const char *registers, struct vty *vty)
+{
+	if (hello) {
+		PIM_DO_DEBUG_PIM_HELLO;
+		vty_out(vty, "PIM Hello debugging is on\n");
+	} else if (joins) {
+		PIM_DO_DEBUG_PIM_J_P;
+		vty_out(vty, "PIM Join/Prune debugging is on\n");
+	} else if (registers) {
+		PIM_DO_DEBUG_PIM_REG;
+		vty_out(vty, "PIM Register debugging is on\n");
+	} else {
+		PIM_DO_DEBUG_PIM_PACKETS;
+		vty_out(vty, "PIM Packet debugging is on\n");
+	}
+	return CMD_SUCCESS;
+}
+
+int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
+				 const char *registers, struct vty *vty)
+{
+	if (hello) {
+		PIM_DONT_DEBUG_PIM_HELLO;
+		vty_out(vty, "PIM Hello debugging is off\n");
+	} else if (joins) {
+		PIM_DONT_DEBUG_PIM_J_P;
+		vty_out(vty, "PIM Join/Prune debugging is off\n");
+	} else if (registers) {
+		PIM_DONT_DEBUG_PIM_REG;
+		vty_out(vty, "PIM Register debugging is off\n");
+	} else {
+		PIM_DONT_DEBUG_PIM_PACKETS;
+		vty_out(vty, "PIM Packet debugging is off\n");
+	}
+
+	return CMD_SUCCESS;
 }

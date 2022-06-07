@@ -1573,7 +1573,7 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 	vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
 	svi_if = zl3vni_map_to_svi_if(zl3vni);
 
-	memset(&key, 0, sizeof(struct fpm_mac_info_t));
+	memset(&key, 0, sizeof(key));
 
 	memcpy(&key.macaddr, &rmac->macaddr, ETH_ALEN);
 	key.vni = zl3vni->vni;

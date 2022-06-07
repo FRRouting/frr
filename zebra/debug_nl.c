@@ -26,12 +26,14 @@
 #include <linux/rtnetlink.h>
 #include <net/if_arp.h>
 #include <linux/fib_rules.h>
+#include <linux/lwtunnel.h>
 
 #include <stdio.h>
 #include <stdint.h>
 
 #include "zebra/rt_netlink.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/vxlan.h"
 
 const char *nlmsg_type2str(uint16_t type)
 {
@@ -90,6 +92,13 @@ const char *nlmsg_type2str(uint16_t type)
 		return "DELNEXTHOP";
 	case RTM_GETNEXTHOP:
 		return "GETNEXTHOP";
+
+	case RTM_NEWTUNNEL:
+		return "NEWTUNNEL";
+	case RTM_DELTUNNEL:
+		return "DELTUNNEL";
+	case RTM_GETTUNNEL:
+		return "GETTUNNEL";
 
 	case RTM_NEWNETCONF:
 		return "RTM_NEWNETCONF";
@@ -452,6 +461,12 @@ const char *rtm_protocol2str(int type)
 		return "MRT";
 	case RTPROT_ZEBRA:
 		return "ZEBRA";
+	case RTPROT_BGP:
+		return "BGP";
+	case RTPROT_ISIS:
+		return "ISIS";
+	case RTPROT_OSPF:
+		return "OSPF";
 	case RTPROT_BIRD:
 		return "BIRD";
 	case RTPROT_DNROUTED:
@@ -1234,6 +1249,80 @@ next_rta:
 	goto next_rta;
 }
 
+static void nltnl_dump(struct tunnel_msg *tnlm, size_t msglen)
+{
+	struct rtattr *attr;
+	vni_t vni_start = 0, vni_end = 0;
+	struct rtattr *ttb[VXLAN_VNIFILTER_ENTRY_MAX + 1];
+	uint8_t rta_type;
+
+	attr = TUNNEL_RTA(tnlm);
+next_attr:
+	/* Check the header for valid length and for outbound access. */
+	if (RTA_OK(attr, msglen) == 0)
+		return;
+
+	rta_type = attr->rta_type & NLA_TYPE_MASK;
+
+	if (rta_type != VXLAN_VNIFILTER_ENTRY) {
+		attr = RTA_NEXT(attr, msglen);
+		goto next_attr;
+	}
+
+	memset(ttb, 0, sizeof(ttb));
+
+	netlink_parse_rtattr_flags(ttb, VXLAN_VNIFILTER_ENTRY_MAX,
+				   RTA_DATA(attr), RTA_PAYLOAD(attr),
+				   NLA_F_NESTED);
+
+	if (ttb[VXLAN_VNIFILTER_ENTRY_START])
+		vni_start =
+			*(uint32_t *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_START]);
+
+	if (ttb[VXLAN_VNIFILTER_ENTRY_END])
+		vni_end = *(uint32_t *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_END]);
+	zlog_debug("  vni_start %u, vni_end %u", vni_start, vni_end);
+
+	attr = RTA_NEXT(attr, msglen);
+	goto next_attr;
+}
+
+static const char *lwt_type2str(uint16_t type)
+{
+	switch (type) {
+	case LWTUNNEL_ENCAP_NONE:
+		return "NONE";
+	case LWTUNNEL_ENCAP_MPLS:
+		return "MPLS";
+	case LWTUNNEL_ENCAP_IP:
+		return "IPv4";
+	case LWTUNNEL_ENCAP_ILA:
+		return "ILA";
+	case LWTUNNEL_ENCAP_IP6:
+		return "IPv6";
+	case LWTUNNEL_ENCAP_SEG6:
+		return "SEG6";
+	case LWTUNNEL_ENCAP_BPF:
+		return "BPF";
+	case LWTUNNEL_ENCAP_SEG6_LOCAL:
+		return "SEG6_LOCAL";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static const char *nhg_type2str(uint16_t type)
+{
+	switch (type) {
+	case NEXTHOP_GRP_TYPE_MPATH:
+		return "MULTIPATH";
+	case NEXTHOP_GRP_TYPE_RES:
+		return "RESILIENT MULTIPATH";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 static void nlnh_dump(struct nhmsg *nhm, size_t msglen)
 {
 	struct rtattr *rta;
@@ -1275,9 +1364,12 @@ next_rta:
 				   nhgrp[i].weight);
 		break;
 	case NHA_ENCAP_TYPE:
+		u16v = *(uint16_t *)RTA_DATA(rta);
+		zlog_debug("      %s", lwt_type2str(u16v));
+		break;
 	case NHA_GROUP_TYPE:
 		u16v = *(uint16_t *)RTA_DATA(rta);
-		zlog_debug("      %d", u16v);
+		zlog_debug("      %s", nhg_type2str(u16v));
 		break;
 	case NHA_BLACKHOLE:
 		/* NOTHING */
@@ -1483,6 +1575,7 @@ void nl_dump(void *msg, size_t msglen)
 	struct nhmsg *nhm;
 	struct netconfmsg *ncm;
 	struct ifinfomsg *ifi;
+	struct tunnel_msg *tnlm;
 	struct fib_rule_hdr *frh;
 	char fbuf[128];
 	char ibuf[128];
@@ -1598,6 +1691,18 @@ next_header:
 			nh_flags2str(nhm->nh_flags, fbuf, sizeof(fbuf)));
 		nlnh_dump(nhm, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*nhm)));
 		break;
+
+	case RTM_NEWTUNNEL:
+	case RTM_DELTUNNEL:
+	case RTM_GETTUNNEL:
+		tnlm = NLMSG_DATA(nlmsg);
+		zlog_debug("  tnlm [family=(%d) %s ifindex=%d ", tnlm->family,
+			   af_type2str(tnlm->family), tnlm->ifindex);
+		nltnl_dump(tnlm,
+			   nlmsg->nlmsg_len -
+				   NLMSG_LENGTH(sizeof(struct tunnel_msg)));
+		break;
+
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:

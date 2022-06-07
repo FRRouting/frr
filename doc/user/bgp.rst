@@ -967,6 +967,13 @@ However, it MUST defer route selection for an address family until it either.
    After changing this parameter, you have to reset the peers in order to advertise
    N-bit in Graceful Restart capability.
 
+   Without Graceful-Restart Notification capability (N-bit not set), GR is not
+   activated when receiving CEASE/HOLDTIME expire notifications.
+
+   When sending ``CEASE/Administrative Reset`` (``clear bgp``), the session is closed
+   and routes are not retained. When N-bit is set and ``bgp hard-administrative-reset``
+   is turned off Graceful-Restart is activated and routes are retained.
+
    Enabled by default.
 
 .. _bgp-per-peer-graceful-restart:
@@ -4006,6 +4013,11 @@ it's the AS-Path, communities, and the path selection reason. The default
 behavior in BGP is not to send this data. If the routes were sent to zebra and
 the option is changed, bgpd doesn't reinstall the routes to comply with the new
 setting.
+
+.. clicmd:: bgp session-dscp (0-63)
+
+This command allows bgp to control, at a global level, the TCP dscp values
+in the TCP header.
 
 .. _bgp-suppress-fib:
 

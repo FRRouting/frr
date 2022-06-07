@@ -579,7 +579,7 @@ static void ospf6_disable(struct ospf6 *o)
 
 void ospf6_master_init(struct thread_master *master)
 {
-	memset(&ospf6_master, 0, sizeof(struct ospf6_master));
+	memset(&ospf6_master, 0, sizeof(ospf6_master));
 
 	om6 = &ospf6_master;
 	om6->ospf6 = list_new();
@@ -1372,9 +1372,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		} else
 			json_object_boolean_false_add(json, "spfHasRun");
 
-
-		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
-		if (o->t_spf_calc) {
+		if (thread_is_scheduled(o->t_spf_calc)) {
 			long time_store;
 
 			json_object_boolean_true_add(json, "spfTimerActive");
@@ -1467,7 +1465,9 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 
 		threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
 		vty_out(vty, " SPF timer %s%s\n",
-			(o->t_spf_calc ? "due in " : "is "), buf);
+			(thread_is_scheduled(o->t_spf_calc) ? "due in "
+							    : "is "),
+			buf);
 
 		if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER))
 			vty_out(vty, " Router Is Stub Router\n");
@@ -1756,14 +1756,10 @@ DEFUN(show_ipv6_ospf6_route_type_detail, show_ipv6_ospf6_route_type_detail_cmd,
 
 bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p)
 {
-	struct in6_addr addr_zero;
-
-	memset(&addr_zero, 0, sizeof(struct in6_addr));
-
-	 /* Default prefix validation*/
-	if ((is_default_prefix(p)) ||
-	    (!memcmp(&p->u.prefix6, &addr_zero, sizeof(struct in6_addr)))) {
-		vty_out(vty, "Default address should not be configured as summary address.\n");
+	/* Default prefix validation*/
+	if (is_default_prefix(p)) {
+		vty_out(vty,
+			"Default address should not be configured as summary address.\n");
 		return false;
 	}
 

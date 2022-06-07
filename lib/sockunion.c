@@ -107,7 +107,7 @@ static void sockunion_normalise_mapped(union sockunion *su)
 
 	if (su->sa.sa_family == AF_INET6
 	    && IN6_IS_ADDR_V4MAPPED(&su->sin6.sin6_addr)) {
-		memset(&sin, 0, sizeof(struct sockaddr_in));
+		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_port = su->sin6.sin6_port;
 		memcpy(&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);

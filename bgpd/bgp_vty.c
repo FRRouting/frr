@@ -1554,7 +1554,7 @@ DEFUN (no_router_bgp,
 						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST) ||
 				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
 						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))) ||
-				    (tmp_bgp->vnihash && hashcount(tmp_bgp->vnihash))) {
+				    (hashcount(tmp_bgp->vnihash))) {
 					vty_out(vty,
 						"%% Cannot delete default BGP instance. Dependent VRF instances exist\n");
 					return CMD_WARNING_CONFIG_FAILED;
@@ -1568,6 +1568,32 @@ DEFUN (no_router_bgp,
 	return CMD_SUCCESS;
 }
 
+/* bgp session-dscp */
+
+DEFPY (bgp_session_dscp,
+       bgp_session_dscp_cmd,
+       "bgp session-dscp (0-63)$dscp",
+       BGP_STR
+       "Override default (C6) bgp TCP session DSCP value\n"
+       "Manually configured dscp parameter\n")
+{
+	bm->tcp_dscp = dscp << 2;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_session_dscp,
+       no_bgp_session_dscp_cmd,
+       "no bgp session-dscp [(0-63)]",
+       NO_STR
+       BGP_STR
+       "Override default (C6) bgp TCP session DSCP value\n"
+       "Manually configured dscp parameter\n")
+{
+	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
+
+	return CMD_SUCCESS;
+}
 
 /* BGP router-id.  */
 
@@ -1614,49 +1640,72 @@ DEFPY(bgp_community_alias, bgp_community_alias_cmd,
       "Community (AA:BB or AA:BB:CC)\n"
       "Alias name\n")
 {
-	struct community_alias ca1;
-	struct community_alias ca2;
+	struct community_alias ca = {};
 	struct community_alias *lookup_community;
 	struct community_alias *lookup_alias;
+	struct community *comm;
+	struct lcommunity *lcomm;
+	uint8_t invalid = 0;
 
-	if (!community_str2com(community) && !lcommunity_str2com(community)) {
+	comm = community_str2com(community);
+	if (!comm)
+		invalid++;
+	community_free(&comm);
+
+	lcomm = lcommunity_str2com(community);
+	if (!lcomm)
+		invalid++;
+	lcommunity_free(&lcomm);
+
+	if (invalid > 1) {
 		vty_out(vty, "Invalid community format\n");
 		return CMD_WARNING;
 	}
 
-	memset(&ca1, 0, sizeof(ca1));
-	memset(&ca2, 0, sizeof(ca2));
-	strlcpy(ca1.community, community, sizeof(ca1.community));
-	strlcpy(ca1.alias, alias_name, sizeof(ca1.alias));
+	strlcpy(ca.community, community, sizeof(ca.community));
+	strlcpy(ca.alias, alias_name, sizeof(ca.alias));
 
-	lookup_community = bgp_ca_community_lookup(&ca1);
-	lookup_alias = bgp_ca_alias_lookup(&ca1);
+	lookup_community = bgp_ca_community_lookup(&ca);
+	lookup_alias = bgp_ca_alias_lookup(&ca);
 
 	if (no) {
-		bgp_ca_alias_delete(&ca1);
-		bgp_ca_community_delete(&ca1);
+		bgp_ca_alias_delete(&ca);
+		bgp_ca_community_delete(&ca);
 	} else {
 		if (lookup_alias) {
 			/* Lookup if community hash table has an item
 			 * with the same alias name.
 			 */
-			strlcpy(ca2.community, lookup_alias->community,
-				sizeof(ca2.community));
-			if (bgp_ca_community_lookup(&ca2)) {
+			strlcpy(ca.community, lookup_alias->community,
+				sizeof(ca.community));
+			if (bgp_ca_community_lookup(&ca)) {
 				vty_out(vty,
 					"community (%s) already has this alias (%s)\n",
 					lookup_alias->community,
 					lookup_alias->alias);
 				return CMD_WARNING;
 			}
-			bgp_ca_alias_delete(&ca1);
+			bgp_ca_alias_delete(&ca);
 		}
 
-		if (lookup_community)
-			bgp_ca_community_delete(&ca1);
+		if (lookup_community) {
+			/* Lookup if alias hash table has an item
+			 * with the same community.
+			 */
+			strlcpy(ca.alias, lookup_community->alias,
+				sizeof(ca.alias));
+			if (bgp_ca_alias_lookup(&ca)) {
+				vty_out(vty,
+					"alias (%s) already has this community (%s)\n",
+					lookup_community->alias,
+					lookup_community->community);
+				return CMD_WARNING;
+			}
+			bgp_ca_community_delete(&ca);
+		}
 
-		bgp_ca_alias_insert(&ca1);
-		bgp_ca_community_insert(&ca1);
+		bgp_ca_alias_insert(&ca);
+		bgp_ca_community_insert(&ca);
 	}
 
 	return CMD_SUCCESS;
@@ -1974,8 +2023,8 @@ DEFUN (bgp_maxmed_onstartup,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx = 0;
 
-	argv_find(argv, argc, "(5-86400)", &idx);
-	bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
+	if (argv_find(argv, argc, "(5-86400)", &idx))
+		bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
 	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		bgp->maxmed_onstartup_value = strtoul(argv[idx]->arg, NULL, 10);
 	else
@@ -2275,9 +2324,12 @@ DEFUN (bgp_coalesce_time,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	int idx = 0;
-	argv_find(argv, argc, "(0-4294967295)", &idx);
+
 	bgp->heuristic_coalesce = false;
-	bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
+
 	return CMD_SUCCESS;
 }
 
@@ -17123,6 +17175,10 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
+	/* BGP session DSCP value */
+	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
+		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -17825,6 +17881,10 @@ void bgp_vty_init(void)
 
 	/* "no router bgp" commands. */
 	install_element(CONFIG_NODE, &no_router_bgp_cmd);
+
+	/* "bgp session-dscp command */
+	install_element(CONFIG_NODE, &bgp_session_dscp_cmd);
+	install_element(CONFIG_NODE, &no_bgp_session_dscp_cmd);
 
 	/* "bgp router-id" commands. */
 	install_element(BGP_NODE, &bgp_router_id_cmd);
@@ -19243,8 +19303,7 @@ DEFUN (community_list_standard,
 	int style = COMMUNITY_LIST_STANDARD;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19292,8 +19351,7 @@ DEFUN (no_community_list_standard_all,
 	char *seq = NULL;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19356,8 +19414,7 @@ DEFUN (community_list_expanded_all,
 	int style = COMMUNITY_LIST_EXPANDED;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19406,8 +19463,7 @@ DEFUN (no_community_list_expanded_all,
 	int style = COMMUNITY_LIST_EXPANDED;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;

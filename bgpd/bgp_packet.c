@@ -122,8 +122,47 @@ void bgp_packet_set_size(struct stream *s)
  */
 static void bgp_packet_add(struct peer *peer, struct stream *s)
 {
+	intmax_t delta;
+	uint32_t holdtime;
+
 	frr_with_mutex(&peer->io_mtx) {
+		/* if the queue is empty, reset the "last OK" timestamp to
+		 * now, otherwise if we write another packet immediately
+		 * after it'll get confused
+		 */
+		if (!stream_fifo_count_safe(peer->obuf))
+			peer->last_sendq_ok = bgp_clock();
+
 		stream_fifo_push(peer->obuf, s);
+
+		delta = bgp_clock() - peer->last_sendq_ok;
+		holdtime = atomic_load_explicit(&peer->holdtime,
+						memory_order_relaxed);
+
+		/* Note that when we're here, we're adding some packet to the
+		 * OutQ.  That includes keepalives when there is nothing to
+		 * do, so there's a guarantee we pass by here once in a while.
+		 *
+		 * That implies there is no need to go set up another separate
+		 * timer that ticks down SendHoldTime, as we'll be here sooner
+		 * or later anyway and will see the checks below failing.
+		 */
+		if (!holdtime) {
+			/* no holdtime, do nothing. */
+		} else if (delta > 2 * (intmax_t)holdtime) {
+			flog_err(
+				EC_BGP_SENDQ_STUCK_PROPER,
+				"%s has not made any SendQ progress for 2 holdtimes, terminating session",
+				peer->host);
+			BGP_EVENT_ADD(peer, TCP_fatal_error);
+		} else if (delta > (intmax_t)holdtime &&
+			   bgp_clock() - peer->last_sendq_warn > 5) {
+			flog_warn(
+				EC_BGP_SENDQ_STUCK_WARN,
+				"%s has not made any SendQ progress for 1 holdtime, peer overloaded?",
+				peer->host);
+			peer->last_sendq_warn = bgp_clock();
+		}
 	}
 }
 
@@ -694,7 +733,6 @@ static void bgp_write_notify(struct peer *peer)
 
 	/* Type should be notify. */
 	atomic_fetch_add_explicit(&peer->notify_out, 1, memory_order_relaxed);
-	peer->notify_out++;
 
 	/* Double start timer. */
 	peer->v_start *= 2;
@@ -748,6 +786,13 @@ struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
 	return bn;
 }
 
+/* Check if Graceful-Restart N-bit is exchanged */
+bool bgp_has_graceful_restart_notification(struct peer *peer)
+{
+	return CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) &&
+	       CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+}
+
 /*
  * Check if to send BGP CEASE Notification/Hard Reset?
  */
@@ -757,8 +802,7 @@ bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
 	/* When the "N" bit has been exchanged, a Hard Reset message is used to
 	 * indicate to the peer that the session is to be fully terminated.
 	 */
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) ||
-	    !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV))
+	if (!bgp_has_graceful_restart_notification(peer))
 		return false;
 
 	/*
@@ -797,8 +841,7 @@ bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
 	/* When the "N" bit has been exchanged, a Hard Reset message is used to
 	 * indicate to the peer that the session is to be fully terminated.
 	 */
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) ||
-	    !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV))
+	if (!bgp_has_graceful_restart_notification(peer))
 		return false;
 
 	if (code == BGP_NOTIFY_CEASE && subcode == BGP_NOTIFY_CEASE_HARD_RESET)
@@ -1710,7 +1753,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* Set initial values. */
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
@@ -2094,6 +2137,13 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
+	/* If Graceful-Restart N-bit (Notification) is exchanged,
+	 * and it's not a Hard Reset, let's retain the routes.
+	 */
+	if (bgp_has_graceful_restart_notification(peer) && !hard_reset &&
+	    CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+		SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
 							  peer->bgp->peer);
@@ -2249,8 +2299,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					 * to maximise debug information.
 					 */
 					int ok;
-					memset(&orfp, 0,
-					       sizeof(struct orf_prefix));
+					memset(&orfp, 0, sizeof(orfp));
 					common = *p_pnt++;
 					/* after ++: p_pnt <= p_end */
 					if (common

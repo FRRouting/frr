@@ -68,9 +68,12 @@ struct pim_secondary_addr {
 	enum pim_secondary_addr_flags flags;
 };
 
+struct gm_if;
+
 struct pim_interface {
 	bool pim_enable : 1;
 	bool pim_can_disable_join_suppression : 1;
+	bool pim_passive_enable : 1;
 
 	bool igmp_enable : 1;
 
@@ -89,6 +92,7 @@ struct pim_interface {
 					 * address of the interface */
 
 	int igmp_version;		     /* IGMP version */
+	int mld_version;
 	int gm_default_robustness_variable;  /* IGMP or MLD QRV */
 	int gm_default_query_interval;       /* IGMP or MLD secs between general
 						  queries */
@@ -109,6 +113,8 @@ struct pim_interface {
 	struct list *gm_join_list;   /* list of struct IGMP or MLD join */
 	struct list *gm_group_list;  /* list of struct IGMP or MLD group */
 	struct hash *gm_group_hash;
+
+	struct gm_if *mld;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct thread *t_pim_sock_read; /* thread for reading PIM socket */

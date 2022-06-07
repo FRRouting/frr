@@ -52,6 +52,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 
 int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
+int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable);
 int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str);
 int pim_process_no_ip_pim_drprio_cmd(struct vty *vty);
 int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
@@ -120,6 +121,16 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 		       json_object *json);
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 			 json_object *json);
+int clear_ip_mroute_count_command(struct vty *vty, const char *name);
+struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
+void clear_mroute(struct pim_instance *pim);
+void clear_pim_statistics(struct pim_instance *pim);
+int pim_debug_pim_cmd(void);
+int pim_no_debug_pim_cmd(void);
+int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
+			      const char *registers, struct vty *vty);
+int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
+				 const char *registers, struct vty *vty);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;

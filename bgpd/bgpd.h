@@ -171,6 +171,10 @@ struct bgp_master {
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
 
 	bool terminating;	/* global flag that sigint terminate seen */
+
+	/* DSCP value for TCP sessions */
+	uint8_t tcp_dscp;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
@@ -1528,6 +1532,11 @@ struct peer {
 	_Atomic time_t last_write;
 	/* timestamp when the last msg was written */
 	_Atomic time_t last_update;
+
+	/* only updated under io_mtx.
+	 * last_sendq_warn is only for ratelimiting log warning messages.
+	 */
+	time_t last_sendq_ok, last_sendq_warn;
 
 	/* Notify data. */
 	struct bgp_notify notify;

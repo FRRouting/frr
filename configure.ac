@@ -1600,7 +1600,7 @@ AC_CHECK_HEADER([net/if_media.h],
   ])
   AC_CHECK_MEMBERS([struct ifmediareq.ifm_status],
     AC_DEFINE([HAVE_BSD_LINK_DETECT], [1], [BSD link-detect]),
-    [], LINK_DETECT_INCLUDES)], 
+    [], LINK_DETECT_INCLUDES)],
   [],
   FRR_INCLUDES)
 
@@ -1616,7 +1616,7 @@ dnl ------------------------
 dnl TCP_MD5SIG socket option
 dnl ------------------------
 
-AC_CHECK_HEADER([netinet/tcp.h], 
+AC_CHECK_HEADER([netinet/tcp.h],
    [m4_define([MD5_INCLUDES],
       FRR_INCLUDES
       [#include <netinet/tcp.h>
@@ -2040,7 +2040,7 @@ dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
 dnl ------------------------------------
 if test "$enable_rpki" = "yes"; then
-  PKG_CHECK_MODULES([RTRLIB], [rtrlib >= 0.5.0],
+  PKG_CHECK_MODULES([RTRLIB], [rtrlib >= 0.8.0],
       [RPKI=true],
       [RPKI=false
       AC_MSG_ERROR([rtrlib was not found on your system or is too old.])]

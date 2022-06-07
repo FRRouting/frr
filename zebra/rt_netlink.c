@@ -3783,7 +3783,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
-	memset(&ip, 0, sizeof(struct ipaddr));
+	memset(&ip, 0, sizeof(ip));
 	ip.ipa_type = (ndm->ndm_family == AF_INET) ? IPADDR_V4 : IPADDR_V6;
 	memcpy(&ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
 
@@ -3863,7 +3863,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
-	memset(&mac, 0, sizeof(struct ethaddr));
+	memset(&mac, 0, sizeof(mac));
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
 		if (tb[NDA_LLADDR]) {
 			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
@@ -4493,8 +4493,6 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
 	struct zebra_ns *zns;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return -1;
 	zns = zvrf->zns;
 
 	memset(&req, 0, sizeof(req));
@@ -4534,8 +4532,6 @@ static int netlink_fdb_nh_del(uint32_t nh_id)
 	struct zebra_ns *zns;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return -1;
 	zns = zvrf->zns;
 
 	memset(&req, 0, sizeof(req));
@@ -4572,8 +4568,6 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 	uint32_t i;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return -1;
 	zns = zvrf->zns;
 
 	memset(&req, 0, sizeof(req));

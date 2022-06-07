@@ -174,9 +174,9 @@ extern void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 			     const char *direct, bool hard_reset);
 
 extern const struct message bgp_status_msg[];
-extern int bgp_debug_neighbor_events(struct peer *peer);
-extern int bgp_debug_keepalive(struct peer *peer);
-extern bool bgp_debug_update(struct peer *peer, const struct prefix *p,
+extern bool bgp_debug_neighbor_events(const struct peer *peer);
+extern bool bgp_debug_keepalive(const struct peer *peer);
+extern bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 			     struct update_group *updgrp, unsigned int inbound);
 extern bool bgp_debug_bestpath(struct bgp_dest *dest);
 extern bool bgp_debug_zebra(const struct prefix *p);

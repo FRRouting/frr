@@ -1733,19 +1733,22 @@ static unsigned int iobuflen = 0;
 
 int ospf6_iobuf_size(unsigned int size)
 {
-	uint8_t *recvnew, *sendnew;
+	/* NB: there was previously code here that tried to dynamically size
+	 * the buffer for whatever we see in MTU on interfaces.  Which is
+	 * _unconditionally wrong_ - we can always receive fragmented IPv6
+	 * up to the regular 64k length limit.  (No jumbograms, thankfully.)
+	 */
 
-	if (size <= iobuflen)
-		return iobuflen;
+	if (!iobuflen) {
+		/* the + 128 is to have some runway at the end */
+		size_t alloc_size = 65536 + 128;
 
-	recvnew = XMALLOC(MTYPE_OSPF6_MESSAGE, size);
-	sendnew = XMALLOC(MTYPE_OSPF6_MESSAGE, size);
+		assert(!recvbuf && !sendbuf);
 
-	XFREE(MTYPE_OSPF6_MESSAGE, recvbuf);
-	XFREE(MTYPE_OSPF6_MESSAGE, sendbuf);
-	recvbuf = recvnew;
-	sendbuf = sendnew;
-	iobuflen = size;
+		recvbuf = XMALLOC(MTYPE_OSPF6_MESSAGE, alloc_size);
+		sendbuf = XMALLOC(MTYPE_OSPF6_MESSAGE, alloc_size);
+		iobuflen = alloc_size;
+	}
 
 	return iobuflen;
 }
@@ -1779,7 +1782,6 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
 	ifindex = 0;
-	memset(recvbuf, 0, iobuflen);
 	iovector[0].iov_base = recvbuf;
 	iovector[0].iov_len = iobuflen;
 	iovector[1].iov_base = NULL;
@@ -1794,6 +1796,9 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		flog_err(EC_LIB_DEVELOPMENT, "Excess message read");
 		return OSPF6_READ_ERROR;
 	}
+
+	/* ensure some zeroes past the end, just as a security precaution */
+	memset(recvbuf + len, 0, MIN(128, iobuflen - len));
 
 	oi = ospf6_interface_lookup_by_ifindex(ifindex, ospf6->vrf_id);
 	if (oi == NULL || oi->area == NULL
@@ -2242,7 +2247,6 @@ void ospf6_hello_send(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_send_hello = (struct thread *)NULL;
 
 	if (oi->state <= OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
@@ -2340,7 +2344,6 @@ void ospf6_dbdesc_send(struct thread *thread)
 	struct ospf6_packet *op;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_dbdesc = (struct thread *)NULL;
 
 	if (on->state < OSPF6_NEIGHBOR_EXSTART) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_DBDESC, SEND))
@@ -2506,7 +2509,6 @@ void ospf6_lsreq_send(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_lsreq = (struct thread *)NULL;
 
 	/* LSReq will be sent only in ExStart or Loading */
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE
@@ -2686,7 +2688,6 @@ void ospf6_lsupdate_send_neighbor(struct thread *thread)
 	int lsa_cnt = 0;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_lsupdate = (struct thread *)NULL;
 
 	if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND_HDR))
 		zlog_debug("LSUpdate to neighbor %s", on->name);
@@ -2822,7 +2823,6 @@ void ospf6_lsupdate_send_interface(struct thread *thread)
 	int lsa_cnt = 0;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_send_lsupdate = (struct thread *)NULL;
 
 	if (oi->state <= OSPF6_INTERFACE_WAITING) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE,
@@ -2863,7 +2863,6 @@ void ospf6_lsack_send_neighbor(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
-	on->thread_send_lsack = (struct thread *)NULL;
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSACK, SEND_HDR))
@@ -2940,7 +2939,6 @@ void ospf6_lsack_send_interface(struct thread *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_send_lsack = (struct thread *)NULL;
 
 	if (oi->state <= OSPF6_INTERFACE_WAITING) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSACK, SEND_HDR))

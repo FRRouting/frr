@@ -827,7 +827,7 @@ void interface_up(struct thread *thread)
 	/* Schedule Hello */
 	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
 	    && !if_is_loopback(oi->interface)) {
-		thread_add_event(master, ospf6_hello_send, oi, 0,
+		thread_add_timer(master, ospf6_hello_send, oi, 0,
 				 &oi->thread_send_hello);
 	}
 
@@ -1130,9 +1130,9 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 			ospf6_interface_state_str[oi->state], oi->transdelay,
 			oi->priority);
 		vty_out(vty, "  Timer intervals configured:\n");
-		vty_out(vty, "   Hello %d, Dead %d, Retransmit %d\n",
-			oi->hello_interval, oi->dead_interval,
-			oi->rxmt_interval);
+		vty_out(vty, "   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
+			oi->hello_interval, oi->thread_send_hello,
+			oi->dead_interval, oi->rxmt_interval);
 	}
 
 	inet_ntop(AF_INET, &oi->drouter, drouter, sizeof(drouter));
@@ -1152,7 +1152,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	if (use_json) {
 		timerclear(&res);
-		if (oi->thread_send_lsupdate)
+		if (thread_is_scheduled(oi->thread_send_lsupdate))
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
@@ -1162,7 +1162,9 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       duration);
 		json_object_string_add(
 			json_obj, "lsUpdateSendThread",
-			(oi->thread_send_lsupdate ? "on" : "off"));
+			(thread_is_scheduled(oi->thread_send_lsupdate)
+				 ? "on"
+				 : "off"));
 
 		json_arr = json_object_new_array();
 		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
@@ -1172,7 +1174,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       json_arr);
 
 		timerclear(&res);
-		if (oi->thread_send_lsack)
+		if (thread_is_scheduled(oi->thread_send_lsack))
 			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 
@@ -1180,8 +1182,10 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				    oi->lsack_list->count);
 		json_object_string_add(json_obj, "pendingLsaLsAckTime",
 				       duration);
-		json_object_string_add(json_obj, "lsAckSendThread",
-				       (oi->thread_send_lsack ? "on" : "off"));
+		json_object_string_add(
+			json_obj, "lsAckSendThread",
+			(thread_is_scheduled(oi->thread_send_lsack) ? "on"
+								    : "off"));
 
 		json_arr = json_object_new_array();
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
@@ -1191,25 +1195,28 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	} else {
 		timerclear(&res);
-		if (oi->thread_send_lsupdate)
+		if (thread_is_scheduled(oi->thread_send_lsupdate))
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
 			oi->lsupdate_list->count, duration,
-			(oi->thread_send_lsupdate ? "on" : "off"));
+			(thread_is_scheduled(oi->thread_send_lsupdate)
+				 ? "on"
+				 : "off"));
 		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (oi->thread_send_lsack)
+		if (thread_is_scheduled(oi->thread_send_lsack))
 			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
 			oi->lsack_list->count, duration,
-			(oi->thread_send_lsack ? "on" : "off"));
+			(thread_is_scheduled(oi->thread_send_lsack) ? "on"
+								    : "off"));
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 	}
@@ -2102,6 +2109,16 @@ DEFUN (ipv6_ospf6_hellointerval,
 	oi->hello_interval = strmatch(argv[0]->text, "no")
 				     ? OSPF_HELLO_INTERVAL_DEFAULT
 				     : strtoul(argv[idx_number]->arg, NULL, 10);
+
+	/*
+	 * If the thread is scheduled, send the new hello now.
+	 */
+	if (thread_is_scheduled(oi->thread_send_hello)) {
+		THREAD_OFF(oi->thread_send_hello);
+
+		thread_add_timer(master, ospf6_hello_send, oi, 0,
+				 &oi->thread_send_hello);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -2348,7 +2365,7 @@ DEFUN (no_ipv6_ospf6_passive,
 
 	/* don't send hellos over loopback interface */
 	if (!if_is_loopback(oi->interface))
-		thread_add_event(master, ospf6_hello_send, oi, 0,
+		thread_add_timer(master, ospf6_hello_send, oi, 0,
 				 &oi->thread_send_hello);
 
 	return CMD_SUCCESS;

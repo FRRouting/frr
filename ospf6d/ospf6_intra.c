@@ -2010,7 +2010,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 			break;
 		prefix_num--;
 
-		memset(&prefix, 0, sizeof(struct prefix));
+		memset(&prefix, 0, sizeof(prefix));
 		prefix.family = AF_INET6;
 		prefix.prefixlen = op->prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, intra_prefix_lsa, op);

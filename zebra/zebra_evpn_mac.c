@@ -625,9 +625,6 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return;
-
 	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
@@ -1102,7 +1099,7 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	struct zebra_mac tmp_mac;
 	struct zebra_mac *mac = NULL;
 
-	memset(&tmp_mac, 0, sizeof(struct zebra_mac));
+	memset(&tmp_mac, 0, sizeof(tmp_mac));
 	memcpy(&tmp_mac.macaddr, macaddr, ETH_ALEN);
 	mac = hash_get(zevpn->mac_table, &tmp_mac, zebra_evpn_mac_alloc);
 
@@ -1255,7 +1252,7 @@ void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall,
 	if (!zevpn->mac_table)
 		return;
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
@@ -1930,7 +1927,7 @@ void zebra_evpn_send_mac_list_to_client(struct zebra_evpn *zevpn)
 	if (!zevpn->mac_table)
 		return;
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 
 	hash_iterate(zevpn->mac_table, zebra_evpn_send_mac_hash_entry_to_client,

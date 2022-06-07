@@ -106,6 +106,8 @@ int lib_interface_pim_address_family_create(struct nb_cb_create_args *args);
 int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_pim_enable_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_pim_passive_enable_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_hello_interval_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_hello_holdtime_modify(

@@ -36,13 +36,13 @@
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
-
-#include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 /* clang-format on */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_vrf;
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601

@@ -41,11 +41,20 @@
 #include "pim_addr.h"
 #include "pim_nht.h"
 #include "pim_bsm.h"
-
+#include "pim_iface.h"
+#include "pim_zebra.h"
+#include "pim_instance.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
 #endif
+
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = pim_debug_config_write,
+};
 
 DEFPY (ipv6_pim_joinprune_time,
        ipv6_pim_joinprune_time_cmd,
@@ -216,20 +225,35 @@ DEFPY (no_ipv6_pim_register_suppress,
 
 DEFPY (interface_ipv6_pim,
        interface_ipv6_pim_cmd,
-       "ipv6 pim",
+       "ipv6 pim [passive$passive]",
        IPV6_STR
-       PIM_STR)
+       PIM_STR
+       "Disable exchange of protocol packets\n")
 {
-	return pim_process_ip_pim_cmd(vty);
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, true);
+
+	return CMD_SUCCESS;
 }
 
 DEFPY (interface_no_ipv6_pim,
        interface_no_ipv6_pim_cmd,
-       "no ipv6 pim",
+       "no ipv6 pim [passive$passive]",
        NO_STR
        IPV6_STR
-       PIM_STR)
+       PIM_STR
+       "Disable exchange of protocol packets\n")
 {
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, false);
+
 	return pim_process_no_ip_pim_cmd(vty);
 }
 
@@ -692,7 +716,7 @@ DEFPY (interface_ipv6_mld_query_max_response_time,
        IPV6_STR
        IFACE_MLD_STR
        IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
-       "Query response value in deci-seconds\n")
+       "Query response value in milliseconds\n")
 {
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
@@ -1920,9 +1944,234 @@ DEFPY (show_ipv6_mroute_summary_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (clear_ipv6_pim_statistics,
+       clear_ipv6_pim_statistics_cmd,
+       "clear ipv6 pim statistics [vrf NAME]$name",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset PIM statistics\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	clear_pim_statistics(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_mroute,
+       clear_ipv6_mroute_cmd,
+       "clear ipv6 mroute [vrf NAME]$name",
+       CLEAR_STR
+       IPV6_STR
+       "Reset multicast routes\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	clear_mroute(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_pim_oil,
+       clear_ipv6_pim_oil_cmd,
+       "clear ipv6 pim [vrf NAME]$name oil",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Rescan PIMv6 OIL (output interface list)\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, name);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_scan_oil(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_mroute_count,
+       clear_ipv6_mroute_count_cmd,
+       "clear ipv6 mroute [vrf NAME]$name count",
+       CLEAR_STR
+       IPV6_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Route and packet count data\n")
+{
+	return clear_ip_mroute_count_command(vty, name);
+}
+
+DEFPY (debug_pimv6,
+       debug_pimv6_cmd,
+       "[no] debug pimv6",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR)
+{
+	if (!no)
+		return pim_debug_pim_cmd();
+	else
+		return pim_no_debug_pim_cmd();
+}
+
+DEFPY (debug_pimv6_nht,
+       debug_pimv6_nht_cmd,
+       "[no] debug pimv6 nht",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       "Nexthop Tracking\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_NHT;
+	else
+		PIM_DONT_DEBUG_PIM_NHT;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_nht_det,
+       debug_pimv6_nht_det_cmd,
+       "[no] debug pimv6 nht detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       "Nexthop Tracking\n"
+       "Detailed Information\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_NHT_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_NHT_DETAIL;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_events,
+       debug_pimv6_events_cmd,
+       "[no] debug pimv6 events",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_EVENTS_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_EVENTS;
+	else
+		PIM_DONT_DEBUG_PIM_EVENTS;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_packets,
+       debug_pimv6_packets_cmd,
+       "[no] debug pimv6 packets [<hello$hello|joins$joins|register$registers>]",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_PACKETS_STR
+       DEBUG_PIMV6_HELLO_PACKETS_STR
+       DEBUG_PIMV6_J_P_PACKETS_STR
+       DEBUG_PIMV6_PIM_REG_PACKETS_STR)
+{
+	if (!no)
+		return pim_debug_pim_packets_cmd(hello, joins, registers, vty);
+	else
+		return pim_no_debug_pim_packets_cmd(hello, joins, registers,
+						    vty);
+}
+
+DEFPY (debug_pimv6_packetdump_send,
+       debug_pimv6_packetdump_send_cmd,
+       "[no] debug pimv6 packet-dump send",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_PACKETDUMP_STR
+       DEBUG_PIMV6_PACKETDUMP_SEND_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_SEND;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_packetdump_recv,
+       debug_pimv6_packetdump_recv_cmd,
+       "[no] debug pimv6 packet-dump receive",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_PACKETDUMP_STR
+       DEBUG_PIMV6_PACKETDUMP_RECV_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_PACKETDUMP_RECV;
+	else
+		PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_trace,
+       debug_pimv6_trace_cmd,
+       "[no] debug pimv6 trace",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_TRACE_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_trace_detail,
+       debug_pimv6_trace_detail_cmd,
+       "[no] debug pimv6 trace detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_TRACE_STR
+       "Detailed Information\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_PIM_TRACE_DETAIL;
+	else
+		PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_pimv6_zebra,
+       debug_pimv6_zebra_cmd,
+       "[no] debug pimv6 zebra",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIMV6_STR
+       DEBUG_PIMV6_ZEBRA_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_ZEBRA;
+	else
+		PIM_DONT_DEBUG_ZEBRA;
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
+
+	install_node(&debug_node);
 
 	install_element(CONFIG_NODE, &ipv6_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_joinprune_time_cmd);
@@ -2026,4 +2275,30 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_count_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
+
+	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_mroute_count_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_nht_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_events_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_packets_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_packetdump_send_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_packetdump_recv_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_trace_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_trace_detail_cmd);
+	install_element(ENABLE_NODE, &debug_pimv6_zebra_cmd);
+
+	install_element(CONFIG_NODE, &debug_pimv6_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_nht_det_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_events_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_packets_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_packetdump_send_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_packetdump_recv_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_trace_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_trace_detail_cmd);
+	install_element(CONFIG_NODE, &debug_pimv6_zebra_cmd);
 }

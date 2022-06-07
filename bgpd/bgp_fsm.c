@@ -1701,6 +1701,12 @@ static int bgp_connect_success(struct peer *peer)
 		return -1;
 	}
 
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1738,6 +1744,12 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 		bgp_writes_on(peer);
 		return -1;
 	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	bgp_reads_on(peer);
 
@@ -1960,6 +1972,15 @@ static int bgp_fsm_holdtime_expire(struct peer *peer)
 {
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire", peer->host);
+
+	/* RFC8538 updates RFC 4724 by defining an extension that permits
+	 * the Graceful Restart procedures to be performed when the BGP
+	 * speaker receives a BGP NOTIFICATION message or the Hold Time expires.
+	 */
+	if (peer_established(peer) &&
+	    bgp_has_graceful_restart_notification(peer))
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_HOLD_ERR, 0);
 }
