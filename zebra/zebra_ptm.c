@@ -114,7 +114,7 @@ void zebra_ptm_init(void)
 {
 	char buf[64];
 
-	memset(&ptm_cb, 0, sizeof(struct zebra_ptm_cb));
+	memset(&ptm_cb, 0, sizeof(ptm_cb));
 
 	ptm_cb.out_data = calloc(1, ZEBRA_PTM_SEND_MAX_SOCKBUF);
 	if (!ptm_cb.out_data) {
@@ -389,7 +389,7 @@ static int zebra_ptm_socket_init(void)
 	}
 
 	/* Make server socket. */
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ZEBRA_PTM_SOCK_NAME,
 	       sizeof(ZEBRA_PTM_SOCK_NAME));
@@ -503,7 +503,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 		return -1;
 	}
 
-	memset(&src_prefix, 0, sizeof(struct prefix));
+	memset(&src_prefix, 0, sizeof(src_prefix));
 	if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
 		if (str2prefix(src_str, &src_prefix) == 0) {
 			flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,

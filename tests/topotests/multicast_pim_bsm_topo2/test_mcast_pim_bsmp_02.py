@@ -335,8 +335,6 @@ def test_starg_mroute_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
-
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
     )
@@ -487,8 +485,6 @@ def test_overlapping_group_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
-
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
     )
@@ -592,8 +588,6 @@ def test_RP_priority_p0(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -724,8 +718,6 @@ def test_BSR_election_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    reset_config_on_routers(tgen)
-
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
     )
@@ -840,8 +832,6 @@ def test_RP_hash_p0(request):
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
-
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
     )
@@ -932,8 +922,6 @@ def test_BSM_fragmentation_p1(request):
     clear_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"

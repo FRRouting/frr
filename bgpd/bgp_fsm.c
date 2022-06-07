@@ -1217,7 +1217,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 				"Begin read-only mode - update-delay timer %d seconds",
 				peer->bgp->v_update_delay);
 		}
-		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
+		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 			bgp_update_restarted_peers(peer);
 	}
 	if (peer->ostatus == Established
@@ -1701,6 +1701,12 @@ static int bgp_connect_success(struct peer *peer)
 		return -1;
 	}
 
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
 	bgp_reads_on(peer);
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1738,6 +1744,12 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 		bgp_writes_on(peer);
 		return -1;
 	}
+
+	/*
+	 * If we are doing nht for a peer that ls v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	bgp_reads_on(peer);
 
@@ -1961,6 +1973,15 @@ static int bgp_fsm_holdtime_expire(struct peer *peer)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire", peer->host);
 
+	/* RFC8538 updates RFC 4724 by defining an extension that permits
+	 * the Graceful Restart procedures to be performed when the BGP
+	 * speaker receives a BGP NOTIFICATION message or the Hold Time expires.
+	 */
+	if (peer_established(peer) &&
+	    bgp_has_graceful_restart_notification(peer))
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_HOLD_ERR, 0);
 }
 
@@ -2160,7 +2181,8 @@ static int bgp_establish(struct peer *peer)
 	} else {
 		/* Peer sends R-bit. In this case, we need to send
 		 * ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE to Zebra. */
-		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)) {
+		if (CHECK_FLAG(peer->cap,
+			       PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
 			FOREACH_AFI_SAFI (afi, safi)
 				/* Send route processing complete
 				   message to RIB */
@@ -2271,7 +2293,7 @@ static int bgp_establish(struct peer *peer)
 	 * so the hash_release is the same for either.
 	 */
 	hash_release(peer->bgp->peerhash, peer);
-	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Start BFD peer if not already running. */
 	if (peer->bfd_config)

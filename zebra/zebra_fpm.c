@@ -1573,7 +1573,7 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 	vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
 	svi_if = zl3vni_map_to_svi_if(zl3vni);
 
-	memset(&key, 0, sizeof(struct fpm_mac_info_t));
+	memset(&key, 0, sizeof(key));
 
 	memcpy(&key.macaddr, &rmac->macaddr, ETH_ALEN);
 	key.vni = zl3vni->vni;
@@ -1596,12 +1596,9 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
 			return 0;
 		}
-	} else {
+	} else
 		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
 				   zfpm_mac_info_alloc);
-		if (!fpm_mac)
-			return 0;
-	}
 
 	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;

@@ -137,7 +137,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	return 0;
 }
 
-int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf)
+int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
+			    size_t len)
 {
 	struct pim_interface *pim_ifp;
 	pim_sgaddr sg;
@@ -229,7 +230,7 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf)
 		}
 
 		pim_register_send((uint8_t *)buf + sizeof(ipv_hdr),
-				  ntohs(IPV_LEN(ip_hdr)) - sizeof(ipv_hdr),
+				  len - sizeof(ipv_hdr),
 				  pim_ifp->primary_address, rpg, 0, up);
 	}
 	return 0;
@@ -336,7 +337,8 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 	return 0;
 }
 
-int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
+int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
+			      size_t len)
 {
 	const ipv_hdr *ip_hdr = (const ipv_hdr *)buf;
 	struct pim_interface *pim_ifp;
@@ -463,7 +465,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
 			pim_upstream_keep_alive_timer_start(
 				up, pim_ifp->pim->keep_alive_time);
 			pim_upstream_inherited_olist(pim_ifp->pim, up);
-			pim_mroute_msg_wholepkt(fd, ifp, buf);
+			pim_mroute_msg_wholepkt(fd, ifp, buf, len);
 		}
 		return 0;
 	}
@@ -490,7 +492,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
 
 		// Send the packet to the RP
-		pim_mroute_msg_wholepkt(fd, ifp, buf);
+		pim_mroute_msg_wholepkt(fd, ifp, buf, len);
 	} else {
 		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 				      PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,
@@ -570,6 +572,27 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				  safe_strerror(errno));
 			return -2;
 		}
+
+#if PIM_IPV == 6
+		struct icmp6_filter filter[1];
+		int ret;
+
+		/* Unlike IPv4, this socket is not used for MLD, so just drop
+		 * everything with an empty ICMP6 filter.  Otherwise we get
+		 * all kinds of garbage here, possibly even non-multicast
+		 * related ICMPv6 traffic (e.g. ping)
+		 *
+		 * (mroute kernel upcall "packets" are injected directly on the
+		 * socket, this sockopt -or any other- has no effect on them)
+		 */
+		ICMP6_FILTER_SETBLOCKALL(filter);
+		ret = setsockopt(fd, SOL_ICMPV6, ICMP6_FILTER, filter,
+				 sizeof(filter));
+		if (ret)
+			zlog_err(
+				"(VRF %s) failed to set mroute control filter: %m",
+				pim->vrf->name);
+#endif
 
 #ifdef SO_BINDTODEVICE
 		if (pim->vrf->vrf_id != VRF_DEFAULT

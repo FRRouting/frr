@@ -639,9 +639,16 @@ void bfd_recv_cb(struct thread *t)
 		return;
 	}
 
+	/* Ensure that existing good sessions are not overridden. */
+	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
+	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "'remote discriminator' is zero, not overridden");
+		return;
+	}
+
 	/*
 	 * Multi hop: validate packet TTL.
-	 * Single hop: set local address that received the packet.
 	 */
 	if (is_mhop) {
 		if (ttl < bfd->mh_ttl) {
@@ -650,8 +657,6 @@ void bfd_recv_cb(struct thread *t)
 				 bfd->mh_ttl, ttl);
 			return;
 		}
-	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {
-		bfd->local_address = local;
 	}
 
 	bfd->stats.rx_ctrl_pkt++;

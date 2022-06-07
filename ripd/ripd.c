@@ -1287,10 +1287,9 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			uint32_t destination;
 
 			if (subnetted == -1) {
-				memcpy(&ifaddr, ifc->address,
-				       sizeof(struct prefix_ipv4));
+				memcpy(&ifaddr, ifc->address, sizeof(ifaddr));
 				memcpy(&ifaddrclass, &ifaddr,
-				       sizeof(struct prefix_ipv4));
+				       sizeof(ifaddrclass));
 				apply_classful_mask_ipv4(&ifaddrclass);
 				subnetted = 0;
 				if (ifaddr.prefixlen > ifaddrclass.prefixlen)
@@ -1476,7 +1475,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	}
 
 	/* Make destination address. */
-	memset(&sin, 0, sizeof(struct sockaddr_in));
+	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sin.sin_len = sizeof(struct sockaddr_in);
@@ -1544,7 +1543,7 @@ void rip_redistribute_add(struct rip *rip, int type, int sub_type,
 
 	rp = route_node_get(rip->table, (struct prefix *)p);
 
-	memset(&newinfo, 0, sizeof(struct rip_info));
+	memset(&newinfo, 0, sizeof(newinfo));
 	newinfo.type = type;
 	newinfo.sub_type = sub_type;
 	newinfo.metric = 1;
@@ -1738,7 +1737,7 @@ static void rip_read(struct thread *t)
 	rip_event(rip, RIP_READ, sock);
 
 	/* RIPd manages only IPv4. */
-	memset(&from, 0, sizeof(struct sockaddr_in));
+	memset(&from, 0, sizeof(from));
 	fromlen = sizeof(struct sockaddr_in);
 
 	len = recvfrom(sock, (char *)&rip_buf.buf, sizeof(rip_buf.buf), 0,
@@ -2103,7 +2102,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	}
 
 	if (version == RIPv1) {
-		memcpy(&ifaddrclass, ifc->address, sizeof(struct prefix_ipv4));
+		memcpy(&ifaddrclass, ifc->address, sizeof(ifaddrclass));
 		apply_classful_mask_ipv4(&ifaddrclass);
 		subnetted = 0;
 		if (ifc->address->prefixlen > ifaddrclass.prefixlen)
@@ -2385,7 +2384,7 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 	if (if_is_broadcast(ifp) || if_is_pointopoint(ifp)) {
 		if (ifc->address->family == AF_INET) {
 			/* Destination address and port setting. */
-			memset(&to, 0, sizeof(struct sockaddr_in));
+			memset(&to, 0, sizeof(to));
 			if (ifc->destination)
 				/* use specified broadcast or peer destination
 				 * addr */
@@ -2834,7 +2833,7 @@ uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo)
 	struct rip_distance *rdistance;
 	struct access_list *alist;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefix = rinfo->from;
 	p.prefixlen = IPV4_MAX_BITLEN;

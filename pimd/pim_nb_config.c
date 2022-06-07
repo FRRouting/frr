@@ -35,6 +35,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "pim_util.h"
+#include "pim6_mld.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -1624,6 +1625,32 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 }
 
 /*
+ * XPath:
+ * /frr-interface:lib/interface/frr-pim:pim/address-family/pim-passive-enable
+ */
+int lib_interface_pim_address_family_pim_passive_enable_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->pim_passive_enable =
+			yang_dnode_get_bool(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/hello-interval
  */
 int lib_interface_pim_address_family_hello_interval_modify(
@@ -2676,12 +2703,22 @@ int lib_interface_gmp_address_family_igmp_version_destroy(
 int lib_interface_gmp_address_family_mld_version_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TBD depends on MLD data structure changes */
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		pim_ifp->mld_version = yang_dnode_get_uint8(args->dnode, NULL);
+		gm_ifp_update(ifp);
 		break;
 	}
 
@@ -2691,11 +2728,22 @@ int lib_interface_gmp_address_family_mld_version_modify(
 int lib_interface_gmp_address_family_mld_version_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		pim_ifp->mld_version = 2;
+		gm_ifp_update(ifp);
 		break;
 	}
 
@@ -2708,10 +2756,10 @@ int lib_interface_gmp_address_family_mld_version_destroy(
 int lib_interface_gmp_address_family_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	int query_interval;
 
+#if PIM_IPV == 4
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -2723,7 +2771,23 @@ int lib_interface_gmp_address_family_query_interval_modify(
 		change_query_interval(ifp->info, query_interval);
 	}
 #else
-	/* TBD Depends on MLD data structure changes */
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_ifp->gm_default_query_interval = query_interval;
+		gm_ifp_update(ifp);
+	}
 #endif
 	return NB_OK;
 }

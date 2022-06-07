@@ -1079,12 +1079,9 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	   pair (newm, existm) with the cluster list length. Prefer the
 	   path with smaller cluster list length.                       */
 	if (newm == existm) {
-		if (peer_sort_lookup(new->peer) == BGP_PEER_IBGP
-		    && peer_sort_lookup(exist->peer) == BGP_PEER_IBGP
-		    && (mpath_cfg == NULL
-			|| CHECK_FLAG(
-				   mpath_cfg->ibgp_flags,
-				   BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))) {
+		if (peer_sort_lookup(new->peer) == BGP_PEER_IBGP &&
+		    peer_sort_lookup(exist->peer) == BGP_PEER_IBGP &&
+		    (mpath_cfg == NULL || mpath_cfg->same_clusterlen)) {
 			newm = BGP_CLUSTER_LIST_LENGTH(new->attr);
 			existm = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
@@ -1597,7 +1594,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 
 	/* Route map apply. */
 	if (rmap) {
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		memset(&rmap_path, 0, sizeof(rmap_path));
 		/* Duplicate current value to new structure for modification. */
 		rmap_path.peer = peer;
 		rmap_path.attr = attr;
@@ -1653,7 +1650,7 @@ static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
 	if (rmap == NULL)
 		return RMAP_DENY;
 
-	memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+	memset(&rmap_path, 0, sizeof(rmap_path));
 	/* Route map apply. */
 	/* Duplicate current value to new structure for modification. */
 	rmap_path.peer = peer;
@@ -2698,7 +2695,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */
 
 	/* Announcement to the subgroup. If the route is filtered withdraw it.
@@ -3758,7 +3755,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (orig_safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	memset(&new_attr, 0, sizeof(struct attr));
+	memset(&new_attr, 0, sizeof(new_attr));
 	new_attr.label_index = BGP_INVALID_LABEL_INDEX;
 	new_attr.label = MPLS_INVALID_LABEL;
 
@@ -5656,7 +5653,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	   then the Error Subcode is set to Invalid Network Field. */
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
 		if (addpath_capable) {
 
@@ -5697,12 +5694,12 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		}
 
 		/* Defensive coding, double-check the psize fits in a struct
-		 * prefix */
-		if (psize > (ssize_t)sizeof(p.u)) {
+		 * prefix for the v4 and v6 afi's and unicast/multicast */
+		if (psize > (ssize_t)sizeof(p.u.val)) {
 			flog_err(
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (prefix length %d too large for prefix storage %zu)",
-				peer->host, p.prefixlen, sizeof(p.u));
+				peer->host, p.prefixlen, sizeof(p.u.val));
 			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 		}
 
@@ -5833,7 +5830,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
 
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		memset(&rmap_path, 0, sizeof(rmap_path));
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
 
@@ -6145,7 +6142,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
 			struct bgp_encap_type_vxlan bet;
-			memset(&bet, 0, sizeof(struct bgp_encap_type_vxlan));
+			memset(&bet, 0, sizeof(bet));
 			bet.vnid = p->u.prefix_evpn.prefix_addr.eth_tag;
 			bgp_encap_type_vxlan_to_tlv(&bet, &attr);
 		}
@@ -6645,7 +6642,7 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		if (gwip) {
-			memset(&gw_ip, 0, sizeof(struct prefix));
+			memset(&gw_ip, 0, sizeof(gw_ip));
 			ret = str2prefix(gwip, &gw_ip);
 			if (!ret) {
 				vty_out(vty, "%% Malformed GatewayIp\n");
@@ -8372,7 +8369,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
-			memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+			memset(&rmap_path, 0, sizeof(rmap_path));
 			rmap_path.peer = bgp->peer_self;
 			rmap_path.attr = &attr_new;
 
@@ -13472,7 +13469,7 @@ DEFUN (show_bgp_l2vpn_evpn_route_prefix,
 			      RPKI_NOT_BEING_USED, use_json(argc, argv));
 }
 
-static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
+static void show_adj_route_header(struct vty *vty, struct peer *peer,
 				  struct bgp_table *table, int *header1,
 				  int *header2, json_object *json,
 				  json_object *json_scode,
@@ -13484,10 +13481,13 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 		if (json) {
 			json_object_int_add(json, "bgpTableVersion", version);
 			json_object_string_addf(json, "bgpLocalRouterId",
-						"%pI4", &bgp->router_id);
+						"%pI4", &peer->bgp->router_id);
 			json_object_int_add(json, "defaultLocPrf",
-					    bgp->default_local_pref);
-			json_object_int_add(json, "localAS", bgp->as);
+					    peer->bgp->default_local_pref);
+			json_object_int_add(json, "localAS",
+					    peer->change_local_as
+						    ? peer->change_local_as
+						    : peer->local_as);
 			json_object_object_add(json, "bgpStatusCodes",
 					       json_scode);
 			json_object_object_add(json, "bgpOriginCodes",
@@ -13496,15 +13496,17 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty,
 				"BGP table version is %" PRIu64
 				", local router ID is %pI4, vrf id ",
-				version, &bgp->router_id);
-			if (bgp->vrf_id == VRF_UNKNOWN)
+				version, &peer->bgp->router_id);
+			if (peer->bgp->vrf_id == VRF_UNKNOWN)
 				vty_out(vty, "%s", VRFID_NONE_STR);
 			else
-				vty_out(vty, "%u", bgp->vrf_id);
+				vty_out(vty, "%u", peer->bgp->vrf_id);
 			vty_out(vty, "\n");
 			vty_out(vty, "Default local pref %u, ",
-				bgp->default_local_pref);
-			vty_out(vty, "local AS %u\n", bgp->as);
+				peer->bgp->default_local_pref);
+			vty_out(vty, "local AS %u\n",
+				peer->change_local_as ? peer->change_local_as
+						      : peer->local_as);
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -13557,7 +13559,10 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						"%pI4", &bgp->router_id);
 			json_object_int_add(json, "defaultLocPrf",
 						bgp->default_local_pref);
-			json_object_int_add(json, "localAS", bgp->as);
+			json_object_int_add(json, "localAS",
+					    peer->change_local_as
+						    ? peer->change_local_as
+						    : peer->local_as);
 			json_object_object_add(json, "bgpStatusCodes",
 					       json_scode);
 			json_object_object_add(json, "bgpOriginCodes",
@@ -13577,7 +13582,9 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			vty_out(vty, "\n");
 			vty_out(vty, "Default local pref %u, ",
 				bgp->default_local_pref);
-			vty_out(vty, "local AS %u\n", bgp->as);
+			vty_out(vty, "local AS %u\n",
+				peer->change_local_as ? peer->change_local_as
+						      : peer->local_as);
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -13596,7 +13603,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 				if (ain->peer != peer)
 					continue;
 
-				show_adj_route_header(vty, bgp, table, header1,
+				show_adj_route_header(vty, peer, table, header1,
 						      header2, json, json_scode,
 						      json_ocode, wide);
 
@@ -13653,7 +13660,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 					if (paf->peer != peer || !adj->attr)
 						continue;
 
-					show_adj_route_header(vty, bgp, table,
+					show_adj_route_header(vty, peer, table,
 							      header1, header2,
 							      json, json_scode,
 							      json_ocode, wide);
@@ -13697,9 +13704,9 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 		} else if (type == bgp_show_adj_route_bestpath) {
 			struct bgp_path_info *pi;
 
-			show_adj_route_header(vty, bgp, table, header1, header2,
-					      json, json_scode, json_ocode,
-					      wide);
+			show_adj_route_header(vty, peer, table, header1,
+					      header2, json, json_scode,
+					      json_ocode, wide);
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {

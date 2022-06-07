@@ -44,6 +44,7 @@
 #include "pim_util.h"
 #include "pim_ssm.h"
 #include "pim_vxlan.h"
+#include "pim_addr.h"
 
 struct thread *send_test_packet_timer = NULL;
 
@@ -64,8 +65,8 @@ void pim_register_join(struct pim_upstream *up)
 	pim_vxlan_update_sg_reg_state(pim, up, true);
 }
 
-void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
-			    struct in_addr src, struct in_addr originator)
+void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
+			    pim_addr originator)
 {
 	struct pim_interface *pinfo;
 	unsigned char buffer[10000];
@@ -74,7 +75,7 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	uint8_t *b1;
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("Sending Register stop for %pSG to %pI4 on %s", sg,
+		zlog_debug("Sending Register stop for %pSG to %pPA on %s", sg,
 			   &originator, ifp->name);
 	}
 
@@ -99,14 +100,16 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 		return;
 	}
 	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,
-			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp->name)) {
+			 b1length + PIM_MSG_REGISTER_STOP_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
 				"%s: could not send PIM register stop message on interface %s",
 				__func__, ifp->name);
 		}
 	}
-	++pinfo->pim_ifstat_reg_stop_send;
+
+	if (!pinfo->pim_passive_enable)
+		++pinfo->pim_ifstat_reg_stop_send;
 }
 
 static void pim_reg_stop_upstream(struct pim_instance *pim,
@@ -143,6 +146,14 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	bool wrong_af = false;
 	bool handling_star = false;
 	int l;
+
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
 
 	++pim_ifp->pim_ifstat_reg_stop_recv;
 
@@ -218,7 +229,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	return 0;
 }
 
-void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
+void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up)
 {
@@ -226,11 +237,11 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	unsigned char *b1;
 	struct pim_interface *pinfo;
 	struct interface *ifp;
+	pim_addr dst = pim_addr_from_prefix(&rpg->rpf_addr);
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("Sending %s %sRegister Packet to %pI4", up->sg_str,
-			   null_register ? "NULL " : "",
-			   &rpg->rpf_addr.u.prefix4);
+		zlog_debug("Sending %s %sRegister Packet to %pPA", up->sg_str,
+			   null_register ? "NULL " : "", &dst);
 	}
 
 	ifp = rpg->source_nexthop.interface;
@@ -250,9 +261,9 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	}
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("%s: Sending %s %sRegister Packet to %pI4 on %s",
+		zlog_debug("%s: Sending %s %sRegister Packet to %pPA on %s",
 			   __func__, up->sg_str, null_register ? "NULL " : "",
-			   &rpg->rpf_addr.u.prefix4, ifp->name);
+			   &dst, ifp->name);
 	}
 
 	memset(buffer, 0, 10000);
@@ -262,14 +273,14 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
-	pim_msg_build_header(src, rpg->rpf_addr.u.prefix4, buffer,
-			     buf_size + PIM_MSG_REGISTER_LEN,
+	pim_msg_build_header(src, dst, buffer, buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
-	++pinfo->pim_ifstat_reg_send;
+	if (!pinfo->pim_passive_enable)
+		++pinfo->pim_ifstat_reg_send;
 
-	if (pim_msg_send(pinfo->pim_sock_fd, src, rpg->rpf_addr.u.prefix4,
-			 buffer, buf_size + PIM_MSG_REGISTER_LEN, ifp->name)) {
+	if (pim_msg_send(pinfo->pim_sock_fd, src, dst, buffer,
+			 buf_size + PIM_MSG_REGISTER_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
 				"%s: could not send PIM register message on interface %s",
@@ -279,12 +290,13 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	}
 }
 
+#if PIM_IPV == 4
 void pim_null_register_send(struct pim_upstream *up)
 {
 	struct ip ip_hdr;
 	struct pim_interface *pim_ifp;
 	struct pim_rpf *rpg;
-	struct in_addr src;
+	pim_addr src;
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 	if (!pim_ifp) {
@@ -304,7 +316,7 @@ void pim_null_register_send(struct pim_upstream *up)
 		return;
 	}
 
-	memset(&ip_hdr, 0, sizeof(struct ip));
+	memset(&ip_hdr, 0, sizeof(ip_hdr));
 	ip_hdr.ip_p = PIM_IP_PROTO_PIM;
 	ip_hdr.ip_hl = 5;
 	ip_hdr.ip_v = 4;
@@ -323,9 +335,71 @@ void pim_null_register_send(struct pim_upstream *up)
 			return;
 		}
 	}
-	pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip),
-			src, rpg, 1, up);
+	pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip), src, rpg, 1,
+			  up);
 }
+#else
+void pim_null_register_send(struct pim_upstream *up)
+{
+	struct ip6_hdr ip6_hdr;
+	struct pim_msg_header pim_msg_header;
+	struct pim_interface *pim_ifp;
+	struct pim_rpf *rpg;
+	pim_addr src;
+	unsigned char buffer[sizeof(ip6_hdr) + sizeof(pim_msg_header)];
+	struct ipv6_ph ph;
+
+	pim_ifp = up->rpf.source_nexthop.interface->info;
+	if (!pim_ifp) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug(
+				"Cannot send null-register for %s no valid iif",
+				up->sg_str);
+		return;
+	}
+
+	rpg = RP(pim_ifp->pim, up->sg.grp);
+	if (!rpg) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug(
+				"Cannot send null-register for %s no RPF to the RP",
+				up->sg_str);
+		return;
+	}
+
+	memset(&ip6_hdr, 0, sizeof(ip6_hdr));
+	ip6_hdr.ip6_nxt = PIM_IP_PROTO_PIM;
+	ip6_hdr.ip6_plen = PIM_MSG_HEADER_LEN;
+	ip6_hdr.ip6_vfc = 6 << 4;
+	ip6_hdr.ip6_hlim = MAXTTL;
+	ip6_hdr.ip6_src = up->sg.src;
+	ip6_hdr.ip6_dst = up->sg.grp;
+
+	memset(buffer, 0, (sizeof(ip6_hdr) + sizeof(pim_msg_header)));
+	memcpy(buffer, &ip6_hdr, sizeof(ip6_hdr));
+
+	pim_msg_header.ver = 0;
+	pim_msg_header.type = 0;
+	pim_msg_header.reserved = 0;
+
+	pim_msg_header.checksum = 0;
+
+	ph.src = up->sg.src;
+	ph.dst = up->sg.grp;
+	ph.ulpl = htonl(PIM_MSG_HEADER_LEN);
+	ph.next_hdr = IPPROTO_PIM;
+	pim_msg_header.checksum =
+		in_cksum_with_ph6(&ph, &pim_msg_header, PIM_MSG_HEADER_LEN);
+
+	memcpy(buffer + sizeof(ip6_hdr), &pim_msg_header, PIM_MSG_HEADER_LEN);
+
+
+	src = pim_ifp->primary_address;
+	pim_register_send((uint8_t *)buffer,
+			  sizeof(ip6_hdr) + PIM_MSG_HEADER_LEN, src, rpg, 1,
+			  up);
+}
+#endif
 
 /*
  * 4.4.2 Receiving Register Messages at the RP
@@ -383,6 +457,14 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	struct pim_instance *pim = pim_ifp->pim;
 	pim_addr rp_addr;
 
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
+
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
@@ -425,6 +507,46 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	memset(&sg, 0, sizeof(sg));
 	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
+#if PIM_IPV == 6
+	/*
+	 * According to RFC section 4.9.3, If Dummy PIM Header is included
+	 * in NULL Register as a payload there would be two PIM headers.
+	 * The inner PIM Header's checksum field should also be validated
+	 * in addition to the outer PIM Header's checksum. Validation of
+	 * inner PIM header checksum is done here.
+	 */
+	if ((*bits & PIM_REGISTER_NR_BIT) &&
+	    ((tlv_buf_size - PIM_MSG_REGISTER_BIT_RESERVED_LEN) >
+	     (int)sizeof(struct ip6_hdr))) {
+		uint16_t computed_checksum;
+		uint16_t received_checksum;
+		struct ipv6_ph ph;
+		struct pim_msg_header *header;
+
+		header = (struct pim_msg_header
+				  *)(tlv_buf +
+				     PIM_MSG_REGISTER_BIT_RESERVED_LEN +
+				     sizeof(struct ip6_hdr));
+		ph.src = sg.src;
+		ph.dst = sg.grp;
+		ph.ulpl = htonl(PIM_MSG_HEADER_LEN);
+		ph.next_hdr = IPPROTO_PIM;
+
+		received_checksum = header->checksum;
+
+		header->checksum = 0;
+		computed_checksum = in_cksum_with_ph6(
+			&ph, header, htonl(PIM_MSG_HEADER_LEN));
+
+		if (computed_checksum != received_checksum) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug(
+					"Ignoring Null Register message%pSG from %pPA due to bad checksum in Encapsulated dummy PIM header",
+					&sg, &src_addr);
+			return 0;
+		}
+	}
+#endif
 	i_am_rp = I_am_RP(pim, sg.grp);
 
 	if (PIM_DEBUG_PIM_REG)

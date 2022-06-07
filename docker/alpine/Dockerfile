@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Create a basic stage set up to build APKs
-FROM alpine:3.13 as alpine-builder
+FROM alpine:3.15 as alpine-builder
 RUN apk add \
 		--update-cache \
 		abuild \
@@ -22,7 +22,7 @@ RUN cd /libyang \
 	&& abuild -r -P /pkgs/apk
 
 # This stage builds a dist tarball from the source
-FROM alpine:3.13 as source-builder
+FROM alpine:3.15 as source-builder
 
 RUN mkdir -p /src/alpine
 COPY alpine/APKBUILD.in /src/alpine
@@ -34,6 +34,7 @@ RUN source /src/alpine/APKBUILD.in \
 		gzip \
 		py-pip \
 		protobuf-c-dev \
+		rtrlib \
 	&& pip install pytest
 
 RUN mkdir -p /pkgs/apk
@@ -67,7 +68,7 @@ RUN cd /dist \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
-FROM alpine:3.13
+FROM alpine:3.15
 RUN mkdir -p /pkgs/apk
 COPY --from=frr-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \

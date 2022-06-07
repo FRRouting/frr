@@ -121,7 +121,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
 		/* All FlowSpec NLRI begin with length. */
 		if (pnt + 1 > lim)

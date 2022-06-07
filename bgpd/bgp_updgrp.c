@@ -398,7 +398,6 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word(
 		(peer->shared_network && peer_afi_active_nego(peer, AFI_IP6)),
 		key);
-
 	/*
 	 * There are certain peers that must get their own update-group:
 	 * - lonesoul peers
@@ -413,6 +412,59 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
 
+	if (bgp_debug_neighbor_events(peer)) {
+		zlog_debug(
+			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %u UpdGrpAFFlags: %u",
+			peer, peer->sort, peer->flags & PEER_UPDGRP_FLAGS,
+			flags & PEER_UPDGRP_AF_FLAGS);
+		zlog_debug(
+			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u",
+			peer, (uint32_t)peer->addpath_type[afi][safi],
+			peer->cap & PEER_UPDGRP_CAP_FLAGS,
+			peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS,
+			peer->v_routeadv, peer->change_local_as);
+		zlog_debug(
+			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
+			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
+			peer->group ? peer->group->name : "(NONE)",
+			ROUTE_MAP_OUT_NAME(filter) ? ROUTE_MAP_OUT_NAME(filter)
+						   : "(NONE)");
+		zlog_debug(
+			"%pBP Update Group Hash: dlist out: %s plist out: %s aslist out: %s usmap out: %s advmap: %s",
+			peer,
+			DISTRIBUTE_OUT_NAME(filter)
+				? DISTRIBUTE_OUT_NAME(filter)
+				: "(NONE)",
+			PREFIX_LIST_OUT_NAME(filter)
+				? PREFIX_LIST_OUT_NAME(filter)
+				: "(NONE)",
+			FILTER_LIST_OUT_NAME(filter)
+				? FILTER_LIST_OUT_NAME(filter)
+				: "(NONE)",
+			UNSUPPRESS_MAP_NAME(filter)
+				? UNSUPPRESS_MAP_NAME(filter)
+				: "(NONE)",
+			ADVERTISE_MAP_NAME(filter) ? ADVERTISE_MAP_NAME(filter)
+						   : "(NONE)");
+		zlog_debug(
+			"%pBP Update Group Hash: default rmap: %s shared network and afi active network: %d",
+			peer,
+			peer->default_rmap[afi][safi].name
+				? peer->default_rmap[afi][safi].name
+				: "(NONE)",
+			peer->shared_network &&
+				peer_afi_active_nego(peer, AFI_IP6));
+		zlog_debug(
+			"%pBP Update Group Hash: Lonesoul: %u ORF prefix: %u ORF old: %u max prefix out: %u",
+			peer, CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
+			CHECK_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ORF_PREFIX_SM_RCV),
+			CHECK_FLAG(peer->af_cap[afi][safi],
+				   PEER_CAP_ORF_PREFIX_SM_OLD_RCV),
+			CHECK_FLAG(peer->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX_OUT));
+		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
+	}
 	return key;
 }
 
@@ -754,8 +806,6 @@ static struct update_group *update_group_create(struct peer_af *paf)
 
 	updgrp = hash_get(paf->peer->bgp->update_groups[paf->afid], &tmp,
 			  updgrp_hash_alloc);
-	if (!updgrp)
-		return NULL;
 	update_group_checkin(updgrp);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))

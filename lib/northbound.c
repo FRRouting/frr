@@ -2446,7 +2446,8 @@ void nb_running_move_tree(const char *xpath_from, const char *xpath_to)
 		strlcpy(entry->xpath, newpath, sizeof(entry->xpath));
 		XFREE(MTYPE_TMP, newpath);
 
-		hash_get(running_config_entries, entry, hash_alloc_intern);
+		(void)hash_get(running_config_entries, entry,
+			       hash_alloc_intern);
 	}
 
 	list_delete(&entries);

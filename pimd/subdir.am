@@ -9,6 +9,7 @@ noinst_PROGRAMS += pimd/test_igmpv3_join
 vtysh_scan += \
 	pimd/pim_cmd.c \
 	pimd/pim6_cmd.c \
+	pimd/pim6_mld.c \
 	#end
 vtysh_daemons += pimd
 vtysh_daemons += pim6d
@@ -57,6 +58,7 @@ pim_common = \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
 	pimd/pim_vxlan.c \
+	pimd/pim_register.c \
 	pimd/pimd.c \
 	# end
 
@@ -74,7 +76,6 @@ pimd_pimd_SOURCES = \
 	pimd/pim_msdp.c \
 	pimd/pim_msdp_packet.c \
 	pimd/pim_msdp_socket.c \
-	pimd/pim_register.c \
 	pimd/pim_signals.c \
 	pimd/pim_zpthread.c \
 	pimd/pim_mroute_msg.c \
@@ -89,6 +90,7 @@ nodist_pimd_pimd_SOURCES = \
 pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim6_main.c \
+	pimd/pim6_mld.c \
 	pimd/pim6_stubs.c \
 	pimd/pim6_cmd.c \
 	pimd/pim6_mroute_msg.c \
@@ -155,6 +157,8 @@ noinst_HEADERS += \
 	pimd/pim_vxlan.h \
 	pimd/pim_vxlan_instance.h \
 	pimd/pimd.h \
+	pimd/pim6_mld.h \
+	pimd/pim6_mld_protocol.h \
 	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
 	pimd/pim6_cmd.h \
@@ -163,6 +167,7 @@ noinst_HEADERS += \
 clippy_scan += \
 	pimd/pim_cmd.c \
 	pimd/pim6_cmd.c \
+	pimd/pim6_mld.c \
 	# end
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4

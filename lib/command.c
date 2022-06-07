@@ -315,7 +315,7 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 		return;
 	}
 
-	assert(hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern));
+	(void)hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern);
 
 	if (cnode->graph_built || !defer_cli_tree) {
 		struct graph *graph = graph_new();

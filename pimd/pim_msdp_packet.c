@@ -26,6 +26,7 @@
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_errors.h"
 

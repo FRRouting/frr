@@ -34,6 +34,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_vty.h"
 #include "pim_str.h"
 #include "pim_iface.h"
@@ -273,10 +274,29 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 
 	route_unlock_node(rn);
 
+	/*
+	 * rp's with prefix lists have the group as 224.0.0.0/4 which will
+	 * match anything.  So if we have a rp_info that should match a prefix
+	 * list then if we do match then best should be the answer( even
+	 * if it is NULL )
+	 */
+	if (!rp_info || (rp_info && rp_info->plist))
+		return best;
+
+	/*
+	 * So we have a non plist rp_info found in the lookup and no plists
+	 * at all to be choosen, return it!
+	 */
 	if (!best)
 		return rp_info;
 
-	if (rp_info->group.prefixlen < best->group.prefixlen)
+	/*
+	 * If we have a matching non prefix list and a matching prefix
+	 * list we should return the actual rp_info that has the LPM
+	 * If they are equal, use the prefix-list( but let's hope
+	 * the end-operator doesn't do this )
+	 */
+	if (rp_info->group.prefixlen > bp->prefixlen)
 		best = rp_info;
 
 	return best;
@@ -422,7 +442,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	struct rp_info *tmp_rp_info;
 	char buffer[BUFSIZ];
 	struct prefix nht_p;
-	struct route_node *rn;
+	struct route_node *rn = NULL;
 	struct pim_upstream *up;
 	bool upstream_updated = false;
 
@@ -600,13 +620,16 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	}
 
 	listnode_add_sort(pim->rp_list, rp_info);
-	rn = route_node_get(pim->rp_table, &rp_info->group);
-	rn->info = rp_info;
+
+	if (!rp_info->plist) {
+		rn = route_node_get(pim->rp_table, &rp_info->group);
+		rn->info = rp_info;
+	}
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("Allocated: %p for rp_info: %p(%pFX) Lock: %d", rn,
 			   rp_info, &rp_info->group,
-			   route_node_get_lock_count(rn));
+			   rn ? route_node_get_lock_count(rn) : 0);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (pim_addr_is_any(up->sg.src)) {

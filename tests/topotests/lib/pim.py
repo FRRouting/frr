@@ -273,18 +273,20 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                 config_data.append(cmd)
                 protocol = "igmp"
                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
+                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 cmd = "ip igmp"
                 if del_action:
                     cmd = "no {}".format(cmd)
-                config_data.append(cmd)
+                if not del_attr:
+                    config_data.append(cmd)
 
-                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 for attribute, data in intf_data[intf_name]["igmp"].items():
                     if attribute == "version":
                         cmd = "ip {} {} {}".format(protocol, attribute, data)
                         if del_action:
                             cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
+                        if not del_attr:
+                            config_data.append(cmd)
 
                     if attribute == "join":
                         for group in data:
@@ -3549,6 +3551,69 @@ class McastTesterHelper(HostApplicationHelper):
             self.run(host, ["--send=0.7", send_to, bind_intf])
 
         return True
+
+
+def verify_pim_interface_traffic(tgen, input_dict, return_stats=True):
+    """
+    Verify ip pim interface traffice by running
+    "show ip pim interface traffic" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict(dict)`: defines DUT, what and from which interfaces
+                          traffic needs to be verified
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "r1-r0-eth0": {
+                "helloRx": 0,
+                "helloTx": 1,
+                "joinRx": 0,
+                "joinTx": 0
+            }
+        }
+    }
+
+    result = verify_pim_interface_traffic(tgen, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    output_dict = {}
+    for dut in input_dict.keys():
+        if dut not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[dut]
+
+        logger.info("[DUT: %s]: Verifying pim interface traffic", dut)
+        show_pim_intf_traffic_json = run_frr_cmd(
+            rnode, "show ip pim interface traffic json", isjson=True
+        )
+
+        output_dict[dut] = {}
+        for intf, data in input_dict[dut].items():
+            interface_json = show_pim_intf_traffic_json[intf]
+            for state in data:
+
+                # Verify Tx/Rx
+                if state in interface_json:
+                    output_dict[dut][state] = interface_json[state]
+                else:
+                    errormsg = (
+                        "[DUT %s]: %s is not present"
+                        "for interface %s [FAILED]!! " % (dut, state, intf)
+                    )
+                    return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True if return_stats == False else output_dict
 
     # def cleanup(self):
     #     super(McastTesterHelper, self).cleanup()

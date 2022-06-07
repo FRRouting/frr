@@ -30,6 +30,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_iface.h"
 #include "pim_neighbor.h"
 #include "pim_pim.h"

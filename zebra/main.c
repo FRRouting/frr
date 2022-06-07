@@ -79,8 +79,9 @@ int graceful_restart;
 bool v6_rr_semantics = false;
 
 /* Receive buffer size for kernel control sockets */
+#define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
-uint32_t rcvbufsize = 4194304;
+uint32_t rcvbufsize = RCVBUFSIZE_MIN;
 #else
 uint32_t rcvbufsize = 128 * 1024;
 #endif
@@ -365,6 +366,10 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			rcvbufsize = atoi(optarg);
+			if (rcvbufsize < RCVBUFSIZE_MIN)
+				fprintf(stderr,
+					"Rcvbufsize is smaller than recommended value: %d\n",
+					RCVBUFSIZE_MIN);
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
@@ -403,9 +408,7 @@ int main(int argc, char **argv)
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
-#if defined(HAVE_RTADV)
 	rtadv_cmd_init();
-#endif
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();

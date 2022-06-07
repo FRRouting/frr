@@ -4,11 +4,11 @@ RUN yum install -y epel-release
 RUN yum install -y rpm-build autoconf automake libtool make \
         readline-devel texinfo net-snmp-devel groff pkgconfig \
         json-c-devel pam-devel bison flex pytest c-ares-devel \
-        python3-devel python3-sphinx libcap-devel protobuf-c-devel \
+        python3-devel python3-sphinx libcap-devel protobuf-c-devel systemd-devel \
         https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/CentOS-7-x86_64-Packages/libyang2-2.0.0.10.g2eb910e4-1.el7.x86_64.rpm \
         https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/CentOS-7-x86_64-Packages/libyang2-devel-2.0.0.10.g2eb910e4-1.el7.x86_64.rpm \
-        https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-110/CentOS-7-x86_64-Packages/librtr-0.7.0-1.el7.centos.x86_64.rpm \
-        https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-110/CentOS-7-x86_64-Packages/librtr-devel-0.7.0-1.el7.centos.x86_64.rpm
+        https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-00146/CentOS-7-x86_64-Packages/librtr-0.8.0-1.el7.x86_64.rpm \
+        https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-00146/CentOS-7-x86_64-Packages/librtr-devel-0.8.0-1.el7.x86_64.rpm
 
 COPY . /src
 ARG PKGVER
@@ -33,7 +33,7 @@ RUN echo '%_smp_mflags %( echo "-j$(/usr/bin/getconf _NPROCESSORS_ONLN)"; )' >> 
 FROM centos:centos7
 RUN mkdir -p /pkgs/rpm \
     && yum install -y https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/CentOS-7-x86_64-Packages/libyang2-2.0.0.10.g2eb910e4-1.el7.x86_64.rpm \
-        https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-110/CentOS-7-x86_64-Packages/librtr-0.7.0-1.el7.centos.x86_64.rpm
+        https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-00146/CentOS-7-x86_64-Packages/librtr-0.8.0-1.el7.x86_64.rpm
 
 COPY --from=centos-7-builder /rpmbuild/RPMS/ /pkgs/rpm/
 

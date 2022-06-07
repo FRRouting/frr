@@ -876,9 +876,24 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct stream *s;
 	struct zebra_pbr_iptable ipt;
 	uint16_t cmd = ZEBRA_IPTABLE_NOTIFY_OWNER;
+	struct zebra_pbr_iptable *ipt_hash;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
 	dplane_ctx_get_pbr_iptable(ctx, &ipt);
 
+	ipt_hash = hash_lookup(zrouter.iptable_hash, &ipt);
+	if (ipt_hash) {
+		if (op == DPLANE_OP_IPTABLE_ADD &&
+		    CHECK_FLAG(ipt_hash->internal_flags,
+			       IPTABLE_INSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_INSTALL_QUEUED);
+		else if (op == DPLANE_OP_IPTABLE_DELETE &&
+			 CHECK_FLAG(ipt_hash->internal_flags,
+				    IPTABLE_UNINSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_UNINSTALL_QUEUED);
+	}
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipt.unique, note);
@@ -1040,7 +1055,7 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
-	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
 	stream_putl(s, pw->ifindex);
 	stream_putl(s, pw->status);
 
@@ -1592,7 +1607,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+			memset(&vtep_ip, 0, sizeof(vtep_ip));
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
@@ -1625,7 +1640,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+			memset(&vtep_ip, 0, sizeof(vtep_ip));
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
@@ -2998,7 +3013,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -3014,8 +3029,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	/* Get data. */
-	STREAM_GET(ifname, s, IF_NAMESIZE);
-	ifname[IF_NAMESIZE - 1] = '\0';
+	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+	ifname[INTERFACE_NAMSIZ - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);

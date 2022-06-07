@@ -704,13 +704,15 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 	}
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-			 dst_addr, buf, len, ifp->name)) {
+			 dst_addr, buf, len, ifp)) {
 		zlog_warn("%s: Could not send BSM message on interface: %s",
 			  __func__, ifp->name);
 		return false;
 	}
 
-	pim_ifp->pim_ifstat_bsm_tx++;
+	if (!pim_ifp->pim_passive_enable)
+		pim_ifp->pim_ifstat_bsm_tx++;
+
 	pim_ifp->pim->bsm_sent++;
 	return true;
 }
@@ -1296,6 +1298,14 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 			zlog_debug("%s: multicast not enabled on interface %s",
 				   __func__, ifp->name);
 		return -1;
+	}
+
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
 	}
 
 	pim_ifp->pim_ifstat_bsm_rx++;

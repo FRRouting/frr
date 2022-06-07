@@ -29,6 +29,7 @@
 #include "lib/network.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_str.h"
@@ -45,17 +46,6 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 	int err;
 	int opt, data;
 	socklen_t data_len = sizeof(data);
-	static const struct sock_filter filter[] = {
-		BPF_STMT(BPF_LD+BPF_B+BPF_ABS, 0),
-		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0, 0, 1),
-		BPF_STMT(BPF_RET | BPF_K, 0xffff),
-		BPF_STMT(BPF_RET | BPF_K, 0),
-	};
-
-	static const struct sock_fprog bpf = {
-		.len = array_size(filter),
-		.filter = (struct sock_filter *)filter,
-	};
 
 	/*
 	 * We need to create the VRF table for the pim mroute_socket
@@ -133,10 +123,6 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 		zlog_warn(
 			"PIM-SM will not work properly on this platform, until the ability to receive the WHOLEPKT upcall");
 #endif
-		if (setsockopt(pim->mroute_socket, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))) {
-			zlog_warn("Failure to attach SO_ATTACH_FILTER on fd %d: %d %s",
-					pim->mroute_socket, errno, safe_strerror(errno));
-		}
 	}
 
 	return 0;
@@ -182,10 +168,12 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 						       msg);
 		case MRT6MSG_WHOLEPKT:
 			return pim_mroute_msg_wholepkt(pim->mroute_socket, ifp,
-							(const char *)msg);
+						       (const char *)msg,
+						       buf_size);
 		case MRT6MSG_WRMIFWHOLE:
-			return pim_mroute_msg_wrvifwhole(
-				pim->mroute_socket, ifp, (const char *)msg);
+			return pim_mroute_msg_wrvifwhole(pim->mroute_socket,
+							 ifp, (const char *)msg,
+							 buf_size);
 		default:
 			break;
 		}

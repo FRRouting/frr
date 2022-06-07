@@ -439,7 +439,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 			SET_FLAG(lnode.flags, LS_NODE_ROUTER_ID6);
 		}
 		if (tlvs->hostname) {
-			memcpy(&lnode.name, tlvs->hostname, MAX_NAME_LENGTH);
+			strlcpy(lnode.name, tlvs->hostname, MAX_NAME_LENGTH);
 			SET_FLAG(lnode.flags, LS_NODE_NAME);
 		}
 		if (tlvs->router_cap) {
@@ -909,7 +909,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 			p.u.prefix6 = std->local6;
 	}
 	if (!std)
-		p = *prefix;
+		prefix_copy(&p, prefix);
 	else
 		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
 			 prefix, &p);

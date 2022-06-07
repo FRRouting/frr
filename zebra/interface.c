@@ -155,48 +155,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_ptm_if_init(zebra_if);
 
 	ifp->ptm_enable = zebra_ptm_get_enable_state();
-#if defined(HAVE_RTADV)
-	{
-		/* Set default router advertise values. */
-		struct rtadvconf *rtadv;
 
-		rtadv = &zebra_if->rtadv;
-
-		rtadv->AdvSendAdvertisements = 0;
-		rtadv->MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
-		rtadv->MinRtrAdvInterval = RTADV_MIN_RTR_ADV_INTERVAL;
-		rtadv->AdvIntervalTimer = 0;
-		rtadv->AdvManagedFlag = 0;
-		rtadv->AdvOtherConfigFlag = 0;
-		rtadv->AdvHomeAgentFlag = 0;
-		rtadv->AdvLinkMTU = 0;
-		rtadv->AdvReachableTime = 0;
-		rtadv->AdvRetransTimer = 0;
-		rtadv->AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
-		memset(&rtadv->lastadvcurhoplimit, 0,
-		       sizeof(rtadv->lastadvcurhoplimit));
-		memset(&rtadv->lastadvmanagedflag, 0,
-		       sizeof(rtadv->lastadvmanagedflag));
-		memset(&rtadv->lastadvotherconfigflag, 0,
-		       sizeof(rtadv->lastadvotherconfigflag));
-		memset(&rtadv->lastadvreachabletime, 0,
-		       sizeof(rtadv->lastadvreachabletime));
-		memset(&rtadv->lastadvretranstimer, 0,
-		       sizeof(rtadv->lastadvretranstimer));
-		rtadv->AdvDefaultLifetime =
-			-1; /* derive from MaxRtrAdvInterval */
-		rtadv->HomeAgentPreference = 0;
-		rtadv->HomeAgentLifetime =
-			-1; /* derive from AdvDefaultLifetime */
-		rtadv->AdvIntervalOption = 0;
-		rtadv->UseFastRexmit = true;
-		rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
-
-		rtadv->AdvPrefixList = list_new();
-		rtadv->AdvRDNSSList = list_new();
-		rtadv->AdvDNSSLList = list_new();
-	}
-#endif /* HAVE_RTADV */
+	rtadv_if_init(zebra_if);
 
 	memset(&zebra_if->neigh_mac[0], 0, 6);
 
@@ -271,15 +231,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		/* Free installed address chains tree. */
 		if (zebra_if->ipv4_subnets)
 			route_table_finish(zebra_if->ipv4_subnets);
-#if defined(HAVE_RTADV)
 
-		struct rtadvconf *rtadv;
-
-		rtadv = &zebra_if->rtadv;
-		list_delete(&rtadv->AdvPrefixList);
-		list_delete(&rtadv->AdvRDNSSList);
-		list_delete(&rtadv->AdvDNSSLList);
-#endif /* HAVE_RTADV */
+		rtadv_if_fini(zebra_if);
 
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
@@ -1078,15 +1031,7 @@ void if_up(struct interface *ifp, bool install_connected)
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_add_all(ifp);
 
-#if defined(HAVE_RTADV)
-	/* Enable fast tx of RA if enabled && RA interval is not in msecs */
-	if (zif->rtadv.AdvSendAdvertisements
-	    && (zif->rtadv.MaxRtrAdvInterval >= 1000)
-	    && zif->rtadv.UseFastRexmit) {
-		zif->rtadv.inFastRexmit = 1;
-		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
-	}
-#endif
+	rtadv_if_up(zif);
 
 	/* Install connected routes to the kernel. */
 	if (install_connected)
@@ -3557,12 +3502,20 @@ DEFUN (link_params_delay,
 	uint8_t update = 0;
 
 	if (argc == 2) {
-		/* Check new delay value against old Min and Max delays if set
+		/*
+		 * Check new delay value against old Min and Max delays if set
+		 *
+		 * RFC 7471 Section 4.2.7:
+		 *    It is possible for min delay and max delay to be
+		 *    the same value.
+		 *
+		 * Therefore, it is also allowed that the average
+		 * delay be equal to the min delay or max delay.
 		 */
 		if (IS_PARAM_SET(iflp, LP_MM_DELAY)
-		    && (delay <= iflp->min_delay || delay >= iflp->max_delay)) {
+		    && (delay < iflp->min_delay || delay > iflp->max_delay)) {
 			vty_out(vty,
-				"Average delay should be comprise between Min (%d) and Max (%d) delay\n",
+				"Average delay should be in range Min (%d) - Max (%d) delay\n",
 				iflp->min_delay, iflp->max_delay);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -3580,10 +3533,13 @@ DEFUN (link_params_delay,
 			update = 1;
 		}
 	} else {
-		/* Check new delays value coherency */
-		if (delay <= low || delay >= high) {
+		/*
+		 * Check new delays value coherency. See above note
+		 * regarding average delay equal to min/max allowed
+		 */
+		if (delay < low || delay > high) {
 			vty_out(vty,
-				"Average delay should be comprise between Min (%d) and Max (%d) delay\n",
+				"Average delay should be in range Min (%d) - Max (%d) delay\n",
 				low, high);
 			return CMD_WARNING_CONFIG_FAILED;
 		}

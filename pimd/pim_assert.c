@@ -24,6 +24,7 @@
 #include "if.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_tlv.h"
 #include "pim_msg.h"
@@ -302,6 +303,15 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
+
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
+
 	++pim_ifp->pim_ifstat_assert_recv;
 
 	return dispatch_assert(ifp, msg_source_addr, sg.grp, msg_metric);
@@ -459,11 +469,12 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 			   metric.metric_preference, metric.route_metric,
 			   PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
 	}
-	++pim_ifp->pim_ifstat_assert_send;
+	if (!pim_ifp->pim_passive_enable)
+		++pim_ifp->pim_ifstat_assert_send;
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
-			 ifp->name)) {
+			 ifp)) {
 		zlog_warn("%s: could not send PIM message on interface %s",
 			  __func__, ifp->name);
 		return -3;

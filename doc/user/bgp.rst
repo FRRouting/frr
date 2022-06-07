@@ -501,6 +501,19 @@ Suppress duplicate updates
    Suppress duplicate updates if the route actually not changed.
    Default: enabled.
 
+Send Hard Reset CEASE Notification for Administrative Reset
+-----------------------------------------------------------
+
+.. clicmd:: bgp hard-administrative-reset
+
+   Send Hard Reset CEASE Notification for 'Administrative Reset' events.
+
+   When disabled, and Graceful Restart Notification capability is exchanged
+   between the peers, Graceful Restart procedures apply, and routes will be
+   retained.
+
+   Enabled by default.
+
 Disable checking if nexthop is connected on EBGP sessions
 ---------------------------------------------------------
 
@@ -946,6 +959,22 @@ However, it MUST defer route selection for an address family until it either.
    message, the router removes the stale routes from the BGP table after the timer
    expires. The stale path timer is started when the router receives a Route-Refresh
    BoRR message.
+
+.. clicmd:: bgp graceful-restart notification
+
+   Indicate Graceful Restart support for BGP NOTIFICATION messages.
+
+   After changing this parameter, you have to reset the peers in order to advertise
+   N-bit in Graceful Restart capability.
+
+   Without Graceful-Restart Notification capability (N-bit not set), GR is not
+   activated when receiving CEASE/HOLDTIME expire notifications.
+
+   When sending ``CEASE/Administrative Reset`` (``clear bgp``), the session is closed
+   and routes are not retained. When N-bit is set and ``bgp hard-administrative-reset``
+   is turned off Graceful-Restart is activated and routes are retained.
+
+   Enabled by default.
 
 .. _bgp-per-peer-graceful-restart:
 
@@ -3974,7 +4003,8 @@ the daemons RIB from Zebra and unsetting it will announce all routes in the
 daemons RIB to Zebra. If the option is passed as a command line argument when
 starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
-configuration write operation.
+configuration write operation.  At this point in time non SAFI_UNICAST BGP
+data is not properly withdrawn from zebra when this command is issued.
 
 .. clicmd:: bgp send-extra-data zebra
 
@@ -3983,6 +4013,11 @@ it's the AS-Path, communities, and the path selection reason. The default
 behavior in BGP is not to send this data. If the routes were sent to zebra and
 the option is changed, bgpd doesn't reinstall the routes to comply with the new
 setting.
+
+.. clicmd:: bgp session-dscp (0-63)
+
+This command allows bgp to control, at a global level, the TCP dscp values
+in the TCP header.
 
 .. _bgp-suppress-fib:
 

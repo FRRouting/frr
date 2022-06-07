@@ -241,7 +241,7 @@ static int ospf6_zebra_gr_update(struct ospf6 *ospf6, int command,
 	if (!zclient || zclient->sock < 0 || !ospf6)
 		return 1;
 
-	memset(&api, 0, sizeof(struct zapi_cap));
+	memset(&api, 0, sizeof(api));
 	api.cap = command;
 	api.stale_removal_time = stale_time;
 	api.vrf_id = ospf6->vrf_id;

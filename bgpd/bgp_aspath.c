@@ -854,15 +854,12 @@ struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit)
 	if (length % AS16_VALUE_SIZE)
 		return NULL;
 
-	memset(&as, 0, sizeof(struct aspath));
+	memset(&as, 0, sizeof(as));
 	if (assegments_parse(s, length, &as.segments, use32bit) < 0)
 		return NULL;
 
 	/* If already same aspath exist then return it. */
 	find = hash_get(ashash, &as, aspath_hash_alloc);
-
-	/* bug! should not happen, let the daemon crash below */
-	assert(find);
 
 	/* if the aspath was already hashed free temporary memory. */
 	if (find->refcnt) {

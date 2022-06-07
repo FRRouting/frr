@@ -182,6 +182,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log files and open an Issue, restart FRR",
 	},
 	{
+		.code = EC_BGP_SENDQ_STUCK_WARN,
+		.title = "BGP has been unable to send anything to a peer for an extended time",
+		.description = "The BGP peer does not seem to be receiving or processing any data received from us, causing updates to be delayed.",
+		.suggestion = "Check connectivity to the peer and that it is not overloaded",
+	},
+	{
 		.code = END_FERR,
 	}
 };
@@ -479,6 +485,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.title = "BGP v6 peer with no LL address on outgoing interface",
 		.description = "BGP when using a v6 peer requires a v6 LL address to be configured on the outgoing interface as per RFC 4291 section 2.1",
 		.suggestion = "Add a v6 LL address to the outgoing interfaces as per RFC",
+	},
+	{
+		.code = EC_BGP_SENDQ_STUCK_PROPER,
+		.title = "BGP is shutting down a peer due to being unable to send anything for an extended time",
+		.description = "No BGP updates were successfully sent to the peer for more than twice the holdtime.",
+		.suggestion = "Check connectivity to the peer and that it is not overloaded",
 	},
 	{
 		.code = END_FERR,

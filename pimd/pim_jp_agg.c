@@ -25,6 +25,7 @@
 #include "if.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_msg.h"
 #include "pim_jp_agg.h"
 #include "pim_join.h"

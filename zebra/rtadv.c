@@ -73,6 +73,28 @@ DEFINE_MTYPE_STATIC(ZEBRA, ADV_IF, "Advertised Interface");
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
 
+/* adv list node */
+struct adv_if {
+	char name[INTERFACE_NAMSIZ];
+	struct adv_if_list_item list_item;
+};
+
+static int adv_if_cmp(const struct adv_if *a, const struct adv_if *b)
+{
+	return if_cmp_name_func(a->name, b->name);
+}
+
+DECLARE_SORTLIST_UNIQ(adv_if_list, struct adv_if, list_item, adv_if_cmp);
+
+static int rtadv_prefix_cmp(const struct rtadv_prefix *a,
+			    const struct rtadv_prefix *b)
+{
+	return prefix_cmp(&a->prefix, &b->prefix);
+}
+
+DECLARE_RBTREE_UNIQ(rtadv_prefixes, struct rtadv_prefix, item,
+		    rtadv_prefix_cmp);
+
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_RDNSS, "Router Advertisement RDNSS");
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL");
 
@@ -315,7 +337,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	}
 
 	/* Fill in prefix. */
-	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvPrefixList, node, rprefix)) {
+	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
 		struct nd_opt_prefix_info *pinfo;
 
 		pinfo = (struct nd_opt_prefix_info *)(buf + len);
@@ -1065,31 +1087,20 @@ static void rtadv_prefix_free(struct rtadv_prefix *rtadv_prefix)
 	XFREE(MTYPE_RTADV_PREFIX, rtadv_prefix);
 }
 
-static struct rtadv_prefix *rtadv_prefix_lookup(struct list *rplist,
-						struct prefix_ipv6 *p)
-{
-	struct listnode *node;
-	struct rtadv_prefix *rprefix;
-
-	for (ALL_LIST_ELEMENTS_RO(rplist, node, rprefix))
-		if (prefix_same((struct prefix *)&rprefix->prefix,
-				(struct prefix *)p))
-			return rprefix;
-	return NULL;
-}
-
-static struct rtadv_prefix *rtadv_prefix_get(struct list *rplist,
+static struct rtadv_prefix *rtadv_prefix_get(struct rtadv_prefixes_head *list,
 					     struct prefix_ipv6 *p)
 {
-	struct rtadv_prefix *rprefix;
+	struct rtadv_prefix *rprefix, ref;
 
-	rprefix = rtadv_prefix_lookup(rplist, p);
+	ref.prefix = *p;
+
+	rprefix = rtadv_prefixes_find(list, &ref);
 	if (rprefix)
 		return rprefix;
 
 	rprefix = rtadv_prefix_new();
 	memcpy(&rprefix->prefix, p, sizeof(struct prefix_ipv6));
-	listnode_add(rplist, rprefix);
+	rtadv_prefixes_add(list, rprefix);
 
 	return rprefix;
 }
@@ -1107,7 +1118,7 @@ static void rtadv_prefix_set(struct zebra_if *zif, struct rtadv_prefix *rp)
 {
 	struct rtadv_prefix *rprefix;
 
-	rprefix = rtadv_prefix_get(zif->rtadv.AdvPrefixList, &rp->prefix);
+	rprefix = rtadv_prefix_get(zif->rtadv.prefixes, &rp->prefix);
 
 	/*
 	 * Set parameters based on where the prefix is created.
@@ -1142,7 +1153,7 @@ static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
 {
 	struct rtadv_prefix *rprefix;
 
-	rprefix = rtadv_prefix_lookup(zif->rtadv.AdvPrefixList, &rp->prefix);
+	rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
 	if (rprefix != NULL) {
 
 		/*
@@ -1165,7 +1176,7 @@ static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
 			}
 		}
 
-		listnode_delete(zif->rtadv.AdvPrefixList, (void *)rprefix);
+		rtadv_prefixes_del(zif->rtadv.prefixes, rprefix);
 		rtadv_prefix_free(rprefix);
 		return 1;
 	} else
@@ -1358,7 +1369,6 @@ void rtadv_stop_ra_all(void)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
-	struct listnode *node, *nnode;
 	struct zebra_if *zif;
 	struct rtadv_prefix *rprefix;
 
@@ -1366,8 +1376,8 @@ void rtadv_stop_ra_all(void)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			zif = ifp->info;
 
-			for (ALL_LIST_ELEMENTS(zif->rtadv.AdvPrefixList,
-					       node, nnode, rprefix))
+			frr_each_safe (rtadv_prefixes, zif->rtadv.prefixes,
+				       rprefix)
 				rtadv_prefix_reset(zif, rprefix);
 
 			rtadv_stop_ra(ifp);
@@ -2671,7 +2681,7 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	if (zif->rtadv.AdvLinkMTU)
 		vty_out(vty, " ipv6 nd mtu %d\n", zif->rtadv.AdvLinkMTU);
 
-	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvPrefixList, node, rprefix)) {
+	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
 		if ((rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 		    || (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH)) {
 			vty_out(vty, " ipv6 nd prefix %pFX", &rprefix->prefix);
@@ -2768,6 +2778,72 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 	return;
 }
 
+void rtadv_if_up(struct zebra_if *zif)
+{
+	/* Enable fast tx of RA if enabled && RA interval is not in msecs */
+	if (zif->rtadv.AdvSendAdvertisements &&
+	    (zif->rtadv.MaxRtrAdvInterval >= 1000) &&
+	    zif->rtadv.UseFastRexmit) {
+		zif->rtadv.inFastRexmit = 1;
+		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
+	}
+}
+
+void rtadv_if_init(struct zebra_if *zif)
+{
+	/* Set default router advertise values. */
+	struct rtadvconf *rtadv;
+
+	rtadv = &zif->rtadv;
+
+	rtadv->AdvSendAdvertisements = 0;
+	rtadv->MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
+	rtadv->MinRtrAdvInterval = RTADV_MIN_RTR_ADV_INTERVAL;
+	rtadv->AdvIntervalTimer = 0;
+	rtadv->AdvManagedFlag = 0;
+	rtadv->AdvOtherConfigFlag = 0;
+	rtadv->AdvHomeAgentFlag = 0;
+	rtadv->AdvLinkMTU = 0;
+	rtadv->AdvReachableTime = 0;
+	rtadv->AdvRetransTimer = 0;
+	rtadv->AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
+	memset(&rtadv->lastadvcurhoplimit, 0,
+	       sizeof(rtadv->lastadvcurhoplimit));
+	memset(&rtadv->lastadvmanagedflag, 0,
+	       sizeof(rtadv->lastadvmanagedflag));
+	memset(&rtadv->lastadvotherconfigflag, 0,
+	       sizeof(rtadv->lastadvotherconfigflag));
+	memset(&rtadv->lastadvreachabletime, 0,
+	       sizeof(rtadv->lastadvreachabletime));
+	memset(&rtadv->lastadvretranstimer, 0,
+	       sizeof(rtadv->lastadvretranstimer));
+	rtadv->AdvDefaultLifetime = -1; /* derive from MaxRtrAdvInterval */
+	rtadv->HomeAgentPreference = 0;
+	rtadv->HomeAgentLifetime = -1; /* derive from AdvDefaultLifetime */
+	rtadv->AdvIntervalOption = 0;
+	rtadv->UseFastRexmit = true;
+	rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
+
+	rtadv_prefixes_init(rtadv->prefixes);
+
+	rtadv->AdvRDNSSList = list_new();
+	rtadv->AdvDNSSLList = list_new();
+}
+
+void rtadv_if_fini(struct zebra_if *zif)
+{
+	struct rtadvconf *rtadv;
+	struct rtadv_prefix *rp;
+
+	rtadv = &zif->rtadv;
+
+	while ((rp = rtadv_prefixes_pop(rtadv->prefixes)))
+		rtadv_prefix_free(rp);
+
+	list_delete(&rtadv->AdvRDNSSList);
+	list_delete(&rtadv->AdvDNSSLList);
+}
+
 void rtadv_vrf_init(struct zebra_vrf *zvrf)
 {
 	if (!vrf_is_backend_netns() && (zvrf_id(zvrf) != VRF_DEFAULT))
@@ -2847,7 +2923,7 @@ static int if_join_all_router(int sock, struct interface *ifp)
 
 	struct ipv6_mreq mreq;
 
-	memset(&mreq, 0, sizeof(struct ipv6_mreq));
+	memset(&mreq, 0, sizeof(mreq));
 	inet_pton(AF_INET6, ALLROUTER, &mreq.ipv6mr_multiaddr);
 	mreq.ipv6mr_interface = ifp->ifindex;
 
@@ -2873,7 +2949,7 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 
 	struct ipv6_mreq mreq;
 
-	memset(&mreq, 0, sizeof(struct ipv6_mreq));
+	memset(&mreq, 0, sizeof(mreq));
 	inet_pton(AF_INET6, ALLROUTER, &mreq.ipv6mr_multiaddr);
 	mreq.ipv6mr_interface = ifp->ifindex;
 
@@ -2899,37 +2975,7 @@ bool rtadv_compiled_in(void)
 	return true;
 }
 
-#else
-void rtadv_vrf_init(struct zebra_vrf *zvrf)
-{
-	/* Empty.*/;
-}
-
-void rtadv_cmd_init(void)
-{
-	/* Empty.*/;
-}
-
-void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p)
-{
-	/* Empty.*/;
-}
-
-void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
-{
-	/* Empty.*/;
-}
-
-void rtadv_stop_ra(struct interface *ifp)
-{
-	/* Empty.*/;
-}
-
-void rtadv_stop_ra_all(void)
-{
-	/* Empty.*/;
-}
-
+#else /* !HAVE_RTADV */
 /*
  * If the end user does not have RADV enabled we should
  * handle this better

@@ -49,6 +49,7 @@
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_packet.h"
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -168,6 +169,7 @@ static const struct message bgp_notify_cease_msg[] = {
 	{BGP_NOTIFY_CEASE_COLLISION_RESOLUTION,
 	 "/Connection Collision Resolution"},
 	{BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resources"},
+	{BGP_NOTIFY_CEASE_HARD_RESET, "/Hard Reset"},
 	{0}};
 
 static const struct message bgp_notify_route_refresh_msg[] = {
@@ -520,7 +522,7 @@ const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 
 /* dump notify packet */
 void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
-		      const char *direct)
+		      const char *direct, bool hard_reset)
 {
 	const char *subcode_str;
 	const char *code_str;
@@ -544,7 +546,8 @@ void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 
 		if (msg_str) {
 			zlog_info(
-				"%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) \"%s\"",
+				"%%NOTIFICATION%s: %s neighbor %s %d/%d (%s%s) \"%s\"",
+				hard_reset ? "(Hard Reset)" : "",
 				strcmp(direct, "received") == 0
 					? "received from"
 					: "sent to",
@@ -554,7 +557,8 @@ void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 		} else {
 			msg_str = bgp_notify->data ? bgp_notify->data : "";
 			zlog_info(
-				"%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
+				"%%NOTIFICATION%s: %s neighbor %s %d/%d (%s%s) %d bytes %s",
+				hard_reset ? "(Hard Reset)" : "",
 				strcmp(direct, "received") == 0
 					? "received from"
 					: "sent to",
@@ -623,8 +627,8 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 				       int argc, struct prefix **argv_pp)
 {
 	struct prefix *argv_p;
-	struct ethaddr mac;
-	struct ipaddr ip;
+	struct ethaddr mac = {};
+	struct ipaddr ip = {};
 	int evpn_type = 0;
 	int mac_idx = 0;
 	int ip_idx = 0;
@@ -635,28 +639,37 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 		return CMD_WARNING;
 
 	if (evpn_type == BGP_EVPN_MAC_IP_ROUTE) {
-		memset(&ip, 0, sizeof(struct ipaddr));
+		memset(&ip, 0, sizeof(ip));
 
-		argv_find(argv, argc, "mac", &mac_idx);
-		(void)prefix_str2mac(argv[mac_idx + 1]->arg, &mac);
+		if (argv_find(argv, argc, "mac", &mac_idx))
+			if (!prefix_str2mac(argv[mac_idx + 1]->arg, &mac)) {
+				vty_out(vty, "%% Malformed MAC address\n");
+				return CMD_WARNING;
+			}
 
-		argv_find(argv, argc, "ip", &ip_idx);
-		str2ipaddr(argv[ip_idx + 1]->arg, &ip);
+		if (argv_find(argv, argc, "ip", &ip_idx))
+			if (str2ipaddr(argv[ip_idx + 1]->arg, &ip) != 0) {
+				vty_out(vty, "%% Malformed IP address\n");
+				return CMD_WARNING;
+			}
 
 		build_evpn_type2_prefix((struct prefix_evpn *)argv_p,
 					&mac, &ip);
 	} else if (evpn_type == BGP_EVPN_IMET_ROUTE) {
-		memset(&ip, 0, sizeof(struct ipaddr));
+		memset(&ip, 0, sizeof(ip));
 
-		argv_find(argv, argc, "ip", &ip_idx);
-		str2ipaddr(argv[ip_idx + 1]->arg, &ip);
+		if (argv_find(argv, argc, "ip", &ip_idx))
+			if (str2ipaddr(argv[ip_idx + 1]->arg, &ip) != 0) {
+				vty_out(vty, "%% Malformed IP address\n");
+				return CMD_WARNING;
+			}
 
 		build_evpn_type3_prefix((struct prefix_evpn *)argv_p,
 					ip.ipaddr_v4);
 	} else if (evpn_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		struct prefix ip_prefix;
 
-		memset(&ip_prefix, 0, sizeof(struct prefix));
+		memset(&ip_prefix, 0, sizeof(ip_prefix));
 		if (argv_find(argv, argc, "ip", &ip_idx)) {
 			(void)str2prefix(argv[ip_idx + 1]->arg, &ip_prefix);
 			apply_mask(&ip_prefix);
@@ -2563,9 +2576,9 @@ static int bgp_debug_per_prefix(const struct prefix *p,
 /* Return true if this peer is on the per_peer_list of peers to debug
  * for BGP_DEBUG_TYPE
  */
-static int bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
-			      unsigned int BGP_DEBUG_TYPE,
-			      struct list *per_peer_list)
+static bool bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
+			       unsigned int BGP_DEBUG_TYPE,
+			       struct list *per_peer_list)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
@@ -2573,25 +2586,25 @@ static int bgp_debug_per_peer(char *host, unsigned long term_bgp_debug_type,
 	if (term_bgp_debug_type & BGP_DEBUG_TYPE) {
 		/* We are debugging all peers so return true */
 		if (!per_peer_list || list_isempty(per_peer_list))
-			return 1;
+			return true;
 
 		else {
 			if (!host)
-				return 0;
+				return false;
 
 			for (ALL_LIST_ELEMENTS(per_peer_list, node, nnode,
 					       filter))
 				if (strcmp(filter->host, host) == 0)
-					return 1;
+					return true;
 
-			return 0;
+			return false;
 		}
 	}
 
-	return 0;
+	return false;
 }
 
-int bgp_debug_neighbor_events(struct peer *peer)
+bool bgp_debug_neighbor_events(const struct peer *peer)
 {
 	char *host = NULL;
 
@@ -2603,7 +2616,7 @@ int bgp_debug_neighbor_events(struct peer *peer)
 				  bgp_debug_neighbor_events_peers);
 }
 
-int bgp_debug_keepalive(struct peer *peer)
+bool bgp_debug_keepalive(const struct peer *peer)
 {
 	char *host = NULL;
 
@@ -2615,7 +2628,7 @@ int bgp_debug_keepalive(struct peer *peer)
 				  bgp_debug_keepalive_peers);
 }
 
-bool bgp_debug_update(struct peer *peer, const struct prefix *p,
+bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 		      struct update_group *updgrp, unsigned int inbound)
 {
 	char *host = NULL;

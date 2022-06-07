@@ -28,6 +28,7 @@
 #include "plist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_tlv.h"
 #include "pim_msg.h"
@@ -162,6 +163,14 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	buf = tlv_buf;
 	pastend = tlv_buf + tlv_buf_size;
 	pim_ifp = ifp->info;
+
+	if (pim_ifp->pim_passive_enable) {
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"skip receiving PIM message on passive interface %s",
+				ifp->name);
+		return 0;
+	}
 
 	/*
 	  Parse ucast addr
@@ -496,7 +505,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 					 pim_ifp->primary_address,
 					 qpim_all_pim_routers_addr, pim_msg,
 					 packet_size,
-					 rpf->source_nexthop.interface->name)) {
+					 rpf->source_nexthop.interface)) {
 				zlog_warn(
 					"%s: could not send PIM message on interface %s",
 					__func__,
@@ -534,8 +543,10 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		packet_size += group_size;
 		pim_msg_build_jp_groups(grp, group, group_size);
 
-		pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
-		pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
+		if (!pim_ifp->pim_passive_enable) {
+			pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
+			pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
+		}
 
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
@@ -554,7 +565,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 					 pim_ifp->primary_address,
 					 qpim_all_pim_routers_addr, pim_msg,
 					 packet_size,
-					 rpf->source_nexthop.interface->name)) {
+					 rpf->source_nexthop.interface)) {
 				zlog_warn(
 					"%s: could not send PIM message on interface %s",
 					__func__,
@@ -573,8 +584,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			pim_msg, packet_size, PIM_MSG_TYPE_JOIN_PRUNE, false);
 		if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 				 qpim_all_pim_routers_addr, pim_msg,
-				 packet_size,
-				 rpf->source_nexthop.interface->name)) {
+				 packet_size, rpf->source_nexthop.interface)) {
 			zlog_warn(
 				"%s: could not send PIM message on interface %s",
 				__func__, rpf->source_nexthop.interface->name);

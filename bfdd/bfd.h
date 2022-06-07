@@ -190,8 +190,8 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
+	char ifname[INTERFACE_NAMSIZ];
+	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 
 struct bfd_session_stats {
@@ -290,7 +290,6 @@ struct bfd_session {
 	struct peer_label *pl;
 
 	struct bfd_dplane_ctx *bdc;
-	struct sockaddr_any local_address;
 	struct interface *ifp;
 	struct vrf *vrf;
 

@@ -191,9 +191,6 @@ void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 	tmp.addr = *tip;
 
 	addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
-	if (!addr)
-		return;
-
 	addr->refcnt++;
 }
 
@@ -399,8 +396,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		dest = bgp_node_get(bgp->connected_table[AFI_IP],
-				    (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP], &p);
 		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
 			bc->refcnt++;
@@ -433,8 +429,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		dest = bgp_node_get(bgp->connected_table[AFI_IP6],
-				    (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP6], &p);
 
 		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
@@ -565,7 +560,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		return true;
 
 	if (new_afi == AF_INET && hashcount(bgp->tip_hash)) {
-		memset(&tmp_tip, 0, sizeof(struct tip_addr));
+		memset(&tmp_tip, 0, sizeof(tmp_tip));
 		tmp_tip.addr = attr->nexthop;
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {

@@ -23,6 +23,8 @@
 #include <zebra.h>
 #include "pim_str.h"
 
+struct pim_instance;
+
 /*
   RFC 4601:
 

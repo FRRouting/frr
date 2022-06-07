@@ -30,6 +30,7 @@
 
 #include "pimd.h"
 #include "pimd/pim_nht.h"
+#include "pim_instance.h"
 #include "log.h"
 #include "pim_time.h"
 #include "pim_oil.h"
@@ -113,7 +114,7 @@ static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
 	struct zclient *zclient = NULL;
 
 	zclient = pim_zebra_zclient_get();
-	memset(&rpf, 0, sizeof(struct pim_rpf));
+	memset(&rpf, 0, sizeof(rpf));
 	rpf.rpf_addr = *addr;
 
 	pnc = pim_nexthop_cache_find(pim, &rpf);
@@ -151,7 +152,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	}
 
 	if (up != NULL)
-		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
+		(void)hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
 	if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		if (out_pnc)

@@ -122,8 +122,47 @@ void bgp_packet_set_size(struct stream *s)
  */
 static void bgp_packet_add(struct peer *peer, struct stream *s)
 {
+	intmax_t delta;
+	uint32_t holdtime;
+
 	frr_with_mutex(&peer->io_mtx) {
+		/* if the queue is empty, reset the "last OK" timestamp to
+		 * now, otherwise if we write another packet immediately
+		 * after it'll get confused
+		 */
+		if (!stream_fifo_count_safe(peer->obuf))
+			peer->last_sendq_ok = bgp_clock();
+
 		stream_fifo_push(peer->obuf, s);
+
+		delta = bgp_clock() - peer->last_sendq_ok;
+		holdtime = atomic_load_explicit(&peer->holdtime,
+						memory_order_relaxed);
+
+		/* Note that when we're here, we're adding some packet to the
+		 * OutQ.  That includes keepalives when there is nothing to
+		 * do, so there's a guarantee we pass by here once in a while.
+		 *
+		 * That implies there is no need to go set up another separate
+		 * timer that ticks down SendHoldTime, as we'll be here sooner
+		 * or later anyway and will see the checks below failing.
+		 */
+		if (!holdtime) {
+			/* no holdtime, do nothing. */
+		} else if (delta > 2 * (intmax_t)holdtime) {
+			flog_err(
+				EC_BGP_SENDQ_STUCK_PROPER,
+				"%s has not made any SendQ progress for 2 holdtimes, terminating session",
+				peer->host);
+			BGP_EVENT_ADD(peer, TCP_fatal_error);
+		} else if (delta > (intmax_t)holdtime &&
+			   bgp_clock() - peer->last_sendq_warn > 5) {
+			flog_warn(
+				EC_BGP_SENDQ_STUCK_WARN,
+				"%s has not made any SendQ progress for 1 holdtime, peer overloaded?",
+				peer->host);
+			peer->last_sendq_warn = bgp_clock();
+		}
 	}
 }
 
@@ -694,7 +733,6 @@ static void bgp_write_notify(struct peer *peer)
 
 	/* Type should be notify. */
 	atomic_fetch_add_explicit(&peer->notify_out, 1, memory_order_relaxed);
-	peer->notify_out++;
 
 	/* Double start timer. */
 	peer->v_start *= 2;
@@ -710,6 +748,106 @@ static void bgp_write_notify(struct peer *peer)
 	BGP_EVENT_ADD(peer, BGP_Stop);
 
 	stream_free(s);
+}
+
+/*
+ * Encapsulate an original BGP CEASE Notification into Hard Reset
+ */
+static uint8_t *bgp_notify_encapsulate_hard_reset(uint8_t code, uint8_t subcode,
+						  uint8_t *data, size_t datalen)
+{
+	uint8_t *message = XCALLOC(MTYPE_BGP_NOTIFICATION, datalen + 2);
+
+	/* ErrCode */
+	message[0] = code;
+	/* Subcode */
+	message[1] = subcode;
+	/* Data */
+	if (datalen)
+		memcpy(message + 2, data, datalen);
+
+	return message;
+}
+
+/*
+ * Decapsulate an original BGP CEASE Notification from Hard Reset
+ */
+struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
+{
+	struct bgp_notify bn = {};
+
+	bn.code = notify->raw_data[0];
+	bn.subcode = notify->raw_data[1];
+	bn.length = notify->length - 2;
+
+	bn.raw_data = XCALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
+	memcpy(bn.raw_data, notify->raw_data + 2, bn.length);
+
+	return bn;
+}
+
+/* Check if Graceful-Restart N-bit is exchanged */
+bool bgp_has_graceful_restart_notification(struct peer *peer)
+{
+	return CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV) &&
+	       CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+}
+
+/*
+ * Check if to send BGP CEASE Notification/Hard Reset?
+ */
+bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
+				uint8_t subcode)
+{
+	/* When the "N" bit has been exchanged, a Hard Reset message is used to
+	 * indicate to the peer that the session is to be fully terminated.
+	 */
+	if (!bgp_has_graceful_restart_notification(peer))
+		return false;
+
+	/*
+	 * https://datatracker.ietf.org/doc/html/rfc8538#section-5.1
+	 */
+	if (code == BGP_NOTIFY_CEASE) {
+		switch (subcode) {
+		case BGP_NOTIFY_CEASE_MAX_PREFIX:
+		case BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN:
+		case BGP_NOTIFY_CEASE_PEER_UNCONFIG:
+		case BGP_NOTIFY_CEASE_HARD_RESET:
+			return true;
+		case BGP_NOTIFY_CEASE_ADMIN_RESET:
+			/* Provide user control:
+			 * `bgp hard-adminstrative-reset`
+			 */
+			if (CHECK_FLAG(peer->bgp->flags,
+				       BGP_FLAG_HARD_ADMIN_RESET))
+				return true;
+			else
+				return false;
+		default:
+			break;
+		}
+	}
+
+	return false;
+}
+
+/*
+ * Check if received BGP CEASE Notification/Hard Reset?
+ */
+bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
+				    uint8_t subcode)
+{
+	/* When the "N" bit has been exchanged, a Hard Reset message is used to
+	 * indicate to the peer that the session is to be fully terminated.
+	 */
+	if (!bgp_has_graceful_restart_notification(peer))
+		return false;
+
+	if (code == BGP_NOTIFY_CEASE && subcode == BGP_NOTIFY_CEASE_HARD_RESET)
+		return true;
+
+	return false;
 }
 
 /*
@@ -736,6 +874,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 			       uint8_t sub_code, uint8_t *data, size_t datalen)
 {
 	struct stream *s;
+	bool hard_reset = bgp_notify_send_hard_reset(peer, code, sub_code);
 
 	/* Lock I/O mutex to prevent other threads from pushing packets */
 	frr_mutex_lock_autounlock(&peer->io_mtx);
@@ -747,13 +886,25 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	/* Make notify packet. */
 	bgp_packet_set_marker(s, BGP_MSG_NOTIFY);
 
-	/* Set notify packet values. */
-	stream_putc(s, code);     /* BGP notify code */
-	stream_putc(s, sub_code); /* BGP notify sub_code */
+	/* Check if we should send Hard Reset Notification or not */
+	if (hard_reset) {
+		uint8_t *hard_reset_message = bgp_notify_encapsulate_hard_reset(
+			code, sub_code, data, datalen);
 
-	/* If notify data is present. */
-	if (data)
-		stream_write(s, data, datalen);
+		/* Hard Reset encapsulates another NOTIFICATION message
+		 * in its data portion.
+		 */
+		stream_putc(s, BGP_NOTIFY_CEASE);
+		stream_putc(s, BGP_NOTIFY_CEASE_HARD_RESET);
+		stream_write(s, hard_reset_message, datalen + 2);
+
+		XFREE(MTYPE_BGP_NOTIFICATION, hard_reset_message);
+	} else {
+		stream_putc(s, code);
+		stream_putc(s, sub_code);
+		if (data)
+			stream_write(s, data, datalen);
+	}
 
 	/* Set BGP packet length. */
 	bgp_packet_set_size(s);
@@ -808,7 +959,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 						bgp_notify.length);
 				}
 		}
-		bgp_notify_print(peer, &bgp_notify, "sending");
+		bgp_notify_print(peer, &bgp_notify, "sending", hard_reset);
 
 		if (bgp_notify.data) {
 			XFREE(MTYPE_TMP, bgp_notify.data);
@@ -1602,7 +1753,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* Set initial values. */
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 	memset(&nlris, 0, sizeof(nlris));
@@ -1894,27 +2045,44 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
  */
 static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 {
-	struct bgp_notify bgp_notify;
+	struct bgp_notify outer = {};
+	struct bgp_notify inner = {};
+	bool hard_reset = false;
 
 	if (peer->notify.data) {
-		XFREE(MTYPE_TMP, peer->notify.data);
+		XFREE(MTYPE_BGP_NOTIFICATION, peer->notify.data);
 		peer->notify.length = 0;
+		peer->notify.hard_reset = false;
 	}
 
-	bgp_notify.code = stream_getc(peer->curr);
-	bgp_notify.subcode = stream_getc(peer->curr);
-	bgp_notify.length = size - 2;
-	bgp_notify.data = NULL;
-	bgp_notify.raw_data = NULL;
+	outer.code = stream_getc(peer->curr);
+	outer.subcode = stream_getc(peer->curr);
+	outer.length = size - 2;
+	outer.data = NULL;
+	outer.raw_data = NULL;
+	if (outer.length) {
+		outer.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, outer.length);
+		memcpy(outer.raw_data, stream_pnt(peer->curr), outer.length);
+	}
+
+	hard_reset =
+		bgp_notify_received_hard_reset(peer, outer.code, outer.subcode);
+	if (hard_reset && outer.length) {
+		inner = bgp_notify_decapsulate_hard_reset(&outer);
+		peer->notify.hard_reset = true;
+	} else {
+		inner = outer;
+	}
 
 	/* Preserv notify code and sub code. */
-	peer->notify.code = bgp_notify.code;
-	peer->notify.subcode = bgp_notify.subcode;
+	peer->notify.code = inner.code;
+	peer->notify.subcode = inner.subcode;
 	/* For further diagnostic record returned Data. */
-	if (bgp_notify.length) {
-		peer->notify.length = size - 2;
-		peer->notify.data = XMALLOC(MTYPE_TMP, size - 2);
-		memcpy(peer->notify.data, stream_pnt(peer->curr), size - 2);
+	if (inner.length) {
+		peer->notify.length = inner.length;
+		peer->notify.data =
+			XMALLOC(MTYPE_BGP_NOTIFICATION, inner.length);
+		memcpy(peer->notify.data, inner.raw_data, inner.length);
 	}
 
 	/* For debug */
@@ -1923,32 +2091,36 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		int first = 0;
 		char c[4];
 
-		if (bgp_notify.length) {
-			bgp_notify.data =
-				XMALLOC(MTYPE_TMP, bgp_notify.length * 3);
-			for (i = 0; i < bgp_notify.length; i++)
+		if (inner.length) {
+			inner.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
+					     inner.length * 3);
+			for (i = 0; i < inner.length; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
 						stream_getc(peer->curr));
 
-					strlcat(bgp_notify.data, c,
-						bgp_notify.length * 3);
+					strlcat(inner.data, c,
+						inner.length * 3);
 
 				} else {
 					first = 1;
 					snprintf(c, sizeof(c), "%02x",
 						 stream_getc(peer->curr));
 
-					strlcpy(bgp_notify.data, c,
-						bgp_notify.length * 3);
+					strlcpy(inner.data, c,
+						inner.length * 3);
 				}
-			bgp_notify.raw_data = (uint8_t *)peer->notify.data;
 		}
 
-		bgp_notify_print(peer, &bgp_notify, "received");
-		if (bgp_notify.data) {
-			XFREE(MTYPE_TMP, bgp_notify.data);
-			bgp_notify.length = 0;
+		bgp_notify_print(peer, &inner, "received", hard_reset);
+		if (inner.length) {
+			XFREE(MTYPE_BGP_NOTIFICATION, inner.data);
+			inner.length = 0;
+		}
+		if (outer.length) {
+			XFREE(MTYPE_BGP_NOTIFICATION, outer.data);
+			XFREE(MTYPE_BGP_NOTIFICATION, outer.raw_data);
+			outer.length = 0;
 		}
 	}
 
@@ -1961,9 +2133,16 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	   in that case we fallback to open without the capability option.
 	   But this done in bgp_stop. We just mark it here to avoid changing
 	   the fsm tables.  */
-	if (bgp_notify.code == BGP_NOTIFY_OPEN_ERR
-	    && bgp_notify.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
+	if (inner.code == BGP_NOTIFY_OPEN_ERR &&
+	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
+
+	/* If Graceful-Restart N-bit (Notification) is exchanged,
+	 * and it's not a Hard Reset, let's retain the routes.
+	 */
+	if (bgp_has_graceful_restart_notification(peer) && !hard_reset &&
+	    CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+		SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
@@ -2120,8 +2299,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					 * to maximise debug information.
 					 */
 					int ok;
-					memset(&orfp, 0,
-					       sizeof(struct orf_prefix));
+					memset(&orfp, 0, sizeof(orfp));
 					common = *p_pnt++;
 					/* after ++: p_pnt <= p_end */
 					if (common

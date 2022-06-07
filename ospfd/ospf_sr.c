@@ -608,7 +608,7 @@ int ospf_sr_init(void)
 
 	osr_debug("SR (%s): Initialize SR Data Base", __func__);
 
-	memset(&OspfSR, 0, sizeof(struct ospf_sr_db));
+	memset(&OspfSR, 0, sizeof(OspfSR));
 	OspfSR.status = SR_OFF;
 	/* Only AREA flooding is supported in this release */
 	OspfSR.scope = OSPF_OPAQUE_AREA_LSA;
@@ -1463,14 +1463,6 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		srn = (struct sr_node *)hash_get(OspfSR.neighbors,
 						 &lsah->adv_router,
 						 (void *)sr_node_new);
-		/* Sanity check */
-		if (srn == NULL) {
-			flog_err(
-				EC_OSPF_SR_NODE_CREATE,
-				"SR (%s): Abort! can't create SR node in hash table",
-				__func__);
-			return;
-		}
 		/* update LSA ID */
 		srn->instance = ntohl(lsah->id.s_addr);
 		/* Copy SRGB */
@@ -1581,14 +1573,6 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	srn = (struct sr_node *)hash_get(OspfSR.neighbors,
 					 (void *)&(lsah->adv_router),
 					 (void *)sr_node_new);
-
-	/* Sanity check */
-	if (srn == NULL) {
-		flog_err(EC_OSPF_SR_NODE_CREATE,
-			 "SR (%s): Abort! can't create SR node in hash table",
-			 __func__);
-		return;
-	}
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1814,15 +1798,6 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 	srn = (struct sr_node *)hash_get(OspfSR.neighbors,
 					 (void *)&(lsah->adv_router),
 					 (void *)sr_node_new);
-
-	/* Sanity check */
-	if (srn == NULL) {
-		flog_err(EC_OSPF_SR_NODE_CREATE,
-			 "SR (%s): Abort! can't create SR node in hash table",
-			 __func__);
-		return;
-	}
-
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 	for (tlvh = TLV_HDR_TOP(lsah); length > 0 && tlvh;

@@ -123,6 +123,14 @@ FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_DUPLICATES,
 	{ .val_bool = false, .match_version = "< 7.6", },
 	{ .val_bool = true },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_GRACEFUL_NOTIFICATION,
+	{ .val_bool = false, .match_version = "< 8.3", },
+	{ .val_bool = true },
+);
+FRR_CFG_DEFAULT_BOOL(BGP_HARD_ADMIN_RESET,
+	{ .val_bool = false, .match_version = "< 8.3", },
+	{ .val_bool = true },
+);
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
@@ -569,6 +577,10 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
 		if (DFLT_BGP_SUPPRESS_DUPLICATES)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+		if (DFLT_BGP_GRACEFUL_NOTIFICATION)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+		if (DFLT_BGP_HARD_ADMIN_RESET)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_HARD_ADMIN_RESET);
 
 		ret = BGP_SUCCESS;
 	}
@@ -1542,7 +1554,7 @@ DEFUN (no_router_bgp,
 						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST) ||
 				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
 						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))) ||
-				    (tmp_bgp->vnihash && hashcount(tmp_bgp->vnihash))) {
+				    (hashcount(tmp_bgp->vnihash))) {
 					vty_out(vty,
 						"%% Cannot delete default BGP instance. Dependent VRF instances exist\n");
 					return CMD_WARNING_CONFIG_FAILED;
@@ -1556,6 +1568,32 @@ DEFUN (no_router_bgp,
 	return CMD_SUCCESS;
 }
 
+/* bgp session-dscp */
+
+DEFPY (bgp_session_dscp,
+       bgp_session_dscp_cmd,
+       "bgp session-dscp (0-63)$dscp",
+       BGP_STR
+       "Override default (C6) bgp TCP session DSCP value\n"
+       "Manually configured dscp parameter\n")
+{
+	bm->tcp_dscp = dscp << 2;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_session_dscp,
+       no_bgp_session_dscp_cmd,
+       "no bgp session-dscp [(0-63)]",
+       NO_STR
+       BGP_STR
+       "Override default (C6) bgp TCP session DSCP value\n"
+       "Manually configured dscp parameter\n")
+{
+	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
+
+	return CMD_SUCCESS;
+}
 
 /* BGP router-id.  */
 
@@ -1602,49 +1640,72 @@ DEFPY(bgp_community_alias, bgp_community_alias_cmd,
       "Community (AA:BB or AA:BB:CC)\n"
       "Alias name\n")
 {
-	struct community_alias ca1;
-	struct community_alias ca2;
+	struct community_alias ca = {};
 	struct community_alias *lookup_community;
 	struct community_alias *lookup_alias;
+	struct community *comm;
+	struct lcommunity *lcomm;
+	uint8_t invalid = 0;
 
-	if (!community_str2com(community) && !lcommunity_str2com(community)) {
+	comm = community_str2com(community);
+	if (!comm)
+		invalid++;
+	community_free(&comm);
+
+	lcomm = lcommunity_str2com(community);
+	if (!lcomm)
+		invalid++;
+	lcommunity_free(&lcomm);
+
+	if (invalid > 1) {
 		vty_out(vty, "Invalid community format\n");
 		return CMD_WARNING;
 	}
 
-	memset(&ca1, 0, sizeof(ca1));
-	memset(&ca2, 0, sizeof(ca2));
-	strlcpy(ca1.community, community, sizeof(ca1.community));
-	strlcpy(ca1.alias, alias_name, sizeof(ca1.alias));
+	strlcpy(ca.community, community, sizeof(ca.community));
+	strlcpy(ca.alias, alias_name, sizeof(ca.alias));
 
-	lookup_community = bgp_ca_community_lookup(&ca1);
-	lookup_alias = bgp_ca_alias_lookup(&ca1);
+	lookup_community = bgp_ca_community_lookup(&ca);
+	lookup_alias = bgp_ca_alias_lookup(&ca);
 
 	if (no) {
-		bgp_ca_alias_delete(&ca1);
-		bgp_ca_community_delete(&ca1);
+		bgp_ca_alias_delete(&ca);
+		bgp_ca_community_delete(&ca);
 	} else {
 		if (lookup_alias) {
 			/* Lookup if community hash table has an item
 			 * with the same alias name.
 			 */
-			strlcpy(ca2.community, lookup_alias->community,
-				sizeof(ca2.community));
-			if (bgp_ca_community_lookup(&ca2)) {
+			strlcpy(ca.community, lookup_alias->community,
+				sizeof(ca.community));
+			if (bgp_ca_community_lookup(&ca)) {
 				vty_out(vty,
 					"community (%s) already has this alias (%s)\n",
 					lookup_alias->community,
 					lookup_alias->alias);
 				return CMD_WARNING;
 			}
-			bgp_ca_alias_delete(&ca1);
+			bgp_ca_alias_delete(&ca);
 		}
 
-		if (lookup_community)
-			bgp_ca_community_delete(&ca1);
+		if (lookup_community) {
+			/* Lookup if alias hash table has an item
+			 * with the same community.
+			 */
+			strlcpy(ca.alias, lookup_community->alias,
+				sizeof(ca.alias));
+			if (bgp_ca_alias_lookup(&ca)) {
+				vty_out(vty,
+					"alias (%s) already has this community (%s)\n",
+					lookup_community->alias,
+					lookup_community->community);
+				return CMD_WARNING;
+			}
+			bgp_ca_community_delete(&ca);
+		}
 
-		bgp_ca_alias_insert(&ca1);
-		bgp_ca_community_insert(&ca1);
+		bgp_ca_alias_insert(&ca);
+		bgp_ca_community_insert(&ca);
 	}
 
 	return CMD_SUCCESS;
@@ -1962,8 +2023,8 @@ DEFUN (bgp_maxmed_onstartup,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx = 0;
 
-	argv_find(argv, argc, "(5-86400)", &idx);
-	bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
+	if (argv_find(argv, argc, "(5-86400)", &idx))
+		bgp->v_maxmed_onstartup = strtoul(argv[idx]->arg, NULL, 10);
 	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		bgp->maxmed_onstartup_value = strtoul(argv[idx]->arg, NULL, 10);
 	else
@@ -2263,9 +2324,12 @@ DEFUN (bgp_coalesce_time,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	int idx = 0;
-	argv_find(argv, argc, "(0-4294967295)", &idx);
+
 	bgp->heuristic_coalesce = false;
-	bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
+
 	return CMD_SUCCESS;
 }
 
@@ -2327,9 +2391,8 @@ DEFUN (bgp_maxpaths_ibgp_cluster,
        "Match the cluster length\n")
 {
 	int idx_number = 2;
-	return bgp_maxpaths_config_vty(
-		vty, BGP_PEER_IBGP, argv[idx_number]->arg,
-		BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN, 1);
+	return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP,
+				       argv[idx_number]->arg, true, 1);
 }
 
 ALIAS_HIDDEN(bgp_maxpaths_ibgp_cluster, bgp_maxpaths_ibgp_cluster_hidden_cmd,
@@ -2387,8 +2450,7 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 	if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num) {
 		vty_out(vty, "  maximum-paths ibgp %d",
 			bgp->maxpaths[afi][safi].maxpaths_ibgp);
-		if (CHECK_FLAG(bgp->maxpaths[afi][safi].ibgp_flags,
-			       BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
+		if (bgp->maxpaths[afi][safi].same_clusterlen)
 			vty_out(vty, " equal-cluster-length");
 		vty_out(vty, "\n");
 	}
@@ -2865,6 +2927,41 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_graceful_restart_notification,
+	bgp_graceful_restart_notification_cmd,
+	"[no$no] bgp graceful-restart notification",
+	NO_STR
+	BGP_STR
+	"Graceful restart capability parameters\n"
+	"Indicate Graceful Restart support for BGP NOTIFICATION messages\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_administrative_reset,
+	bgp_administrative_reset_cmd,
+	"[no$no] bgp hard-administrative-reset",
+	NO_STR
+	BGP_STR
+	"Send Hard Reset CEASE Notification for 'Administrative Reset'\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET);
+
 	return CMD_SUCCESS;
 }
 
@@ -5273,6 +5370,12 @@ DEFUN (neighbor_capability_enhe,
        "Advertise extended next-hop capability to the peer\n")
 {
 	int idx_peer = 1;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (peer && peer->conf_if)
+		return CMD_SUCCESS;
+
 	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
 				 PEER_FLAG_CAPABILITY_ENHE);
 }
@@ -5287,6 +5390,16 @@ DEFUN (no_neighbor_capability_enhe,
        "Advertise extended next-hop capability to the peer\n")
 {
 	int idx_peer = 2;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (peer && peer->conf_if) {
+		vty_out(vty,
+			"Peer %s cannot have capability extended-nexthop turned off\n",
+			argv[idx_peer]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
 				   PEER_FLAG_CAPABILITY_ENHE);
 }
@@ -10052,6 +10165,9 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 			json_object_string_add(json_peer,
 					       "lastNotificationReason",
 					       errorcodesubcode_str);
+			json_object_boolean_add(json_peer,
+						"lastNotificationHardReset",
+						peer->notify.hard_reset);
 			if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED
 			    && peer->notify.code == BGP_NOTIFY_CEASE
 			    && (peer->notify.subcode
@@ -10085,11 +10201,16 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 			subcode_str =
 				bgp_notify_subcode_str(peer->notify.code,
 						       peer->notify.subcode);
-			vty_out(vty, "  Notification %s (%s%s)\n",
+			vty_out(vty, " Notification %s (%s%s%s)\n",
 				peer->last_reset == PEER_DOWN_NOTIFY_SEND
-				? "sent"
-				: "received",
-				code_str, subcode_str);
+					? "sent"
+					: "received",
+				code_str, subcode_str,
+				peer->notify.hard_reset
+					? bgp_notify_subcode_str(
+						  BGP_NOTIFY_CEASE,
+						  BGP_NOTIFY_CEASE_HARD_RESET)
+					: "");
 		} else {
 			vty_out(vty, " %s\n",
 				peer_down_str[(int)peer->last_reset]);
@@ -11246,36 +11367,27 @@ static void bgp_show_peer_afi_orf_cap(struct vty *vty, struct peer *p,
 	}
 }
 
-static void bgp_show_neighnor_graceful_restart_rbit(struct vty *vty,
-						    struct peer *p,
-						    bool use_json,
-						    json_object *json)
+static void bgp_show_neighnor_graceful_restart_flags(struct vty *vty,
+						     struct peer *p,
+						     bool use_json,
+						     json_object *json)
 {
-	bool rbit_status = false;
-
-	if (!use_json)
-		vty_out(vty, "\n    R bit: ");
+	bool rbit = false;
+	bool nbit = false;
 
 	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)
 	    && (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV))
 	    && (peer_established(p))) {
-
-		if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_BIT_RCV))
-			rbit_status = true;
-		else
-			rbit_status = false;
+		rbit = CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
+		nbit = CHECK_FLAG(p->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
 	}
 
-	if (rbit_status) {
-		if (use_json)
-			json_object_boolean_true_add(json, "rBit");
-		else
-			vty_out(vty, "True\n");
+	if (use_json) {
+		json_object_boolean_add(json, "rBit", rbit);
+		json_object_boolean_add(json, "nBit", nbit);
 	} else {
-		if (use_json)
-			json_object_boolean_false_add(json, "rBit");
-		else
-			vty_out(vty, "False\n");
+		vty_out(vty, "\n    R bit: %s", rbit ? "True" : "False");
+		vty_out(vty, "\n    N bit: %s\n", nbit ? "True" : "False");
 	}
 }
 
@@ -16615,7 +16727,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* capability extended-nexthop */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE))
+		if (CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE) &&
+		    !peer->conf_if)
 			vty_out(vty,
 				" no neighbor %s capability extended-nexthop\n",
 				addr);
@@ -17062,6 +17175,10 @@ int bgp_config_write(struct vty *vty)
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
 
+	/* BGP session DSCP value */
+	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
+		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -17124,6 +17241,16 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " %sbgp suppress-duplicates\n",
 				CHECK_FLAG(bgp->flags,
 					   BGP_FLAG_SUPPRESS_DUPLICATES)
+					? ""
+					: "no ");
+
+		/* Send Hard Reset CEASE Notification for 'Administrative Reset'
+		 */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_HARD_ADMIN_RESET) !=
+		    SAVE_BGP_HARD_ADMIN_RESET)
+			vty_out(vty, " %sbgp hard-administrative-reset\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_HARD_ADMIN_RESET)
 					? ""
 					: "no ");
 
@@ -17258,6 +17385,14 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
 			vty_out(vty, " bgp graceful-restart restart-time %u\n",
 				bgp->restart_time);
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION) !=
+		    SAVE_BGP_GRACEFUL_NOTIFICATION)
+			vty_out(vty, " %sbgp graceful-restart notification\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_GRACEFUL_NOTIFICATION)
+					? ""
+					: "no ");
 
 		if (bgp->select_defer_time != BGP_DEFAULT_SELECT_DEFERRAL_TIME)
 			vty_out(vty,
@@ -17747,6 +17882,10 @@ void bgp_vty_init(void)
 	/* "no router bgp" commands. */
 	install_element(CONFIG_NODE, &no_router_bgp_cmd);
 
+	/* "bgp session-dscp command */
+	install_element(CONFIG_NODE, &bgp_session_dscp_cmd);
+	install_element(CONFIG_NODE, &no_bgp_session_dscp_cmd);
+
 	/* "bgp router-id" commands. */
 	install_element(BGP_NODE, &bgp_router_id_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_cmd);
@@ -17891,6 +18030,7 @@ void bgp_vty_init(void)
 			&no_bgp_graceful_restart_select_defer_time_cmd);
 	install_element(BGP_NODE, &bgp_graceful_restart_preserve_fw_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_preserve_fw_cmd);
+	install_element(BGP_NODE, &bgp_graceful_restart_notification_cmd);
 
 	install_element(BGP_NODE, &bgp_graceful_restart_disable_eor_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_disable_eor_cmd);
@@ -17900,6 +18040,9 @@ void bgp_vty_init(void)
 	/* "bgp graceful-shutdown" commands */
 	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
+
+	/* "bgp hard-administrative-reset" commands */
+	install_element(BGP_NODE, &bgp_administrative_reset_cmd);
 
 	/* "bgp long-lived-graceful-restart" commands */
 	install_element(BGP_NODE, &bgp_llgr_stalepath_time_cmd);
@@ -19160,8 +19303,7 @@ DEFUN (community_list_standard,
 	int style = COMMUNITY_LIST_STANDARD;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19209,8 +19351,7 @@ DEFUN (no_community_list_standard_all,
 	char *seq = NULL;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19273,8 +19414,7 @@ DEFUN (community_list_expanded_all,
 	int style = COMMUNITY_LIST_EXPANDED;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -19323,8 +19463,7 @@ DEFUN (no_community_list_expanded_all,
 	int style = COMMUNITY_LIST_EXPANDED;
 	int idx = 0;
 
-	argv_find(argv, argc, "(0-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;

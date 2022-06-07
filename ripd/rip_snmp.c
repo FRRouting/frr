@@ -356,7 +356,7 @@ static uint8_t *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	ifp = rip2IfLookup(v, name, length, &addr, exact);
@@ -457,7 +457,7 @@ static uint8_t *rip2IfConfAddress(struct variable *v, oid name[],
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	ifp = rip2IfLookup(v, name, length, &addr, exact);
@@ -529,7 +529,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	/* Lookup interface. */
 	peer = rip2PeerLookup(v, name, length, &addr, exact);

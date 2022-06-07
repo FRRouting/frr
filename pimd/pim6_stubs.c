@@ -25,6 +25,7 @@
 #include "pim_pim.h"
 #include "pim_register.h"
 #include "pim_cmd.h"
+#include "pim_bsm.h"
 
 /*
  * NH lookup / NHT
@@ -34,21 +35,6 @@ void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 }
 
 void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
-{
-}
-
-/*
- * PIM register
- */
-void pim_register_join(struct pim_upstream *up)
-{
-}
-
-void pim_null_register_send(struct pim_upstream *up)
-{
-}
-
-void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 {
 }
 
@@ -77,28 +63,6 @@ void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 
 int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		    uint32_t buf_size, bool no_fwd)
-{
-	return 0;
-}
-
-void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
-		       struct pim_rpf *rpg, int null_register,
-		       struct pim_upstream *up)
-{
-}
-
-void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
-			    pim_addr originator)
-{
-}
-
-int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
-		      pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size)
-{
-	return 0;
-}
-
-int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 {
 	return 0;
 }

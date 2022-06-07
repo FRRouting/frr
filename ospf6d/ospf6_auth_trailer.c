@@ -144,8 +144,6 @@ unsigned char *ospf6_hash_message_xor(unsigned char *mes1,
 	uint32_t i;
 
 	result = XCALLOC(MTYPE_OSPF6_AUTH_HASH_XOR, len);
-	if (!result)
-		return NULL;
 
 	for (i = 0; i < len; i++)
 		result[i] = mes1[i] ^ mes2[i];
@@ -408,7 +406,7 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
-	memset(&ospf6_auth_info, 0, sizeof(struct ospf6_auth_hdr));
+	memset(&ospf6_auth_info, 0, sizeof(ospf6_auth_info));
 	if ((*pkt_len - hdr_len - (*lls_block_len)) > sizeof(ospf6_auth_info)) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
 			zlog_err("RECV[%s] : Wrong auth data in %s packet",

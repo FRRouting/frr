@@ -232,8 +232,17 @@ void bgp_option_norib_set_runtime(void)
 	zlog_info("Disabled BGP route installation to RIB (Zebra)");
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		FOREACH_AFI_SAFI(afi, safi)
+		FOREACH_AFI_SAFI (afi, safi) {
+			/*
+			 * Stop a crash, more work is needed
+			 * here to properly add/remove these types of
+			 * routes from zebra.
+			 */
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
 			bgp_zebra_withdraw_table_all_subtypes(bgp, afi, safi);
+		}
 	}
 
 	zlog_info("All routes have been withdrawn from RIB (Zebra)");
@@ -255,8 +264,17 @@ void bgp_option_norib_unset_runtime(void)
 	zlog_info("Enabled BGP route installation to RIB (Zebra)");
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		FOREACH_AFI_SAFI(afi, safi)
+		FOREACH_AFI_SAFI (afi, safi) {
+			/*
+			 * Stop a crash, more work is needed
+			 * here to properly add/remove these types
+			 * of routes from zebra
+			 */
+			if (!bgp_fibupd_safi(safi))
+				continue;
+
 			bgp_zebra_announce_table_all_subtypes(bgp, afi, safi);
+		}
 	}
 
 	zlog_info("All routes have been installed in RIB (Zebra)");
@@ -1153,7 +1171,7 @@ static void peer_free(struct peer *peer)
 
 	XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
 
-	XFREE(MTYPE_TMP, peer->notify.data);
+	XFREE(MTYPE_BGP_NOTIFICATION, peer->notify.data);
 	memset(&peer->notify, 0, sizeof(struct bgp_notify));
 
 	if (peer->clear_node_queue)
@@ -1650,7 +1668,7 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	/*
 	 * Since our su changed we need to del/add peer to the peerhash
 	 */
-	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 }
 
 void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi, safi_t safi)
@@ -1737,7 +1755,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer = peer_lock(peer); /* bgp peer list reference */
 	peer->group = group;
 	listnode_add_sort(bgp->peer, peer);
-	hash_get(bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Adjust update-group coalesce timer heuristics for # peers. */
 	if (bgp->heuristic_coalesce) {
@@ -3241,7 +3259,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp->evpn_info = XCALLOC(MTYPE_BGP_EVPN_INFO,
 				 sizeof(struct bgp_evpn_info));
-
 	bgp_evpn_init(bgp);
 	bgp_evpn_vrf_es_init(bgp);
 	bgp_pbr_init(bgp);
@@ -4487,7 +4504,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 			if (set) {
 				bgp_zebra_initiate_radv(peer->bgp, peer);
 			} else if (peer_group_active(peer)) {
-				if (!CHECK_FLAG(peer->group->conf->flags, flag))
+				if (!CHECK_FLAG(peer->group->conf->flags,
+						flag) &&
+				    !peer->conf_if)
 					bgp_zebra_terminate_radv(peer->bgp,
 								 peer);
 			} else
@@ -4525,7 +4544,7 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag on peer-group member. */
 		COND_FLAG(member->flags, flag, set != member_invert);
 
-		if (flag == PEER_FLAG_CAPABILITY_ENHE)
+		if (flag == PEER_FLAG_CAPABILITY_ENHE && !member->conf_if)
 			set ? bgp_zebra_initiate_radv(member->bgp, member)
 			    : bgp_zebra_terminate_radv(member->bgp, member);
 
@@ -7818,7 +7837,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 {
 	qobj_init();
 
-	memset(&bgp_master, 0, sizeof(struct bgp_master));
+	memset(&bgp_master, 0, sizeof(bgp_master));
 
 	bm = &bgp_master;
 	bm->bgp = list_new();
@@ -7834,6 +7853,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
+	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
 
 	bgp_mac_init();
 	/* init the rd id space.

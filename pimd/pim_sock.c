@@ -37,6 +37,7 @@
 #include "network.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_mroute.h"
 #include "pim_iface.h"
 #include "pim_sock.h"
@@ -359,7 +360,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			*tolen = sizeof(*to);
 	}
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	iov.iov_base = buf;
 	iov.iov_len = len;
 	msgh.msg_control = cbuf;

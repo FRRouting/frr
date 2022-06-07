@@ -24,6 +24,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_iface.h"
 #include "pim_igmp.h"
 #include "pim_igmpv3.h"
@@ -1889,6 +1890,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	uint8_t *group_record;
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
 	struct interface *ifp = igmp->interface;
+	struct pim_interface *pim_ifp = ifp->info;
 	int i;
 
 	if (igmp->mtrace_only)
@@ -1911,6 +1913,13 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 
 	/* Collecting IGMP Rx stats */
 	igmp->igmp_stats.report_v3++;
+
+	if (pim_ifp->igmp_version == 2) {
+		zlog_warn(
+			"Received Version 3 packet but interface: %s is configured for version 2",
+			ifp->name);
+		return -1;
+	}
 
 	num_groups = ntohs(
 		*(uint16_t *)(igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET));
