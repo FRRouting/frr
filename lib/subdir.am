@@ -1,6 +1,7 @@
 #
 # libfrr
 #
+
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
 lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
@@ -22,6 +23,7 @@ lib_libfrr_la_SOURCES = \
 	lib/debug.c \
 	lib/defaults.c \
 	lib/distribute.c \
+	lib/explicit_bzero.c \
 	lib/ferr.c \
 	lib/filter.c \
 	lib/filter_cli.c \
@@ -336,6 +338,7 @@ lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
 	lib/snmp.c \
 	# end
+
 
 #
 # c-ares support
