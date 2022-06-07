@@ -778,8 +778,8 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
     %{_includedir}/%{name}/eigrpd/*.h
 %endif
 
-
 %changelog
+
 * Tue Mar  1 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
 * Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
