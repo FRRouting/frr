@@ -137,7 +137,44 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	}
 
 	if (PIM_DEBUG_PIM_REG)
+<<<<<<< HEAD
 		zlog_debug("Received Register stop for %s", upstream->sg_str);
+=======
+		zlog_debug("Received Register stop for %pSG", &sg);
+
+	rp = RP(pim_ifp->pim, sg.grp);
+	if (rp) {
+		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
+		/* As per RFC 7761, Section 4.9.4:
+		 * A special wildcard value consisting of an address field of
+		 * all zeros can be used to indicate any source.
+		 */
+		if ((pim_addr_cmp(sg.src, rpf_addr) == 0) ||
+		    pim_addr_is_any(sg.src)) {
+			handling_star = true;
+			sg.src = PIMADDR_ANY;
+		}
+	}
+
+	/*
+	 * RFC 7761 Sec 4.4.1
+	 * Handling Register-Stop(*,G) Messages at the DR:
+	 *   A Register-Stop(*,G) should be treated as a
+	 *   Register-Stop(S,G) for all (S,G) Register state
+	 *   machines that are not in the NoInfo state.
+	 */
+	up = pim_upstream_find(pim, &sg);
+	if (up) {
+		/*
+		 * If the upstream find actually found a particular
+		 * S,G then we *know* that the following for loop
+		 * is not going to execute and this is ok
+		 */
+		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
+			if (PIM_DEBUG_PIM_REG)
+				zlog_debug("Executing Reg stop for %s",
+					   child->sg_str);
+>>>>>>> e502ecad1 (pimd: Handle receive of (*,G) register stop with src addr as 0)
 
 	switch (upstream->reg_state) {
 	case PIM_REG_NOINFO:
