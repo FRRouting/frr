@@ -779,11 +779,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Sun May 29 2022 Christian Hopps <chopps@labn.net> - %{version}
-- ospfclient:
--     Add OSPF API python client ospfclient.py
-
-* Tue Mar  1 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jun  7 2022 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
 
 * Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
 - The FRRouting community would like to announce FRR Release 8.2.
