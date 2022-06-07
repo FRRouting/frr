@@ -1504,8 +1504,8 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		    path_vpn->attr->ecommunity)) {
 		if (debug)
 			zlog_debug(
-				"from vpn to vrf %s, skipping after no intersection of route targets",
-				bgp_vrf->name_pretty);
+				"from vpn (%s) to vrf (%s), skipping after no intersection of route targets",
+				bgp_vpn->name_pretty, bgp_vrf->name_pretty);
 		return;
 	}
 
