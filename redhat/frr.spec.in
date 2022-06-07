@@ -780,9 +780,6 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Day Mon DD YYYY Pushpasis Sarkar <spushpasis@vmware.com> - %{version}
-- Added MGMTd Daemon to package.
-
 * Tue Mar  1 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
 * Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
