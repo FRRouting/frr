@@ -867,6 +867,12 @@ Opaque LSA
 
    Show Opaque LSA from the database.
 
+.. clicmd:: show ip ospf (1-65535) reachable-routers
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] reachable-routers
+
+   Show routing table of reachable routers.
+
 .. _ospf-traffic-engineering:
 
 Traffic Engineering
@@ -1063,6 +1069,10 @@ Debugging OSPF
    Enable or disable debugging for BFD events. This will show BFD integration
    library messages and OSPF BFD integration messages that are mostly state
    transitions and validation problems.
+
+.. clicmd:: debug ospf client-api
+
+   Show debug information for the OSPF opaque data client API.
 
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
