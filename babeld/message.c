@@ -127,9 +127,8 @@ network_prefix(int ae, int plen, unsigned int omitted,
     return ret;
 }
 
-static void
-parse_update_subtlv(const unsigned char *a, int alen,
-                    unsigned char *channels)
+static bool parse_update_subtlv(const unsigned char *a, int alen,
+				unsigned char *channels)
 {
     int type, len, i = 0;
 
@@ -142,37 +141,51 @@ parse_update_subtlv(const unsigned char *a, int alen,
 
         if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
-            return;
-        }
+	    return false;
+	}
         len = a[i + 1];
         if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
-            return;
-        }
+	    return false;
+	}
 
-        if(type == SUBTLV_PADN) {
-            /* Nothing. */
-        } else if(type == SUBTLV_DIVERSITY) {
-            if(len > DIVERSITY_HOPS) {
-                flog_err(EC_BABEL_PACKET,
-			  "Received overlong channel information (%d > %d).n",
-                          len, DIVERSITY_HOPS);
-                len = DIVERSITY_HOPS;
-            }
-            if(memchr(a + i + 2, 0, len) != NULL) {
-                /* 0 is reserved. */
-                flog_err(EC_BABEL_PACKET, "Channel information contains 0!");
-                return;
-            }
-            memset(channels, 0, DIVERSITY_HOPS);
-            memcpy(channels, a + i + 2, len);
-        } else {
-            debugf(BABEL_DEBUG_COMMON,
-                   "Received unknown route attribute %d.", type);
-        }
+	if (type & SUBTLV_MANDATORY) {
+		/*
+		 * RFC 8966 - 4.4
+		 * If the mandatory bit is set, then the whole enclosing
+		 * TLV MUST be silently ignored (except for updating the
+		 * parser state by a Router-Id, Next Hop, or Update TLV,
+		 * as described in the next section).
+		 */
+		debugf(BABEL_DEBUG_COMMON,
+		       "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
+		return true;
+	} else if (type == SUBTLV_PADN) {
+		/* Nothing. */
+	} else if (type == SUBTLV_DIVERSITY) {
+		if (len > DIVERSITY_HOPS) {
+			flog_err(
+				EC_BABEL_PACKET,
+				"Received overlong channel information (%d > %d).n",
+				len, DIVERSITY_HOPS);
+			len = DIVERSITY_HOPS;
+		}
+		if (memchr(a + i + 2, 0, len) != NULL) {
+			/* 0 is reserved. */
+			flog_err(EC_BABEL_PACKET,
+				 "Channel information contains 0!");
+			return false;
+		}
+		memset(channels, 0, DIVERSITY_HOPS);
+		memcpy(channels, a + i + 2, len);
+	} else {
+		debugf(BABEL_DEBUG_COMMON,
+		       "Received unknown route attribute %d.", type);
+	}
 
-        i += len + 2;
+	i += len + 2;
     }
+    return false;
 }
 
 static int
@@ -200,22 +213,34 @@ parse_hello_subtlv(const unsigned char *a, int alen,
             return -1;
         }
 
-        if(type == SUBTLV_PADN) {
-            /* Nothing to do. */
-        } else if(type == SUBTLV_TIMESTAMP) {
-            if(len >= 4) {
-                DO_NTOHL(*hello_send_us, a + i + 2);
-                ret = 1;
-            } else {
-                flog_err(EC_BABEL_PACKET,
-			  "Received incorrect RTT sub-TLV on Hello message.");
-            }
-        } else {
-            debugf(BABEL_DEBUG_COMMON,
-                   "Received unknown Hello sub-TLV type %d.", type);
-        }
+	if (type & SUBTLV_MANDATORY) {
+		/*
+		 * RFC 8966 4.4
+		 * If the mandatory bit is set, then the whole enclosing
+		 * TLV MUST be silently ignored (except for updating the
+		 * parser state by a Router-Id, Next Hop, or Update TLV, as
+		 * described in the next section).
+		 */
+		debugf(BABEL_DEBUG_COMMON,
+		       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+		return -2;
+	} else if (type == SUBTLV_PADN) {
+		/* Nothing to do. */
+	} else if (type == SUBTLV_TIMESTAMP) {
+		if (len >= 4) {
+			DO_NTOHL(*hello_send_us, a + i + 2);
+			ret = 1;
+		} else {
+			flog_err(
+				EC_BABEL_PACKET,
+				"Received incorrect RTT sub-TLV on Hello message.");
+		}
+	} else {
+		debugf(BABEL_DEBUG_COMMON,
+		       "Received unknown Hello sub-TLV type %d.", type);
+	}
 
-        i += len + 2;
+	i += len + 2;
     }
     return ret;
 }
@@ -518,7 +543,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned char channels[DIVERSITY_HOPS];
             unsigned short interval, seqno, metric;
             int rc, parsed_len;
-            DO_NTOHS(interval, message + 6);
+	    bool ignore_update = false;
+
+	    DO_NTOHS(interval, message + 6);
             DO_NTOHS(seqno, message + 8);
             DO_NTOHS(metric, message + 10);
             if(message[5] == 0 ||
@@ -604,14 +631,16 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 }
 
                 if(parsed_len < len)
-                    parse_update_subtlv(message + 2 + parsed_len,
-                                        len - parsed_len, channels);
-            }
+			ignore_update =
+				parse_update_subtlv(message + 2 + parsed_len,
+						    len - parsed_len, channels);
+	    }
 
-            update_route(router_id, prefix, plen, seqno, metric, interval,
-                         neigh, nh,
-                         channels, channels_len(channels));
-        } else if(type == MESSAGE_REQUEST) {
+	    if (ignore_update)
+		    update_route(router_id, prefix, plen, seqno, metric,
+				 interval, neigh, nh, channels,
+				 channels_len(channels));
+	} else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], plen;
             int rc;
             rc = network_prefix(message[2], message[3], 0,
