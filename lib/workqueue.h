@@ -157,7 +157,8 @@ static inline void work_queue_item_dequeue(struct work_queue *wq,
  * user must fill in the spec of the returned work queue before adding
  * anything to it
  */
-extern struct work_queue *work_queue_new(struct thread_master *, const char *);
+extern struct work_queue *work_queue_new(struct thread_master *m,
+					 const char *queue_name);
 
 /* destroy work queue */
 /*
@@ -174,10 +175,10 @@ extern void work_queue_plug(struct work_queue *wq);
 /* unplug the queue, allow it to be drained again */
 extern void work_queue_unplug(struct work_queue *wq);
 
-bool work_queue_is_scheduled(struct work_queue *);
+bool work_queue_is_scheduled(struct work_queue *wq);
 
 /* Helpers, exported for thread.c and command.c */
-extern void work_queue_run(struct thread *);
+extern void work_queue_run(struct thread *thread);
 
 extern void workqueue_cmd_init(void);
 
