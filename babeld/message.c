@@ -398,27 +398,69 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_address(from), ifp->name);
             /* Nothing right now */
         } else if(type == MESSAGE_HELLO) {
-            unsigned short seqno, interval;
-            int changed;
-            unsigned int timestamp = 0;
-            DO_NTOHS(seqno, message + 4);
-            DO_NTOHS(interval, message + 6);
-            debugf(BABEL_DEBUG_COMMON,"Received hello %d (%d) from %s on %s.",
-                   seqno, interval,
-                   format_address(from), ifp->name);
-            changed = update_neighbour(neigh, seqno, interval);
-            update_neighbour_metric(neigh, changed);
-            if(interval > 0)
-                /* Multiply by 3/2 to allow hellos to expire. */
-                schedule_neighbours_check(interval * 15, 0);
-            /* Sub-TLV handling. */
-            if(len > 8) {
-                if(parse_hello_subtlv(message + 8, len - 6, &timestamp) > 0) {
-                    neigh->hello_send_us = timestamp;
-                    neigh->hello_rtt_receive_time = babel_now;
-                    have_hello_rtt = 1;
-                }
-            }
+		unsigned short seqno, interval, flags;
+		int changed;
+		unsigned int timestamp = 0;
+
+#define BABEL_UNICAST_HELLO 0x8000
+		DO_NTOHS(flags, message + 2);
+
+		/*
+		 * RFC 8966 4.6.5
+		 * All other bits MUST be sent as a 0 and silently
+		 * ignored on reception
+		 */
+		if (CHECK_FLAG(flags, ~BABEL_UNICAST_HELLO)) {
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received Hello from %s on %s that does not have all 0's in the unused section of flags, ignoring",
+			       format_address(from), ifp->name);
+			continue;
+		}
+
+		/*
+		 * RFC 8966 Appendix F
+		 * TL;DR -> Please ignore Unicast hellos until FRR's
+		 * BABEL is brought up to date
+		 */
+		if (CHECK_FLAG(flags, BABEL_UNICAST_HELLO)) {
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
+			       format_address(from), ifp->name);
+			continue;
+		}
+
+		DO_NTOHS(seqno, message + 4);
+		DO_NTOHS(interval, message + 6);
+		debugf(BABEL_DEBUG_COMMON,
+		       "Received hello %d (%d) from %s on %s.", seqno, interval,
+		       format_address(from), ifp->name);
+
+		/*
+		 * RFC 8966 Appendix F
+		 * TL;DR -> Please ignore any Hello packets with the interval
+		 * field set to 0
+		 */
+		if (interval == 0) {
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
+			       format_address(from), ifp->name);
+			continue;
+		}
+
+		changed = update_neighbour(neigh, seqno, interval);
+		update_neighbour_metric(neigh, changed);
+		if (interval > 0)
+			/* Multiply by 3/2 to allow hellos to expire. */
+			schedule_neighbours_check(interval * 15, 0);
+		/* Sub-TLV handling. */
+		if (len > 8) {
+			if (parse_hello_subtlv(message + 8, len - 6,
+					       &timestamp) > 0) {
+				neigh->hello_send_us = timestamp;
+				neigh->hello_rtt_receive_time = babel_now;
+				have_hello_rtt = 1;
+			}
+		}
         } else if(type == MESSAGE_IHU) {
             unsigned short txcost, interval;
             unsigned char address[16];
