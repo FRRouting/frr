@@ -175,7 +175,12 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	rp = RP(pim_ifp->pim, sg.grp);
 	if (rp) {
 		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
-		if (pim_addr_cmp(sg.src, rpf_addr) == 0) {
+		/* As per RFC 7761, Section 4.9.4:
+		 * A special wildcard value consisting of an address field of
+		 * all zeros can be used to indicate any source.
+		 */
+		if ((pim_addr_cmp(sg.src, rpf_addr) == 0) ||
+		    pim_addr_is_any(sg.src)) {
 			handling_star = true;
 			sg.src = PIMADDR_ANY;
 		}
