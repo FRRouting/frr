@@ -2978,8 +2978,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	if (debug)
 		zlog_debug(
 			"%s (%d): p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
-			__func__, __LINE__, dest, bgp->name_pretty, afi2str(afi),
-			safi2str(safi), old_select, new_select);
+			__func__, __LINE__, dest, bgp->name_pretty,
+			afi2str(afi), safi2str(safi), old_select, new_select);
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.

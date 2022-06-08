@@ -3637,15 +3637,14 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			break;
 		case SAFI_MPLS_VPN:
 			plk = peer_lookup_by_host(NULL, peer->host);
-			if (attr->srv6_l3vpn &&
-				plk &&
-				plk->update_source &&
-				plk->update_source->sin6.sin6_family == AF_INET6) {
-					stream_putc(s, 24);
-					stream_putl(s, 0); /* RD = 0, per RFC */
-					stream_putl(s, 0);
-					stream_put(s, &plk->update_source->sin6.sin6_addr,
-						IPV6_MAX_BYTELEN);
+			if (attr->srv6_l3vpn && plk && plk->update_source &&
+			    plk->update_source->sin6.sin6_family == AF_INET6) {
+				stream_putc(s, 24);
+				stream_putl(s, 0); /* RD = 0, per RFC */
+				stream_putl(s, 0);
+				stream_put(s,
+					   &plk->update_source->sin6.sin6_addr,
+					   IPV6_MAX_BYTELEN);
 			} else {
 				stream_putc(s, 12);
 				stream_putl(s, 0); /* RD = 0, per RFC */
@@ -3696,15 +3695,17 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				stream_putc(s, 24);
 				stream_putl(s, 0); /* RD = 0, per RFC */
 				stream_putl(s, 0);
-				if (attr->srv6_l3vpn &&
-					plk &&
-					plk->update_source &&
-					plk->update_source->sin6.sin6_family == AF_INET6) {
-					stream_put(s, &plk->update_source->sin6.sin6_addr,
-						IPV6_MAX_BYTELEN);
+				if (attr->srv6_l3vpn && plk &&
+				    plk->update_source &&
+				    plk->update_source->sin6.sin6_family ==
+					    AF_INET6) {
+					stream_put(s,
+						   &plk->update_source->sin6
+							    .sin6_addr,
+						   IPV6_MAX_BYTELEN);
 				} else {
 					stream_put(s, &attr->mp_nexthop_global,
-						IPV6_MAX_BYTELEN);
+						   IPV6_MAX_BYTELEN);
 				}
 			} else if (attr->mp_nexthop_len
 				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
@@ -4319,7 +4320,9 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
-			stream_putw(s, attr->srv6_l3vpn->endpoint_behavior); /* endpoint */
+			stream_putw(s,
+				    attr->srv6_l3vpn
+					    ->endpoint_behavior); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
 			stream_putc(
 				s,

@@ -468,8 +468,10 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	}
 
 	if (attr->srv6_l3vpn) {
-			snprintfrr(buf + strlen(buf), size - strlen(buf),
-				 ", srv6_l3vpn sid=%pI6, behavior=%d", &attr->srv6_l3vpn->sid, attr->srv6_l3vpn->endpoint_behavior);
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
+			   ", srv6_l3vpn sid=%pI6, behavior=%d",
+			   &attr->srv6_l3vpn->sid,
+			   attr->srv6_l3vpn->endpoint_behavior);
 	}
 
 	if (strlen(buf) > 1)
