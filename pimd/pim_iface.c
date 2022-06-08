@@ -1547,9 +1547,9 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 
 	if (!pim->regiface) {
 		if (pim->vrf->vrf_id == VRF_DEFAULT)
-			strlcpy(pimreg_name, "pimreg", sizeof(pimreg_name));
+			strlcpy(pimreg_name, PIMREG, sizeof(pimreg_name));
 		else
-			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
+			snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
 				 pim->vrf->data.l.table_id);
 
 		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
@@ -1719,7 +1719,7 @@ static int pim_ifp_up(struct interface *ifp)
 	 * If we have a pimreg device callback and it's for a specific
 	 * table set the master appropriately
 	 */
-	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
+	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) == 1) {
 		struct vrf *vrf;
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
