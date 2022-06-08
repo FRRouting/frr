@@ -1747,7 +1747,7 @@ static void ospf_filter_update(struct access_list *access)
 }
 
 /* If prefix-list is updated, do some updates. */
-void ospf_prefix_list_update(struct prefix_list *plist)
+static void ospf_prefix_list_update(struct prefix_list *plist)
 {
 	struct ospf *ospf = NULL;
 	int type;
