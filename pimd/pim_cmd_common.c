@@ -1989,8 +1989,8 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		json_object_string_addf(json_row, "pimDesignatedRouter",
 					"%pPAs", &pim_ifp->pim_dr_addr);
 
-		if (pim_addr_cmp(pim_ifp->pim_dr_addr,
-				 pim_ifp->primary_address))
+		if (!pim_addr_cmp(pim_ifp->pim_dr_addr,
+				  pim_ifp->primary_address))
 			json_object_boolean_true_add(
 				json_row, "pimDesignatedRouterLocal");
 
