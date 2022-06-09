@@ -91,6 +91,8 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj);
 int pim_show_interface_cmd_helper(const char *vrf, struct vty *vty, bool uj,
 				  bool mlag, const char *interface);
+int pim_show_interface_vrf_all_cmd_helper(struct vty *vty, bool uj, bool mlag,
+					  const char *interface);
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 			 json_object *json);
 void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
