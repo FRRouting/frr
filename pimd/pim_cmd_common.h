@@ -152,6 +152,9 @@ int pim_show_state_vrf_all_helper(struct vty *vty, const char *s_or_g_str,
 				  const char *g_str, bool json);
 int pim_show_multicast_helper(const char *vrf, struct vty *vty);
 int pim_show_multicast_vrf_all_helper(struct vty *vty);
+int pim_show_multicast_count_helper(const char *vrf, struct vty *vty,
+				    bool json);
+int pim_show_multicast_count_vrf_all_helper(struct vty *vty, bool json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
