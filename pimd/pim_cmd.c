@@ -1516,8 +1516,6 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 		if (!pim_ifp)
 			continue;
 
-		if (pim_ifp->pim_sock_fd < 0)
-			continue;
 		if (uj) {
 			json_row = json_object_new_object();
 			json_object_pim_ifp_add(json_row, ifp);
@@ -1608,9 +1606,6 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
-			continue;
-
-		if (pim_ifp->pim_sock_fd < 0)
 			continue;
 
 		found_ifname = 1;
