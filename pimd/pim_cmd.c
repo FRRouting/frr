@@ -2553,17 +2553,7 @@ DEFPY (show_ip_pim_local_membership,
        "PIM interface local-membership\n"
        JSON_STR)
 {
-	struct vrf *v;
-	bool uj = !!json;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	pim_show_membership(v->info, vty, uj);
-
-	return CMD_SUCCESS;
+	return pim_show_membership_cmd_helper(vrf, vty, !!json);
 }
 
 static void pim_show_mlag_up_entry_detail(struct vrf *vrf,

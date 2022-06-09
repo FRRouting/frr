@@ -87,6 +87,7 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		   json_object *json);
 int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty);
 void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty);
+int pim_show_membership_cmd_helper(const char *vrf, struct vty *vty, bool uj);
 void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj);
