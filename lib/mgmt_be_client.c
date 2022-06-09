@@ -110,10 +110,10 @@ struct mgmt_be_txn_ctx {
 DECLARE_LIST(mgmt_be_txns, struct mgmt_be_txn_ctx, list_linkage);
 
 #define FOREACH_BE_TXN_BATCH_IN_LIST(txn, batch)                               \
-	frr_each_safe(mgmt_be_batches, &(txn)->cfg_batches, (batch))
+	frr_each_safe (mgmt_be_batches, &(txn)->cfg_batches, (batch))
 
 #define FOREACH_BE_APPLY_BATCH_IN_LIST(txn, batch)                             \
-	frr_each_safe(mgmt_be_batches, &(txn)->apply_cfgs, (batch))
+	frr_each_safe (mgmt_be_batches, &(txn)->apply_cfgs, (batch))
 
 struct mgmt_be_client_ctx {
 	int conn_fd;
@@ -152,7 +152,7 @@ struct mgmt_be_client_ctx {
 #define MGMTD_BE_CLIENT_FLAGS_WRITES_OFF (1U << 0)
 
 #define FOREACH_BE_TXN_IN_LIST(client_ctx, txn)                                \
-	frr_each_safe(mgmt_be_txns, &(client_ctx)->txn_head, (txn))
+	frr_each_safe (mgmt_be_txns, &(client_ctx)->txn_head, (txn))
 
 static bool mgmt_debug_be_client;
 

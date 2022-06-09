@@ -84,7 +84,7 @@ struct mgmt_fe_client_ctx {
 #define MGMTD_FE_CLIENT_FLAGS_WRITES_OFF (1U << 0)
 
 #define FOREACH_SESSION_IN_LIST(client_ctx, session)                           \
-	frr_each_safe(mgmt_sessions, &(client_ctx)->client_sessions, (session))
+	frr_each_safe (mgmt_sessions, &(client_ctx)->client_sessions, (session))
 
 static bool mgmt_debug_fe_client;
 

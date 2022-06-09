@@ -45,7 +45,7 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 #define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
-	frr_each_safe(mgmt_be_adapters, &mgmt_be_adapters, (adapter))
+	frr_each_safe (mgmt_be_adapters, &mgmt_be_adapters, (adapter))
 
 /*
  * Static mapping of YANG XPath regular expressions and
