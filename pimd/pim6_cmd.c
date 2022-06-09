@@ -844,24 +844,7 @@ DEFPY (show_ipv6_pim_secondary,
        VRF_CMD_HELP_STR
        "PIM neighbor addresses\n")
 {
-	struct pim_instance *pim;
-	struct vrf *v;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	pim = pim_get_pim_instance(v->vrf_id);
-
-	if (!pim) {
-		vty_out(vty, "%% Unable to find pim instance\n");
-		return CMD_WARNING;
-	}
-
-	pim_show_neighbors_secondary(pim, vty);
-
-	return CMD_SUCCESS;
+	return pim_show_secondary_helper(vrf, vty);
 }
 
 DEFPY (show_ipv6_pim_statistics,

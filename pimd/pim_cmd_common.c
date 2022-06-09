@@ -3865,3 +3865,25 @@ int pim_show_rp_vrf_all_helper(struct vty *vty, const char *group_str,
 
 	return CMD_SUCCESS;
 }
+
+int pim_show_secondary_helper(const char *vrf, struct vty *vty)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_neighbors_secondary(pim, vty);
+
+	return CMD_SUCCESS;
+}
