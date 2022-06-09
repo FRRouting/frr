@@ -2636,6 +2636,36 @@ int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+int pim_show_neighbors_vrf_all_cmd_helper(struct vty *vty, const char *json,
+					  const char *interface)
+{
+	struct vrf *v;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+	RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", v->name);
+		else
+			json_vrf = json_object_new_object();
+
+		if (interface)
+			pim_show_neighbors_single(v->info, vty, interface,
+						  json_vrf);
+		else
+			pim_show_neighbors(v->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, v->name, json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json)
 {
