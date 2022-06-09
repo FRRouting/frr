@@ -98,25 +98,6 @@ static inline void bgp_unregister_for_label(struct bgp_dest *dest)
 	bgp_reg_dereg_for_label(dest, NULL, false);
 }
 
-/* Label stream to value */
-static inline uint32_t label_pton(const mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	return ((((unsigned int)t[0]) << 12) | (((unsigned int)t[1]) << 4)
-		| ((unsigned int)((t[2] & 0xF0) >> 4)));
-}
-
-/* Encode label values */
-static inline void label_ntop(uint32_t l, int bos, mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	t[0] = ((l & 0x000FF000) >> 12);
-	t[1] = ((l & 0x00000FF0) >> 4);
-	t[2] = ((l & 0x0000000F) << 4);
-	if (bos)
-		t[2] |= 0x01;
-}
-
 /* Return BOS value of label stream */
 static inline uint8_t label_bos(mpls_label_t *label)
 {
