@@ -515,7 +515,7 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 		}
 	}
 
-	ret = sr_event_notif_send(session, xpath, values, values_cnt, 0, 0);
+	ret = sr_notif_send(session, xpath, values, values_cnt, 0, 0);
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO,
 			 "%s: sr_event_notif_send() failed for xpath %s",
@@ -532,7 +532,8 @@ static void frr_sr_read_cb(struct thread *thread)
 	int fd = THREAD_FD(thread);
 	int ret;
 
-	ret = sr_process_events(module->sr_subscription, session, NULL);
+	ret = sr_subscription_process_events(module->sr_subscription, session,
+					     NULL);
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO, "%s: sr_fd_event_process(): %s",
 			 __func__, sr_strerror(ret));
@@ -578,9 +579,9 @@ static int frr_sr_subscribe_state(const struct lysc_node *snode, void *arg)
 	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing data to '%s'",
 	       nb_node->xpath);
 
-	ret = sr_oper_get_items_subscribe(
-		session, snode->module->name, nb_node->xpath, frr_sr_state_cb,
-		NULL, SR_SUBSCR_CTX_REUSE, &module->sr_subscription);
+	ret = sr_oper_get_subscribe(session, snode->module->name,
+				    nb_node->xpath, frr_sr_state_cb, NULL, 0,
+				    &module->sr_subscription);
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_oper_get_items_subscribe(): %s",
 			 sr_strerror(ret));
@@ -605,8 +606,7 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	       nb_node->xpath);
 
 	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
-			       NULL, 0, SR_SUBSCR_CTX_REUSE,
-			       &module->sr_subscription);
+			       NULL, 0, 0, &module->sr_subscription);
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_rpc_subscribe(): %s",
 			 sr_strerror(ret));
