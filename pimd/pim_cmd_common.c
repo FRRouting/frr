@@ -4081,3 +4081,37 @@ int pim_show_state_vrf_all_helper(struct vty *vty, const char *s_or_g_str,
 
 	return CMD_SUCCESS;
 }
+
+int pim_show_multicast_helper(const char *vrf, struct vty *vty)
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_cmd_show_ip_multicast_helper(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_multicast_vrf_all_helper(struct vty *vty)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	}
+
+	return CMD_SUCCESS;
+}

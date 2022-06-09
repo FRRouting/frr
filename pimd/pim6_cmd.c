@@ -1329,24 +1329,7 @@ DEFPY (show_ipv6_multicast,
        "Multicast global information\n"
        VRF_CMD_HELP_STR)
 {
-	struct vrf *v;
-	struct pim_instance *pim;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	pim = pim_get_pim_instance(v->vrf_id);
-
-	if (!pim) {
-		vty_out(vty, "%% Unable to find pim instance\n");
-		return CMD_WARNING;
-	}
-
-	pim_cmd_show_ip_multicast_helper(pim, vty);
-
-	return CMD_SUCCESS;
+	return pim_show_multicast_helper(vrf, vty);
 }
 
 DEFPY (show_ipv6_multicast_vrf_all,
@@ -1357,14 +1340,7 @@ DEFPY (show_ipv6_multicast_vrf_all,
        "Multicast global information\n"
        VRF_CMD_HELP_STR)
 {
-	struct vrf *vrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
-	}
-
-	return CMD_SUCCESS;
+	return pim_show_multicast_vrf_all_helper(vty);
 }
 
 DEFPY (show_ipv6_multicast_count,
