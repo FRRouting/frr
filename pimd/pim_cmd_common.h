@@ -131,6 +131,8 @@ int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
 			      const char *registers, struct vty *vty);
 int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
 				 const char *registers, struct vty *vty);
+int pim_show_rpf_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_rpf_vrf_all_helper(struct vty *vty, bool json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
