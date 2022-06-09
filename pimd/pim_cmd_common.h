@@ -102,6 +102,7 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 				json_object *json);
 void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj);
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty);
 void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
 int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
 				  const char *json, const char *interface);

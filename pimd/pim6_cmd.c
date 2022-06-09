@@ -1418,16 +1418,7 @@ DEFPY (show_ipv6_pim_nexthop,
        VRF_CMD_HELP_STR
        "PIM cached nexthop rpf information\n")
 {
-	struct vrf *v;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	pim_show_nexthop(v->info, vty);
-
-	return CMD_SUCCESS;
+	return pim_show_nexthop_cmd_helper(vrf, vty);
 }
 
 DEFPY (show_ipv6_pim_nexthop_lookup,
