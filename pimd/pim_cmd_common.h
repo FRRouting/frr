@@ -146,6 +146,10 @@ int pim_show_upstream_vrf_all_helper(struct vty *vty, bool json);
 int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
 					  bool uj);
 int pim_show_upstream_rpf_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_show_state_helper(const char *vrf, struct vty *vty,
+			  const char *s_or_g_str, const char *g_str, bool json);
+int pim_show_state_vrf_all_helper(struct vty *vty, const char *s_or_g_str,
+				  const char *g_str, bool json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
