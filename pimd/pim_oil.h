@@ -130,9 +130,9 @@ static inline vifi_t *oil_parent(struct channel_oil *c_oil)
 	return &c_oil->oil.mfcc_parent;
 }
 
-static inline uint8_t oil_if_has(struct channel_oil *c_oil, vifi_t ifi)
+static inline bool oil_if_has(struct channel_oil *c_oil, vifi_t ifi)
 {
-	return c_oil->oil.mfcc_ttls[ifi];
+	return !!c_oil->oil.mfcc_ttls[ifi];
 }
 
 static inline void oil_if_set(struct channel_oil *c_oil, vifi_t ifi, uint8_t set)
@@ -166,7 +166,8 @@ static inline bool oil_if_has(struct channel_oil *c_oil, mifi_t ifi)
 	return !!IF_ISSET(ifi, &c_oil->oil.mf6cc_ifset);
 }
 
-static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi, bool set)
+static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi,
+			      uint8_t set)
 {
 	if (set)
 		IF_SET(ifi, &c_oil->oil.mf6cc_ifset);

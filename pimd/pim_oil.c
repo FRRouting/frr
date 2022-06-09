@@ -255,7 +255,7 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 		return 0;
 	}
 
-	oil_if_set(channel_oil, pim_ifp->mroute_vif_index, false);
+	oil_if_set(channel_oil, pim_ifp->mroute_vif_index, 0);
 	/* clear mute; will be re-evaluated when the OIF becomes valid again */
 	channel_oil->oif_flags[pim_ifp->mroute_vif_index] &= ~PIM_OIF_FLAG_MUTE;
 
