@@ -1266,33 +1266,8 @@ DEFPY (show_ipv6_pim_interface_vrf_all,
        "interface name\n"
        JSON_STR)
 {
-	bool uj = !!json;
-	struct vrf *v;
-	json_object *json_parent = NULL;
-	json_object *json_vrf = NULL;
-
-	if (uj)
-		json_parent = json_object_new_object();
-
-	RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
-		if (!uj)
-			vty_out(vty, "VRF: %s\n", v->name);
-		else
-			json_vrf = json_object_new_object();
-
-		if (interface)
-			pim_show_interfaces_single(v->info, vty, interface,
-						   false, json_vrf);
-		else
-			pim_show_interfaces(v->info, vty, false, json_vrf);
-
-		if (uj)
-			json_object_object_add(json_parent, v->name, json_vrf);
-	}
-	if (uj)
-		vty_json(vty, json_parent);
-
-	return CMD_SUCCESS;
+	return pim_show_interface_vrf_all_cmd_helper(vty, !!json, false,
+						     interface);
 }
 
 DEFPY (show_ipv6_pim_join,

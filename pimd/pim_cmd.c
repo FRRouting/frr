@@ -2444,34 +2444,8 @@ DEFPY (show_ip_pim_interface_vrf_all,
        "interface name\n"
        JSON_STR)
 {
-	bool uj = !!json;
-	bool is_mlag = !!mlag;
-	struct vrf *v;
-	json_object *json_parent = NULL;
-	json_object *json_vrf = NULL;
-
-	if (uj)
-		json_parent = json_object_new_object();
-
-	RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
-		if (!uj)
-			vty_out(vty, "VRF: %s\n", v->name);
-		else
-			json_vrf = json_object_new_object();
-
-		if (interface)
-			pim_show_interfaces_single(v->info, vty, interface,
-						   is_mlag, json_vrf);
-		else
-			pim_show_interfaces(v->info, vty, is_mlag, json_vrf);
-
-		if (uj)
-			json_object_object_add(json_parent, v->name, json_vrf);
-	}
-	if (uj)
-		vty_json(vty, json_parent);
-
-	return CMD_SUCCESS;
+	return pim_show_interface_vrf_all_cmd_helper(vty, !!json, !!mlag,
+						     interface);
 }
 
 DEFPY (show_ip_pim_join,
