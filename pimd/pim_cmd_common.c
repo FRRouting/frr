@@ -1959,6 +1959,32 @@ int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj)
 	return CMD_SUCCESS;
 }
 
+int pim_show_interface_cmd_helper(const char *vrf, struct vty *vty, bool uj,
+				  bool mlag, const char *interface)
+{
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	if (uj)
+		json_parent = json_object_new_object();
+
+	if (interface)
+		pim_show_interfaces_single(v->info, vty, interface, mlag,
+					   json_parent);
+	else
+		pim_show_interfaces(v->info, vty, mlag, json_parent);
+
+	if (uj)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 			 json_object *json)
 {

@@ -1250,28 +1250,8 @@ DEFPY (show_ipv6_pim_interface,
        "interface name\n"
        JSON_STR)
 {
-	struct vrf *v;
-	bool uj = !!json;
-	json_object *json_parent = NULL;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	if (uj)
-		json_parent = json_object_new_object();
-
-	if (interface)
-		pim_show_interfaces_single(v->info, vty, interface, false,
-					   json_parent);
-	else
-		pim_show_interfaces(v->info, vty, false, json_parent);
-
-	if (uj)
-		vty_json(vty, json_parent);
-
-	return CMD_SUCCESS;
+	return pim_show_interface_cmd_helper(vrf, vty, !!json, false,
+					     interface);
 }
 
 DEFPY (show_ipv6_pim_interface_vrf_all,
