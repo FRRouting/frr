@@ -1758,6 +1758,20 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	}
 }
 
+int pim_show_membership_cmd_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_membership(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 static void pim_show_membership_helper(struct vty *vty,
 				       struct pim_interface *pim_ifp,
 				       struct pim_ifchannel *ch,
