@@ -720,7 +720,7 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
-        "R2 is transit router for R3 to reach R4, mroute should have (s, g) mroute with "
+        "R2 is transit router for I1 to reach R4, mroute should have (s, g) mroute with "
         "OIL towards R4, using 'show ip mroute json'"
     )
     step(
@@ -787,7 +787,9 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     step("Reboot R3 node")
     stop_router(tgen, "r3")
 
-    step("After reboot of R3 verify R1 became DR, using 'show ip pim interface json'")
+    step(
+        "After reboot of R3 verify R1 continues to be DR, using 'show ip pim interface json'"
+    )
 
     result = verify_pim_config(tgen, input_dict_dr)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -834,7 +836,9 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
     step("Reboot R2 node")
     stop_router(tgen, "r2")
 
-    step("After reboot of R2, R1 became DR verify using 'show ip pim interface json'")
+    step(
+        "After reboot of R2, R1 continues to be DR verify using 'show ip pim interface json'"
+    )
 
     result = verify_pim_config(tgen, input_dict_dr)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -843,9 +847,9 @@ def test_pim_source_dr_functionality_while_rebooting_dr_non_dr_nodes_p1(request)
         "R3 and R2 should not have any mroute and upstream , verify using "
         "'show ip mroute json' 'show ip pim upstream json'"
     )
-    step("R1 has mroute created with OIL towards R4 , using 'show ip mroute json'")
+    step("R1 has mroute created with empty OIL, using 'show ip mroute json'")
     step(
-        "R1 has upstream with Join Rej Prune , verify using 'show ip pim upstream json'"
+        "R1 has upstream with Not Join, Rej Prune , verify using 'show ip pim upstream json'"
     )
 
     for data in input_dict_r1_r2:
