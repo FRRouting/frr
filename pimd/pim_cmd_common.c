@@ -2597,6 +2597,20 @@ static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	return CMD_SUCCESS;
 }
 
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty)
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_nexthop(v->info, vty);
+
+	return CMD_SUCCESS;
+}
+
 void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
 {
 	struct pnc_cache_walk_data cwd;
