@@ -2611,6 +2611,31 @@ void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
 	hash_walk(pim->rpf_hash, pim_print_pnc_cache_walkcb, &cwd);
 }
 
+int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
+				  const char *json, const char *interface)
+{
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	if (interface)
+		pim_show_neighbors_single(v->info, vty, interface, json_parent);
+	else
+		pim_show_neighbors(v->info, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json)
 {

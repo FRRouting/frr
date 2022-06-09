@@ -2835,26 +2835,7 @@ DEFPY (show_ip_pim_neighbor,
        "Name of interface or neighbor\n"
        JSON_STR)
 {
-	struct vrf *v;
-	json_object *json_parent = NULL;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	if (json)
-		json_parent = json_object_new_object();
-
-	if (interface)
-		pim_show_neighbors_single(v->info, vty, interface, json_parent);
-	else
-		pim_show_neighbors(v->info, vty, json_parent);
-
-	if (json)
-		vty_json(vty, json_parent);
-
-	return CMD_SUCCESS;
+	return pim_show_neighbors_cmd_helper(vrf, vty, json, interface);
 }
 
 DEFPY (show_ip_pim_neighbor_vrf_all,
