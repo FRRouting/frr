@@ -3298,49 +3298,7 @@ DEFPY (show_ip_pim_nexthop_lookup,
        "Source/RP address\n"
        "Multicast Group address\n")
 {
-	struct prefix nht_p;
-	int result = 0;
-	pim_addr vif_source;
-	struct prefix grp;
-	struct pim_nexthop nexthop;
-	struct vrf *v;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	if (pim_is_group_224_4(source)) {
-		vty_out(vty,
-			"Invalid argument. Expected Valid Source Address.\n");
-		return CMD_WARNING;
-	}
-
-	if (!pim_is_group_224_4(group)) {
-		vty_out(vty,
-			"Invalid argument. Expected Valid Multicast Group Address.\n");
-		return CMD_WARNING;
-	}
-
-	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
-		return CMD_SUCCESS;
-
-	pim_addr_to_prefix(&nht_p, vif_source);
-	pim_addr_to_prefix(&grp, group);
-	memset(&nexthop, 0, sizeof(nexthop));
-
-	result = pim_ecmp_nexthop_lookup(v->info, &nexthop, &nht_p, &grp, 0);
-
-	if (!result) {
-		vty_out(vty,
-			"Nexthop Lookup failed, no usable routes returned.\n");
-		return CMD_SUCCESS;
-	}
-
-	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s \n", group_str,
-		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
-
-	return CMD_SUCCESS;
+	return pim_show_nexthop_lookup_cmd_helper(vrf, vty, source, group);
 }
 
 DEFUN (show_ip_pim_interface_traffic,
