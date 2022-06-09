@@ -225,17 +225,9 @@ def run_frr_cmd(rnode, cmd, isjson=False):
     if cmd:
         ret_data = rnode.vtysh_cmd(cmd, isjson=isjson)
 
-        if True:
-            if isjson:
-                print_data = json.dumps(ret_data)
-            else:
-                print_data = ret_data
-            logger.info(
-                "Output for command [%s] on router %s:\n%s",
-                cmd,
-                rnode.name,
-                print_data,
-            )
+        if isjson:
+            rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
+
         return ret_data
 
     else:
