@@ -3887,3 +3887,29 @@ int pim_show_secondary_helper(const char *vrf, struct vty *vty)
 
 	return CMD_SUCCESS;
 }
+
+int pim_show_statistics_helper(const char *vrf, struct vty *vty,
+			       const char *word, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (word)
+		pim_show_statistics(pim, vty, word, uj);
+	else
+		pim_show_statistics(pim, vty, NULL, uj);
+
+	return CMD_SUCCESS;
+}

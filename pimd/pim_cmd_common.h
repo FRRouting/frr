@@ -138,6 +138,8 @@ int pim_show_rp_helper(const char *vrf, struct vty *vty, const char *group_str,
 int pim_show_rp_vrf_all_helper(struct vty *vty, const char *group_str,
 			       const struct prefix *group, bool json);
 int pim_show_secondary_helper(const char *vrf, struct vty *vty);
+int pim_show_statistics_helper(const char *vrf, struct vty *vty,
+			       const char *word, bool uj);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
