@@ -913,25 +913,7 @@ DEFPY (show_ipv6_pim_upstream_rpf,
        "PIM upstream source rpf\n"
        JSON_STR)
 {
-	struct pim_instance *pim;
-	struct vrf *v;
-	bool uj = !!json;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-
-	if (!v)
-		return CMD_WARNING;
-
-	pim = pim_get_pim_instance(v->vrf_id);
-
-	if (!pim) {
-		vty_out(vty, "%% Unable to find pim instance\n");
-		return CMD_WARNING;
-	}
-
-	pim_show_upstream_rpf(pim, vty, uj);
-
-	return CMD_SUCCESS;
+	return pim_show_upstream_rpf_helper(vrf, vty, !!json);
 }
 
 DEFPY (show_ipv6_pim_state,
