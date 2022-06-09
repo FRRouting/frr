@@ -64,7 +64,7 @@ struct mgmt_cmt_info_t {
 DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
 
 #define FOREACH_CMT_REC(mm, cmt_info)                                          \
-	frr_each_safe(mgmt_cmt_infos, &mm->cmts, cmt_info)
+	frr_each_safe (mgmt_cmt_infos, &mm->cmts, cmt_info)
 
 const char *mgmt_db_names[MGMTD_DB_MAX_ID + 1] = {
 	MGMTD_DB_NAME_NONE,	/* MGMTD_DB_NONE */

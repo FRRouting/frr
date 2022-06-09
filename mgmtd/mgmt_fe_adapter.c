@@ -46,7 +46,7 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 #define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
-	frr_each_safe(mgmt_fe_adapters, &mgmt_fe_adapters, (adapter))
+	frr_each_safe (mgmt_fe_adapters, &mgmt_fe_adapters, (adapter))
 
 enum mgmt_session_event {
 	MGMTD_FE_SESSION_CFG_TXN_CLNUP = 1,
@@ -71,7 +71,7 @@ struct mgmt_fe_session_ctx {
 DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
 
 #define FOREACH_SESSION_IN_LIST(adapter, session)                              \
-	frr_each_safe(mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
+	frr_each_safe (mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
 
 static struct thread_master *mgmt_fe_adapter_tm;
 static struct mgmt_master *mgmt_fe_adapter_mm;
