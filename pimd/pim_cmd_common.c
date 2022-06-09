@@ -1701,6 +1701,29 @@ static void pim_show_jp_agg_helper(struct vty *vty, struct interface *ifp,
 		is_join ? "J" : "P");
 }
 
+int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty)
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_jp_agg_list(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
 void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 {
 	struct interface *ifp;
