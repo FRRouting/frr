@@ -55,6 +55,7 @@
 #include "pim_static.h"
 #include "pim_addr.h"
 #include "pim_static.h"
+#include "pim_util.h"
 
 /**
  * Get current node VRF name.
@@ -2594,6 +2595,59 @@ static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
 		vty_out(vty, "\n");
 	}
+	return CMD_SUCCESS;
+}
+
+int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
+				       pim_addr source, pim_addr group)
+{
+	struct prefix nht_p;
+	int result = 0;
+	pim_addr vif_source;
+	struct prefix grp;
+	struct pim_nexthop nexthop;
+	struct vrf *v;
+	char grp_str[PREFIX_STRLEN];
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+#if PIM_IPV == 4
+	if (pim_is_group_224_4(source)) {
+		vty_out(vty,
+			"Invalid argument. Expected Valid Source Address.\n");
+		return CMD_WARNING;
+	}
+
+	if (!pim_is_group_224_4(group)) {
+		vty_out(vty,
+			"Invalid argument. Expected Valid Multicast Group Address.\n");
+		return CMD_WARNING;
+	}
+#endif
+
+	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
+		return CMD_SUCCESS;
+
+	pim_addr_to_prefix(&nht_p, vif_source);
+	pim_addr_to_prefix(&grp, group);
+	memset(&nexthop, 0, sizeof(nexthop));
+
+	result = pim_ecmp_nexthop_lookup(v->info, &nexthop, &nht_p, &grp, 0);
+
+	if (!result) {
+		vty_out(vty,
+			"Nexthop Lookup failed, no usable routes returned.\n");
+		return CMD_SUCCESS;
+	}
+
+	pim_addr_dump("<grp?>", &grp, grp_str, sizeof(grp_str));
+
+	vty_out(vty, "Group %s --- Nexthop %pPAs Interface %s\n", grp_str,
+		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
+
 	return CMD_SUCCESS;
 }
 
