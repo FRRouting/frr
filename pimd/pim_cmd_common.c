@@ -3980,3 +3980,26 @@ int pim_show_upstream_vrf_all_helper(struct vty *vty, bool json)
 
 	return CMD_SUCCESS;
 }
+
+int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
+					  bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_join_desired(pim, vty, uj);
+
+	return CMD_SUCCESS;
+}
