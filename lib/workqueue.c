@@ -103,8 +103,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 {
 	struct work_queue *wq = *wqp;
 
-	if (wq->thread != NULL)
-		thread_cancel(&(wq->thread));
+	THREAD_OFF(wq->thread);
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -122,16 +121,14 @@ void work_queue_free_and_null(struct work_queue **wqp)
 
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
-	return (wq->thread != NULL);
+	return thread_is_scheduled(wq->thread);
 }
 
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
-	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL)
-	    && !work_queue_empty(wq)) {
-		wq->thread = NULL;
-
+	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) &&
+	    !thread_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
@@ -144,7 +141,8 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 					 &wq->thread);
 
 		/* set thread yield time, if needed */
-		if (wq->thread && wq->spec.yield != THREAD_YIELD_TIME_SLOT)
+		if (thread_is_scheduled(wq->thread) &&
+		    wq->spec.yield != THREAD_YIELD_TIME_SLOT)
 			thread_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;
 	} else
@@ -215,10 +213,7 @@ void workqueue_cmd_init(void)
  */
 void work_queue_plug(struct work_queue *wq)
 {
-	if (wq->thread)
-		thread_cancel(&(wq->thread));
-
-	wq->thread = NULL;
+	THREAD_OFF(wq->thread);
 
 	UNSET_FLAG(wq->flags, WQ_UNPLUGGED);
 }
@@ -249,8 +244,6 @@ void work_queue_run(struct thread *thread)
 	wq = THREAD_ARG(thread);
 
 	assert(wq);
-
-	wq->thread = NULL;
 
 	/* calculate cycle granularity:
 	 * list iteration == 1 run
