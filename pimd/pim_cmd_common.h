@@ -140,6 +140,9 @@ int pim_show_rp_vrf_all_helper(struct vty *vty, const char *group_str,
 int pim_show_secondary_helper(const char *vrf, struct vty *vty);
 int pim_show_statistics_helper(const char *vrf, struct vty *vty,
 			       const char *word, bool uj);
+int pim_show_upstream_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, bool json);
+int pim_show_upstream_vrf_all_helper(struct vty *vty, bool json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
