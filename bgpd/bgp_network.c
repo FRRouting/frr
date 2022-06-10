@@ -224,8 +224,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 {
 	int ret = 0;
 
-	/* In case of peer is EBGP, we should set TTL for this connection.  */
-	if (!peer->gtsm_hops && (peer_sort_lookup(peer) == BGP_PEER_EBGP)) {
+	if (!peer->gtsm_hops) {
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, peer->ttl);
 		if (ret) {
 			flog_err(
@@ -234,7 +233,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 				__func__, &peer->remote_id, errno);
 			return ret;
 		}
-	} else if (peer->gtsm_hops) {
+	} else {
 		/* On Linux, setting minttl without setting ttl seems to mess
 		   with the
 		   outgoing ttl. Therefore setting both.
