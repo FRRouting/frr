@@ -143,8 +143,8 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 		if (ifp == NULL) {
 			if (bsglobal.debugging)
 				zlog_debug(
-					"zebra_interface_bfd_read: Can't find interface by ifindex: %d ",
-					ifindex);
+					"%s: Can't find interface by ifindex: %d ",
+					__func__, ifindex);
 			return NULL;
 		}
 	}
@@ -171,6 +171,12 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	return ifp;
 
 stream_failure:
+	/*
+	 * Clean dp and sp because caller
+	 * will immediately check them valid or not
+	 */
+	memset(dp, 0, sizeof(*dp));
+	memset(sp, 0, sizeof(*sp));
 	return NULL;
 }
 
@@ -251,8 +257,8 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		if (bsglobal.debugging)
 			zlog_debug(
-				"bfd_client_sendmsg %ld: zclient_send_message() failed",
-				(long)getpid());
+				"%s:  %ld: zclient_send_message() failed",
+				__func__, (long)getpid());
 		return;
 	}
 
@@ -310,8 +316,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putw(s, args->family);
 	stream_put(s, &args->src, addrlen);
 
-	/* Send the expected TTL. */
-	stream_putc(s, args->ttl);
+	/* Send the expected hops. */
+	stream_putc(s, args->hops);
 
 	/* Send interface name if any. */
 	if (args->mhop) {
@@ -349,8 +355,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		stream_putw(s, args->family);
 		stream_put(s, &args->src, addrlen);
 
-		/* Send the expected TTL. */
-		stream_putc(s, args->ttl);
+		/* Send the expected hops. */
+		stream_putc(s, args->hops);
 	} else {
 		/* Multi hop indicator. */
 		stream_putc(s, 0);
@@ -396,7 +402,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 
 	/* Set defaults. */
 	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
-	bsp->args.ttl = 1;
+	bsp->args.hops = 1;
 	bsp->args.min_rx = BFD_DEF_MIN_RX;
 	bsp->args.min_tx = BFD_DEF_MIN_TX;
 	bsp->args.vrf_id = VRF_DEFAULT;
@@ -455,14 +461,14 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	return true;
 }
 
-static int _bfd_sess_send(struct thread *t)
+static void _bfd_sess_send(struct thread *t)
 {
 	struct bfd_session_params *bsp = THREAD_ARG(t);
 	int rv;
 
 	/* Validate configuration before trying to send bogus data. */
 	if (!_bfd_sess_valid(bsp))
-		return 0;
+		return;
 
 	if (bsp->lastev == BSE_INSTALL) {
 		bsp->args.command = bsp->installed ? ZEBRA_BFD_DEST_UPDATE
@@ -472,7 +478,7 @@ static int _bfd_sess_send(struct thread *t)
 
 	/* If not installed and asked for uninstall, do nothing. */
 	if (!bsp->installed && bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
-		return 0;
+		return;
 
 	rv = zclient_bfd_command(bsglobal.zc, &bsp->args);
 	/* Command was sent successfully. */
@@ -498,8 +504,6 @@ static int _bfd_sess_send(struct thread *t)
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
 	}
-
-	return 0;
 }
 
 static void _bfd_sess_remove(struct bfd_session_params *bsp)
@@ -646,32 +650,16 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 	bsp->args.vrf_id = vrf_id;
 }
 
-void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)
 {
-	assert(min_ttl != 0);
-
-	if (bsp->args.ttl == ((BFD_SINGLE_HOP_TTL + 1) - min_ttl))
+	if (bsp->args.hops == hops)
 		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
-	/* Invert TTL value: protocol expects number of hops. */
-	min_ttl = (BFD_SINGLE_HOP_TTL + 1) - min_ttl;
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
-}
-
-void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl)
-{
-	if (bsp->args.ttl == min_ttl)
-		return;
-
-	/* If already installed, remove the old setting. */
-	_bfd_sess_remove(bsp);
-
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
+	bsp->args.hops = hops;
+	bsp->args.mhop = (hops > 1);
 }
 
 
@@ -706,14 +694,9 @@ enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
 	return bsp->bss.state;
 }
 
-uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp)
-{
-	return ((BFD_SINGLE_HOP_TTL + 1) - bsp->args.ttl);
-}
-
 uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
 {
-	return bsp->args.ttl;
+	return bsp->args.hops;
 }
 
 const char *bfd_sess_profile(const struct bfd_session_params *bsp)
@@ -822,7 +805,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  *
  * Use this as `zclient` `bfd_dest_replay` callback.
  */
-int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp;
 

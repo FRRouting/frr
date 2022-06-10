@@ -64,7 +64,7 @@
 #define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
 #define OPAQUE_TYPE_MAX                                8
 
-/* Followings types are proposed in internet-draft documents. */
+/* Following types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
 #define OPAQUE_TYPE_SECONDARY_NEIGHBOR_DISCOVERY	224
 #define OPAQUE_TYPE_FLOODGATE                           225
@@ -172,5 +172,7 @@ extern void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa);
 extern void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 						     struct ospf_lsa *lsa);
 extern struct ospf *oi_to_top(struct ospf_interface *oi);
+
+extern int ospf_opaque_is_owned(struct ospf_lsa *lsa);
 
 #endif /* _ZEBRA_OSPF_OPAQUE_H */

@@ -54,7 +54,7 @@ DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
 
-vector ospf6_lsa_handler_vector;
+static struct ospf6_lsa_handler *lsa_handlers[OSPF6_LSTYPE_SIZE];
 
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
@@ -85,9 +85,13 @@ static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	start = (uint8_t *)lsa->header + sizeof(struct ospf6_lsa_header);
 	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
 
-	if (use_json)
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
+	if (use_json) {
 		json_object_string_add(json_obj, "LsaType", "unknown");
-	else {
+		json_object_string_add(json_obj, "lsaType", "unknown");
+	} else {
 		vty_out(vty, "        Unknown contents:\n");
 		for (current = start; current < end; current++) {
 			if ((current - start) % 16 == 0)
@@ -115,8 +119,13 @@ static struct ospf6_lsa_handler unknown_handler = {
 void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler)
 {
 	/* type in handler is host byte order */
-	int index = handler->lh_type & OSPF6_LSTYPE_FCODE_MASK;
-	vector_set_index(ospf6_lsa_handler_vector, index, (void *)handler);
+	unsigned int index = handler->lh_type & OSPF6_LSTYPE_FCODE_MASK;
+
+	assertf(index < array_size(lsa_handlers), "index=%x", index);
+	assertf(lsa_handlers[index] == NULL, "old=%s, new=%s",
+		lsa_handlers[index]->lh_name, handler->lh_name);
+
+	lsa_handlers[index] = handler;
 }
 
 struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
@@ -124,10 +133,8 @@ struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
 	struct ospf6_lsa_handler *handler = NULL;
 	unsigned int index = ntohs(type) & OSPF6_LSTYPE_FCODE_MASK;
 
-	if (index >= vector_active(ospf6_lsa_handler_vector))
-		handler = &unknown_handler;
-	else
-		handler = vector_slot(ospf6_lsa_handler_vector, index);
+	if (index < array_size(lsa_handlers))
+		handler = lsa_handlers[index];
 
 	if (handler == NULL)
 		handler = &unknown_handler;
@@ -826,7 +833,7 @@ struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
 
 
 /* ospf6 lsa expiry */
-int ospf6_lsa_expire(struct thread *thread)
+void ospf6_lsa_expire(struct thread *thread)
 {
 	struct ospf6_lsa *lsa;
 	struct ospf6 *ospf6;
@@ -845,7 +852,7 @@ int ospf6_lsa_expire(struct thread *thread)
 	}
 
 	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY))
-		return 0; /* dbexchange will do something ... */
+		return; /* dbexchange will do something ... */
 	ospf6 = ospf6_get_by_lsdb(lsa);
 	assert(ospf6);
 
@@ -857,11 +864,9 @@ int ospf6_lsa_expire(struct thread *thread)
 
 	/* schedule maxage remover */
 	ospf6_maxage_remove(ospf6);
-
-	return 0;
 }
 
-int ospf6_lsa_refresh(struct thread *thread)
+void ospf6_lsa_refresh(struct thread *thread)
 {
 	struct ospf6_lsa *old, *self, *new;
 	struct ospf6_lsdb *lsdb_self;
@@ -879,7 +884,7 @@ int ospf6_lsa_refresh(struct thread *thread)
 			zlog_debug("Refresh: could not find self LSA, flush %s",
 				   old->name);
 		ospf6_lsa_premature_aging(old);
-		return 0;
+		return;
 	}
 
 	/* Reset age, increment LS sequence number. */
@@ -904,8 +909,6 @@ int ospf6_lsa_refresh(struct thread *thread)
 
 	ospf6_install_lsa(new);
 	ospf6_flood(NULL, new);
-
-	return 0;
 }
 
 void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
@@ -989,13 +992,11 @@ int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsa_header)
 
 void ospf6_lsa_init(void)
 {
-	ospf6_lsa_handler_vector = vector_init(0);
 	ospf6_install_lsa_handler(&unknown_handler);
 }
 
 void ospf6_lsa_terminate(void)
 {
-	vector_free(ospf6_lsa_handler_vector);
 }
 
 static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
@@ -1020,6 +1021,22 @@ static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
 	return buf;
 }
 
+void ospf6_lsa_debug_set_all(bool val)
+{
+	unsigned int i;
+	struct ospf6_lsa_handler *handler = NULL;
+
+	for (i = 0; i < array_size(lsa_handlers); i++) {
+		handler = lsa_handlers[i];
+		if (handler == NULL)
+			continue;
+		if (val)
+			SET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL);
+		else
+			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL);
+	}
+}
+
 DEFPY (debug_ospf6_lsa_all,
        debug_ospf6_lsa_all_cmd,
        "[no$no] debug ospf6 lsa all",
@@ -1029,18 +1046,7 @@ DEFPY (debug_ospf6_lsa_all,
        "Debug Link State Advertisements (LSAs)\n"
        "Display for all types of LSAs\n")
 {
-	unsigned int i;
-	struct ospf6_lsa_handler *handler = NULL;
-
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
-		if (handler == NULL)
-			continue;
-		if (!no)
-			SET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL);
-		else
-			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL);
-	}
+	ospf6_lsa_debug_set_all(!no);
 	return CMD_SUCCESS;
 }
 
@@ -1092,8 +1098,8 @@ DEFUN (debug_ospf6_lsa_type,
 	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
+	for (i = 0; i < array_size(lsa_handlers); i++) {
+		handler = lsa_handlers[i];
 		if (handler == NULL)
 			continue;
 		if (strncmp(argv[idx_lsa]->arg, ospf6_lsa_handler_name(handler),
@@ -1146,8 +1152,8 @@ DEFUN (no_debug_ospf6_lsa_type,
 	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
+	for (i = 0; i < array_size(lsa_handlers); i++) {
+		handler = lsa_handlers[i];
 		if (handler == NULL)
 			continue;
 		if (strncmp(argv[idx_lsa]->arg, ospf6_lsa_handler_name(handler),
@@ -1194,8 +1200,8 @@ int config_write_ospf6_debug_lsa(struct vty *vty)
 	const struct ospf6_lsa_handler *handler;
 	bool debug_all = true;
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
+	for (i = 0; i < array_size(lsa_handlers); i++) {
+		handler = lsa_handlers[i];
 		if (handler == NULL)
 			continue;
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_ALL)
@@ -1210,8 +1216,8 @@ int config_write_ospf6_debug_lsa(struct vty *vty)
 		return 0;
 	}
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
+	for (i = 0; i < array_size(lsa_handlers); i++) {
+		handler = lsa_handlers[i];
 		if (handler == NULL)
 			continue;
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG))

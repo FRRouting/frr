@@ -230,6 +230,30 @@ size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
 #endif
 
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *buf, size_t len);
+#endif
+
+#if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
+/* avoid conflicts in case we have partial support */
+#define mmsghdr frr_mmsghdr
+#define sendmmsg frr_sendmmsg
+
+struct mmsghdr {
+	struct msghdr msg_hdr;
+	unsigned int msg_len;
+};
+
+/* just go 1 at a time here, the loop this is used in will handle the rest */
+static inline int sendmmsg(int fd, struct mmsghdr *mmh, unsigned int len,
+			   int flags)
+{
+	int rv = sendmsg(fd, &mmh->msg_hdr, 0);
+
+	return rv > 0 ? 1 : rv;
+}
+#endif
+
 /*
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present
@@ -345,6 +369,10 @@ typedef enum {
 #define FOREACH_AFI_SAFI(afi, safi)                                            \
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
+#define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0

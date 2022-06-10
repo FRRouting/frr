@@ -43,6 +43,7 @@
 #include "zebra_dplane.h"
 #include "zebra/interface.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/rib.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
@@ -328,7 +329,7 @@ static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 		return -1;
 	}
 
-	hash_get(zrouter.nhgs_id, nhe, hash_alloc_intern);
+	(void)hash_get(zrouter.nhgs_id, nhe, hash_alloc_intern);
 
 	return 0;
 }
@@ -1960,13 +1961,68 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
 }
 
 /*
+ * So this nexthop resolution has decided that a connected route
+ * is the correct choice.  At this point in time if FRR has multiple
+ * connected routes that all point to the same prefix one will be
+ * selected, *but* the particular interface may not be the one
+ * that the nexthop points at.  Let's look at all the available
+ * connected routes on this node and if any of them auto match
+ * the routes nexthops ifindex that is good enough for a match
+ *
+ * This code is depending on the fact that a nexthop->ifindex is 0
+ * if it is not known, if this assumption changes, yummy!
+ * Additionally a ifindx of 0 means figure it out for us.
+ */
+static struct route_entry *
+zebra_nhg_connected_ifindex(struct route_node *rn, struct route_entry *match,
+			    int32_t curr_ifindex)
+{
+	struct nexthop *newhop = match->nhe->nhg.nexthop;
+	struct route_entry *re;
+
+	assert(newhop); /* What a kick in the patooey */
+
+	if (curr_ifindex == 0)
+		return match;
+
+	if (curr_ifindex == newhop->ifindex)
+		return match;
+
+	/*
+	 * At this point we know that this route is matching a connected
+	 * but there are possibly a bunch of connected routes that are
+	 * alive that should be considered as well.  So let's iterate over
+	 * all the re's and see if they are connected as well and maybe one
+	 * of those ifindexes match as well.
+	 */
+	RNODE_FOREACH_RE (rn, re) {
+		if (re->type != ZEBRA_ROUTE_CONNECT)
+			continue;
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			continue;
+
+		/*
+		 * zebra has a connected route that is not removed
+		 * let's test if it is good
+		 */
+		newhop = re->nhe->nhg.nexthop;
+		assert(newhop);
+		if (curr_ifindex == newhop->ifindex)
+			return re;
+	}
+
+	return match;
+}
+
+/*
  * Given a nexthop we need to properly recursively resolve,
  * do a table lookup to find and match if at all possible.
  * Set the nexthop->ifindex and resolution info as appropriate.
  */
 static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			  const struct prefix *top, int type, uint32_t flags,
-			  uint32_t *pmtu)
+			  uint32_t *pmtu, vrf_id_t vrf_id)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -2061,13 +2117,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		return 1;
 	}
 
-	if (top
-	    && ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN
-		 && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
-		|| (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN
-		    && memcmp(&nexthop->gate.ipv6, &top->u.prefix6,
-			      IPV6_MAX_BYTELEN)
-			       == 0))) {
+	if (top &&
+	    ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN &&
+	      nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr) ||
+	     (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN &&
+	      memcmp(&nexthop->gate.ipv6, &top->u.prefix6, IPV6_MAX_BYTELEN) ==
+		      0)) &&
+	    nexthop->vrf_id == vrf_id) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"        :%s: Attempting to install a max prefixlength route through itself",
@@ -2209,25 +2265,25 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			continue;
 		}
 
-		if (match->type == ZEBRA_ROUTE_CONNECT) {
-			/* Directly point connected route. */
+		if ((match->type == ZEBRA_ROUTE_CONNECT) ||
+		    (RIB_SYSTEM_ROUTE(match) && RSYSTEM_ROUTE(type))) {
+			match = zebra_nhg_connected_ifindex(rn, match,
+							    nexthop->ifindex);
+
 			newhop = match->nhe->nhg.nexthop;
-			if (newhop) {
-				if (nexthop->type == NEXTHOP_TYPE_IPV4
-				    || nexthop->type == NEXTHOP_TYPE_IPV6)
-					nexthop->ifindex = newhop->ifindex;
-				else if (nexthop->ifindex != newhop->ifindex) {
-					if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-						zlog_debug(
-							"%s: %pNHv given ifindex does not match nexthops ifindex found found: %pNHv",
-							__func__, nexthop,
-							newhop);
-					/*
-					 * NEXTHOP_TYPE_*_IFINDEX but ifindex
-					 * doesn't match what we found.
-					 */
-					return 0;
-				}
+			if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+			    nexthop->type == NEXTHOP_TYPE_IPV6)
+				nexthop->ifindex = newhop->ifindex;
+			else if (nexthop->ifindex != newhop->ifindex) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+					zlog_debug(
+						"%s: %pNHv given ifindex does not match nexthops ifindex found: %pNHv",
+						__func__, nexthop, newhop);
+				/*
+				 * NEXTHOP_TYPE_*_IFINDEX but ifindex
+				 * doesn't match what we found.
+				 */
+				return 0;
 			}
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -2361,6 +2417,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf;
 	uint32_t mtu = 0;
+	vrf_id_t vrf_id;
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -2369,7 +2426,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	else if (rn->p.family == AF_INET6)
 		family = AFI_IP6;
 	else
-		family = 0;
+		family = AF_UNSPEC;
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
@@ -2389,10 +2446,12 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		goto skip_check;
 	}
 
+
+	vrf_id = zvrf_id(rib_dest_vrf(rib_dest_from_rnode(rn)));
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2400,16 +2459,16 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2419,8 +2478,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
 
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2475,7 +2534,7 @@ skip_check:
 
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
-	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("        %s: zvrf is NULL", __func__);
@@ -2943,10 +3002,12 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_FAIL_INSTALL);
 
-			flog_err(
-				EC_ZEBRA_DP_INSTALL_FAIL,
-				"Failed to install Nexthop ID (%u) into the kernel",
-				nhe->id);
+			if (!(zebra_nhg_proto_nexthops_only() &&
+			      !PROTO_OWNED(nhe)))
+				flog_err(
+					EC_ZEBRA_DP_INSTALL_FAIL,
+					"Failed to install Nexthop ID (%u) into the kernel",
+					nhe->id);
 		}
 		break;
 
@@ -2989,13 +3050,17 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
+	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
 		break;
 	}
 
 	dplane_ctx_fini(&ctx);
 }
 
-static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
+static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
@@ -3009,7 +3074,7 @@ static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 * from an upper level proto.
 	 */
 	if (zrouter.startup_time < nhe->uptime)
-		return;
+		return HASHWALK_CONTINUE;
 
 	/*
 	 * If it's proto-owned and not being used by a route, remove it since
@@ -3019,20 +3084,41 @@ static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 */
 	if (PROTO_OWNED(nhe) && nhe->refcnt == 1) {
 		zebra_nhg_decrement_ref(nhe);
-		return;
+		return HASHWALK_ABORT;
 	}
 
 	/*
 	 * If its being ref'd by routes, just let it be uninstalled via a route
 	 * removal.
 	 */
-	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
+	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0) {
 		zebra_nhg_uninstall_kernel(nhe);
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
 }
 
 void zebra_nhg_sweep_table(struct hash *hash)
 {
-	hash_iterate(hash, zebra_nhg_sweep_entry, NULL);
+	uint32_t count;
+
+	/*
+	 * Yes this is extremely odd.  Effectively nhg's have
+	 * other nexthop groups that depend on them and when you
+	 * remove them, you can have other entries blown up.
+	 * our hash code does not work with deleting multiple
+	 * entries at a time and will possibly cause crashes
+	 * So what to do?  Whenever zebra_nhg_sweep_entry
+	 * deletes an entry it will return HASHWALK_ABORT,
+	 * cause that deletion might have triggered more.
+	 * then we can just keep sweeping this table
+	 * until nothing more is found to do.
+	 */
+	do {
+		count = hashcount(hash);
+		hash_walk(hash, zebra_nhg_sweep_entry, NULL);
+	} while (count != hashcount(hash));
 }
 
 static void zebra_nhg_mark_keep_entry(struct hash_bucket *bucket, void *arg)

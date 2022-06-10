@@ -52,8 +52,8 @@ struct bfd_notify_peer *control_notifypeer_find(struct bfd_control_socket *bcs,
 struct bfd_control_socket *control_new(int sd);
 static void control_free(struct bfd_control_socket *bcs);
 static void control_reset_buf(struct bfd_control_buffer *bcb);
-static int control_read(struct thread *t);
-static int control_write(struct thread *t);
+static void control_read(struct thread *t);
+static void control_write(struct thread *t);
 
 static void control_handle_request_add(struct bfd_control_socket *bcs,
 				       struct bfd_control_msg *bcm);
@@ -155,21 +155,19 @@ void control_shutdown(void)
 	}
 }
 
-int control_accept(struct thread *t)
+void control_accept(struct thread *t)
 {
 	int csock, sd = THREAD_FD(t);
 
 	csock = accept(sd, NULL, 0);
 	if (csock == -1) {
 		zlog_warn("%s: accept: %s", __func__, strerror(errno));
-		return 0;
+		return;
 	}
 
 	control_new(csock);
 
 	thread_add_read(master, control_accept, NULL, sd, &bglobal.bg_csockev);
-
-	return 0;
 }
 
 
@@ -394,7 +392,7 @@ static void control_reset_buf(struct bfd_control_buffer *bcb)
 	bcb->bcb_left = 0;
 }
 
-static int control_read(struct thread *t)
+static void control_read(struct thread *t)
 {
 	struct bfd_control_socket *bcs = THREAD_ARG(t);
 	struct bfd_control_buffer *bcb = &bcs->bcs_bin;
@@ -417,7 +415,7 @@ static int control_read(struct thread *t)
 	bread = read(sd, &bcm, sizeof(bcm));
 	if (bread == 0) {
 		control_free(bcs);
-		return 0;
+		return;
 	}
 	if (bread < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
@@ -425,7 +423,7 @@ static int control_read(struct thread *t)
 
 		zlog_warn("%s: read: %s", __func__, strerror(errno));
 		control_free(bcs);
-		return 0;
+		return;
 	}
 
 	/* Validate header fields. */
@@ -434,14 +432,14 @@ static int control_read(struct thread *t)
 		zlog_debug("%s: client closed due small message length: %d",
 			   __func__, bcm.bcm_length);
 		control_free(bcs);
-		return 0;
+		return;
 	}
 
 	if (bcm.bcm_ver != BMV_VERSION_1) {
 		zlog_debug("%s: client closed due bad version: %d", __func__,
 			   bcm.bcm_ver);
 		control_free(bcs);
-		return 0;
+		return;
 	}
 
 	/* Prepare the buffer to load the message. */
@@ -456,7 +454,7 @@ static int control_read(struct thread *t)
 		zlog_warn("%s: not enough memory for message size: %zu",
 			  __func__, bcb->bcb_left);
 		control_free(bcs);
-		return 0;
+		return;
 	}
 
 	memcpy(bcb->bcb_buf, &bcm, sizeof(bcm));
@@ -469,7 +467,7 @@ skip_header:
 	bread = read(sd, &bcb->bcb_buf[bcb->bcb_pos], bcb->bcb_left);
 	if (bread == 0) {
 		control_free(bcs);
-		return 0;
+		return;
 	}
 	if (bread < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
@@ -477,7 +475,7 @@ skip_header:
 
 		zlog_warn("%s: read: %s", __func__, strerror(errno));
 		control_free(bcs);
-		return 0;
+		return;
 	}
 
 	bcb->bcb_pos += bread;
@@ -518,11 +516,9 @@ skip_header:
 schedule_next_read:
 	bcs->bcs_ev = NULL;
 	thread_add_read(master, control_read, bcs, sd, &bcs->bcs_ev);
-
-	return 0;
 }
 
-static int control_write(struct thread *t)
+static void control_write(struct thread *t)
 {
 	struct bfd_control_socket *bcs = THREAD_ARG(t);
 	struct bfd_control_buffer *bcb = bcs->bcs_bout;
@@ -532,19 +528,19 @@ static int control_write(struct thread *t)
 	bwrite = write(sd, &bcb->bcb_buf[bcb->bcb_pos], bcb->bcb_left);
 	if (bwrite == 0) {
 		control_free(bcs);
-		return 0;
+		return;
 	}
 	if (bwrite < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
 			bcs->bcs_outev = NULL;
 			thread_add_write(master, control_write, bcs,
 					 bcs->bcs_sd, &bcs->bcs_outev);
-			return 0;
+			return;
 		}
 
 		zlog_warn("%s: write: %s", __func__, strerror(errno));
 		control_free(bcs);
-		return 0;
+		return;
 	}
 
 	bcb->bcb_pos += bwrite;
@@ -553,12 +549,10 @@ static int control_write(struct thread *t)
 		bcs->bcs_outev = NULL;
 		thread_add_write(master, control_write, bcs, bcs->bcs_sd,
 				 &bcs->bcs_outev);
-		return 0;
+		return;
 	}
 
 	control_queue_dequeue(bcs);
-
-	return 0;
 }
 
 

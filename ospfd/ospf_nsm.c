@@ -59,7 +59,7 @@ DEFINE_HOOK(ospf_nsm_change,
 static void nsm_clear_adj(struct ospf_neighbor *);
 
 /* OSPF NSM Timer functions. */
-static int ospf_inactivity_timer(struct thread *thread)
+static void ospf_inactivity_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -76,18 +76,17 @@ static int ospf_inactivity_timer(struct thread *thread)
 	 */
 	if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
-	else if (IS_DEBUG_OSPF_GR) {
-		zlog_debug(
-			"%s, Acting as HELPER for this neighbour, So restart the dead timer",
-			__func__);
+	else {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"%s, Acting as HELPER for this neighbour, So restart the dead timer",
+				__func__);
 		OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 				  nbr->v_inactivity);
 	}
-
-	return 0;
 }
 
-static int ospf_db_desc_timer(struct thread *thread)
+static void ospf_db_desc_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -105,8 +104,6 @@ static int ospf_db_desc_timer(struct thread *thread)
 
 	/* DD Retransmit timer set. */
 	OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer, nbr->v_db_desc);
-
-	return 0;
 }
 
 /* Hook function called after ospf NSM event is occurred.
@@ -775,7 +772,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 }
 
 /* Execute NSM event process. */
-int ospf_nsm_event(struct thread *thread)
+void ospf_nsm_event(struct thread *thread)
 {
 	int event;
 	int next_state;
@@ -845,8 +842,6 @@ int ospf_nsm_event(struct thread *thread)
 	 */
 	if (nbr->state == NSM_Deleted)
 		ospf_nbr_delete(nbr);
-
-	return 0;
 }
 
 /* Check loading state. */

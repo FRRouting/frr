@@ -70,7 +70,7 @@ void ospf_lsdb_cleanup(struct ospf_lsdb *lsdb)
 void ls_prefix_set(struct prefix_ls *lp, struct ospf_lsa *lsa)
 {
 	if (lp && lsa && lsa->data) {
-		lp->family = 0;
+		lp->family = AF_UNSPEC;
 		lp->prefixlen = 64;
 		lp->id = lsa->data->id;
 		lp->adv_router = lsa->data->adv_router;
@@ -198,8 +198,8 @@ struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, uint8_t type,
 
 	table = lsdb->type[type].db;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = id;
 	lp.adv_router = adv_router;
@@ -225,8 +225,8 @@ struct ospf_lsa *ospf_lsdb_lookup_by_id_next(struct ospf_lsdb *lsdb,
 
 	table = lsdb->type[type].db;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = id;
 	lp.adv_router = adv_router;

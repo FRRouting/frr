@@ -3,7 +3,7 @@
 # Used to construct route_types.c and route_types.h
 #
 # comma-seperated fields of either 2 fields (help strings) or 7 fields.
-# White space before and after the comma seperators is stripped.
+# White space before and after the comma separators is stripped.
 # Lines /beginning/ with # are comments.
 #
 ####

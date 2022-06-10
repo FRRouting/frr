@@ -268,8 +268,10 @@ To start OSPF process you have to specify the OSPF router.
    the destination prefix. Otherwise, we test whether the network command prefix
    contains the local address prefix of the interface.
 
-   In some cases it may be more convenient to enable OSPF on a per
-   interface/subnet basis (:clicmd:`ip ospf area AREA [ADDR]`).
+   It is also possible to enable OSPF on a per interface/subnet basis
+   using the interface command (:clicmd:`ip ospf area AREA [ADDR]`).
+   However, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
 
 .. clicmd:: proactive-arp
 
@@ -313,9 +315,9 @@ To start OSPF process you have to specify the OSPF router.
 Areas
 -----
 
-.. clicmd:: area A.B.C.D range A.B.C.D/M
+.. clicmd:: area A.B.C.D range A.B.C.D/M [advertise [cost (0-16777215)]]
 
-.. clicmd:: area (0-4294967295) range A.B.C.D/M
+.. clicmd:: area (0-4294967295) range A.B.C.D/M [advertise [cost (0-16777215)]]
 
 
 
@@ -337,14 +339,18 @@ Areas
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
    network (i.e. described with router or network LSA) from this range.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
+.. clicmd:: area A.B.C.D range A.B.C.D/M not-advertise
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M not-advertise
 
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
+.. clicmd:: area A.B.C.D range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
 
 
    Substitute summarized prefix with another prefix.
@@ -360,6 +366,11 @@ Areas
    One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
    area 0.0.0.10 contains at least one intra-area network (i.e. described with router-LSA or
    network-LSA) from range 10.0.0.0/8.
+
+   By default, the metric of the summary route is calculated as the highest
+   metric among the summarized routes. The `cost` option, however, can be used
+   to set an explicit metric.
+
    This command makes sense in ABR only.
 
 .. clicmd:: area A.B.C.D virtual-link A.B.C.D
@@ -506,12 +517,14 @@ Interfaces
 
 
    Enable OSPF on the interface, optionally restricted to just the IP address
-   given by `ADDR`, putting it in the `AREA` area. Per interface area settings
-   take precedence to network commands
-   (:clicmd:`network A.B.C.D/M area A.B.C.D`).
+   given by `ADDR`, putting it in the `AREA` area. If you have a lot of
+   interfaces, and/or a lot of subnets, then enabling OSPF via this command
+   instead of (:clicmd:`network A.B.C.D/M area A.B.C.D`) may result in a
+   slight performance improvement.
 
-   If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
-   via this command may result in a slight performance improvement.
+   Notice that, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
+   If (:clicmd:`ip ospf`) is present, (:clicmd:`network`) commands will fail.
 
 .. clicmd:: ip ospf authentication-key AUTH_KEY
 
@@ -854,6 +867,12 @@ Opaque LSA
 
    Show Opaque LSA from the database.
 
+.. clicmd:: show ip ospf (1-65535) reachable-routers
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] reachable-routers
+
+   Show routing table of reachable routers.
+
 .. _ospf-traffic-engineering:
 
 Traffic Engineering
@@ -972,12 +991,6 @@ dataplane.
    Block, i.e. the label range used for Adjacency SID. The negative version
    of the command always unsets both ranges.
 
-.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
-
-   Set the Segment Routing Local Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB for Adjacency SID. This command is deprecated
-   in favor of the combined command above.
-
 .. clicmd:: segment-routing node-msd (1-16)
 
    Fix the Maximum Stack Depth supported by the router. The value depend of the
@@ -1016,10 +1029,11 @@ Summary Route will be originated on-behalf of all matched external LSAs.
 .. clicmd:: aggregation timer (5-1800)
 
    Configure aggregation delay timer interval. Summarisation starts only after
-   this delay timer expiry. By default, delay interval is 5 secs.
+   this delay timer expiry. By default, delay interval is 5 seconds.
 
 
-   Resetting the aggregation delay interval to default value.
+   The no form of the command resets the aggregation delay interval to default
+   value.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
 
@@ -1049,6 +1063,10 @@ Debugging OSPF
    Enable or disable debugging for BFD events. This will show BFD integration
    library messages and OSPF BFD integration messages that are mostly state
    transitions and validation problems.
+
+.. clicmd:: debug ospf client-api
+
+   Show debug information for the OSPF opaque data client API.
 
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 

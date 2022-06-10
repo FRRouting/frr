@@ -731,7 +731,7 @@ void rfapiMonitorResponseRemovalOn(struct bgp *bgp)
 	bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_RESPONSE_REMOVAL_DISABLE;
 }
 
-static int rfapiMonitorTimerExpire(struct thread *t)
+static void rfapiMonitorTimerExpire(struct thread *t)
 {
 	struct rfapi_monitor_vpn *m = t->arg;
 
@@ -740,8 +740,6 @@ static int rfapiMonitorTimerExpire(struct thread *t)
 
 	/* delete the monitor */
 	rfapiMonitorDel(bgp_get_default(), m->rfd, &m->p);
-
-	return 0;
 }
 
 static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
@@ -1041,7 +1039,7 @@ void rfapiMonitorMovedUp(struct rfapi_import_table *import_table,
 	}
 }
 
-static int rfapiMonitorEthTimerExpire(struct thread *t)
+static void rfapiMonitorEthTimerExpire(struct thread *t)
 {
 	struct rfapi_monitor_eth *m = t->arg;
 
@@ -1052,7 +1050,6 @@ static int rfapiMonitorEthTimerExpire(struct thread *t)
 	rfapiMonitorEthDel(bgp_get_default(), m->rfd, &m->macaddr,
 			   m->logical_net_id);
 
-	return 0;
 }
 
 static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)

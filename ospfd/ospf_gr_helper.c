@@ -346,14 +346,13 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf_handle_grace_timer_expiry(struct thread *thread)
+static void ospf_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf_neighbor *nbr = THREAD_ARG(thread);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
 	ospf_gr_helper_exit(nbr, OSPF_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF_GR_SUCCESS;
 }
 
 /*
@@ -624,9 +623,6 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 	struct listnode *node;
 	struct ospf_interface *oi;
 
-	if (!ospf->active_restarter_cnt)
-		return;
-
 	/* Topo change not required to be handled if strict
 	 * LSA check is disabled for this router.
 	 */
@@ -850,8 +846,8 @@ void ospf_gr_helper_support_set(struct ospf *ospf, bool support)
 				lookup.advRtrAddr.s_addr =
 					nbr->router_id.s_addr;
 				/* check if helper support enabled for the
-				 * corresponding routerid.If enabled, dont
-				 * dont exit from helper role.
+				 * corresponding routerid.If enabled, don't
+				 * exit from helper role.
 				 */
 				if (hash_lookup(ospf->enable_rtr_list, &lookup))
 					continue;
@@ -937,8 +933,8 @@ void ospf_gr_helper_support_set_per_routerid(struct ospf *ospf,
 
 	} else {
 		/* Add the routerid to the enable router hash table */
-		hash_get(ospf->enable_rtr_list, &temp,
-			 ospf_enable_rtr_hash_alloc);
+		(void)hash_get(ospf->enable_rtr_list, &temp,
+			       ospf_enable_rtr_hash_alloc);
 	}
 }
 

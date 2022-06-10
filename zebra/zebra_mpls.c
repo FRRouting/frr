@@ -188,8 +188,6 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	/* Locate or allocate LSP entry. */
 	tmp_ile.in_label = label;
 	lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
-	if (!lsp)
-		return -1;
 
 	/* For each active nexthop, create NHLFE. Note that we deliberately skip
 	 * recursive nexthops right now, because intermediate hops won't
@@ -614,7 +612,7 @@ static int nhlfe_nexthop_active_ipv4(struct zebra_nhlfe *nhlfe,
 		return 0;
 
 	/* Lookup nexthop in IPv4 routing table. */
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv4;
@@ -663,7 +661,7 @@ static int nhlfe_nexthop_active_ipv6(struct zebra_nhlfe *nhlfe,
 		return 0;
 
 	/* Lookup nexthop in IPv6 routing table. */
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv6;
@@ -1037,6 +1035,16 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 	struct zebra_lsp *lsp;
 	struct hash *lsp_table;
 	struct zebra_nhlfe *nhlfe;
+	bool in_shutdown = false;
+
+	/* If zebra is shutting down, don't delete any structs,
+	 * just ignore this callback. The LSPs will be cleaned up
+	 * during the shutdown processing.
+	 */
+	in_shutdown = atomic_load_explicit(&zrouter.in_shutdown,
+					   memory_order_relaxed);
+	if (in_shutdown)
+		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	assert(zvrf);
@@ -1504,7 +1512,6 @@ static int mpls_static_lsp_uninstall_all(struct zebra_vrf *zvrf,
 
 static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 {
-	char buf[BUFSIZ];
 	json_object *json_nhlfe = NULL;
 	json_object *json_backups = NULL;
 	json_object *json_label_stack;
@@ -1531,15 +1538,13 @@ static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_add(json_nhlfe, "nexthop",
-				       inet_ntop(AF_INET, &nexthop->gate.ipv4,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_nhlfe, "nexthop", "%pI4",
+					&nexthop->gate.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		json_object_string_add(
-			json_nhlfe, "nexthop",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+		json_object_string_addf(json_nhlfe, "nexthop", "%pI6",
+					&nexthop->gate.ipv6);
 
 		if (nexthop->ifindex)
 			json_object_string_add(json_nhlfe, "interface",
@@ -2913,8 +2918,6 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 		/* Find or create LSP object */
 		tmp_ile.in_label = zl->local_label;
 		lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
-		if (!lsp)
-			return -1;
 	}
 
 	/* Prep for route/FEC update if requested */
@@ -3192,8 +3195,6 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	/* Find or create LSP object */
 	tmp_ile.in_label = in_label;
 	lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
-	if (!lsp)
-		return -1;
 
 	nhlfe = lsp_add_nhlfe(lsp, type, num_out_labels, out_labels, gtype,
 			      gate, ifindex, false /*backup*/);
@@ -3555,8 +3556,6 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	/* Find or create LSP. */
 	tmp_ile.in_label = in_label;
 	lsp = hash_get(slsp_table, &tmp_ile, lsp_alloc);
-	if (!lsp)
-		return -1;
 
 	nhlfe = nhlfe_find(&lsp->nhlfe_list, ZEBRA_LSP_STATIC, gtype, gate,
 			   ifindex);
@@ -3718,9 +3717,7 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (use_json) {
 		json = lsp_json(lsp);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		lsp_print(vty, lsp);
 }
@@ -3747,9 +3744,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 						sizeof(buf)),
 				lsp_json(lsp));
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		struct ttable *tt;
 

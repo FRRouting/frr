@@ -24,6 +24,7 @@
 
 #include "checksum.h"
 #include "network.h"
+#include "prng.h"
 
 struct thread_master *master;
 
@@ -468,45 +469,88 @@ int main(int argc, char **argv)
 	uint8_t buffer[BUFSIZE];
 	int exercise = 0;
 #define EXERCISESTEP 257
-	srandom(time(NULL));
+	struct prng *prng = prng_new(0);
 
 	while (1) {
 		uint16_t ospfd, isisd, lib, in_csum, in_csum_res, in_csum_rfc;
-		int i, j;
+		int i;
 
 		exercise += EXERCISESTEP;
 		exercise %= MAXDATALEN;
 
-		for (i = 0; i < exercise; i += sizeof(long int)) {
-			long int rand = frr_weak_random();
+		printf("\rexercising length %d\033[K", exercise);
 
-			for (j = sizeof(long int); j > 0; j--)
-				buffer[i + (sizeof(long int) - j)] =
-					(rand >> (j * 8)) & 0xff;
-		}
+		for (i = 0; i < exercise; i++)
+			buffer[i] = prng_rand(prng);
 
 		in_csum = in_cksum(buffer, exercise);
 		in_csum_res = in_cksum_optimized(buffer, exercise);
 		in_csum_rfc = in_cksum_rfc(buffer, exercise);
 		if (in_csum_res != in_csum || in_csum != in_csum_rfc)
-			printf("verify: in_chksum failed in_csum:%x, in_csum_res:%x,in_csum_rfc %x, len:%d\n",
+			printf("\nverify: in_chksum failed in_csum:%x, in_csum_res:%x,in_csum_rfc %x, len:%d\n",
 			       in_csum, in_csum_res, in_csum_rfc, exercise);
+
+		struct iovec iov[3];
+		uint16_t in_csum_iov;
+
+		iov[0].iov_base = buffer;
+		iov[0].iov_len = exercise / 2;
+		iov[1].iov_base = buffer + iov[0].iov_len;
+		iov[1].iov_len = exercise - iov[0].iov_len;
+
+		in_csum_iov = in_cksumv(iov, 2);
+		if (in_csum_iov != in_csum)
+			printf("\nverify: in_cksumv failed, lens: %zu+%zu\n",
+			       iov[0].iov_len, iov[1].iov_len);
+
+		if (exercise >= 6) {
+			/* force split with byte leftover */
+			iov[0].iov_base = buffer;
+			iov[0].iov_len = (exercise / 2) | 1;
+			iov[1].iov_base = buffer + iov[0].iov_len;
+			iov[1].iov_len = 2;
+			iov[2].iov_base = buffer + iov[0].iov_len + 2;
+			iov[2].iov_len = exercise - iov[0].iov_len - 2;
+
+			in_csum_iov = in_cksumv(iov, 3);
+			if (in_csum_iov != in_csum)
+				printf("\nverify: in_cksumv failed, lens: %zu+%zu+%zu, got %04x, expected %04x\n",
+				       iov[0].iov_len, iov[1].iov_len,
+				       iov[2].iov_len, in_csum_iov, in_csum);
+
+			/* force split without byte leftover */
+			iov[0].iov_base = buffer;
+			iov[0].iov_len = (exercise / 2) & ~1UL;
+			iov[1].iov_base = buffer + iov[0].iov_len;
+			iov[1].iov_len = 2;
+			iov[2].iov_base = buffer + iov[0].iov_len + 2;
+			iov[2].iov_len = exercise - iov[0].iov_len - 2;
+
+			in_csum_iov = in_cksumv(iov, 3);
+			if (in_csum_iov != in_csum)
+				printf("\nverify: in_cksumv failed, lens: %zu+%zu+%zu, got %04x, expected %04x\n",
+				       iov[0].iov_len, iov[1].iov_len,
+				       iov[2].iov_len, in_csum_iov, in_csum);
+		}
+
+		if (exercise >= FLETCHER_CHECKSUM_VALIDATE)
+			continue;
 
 		ospfd = ospfd_checksum(buffer, exercise + sizeof(uint16_t),
 				       exercise);
 		if (verify(buffer, exercise + sizeof(uint16_t)))
-			printf("verify: ospfd failed\n");
+			printf("\nverify: ospfd failed\n");
 		isisd = iso_csum_create(buffer, exercise + sizeof(uint16_t),
 					exercise);
 		if (verify(buffer, exercise + sizeof(uint16_t)))
-			printf("verify: isisd failed\n");
+			printf("\nverify: isisd failed\n");
 		lib = fletcher_checksum(buffer, exercise + sizeof(uint16_t),
 					exercise);
 		if (verify(buffer, exercise + sizeof(uint16_t)))
-			printf("verify: lib failed\n");
+			printf("\nverify: lib failed\n");
 
 		if (ospfd != lib) {
-			printf("Mismatch in values at size %d\n"
+			printf("\nMismatch in values at size %d\n"
 			       "ospfd: 0x%04x\tc0: %d\tc1: %d\tx: %d\ty: %d\n"
 			       "isisd: 0x%04x\tc0: %d\tc1: %d\tx: %d\ty: %d\n"
 			       "lib: 0x%04x\n",

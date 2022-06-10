@@ -21,6 +21,7 @@
 #include "resolver.h"
 #include "command.h"
 #include "xref.h"
+#include "vrf.h"
 
 XREF_SETUP();
 
@@ -103,17 +104,15 @@ static void resolver_fd_drop_maybe(struct resolver_fd *resfd)
 
 static void resolver_update_timeouts(struct resolver_state *r);
 
-static int resolver_cb_timeout(struct thread *t)
+static void resolver_cb_timeout(struct thread *t)
 {
 	struct resolver_state *r = THREAD_ARG(t);
 
 	ares_process(r->channel, NULL, NULL);
 	resolver_update_timeouts(r);
-
-	return 0;
 }
 
-static int resolver_cb_socket_readable(struct thread *t)
+static void resolver_cb_socket_readable(struct thread *t)
 {
 	struct resolver_fd *resfd = THREAD_ARG(t);
 	struct resolver_state *r = resfd->state;
@@ -126,11 +125,9 @@ static int resolver_cb_socket_readable(struct thread *t)
 	 */
 	ares_process_fd(r->channel, resfd->fd, ARES_SOCKET_BAD);
 	resolver_update_timeouts(r);
-
-	return 0;
 }
 
-static int resolver_cb_socket_writable(struct thread *t)
+static void resolver_cb_socket_writable(struct thread *t)
 {
 	struct resolver_fd *resfd = THREAD_ARG(t);
 	struct resolver_state *r = resfd->state;
@@ -143,8 +140,6 @@ static int resolver_cb_socket_writable(struct thread *t)
 	 */
 	ares_process_fd(r->channel, ARES_SOCKET_BAD, resfd->fd);
 	resolver_update_timeouts(r);
-
-	return 0;
 }
 
 static void resolver_update_timeouts(struct resolver_state *r)
@@ -231,7 +226,7 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	callback(query, NULL, i, &addr[0]);
 }
 
-static int resolver_cb_literal(struct thread *t)
+static void resolver_cb_literal(struct thread *t)
 {
 	struct resolver_query *query = THREAD_ARG(t);
 	void (*callback)(struct resolver_query *, const char *, int,
@@ -241,10 +236,9 @@ static int resolver_cb_literal(struct thread *t)
 	query->callback = NULL;
 
 	callback(query, ARES_SUCCESS, 1, &query->literal_addr);
-	return 0;
 }
 
-void resolver_resolve(struct resolver_query *query, int af,
+void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname,
 		      void (*callback)(struct resolver_query *, const char *,
 				       int, union sockunion *))
@@ -279,7 +273,18 @@ void resolver_resolve(struct resolver_query *query, int af,
 	if (resolver_debug)
 		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+		return;
+	}
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
+	ret = vrf_switchback_to_initial();
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: Can't switchback from VRF %u (%s)", __func__,
+			     vrf_id, safe_strerror(errno));
 	resolver_update_timeouts(&state);
 }
 

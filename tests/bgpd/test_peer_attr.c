@@ -1389,7 +1389,7 @@ static void bgp_startup(void)
 	nb_init(master, NULL, 0, false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	frr_pthread_init();
 	bgp_init(0);
 	bgp_pthreads_run();

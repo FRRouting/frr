@@ -260,14 +260,14 @@ Group: System Environment/Daemons
 Requires: %{name} = %{version}-%{release}
 
 %description devel
-The frr-devel package contains the header and object files neccessary for
+The frr-devel package contains the header and object files necessary for
 developing OSPF-API and frr applications.
 
 
 %package rpki-rtrlib
 Summary: BGP RPKI support (rtrlib)
 Group: System Environment/Daemons
-BuildRequires:  librtr-devel >= 0.5
+BuildRequires:  librtr-devel >= 0.8
 Requires: %{name} = %{version}-%{release}
 
 %description rpki-rtrlib
@@ -432,7 +432,8 @@ popd
 
 %install
 mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
-         %{buildroot}%{_localstatedir}/log/frr %{buildroot}%{_infodir}
+         %{buildroot}%{_infodir}
+mkdir -m 0755 -p %{buildroot}%{_localstatedir}/log/frr
 make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
@@ -465,6 +466,9 @@ install -d -m750 %{buildroot}%{rundir}
 # avoid `ERROR: ambiguous python shebang in` errors
 pathfix.py -pni "%{__python3} %{py3_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
 %py_byte_compile %{__python3} %{buildroot}/usr/lib/frr/*.py
+%else
+# remove ospfclient.py (if present) as it requires > python36
+rm -f %{buildroot}%{_sbindir}/ospfclient.py
 %endif
 
 %pre
@@ -564,8 +568,8 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy config file if they don't exist so basic functions can be used.
-if [ ! -e %{configdir}/zebra.conf ]; then
-    # per daemon configs exist
+if [ ! -e %{configdir}/frr.conf ] && [ ! -e %{configdir}/zebra.conf ]; then
+    # No frr.conf and per daemon configs exist
     mv %{configdir}/frr.conf.template %{configdir}/frr.conf
 %if 0%{?frr_user:1}
     chown %{frr_user}:%{frr_user} %{configdir}/frr.conf
@@ -639,11 +643,11 @@ fi
 /usr/share/yang/*.yang
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
-    %dir %attr(750,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
+    %dir %attr(755,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
     %dir %attr(751,%{frr_user},%{frr_user}) %{rundir}
 %else
     %dir %attr(750,root,root) %{configdir}
-    %dir %attr(750,root,root) %{_localstatedir}/log/frr
+    %dir %attr(755,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{rundir}
 %endif
 %{_infodir}/frr.info.gz
@@ -718,11 +722,13 @@ fi
 %files contrib
 %doc tools
 
-
 %files pythontools
 %{_sbindir}/generate_support_bundle.py
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr_babeltrace.py
+%if %{with_ospfclient} && (0%{?rhel} > 7 || 0%{?fedora} > 29)
+%{_sbindir}/ospfclient.py
+%endif
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 %{_sbindir}/__pycache__/*
 %else
@@ -773,7 +779,91 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Tue Nov  4 2021 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jun  7 2022 Donatas Abraitis <donatas@opensourcerouting.org> - %{version}
+
+* Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
+- The FRRouting community would like to announce FRR Release 8.2.
+- This release consists of just over 800 commits from 62 authors.
+- Selected features and bug fixes are listed below.
+- babeld:
+-    Fix the checks for truncated packets
+- bfdd:
+-    Correct one spelling error of comment
+-    Fix detection timeout update
+-    Fix possibly wrong counter of control packets
+- bgpd:
+-    Add "json" option to a few more show commands
+-    Add 'show bgp <afi> <safi> json detail' header data
+-    Add a 6 hour warning to missing policy
+-    Add an ability to match ipv6 next-hop by prefix-list
+-    Add autocomplete for access-list under bmp node
+-    Add autocomplete for as-path filters
+-    Add autocomplete for set/match community/large/ext lists
+-    Add long-lived graceful restart capability
+-    Add peer-groups to neighbor autocomplete
+-    Adjust symbolic names for cease notifications according to rfc4486
+-    Deprecate dpa, advertiser and rcid_path path attributes
+-    Extended bgp administrative shutdown communication
+-    Fix crash when using "show bgp vrf all"
+-    Fix inconsistency of match ip/ipv6 next-hop commands
+-    Fix missing name of default vrf
+-    Handle TCP connection errors with connection callbacks for RPKI
+-    Implement llgr helper mode
+-    Implement rfc9072
+-    Support redirect import more than one route-target ipv6
+- docker:
+-    Update alpine build enable set own version
+- isisd:
+-    Add link state traffic engineering support
+-    Fix router capability tlv parsing issues
+-    Fix running-config for fast-reroute
+-    Make isis work with default vrf name different than 'default'
+- ospf6d
+-    Add missing vrf parameter to "clear ipv6 ospf6 interface"
+-    Add prompt for commands with non-exist vrf
+-    Add support for nssa type-7 address ranges
+-    Add the ability of specifying router-id/area-id in no debug ospf6
+-    Do not originate type-4 lsa when nssa
+-    Do not send type-5 into stub area
+-    Fix ecmp inter-area route nexthop update
+-    Fix memory leak for `show ipv6 ospf6 zebra json`
+- ospfd
+-    Fix wrong comparison of routemap name
+-    Fix crash on "ospf send-extra-data zebra"
+-    Fix incorrect detection of topology changes in helper mode
+-    Fix loss of mixed form in "range" command
+-    Fix no-form of "graceful-restart" command
+-    Fix summary-address deletion
+-    Fix wrong parsing of te subtlv
+- pbrd
+-    Add vlan actions to vty
+-    Pbr route maps get addr family of nhgs
+-    Protect from a possible null dereference
+- pimd
+-    Do not allow 224.0.0.0/24 range in igmp join
+-    Fix igmp user config
+-    Fix msdp mesh grp with wildcard member addr
+-    Fix stale forwarding entries left around after join goes away
+-    Fix FRR drops IGMP packets for TOS value other than 0XC0
+- redhat
+-    Check if frr.conf already exists
+-    Logrotate file has typo for staticd
+- ripd
+-    Fix packet send for non primary addresses
+- vtysh
+-    Add missing rpki node when showing config
+-    Improve startup time by ca. ×6
+-    remove `address-family evpn`
+- watchfrr
+-    Allow an integrated config to work within a namespace
+- zebra
+-    Add optional nhg id output to `show ip ro`
+-    Add resolver flag for nexthop in json
+-    Add support for json output in srv6 locator detail command
+-    Don't lose next hop weights while exporting via fpm
+-    Fix buffer overflow
+-    Fix netns deletion
+-    Fix route-map application when when using vrfs
 
 * Tue Nov  2 2021 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.1
 -    FRR 8.1 brings a long list of enhancements and fixes with 1200 commits from
@@ -916,7 +1006,7 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 -    Add ability to show BGP routes from a particular table version
 -    Add support for for RFC 8050 (MRT add-path)
 -    Add SNMP support for MPLS VPN
--    Add `show bgp summary wide` command to show more detailed output 
+-    Add `show bgp summary wide` command to show more detailed output
      on wide terminals
 -    Add ability for peer-groups to have `ttl-security hops` configured
 -    Add support for conditional Advertisement

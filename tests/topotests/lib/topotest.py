@@ -737,6 +737,7 @@ def proto_name_to_number(protocol):
         "sharp": "194",
         "pbr": "195",
         "static": "196",
+        "ospf6": "197",
     }.get(
         protocol, protocol
     )  # default return same as input
@@ -745,7 +746,7 @@ def proto_name_to_number(protocol):
 def ip4_route(node):
     """
     Gets a structured return of the command 'ip route'. It can be used in
-    conjuction with json_cmp() to provide accurate assert explanations.
+    conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -786,7 +787,7 @@ def ip4_route(node):
 def ip4_vrf_route(node):
     """
     Gets a structured return of the command 'ip route show vrf {0}-cust1'.
-    It can be used in conjuction with json_cmp() to provide accurate assert explanations.
+    It can be used in conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -830,7 +831,7 @@ def ip4_vrf_route(node):
 def ip6_route(node):
     """
     Gets a structured return of the command 'ip -6 route'. It can be used in
-    conjuction with json_cmp() to provide accurate assert explanations.
+    conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -870,7 +871,7 @@ def ip6_route(node):
 def ip6_vrf_route(node):
     """
     Gets a structured return of the command 'ip -6 route show vrf {0}-cust1'.
-    It can be used in conjuction with json_cmp() to provide accurate assert explanations.
+    It can be used in conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     {
@@ -912,7 +913,7 @@ def ip6_vrf_route(node):
 def ip_rules(node):
     """
     Gets a structured return of the command 'ip rule'. It can be used in
-    conjuction with json_cmp() to provide accurate assert explanations.
+    conjunction with json_cmp() to provide accurate assert explanations.
 
     Return example:
     [
@@ -1319,6 +1320,7 @@ class Router(Node):
         self.daemondir = None
         self.hasmpls = False
         self.routertype = "frr"
+        self.unified_config = None
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1386,7 +1388,6 @@ class Router(Node):
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
 
-        self.cmd("ulimit -c unlimited")
         # Set ownership of config files
         self.cmd("chown {0}:{0}vty /etc/{0}".format(self.routertype))
 
@@ -1522,21 +1523,28 @@ class Router(Node):
                     )
 
         # print "Daemons before:", self.daemons
-        if daemon in self.daemons.keys():
-            self.daemons[daemon] = 1
+        if daemon in self.daemons.keys() or daemon == "frr":
+            if daemon == "frr":
+                self.unified_config = 1
+            else:
+                self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source is None or not os.path.exists(source):
-                self.cmd_raises("rm -f " + conf_file)
-                self.cmd_raises("touch " + conf_file)
+                if daemon == "frr" or not self.unified_config:
+                    self.cmd_raises("rm -f " + conf_file)
+                    self.cmd_raises("touch " + conf_file)
             else:
                 self.cmd_raises("cp {} {}".format(source, conf_file))
-            self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
-            self.cmd_raises("chmod 664 {}".format(conf_file))
+
+            if not self.unified_config or daemon == "frr":
+                self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
+                self.cmd_raises("chmod 664 {}".format(conf_file))
+
             if (daemon == "snmpd") and (self.routertype == "frr"):
                 # /etc/snmp is private mount now
-                self.cmd('echo "agentXSocket /etc/frr/agentx" > /etc/snmp/frr.conf')
+                self.cmd('echo "agentXSocket /etc/frr/agentx" >> /etc/snmp/frr.conf')
                 self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
 
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
@@ -1558,11 +1566,18 @@ class Router(Node):
         return self.run_in_window(cmd, title)
 
     def startRouter(self, tgen=None):
-        # Disable integrated-vtysh-config
-        self.cmd(
-            'echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
-            % self.routertype
-        )
+        if self.unified_config:
+            self.cmd(
+                'echo "service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
+                % self.routertype
+            )
+        else:
+            # Disable integrated-vtysh-config
+            self.cmd(
+                'echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
+                % self.routertype
+            )
+
         self.cmd(
             "chown %s:%svty /etc/%s/vtysh.conf"
             % (self.routertype, self.routertype, self.routertype)
@@ -1614,7 +1629,7 @@ class Router(Node):
 
         shell_routers = g_extra_config["shell"]
         if "all" in shell_routers or self.name in shell_routers:
-            self.run_in_window(os.getenv("SHELL", "bash"))
+            self.run_in_window(os.getenv("SHELL", "bash"), title="sh-%s" % self.name)
 
         if self.daemons["eigrpd"] == 1:
             eigrpd_path = os.path.join(self.daemondir, "eigrpd")
@@ -1632,7 +1647,10 @@ class Router(Node):
 
         vtysh_routers = g_extra_config["vtysh"]
         if "all" in vtysh_routers or self.name in vtysh_routers:
-            self.run_in_window("vtysh")
+            self.run_in_window("vtysh", title="vt-%s" % self.name)
+
+        if self.unified_config:
+            self.cmd("vtysh -f /etc/frr/frr.conf")
 
         return status
 
@@ -1732,7 +1750,7 @@ class Router(Node):
                         daemon, self.logdir, self.name
                     )
 
-                cmdopt = "{} --log file:{}.log --log-level debug".format(
+                cmdopt = "{} --command-log-always --log file:{}.log --log-level debug".format(
                     daemon_opts, daemon
                 )
             if extra_opts:
@@ -1860,7 +1878,7 @@ class Router(Node):
                             self.cmd("kill -9 %s" % daemonpid)
                             if pid_exists(int(daemonpid)):
                                 numRunning += 1
-                        if wait and numRunning > 0:
+                        while wait and numRunning > 0:
                             sleep(
                                 2,
                                 "{}: waiting for {} daemon to be stopped".format(
@@ -1884,7 +1902,11 @@ class Router(Node):
                                             )
                                         )
                                         self.cmd("kill -9 %s" % daemonpid)
-                                    self.cmd("rm -- {}".format(d.rstrip()))
+                                    if daemonpid.isdigit() and not pid_exists(
+                                        int(daemonpid)
+                                    ):
+                                        numRunning -= 1
+                        self.cmd("rm -- {}".format(d.rstrip()))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
                         if self.checkRouterVersion("<", minErrorVersion):

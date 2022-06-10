@@ -52,15 +52,6 @@ extern struct zebra_privs_t bgpd_privs;
 
 static char *bgp_get_bound_name(struct peer *peer);
 
-/* BGP listening socket. */
-struct bgp_listener {
-	int fd;
-	union sockunion su;
-	struct thread *thread;
-	struct bgp *bgp;
-	char *name;
-};
-
 void bgp_dump_listener_info(struct vty *vty)
 {
 	struct listnode *node;
@@ -351,7 +342,7 @@ static void bgp_socket_set_buffer_size(const int fd)
 }
 
 /* Accept bgp connection. */
-static int bgp_accept(struct thread *thread)
+static void bgp_accept(struct thread *thread)
 {
 	int bgp_sock;
 	int accept_sock;
@@ -372,7 +363,7 @@ static int bgp_accept(struct thread *thread)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "[Error] BGP accept socket fd is negative: %d",
 			     accept_sock);
-		return -1;
+		return;
 	}
 
 	thread_add_read(bm->master, bgp_accept, listener, accept_sock,
@@ -411,7 +402,7 @@ static int bgp_accept(struct thread *thread)
 				"[Error] BGP socket accept failed (%s); retrying",
 				safe_strerror(save_errno));
 		}
-		return -1;
+		return;
 	}
 	set_nonblocking(bgp_sock);
 
@@ -427,7 +418,7 @@ static int bgp_accept(struct thread *thread)
 				"[Event] Could not get instance for incoming conn from %s",
 				inet_sutop(&su, buf));
 		close(bgp_sock);
-		return -1;
+		return;
 	}
 
 	bgp_socket_set_buffer_size(bgp_sock);
@@ -460,7 +451,7 @@ static int bgp_accept(struct thread *thread)
 						      TCP_connection_open);
 			}
 
-			return 0;
+			return;
 		}
 	}
 
@@ -472,7 +463,7 @@ static int bgp_accept(struct thread *thread)
 				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		}
 		close(bgp_sock);
-		return -1;
+		return;
 	}
 
 	if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN)
@@ -483,7 +474,7 @@ static int bgp_accept(struct thread *thread)
 				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
 				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		close(bgp_sock);
-		return -1;
+		return;
 	}
 
 	/*
@@ -498,7 +489,7 @@ static int bgp_accept(struct thread *thread)
 				"[Event] Closing incoming conn for %s (%p) state %d",
 				peer1->host, peer1, peer1->status);
 		close(bgp_sock);
-		return -1;
+		return;
 	}
 
 	/* Check that at least one AF is activated for the peer. */
@@ -508,7 +499,7 @@ static int bgp_accept(struct thread *thread)
 				"%s - incoming conn rejected - no AF activated for peer",
 				peer1->host);
 		close(bgp_sock);
-		return -1;
+		return;
 	}
 
 	/* Do not try to reconnect if the peer reached maximum
@@ -521,7 +512,7 @@ static int bgp_accept(struct thread *thread)
 				"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
 				peer1->host);
 		close(bgp_sock);
-		return -1;
+		return;
 	}
 
 	if (bgp_debug_neighbor_events(peer1))
@@ -548,7 +539,7 @@ static int bgp_accept(struct thread *thread)
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 			   peer1->as, peer1->as_type, NULL);
 	hash_release(peer->bgp->peerhash, peer);
-	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
@@ -609,8 +600,6 @@ static int bgp_accept(struct thread *thread)
 	 * massage the event system to make things happy
 	 */
 	bgp_nht_interface_events(peer);
-
-	return 0;
 }
 
 /* BGP socket bind. */
@@ -752,11 +741,9 @@ int bgp_connect(struct peer *peer)
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_with_privs(&bgpd_privs) {
 		if (sockunion_family(&peer->su) == AF_INET)
-			setsockopt_ipv4_tos(peer->fd,
-					    IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv4_tos(peer->fd, bm->tcp_dscp);
 		else if (sockunion_family(&peer->su) == AF_INET6)
-			setsockopt_ipv6_tclass(peer->fd,
-					       IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv6_tclass(peer->fd, bm->tcp_dscp);
 	}
 #endif
 
@@ -833,10 +820,9 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 		if (sa->sa_family == AF_INET)
-			setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv4_tos(sock, bm->tcp_dscp);
 		else if (sa->sa_family == AF_INET6)
-			setsockopt_ipv6_tclass(sock,
-					       IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv6_tclass(sock, bm->tcp_dscp);
 #endif
 
 		sockopt_v6only(sa->sa_family, sock);

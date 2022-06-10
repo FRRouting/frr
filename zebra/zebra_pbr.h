@@ -171,6 +171,9 @@ struct zebra_pbr_iptable {
 
 	struct list *interface_name_list;
 
+#define IPTABLE_INSTALL_QUEUED 1 << 1
+#define IPTABLE_UNINSTALL_QUEUED 1 << 2
+	uint8_t internal_flags;
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 

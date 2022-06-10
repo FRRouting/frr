@@ -1027,7 +1027,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 
 	/* Verify the PCE has the IP set */
 	struct in6_addr zero_v6_addr;
-	memset(&zero_v6_addr, 0, sizeof(struct in6_addr));
+	memset(&zero_v6_addr, 0, sizeof(zero_v6_addr));
 	if (memcmp(&pce_opts->addr.ip, &zero_v6_addr, IPADDRSZ(&pce_opts->addr))
 	    == 0) {
 		vty_out(vty,

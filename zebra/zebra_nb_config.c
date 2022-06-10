@@ -1148,7 +1148,6 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
 	struct zebra_l3vni *zl3vni = NULL;
-	struct zebra_vrf *zvrf_evpn = NULL;
 	char err[ERR_STR_SZ];
 	bool pfx_only = false;
 	const struct lyd_node *pn_dnode;
@@ -1159,12 +1158,6 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		return NB_OK;
 	case NB_EV_VALIDATE:
-		zvrf_evpn = zebra_vrf_get_evpn();
-		if (!zvrf_evpn) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "evpn vrf is not present.");
-			return NB_ERR_VALIDATION;
-		}
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 		/* Get vrf info from parent node, reject configuration
 		 * if zebra vrf already mapped to different vni id.

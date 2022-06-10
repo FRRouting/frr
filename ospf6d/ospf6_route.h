@@ -148,8 +148,7 @@ struct ospf6_path {
 #define OSPF6_PATH_TYPE_INTER        2
 #define OSPF6_PATH_TYPE_EXTERNAL1    3
 #define OSPF6_PATH_TYPE_EXTERNAL2    4
-#define OSPF6_PATH_TYPE_REDISTRIBUTE 5
-#define OSPF6_PATH_TYPE_MAX          6
+#define OSPF6_PATH_TYPE_MAX          5
 
 #define OSPF6_PATH_SUBTYPE_DEFAULT_RT   1
 
@@ -291,20 +290,13 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define OSPF6_ROUTE_PREFIX_STR  "Display the route\n"
 #define OSPF6_ROUTE_MATCH_STR   "Display the route matches the prefix\n"
 
-#define ospf6_route_is_prefix(p, r)                                            \
-	(memcmp(p, &(r)->prefix, sizeof(struct prefix)) == 0)
+#define ospf6_route_is_prefix(p, r) (prefix_same(p, &(r)->prefix))
 #define ospf6_route_is_same(ra, rb) (prefix_same(&(ra)->prefix, &(rb)->prefix))
 #define ospf6_route_is_same_origin(ra, rb)                                     \
 	((ra)->path.area_id == (rb)->path.area_id                              \
-	 && memcmp(&(ra)->path.origin, &(rb)->path.origin,                     \
-		   sizeof(struct ospf6_ls_origin))                             \
-		    == 0)
-#define ospf6_route_is_identical(ra, rb)                                       \
-	((ra)->type == (rb)->type                                              \
-	 && memcmp(&(ra)->prefix, &(rb)->prefix, sizeof(struct prefix)) == 0   \
-	 && memcmp(&(ra)->path, &(rb)->path, sizeof(struct ospf6_path)) == 0   \
-	 && listcount(ra->paths) == listcount(rb->paths)		       \
-	 && ospf6_route_cmp_nexthops(ra, rb) == 0)
+	 && (ra)->path.origin.type == (rb)->path.origin.type                   \
+	 && (ra)->path.origin.id == (rb)->path.origin.id                       \
+	 && (ra)->path.origin.adv_router == (rb)->path.origin.adv_router)
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 

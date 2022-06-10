@@ -47,10 +47,10 @@ DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
 
 /* Zebra client events. */
-enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
+enum zclient_event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 
 /* Prototype for event manager. */
-static void zclient_event(enum event, struct zclient *);
+static void zclient_event(enum zclient_event, struct zclient *);
 
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp);
@@ -263,20 +263,21 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 	return ZCLIENT_SEND_FAILURE;
 }
 
-static int zclient_flush_data(struct thread *thread)
+static void zclient_flush_data(struct thread *thread)
 {
 	struct zclient *zclient = THREAD_ARG(thread);
 
 	zclient->t_write = NULL;
 	if (zclient->sock < 0)
-		return -1;
+		return;
 	switch (buffer_flush_available(zclient->wb, zclient->sock)) {
 	case BUFFER_ERROR:
 		flog_err(
 			EC_LIB_ZAPI_SOCKET,
 			"%s: buffer_flush_available failed on zclient fd %d, closing",
 			__func__, zclient->sock);
-		return zclient_failed(zclient);
+		zclient_failed(zclient);
+		return;
 	case BUFFER_PENDING:
 		zclient->t_write = NULL;
 		thread_add_write(zclient->master, zclient_flush_data, zclient,
@@ -287,7 +288,6 @@ static int zclient_flush_data(struct thread *thread)
 			(*zclient->zebra_buffer_write_ready)();
 		break;
 	}
-	return 0;
 }
 
 /*
@@ -754,7 +754,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 
 /* This function is a wrapper function for calling zclient_start from
    timer or event thread. */
-static int zclient_connect(struct thread *t)
+static void zclient_connect(struct thread *t)
 {
 	struct zclient *zclient;
 
@@ -764,13 +764,13 @@ static int zclient_connect(struct thread *t)
 	if (zclient_debug)
 		zlog_debug("zclient_connect is called");
 
-	return zclient_start(zclient);
+	zclient_start(zclient);
 }
 
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
-					  const struct prefix *p,
-					  bool connected,
-					  bool resolve_via_def, vrf_id_t vrf_id)
+					  const struct prefix *p, safi_t safi,
+					  bool connected, bool resolve_via_def,
+					  vrf_id_t vrf_id)
 {
 	struct stream *s;
 
@@ -779,7 +779,7 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	zclient_create_header(s, command, vrf_id);
 	stream_putc(s, (connected) ? 1 : 0);
 	stream_putc(s, (resolve_via_def) ? 1 : 0);
-	stream_putw(s, SAFI_UNICAST);
+	stream_putw(s, safi);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
 	switch (PREFIX_FAMILY(p)) {
@@ -1924,7 +1924,8 @@ const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 /*
  * Decode the nexthop-tracking update message
  */
-bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
+bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
+				struct zapi_route *nhr)
 {
 	uint32_t i;
 
@@ -1932,6 +1933,22 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 
 	STREAM_GETL(s, nhr->message);
 	STREAM_GETW(s, nhr->safi);
+	STREAM_GETW(s, match->family);
+	STREAM_GETC(s, match->prefixlen);
+	/*
+	 * What we got told to match against
+	 */
+	switch (match->family) {
+	case AF_INET:
+		STREAM_GET(&match->u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
+		break;
+	case AF_INET6:
+		STREAM_GET(&match->u.prefix6, s, IPV6_MAX_BYTELEN);
+		break;
+	}
+	/*
+	 * What we matched against
+	 */
 	STREAM_GETW(s, nhr->prefix.family);
 	STREAM_GETC(s, nhr->prefix.prefixlen);
 	switch (nhr->prefix.family) {
@@ -2135,9 +2152,6 @@ static int zclient_vrf_add(ZAPI_CALLBACK_ARGS)
 
 	vrf->data.l.table_id = data.l.table_id;
 	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
-	/* overwrite default vrf */
-	if (vrf_id == VRF_DEFAULT)
-		vrf_set_default_name(vrfname_tmp, false);
 	vrf_enable(vrf);
 
 	return 0;
@@ -3537,7 +3551,7 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_reset(s);
 
 	zclient_create_header(s, command, VRF_DEFAULT);
-	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
 	stream_putl(s, pw->ifindex);
 
 	/* Put type */
@@ -3584,7 +3598,7 @@ int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 	s = zclient->ibuf;
 
 	/* Get data. */
-	stream_get(pw->ifname, s, IF_NAMESIZE);
+	stream_get(pw->ifname, s, INTERFACE_NAMSIZ);
 	STREAM_GETL(s, pw->ifindex);
 	STREAM_GETL(s, pw->status);
 
@@ -3862,12 +3876,12 @@ static zclient_handler *const lib_handlers[] = {
 	[ZEBRA_INTERFACE_DOWN] = zclient_interface_down,
 
 	/* BFD */
-	[ZEBRA_BFD_DEST_REPLAY] = zclient_bfd_session_reply,
+	[ZEBRA_BFD_DEST_REPLAY] = zclient_bfd_session_replay,
 	[ZEBRA_INTERFACE_BFD_DEST_UPDATE] = zclient_bfd_session_update,
 };
 
 /* Zebra client message read function. */
-static int zclient_read(struct thread *thread)
+static void zclient_read(struct thread *thread)
 {
 	size_t already;
 	uint16_t length, command;
@@ -3891,11 +3905,12 @@ static int zclient_read(struct thread *thread)
 				zlog_debug(
 					"zclient connection closed socket [%d].",
 					zclient->sock);
-			return zclient_failed(zclient);
+			zclient_failed(zclient);
+			return;
 		}
 		if (nbyte != (ssize_t)(ZEBRA_HEADER_SIZE - already)) {
 			zclient_event(ZCLIENT_READ, zclient);
-			return 0;
+			return;
 		}
 		already = ZEBRA_HEADER_SIZE;
 	}
@@ -3915,14 +3930,16 @@ static int zclient_read(struct thread *thread)
 			EC_LIB_ZAPI_MISSMATCH,
 			"%s: socket %d version mismatch, marker %d, version %d",
 			__func__, zclient->sock, marker, version);
-		return zclient_failed(zclient);
+		zclient_failed(zclient);
+		return;
 	}
 
 	if (length < ZEBRA_HEADER_SIZE) {
 		flog_err(EC_LIB_ZAPI_MISSMATCH,
 			 "%s: socket %d message length %u is less than %d ",
 			 __func__, zclient->sock, length, ZEBRA_HEADER_SIZE);
-		return zclient_failed(zclient);
+		zclient_failed(zclient);
+		return;
 	}
 
 	/* Length check. */
@@ -3950,12 +3967,13 @@ static int zclient_read(struct thread *thread)
 				zlog_debug(
 					"zclient connection closed socket [%d].",
 					zclient->sock);
-			return zclient_failed(zclient);
+			zclient_failed(zclient);
+			return;
 		}
 		if (nbyte != (ssize_t)(length - already)) {
 			/* Try again later. */
 			zclient_event(ZCLIENT_READ, zclient);
-			return 0;
+			return;
 		}
 	}
 
@@ -3972,13 +3990,11 @@ static int zclient_read(struct thread *thread)
 
 	if (zclient->sock < 0)
 		/* Connection was closed during packet processing. */
-		return -1;
+		return;
 
 	/* Register read thread. */
 	stream_reset(zclient->ibuf);
 	zclient_event(ZCLIENT_READ, zclient);
-
-	return 0;
 }
 
 void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
@@ -4039,7 +4055,7 @@ void zclient_redistribute_default(int command, struct zclient *zclient,
 		zebra_redistribute_default_send(command, zclient, afi, vrf_id);
 }
 
-static void zclient_event(enum event event, struct zclient *zclient)
+static void zclient_event(enum zclient_event event, struct zclient *zclient)
 {
 	switch (event) {
 	case ZCLIENT_SCHEDULE:
@@ -4072,11 +4088,12 @@ enum zclient_send_status zclient_interface_set_master(struct zclient *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER, master->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER,
+			      master->vrf->vrf_id);
 
-	stream_putl(s, master->vrf_id);
+	stream_putl(s, master->vrf->vrf_id);
 	stream_putl(s, master->ifindex);
-	stream_putl(s, slave->vrf_id);
+	stream_putl(s, slave->vrf->vrf_id);
 	stream_putl(s, slave->ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -4163,7 +4180,7 @@ zclient_send_neigh_discovery_req(struct zclient *zclient,
 	s = zclient->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_NEIGH_DISCOVER, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_NEIGH_DISCOVER, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 
 	stream_putc(s, p->family);
@@ -4253,7 +4270,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 {
 	int ret = 0;
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
 	stream_putc(s, sockunion_family(in));
 	stream_write(s, sockunion_get_addr(in), sockunion_get_addrlen(in));
 	if (out && sockunion_family(out) != AF_UNSPEC) {
@@ -4297,9 +4314,7 @@ int zclient_send_zebra_gre_request(struct zclient *client,
 	}
 	s = client->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      ZEBRA_GRE_GET,
-			      ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_GRE_GET, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);

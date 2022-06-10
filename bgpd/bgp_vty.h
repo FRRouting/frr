@@ -59,19 +59,18 @@ struct bgp;
 	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
 
-#define BGP_SHOW_PEER_GR_CAPABILITY( \
-			vty, p, use_json, json) \
-	do {			\
-		bgp_show_neighbor_graceful_restart_local_mode( \
-				vty, p, use_json, json);		\
-		bgp_show_neighbor_graceful_restart_remote_mode( \
-				vty, p, use_json, json); \
-		bgp_show_neighnor_graceful_restart_rbit( \
-				vty, p, use_json, json);	\
-		bgp_show_neighbor_graceful_restart_time( \
-				vty, p, use_json, json);	\
-		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(\
-						vty, p, use_json, json); \
+#define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, json)                    \
+	do {                                                                   \
+		bgp_show_neighbor_graceful_restart_local_mode(vty, p,          \
+							      use_json, json); \
+		bgp_show_neighbor_graceful_restart_remote_mode(                \
+			vty, p, use_json, json);                               \
+		bgp_show_neighnor_graceful_restart_flags(vty, p, use_json,     \
+							 json);                \
+		bgp_show_neighbor_graceful_restart_time(vty, p, use_json,      \
+							json);                 \
+		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(    \
+			vty, p, use_json, json);                               \
 	} while (0)
 
 #define VTY_BGP_GR_DEFINE_LOOP_VARIABLE                                        \
@@ -164,6 +163,7 @@ extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_listen(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp);
 extern int bgp_vty_return(struct vty *vty, int ret);
+extern bool bgp_config_inprocess(void);
 extern struct peer *peer_and_group_lookup_vty(struct vty *vty,
 					      const char *peer_str);
 

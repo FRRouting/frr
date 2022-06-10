@@ -333,7 +333,7 @@ void frrscript_register_type_codec(struct frrscript_codec *codec)
 		assert(!"Type codec double-registered.");
 	}
 
-	assert(hash_get(codec_hash, &c, codec_alloc));
+	(void)hash_get(codec_hash, &c, codec_alloc);
 }
 
 void frrscript_register_type_codecs(struct frrscript_codec *codecs)
@@ -373,7 +373,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	}
 
 	if (luaL_dofile(L, script_name) != 0) {
-		zlog_err("frrscript: failed loading script '%s.lua': error: %s",
+		zlog_err("frrscript: failed loading script '%s': error: %s",
 			 script_name, lua_tostring(L, -1));
 		goto fail;
 	}
@@ -381,7 +381,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* To check the Lua function, we get it from the global table */
 	lua_getglobal(L, function_name);
 	if (lua_isfunction(L, lua_gettop(L)) == 0) {
-		zlog_err("frrscript: loaded script '%s.lua' but %s not found",
+		zlog_err("frrscript: loaded script '%s' but %s not found",
 			 script_name, function_name);
 		goto fail;
 	}
@@ -391,7 +391,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	if (load_cb && (*load_cb)(fs) != 0) {
 		zlog_err(
-			"frrscript: '%s.lua': %s: loaded but callback returned non-zero exit code",
+			"frrscript: '%s': %s: loaded but callback returned non-zero exit code",
 			script_name, function_name);
 		goto fail;
 	}
@@ -399,7 +399,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* Add the Lua function state to frrscript */
 	struct lua_function_state key = {.name = function_name, .L = L};
 
-	hash_get(fs->lua_function_hash, &key, lua_function_alloc);
+	(void)hash_get(fs->lua_function_hash, &key, lua_function_alloc);
 
 	return 0;
 fail:

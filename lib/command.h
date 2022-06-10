@@ -55,6 +55,13 @@ struct host {
 	/* Domainname of this router */
 	char *domainname;
 
+	/*
+	 * Some extra system data that is useful
+	 */
+	char *system;
+	char *release;
+	char *version;
+
 	/* Password for vty interface. */
 	char *password;
 	char *password_encrypt;
@@ -93,6 +100,7 @@ enum node_type {
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
 	AAA_NODE,		 /* AAA node. */
+	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
 	IP_NODE,		 /* Static ip route node. */
@@ -213,6 +221,9 @@ struct cmd_node {
 
 	/* set as soon as any command is in cmdgraph */
 	bool graph_built;
+
+	/* don't decrement vty->xpath_index on leaving this node */
+	bool no_xpath;
 };
 
 /* Return value of the commands. */
@@ -597,6 +608,9 @@ extern int cmd_domainname_set(const char *domainname);
 extern int cmd_hostname_set(const char *hostname);
 extern const char *cmd_hostname_get(void);
 extern const char *cmd_domainname_get(void);
+extern const char *cmd_system_get(void);
+extern const char *cmd_release_get(void);
+extern const char *cmd_version_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init(void);

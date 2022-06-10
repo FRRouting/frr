@@ -408,8 +408,7 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, char *ifname,
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-			if (strncmp(pmi->ifp->name, ifname, INTERFACE_NAMSIZ)
-			    != 0)
+			if (strcmp(pmi->ifp->name, ifname) != 0)
 				continue;
 
 			if (ppmi)
@@ -791,6 +790,12 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 
 			if (found_name) {
 				bool original = pbrm->valid;
+
+				/* Set data we were waiting on */
+				if (pbrms->nhgrp_name)
+					pbr_nht_set_seq_nhg_data(
+						pbrms,
+						nhgc_find(pbrms->nhgrp_name));
 
 				pbr_map_check_valid_internal(pbrm);
 

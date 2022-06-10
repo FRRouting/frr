@@ -198,9 +198,12 @@ def main():
                 logging.critical("%s doesn't exist", args.results)
                 sys.exit(1)
             ttfiles = [args.results]
+        elif os.path.exists("/tmp/topotests/topotests.xml"):
+            ttfiles.append("/tmp/topotests/topotests.xml")
 
-        if not ttfiles and os.path.exists("/tmp/topotests.xml"):
-            ttfiles.append("/tmp/topotests.xml")
+        if not ttfiles:
+            if os.path.exists("/tmp/topotests.xml"):
+                ttfiles.append("/tmp/topotests.xml")
 
     for f in ttfiles:
         m = re.match(r"tt-group-(\d+)/topotests.xml", f)

@@ -74,7 +74,7 @@ struct zebra_ptm_cb {
 
 void zebra_ptm_init(void);
 void zebra_ptm_finish(void);
-int zebra_ptm_connect(struct thread *t);
+void zebra_ptm_connect(struct thread *t);
 void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 

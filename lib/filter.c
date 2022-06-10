@@ -558,18 +558,12 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 							  json_rule);
 			else {
 				if (json) {
-					char buf[BUFSIZ];
-
-					json_object_string_add(
-						json_rule, "address",
-						inet_ntop(AF_INET,
-							  &filter->addr, buf,
-							  sizeof(buf)));
-					json_object_string_add(
-						json_rule, "mask",
-						inet_ntop(AF_INET,
-							  &filter->addr_mask,
-							  buf, sizeof(buf)));
+					json_object_string_addf(
+						json_rule, "address", "%pI4",
+						&filter->addr);
+					json_object_string_addf(
+						json_rule, "mask", "%pI4",
+						&filter->addr_mask);
 				} else {
 					if (filter->addr_mask.s_addr
 					    == 0xffffffff)
@@ -589,14 +583,7 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 		}
 	}
 
-	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 /* show MAC access list - this only has MAC filters for now*/
@@ -681,21 +668,15 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter,
 	filter = &mfilter->u.cfilter;
 
 	if (json) {
-		char buf[BUFSIZ];
-
 		json_object_boolean_add(json, "extended", !!filter->extended);
-		json_object_string_add(
-			json, "sourceAddress",
-			inet_ntop(AF_INET, &filter->addr, buf, sizeof(buf)));
-		json_object_string_add(json, "sourceMask",
-				       inet_ntop(AF_INET, &filter->addr_mask,
-						 buf, sizeof(buf)));
-		json_object_string_add(
-			json, "destinationAddress",
-			inet_ntop(AF_INET, &filter->mask, buf, sizeof(buf)));
-		json_object_string_add(json, "destinationMask",
-				       inet_ntop(AF_INET, &filter->mask_mask,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json, "sourceAddress", "%pI4",
+					&filter->addr);
+		json_object_string_addf(json, "sourceMask", "%pI4",
+					&filter->addr_mask);
+		json_object_string_addf(json, "destinationAddress", "%pI4",
+					&filter->mask);
+		json_object_string_addf(json, "destinationMask", "%pI4",
+					&filter->mask_mask);
 	} else {
 		vty_out(vty, " ip");
 		if (filter->addr_mask.s_addr == 0xffffffff)
@@ -730,16 +711,13 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter,
 	p = &filter->prefix;
 
 	if (json) {
-		json_object_string_add(json, "prefix",
-				       prefix2str(p, buf, sizeof(buf)));
+		json_object_string_addf(json, "prefix", "%pFX", p);
 		json_object_boolean_add(json, "exact-match", !!filter->exact);
 	} else {
 		if (p->prefixlen == 0 && !filter->exact)
 			vty_out(vty, " any");
 		else if (p->family == AF_INET6 || p->family == AF_INET)
-			vty_out(vty, " %s/%d%s",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen,
+			vty_out(vty, " %pFX%s", p,
 				filter->exact ? " exact-match" : "");
 		else if (p->family == AF_ETHERNET) {
 			if (p->prefixlen == 0)

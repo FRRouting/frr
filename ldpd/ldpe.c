@@ -36,10 +36,10 @@
 #include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
-static int	 ldpe_dispatch_main(struct thread *);
-static int	 ldpe_dispatch_lde(struct thread *);
+static void ldpe_dispatch_main(struct thread *thread);
+static void ldpe_dispatch_lde(struct thread *thread);
 #ifdef __OpenBSD__
-static int	 ldpe_dispatch_pfkey(struct thread *);
+static void ldpe_dispatch_pfkey(struct thread *thread);
 #endif
 static void	 ldpe_setup_sockets(int, int, int, int);
 static void	 ldpe_close_sockets(int);
@@ -82,7 +82,7 @@ sigint(void)
 	ldpe_shutdown();
 }
 
-static struct quagga_signal_t ldpe_signals[] =
+static struct frr_signal_t ldpe_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -273,8 +273,7 @@ ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static int
-ldpe_dispatch_main(struct thread *thread)
+static void ldpe_dispatch_main(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*niface;
@@ -631,13 +630,10 @@ ldpe_dispatch_main(struct thread *thread)
 		thread_cancel(&iev->ev_write);
 		ldpe_shutdown();
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-static int
-ldpe_dispatch_lde(struct thread *thread)
+static void ldpe_dispatch_lde(struct thread *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -770,14 +766,11 @@ ldpe_dispatch_lde(struct thread *thread)
 		thread_cancel(&iev->ev_write);
 		ldpe_shutdown();
 	}
-
-	return (0);
 }
 
 #ifdef __OpenBSD__
 /* ARGSUSED */
-static int
-ldpe_dispatch_pfkey(struct thread *thread)
+static void ldpe_dispatch_pfkey(struct thread *thread)
 {
 	int	 fd = THREAD_FD(thread);
 
@@ -786,8 +779,6 @@ ldpe_dispatch_pfkey(struct thread *thread)
 
 	if (pfkey_read(fd, NULL) == -1)
 		fatal("pfkey_read failed, exiting...");
-
-	return (0);
 }
 #endif /* __OpenBSD__ */
 

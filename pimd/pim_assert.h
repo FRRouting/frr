@@ -37,7 +37,7 @@ struct pim_assert_metric {
 	uint32_t rpt_bit_flag;
 	uint32_t metric_preference;
 	uint32_t route_metric;
-	struct in_addr ip_address; /* neighbor router that sourced the Assert
+	pim_addr ip_address; /* neighbor router that sourced the Assert
 				      message */
 };
 
@@ -55,12 +55,11 @@ struct pim_assert_metric {
 #define PIM_ASSERT_ROUTE_METRIC_MAX      (0xFFFFFFFF)
 
 void pim_ifassert_winner_set(struct pim_ifchannel *ch,
-			     enum pim_ifassert_state new_state,
-			     struct in_addr winner,
+			     enum pim_ifassert_state new_state, pim_addr winner,
 			     struct pim_assert_metric winner_metric);
 
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
-		    struct in_addr src_addr, uint8_t *buf, int buf_size);
+		    pim_addr src_addr, uint8_t *buf, int buf_size);
 
 int pim_assert_metric_better(const struct pim_assert_metric *m1,
 			     const struct pim_assert_metric *m2);
@@ -68,7 +67,7 @@ int pim_assert_metric_match(const struct pim_assert_metric *m1,
 			    const struct pim_assert_metric *m2);
 
 int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
-			 struct in_addr group_addr, struct in_addr source_addr,
+			 pim_addr group_addr, pim_addr source_addr,
 			 uint32_t metric_preference, uint32_t route_metric,
 			 uint32_t rpt_bit_flag);
 

@@ -704,27 +704,6 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 	}
 
 	if (old) {
-		/* if route does not actually change, return unchanged */
-		if (ospf6_route_is_identical(old, route)) {
-			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-				zlog_debug(
-					"%s %p: route add %p: needless update of %p old cost %u",
-					ospf6_route_table_name(table),
-					(void *)table, (void *)route,
-					(void *)old, old->path.cost);
-			else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
-				zlog_debug("%s: route add: needless update",
-					   ospf6_route_table_name(table));
-
-			ospf6_route_delete(route);
-			SET_FLAG(old->flag, OSPF6_ROUTE_ADD);
-			ospf6_route_table_assert(table);
-
-			/* to free the lookup lock */
-			route_unlock_node(node);
-			return old;
-		}
-
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 			zlog_debug(
 				"%s %p: route add %p cost %u paths %u nh %u: update of %p cost %u paths %u nh %u",
@@ -1189,7 +1168,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 			     json_object *json_routes, bool use_json)
 {
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
-	char area_id[16], id[16], adv_router[16], capa[16], options[16];
+	char area_id[16], id[16], adv_router[16], capa[16], options[32];
 	char pfx_options[16];
 	struct timeval now, res;
 	char duration[64];
@@ -1571,7 +1550,7 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	int arg_end = use_json ? (argc - 1) : argc;
 	json_object *json = NULL;
 
-	memset(&prefix, 0, sizeof(struct prefix));
+	memset(&prefix, 0, sizeof(prefix));
 
 	if (use_json)
 		json = json_object_new_object();
@@ -1631,12 +1610,8 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	/* Give summary of this route table */
 	if (summary) {
 		ospf6_route_show_table_summary(vty, table, json, use_json);
-		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		}
+		if (use_json)
+			vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
 
@@ -1650,12 +1625,8 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 			ospf6_route_show_table_prefix(vty, &prefix, table, json,
 						      use_json);
 
-		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		}
+		if (use_json)
+			vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
 
@@ -1668,12 +1639,8 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	else
 		ospf6_route_show_table(vty, detail, table, json, use_json);
 
-	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 	return CMD_SUCCESS;
 }
 
@@ -1686,7 +1653,7 @@ static void ospf6_linkstate_show_header(struct vty *vty)
 static void ospf6_linkstate_show(struct vty *vty, struct ospf6_route *route)
 {
 	uint32_t router, id;
-	char routername[16], idname[16], rbits[16], options[16];
+	char routername[16], idname[16], rbits[16], options[32];
 
 	router = ospf6_linkstate_prefix_adv_router(&route->prefix);
 	inet_ntop(AF_INET, &router, routername, sizeof(routername));
@@ -1756,9 +1723,9 @@ int ospf6_linkstate_table_show(struct vty *vty, int idx_ipv4, int argc,
 	int i, ret;
 	struct prefix router, id, prefix;
 
-	memset(&router, 0, sizeof(struct prefix));
-	memset(&id, 0, sizeof(struct prefix));
-	memset(&prefix, 0, sizeof(struct prefix));
+	memset(&router, 0, sizeof(router));
+	memset(&id, 0, sizeof(id));
+	memset(&prefix, 0, sizeof(prefix));
 
 	for (i = idx_ipv4; i < argc; i++) {
 		if (strmatch(argv[i]->text, "detail")) {
@@ -1812,7 +1779,7 @@ void ospf6_brouter_show_header(struct vty *vty)
 void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 {
 	uint32_t adv_router;
-	char adv[16], rbits[16], options[16], area[16];
+	char adv[16], rbits[16], options[32], area[16];
 
 	adv_router = ospf6_linkstate_prefix_adv_router(&route->prefix);
 	inet_ntop(AF_INET, &adv_router, adv, sizeof(adv));

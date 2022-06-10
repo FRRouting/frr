@@ -62,6 +62,7 @@ unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
 unsigned long conf_debug_ospf_gr = 0;
 unsigned long conf_debug_ospf_bfd;
+unsigned long conf_debug_ospf_client_api;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -79,6 +80,7 @@ unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr = 0;
 unsigned long term_debug_ospf_bfd;
+unsigned long term_debug_ospf_client_api;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -389,7 +391,7 @@ static void ospf_as_external_lsa_dump(struct stream *s, uint16_t length)
 			   asr->tos & 0x7f, GET_METRIC(asr->metric));
 		zlog_debug("    Forwarding address %pI4", &asr->fwd_addr);
 		zlog_debug("    External Route Tag %" ROUTE_TAG_PRI,
-			   asr->route_tag);
+			   ntohl(asr->route_tag));
 	}
 }
 
@@ -1620,6 +1622,33 @@ DEFPY(debug_ospf_bfd, debug_ospf_bfd_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf_client_api,
+      debug_ospf_client_api_cmd,
+      "debug ospf client-api",
+      DEBUG_STR OSPF_STR
+      "OSPF client API information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(client_api, CLIENT_API);
+	TERM_DEBUG_ON(client_api, CLIENT_API);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf_client_api,
+      no_debug_ospf_client_api_cmd,
+      "no debug ospf client-api",
+      NO_STR
+      DEBUG_STR
+      OSPF_STR
+      "OSPF client API information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(client_api, CLIENT_API);
+	TERM_DEBUG_OFF(client_api, CLIENT_API);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1645,11 +1674,16 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(nsm, NSM_EVENTS);
 		DEBUG_OFF(nsm, NSM_STATUS);
 		DEBUG_OFF(nsm, NSM_TIMERS);
+		DEBUG_OFF(event, EVENT);
 		DEBUG_OFF(zebra, ZEBRA);
 		DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 		DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 		DEBUG_OFF(defaultinfo, DEFAULTINFO);
 		DEBUG_OFF(ldp_sync, LDP_SYNC);
+		DEBUG_OFF(te, TE);
+		DEBUG_OFF(sr, SR);
+		DEBUG_OFF(ti_lfa, TI_LFA);
+		DEBUG_OFF(client_api, CLIENT_API);
 
 		/* BFD debugging is two parts: OSPF and library. */
 		DEBUG_OFF(bfd, BFD_LIB);
@@ -1682,7 +1716,11 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
 	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_OFF(te, TE);
+	TERM_DEBUG_OFF(sr, SR);
+	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
+	TERM_DEBUG_OFF(client_api, CLIENT_API);
 
 	return CMD_SUCCESS;
 }
@@ -1792,9 +1830,25 @@ static int show_debugging_ospf_common(struct vty *vty)
 	if (IS_DEBUG_OSPF(gr, GR) == OSPF_DEBUG_GR)
 		vty_out(vty, "  OSPF Graceful Restart debugging is on\n");
 
+	/* Show debug status for TE */
+	if (IS_DEBUG_OSPF(te, TE) == OSPF_DEBUG_TE)
+		vty_out(vty, "  OSPF TE debugging is on\n");
+
+	/* Show debug status for SR */
+	if (IS_DEBUG_OSPF(sr, SR) == OSPF_DEBUG_SR)
+		vty_out(vty, "  OSPF SR debugging is on\n");
+
+	/* Show debug status for TI-LFA */
+	if (IS_DEBUG_OSPF(ti_lfa, TI_LFA) == OSPF_DEBUG_TI_LFA)
+		vty_out(vty, "  OSPF TI-LFA debugging is on\n");
+
 	if (IS_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB)
 		vty_out(vty,
 			"  OSPF BFD integration library debugging is on\n");
+
+	/* Show debug status for LDP-SYNC. */
+	if (IS_DEBUG_OSPF(client_api, CLIENT_API) == OSPF_DEBUG_CLIENT_API)
+		vty_out(vty, "  OSPF client-api debugging is on\n");
 
 	vty_out(vty, "\n");
 
@@ -1966,7 +2020,7 @@ static int config_write_debug(struct vty *vty)
 	}
 
 	/* debug ospf sr ti-lfa */
-	if (IS_CONF_DEBUG_OSPF(sr, TI_LFA) == OSPF_DEBUG_TI_LFA) {
+	if (IS_CONF_DEBUG_OSPF(ti_lfa, TI_LFA) == OSPF_DEBUG_TI_LFA) {
 		vty_out(vty, "debug ospf%s ti-lfa\n", str);
 		write = 1;
 	}
@@ -1985,6 +2039,13 @@ static int config_write_debug(struct vty *vty)
 
 	if (IS_CONF_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB) {
 		vty_out(vty, "debug ospf%s bfd\n", str);
+		write = 1;
+	}
+
+	/* debug ospf client-api */
+	if (IS_CONF_DEBUG_OSPF(client_api, CLIENT_API) ==
+	    OSPF_DEBUG_CLIENT_API) {
+		vty_out(vty, "debug ospf%s client-api\n", str);
 		write = 1;
 	}
 
@@ -2008,6 +2069,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -2019,6 +2081,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
@@ -2053,6 +2116,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
@@ -2063,6 +2127,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 

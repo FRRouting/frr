@@ -50,10 +50,10 @@
 
 #define PY_SSIZE_T_CLEAN
 
-#include <Python.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#include <Python.h>
 #include "structmember.h"
 #include <string.h>
 #include <stdlib.h>
@@ -1071,26 +1071,25 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 			 * always be a pointer...
 			 */
 			if (elffile_virt2file(w, rel->r_offset, &offs)) {
-				Elf_Data *ptr, *conv;
-				GElf_Addr tmp;
-				Elf_Data mem = {
-					.d_buf = (void *)&tmp,
-					.d_type = ELF_T_ADDR,
-					.d_version = EV_CURRENT,
-					.d_size = sizeof(tmp),
-					.d_off = 0,
-					.d_align = 0,
-				};
+				Elf_Data *ptr;
 
+				/* NB: this endian-converts! */
 				ptr = elf_getdata_rawchunk(w->elf, offs,
 							   w->elfclass / 8,
 							   ELF_T_ADDR);
 
-				conv = gelf_xlatetom(w->elf, &mem, ptr,
-						     w->mmap[EI_DATA]);
-				if (conv) {
-					memcpy(&rel_offs, conv->d_buf,
-					       conv->d_size);
+				if (ptr) {
+					char *dst = (char *)&rel_offs;
+
+					/* sigh.  it endian-converts.  but
+					 * doesn't size-convert.
+					 */
+					if (BYTE_ORDER == BIG_ENDIAN &&
+					    ptr->d_size < sizeof(rel_offs))
+						dst += sizeof(rel_offs) -
+						       ptr->d_size;
+
+					memcpy(dst, ptr->d_buf, ptr->d_size);
 
 					relw->relative = false;
 					relw->rela->r_addend = rel_offs;

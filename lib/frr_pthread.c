@@ -237,18 +237,16 @@ void frr_pthread_stop_all(void)
  */
 
 /* dummy task for sleeper pipe */
-static int fpt_dummy(struct thread *thread)
+static void fpt_dummy(struct thread *thread)
 {
-	return 0;
 }
 
 /* poison pill task to end event loop */
-static int fpt_finish(struct thread *thread)
+static void fpt_finish(struct thread *thread)
 {
 	struct frr_pthread *fpt = THREAD_ARG(thread);
 
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
-	return 0;
 }
 
 /* stop function, called from other threads to halt this one */

@@ -527,7 +527,7 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 					 adj_src_ipv4, adj_dst_ipv4,
 					 adj_src_ipv6, adj_dst_ipv6,
 					 adj_src_ipv4_str, adj_dst_ipv4_str,
-					 adj_dst_ipv6_str, adj_src_ipv6_str);
+					 adj_src_ipv6_str, adj_dst_ipv6_str);
 		if (status != CMD_SUCCESS)
 			return status;
 	} else {

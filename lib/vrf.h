@@ -176,8 +176,6 @@ static inline uint32_t vrf_interface_count(struct vrf *vrf)
  * Utilities to obtain the user data
  */
 
-/* Get the data pointer of the specified VRF. If not found, create one. */
-extern void *vrf_info_get(vrf_id_t);
 /* Look up the data pointer of the specified VRF. */
 extern void *vrf_info_lookup(vrf_id_t);
 
@@ -214,9 +212,10 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  * delete -> Called back when a vrf is being deleted from
  *           the system ( 2 and 3 ) above.
  */
-extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
-		     int (*disable)(struct vrf *vrf), int (*destroy)(struct vrf *vrf),
-		     int (*update)(struct vrf *vrf));
+extern void vrf_init(int (*create)(struct vrf *vrf),
+		     int (*enable)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf),
+		     int (*destroy)(struct vrf *vrf));
 
 /*
  * Call vrf_terminate when the protocol is being shutdown
@@ -269,7 +268,9 @@ extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 /* The default VRF ID */
 #define VRF_DEFAULT 0
 
-extern void vrf_set_default_name(const char *default_name, bool force);
+/* Must be called only during startup, before config is read */
+extern void vrf_set_default_name(const char *default_name);
+
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
 

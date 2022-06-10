@@ -151,7 +151,7 @@ bool bgp_adj_out_lookup(struct peer *peer, struct bgp_dest *dest,
 	struct peer_af *paf;
 	afi_t afi;
 	safi_t safi;
-	int addpath_capable;
+	bool addpath_capable;
 
 	RB_FOREACH (adj, bgp_adj_out_rb, &dest->adj_out)
 		SUBGRP_FOREACH_PEER (adj->subgroup, paf)

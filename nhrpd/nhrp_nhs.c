@@ -17,8 +17,8 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries");
 
-static int nhrp_nhs_resolve(struct thread *t);
-static int nhrp_reg_send_req(struct thread *t);
+static void nhrp_nhs_resolve(struct thread *t);
+static void nhrp_reg_send_req(struct thread *t);
 
 static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 {
@@ -107,7 +107,7 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 					  &cie_nbma_nhs);
 }
 
-static int nhrp_reg_timeout(struct thread *t)
+static void nhrp_reg_timeout(struct thread *t)
 {
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_cache *c;
@@ -138,8 +138,6 @@ static int nhrp_reg_timeout(struct thread *t)
 		r->timeout = 2;
 	}
 	thread_add_timer_msec(master, nhrp_reg_send_req, r, 10, &r->t_register);
-
-	return 0;
 }
 
 static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
@@ -161,7 +159,7 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 	}
 }
 
-static int nhrp_reg_send_req(struct thread *t)
+static void nhrp_reg_send_req(struct thread *t)
 {
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_nhs *nhs = r->nhs;
@@ -180,7 +178,7 @@ static int nhrp_reg_send_req(struct thread *t)
 		       &r->peer->vc->remote.nbma);
 		thread_add_timer(master, nhrp_reg_send_req, r, 120,
 				 &r->t_register);
-		return 0;
+		return;
 	}
 
 	thread_add_timer(master, nhrp_reg_timeout, r, r->timeout,
@@ -198,7 +196,7 @@ static int nhrp_reg_send_req(struct thread *t)
 
 	/* No protocol address configured for tunnel interface */
 	if (sockunion_family(&if_ad->addr) == AF_UNSPEC)
-		return 0;
+		return;
 
 	zb = zbuf_alloc(1400);
 	hdr = nhrp_packet_push(zb, NHRP_PACKET_REGISTRATION_REQUEST,
@@ -246,8 +244,6 @@ static int nhrp_reg_send_req(struct thread *t)
 	nhrp_packet_complete(zb, hdr);
 	nhrp_peer_send(r->peer, zb);
 	zbuf_free(zb);
-
-	return 0;
 }
 
 static void nhrp_reg_delete(struct nhrp_registration *r)
@@ -320,14 +316,12 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 			nhrp_reg_delete(reg);
 }
 
-static int nhrp_nhs_resolve(struct thread *t)
+static void nhrp_nhs_resolve(struct thread *t)
 {
 	struct nhrp_nhs *nhs = THREAD_ARG(t);
 
-	resolver_resolve(&nhs->dns_resolve, AF_INET, nhs->nbma_fqdn,
-			 nhrp_nhs_resolve_cb);
-
-	return 0;
+	resolver_resolve(&nhs->dns_resolve, AF_INET, VRF_DEFAULT,
+			 nhs->nbma_fqdn, nhrp_nhs_resolve_cb);
 }
 
 int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,

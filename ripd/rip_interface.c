@@ -311,35 +311,31 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 	return 0;
 }
 
-/* Inteface link down message processing. */
+/* Interface link down message processing. */
 static int rip_ifp_down(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
 	rip_if_down(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface %s vrf %s(%u) index %d flags %llx metric %d mtu %d is down",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	return 0;
 }
 
-/* Inteface link up message processing */
+/* Interface link up message processing */
 static int rip_ifp_up(struct interface *ifp)
 {
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface %s vrf %s(%u) index %d flags %#llx metric %d mtu %d is up",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	rip_interface_sync(ifp);
 
@@ -355,18 +351,17 @@ static int rip_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 static int rip_ifp_create(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface add %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	/* Check if this interface is RIP enabled or not.*/
 	rip_enable_apply(ifp);
@@ -387,8 +382,6 @@ static int rip_ifp_create(struct interface *ifp)
 
 static int rip_ifp_destroy(struct interface *ifp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 	rip_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		rip_if_down(ifp);
@@ -397,8 +390,9 @@ static int rip_ifp_destroy(struct interface *ifp)
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	return 0;
 }
@@ -415,12 +409,11 @@ int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
 
 		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
-			   ifp->name, VRF_LOGNAME(vrf), vrf_id,
-			   VRF_LOGNAME(nvrf), new_vrf_id);
+			   ifp->name, ifp->vrf->name, vrf_id, VRF_LOGNAME(nvrf),
+			   new_vrf_id);
 	}
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
@@ -624,7 +617,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 			hook_call(rip_ifaddr_del, ifc);
 
-			/* Chech wether this prefix needs to be removed */
+			/* Chech whether this prefix needs to be removed */
 			rip_apply_address_del(ifc);
 		}
 
@@ -635,7 +628,7 @@ int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 }
 
 /* Check interface is enabled by network statement. */
-/* Check wether the interface has at least a connected prefix that
+/* Check whether the interface has at least a connected prefix that
  * is within the ripng_enable_network table. */
 static int rip_enable_network_lookup_if(struct interface *ifp)
 {
@@ -670,7 +663,7 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check wether connected is within the ripng_enable_network table. */
+/* Check whether connected is within the ripng_enable_network table. */
 static int rip_enable_network_lookup2(struct connected *connected)
 {
 	struct rip_interface *ri = connected->ifp->info;
@@ -796,7 +789,7 @@ int rip_enable_if_delete(struct rip *rip, const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-static int rip_interface_wakeup(struct thread *t)
+static void rip_interface_wakeup(struct thread *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -811,7 +804,7 @@ static int rip_interface_wakeup(struct thread *t)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
-		return 0;
+		return;
 	}
 
 	/* Set running flag. */
@@ -819,8 +812,6 @@ static int rip_interface_wakeup(struct thread *t)
 
 	/* Send RIP request to the interface. */
 	rip_request_interface(ifp);
-
-	return 0;
 }
 
 static void rip_connect_set(struct interface *ifp, int set)
@@ -849,7 +840,7 @@ static void rip_connect_set(struct interface *ifp, int set)
 		nh.ifindex = connected->ifp->ifindex;
 		nh.type = NEXTHOP_TYPE_IFINDEX;
 		if (set) {
-			/* Check once more wether this prefix is within a
+			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
 			if ((rip_enable_if_lookup(rip, connected->ifp->name)
 			     >= 0)
@@ -938,7 +929,7 @@ int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *from)
 	struct prefix_ipv4 p;
 	struct route_node *node;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefix = from->sin_addr;
 	p.prefixlen = IPV4_MAX_BITLEN;
@@ -1130,16 +1121,11 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 
 void rip_interface_sync(struct interface *ifp)
 {
-	struct vrf *vrf;
+	struct rip_interface *ri;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (vrf) {
-		struct rip_interface *ri;
-
-		ri = ifp->info;
-		if (ri)
-			ri->rip = vrf->info;
-	}
+	ri = ifp->info;
+	if (ri)
+		ri->rip = ifp->vrf->info;
 }
 
 /* Called when interface structure allocated. */

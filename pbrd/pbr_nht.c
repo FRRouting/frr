@@ -522,6 +522,49 @@ char *pbr_nht_nexthop_make_name(char *name, size_t l,
 	return buffer;
 }
 
+/* Set data derived from nhg in pbrms */
+void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
+			      const struct nexthop_group_cmd *nhgc)
+{
+	const struct nexthop_group *nhg;
+
+	if (!nhgc)
+		return;
+
+	nhg = &nhgc->nhg;
+	if (!nhg->nexthop)
+		return;
+
+	switch (nhg->nexthop->type) {
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		pbrms->family = AF_INET6;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		pbrms->family = AF_INET;
+	default:
+		break;
+	}
+}
+
+/* Configure a routemap sequence to use a given nexthop group */
+void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
+{
+	struct nexthop_group_cmd *nhgc;
+
+	if (!name)
+		return;
+
+	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+
+	nhgc = nhgc_find(name);
+	if (!nhgc)
+		return;
+
+	pbr_nht_set_seq_nhg_data(pbrms, nhgc);
+}
+
 void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 				    const struct nexthop *nhop)
 {
@@ -998,8 +1041,9 @@ static int pbr_nht_individual_nexthop_vrf_handle(struct hash_bucket *b,
 						     nhrcvi.nhrc);
 					nhrcvi.nhrc->nexthop.vrf_id =
 						pbr_vrf_id(pnhi->pbr_vrf);
-					hash_get(pbr_nhrc_hash, nhrcvi.nhrc,
-						 hash_alloc_intern);
+					(void)hash_get(pbr_nhrc_hash,
+						       nhrcvi.nhrc,
+						       hash_alloc_intern);
 					pbr_send_rnh(&nhrcvi.nhrc->nexthop, true);
 				}
 			} while (nhrcvi.nhrc);
@@ -1044,7 +1088,8 @@ static void pbr_nht_nexthop_vrf_handle(struct hash_bucket *b, void *data)
 		if (pnhi.pnhc) {
 			pnhi.pnhc->nexthop.vrf_id = pbr_vrf_id(pbr_vrf);
 
-			hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+			(void)hash_get(pnhgc->nhh, pnhi.pnhc,
+				       hash_alloc_intern);
 		} else
 			pnhc->nexthop.vrf_id = pbr_vrf_id(pbr_vrf);
 
@@ -1098,11 +1143,11 @@ static void pbr_nht_nexthop_interface_handle(struct hash_bucket *b, void *data)
 		if (nhrc) {
 			hash_release(pbr_nhrc_hash, nhrc);
 			nhrc->nexthop.ifindex = ifp->ifindex;
-			hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
+			(void)hash_get(pbr_nhrc_hash, nhrc, hash_alloc_intern);
 		}
 		pnhi.pnhc->nexthop.ifindex = ifp->ifindex;
 
-		hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
+		(void)hash_get(pnhgc->nhh, pnhi.pnhc, hash_alloc_intern);
 
 		pbr_map_check_interface_nh_group_change(pnhgc->name, ifp,
 							old_ifindex);
@@ -1247,7 +1292,7 @@ uint32_t pbr_nht_reserve_next_table_id(struct pbr_nexthop_group_cache *nhgc)
 	nhgc->table_id = pbr_next_unallocated_table_id;
 
 	/* Mark table id as allocated in id-indexed hash */
-	hash_get(pbr_nhg_allocated_id_hash, nhgc, hash_alloc_intern);
+	(void)hash_get(pbr_nhg_allocated_id_hash, nhgc, hash_alloc_intern);
 
 	/* Pre-compute the next unallocated table id */
 	pbr_nht_update_next_unallocated_table_id();

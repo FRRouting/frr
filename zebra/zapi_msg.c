@@ -62,7 +62,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
+DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
@@ -185,7 +185,7 @@ int zsend_interface_add(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_ADD, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_ADD, ifp->vrf->vrf_id);
 	zserv_encode_interface(s, ifp);
 
 	client->ifadd_cnt++;
@@ -197,7 +197,7 @@ int zsend_interface_delete(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_DELETE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_DELETE, ifp->vrf->vrf_id);
 	zserv_encode_interface(s, ifp);
 
 	client->ifdel_cnt++;
@@ -237,7 +237,7 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 		return 0;
 	}
 
-	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf->vrf_id);
 
 	/* Add Interface Index */
 	stream_putl(s, ifp->ifindex);
@@ -299,7 +299,7 @@ int zsend_interface_address(int cmd, struct zserv *client,
 	struct prefix *p;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 
 	/* Interface address flag. */
@@ -341,7 +341,7 @@ static int zsend_interface_nbr_address(int cmd, struct zserv *client,
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	struct prefix *p;
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 
 	/* Prefix information. */
@@ -459,7 +459,7 @@ int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf->vrf_id);
 
 	/* Fill in the name of the interface and its new VRF (id) */
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
@@ -534,7 +534,7 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
 	zserv_encode_interface(s, ifp);
 
 	if (cmd == ZEBRA_INTERFACE_UP)
@@ -546,18 +546,19 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 }
 
 int zsend_redistribute_route(int cmd, struct zserv *client,
-			     const struct prefix *p,
-			     const struct prefix *src_p,
+			     const struct route_node *rn,
 			     const struct route_entry *re)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
+	const struct prefix *p, *src_p;
 	uint8_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 
+	srcdest_rnode_prefixes(rn, &p, &src_p);
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
@@ -658,11 +659,18 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
  * Modified version of zsend_ipv4_nexthop_lookup(): Query unicast rib if
  * nexthop is not found on mrib. Returns both route metric and protocol
  * distance.
+ *
+ * *XXX* this ZAPI call is slated to be removed at some point in the future
+ * since MRIB support in PIM is hopelessly broken in its interactions with NHT.
+ * The plan is to make pimd use NHT to receive URIB and MRIB in parallel and
+ * make the decision there, which will obsolete this ZAPI op.
+ * (Otherwise we would need to implement sending NHT updates for the result of
+ * this "URIB-MRIB-combined" table, but we only decide that here on the fly,
+ * so it'd be rather complex to do NHT for.)
  */
-static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
-					  struct in_addr addr,
-					  struct route_entry *re,
-					  struct zebra_vrf *zvrf)
+static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
+				     struct route_entry *re,
+				     struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	unsigned long nump;
@@ -674,8 +682,8 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	stream_reset(s);
 
 	/* Fill in result. */
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
-	stream_put_in_addr(s, &addr);
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
+	stream_put_ipaddr(s, addr);
 
 	if (re) {
 		struct nexthop_group *nhg;
@@ -742,11 +750,11 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
  * Common utility send route notification, called from a path using a
  * route_entry and from a path using a dataplane context.
  */
-static int route_notify_internal(const struct prefix *p, int type,
+static int route_notify_internal(const struct route_node *rn, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
-				 enum zapi_route_notify_owner note,
-				 afi_t afi, safi_t safi)
+				 enum zapi_route_notify_owner note, afi_t afi,
+				 safi_t safi)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -756,16 +764,16 @@ static int route_notify_internal(const struct prefix *p, int type,
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug(
-				"Not Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
-				zebra_route_string(type), p, table_id, note,
+				"Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
+				zebra_route_string(type), rn, table_id, note,
 				vrf_id);
 		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug(
-			"Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u",
-			zebra_route_string(type), p, table_id, note, vrf_id);
+			"Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
+			zebra_route_string(type), rn, table_id, note, vrf_id);
 
 	/* We're just allocating a small-ish buffer here, since we only
 	 * encode a small amount of data.
@@ -778,11 +786,11 @@ static int route_notify_internal(const struct prefix *p, int type,
 
 	stream_put(s, &note, sizeof(note));
 
-	stream_putc(s, p->family);
+	stream_putc(s, rn->p.family);
 
-	blen = prefix_blen(p);
-	stream_putc(s, p->prefixlen);
-	stream_put(s, &p->u.prefix, blen);
+	blen = prefix_blen(&rn->p);
+	stream_putc(s, rn->p.prefixlen);
+	stream_put(s, &rn->p.u.prefix, blen);
 
 	stream_putl(s, table_id);
 
@@ -795,11 +803,12 @@ static int route_notify_internal(const struct prefix *p, int type,
 	return zserv_send_message(client, s);
 }
 
-int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
-			     enum zapi_route_notify_owner note,
-			     afi_t afi, safi_t safi)
+int zsend_route_notify_owner(const struct route_node *rn,
+			     struct route_entry *re,
+			     enum zapi_route_notify_owner note, afi_t afi,
+			     safi_t safi)
 {
-	return (route_notify_internal(p, re->type, re->instance, re->vrf_id,
+	return (route_notify_internal(rn, re->type, re->instance, re->vrf_id,
 				      re->table, note, afi, safi));
 }
 
@@ -809,14 +818,11 @@ int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
 int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				 enum zapi_route_notify_owner note)
 {
-	return (route_notify_internal(dplane_ctx_get_dest(ctx),
-				      dplane_ctx_get_type(ctx),
-				      dplane_ctx_get_instance(ctx),
-				      dplane_ctx_get_vrf(ctx),
-				      dplane_ctx_get_table(ctx),
-				      note,
-				      dplane_ctx_get_afi(ctx),
-				      dplane_ctx_get_safi(ctx)));
+	return (route_notify_internal(
+		rib_find_rn_from_ctx(ctx), dplane_ctx_get_type(ctx),
+		dplane_ctx_get_instance(ctx), dplane_ctx_get_vrf(ctx),
+		dplane_ctx_get_table(ctx), note, dplane_ctx_get_afi(ctx),
+		dplane_ctx_get_safi(ctx)));
 }
 
 static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
@@ -870,10 +876,24 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct stream *s;
 	struct zebra_pbr_iptable ipt;
 	uint16_t cmd = ZEBRA_IPTABLE_NOTIFY_OWNER;
+	struct zebra_pbr_iptable *ipt_hash;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
-	if (!dplane_ctx_get_pbr_iptable(ctx, &ipt))
-		return;
+	dplane_ctx_get_pbr_iptable(ctx, &ipt);
 
+	ipt_hash = hash_lookup(zrouter.iptable_hash, &ipt);
+	if (ipt_hash) {
+		if (op == DPLANE_OP_IPTABLE_ADD &&
+		    CHECK_FLAG(ipt_hash->internal_flags,
+			       IPTABLE_INSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_INSTALL_QUEUED);
+		else if (op == DPLANE_OP_IPTABLE_DELETE &&
+			 CHECK_FLAG(ipt_hash->internal_flags,
+				    IPTABLE_UNINSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_UNINSTALL_QUEUED);
+	}
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipt.unique, note);
@@ -906,8 +926,7 @@ void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct zebra_pbr_ipset ipset;
 	uint16_t cmd = ZEBRA_IPSET_NOTIFY_OWNER;
 
-	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
-		return;
+	dplane_ctx_get_pbr_ipset(ctx, &ipset);
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
@@ -942,10 +961,8 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct zebra_pbr_ipset ipset;
 	uint16_t cmd = ZEBRA_IPSET_ENTRY_NOTIFY_OWNER;
 
-	if (!dplane_ctx_get_pbr_ipset_entry(ctx, &ipent))
-		return;
-	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
-		return;
+	dplane_ctx_get_pbr_ipset_entry(ctx, &ipent);
+	dplane_ctx_get_pbr_ipset(ctx, &ipset);
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
@@ -989,7 +1006,8 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	       family2addrsize(sockunion_family(&ip)));
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi], ifp->vrf_id))
+		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi],
+				      ifp->vrf->vrf_id))
 			continue;
 
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -1037,7 +1055,7 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
-	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
 	stream_putl(s, pw->ifindex);
 	stream_putl(s, pw->status);
 
@@ -1219,7 +1237,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), &exist);
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
 		if (!rnh)
 			return;
 
@@ -1491,6 +1509,7 @@ static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
 	ifindex_t ifindex;
 	struct interface *ifp;
 	char down;
+	enum protodown_reasons reason;
 
 	STREAM_GETL(msg, ifindex);
 	STREAM_GETC(msg, down);
@@ -1498,16 +1517,27 @@ static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
 	/* set ifdown */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 
-	if (ifp) {
-		zlog_info("Setting interface %s (%u): protodown %s", ifp->name,
-			  ifindex, down ? "on" : "off");
-		zebra_if_set_protodown(ifp, down);
-	} else {
+	if (!ifp) {
 		zlog_warn(
 			"Cannot set protodown %s for interface %u; does not exist",
 			down ? "on" : "off", ifindex);
+
+		return;
 	}
 
+	switch (client->proto) {
+	case ZEBRA_ROUTE_VRRP:
+		reason = ZEBRA_PROTODOWN_VRRP;
+		break;
+	case ZEBRA_ROUTE_SHARP:
+		reason = ZEBRA_PROTODOWN_SHARP;
+		break;
+	default:
+		reason = 0;
+		break;
+	}
+
+	zebra_if_set_protodown(ifp, down, reason);
 
 stream_failure:
 	return;
@@ -1577,11 +1607,11 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+			memset(&vtep_ip, 0, sizeof(vtep_ip));
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -1610,11 +1640,11 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		 * the nexthop and associated MAC need to be installed.
 		 */
 		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+			memset(&vtep_ip, 0, sizeof(vtep_ip));
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -2083,8 +2113,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		re->mtu = api.mtu;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
-		re->opaque = XMALLOC(MTYPE_OPAQUE,
-				     sizeof(struct opaque) + api.opaque.length);
+		re->opaque =
+			XMALLOC(MTYPE_RE_OPAQUE,
+				sizeof(struct re_opaque) + api.opaque.length);
 		re->opaque->length = api.opaque.length;
 		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
 	}
@@ -2096,6 +2127,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2108,6 +2140,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2128,7 +2161,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		nhe.backup_info = bnhg;
 	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
-				    re, &nhe);
+				    re, &nhe, false);
 
 	/*
 	 * rib_add_multipath_nhe only fails in a couple spots
@@ -2136,6 +2169,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 	}
 
@@ -2164,9 +2198,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	}
 }
 
-void zapi_opaque_free(struct opaque *opaque)
+void zapi_re_opaque_free(struct re_opaque *opaque)
 {
-	XFREE(MTYPE_OPAQUE, opaque);
+	XFREE(MTYPE_RE_OPAQUE, opaque);
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)
@@ -2217,14 +2251,28 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 }
 
 /* MRIB Nexthop lookup for IPv4. */
-static void zread_ipv4_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
+static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {
-	struct in_addr addr;
-	struct route_entry *re;
+	struct ipaddr addr;
+	struct route_entry *re = NULL;
 
-	STREAM_GET(&addr.s_addr, msg, IPV4_MAX_BYTELEN);
-	re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr, NULL);
-	zsend_ipv4_nexthop_lookup_mrib(client, addr, re, zvrf);
+	STREAM_GET_IPADDR(msg, &addr);
+
+	switch (addr.ipa_type) {
+	case IPADDR_V4:
+		re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr.ipaddr_v4,
+					      NULL);
+		break;
+	case IPADDR_V6:
+		re = rib_match_ipv6_multicast(zvrf_id(zvrf), addr.ipaddr_v6,
+					      NULL);
+		break;
+	case IPADDR_NONE:
+		/* ??? */
+		goto stream_failure;
+	}
+
+	zsend_nexthop_lookup_mrib(client, &addr, re, zvrf);
 
 stream_failure:
 	return;
@@ -2965,7 +3013,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -2981,8 +3029,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	/* Get data. */
-	STREAM_GET(ifname, s, IF_NAMESIZE);
-	ifname[IF_NAMESIZE - 1] = '\0';
+	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+	ifname[INTERFACE_NAMSIZ - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);
@@ -3425,7 +3473,7 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 					zebra_ns_lookup(gre_info->link_nsid),
 					gre_info->ifindex_link);
 		if (ifp_link)
-			vrf_id_link = ifp_link->vrf_id;
+			vrf_id_link = ifp_link->vrf->vrf_id;
 		stream_putl(s, vrf_id_link);
 		stream_putl(s, gre_info->vtep_ip.s_addr);
 		stream_putl(s, gre_info->vtep_ip_remote.s_addr);
@@ -3673,7 +3721,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REDISTRIBUTE_DELETE] = zebra_redistribute_delete,
 	[ZEBRA_REDISTRIBUTE_DEFAULT_ADD] = zebra_redistribute_default_add,
 	[ZEBRA_REDISTRIBUTE_DEFAULT_DELETE] = zebra_redistribute_default_delete,
-	[ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB] = zread_ipv4_nexthop_lookup_mrib,
+	[ZEBRA_NEXTHOP_LOOKUP_MRIB] = zread_nexthop_lookup_mrib,
 	[ZEBRA_HELLO] = zread_hello,
 	[ZEBRA_NEXTHOP_REGISTER] = zread_rnh_register,
 	[ZEBRA_NEXTHOP_UNREGISTER] = zread_rnh_unregister,

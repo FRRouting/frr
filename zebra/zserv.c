@@ -172,7 +172,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 }
 
 /*
- * Gracefully shut down a client connection.
+ * Gracefuly shut down a client connection.
  *
  * Cancel any pending tasks for the client's thread. Then schedule a task on
  * the main thread to shut down the calling thread.
@@ -216,7 +216,7 @@ static void zserv_client_fail(struct zserv *client)
  * allows us to expose information about input and output queues to the user in
  * terms of number of packets rather than size of data.
  */
-static int zserv_write(struct thread *thread)
+static void zserv_write(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
@@ -232,7 +232,7 @@ static int zserv_write(struct thread *thread)
 				      (uint32_t)monotime(NULL),
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
-		return 0;
+		return;
 	case BUFFER_EMPTY:
 		break;
 	}
@@ -268,7 +268,7 @@ static int zserv_write(struct thread *thread)
 				      (uint32_t)monotime(NULL),
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
-		return 0;
+		return;
 	case BUFFER_EMPTY:
 		break;
 	}
@@ -279,14 +279,13 @@ static int zserv_write(struct thread *thread)
 	atomic_store_explicit(&client->last_write_time,
 			      (uint32_t)monotime(NULL), memory_order_relaxed);
 
-	return 0;
+	return;
 
 zwrite_fail:
 	flog_warn(EC_ZEBRA_CLIENT_WRITE_FAILED,
 		  "%s: could not write to %s [fd = %d], closing.", __func__,
 		  zebra_route_string(client->proto), client->sock);
 	zserv_client_fail(client);
-	return 0;
 }
 
 /*
@@ -311,7 +310,7 @@ zwrite_fail:
  *
  * Any failure in any of these actions is handled by terminating the client.
  */
-static int zserv_read(struct thread *thread)
+static void zserv_read(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	int sock;
@@ -453,12 +452,11 @@ static int zserv_read(struct thread *thread)
 
 	stream_fifo_free(cache);
 
-	return 0;
+	return;
 
 zread_fail:
 	stream_fifo_free(cache);
 	zserv_client_fail(client);
-	return -1;
 }
 
 static void zserv_client_event(struct zserv *client,
@@ -495,7 +493,7 @@ static void zserv_client_event(struct zserv *client,
  * rely on the read thread to handle queuing this task enough times to process
  * everything on the input queue.
  */
-static int zserv_process_messages(struct thread *thread)
+static void zserv_process_messages(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
@@ -529,8 +527,6 @@ static int zserv_process_messages(struct thread *thread)
 	/* Reschedule ourselves if necessary */
 	if (need_resched)
 		zserv_event(client, ZSERV_PROCESS_MESSAGES);
-
-	return 0;
 }
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
@@ -572,7 +568,7 @@ DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
  * Deinitialize zebra client.
  *
  * - Deregister and deinitialize related internal resources
- * - Gracefully close socket
+ * - Gracefuly close socket
  * - Free associated resources
  * - Free client structure
  *
@@ -714,12 +710,11 @@ void zserv_close_client(struct zserv *client)
  * already have been closed and the thread will most likely have died, but its
  * resources still need to be cleaned up.
  */
-static int zserv_handle_client_fail(struct thread *thread)
+static void zserv_handle_client_fail(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 
 	zserv_close_client(client);
-	return 0;
 }
 
 /*
@@ -853,7 +848,7 @@ void zserv_release_client(struct zserv *client)
 /*
  * Accept socket connection.
  */
-static int zserv_accept(struct thread *thread)
+static void zserv_accept(struct thread *thread)
 {
 	int accept_sock;
 	int client_sock;
@@ -871,7 +866,7 @@ static int zserv_accept(struct thread *thread)
 	if (client_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't accept zebra socket: %s",
 			     safe_strerror(errno));
-		return -1;
+		return;
 	}
 
 	/* Make client socket non-blocking.  */
@@ -879,8 +874,6 @@ static int zserv_accept(struct thread *thread)
 
 	/* Create new zebra client. */
 	zserv_client_create(client_sock);
-
-	return 0;
 }
 
 void zserv_close(void)
@@ -1197,7 +1190,8 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		snprintfrr(client_string, sizeof(client_string), "%s",
 			   zebra_route_string(client->proto));
 
-	vty_out(vty, "%-10s%12s %12s%12s%8d/%-8d%8d/%-8d\n", client_string,
+	vty_out(vty, "%-10s%12s %12s%12s %10d/%-10d %10d/%-10d\n",
+		client_string,
 		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF),
@@ -1291,9 +1285,9 @@ DEFUN (show_zebra_client_summary,
 	struct zserv *client;
 
 	vty_out(vty,
-		"Name      Connect Time    Last Read  Last Write  IPv4 Routes       IPv6 Routes    \n");
+		"Name      Connect Time    Last Read  Last Write      IPv4 Routes           IPv6 Routes\n");
 	vty_out(vty,
-		"--------------------------------------------------------------------------------\n");
+		"------------------------------------------------------------------------------------------\n");
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
 		zebra_show_client_brief(vty, client);

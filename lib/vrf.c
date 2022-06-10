@@ -69,7 +69,6 @@ static struct vrf_master {
 	int (*vrf_delete_hook)(struct vrf *);
 	int (*vrf_enable_hook)(struct vrf *);
 	int (*vrf_disable_hook)(struct vrf *);
-	int (*vrf_update_name_hook)(struct vrf *vrf);
 } vrf_master = {
 	0,
 };
@@ -176,8 +175,6 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 			name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
-		if (vrf->vrf_id == VRF_DEFAULT)
-			vrf_set_default_name(vrf->name, false);
 	} else if (name && vrf->name[0] == '\0') {
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
@@ -354,13 +351,6 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 	return VRF_LOGNAME(vrf);
 }
 
-/* Get the data pointer of the specified VRF. If not found, create one. */
-void *vrf_info_get(vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
-	return vrf->info;
-}
-
 /* Look up the data pointer of the specified VRF. */
 void *vrf_info_lookup(vrf_id_t vrf_id)
 {
@@ -494,8 +484,7 @@ static const struct cmd_variable_handler vrf_var_handlers[] = {
 
 /* Initialize VRF module. */
 void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-	      int (*disable)(struct vrf *), int (*destroy)(struct vrf *),
-	      int ((*update)(struct vrf *)))
+	      int (*disable)(struct vrf *), int (*destroy)(struct vrf *))
 {
 	struct vrf *default_vrf;
 
@@ -508,7 +497,6 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	vrf_master.vrf_enable_hook = enable;
 	vrf_master.vrf_disable_hook = disable;
 	vrf_master.vrf_delete_hook = destroy;
-	vrf_master.vrf_update_name_hook = update;
 
 	/* The default VRF always exists. */
 	default_vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
@@ -569,7 +557,8 @@ void vrf_terminate(void)
 
 	/* Finally terminate default VRF */
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	vrf_terminate_single(vrf);
+	if (vrf)
+		vrf_terminate_single(vrf);
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
@@ -697,15 +686,10 @@ DEFUN_YANG (no_vrf,
 
 	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 		/*
-		 * Remove the VRF interface config. Currently, we allow to
-		 * remove only inactive VRFs, so we use VRF_DEFAULT_NAME here,
-		 * because when the VRF is removed from kernel, the interface
-		 * is moved to the default VRF. If we ever allow removing
-		 * active VRFs, this code have to be updated accordingly.
+		 * Remove the VRF interface config when removing the VRF.
 		 */
 		snprintf(xpath_list, sizeof(xpath_list),
-			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
-			 vrfname, VRF_DEFAULT_NAME);
+			 "/frr-interface:lib/interface[name='%s']", vrfname);
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
 	}
 
@@ -785,33 +769,9 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_element(VRF_NODE, &vrf_exit_cmd);
 }
 
-void vrf_set_default_name(const char *default_name, bool force)
+void vrf_set_default_name(const char *default_name)
 {
-	struct vrf *def_vrf;
-	static bool def_vrf_forced;
-
-	def_vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	assert(default_name);
-	if (def_vrf && !force && def_vrf_forced) {
-		zlog_debug("VRF: %s, avoid changing name to %s, previously forced (%u)",
-			   def_vrf->name, default_name,
-			   def_vrf->vrf_id);
-		return;
-	}
-	if (strmatch(vrf_default_name, default_name))
-		return;
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
-	if (def_vrf) {
-		if (force)
-			def_vrf_forced = true;
-		RB_REMOVE(vrf_name_head, &vrfs_by_name, def_vrf);
-		strlcpy(def_vrf->data.l.netns_name,
-			vrf_default_name, NS_NAMSIZ);
-		strlcpy(def_vrf->name, vrf_default_name, sizeof(def_vrf->name));
-		RB_INSERT(vrf_name_head, &vrfs_by_name, def_vrf);
-		if (vrf_master.vrf_update_name_hook)
-			(*vrf_master.vrf_update_name_hook)(def_vrf);
-	}
 }
 
 const char *vrf_get_default_name(void)

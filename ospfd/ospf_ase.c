@@ -280,6 +280,19 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		return 0;
 	}
 
+	/* Type-5 shouldn't be calculated if it is originated from NSSA ASBR.
+	 * As per RFC 3101, expectation is to receive type-7 lsas from
+	 * NSSA ASBR. Ignore calculation, if the current LSA is type-5 and
+	 * originated ASBR's area is NSSA.
+	 */
+	if ((lsa->data->type == OSPF_AS_EXTERNAL_LSA)
+	    && (asbr_route->u.std.external_routing != OSPF_AREA_DEFAULT)) {
+		if (IS_DEBUG_OSPF(lsa, LSA))
+			zlog_debug(
+				"Route[External]: Ignore, If type-5 LSA from NSSA area.");
+		return 0;
+	}
+
 	/*     Else, this LSA describes an AS external path to destination
 	       N.  Examine the forwarding address specified in the AS-
 	       external-LSA.  This indicates the IP address to which
@@ -551,7 +564,7 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
-static int ospf_ase_calculate_timer(struct thread *t)
+static void ospf_ase_calculate_timer(struct thread *t)
 {
 	struct ospf *ospf;
 	struct ospf_lsa *lsa;
@@ -618,8 +631,6 @@ static int ospf_ase_calculate_timer(struct thread *t)
 		ospf_zebra_gr_disable(ospf);
 		ospf->gr_info.finishing_restart = false;
 	}
-
-	return 0;
 }
 
 void ospf_ase_calculate_schedule(struct ospf *ospf)

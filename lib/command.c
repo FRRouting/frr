@@ -106,6 +106,21 @@ const char *cmd_domainname_get(void)
 	return host.domainname;
 }
 
+const char *cmd_system_get(void)
+{
+	return host.system;
+}
+
+const char *cmd_release_get(void)
+{
+	return host.release;
+}
+
+const char *cmd_version_get(void)
+{
+	return host.version;
+}
+
 static int root_on_exit(struct vty *vty);
 
 /* Standard command node structures. */
@@ -144,31 +159,6 @@ static struct cmd_node config_node = {
 	.config_write = config_write_host,
 	.node_exit = vty_config_node_exit,
 };
-
-static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
-					       enum node_type node)
-{
-	/* bgp afi-safi (`address-family <afi> <safi>`) node
-	 * does not increment xpath_index.
-	 * In order to use (`router bgp`) BGP_NODE's xpath as a base,
-	 * retain xpath_index as 1 upon exiting from
-	 * afi-safi node.
-	 */
-
-	if (target_node == BGP_NODE
-	    && (node == BGP_IPV4_NODE || node == BGP_IPV6_NODE
-		|| node == BGP_IPV4M_NODE || node == BGP_IPV6M_NODE
-		|| node == BGP_VPNV4_NODE || node == BGP_VPNV6_NODE
-		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
-		|| node == BGP_IPV6L_NODE || node == BGP_FLOWSPECV4_NODE
-		|| node == BGP_FLOWSPECV6_NODE))
-		return false;
-
-	if (target_node == INTERFACE_NODE && node == LINK_PARAMS_NODE)
-		return false;
-
-	return true;
-}
 
 /* This is called from main when a daemon is invoked with -v or --version. */
 void print_version(const char *progname)
@@ -325,7 +315,7 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 		return;
 	}
 
-	assert(hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern));
+	(void)hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern);
 
 	if (cnode->graph_built || !defer_cli_tree) {
 		struct graph *graph = graph_new();
@@ -455,11 +445,15 @@ static bool full_cli;
 /* This function write configuration of this host. */
 static int config_write_host(struct vty *vty)
 {
-	if (cmd_hostname_get())
-		vty_out(vty, "hostname %s\n", cmd_hostname_get());
+	const char *name;
 
-	if (cmd_domainname_get())
-		vty_out(vty, "domainname %s\n", cmd_domainname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "hostname %s\n", name);
+
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0')
+		vty_out(vty, "domainname %s\n", name);
 
 	/* The following are all configuration commands that are not sent to
 	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
@@ -922,13 +916,15 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 	 * a match before calling node_exit handlers below
 	 */
 	for (i = 0; i < up_level; i++) {
+		struct cmd_node *cnode;
+
 		if (node <= CONFIG_NODE)
 			return CMD_NO_LEVEL_UP;
 
+		cnode = vector_slot(cmdvec, node);
 		node = node_parent(node);
 
-		if (xpath_index > 0
-		    && vty_check_node_for_xpath_decrement(node, vty->node))
+		if (xpath_index > 0 && !cnode->no_xpath)
 			xpath_index--;
 	}
 
@@ -1062,12 +1058,13 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
 		while (vty->node > CONFIG_NODE) {
+			struct cmd_node *cnode = vector_slot(cmdvec, try_node);
+
 			try_node = node_parent(try_node);
 			vty->node = try_node;
-			if (vty->xpath_index > 0
-			    && vty_check_node_for_xpath_decrement(try_node,
-								  onode))
+			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
+
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
@@ -1386,8 +1383,7 @@ void cmd_exit(struct vty *vty)
 	}
 	if (cnode->parent_node)
 		vty->node = cnode->parent_node;
-	if (vty->xpath_index > 0
-	    && vty_check_node_for_xpath_decrement(vty->node, cnode->node))
+	if (vty->xpath_index > 0 && !cnode->no_xpath)
 		vty->xpath_index--;
 }
 
@@ -1421,8 +1417,9 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-	vty_out(vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
-		cmd_hostname_get() ? cmd_hostname_get() : "");
+	vty_out(vty, "%s %s (%s) on %s(%s).\n", FRR_FULL_NAME, FRR_VERSION,
+		cmd_hostname_get() ? cmd_hostname_get() : "", cmd_system_get(),
+		cmd_release_get());
 	vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
 #ifdef ENABLE_VERSION_BUILD_CONFIG
 	vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
@@ -2246,9 +2243,9 @@ DEFUN (banner_motd_file,
 	int cmd = cmd_banner_motd_file(filename);
 
 	if (cmd == CMD_ERR_NO_FILE)
-		vty_out(vty, "%s does not exist", filename);
+		vty_out(vty, "%s does not exist\n", filename);
 	else if (cmd == CMD_WARNING_CONFIG_FAILED)
-		vty_out(vty, "%s must be in %s", filename, SYSCONFDIR);
+		vty_out(vty, "%s must be in %s\n", filename, SYSCONFDIR);
 
 	return cmd;
 }
@@ -2468,6 +2465,10 @@ void cmd_init(int terminal)
 
 	/* Default host value settings. */
 	host.name = XSTRDUP(MTYPE_HOST, names.nodename);
+	host.system = XSTRDUP(MTYPE_HOST, names.sysname);
+	host.release = XSTRDUP(MTYPE_HOST, names.release);
+	host.version = XSTRDUP(MTYPE_HOST, names.version);
+
 #ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 	if ((strcmp(names.domainname, "(none)") == 0))
 		host.domainname = NULL;
@@ -2586,6 +2587,9 @@ void cmd_terminate(void)
 	}
 
 	XFREE(MTYPE_HOST, host.name);
+	XFREE(MTYPE_HOST, host.system);
+	XFREE(MTYPE_HOST, host.release);
+	XFREE(MTYPE_HOST, host.version);
 	XFREE(MTYPE_HOST, host.domainname);
 	XFREE(MTYPE_HOST, host.password);
 	XFREE(MTYPE_HOST, host.password_encrypt);

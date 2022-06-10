@@ -66,6 +66,9 @@ enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx);
 extern enum zebra_dplane_result
 kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx);
 
+extern enum zebra_dplane_result
+kernel_intf_update(struct zebra_dplane_ctx *ctx);
+
 #endif /* !HAVE_NETLINK */
 
 extern int kernel_neigh_update(int cmd, int ifindex, void *addr, char *lla,
@@ -77,6 +80,10 @@ extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
 extern int mpls_kernel_init(void);
+
+/* Global init and deinit for platform-/OS-specific things */
+void kernel_router_init(void);
+void kernel_router_terminate(void);
 
 extern uint32_t kernel_get_speed(struct interface *ifp, int *error);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);

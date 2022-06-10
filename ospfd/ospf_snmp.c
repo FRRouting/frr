@@ -693,7 +693,7 @@ static uint8_t *ospfAreaEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	area = ospfAreaLookup(v, name, length, &addr, exact);
 	if (!area)
@@ -821,7 +821,7 @@ static uint8_t *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	area = ospfStubAreaLookup(v, name, length, &addr, exact);
 	if (!area)
@@ -1044,10 +1044,10 @@ static uint8_t *ospfLsdbEntry(struct variable *v, oid *name, size_t *length,
 	/* INDEX { ospfLsdbAreaId, ospfLsdbType,
 	   ospfLsdbLsid, ospfLsdbRouterId } */
 
-	memset(&area_id, 0, sizeof(struct in_addr));
+	memset(&area_id, 0, sizeof(area_id));
 	type = 0;
-	memset(&ls_id, 0, sizeof(struct in_addr));
-	memset(&router_id, 0, sizeof(struct in_addr));
+	memset(&ls_id, 0, sizeof(ls_id));
+	memset(&router_id, 0, sizeof(router_id));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -1279,7 +1279,7 @@ static uint8_t *ospfHostEntry(struct variable *v, oid *name, size_t *length,
 	if (ospf == NULL)
 		return NULL;
 
-	memset(&addr, 0, sizeof(struct in_addr));
+	memset(&addr, 0, sizeof(addr));
 
 	nbr_nbma = ospfHostLookup(v, name, length, &addr, exact);
 	if (nbr_nbma == NULL)
@@ -1595,7 +1595,7 @@ static uint8_t *ospfIfEntry(struct variable *v, oid *name, size_t *length,
 		return NULL;
 
 	ifindex = 0;
-	memset(&ifaddr, 0, sizeof(struct in_addr));
+	memset(&ifaddr, 0, sizeof(ifaddr));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -1742,7 +1742,7 @@ static uint8_t *ospfIfMetricEntry(struct variable *v, oid *name, size_t *length,
 		return NULL;
 
 	ifindex = 0;
-	memset(&ifaddr, 0, sizeof(struct in_addr));
+	memset(&ifaddr, 0, sizeof(ifaddr));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -1778,8 +1778,8 @@ static int ospf_snmp_vl_add(struct ospf_vl_data *vl_data)
 	struct prefix_ls lp;
 	struct route_node *rn;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = vl_data->vl_area_id;
 	lp.adv_router = vl_data->vl_peer;
@@ -1797,8 +1797,8 @@ static int ospf_snmp_vl_delete(struct ospf_vl_data *vl_data)
 	struct prefix_ls lp;
 	struct route_node *rn;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = vl_data->vl_area_id;
 	lp.adv_router = vl_data->vl_peer;
@@ -1819,8 +1819,8 @@ static struct ospf_vl_data *ospf_snmp_vl_lookup(struct in_addr *area_id,
 	struct route_node *rn;
 	struct ospf_vl_data *vl_data;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = *area_id;
 	lp.adv_router = *neighbor;
@@ -1842,8 +1842,8 @@ static struct ospf_vl_data *ospf_snmp_vl_lookup_next(struct in_addr *area_id,
 	struct route_node *rn;
 	struct ospf_vl_data *vl_data;
 
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
+	memset(&lp, 0, sizeof(lp));
+	lp.family = AF_UNSPEC;
 	lp.prefixlen = 64;
 	lp.id = *area_id;
 	lp.adv_router = *neighbor;
@@ -1927,8 +1927,8 @@ static uint8_t *ospfVirtIfEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&area_id, 0, sizeof(struct in_addr));
-	memset(&neighbor, 0, sizeof(struct in_addr));
+	memset(&area_id, 0, sizeof(area_id));
+	memset(&neighbor, 0, sizeof(neighbor));
 
 	vl_data = ospfVirtIfLookup(v, name, length, &area_id, &neighbor, exact);
 	if (!vl_data)
@@ -2090,7 +2090,7 @@ static struct ospf_neighbor *ospfNbrLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-/* map internal quagga neighbor states to official MIB values:
+/* map internal frr neighbor states to official MIB values:
 
 ospfNbrState OBJECT-TYPE
 	SYNTAX   INTEGER    {
@@ -2139,7 +2139,7 @@ static uint8_t *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&nbr_addr, 0, sizeof(struct in_addr));
+	memset(&nbr_addr, 0, sizeof(nbr_addr));
 	ifindex = 0;
 
 	nbr = ospfNbrLookup(v, name, length, &nbr_addr, &ifindex, exact);
@@ -2190,8 +2190,8 @@ static uint8_t *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&area_id, 0, sizeof(struct in_addr));
-	memset(&neighbor, 0, sizeof(struct in_addr));
+	memset(&area_id, 0, sizeof(area_id));
+	memset(&neighbor, 0, sizeof(neighbor));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
@@ -2331,8 +2331,8 @@ static uint8_t *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
 		return NULL;
 
 	type = OSPF_AS_EXTERNAL_LSA;
-	memset(&ls_id, 0, sizeof(struct in_addr));
-	memset(&router_id, 0, sizeof(struct in_addr));
+	memset(&ls_id, 0, sizeof(ls_id));
+	memset(&router_id, 0, sizeof(router_id));
 
 	/* Check OSPF instance. */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);

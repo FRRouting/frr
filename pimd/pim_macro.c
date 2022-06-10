@@ -25,6 +25,7 @@
 #include "plist.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_macro.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
@@ -128,11 +129,11 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 		return 0; /* false */
 	}
 
-	if (PIM_INADDR_IS_ANY(ch->ifassert_winner))
+	if (pim_addr_is_any(ch->ifassert_winner))
 		return 0; /* false */
 
 	/* AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (!pim_addr_cmp(ch->ifassert_winner, pim_ifp->primary_address))
 		return 0; /* false */
 
 	spt_assert_metric = pim_macro_spt_assert_metric(
@@ -170,7 +171,7 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 		return 0; /* false */
 
 	/* OR AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (!pim_addr_cmp(ch->ifassert_winner, pim_ifp->primary_address))
 		return 1; /* true */
 
 	/*
@@ -261,7 +262,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
     }
 */
 struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr)
+						     pim_addr ifaddr)
 {
 	struct pim_assert_metric metric;
 
@@ -412,8 +413,8 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 			return 1; /* true */
 
 		/* AssertWinner(S,G,I) == me ? */
-		if (ch->ifassert_winner.s_addr
-		    == pim_ifp->primary_address.s_addr)
+		if (!pim_addr_cmp(ch->ifassert_winner,
+				  pim_ifp->primary_address))
 			return 1; /* true */
 	}
 

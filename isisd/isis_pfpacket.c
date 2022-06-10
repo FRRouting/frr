@@ -101,11 +101,13 @@ static int isis_multicast_join(int fd, int registerto, int if_num)
 		mreq.mr_type = PACKET_MR_ALLMULTI;
 	}
 #ifdef EXTREME_DEBUG
-	zlog_debug(
-		"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
-		fd, registerto, if_num, mreq.mr_address[0], mreq.mr_address[1],
-		mreq.mr_address[2], mreq.mr_address[3], mreq.mr_address[4],
-		mreq.mr_address[5]);
+	if (IS_DEBUG_EVENTS)
+		zlog_debug(
+			"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
+			fd, registerto, if_num, mreq.mr_address[0],
+			mreq.mr_address[1], mreq.mr_address[2],
+			mreq.mr_address[3], mreq.mr_address[4],
+			mreq.mr_address[5]);
 #endif /* EXTREME_DEBUG */
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
 		       sizeof(struct packet_mreq))) {
@@ -123,15 +125,10 @@ static int open_packet_socket(struct isis_circuit *circuit)
 	int fd, retval = ISIS_OK;
 	struct vrf *vrf = NULL;
 
-	vrf = vrf_lookup_by_id(circuit->interface->vrf_id);
+	vrf = circuit->interface->vrf;
 
-	if (vrf == NULL) {
-		zlog_warn("open_packet_socket(): failed to find vrf node");
-		return ISIS_WARNING;
-	}
-
-	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL),
-			circuit->interface->vrf_id, vrf->name);
+	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL), vrf->vrf_id,
+			vrf->name);
 
 	if (fd < 0) {
 		zlog_warn("open_packet_socket(): socket() failed %s",
@@ -147,7 +144,7 @@ static int open_packet_socket(struct isis_circuit *circuit)
 	/*
 	 * Bind to the physical interface
 	 */
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 	s_addr.sll_family = AF_PACKET;
 	s_addr.sll_protocol = htons(ETH_P_ALL);
 	s_addr.sll_ifindex = circuit->interface->ifindex;
@@ -236,7 +233,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	addr_len = sizeof(s_addr);
 
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 
 	bytesread =
 		recvfrom(circuit->fd, (void *)&llc, LLC_LEN, MSG_PEEK,
@@ -309,7 +306,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 	int bytesread, addr_len;
 	struct sockaddr_ll s_addr;
 
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
+	memset(&s_addr, 0, sizeof(s_addr));
 	addr_len = sizeof(s_addr);
 
 	/* we can read directly to the stream */
@@ -354,7 +351,7 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	struct sockaddr_ll sa;
 
 	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
+	memset(&sa, 0, sizeof(sa));
 	sa.sll_family = AF_PACKET;
 
 	size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
@@ -401,7 +398,7 @@ int isis_send_pdu_p2p(struct isis_circuit *circuit, int level)
 	ssize_t rv;
 
 	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
+	memset(&sa, 0, sizeof(sa));
 	sa.sll_family = AF_PACKET;
 	sa.sll_ifindex = circuit->interface->ifindex;
 	sa.sll_halen = ETH_ALEN;

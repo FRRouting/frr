@@ -3,20 +3,6 @@
     "family": "ietf",
     "module": [
       {
-        "name": "ietf-interfaces@2018-01-09",
-        "deviations": "frr-deviations-ietf-interfaces",
-        "mappings": [
-          {
-            "custom": "/ietf-interfaces:interfaces/interface[name='KEY1']",
-            "native": "/frr-interface:lib/interface[name='KEY1'][vrf='default']"
-          },
-          {
-            "custom": "/ietf-interfaces:interfaces/interface[name='KEY1']/description",
-            "native": "/frr-interface:lib/interface[name='KEY1'][vrf='default']/description"
-          }
-        ]
-      },
-      {
         "name": "ietf-routing@2018-01-25",
         "deviations": "frr-deviations-ietf-routing",
         "mappings": [
@@ -60,7 +46,7 @@
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/interfaces/interface[interface='KEY1']/split-horizon",
-            "native": "/frr-interface:lib/interface[name='KEY1'][vrf='default']/frr-ripd:rip/split-horizon"
+            "native": "/frr-interface:lib/interface[name='KEY1']/frr-ripd:rip/split-horizon"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/neighbors/neighbor[ipv4-address='KEY1']",

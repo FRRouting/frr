@@ -21,9 +21,11 @@
 #include "zebra.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_igmp.h"
 #include "pim_igmpv2.h"
 #include "pim_igmpv3.h"
+#include "pim_ssm.h"
 #include "pim_str.h"
 #include "pim_time.h"
 #include "pim_util.h"
@@ -39,7 +41,7 @@ static void on_trace(const char *label, struct interface *ifp,
 	}
 }
 
-void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
+void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
 			char *query_buf, struct in_addr dst_addr,
 			struct in_addr group_addr,
 			int query_max_response_time_dsec)
@@ -53,7 +55,8 @@ void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
 
 	/* max_resp_code must be non-zero else this will look like an IGMP v1
 	 * query */
-	max_resp_code = igmp_msg_encode16to8(query_max_response_time_dsec);
+	/* RFC 2236: 2.2. , v2's is equal to it */
+	max_resp_code = query_max_response_time_dsec;
 	assert(max_resp_code > 0);
 
 	query_buf[0] = PIM_IGMP_MEMBERSHIP_QUERY;
@@ -102,23 +105,27 @@ void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
 	}
 }
 
-int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
+int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
 	struct in_addr group_addr;
+	struct pim_interface *pim_ifp;
 	char group_str[INET_ADDRSTRLEN];
 
 	on_trace(__func__, igmp->interface, from);
+
+	pim_ifp = ifp->info;
 
 	if (igmp->mtrace_only)
 		return 0;
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
-		zlog_warn(
-			"Recv IGMPv2 REPORT from %s on %s: size=%d other than correct=%d",
-			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
-		return -1;
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug(
+				"Recv IGMPv2 REPORT from %s on %s: size=%d other than correct=%d",
+				from_str, ifp->name, igmp_msg_len,
+				IGMP_V12_MSG_SIZE);
 	}
 
 	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
@@ -129,7 +136,7 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.report_v2++;
+	igmp->igmp_stats.report_v2++;
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
@@ -139,6 +146,23 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		zlog_debug("Recv IGMPv2 REPORT from %s on %s for %s", from_str,
 			   ifp->name, group_str);
 	}
+
+	/*
+	 * RFC 4604
+	 * section 2.2.1
+	 * EXCLUDE mode does not apply to SSM addresses, and an SSM-aware router
+	 * will ignore MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE requests in
+	 * the SSM range.
+	 */
+	if (pim_is_grp_ssm(pim_ifp->pim, group_addr)) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug(
+				"Ignoring IGMPv2 group record %pI4 from %s on %s exclude mode in SSM range",
+				&group_addr.s_addr, from_str, ifp->name);
+		}
+		return -1;
+	}
+
 
 	/*
 	 * RFC 3376
@@ -158,7 +182,7 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	return 0;
 }
 
-int igmp_v2_recv_leave(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr,
 		       const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
@@ -172,10 +196,11 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct ip *ip_hdr,
 		return 0;
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
-		zlog_warn(
-			"Recv IGMPv2 LEAVE from %s on %s: size=%d other than correct=%d",
-			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
-		return -1;
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug(
+				"Recv IGMPv2 LEAVE from %s on %s: size=%d other than correct=%d",
+				from_str, ifp->name, igmp_msg_len,
+				IGMP_V12_MSG_SIZE);
 	}
 
 	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
@@ -219,7 +244,7 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* Collecting IGMP Rx stats */
-	igmp->rx_stats.leave_v2++;
+	igmp->igmp_stats.leave_v2++;
 
 	/*
 	 * RFC 3376

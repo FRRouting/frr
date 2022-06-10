@@ -25,11 +25,6 @@
 
 struct attr;
 
-union gw_addr {
-	struct in_addr ipv4;
-	struct in6_addr ipv6;
-};
-
 enum overlay_index_type {
 	OVERLAY_INDEX_TYPE_NONE,
 	OVERLAY_INDEX_GATEWAY_IP,
@@ -45,7 +40,7 @@ enum overlay_index_type {
 struct bgp_route_evpn {
 	enum overlay_index_type type;
 	esi_t eth_s_id;
-	union gw_addr gw_ip;
+	struct ipaddr gw_ip;
 };
 
 extern bool str2esi(const char *str, esi_t *id);
@@ -64,6 +59,7 @@ extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag,
 		bool *proxy);
 extern uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg);
 
-extern bool is_zero_gw_ip(const union gw_addr *gw_ip, afi_t afi);
 
+extern bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
+				const struct bgp_route_evpn *e2);
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */

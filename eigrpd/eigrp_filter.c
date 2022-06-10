@@ -215,7 +215,7 @@ void eigrp_distribute_update_interface(struct interface *ifp)
 	struct distribute *dist;
 	struct eigrp *eigrp;
 
-	eigrp = eigrp_lookup(ifp->vrf_id);
+	eigrp = eigrp_lookup(ifp->vrf->vrf_id);
 	if (!eigrp)
 		return;
 	dist = distribute_lookup(eigrp->distribute_ctx, ifp->name);
@@ -251,13 +251,13 @@ void eigrp_distribute_update_all_wrapper(struct access_list *notused)
  *
  * @param[in]   thread  current execution thread timer is associated with
  *
- * @return int  always returns 0
+ * @return void
  *
  * @par
  * Called when 10sec waiting time expire and
  * executes Graceful restart for whole process
  */
-int eigrp_distribute_timer_process(struct thread *thread)
+void eigrp_distribute_timer_process(struct thread *thread)
 {
 	struct eigrp *eigrp;
 
@@ -265,8 +265,6 @@ int eigrp_distribute_timer_process(struct thread *thread)
 
 	/* execute GR for whole process */
 	eigrp_update_send_process_GR(eigrp, EIGRP_GR_FILTER, NULL);
-
-	return 0;
 }
 
 /*
@@ -274,13 +272,13 @@ int eigrp_distribute_timer_process(struct thread *thread)
  *
  * @param[in]   thread  current execution thread timer is associated with
  *
- * @return int  always returns 0
+ * @return void
  *
  * @par
  * Called when 10sec waiting time expire and
  * executes Graceful restart for interface
  */
-int eigrp_distribute_timer_interface(struct thread *thread)
+void eigrp_distribute_timer_interface(struct thread *thread)
 {
 	struct eigrp_interface *ei;
 
@@ -289,6 +287,4 @@ int eigrp_distribute_timer_interface(struct thread *thread)
 
 	/* execute GR for interface */
 	eigrp_update_send_interface_GR(ei, EIGRP_GR_FILTER, NULL);
-
-	return 0;
 }

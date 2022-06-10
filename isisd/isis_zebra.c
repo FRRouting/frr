@@ -38,6 +38,7 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "bfd.h"
+#include "link_state.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -747,6 +748,25 @@ static void isis_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
+/**
+ * Register / unregister Link State ZAPI Opaque Message
+ *
+ * @param up	True to register, false to unregister
+ *
+ * @return	0 if success, -1 otherwise
+ */
+int isis_zebra_ls_register(bool up)
+{
+	int rc;
+
+	if (up)
+		rc = ls_register(zclient, true);
+	else
+		rc = ls_unregister(zclient, true);
+
+	return rc;
+}
+
 /*
  * opaque messages between processes
  */
@@ -754,6 +774,7 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
+	struct zapi_opaque_reg_info dst;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct zapi_rlfa_response rlfa;
@@ -764,6 +785,13 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	switch (info.type) {
+	case LINK_STATE_SYNC:
+		STREAM_GETC(s, dst.proto);
+		STREAM_GETW(s, dst.instance);
+		STREAM_GETL(s, dst.session_id);
+		dst.type = LINK_STATE_SYNC;
+		ret = isis_te_sync_ted(dst);
+		break;
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
 		STREAM_GET(&state, s, sizeof(state));
 		ret = isis_ldp_sync_state_update(state);

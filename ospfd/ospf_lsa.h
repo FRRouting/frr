@@ -208,6 +208,8 @@ struct as_external_lsa {
 	} e[1];
 };
 
+enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
+
 #include "ospfd/ospf_opaque.h"
 
 /* Macros. */
@@ -293,7 +295,8 @@ extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
 						  struct lsa_header *);
 extern int ospf_lsa_more_recent(struct ospf_lsa *, struct ospf_lsa *);
-extern int ospf_lsa_different(struct ospf_lsa *, struct ospf_lsa *);
+extern int ospf_lsa_different(struct ospf_lsa *, struct ospf_lsa *,
+			      bool ignore_rcvd_flag);
 extern void ospf_flush_self_originated_lsas_now(struct ospf *);
 
 extern int ospf_lsa_is_self_originated(struct ospf *, struct ospf_lsa *);
@@ -305,7 +308,7 @@ extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *, uint8_t,
 extern void ospf_lsa_maxage(struct ospf *, struct ospf_lsa *);
 extern uint32_t get_metric(uint8_t *);
 
-extern int ospf_lsa_maxage_walker(struct thread *);
+extern void ospf_lsa_maxage_walker(struct thread *thread);
 extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *, struct ospf_lsa *);
 
 extern void ospf_external_lsa_refresh_default(struct ospf *);
@@ -316,14 +319,16 @@ extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *,
 						  struct ospf_lsa *,
 						  struct external_info *, int,
 						  bool aggr);
-extern struct in_addr ospf_lsa_unique_id(struct ospf *, struct ospf_lsdb *,
-					 uint8_t, struct prefix_ipv4 *);
+extern enum lsid_status ospf_lsa_unique_id(struct ospf *ospf,
+					   struct ospf_lsdb *lsdb,
+					   uint8_t type, struct prefix_ipv4 *p,
+					   struct in_addr *addr);
 extern void ospf_schedule_lsa_flood_area(struct ospf_area *, struct ospf_lsa *);
 extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
 
 extern void ospf_refresher_register_lsa(struct ospf *, struct ospf_lsa *);
 extern void ospf_refresher_unregister_lsa(struct ospf *, struct ospf_lsa *);
-extern int ospf_lsa_refresh_walker(struct thread *);
+extern void ospf_lsa_refresh_walker(struct thread *thread);
 
 extern void ospf_lsa_maxage_delete(struct ospf *, struct ospf_lsa *);
 

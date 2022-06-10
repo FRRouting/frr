@@ -22,6 +22,8 @@ of these buffers, pipe their contents through ``tr '\0' '\n'``.  A blank line
 marks the end of valid unwritten data (it will generally be followed by
 garbled, older log messages since the buffer is not cleared.)
 
+.. _daemons-configuration-file:
+
 Daemons Configuration File
 --------------------------
 After a fresh install, starting FRR will do nothing. This is because daemons

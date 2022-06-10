@@ -79,7 +79,7 @@ static const char *const mode2text[] = {"Off", "AS", "Area"};
 
 
 /*------------------------------------------------------------------------*
- * Followings are initialize/terminate functions for MPLS-TE handling.
+ * Following are initialize/terminate functions for MPLS-TE handling.
  *------------------------------------------------------------------------*/
 
 static int ospf_mpls_te_new_if(struct interface *ifp);
@@ -159,7 +159,7 @@ int ospf_mpls_te_init(void)
 		return rc;
 	}
 
-	memset(&OspfMplsTE, 0, sizeof(struct ospf_mpls_te));
+	memset(&OspfMplsTE, 0, sizeof(OspfMplsTE));
 	OspfMplsTE.enabled = false;
 	OspfMplsTE.export = false;
 	OspfMplsTE.inter_as = Off;
@@ -197,7 +197,7 @@ void ospf_mpls_te_finish(void)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are control functions for MPLS-TE parameters management.
+ * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
 static void del_mpls_te_link(void *val)
 {
@@ -814,7 +814,7 @@ static int is_mandated_params_set(struct mpls_te_link *lp)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are callback functions against generic Opaque-LSAs handling.
+ * Following are callback functions against generic Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 
 static int ospf_mpls_te_new_if(struct interface *ifp)
@@ -1079,7 +1079,7 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are OSPF protocol processing functions for MPLS-TE LSA.
+ * Following are OSPF protocol processing functions for MPLS-TE LSA.
  *------------------------------------------------------------------------*/
 
 static void build_tlv_header(struct stream *s, struct tlv_header *tlvh)
@@ -1624,7 +1624,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 
 /**
  * ------------------------------------------------------
- * Followings are Link State Data Base control functions.
+ * Following are Link State Data Base control functions.
  * ------------------------------------------------------
  */
 
@@ -2171,7 +2171,7 @@ static int ospf_te_parse_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if ((len == 0) || (ntohs(tlvh->type) != TE_TLV_LINK))
 		return 0;
 
-	sum = 0;
+	sum = sizeof(struct tlv_header);
 	/* Browse sub-TLV and fulfill Link State Attributes */
 	for (tlvh = TLV_DATA(tlvh); sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
 		uint32_t val32, tab32[2];
@@ -2377,7 +2377,7 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR)
 		tlvh = TLV_HDR_NEXT(tlvh);
 	len = TLV_BODY_SIZE(tlvh);
-	sum = 0;
+	sum = sizeof(struct tlv_header);
 
 	/* Browse sub-TLV to find Link ID */
 	for (tlvh = TLV_DATA(tlvh); sum < len; tlvh = TLV_HDR_NEXT(tlvh)) {
@@ -3153,7 +3153,7 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty session control functions.
+ * Following are vty session control functions.
  *------------------------------------------------------------------------*/
 #define check_tlv_size(size, msg)                                              \
 	do {                                                                   \
@@ -3846,7 +3846,7 @@ static void ospf_mpls_te_config_write_router(struct vty *vty)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty command functions.
+ * Following are vty command functions.
  *------------------------------------------------------------------------*/
 
 DEFUN (ospf_mpls_te_on,
@@ -3908,7 +3908,7 @@ DEFUN (no_ospf_mpls_te,
 	ote_debug("MPLS-TE: ON -> OFF");
 
 	/* Remove TED */
-	ls_ted_del_all(OspfMplsTE.ted);
+	ls_ted_del_all(&OspfMplsTE.ted);
 	OspfMplsTE.enabled = false;
 
 	/* Flush all TE Opaque LSAs */
@@ -4432,12 +4432,8 @@ DEFUN (show_ip_ospf_mpls_te_db,
 		ls_show_ted(OspfMplsTE.ted, vty, json, verbose);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 	return CMD_SUCCESS;
 }
 

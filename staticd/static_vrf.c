@@ -123,17 +123,6 @@ struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 	return svrf->stable[afi][safi];
 }
 
-struct static_vrf *static_vrf_lookup_by_id(vrf_id_t vrf_id)
-{
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (vrf)
-		return ((struct static_vrf *)vrf->info);
-
-	return NULL;
-}
-
 struct static_vrf *static_vrf_lookup_by_name(const char *name)
 {
 	struct vrf *vrf;
@@ -164,8 +153,8 @@ static int static_vrf_config_write(struct vty *vty)
 
 void static_vrf_init(void)
 {
-	vrf_init(static_vrf_new, static_vrf_enable,
-		 static_vrf_disable, static_vrf_delete, NULL);
+	vrf_init(static_vrf_new, static_vrf_enable, static_vrf_disable,
+		 static_vrf_delete);
 
 	vrf_cmd_init(static_vrf_config_write);
 }

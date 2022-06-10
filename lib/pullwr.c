@@ -51,7 +51,7 @@ struct pullwr {
 DEFINE_MTYPE_STATIC(LIB, PULLWR_HEAD, "pull-driven write controller");
 DEFINE_MTYPE_STATIC(LIB, PULLWR_BUF,  "pull-driven write buffer");
 
-static int pullwr_run(struct thread *t);
+static void pullwr_run(struct thread *t);
 
 struct pullwr *_pullwr_new(struct thread_master *tm, int fd,
 		void *arg,
@@ -189,7 +189,7 @@ void pullwr_write(struct pullwr *pullwr, const void *data, size_t len)
 	pullwr_bump(pullwr);
 }
 
-static int pullwr_run(struct thread *t)
+static void pullwr_run(struct thread *t)
 {
 	struct pullwr *pullwr = THREAD_ARG(t);
 	struct iovec iov[2];
@@ -222,7 +222,7 @@ static int pullwr_run(struct thread *t)
 			 * into idle, i.e. no calling thread_add_write()
 			 */
 			pullwr_resize(pullwr, 0);
-			return 0;
+			return;
 		}
 
 		niov = pullwr_iov(pullwr, iov);
@@ -233,12 +233,12 @@ static int pullwr_run(struct thread *t)
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
 			pullwr->err(pullwr->arg, pullwr, false);
-			return 0;
+			return;
 		}
 
 		if (nwr == 0) {
 			pullwr->err(pullwr->arg, pullwr, true);
-			return 0;
+			return;
 		}
 
 		pullwr->total_written += nwr;
@@ -258,7 +258,6 @@ static int pullwr_run(struct thread *t)
 	 */
 	if (!maxspun)
 		pullwr_resize(pullwr, 0);
-	return 0;
 }
 
 void pullwr_stats(struct pullwr *pullwr, uint64_t *total_written,

@@ -28,6 +28,9 @@
  * setup & these trample over each other.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <Python.h>
 #include "structmember.h"
 #include <string.h>

@@ -11,8 +11,10 @@ module confd.frr-ripngd {
 
   tailf:annotate-module "frr-ripngd" {
     tailf:annotate-statement "container[name='ripngd']" {
-      tailf:annotate-statement "container[name='state']" {
-        tailf:callpoint "state";
+      tailf:annotate-statement "list[name='instance']" {
+        tailf:annotate-statement "container[name='state']" {
+          tailf:callpoint "state";
+        }
       }
     }
     tailf:annotate-statement "rpc[name='clear-ripng-route']" {

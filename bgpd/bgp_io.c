@@ -45,8 +45,8 @@
 /* forward declarations */
 static uint16_t bgp_write(struct peer *);
 static uint16_t bgp_read(struct peer *peer, int *code_p);
-static int bgp_process_writes(struct thread *);
-static int bgp_process_reads(struct thread *);
+static void bgp_process_writes(struct thread *);
+static void bgp_process_reads(struct thread *);
 static bool validate_header(struct peer *);
 
 /* generic i/o status codes */
@@ -121,7 +121,7 @@ void bgp_reads_off(struct peer *peer)
 /*
  * Called from I/O pthread when a file descriptor has become ready for writing.
  */
-static int bgp_process_writes(struct thread *thread)
+static void bgp_process_writes(struct thread *thread)
 {
 	static struct peer *peer;
 	peer = THREAD_ARG(thread);
@@ -130,7 +130,7 @@ static int bgp_process_writes(struct thread *thread)
 	bool fatal = false;
 
 	if (peer->fd < 0)
-		return -1;
+		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
@@ -161,8 +161,6 @@ static int bgp_process_writes(struct thread *thread)
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
 	}
-
-	return 0;
 }
 
 /*
@@ -172,7 +170,7 @@ static int bgp_process_writes(struct thread *thread)
  * We read as much data as possible, process as many packets as we can and
  * place them on peer->ibuf for secondary processing by the main thread.
  */
-static int bgp_process_reads(struct thread *thread)
+static void bgp_process_reads(struct thread *thread)
 {
 	/* clang-format off */
 	static struct peer *peer;	// peer to read from
@@ -186,7 +184,7 @@ static int bgp_process_reads(struct thread *thread)
 	peer = THREAD_ARG(thread);
 
 	if (peer->fd < 0 || bm->terminating)
-		return -1;
+		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
@@ -271,8 +269,6 @@ static int bgp_process_reads(struct thread *thread)
 			thread_add_event(bm->master, bgp_process_packet,
 					 peer, 0, &peer->t_process_packet);
 	}
-
-	return 0;
 }
 
 /*
@@ -302,6 +298,7 @@ static uint16_t bgp_write(struct peer *peer)
 	unsigned int iovsz;
 	unsigned int strmsz;
 	unsigned int total_written;
+	time_t now;
 
 	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 					       memory_order_relaxed);
@@ -434,19 +431,22 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
+	now = bgp_clock();
 	/*
 	 * Update last_update if UPDATEs were written.
 	 * Note: that these are only updated at end,
 	 *       not per message (i.e., per loop)
 	 */
 	if (uo)
-		atomic_store_explicit(&peer->last_update, bgp_clock(),
+		atomic_store_explicit(&peer->last_update, now,
 				      memory_order_relaxed);
 
 	/* If we TXed any flavor of packet */
-	if (update_last_write)
-		atomic_store_explicit(&peer->last_write, bgp_clock(),
+	if (update_last_write) {
+		atomic_store_explicit(&peer->last_write, now,
 				      memory_order_relaxed);
+		peer->last_sendq_ok = now;
+	}
 }
 
 	return status;

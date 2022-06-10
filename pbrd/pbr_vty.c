@@ -358,7 +358,7 @@ DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 #ifndef GNU_LINUX
-	vty_out(vty, "pbr marks are not supported on this platform");
+	vty_out(vty, "pbr marks are not supported on this platform\n");
 	return CMD_WARNING_CONFIG_FAILED;
 #endif
 
@@ -506,7 +506,8 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 	/* This is new/replacement config */
 	pbrms_clear_set_config(pbrms);
 
-	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+	pbr_nht_set_seq_nhg(pbrms, name);
+
 	pbr_map_check(pbrms, true);
 
 	return CMD_SUCCESS;
@@ -592,16 +593,12 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 			vty_out(vty, "You must specify the nexthop-vrf\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (ifp->vrf_id != vrf->vrf_id) {
-			struct vrf *actual;
-
-			actual = vrf_lookup_by_id(ifp->vrf_id);
+		if (ifp->vrf->vrf_id != vrf->vrf_id)
 			vty_out(vty,
 				"Specified Intf %s is not in vrf %s but is in vrf %s, using actual vrf\n",
-				ifp->name, vrf->name, VRF_LOGNAME(actual));
-		}
+				ifp->name, vrf->name, ifp->vrf->name);
 		nhop.ifindex = ifp->ifindex;
-		nhop.vrf_id = ifp->vrf_id;
+		nhop.vrf_id = ifp->vrf->vrf_id;
 	}
 
 	if (addr) {
@@ -921,7 +918,6 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object *jpbrm, *nexthop_group;
 	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
 					   : pbrms->internal_nhg_name;
-	char buf[PREFIX_STRLEN];
 	char rbuf[64];
 
 	jpbrm = json_object_new_object();
@@ -957,13 +953,9 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 		json_object_string_add(jpbrm, "vrfName", pbrms->vrf_name);
 
 	if (pbrms->src)
-		json_object_string_add(
-			jpbrm, "matchSrc",
-			prefix2str(pbrms->src, buf, sizeof(buf)));
+		json_object_string_addf(jpbrm, "matchSrc", "%pFX", pbrms->src);
 	if (pbrms->dst)
-		json_object_string_add(
-			jpbrm, "matchDst",
-			prefix2str(pbrms->dst, buf, sizeof(buf)));
+		json_object_string_addf(jpbrm, "matchDst", "%pFX", pbrms->dst);
 	if (pbrms->mark)
 		json_object_int_add(jpbrm, "matchMark", pbrms->mark);
 	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
@@ -1041,12 +1033,8 @@ DEFPY (show_pbr_map,
 		vty_show_pbr_map(vty, pbrm, detail);
 	}
 
-	if (j) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-		json_object_free(j);
-	}
+	if (j)
+		vty_json(vty, j);
 
 	return CMD_SUCCESS;
 }
@@ -1068,11 +1056,7 @@ DEFPY(show_pbr_nexthop_group,
 	if (j) {
 		pbr_nht_json_nexthop_group(j, word);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-
-		json_object_free(j);
+		vty_json(vty, j);
 	} else
 		pbr_nht_show_nexthop_group(vty, word);
 
@@ -1146,12 +1130,8 @@ DEFPY (show_pbr_interface,
 		}
 	}
 
-	if (j) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-		json_object_free(j);
-	}
+	if (j)
+		vty_json(vty, j);
 
 	return CMD_SUCCESS;
 }
@@ -1218,18 +1198,14 @@ static int pbr_interface_config_write(struct vty *vty)
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (vrf->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
+			if_vty_config_start(vty, ifp);
 
 			if (ifp->desc)
 				vty_out(vty, " description %s\n", ifp->desc);
 
 			pbr_map_write_interfaces(vty, ifp);
 
-			vty_endframe(vty, "exit\n!\n");
+			if_vty_config_end(vty);
 		}
 	}
 

@@ -140,8 +140,6 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	/* Administrative distance. */
 	if (distance_str)
 		distance = atoi(distance_str);
-	else
-		distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
 
 	/* tag */
 	if (tag_str)

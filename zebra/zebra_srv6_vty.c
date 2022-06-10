@@ -108,9 +108,7 @@ DEFUN (show_srv6_locator,
 
 		}
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
-					JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		vty_out(vty, "Locator:\n");
 		vty_out(vty, "Name                 ID      Prefix                   Status\n");
@@ -147,10 +145,16 @@ DEFUN (show_srv6_locator_detail,
 	struct listnode *node;
 	char str[256];
 	const char *locator_name = argv[4]->arg;
+	json_object *json_locator = NULL;
 
 	if (uj) {
-		vty_out(vty, "JSON format isn't supported\n");
-		return CMD_WARNING;
+		locator = zebra_srv6_locator_lookup(locator_name);
+		if (!locator)
+			return CMD_WARNING;
+
+		json_locator = srv6_locator_detailed_json(locator);
+		vty_json(vty, json_locator);
+		return CMD_SUCCESS;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
@@ -350,8 +354,12 @@ static int zebra_sr_config(struct vty *vty)
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
 				  str, sizeof(str));
 			vty_out(vty, "   locator %s\n", locator->name);
-			vty_out(vty, "    prefix %s/%u\n", str,
+			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
+			if (locator->function_bits_length)
+				vty_out(vty, " func-bits %u",
+					locator->function_bits_length);
+			vty_out(vty, "\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}

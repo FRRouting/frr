@@ -113,7 +113,7 @@ int bgp_damp_decay(time_t tdiff, int penalty, struct bgp_damp_config *bdc)
 
 /* Handler of reuse timer event.  Each route in the current reuse-list
    is evaluated.  RFC2439 Section 4.8.7.  */
-static int bgp_reuse_timer(struct thread *t)
+static void bgp_reuse_timer(struct thread *t)
 {
 	struct bgp_damp_info *bdi;
 	struct bgp_damp_info *next;
@@ -178,8 +178,6 @@ static int bgp_reuse_timer(struct thread *t)
 			 * 4.8.6).  */
 			bgp_reuse_list_add(bdi, bdc);
 	}
-
-	return 0;
 }
 
 /* A route becomes unreachable (RFC2439 Section 4.8.2).  */
@@ -653,21 +651,39 @@ const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_path_info *path,
 }
 
 static int bgp_print_dampening_parameters(struct bgp *bgp, struct vty *vty,
-					  afi_t afi, safi_t safi)
+					  afi_t afi, safi_t safi, bool use_json)
 {
 	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)) {
-		vty_out(vty, "Half-life time: %lld min\n",
-			(long long)damp[afi][safi].half_life / 60);
-		vty_out(vty, "Reuse penalty: %d\n",
-			damp[afi][safi].reuse_limit);
-		vty_out(vty, "Suppress penalty: %d\n",
-			damp[afi][safi].suppress_value);
-		vty_out(vty, "Max suppress time: %lld min\n",
-			(long long)damp[afi][safi].max_suppress_time / 60);
-		vty_out(vty, "Max suppress penalty: %u\n",
-			damp[afi][safi].ceiling);
-		vty_out(vty, "\n");
-	} else
+		struct bgp_damp_config *bdc = &damp[afi][safi];
+
+		if (use_json) {
+			json_object *json = json_object_new_object();
+
+			json_object_int_add(json, "halfLifeSecs",
+					    bdc->half_life);
+			json_object_int_add(json, "reusePenalty",
+					    bdc->reuse_limit);
+			json_object_int_add(json, "suppressPenalty",
+					    bdc->suppress_value);
+			json_object_int_add(json, "maxSuppressTimeSecs",
+					    bdc->max_suppress_time);
+			json_object_int_add(json, "maxSuppressPenalty",
+					    bdc->ceiling);
+
+			vty_json(vty, json);
+		} else {
+			vty_out(vty, "Half-life time: %lld min\n",
+				(long long)bdc->half_life / 60);
+			vty_out(vty, "Reuse penalty: %d\n", bdc->reuse_limit);
+			vty_out(vty, "Suppress penalty: %d\n",
+				bdc->suppress_value);
+			vty_out(vty, "Max suppress time: %lld min\n",
+				(long long)bdc->max_suppress_time / 60);
+			vty_out(vty, "Max suppress penalty: %u\n",
+				bdc->ceiling);
+			vty_out(vty, "\n");
+		}
+	} else if (!use_json)
 		vty_out(vty, "dampening not enabled for %s\n",
 			get_afi_safi_str(afi, safi, false));
 
@@ -678,6 +694,8 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
 				  uint16_t show_flags)
 {
 	struct bgp *bgp;
+	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+
 	bgp = bgp_get_default();
 
 	if (bgp == NULL) {
@@ -686,7 +704,8 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
 	}
 
 	if (!CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL))
-		return bgp_print_dampening_parameters(bgp, vty, afi, safi);
+		return bgp_print_dampening_parameters(bgp, vty, afi, safi,
+						      use_json);
 
 	if (CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP)
 	    || CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_IP6)) {
@@ -697,11 +716,12 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
 				     "Unknown"))
 				continue;
 
-			if (!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON))
+			if (!use_json)
 				vty_out(vty, "\nFor address family: %s\n\n",
 					get_afi_safi_str(afi, safi, false));
 
-			bgp_print_dampening_parameters(bgp, vty, afi, safi);
+			bgp_print_dampening_parameters(bgp, vty, afi, safi,
+						       use_json);
 		}
 	} else {
 		FOREACH_AFI_SAFI (afi, safi) {
@@ -709,11 +729,12 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi,
 				     "Unknown"))
 				continue;
 
-			if (!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON))
+			if (!use_json)
 				vty_out(vty, "\nFor address family: %s\n",
 					get_afi_safi_str(afi, safi, false));
 
-			bgp_print_dampening_parameters(bgp, vty, afi, safi);
+			bgp_print_dampening_parameters(bgp, vty, afi, safi,
+						       use_json);
 		}
 	}
 	return CMD_SUCCESS;

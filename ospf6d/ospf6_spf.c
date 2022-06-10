@@ -605,7 +605,7 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	zlog_debug("%s", buffer);
 }
 
-static int ospf6_spf_calculation_thread(struct thread *t)
+static void ospf6_spf_calculation_thread(struct thread *t)
 {
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6;
@@ -615,7 +615,6 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 	char rbuf[32];
 
 	ospf6 = (struct ospf6 *)THREAD_ARG(t);
-	ospf6->t_spf_calc = NULL;
 
 	/* execute SPF calculation */
 	monotime(&start);
@@ -681,7 +680,6 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 
 	ospf6->last_spf_reason = ospf6->spf_reason;
 	ospf6_reset_spf_reason(ospf6);
-	return 0;
 }
 
 /* Add schedule for SPF calculation.  To avoid frequenst SPF calc, we
@@ -704,7 +702,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	/* SPF calculation timer is already scheduled. */
-	if (ospf6->t_spf_calc) {
+	if (thread_is_scheduled(ospf6->t_spf_calc)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 			zlog_debug(
 				"SPF: calculation timer is already scheduled: %p",
@@ -741,7 +739,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	ospf6->t_spf_calc = NULL;
+	THREAD_OFF(ospf6->t_spf_calc);
 	thread_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6,
 			      delay, &ospf6->t_spf_calc);
 }
@@ -1245,7 +1243,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-static int ospf6_ase_calculate_timer(struct thread *t)
+static void ospf6_ase_calculate_timer(struct thread *t)
 {
 	struct ospf6 *ospf6;
 	struct ospf6_lsa *lsa;
@@ -1254,7 +1252,6 @@ static int ospf6_ase_calculate_timer(struct thread *t)
 	uint16_t type;
 
 	ospf6 = THREAD_ARG(t);
-	ospf6->t_ase_calc = NULL;
 
 	/* Calculate external route for each AS-external-LSA */
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
@@ -1283,8 +1280,6 @@ static int ospf6_ase_calculate_timer(struct thread *t)
 		ospf6_zebra_gr_disable(ospf6);
 		ospf6->gr_info.finishing_restart = false;
 	}
-
-	return 0;
 }
 
 void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6)

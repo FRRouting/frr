@@ -444,7 +444,7 @@ submodule frr-bgp-common {
         type uint32 {
           range "0..4294967295";
         }
-        units "miliseconds";
+        units "milliseconds";
         default "1000";
         description
           "Configures the Subgroup coalesce timer.";

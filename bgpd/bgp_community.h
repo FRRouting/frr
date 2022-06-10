@@ -72,24 +72,26 @@ struct community {
 extern void community_init(void);
 extern void community_finish(void);
 extern void community_free(struct community **comm);
-extern struct community *community_uniq_sort(struct community *);
-extern struct community *community_parse(uint32_t *, unsigned short);
-extern struct community *community_intern(struct community *);
-extern void community_unintern(struct community **);
-extern char *community_str(struct community *, bool make_json);
-extern unsigned int community_hash_make(const struct community *);
-extern struct community *community_str2com(const char *);
-extern bool community_match(const struct community *, const struct community *);
+extern struct community *community_uniq_sort(struct community *com);
+extern struct community *community_parse(uint32_t *pnt, unsigned short length);
+extern struct community *community_intern(struct community *com);
+extern void community_unintern(struct community **com);
+extern char *community_str(struct community *com, bool make_json,
+			   bool translate_alias);
+extern unsigned int community_hash_make(const struct community *com);
+extern struct community *community_str2com(const char *str);
+extern bool community_match(const struct community *com1,
+			    const struct community *com2);
 extern bool community_cmp(const struct community *c1,
 			  const struct community *c2);
-extern struct community *community_merge(struct community *,
-					 struct community *);
-extern struct community *community_delete(struct community *,
-					  struct community *);
-extern struct community *community_dup(struct community *);
-extern bool community_include(struct community *, uint32_t);
+extern struct community *community_merge(struct community *com1,
+					 struct community *com2);
+extern struct community *community_delete(struct community *com1,
+					  struct community *com2);
+extern struct community *community_dup(struct community *com);
+extern bool community_include(struct community *com, uint32_t val);
 extern void community_add_val(struct community *com, uint32_t val);
-extern void community_del_val(struct community *, uint32_t *);
+extern void community_del_val(struct community *com, uint32_t *val);
 extern unsigned long community_count(void);
 extern struct hash *community_hash(void);
 extern uint32_t community_val_get(struct community *com, int i);

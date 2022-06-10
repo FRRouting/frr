@@ -971,8 +971,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 			for (ALL_LIST_ELEMENTS_RO(ifslist, node, iif)) {
 				if (!iif->ifindex)
 					continue;
-				oi = ospf6_interface_lookup_by_ifindex(
-					iif->ifindex, iif->vrf_id);
+				oi = iif->info;
 				if (!oi)
 					continue;
 				if (iif->ifindex < ifindex)
@@ -1106,8 +1105,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex,
-							       iif->vrf_id);
+			oi = iif->info;
 			if (!oi)
 				continue;
 			if (iif->ifindex > ifindex
@@ -1272,8 +1270,7 @@ static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
 			if (!iif->ifindex)
 				continue;
-			oi = ospf6_interface_lookup_by_ifindex(iif->ifindex,
-							       iif->vrf_id);
+			oi = iif->info;
 			if (!oi)
 				continue;
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {

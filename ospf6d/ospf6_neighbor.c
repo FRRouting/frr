@@ -112,6 +112,7 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 {
 	struct ospf6_neighbor *on;
 	char buf[16];
+	int type;
 
 	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
@@ -130,6 +131,13 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 	on->dbdesc_list = ospf6_lsdb_create(on);
 	on->lsupdate_list = ospf6_lsdb_create(on);
 	on->lsack_list = ospf6_lsdb_create(on);
+
+	for (type = 0; type < OSPF6_MESSAGE_TYPE_MAX; type++) {
+		on->seqnum_l[type] = 0;
+		on->seqnum_h[type] = 0;
+	}
+
+	on->auth_present = false;
 
 	listnode_add_sort(oi->neighbor_list, on);
 
@@ -264,7 +272,7 @@ static int need_adjacency(struct ospf6_neighbor *on)
 	return 0;
 }
 
-int hello_received(struct thread *thread)
+void hello_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -282,11 +290,9 @@ int hello_received(struct thread *thread)
 	if (on->state <= OSPF6_NEIGHBOR_DOWN)
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_INIT, on,
 					    OSPF6_NEIGHBOR_EVENT_HELLO_RCVD);
-
-	return 0;
 }
 
-int twoway_received(struct thread *thread)
+void twoway_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -294,7 +300,7 @@ int twoway_received(struct thread *thread)
 	assert(on);
 
 	if (on->state > OSPF6_NEIGHBOR_INIT)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *2Way-Received*", on->name);
@@ -304,7 +310,7 @@ int twoway_received(struct thread *thread)
 	if (!need_adjacency(on)) {
 		ospf6_neighbor_state_change(OSPF6_NEIGHBOR_TWOWAY, on,
 					    OSPF6_NEIGHBOR_EVENT_TWOWAY_RCVD);
-		return 0;
+		return;
 	}
 
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_EXSTART, on,
@@ -316,11 +322,9 @@ int twoway_received(struct thread *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
-
-	return 0;
 }
 
-int negotiation_done(struct thread *thread)
+void negotiation_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -329,7 +333,7 @@ int negotiation_done(struct thread *thread)
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXSTART)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *NegotiationDone*", on->name);
@@ -372,21 +376,17 @@ int negotiation_done(struct thread *thread)
 	UNSET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_EXCHANGE, on,
 				    OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE);
-
-	return 0;
 }
 
-static int ospf6_neighbor_last_dbdesc_release(struct thread *thread)
+static void ospf6_neighbor_last_dbdesc_release(struct thread *thread)
 {
 	struct ospf6_neighbor *on = THREAD_ARG(thread);
 
 	assert(on);
 	memset(&on->dbdesc_last, 0, sizeof(struct ospf6_dbdesc));
-
-	return 0;
 }
 
-int exchange_done(struct thread *thread)
+void exchange_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -394,7 +394,7 @@ int exchange_done(struct thread *thread)
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *ExchangeDone*", on->name);
@@ -420,8 +420,6 @@ int exchange_done(struct thread *thread)
 		thread_add_event(master, ospf6_lsreq_send, on, 0,
 				 &on->thread_send_lsreq);
 	}
-
-	return 0;
 }
 
 /* Check loading state. */
@@ -437,15 +435,14 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 		if (on->request_list->count == 0)
 			thread_add_event(master, loading_done, on, 0, NULL);
 		else if (on->last_ls_req == NULL) {
-			if (on->thread_send_lsreq != NULL)
-				THREAD_OFF(on->thread_send_lsreq);
+			THREAD_OFF(on->thread_send_lsreq);
 			thread_add_event(master, ospf6_lsreq_send, on, 0,
 					 &on->thread_send_lsreq);
 		}
 	}
 }
 
-int loading_done(struct thread *thread)
+void loading_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -453,7 +450,7 @@ int loading_done(struct thread *thread)
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_LOADING)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *LoadingDone*", on->name);
@@ -462,11 +459,9 @@ int loading_done(struct thread *thread)
 
 	ospf6_neighbor_state_change(OSPF6_NEIGHBOR_FULL, on,
 				    OSPF6_NEIGHBOR_EVENT_LOADING_DONE);
-
-	return 0;
 }
 
-int adj_ok(struct thread *thread)
+void adj_ok(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -485,7 +480,6 @@ int adj_ok(struct thread *thread)
 		SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
 		THREAD_OFF(on->thread_send_dbdesc);
-		on->thread_send_dbdesc = NULL;
 		thread_add_event(master, ospf6_dbdesc_send, on, 0,
 				 &on->thread_send_dbdesc);
 
@@ -499,11 +493,9 @@ int adj_ok(struct thread *thread)
 			ospf6_lsdb_remove(lsa, on->retrans_list);
 		}
 	}
-
-	return 0;
 }
 
-int seqnumber_mismatch(struct thread *thread)
+void seqnumber_mismatch(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -512,7 +504,7 @@ int seqnumber_mismatch(struct thread *thread)
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *SeqNumberMismatch*", on->name);
@@ -533,14 +525,11 @@ int seqnumber_mismatch(struct thread *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
-	on->thread_send_dbdesc = NULL;
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
-
-	return 0;
 }
 
-int bad_lsreq(struct thread *thread)
+void bad_lsreq(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -549,7 +538,7 @@ int bad_lsreq(struct thread *thread)
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *BadLSReq*", on->name);
@@ -570,14 +559,12 @@ int bad_lsreq(struct thread *thread)
 	THREAD_OFF(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
-	on->thread_send_dbdesc = NULL;
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
 
-	return 0;
 }
 
-int oneway_received(struct thread *thread)
+void oneway_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -586,7 +573,7 @@ int oneway_received(struct thread *thread)
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_TWOWAY)
-		return 0;
+		return;
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *1Way-Received*", on->name);
@@ -608,11 +595,9 @@ int oneway_received(struct thread *thread)
 	THREAD_OFF(on->thread_send_lsack);
 	THREAD_OFF(on->thread_exchange_done);
 	THREAD_OFF(on->thread_adj_ok);
-
-	return 0;
 }
 
-int inactivity_timer(struct thread *thread)
+void inactivity_timer(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 
@@ -648,8 +633,6 @@ int inactivity_timer(struct thread *thread)
 				 on->ospf6_if->dead_interval,
 				 &on->inactivity_timer);
 	}
-
-	return 0;
 }
 
 
@@ -863,15 +846,17 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 
 		timerclear(&res);
-		if (on->thread_send_dbdesc)
+		if (thread_is_scheduled(on->thread_send_dbdesc))
 			timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaDbDescCount",
 				    on->dbdesc_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaDbDescTime",
 				       duration);
-		json_object_string_add(json_neighbor, "dbDescSendThread",
-				       (on->thread_send_dbdesc ? "on" : "off"));
+		json_object_string_add(
+			json_neighbor, "dbDescSendThread",
+			(thread_is_scheduled(on->thread_send_dbdesc) ? "on"
+								     : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
 			json_object_array_add(
@@ -880,15 +865,17 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       json_array);
 
 		timerclear(&res);
-		if (on->thread_send_lsreq)
+		if (thread_is_scheduled(on->thread_send_lsreq))
 			timersub(&on->thread_send_lsreq->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaLsReqCount",
 				    on->request_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaLsReqTime",
 				       duration);
-		json_object_string_add(json_neighbor, "lsReqSendThread",
-				       (on->thread_send_lsreq ? "on" : "off"));
+		json_object_string_add(
+			json_neighbor, "lsReqSendThread",
+			(thread_is_scheduled(on->thread_send_lsreq) ? "on"
+								    : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->request_list, lsa, lsanext))
 			json_object_array_add(
@@ -898,7 +885,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 
 		timerclear(&res);
-		if (on->thread_send_lsupdate)
+		if (thread_is_scheduled(on->thread_send_lsupdate))
 			timersub(&on->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
@@ -908,7 +895,9 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       duration);
 		json_object_string_add(
 			json_neighbor, "lsUpdateSendThread",
-			(on->thread_send_lsupdate ? "on" : "off"));
+			(thread_is_scheduled(on->thread_send_lsupdate)
+				 ? "on"
+				 : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
 			json_object_array_add(
@@ -917,15 +906,17 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       json_array);
 
 		timerclear(&res);
-		if (on->thread_send_lsack)
+		if (thread_is_scheduled(on->thread_send_lsack))
 			timersub(&on->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaLsAckCount",
 				    on->lsack_list->count);
 		json_object_string_add(json_neighbor, "pendingLsaLsAckTime",
 				       duration);
-		json_object_string_add(json_neighbor, "lsAckSendThread",
-				       (on->thread_send_lsack ? "on" : "off"));
+		json_object_string_add(
+			json_neighbor, "lsAckSendThread",
+			(thread_is_scheduled(on->thread_send_lsack) ? "on"
+								    : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			json_object_array_add(
@@ -935,8 +926,44 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 		bfd_sess_show(vty, json_neighbor, on->bfd_session);
 
-		json_object_object_add(json, on->name, json_neighbor);
+		if (on->auth_present == true) {
+			json_object_string_add(json_neighbor, "authStatus",
+					       "enabled");
+			json_object_int_add(
+				json_neighbor, "recvdHelloHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(
+				json_neighbor, "recvdHelloLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(
+				json_neighbor, "recvdDBDescHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(
+				json_neighbor, "recvdDBDescLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(
+				json_neighbor, "recvdLSReqHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(
+				json_neighbor, "recvdLSReqLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(
+				json_neighbor, "recvdLSUpdHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(
+				json_neighbor, "recvdLSUpdLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(
+				json_neighbor, "recvdLSAckHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			json_object_int_add(
+				json_neighbor, "recvdLSAckLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+		} else
+			json_object_string_add(json_neighbor, "authStatus",
+					       "disabled");
 
+		json_object_object_add(json, on->name, json_neighbor);
 
 	} else {
 		vty_out(vty, " Neighbor %s\n", on->name);
@@ -977,51 +1004,77 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (on->thread_send_dbdesc)
+		if (thread_is_scheduled(on->thread_send_dbdesc))
 			timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for DbDesc in Time %s [thread %s]\n",
 			on->dbdesc_list->count, duration,
-			(on->thread_send_dbdesc ? "on" : "off"));
+			(thread_is_scheduled(on->thread_send_dbdesc) ? "on"
+								     : "off"));
 		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (on->thread_send_lsreq)
+		if (thread_is_scheduled(on->thread_send_lsreq))
 			timersub(&on->thread_send_lsreq->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSReq in Time %s [thread %s]\n",
 			on->request_list->count, duration,
-			(on->thread_send_lsreq ? "on" : "off"));
+			(thread_is_scheduled(on->thread_send_lsreq) ? "on"
+								    : "off"));
 		for (ALL_LSDB(on->request_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (on->thread_send_lsupdate)
+		if (thread_is_scheduled(on->thread_send_lsupdate))
 			timersub(&on->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
 			on->lsupdate_list->count, duration,
-			(on->thread_send_lsupdate ? "on" : "off"));
+			(thread_is_scheduled(on->thread_send_lsupdate)
+				 ? "on"
+				 : "off"));
 		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (on->thread_send_lsack)
+		if (thread_is_scheduled(on->thread_send_lsack))
 			timersub(&on->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
 			on->lsack_list->count, duration,
-			(on->thread_send_lsack ? "on" : "off"));
+			(thread_is_scheduled(on->thread_send_lsack) ? "on"
+								    : "off"));
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		bfd_sess_show(vty, NULL, on->bfd_session);
+
+		if (on->auth_present == true) {
+			vty_out(vty, "    Authentication header present\n");
+			vty_out(vty,
+				"\t\t\t hello        DBDesc       LSReq        LSUpd        LSAck\n");
+			vty_out(vty,
+				"      Higher sequence no 0x%-10X 0x%-10X 0x%-10X 0x%-10X 0x%-10X\n",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			vty_out(vty,
+				"      Lower sequence no  0x%-10X 0x%-10X 0x%-10X 0x%-10X 0x%-10X\n",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+		} else
+			vty_out(vty, "    Authentication header not present\n");
 	}
 }
 
@@ -1073,10 +1126,7 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 			json_object_object_add(json, "neighbors", json_array);
 		else
 			json_object_free(json_array);
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -1114,12 +1164,15 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
 static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 				      struct cmd_token **argv,
-				      struct ospf6 *ospf6, int idx_ipv4)
+				      struct ospf6 *ospf6, int idx_ipv4,
+				      bool uj)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
@@ -1129,7 +1182,6 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 			 json_object *json, bool use_json);
 	uint32_t router_id;
 	json_object *json = NULL;
-	bool uj = use_json(argc, argv);
 
 	showfunc = ospf6_neighbor_show_detail;
 	if (uj)
@@ -1148,12 +1200,8 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 					(*showfunc)(vty, on, json, uj);
 			}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1171,6 +1219,7 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
@@ -1179,12 +1228,14 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			ospf6_neighbor_show_common(vty, argc, argv, ospf6,
-						   idx_ipv4);
+						   idx_ipv4, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1254,7 +1305,6 @@ DEFUN (no_debug_ospf6,
        OSPF6_STR)
 {
 	unsigned int i;
-	struct ospf6_lsa_handler *handler = NULL;
 
 	OSPF6_DEBUG_ABR_OFF();
 	OSPF6_DEBUG_ASBR_OFF();
@@ -1264,13 +1314,7 @@ DEFUN (no_debug_ospf6,
 	OSPF6_DEBUG_FLOODING_OFF();
 	OSPF6_DEBUG_INTERFACE_OFF();
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
-
-		if (handler != NULL) {
-			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG);
-		}
-	}
+	ospf6_lsa_debug_set_all(false);
 
 	for (i = 0; i < 6; i++)
 		OSPF6_DEBUG_MESSAGE_OFF(i,

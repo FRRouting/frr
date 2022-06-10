@@ -398,7 +398,7 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 	/* We do this here so when we dup a packet, we don't have to
 	   waste CPU rewriting other headers.
 
-	   Note that quagga_time /deliberately/ is not used here */
+	   Note that frr_time /deliberately/ is not used here */
 	t = (time(NULL) & 0xFFFFFFFF);
 	if (t > oi->crypt_seqnum)
 		oi->crypt_seqnum = t;
@@ -449,7 +449,7 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 }
 
 
-static int ospf_ls_req_timer(struct thread *thread)
+static void ospf_ls_req_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -462,8 +462,6 @@ static int ospf_ls_req_timer(struct thread *thread)
 
 	/* Set Link State Request retransmission timer. */
 	OSPF_NSM_TIMER_ON(nbr->t_ls_req, ospf_ls_req_timer, nbr->v_ls_req);
-
-	return 0;
 }
 
 void ospf_ls_req_event(struct ospf_neighbor *nbr)
@@ -474,7 +472,7 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 
 /* Cyclic timer function.  Fist registered in ospf_nbr_new () in
    ospf_neighbor.c  */
-int ospf_ls_upd_timer(struct thread *thread)
+void ospf_ls_upd_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -530,11 +528,9 @@ int ospf_ls_upd_timer(struct thread *thread)
 
 	/* Set LS Update retransmission timer. */
 	OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer, nbr->v_ls_upd);
-
-	return 0;
 }
 
-int ospf_ls_ack_timer(struct thread *thread)
+void ospf_ls_ack_timer(struct thread *thread)
 {
 	struct ospf_interface *oi;
 
@@ -547,8 +543,6 @@ int ospf_ls_ack_timer(struct thread *thread)
 
 	/* Set LS Ack timer. */
 	OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
-
-	return 0;
 }
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
@@ -625,7 +619,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
-static int ospf_write(struct thread *thread)
+static void ospf_write(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct ospf_interface *oi;
@@ -657,7 +651,7 @@ static int ospf_write(struct thread *thread)
 			zlog_debug(
 				"ospf_write failed to send, fd %d, instance %u",
 				ospf->fd, ospf->oi_running);
-		return -1;
+		return;
 	}
 
 	node = listhead(ospf->oi_write_q);
@@ -702,7 +696,7 @@ static int ospf_write(struct thread *thread)
 		/* reset get pointer */
 		stream_set_getp(op->s, 0);
 
-		memset(&iph, 0, sizeof(struct ip));
+		memset(&iph, 0, sizeof(iph));
 		memset(&sa_dst, 0, sizeof(sa_dst));
 
 		sa_dst.sin_family = AF_INET;
@@ -876,8 +870,6 @@ static int ospf_write(struct thread *thread)
 	if (!list_isempty(ospf->oi_write_q))
 		thread_add_write(master, ospf_write, ospf, ospf->fd,
 				 &ospf->t_write);
-
-	return 0;
 }
 
 /* OSPF Hello message read -- RFC2328 Section 10.5. */
@@ -2318,7 +2310,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	char buff[CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
 	struct msghdr msgh;
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	msgh.msg_iov = &iov;
 	msgh.msg_iovlen = 1;
 	msgh.msg_control = (caddr_t)buff;
@@ -3012,7 +3004,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 		}
 	}
 
-	if (ospf->vrf_id == VRF_DEFAULT && ospf->vrf_id != ifp->vrf_id) {
+	if (ospf->vrf_id == VRF_DEFAULT && ospf->vrf_id != ifp->vrf->vrf_id) {
 		/*
 		 * We may have a situation where l3mdev_accept == 1
 		 * let's just kindly drop the packet and move on.
@@ -3215,7 +3207,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 }
 
 /* Starting point of packet process function. */
-int ospf_read(struct thread *thread)
+void ospf_read(struct thread *thread)
 {
 	struct ospf *ospf;
 	int32_t count = 0;
@@ -3232,13 +3224,11 @@ int ospf_read(struct thread *thread)
 		ret = ospf_read_helper(ospf);
 		switch (ret) {
 		case OSPF_READ_ERROR:
-			return -1;
+			return;
 		case OSPF_READ_CONTINUE:
 			break;
 		}
 	}
-
-	return 0;
 }
 
 /* Make OSPF header. */
@@ -3525,7 +3515,7 @@ static int ospf_make_ls_req_func(struct stream *s, uint16_t *length,
 	/* LS Request packet overflows interface MTU
 	 * delta is just number of bytes required for 1 LS Req
 	 * ospf_packet_max will return the number of bytes can
-	 * be accomodated without ospf header. So length+delta
+	 * be accommodated without ospf header. So length+delta
 	 * can be compared to ospf_packet_max
 	 * to check if it can fit another lsreq in the same packet.
 	 */
@@ -3611,7 +3601,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 			zlog_debug("%s: List Iteration %d LSA[%s]", __func__,
 				   count, dump_lsa_key(lsa));
 
-		/* Will it fit? Minimum it has to fit atleast one */
+		/* Will it fit? Minimum it has to fit at least one */
 		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
 				(count > 0))
 			break;
@@ -3659,7 +3649,7 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 		/* LS Ack packet overflows interface MTU
 		 * delta is just number of bytes required for
 		 * 1 LS Ack(1 LS Hdr) ospf_packet_max will return
-		 * the number of bytes can be accomodated without
+		 * the number of bytes can be accommodated without
 		 * ospf header. So length+delta can be compared
 		 * against ospf_packet_max to check if it can fit
 		 * another ls header in the same packet.
@@ -3747,7 +3737,7 @@ static void ospf_poll_send(struct ospf_nbr_nbma *nbr_nbma)
 	ospf_hello_send_sub(oi, nbr_nbma->addr.s_addr);
 }
 
-int ospf_poll_timer(struct thread *thread)
+void ospf_poll_timer(struct thread *thread)
 {
 	struct ospf_nbr_nbma *nbr_nbma;
 
@@ -3763,12 +3753,10 @@ int ospf_poll_timer(struct thread *thread)
 	if (nbr_nbma->v_poll > 0)
 		OSPF_POLL_TIMER_ON(nbr_nbma->t_poll, ospf_poll_timer,
 				   nbr_nbma->v_poll);
-
-	return 0;
 }
 
 
-int ospf_hello_reply_timer(struct thread *thread)
+void ospf_hello_reply_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -3780,8 +3768,6 @@ int ospf_hello_reply_timer(struct thread *thread)
 			   IF_NAME(nbr->oi), &nbr->router_id);
 
 	ospf_hello_send_sub(nbr->oi, nbr->address.u.prefix4.s_addr);
-
-	return 0;
 }
 
 /* Send OSPF Hello. */
@@ -3980,7 +3966,7 @@ void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
 	list_delete(&update);
 }
 
-/* Determine size for packet. Must be at least big enough to accomodate next
+/* Determine size for packet. Must be at least big enough to accommodate next
  * LSA on list, which may be bigger than MTU size.
  *
  * Return pointer to new ospf_packet
@@ -4124,7 +4110,7 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 	}
 }
 
-static int ospf_ls_upd_send_queue_event(struct thread *thread)
+static void ospf_ls_upd_send_queue_event(struct thread *thread)
 {
 	struct ospf_interface *oi = THREAD_ARG(thread);
 	struct route_node *rn;
@@ -4167,8 +4153,6 @@ static int ospf_ls_upd_send_queue_event(struct thread *thread)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_ls_upd_send_queue stop");
-
-	return 0;
 }
 
 void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
@@ -4272,7 +4256,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	OSPF_ISM_WRITE_ON(oi->ospf);
 }
 
-static int ospf_ls_ack_send_event(struct thread *thread)
+static void ospf_ls_ack_send_event(struct thread *thread)
 {
 	struct ospf_interface *oi = THREAD_ARG(thread);
 
@@ -4281,8 +4265,6 @@ static int ospf_ls_ack_send_event(struct thread *thread)
 	while (listcount(oi->ls_ack_direct.ls_ack))
 		ospf_ls_ack_send_list(oi, oi->ls_ack_direct.ls_ack,
 				      oi->ls_ack_direct.dst);
-
-	return 0;
 }
 
 void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)

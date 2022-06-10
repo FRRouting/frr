@@ -27,15 +27,18 @@
 #define ISIS_MT_AT_MASK        0x4000
 
 #define ISIS_MT_IPV4_UNICAST   0
+#define ISIS_MT_STANDARD ISIS_MT_IPV4_UNICAST
 #define ISIS_MT_IPV4_MGMT      1
 #define ISIS_MT_IPV6_UNICAST   2
 #define ISIS_MT_IPV4_MULTICAST 3
 #define ISIS_MT_IPV6_MULTICAST 4
 #define ISIS_MT_IPV6_MGMT      5
 #define ISIS_MT_IPV6_DSTSRC    3996 /* FIXME: IANA */
+/* Use first Reserved Flag to indicate that there is no MT Topology active */
+#define ISIS_MT_DISABLE        4096
 
 #define ISIS_MT_NAMES                                                          \
-	"<ipv4-unicast"                                                        \
+	"<standard"                                                            \
 	"|ipv4-mgmt"                                                           \
 	"|ipv6-unicast"                                                        \
 	"|ipv4-multicast"                                                      \

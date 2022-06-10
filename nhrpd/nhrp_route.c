@@ -408,9 +408,7 @@ void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
 	}
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      ZEBRA_CONFIGURE_ARP,
-			      ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_CONFIGURE_ARP, ifp->vrf->vrf_id);
 	stream_putc(s, family);
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -433,9 +431,7 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 	}
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      ZEBRA_GRE_SOURCE_SET,
-			      ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_GRE_SOURCE_SET, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 	stream_putl(s, link_idx);
 	stream_putl(s, link_vrf_id);

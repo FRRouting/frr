@@ -232,6 +232,8 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
+	THREAD_OFF(zrouter.sweeper);
+
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
 
@@ -260,6 +262,9 @@ void zebra_router_terminate(void)
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
 #endif
+
+	/* OS-specific deinit */
+	kernel_router_terminate();
 }
 
 bool zebra_router_notify_on_ack(void)
@@ -305,4 +310,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();
 #endif
+
+	/* OS-specific init */
+	kernel_router_init();
 }

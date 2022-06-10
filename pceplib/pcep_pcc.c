@@ -215,7 +215,7 @@ void handle_signal_action(int sig_number)
 int setup_signals()
 {
 	struct sigaction sa;
-	memset(&sa, 0, sizeof(struct sigaction));
+	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = handle_signal_action;
 	if (sigaction(SIGINT, &sa, 0) != 0) {
 		perror("sigaction()");
@@ -273,7 +273,7 @@ void send_pce_report_message(pcep_session *session)
 		pcep_log(LOG_WARNING,
 			 "%s: send_pce_report_message SRP object was NULL",
 			 __func__);
-			dll_destroy_with_data(report_list);
+		dll_destroy_with_data(report_list);
 		return;
 	}
 	dll_append(report_list, obj);
@@ -314,7 +314,7 @@ void send_pce_report_message(pcep_session *session)
 		pcep_log(LOG_WARNING,
 			 "%s: send_pce_report_message LSP object was NULL",
 			 __func__);
-			dll_destroy_with_data(report_list);
+		dll_destroy_with_data(report_list);
 		return;
 	}
 	dll_append(report_list, obj);
@@ -351,7 +351,7 @@ void send_pce_report_message(pcep_session *session)
 		pcep_log(LOG_WARNING,
 			 "%s: send_pce_report_message ERO object was NULL",
 			 __func__);
-			dll_destroy_with_data(report_list);
+		dll_destroy_with_data(report_list);
 		return;
 	}
 	dll_append(report_list, obj);

@@ -8,19 +8,21 @@ Topotests is a suite of topology tests for FRR built on top of micronet.
 Installation and Setup
 ----------------------
 
-Topotests run under python3. Additionally, for ExaBGP (which is used in some of
-the BGP tests) an older python2 version must be installed.
+Topotests run under python3. Additionally, for ExaBGP (which is used
+in some of the BGP tests) an older python2 version (and the python2
+version of ``pip``) must be installed.
 
-Tested with Ubuntu 20.04 and Ubuntu 18.04 and Debian 11.
+Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 
-Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
-tests).
+Instructions are the same for all setups (i.e. ExaBGP is only used for
+BGP tests).
 
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
+   apt-get install gdb
    apt-get install iproute2
    apt-get install net-tools
    apt-get install python3-pip
@@ -33,6 +35,9 @@ Installing Topotest Requirements
    python2 -m pip install 'exabgp<4.0.0'
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
+   # To enable the gRPC topotest install:
+   python3 -m pip install grpcio grpcio-tools
+
 
 Enable Coredumps
 """"""""""""""""
@@ -41,7 +46,6 @@ Optional, will give better output.
 
 .. code:: shell
 
-   apt-get install gdb
    disable apport (which move core files)
 
 Set ``enabled=0`` in ``/etc/default/apport``.
@@ -1087,6 +1091,9 @@ Requirements:
   a pull request. This ensures we have a unified code style.
 - Mark test modules with pytest markers depending on the daemons used during the
   tests (see :ref:`topotests-markers`)
+- Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
+  ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
+  for documentation.
 
 Tips:
 

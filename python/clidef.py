@@ -173,7 +173,7 @@ handlers = {
 # common form, without requiring a more advanced template engine (e.g.
 # jinja2)
 templ = Template(
-    """/* $fnname => "$cmddef" */
+    """$cond_begin/* $fnname => "$cmddef" */
 DEFUN_CMD_FUNC_DECL($fnname)
 #define funcdecl_$fnname static int ${fnname}_magic(\\
 	const struct cmd_element *self __attribute__ ((unused)),\\
@@ -211,7 +211,7 @@ $argblocks
 $argassert
 	return ${fnname}_magic(self, vty, argc, argv$arglist);
 }
-
+$cond_end
 """
 )
 
@@ -241,31 +241,81 @@ def get_always_args(token, always_args, args=[], stack=[]):
 
 
 class Macros(dict):
+    def __init__(self):
+        super().__init__()
+        self._loc = {}
+
     def load(self, filename):
         filedata = clippy.parse(filename)
         for entry in filedata["data"]:
             if entry["type"] != "PREPROC":
                 continue
-            ppdir = entry["line"].lstrip().split(None, 1)
-            if ppdir[0] != "define" or len(ppdir) != 2:
-                continue
-            ppdef = ppdir[1].split(None, 1)
-            name = ppdef[0]
-            if "(" in name:
-                continue
-            val = ppdef[1] if len(ppdef) == 2 else ""
+            self.load_preproc(filename, entry)
 
-            val = val.strip(" \t\n\\")
-            if name in self:
-                sys.stderr.write("warning: macro %s redefined!\n" % (name))
+    def setup(self, key, val, where="built-in"):
+        self[key] = val
+        self._loc[key] = (where, 0)
+
+    def load_preproc(self, filename, entry):
+        ppdir = entry["line"].lstrip().split(None, 1)
+        if ppdir[0] != "define" or len(ppdir) != 2:
+            return
+        ppdef = ppdir[1].split(None, 1)
+        name = ppdef[0]
+        if "(" in name:
+            return
+        val = ppdef[1] if len(ppdef) == 2 else ""
+
+        val = val.strip(" \t\n\\")
+        if self.get(name, val) != val:
+            sys.stderr.write(
+                "%s:%d: warning: macro %s redefined!\n"
+                % (
+                    filename,
+                    entry["lineno"],
+                    name,
+                )
+            )
+            sys.stderr.write(
+                "%s:%d: note: previously defined here\n"
+                % (
+                    self._loc[name][0],
+                    self._loc[name][1],
+                )
+            )
+        else:
             self[name] = val
+            self._loc[name] = (filename, entry["lineno"])
 
 
 def process_file(fn, ofd, dumpfd, all_defun, macros):
     errors = 0
     filedata = clippy.parse(fn)
 
+    cond_stack = []
+
     for entry in filedata["data"]:
+        if entry["type"] == "PREPROC":
+            line = entry["line"].lstrip()
+            tokens = line.split(maxsplit=1)
+            line = "#" + line + "\n"
+
+            if not tokens:
+                continue
+
+            if tokens[0] in ["if", "ifdef", "ifndef"]:
+                cond_stack.append(line)
+            elif tokens[0] in ["elif", "else"]:
+                prev_line = cond_stack.pop(-1)
+                cond_stack.append(prev_line + line)
+            elif tokens[0] in ["endif"]:
+                cond_stack.pop(-1)
+            elif tokens[0] in ["define"]:
+                if not cond_stack:
+                    macros.load_preproc(fn, entry)
+                elif len(cond_stack) == 1 and cond_stack[0] == "#ifdef CLIPPY\n":
+                    macros.load_preproc(fn, entry)
+            continue
         if entry["type"].startswith("DEFPY") or (
             all_defun and entry["type"].startswith("DEFUN")
         ):
@@ -385,6 +435,8 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
                 else:
                     dumpfd.write('"%s":\n\t---- no magic arguments ----\n\n' % (cmddef))
 
+            params["cond_begin"] = "".join(cond_stack)
+            params["cond_end"] = "".join(["#endif\n"] * len(cond_stack))
             params["argdefs"] = "".join(argdefs)
             params["argdecls"] = "".join(argdecls)
             params["arglist"] = "".join(arglist)
@@ -434,9 +486,9 @@ if __name__ == "__main__":
     macros.load(os.path.join(basepath, "lib/command.h"))
     macros.load(os.path.join(basepath, "bgpd/bgp_vty.h"))
     # sigh :(
-    macros["PROTO_REDIST_STR"] = "FRR_REDIST_STR_ISISD"
-    macros["PROTO_IP_REDIST_STR"] = "FRR_IP_REDIST_STR_ISISD"
-    macros["PROTO_IP6_REDIST_STR"] = "FRR_IP6_REDIST_STR_ISISD"
+    macros.setup("PROTO_REDIST_STR", "FRR_REDIST_STR_ISISD")
+    macros.setup("PROTO_IP_REDIST_STR", "FRR_IP_REDIST_STR_ISISD")
+    macros.setup("PROTO_IP6_REDIST_STR", "FRR_IP6_REDIST_STR_ISISD")
 
     errors = process_file(args.cfile, ofd, dumpfd, args.all_defun, macros)
     if errors != 0:

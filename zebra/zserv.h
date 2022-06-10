@@ -36,13 +36,13 @@
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
-
-#include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 /* clang-format on */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_vrf;
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -379,7 +379,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) void zebra_finalize(struct thread *event);
 
 /*
  * Graceful restart functions.

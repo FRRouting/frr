@@ -103,8 +103,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 {
 	struct work_queue *wq = *wqp;
 
-	if (wq->thread != NULL)
-		thread_cancel(&(wq->thread));
+	THREAD_OFF(wq->thread);
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -122,28 +121,28 @@ void work_queue_free_and_null(struct work_queue **wqp)
 
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
-	return (wq->thread != NULL);
+	return thread_is_scheduled(wq->thread);
 }
 
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
-	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL)
-	    && !work_queue_empty(wq)) {
-		wq->thread = NULL;
-
+	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) &&
+	    !thread_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
-		if (delay > 0)
+		if (delay > 0) {
 			thread_add_timer_msec(wq->master, work_queue_run, wq,
 					      delay, &wq->thread);
-		else
+			thread_ignore_late_timer(wq->thread);
+		} else
 			thread_add_event(wq->master, work_queue_run, wq, 0,
 					 &wq->thread);
 
 		/* set thread yield time, if needed */
-		if (wq->thread && wq->spec.yield != THREAD_YIELD_TIME_SLOT)
+		if (thread_is_scheduled(wq->thread) &&
+		    wq->spec.yield != THREAD_YIELD_TIME_SLOT)
 			thread_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;
 	} else
@@ -214,10 +213,7 @@ void workqueue_cmd_init(void)
  */
 void work_queue_plug(struct work_queue *wq)
 {
-	if (wq->thread)
-		thread_cancel(&(wq->thread));
-
-	wq->thread = NULL;
+	THREAD_OFF(wq->thread);
 
 	UNSET_FLAG(wq->flags, WQ_UNPLUGGED);
 }
@@ -237,7 +233,7 @@ void work_queue_unplug(struct work_queue *wq)
  * will reschedule itself if required,
  * otherwise work_queue_item_add
  */
-int work_queue_run(struct thread *thread)
+void work_queue_run(struct thread *thread)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
@@ -248,8 +244,6 @@ int work_queue_run(struct thread *thread)
 	wq = THREAD_ARG(thread);
 
 	assert(wq);
-
-	wq->thread = NULL;
 
 	/* calculate cycle granularity:
 	 * list iteration == 1 run
@@ -387,6 +381,4 @@ stats:
 
 	} else if (wq->spec.completion_func)
 		wq->spec.completion_func(wq);
-
-	return 0;
 }

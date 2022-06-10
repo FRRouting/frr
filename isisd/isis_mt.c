@@ -56,8 +56,8 @@ const char *isis_mtid2str(uint16_t mtid)
 	static char buf[sizeof("65535")];
 
 	switch (mtid) {
-	case ISIS_MT_IPV4_UNICAST:
-		return "ipv4-unicast";
+	case ISIS_MT_STANDARD:
+		return "standard";
 	case ISIS_MT_IPV4_MGMT:
 		return "ipv4-mgmt";
 	case ISIS_MT_IPV6_UNICAST:
@@ -80,6 +80,8 @@ uint16_t isis_str2mtid(const char *name)
 {
 	if (!strcmp(name, "ipv4-unicast"))
 		return ISIS_MT_IPV4_UNICAST;
+	if (!strcmp(name, "standard"))
+		return ISIS_MT_STANDARD;
 	if (!strcmp(name, "ipv4-mgmt"))
 		return ISIS_MT_IPV4_MGMT;
 	if (!strcmp(name, "ipv6-unicast"))
@@ -515,6 +517,17 @@ static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 			    uint8_t *id, uint32_t metric,
 			    struct isis_ext_subtlvs *ext)
 {
+	/* Check if MT is enable for this area */
+	if (!area_is_mt(area)) {
+		lsp_debug(
+			"ISIS (%s): Adding %s.%02x as te-style neighbor (MT disable)",
+			area->area_tag, sysid_print(id), LSP_PSEUDO_ID(id));
+		isis_tlvs_add_extended_reach(tlvs, ISIS_MT_DISABLE, id, metric,
+					     ext);
+		return;
+	}
+
+	/* Process Multi-Topology */
 	for (unsigned int i = 0; i < mt_count; i++) {
 		uint16_t mtid = mt_set[i];
 		if (mt_set[i] == ISIS_MT_IPV4_UNICAST) {

@@ -37,6 +37,7 @@
 #include "smux.h"
 #include "libfrr.h"
 #include "lib/version.h"
+#include "lib/zclient.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -1186,14 +1187,13 @@ static int isis_snmp_adj_helper(struct isis_adjacency *adj, int data_id,
 		break;
 
 	case ISIS_SNMP_ADJ_DATA_IP_ADDR:
-		if (data_off
-		    >= (adj->ipv4_address_count + adj->ipv6_address_count))
+		if (data_off >= (adj->ipv4_address_count + adj->ll_ipv6_count))
 			return 0;
 
 		if (data_off >= adj->ipv4_address_count) {
-			data = (uint8_t *)&adj->ipv6_addresses
+			data = (uint8_t *)&adj->ll_ipv6_addrs
 				       [data_off - adj->ipv4_address_count];
-			data_len = sizeof(adj->ipv6_addresses[0]);
+			data_len = sizeof(adj->ll_ipv6_addrs[0]);
 		} else {
 			data = (uint8_t *)&adj->ipv4_addresses[data_off];
 			data_len = sizeof(adj->ipv4_addresses[0]);
@@ -2571,7 +2571,7 @@ static uint8_t *isis_snmp_find_isadj(struct variable *v, oid *name,
 		 */
 		if (adj->last_upd != 0) {
 			val = time(NULL);
-			if (val < ((time_t)adj->last_upd + (time_t)adj->hold_time))
+			if (val < (adj->last_upd + adj->hold_time))
 				return SNMP_INTEGER(adj->last_upd
 						    + adj->hold_time - val);
 		}

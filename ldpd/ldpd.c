@@ -46,8 +46,8 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
-static int		 main_dispatch_ldpe(struct thread *);
-static int		 main_dispatch_lde(struct thread *);
+static void main_dispatch_ldpe(struct thread *thread);
+static void main_dispatch_lde(struct thread *thread);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 			    struct imsgbuf *);
 static void		 main_imsg_send_net_sockets(int);
@@ -180,7 +180,7 @@ sigusr1(void)
 	zlog_rotate();
 }
 
-static struct quagga_signal_t ldp_signals[] =
+static struct frr_signal_t ldp_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -219,7 +219,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.n_yang_modules = array_size(ldpd_yang_modules),
 );
 
-static int ldp_config_fork_apply(struct thread *t)
+static void ldp_config_fork_apply(struct thread *t)
 {
 	/*
 	 * So the frr_config_fork() function schedules
@@ -231,8 +231,6 @@ static int ldp_config_fork_apply(struct thread *t)
 	 * after the read in of the config.
 	 */
 	ldp_config_apply(NULL, vty_conf);
-
-	return 0;
 }
 
 int
@@ -373,7 +371,7 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
@@ -563,8 +561,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 /* imsg handling */
 /* ARGSUSED */
-static int
-main_dispatch_ldpe(struct thread *thread)
+static void main_dispatch_ldpe(struct thread *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -627,13 +624,10 @@ main_dispatch_ldpe(struct thread *thread)
 		else
 			kill(lde_pid, SIGTERM);
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-static int
-main_dispatch_lde(struct thread *thread)
+static void main_dispatch_lde(struct thread *thread)
 {
 	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
@@ -735,13 +729,10 @@ main_dispatch_lde(struct thread *thread)
 		else
 			kill(ldpe_pid, SIGTERM);
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-int
-ldp_write_handler(struct thread *thread)
+void ldp_write_handler(struct thread *thread)
 {
 	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
@@ -755,12 +746,10 @@ ldp_write_handler(struct thread *thread)
 		/* this pipe is dead, so remove the event handlers */
 		thread_cancel(&iev->ev_read);
 		thread_cancel(&iev->ev_write);
-		return (0);
+		return;
 	}
 
 	imsg_event_add(iev);
-
-	return (0);
 }
 
 void
@@ -828,9 +817,8 @@ evbuf_event_add(struct evbuf *eb)
 				 &eb->ev);
 }
 
-void
-evbuf_init(struct evbuf *eb, int fd, int (*handler)(struct thread *),
-    void *arg)
+void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct thread *),
+		void *arg)
 {
 	msgbuf_init(&eb->wbuf);
 	eb->wbuf.fd = fd;
@@ -1802,7 +1790,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	previous_pw_type = l2vpn->pw_type;
 	previous_mtu = l2vpn->mtu;
 
-	/* merge intefaces */
+	/* merge interfaces */
 	RB_FOREACH_SAFE(lif, l2vpn_if_head, &l2vpn->if_tree, ftmp) {
 		/* find deleted interfaces */
 		if (l2vpn_if_find(xl, lif->ifname) == NULL) {

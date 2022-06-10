@@ -74,7 +74,7 @@
 	 | PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV             \
 	 | PEER_CAP_ENHE_AF_NEGO)
 
-typedef enum { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX } bpacket_attr_vec_type;
+enum bpacket_attr_vec_type { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX };
 
 typedef struct {
 	uint32_t flags;
@@ -204,6 +204,9 @@ struct update_subgroup {
 	/* send prefix count */
 	uint32_t scount;
 
+	/* send prefix count prior to packet update */
+	uint32_t pscount;
+
 	/* announcement attribute hash */
 	struct hash *hash;
 
@@ -248,6 +251,7 @@ struct update_subgroup {
 	uint16_t sflags;
 #define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
 #define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
+#define SUBGRP_STATUS_TABLE_REPARSING (1 << 2)
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
@@ -284,7 +288,7 @@ struct updwalk_context {
 	struct bgp_path_info *pi;
 	uint64_t updgrp_id;
 	uint64_t subgrp_id;
-	bgp_policy_type_e policy_type;
+	enum bgp_policy_type policy_type;
 	const char *policy_name;
 	int policy_event_start_flag;
 	int policy_route_update;
@@ -364,14 +368,15 @@ extern void update_subgroup_split_peer(struct peer_af *, struct update_group *);
 extern bool update_subgroup_check_merge(struct update_subgroup *, const char *);
 extern bool update_subgroup_trigger_merge_check(struct update_subgroup *,
 						int force);
-extern void update_group_policy_update(struct bgp *bgp, bgp_policy_type_e ptype,
+extern void update_group_policy_update(struct bgp *bgp,
+				       enum bgp_policy_type ptype,
 				       const char *pname, int route_update,
 				       int start_event);
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 				 updgrp_walkcb cb, void *ctx);
 extern void update_group_walk(struct bgp *bgp, updgrp_walkcb cb, void *ctx);
 extern void update_group_periodic_merge(struct bgp *bgp);
-extern int
+extern void
 update_group_refresh_default_originate_route_map(struct thread *thread);
 extern void update_group_start_advtimer(struct bgp *bgp);
 
@@ -405,7 +410,7 @@ extern struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 						struct peer_af *paf);
 extern void bpacket_attr_vec_arr_reset(struct bpacket_attr_vec_arr *vecarr);
 extern void bpacket_attr_vec_arr_set_vec(struct bpacket_attr_vec_arr *vecarr,
-					 bpacket_attr_vec_type type,
+					 enum bpacket_attr_vec_type type,
 					 struct stream *s, struct attr *attr);
 extern void subgroup_default_update_packet(struct update_subgroup *subgrp,
 					   struct attr *attr,
@@ -457,7 +462,9 @@ extern int update_group_clear_update_dbg(struct update_group *updgrp,
 					 void *arg);
 
 extern void update_bgp_group_free(struct bgp *bgp);
-extern int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
+extern bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
+extern bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
+			       bool addpath_capable, afi_t afi, safi_t safi);
 
 /*
  * Inline functions

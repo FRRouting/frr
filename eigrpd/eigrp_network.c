@@ -288,7 +288,7 @@ void eigrp_if_update(struct interface *ifp)
 	 * we need to check eac one and add the interface as approperate
 	 */
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
-		if (ifp->vrf_id != eigrp->vrf_id)
+		if (ifp->vrf->vrf_id != eigrp->vrf_id)
 			continue;
 
 		/* EIGRP must be on and Router-ID must be configured. */

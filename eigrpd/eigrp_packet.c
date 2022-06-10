@@ -320,7 +320,7 @@ int eigrp_check_sha256_digest(struct stream *s,
 	return 1;
 }
 
-int eigrp_write(struct thread *thread)
+void eigrp_write(struct thread *thread)
 {
 	struct eigrp *eigrp = THREAD_ARG(thread);
 	struct eigrp_header *eigrph;
@@ -370,7 +370,7 @@ int eigrp_write(struct thread *thread)
 	if (ep->dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS))
 		eigrp_if_ipmulticast(eigrp, &ei->address, ei->ifp->ifindex);
 
-	memset(&iph, 0, sizeof(struct ip));
+	memset(&iph, 0, sizeof(iph));
 	memset(&sa_dst, 0, sizeof(sa_dst));
 
 	/*
@@ -471,12 +471,10 @@ out:
 		thread_add_write(master, eigrp_write, eigrp, eigrp->fd,
 				 &eigrp->t_write);
 	}
-
-	return 0;
 }
 
 /* Starting point of packet process function. */
-int eigrp_read(struct thread *thread)
+void eigrp_read(struct thread *thread)
 {
 	int ret;
 	struct stream *ibuf;
@@ -500,7 +498,7 @@ int eigrp_read(struct thread *thread)
 	if (!(ibuf = eigrp_recv_packet(eigrp, eigrp->fd, &ifp, eigrp->ibuf))) {
 		/* This raw packet is known to be at least as big as its IP
 		 * header. */
-		return -1;
+		return;
 	}
 
 	/* Note that there should not be alignment problems with this assignment
@@ -531,7 +529,7 @@ int eigrp_read(struct thread *thread)
 				      eigrp->vrf_id);
 
 		if (c == NULL)
-			return 0;
+			return;
 
 		ifp = c->ifp;
 	}
@@ -546,7 +544,7 @@ int eigrp_read(struct thread *thread)
 	   must remain very accurate in doing this.
 	*/
 	if (!ei)
-		return 0;
+		return;
 
 	/* Self-originated packet should be discarded silently. */
 	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
@@ -555,7 +553,7 @@ int eigrp_read(struct thread *thread)
 			zlog_debug(
 				"eigrp_read[%pI4]: Dropping self-originated packet",
 				&srcaddr);
-		return 0;
+		return;
 	}
 
 	/* Advance from IP header to EIGRP header (iph->ip_hl has been verified
@@ -574,7 +572,7 @@ int eigrp_read(struct thread *thread)
 				"ignoring packet from router %u sent to %pI4, wrong AS Number received: %u",
 				ntohs(eigrph->vrid), &iph->ip_dst,
 				ntohs(eigrph->ASNumber));
-		return 0;
+		return;
 	}
 
 	/* If incoming interface is passive one, ignore it. */
@@ -588,7 +586,7 @@ int eigrp_read(struct thread *thread)
 		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
 			eigrp_if_set_multicast(ei);
 		}
-		return 0;
+		return;
 	}
 
 	/* else it must be a local eigrp interface, check it was received on
@@ -599,7 +597,7 @@ int eigrp_read(struct thread *thread)
 			zlog_warn(
 				"Packet from [%pI4] received on wrong link %s",
 				&iph->ip_src, ifp->name);
-		return 0;
+		return;
 	}
 
 	/* Verify more EIGRP header fields. */
@@ -609,7 +607,7 @@ int eigrp_read(struct thread *thread)
 			zlog_debug(
 				"eigrp_read[%pI4]: Header check failed, dropping.",
 				&iph->ip_src);
-		return ret;
+		return;
 	}
 
 	/* calcualte the eigrp packet length, and move the pounter to the
@@ -700,8 +698,6 @@ int eigrp_read(struct thread *thread)
 			IF_NAME(ei), opcode);
 		break;
 	}
-
-	return 0;
 }
 
 static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
@@ -717,7 +713,7 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 	char buff[CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
 	struct msghdr msgh;
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	msgh.msg_iov = &iov;
 	msgh.msg_iovlen = 1;
 	msgh.msg_control = (caddr_t)buff;
@@ -989,7 +985,7 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 	return 0;
 }
 
-int eigrp_unack_packet_retrans(struct thread *thread)
+void eigrp_unack_packet_retrans(struct thread *thread)
 {
 	struct eigrp_neighbor *nbr;
 	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
@@ -1005,8 +1001,10 @@ int eigrp_unack_packet_retrans(struct thread *thread)
 		eigrp_fifo_push(nbr->ei->obuf, duplicate);
 
 		ep->retrans_counter++;
-		if (ep->retrans_counter == EIGRP_PACKET_RETRANS_MAX)
-			return eigrp_retrans_count_exceeded(ep, nbr);
+		if (ep->retrans_counter == EIGRP_PACKET_RETRANS_MAX) {
+			eigrp_retrans_count_exceeded(ep, nbr);
+			return;
+		}
 
 		/*Start retransmission timer*/
 		thread_add_timer(master, eigrp_unack_packet_retrans, nbr,
@@ -1021,11 +1019,9 @@ int eigrp_unack_packet_retrans(struct thread *thread)
 		thread_add_write(master, eigrp_write, nbr->ei->eigrp,
 				 nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
 	}
-
-	return 0;
 }
 
-int eigrp_unack_multicast_packet_retrans(struct thread *thread)
+void eigrp_unack_multicast_packet_retrans(struct thread *thread)
 {
 	struct eigrp_neighbor *nbr;
 	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
@@ -1040,8 +1036,10 @@ int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 		eigrp_fifo_push(nbr->ei->obuf, duplicate);
 
 		ep->retrans_counter++;
-		if (ep->retrans_counter == EIGRP_PACKET_RETRANS_MAX)
-			return eigrp_retrans_count_exceeded(ep, nbr);
+		if (ep->retrans_counter == EIGRP_PACKET_RETRANS_MAX) {
+			eigrp_retrans_count_exceeded(ep, nbr);
+			return;
+		}
 
 		/*Start retransmission timer*/
 		thread_add_timer(master, eigrp_unack_multicast_packet_retrans,
@@ -1056,8 +1054,6 @@ int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 		thread_add_write(master, eigrp_write, nbr->ei->eigrp,
 				 nbr->ei->eigrp->fd, &nbr->ei->eigrp->t_write);
 	}
-
-	return 0;
 }
 
 /* Get packet from tail of fifo. */

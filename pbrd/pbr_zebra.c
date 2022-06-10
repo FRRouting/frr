@@ -64,7 +64,7 @@ void pbr_if_del(struct interface *ifp)
 	XFREE(MTYPE_PBR_INTERFACE, ifp->info);
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 int pbr_ifp_create(struct interface *ifp)
 {
 	DEBUGD(&pbr_dbg_zebra, "%s: %s", __func__, ifp->name);
@@ -399,17 +399,19 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route nhr;
+	struct prefix matched;
 	uint32_t i;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("Failure to decode Nexthop update message");
 		return 0;
 	}
 
 	if (DEBUG_MODE_CHECK(&pbr_dbg_zebra, DEBUG_MODE_ALL)) {
 
-		DEBUGD(&pbr_dbg_zebra, "%s: Received Nexthop update: %pFX",
-		       __func__, &nhr.prefix);
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Received Nexthop update: %pFX against %pFX",
+		       __func__, &matched, &nhr.prefix);
 
 		DEBUGD(&pbr_dbg_zebra, "%s:   (Nexthops(%u)", __func__,
 		       nhr.nexthop_num);
@@ -423,6 +425,7 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
+	nhr.prefix = matched;
 	pbr_nht_nexthop_update(&nhr);
 	return 1;
 }
@@ -482,7 +485,8 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 		break;
 	}
 
-	if (zclient_send_rnh(zclient, command, &p, false, false, nhop->vrf_id)
+	if (zclient_send_rnh(zclient, command, &p, SAFI_UNICAST, false, false,
+			     nhop->vrf_id)
 	    == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 	}
@@ -513,7 +517,7 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 	struct pbr_vrf *pbr_vrf;
 
 	if (pbrms->vrf_unchanged)
-		pbr_vrf = pbr_vrf_lookup_by_id(ifp->vrf_id);
+		pbr_vrf = ifp->vrf->info;
 	else
 		pbr_vrf = pbr_vrf_lookup_by_name(pbrms->vrf_name);
 

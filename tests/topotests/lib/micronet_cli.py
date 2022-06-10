@@ -110,14 +110,14 @@ def doline(unet, line, writef):
         args = oargs.split()
         if not args or (len(args) == 1 and args[0] == "*"):
             args = sorted(unet.hosts.keys())
-        hosts = [unet.hosts[x] for x in args]
+        hosts = [unet.hosts[x] for x in args if x in unet.hosts]
         for host in hosts:
             if cmd == "t" or cmd == "term":
-                host.run_in_window("bash")
+                host.run_in_window("bash", title="sh-%s" % host)
             elif cmd == "v" or cmd == "vtysh":
-                host.run_in_window("vtysh")
+                host.run_in_window("vtysh", title="vt-%s" % host)
             elif cmd == "x" or cmd == "xterm":
-                host.run_in_window("bash", forcex=True)
+                host.run_in_window("bash", title="sh-%s" % host, forcex=True)
     elif cmd == "sh":
         hosts, cmd = host_cmd_split(unet, oargs)
         for host in hosts:
@@ -250,6 +250,8 @@ def cli(
     prompt=None,
     background=True,
 ):
+    logger = logging.getLogger("cli-client")
+
     if prompt is None:
         prompt = "unet> "
 

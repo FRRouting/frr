@@ -510,14 +510,12 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 }
 
 /* Handling of grace period expiry. */
-static int ospf_gr_grace_period_expired(struct thread *thread)
+static void ospf_gr_grace_period_expired(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 
 	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
-
-	return 0;
 }
 
 /*
@@ -732,7 +730,7 @@ DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
       "Graceful Restart commands\n"
       "Prepare upcoming graceful restart\n"
       IP_STR
-      "Prepare to restart the OSPF process")
+      "Prepare to restart the OSPF process\n")
 {
 	struct ospf *ospf;
 	struct listnode *node;
@@ -770,7 +768,7 @@ DEFPY(graceful_restart, graceful_restart_cmd,
 }
 
 DEFPY(no_graceful_restart, no_graceful_restart_cmd,
-      "no graceful-restart [period (1-1800)]",
+      "no graceful-restart [grace-period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")

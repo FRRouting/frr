@@ -172,7 +172,6 @@ class Vtysh(object):
 
 
 class Context(object):
-
     """
         A Context object represents a section of frr configuration such as:
     !
@@ -198,6 +197,9 @@ class Context(object):
 
         for ligne in lines:
             self.dlines[ligne] = True
+
+    def __str__(self):
+        return str(self.keys) + " : " + str(self.lines)
 
     def add_lines(self, lines):
         """
@@ -234,7 +236,6 @@ def get_normalized_mac_ip_line(line):
 
 
 class Config(object):
-
     """
     A frr configuration is stored in a Config object. A Config object
     contains a dictionary of Context objects where the Context keys
@@ -265,22 +266,20 @@ class Config(object):
             if ":" in line:
                 line = get_normalized_mac_ip_line(line)
 
-            """
-              vrf static routes can be added in two ways. The old way is:
-
-              "ip route x.x.x.x/x y.y.y.y vrf <vrfname>"
-
-              but it's rendered in the configuration as the new way::
-
-              vrf <vrf-name>
-               ip route x.x.x.x/x y.y.y.y
-               exit-vrf
-
-              this difference causes frr-reload to not consider them a
-              match and delete vrf static routes incorrectly.
-              fix the old way to match new "show running" output so a
-              proper match is found.
-            """
+            # vrf static routes can be added in two ways. The old way is:
+            #
+            # "ip route x.x.x.x/x y.y.y.y vrf <vrfname>"
+            #
+            # but it's rendered in the configuration as the new way::
+            #
+            # vrf <vrf-name>
+            #  ip route x.x.x.x/x y.y.y.y
+            #  exit-vrf
+            #
+            # this difference causes frr-reload to not consider them a
+            # match and delete vrf static routes incorrectly.
+            # fix the old way to match new "show running" output so a
+            # proper match is found.
             if (
                 line.startswith("ip route ") or line.startswith("ipv6 route ")
             ) and " vrf " in line:
@@ -326,33 +325,28 @@ class Config(object):
         """
         Return the lines read in from the configuration
         """
-
         return "\n".join(self.lines)
 
     def get_contexts(self):
         """
         Return the parsed context as strings for display, log etc.
         """
-
         for (_, ctx) in sorted(iteritems(self.contexts)):
-            print(str(ctx) + "\n")
+            print(str(ctx))
 
     def save_contexts(self, key, lines):
         """
         Save the provided key and lines as a context
         """
-
         if not key:
             return
 
-        """
-            IP addresses specified in "network" statements, "ip prefix-lists"
-            etc. can differ in the host part of the specification the user
-            provides and what the running config displays. For example, user
-            can specify 11.1.1.1/24, and the running config displays this as
-            11.1.1.0/24. Ensure we don't do a needless operation for such
-            lines. IS-IS & OSPFv3 have no "network" support.
-        """
+        # IP addresses specified in "network" statements, "ip prefix-lists"
+        # etc. can differ in the host part of the specification the user
+        # provides and what the running config displays. For example, user can
+        # specify 11.1.1.1/24, and the running config displays this as
+        # 11.1.1.0/24. Ensure we don't do a needless operation for such lines.
+        # IS-IS & OSPFv3 have no "network" support.
         re_key_rt = re.match(r"(ip|ipv6)\s+route\s+([A-Fa-f:.0-9/]+)(.*)$", key[0])
         if re_key_rt:
             addr = re_key_rt.group(2)
@@ -430,10 +424,8 @@ class Config(object):
                     newlines.append(line)
             lines = newlines
 
-        """
-          More fixups in user specification and what running config shows.
-          "null0" in routes must be replaced by Null0.
-        """
+        # More fixups in user specification and what running config shows.
+        # "null0" in routes must be replaced by Null0.
         if (
             key[0].startswith("ip route")
             or key[0].startswith("ipv6 route")
@@ -441,18 +433,12 @@ class Config(object):
         ):
             key[0] = re.sub(r"\s+null0(\s*$)", " Null0", key[0])
 
-        """
-          Similar to above, but when the static is in a vrf, it turns into a
-          blackhole nexthop for both null0 and Null0.  Fix it accordingly
-        """
         if lines and key[0].startswith("vrf "):
             newlines = []
             for line in lines:
                 if line.startswith("ip route ") or line.startswith("ipv6 route "):
                     if "null0" in line:
-                        line = re.sub(r"\s+null0(\s*$)", " blackhole", line)
-                    elif "Null0" in line:
-                        line = re.sub(r"\s+Null0(\s*$)", " blackhole", line)
+                        line = re.sub(r"\s+null0(\s*$)", " Null0", line)
                     newlines.append(line)
                 else:
                     newlines.append(line)
@@ -474,79 +460,68 @@ class Config(object):
     def load_contexts(self):
         """
         Parse the configuration and create contexts for each appropriate block
-        """
 
-        """
         The end of a context is flagged via the 'end' keyword:
 
-!
-interface swp52
- ipv6 nd suppress-ra
- link-detect
-!
-end
-router bgp 10
- bgp router-id 10.0.0.1
- bgp log-neighbor-changes
- no bgp default ipv4-unicast
- neighbor EBGP peer-group
- neighbor EBGP advertisement-interval 1
- neighbor EBGP timers connect 10
- neighbor 2001:40:1:4::6 remote-as 40
- neighbor 2001:40:1:8::a remote-as 40
-!
-end
- address-family ipv6
- neighbor IBGPv6 activate
- neighbor 2001:10::2 peer-group IBGPv6
- neighbor 2001:10::3 peer-group IBGPv6
- exit-address-family
-!
-end
- address-family evpn
-  neighbor LEAF activate
-  advertise-all-vni
-  vni 10100
-   rd 65000:10100
-   route-target import 10.1.1.1:10100
-   route-target export 10.1.1.1:10100
-  exit-vni
- exit-address-family
-!
-end
-router ospf
- ospf router-id 10.0.0.1
- log-adjacency-changes detail
- timers throttle spf 0 50 5000
-!
-end
+        !
+        interface swp52
+         ipv6 nd suppress-ra
+         link-detect
+        !
+        end
+        router bgp 10
+         bgp router-id 10.0.0.1
+         bgp log-neighbor-changes
+         no bgp default ipv4-unicast
+         neighbor EBGP peer-group
+         neighbor EBGP advertisement-interval 1
+         neighbor EBGP timers connect 10
+         neighbor 2001:40:1:4::6 remote-as 40
+         neighbor 2001:40:1:8::a remote-as 40
+        !
+        end
+         address-family ipv6
+         neighbor IBGPv6 activate
+         neighbor 2001:10::2 peer-group IBGPv6
+         neighbor 2001:10::3 peer-group IBGPv6
+         exit-address-family
+        !
+        end
+        router ospf
+         ospf router-id 10.0.0.1
+         log-adjacency-changes detail
+         timers throttle spf 0 50 5000
+        !
+        end
+
+        The code assumes that its working on the output from the "vtysh -m"
+        command. That provides the appropriate markers to signify end of
+        a context. This routine uses that to build the contexts for the
+        config.
+
+        There are single line contexts such as "log file /media/node/zebra.log"
+        and multi-line contexts such as "router ospf" and subcontexts
+        within a context such as "address-family" within "router bgp"
+        In each of these cases, the first line of the context becomes the
+        key of the context. So "router bgp 10" is the key for the non-address
+        family part of bgp, "router bgp 10, address-family ipv6 unicast" is
+        the key for the subcontext and so on.
+
+        This dictionary contains a tree of all commands that we know start a
+        new multi-line context. All other commands are treated either as
+        commands inside a multi-line context or as single-line contexts. This
+        dictionary should be updated whenever a new node is added to FRR.
         """
-
-        # The code assumes that its working on the output from the "vtysh -m"
-        # command. That provides the appropriate markers to signify end of
-        # a context. This routine uses that to build the contexts for the
-        # config.
-        #
-        # There are single line contexts such as "log file /media/node/zebra.log"
-        # and multi-line contexts such as "router ospf" and subcontexts
-        # within a context such as "address-family" within "router bgp"
-        # In each of these cases, the first line of the context becomes the
-        # key of the context. So "router bgp 10" is the key for the non-address
-        # family part of bgp, "router bgp 10, address-family ipv6 unicast" is
-        # the key for the subcontext and so on.
-
-        # This dictionary contains a tree of all commands that we know start a
-        # new multi-line context. All other commands are treated either as
-        # commands inside a multi-line context or as single-line contexts. This
-        # dictionary should be updated whenever a new node is added to FRR.
         ctx_keywords = {
             "router bgp ": {
                 "address-family ": {
                     "vni ": {},
                 },
-                "vnc ": {},
+                "vnc defaults": {},
+                "vnc nve-group ": {},
+                "vnc l2-group ": {},
                 "vrf-policy ": {},
-                "bmp ": {},
+                "bmp targets ": {},
                 "segment-routing srv6": {},
             },
             "router rip": {},
@@ -788,71 +763,124 @@ def check_for_exit_vrf(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
-"""
-This method handles deletion of bgp peer group config.
-The objective is to delete config lines related to peers
-associated with the peer-group and move the peer-group
-config line to the end of the lines_to_del list.
-"""
+def bgp_delete_inst_move_line(lines_to_del):
+    # Deletion of bgp default inst followed by
+    # bgp vrf inst leads to issue of default
+    # instance can not be removed.
+    # Move the bgp default instance line to end.
+    bgp_defult_inst = False
+    bgp_vrf_inst = False
+
+    for (ctx_keys, line) in lines_to_del:
+        # Find bgp default inst
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and not line
+            and "vrf" not in ctx_keys[0]
+        ):
+            bgp_defult_inst = True
+        # Find bgp vrf inst
+        if ctx_keys[0].startswith("router bgp") and not line and "vrf" in ctx_keys[0]:
+            bgp_vrf_inst = True
+
+    if bgp_defult_inst and bgp_vrf_inst:
+        for (ctx_keys, line) in lines_to_del:
+            # move bgp default inst to end
+            if (
+                ctx_keys[0].startswith("router bgp")
+                and not line
+                and "vrf" not in ctx_keys[0]
+            ):
+                lines_to_del.remove((ctx_keys, line))
+                lines_to_del.append((ctx_keys, line))
 
 
-def delete_move_lines(lines_to_add, lines_to_del):
+def bgp_delete_nbr_remote_as_line(lines_to_add):
+    # Handle deletion of neighbor <nbr> remote-as line from
+    # lines_to_add if the nbr is configured with peer-group and
+    # peer-group has remote-as config present.
+    # 'neighbor <nbr> remote-as change on peer is not allowed
+    # if the peer is part of peer-group and peer-group has
+    # remote-as config.
 
-    del_dict = dict()
-    # Stores the lines to move to the end of the pending list.
+    pg_dict = dict()
+    # Find all peer-group commands; create dict of each peer-group
+    # to store assoicated neighbor as value
+    for ctx_keys, line in lines_to_add:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            # {'router bgp 65001': {'PG': [], 'PG1': []},
+            # 'router bgp 65001 vrf vrf1': {'PG': [], 'PG1': []}}
+            if ctx_keys[0] not in pg_dict:
+                pg_dict[ctx_keys[0]] = dict()
+            # find 'neighbor <pg_name> peer-group'
+            re_pg = re.match("neighbor (\S+) peer-group$", line)
+            if re_pg and re_pg.group(1) not in pg_dict[ctx_keys[0]]:
+                pg_dict[ctx_keys[0]][re_pg.group(1)] = {
+                    "nbr": list(),
+                    "remoteas": False,
+                }
+                found_pg_cmd = True
+
+    # Find peer-group with remote-as command, also search neighbor
+    # associated to peer-group and store into peer-group dict
+    for ctx_keys, line in lines_to_add:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            if ctx_keys[0] in pg_dict:
+                for pg_key in pg_dict[ctx_keys[0]]:
+                    # Find 'neighbor <pg_name> remote-as'
+                    pg_rmtas = "neighbor %s remote-as (\S+)" % pg_key
+                    re_pg_rmtas = re.search(pg_rmtas, line)
+                    if re_pg_rmtas:
+                        pg_dict[ctx_keys[0]][pg_key]["remoteas"] = True
+
+                    # Find 'neighbor <peer> [interface] peer-group <pg_name>'
+                    nb_pg = "neighbor (\S+) peer-group %s$" % pg_key
+                    re_nbr_pg = re.search(nb_pg, line)
+                    if (
+                        re_nbr_pg
+                        and re_nbr_pg.group(1) not in pg_dict[ctx_keys[0]][pg_key]
+                    ):
+                        pg_dict[ctx_keys[0]][pg_key]["nbr"].append(re_nbr_pg.group(1))
+
+    # Find any neighbor <nbr> remote-as config line check if the nbr
+    # is in the peer group's list of nbrs. Remove 'neighbor <nbr> remote-as <>'
+    # from lines_to_add.
+    lines_to_del_from_add = []
+    for ctx_keys, line in lines_to_add:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            nbr_rmtas = "neighbor (\S+) remote-as.*"
+            re_nbr_rmtas = re.search(nbr_rmtas, line)
+            if re_nbr_rmtas and ctx_keys[0] in pg_dict:
+                for pg in pg_dict[ctx_keys[0]]:
+                    if pg_dict[ctx_keys[0]][pg]["remoteas"] == True:
+                        for nbr in pg_dict[ctx_keys[0]][pg]["nbr"]:
+                            if re_nbr_rmtas.group(1) in nbr:
+                                lines_to_del_from_add.append((ctx_keys, line))
+
+    for ctx_keys, line in lines_to_del_from_add:
+        lines_to_add.remove((ctx_keys, line))
+
+
+def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
+
+    # This method handles deletion of bgp neighbor configs,
+    # if there is neighbor to peer-group cmd is in delete list.
+    # As 'no neighbor .* peer-group' deletes the neighbor,
+    # subsequent neighbor speciic config line deletion results
+    # in error.
     lines_to_del_to_del = []
-    # Stores the lines to move to end of the pending list.
-    lines_to_del_to_app = []
-    found_pg_del_cmd = False
-
-    """
-    When "neighbor <pg_name> peer-group" under a bgp instance is removed,
-    it also deletes the associated peer config. Any config line below no form of
-    peer-group related to a peer are errored out as the peer no longer exists.
-    To cleanup peer-group and associated peer(s) configs:
-    - Remove all the peers config lines from the pending list (lines_to_del list).
-    - Move peer-group deletion line to the end of the pending list, to allow
-    removal of any of the peer-group specific configs.
-
-    Create a dictionary of config context (i.e. router bgp vrf x).
-    Under each context node, create a dictionary of a peer-group name.
-    Append a peer associated to the peer-group into a list under a peer-group node.
-    Remove all of the peer associated config lines from the pending list.
-    Append peer-group deletion line to end of the pending list.
-
-    Example:
-      neighbor underlay peer-group
-      neighbor underlay remote-as external
-      neighbor underlay advertisement-interval 0
-      neighbor underlay timers 3 9
-      neighbor underlay timers connect 10
-      neighbor swp1 interface peer-group underlay
-      neighbor swp1 advertisement-interval 0
-      neighbor swp1 timers 3 9
-      neighbor swp1 timers connect 10
-      neighbor swp2 interface peer-group underlay
-      neighbor swp2 advertisement-interval 0
-      neighbor swp2 timers 3 9
-      neighbor swp2 timers connect 10
-      neighbor swp3 interface peer-group underlay
-      neighbor uplink1 interface remote-as internal
-      neighbor uplink1 advertisement-interval 0
-      neighbor uplink1 timers 3 9
-      neighbor uplink1 timers connect 10
-
-    New order:
-      "router bgp 200  no bgp bestpath as-path multipath-relax"
-      "router bgp 200  no neighbor underlay advertisement-interval 0"
-      "router bgp 200  no neighbor underlay timers 3 9"
-      "router bgp 200  no neighbor underlay timers connect 10"
-      "router bgp 200  no neighbor uplink1 advertisement-interval 0"
-      "router bgp 200  no neighbor uplink1 timers 3 9"
-      "router bgp 200  no neighbor uplink1 timers connect 10"
-      "router bgp 200  no neighbor underlay remote-as external"
-      "router bgp 200  no neighbor uplink1 interface remote-as internal"
-      "router bgp 200  no neighbor underlay peer-group"
-
-    """
 
     for (ctx_keys, line) in lines_to_del:
         if (
@@ -860,55 +888,144 @@ def delete_move_lines(lines_to_add, lines_to_del):
             and line
             and line.startswith("neighbor ")
         ):
-            """
-            When 'neighbor <peer> remote-as <>' is removed it deletes the peer,
-            there might be a peer associated config which also needs to be removed
-            prior to peer.
-            Append the 'neighbor <peer> remote-as <>' to the lines_to_del.
-            Example:
+            if ctx_keys[0] in del_nbr_dict:
+                for nbr in del_nbr_dict[ctx_keys[0]]:
+                    re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+                    nb_exp = "neighbor %s .*" % nbr
+                    if not re_nbr_pg:
+                        re_nb = re.search(nb_exp, line)
+                        if re_nb:
+                            lines_to_del_to_del.append((ctx_keys, line))
 
-             neighbor uplink1 interface remote-as internal
-             neighbor uplink1 advertisement-interval 0
-             neighbor uplink1 timers 3 9
-             neighbor uplink1 timers connect 10
+    for (ctx_keys, line) in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
 
-             Move to end:
-             neighbor uplink1 advertisement-interval 0
-             neighbor uplink1 timers 3 9
-             neighbor uplink1 timers connect 10
-             ...
 
-             neighbor uplink1 interface remote-as internal
+def delete_move_lines(lines_to_add, lines_to_del):
+    # This method handles deletion of bgp peer group config.
+    # The objective is to delete config lines related to peers
+    # associated with the peer-group and move the peer-group
+    # config line to the end of the lines_to_del list.
 
-            """
+    bgp_delete_nbr_remote_as_line(lines_to_add)
+
+    del_dict = dict()
+    del_nbr_dict = dict()
+    # Stores the lines to move to the end of the pending list.
+    lines_to_del_to_del = []
+    # Stores the lines to move to end of the pending list.
+    lines_to_del_to_app = []
+    found_pg_del_cmd = False
+
+    # When "neighbor <pg_name> peer-group" under a bgp instance is removed,
+    # it also deletes the associated peer config. Any config line below no form of
+    # peer-group related to a peer are errored out as the peer no longer exists.
+    # To cleanup peer-group and associated peer(s) configs:
+    # - Remove all the peers config lines from the pending list (lines_to_del list).
+    # - Move peer-group deletion line to the end of the pending list, to allow
+    # removal of any of the peer-group specific configs.
+    #
+    # Create a dictionary of config context (i.e. router bgp vrf x).
+    # Under each context node, create a dictionary of a peer-group name.
+    # Append a peer associated to the peer-group into a list under a peer-group node.
+    # Remove all of the peer associated config lines from the pending list.
+    # Append peer-group deletion line to end of the pending list.
+    #
+    # Example:
+    #   neighbor underlay peer-group
+    #   neighbor underlay remote-as external
+    #   neighbor underlay advertisement-interval 0
+    #   neighbor underlay timers 3 9
+    #   neighbor underlay timers connect 10
+    #   neighbor swp1 interface peer-group underlay
+    #   neighbor swp1 advertisement-interval 0
+    #   neighbor swp1 timers 3 9
+    #   neighbor swp1 timers connect 10
+    #   neighbor swp2 interface peer-group underlay
+    #   neighbor swp2 advertisement-interval 0
+    #   neighbor swp2 timers 3 9
+    #   neighbor swp2 timers connect 10
+    #   neighbor swp3 interface peer-group underlay
+    #   neighbor uplink1 interface remote-as internal
+    #   neighbor uplink1 advertisement-interval 0
+    #   neighbor uplink1 timers 3 9
+    #   neighbor uplink1 timers connect 10
+
+    # New order:
+    #   "router bgp 200  no bgp bestpath as-path multipath-relax"
+    #   "router bgp 200  no neighbor underlay advertisement-interval 0"
+    #   "router bgp 200  no neighbor underlay timers 3 9"
+    #   "router bgp 200  no neighbor underlay timers connect 10"
+    #   "router bgp 200  no neighbor uplink1 advertisement-interval 0"
+    #   "router bgp 200  no neighbor uplink1 timers 3 9"
+    #   "router bgp 200  no neighbor uplink1 timers connect 10"
+    #   "router bgp 200  no neighbor underlay remote-as external"
+    #   "router bgp 200  no neighbor uplink1 interface remote-as internal"
+    #   "router bgp 200  no neighbor underlay peer-group"
+
+    for (ctx_keys, line) in lines_to_del:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            # When 'neighbor <peer> remote-as <>' is removed it deletes the peer,
+            # there might be a peer associated config which also needs to be removed
+            # prior to peer.
+            # Append the 'neighbor <peer> remote-as <>' to the lines_to_del.
+            # Example:
+            #
+            #  neighbor uplink1 interface remote-as internal
+            #  neighbor uplink1 advertisement-interval 0
+            #  neighbor uplink1 timers 3 9
+            #  neighbor uplink1 timers connect 10
+
+            #  Move to end:
+            #  neighbor uplink1 advertisement-interval 0
+            #  neighbor uplink1 timers 3 9
+            #  neighbor uplink1 timers connect 10
+            #  ...
+            #
+            #  neighbor uplink1 interface remote-as internal
+            #
             # 'no neighbor peer [interface] remote-as <>'
             nb_remoteas = "neighbor (\S+) .*remote-as (\S+)"
             re_nb_remoteas = re.search(nb_remoteas, line)
             if re_nb_remoteas:
                 lines_to_del_to_app.append((ctx_keys, line))
 
-            """
-            {'router bgp 65001': {'PG': [], 'PG1': []},
-            'router bgp 65001 vrf vrf1': {'PG': [], 'PG1': []}}
-            """
+            # 'no neighbor peer [interface] peer-group <>' is in lines_to_del
+            # copy the neighbor and look for all config removal lines associated
+            # to neighbor and delete them from the lines_to_del
+            re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+            if re_nbr_pg:
+                if ctx_keys[0] not in del_nbr_dict:
+                    del_nbr_dict[ctx_keys[0]] = list()
+                if re_nbr_pg.group(1) not in del_nbr_dict[ctx_keys[0]]:
+                    del_nbr_dict[ctx_keys[0]].append(re_nbr_pg.group(1))
+
+            # {'router bgp 65001': {'PG': [], 'PG1': []},
+            # 'router bgp 65001 vrf vrf1': {'PG': [], 'PG1': []}}
             if ctx_keys[0] not in del_dict:
                 del_dict[ctx_keys[0]] = dict()
             # find 'no neighbor <pg_name> peer-group'
             re_pg = re.match("neighbor (\S+) peer-group$", line)
             if re_pg and re_pg.group(1) not in del_dict[ctx_keys[0]]:
                 del_dict[ctx_keys[0]][re_pg.group(1)] = list()
+                found_pg_del_cmd = True
+
+    if found_pg_del_cmd == False:
+        bgp_delete_inst_move_line(lines_to_del)
+        if del_nbr_dict:
+            bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict)
+        return (lines_to_add, lines_to_del)
 
     for (ctx_keys, line) in lines_to_del_to_app:
         lines_to_del.remove((ctx_keys, line))
         lines_to_del.append((ctx_keys, line))
 
-    if found_pg_del_cmd == False:
-        return (lines_to_add, lines_to_del)
-
-    """
-    {'router bgp 65001': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']},
-     'router bgp 65001 vrf vrf1': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']}}
-    """
+    # {'router bgp 65001': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']},
+    #  'router bgp 65001 vrf vrf1': {'PG': ['10.1.1.2'], 'PG1': ['10.1.1.21']}}
     for (ctx_keys, line) in lines_to_del:
         if (
             ctx_keys[0].startswith("router bgp")
@@ -954,6 +1071,8 @@ def delete_move_lines(lines_to_add, lines_to_del):
         lines_to_del.remove((ctx_keys, line))
         lines_to_del.append((ctx_keys, line))
 
+    bgp_delete_inst_move_line(lines_to_del)
+
     return (lines_to_add, lines_to_del)
 
 
@@ -982,25 +1101,22 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         if ctx_keys[0].startswith("router bgp") and line:
 
             if line.startswith("neighbor "):
-                """
-                BGP changed how it displays swpX peers that are part of peer-group. Older
-                versions of frr would display these on separate lines:
-                    neighbor swp1 interface
-                    neighbor swp1 peer-group FOO
-
-                but today we display via a single line
-                    neighbor swp1 interface peer-group FOO
-
-                This change confuses frr-reload.py so check to see if we are deleting
-                    neighbor swp1 interface peer-group FOO
-
-                and adding
-                    neighbor swp1 interface
-                    neighbor swp1 peer-group FOO
-
-                If so then chop the del line and the corresponding add lines
-                """
-
+                # BGP changed how it displays swpX peers that are part of peer-group. Older
+                # versions of frr would display these on separate lines:
+                #     neighbor swp1 interface
+                #     neighbor swp1 peer-group FOO
+                #
+                # but today we display via a single line
+                #     neighbor swp1 interface peer-group FOO
+                #
+                # This change confuses frr-reload.py so check to see if we are deleting
+                #     neighbor swp1 interface peer-group FOO
+                #
+                # and adding
+                #     neighbor swp1 interface
+                #     neighbor swp1 peer-group FOO
+                #
+                # If so then chop the del line and the corresponding add lines
                 re_swpx_int_peergroup = re.search(
                     "neighbor (\S+) interface peer-group (\S+)", line
                 )
@@ -1052,12 +1168,10 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((ctx_keys, swpx_interface))
                         lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
 
-                """
-                Changing the bfd timers on neighbors is allowed without doing
-                a delete/add process. Since doing a "no neighbor blah bfd ..."
-                will cause the peer to bounce unnecessarily, just skip the delete
-                and just do the add.
-                """
+                # Changing the bfd timers on neighbors is allowed without doing
+                # a delete/add process. Since doing a "no neighbor blah bfd
+                # ..." will cause the peer to bounce unnecessarily, just skip
+                # the delete and just do the add.
                 re_nbr_bfd_timers = re.search(
                     r"neighbor (\S+) bfd (\S+) (\S+) (\S+)", line
                 )
@@ -1081,16 +1195,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                                 if found_add_bfd_nbr:
                                     lines_to_del_to_del.append((ctx_keys, line))
 
-                """
-                Neighbor changes of route-maps need to be accounted for in that we
-                do not want to do a `no route-map...` `route-map ....` when changing
-                a route-map.  This is bad mojo as that we will send/receive
-                data we don't want.
-                Additionally we need to ensure that if we have different afi/safi
-                variants that they actually match and if we are going from a very
-                old style command such that the neighbor command is under the
-                `router bgp ..` node that we need to handle that appropriately
-                """
+                # Neighbor changes of route-maps need to be accounted for in
+                # that we do not want to do a `no route-map...` `route-map
+                # ....` when changing a route-map.  This is bad mojo as that we
+                # will send/receive data we don't want.  Additionally we need
+                # to ensure that if we have different afi/safi variants that
+                # they actually match and if we are going from a very old style
+                # command such that the neighbor command is under the `router
+                # bgp ..` node that we need to handle that appropriately
                 re_nbr_rm = re.search("neighbor(.*)route-map(.*)(in|out)$", line)
                 if re_nbr_rm:
                     adjust_for_bgp_node = 0
@@ -1128,29 +1240,27 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                                 if save_line == dl_line:
                                     lines_to_del_to_del.append((ctx_keys_dl, save_line))
 
-                """
-                We changed how we display the neighbor interface command. Older
-                versions of frr would display the following:
-                    neighbor swp1 interface
-                    neighbor swp1 remote-as external
-                    neighbor swp1 capability extended-nexthop
-
-                but today we display via a single line
-                    neighbor swp1 interface remote-as external
-
-                and capability extended-nexthop is no longer needed because we
-                automatically enable it when the neighbor is of type interface.
-
-                This change confuses frr-reload.py so check to see if we are deleting
-                    neighbor swp1 interface remote-as (external|internal|ASNUM)
-
-                and adding
-                    neighbor swp1 interface
-                    neighbor swp1 remote-as (external|internal|ASNUM)
-                    neighbor swp1 capability extended-nexthop
-
-                If so then chop the del line and the corresponding add lines
-                """
+                # We changed how we display the neighbor interface command. Older
+                # versions of frr would display the following:
+                #     neighbor swp1 interface
+                #     neighbor swp1 remote-as external
+                #     neighbor swp1 capability extended-nexthop
+                #
+                # but today we display via a single line
+                #     neighbor swp1 interface remote-as external
+                #
+                # and capability extended-nexthop is no longer needed because we
+                # automatically enable it when the neighbor is of type interface.
+                #
+                # This change confuses frr-reload.py so check to see if we are deleting
+                #     neighbor swp1 interface remote-as (external|internal|ASNUM)
+                #
+                # and adding
+                #     neighbor swp1 interface
+                #     neighbor swp1 remote-as (external|internal|ASNUM)
+                #     neighbor swp1 capability extended-nexthop
+                #
+                # If so then chop the del line and the corresponding add lines
                 re_swpx_int_remoteas = re.search(
                     "neighbor (\S+) interface remote-as (\S+)", line
                 )
@@ -1186,15 +1296,13 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((ctx_keys, swpx_interface))
                         lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
 
-            """
-            We made the 'bgp bestpath as-path multipath-relax' command
-            automatically assume 'no-as-set' since the lack of this option caused
-            weird routing problems. When the running config is shown in
-            releases with this change, the no-as-set keyword is not shown as it
-            is the default. This causes frr-reload to unnecessarily unapply
-            this option only to apply it back again, causing unnecessary session
-            resets.
-            """
+            # We made the 'bgp bestpath as-path multipath-relax' command
+            # automatically assume 'no-as-set' since the lack of this option
+            # caused weird routing problems. When the running config is shown
+            # in releases with this change, the no-as-set keyword is not shown
+            # as it is the default. This causes frr-reload to unnecessarily
+            # unapply this option only to apply it back again, causing
+            # unnecessary session resets.
             if "multipath-relax" in line:
                 re_asrelax_new = re.search(
                     "^bgp\s+bestpath\s+as-path\s+multipath-relax$", line
@@ -1207,25 +1315,21 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_del_to_del.append((ctx_keys, line))
                     lines_to_add_to_del.append((ctx_keys, old_asrelax_cmd))
 
-            """
-            If we are modifying the BGP table-map we need to avoid a del/add and
-            instead modify the table-map in place via an add.  This is needed to
-            avoid installing all routes in the RIB the second the 'no table-map'
-            is issued.
-            """
+            # If we are modifying the BGP table-map we need to avoid a del/add
+            # and instead modify the table-map in place via an add.  This is
+            # needed to avoid installing all routes in the RIB the second the
+            # 'no table-map' is issued.
             if line.startswith("table-map"):
                 found_table_map = line_exist(lines_to_add, ctx_keys, "table-map", False)
 
                 if found_table_map:
                     lines_to_del_to_del.append((ctx_keys, line))
 
-        """
-        More old-to-new config handling. ip import-table no longer accepts
-        distance, but we honor the old syntax. But 'show running' shows only
-        the new syntax. This causes an unnecessary 'no import-table' followed
-        by the same old 'ip import-table' which causes perturbations in
-        announced routes leading to traffic blackholes. Fix this issue.
-        """
+        # More old-to-new config handling. ip import-table no longer accepts
+        # distance, but we honor the old syntax. But 'show running' shows only
+        # the new syntax. This causes an unnecessary 'no import-table' followed
+        # by the same old 'ip import-table' which causes perturbations in
+        # announced routes leading to traffic blackholes. Fix this issue.
         re_importtbl = re.search("^ip\s+import-table\s+(\d+)$", ctx_keys[0])
         if re_importtbl:
             table_num = re_importtbl.group(1)
@@ -1236,17 +1340,16 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     )
                     lines_to_add_to_del.append((ctx[0], None))
 
-        """
-        ip/ipv6 prefix-lists and access-lists can be specified without a seq number.
-        However, the running config always adds 'seq x', where x is a number
-        incremented by 5 for every element of the prefix/access list.
-        So, ignore such lines as well. Sample prefix-list and acces-list lines:
-             ip prefix-list PR-TABLE-2 seq 5 permit 20.8.2.0/24 le 32
-             ip prefix-list PR-TABLE-2 seq 10 permit 20.8.2.0/24 le 32
-             ipv6 prefix-list vrfdev6-12 permit 2000:9:2::/64 gt 64
-             access-list FOO seq 5 permit 2.2.2.2/32
-             ipv6 access-list BAR seq 5 permit 2:2:2::2/128
-        """
+        # ip/ipv6 prefix-lists and access-lists can be specified without a seq
+        # number.  However, the running config always adds 'seq x', where x is
+        # a number incremented by 5 for every element of the prefix/access
+        # list.  So, ignore such lines as well. Sample prefix-list and
+        # acces-list lines:
+        #      ip prefix-list PR-TABLE-2 seq 5 permit 20.8.2.0/24 le 32
+        #      ip prefix-list PR-TABLE-2 seq 10 permit 20.8.2.0/24 le 32
+        #      ipv6 prefix-list vrfdev6-12 permit 2000:9:2::/64 gt 64
+        #      access-list FOO seq 5 permit 2.2.2.2/32
+        #      ipv6 access-list BAR seq 5 permit 2:2:2::2/128
         re_acl_pfxlst = re.search(
             "^(ip |ipv6 |)(prefix-list|access-list)(\s+\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
             ctx_keys[0],
@@ -1265,12 +1368,9 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
                     found = True
-            """
-            If prefix-lists or access-lists are being deleted and
-            not added (see comment above), add command with 'no' to
-            lines_to_add and remove from lines_to_del to improve
-            scaling performance.
-            """
+            # If prefix-lists or access-lists are being deleted and not added
+            # (see comment above), add command with 'no' to lines_to_add and
+            # remove from lines_to_del to improve scaling performance.
             if found is False:
                 add_cmd = ("no " + ctx_keys[0],)
                 lines_to_add.append((add_cmd, None))
@@ -1302,16 +1402,12 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add, ctx_keys, route_target_both_line
                 )
 
-                """
-                If the running configs has
-                    route-target import 1:1
-                    route-target export 1:1
-
-                and the config we are reloading against has
-                    route-target both 1:1
-
-                then we can ignore deleting the import/export and ignore adding the 'both'
-                """
+                # If the running configs has
+                #     route-target import 1:1
+                #     route-target export 1:1
+                # and the config we are reloading against has
+                #     route-target both 1:1
+                # then we can ignore deleting the import/export and ignore adding the 'both'
                 if found_route_target_export_line and found_route_target_both_line:
                     lines_to_del_to_del.append((ctx_keys, route_target_import_line))
                     lines_to_del_to_del.append((ctx_keys, route_target_export_line))
@@ -1333,23 +1429,21 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 lines_to_del_to_del.append((ctx_keys, line))
                 lines_to_add_to_del.append((ctx_keys, line))
             else:
-                """
-                We have commands that used to be displayed in the global part
-                of 'router bgp' that are now displayed under 'address-family ipv4 unicast'
-
-                # old way
-                router bgp 64900
-                  neighbor ISL advertisement-interval 0
-
-                vs.
-
-                # new way
-                router bgp 64900
-                  address-family ipv4 unicast
-                    neighbor ISL advertisement-interval 0
-
-                Look to see if we are deleting it in one format just to add it back in the other
-                """
+                # We have commands that used to be displayed in the global part
+                # of 'router bgp' that are now displayed under 'address-family ipv4 unicast'
+                #
+                # # old way
+                # router bgp 64900
+                #   neighbor ISL advertisement-interval 0
+                #
+                # vs.
+                #
+                # # new way
+                # router bgp 64900
+                #   address-family ipv4 unicast
+                #     neighbor ISL advertisement-interval 0
+                #
+                # Look to see if we are deleting it in one format just to add it back in the other
                 if (
                     ctx_keys[0].startswith("router bgp")
                     and len(ctx_keys) > 1
@@ -1382,19 +1476,22 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
 
     for (ctx_keys, line) in lines_to_del:
 
-        if (
-            ctx_keys[0].startswith("frr version")
-            or ctx_keys[0].startswith("frr defaults")
-            or ctx_keys[0].startswith("username")
-            or ctx_keys[0].startswith("password")
-            or ctx_keys[0].startswith("line vty")
-            or
-            # This is technically "no"able but if we did so frr-reload would
-            # stop working so do not let the user shoot themselves in the foot
-            # by removing this.
-            ctx_keys[0].startswith("service integrated-vtysh-config")
+        # The integrated-vtysh-config one is technically "no"able but if we did
+        # so frr-reload would stop working so do not let the user shoot
+        # themselves in the foot by removing this.
+        if any(
+            [
+                ctx_keys[0].startswith(x)
+                for x in [
+                    "frr version",
+                    "frr defaults",
+                    "username",
+                    "password",
+                    "line vty",
+                    "service integrated-vtysh-config",
+                ]
+            ]
         ):
-
             log.info('"%s" cannot be removed' % (ctx_keys[-1],))
             lines_to_del_to_del.append((ctx_keys, line))
 
@@ -1727,7 +1824,7 @@ if __name__ == "__main__":
 
     elif args.reload:
         if not os.path.isdir("/var/log/frr/"):
-            os.makedirs("/var/log/frr/")
+            os.makedirs("/var/log/frr/", mode=0o0755)
 
         logging.basicConfig(
             filename="/var/log/frr/frr-reload.log",
@@ -1797,6 +1894,7 @@ if __name__ == "__main__":
         "ldpd",
         "pathd",
         "bfdd",
+        "eigrpd",
     ]:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
         print(msg)
@@ -1903,7 +2001,7 @@ if __name__ == "__main__":
         lines_to_configure = []
 
         # We will not be able to do anything, go ahead and exit(1)
-        if not vtysh.is_config_available():
+        if not vtysh.is_config_available() or not reload_ok:
             sys.exit(1)
 
         log.debug("New Frr Config\n%s", newconf.get_lines())
