@@ -1970,7 +1970,7 @@ dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
-  PKG_CHECK_MODULES([SYSREPO], [sysrepo],
+  PKG_CHECK_MODULES([SYSREPO], [sysrepo >= 2.1.42],
       [AC_DEFINE([HAVE_SYSREPO], [1], [Enable sysrepo integration])
       SYSREPO=true],
       [SYSREPO=false
