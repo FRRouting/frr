@@ -9847,7 +9847,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
 	struct attr *attr = path->attr;
-	int sockunion_vty_out(struct vty *, union sockunion *);
 	time_t tbuf;
 	json_object *json_bestpath = NULL;
 	json_object *json_cluster_list = NULL;
