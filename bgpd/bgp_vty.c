@@ -13950,7 +13950,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				json_object_int_add(json_neigh,
 						    "externalBgpNbrMaxHopsAway",
 						    p->gtsm_hops);
-			else if (p->ttl > BGP_DEFAULT_TTL)
+			else
 				json_object_int_add(json_neigh,
 						    "externalBgpNbrMaxHopsAway",
 						    p->ttl);
@@ -13959,21 +13959,30 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				vty_out(vty,
 					"  External BGP neighbor may be up to %d hops away.\n",
 					p->gtsm_hops);
-			else if (p->ttl > BGP_DEFAULT_TTL)
+			else
 				vty_out(vty,
 					"  External BGP neighbor may be up to %d hops away.\n",
 					p->ttl);
 		}
 	} else {
-		if (p->gtsm_hops > BGP_GTSM_HOPS_DISABLED) {
-			if (use_json)
+		if (use_json) {
+			if (p->gtsm_hops > BGP_GTSM_HOPS_DISABLED)
 				json_object_int_add(json_neigh,
 						    "internalBgpNbrMaxHopsAway",
 						    p->gtsm_hops);
 			else
+				json_object_int_add(json_neigh,
+						    "internalBgpNbrMaxHopsAway",
+						    p->ttl);
+		} else {
+			if (p->gtsm_hops > BGP_GTSM_HOPS_DISABLED)
 				vty_out(vty,
 					"  Internal BGP neighbor may be up to %d hops away.\n",
 					p->gtsm_hops);
+			else
+				vty_out(vty,
+					"  Internal BGP neighbor may be up to %d hops away.\n",
+					p->ttl);
 		}
 	}
 
