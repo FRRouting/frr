@@ -83,6 +83,9 @@ bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match);
 void json_object_pim_ifp_add(struct json_object *json, struct interface *ifp);
 void pim_print_ifp_flags(struct vty *vty, struct interface *ifp);
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
+int pim_show_join_cmd_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, const char *json);
+int pim_show_join_vrf_all_cmd_helper(struct vty *vty, const char *json);
 void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		   json_object *json);
 int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty);
