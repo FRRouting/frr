@@ -83,11 +83,21 @@ bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match);
 void json_object_pim_ifp_add(struct json_object *json, struct interface *ifp);
 void pim_print_ifp_flags(struct vty *vty, struct interface *ifp);
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
+int pim_show_join_cmd_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, const char *json);
+int pim_show_join_vrf_all_cmd_helper(struct vty *vty, const char *json);
 void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		   json_object *json);
+int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty);
 void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty);
+int pim_show_membership_cmd_helper(const char *vrf, struct vty *vty, bool uj);
 void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj);
+int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_show_interface_cmd_helper(const char *vrf, struct vty *vty, bool uj,
+				  bool mlag, const char *interface);
+int pim_show_interface_vrf_all_cmd_helper(struct vty *vty, bool uj, bool mlag,
+					  const char *interface);
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 			 json_object *json);
 void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
@@ -95,7 +105,14 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 				json_object *json);
 void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj);
+int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
+				       pim_addr source, pim_addr group);
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty);
 void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
+int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
+				  const char *json, const char *interface);
+int pim_show_neighbors_vrf_all_cmd_helper(struct vty *vty, const char *json,
+					  const char *interface);
 void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json);
 void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
