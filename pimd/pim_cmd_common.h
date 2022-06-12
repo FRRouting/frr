@@ -148,6 +148,37 @@ int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
 			      const char *registers, struct vty *vty);
 int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
 				 const char *registers, struct vty *vty);
+int pim_show_rpf_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_rpf_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_rp_helper(const char *vrf, struct vty *vty, const char *group_str,
+		       const struct prefix *group, bool json);
+int pim_show_rp_vrf_all_helper(struct vty *vty, const char *group_str,
+			       const struct prefix *group, bool json);
+int pim_show_secondary_helper(const char *vrf, struct vty *vty);
+int pim_show_statistics_helper(const char *vrf, struct vty *vty,
+			       const char *word, bool uj);
+int pim_show_upstream_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, bool json);
+int pim_show_upstream_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
+					  bool uj);
+int pim_show_upstream_rpf_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_show_state_helper(const char *vrf, struct vty *vty,
+			  const char *s_or_g_str, const char *g_str, bool json);
+int pim_show_state_vrf_all_helper(struct vty *vty, const char *s_or_g_str,
+				  const char *g_str, bool json);
+int pim_show_multicast_helper(const char *vrf, struct vty *vty);
+int pim_show_multicast_vrf_all_helper(struct vty *vty);
+int pim_show_multicast_count_helper(const char *vrf, struct vty *vty,
+				    bool json);
+int pim_show_multicast_count_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			   pim_addr g, bool fill, bool json);
+int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool json);
+int pim_show_mroute_count_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_mroute_count_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_mroute_summary_vrf_all_helper(struct vty *vty, bool json);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;

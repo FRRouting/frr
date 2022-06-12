@@ -4035,3 +4035,614 @@ int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
 
 	return CMD_SUCCESS;
 }
+
+int pim_show_rpf_helper(const char *vrf, struct vty *vty, bool json)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_rpf(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_rpf_vrf_all_helper(struct vty *vty, bool json)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_rpf(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_rp_helper(const char *vrf, struct vty *vty, const char *group_str,
+		       const struct prefix *group, bool json)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+	struct prefix *range = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (group_str) {
+		range = prefix_new();
+		prefix_copy(range, group);
+		apply_mask(range);
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_rp_show_information(pim, range, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	prefix_free(&range);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_rp_vrf_all_helper(struct vty *vty, const char *group_str,
+			       const struct prefix *group, bool json)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+	struct prefix *range = NULL;
+
+	if (group_str) {
+		range = prefix_new();
+		prefix_copy(range, group);
+		apply_mask(range);
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_rp_show_information(vrf->info, range, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	prefix_free(&range);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_secondary_helper(const char *vrf, struct vty *vty)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_neighbors_secondary(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_statistics_helper(const char *vrf, struct vty *vty,
+			       const char *word, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (word)
+		pim_show_statistics(pim, vty, word, uj);
+	else
+		pim_show_statistics(pim, vty, NULL, uj);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_upstream_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, bool json)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *v;
+	struct pim_instance *pim;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	if (!pim_addr_is_any(s_or_g)) {
+		if (!pim_addr_is_any(g)) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+
+	pim_show_upstream(pim, vty, &sg, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_upstream_vrf_all_helper(struct vty *vty, bool json)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_upstream(vrf->info, vty, &sg, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
+					  bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_join_desired(pim, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_upstream_rpf_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_upstream_rpf(pim, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_state_helper(const char *vrf, struct vty *vty,
+			  const char *s_or_g_str, const char *g_str, bool json)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_state(pim, vty, s_or_g_str, g_str, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_state_vrf_all_helper(struct vty *vty, const char *s_or_g_str,
+				  const char *g_str, bool json)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_state(vrf->info, vty, s_or_g_str, g_str, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_multicast_helper(const char *vrf, struct vty *vty)
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_cmd_show_ip_multicast_helper(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_multicast_vrf_all_helper(struct vty *vty)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	}
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_multicast_count_helper(const char *vrf, struct vty *vty, bool json)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_multicast_interfaces(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_multicast_count_vrf_all_helper(struct vty *vty, bool json)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_multicast_interfaces(vrf->info, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			   pim_addr g, bool fill, bool json)
+{
+	pim_sgaddr sg = {0};
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	if (!pim_addr_is_any(s_or_g)) {
+		if (!pim_addr_is_any(g)) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+
+	show_mroute(pim, vty, &sg, fill, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool json)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		show_mroute(vrf->info, vty, &sg, fill, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_mroute_count_helper(const char *vrf, struct vty *vty, bool json)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_count(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_mroute_count_vrf_all_helper(struct vty *vty, bool json)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_mroute_count(vrf->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	show_mroute_summary(pim, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_mroute_summary_vrf_all_helper(struct vty *vty, bool json)
+{
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+
+		show_mroute_summary(vrf->info, vty, json_vrf);
+
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
