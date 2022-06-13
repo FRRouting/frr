@@ -139,7 +139,7 @@ class AssertKernelRoutes(TopotatoAssertion, TimedMixin):
                 break
 
             if self._maxwait is None or time.time() - start > self._maxwait:
-                raise TopotatoRouteCompareFail(diff)
+                raise TopotatoRouteCompareFail(str(diff))
 
             self.sleep(step=self._delay, until=self._maxwait)
 
@@ -241,7 +241,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
                 elif isinstance(self._compare, dict):
                     diff = json_cmp(json.loads(out), self._compare)
                     if diff is not None:
-                        result = TopotatoCLICompareFail(diff)
+                        result = TopotatoCLICompareFail(str(diff))
 
             self.commands.setdefault((self._rtr.name, self._daemon), []).append(
                 (cmdtime, self._command, out, rc, result)
