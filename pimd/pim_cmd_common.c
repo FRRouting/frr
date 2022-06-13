@@ -2635,32 +2635,86 @@ void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "SSM group range : %s\n", range_str);
 }
 
-struct pnc_cache_walk_data {
+struct vty_pnc_cache_walk_data {
 	struct vty *vty;
 	struct pim_instance *pim;
 };
 
-static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
+struct json_pnc_cache_walk_data {
+	json_object *json_obj;
+	struct pim_instance *pim;
+};
+
+static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct pim_nexthop_cache *pnc = bucket->data;
-	struct pnc_cache_walk_data *cwd = arg;
+	struct vty_pnc_cache_walk_data *cwd = arg;
 	struct vty *vty = cwd->vty;
 	struct pim_instance *pim = cwd->pim;
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
-	char buf[PREFIX_STRLEN];
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
+		pim_addr rpf_addr = pim_addr_from_prefix(&pnc->rpf.rpf_addr);
+
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 
-		vty_out(vty, "%-15s ",
-			inet_ntop(AF_INET, &pnc->rpf.rpf_addr.u.prefix4, buf,
-				  sizeof(buf)));
+		vty_out(vty, "%-15pPAs ", &rpf_addr);
 		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
+#if PIM_IPV == 4
 		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
+#else
+		vty_out(vty, "%pI6 ", &nh_node->gate.ipv6);
+#endif
 		vty_out(vty, "\n");
+	}
+	return CMD_SUCCESS;
+}
+
+static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
+					   void *arg)
+{
+	struct pim_nexthop_cache *pnc = backet->data;
+	struct json_pnc_cache_walk_data *cwd = arg;
+	struct pim_instance *pim = cwd->pim;
+	struct nexthop *nh_node = NULL;
+	ifindex_t first_ifindex;
+	struct interface *ifp = NULL;
+	char addr_str[PIM_ADDRSTRLEN];
+	json_object *json_row = NULL;
+	json_object *json_ifp = NULL;
+	json_object *json_arr = NULL;
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		pim_addr rpf_addr;
+
+		first_ifindex = nh_node->ifindex;
+		rpf_addr = pim_addr_from_prefix(&pnc->rpf.rpf_addr);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
+		snprintfrr(addr_str, sizeof(addr_str), "%pPAs", &rpf_addr);
+		json_object_object_get_ex(cwd->json_obj, addr_str, &json_row);
+		if (!json_row) {
+			json_row = json_object_new_object();
+			json_object_string_addf(json_row, "address", "%pPAs",
+						&rpf_addr);
+			json_object_object_addf(cwd->json_obj, json_row,
+						"%pPAs", &rpf_addr);
+			json_arr = json_object_new_array();
+			json_object_object_add(json_row, "nexthops", json_arr);
+		}
+		json_ifp = json_object_new_object();
+		json_object_string_add(json_ifp, "interface",
+				       ifp ? ifp->name : "NULL");
+#if PIM_IPV == 4
+		json_object_string_addf(json_ifp, "nexthop", "%pI4",
+					&nh_node->gate.ipv4);
+#else
+		json_object_string_addf(json_ifp, "nexthop", "%pI6",
+					&nh_node->gate.ipv6);
+#endif
+		json_object_array_add(json_arr, json_ifp);
 	}
 	return CMD_SUCCESS;
 }
@@ -2718,7 +2772,7 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty)
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty, bool uj)
 {
 	struct vrf *v;
 
@@ -2727,23 +2781,35 @@ int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty)
 	if (!v)
 		return CMD_WARNING;
 
-	pim_show_nexthop(v->info, vty);
+	pim_show_nexthop(v->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
+void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj)
 {
-	struct pnc_cache_walk_data cwd;
+	struct vty_pnc_cache_walk_data cwd;
+	struct json_pnc_cache_walk_data jcwd;
 
 	cwd.vty = vty;
 	cwd.pim = pim;
-	vty_out(vty, "Number of registered addresses: %lu\n",
-		pim->rpf_hash->count);
-	vty_out(vty, "Address         Interface        Nexthop\n");
-	vty_out(vty, "---------------------------------------------\n");
+	jcwd.pim = pim;
 
-	hash_walk(pim->rpf_hash, pim_print_pnc_cache_walkcb, &cwd);
+	if (uj) {
+		jcwd.json_obj = json_object_new_object();
+	} else {
+		vty_out(vty, "Number of registered addresses: %lu\n",
+			pim->rpf_hash->count);
+		vty_out(vty, "Address         Interface        Nexthop\n");
+		vty_out(vty, "---------------------------------------------\n");
+	}
+
+	if (uj) {
+		hash_walk(pim->rpf_hash, pim_print_json_pnc_cache_walkcb,
+			  &jcwd);
+		vty_json(vty, jcwd.json_obj);
+	} else
+		hash_walk(pim->rpf_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
 }
 
 int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
