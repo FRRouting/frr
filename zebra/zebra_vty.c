@@ -3704,7 +3704,7 @@ static int zebra_ip_config(struct vty *vty)
 
 DEFUN (ip_zebra_import_table_distance,
        ip_zebra_import_table_distance_cmd,
-       "ip import-table (1-252) [distance (1-255)] [route-map WORD]",
+       "ip import-table (1-252) [distance (1-255)] [route-map RMAP_NAME]",
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"

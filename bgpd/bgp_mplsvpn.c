@@ -2339,7 +2339,7 @@ DEFUN (vpnv4_network,
 
 DEFUN (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
-       "network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) route-map WORD",
+       "network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) route-map RMAP_NAME",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
@@ -2384,7 +2384,7 @@ DEFUN (no_vpnv4_network,
 
 DEFUN (vpnv6_network,
        vpnv6_network_cmd,
-       "network X:X::X:X/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) [route-map WORD]",
+       "network X:X::X:X/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) [route-map RMAP_NAME]",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
