@@ -513,6 +513,8 @@ fa_igp_find_p(uint8_t proto, uint16_t instance, vrf_id_t vrf_id, char *area_tag,
 
 	for (unsigned int i = 0; i < vector_active(_igp_instance); ++i) {
 		p = vector_slot(_igp_instance, i);
+		if (!p)
+			continue;
 		if (p->proto != proto)
 			continue;
 		if (p->instance != instance)
@@ -930,7 +932,6 @@ static void _fae_seglist_to_candidate(struct flex_algo_endpoint *f,
 				   candidate->name, candidate->preference);
 		segment_list = srte_segment_list_add(sname);
 		XFREE(MTYPE_SEG_LIST_NAME, sname);
-		/* TBD is this right? should we add types based on igp_proto? */
 		segment_list->protocol_origin = candidate->protocol_origin;
 
 		/* Not setting originator */
@@ -1345,4 +1346,48 @@ void path_flex_algo_init(void)
 	hook_register(pathd_candidate_created, _fa_candidate_created_hnd);
 	hook_register(pathd_candidate_updated, _fa_candidate_updated_hnd);
 	hook_register(pathd_candidate_removed, _fa_candidate_removed_hnd);
+}
+
+void path_flex_algo_finish(void)
+{
+	unsigned int igp_instance_count = 0;
+	unsigned int area_string_count = 0;
+	struct flex_algo_igp_instance *fa_igp_instance;
+
+	zlog_debug("%s: fae_count is %lu", __func__, (long unsigned int) fae_count(&_faehash));
+	fae_fini(&_faehash);
+
+	if (_igp_defaults.isis_area) {
+		zlog_debug("%s: freeing _igp_defaults.isis_area", __func__);
+		XFREE(MTYPE_ISIS_AREA_TAG, _igp_defaults.isis_area);
+		_igp_defaults.isis_area = NULL;
+	}
+
+	if (_igp_instance) {
+		for (; igp_instance_count < vector_active(_igp_instance);
+		     ++igp_instance_count) {
+
+			fa_igp_instance =
+				vector_slot(_igp_instance, igp_instance_count);
+			if (!fa_igp_instance)
+				continue;
+			if (ZEBRA_ROUTE_ISIS == fa_igp_instance->proto) {
+				XFREE(MTYPE_ISIS_AREA_TAG,
+				      fa_igp_instance->isis_area);
+				fa_igp_instance->isis_area = NULL;
+				++area_string_count;
+			}
+			XFREE(MTYPE_FLEX_ALGO_IGP_INSTANCE, fa_igp_instance);
+		}
+		if (igp_instance_count) {
+			zlog_debug(
+				"%s: freed %u flex_algo_igp_instance structs",
+				__func__, igp_instance_count);
+			if (area_string_count)
+				zlog_debug("%s: freed %u isis_area strings",
+					   __func__, area_string_count);
+		}
+		vector_free(_igp_instance);
+		zlog_debug("%s: freed _igp_instance vector", __func__);
+	}
 }

@@ -775,30 +775,6 @@ int pathd_srte_policy_candidate_path_flex_algo_number_modify(
 	return NB_OK;
 }
 
-#if 0 /* TBD I think not needed - must delete entire candidate */
-int pathd_srte_policy_candidate_path_flex_algo_number_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct srte_candidate *candidate;
-
-	zlog_debug("%s: entry, event %s", __func__, nb_event_name(args->event));
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/*
-	 * TBD this part is not right if we really need a "destroy"
-	 * method. If we need it, then we need to invalidate the
-	 * candidate and delete its endpoint tracking/unregister with IGP
-	 */
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	candidate->flex_algo_number = 0;
-	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
-
-	return NB_OK;
-}
-#endif
-
 /*
  * XPath: /frr-pathd:pathd/srte/policy/candidate-path/constraints/bandwidth
  */

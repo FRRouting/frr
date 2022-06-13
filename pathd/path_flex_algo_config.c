@@ -190,7 +190,7 @@ DEFPY(debug_fa_update,
 
 	memset(&sid_list, 0, sizeof(sid_list));
 	sid_list.label_num = (uint8_t)label_num;
-	/* TBD if label_num is 0, set special label */
+	/* maybe: if label_num is 0, set special label */
 	for (unsigned int i = 0; i < (unsigned int)label_num; ++i) {
 		unsigned long val;
 		char *end;
@@ -350,9 +350,6 @@ void cli_show_flex_algo_igp_defaults(struct vty *vty,
 	const char *proto_str;
 	const char *vrf_str;
 	uint16_t instance;
-
-	/* debugging: TBD delete me */
-	zlog_debug("%s: entry", __func__);
 
 	proto_str = yang_dnode_get_string(dnode, "./protocol");
 	vty_out(vty, "  flex-algo igp-defaults protocol %s", proto_str);

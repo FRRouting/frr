@@ -17,6 +17,7 @@
 #include "pathd/path_zebra.h"
 #include "pathd/path_debug.h"
 #include "pathd/path_ted.h"
+#include "pathd/path_flex_algo.h"
 
 #define HOOK_DELAY 3
 
@@ -1303,6 +1304,7 @@ void pathd_shutdown(void)
 {
 	path_ted_teardown();
 	srte_clean_zebra();
+	path_flex_algo_finish();
 	frr_fini();
 }
 

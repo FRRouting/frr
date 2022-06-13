@@ -25,7 +25,7 @@
 #include "lib_errors.h"
 #include "zapi_fae.h"
 
-#define ZAPI_FAE_DEBUG 1
+#define ZAPI_FAE_DEBUG 0
 
 DEFINE_MTYPE(LIB, ZAPI_FAE_AREA_TAG, "ZAPI FAE Area tag");
 

@@ -31,6 +31,8 @@ extern const struct frr_yang_module_info frr_pathd_flexalgo_info;
 
 extern void path_flex_algo_init(void);
 
+extern void path_flex_algo_finish(void);
+
 extern int fa_check_default_igp_proto(uint8_t proto);
 
 extern int fa_set_default_igp_proto(uint8_t proto);
