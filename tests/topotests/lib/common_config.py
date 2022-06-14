@@ -3384,6 +3384,9 @@ def verify_rib(
                                     next_hop = [next_hop]
 
                                 for mnh in range(0, len(rib_routes_json[st_rt])):
+                                    if not "selected" in rib_routes_json[st_rt][mnh]:
+                                        continue
+
                                     if (
                                         "fib"
                                         in rib_routes_json[st_rt][mnh]["nexthops"][0]
