@@ -58,7 +58,7 @@ struct mgmt_cmt_info_t {
 
 	char cmtid_str[MGMTD_MD5_HASH_STR_HEX_LEN];
 	char time_str[MGMTD_COMMIT_TIME_STR_LEN];
-	char cmt_json_file[MGMTD_MAX_COMMIT_FILE_PATH_LEN];
+	char cmt_json_file[PATH_MAX];
 };
 
 DECLARE_DLIST(mgmt_cmt_infos, struct mgmt_cmt_info_t, cmts);
@@ -258,7 +258,7 @@ static struct mgmt_cmt_info_t *mgmt_db_create_cmt_rec(void)
 	mgmt_realtime_to_string(&cmt_recd_tv, new->time_str,
 				sizeof(new->time_str));
 	mgmt_db_compute_cmt_hash(new->time_str, new->cmtid_str);
-	snprintf(new->cmt_json_file, MGMTD_MAX_COMMIT_FILE_PATH_LEN,
+	snprintf(new->cmt_json_file, sizeof(new->cmt_json_file),
 		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
 
 	if (mgmt_cmt_infos_count(&mm->cmts) == MGMTD_MAX_COMMIT_LIST) {
