@@ -3365,8 +3365,9 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
+                        st_rt = str(
+                            ipaddress.ip_network(frr_unicode(st_rt), strict=False)
+                        )
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
                             continue
@@ -3528,8 +3529,8 @@ def verify_rib(
 
                 if nh_found:
                     logger.info(
-                        "[DUT: {}]: Found next_hop {} for all bgp"
-                        " routes in RIB".format(router, next_hop)
+                        "[DUT: {}]: Found next_hop {} for"
+                        " RIB routes: {}".format(router, next_hop, found_routes)
                     )
 
                 if len(missing_routes) > 0:
@@ -3593,7 +3594,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt), strict=False))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3750,8 +3751,9 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
+                        st_rt = str(
+                            ipaddress.ip_network(frr_unicode(st_rt), strict=False)
+                        )
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
                             continue
@@ -3855,7 +3857,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt), strict=False))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
