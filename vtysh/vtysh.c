@@ -1672,7 +1672,7 @@ DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
+	"router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
 	"View/VRF name\n")
