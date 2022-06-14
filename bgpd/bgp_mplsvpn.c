@@ -844,6 +844,26 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			return NULL;
 		}
 
+		/* If the RT was changed via extended communities as an
+		 * import/export list, we should withdraw implicitly the old
+		 * path from VRFs.
+		 * For instance, RT list was modified using route-maps:
+		 * route-map test permit 10
+		 *   set extcommunity rt none
+		 */
+		if (CHECK_FLAG(bpi->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) &&
+		    CHECK_FLAG(new_attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+			if (!ecommunity_cmp(
+				    bgp_attr_get_ecommunity(bpi->attr),
+				    bgp_attr_get_ecommunity(new_attr))) {
+				vpn_leak_to_vrf_withdraw(bgp, bpi);
+				bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
+				bgp_path_info_delete(bn, bpi);
+			}
+		}
+
 		/* attr is changed */
 		bgp_path_info_set_flag(bn, bpi, BGP_PATH_ATTR_CHANGED);
 
@@ -1510,8 +1530,8 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		    bgp_attr_get_ecommunity(path_vpn->attr))) {
 		if (debug)
 			zlog_debug(
-				"from vpn to vrf %s, skipping after no intersection of route targets",
-				bgp_vrf->name_pretty);
+				"from vpn (%s) to vrf (%s), skipping after no intersection of route targets",
+				bgp_vpn->name_pretty, bgp_vrf->name_pretty);
 		return;
 	}
 
