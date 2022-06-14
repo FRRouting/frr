@@ -33,7 +33,7 @@
 #define MGMTD_DB_NAME_CANDIDATE "candidate"
 #define MGMTD_DB_NAME_OPERATIONAL "operational"
 
-#define MGMTD_STARTUP_DB_FILE_PATH "/etc/frr/frr_startup.json"
+#define MGMTD_STARTUP_DB_FILE_PATH DAEMON_DB_DIR "/frr_startup.json"
 
 #define FOREACH_MGMTD_DB_ID(id)                                                \
 	for ((id) = MGMTD_DB_NONE; (id) < MGMTD_DB_MAX_ID; (id)++)
@@ -42,9 +42,8 @@
 #define MGMTD_MD5_HASH_LEN 16
 #define MGMTD_MD5_HASH_STR_HEX_LEN 33
 
-#define MGMTD_MAX_COMMIT_FILE_PATH_LEN 55
-#define MGMTD_COMMIT_FILE_PATH "/etc/frr/commit-%s.json"
-#define MGMTD_COMMIT_INDEX_FILE_NAME "/etc/frr/commit-index.dat"
+#define MGMTD_COMMIT_FILE_PATH DAEMON_DB_DIR "/commit-%s.json"
+#define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
 #define MGMTD_COMMIT_TIME_STR_LEN 100
 
 extern struct nb_config *running_config;
