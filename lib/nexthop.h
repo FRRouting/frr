@@ -260,6 +260,7 @@ int nexthop_str2backups(const char *str, int *num_backups,
 #pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
 #endif
 
+ssize_t printfrr_nhs(struct fbuf *buf, const struct nexthop *nh);
 #ifdef __cplusplus
 }
 #endif
