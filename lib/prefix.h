@@ -508,6 +508,17 @@ extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 
+static inline bool ipv4_unicast_valid(const struct in_addr *addr)
+{
+
+	in_addr_t ip = ntohl(addr->s_addr);
+
+	if (IPV4_CLASS_DE(ip))
+		return false;
+
+	return true;
+}
+
 static inline int ipv6_martian(const struct in6_addr *addr)
 {
 	struct in6_addr localhost_addr;
@@ -527,7 +538,7 @@ static inline int ipv4_martian(const struct in_addr *addr)
 {
 	in_addr_t ip = ntohl(addr->s_addr);
 
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_DE(ip)) {
+	if (IPV4_NET0(ip) || IPV4_NET127(ip) || !ipv4_unicast_valid(addr)) {
 		return 1;
 	}
 	return 0;
