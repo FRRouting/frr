@@ -57,6 +57,7 @@ import pytest
 import json
 import tempfile
 import re
+import subprocess
 from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
 from functools import partial
 
@@ -394,6 +395,46 @@ def _ping(tgen, hidx, addr, count=5):
 
 
 #
+# Check version of nftables against known minimum level for
+# syntax compatibility. Cache result.
+#
+_nft_version_is_good = None
+
+
+def _nft_version_ok():
+    global _nft_version_is_good
+
+    def versiontuple(v):
+        return tuple(map(int, (v.split("."))))
+
+    def _docheck():
+        global _nft_version_is_good
+        _nft_version_is_good = False
+        logger.info("checking nftables version")
+        try:
+            vstr = subprocess.check_output(
+                ["nft", "--version"], universal_newlines=True
+            )
+        except Exception as err:
+            logger.warning(err)
+            return
+        m = re.search(r"nftables v([\d\.]+)", vstr)
+        if m:
+            actual = versiontuple(m.group(1))
+            # We know 0.8.2 is too old (syntax errors on our filter cmds).
+            # Not sure what is the real minimum version.
+            minimum = versiontuple("0.9.7")
+            if actual >= minimum:
+                _nft_version_is_good = True
+
+    if _nft_version_is_good is not None:
+        return _nft_version_is_good
+
+    _docheck()
+    return _nft_version_is_good
+
+
+#
 # List of labels we'll look for in traffic filters below
 #
 _traf_labels_of_interest = [20109, 20209, 20309, 20409, 20509]
@@ -403,6 +444,8 @@ def _add_nft_counter(tgen, hostname, device, addr):
     "Add nftables entry that matches addr so we can count packets"
 
     # Need "sudo apt install nftables"
+    if not _nft_version_ok():
+        return True
 
     host = tgen.gears[hostname]
     devparam = ""
@@ -521,6 +564,9 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
 
 
 def add_nft_all_counters(tgen, addr):
+    if not _nft_version_ok():
+        return True
+
     for i in _nft_links:
         hostname = router_names[i[0]]
         _add_nft_counter(tgen, hostname, i[1], addr)
@@ -528,6 +574,10 @@ def add_nft_all_counters(tgen, addr):
 
 def read_nft_all_counters(tgen, addr):
     c = {}
+
+    if not _nft_version_ok():
+        return c
+
     for i in _nft_links:
         hostname = router_names[i[0]]
         if not hostname in c:
@@ -539,6 +589,10 @@ def read_nft_all_counters(tgen, addr):
 
 def diff_nft_all_counters(before, after):
     diff = {}
+
+    if not _nft_version_ok():
+        return diff
+
     for hostname in before.keys():
         diff[hostname] = {}
         for itf in before[hostname].keys():
@@ -1034,8 +1088,9 @@ def test_step2_bgp_routes():
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + ipv4_indices[9][0]
     # The 'red' and 'green' links are mutually exclusive.
-    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
-    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1149,7 +1204,8 @@ def test_step3_bgp_routes():
     after = read_nft_all_counters(tgen, addr)
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + ipv4_indices[9][3]
-    assert check_nft_counters_by_link_affinity(diff, ["purple"], 5, label) == True
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["purple"], 5, label) == True
 
 
 ####
@@ -1247,8 +1303,9 @@ def test_step4_bgp_routes():
     after = read_nft_all_counters(tgen, addr)
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + ipv4_indices[9][0]
-    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
-    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1335,7 +1392,8 @@ def test_step5_bgp_routes():
     after = read_nft_all_counters(tgen, addr)
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + ipv4_indices[9][3]
-    assert check_nft_counters_by_link_affinity(diff, ["purple"], 5, label) == True
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["purple"], 5, label) == True
 
 
 ####
@@ -1409,8 +1467,9 @@ def test_step6_bgp_routes():
     after = read_nft_all_counters(tgen, addr)
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + ipv4_indices[9][0]
-    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
-    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1523,8 +1582,9 @@ def test_step7_bgp_routes():
     after = read_nft_all_counters(tgen, addr)
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + new_v4sid
-    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
-    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
@@ -1691,8 +1751,9 @@ def test_step9_bgp_routes():
     after = read_nft_all_counters(tgen, addr)
     diff = diff_nft_all_counters(before, after)
     label = sr_global_block[0] + ipv4_indices[9][0]
-    assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
-    assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
 
 ####
