@@ -1206,7 +1206,7 @@ void cli_show_isis_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/default-information-originate
  */
 DEFPY_YANG(isis_default_originate, isis_default_originate_cmd,
-      "[no] default-information originate <ipv4|ipv6>$ip <level-1|level-2>$level [always]$always [{metric (0-16777215)$metric|route-map WORD$rmap}]",
+      "[no] default-information originate <ipv4|ipv6>$ip <level-1|level-2>$level [always]$always [{metric (0-16777215)$metric|route-map RMAP_NAME$rmap}]",
       NO_STR
       "Control distribution of default information\n"
       "Distribute a default route\n"
@@ -1286,7 +1286,7 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty,
 DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
       "[no] redistribute <ipv4$ip " PROTO_IP_REDIST_STR "$proto|ipv6$ip "
       PROTO_IP6_REDIST_STR "$proto> <level-1|level-2>$level"
-      "[{metric (0-16777215)|route-map WORD}]",
+      "[{metric (0-16777215)|route-map RMAP_NAME$route_map}]",
       NO_STR REDIST_STR
       "Redistribute IPv4 routes\n"
       PROTO_IP_REDIST_HELP

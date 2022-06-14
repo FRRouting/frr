@@ -3270,7 +3270,7 @@ void route_map_counter_decrement(struct route_map *map)
 }
 
 DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
-	     "show route-map WORD prefix-table",
+	     "show route-map RMAP_NAME prefix-table",
 	     SHOW_STR
 	     "route-map\n"
 	     "route-map name\n"

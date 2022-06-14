@@ -544,7 +544,7 @@ void isis_redist_area_finish(struct isis_area *area)
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
        "redistribute <ipv4 " PROTO_IP_REDIST_STR "|ipv6 " PROTO_IP6_REDIST_STR ">"
-       " [{metric (0-16777215)|route-map WORD}]",
+       " [{metric (0-16777215)|route-map RMAP_NAME}]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        PROTO_IP_REDIST_HELP
@@ -636,7 +636,7 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate <ipv4|ipv6> [always] [{metric (0-16777215)|route-map WORD}]",
+       "default-information originate <ipv4|ipv6> [always] [{metric (0-16777215)|route-map RMAP_NAME}]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
