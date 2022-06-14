@@ -1040,7 +1040,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
 
-	gm_ifp_update(ifp);
+	if (!ispimreg)
+		gm_ifp_update(ifp);
 
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
