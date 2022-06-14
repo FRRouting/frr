@@ -3425,3 +3425,32 @@ unsigned long zebra_nhg_score_proto(int type)
 
 	return count;
 }
+
+printfrr_ext_autoreg_p("NG", printfrr_nhghe);
+static ssize_t printfrr_nhghe(struct fbuf *buf, struct printfrr_eargs *ea,
+			      const void *ptr)
+{
+	const struct nhg_hash_entry *nhe = ptr;
+	const struct nhg_connected *dep;
+	ssize_t ret = 0;
+
+	if (!nhe)
+		return bputs(buf, "[NULL]");
+
+	ret += bprintfrr(buf, "%u[", nhe->id);
+	if (nhe->ifp)
+		ret += printfrr_nhs(buf, nhe->nhg.nexthop);
+	else {
+		int count = zebra_nhg_depends_count(nhe);
+
+		frr_each (nhg_connected_tree_const, &nhe->nhg_depends, dep) {
+			ret += bprintfrr(buf, "%u", dep->nhe->id);
+			if (count > 1)
+				ret += bputs(buf, "/");
+			count--;
+		}
+	}
+
+	ret += bputs(buf, "]");
+	return ret;
+}
