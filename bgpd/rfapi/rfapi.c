@@ -627,7 +627,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	/* Make default attribute. Produces already-interned attr.aspath */
 	/* Cripes, the memory management of attributes is byzantine */
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 
 	/*
 	 * At this point:
