@@ -79,13 +79,29 @@ struct nhg_hash_entry {
 
 	uint32_t flags;
 
-	/* Dependency tree for other entries.
+	/* Dependency trees for other entries.
 	 * For instance a group with two
 	 * nexthops will have two dependencies
 	 * pointing to those nhg_hash_entries.
 	 *
 	 * Using a rb tree here to make lookups
 	 * faster with ID's.
+	 *
+	 * nhg_depends the RB tree of entries that this
+	 * group contains.
+	 *
+	 * nhg_dependents the RB tree of entries that
+	 * this group is being used by
+	 *
+	 * NHG id 3 with nexthops id 1/2
+	 * nhg(3)->nhg_depends has 1 and 2 in the tree
+	 * nhg(3)->nhg_dependents is empty
+	 *
+	 * nhg(1)->nhg_depends is empty
+	 * nhg(1)->nhg_dependents is 3 in the tree
+	 *
+	 * nhg(2)->nhg_depends is empty
+	 * nhg(3)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
