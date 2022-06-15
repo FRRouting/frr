@@ -145,8 +145,7 @@ struct stream *stream_dup(const struct stream *s)
 
 	STREAM_VERIFY_SANE(s);
 
-	if ((snew = stream_new(s->endp)) == NULL)
-		return NULL;
+	snew = stream_new(s->endp);
 
 	return (stream_copy(snew, s));
 }
