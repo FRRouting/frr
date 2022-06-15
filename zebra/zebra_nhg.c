@@ -1055,6 +1055,12 @@ static void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 
 	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 
+	/* If we're in shutdown, this interface event needs to clean
+	 * up installed NHGs, so don't clear that flag directly.
+	 */
+	if (!zrouter.in_shutdown)
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+
 	/* Update validity of nexthops depending on it */
 	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
 		zebra_nhg_check_valid(rb_node_dep->nhe);
