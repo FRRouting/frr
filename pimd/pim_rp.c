@@ -267,10 +267,15 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	}
 
 	rp_info = rn->info;
-	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("Lookedup: %p for rp_info: %p(%pFX) Lock: %d", rn,
-			   rp_info, &rp_info->group,
-			   route_node_get_lock_count(rn));
+	if (PIM_DEBUG_PIM_TRACE) {
+		if (best)
+			zlog_debug(
+				"Lookedup(%pFX): prefix_list match %s, rn %p found: %pFX",
+				group, best->plist, rn, &rp_info->group);
+		else
+			zlog_debug("Lookedup(%pFX): rn %p found:%pFX", group,
+				   rn, &rp_info->group);
+	}
 
 	route_unlock_node(rn);
 
