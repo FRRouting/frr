@@ -324,7 +324,7 @@ void zebra_evpn_deref_ip2mac(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 }
 
 static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
-					   struct interface **ifpP,
+					   struct interface **p_ifp,
 					   vlanid_t *vid)
 {
 	/* if the mac is associated with an ES we must get the access
@@ -334,7 +334,7 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 		struct zebra_if *zif;
 
 		/* get the access port from the es */
-		*ifpP = mac->es->zif ? mac->es->zif->ifp : NULL;
+		*p_ifp = mac->es->zif ? mac->es->zif->ifp : NULL;
 		/* get the vlan from the EVPN */
 		if (mac->zevpn->vxlan_if) {
 			zif = mac->zevpn->vxlan_if->info;
@@ -347,8 +347,8 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 
 		*vid = mac->fwd_info.local.vid;
 		zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
-		*ifpP = if_lookup_by_index_per_ns(zns,
-						  mac->fwd_info.local.ifindex);
+		*p_ifp = if_lookup_by_index_per_ns(zns,
+						   mac->fwd_info.local.ifindex);
 	}
 }
 
