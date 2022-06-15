@@ -22,13 +22,13 @@
 """
 test_isis_sr_flex_algo_topo3_fae.py:
 
-            +--------+                  +--------+
-            |        |                  |        |
-            |  RT1   |------------------|  RT2   |
-            |        |                  |        |
-            +--------+                  +--------+
-           /     |    \\                     |    \\
-          /      |     \\                    |     \\
++--------+  +--------+                  +--------+
+|        |  |        |                  |        |
+|  H0-0  |  |  RT1   |------------------|  RT2   |
+|        |  |        |                  |        |
++--------+  +--------+                  +--------+
+    |      /     |    \\                     |    \\
+    |     /      |     \\                    |     \\
 +--------+       |      \\                   |      \\
 |        |       |       +--------+          |       +--------+  +--------+
 |  RT0   |       |       |        |          |       |        |  |        |
@@ -38,7 +38,7 @@ test_isis_sr_flex_algo_topo3_fae.py:
     |      \\    |           |               |            |    \\     |
 +--------+  +--------+       |          +--------+        |     \\    |
 |        |  |        |       |          |        |        |      +--------+
-|  H0    |  |  RT5   |-------|----------|  RT6   |        |      |        |
+|  H0-1  |  |  RT5   |-------|----------|  RT6   |        |      |        |
 |        |  |        |       |          |        |        |      |  RT9   |
 +--------+  +--------+       |          +--------+        |      |        |
                       \\     |                    \\      |      +--------+
@@ -301,7 +301,7 @@ router_switch_links = (
     (1, 9, network_v4_base, network_v6_base),
 )
 
-host_names = ("h0", "h9")
+host_names = ("h0-0", "h9", "h0-1")
 host_links = (
     # host, switch, v4-address, v4-gateway, v6-address, v6-gateway
     (
@@ -319,6 +319,14 @@ host_links = (
         faconfig.v4net(9, network_v4_base, 1).split("/")[0],
         faconfig.v6net(9, network_v6_base, host=True, offset=2),
         faconfig.v6net(9, network_v6_base, 1).split("/")[0],
+    ),
+    (
+        2,
+        0,
+        faconfig.v4net(0, network_v4_base, host=True, offset=3),
+        faconfig.v4net(0, network_v4_base, 1).split("/")[0],
+        faconfig.v6net(0, network_v6_base, host=True, offset=3),
+        faconfig.v6net(0, network_v6_base, 1).split("/")[0],
     ),
 )
 
@@ -437,7 +445,7 @@ def _nft_version_ok():
 #
 # List of labels we'll look for in traffic filters below
 #
-_traf_labels_of_interest = [20109, 20209, 20309, 20409, 20509]
+_traf_labels_of_interest = [20100, 20109, 20200, 20209, 20309, 20409, 20509]
 
 
 def _add_nft_counter(tgen, hostname, device, addr):
@@ -2126,3 +2134,141 @@ def test_step13_clean_up():
     rtr = router_names[0]
     cmd = faconfig.fmt_policies(step13_rt0_policies, 3, remove=True)
     tgen.gears[rtr].vtysh_cmd(cmd)
+
+    idx = num_routers - 1
+    rtr = router_names[idx]
+    lov4 = faconfig.v4addr(idx, lo_v4_base)
+    lov6 = faconfig.v6addr(idx, lo_v6_base)
+    for _fa, v4sid, v6sid, part in zip(
+        sr_flex_algos,
+        ipv4_indices[idx],
+        ipv6_indices[idx],
+        sr_flex_algo_participation[idx],
+    ):
+        if not part:
+            continue
+        cmd = f"configure terminal\n router isis {isis_area}\n"
+        cmd += f" segment-routing prefix {lov4} algorithm {_fa} index {v4sid}\n"
+        cmd += f" segment-routing prefix {lov6} algorithm {_fa} index {v6sid}\n"
+        tgen.gears[rtr].vtysh_cmd(cmd)
+
+
+# Test forwarding by Binding-SID
+# Actions:
+#  - Add two policies to each of RT0 and RT9: one policy uses flex-algo
+#    128 and the other policy uses flex-algo 129.
+#  - Add route to host h0-0 for destination h1 with an MPLS next-hop
+#    of the binding-SID for the flex-algo 128 path.
+#  - Add route to host h0-1 for destination h1 with an MPLS next-hop
+#    of the binding-SID for the flex-algo 129 path.
+#  - Add route to host h1 for destination h0-0 with an MPLS next-hop
+#    of the binding-SID for the flex-algo 128 path.
+#  - Add route to host h1 for destination h0-1 with an MPLS next-hop
+#    of the binding-SID for the flex-algo 129 path.
+#  - Ping h1 from h0-0 and again from h0-1 and validate the path
+#    selection.
+# Expected Results:
+#  - The Binding-SID selects the forwarding path.
+
+step14_rt0_policies = {
+    # (color, endpoint)
+    (1, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
+        "binding-sid": 16,
+        "candidate-path": [
+            {"preference": 10, "name": "candidate-1", "flex-algo": 128},
+        ],
+    },
+    (2, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
+        "binding-sid": 17,
+        "candidate-path": [
+            {"preference": 10, "name": "candidate-2", "flex-algo": 129},
+        ],
+    },
+}
+step14_rt9_policies = {
+    # (color, endpoint)
+    (1, ip_address(faconfig.v4addr(0, lo_v4_base, with_masklen=False))): {
+        "binding-sid": 18,
+        "candidate-path": [
+            {"preference": 10, "name": "candidate-1", "flex-algo": 128},
+        ],
+    },
+    (2, ip_address(faconfig.v4addr(0, lo_v4_base, with_masklen=False))): {
+        "binding-sid": 19,
+        "candidate-path": [
+            {"preference": 10, "name": "candidate-2", "flex-algo": 129},
+        ],
+    },
+}
+
+
+def test_step14_setup():
+    def set_route(src_hidx, dest_hidx, label):
+        hostname = host_names[src_hidx]
+        host = tgen.gears[hostname]
+        dest = host_links[dest_hidx][2].split("/")[0] + "/32"
+        nexthop = host_links[src_hidx][3]
+        cmd = f"ip route add {dest} encap mpls {label} via {nexthop}"
+        logger.info(f"{hostname}: {cmd}")
+        rc, out, err = host.net.cmd_status(cmd)
+        if rc != 0:
+            logger.info(f"{hostname}: ip returned {rc}")
+            return False
+
+    logger.info("Test (step 14) - forwarding by Binding-SID setup")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rtr = router_names[0]
+    cmd = faconfig.fmt_policies(step14_rt0_policies, 3)
+    tgen.gears[rtr].vtysh_cmd(cmd)
+    rtr = router_names[9]
+    cmd = faconfig.fmt_policies(step14_rt9_policies, 3)
+    tgen.gears[rtr].vtysh_cmd(cmd)
+
+    set_route(0, 1, 16)  # h0-0 -> h1
+    set_route(2, 1, 17)  # h0-1 -> h1
+    set_route(1, 0, 18)  # h1 -> h0-0
+    set_route(1, 2, 19)  # h1 -> h0-1
+
+
+def test_step14_policy_active():
+    logger.info("Test (step 14): check if policy is active")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    for rtr in (router_names[0], router_names[-1]):
+        router_compare_json_output(
+            rtr,
+            "show yang operational-data /frr-pathd:pathd pathd",
+            "step14/show_yang_pathd.ref",
+        )
+
+
+def test_step14_validate_path():
+    logger.info("Test (step 14) - validate path")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    addr = host_links[1][2].split("/")[0]
+    before = read_nft_all_counters(tgen, addr)
+    assert _ping(tgen, 0, addr) == True
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][0]
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
+
+    before = read_nft_all_counters(tgen, addr)
+    assert _ping(tgen, 2, addr) == True
+    after = read_nft_all_counters(tgen, addr)
+    diff = diff_nft_all_counters(before, after)
+    label = sr_global_block[0] + ipv4_indices[9][1]
+    if _nft_version_ok():
+        assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == False
+        assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == True
