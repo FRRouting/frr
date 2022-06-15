@@ -711,7 +711,7 @@ int if_is_broadcast(const struct interface *ifp)
 	return ifp->flags & IFF_BROADCAST;
 }
 
-/* Does this interface support broadcast ? */
+/* Does this interface support pointopoint ? */
 int if_is_pointopoint(const struct interface *ifp)
 {
 	return ifp->flags & IFF_POINTOPOINT;
