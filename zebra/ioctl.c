@@ -160,7 +160,8 @@ void if_get_mtu(struct interface *ifp)
 
 #if defined(SIOCGIFMTU)
 	if (vrf_if_ioctl(SIOCGIFMTU, (caddr_t)&ifreq, ifp->vrf->vrf_id) < 0) {
-		zlog_info("Can't lookup mtu by ioctl(SIOCGIFMTU)");
+		zlog_info("Can't lookup mtu by ioctl(SIOCGIFMTU) for %s(%u)",
+			  ifp->name, ifp->vrf->vrf_id);
 		ifp->mtu6 = ifp->mtu = -1;
 		return;
 	}
@@ -171,7 +172,8 @@ void if_get_mtu(struct interface *ifp)
 	zebra_interface_up_update(ifp);
 
 #else
-	zlog_info("Can't lookup mtu on this system");
+	zlog_info("Can't lookup mtu on this system for %s(%u)", ifp->name,
+		  ifp->vrf->vrf_id);
 	ifp->mtu6 = ifp->mtu = -1;
 #endif
 }
@@ -512,7 +514,8 @@ int if_set_flags(struct interface *ifp, uint64_t flags)
 	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf->vrf_id);
 
 	if (ret < 0) {
-		zlog_info("can't set interface flags");
+		zlog_info("can't set interface %s(%u) flags %" PRIu64,
+			  ifp->name, ifp->vrf->vrf_id, flags);
 		return ret;
 	}
 	return 0;
@@ -533,7 +536,8 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf->vrf_id);
 
 	if (ret < 0) {
-		zlog_info("can't unset interface flags");
+		zlog_warn("can't unset interface %s(%u) flags %" PRIu64,
+			  ifp->name, ifp->vrf->vrf_id, flags);
 		return ret;
 	}
 	return 0;
