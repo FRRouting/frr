@@ -219,6 +219,9 @@ struct zebra_router {
 	bool notify_on_ack;
 
 	bool supports_nhgs;
+
+#define ZEBRA_DEFAULT_NHG_KEEP_TIMER 180
+	uint32_t nhg_keep;
 };
 
 #define GRACEFUL_RESTART_TIME 60

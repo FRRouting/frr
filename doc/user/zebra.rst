@@ -273,6 +273,12 @@ Nexthop tracking doesn't resolve nexthops via the default route by default.
 Allowing this might be useful when e.g. you want to allow BGP to peer across
 the default route.
 
+.. clicmd:: zebra nexthop-group keep (1-3600)
+
+   Set the time that zebra will keep a created and installed nexthop group
+   before removing it from the system if the nexthop group is no longer
+   being used.  The default time is 180 seconds.
+
 .. clicmd:: ip nht resolve-via-default
 
    Allow IPv4 nexthop tracking to resolve via the default route. This parameter

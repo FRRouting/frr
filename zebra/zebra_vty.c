@@ -3850,10 +3850,30 @@ DEFUN (no_ip_zebra_import_table,
 	return (zebra_import_table(AFI_IP, VRF_DEFAULT, table_id, 0, NULL, 0));
 }
 
+DEFPY (zebra_nexthop_group_keep,
+       zebra_nexthop_group_keep_cmd,
+       "[no] zebra nexthop-group keep (1-3600)",
+       NO_STR
+       ZEBRA_STR
+       "Nexthop-Group\n"
+       "How long to keep\n"
+       "Time in seconds from 1-3600\n")
+{
+	if (no)
+		zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
+	else
+		zrouter.nhg_keep = keep;
+
+	return CMD_SUCCESS;
+}
+
 static int config_write_protocol(struct vty *vty)
 {
 	if (allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
+
+	if (zrouter.nhg_keep != ZEBRA_DEFAULT_NHG_KEEP_TIMER)
+		vty_out(vty, "zebra nexthop-group keep %u\n", zrouter.nhg_keep);
 
 	if (zrouter.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
 		vty_out(vty, "zebra work-queue %u\n", zrouter.ribq->spec.hold);
@@ -4433,6 +4453,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &ip_multicast_mode_cmd);
 	install_element(CONFIG_NODE, &no_ip_multicast_mode_cmd);
 
+	install_element(CONFIG_NODE, &zebra_nexthop_group_keep_cmd);
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
