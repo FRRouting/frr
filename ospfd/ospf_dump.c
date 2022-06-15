@@ -1850,8 +1850,6 @@ static int show_debugging_ospf_common(struct vty *vty)
 	if (IS_DEBUG_OSPF(client_api, CLIENT_API) == OSPF_DEBUG_CLIENT_API)
 		vty_out(vty, "  OSPF client-api debugging is on\n");
 
-	vty_out(vty, "\n");
-
 	return CMD_SUCCESS;
 }
 

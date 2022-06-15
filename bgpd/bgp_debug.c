@@ -2277,7 +2277,6 @@ DEFUN_NOSH (show_debugging_bgp,
 	if (BGP_DEBUG(bfd, BFD_LIB))
 		vty_out(vty, "  BGP BFD library debugging is on\n");
 
-	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
 
