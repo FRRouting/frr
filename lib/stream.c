@@ -691,7 +691,7 @@ double stream_getd(struct stream *s)
 	return u.r;
 }
 
-/* Copy to source to stream.
+/* Copy from source to stream.
  *
  * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
  * around. This should be fixed once the stream updates are working.
