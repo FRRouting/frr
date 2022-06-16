@@ -89,7 +89,7 @@ ssize_t zbuf_read(struct zbuf *zb, int fd, size_t maxlen)
 		zb->tail += r;
 	else if (r == 0)
 		r = -2;
-	else if (r < 0 && ERRNO_IO_RETRY(errno))
+	else if (ERRNO_IO_RETRY(errno))
 		r = 0;
 
 	return r;
@@ -109,7 +109,7 @@ ssize_t zbuf_write(struct zbuf *zb, int fd)
 			zbuf_reset(zb);
 	} else if (r == 0)
 		r = -2;
-	else if (r < 0 && ERRNO_IO_RETRY(errno))
+	else if (ERRNO_IO_RETRY(errno))
 		r = 0;
 
 	return r;
@@ -128,7 +128,7 @@ ssize_t zbuf_recv(struct zbuf *zb, int fd)
 		zb->tail += r;
 	else if (r == 0)
 		r = -2;
-	else if (r < 0 && ERRNO_IO_RETRY(errno))
+	else if (ERRNO_IO_RETRY(errno))
 		r = 0;
 	return r;
 }
