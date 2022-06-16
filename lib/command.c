@@ -429,7 +429,6 @@ static char *zencrypt(const char *passwd)
 {
 	char salt[6];
 	struct timeval tv;
-	char *crypt(const char *, const char *);
 
 	gettimeofday(&tv, 0);
 
