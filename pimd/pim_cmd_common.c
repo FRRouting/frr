@@ -3305,11 +3305,7 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty, "\n");
 
 	pim_zebra_zclient_update(vty);
-#if PIM_IPV == 4
 	pim_zlookup_show_ip_multicast(vty);
-#else
-	/* TBD */
-#endif
 
 	vty_out(vty, "\n");
 	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
