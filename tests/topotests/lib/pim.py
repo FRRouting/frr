@@ -525,6 +525,9 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected
             if "pim" not in data:
                 continue
 
+            if "pim" in data and data["pim"] == "disable":
+                continue
+
             if "pim" in data and data["pim"] == "enable":
                 local_interface = data["interface"]
 
