@@ -1294,10 +1294,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 
 	/* Create copy for replication. */
 	msgc = stream_dup(msg);
-	if (msgc == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
-		return;
-	}
 
 	/* Send message to all running BFDd daemons. */
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -1308,10 +1304,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 
 		/* Allocate more messages. */
 		msg = stream_dup(msgc);
-		if (msg == NULL) {
-			zlog_debug("%s: not enough memory", __func__);
-			return;
-		}
 	}
 
 	stream_free(msgc);
@@ -1326,10 +1318,6 @@ static void zebra_ptm_send_clients(struct stream *msg)
 
 	/* Create copy for replication. */
 	msgc = stream_dup(msg);
-	if (msgc == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
-		return;
-	}
 
 	/* Send message to all running client daemons. */
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -1340,10 +1328,6 @@ static void zebra_ptm_send_clients(struct stream *msg)
 
 		/* Allocate more messages. */
 		msg = stream_dup(msgc);
-		if (msg == NULL) {
-			zlog_debug("%s: not enough memory", __func__);
-			return;
-		}
 	}
 
 	stream_free(msgc);
