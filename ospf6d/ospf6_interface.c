@@ -165,8 +165,6 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
 		if (cost < 1)
 			cost = 1;
-		else if (cost > UINT32_MAX)
-			cost = UINT32_MAX;
 	}
 
 	return cost;
