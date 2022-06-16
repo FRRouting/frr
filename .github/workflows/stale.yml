@@ -14,7 +14,9 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         stale-issue-message: 'This issue is stale because it has been open 180 days with no activity. Comment or remove the `autoclose` label in order to avoid having this issue closed.'
         stale-issue-label: autoclose
+        stale-pr-message: 'This PR is stale because it has been open 180 days with no activity. Comment or remove the `autoclose` label in order to avoid having this PR closed.'
+        stale-pr-label: autoclose
         days-before-stale: 180
-        days-before-close: -1
-        days-before-pr-stale: -1
-        days-before-pr-close: -1
+        days-before-close: 194
+        days-before-pr-stale: 180
+        days-before-pr-close: 194
