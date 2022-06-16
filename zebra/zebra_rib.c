@@ -4171,21 +4171,15 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 void rib_close_table(struct route_table *table)
 {
 	struct route_node *rn;
-	struct rib_table_info *info;
 	rib_dest_t *dest;
 
 	if (!table)
 		return;
 
-	info = route_table_get_info(table);
-
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
 		if (dest && dest->selected_fib) {
-			if (info->safi == SAFI_UNICAST)
-				hook_call(rib_update, rn, NULL);
-
 			rib_uninstall_kernel(rn, dest->selected_fib);
 			dest->selected_fib = NULL;
 		}
