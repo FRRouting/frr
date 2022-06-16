@@ -631,7 +631,7 @@ static char *bgp_get_bound_name(struct peer *peer)
 	return peer->bgp->name;
 }
 
-static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
+int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 			      union sockunion *addr)
 {
 	struct prefix *p, *sel, d;
