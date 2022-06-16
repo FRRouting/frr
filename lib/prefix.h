@@ -594,6 +594,15 @@ static inline int is_default_host_route(const struct prefix *p)
 	return 0;
 }
 
+static inline bool is_ipv6_global_unicast(const struct in6_addr *p)
+{
+	if (IN6_IS_ADDR_UNSPECIFIED(p) || IN6_IS_ADDR_LOOPBACK(p) ||
+	    IN6_IS_ADDR_LINKLOCAL(p) || IN6_IS_ADDR_MULTICAST(p))
+		return false;
+
+	return true;
+}
+
 /* IPv6 scope values, usable for IPv4 too (cf. below) */
 /* clang-format off */
 enum {
