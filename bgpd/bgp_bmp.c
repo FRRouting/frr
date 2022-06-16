@@ -1774,7 +1774,6 @@ static void bmp_active_setup(struct bmp_active *ba);
 static void bmp_active_connect(struct bmp_active *ba)
 {
 	enum connect_result res;
-	char buf[SU_ADDRSTRLEN];
 	struct interface *ifp;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	int res_bind;
@@ -1799,11 +1798,8 @@ static void bmp_active_connect(struct bmp_active *ba)
 					  ba->ifsrc);
 				continue;
 			}
-			zlog_info("bmp[%s]: selected source address : %s",
-				  ba->ifsrc,
-				  sockunion2str(&ba->addrsrc,
-						buf,
-						SU_ADDRSTRLEN));
+			zlog_info("bmp[%s]: selected source address : %pSU",
+				  ba->ifsrc, &ba->addrsrc);
 		}
 
 		ba->socket = sockunion_socket(&ba->addrs[ba->addrpos]);
@@ -1819,10 +1815,9 @@ static void bmp_active_connect(struct bmp_active *ba)
 			res_bind = sockunion_bind(ba->socket, &ba->addrsrc, 0,
 						  &ba->addrsrc);
 			if (res_bind < 0) {
-				sockunion2str(&ba->addrsrc, buf, sizeof(buf));
 				zlog_warn(
-					"bmp[%s]: no bind currently to source address %s:%d",
-					ba->hostname, buf, ba->port);
+					"bmp[%s]: no bind currently to source address %pSU:%d",
+					ba->hostname, &ba->addrsrc, ba->port);
 				close(ba->socket);
 				ba->socket = -1;
 				sockunion_init(&ba->addrsrc);
@@ -1835,25 +1830,22 @@ static void bmp_active_connect(struct bmp_active *ba)
 				      htons(ba->port), 0);
 		switch (res) {
 		case connect_error:
-			sockunion2str(&ba->addrs[ba->addrpos], buf,
-				      sizeof(buf));
-			zlog_warn("bmp[%s]: failed to connect to %s:%d",
-				  ba->hostname, buf, ba->port);
+			zlog_warn("bmp[%s]: failed to connect to %pSU:%d",
+				  ba->hostname, &ba->addrs[ba->addrpos],
+				  ba->port);
 			close(ba->socket);
 			ba->socket = -1;
 			sockunion_init(&ba->addrsrc);
 			continue;
 		case connect_success:
-			sockunion2str(&ba->addrs[ba->addrpos], buf,
-				      sizeof(buf));
-			zlog_info("bmp[%s]: connected to  %s:%d",
-				  ba->hostname, buf, ba->port);
+			zlog_info("bmp[%s]: connected to  %pSU:%d",
+				  ba->hostname, &ba->addrs[ba->addrpos],
+				  ba->port);
 			break;
 		case connect_in_progress:
-			 sockunion2str(&ba->addrs[ba->addrpos], buf,
-				      sizeof(buf));
-			zlog_warn("bmp[%s]: connect in progress  %s:%d",
-				  ba->hostname, buf, ba->port);
+			zlog_warn("bmp[%s]: connect in progress  %pSU:%d",
+				  ba->hostname, &ba->addrs[ba->addrpos],
+				  ba->port);
 			bmp_active_setup(ba);
 			return;
 		}
