@@ -1119,7 +1119,9 @@ void if_down(struct interface *ifp)
 
 void if_refresh(struct interface *ifp)
 {
+#ifndef GNU_LINUX
 	if_get_flags(ifp);
+#endif
 }
 
 void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
