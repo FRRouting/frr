@@ -1853,7 +1853,9 @@ void pim_igmp_interface_delete(struct interface *ifp)
 
 	pim_if_membership_clear(ifp);
 
-	pim_if_addr_del_all_igmp(ifp);
+#if PIM_IPV == 4
+	igmp_sock_delete_all(ifp);
+#endif
 
 	if (!pim_ifp->pim_enable)
 		pim_if_delete(ifp);
