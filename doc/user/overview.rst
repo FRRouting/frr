@@ -383,6 +383,8 @@ BGP
   :t:`Extended BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder, A. Azimov. January 2021`
 - :rfc:`9072`
   :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021`
+- :rfc:`9234`
+  :t:`Route Leak Prevention and Detection Using Roles in UPDATE and OPEN Messages. A. Azimov, E. Bogomazov, R. Bush, K. Patel, K. Sriram. May 2022`
 
 OSPF
 ----

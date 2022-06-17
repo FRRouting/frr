@@ -1,0 +1,15 @@
+graph roles_filtering_stand {
+    layout="circo"
+    label="roles capability stand"
+    fontsize="20"
+
+    r1  [label="r1 provider"];
+    r2  [label="r2"];
+    r3  [label="r3"];
+    r4  [label="r4"];
+    r5  [label="r5"];
+    r1 -- r2 [headlabel="customer", taillabel="provider"];
+    r1 -- r3 [headlabel="peer", taillabel="provider"];
+    r1 -- r4 [headlabel="?", taillabel="provider"];
+    r1 -- r5 [headlabel="?", taillabel="provider", label="strict-mode"];
+}

@@ -334,6 +334,9 @@ struct attr {
 
 	/* If NEXTHOP_TYPE_BLACKHOLE, then blackhole type */
 	enum blackhole_type bh_type;
+
+	/* OTC value if set */
+	uint32_t otc;
 };
 
 /* rmap_change_flags definition */

@@ -1,0 +1,21 @@
+graph roles_filtering_stand {
+    layout="circo"
+    label="roles filtering stand"
+    fontsize="20"
+
+    r1  [label="r1 192.0.2.1/32"];
+    r2  [label="r2 192.0.2.2/32"];
+    r3  [label="r3 192.0.2.3/32"];
+    r4  [label="r4 192.0.2.4/32"];
+    r5  [label="r5 192.0.2.5/32"];
+    r6  [label="r6 192.0.2.6/32"];
+    r7  [label="r7 192.0.2.7/32"];
+    r10 [label="r10 intermediate"];
+    r10 -- r1 [headlabel="provider", taillabel="?"];
+    r10 -- r2 [headlabel="peer", taillabel="?"];
+    r10 -- r3 [headlabel="customer", taillabel="?"];
+    r10 -- r4 [headlabel="?", taillabel="?"];
+    r10 -- r5 [headlabel="?", taillabel="provider"];
+    r10 -- r6 [headlabel="?", taillabel="peer"];
+    r10 -- r7 [headlabel="?", taillabel="customer"];
+}

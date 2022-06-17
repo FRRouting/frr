@@ -508,6 +508,9 @@ struct cmd_node {
 	EVPN_TYPE_4_HELP_STR EVPN_TYPE_4_HELP_STR                              \
 	EVPN_TYPE_5_HELP_STR EVPN_TYPE_5_HELP_STR
 
+/* Describing roles */
+#define ROLE_STR                                                               \
+	"Providing transit\nRoute server\nRS client\nUsing transit\nPublic/private peering\n"
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
