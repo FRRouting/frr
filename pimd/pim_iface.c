@@ -1816,12 +1816,12 @@ void pim_if_membership_clear(struct interface *ifp)
 	pim_ifchannel_membership_clear(ifp);
 }
 
-int pim_pim_interface_delete(struct interface *ifp)
+void pim_pim_interface_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (!pim_ifp)
-		return 1;
+		return;
 
 	pim_ifp->pim_enable = false;
 
@@ -1838,7 +1838,26 @@ int pim_pim_interface_delete(struct interface *ifp)
 		pim_if_delete(ifp);
 	}
 
-	return 1;
+	return;
+}
+
+void pim_igmp_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return;
+
+	pim_ifp->igmp_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+	pim_if_addr_del_all_igmp(ifp);
+
+	if (!pim_ifp->pim_enable)
+		pim_if_delete(ifp);
+
+	return;
 }
 
 static int pim_if_new_hook(struct interface *ifp)
