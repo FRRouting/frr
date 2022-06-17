@@ -57,20 +57,6 @@ MACRO_REQUIRE_SEMICOLON()
 #define yang_dnode_get_pimaddr yang_dnode_get_ipv4
 #endif /* PIM_IPV != 6 */
 
-static void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
-
-	if (pim_ifp->pim_enable && pim_ifp->igmp_enable) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
-
 /*
  * When PIM is disabled on interface, IGMPv3 local membership
  * information is not injected into PIM interface state.
@@ -149,31 +135,6 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
-	return 1;
-}
-
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	pim_ifp->pim_enable = false;
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	 * pim_sock_delete() removes all neighbors from
-	 * pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-
-	if (!pim_ifp->igmp_enable) {
-		pim_if_addr_del_all(ifp);
-		pim_if_delete(ifp);
-	}
-
 	return 1;
 }
 

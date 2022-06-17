@@ -1802,6 +1802,45 @@ static int pim_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
+void pim_if_membership_clear(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+	assert(pim_ifp);
+
+	if (pim_ifp->pim_enable && pim_ifp->igmp_enable) {
+		return;
+	}
+
+	pim_ifchannel_membership_clear(ifp);
+}
+
+int pim_cmd_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return 1;
+
+	pim_ifp->pim_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+	/*
+	 * pim_sock_delete() removes all neighbors from
+	 * pim_ifp->pim_neighbor_list.
+	 */
+	pim_sock_delete(ifp, "pim unconfigured on interface");
+
+	if (!pim_ifp->igmp_enable) {
+		pim_if_addr_del_all(ifp);
+		pim_if_delete(ifp);
+	}
+
+	return 1;
+}
+
 static int pim_if_new_hook(struct interface *ifp)
 {
 	return 0;
