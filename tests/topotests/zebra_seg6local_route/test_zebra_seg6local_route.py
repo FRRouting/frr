@@ -104,7 +104,7 @@ def test_zebra_seg6local_routes():
             dest,
             manifest["out"],
         )
-        success, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+        success, result = topotest.run_and_expect(test_func, None, count=25, wait=1)
         assert result is None, "Failed"
 
 
