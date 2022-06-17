@@ -92,34 +92,34 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_EVENTS) {
-		vty_out(vty, "debug pim events\n");
+		vty_out(vty, "debug " PIM_AF_DBG " events\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_PACKETS) {
-		vty_out(vty, "debug pim packets\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
-		vty_out(vty, "debug pim packet-dump send\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packet-dump send\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-		vty_out(vty, "debug pim packet-dump receive\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packet-dump receive\n");
 		++writes;
 	}
 
 	/* PIM_DEBUG_PIM_TRACE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_PIM_TRACE) {
-		vty_out(vty, "debug pim trace\n");
+		vty_out(vty, "debug " PIM_AF_DBG " trace\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-		vty_out(vty, "debug pim trace detail\n");
+		vty_out(vty, "debug " PIM_AF_DBG " trace detail\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_ZEBRA) {
-		vty_out(vty, "debug pim zebra\n");
+		vty_out(vty, "debug " PIM_AF_DBG " zebra\n");
 		++writes;
 	}
 
@@ -144,17 +144,17 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_HELLO) {
-		vty_out(vty, "debug pim packets hello\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets hello\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_PIM_J_P) {
-		vty_out(vty, "debug pim packets joins\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets joins\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_PIM_REG) {
-		vty_out(vty, "debug pim packets register\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets register\n");
 		++writes;
 	}
 
@@ -164,7 +164,7 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_NHT) {
-		vty_out(vty, "debug pim nht\n");
+		vty_out(vty, "debug " PIM_AF_DBG " nht\n");
 		++writes;
 	}
 
@@ -174,7 +174,7 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL) {
-		vty_out(vty, "debug pim nht detail\n");
+		vty_out(vty, "debug " PIM_AF_DBG " nht detail\n");
 		++writes;
 	}
 
