@@ -159,6 +159,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->local_as = src->local_as;
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
+	dst->local_role = src->local_role;
 	memcpy(&(dst->nexthop), &(src->nexthop), sizeof(struct bgp_nexthop));
 
 	dst->group = src->group;
@@ -308,6 +309,7 @@ static void *updgrp_hash_alloc(void *p)
  *       15. If peer is configured to be a lonesoul, peer ip address
  *       16. Local-as should match, if configured.
  *       17. maximum-prefix-out
+ *       18. Local-role should also match, if configured.
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -411,6 +413,11 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT))
 		key = jhash_1word(jhash(peer->host, strlen(peer->host), SEED2),
 				  key);
+	/*
+	 * Multiple sessions with the same neighbor should get their own
+	 * update-group if they have different roles.
+	 */
+	key = jhash_1word(peer->local_role, key);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(
@@ -530,6 +537,10 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 		return false;
 
 	if (pe1->group != pe2->group)
+		return false;
+
+	/* Roles can affect filtering */
+	if (pe1->local_role != pe2->local_role)
 		return false;
 
 	/* route-map names should be the same */

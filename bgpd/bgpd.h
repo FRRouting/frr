@@ -1167,6 +1167,18 @@ struct peer {
 	int shared_network;	 /* Is this peer shared same network. */
 	struct bgp_nexthop nexthop; /* Nexthop */
 
+	/* Roles in bgp session */
+	uint8_t local_role;
+	uint8_t neighbor_role;
+#define ROLE_PROVIDER                       0
+#define ROLE_RS_SERVER                      1
+#define ROLE_RS_CLIENT                      2
+#define ROLE_CUSTOMER                       3
+#define ROLE_PEER                           4
+#define ROLE_UNDEFINE                     255
+
+#define ROLE_NAME_MAX_LEN                  20
+
 	/* Peer address family configuration. */
 	uint8_t afc[AFI_MAX][SAFI_MAX];
 	uint8_t afc_nego[AFI_MAX][SAFI_MAX];
@@ -1204,6 +1216,8 @@ struct peer {
 #define PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV (1U << 23)
 /* received graceful-restart notification (N) bit */
 #define PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV (1U << 24)
+#define PEER_CAP_ROLE_ADV                   (1U << 25) /* role advertised */
+#define PEER_CAP_ROLE_RCV                   (1U << 26) /* role received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1319,6 +1333,11 @@ struct peer {
 #define PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE (1U << 29)
 /* force the extended format for Optional Parameters in OPEN message */
 #define PEER_FLAG_EXTENDED_OPT_PARAMS (1U << 30)
+
+	/* BGP Open Policy flags.
+	 * Enforce using roles on both sides
+	 */
+#define PEER_FLAG_STRICT_MODE               (1U << 31)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1803,6 +1822,7 @@ struct bgp_nlri {
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_IPV6_EXT_COMMUNITIES           25
 #define BGP_ATTR_LARGE_COMMUNITIES              32
+#define BGP_ATTR_OTC                            35
 #define BGP_ATTR_PREFIX_SID                     40
 #define BGP_ATTR_SRTE_COLOR                     51
 #ifdef ENABLE_BGP_VNC_ATTR
@@ -1846,6 +1866,7 @@ struct bgp_nlri {
 #define BGP_NOTIFY_OPEN_AUTH_FAILURE             5
 #define BGP_NOTIFY_OPEN_UNACEP_HOLDTIME          6
 #define BGP_NOTIFY_OPEN_UNSUP_CAPBL              7
+#define BGP_NOTIFY_OPEN_ROLE_MISMATCH           11
 
 /* BGP_NOTIFY_UPDATE_ERR sub codes.  */
 #define BGP_NOTIFY_UPDATE_MAL_ATTR               1
@@ -1984,6 +2005,10 @@ enum bgp_create_error_code {
 	BGP_ERR_GR_INVALID_CMD = -32,
 	BGP_ERR_GR_OPERATION_FAILED = -33,
 	BGP_GR_NO_OPERATION = -34,
+
+	/*BGP Open Policy ERRORS */
+	BGP_ERR_INVALID_ROLE_NAME = -35,
+	BGP_ERR_INVALID_INTERNAL_ROLE = -36
 };
 
 /*
@@ -2154,6 +2179,9 @@ extern int peer_ebgp_multihop_set(struct peer *, int);
 extern int peer_ebgp_multihop_unset(struct peer *);
 extern int is_ebgp_multihop_configured(struct peer *peer);
 
+extern int peer_role_set(struct peer *peer, uint8_t role, int strict_mode);
+extern int peer_role_unset(struct peer *peer);
+
 extern void peer_description_set(struct peer *, const char *);
 extern void peer_description_unset(struct peer *);
 
@@ -2253,6 +2281,8 @@ extern void peer_tx_shutdown_message_set(struct peer *, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *);
 
 extern void bgp_route_map_update_timer(struct thread *thread);
+extern const char *get_name_by_role(uint8_t role);
+
 extern void bgp_route_map_terminate(void);
 
 extern int peer_cmp(struct peer *p1, struct peer *p2);

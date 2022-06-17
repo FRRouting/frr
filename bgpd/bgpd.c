@@ -1374,6 +1374,8 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
+	peer->local_role = ROLE_UNDEFINE;
+	peer->neighbor_role = ROLE_UNDEFINE;
 	peer->password = NULL;
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
@@ -1470,6 +1472,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->tcp_mss = peer_src->tcp_mss;
 	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
+	peer_dst->local_role = peer_src->local_role;
 
 	peer_dst->max_packet_size = peer_src->max_packet_size;
 
@@ -1994,6 +1997,17 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 	}
 
 	return 0;
+}
+
+const char *get_name_by_role(uint8_t role)
+{
+	static const char *const bgp_role_names[] = {
+		"provider", "rs-server", "rs-client", "customer", "peer"};
+	if (role == ROLE_UNDEFINE)
+		return "undefine";
+	if (role <= 5)
+		return bgp_role_names[role];
+	return "unknown";
 }
 
 static void peer_group2peer_config_copy_af(struct peer_group *group,
@@ -4900,6 +4914,43 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 		}
 	}
 	return 0;
+}
+
+/* Set Open Policy Role and check its correctness */
+int peer_role_set(struct peer *peer, uint8_t role, int strict_mode)
+{
+	if (peer->local_role == role) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE) &&
+		    !strict_mode)
+			/* TODO: Is session restart needed if it was down? */
+			UNSET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE) &&
+		    strict_mode) {
+			SET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
+			/* Restart session to throw Role Mismatch Notification
+			 */
+			if (peer->neighbor_role == ROLE_UNDEFINE)
+				bgp_session_reset(peer);
+		}
+	} else {
+		if (peer->sort == BGP_PEER_IBGP &&
+		    (role == ROLE_CUSTOMER || role == ROLE_PROVIDER ||
+		     role == ROLE_PEER || role == ROLE_RS_SERVER ||
+		     role == ROLE_RS_CLIENT))
+			return BGP_ERR_INVALID_INTERNAL_ROLE;
+		peer->local_role = role;
+		if (strict_mode)
+			SET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
+		else
+			UNSET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
+		bgp_session_reset(peer);
+	}
+	return 0;
+}
+
+int peer_role_unset(struct peer *peer)
+{
+	return peer_role_set(peer, ROLE_UNDEFINE, 0);
 }
 
 /* Neighbor description. */
