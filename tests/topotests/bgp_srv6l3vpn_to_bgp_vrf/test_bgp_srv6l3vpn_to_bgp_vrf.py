@@ -41,7 +41,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    """
+    r"""
       CE1     CE3      CE5
     (eth0)  (eth0)   (eth0)
       :2      :2      :2

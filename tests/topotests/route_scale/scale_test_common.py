@@ -158,7 +158,7 @@ def route_install_helper(iter):
 
     # Avoid top ecmp case for runs with < 4G memory
     output = tgen.net.cmd_raises("free")
-    m = re.search("Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
+    m = re.search(r"Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
     total_mem = int(m.group(2))
     if total_mem < 4000000 and iter == 5:
         logger.info(
