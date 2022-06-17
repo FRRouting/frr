@@ -1816,7 +1816,7 @@ void pim_if_membership_clear(struct interface *ifp)
 	pim_ifchannel_membership_clear(ifp);
 }
 
-int pim_cmd_interface_delete(struct interface *ifp)
+int pim_pim_interface_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 

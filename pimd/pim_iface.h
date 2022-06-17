@@ -258,6 +258,6 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 void pim_iface_init(void);
 
 void pim_if_membership_clear(struct interface *ifp);
-int pim_cmd_interface_delete(struct interface *ifp);
+int pim_pim_interface_delete(struct interface *ifp);
 
 #endif /* PIM_IFACE_H */

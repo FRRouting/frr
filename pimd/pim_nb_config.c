@@ -1520,7 +1520,7 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		if (!pim_cmd_interface_delete(ifp)) {
+		if (!pim_pim_interface_delete(ifp)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Unable to delete interface information %s",
 				 ifp->name);
@@ -1573,7 +1573,7 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			if (!pim_cmd_interface_delete(ifp)) {
+			if (!pim_pim_interface_delete(ifp)) {
 				snprintf(args->errmsg, args->errmsg_len,
 					 "Unable to delete interface information");
 				return NB_ERR_INCONSISTENCY;
