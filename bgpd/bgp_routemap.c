@@ -1956,7 +1956,7 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set local preference value. */
-	if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (path->attr->local_pref)
 		locpref = path->attr->local_pref;
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);

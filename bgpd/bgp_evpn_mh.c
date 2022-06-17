@@ -637,7 +637,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	memset(&attr, 0, sizeof(struct attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = es->originator_ip;
 	attr.mp_nexthop_global_in = es->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -935,7 +935,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp,
 	memset(&attr, 0, sizeof(struct attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = es->originator_ip;
 	attr.mp_nexthop_global_in = es->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
