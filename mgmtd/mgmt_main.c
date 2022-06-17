@@ -65,6 +65,7 @@ struct zebra_privs_t mgmt_privs = {
 };
 
 static struct frr_daemon_info mgmtd_di;
+char backup_config_file[256];
 
 /* SIGHUP handler. */
 static void sighup(void)
@@ -275,6 +276,10 @@ int main(int argc, char **argv)
 
 	/* MGMTD related initialization.  */
 	mgmt_init();
+
+	snprintf(backup_config_file, sizeof(backup_config_file),
+		 "%s/zebra.conf", frr_sysconfdir);
+	mgmtd_di.backup_config_file = backup_config_file;
 
 	frr_config_fork();
 
