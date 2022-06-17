@@ -1205,6 +1205,29 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 	rtadv_prefix_reset(zif, &rp);
 }
 
+static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
+					 struct zebra_if *zif)
+{
+	struct adv_if *adv_if = NULL;
+
+	if (zif->ifp->ifindex == IFINDEX_INTERNAL) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug(
+				"%s(%s) has not configured an ifindex yet, delaying until we have one",
+				zif->ifp->name, zvrf->vrf->name);
+		return;
+	}
+
+	adv_if = adv_if_add(zvrf, zif->ifp->name);
+	if (adv_if != NULL)
+		return; /* Already added */
+
+	if_join_all_router(zvrf->rtadv.sock, zif->ifp);
+
+	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
+		rtadv_event(zvrf, RTADV_START, 0);
+}
+
 static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 				    enum ipv6_nd_suppress_ra_status status)
 {
@@ -1249,14 +1272,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 					RTADV_NUM_FAST_REXMITS;
 			}
 
-			adv_if = adv_if_add(zvrf, ifp->name);
-			if (adv_if != NULL)
-				return; /* Alread added */
-
-			if_join_all_router(zvrf->rtadv.sock, ifp);
-
-			if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
-				rtadv_event(zvrf, RTADV_START, 0);
+			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
 }
@@ -2780,6 +2796,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 
 void rtadv_if_up(struct zebra_if *zif)
 {
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(zif->ifp);
+
 	/* Enable fast tx of RA if enabled && RA interval is not in msecs */
 	if (zif->rtadv.AdvSendAdvertisements &&
 	    (zif->rtadv.MaxRtrAdvInterval >= 1000) &&
@@ -2787,6 +2805,13 @@ void rtadv_if_up(struct zebra_if *zif)
 		zif->rtadv.inFastRexmit = 1;
 		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
 	}
+
+	/*
+	 * startup the state machine, if it hasn't been already
+	 * due to a delayed ifindex on startup ordering
+	 */
+	if (zif->rtadv.AdvSendAdvertisements)
+		rtadv_start_interface_events(zvrf, zif);
 }
 
 void rtadv_if_init(struct zebra_if *zif)
