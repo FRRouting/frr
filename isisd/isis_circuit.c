@@ -185,6 +185,10 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 
 	isis_circuit_if_bind(circuit, ifp);
 
+	circuit->ip_addrs = list_new();
+	circuit->ipv6_link = list_new();
+	circuit->ipv6_non_link = list_new();
+
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		isis_circuit_enable(circuit);
 
@@ -208,6 +212,10 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	circuit_mt_finish(circuit);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+
+	list_delete(&circuit->ip_addrs);
+	list_delete(&circuit->ipv6_link);
+	list_delete(&circuit->ipv6_non_link);
 
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
@@ -509,10 +517,6 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
-	circuit->ip_addrs = list_new();
-	circuit->ipv6_link = list_new();
-	circuit->ipv6_non_link = list_new();
-
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
 
@@ -528,21 +532,6 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	/* destroy addresses */
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_del_addr(circuit, conn);
-
-	if (circuit->ip_addrs) {
-		assert(listcount(circuit->ip_addrs) == 0);
-		list_delete(&circuit->ip_addrs);
-	}
-
-	if (circuit->ipv6_link) {
-		assert(listcount(circuit->ipv6_link) == 0);
-		list_delete(&circuit->ipv6_link);
-	}
-
-	if (circuit->ipv6_non_link) {
-		assert(listcount(circuit->ipv6_non_link) == 0);
-		list_delete(&circuit->ipv6_non_link);
-	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
 }
@@ -1046,7 +1035,7 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 			json_object_array_add(levels_json, level_json);
 		}
 
-		if (circuit->ip_addrs && listcount(circuit->ip_addrs) > 0) {
+		if (listcount(circuit->ip_addrs) > 0) {
 			ipv4_addr_json = json_object_new_object();
 			json_object_object_add(iface_json, "ip-prefix",
 					       ipv4_addr_json);
@@ -1058,7 +1047,7 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 						       buf_prx);
 			}
 		}
-		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {
+		if (listcount(circuit->ipv6_link) > 0) {
 			ipv6_link_json = json_object_new_object();
 			json_object_object_add(iface_json, "ipv6-link-locals",
 					       ipv6_link_json);
@@ -1070,8 +1059,7 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 						       buf_prx);
 			}
 		}
-		if (circuit->ipv6_non_link &&
-		    listcount(circuit->ipv6_non_link) > 0) {
+		if (listcount(circuit->ipv6_non_link) > 0) {
 			ipv6_non_link_json = json_object_new_object();
 			json_object_object_add(iface_json, "ipv6-prefixes",
 					       ipv6_non_link_json);
@@ -1183,20 +1171,19 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, "\n");
 			}
 		}
-		if (circuit->ip_addrs && listcount(circuit->ip_addrs) > 0) {
+		if (listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
 						  ip_addr))
 				vty_out(vty, "      %pFX\n", ip_addr);
 		}
-		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {
+		if (listcount(circuit->ipv6_link) > 0) {
 			vty_out(vty, "    IPv6 Link-Locals:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
 						  ip_addr))
 				vty_out(vty, "      %pFX\n", ip_addr);
 		}
-		if (circuit->ipv6_non_link
-		    && listcount(circuit->ipv6_non_link) > 0) {
+		if (listcount(circuit->ipv6_non_link) > 0) {
 			vty_out(vty, "    IPv6 Prefixes:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
 						  ip_addr))

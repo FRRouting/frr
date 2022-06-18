@@ -1171,8 +1171,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					  ? circuit->metric[level - 1]
 					  : circuit->te_metric[level - 1];
 
-		if (circuit->ip_router && circuit->ip_addrs
-		    && circuit->ip_addrs->count > 0) {
+		if (circuit->ip_router && circuit->ip_addrs->count > 0) {
 			lsp_debug(
 				"ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
 				area->area_tag);
@@ -1206,8 +1205,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			}
 		}
 
-		if (circuit->ipv6_router && circuit->ipv6_non_link
-		    && circuit->ipv6_non_link->count > 0) {
+		if (circuit->ipv6_router && circuit->ipv6_non_link->count > 0) {
 			struct listnode *ipnode;
 			struct prefix_ipv6 *ipv6;
 
