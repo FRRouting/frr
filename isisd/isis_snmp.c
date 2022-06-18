@@ -2117,7 +2117,7 @@ static uint8_t *isis_snmp_find_circ(struct variable *v, oid *name,
 
 	switch (v->magic) {
 	case ISIS_CIRC_IFINDEX:
-		if (circuit->interface == 0)
+		if (circuit->interface == NULL)
 			return SNMP_INTEGER(0);
 
 		return SNMP_INTEGER(circuit->interface->ifindex);
