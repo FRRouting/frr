@@ -206,7 +206,7 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 	struct isis_adjacency *adj;
 	struct listnode *node;
 
-	if (circuit->area == 0)
+	if (circuit->area == NULL)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS_RO(circuit->area->adjacency_list, node, adj)) {
