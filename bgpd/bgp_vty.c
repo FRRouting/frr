@@ -13998,6 +13998,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty, "Local host: %s, Local port: %d\n",
 				sockunion2str(p->su_local, buf1, SU_ADDRSTRLEN),
 				ntohs(p->su_local->sin.sin_port));
+	} else {
+		if (use_json) {
+			json_object_string_add(json_neigh, "hostLocal",
+					       "Unknown");
+			json_object_int_add(json_neigh, "portLocal", -1);
+		}
 	}
 
 	/* Remote address. */
@@ -14013,6 +14019,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				sockunion2str(p->su_remote, buf1,
 					      SU_ADDRSTRLEN),
 				ntohs(p->su_remote->sin.sin_port));
+	} else {
+		if (use_json) {
+			json_object_string_add(json_neigh, "hostForeign",
+					       "Unknown");
+			json_object_int_add(json_neigh, "portForeign", -1);
+		}
 	}
 
 	/* Nexthop display. */
