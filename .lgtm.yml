@@ -1,0 +1,14 @@
+extraction:
+  cpp:
+    prepare:
+      packages:
+        - libpcre2-dev
+        - https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/Debian-11-x86_64-Packages/libyang2_2.0.0.10.g2eb910e4-1_amd64.deb
+        - https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/Debian-11-x86_64-Packages/libyang2-dev_2.0.0.10.g2eb910e4-1_amd64.deb
+    after_prepare:
+      - cd $LGTM_WORKSPACE
+      - git clone https://github.com/CESNET/libyang.git
+      - cd libyang; mkdir build; cd build
+      - cmake -DCMAKE_INSTALL_PREFIX=$LGTM_WORKSPACE -DENABLE_BUILD_TESTS=OFF ..
+      - make -j ($nproc)
+      - make install
