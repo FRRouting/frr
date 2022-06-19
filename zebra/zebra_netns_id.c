@@ -255,66 +255,59 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 		}
 	}
 
-	if (ret <= 0) {
-		if (errno != EEXIST && ret != 0) {
-			flog_err(
-				EC_LIB_SOCKET,
-				"netlink( %u) recvfrom() error 2 when reading: %s",
-				fd, safe_strerror(errno));
-			close(sock);
-			if (netnspath)
-				close(fd);
-			if (errno == ENOTSUP) {
-				zlog_debug("NEWNSID locally generated");
-				return zebra_ns_id_get_fallback(netnspath);
-			}
-			return NS_UNKNOWN;
+	if (errno != EEXIST && ret != 0) {
+		flog_err(EC_LIB_SOCKET,
+			 "netlink( %u) recvfrom() error 2 when reading: %s", fd,
+			 safe_strerror(errno));
+		close(sock);
+		if (netnspath)
+			close(fd);
+		if (errno == ENOTSUP) {
+			zlog_debug("NEWNSID locally generated");
+			return zebra_ns_id_get_fallback(netnspath);
 		}
-		/* message to send to netlink : GETNSID */
-		memset(buf, 0, NETLINK_SOCKET_BUFFER_SIZE);
-		nlh = initiate_nlh(buf, &seq, RTM_GETNSID);
-		rt = (struct rtgenmsg *)(buf + nlh->nlmsg_len);
-		nlh->nlmsg_len += NETLINK_ALIGN(sizeof(struct rtgenmsg));
-		rt->rtgen_family = AF_UNSPEC;
-
-		nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_FD, fd);
-		nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID,
-			      ns_id);
-
-		ret = send_receive(sock, nlh, seq, buf);
-		if (ret < 0) {
-			close(sock);
-			if (netnspath)
-				close(fd);
-			return NS_UNKNOWN;
-		}
-		nlh = (struct nlmsghdr *)buf;
-		len = ret;
-		ret = 0;
-		do {
-			if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
-				return_nsid = extract_nsid(nlh, buf);
-				if (return_nsid != NS_UNKNOWN)
-					break;
-			} else if (nlh->nlmsg_type == NLMSG_ERROR) {
-				struct nlmsgerr *err =
-					(struct nlmsgerr
-						 *)((char *)nlh
-						    + NETLINK_ALIGN(sizeof(
-							      struct
-							      nlmsghdr)));
-				if (err->error < 0)
-					errno = -err->error;
-				else
-					errno = err->error;
-				break;
-			}
-			len = len - NETLINK_ALIGN(nlh->nlmsg_len);
-			nlh = (struct nlmsghdr *)((char *)nlh
-						  + NETLINK_ALIGN(
-							    nlh->nlmsg_len));
-		} while (len != 0 && ret == 0);
+		return NS_UNKNOWN;
 	}
+	/* message to send to netlink : GETNSID */
+	memset(buf, 0, NETLINK_SOCKET_BUFFER_SIZE);
+	nlh = initiate_nlh(buf, &seq, RTM_GETNSID);
+	rt = (struct rtgenmsg *)(buf + nlh->nlmsg_len);
+	nlh->nlmsg_len += NETLINK_ALIGN(sizeof(struct rtgenmsg));
+	rt->rtgen_family = AF_UNSPEC;
+
+	nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_FD, fd);
+	nl_attr_put32(nlh, NETLINK_SOCKET_BUFFER_SIZE, NETNSA_NSID, ns_id);
+
+	ret = send_receive(sock, nlh, seq, buf);
+	if (ret < 0) {
+		close(sock);
+		if (netnspath)
+			close(fd);
+		return NS_UNKNOWN;
+	}
+	nlh = (struct nlmsghdr *)buf;
+	len = ret;
+	ret = 0;
+	do {
+		if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
+			return_nsid = extract_nsid(nlh, buf);
+			if (return_nsid != NS_UNKNOWN)
+				break;
+		} else if (nlh->nlmsg_type == NLMSG_ERROR) {
+			struct nlmsgerr *err =
+				(struct nlmsgerr *)((char *)nlh +
+						    NETLINK_ALIGN(sizeof(
+							    struct nlmsghdr)));
+			if (err->error < 0)
+				errno = -err->error;
+			else
+				errno = err->error;
+			break;
+		}
+		len = len - NETLINK_ALIGN(nlh->nlmsg_len);
+		nlh = (struct nlmsghdr *)((char *)nlh +
+					  NETLINK_ALIGN(nlh->nlmsg_len));
+	} while (len != 0 && ret == 0);
 
 	if (netnspath)
 		close(fd);
