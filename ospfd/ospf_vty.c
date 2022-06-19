@@ -4335,18 +4335,145 @@ static void show_ip_ospf_neighbour_header(struct vty *vty)
 		"Address", "Interface", "RXmtL", "RqstL", "DBsmL");
 }
 
+static void show_ip_ospf_neighbour_brief(struct vty *vty,
+					 struct ospf_neighbor *nbr,
+					 struct ospf_neighbor *prev_nbr,
+					 json_object *json, bool use_json)
+{
+	char msgbuf[16];
+	char timebuf[OSPF_TIME_DUMP_SIZE];
+	json_object *json_neighbor = NULL, *json_neigh_array = NULL;
+	struct timeval res;
+	long time_val = 0;
+	char uptime[OSPF_TIME_DUMP_SIZE];
+
+	if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec)
+		time_val =
+			monotime_since(&nbr->ts_last_progress, &res) / 1000LL;
+
+	if (use_json) {
+		char neigh_str[INET_ADDRSTRLEN];
+
+		if (prev_nbr && !IPV4_ADDR_SAME(&prev_nbr->src, &nbr->src)) {
+			/* Start new neigh list */
+			json_neigh_array = NULL;
+		}
+
+		if (nbr->state == NSM_Attempt &&
+		    nbr->router_id.s_addr == INADDR_ANY)
+			strlcpy(neigh_str, "neighbor", sizeof(neigh_str));
+		else
+			inet_ntop(AF_INET, &nbr->router_id, neigh_str,
+				  sizeof(neigh_str));
+
+		json_object_object_get_ex(json, neigh_str, &json_neigh_array);
+
+		if (!json_neigh_array) {
+			json_neigh_array = json_object_new_array();
+			json_object_object_add(json, neigh_str,
+					       json_neigh_array);
+		}
+
+		json_neighbor = json_object_new_object();
+
+		ospf_nbr_ism_state_message(nbr, msgbuf, sizeof(msgbuf));
+#if CONFDATE > 20230321
+		CPP_NOTICE(
+			"Remove show_ip_ospf_neighbor_sub() JSON keys: priority, state, deadTimeMsecs, address, retransmitCounter, requestCounter, dbSummaryCounter")
+#endif
+		json_object_int_add(json_neighbor, "priority", nbr->priority);
+		json_object_string_add(json_neighbor, "state", msgbuf);
+		json_object_int_add(json_neighbor, "nbrPriority",
+				    nbr->priority);
+		json_object_string_add(json_neighbor, "nbrState", msgbuf);
+
+		json_object_string_add(
+			json_neighbor, "converged",
+			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+		json_object_string_add(json_neighbor, "role",
+				       lookup_msg(ospf_ism_state_msg,
+						  ospf_nbr_ism_state(nbr),
+						  NULL));
+		if (nbr->t_inactivity) {
+			long time_store;
+
+			time_store = monotime_until(&nbr->t_inactivity->u.sands,
+						    NULL) /
+				     1000LL;
+			json_object_int_add(json_neighbor, "upTimeInMsec",
+					    time_val);
+			json_object_int_add(json_neighbor, "deadTimeMsecs",
+					    time_store);
+			json_object_int_add(json_neighbor,
+					    "routerDeadIntervalTimerDueMsec",
+					    time_store);
+			json_object_string_add(
+				json_neighbor, "upTime",
+				ospf_timeval_dump(&res, uptime,
+						  sizeof(uptime)));
+			json_object_string_add(
+				json_neighbor, "deadTime",
+				ospf_timer_dump(nbr->t_inactivity, timebuf,
+						sizeof(timebuf)));
+		} else {
+			json_object_string_add(json_neighbor, "deadTimeMsecs",
+					       "inactive");
+			json_object_string_add(json_neighbor,
+					       "routerDeadIntervalTimerDueMsec",
+					       "inactive");
+		}
+		json_object_string_addf(json_neighbor, "address", "%pI4",
+					&nbr->src);
+		json_object_string_addf(json_neighbor, "ifaceAddress", "%pI4",
+					&nbr->src);
+		json_object_string_add(json_neighbor, "ifaceName",
+				       IF_NAME(nbr->oi));
+		json_object_int_add(json_neighbor, "retransmitCounter",
+				    ospf_ls_retransmit_count(nbr));
+		json_object_int_add(json_neighbor,
+				    "linkStateRetransmissionListCounter",
+				    ospf_ls_retransmit_count(nbr));
+		json_object_int_add(json_neighbor, "requestCounter",
+				    ospf_ls_request_count(nbr));
+		json_object_int_add(json_neighbor,
+				    "linkStateRequestListCounter",
+				    ospf_ls_request_count(nbr));
+		json_object_int_add(json_neighbor, "dbSummaryCounter",
+				    ospf_db_summary_count(nbr));
+		json_object_int_add(json_neighbor, "databaseSummaryListCounter",
+				    ospf_db_summary_count(nbr));
+
+		json_object_array_add(json_neigh_array, json_neighbor);
+	} else {
+		ospf_nbr_ism_state_message(nbr, msgbuf, sizeof(msgbuf));
+
+		if (nbr->state == NSM_Attempt &&
+		    nbr->router_id.s_addr == INADDR_ANY)
+			vty_out(vty, "%-15s %3d %-15s ", "-", nbr->priority,
+				msgbuf);
+		else
+			vty_out(vty, "%-15pI4 %3d %-15s ", &nbr->router_id,
+				nbr->priority, msgbuf);
+
+		vty_out(vty, "%-15s ",
+			ospf_timeval_dump(&res, uptime, sizeof(uptime)));
+
+		vty_out(vty, "%9s ",
+			ospf_timer_dump(nbr->t_inactivity, timebuf,
+					sizeof(timebuf)));
+		vty_out(vty, "%-15pI4 ", &nbr->src);
+		vty_out(vty, "%-32s %5ld %5ld %5d\n", IF_NAME(nbr->oi),
+			ospf_ls_retransmit_count(nbr),
+			ospf_ls_request_count(nbr), ospf_db_summary_count(nbr));
+	}
+}
+
 static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				      struct ospf_interface *oi,
 				      json_object *json, bool use_json)
 {
 	struct route_node *rn;
 	struct ospf_neighbor *nbr, *prev_nbr = NULL;
-	char msgbuf[16];
-	char timebuf[OSPF_TIME_DUMP_SIZE];
-	json_object *json_neighbor = NULL, *json_neigh_array = NULL;
-	struct timeval res = {.tv_sec = 0, .tv_usec = 0};
-	long time_val = 0;
-	char uptime[OSPF_TIME_DUMP_SIZE];
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		if ((nbr = rn->info)) {
@@ -4357,168 +4484,10 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 			if (nbr->state == NSM_Down)
 				continue;
 
-			if (nbr->ts_last_progress.tv_sec
-			    || nbr->ts_last_progress.tv_usec)
-				time_val = monotime_since(
-						   &nbr->ts_last_progress, &res)
-					   / 1000LL;
-
-			if (use_json) {
-				char neigh_str[INET_ADDRSTRLEN];
-
-				if (prev_nbr
-				    && !IPV4_ADDR_SAME(&prev_nbr->src,
-						       &nbr->src)) {
-					/* Start new neigh list */
-					json_neigh_array = NULL;
-				}
-
-				if (nbr->state == NSM_Attempt
-				    && nbr->router_id.s_addr == INADDR_ANY)
-					strlcpy(neigh_str, "neighbor",
-						sizeof(neigh_str));
-				else
-					inet_ntop(AF_INET, &nbr->router_id,
-						  neigh_str, sizeof(neigh_str));
-
-				json_object_object_get_ex(json, neigh_str,
-							  &json_neigh_array);
-
-				if (!json_neigh_array) {
-					json_neigh_array =
-						json_object_new_array();
-					json_object_object_add(
-						json, neigh_str,
-						json_neigh_array);
-				}
-
-				json_neighbor = json_object_new_object();
-
-				ospf_nbr_ism_state_message(nbr, msgbuf,
-							   sizeof(msgbuf));
-#if CONFDATE > 20230321
-CPP_NOTICE("Remove show_ip_ospf_neighbor_sub() JSON keys: priority, state, deadTimeMsecs, address, retransmitCounter, requestCounter, dbSummaryCounter")
-#endif
-				json_object_int_add(json_neighbor, "priority",
-						    nbr->priority);
-				json_object_string_add(json_neighbor, "state",
-						       msgbuf);
-				json_object_int_add(json_neighbor,
-						    "nbrPriority",
-						    nbr->priority);
-				json_object_string_add(json_neighbor,
-						       "nbrState", msgbuf);
-
-				json_object_string_add(
-					json_neighbor, "converged",
-					lookup_msg(ospf_nsm_state_msg,
-						   nbr->state, NULL));
-				json_object_string_add(
-					json_neighbor, "role",
-					lookup_msg(ospf_ism_state_msg,
-						   ospf_nbr_ism_state(nbr),
-						   NULL));
-
-				if (nbr->t_inactivity) {
-					long time_store;
-
-					time_store = monotime_until(
-							     &nbr->t_inactivity
-								      ->u.sands,
-							     NULL)
-						     / 1000LL;
-					json_object_int_add(json_neighbor,
-							    "upTimeInMsec",
-							    time_val);
-					json_object_int_add(json_neighbor,
-							    "deadTimeMsecs",
-							    time_store);
-					json_object_int_add(
-						json_neighbor,
-						"routerDeadIntervalTimerDueMsec",
-						time_store);
-					json_object_string_add(
-						json_neighbor, "upTime",
-						ospf_timeval_dump(
-							&res, uptime,
-							sizeof(uptime)));
-					json_object_string_add(
-						json_neighbor, "deadTime",
-						ospf_timer_dump(
-							nbr->t_inactivity,
-							timebuf,
-							sizeof(timebuf)));
-				} else {
-					json_object_string_add(json_neighbor,
-							       "deadTimeMsecs",
-							       "inactive");
-					json_object_string_add(
-						json_neighbor,
-						"routerDeadIntervalTimerDueMsec",
-						"inactive");
-				}
-				json_object_string_addf(json_neighbor,
-							"address", "%pI4",
-							&nbr->src);
-				json_object_string_addf(json_neighbor,
-							"ifaceAddress", "%pI4",
-							&nbr->src);
-				json_object_string_add(json_neighbor,
-						       "ifaceName",
-						       IF_NAME(oi));
-				json_object_int_add(
-					json_neighbor, "retransmitCounter",
-					ospf_ls_retransmit_count(nbr));
-				json_object_int_add(
-					json_neighbor,
-					"linkStateRetransmissionListCounter",
-					ospf_ls_retransmit_count(nbr));
-				json_object_int_add(json_neighbor,
-						    "requestCounter",
-						    ospf_ls_request_count(nbr));
-				json_object_int_add(
-					json_neighbor,
-					"linkStateRequestListCounter",
-					ospf_ls_request_count(nbr));
-				json_object_int_add(json_neighbor,
-						    "dbSummaryCounter",
-						    ospf_db_summary_count(nbr));
-				json_object_int_add(
-					json_neighbor,
-					"databaseSummaryListCounter",
-					ospf_db_summary_count(nbr));
-
-				json_object_array_add(json_neigh_array,
-						      json_neighbor);
-			} else {
-				ospf_nbr_ism_state_message(nbr, msgbuf,
-							   sizeof(msgbuf));
-
-				if (nbr->state == NSM_Attempt
-				    && nbr->router_id.s_addr == INADDR_ANY)
-					vty_out(vty, "%-15s %3d %-15s ", "-",
-						nbr->priority, msgbuf);
-				else
-					vty_out(vty, "%-15pI4 %3d %-15s ",
-						&nbr->router_id, nbr->priority,
-						msgbuf);
-
-				vty_out(vty, "%-15s ",
-					ospf_timeval_dump(&res, uptime,
-							  sizeof(uptime)));
-
-				vty_out(vty, "%9s ",
-					ospf_timer_dump(nbr->t_inactivity,
-							timebuf,
-							sizeof(timebuf)));
-				vty_out(vty, "%-15pI4 ", &nbr->src);
-				vty_out(vty, "%-32s %5ld %5ld %5d\n",
-					IF_NAME(oi),
-					ospf_ls_retransmit_count(nbr),
-					ospf_ls_request_count(nbr),
-					ospf_db_summary_count(nbr));
-			}
 			prev_nbr = nbr;
+
+			show_ip_ospf_neighbour_brief(vty, nbr, prev_nbr, json,
+						     use_json);
 		}
 	}
 }
@@ -5411,7 +5380,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 					   struct in_addr *router_id,
-					   bool use_json, uint8_t use_vrf)
+					   bool use_json, uint8_t use_vrf,
+					   bool is_detail)
 {
 	struct listnode *node;
 	struct ospf_neighbor *nbr;
@@ -5433,8 +5403,12 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
 		if ((nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, router_id))) {
-			show_ip_ospf_neighbor_detail_sub(vty, oi, nbr, NULL,
-							 json, use_json);
+			if (is_detail)
+				show_ip_ospf_neighbor_detail_sub(
+					vty, oi, nbr, NULL, json, use_json);
+			else
+				show_ip_ospf_neighbour_brief(vty, nbr, NULL,
+							     json, use_json);
 		}
 	}
 
@@ -5446,15 +5420,13 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
-DEFPY (show_ip_ospf_neighbor_id,
-       show_ip_ospf_neighbor_id_cmd,
-       "show ip ospf neighbor A.B.C.D$router_id [json$json]",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Neighbor list\n"
-       "Neighbor ID\n"
-       JSON_STR)
+DEFPY(show_ip_ospf_neighbor_id, show_ip_ospf_neighbor_id_cmd,
+      "show ip ospf neighbor A.B.C.D$router_id [detail$detail] [json$json]",
+      SHOW_STR IP_STR
+      "OSPF information\n"
+      "Neighbor list\n"
+      "Neighbor ID\n"
+      "Detailed output\n" JSON_STR)
 {
 	struct ospf *ospf;
 	struct listnode *node;
@@ -5464,22 +5436,20 @@ DEFPY (show_ip_ospf_neighbor_id,
 		if (!ospf->oi_running)
 			continue;
 		ret = show_ip_ospf_neighbor_id_common(vty, ospf, &router_id,
-						      !!json, 0);
+						      !!json, 0, !!detail);
 	}
 
 	return ret;
 }
 
-DEFPY (show_ip_ospf_instance_neighbor_id,
-       show_ip_ospf_instance_neighbor_id_cmd,
-       "show ip ospf (1-65535)$instance neighbor A.B.C.D$router_id [json$json]",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Neighbor list\n"
-       "Neighbor ID\n"
-       JSON_STR)
+DEFPY(show_ip_ospf_instance_neighbor_id, show_ip_ospf_instance_neighbor_id_cmd,
+      "show ip ospf (1-65535)$instance neighbor A.B.C.D$router_id [detail$detail] [json$json]",
+      SHOW_STR IP_STR
+      "OSPF information\n"
+      "Instance ID\n"
+      "Neighbor list\n"
+      "Neighbor ID\n"
+      "Detailed output\n" JSON_STR)
 {
 	struct ospf *ospf;
 
@@ -5490,8 +5460,8 @@ DEFPY (show_ip_ospf_instance_neighbor_id,
 	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_id_common(vty, ospf, &router_id, !!json,
-					       0);
+	return show_ip_ospf_neighbor_id_common(vty, ospf, &router_id, !!json, 0,
+					       !!detail);
 }
 
 static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
