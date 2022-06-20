@@ -1374,8 +1374,8 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
-	peer->local_role = ROLE_UNDEFINE;
-	peer->neighbor_role = ROLE_UNDEFINE;
+	peer->local_role = ROLE_UNDEFINED;
+	peer->remote_role = ROLE_UNDEFINED;
 	peer->password = NULL;
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
@@ -1999,12 +1999,12 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 	return 0;
 }
 
-const char *get_name_by_role(uint8_t role)
+const char *bgp_get_name_by_role(uint8_t role)
 {
 	static const char *const bgp_role_names[] = {
 		"provider", "rs-server", "rs-client", "customer", "peer"};
-	if (role == ROLE_UNDEFINE)
-		return "undefine";
+	if (role == ROLE_UNDEFINED)
+		return "undefined";
 	if (role <= 5)
 		return bgp_role_names[role];
 	return "unknown";
@@ -4247,6 +4247,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
+	{PEER_FLAG_STRICT_MODE, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4917,7 +4918,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 }
 
 /* Set Open Policy Role and check its correctness */
-int peer_role_set(struct peer *peer, uint8_t role, int strict_mode)
+int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 {
 	if (peer->local_role == role) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE) &&
@@ -4929,7 +4930,7 @@ int peer_role_set(struct peer *peer, uint8_t role, int strict_mode)
 			SET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
 			/* Restart session to throw Role Mismatch Notification
 			 */
-			if (peer->neighbor_role == ROLE_UNDEFINE)
+			if (peer->remote_role == ROLE_UNDEFINED)
 				bgp_session_reset(peer);
 		}
 	} else {
@@ -4950,7 +4951,7 @@ int peer_role_set(struct peer *peer, uint8_t role, int strict_mode)
 
 int peer_role_unset(struct peer *peer)
 {
-	return peer_role_set(peer, ROLE_UNDEFINE, 0);
+	return peer_role_set(peer, ROLE_UNDEFINED, 0);
 }
 
 /* Neighbor description. */

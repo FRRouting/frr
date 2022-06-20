@@ -927,7 +927,7 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 		str = "Invalid role name";
 		break;
 	case BGP_ERR_INVALID_INTERNAL_ROLE:
-		str = "Extrenal roles can be set only on eBGP session";
+		str = "External roles can be set only on eBGP session";
 		break;
 	}
 	if (str) {
@@ -6423,11 +6423,11 @@ static uint8_t get_role_by_name(const char *role_str)
 		return ROLE_RS_SERVER;
 	if (strncmp(role_str, "rs-client", 4) == 0)
 		return ROLE_RS_CLIENT;
-	return ROLE_UNDEFINE;
+	return ROLE_UNDEFINED;
 }
 
 static int peer_role_set_vty(struct vty *vty, const char *ip_str,
-			     const char *role_str, int strict_mode)
+			     const char *role_str, bool strict_mode)
 {
 	struct peer *peer;
 
@@ -6436,7 +6436,7 @@ static int peer_role_set_vty(struct vty *vty, const char *ip_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	uint8_t role = get_role_by_name(role_str);
 
-	if (role == ROLE_UNDEFINE)
+	if (role == ROLE_UNDEFINED)
 		return bgp_vty_return(vty, BGP_ERR_INVALID_ROLE_NAME);
 	return bgp_vty_return(vty, peer_role_set(peer, role, strict_mode));
 }
@@ -6451,7 +6451,7 @@ static int peer_role_unset_vty(struct vty *vty, const char *ip_str)
 	return bgp_vty_return(vty, peer_role_unset(peer));
 }
 
-DEFUN(neighbor_role,
+DEFPY(neighbor_role,
       neighbor_role_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer>",
       NEIGHBOR_STR
@@ -6463,10 +6463,10 @@ DEFUN(neighbor_role,
 	int idx_role = 3;
 
 	return peer_role_set_vty(vty, argv[idx_peer]->arg, argv[idx_role]->arg,
-				 0);
+				 false);
 }
 
-DEFUN(neighbor_role_strict,
+DEFPY(neighbor_role_strict,
       neighbor_role_strict_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer> strict-mode",
       NEIGHBOR_STR
@@ -6479,18 +6479,18 @@ DEFUN(neighbor_role_strict,
 	int idx_role = 3;
 
 	return peer_role_set_vty(vty, argv[idx_peer]->arg, argv[idx_role]->arg,
-				 1);
+				 true);
 }
 
-DEFUN(no_neighbor_role,
+DEFPY(no_neighbor_role,
       no_neighbor_role_cmd,
       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer> [strict-mode]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
-      "Unset session role\n"
+      "Set session role\n"
       ROLE_STR
-      "Was used additional restriction on peer\n")
+      "Use additional restriction on peer\n")
 {
 	int idx_peer = 2;
 
@@ -12571,14 +12571,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	/* Roles */
 	if (use_json) {
 		json_object_string_add(json_neigh, "localRole",
-				       get_name_by_role(p->local_role));
-		json_object_string_add(json_neigh, "neighRole",
-				       get_name_by_role(p->neighbor_role));
+				       bgp_get_name_by_role(p->local_role));
+		json_object_string_add(json_neigh, "remoteRole",
+				       bgp_get_name_by_role(p->remote_role));
 	} else {
 		vty_out(vty, "  Local Role: %s\n",
-			get_name_by_role(p->local_role));
-		vty_out(vty, "  Neighbor Role: %s\n",
-			get_name_by_role(p->neighbor_role));
+			bgp_get_name_by_role(p->local_role));
+		vty_out(vty, "  Remote Role: %s\n",
+			bgp_get_name_by_role(p->remote_role));
 	}
 
 
@@ -16794,9 +16794,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* role */
-	if (peer->local_role != ROLE_UNDEFINE) {
+	if (peer->local_role != ROLE_UNDEFINED) {
 		vty_out(vty, " neighbor %s local-role %s%s\n", addr,
-			get_name_by_role(peer->local_role),
+			bgp_get_name_by_role(peer->local_role),
 			CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE)
 				? " strict-mode"
 				: "");

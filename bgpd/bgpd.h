@@ -1169,13 +1169,13 @@ struct peer {
 
 	/* Roles in bgp session */
 	uint8_t local_role;
-	uint8_t neighbor_role;
+	uint8_t remote_role;
 #define ROLE_PROVIDER                       0
 #define ROLE_RS_SERVER                      1
 #define ROLE_RS_CLIENT                      2
 #define ROLE_CUSTOMER                       3
 #define ROLE_PEER                           4
-#define ROLE_UNDEFINE                     255
+#define ROLE_UNDEFINED                    255
 
 #define ROLE_NAME_MAX_LEN                  20
 
@@ -2179,7 +2179,7 @@ extern int peer_ebgp_multihop_set(struct peer *, int);
 extern int peer_ebgp_multihop_unset(struct peer *);
 extern int is_ebgp_multihop_configured(struct peer *peer);
 
-extern int peer_role_set(struct peer *peer, uint8_t role, int strict_mode);
+extern int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode);
 extern int peer_role_unset(struct peer *peer);
 
 extern void peer_description_set(struct peer *, const char *);
@@ -2281,7 +2281,7 @@ extern void peer_tx_shutdown_message_set(struct peer *, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *);
 
 extern void bgp_route_map_update_timer(struct thread *thread);
-extern const char *get_name_by_role(uint8_t role);
+extern const char *bgp_get_name_by_role(uint8_t role);
 
 extern void bgp_route_map_terminate(void);
 

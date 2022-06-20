@@ -82,7 +82,7 @@ def test_correct_pair(tgen):
         tgen.gears["r1"].vtysh_cmd(f"show bgp neighbors {neighbor_ip} json")
     )[neighbor_ip]
     assert neighbor_status["localRole"] == "provider"
-    assert neighbor_status["neighRole"] == "customer"
+    assert neighbor_status["remoteRole"] == "customer"
     assert neighbor_status["bgpState"] == "Established"
     assert (
         neighbor_status["neighborCapabilities"].get("role") == "advertisedAndReceived"
@@ -99,31 +99,31 @@ def test_role_pair_mismatch(tgen):
 
 
 def test_single_role_advertising(tgen):
-    # provider-undefine pair; we set role
+    # provider-undefined pair; we set role
     neighbor_ip = "192.168.4.2"
     neighbor_status = json.loads(
         tgen.gears["r1"].vtysh_cmd(f"show bgp neighbors {neighbor_ip} json")
     )[neighbor_ip]
     assert neighbor_status["localRole"] == "provider"
-    assert neighbor_status["neighRole"] == "undefine"
+    assert neighbor_status["remoteRole"] == "undefined"
     assert neighbor_status["bgpState"] == "Established"
     assert neighbor_status["neighborCapabilities"].get("role") == "advertised"
 
 
 def test_single_role_receiving(tgen):
-    # provider-undefine pair; we receive role
+    # provider-undefined pair; we receive role
     neighbor_ip = "192.168.4.1"
     neighbor_status = json.loads(
         tgen.gears["r4"].vtysh_cmd(f"show bgp neighbors {neighbor_ip} json")
     )[neighbor_ip]
-    assert neighbor_status["localRole"] == "undefine"
-    assert neighbor_status["neighRole"] == "provider"
+    assert neighbor_status["localRole"] == "undefined"
+    assert neighbor_status["remoteRole"] == "provider"
     assert neighbor_status["bgpState"] == "Established"
     assert neighbor_status["neighborCapabilities"].get("role") == "received"
 
 
 def test_role_strict_mode(tgen):
-    # provider-undefine pair bur strict-mode was set
+    # provider-undefined pair with strict-mode
     neighbor_ip = "192.168.5.2"
     neighbor_status = json.loads(
         tgen.gears["r1"].vtysh_cmd(f"show bgp neighbors {neighbor_ip} json")

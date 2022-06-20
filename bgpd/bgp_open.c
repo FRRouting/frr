@@ -900,7 +900,7 @@ static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 	}
 	uint8_t role = stream_getc(BGP_INPUT(peer));
 
-	peer->neighbor_role = role;
+	peer->remote_role = role;
 	return 0;
 }
 
@@ -1138,19 +1138,20 @@ static bool strict_capability_same(struct peer *peer)
 static bool bgp_role_violation(struct peer *peer)
 {
 	uint8_t local_role = peer->local_role;
-	uint8_t neigh_role = peer->neighbor_role;
+	uint8_t remote_role = peer->remote_role;
 
-	if (local_role != ROLE_UNDEFINE && neigh_role != ROLE_UNDEFINE &&
-	    !((local_role == ROLE_PEER && neigh_role == ROLE_PEER) ||
-	      (local_role == ROLE_PROVIDER && neigh_role == ROLE_CUSTOMER) ||
-	      (local_role == ROLE_CUSTOMER && neigh_role == ROLE_PROVIDER) ||
-	      (local_role == ROLE_RS_SERVER && neigh_role == ROLE_RS_CLIENT) ||
-	      (local_role == ROLE_RS_CLIENT && neigh_role == ROLE_RS_SERVER))) {
+	if (local_role != ROLE_UNDEFINED && remote_role != ROLE_UNDEFINED &&
+	    !((local_role == ROLE_PEER && remote_role == ROLE_PEER) ||
+	      (local_role == ROLE_PROVIDER && remote_role == ROLE_CUSTOMER) ||
+	      (local_role == ROLE_CUSTOMER && remote_role == ROLE_PROVIDER) ||
+	      (local_role == ROLE_RS_SERVER && remote_role == ROLE_RS_CLIENT) ||
+	      (local_role == ROLE_RS_CLIENT &&
+	       remote_role == ROLE_RS_SERVER))) {
 		bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 				BGP_NOTIFY_OPEN_ROLE_MISMATCH);
 		return true;
 	}
-	if (neigh_role == ROLE_UNDEFINE &&
+	if (remote_role == ROLE_UNDEFINED &&
 	    CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE)) {
 		const char *err_msg =
 			"Strict mode. Please set the role on your side.";
@@ -1729,7 +1730,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN);
 
 	/* Role*/
-	if (peer->local_role != ROLE_UNDEFINE) {
+	if (peer->local_role != ROLE_UNDEFINED) {
 		SET_FLAG(peer->cap, PEER_CAP_ROLE_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		stream_putc(s, CAPABILITY_CODE_ROLE_LEN + 2);
