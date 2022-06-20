@@ -120,7 +120,7 @@ The following commands are independent of a specific cache server.
 
    The default value is 600 seconds.
 
-.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] PREFERENCE
+.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] preference (1-255)
 
 
    Add a cache server to the socket. By default, the connection between router
