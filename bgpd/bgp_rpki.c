@@ -120,6 +120,7 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 #endif
 static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket);
 static struct cache *find_cache(const uint8_t preference);
+static void rpki_delete_all_cache_nodes(void);
 static int add_tcp_cache(const char *host, const char *port,
 			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty,
@@ -274,6 +275,17 @@ static struct cache *find_cache(const uint8_t preference)
 			return cache;
 	}
 	return NULL;
+}
+
+static void rpki_delete_all_cache_nodes(void)
+{
+	struct listnode *cache_node, *cache_next;
+	struct cache *cache;
+
+	for (ALL_LIST_ELEMENTS(cache_list, cache_node, cache_next, cache)) {
+		rtr_mgr_remove_group(rtr_config, cache->preference);
+		listnode_delete(cache_list, cache);
+	}
 }
 
 static void print_record(const struct pfx_record *record, struct vty *vty,
@@ -1055,6 +1067,17 @@ DEFUN_NOSH (rpki,
 	return CMD_SUCCESS;
 }
 
+DEFPY (no_rpki,
+       no_rpki_cmd,
+       "no rpki",
+       NO_STR
+       "Enable rpki and enter rpki configuration mode\n")
+{
+	rpki_delete_all_cache_nodes();
+	stop();
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_rpki_start,
        bgp_rpki_start_cmd,
        "rpki start",
@@ -1662,6 +1685,8 @@ static void install_cli_commands(void)
 	install_default(RPKI_NODE);
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(ENABLE_NODE, &rpki_cmd);
+	install_element(CONFIG_NODE, &no_rpki_cmd);
+
 
 	install_element(ENABLE_NODE, &bgp_rpki_start_cmd);
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);
