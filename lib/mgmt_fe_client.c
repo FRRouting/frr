@@ -1099,10 +1099,12 @@ enum mgmt_result mgmt_fe_create_client_session(uintptr_t lib_hndl,
 	session->client_id = client_id;
 	session->client_ctx = client_ctx;
 	session->session_id = 0;
-	mgmt_sessions_add_tail(&client_ctx->client_sessions, session);
 
-	if (mgmt_fe_send_session_req(client_ctx, session, true) != 0)
+	if (mgmt_fe_send_session_req(client_ctx, session, true) != 0) {
+		XFREE(MTYPE_MGMTD_FE_SESSION, session);
 		return MGMTD_INTERNAL_ERROR;
+	}
+	mgmt_sessions_add_tail(&client_ctx->client_sessions, session);
 
 	return MGMTD_SUCCESS;
 }
@@ -1125,12 +1127,27 @@ enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
 		return MGMTD_INVALID_PARAM;
 
 	if (mgmt_fe_send_session_req(client_ctx, session, false) != 0)
-		return MGMTD_INTERNAL_ERROR;
+		MGMTD_FE_CLIENT_ERR(
+			"Failed to send session destroy request for the session-id %lu",
+			(unsigned long)session_id);
 
 	mgmt_sessions_del(&client_ctx->client_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
 
 	return MGMTD_SUCCESS;
+}
+
+static void mgmt_fe_destroy_client_sessions(uintptr_t lib_hndl)
+{
+	struct mgmt_fe_client_ctx *client_ctx;
+	struct mgmt_fe_client_session *session;
+
+	client_ctx = (struct mgmt_fe_client_ctx *)lib_hndl;
+	if (!client_ctx)
+		return;
+
+	FOREACH_SESSION_IN_LIST (client_ctx, session)
+		mgmt_fe_destroy_client_session(lib_hndl, (uintptr_t)session);
 }
 
 /*
@@ -1315,8 +1332,9 @@ void mgmt_fe_client_lib_destroy(uintptr_t lib_hndl)
 
 	mgmt_fe_server_disconnect(client_ctx, false);
 
-	assert(mgmt_fe_client_ctx.ibuf_fifo
-	       && mgmt_fe_client_ctx.obuf_fifo);
+	assert(mgmt_fe_client_ctx.ibuf_fifo && mgmt_fe_client_ctx.obuf_fifo);
+
+	mgmt_fe_destroy_client_sessions(lib_hndl);
 
 	THREAD_OFF(client_ctx->conn_retry_tmr);
 	THREAD_OFF(client_ctx->conn_read_ev);
