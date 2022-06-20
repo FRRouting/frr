@@ -1001,9 +1001,6 @@ static int config_write(struct vty *vty)
 	struct listnode *cache_node;
 	struct cache *cache;
 
-	if (!listcount(cache_list))
-		return 0;
-
 	if (rpki_debug)
 		vty_out(vty, "debug rpki\n");
 
@@ -1256,7 +1253,8 @@ DEFPY (no_rpki_cache,
 	struct cache *cache_p = find_cache(preference);
 
 	if (!cache_p) {
-		vty_out(vty, "Could not find cache %ld\n", preference);
+		vty_out(vty, "Could not find cache with preference %ld\n",
+			preference);
 		return CMD_WARNING;
 	}
 
@@ -1264,9 +1262,9 @@ DEFPY (no_rpki_cache,
 		stop();
 	} else if (is_running()) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
-			vty_out(vty, "Could not remove cache %ld", preference);
-
-			vty_out(vty, "\n");
+			vty_out(vty,
+				"Could not remove cache with preference %ld\n",
+				preference);
 			return CMD_WARNING;
 		}
 	}
