@@ -1239,13 +1239,19 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 
 DEFPY (no_rpki_cache,
        no_rpki_cache_cmd,
-       "no rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport> preference (1-255)$preference",
+       "no rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
        NO_STR
        RPKI_OUTPUT_STRING
-       "Remove a cache server\n"
+       "Install a cache server to current group\n"
        "IP address of cache server\n Hostname of cache server\n"
        "TCP port number\n"
        "SSH port number\n"
+       "SSH user name\n"
+       "Path to own SSH private key\n"
+       "Path to own SSH public key\n"
+       "Path to Public key of cache server\n"
+       "Configure source IP address of RPKI connection\n"
+       "Define a Source IP Address\n"
        "Preference of the cache server\n"
        "Preference value\n")
 {
