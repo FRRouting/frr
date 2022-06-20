@@ -1281,7 +1281,7 @@ struct peer {
 	 * peer-group, the peer-specific overrides (see flags_override and
 	 * flags_invert) must be respected.
 	 */
-	uint32_t flags;
+	uint64_t flags;
 #define PEER_FLAG_PASSIVE                   (1U << 0) /* passive mode */
 #define PEER_FLAG_SHUTDOWN                  (1U << 1) /* shutdown */
 #define PEER_FLAG_DONT_CAPABILITY           (1U << 2) /* dont-capability */
