@@ -1417,9 +1417,11 @@ DEFPY (show_rpki_cache_server,
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		if (cache->type == TCP) {
 			if (!json) {
-				vty_out(vty, "host: %s port: %s\n",
+				vty_out(vty,
+					"host: %s port: %s, preference: %hhu\n",
 					cache->tr_config.tcp_config->host,
-					cache->tr_config.tcp_config->port);
+					cache->tr_config.tcp_config->port,
+					cache->preference);
 			} else {
 				json_server = json_object_new_object();
 				json_object_string_add(json_server, "mode",
@@ -1430,6 +1432,8 @@ DEFPY (show_rpki_cache_server,
 				json_object_string_add(
 					json_server, "port",
 					cache->tr_config.tcp_config->port);
+				json_object_int_add(json_server, "preference",
+						    cache->preference);
 				json_object_array_add(json_servers,
 						      json_server);
 			}
@@ -1438,14 +1442,15 @@ DEFPY (show_rpki_cache_server,
 		} else if (cache->type == SSH) {
 			if (!json) {
 				vty_out(vty,
-					"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
+					"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s, preference: %hhu\n",
 					cache->tr_config.ssh_config->host,
 					cache->tr_config.ssh_config->port,
 					cache->tr_config.ssh_config->username,
 					cache->tr_config.ssh_config
 						->server_hostkey_path,
 					cache->tr_config.ssh_config
-						->client_privkey_path);
+						->client_privkey_path,
+					cache->preference);
 			} else {
 				json_server = json_object_new_object();
 				json_object_string_add(json_server, "mode",
@@ -1467,6 +1472,8 @@ DEFPY (show_rpki_cache_server,
 					json_server, "clientPrivkeyPath",
 					cache->tr_config.ssh_config
 						->client_privkey_path);
+				json_object_int_add(json_server, "preference",
+						    cache->preference);
 				json_object_array_add(json_servers,
 						      json_server);
 			}
