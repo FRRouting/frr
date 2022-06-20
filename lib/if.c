@@ -82,6 +82,8 @@ int if_cmp_name_func(const char *p1, const char *p2)
 	int res;
 
 	while (*p1 && *p2) {
+		char *tmp1, *tmp2;
+
 		/* look up to any number */
 		l1 = strcspn(p1, "0123456789");
 		l2 = strcspn(p2, "0123456789");
@@ -111,14 +113,24 @@ int if_cmp_name_func(const char *p1, const char *p2)
 		if (!*p2)
 			return 1;
 
-		x1 = strtol(p1, (char **)&p1, 10);
-		x2 = strtol(p2, (char **)&p2, 10);
+		x1 = strtol(p1, (char **)&tmp1, 10);
+		x2 = strtol(p2, (char **)&tmp2, 10);
 
 		/* let's compare numbers now */
 		if (x1 < x2)
 			return -1;
 		if (x1 > x2)
 			return 1;
+
+		/* Compare string if numbers are equal (distinguish foo-1 from foo-001) */
+		l1 = strspn(p1, "0123456789");
+		l2 = strspn(p2, "0123456789");
+		if (l1 != l2)
+			return (strcmp(p1, p2));
+
+		/* Continue to parse the rest of the string */
+		p1 = (const char *)tmp1;
+		p2 = (const char *)tmp2;
 
 		/* numbers were equal, lets do it again..
 		(it happens with name like "eth123.456:789") */
