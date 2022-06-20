@@ -60,7 +60,7 @@ def tgen(request):
     BGP_CONVERGENCE = verify_bgp_convergence_from_running_config(tgen)
     assert BGP_CONVERGENCE, f"setup_module :Failed \n Error: {BGP_CONVERGENCE}"
     # Todo: What is the indented way to wait for convergence without json?!
-    time.sleep(3)
+    time.sleep(5)
     yield tgen
     tgen.stop_topology()
 

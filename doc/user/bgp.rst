@@ -2653,7 +2653,12 @@ prevention, detection and mitigation.
 
 To enable its mechanics, you must set your local role to reflect your type of
 peering relationship with your neighbor. Possible values of ``LOCAL-ROLE`` are:
-<provider|rs-server|rs-client|customer|peer>.
+
+- provider
+- rs-server
+- rs-client
+- customer
+- peer
 
 The local Role value is negotiated with the new BGP Role capability with a
 built-in check of the corresponding value. In case of mismatch the new OPEN
@@ -2673,9 +2678,9 @@ The correct Role pairs are:
        Role: advertised and received
 
 If strict-mode is set BGP session won't become established until BGP neighbor
-set local Role on its side. This configuratoin parameter is defined in
+set local Role on its side. This configuration parameter is defined in
 :rfc:`9234` and used to enforce corresponding configuration at your
-conter-part side. Default value - disabled.
+counter-part side. Default value - disabled.
 
 Routes that sent from provider, rs-server, or peer local-role (or if received
 by customer, rs-clinet, or peer local-role) will be marked with a new
@@ -2685,7 +2690,7 @@ Routes with this attribute can only be sent to your neighbor if your
 local-role is provider or rs-server. Routes with this attribute can be
 received only if your local-role is customer or rs-client.
 
-In case of peer-peer relaitonship routes can be received only if
+In case of peer-peer relationship routes can be received only if
 OTC value is equal to your neighbor AS number.
 
 All these rules with OTC help to detect and mitigate route leaks and
@@ -2696,7 +2701,7 @@ happened automatically if local-role is set.
    This command set your local-role to ``LOCAL-ROLE``:
    <provider|rs-server|rs-client|customer|peer>.
 
-   This role help to detect and prevent route leaks.
+   This role helps to detect and prevent route leaks.
 
    If ``strict-mode`` is set, your neighbor must send you Capability with the
    value of his role (by setting local-role on his side). Otherwise, a Role
