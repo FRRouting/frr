@@ -114,7 +114,6 @@ static struct rtr_mgr_group *get_groups(void);
 #if defined(FOUND_SSH)
 static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
-			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
 			 const uint8_t preference, const char *bindaddr);
 #endif
@@ -928,7 +927,6 @@ static int add_tcp_cache(const char *host, const char *port,
 #if defined(FOUND_SSH)
 static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
-			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
 			 const uint8_t preference, const char *bindaddr)
 {
@@ -1184,15 +1182,15 @@ DEFUN (no_rpki_retry_interval,
 }
 
 DEFPY(rpki_cache, rpki_cache_cmd,
-      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
-      "IP address of cache server\n Hostname of cache server\n"
+      "IP address of cache server\n"
+      "Hostname of cache server\n"
       "TCP port number\n"
       "SSH port number\n"
       "SSH user name\n"
       "Path to own SSH private key\n"
-      "Path to own SSH public key\n"
       "Path to Public key of cache server\n"
       "Configure source IP address of RPKI connection\n"
       "Define a Source IP Address\n"
@@ -1216,9 +1214,9 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	// use ssh connection
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
-		return_value = add_ssh_cache(
-			cache, sshport, ssh_uname, ssh_privkey, ssh_pubkey,
-			server_pubkey, preference, bindaddr_str);
+		return_value =
+			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
+				      server_pubkey, preference, bindaddr_str);
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
@@ -1239,16 +1237,16 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 
 DEFPY (no_rpki_cache,
        no_rpki_cache_cmd,
-       "no rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+       "no rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
        NO_STR
        RPKI_OUTPUT_STRING
        "Install a cache server to current group\n"
-       "IP address of cache server\n Hostname of cache server\n"
+       "IP address of cache server\n"
+       "Hostname of cache server\n"
        "TCP port number\n"
        "SSH port number\n"
        "SSH user name\n"
        "Path to own SSH private key\n"
-       "Path to own SSH public key\n"
        "Path to Public key of cache server\n"
        "Configure source IP address of RPKI connection\n"
        "Define a Source IP Address\n"
