@@ -24,6 +24,7 @@
 %{!?with_pam:           %global  with_pam           0 }
 %{!?with_pbrd:          %global  with_pbrd          1 }
 %{!?with_pimd:          %global  with_pimd          1 }
+%{!?with_pim6d:         %global  with_pim6d         0 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
@@ -81,6 +82,7 @@
 # if CentOS / RedHat and version < 7, then disable PIMd (too old, won't work)
 %if 0%{?rhel} && 0%{?rhel} < 7
     %global  with_pimd  0
+    %global  with_pim6d 0
 %endif
 
 # misc internal defines
@@ -100,6 +102,12 @@
     %define daemon_pimd pimd
 %else
     %define daemon_pimd ""
+%endif
+
+%if %{with_pim6d}
+    %define daemon_pim6d pim6d
+%else
+    %define daemon_pim6d ""
 %endif
 
 %if %{with_pbrd}
@@ -150,7 +158,7 @@
     %define daemon_pathd ""
 %endif
 
-%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd} %{daemon_pathd}
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_pim6d} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd} %{daemon_pathd}
 
 #release sub-revision (the two digits after the CONFDATE)
 %{!?release_rev:        %global  release_rev        01 }
@@ -341,6 +349,11 @@ routing state through standard SNMP MIBs.
     --enable-pimd \
 %else
     --disable-pimd \
+%endif
+%if %{with_pim6d}
+    --enable-pim6d \
+%else
+    --disable-pim6d \
 %endif
 %if %{with_pbrd}
     --enable-pbrd \
@@ -665,6 +678,9 @@ fi
 %{_sbindir}/ospf6d
 %if %{with_pimd}
     %{_sbindir}/pimd
+%endif
+%if %{with_pim6d}
+    %{_sbindir}/pim6d
 %endif
 %if %{with_pbrd}
     %{_sbindir}/pbrd
