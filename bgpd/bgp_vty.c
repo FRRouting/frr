@@ -14211,9 +14211,7 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (type == show_peer && !find) {
-		if (use_json)
-			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
-		else
+		if (!use_json)
 			vty_out(vty, "%% No such neighbor\n");
 	}
 	if (use_json) {
@@ -14312,9 +14310,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 
 	if ((type == show_peer || type == show_ipv4_peer ||
 	     type == show_ipv6_peer) && !find) {
-		if (use_json)
-			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
-		else
+		if (!use_json)
 			vty_out(vty, "%% No such neighbor in this view/vrf\n");
 	}
 
