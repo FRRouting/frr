@@ -63,7 +63,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
 		    && bfd_sess_cbit(bsp) && !bss->remote_cbit) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
-				zlog_info(
+				zlog_debug(
 					"%s BFD DOWN message ignored in the process of graceful restart when C bit is cleared",
 					peer->host);
 			return;
