@@ -59,14 +59,10 @@ void bgp_dump_listener_info(struct vty *vty)
 
 	vty_out(vty, "Name             fd Address\n");
 	vty_out(vty, "---------------------------\n");
-	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
-		char buf[SU_ADDRSTRLEN];
-
-		vty_out(vty, "%-16s %d %s\n",
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
+		vty_out(vty, "%-16s %d %pSU\n",
 			listener->name ? listener->name : VRF_DEFAULT_NAME,
-			listener->fd,
-			sockunion2str(&listener->su, buf, sizeof(buf)));
-	}
+			listener->fd, &listener->su);
 }
 
 /*
@@ -103,21 +99,18 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 #endif /* HAVE_TCP_MD5SIG */
 
 	if (ret < 0) {
-		char sabuf[SU_ADDRSTRLEN];
-		sockunion2str(su, sabuf, sizeof(sabuf));
-
 		switch (ret) {
 		case -2:
 			flog_warn(
 				EC_BGP_NO_TCP_MD5,
-				"Unable to set TCP MD5 option on socket for peer %s (sock=%d): This platform does not support MD5 auth for prefixes",
-				sabuf, socket);
+				"Unable to set TCP MD5 option on socket for peer %pSU (sock=%d): This platform does not support MD5 auth for prefixes",
+				su, socket);
 			break;
 		default:
 			flog_warn(
 				EC_BGP_NO_TCP_MD5,
-				"Unable to set TCP MD5 option on socket for peer %s (sock=%d): %s",
-				sabuf, socket, safe_strerror(en));
+				"Unable to set TCP MD5 option on socket for peer %pSU (sock=%d): %s",
+				su, socket, safe_strerror(en));
 		}
 	}
 
