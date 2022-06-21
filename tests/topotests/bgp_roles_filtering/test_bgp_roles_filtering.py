@@ -31,7 +31,6 @@ import os
 import sys
 import functools
 import pytest
-import time
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -57,10 +56,6 @@ def tgen(request):
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_BGP, "bgpd.conf")
     tgen.start_router()
-    BGP_CONVERGENCE = verify_bgp_convergence_from_running_config(tgen)
-    assert BGP_CONVERGENCE, f"setup_module :Failed \n Error: {BGP_CONVERGENCE}"
-    # Todo: What is the indented way to wait for convergence without json?!
-    time.sleep(5)
     yield tgen
     tgen.stop_topology()
 
@@ -73,17 +68,25 @@ def skip_on_failure(tgen):
 
 def test_r10_routes(tgen):
     # provider-undefine pair bur strict-mode was set
-    routes = json.loads(tgen.gears["r10"].vtysh_cmd("show bgp ipv4 json"))["routes"]
-    route_list = sorted(routes.keys())
-    assert route_list == [
-        "192.0.2.1/32",
-        "192.0.2.2/32",
-        "192.0.2.3/32",
-        "192.0.2.4/32",
-        "192.0.2.5/32",
-        "192.0.2.6/32",
-        "192.0.2.7/32",
-    ]
+    def _routes_half_converged():
+        routes = json.loads(tgen.gears["r10"].vtysh_cmd("show bgp ipv4 json"))["routes"]
+        output = sorted(routes.keys())
+        expected = [
+            "192.0.2.1/32",
+            "192.0.2.2/32",
+            "192.0.2.3/32",
+            "192.0.2.4/32",
+            "192.0.2.5/32",
+            "192.0.2.6/32",
+            "192.0.2.7/32",
+        ]
+        return output == expected
+
+    success, result = topotest.run_and_expect(
+        _routes_half_converged, True, count=20, wait=3
+    )
+    assert success, "Routes did not converged"
+
     routes_with_otc = list()
     for number in range(1, 8):
         prefix = f"192.0.2.{number}/32"
