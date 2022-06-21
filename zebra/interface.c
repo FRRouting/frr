@@ -184,13 +184,6 @@ static int if_zebra_new_hook(struct interface *ifp)
 static void if_nhg_dependents_check_valid(struct nhg_hash_entry *nhe)
 {
 	zebra_nhg_check_valid(nhe);
-	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
-		/* If we're in shutdown, this interface event needs to clean
-		 * up installed NHGs, so don't clear that flag directly.
-		 */
-		if (!zrouter.in_shutdown)
-			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-	}
 }
 
 static void if_down_nhg_dependents(const struct interface *ifp)
