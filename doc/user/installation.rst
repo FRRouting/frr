@@ -231,7 +231,8 @@ options from the list below.
 
    Enable the support of Linux Realms. Convert tag values from 1-255 into a
    realm value when inserting into the Linux kernel. Then routing policy can be
-   assigned to the realm. See the tc man page.
+   assigned to the realm. See the tc man page.  This option is currently not
+   compatible with the usage of nexthop groups in the linux kernel itself.
 
 .. option:: --disable-irdp
 
