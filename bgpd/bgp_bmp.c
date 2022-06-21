@@ -1889,7 +1889,6 @@ static void bmp_active_thread(struct thread *t)
 	struct bmp_active *ba = THREAD_ARG(t);
 	socklen_t slen;
 	int status, ret;
-	char buf[SU_ADDRSTRLEN];
 	vrf_id_t vrf_id;
 
 	/* all 3 end up here, though only timer or read+write are active
@@ -1915,16 +1914,16 @@ static void bmp_active_thread(struct thread *t)
 	ret = getsockopt(ba->socket, SOL_SOCKET, SO_ERROR, (void *)&status,
 			 &slen);
 
-	sockunion2str(&ba->addrs[ba->addrpos], buf, sizeof(buf));
 	if (ret < 0 || status != 0) {
 		ba->last_err = strerror(status);
-		zlog_warn("bmp[%s]: failed to connect to %s:%d: %s",
-			  ba->hostname, buf, ba->port, ba->last_err);
+		zlog_warn("bmp[%s]: failed to connect to %pSU:%d: %s",
+			  ba->hostname, &ba->addrs[ba->addrpos], ba->port,
+			  ba->last_err);
 		goto out_next;
 	}
 
-	zlog_warn("bmp[%s]: outbound connection to %s:%d",
-		  ba->hostname, buf, ba->port);
+	zlog_warn("bmp[%s]: outbound connection to %pSU:%d", ba->hostname,
+		  &ba->addrs[ba->addrpos], ba->port);
 
 	ba->bmp = bmp_open(ba->targets, ba->socket);
 	if (!ba->bmp)
@@ -2317,7 +2316,6 @@ DEFPY(show_bmp,
 	struct bmp_active *ba;
 	struct bmp *bmp;
 	struct ttable *tt;
-	char buf[SU_ADDRSTRLEN];
 	char uptime[BGP_UPTIME_LEN];
 	char *out;
 
@@ -2364,9 +2362,8 @@ DEFPY(show_bmp,
 
 			vty_out(vty, "    Listeners:\n");
 			frr_each (bmp_listeners, &bt->listeners, bl)
-				vty_out(vty, "      %s:%d\n",
-					sockunion2str(&bl->addr, buf,
-						      SU_ADDRSTRLEN), bl->port);
+				vty_out(vty, "      %pSU:%d\n", &bl->addr,
+					bl->port);
 
 			vty_out(vty, "\n    Outbound connections:\n");
 			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -2379,13 +2376,11 @@ DEFPY(show_bmp,
 					peer_uptime(ba->bmp->t_up.tv_sec,
 						    uptime, sizeof(uptime),
 						    false, NULL);
-					ttable_add_row(tt, "%s:%d|Up|%s|%s|%s",
+					ttable_add_row(tt,
+						       "%s:%d|Up|%s|%s|%pSU",
 						       ba->hostname, ba->port,
 						       ba->bmp->remote, uptime,
-						       sockunion2str(
-								&ba->addrsrc,
-								buf,
-								SU_ADDRSTRLEN));
+						       &ba->addrsrc);
 					continue;
 				}
 
@@ -2405,15 +2400,11 @@ DEFPY(show_bmp,
 					state_str = "Resolving";
 				}
 
-				sockunion2str(&ba->addrsrc,
-					      buf,
-					      SU_ADDRSTRLEN);
-				ttable_add_row(tt, "%s:%d|%s|%s|%s|%s",
+				ttable_add_row(tt, "%s:%d|%s|%s|%s|%pSU",
 					       ba->hostname, ba->port,
 					       state_str,
 					       ba->last_err ? ba->last_err : "",
-					       uptime,
-					       buf);
+					       uptime, &ba->addrsrc);
 				continue;
 			}
 			out = ttable_dump(tt, "\n");
@@ -2460,7 +2451,6 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 	struct bmp_targets *bt;
 	struct bmp_listener *bl;
 	struct bmp_active *ba;
-	char buf[SU_ADDRSTRLEN];
 	afi_t afi;
 	safi_t safi;
 
@@ -2497,9 +2487,8 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 					afi_str, safi2str(safi));
 		}
 		frr_each (bmp_listeners, &bt->listeners, bl)
-			vty_out(vty, " \n  bmp listener %s port %d\n",
-				sockunion2str(&bl->addr, buf, SU_ADDRSTRLEN),
-				bl->port);
+			vty_out(vty, " \n  bmp listener %pSU port %d\n",
+				&bl->addr, bl->port);
 
 		frr_each (bmp_actives, &bt->actives, ba) {
 			vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u",

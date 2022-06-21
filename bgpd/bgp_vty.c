@@ -11679,7 +11679,6 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
 				    bool use_json, json_object *json)
 {
-	char buf[SU_ADDRSTRLEN] = {0};
 	char dn_flag[2] = {0};
 	/* '*' + v6 address of neighbor */
 	char neighborAddr[INET6_ADDRSTRLEN + 1] = {0};
@@ -11689,18 +11688,11 @@ static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
 
 	if (p->conf_if) {
 		if (use_json)
-			json_object_string_add(
-				json, "neighborAddr",
-				BGP_PEER_SU_UNSPEC(p)
-					? "none"
-					: sockunion2str(&p->su, buf,
-							SU_ADDRSTRLEN));
+			json_object_string_addf(json, "neighborAddr", "%pSU",
+						&p->su);
 		else
-			vty_out(vty, "BGP neighbor on %s: %s\n", p->conf_if,
-				BGP_PEER_SU_UNSPEC(p)
-					? "none"
-					: sockunion2str(&p->su, buf,
-							SU_ADDRSTRLEN));
+			vty_out(vty, "BGP neighbor on %s: %pSU\n", p->conf_if,
+				&p->su);
 	} else {
 		snprintf(neighborAddr, sizeof(neighborAddr), "%s%s", dn_flag,
 			 p->host);
@@ -12368,7 +12360,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			  json_object *json)
 {
 	struct bgp *bgp;
-	char buf1[PREFIX2STR_BUFFER], buf[SU_ADDRSTRLEN];
+	char buf1[PREFIX2STR_BUFFER];
 	char timebuf[BGP_UPTIME_LEN];
 	char dn_flag[2];
 	afi_t afi;
@@ -12390,11 +12382,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 	if (!use_json) {
 		if (p->conf_if) /* Configured interface name. */
-			vty_out(vty, "BGP neighbor on %s: %s, ", p->conf_if,
-				BGP_PEER_SU_UNSPEC(p)
-					? "None"
-					: sockunion2str(&p->su, buf,
-							SU_ADDRSTRLEN));
+			vty_out(vty, "BGP neighbor on %s: %pSU, ", p->conf_if,
+				&p->su);
 		else /* Configured IP address. */
 			vty_out(vty, "BGP neighbor is %s%s, ", dn_flag,
 				p->host);
@@ -12405,9 +12394,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_string_add(json_neigh, "bgpNeighborAddr",
 					       "none");
 		else if (p->conf_if && !BGP_PEER_SU_UNSPEC(p))
-			json_object_string_add(
-				json_neigh, "bgpNeighborAddr",
-				sockunion2str(&p->su, buf, SU_ADDRSTRLEN));
+			json_object_string_addf(json_neigh, "bgpNeighborAddr",
+						"%pSU", &p->su);
 
 		json_object_int_add(json_neigh, "remoteAs", p->as);
 
@@ -13814,10 +13802,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						       "updateSource",
 						       p->update_if);
 			else if (p->update_source)
-				json_object_string_add(
-					json_neigh, "updateSource",
-					sockunion2str(p->update_source, buf1,
-						      SU_ADDRSTRLEN));
+				json_object_string_addf(json_neigh,
+							"updateSource", "%pSU",
+							p->update_source);
 		}
 	} else {
 		/* advertisement-interval */
@@ -13831,9 +13818,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			if (p->update_if)
 				vty_out(vty, "%s", p->update_if);
 			else if (p->update_source)
-				vty_out(vty, "%s",
-					sockunion2str(p->update_source, buf1,
-						      SU_ADDRSTRLEN));
+				vty_out(vty, "%pSU", p->update_source);
 			vty_out(vty, "\n");
 		}
 
@@ -13989,15 +13974,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	/* Local address. */
 	if (p->su_local) {
 		if (use_json) {
-			json_object_string_add(json_neigh, "hostLocal",
-					       sockunion2str(p->su_local, buf1,
-							     SU_ADDRSTRLEN));
+			json_object_string_addf(json_neigh, "hostLocal", "%pSU",
+						p->su_local);
 			json_object_int_add(json_neigh, "portLocal",
 					    ntohs(p->su_local->sin.sin_port));
 		} else
-			vty_out(vty, "Local host: %s, Local port: %d\n",
-				sockunion2str(p->su_local, buf1, SU_ADDRSTRLEN),
-				ntohs(p->su_local->sin.sin_port));
+			vty_out(vty, "Local host: %pSU, Local port: %d\n",
+				p->su_local, ntohs(p->su_local->sin.sin_port));
 	} else {
 		if (use_json) {
 			json_object_string_add(json_neigh, "hostLocal",
@@ -14009,15 +13992,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	/* Remote address. */
 	if (p->su_remote) {
 		if (use_json) {
-			json_object_string_add(json_neigh, "hostForeign",
-					       sockunion2str(p->su_remote, buf1,
-							     SU_ADDRSTRLEN));
+			json_object_string_addf(json_neigh, "hostForeign",
+						"%pSU", p->su_remote);
 			json_object_int_add(json_neigh, "portForeign",
 					    ntohs(p->su_remote->sin.sin_port));
 		} else
-			vty_out(vty, "Foreign host: %s, Foreign port: %d\n",
-				sockunion2str(p->su_remote, buf1,
-					      SU_ADDRSTRLEN),
+			vty_out(vty, "Foreign host: %pSU, Foreign port: %d\n",
+				p->su_remote,
 				ntohs(p->su_remote->sin.sin_port));
 	} else {
 		if (use_json) {
@@ -16506,7 +16487,6 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 					 struct peer *peer)
 {
 	struct peer *g_peer = NULL;
-	char buf[SU_ADDRSTRLEN];
 	char *addr;
 	int if_pg_printed = false;
 	int if_ras_printed = false;
@@ -16699,9 +16679,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	/* update-source */
 	if (peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
 		if (peer->update_source)
-			vty_out(vty, " neighbor %s update-source %s\n", addr,
-				sockunion2str(peer->update_source, buf,
-					      SU_ADDRSTRLEN));
+			vty_out(vty, " neighbor %s update-source %pSU\n", addr,
+				peer->update_source);
 		else if (peer->update_if)
 			vty_out(vty, " neighbor %s update-source %s\n", addr,
 				peer->update_if);
