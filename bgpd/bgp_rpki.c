@@ -1006,8 +1006,9 @@ static int config_write(struct vty *vty)
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
-	vty_out(vty, " rpki polling_period %d\n", polling_period);
 
+	if (polling_period != POLLING_PERIOD_DEFAULT)
+		vty_out(vty, " rpki polling_period %d\n", polling_period);
 	if (retry_interval != RETRY_INTERVAL_DEFAULT)
 		vty_out(vty, " rpki retry_interval %d\n", retry_interval);
 	if (expire_interval != EXPIRE_INTERVAL_DEFAULT)
