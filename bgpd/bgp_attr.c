@@ -1037,8 +1037,6 @@ struct attr *bgp_attr_aggregate_intern(
 	else
 		attr.aggregator_as = bgp->as;
 	attr.aggregator_addr = bgp->router_id;
-	attr.label_index = BGP_INVALID_LABEL_INDEX;
-	attr.label = MPLS_INVALID_LABEL;
 
 	/* Apply route-map */
 	if (aggregate->rmap.name) {
