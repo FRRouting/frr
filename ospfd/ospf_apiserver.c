@@ -1,6 +1,7 @@
 /*
  * Server side of OSPF API.
  * Copyright (C) 2001, 2002 Ralph Keller
+ * Copyright (c) 2022, LabN Consulting, L.L.C.
  *
  * This file is part of GNU Zebra.
  *
@@ -727,6 +728,7 @@ static int ospf_apiserver_send_msg(struct ospf_apiserver *apiserv,
 	case MSG_ISM_CHANGE:
 	case MSG_NSM_CHANGE:
 	case MSG_REACHABLE_CHANGE:
+	case MSG_ROUTER_ID_CHANGE:
 		fifo = apiserv->out_async_fifo;
 		fd = apiserv->fd_async;
 		event = OSPF_APISERVER_ASYNC_WRITE;
@@ -808,6 +810,9 @@ int ospf_apiserver_handle_msg(struct ospf_apiserver *apiserv, struct msg *msg)
 		break;
 	case MSG_SYNC_NSM:
 		rc = ospf_apiserver_handle_sync_nsm(apiserv, msg);
+		break;
+	case MSG_SYNC_ROUTER_ID:
+		rc = ospf_apiserver_handle_sync_router_id(apiserv, msg);
 		break;
 	default:
 		zlog_warn("ospf_apiserver_handle_msg: Unknown message type: %d",
@@ -1478,6 +1483,23 @@ int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
 	return rc ? rc : _rc;
 }
 
+
+int ospf_apiserver_handle_sync_router_id(struct ospf_apiserver *apiserv,
+					 struct msg *msg)
+{
+	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	uint32_t seqnum = msg_get_seq(msg);
+	struct msg *m;
+	int _rc, rc = 0;
+
+	m = new_msg_router_id_change(seqnum, ospf->router_id);
+	rc = ospf_apiserver_send_msg(apiserv, m);
+	msg_free(m);
+
+	/* Send a reply back to client with return code */
+	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
+	return rc ? rc : _rc;
+}
 
 /* -----------------------------------------------------------
  * Following are functions to originate or update LSA
@@ -2676,6 +2698,21 @@ void ospf_apiserver_notify_reachable(struct route_table *ort,
 		XFREE(MTYPE_OSPF_APISERVER, abuf);
 	if (dbuf)
 		XFREE(MTYPE_OSPF_APISERVER, dbuf);
+}
+
+
+void ospf_apiserver_clients_notify_router_id_change(struct in_addr router_id)
+{
+	struct msg *msg;
+
+	msg = new_msg_router_id_change(0, router_id);
+	if (!msg) {
+		zlog_warn("%s: new_msg_router_id_change failed", __func__);
+		return;
+	}
+
+	ospf_apiserver_clients_notify_all(msg);
+	msg_free(msg);
 }
 
 

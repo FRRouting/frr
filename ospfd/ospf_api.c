@@ -1,6 +1,7 @@
 /*
  * API message handling module for OSPF daemon and client.
  * Copyright (C) 2001, 2002 Ralph Keller
+ * Copyright (c) 2022, LabN Consulting, L.L.C.
  *
  * This file is part of GNU Zebra.
  *
@@ -680,6 +681,14 @@ struct msg *new_msg_reachable_change(uint32_t seqnum, uint16_t nadd,
 	len = sizeof(*nmsg) + insz * (nadd + nremove);
 
 	return msg_new(MSG_REACHABLE_CHANGE, nmsg, seqnum, len);
+}
+
+struct msg *new_msg_router_id_change(uint32_t seqnum, struct in_addr router_id)
+{
+	struct msg_router_id_change rmsg = {.router_id = router_id};
+
+	return msg_new(MSG_ROUTER_ID_CHANGE, &rmsg, seqnum,
+		       sizeof(struct msg_router_id_change));
 }
 
 #endif /* SUPPORT_OSPF_API */
