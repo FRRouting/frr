@@ -54,7 +54,7 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			pim_addr addr, int neighbor_needed)
 {
-	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
+	struct pim_zlookup_nexthop nexthop_tab[router->multipath];
 	struct pim_neighbor *nbr = NULL;
 	int num_ifindex;
 	struct interface *ifp = NULL;
@@ -92,9 +92,10 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	}
 
 	memset(nexthop_tab, 0,
-	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
-	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
-					     addr, PIM_NEXTHOP_LOOKUP_MAX);
+	       sizeof(struct pim_zlookup_nexthop) * router->multipath);
+	num_ifindex =
+		zclient_lookup_nexthop(pim, nexthop_tab, router->multipath,
+				       addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		zlog_warn(
 			"%s %s: could not find nexthop ifindex for address %pPAs",
