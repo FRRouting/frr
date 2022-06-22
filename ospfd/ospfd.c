@@ -61,6 +61,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_gr.h"
+#include "ospfd/ospf_apiserver.h"
 
 
 DEFINE_QOBJ_TYPE(ospf);
@@ -241,6 +242,10 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		}
 
 		ospf_external_lsa_rid_change(ospf);
+
+#ifdef SUPPORT_OSPF_API
+		ospf_apiserver_clients_notify_router_id_change(router_id);
+#endif
 	}
 
 	ospf->inst_shutdown = 0;
