@@ -78,7 +78,6 @@ pimd_pimd_SOURCES = \
 	pimd/pim_msdp_socket.c \
 	pimd/pim_signals.c \
 	pimd/pim_zpthread.c \
-	pimd/pim_mroute_msg.c \
 	# end
 
 nodist_pimd_pimd_SOURCES = \
@@ -93,7 +92,6 @@ pimd_pim6d_SOURCES = \
 	pimd/pim6_mld.c \
 	pimd/pim6_stubs.c \
 	pimd/pim6_cmd.c \
-	pimd/pim6_mroute_msg.c \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \
