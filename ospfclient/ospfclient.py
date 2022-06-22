@@ -3,7 +3,7 @@
 #
 # December 22 2021, Christian Hopps <chopps@labn.net>
 #
-# Copyright 2021, LabN Consulting, L.L.C.
+# Copyright 2021-2022, LabN Consulting, L.L.C.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -54,6 +54,7 @@ MSG_DELETE_REQUEST = 6
 MSG_SYNC_REACHABLE = 7
 MSG_SYNC_ISM = 8
 MSG_SYNC_NSM = 9
+MSG_SYNC_ROUTER_ID = 19
 
 smsg_info = {
     MSG_REGISTER_OPAQUETYPE: ("REGISTER_OPAQUETYPE", "BBxx"),
@@ -65,6 +66,7 @@ smsg_info = {
     MSG_SYNC_REACHABLE: ("MSG_SYNC_REACHABLE", ""),
     MSG_SYNC_ISM: ("MSG_SYNC_ISM", ""),
     MSG_SYNC_NSM: ("MSG_SYNC_NSM", ""),
+    MSG_SYNC_ROUTER_ID: ("MSG_SYNC_ROUTER_ID", ""),
 }
 
 # --------------------------
@@ -80,6 +82,7 @@ MSG_DEL_IF = 15
 MSG_ISM_CHANGE = 16
 MSG_NSM_CHANGE = 17
 MSG_REACHABLE_CHANGE = 18
+MSG_ROUTER_ID_CHANGE = 20
 
 amsg_info = {
     MSG_REPLY: ("REPLY", "bxxx"),
@@ -91,6 +94,7 @@ amsg_info = {
     MSG_ISM_CHANGE: ("ISM_CHANGE", ">IIBxxx"),
     MSG_NSM_CHANGE: ("NSM_CHANGE", ">IIIBxxx"),
     MSG_REACHABLE_CHANGE: ("REACHABLE_CHANGE", ">HH"),
+    MSG_ROUTER_ID_CHANGE: ("ROUTER_ID_CHANGE", ">I"),
 }
 
 OSPF_API_OK = 0
@@ -536,6 +540,11 @@ class OspfApiClient:
         logging.debug("SEND: %s: request NSM changes", self)
         await self.msg_send_raises(MSG_SYNC_NSM)
 
+    async def req_router_id_sync(self):
+        "Request a dump of the current NSM states of all neighbors."
+        logging.debug("SEND: %s: request router ID sync", self)
+        await self.msg_send_raises(MSG_SYNC_ROUTER_ID)
+
 
 class OspfOpaqueClient(OspfApiClient):
     """A client connection to OSPF Daemon for manipulating Opaque LSA data.
@@ -564,6 +573,7 @@ class OspfOpaqueClient(OspfApiClient):
             MSG_ISM_CHANGE: self._if_change_msg,
             MSG_NSM_CHANGE: self._nbr_change_msg,
             MSG_REACHABLE_CHANGE: self._reachable_msg,
+            MSG_ROUTER_ID_CHANGE: self._router_id_msg,
         }
         super().__init__(server, handlers)
 
@@ -573,6 +583,9 @@ class OspfOpaqueClient(OspfApiClient):
             LSA_TYPE_OPAQUE_AREA: {},
             LSA_TYPE_OPAQUE_AS: {},
         }
+        self.router_id = ip(0)
+        self.router_id_change_cb = None
+
         self.lsid_seq_num = {}
 
         self.lsa_change_cb = None
@@ -774,6 +787,25 @@ class OspfOpaqueClient(OspfApiClient):
         if self.reachable_change_cb:
             logging.info("RECV: %s calling callback", api_msgname(mt))
             await self.reachable_change_cb(router_ids[:nadd], router_ids[nadd:])
+
+    async def _router_id_msg(self, mt, msg, extra, router_id):
+        router_id = ip(router_id)
+        logging.info("RECV: %s router ID %s", api_msgname(mt), router_id)
+        old_router_id = self.router_id
+        if old_router_id == router_id:
+            return
+
+        self.router_id = router_id
+        logging.info(
+            "RECV: %s new router ID %s older router ID %s",
+            api_msgname(mt),
+            router_id,
+            old_router_id,
+        )
+
+        if self.router_id_change_cb:
+            logging.info("RECV: %s calling callback", api_msgname(mt))
+            await self.router_id_change_cb(router_id, old_router_id)
 
     async def add_opaque_data(self, addr, lsa_type, otype, oid, data):
         """Add an instance of opaque data.
@@ -1021,6 +1053,25 @@ class OspfOpaqueClient(OspfApiClient):
         """
         self.nsm_change_cb = callback
         await self.req_nsm_states()
+
+    async def monitor_router_id(self, callback=None):
+        """Monitor the OSPF router ID.
+
+        The property `router_id` contains the OSPF urouter ID.
+        This value is updated prior to calling the `callback`
+
+        Args:
+            callback: callback will be called when the router ID changes.
+                The callback signature is:
+
+                `callback(new_router_id, old_router_id)`
+
+                Args:
+                    new_router_id: the new router ID
+                    old_router_id: the old router ID
+        """
+        self.router_id_change_cb = callback
+        await self.req_router_id_sync()
 
 
 # ================
