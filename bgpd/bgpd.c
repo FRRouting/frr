@@ -4920,6 +4920,9 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 /* Set Open Policy Role and check its correctness */
 int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 {
+	if (peer->sort != BGP_PEER_EBGP)
+		return BGP_ERR_INVALID_INTERNAL_ROLE;
+
 	if (peer->local_role == role) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE) &&
 		    !strict_mode)
@@ -4934,8 +4937,6 @@ int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 				bgp_session_reset(peer);
 		}
 	} else {
-		if (peer->sort != BGP_PEER_EBGP)
-			return BGP_ERR_INVALID_INTERNAL_ROLE;
 		peer->local_role = role;
 		if (strict_mode)
 			SET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
