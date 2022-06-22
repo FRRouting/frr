@@ -2001,12 +2001,20 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 
 const char *bgp_get_name_by_role(uint8_t role)
 {
-	static const char *const bgp_role_names[] = {
-		"provider", "rs-server", "rs-client", "customer", "peer"};
-	if (role == ROLE_UNDEFINED)
+	switch (role) {
+	case ROLE_PROVIDER:
+		return "provider";
+	case ROLE_RS_SERVER:
+		return "rs-server";
+	case ROLE_RS_CLIENT:
+		return "rs-client";
+	case ROLE_CUSTOMER:
+		return "customer";
+	case ROLE_PEER:
+		return "peer";
+	case ROLE_UNDEFINED:
 		return "undefined";
-	if (role <= 5)
-		return bgp_role_names[role];
+	}
 	return "unknown";
 }
 
