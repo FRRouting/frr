@@ -9122,12 +9122,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	else
 		vty_out(vty, "%7u ", attr->weight);
 
-	if (json_paths) {
-		char buf[BUFSIZ];
-		json_object_string_add(
-			json_path, "peerId",
-			sockunion2str(&path->peer->su, buf, SU_ADDRSTRLEN));
-	}
+	if (json_paths)
+		json_object_string_addf(json_path, "peerId", "%pSU",
+					&path->peer->su);
 
 	/* Print aspath */
 	if (attr->aspath) {
@@ -9719,7 +9716,6 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 					int *first, const char *header,
 					json_object *json_adv_to)
 {
-	char buf1[INET6_ADDRSTRLEN];
 	json_object *json_peer = NULL;
 
 	if (json_adv_to) {
@@ -9739,10 +9735,8 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 			json_object_object_add(json_adv_to, peer->conf_if,
 					       json_peer);
 		else
-			json_object_object_add(
-				json_adv_to,
-				sockunion2str(&peer->su, buf1, SU_ADDRSTRLEN),
-				json_peer);
+			json_object_object_addf(json_adv_to, json_peer, "%pSU",
+						&peer->su);
 	} else {
 		if (*first) {
 			vty_out(vty, "%s", header);
@@ -9755,16 +9749,13 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 				vty_out(vty, " %s(%s)", peer->hostname,
 					peer->conf_if);
 			else
-				vty_out(vty, " %s(%s)", peer->hostname,
-					sockunion2str(&peer->su, buf1,
-						      SU_ADDRSTRLEN));
+				vty_out(vty, " %s(%pSU)", peer->hostname,
+					&peer->su);
 		} else {
 			if (peer->conf_if)
 				vty_out(vty, " %s", peer->conf_if);
 			else
-				vty_out(vty, " %s",
-					sockunion2str(&peer->su, buf1,
-						      SU_ADDRSTRLEN));
+				vty_out(vty, " %pSU", &peer->su);
 		}
 	}
 }
@@ -10184,10 +10175,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	else {
 
 		if (json_paths) {
-			json_object_string_add(json_peer, "peerId",
-					       sockunion2str(&path->peer->su,
-							     buf,
-							     SU_ADDRSTRLEN));
+			json_object_string_addf(json_peer, "peerId", "%pSU",
+						&path->peer->su);
 			json_object_string_addf(json_peer, "routerId", "%pI4",
 						&path->peer->remote_id);
 
@@ -10221,10 +10210,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						path->peer->hostname,
 						path->peer->host);
 				else
-					vty_out(vty, " from %s",
-						sockunion2str(&path->peer->su,
-							      buf,
-							      SU_ADDRSTRLEN));
+					vty_out(vty, " from %pSU",
+						&path->peer->su);
 			}
 
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
@@ -14963,10 +14950,8 @@ static void show_bgp_peerhash_entry(struct hash_bucket *bucket, void *arg)
 {
        struct vty *vty = arg;
        struct peer *peer = bucket->data;
-       char buf[SU_ADDRSTRLEN];
 
-       vty_out(vty, "\tPeer: %s %s\n", peer->host,
-	       sockunion2str(&peer->su, buf, sizeof(buf)));
+       vty_out(vty, "\tPeer: %s %pSU\n", peer->host, &peer->su);
 }
 
 DEFUN (show_bgp_listeners,
