@@ -258,8 +258,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
 #else
-			zlog_warn("cannot use IPv4 nexthop %pI4 for IPv6 %pPA",
-				  &nh_ip4, &addr);
+			zlog_warn(
+				"cannot use IPv4 nexthop %pI4(%d) for IPv6 %pPA",
+				&nh_ip4, nh_ifi, &addr);
 #endif
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
