@@ -120,7 +120,13 @@ void ospf6_auth_hdr_dump_recv(struct ospf6_header *ospfh, uint16_t length,
 		ospf6_at_hdr =
 			(struct ospf6_auth_hdr *)((uint8_t *)ospfh + oh_len);
 		at_hdr_len = ntohs(ospf6_at_hdr->length);
-		hash_len = at_hdr_len - OSPF6_AUTH_HDR_MIN_SIZE;
+		hash_len = at_hdr_len - (uint16_t)OSPF6_AUTH_HDR_MIN_SIZE;
+		if (hash_len > KEYCHAIN_MAX_HASH_SIZE) {
+			zlog_debug(
+				"Specified value for hash_len %u is greater than expected %u",
+				hash_len, KEYCHAIN_MAX_HASH_SIZE);
+			return;
+		}
 		memcpy(temp, ospf6_at_hdr->data, hash_len);
 		temp[hash_len] = '\0';
 		zlog_debug("OSPF6 Authentication Trailer");
