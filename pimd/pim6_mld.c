@@ -2198,7 +2198,7 @@ void gm_ifp_teardown(struct interface *ifp)
 static void gm_update_ll(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp = pim_ifp ? pim_ifp->mld : NULL;
+	struct gm_if *gm_ifp = pim_ifp->mld;
 	bool was_querier;
 
 	was_querier =
