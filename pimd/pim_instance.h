@@ -88,6 +88,7 @@ struct pim_router {
 	uint32_t register_suppress_time;
 	int packet_process;
 	uint32_t register_probe_time;
+	uint16_t multipath;
 
 	/*
 	 * What is the default vrf that we work in
