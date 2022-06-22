@@ -4934,10 +4934,7 @@ int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 				bgp_session_reset(peer);
 		}
 	} else {
-		if (peer->sort == BGP_PEER_IBGP &&
-		    (role == ROLE_CUSTOMER || role == ROLE_PROVIDER ||
-		     role == ROLE_PEER || role == ROLE_RS_SERVER ||
-		     role == ROLE_RS_CLIENT))
+		if (peer->sort != BGP_PEER_EBGP)
 			return BGP_ERR_INVALID_INTERNAL_ROLE;
 		peer->local_role = role;
 		if (strict_mode)
