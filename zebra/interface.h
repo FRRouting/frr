@@ -129,6 +129,9 @@ struct zebra_if {
 	/* MPLS status. */
 	bool mpls;
 
+	/* Linkdown status */
+	bool linkdown;
+
 	/* Router advertise configuration. */
 	uint8_t rtadv_enable;
 
