@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 eval: (blacken-mode 1) -*-
 #
-# Copyright (c) 2021, LabN Consulting, L.L.C.
+# Copyright (c) 2021-2022, LabN Consulting, L.L.C.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,7 +61,10 @@ assert os.path.exists(
 def _tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"
     nrouters = request.param
-    topodef = {f"sw{i}": (f"r{i}", f"r{i+1}") for i in range(1, nrouters)}
+    if nrouters == 1:
+        topodef = {"sw1:": ("r1",)}
+    else:
+        topodef = {f"sw{i}": (f"r{i}", f"r{i+1}") for i in range(1, nrouters)}
 
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
@@ -181,6 +184,52 @@ def test_ospf_reachability(tgen):
     rc, o, e = tgen.gears["r2"].net.cmd_status([testbin, "--help"])
     logging.info("%s --help: rc: %s stdout: '%s' stderr: '%s'", testbin, rc, o, e)
     _test_reachability(tgen, testbin)
+
+
+def _test_router_id(tgen, testbin):
+    r1 = tgen.gears["r1"]
+    waitlist = [
+        "192.168.0.1",
+        "1.1.1.1",
+        "192.168.0.1",
+    ]
+
+    mon_args = [f"--monitor={x}" for x in waitlist]
+
+    p = None
+    try:
+        step("router id: check for initial router id")
+        p = r1.popen(
+            ["/usr/bin/timeout", "120", testbin, "-v", *mon_args],
+            encoding=None,  # don't buffer
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        _wait_output(p, "SUCCESS: {}".format(waitlist[0]))
+
+        step("router id: check for modified router id")
+        r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 1.1.1.1")
+        _wait_output(p, "SUCCESS: {}".format(waitlist[1]))
+
+        step("router id: check for restored router id")
+        r1.vtysh_multicmd("conf t\nrouter ospf\nospf router-id 192.168.0.1")
+        _wait_output(p, "SUCCESS: {}".format(waitlist[2]))
+    except Exception as error:
+        logging.error("ERROR: %s", error)
+        raise
+    finally:
+        if p:
+            p.terminate()
+            p.wait()
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_router_id(tgen):
+    testbin = os.path.join(TESTDIR, "ctester.py")
+    rc, o, e = tgen.gears["r1"].net.cmd_status([testbin, "--help"])
+    logging.info("%s --help: rc: %s stdout: '%s' stderr: '%s'", testbin, rc, o, e)
+    _test_router_id(tgen, testbin)
 
 
 def _test_add_data(tgen, apibin):
