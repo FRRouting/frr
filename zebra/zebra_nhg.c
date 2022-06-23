@@ -2084,11 +2084,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		 * route and interface is up, its active. We trust kernel routes
 		 * to be good.
 		 */
-		if (ifp
-		    && (if_is_operative(ifp)
-			|| (if_is_up(ifp)
-			    && (type == ZEBRA_ROUTE_KERNEL
-				|| type == ZEBRA_ROUTE_SYSTEM))))
+		if (ifp && (if_is_operative(ifp)))
 			return 1;
 		else
 			return 0;
@@ -2457,20 +2453,19 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
 
 	/*
-	 * If the kernel has sent us a NEW route, then
+	 * If this is a kernel route, then if the interface is *up* then
 	 * by golly gee whiz it's a good route.
-	 *
-	 * If its an already INSTALLED route we have already handled, then the
-	 * kernel route's nexthop might have became unreachable
-	 * and we have to handle that.
 	 */
-	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) &&
-	    (re->type == ZEBRA_ROUTE_KERNEL ||
-	     re->type == ZEBRA_ROUTE_SYSTEM)) {
-		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		goto skip_check;
-	}
+	if (re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_SYSTEM) {
+		struct interface *ifp;
 
+		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+
+		if (ifp && (if_is_operative(ifp) || if_is_up(ifp))) {
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			goto skip_check;
+		}
+	}
 
 	vrf_id = zvrf_id(rib_dest_vrf(rib_dest_from_rnode(rn)));
 	switch (nexthop->type) {
