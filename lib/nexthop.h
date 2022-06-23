@@ -81,7 +81,7 @@ struct nexthop {
 
 	enum nexthop_types_t type;
 
-	uint8_t flags;
+	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
