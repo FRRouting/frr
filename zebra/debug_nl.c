@@ -1083,8 +1083,9 @@ next_rta:
 
 	plen = RTA_PAYLOAD(rta);
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
-		   plen, rta->rta_type, rtm_rta2str(rta->rta_type));
-	switch (rta->rta_type) {
+		   plen, rta->rta_type & NLA_TYPE_MASK,
+		   rtm_rta2str(rta->rta_type & NLA_TYPE_MASK));
+	switch (rta->rta_type & NLA_TYPE_MASK) {
 	case RTA_IIF:
 	case RTA_OIF:
 	case RTA_PRIORITY:

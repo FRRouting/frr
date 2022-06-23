@@ -1638,6 +1638,27 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 	return true;
 }
 
+/* This function appends tag value as rtnl flow attribute
+ * to the given netlink msg only if value is less than 256.
+ * Used only if SUPPORT_REALMS enabled.
+ *
+ * @param nlmsg: nlmsghdr structure to fill in.
+ * @param maxlen: The size allocated for the message.
+ * @param tag: The route tag.
+ *
+ * The function returns true if the flow attribute could
+ * be added to the message, otherwise false is returned.
+ */
+static inline bool _netlink_set_tag(struct nlmsghdr *n, unsigned int maxlen,
+				    route_tag_t tag)
+{
+	if (tag > 0 && tag <= 255) {
+		if (!nl_attr_put32(n, maxlen, RTA_FLOW, tag))
+			return false;
+	}
+	return true;
+}
+
 /* This function takes a nexthop as argument and
  * appends to the given netlink msg. If the nexthop
  * defines a preferred source, the src parameter
@@ -1656,12 +1677,10 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
  * The function returns true if the nexthop could be added
  * to the message, otherwise false is returned.
  */
-static bool _netlink_route_build_multipath(const struct prefix *p,
-					   const char *routedesc, int bytelen,
-					   const struct nexthop *nexthop,
-					   struct nlmsghdr *nlmsg,
-					   size_t req_size, struct rtmsg *rtmsg,
-					   const union g_addr **src)
+static bool _netlink_route_build_multipath(
+	const struct prefix *p, const char *routedesc, int bytelen,
+	const struct nexthop *nexthop, struct nlmsghdr *nlmsg, size_t req_size,
+	struct rtmsg *rtmsg, const union g_addr **src, route_tag_t tag)
 {
 	char label_buf[256];
 	struct vrf *vrf;
@@ -1767,6 +1786,9 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 	if (nexthop->weight)
 		rtnh->rtnh_hops = nexthop->weight - 1;
 
+	if (!_netlink_set_tag(nlmsg, req_size, tag))
+		return false;
+
 	nl_attr_rtnh_end(nlmsg, rtnh);
 	return true;
 }
@@ -1801,7 +1823,7 @@ _netlink_mpls_build_multipath(const struct prefix *p, const char *routedesc,
 	bytelen = (family == AF_INET ? 4 : 16);
 	return _netlink_route_build_multipath(p, routedesc, bytelen,
 					      nhlfe->nexthop, nlmsg, req_size,
-					      rtmsg, src);
+					      rtmsg, src, 0);
 }
 
 static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
@@ -1925,6 +1947,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	const struct prefix *p, *src_p;
 	uint32_t table_id;
 	struct nlsock *nl;
+	route_tag_t tag = 0;
 
 	struct {
 		struct nlmsghdr n;
@@ -1996,20 +2019,12 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 		return 0;
 
 #if defined(SUPPORT_REALMS)
-	{
-		route_tag_t tag;
-
-		if (cmd == RTM_DELROUTE)
-			tag = dplane_ctx_get_old_tag(ctx);
-		else
-			tag = dplane_ctx_get_tag(ctx);
-
-		if (tag > 0 && tag <= 255) {
-			if (!nl_attr_put32(&req->n, datalen, RTA_FLOW, tag))
-				return 0;
-		}
-	}
+	if (cmd == RTM_DELROUTE)
+		tag = dplane_ctx_get_old_tag(ctx);
+	else
+		tag = dplane_ctx_get_tag(ctx);
 #endif
+
 	/* Table corresponding to this route. */
 	table_id = dplane_ctx_get_table(ctx);
 	if (table_id < 256)
@@ -2032,8 +2047,11 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	 * prefix information to tell the kernel to schwack
 	 * it.
 	 */
-	if (cmd == RTM_DELROUTE)
+	if (cmd == RTM_DELROUTE) {
+		if (!_netlink_set_tag(&req->n, datalen, tag))
+			return 0;
 		return NLMSG_ALIGN(req->n.nlmsg_len);
+	}
 
 	if (dplane_ctx_get_mtu(ctx) || dplane_ctx_get_nh_mtu(ctx)) {
 		struct rtattr *nest;
@@ -2148,6 +2166,9 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 						    ? "recursive, single-path"
 						    : "single-path";
 
+				if (!_netlink_set_tag(&req->n, datalen, tag))
+					return 0;
+
 				if (!_netlink_route_build_singlepath(
 					    p, routedesc, bytelen, nexthop,
 					    &req->n, &req->r, datalen, cmd))
@@ -2207,7 +2228,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 
 				if (!_netlink_route_build_multipath(
 					    p, routedesc, bytelen, nexthop,
-					    &req->n, datalen, &req->r, &src1))
+					    &req->n, datalen, &req->r, &src1,
+					    tag))
 					return 0;
 
 				if (!setsrc && src1) {
