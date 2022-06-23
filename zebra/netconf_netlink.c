@@ -53,8 +53,8 @@ static int netlink_netconf_dplane_update(ns_id_t ns_id, ifindex_t ifindex,
 
 	ctx = dplane_ctx_alloc();
 	dplane_ctx_set_op(ctx, DPLANE_OP_INTF_NETCONFIG);
-	dplane_ctx_set_netconf_ns_id(ctx, ns_id);
-	dplane_ctx_set_netconf_ifindex(ctx, ifindex);
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_ifindex(ctx, ifindex);
 
 	dplane_ctx_set_netconf_mpls(ctx, mpls_on);
 	dplane_ctx_set_netconf_mcast(ctx, mcast_on);

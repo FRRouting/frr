@@ -592,11 +592,6 @@ const struct zebra_l2info_gre *
 dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
 
 /* Interface netconf info */
-ifindex_t dplane_ctx_get_netconf_ifindex(const struct zebra_dplane_ctx *ctx);
-ns_id_t dplane_ctx_get_netconf_ns_id(const struct zebra_dplane_ctx *ctx);
-void dplane_ctx_set_netconf_ifindex(struct zebra_dplane_ctx *ctx,
-				    ifindex_t ifindex);
-void dplane_ctx_set_netconf_ns_id(struct zebra_dplane_ctx *ctx, ns_id_t ns_id);
 enum dplane_netconf_status_e
 dplane_ctx_get_netconf_mpls(const struct zebra_dplane_ctx *ctx);
 enum dplane_netconf_status_e
