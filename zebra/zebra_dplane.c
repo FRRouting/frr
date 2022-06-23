@@ -301,8 +301,6 @@ struct dplane_gre_ctx {
  * info. The flags values are public, in the dplane.h file...
  */
 struct dplane_netconf_info {
-	ns_id_t ns_id;
-	ifindex_t ifindex;
 	enum dplane_netconf_status_e mpls_val;
 	enum dplane_netconf_status_e mcast_val;
 };
@@ -2332,35 +2330,6 @@ dplane_ctx_neightable_get_mcast_probes(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.neightable.mcast_probes;
-}
-
-ifindex_t dplane_ctx_get_netconf_ifindex(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.netconf.ifindex;
-}
-
-ns_id_t dplane_ctx_get_netconf_ns_id(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.netconf.ns_id;
-}
-
-void dplane_ctx_set_netconf_ifindex(struct zebra_dplane_ctx *ctx,
-				    ifindex_t ifindex)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	ctx->u.netconf.ifindex = ifindex;
-}
-
-void dplane_ctx_set_netconf_ns_id(struct zebra_dplane_ctx *ctx, ns_id_t ns_id)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	ctx->u.netconf.ns_id = ns_id;
 }
 
 enum dplane_netconf_status_e
@@ -5439,7 +5408,7 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_NETCONFIG:
 		zlog_debug("%s: ifindex %d, mpls %d, mcast %d",
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
-			   dplane_ctx_get_netconf_ifindex(ctx),
+			   dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_get_netconf_mpls(ctx),
 			   dplane_ctx_get_netconf_mcast(ctx));
 		break;
