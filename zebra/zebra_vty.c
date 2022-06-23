@@ -376,6 +376,9 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		vty_out(vty, " onlink");
 
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		vty_out(vty, " linkdown");
+
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		vty_out(vty, " (recursive)");
 
@@ -657,6 +660,9 @@ static void show_route_nexthop_helper(struct vty *vty,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		vty_out(vty, " onlink");
 
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		vty_out(vty, " linkdown");
+
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		vty_out(vty, " (recursive)");
 
@@ -836,6 +842,9 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		json_object_boolean_true_add(json_nexthop,
 					     "onLink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		json_object_boolean_true_add(json_nexthop, "linkDown");
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		json_object_boolean_true_add(json_nexthop,

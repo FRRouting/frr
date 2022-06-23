@@ -535,6 +535,9 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
 		SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
 
+	if (rtm->rtm_flags & RTNH_F_LINKDOWN)
+		SET_FLAG(nh.flags, NEXTHOP_FLAG_LINKDOWN);
+
 	if (num_labels)
 		nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels, labels);
 
