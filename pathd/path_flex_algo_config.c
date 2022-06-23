@@ -291,9 +291,11 @@ DEFPY(debug_flex_algo_show_igp_defaults,
  * "flex-algo igp-defaults protocol ospf ..." with whatever ospf-specific
  * syntax might be needed.
  */
+#define _X_ID "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-flexalgo:flex-algo/igp-defaults/"
 DEFPY(flex_algo_igp_defaults_isis,
       flex_algo_igp_defaults_isis_cmd,
-      "flex-algo igp-defaults protocol isis [instance (0-65535)$inst] [vrf VRF$vrf] area-tag AREA$area",
+      "[no] flex-algo igp-defaults protocol isis [instance (0-65535)$inst] [vrf VRF$vrf] area-tag AREA$area",
+      NO_STR
       "Flex-algo\n"
       "IGP defaults\n"
       "Specify IGP source\n"
@@ -305,19 +307,40 @@ DEFPY(flex_algo_igp_defaults_isis,
       "Specify isis area tag\n"
       "area tag string\n")
 {
-#define _X_ID "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-flexalgo:flex-algo/igp-defaults/"
-
-	nb_cli_enqueue_change(vty, _X_ID "protocol", NB_OP_MODIFY, "isis");
-	if (inst_str)
-		nb_cli_enqueue_change(vty, _X_ID "instance", NB_OP_MODIFY,
-			inst_str);
-	if (vrf)
-		nb_cli_enqueue_change(vty, _X_ID "vrf", NB_OP_MODIFY, vrf);
-
-	nb_cli_enqueue_change(vty, _X_ID "isis-area-tag", NB_OP_MODIFY, area);
+	if (no) {
+		nb_cli_enqueue_change(vty, _X_ID "protocol", NB_OP_DESTROY, 0);
+		nb_cli_enqueue_change(vty, _X_ID "instance", NB_OP_DESTROY, 0);
+		nb_cli_enqueue_change(vty, _X_ID "vrf", NB_OP_DESTROY, 0);
+		nb_cli_enqueue_change(vty, _X_ID "isis-area-tag",
+			NB_OP_DESTROY, 0);
+	} else {
+		nb_cli_enqueue_change(vty, _X_ID "protocol", NB_OP_MODIFY,
+			"isis");
+		if (inst_str)
+			nb_cli_enqueue_change(vty, _X_ID "instance",
+				NB_OP_MODIFY, inst_str);
+		if (vrf)
+			nb_cli_enqueue_change(vty, _X_ID "vrf",
+				NB_OP_MODIFY, vrf);
+		nb_cli_enqueue_change(vty, _X_ID "isis-area-tag", NB_OP_MODIFY, area);
+	}
 	return nb_cli_apply_changes(vty, _X_ID);
-#undef _X_ID
 }
+
+DEFUN(no_flex_algo_igp_defaults_isis,
+      no_flex_algo_igp_defaults_isis_cmd,
+      "no flex-algo igp-defaults",
+      NO_STR
+      "Flex-algo\n"
+      "IGP defaults\n")
+{
+	nb_cli_enqueue_change(vty, _X_ID "protocol", NB_OP_DESTROY, 0);
+	nb_cli_enqueue_change(vty, _X_ID "instance", NB_OP_DESTROY, 0);
+	nb_cli_enqueue_change(vty, _X_ID "vrf", NB_OP_DESTROY, 0);
+	nb_cli_enqueue_change(vty, _X_ID "isis-area-tag", NB_OP_DESTROY, 0);
+	return nb_cli_apply_changes(vty, _X_ID);
+}
+#undef _X_ID
 /* clang-format on */
 
 void cli_show_flex_algo_igp_defaults(struct vty *vty,
@@ -365,6 +388,8 @@ void path_flex_algo_cli_init(void)
 	install_element(ENABLE_NODE, &debug_flex_algo_show_endpoint_cmd);
 	install_element(ENABLE_NODE, &debug_flex_algo_show_igp_defaults_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &flex_algo_igp_defaults_isis_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE,
+			&no_flex_algo_igp_defaults_isis_cmd);
 }
 
 /* northbound config API */
