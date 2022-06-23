@@ -95,6 +95,7 @@ struct nexthop {
 #define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
 #define NEXTHOP_FLAG_SRTE       (1 << 7) /* SR-TE color used for BGP traffic */
 #define NEXTHOP_FLAG_EVPN       (1 << 8) /* nexthop is EVPN */
+#define NEXTHOP_FLAG_LINKDOWN   (1 << 9) /* is not removed on link down */
 
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
