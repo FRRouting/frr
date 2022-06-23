@@ -303,6 +303,7 @@ struct dplane_gre_ctx {
 struct dplane_netconf_info {
 	enum dplane_netconf_status_e mpls_val;
 	enum dplane_netconf_status_e mcast_val;
+	enum dplane_netconf_status_e linkdown_val;
 };
 
 /*
@@ -2348,6 +2349,14 @@ dplane_ctx_get_netconf_mcast(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.netconf.mcast_val;
 }
 
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_linkdown(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.netconf.linkdown_val;
+}
+
 void dplane_ctx_set_netconf_mpls(struct zebra_dplane_ctx *ctx,
 				 enum dplane_netconf_status_e val)
 {
@@ -2363,6 +2372,15 @@ void dplane_ctx_set_netconf_mcast(struct zebra_dplane_ctx *ctx,
 
 	ctx->u.netconf.mcast_val = val;
 }
+
+void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
+				     enum dplane_netconf_status_e val)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.netconf.linkdown_val = val;
+}
+
 
 /*
  * Retrieve the limit on the number of pending, unprocessed updates.

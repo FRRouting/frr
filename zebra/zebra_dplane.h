@@ -596,10 +596,15 @@ enum dplane_netconf_status_e
 dplane_ctx_get_netconf_mpls(const struct zebra_dplane_ctx *ctx);
 enum dplane_netconf_status_e
 dplane_ctx_get_netconf_mcast(const struct zebra_dplane_ctx *ctx);
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_linkdown(const struct zebra_dplane_ctx *ctx);
+
 void dplane_ctx_set_netconf_mpls(struct zebra_dplane_ctx *ctx,
 				 enum dplane_netconf_status_e val);
 void dplane_ctx_set_netconf_mcast(struct zebra_dplane_ctx *ctx,
 				  enum dplane_netconf_status_e val);
+void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
+				     enum dplane_netconf_status_e val);
 
 /* Namespace fd info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
