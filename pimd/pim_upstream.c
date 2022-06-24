@@ -1948,8 +1948,8 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	struct pim_upstream *up;
 
 	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
-		pim_upstream_del(pim, up, __func__);
-		pim_upstream_timers_stop(up);
+		if (pim_upstream_del(pim, up, __func__))
+			pim_upstream_timers_stop(up);
 	}
 
 	rb_pim_upstream_fini(&pim->upstream_head);
