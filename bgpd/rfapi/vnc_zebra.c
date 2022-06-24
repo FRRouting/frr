@@ -628,7 +628,6 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	struct rfapi_nve_group_cfg *rfg = rfd->rfg;
 	afi_t afi = family2afi(rfd->vn_addr.addr_family);
 	struct prefix nhp;
-	//    struct prefix             *nhpp;
 	void *pAddr;
 
 	vnc_zlog_debug_verbose("%s: entry, add=%d", __func__, add);
@@ -660,7 +659,7 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		return;
 	}
 
-	pAddr = &nhp.u.prefix4;
+	pAddr = &nhp.u.val;
 
 	/*
 	 * Loop over the list of NVE-Groups configured for

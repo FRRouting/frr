@@ -304,15 +304,15 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 		 * "check cache or get immediate result." But until that can
 		 * be worked in, here's a copy of the code below :(
 		 */
-		struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
+		struct pim_zlookup_nexthop nexthop_tab[router->multipath];
 		ifindex_t i;
 		struct interface *ifp = NULL;
 		int num_ifindex;
 
 		memset(nexthop_tab, 0, sizeof(nexthop_tab));
-		num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab,
-						     MULTIPATH_NUM, bsr_addr,
-						     PIM_NEXTHOP_LOOKUP_MAX);
+		num_ifindex = zclient_lookup_nexthop(
+			pim, nexthop_tab, router->multipath, bsr_addr,
+			PIM_NEXTHOP_LOOKUP_MAX);
 
 		if (num_ifindex <= 0)
 			return false;
@@ -501,8 +501,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 				   struct prefix *src, struct prefix *grp,
 				   int neighbor_needed)
 {
-	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr = NULL;
-	struct interface *ifps[MULTIPATH_NUM];
+	struct pim_neighbor *nbrs[router->multipath], *nbr = NULL;
+	struct interface *ifps[router->multipath];
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
@@ -888,11 +888,11 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			    struct prefix *grp, int neighbor_needed)
 {
 	struct pim_nexthop_cache *pnc;
-	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
-	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr = NULL;
+	struct pim_zlookup_nexthop nexthop_tab[router->multipath];
+	struct pim_neighbor *nbrs[router->multipath], *nbr = NULL;
 	struct pim_rpf rpf;
 	int num_ifindex;
-	struct interface *ifps[MULTIPATH_NUM], *ifp;
+	struct interface *ifps[router->multipath], *ifp;
 	int first_ifindex;
 	int found = 0;
 	uint8_t i = 0;
@@ -915,9 +915,10 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	}
 
 	memset(nexthop_tab, 0,
-	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
-	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
-					     src_addr, PIM_NEXTHOP_LOOKUP_MAX);
+	       sizeof(struct pim_zlookup_nexthop) * router->multipath);
+	num_ifindex =
+		zclient_lookup_nexthop(pim, nexthop_tab, router->multipath,
+				       src_addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_warn(
