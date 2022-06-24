@@ -1407,7 +1407,7 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 					struct interface *ifp)
 {
 	struct zebra_if *zif;
-	enum dplane_netconf_status_e mpls;
+	enum dplane_netconf_status_e mpls, linkdown;
 
 	zif = ifp->info;
 	if (!zif) {
@@ -1424,10 +1424,17 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 	else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
 		zif->mpls = false;
 
+	linkdown = dplane_ctx_get_netconf_linkdown(ctx);
+	if (linkdown == DPLANE_NETCONF_STATUS_ENABLED)
+		zif->linkdown = true;
+	else if (linkdown == DPLANE_NETCONF_STATUS_DISABLED)
+		zif->linkdown = false;
+
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: if %s, ifindex %d, mpls %s",
+		zlog_debug("%s: if %s, ifindex %d, mpls %s linkdown %s",
 			   __func__, ifp->name, ifp->ifindex,
-			   (zif->mpls ? "ON" : "OFF"));
+			   (zif->mpls ? "ON" : "OFF"),
+			   (zif->linkdown ? "ON" : "OFF"));
 }
 
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
@@ -1890,6 +1897,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	if (zebra_if->mpls)
 		vty_out(vty, "  MPLS enabled\n");
 
+	if (zebra_if->linkdown)
+		vty_out(vty, "  Ignore all routes with linkdown\n");
+
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
 	if (ifp->hw_addr_len != 0) {
@@ -2211,6 +2221,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 				       zebra_if->desc);
 
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
+	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
