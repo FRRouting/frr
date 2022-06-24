@@ -70,6 +70,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_msdp_exit(pim);
 
+	pim_mroute_socket_disable(pim);
+
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
 
