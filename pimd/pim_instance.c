@@ -238,5 +238,20 @@ void pim_vrf_init(void)
 
 void pim_vrf_terminate(void)
 {
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct pim_instance *pim;
+
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		pim_ssmpingd_destroy(pim);
+		pim_instance_terminate(pim);
+
+		vrf->info = NULL;
+	}
+
 	vrf_terminate();
 }
