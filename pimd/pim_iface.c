@@ -213,8 +213,8 @@ void pim_if_delete(struct interface *ifp)
 #if PIM_IPV == 4
 	igmp_sock_delete_all(ifp);
 #endif
-
-	pim_neighbor_delete_all(ifp, "Interface removed from configuration");
+	if (pim_ifp->pim_sock_fd >= 0)
+		pim_sock_delete(ifp, "Interface removed from configuration");
 
 	pim_if_del_vif(ifp);
 
