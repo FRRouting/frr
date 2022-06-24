@@ -73,7 +73,7 @@ chownfrr() {
 
 vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
-	if [ -r "$C_PATH/frr.conf" ]; then
+	if [ ! -r "$C_PATH/frr.conf" ]; then
 		log_warning_msg "$C_PATH/frr.conf does not exist; skipping config apply"
 		return 0
 	fi
