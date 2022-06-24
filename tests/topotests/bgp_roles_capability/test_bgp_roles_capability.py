@@ -110,11 +110,11 @@ def test_correct_pair(tgen):
 
 def test_role_pair_mismatch(tgen):
     # provider-peer mistmatch
-    router = tgen.gears["r1"]
-    neighbor_ip = "192.168.3.2"
+    router = tgen.gears["r3"]
+    neighbor_ip = "192.168.3.1"
     check_r3_mismatch = functools.partial(check_role_mismatch, router, neighbor_ip)
     success, result = topotest.run_and_expect(check_r3_mismatch, True, count=20, wait=3)
-    assert success, "Session with r3 was not correctly closed"
+    assert success, "Session between r1 and r3 was not correctly closed"
 
 
 def test_single_role_advertising(tgen):
@@ -155,11 +155,11 @@ def test_single_role_receiving(tgen):
 
 def test_role_strict_mode(tgen):
     # provider-undefined pair with strict-mode
-    router = tgen.gears["r1"]
-    neighbor_ip = "192.168.5.2"
+    router = tgen.gears["r5"]
+    neighbor_ip = "192.168.5.1"
     check_r5_mismatch = functools.partial(check_role_mismatch, router, neighbor_ip)
     success, result = topotest.run_and_expect(check_r5_mismatch, True, count=20, wait=3)
-    assert success, "Session with r5 was not correctly closed"
+    assert success, "Session between r1 and r5 was not correctly closed"
 
 
 if __name__ == "__main__":
