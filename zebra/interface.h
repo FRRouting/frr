@@ -130,10 +130,10 @@ struct zebra_if {
 	bool mpls;
 
 	/* Linkdown status */
-	bool linkdown;
+	bool linkdown, linkdownv6;
 
 	/* Is Multicast Forwarding on? */
-	bool v4mcast_on;
+	bool v4mcast_on, v6mcast_on;
 
 	/* Router advertise configuration. */
 	uint8_t rtadv_enable;
