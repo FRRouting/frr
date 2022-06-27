@@ -1404,44 +1404,66 @@ done:
  * pthread so it can update zebra data structs.
  */
 static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
-					struct interface *ifp)
+					struct interface *ifp,
+					ifindex_t ifindex)
 {
-	struct zebra_if *zif;
+	struct zebra_if *zif = NULL;
 	afi_t afi;
 	enum dplane_netconf_status_e mpls, mcast_on, linkdown;
 	bool *mcast_set, *linkdown_set;
 
-	zif = ifp->info;
-	if (!zif) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: if %s(%u) zebra info pointer is NULL",
-				   __func__, ifp->name, ifp->ifindex);
-		return;
-	}
-
 	afi = dplane_ctx_get_afi(ctx);
 	mpls = dplane_ctx_get_netconf_mpls(ctx);
+	linkdown = dplane_ctx_get_netconf_linkdown(ctx);
+	mcast_on = dplane_ctx_get_netconf_mcast(ctx);
 
-	if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
-		zif->mpls = true;
-	else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
-		zif->mpls = false;
-
-	if (afi == AFI_IP) {
-		mcast_set = &zif->v4mcast_on;
-		linkdown_set = &zif->linkdown;
+	if (ifindex == DPLANE_NETCONF_IFINDEX_ALL) {
+		if (afi == AFI_IP) {
+			mcast_set = &zrouter.all_mc_forwardingv4;
+			linkdown_set = &zrouter.all_linkdownv4;
+		} else {
+			mcast_set = &zrouter.all_mc_forwardingv6;
+			linkdown_set = &zrouter.all_linkdownv6;
+		}
+	} else if (ifindex == DPLANE_NETCONF_IFINDEX_DEFAULT) {
+		if (afi == AFI_IP) {
+			mcast_set = &zrouter.default_mc_forwardingv4;
+			linkdown_set = &zrouter.default_linkdownv4;
+		} else {
+			mcast_set = &zrouter.default_mc_forwardingv6;
+			linkdown_set = &zrouter.default_linkdownv6;
+		}
 	} else {
-		mcast_set = &zif->v6mcast_on;
-		linkdown_set = &zif->linkdownv6;
+		zif = ifp ? ifp->info : NULL;
+		if (!zif) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: if %s(%u) zebra info pointer is NULL",
+					__func__, ifp->name, ifp->ifindex);
+			return;
+		}
+		if (afi == AFI_IP) {
+			mcast_set = &zif->v4mcast_on;
+			linkdown_set = &zif->linkdown;
+		} else {
+			mcast_set = &zif->v6mcast_on;
+			linkdown_set = &zif->linkdownv6;
+		}
+
+		/*
+		 * mpls netconf data is neither v4 or v6 it's AF_MPLS!
+		 */
+		if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
+			zif->mpls = true;
+		else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
+			zif->mpls = false;
 	}
 
-	linkdown = dplane_ctx_get_netconf_linkdown(ctx);
 	if (linkdown == DPLANE_NETCONF_STATUS_ENABLED)
 		*linkdown_set = true;
 	else if (linkdown == DPLANE_NETCONF_STATUS_DISABLED)
 		*linkdown_set = false;
 
-	mcast_on = dplane_ctx_get_netconf_mcast(ctx);
 	if (mcast_on == DPLANE_NETCONF_STATUS_ENABLED)
 		*mcast_set = true;
 	else if (mcast_on == DPLANE_NETCONF_STATUS_DISABLED)
@@ -1450,8 +1472,10 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
 			"%s: afi: %d if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
-			__func__, afi, ifp->name, ifp->ifindex,
-			(zif->mpls ? "ON" : "OFF"), (*mcast_set ? "ON" : "OFF"),
+			__func__, afi, ifp ? ifp->name : "Global",
+			ifp ? ifp->ifindex : ifindex,
+			(zif ? (zif->mpls ? "ON" : "OFF") : "OFF"),
+			(*mcast_set ? "ON" : "OFF"),
 			(*linkdown_set ? "ON" : "OFF"));
 }
 
@@ -1485,11 +1509,15 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
 	if (ifp == NULL) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: can't find ifp at nsid %u index %d",
-				   __func__, ns_id, ifindex);
+		if (op != DPLANE_OP_INTF_NETCONFIG ||
+		    (ifindex != -1 && ifindex != -2)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: can't find ifp at nsid %u index %d",
+					__func__, ns_id, ifindex);
 
-		goto done;
+			goto done;
+		}
 	}
 
 	switch (op) {
@@ -1505,7 +1533,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	case DPLANE_OP_INTF_NETCONFIG:
-		zebra_if_netconf_update_ctx(ctx, ifp);
+		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
 		break;
 
 	case DPLANE_OP_ROUTE_INSTALL:
