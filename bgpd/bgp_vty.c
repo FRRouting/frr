@@ -6449,7 +6449,7 @@ static int peer_role_set_vty(struct vty *vty, const char *ip_str,
 {
 	struct peer *peer;
 
-	peer = peer_lookup_vty(vty, ip_str);
+	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 	uint8_t role = get_role_by_name(role_str);
@@ -6463,7 +6463,7 @@ static int peer_role_unset_vty(struct vty *vty, const char *ip_str)
 {
 	struct peer *peer;
 
-	peer = peer_lookup_vty(vty, ip_str);
+	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 	return bgp_vty_return(vty, peer_role_unset(peer));
@@ -16785,13 +16785,13 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* role */
-	if (peer->local_role != ROLE_UNDEFINED) {
+	if (peergroup_flag_check(peer, PEER_FLAG_ROLE) &&
+	    peer->local_role != ROLE_UNDEFINED)
 		vty_out(vty, " neighbor %s local-role %s%s\n", addr,
 			bgp_get_name_by_role(peer->local_role),
-			CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE)
+			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)
 				? " strict-mode"
 				: "");
-	}
 
 	/* ttl-security hops */
 	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED) {
