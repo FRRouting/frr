@@ -5135,7 +5135,7 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     "Peer-group name\n")
 
 static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
-				uint32_t flag, int set)
+				uint64_t flag, int set)
 {
 	int ret;
 	struct peer *peer;
@@ -5166,13 +5166,13 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 	return bgp_vty_return(vty, ret);
 }
 
-static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint32_t flag)
+static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint64_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 1);
 }
 
 static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
-			       uint32_t flag)
+			       uint64_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 0);
 }
@@ -16348,7 +16348,7 @@ static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 
 /* peer-group helpers for config-write */
 
-static bool peergroup_flag_check(struct peer *peer, uint32_t flag)
+static bool peergroup_flag_check(struct peer *peer, uint64_t flag)
 {
 	if (!peer_group_active(peer)) {
 		if (CHECK_FLAG(peer->flags_invert, flag))
