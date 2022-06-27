@@ -5,8 +5,14 @@ on:
   schedule:
     - cron: "30 1 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   stale:
+    permissions:
+      issues: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/stale@v5
