@@ -1407,7 +1407,9 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 					struct interface *ifp)
 {
 	struct zebra_if *zif;
+	afi_t afi;
 	enum dplane_netconf_status_e mpls, mcast_on, linkdown;
+	bool *mcast_set, *linkdown_set;
 
 	zif = ifp->info;
 	if (!zif) {
@@ -1417,6 +1419,7 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 		return;
 	}
 
+	afi = dplane_ctx_get_afi(ctx);
 	mpls = dplane_ctx_get_netconf_mpls(ctx);
 
 	if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
@@ -1424,25 +1427,32 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 	else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
 		zif->mpls = false;
 
+	if (afi == AFI_IP) {
+		mcast_set = &zif->v4mcast_on;
+		linkdown_set = &zif->linkdown;
+	} else {
+		mcast_set = &zif->v6mcast_on;
+		linkdown_set = &zif->linkdownv6;
+	}
+
 	linkdown = dplane_ctx_get_netconf_linkdown(ctx);
 	if (linkdown == DPLANE_NETCONF_STATUS_ENABLED)
-		zif->linkdown = true;
+		*linkdown_set = true;
 	else if (linkdown == DPLANE_NETCONF_STATUS_DISABLED)
-		zif->linkdown = false;
+		*linkdown_set = false;
 
 	mcast_on = dplane_ctx_get_netconf_mcast(ctx);
 	if (mcast_on == DPLANE_NETCONF_STATUS_ENABLED)
-		zif->v4mcast_on = true;
+		*mcast_set = true;
 	else if (mcast_on == DPLANE_NETCONF_STATUS_DISABLED)
-		zif->v4mcast_on = false;
+		*mcast_set = false;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"%s: if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
-			__func__, ifp->name, ifp->ifindex,
-			(zif->mpls ? "ON" : "OFF"),
-			(zif->v4mcast_on ? "ON" : "OFF"),
-			(zif->linkdown ? "ON" : "OFF"));
+			"%s: afi: %d if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
+			__func__, afi, ifp->name, ifp->ifindex,
+			(zif->mpls ? "ON" : "OFF"), (*mcast_set ? "ON" : "OFF"),
+			(*linkdown_set ? "ON" : "OFF"));
 }
 
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
@@ -1906,10 +1916,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "  MPLS enabled\n");
 
 	if (zebra_if->linkdown)
-		vty_out(vty, "  Ignore all routes with linkdown\n");
+		vty_out(vty, "  Ignore all v4 routes with linkdown\n");
+	if (zebra_if->linkdownv6)
+		vty_out(vty, "  Ignore all v6 routes with linkdown\n");
 
 	if (zebra_if->v4mcast_on)
 		vty_out(vty, "  v4 Multicast forwarding is on\n");
+	if (zebra_if->v6mcast_on)
+		vty_out(vty, "  v6 Multicast forwarding is on\n");
 
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
@@ -2233,7 +2247,11 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
-	json_object_boolean_add(json_if, "mcForwarding", zebra_if->v4mcast_on);
+	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
+	json_object_boolean_add(json_if, "mcForwardingV4",
+				zebra_if->v4mcast_on);
+	json_object_boolean_add(json_if, "mcForwardingV6",
+				zebra_if->v6mcast_on);
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
