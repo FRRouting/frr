@@ -43,7 +43,7 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd]
 
 
-topodef = {f"s{i}": ("r1", f"r{i}") for i in range(2, 6)}
+topodef = {f"s{i}": ("r1", f"r{i}") for i in range(2, 7)}
 
 
 @pytest.fixture(scope="module")
@@ -160,6 +160,24 @@ def test_role_strict_mode(tgen):
     check_r5_mismatch = functools.partial(check_role_mismatch, router, neighbor_ip)
     success, result = topotest.run_and_expect(check_r5_mismatch, True, count=20, wait=3)
     assert success, "Session between r1 and r5 was not correctly closed"
+
+
+def test_correct_pair_peer_group(tgen):
+    # provider-customer pair (using peer-groups)
+    router = tgen.gears["r1"]
+    neighbor_ip = "192.168.6.2"
+    check_r6_established = functools.partial(
+        check_session_established, router, neighbor_ip
+    )
+    success, _ = topotest.run_and_expect(check_r6_established, True, count=20, wait=3)
+    assert success, "Session with r6 is not Established"
+
+    neighbor_status = find_neighbor_status(router, neighbor_ip)
+    assert neighbor_status["localRole"] == "provider"
+    assert neighbor_status["remoteRole"] == "customer"
+    assert (
+        neighbor_status["neighborCapabilities"].get("role") == "advertisedAndReceived"
+    )
 
 
 if __name__ == "__main__":

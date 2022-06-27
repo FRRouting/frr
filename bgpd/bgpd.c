@@ -2731,6 +2731,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		}
 	}
 
+	/* role */
+	PEER_ATTR_INHERIT(peer, group, local_role);
+
 	/* Update GR flags for the peer. */
 	bgp_peer_gr_flags_update(peer);
 
@@ -4256,7 +4259,8 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
-	{PEER_FLAG_STRICT_MODE, 0, peer_change_reset},
+	{PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_reset},
+	{PEER_FLAG_ROLE, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4929,36 +4933,109 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 /* Set Open Policy Role and check its correctness */
 int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
 {
-	if (peer->sort != BGP_PEER_EBGP)
-		return BGP_ERR_INVALID_INTERNAL_ROLE;
+	struct peer *member;
+	struct listnode *node, *nnode;
 
-	if (peer->local_role == role) {
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE) &&
-		    !strict_mode)
-			/* TODO: Is session restart needed if it was down? */
-			UNSET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE) &&
-		    strict_mode) {
-			SET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
-			/* Restart session to throw Role Mismatch Notification
-			 */
-			if (peer->remote_role == ROLE_UNDEFINED)
-				bgp_session_reset(peer);
+	peer_flag_set(peer, PEER_FLAG_ROLE);
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (peer->sort != BGP_PEER_EBGP)
+			return BGP_ERR_INVALID_INTERNAL_ROLE;
+
+		if (peer->local_role == role) {
+			if (CHECK_FLAG(peer->flags,
+				       PEER_FLAG_ROLE_STRICT_MODE) &&
+			    !strict_mode)
+				/* TODO: Is session restart needed if it was
+				 * down?
+				 */
+				UNSET_FLAG(peer->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			if (!CHECK_FLAG(peer->flags,
+					PEER_FLAG_ROLE_STRICT_MODE) &&
+			    strict_mode) {
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				/* Restart session to throw Role Mismatch
+				 * Notification
+				 */
+				if (peer->remote_role == ROLE_UNDEFINED)
+					bgp_session_reset(peer);
+			}
+		} else {
+			peer->local_role = role;
+			if (strict_mode)
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+			else
+				UNSET_FLAG(peer->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			bgp_session_reset(peer);
 		}
-	} else {
-		peer->local_role = role;
-		if (strict_mode)
-			SET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
-		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_STRICT_MODE);
-		bgp_session_reset(peer);
+
+		return CMD_SUCCESS;
 	}
-	return 0;
+
+	peer->local_role = role;
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		if (member->sort != BGP_PEER_EBGP)
+			return BGP_ERR_INVALID_INTERNAL_ROLE;
+
+		if (member->local_role == role) {
+			if (CHECK_FLAG(member->flags,
+				       PEER_FLAG_ROLE_STRICT_MODE) &&
+			    !strict_mode)
+				/* TODO: Is session restart needed if it was
+				 * down?
+				 */
+				UNSET_FLAG(member->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			if (!CHECK_FLAG(member->flags,
+					PEER_FLAG_ROLE_STRICT_MODE) &&
+			    strict_mode) {
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				SET_FLAG(member->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				/* Restart session to throw Role Mismatch
+				 * Notification
+				 */
+				if (member->remote_role == ROLE_UNDEFINED)
+					bgp_session_reset(member);
+			}
+		} else {
+			member->local_role = role;
+
+			if (strict_mode) {
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				SET_FLAG(member->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+			} else {
+				UNSET_FLAG(member->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			}
+			bgp_session_reset(member);
+		}
+	}
+
+	return CMD_SUCCESS;
 }
 
 int peer_role_unset(struct peer *peer)
 {
-	return peer_role_set(peer, ROLE_UNDEFINED, 0);
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	peer_flag_unset(peer, PEER_FLAG_ROLE);
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return peer_role_set(peer, ROLE_UNDEFINED, 0);
+
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member))
+		peer_role_set(member, ROLE_UNDEFINED, 0);
+
+	return CMD_SUCCESS;
 }
 
 /* Neighbor description. */

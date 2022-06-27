@@ -1152,7 +1152,7 @@ static bool bgp_role_violation(struct peer *peer)
 		return true;
 	}
 	if (remote_role == ROLE_UNDEFINED &&
-	    CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE)) {
+	    CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)) {
 		const char *err_msg =
 			"Strict mode. Please set the role on your side.";
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
