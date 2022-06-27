@@ -585,10 +585,14 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 		 * time; the same router keeps sending the Group-Specific
 		 * Queries.
 		 */
-		struct gm_group *group;
+		const struct gm_group *group;
+		const struct listnode *grpnode;
 
-		group = find_group_by_addr(igmp, group_addr);
-		if (group && group->t_group_query_retransmit_timer) {
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
+					  group)) {
+			if (!group->t_group_query_retransmit_timer)
+				continue;
+
 			if (PIM_DEBUG_IGMP_TRACE)
 				zlog_debug(
 					"%s: lower address query packet from %s is ignored when last member query interval timer is running",
