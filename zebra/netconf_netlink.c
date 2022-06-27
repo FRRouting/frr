@@ -119,23 +119,6 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	ifindex = *(ifindex_t *)RTA_DATA(tb[NETCONFA_IFINDEX]);
 
-	switch (ifindex) {
-	case NETCONFA_IFINDEX_ALL:
-	case NETCONFA_IFINDEX_DEFAULT:
-		/*
-		 * We need the ability to handle netlink messages intended
-		 * for all and default interfaces.  I am not 100% sure
-		 * what that is yet, or where we would store it.
-		 */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: Ignoring global ifindex %d",
-				   __func__, ifindex);
-
-		return 0;
-	default:
-		break;
-	}
-
 	if (tb[NETCONFA_INPUT]) {
 		ival = *(uint32_t *)RTA_DATA(tb[NETCONFA_INPUT]);
 		if (ival != 0)
