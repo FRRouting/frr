@@ -12718,6 +12718,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    + (tm.tm_hour * 3600000));
 
 		/* Configured timer values. */
+		json_object_int_add(json_neigh,
+				    "bgpTimerConfiguredHoldTimeMsecs",
+				    p->holdtime ? p->holdtime * 1000
+						: bgp->default_holdtime * 1000);
+		json_object_int_add(
+			json_neigh, "bgpTimerConfiguredKeepAliveIntervalMsecs",
+			p->keepalive ? p->keepalive * 1000
+				     : bgp->default_keepalive * 1000);
 		json_object_int_add(json_neigh, "bgpTimerHoldTimeMsecs",
 				    p->v_holdtime * 1000);
 		json_object_int_add(json_neigh,
@@ -12736,25 +12744,6 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    p->tcp_mss);
 			json_object_int_add(json_neigh, "bgpTcpMssSynced",
 					    sync_tcp_mss);
-		}
-
-		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
-			json_object_int_add(json_neigh,
-					    "bgpTimerConfiguredHoldTimeMsecs",
-					    p->holdtime * 1000);
-			json_object_int_add(
-				json_neigh,
-				"bgpTimerConfiguredKeepAliveIntervalMsecs",
-				p->keepalive * 1000);
-		} else if ((bgp->default_holdtime != SAVE_BGP_HOLDTIME)
-			   || (bgp->default_keepalive != SAVE_BGP_KEEPALIVE)) {
-			json_object_int_add(json_neigh,
-					    "bgpTimerConfiguredHoldTimeMsecs",
-					    bgp->default_holdtime);
-			json_object_int_add(
-				json_neigh,
-				"bgpTimerConfiguredKeepAliveIntervalMsecs",
-				bgp->default_keepalive);
 		}
 
 		/* Extended Optional Parameters Length for BGP OPEN Message */
@@ -12825,18 +12814,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty,
 			"  Hold time is %d, keepalive interval is %d seconds\n",
 			p->v_holdtime, p->v_keepalive);
-		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
-			vty_out(vty, "  Configured hold time is %d",
-				p->holdtime);
-			vty_out(vty, ", keepalive interval is %d seconds\n",
-				p->keepalive);
-		} else if ((bgp->default_holdtime != SAVE_BGP_HOLDTIME)
-			   || (bgp->default_keepalive != SAVE_BGP_KEEPALIVE)) {
-			vty_out(vty, "  Configured hold time is %d",
-				bgp->default_holdtime);
-			vty_out(vty, ", keepalive interval is %d seconds\n",
-				bgp->default_keepalive);
-		}
+		vty_out(vty, "  Configured hold time is %d",
+			p->holdtime ? p->holdtime : bgp->default_holdtime);
+		vty_out(vty, ", keepalive interval is %d seconds\n",
+			p->keepalive ? p->keepalive : bgp->default_keepalive);
 		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			vty_out(vty,
 				"  Configured DelayOpenTime is %d seconds\n",
