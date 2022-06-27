@@ -1407,7 +1407,7 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 					struct interface *ifp)
 {
 	struct zebra_if *zif;
-	enum dplane_netconf_status_e mpls, linkdown;
+	enum dplane_netconf_status_e mpls, mcast_on, linkdown;
 
 	zif = ifp->info;
 	if (!zif) {
@@ -1430,11 +1430,19 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 	else if (linkdown == DPLANE_NETCONF_STATUS_DISABLED)
 		zif->linkdown = false;
 
+	mcast_on = dplane_ctx_get_netconf_mcast(ctx);
+	if (mcast_on == DPLANE_NETCONF_STATUS_ENABLED)
+		zif->v4mcast_on = true;
+	else if (mcast_on == DPLANE_NETCONF_STATUS_DISABLED)
+		zif->v4mcast_on = false;
+
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: if %s, ifindex %d, mpls %s linkdown %s",
-			   __func__, ifp->name, ifp->ifindex,
-			   (zif->mpls ? "ON" : "OFF"),
-			   (zif->linkdown ? "ON" : "OFF"));
+		zlog_debug(
+			"%s: if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
+			__func__, ifp->name, ifp->ifindex,
+			(zif->mpls ? "ON" : "OFF"),
+			(zif->v4mcast_on ? "ON" : "OFF"),
+			(zif->linkdown ? "ON" : "OFF"));
 }
 
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
@@ -1900,6 +1908,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	if (zebra_if->linkdown)
 		vty_out(vty, "  Ignore all routes with linkdown\n");
 
+	if (zebra_if->v4mcast_on)
+		vty_out(vty, "  v4 Multicast forwarding is on\n");
+
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
 	if (ifp->hw_addr_len != 0) {
@@ -2222,6 +2233,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
+	json_object_boolean_add(json_if, "mcForwarding", zebra_if->v4mcast_on);
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
