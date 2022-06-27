@@ -923,6 +923,12 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 	case BGP_ERR_INVALID_AS:
 		str = "Confederation AS specified is the same AS as our AS.";
 		break;
+	case BGP_ERR_INVALID_ROLE_NAME:
+		str = "Invalid role name";
+		break;
+	case BGP_ERR_INVALID_INTERNAL_ROLE:
+		str = "External roles can be set only on eBGP session";
+		break;
 	}
 	if (str) {
 		vty_out(vty, "%% %s\n", str);
@@ -6405,6 +6411,91 @@ DEFUN (no_neighbor_ebgp_multihop,
 	return peer_ebgp_multihop_unset_vty(vty, argv[idx_peer]->arg);
 }
 
+static uint8_t get_role_by_name(const char *role_str)
+{
+	if (strncmp(role_str, "peer", 2) == 0)
+		return ROLE_PEER;
+	if (strncmp(role_str, "provider", 2) == 0)
+		return ROLE_PROVIDER;
+	if (strncmp(role_str, "customer", 2) == 0)
+		return ROLE_CUSTOMER;
+	if (strncmp(role_str, "rs-server", 4) == 0)
+		return ROLE_RS_SERVER;
+	if (strncmp(role_str, "rs-client", 4) == 0)
+		return ROLE_RS_CLIENT;
+	return ROLE_UNDEFINED;
+}
+
+static int peer_role_set_vty(struct vty *vty, const char *ip_str,
+			     const char *role_str, bool strict_mode)
+{
+	struct peer *peer;
+
+	peer = peer_lookup_vty(vty, ip_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	uint8_t role = get_role_by_name(role_str);
+
+	if (role == ROLE_UNDEFINED)
+		return bgp_vty_return(vty, BGP_ERR_INVALID_ROLE_NAME);
+	return bgp_vty_return(vty, peer_role_set(peer, role, strict_mode));
+}
+
+static int peer_role_unset_vty(struct vty *vty, const char *ip_str)
+{
+	struct peer *peer;
+
+	peer = peer_lookup_vty(vty, ip_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+	return bgp_vty_return(vty, peer_role_unset(peer));
+}
+
+DEFPY(neighbor_role,
+      neighbor_role_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer>",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Set session role\n"
+      ROLE_STR)
+{
+	int idx_peer = 1;
+	int idx_role = 3;
+
+	return peer_role_set_vty(vty, argv[idx_peer]->arg, argv[idx_role]->arg,
+				 false);
+}
+
+DEFPY(neighbor_role_strict,
+      neighbor_role_strict_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer> strict-mode",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Set session role\n"
+      ROLE_STR
+      "Use additional restriction on peer\n")
+{
+	int idx_peer = 1;
+	int idx_role = 3;
+
+	return peer_role_set_vty(vty, argv[idx_peer]->arg, argv[idx_role]->arg,
+				 true);
+}
+
+DEFPY(no_neighbor_role,
+      no_neighbor_role_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> local-role <provider|rs-server|rs-client|customer|peer> [strict-mode]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Set session role\n"
+      ROLE_STR
+      "Use additional restriction on peer\n")
+{
+	int idx_peer = 2;
+
+	return peer_role_unset_vty(vty, argv[idx_peer]->arg);
+}
 
 /* disable-connected-check */
 DEFUN (neighbor_disable_connected_check,
@@ -12465,6 +12556,20 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty, "unspecified link\n");
 	}
 
+	/* Roles */
+	if (use_json) {
+		json_object_string_add(json_neigh, "localRole",
+				       bgp_get_name_by_role(p->local_role));
+		json_object_string_add(json_neigh, "remoteRole",
+				       bgp_get_name_by_role(p->remote_role));
+	} else {
+		vty_out(vty, "  Local Role: %s\n",
+			bgp_get_name_by_role(p->local_role));
+		vty_out(vty, "  Remote Role: %s\n",
+			bgp_get_name_by_role(p->remote_role));
+	}
+
+
 	/* Description. */
 	if (p->desc) {
 		if (use_json)
@@ -12929,6 +13034,22 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							       "received");
 			}
 
+			/* Role */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ROLE_ADV)) {
+				if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_ADV) &&
+				    CHECK_FLAG(p->cap, PEER_CAP_ROLE_RCV))
+					json_object_string_add(
+						json_cap, "role",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_ADV))
+					json_object_string_add(json_cap, "role",
+							       "advertised");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_RCV))
+					json_object_string_add(json_cap, "role",
+							       "received");
+			}
+
 			/* Extended nexthop */
 			if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV) ||
 			    CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV)) {
@@ -13362,6 +13483,21 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					vty_out(vty, " %sreceived",
 						CHECK_FLAG(p->cap,
 							   PEER_CAP_DYNAMIC_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+			}
+
+			/* Role */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ROLE_ADV)) {
+				vty_out(vty, "    Role:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap, PEER_CAP_ROLE_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_ROLE_ADV)
 							? "and "
 							: "");
 				vty_out(vty, "\n");
@@ -16649,6 +16785,15 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	/* role */
+	if (peer->local_role != ROLE_UNDEFINED) {
+		vty_out(vty, " neighbor %s local-role %s%s\n", addr,
+			bgp_get_name_by_role(peer->local_role),
+			CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_MODE)
+				? " strict-mode"
+				: "");
+	}
+
 	/* ttl-security hops */
 	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED) {
 		if (!peer_group_active(peer)
@@ -17917,6 +18062,11 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_maxmed_admin_medv_cmd);
 	install_element(BGP_NODE, &bgp_maxmed_onstartup_cmd);
 	install_element(BGP_NODE, &no_bgp_maxmed_onstartup_cmd);
+
+	/* "neighbor role" commands. */
+	install_element(BGP_NODE, &neighbor_role_cmd);
+	install_element(BGP_NODE, &neighbor_role_strict_cmd);
+	install_element(BGP_NODE, &no_neighbor_role_cmd);
 
 	/* bgp disable-ebgp-connected-nh-check */
 	install_element(BGP_NODE, &bgp_disable_connected_route_check_cmd);

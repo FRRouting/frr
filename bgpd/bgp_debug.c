@@ -141,6 +141,7 @@ static const struct message bgp_notify_open_msg[] = {
 	{BGP_NOTIFY_OPEN_AUTH_FAILURE, "/Authentication Failure"},
 	{BGP_NOTIFY_OPEN_UNACEP_HOLDTIME, "/Unacceptable Hold Time"},
 	{BGP_NOTIFY_OPEN_UNSUP_CAPBL, "/Unsupported Capability"},
+	{BGP_NOTIFY_OPEN_ROLE_MISMATCH, "/Role Mismatch"},
 	{0}};
 
 static const struct message bgp_notify_update_msg[] = {
