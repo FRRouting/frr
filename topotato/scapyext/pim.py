@@ -163,7 +163,7 @@ class PIM_Hdr(Packet):
     def post_build(self, pkt, pay):
         pkt += pay
         if self.chksum is None:
-            if True:
+            if isinstance(self.underlayer, IPv6):
                 ck = in6_chksum(IPPROTO_PIM, self.underlayer, pkt)
             else:
                 ck = checksum(pkt)
