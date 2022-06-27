@@ -967,7 +967,7 @@ static bool peer_hash_same(const void *p1, const void *p2)
 			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
 }
 
-void peer_flag_inherit(struct peer *peer, uint32_t flag)
+void peer_flag_inherit(struct peer *peer, uint64_t flag)
 {
 	bool group_val;
 
@@ -4223,7 +4223,7 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 
 struct peer_flag_action {
 	/* Peer's flag.  */
-	uint32_t flag;
+	uint64_t flag;
 
 	/* This flag can be set for peer-group member.  */
 	uint8_t not_for_member;
@@ -4292,7 +4292,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 /* Proper action set. */
 static int peer_flag_action_set(const struct peer_flag_action *action_list,
 				int size, struct peer_flag_action *action,
-				uint32_t flag)
+				uint64_t flag)
 {
 	int i;
 	int found = 0;
@@ -4468,7 +4468,7 @@ void bgp_shutdown_disable(struct bgp *bgp)
 }
 
 /* Change specified peer flag. */
-static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
+static int peer_flag_modify(struct peer *peer, uint64_t flag, int set)
 {
 	int found;
 	int size;
@@ -4579,12 +4579,12 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 	return 0;
 }
 
-int peer_flag_set(struct peer *peer, uint32_t flag)
+int peer_flag_set(struct peer *peer, uint64_t flag)
 {
 	return peer_flag_modify(peer, flag, 1);
 }
 
-int peer_flag_unset(struct peer *peer, uint32_t flag)
+int peer_flag_unset(struct peer *peer, uint64_t flag)
 {
 	return peer_flag_modify(peer, flag, 0);
 }

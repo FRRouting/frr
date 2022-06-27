@@ -1296,48 +1296,48 @@ struct peer {
 	 * flags_invert) must be respected.
 	 */
 	uint64_t flags;
-#define PEER_FLAG_PASSIVE                   (1U << 0) /* passive mode */
-#define PEER_FLAG_SHUTDOWN                  (1U << 1) /* shutdown */
-#define PEER_FLAG_DONT_CAPABILITY           (1U << 2) /* dont-capability */
-#define PEER_FLAG_OVERRIDE_CAPABILITY       (1U << 3) /* override-capability */
-#define PEER_FLAG_STRICT_CAP_MATCH          (1U << 4) /* strict-match */
-#define PEER_FLAG_DYNAMIC_CAPABILITY        (1U << 5) /* dynamic capability */
-#define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1U << 6) /* disable-connected-check */
-#define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1U << 7) /* local-as no-prepend */
-#define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1U << 8) /* local-as no-prepend replace-as */
-#define PEER_FLAG_DELETE                    (1U << 9) /* mark the peer for deleting */
-#define PEER_FLAG_CONFIG_NODE               (1U << 10) /* the node to update configs on */
-#define PEER_FLAG_LONESOUL                  (1U << 11)
-#define PEER_FLAG_DYNAMIC_NEIGHBOR          (1U << 12) /* dynamic neighbor */
-#define PEER_FLAG_CAPABILITY_ENHE           (1U << 13) /* Extended next-hop (rfc 5549)*/
-#define PEER_FLAG_IFPEER_V6ONLY             (1U << 14) /* if-based peer is v6 only */
-#define PEER_FLAG_IS_RFAPI_HD               (1U << 15) /* attached to rfapi HD */
-#define PEER_FLAG_ENFORCE_FIRST_AS          (1U << 16) /* enforce-first-as */
-#define PEER_FLAG_ROUTEADV                  (1U << 17) /* route advertise */
-#define PEER_FLAG_TIMER                     (1U << 18) /* keepalive & holdtime */
-#define PEER_FLAG_TIMER_CONNECT             (1U << 19) /* connect timer */
-#define PEER_FLAG_PASSWORD                  (1U << 20) /* password */
-#define PEER_FLAG_LOCAL_AS                  (1U << 21) /* local-as */
-#define PEER_FLAG_UPDATE_SOURCE             (1U << 22) /* update-source */
+#define PEER_FLAG_PASSIVE                   (1ULL << 0) /* passive mode */
+#define PEER_FLAG_SHUTDOWN                  (1ULL << 1) /* shutdown */
+#define PEER_FLAG_DONT_CAPABILITY           (1ULL << 2) /* dont-capability */
+#define PEER_FLAG_OVERRIDE_CAPABILITY       (1ULL << 3) /* override-capability */
+#define PEER_FLAG_STRICT_CAP_MATCH          (1ULL << 4) /* strict-match */
+#define PEER_FLAG_DYNAMIC_CAPABILITY        (1ULL << 5) /* dynamic capability */
+#define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1ULL << 6) /* disable-connected-check */
+#define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1ULL << 7) /* local-as no-prepend */
+#define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1ULL << 8) /* local-as no-prepend replace-as */
+#define PEER_FLAG_DELETE                    (1ULL << 9) /* mark the peer for deleting */
+#define PEER_FLAG_CONFIG_NODE               (1ULL << 10) /* the node to update configs on */
+#define PEER_FLAG_LONESOUL                  (1ULL << 11)
+#define PEER_FLAG_DYNAMIC_NEIGHBOR          (1ULL << 12) /* dynamic neighbor */
+#define PEER_FLAG_CAPABILITY_ENHE           (1ULL << 13) /* Extended next-hop (rfc 5549)*/
+#define PEER_FLAG_IFPEER_V6ONLY             (1ULL << 14) /* if-based peer is v6 only */
+#define PEER_FLAG_IS_RFAPI_HD               (1ULL << 15) /* attached to rfapi HD */
+#define PEER_FLAG_ENFORCE_FIRST_AS          (1ULL << 16) /* enforce-first-as */
+#define PEER_FLAG_ROUTEADV                  (1ULL << 17) /* route advertise */
+#define PEER_FLAG_TIMER                     (1ULL << 18) /* keepalive & holdtime */
+#define PEER_FLAG_TIMER_CONNECT             (1ULL << 19) /* connect timer */
+#define PEER_FLAG_PASSWORD                  (1ULL << 20) /* password */
+#define PEER_FLAG_LOCAL_AS                  (1ULL << 21) /* local-as */
+#define PEER_FLAG_UPDATE_SOURCE             (1ULL << 22) /* update-source */
 
 	/* BGP-GR Peer related  flags */
-#define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1U << 23) /* Helper */
-#define PEER_FLAG_GRACEFUL_RESTART          (1U << 24) /* Graceful Restart */
-#define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1U << 25) /* Global-Inherit */
-#define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
-#define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
-#define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
+#define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1ULL << 23) /* Helper */
+#define PEER_FLAG_GRACEFUL_RESTART          (1ULL << 24) /* Graceful Restart */
+#define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1ULL << 25) /* Global-Inherit */
+#define PEER_FLAG_RTT_SHUTDOWN (1ULL << 26) /* shutdown rtt */
+#define PEER_FLAG_TIMER_DELAYOPEN (1ULL << 27) /* delayopen timer */
+#define PEER_FLAG_TCP_MSS (1ULL << 28)	 /* tcp-mss */
 /* Disable IEEE floating-point link bandwidth encoding in
  * extended communities.
  */
-#define PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE (1U << 29)
+#define PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE (1ULL << 29)
 /* force the extended format for Optional Parameters in OPEN message */
-#define PEER_FLAG_EXTENDED_OPT_PARAMS (1U << 30)
+#define PEER_FLAG_EXTENDED_OPT_PARAMS (1ULL << 30)
 
 	/* BGP Open Policy flags.
 	 * Enforce using roles on both sides
 	 */
-#define PEER_FLAG_STRICT_MODE               (1U << 31)
+#define PEER_FLAG_STRICT_MODE               (1ULL << 31)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2163,9 +2163,9 @@ extern int peer_deactivate(struct peer *, afi_t, safi_t);
 extern int peer_group_bind(struct bgp *, union sockunion *, struct peer *,
 			   struct peer_group *, as_t *);
 
-extern int peer_flag_set(struct peer *, uint32_t);
-extern int peer_flag_unset(struct peer *, uint32_t);
-extern void peer_flag_inherit(struct peer *peer, uint32_t flag);
+extern int peer_flag_set(struct peer *peer, uint64_t flag);
+extern int peer_flag_unset(struct peer *peer, uint64_t flag);
+extern void peer_flag_inherit(struct peer *peer, uint64_t flag);
 
 extern int peer_af_flag_set(struct peer *, afi_t, safi_t, uint32_t);
 extern int peer_af_flag_unset(struct peer *, afi_t, safi_t, uint32_t);
