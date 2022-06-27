@@ -64,7 +64,7 @@ static void pim_if_membership_clear(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (pim_ifp->pim_enable && pim_ifp->igmp_enable) {
+	if (pim_ifp->pim_enable && pim_ifp->gm_enable) {
 		return;
 	}
 
@@ -92,7 +92,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 	if (!pim_ifp->pim_enable)
 		return;
-	if (!pim_ifp->igmp_enable)
+	if (!pim_ifp->gm_enable)
 		return;
 
 	/*
@@ -169,7 +169,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
 
-	if (!pim_ifp->igmp_enable) {
+	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);
 		pim_if_delete(ifp);
 	}
@@ -360,8 +360,8 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 		pim_ifp = pim_if_new(ifp, true, false, false, false);
 		need_startup = 1;
 	} else {
-		if (!pim_ifp->igmp_enable) {
-			pim_ifp->igmp_enable = true;
+		if (!pim_ifp->gm_enable) {
+			pim_ifp->gm_enable = true;
 			need_startup = 1;
 		}
 	}
@@ -2565,7 +2565,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		pim_ifp->igmp_enable = false;
+		pim_ifp->gm_enable = false;
 
 		pim_if_membership_clear(ifp);
 
@@ -2586,7 +2586,7 @@ int lib_interface_gmp_address_family_enable_modify(
 {
 #if PIM_IPV == 4
 	struct interface *ifp;
-	bool igmp_enable;
+	bool gm_enable;
 	struct pim_interface *pim_ifp;
 	int mcast_if_count;
 	const char *ifp_name;
@@ -2611,9 +2611,9 @@ int lib_interface_gmp_address_family_enable_modify(
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		igmp_enable = yang_dnode_get_bool(args->dnode, NULL);
+		gm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
-		if (igmp_enable)
+		if (gm_enable)
 			return pim_cmd_igmp_start(ifp);
 
 		else {
@@ -2622,7 +2622,7 @@ int lib_interface_gmp_address_family_enable_modify(
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			pim_ifp->igmp_enable = false;
+			pim_ifp->gm_enable = false;
 
 			pim_if_membership_clear(ifp);
 
