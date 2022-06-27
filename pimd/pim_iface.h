@@ -75,7 +75,7 @@ struct pim_interface {
 	bool pim_can_disable_join_suppression : 1;
 	bool pim_passive_enable : 1;
 
-	bool igmp_enable : 1;
+	bool gm_enable : 1;
 
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;

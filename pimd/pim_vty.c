@@ -296,7 +296,7 @@ static int gm_config_write(struct vty *vty, int writes,
 			   struct pim_interface *pim_ifp)
 {
 	/* IF ip igmp */
-	if (pim_ifp->igmp_enable) {
+	if (pim_ifp->gm_enable) {
 		vty_out(vty, " ip igmp\n");
 		++writes;
 	}

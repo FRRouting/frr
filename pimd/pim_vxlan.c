@@ -1172,7 +1172,7 @@ void pim_vxlan_del_term_dev(struct pim_instance *pim)
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
 		pim_ifp->pim_enable = false;
-		if (!pim_ifp->igmp_enable)
+		if (!pim_ifp->gm_enable)
 			pim_if_delete(ifp);
 	}
 }
