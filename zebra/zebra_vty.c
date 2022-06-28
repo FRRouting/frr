@@ -64,6 +64,7 @@
 #include "zebra/table_manager.h"
 #include "zebra/zebra_script.h"
 #include "zebra/rtadv.h"
+#include "zebra/zebra_neigh.h"
 
 extern int allow_delete;
 
@@ -3005,6 +3006,15 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_neigh, show_neigh_cmd, "show ip neigh",
+      SHOW_STR IP_STR "neighbors\n")
+
+{
+	zebra_neigh_show(vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_l2_nh,
       show_evpn_l2_nh_cmd,
       "show evpn l2-nh [json$json]",
@@ -3642,6 +3652,29 @@ DEFUN (show_pbr_iptable,
 	return CMD_SUCCESS;
 }
 
+/* policy routing contexts */
+DEFPY (show_pbr_rule,
+       show_pbr_rule_cmd,
+       "show pbr rule",
+       SHOW_STR
+       "Policy-Based Routing\n"
+       "Rule\n")
+{
+	zebra_pbr_show_rule(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY (pbr_nexthop_resolve,
+       pbr_nexthop_resolve_cmd,
+       "[no$no] pbr nexthop-resolve",
+       NO_STR
+       "Policy Based Routing\n"
+       "Resolve nexthop for dataplane programming\n")
+{
+	zebra_pbr_expand_action_update(!no);
+	return CMD_SUCCESS;
+}
+
 DEFPY (clear_evpn_dup_addr,
        clear_evpn_dup_addr_cmd,
        "clear evpn dup-addr vni <all$vni_all |" CMD_VNI_RANGE"$vni [mac X:X:X:X:X:X | ip <A.B.C.D|X:X::X:X>]>",
@@ -3911,6 +3944,8 @@ static int config_write_protocol(struct vty *vty)
 	dplane_config_write_helper(vty);
 
 	zebra_evpn_mh_config_write(vty);
+
+	zebra_pbr_config_write(vty);
 
 	/* Include nexthop-group config */
 	if (!zebra_nhg_kernel_nexthops_enabled())
@@ -4547,8 +4582,12 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
 
+	install_element(VIEW_NODE, &show_neigh_cmd);
+
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);
 	install_element(VIEW_NODE, &show_pbr_iptable_cmd);
+	install_element(VIEW_NODE, &show_pbr_rule_cmd);
+	install_element(CONFIG_NODE, &pbr_nexthop_resolve_cmd);
 	install_element(VIEW_NODE, &show_route_zebra_dump_cmd);
 
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);

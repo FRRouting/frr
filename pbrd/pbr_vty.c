@@ -848,9 +848,13 @@ static void vty_show_pbrms(struct vty *vty,
 	}
 
 	if (pbrms->src)
-		vty_out(vty, "        SRC Match: %pFX\n", pbrms->src);
+		vty_out(vty, "        SRC IP Match: %pFX\n", pbrms->src);
 	if (pbrms->dst)
-		vty_out(vty, "        DST Match: %pFX\n", pbrms->dst);
+		vty_out(vty, "        DST IP Match: %pFX\n", pbrms->dst);
+	if (pbrms->src_prt)
+		vty_out(vty, "        SRC Port Match: %u\n", pbrms->src_prt);
+	if (pbrms->dst_prt)
+		vty_out(vty, "        DST Port Match: %u\n", pbrms->dst_prt);
 	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
 		vty_out(vty, "        DSCP Match: %u\n",
 			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
