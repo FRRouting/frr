@@ -395,6 +395,13 @@ void zebra_mpls_close_tables(struct zebra_vrf *zvrf);
 void zebra_mpls_init_tables(struct zebra_vrf *zvrf);
 
 /*
+ * If mpls is turned on *after* FRR is brought
+ * up let's actually notice this and turn on
+ * the relevant bits to make it work.
+ */
+void zebra_mpls_turned_on(void);
+
+/*
  * Global MPLS initialization.
  */
 void zebra_mpls_init(void);
@@ -569,7 +576,7 @@ static inline int mpls_should_lsps_be_processed(struct route_node *rn)
 }
 
 /* Global variables. */
-extern int mpls_enabled;
+extern bool mpls_enabled;
 extern bool mpls_pw_reach_strict; /* Strict pseudowire reachability checking */
 
 #ifdef __cplusplus
