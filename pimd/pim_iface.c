@@ -155,7 +155,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->pim_enable = pim;
 	pim_ifp->pim_passive_enable = false;
 #if PIM_IPV == 4
-	pim_ifp->igmp_enable = igmp;
+	pim_ifp->gm_enable = igmp;
 #endif
 
 	pim_ifp->gm_join_list = NULL;
@@ -542,7 +542,7 @@ void pim_if_addr_add(struct connected *ifc)
 #if PIM_IPV == 4
 	struct in_addr ifaddr = ifc->address->u.prefix4;
 
-	if (pim_ifp->igmp_enable) {
+	if (pim_ifp->gm_enable) {
 		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
