@@ -1630,9 +1630,14 @@ def modify_as_number(tgen, topo, input_dict):
             # Remove bgp configuration
 
             router_dict.update({router: {"bgp": {"delete": True}}})
-
-            new_topo[router]["bgp"]["local_as"] = input_dict[router]["bgp"]["local_as"]
-
+            try:
+                new_topo[router]["bgp"]["local_as"] = input_dict[router]["bgp"][
+                    "local_as"
+                ]
+            except TypeError:
+                new_topo[router]["bgp"][0]["local_as"] = input_dict[router]["bgp"][
+                    "local_as"
+                ]
         logger.info("Removing bgp configuration")
         create_router_bgp(tgen, topo, router_dict)
 
