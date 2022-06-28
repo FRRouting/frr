@@ -1337,9 +1337,12 @@ struct peer {
 #define PEER_FLAG_EXTENDED_OPT_PARAMS (1ULL << 30)
 
 	/* BGP Open Policy flags.
-	 * Enforce using roles on both sides
+	 * Enforce using roles on both sides:
+	 * `local-role ROLE strict-mode` configured.
 	 */
-#define PEER_FLAG_STRICT_MODE               (1ULL << 31)
+#define PEER_FLAG_ROLE_STRICT_MODE (1ULL << 31)
+	/* `local-role` configured */
+#define PEER_FLAG_ROLE (1ULL << 32)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
