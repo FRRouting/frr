@@ -12738,12 +12738,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		/* Configured timer values. */
 		json_object_int_add(json_neigh,
 				    "bgpTimerConfiguredHoldTimeMsecs",
-				    p->holdtime ? p->holdtime * 1000
-						: bgp->default_holdtime * 1000);
-		json_object_int_add(
-			json_neigh, "bgpTimerConfiguredKeepAliveIntervalMsecs",
-			p->keepalive ? p->keepalive * 1000
-				     : bgp->default_keepalive * 1000);
+				    CHECK_FLAG(p->flags, PEER_FLAG_TIMER)
+					    ? p->holdtime * 1000
+					    : bgp->default_holdtime * 1000);
+		json_object_int_add(json_neigh,
+				    "bgpTimerConfiguredKeepAliveIntervalMsecs",
+				    CHECK_FLAG(p->flags, PEER_FLAG_TIMER)
+					    ? p->keepalive * 1000
+					    : bgp->default_keepalive * 1000);
 		json_object_int_add(json_neigh, "bgpTimerHoldTimeMsecs",
 				    p->v_holdtime * 1000);
 		json_object_int_add(json_neigh,
@@ -12830,12 +12832,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* Configured timer values. */
 		vty_out(vty,
-			"  Hold time is %d, keepalive interval is %d seconds\n",
+			"  Hold time is %d seconds, keepalive interval is %d seconds\n",
 			p->v_holdtime, p->v_keepalive);
-		vty_out(vty, "  Configured hold time is %d",
-			p->holdtime ? p->holdtime : bgp->default_holdtime);
+		vty_out(vty, "  Configured hold time is %d seconds",
+			CHECK_FLAG(p->flags, PEER_FLAG_TIMER)
+				? p->holdtime
+				: bgp->default_holdtime);
 		vty_out(vty, ", keepalive interval is %d seconds\n",
-			p->keepalive ? p->keepalive : bgp->default_keepalive);
+			CHECK_FLAG(p->flags, PEER_FLAG_TIMER)
+				? p->keepalive
+				: bgp->default_keepalive);
 		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			vty_out(vty,
 				"  Configured DelayOpenTime is %d seconds\n",
