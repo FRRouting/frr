@@ -3976,6 +3976,24 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "Kernel NHG|%s",
 		       zrouter.supports_nhgs ? "Available" : "Unavailable");
 
+	ttable_add_row(table, "v4 All LinkDown Routes|%s",
+		       zrouter.all_linkdownv4 ? "On" : "Off");
+	ttable_add_row(table, "v4 Default LinkDown Routes|%s",
+		       zrouter.default_linkdownv4 ? "On" : "Off");
+	ttable_add_row(table, "v6 All LinkDown Routes|%s",
+		       zrouter.all_linkdownv6 ? "On" : "Off");
+	ttable_add_row(table, "v6 Default LinkDown Routes|%s",
+		       zrouter.default_linkdownv6 ? "On" : "Off");
+
+	ttable_add_row(table, "v4 All MC Forwarding|%s",
+		       zrouter.all_mc_forwardingv4 ? "On" : "Off");
+	ttable_add_row(table, "v4 Default MC Forwarding|%s",
+		       zrouter.default_mc_forwardingv4 ? "On" : "Off");
+	ttable_add_row(table, "v6 All MC Forwarding|%s",
+		       zrouter.all_mc_forwardingv6 ? "On" : "Off");
+	ttable_add_row(table, "v6 Default MC Forwarding|%s",
+		       zrouter.default_mc_forwardingv6 ? "On" : "Off");
+
 	out = ttable_dump(table, "\n");
 	vty_out(vty, "%s\n", out);
 	XFREE(MTYPE_TMP, out);

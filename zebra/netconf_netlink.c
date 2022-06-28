@@ -46,7 +46,7 @@ static struct rtattr *netconf_rta(struct netconfmsg *ncm)
  * context, and enqueue for processing in the main zebra pthread.
  */
 static int
-netlink_netconf_dplane_update(ns_id_t ns_id, ifindex_t ifindex,
+netlink_netconf_dplane_update(ns_id_t ns_id, afi_t afi, ifindex_t ifindex,
 			      enum dplane_netconf_status_e mpls_on,
 			      enum dplane_netconf_status_e mcast_on,
 			      enum dplane_netconf_status_e linkdown_on)
@@ -56,6 +56,7 @@ netlink_netconf_dplane_update(ns_id_t ns_id, ifindex_t ifindex,
 	ctx = dplane_ctx_alloc();
 	dplane_ctx_set_op(ctx, DPLANE_OP_INTF_NETCONFIG);
 	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_afi(ctx, afi);
 	dplane_ctx_set_ifindex(ctx, ifindex);
 
 	dplane_ctx_set_netconf_mpls(ctx, mpls_on);
@@ -78,6 +79,7 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	int len;
 	ifindex_t ifindex;
 	uint32_t ival;
+	afi_t afi;
 	enum dplane_netconf_status_e mpls_on = DPLANE_NETCONF_STATUS_UNKNOWN;
 	enum dplane_netconf_status_e mcast_on = DPLANE_NETCONF_STATUS_UNKNOWN;
 	enum dplane_netconf_status_e linkdown_on =
@@ -96,6 +98,18 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	ncm = NLMSG_DATA(h);
 
+	/*
+	 * FRR does not have an internal representation of afi_t for
+	 * the MPLS Address Family that the kernel has.  So let's
+	 * just call it v4.  This is ok because the kernel appears
+	 * to do a good job of not sending data that is mixed/matched
+	 * across families
+	 */
+	if (ncm->ncm_family == AF_MPLS)
+		afi = AFI_IP;
+	else
+		afi = family2afi(ncm->ncm_family);
+
 	netlink_parse_rtattr(tb, NETCONFA_MAX, netconf_rta(ncm), len);
 
 	if (!tb[NETCONFA_IFINDEX]) {
@@ -104,23 +118,6 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	ifindex = *(ifindex_t *)RTA_DATA(tb[NETCONFA_IFINDEX]);
-
-	switch (ifindex) {
-	case NETCONFA_IFINDEX_ALL:
-	case NETCONFA_IFINDEX_DEFAULT:
-		/*
-		 * We need the ability to handle netlink messages intended
-		 * for all and default interfaces.  I am not 100% sure
-		 * what that is yet, or where we would store it.
-		 */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: Ignoring global ifindex %d",
-				   __func__, ifindex);
-
-		return 0;
-	default:
-		break;
-	}
 
 	if (tb[NETCONFA_INPUT]) {
 		ival = *(uint32_t *)RTA_DATA(tb[NETCONFA_INPUT]);
@@ -153,7 +150,7 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			__func__, ifindex, mpls_on, mcast_on, linkdown_on);
 
 	/* Create a dplane context and pass it along for processing */
-	netlink_netconf_dplane_update(ns_id, ifindex, mpls_on, mcast_on,
+	netlink_netconf_dplane_update(ns_id, afi, ifindex, mpls_on, mcast_on,
 				      linkdown_on);
 
 	return 0;

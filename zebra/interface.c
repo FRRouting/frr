@@ -1404,37 +1404,79 @@ done:
  * pthread so it can update zebra data structs.
  */
 static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
-					struct interface *ifp)
+					struct interface *ifp,
+					ifindex_t ifindex)
 {
-	struct zebra_if *zif;
-	enum dplane_netconf_status_e mpls, linkdown;
+	struct zebra_if *zif = NULL;
+	afi_t afi;
+	enum dplane_netconf_status_e mpls, mcast_on, linkdown;
+	bool *mcast_set, *linkdown_set;
 
-	zif = ifp->info;
-	if (!zif) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: if %s(%u) zebra info pointer is NULL",
-				   __func__, ifp->name, ifp->ifindex);
-		return;
+	afi = dplane_ctx_get_afi(ctx);
+	mpls = dplane_ctx_get_netconf_mpls(ctx);
+	linkdown = dplane_ctx_get_netconf_linkdown(ctx);
+	mcast_on = dplane_ctx_get_netconf_mcast(ctx);
+
+	if (ifindex == DPLANE_NETCONF_IFINDEX_ALL) {
+		if (afi == AFI_IP) {
+			mcast_set = &zrouter.all_mc_forwardingv4;
+			linkdown_set = &zrouter.all_linkdownv4;
+		} else {
+			mcast_set = &zrouter.all_mc_forwardingv6;
+			linkdown_set = &zrouter.all_linkdownv6;
+		}
+	} else if (ifindex == DPLANE_NETCONF_IFINDEX_DEFAULT) {
+		if (afi == AFI_IP) {
+			mcast_set = &zrouter.default_mc_forwardingv4;
+			linkdown_set = &zrouter.default_linkdownv4;
+		} else {
+			mcast_set = &zrouter.default_mc_forwardingv6;
+			linkdown_set = &zrouter.default_linkdownv6;
+		}
+	} else {
+		zif = ifp ? ifp->info : NULL;
+		if (!zif) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: if %s(%u) zebra info pointer is NULL",
+					__func__, ifp->name, ifp->ifindex);
+			return;
+		}
+		if (afi == AFI_IP) {
+			mcast_set = &zif->v4mcast_on;
+			linkdown_set = &zif->linkdown;
+		} else {
+			mcast_set = &zif->v6mcast_on;
+			linkdown_set = &zif->linkdownv6;
+		}
+
+		/*
+		 * mpls netconf data is neither v4 or v6 it's AF_MPLS!
+		 */
+		if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
+			zif->mpls = true;
+		else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
+			zif->mpls = false;
 	}
 
-	mpls = dplane_ctx_get_netconf_mpls(ctx);
-
-	if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
-		zif->mpls = true;
-	else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
-		zif->mpls = false;
-
-	linkdown = dplane_ctx_get_netconf_linkdown(ctx);
 	if (linkdown == DPLANE_NETCONF_STATUS_ENABLED)
-		zif->linkdown = true;
+		*linkdown_set = true;
 	else if (linkdown == DPLANE_NETCONF_STATUS_DISABLED)
-		zif->linkdown = false;
+		*linkdown_set = false;
+
+	if (mcast_on == DPLANE_NETCONF_STATUS_ENABLED)
+		*mcast_set = true;
+	else if (mcast_on == DPLANE_NETCONF_STATUS_DISABLED)
+		*mcast_set = false;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: if %s, ifindex %d, mpls %s linkdown %s",
-			   __func__, ifp->name, ifp->ifindex,
-			   (zif->mpls ? "ON" : "OFF"),
-			   (zif->linkdown ? "ON" : "OFF"));
+		zlog_debug(
+			"%s: afi: %d if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
+			__func__, afi, ifp ? ifp->name : "Global",
+			ifp ? ifp->ifindex : ifindex,
+			(zif ? (zif->mpls ? "ON" : "OFF") : "OFF"),
+			(*mcast_set ? "ON" : "OFF"),
+			(*linkdown_set ? "ON" : "OFF"));
 }
 
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
@@ -1467,11 +1509,15 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
 	if (ifp == NULL) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: can't find ifp at nsid %u index %d",
-				   __func__, ns_id, ifindex);
+		if (op != DPLANE_OP_INTF_NETCONFIG ||
+		    (ifindex != -1 && ifindex != -2)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s: can't find ifp at nsid %u index %d",
+					__func__, ns_id, ifindex);
 
-		goto done;
+			goto done;
+		}
 	}
 
 	switch (op) {
@@ -1487,7 +1533,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	case DPLANE_OP_INTF_NETCONFIG:
-		zebra_if_netconf_update_ctx(ctx, ifp);
+		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
 		break;
 
 	case DPLANE_OP_ROUTE_INSTALL:
@@ -1898,7 +1944,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "  MPLS enabled\n");
 
 	if (zebra_if->linkdown)
-		vty_out(vty, "  Ignore all routes with linkdown\n");
+		vty_out(vty, "  Ignore all v4 routes with linkdown\n");
+	if (zebra_if->linkdownv6)
+		vty_out(vty, "  Ignore all v6 routes with linkdown\n");
+
+	if (zebra_if->v4mcast_on)
+		vty_out(vty, "  v4 Multicast forwarding is on\n");
+	if (zebra_if->v6mcast_on)
+		vty_out(vty, "  v6 Multicast forwarding is on\n");
 
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
@@ -2222,6 +2275,11 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
+	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
+	json_object_boolean_add(json_if, "mcForwardingV4",
+				zebra_if->v4mcast_on);
+	json_object_boolean_add(json_if, "mcForwardingV6",
+				zebra_if->v6mcast_on);
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);

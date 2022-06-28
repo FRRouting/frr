@@ -220,6 +220,11 @@ struct zebra_router {
 
 	bool supports_nhgs;
 
+	bool all_mc_forwardingv4, default_mc_forwardingv4;
+	bool all_mc_forwardingv6, default_mc_forwardingv6;
+	bool all_linkdownv4, default_linkdownv4;
+	bool all_linkdownv6, default_linkdownv6;
+
 #define ZEBRA_DEFAULT_NHG_KEEP_TIMER 180
 	uint32_t nhg_keep;
 };
