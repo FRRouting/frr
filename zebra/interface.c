@@ -1453,9 +1453,10 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 		/*
 		 * mpls netconf data is neither v4 or v6 it's AF_MPLS!
 		 */
-		if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
+		if (mpls == DPLANE_NETCONF_STATUS_ENABLED) {
 			zif->mpls = true;
-		else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
+			zebra_mpls_turned_on();
+		} else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
 			zif->mpls = false;
 	}
 

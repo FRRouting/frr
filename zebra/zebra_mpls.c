@@ -53,7 +53,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 
-int mpls_enabled;
+bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
 
 /* static function declarations */
@@ -1748,14 +1748,9 @@ static int lsp_cmp(const struct zebra_lsp *lsp1, const struct zebra_lsp *lsp2)
 /*
  * Initialize work queue for processing changed LSPs.
  */
-static int mpls_processq_init(void)
+static void mpls_processq_init(void)
 {
 	zrouter.lsp_process_q = work_queue_new(zrouter.master, "LSP processing");
-	if (!zrouter.lsp_process_q) {
-		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
-			 "%s: could not initialise work queue!", __func__);
-		return -1;
-	}
 
 	zrouter.lsp_process_q->spec.workfunc = &lsp_process;
 	zrouter.lsp_process_q->spec.del_item_data = &lsp_processq_del;
@@ -1763,8 +1758,6 @@ static int mpls_processq_init(void)
 	zrouter.lsp_process_q->spec.completion_func = &lsp_processq_complete;
 	zrouter.lsp_process_q->spec.max_retries = 0;
 	zrouter.lsp_process_q->spec.hold = 10;
-
-	return 0;
 }
 
 
@@ -4061,12 +4054,23 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 	zvrf->mpls_srgb.end_label = MPLS_DEFAULT_MAX_SRGB_LABEL;
 }
 
+void zebra_mpls_turned_on(void)
+{
+	if (!mpls_enabled) {
+		mpls_processq_init();
+		mpls_enabled = true;
+	}
+
+	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+}
+
 /*
  * Global MPLS initialization.
  */
 void zebra_mpls_init(void)
 {
-	mpls_enabled = 0;
+	mpls_enabled = false;
 	mpls_pw_reach_strict = false;
 
 	if (mpls_kernel_init() < 0) {
@@ -4075,9 +4079,5 @@ void zebra_mpls_init(void)
 		return;
 	}
 
-	if (!mpls_processq_init())
-		mpls_enabled = 1;
-
-	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
-	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+	zebra_mpls_turned_on();
 }
