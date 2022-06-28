@@ -348,8 +348,7 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	return false;
 }
 
-#if PIM_IPV == 4
-static int pim_cmd_igmp_start(struct interface *ifp)
+static int pim_cmd_gm_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	uint8_t need_startup = 0;
@@ -377,7 +376,6 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 
 	return NB_OK;
 }
-#endif /* PIM_IPV == 4 */
 
 /*
  * CLI reconfiguration affects the interface level (struct pim_interface).
@@ -2584,7 +2582,6 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_gmp_address_family_enable_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	bool gm_enable;
 	struct pim_interface *pim_ifp;
@@ -2600,9 +2597,10 @@ int lib_interface_gmp_address_family_enable_modify(
 		/* Limiting mcast interfaces to number of VIFs */
 		if (mcast_if_count == MAXVIFS) {
 			ifp_name = yang_dnode_get_string(if_dnode, "name");
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
-				 MAXVIFS, ifp_name);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Max multicast interfaces(%d) Reached. Could not enable %s on interface %s",
+				MAXVIFS, GM, ifp_name);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2614,7 +2612,7 @@ int lib_interface_gmp_address_family_enable_modify(
 		gm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		if (gm_enable)
-			return pim_cmd_igmp_start(ifp);
+			return pim_cmd_gm_start(ifp);
 
 		else {
 			pim_ifp = ifp->info;
@@ -2626,15 +2624,16 @@ int lib_interface_gmp_address_family_enable_modify(
 
 			pim_if_membership_clear(ifp);
 
+#if PIM_IPV == 4
 			pim_if_addr_del_all_igmp(ifp);
+#else
+			gm_ifp_teardown(ifp);
+#endif
 
 			if (!pim_ifp->pim_enable)
 				pim_if_delete(ifp);
 		}
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 

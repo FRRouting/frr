@@ -365,6 +365,12 @@ static int gm_config_write(struct vty *vty, int writes,
 static int gm_config_write(struct vty *vty, int writes,
 			   struct pim_interface *pim_ifp)
 {
+	/* IF ipv6 mld */
+	if (pim_ifp->gm_enable) {
+		vty_out(vty, " ipv6 mld\n");
+		++writes;
+	}
+
 	if (pim_ifp->mld_version != MLD_DEFAULT_VERSION)
 		vty_out(vty, " ipv6 mld version %d\n", pim_ifp->mld_version);
 	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
