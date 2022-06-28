@@ -2246,8 +2246,16 @@ void gm_ifp_update(struct interface *ifp)
 		return;
 	}
 
-	if (!pim_ifp->mld)
+	/*
+	 * If ipv6 mld is not enabled on interface, do not start mld activites.
+	 */
+	if (!pim_ifp->gm_enable)
+		return;
+
+	if (!pim_ifp->mld) {
+		changed = true;
 		gm_start(ifp);
+	}
 
 	gm_ifp = pim_ifp->mld;
 	if (IPV6_ADDR_CMP(&pim_ifp->ll_lowest, &gm_ifp->cur_ll_lowest))

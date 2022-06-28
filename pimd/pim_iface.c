@@ -115,7 +115,7 @@ static int pim_sec_addr_comp(const void *p1, const void *p2)
 	return 0;
 }
 
-struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
+struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 				 bool ispimreg, bool is_vxlan_term)
 {
 	struct pim_interface *pim_ifp;
@@ -154,9 +154,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	pim_ifp->pim_enable = pim;
 	pim_ifp->pim_passive_enable = false;
-#if PIM_IPV == 4
-	pim_ifp->gm_enable = igmp;
-#endif
+	pim_ifp->gm_enable = gm;
 
 	pim_ifp->gm_join_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
@@ -810,7 +808,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 			  ifp->name);
 	}
 	/*
-	 * PIM or IGMP is enabled on interface, and there is at least one
+	 * PIM or IGMP/MLD is enabled on interface, and there is at least one
 	 * address assigned, then try to create a vif_index.
 	 */
 	if (pim_ifp->mroute_vif_index < 0) {
