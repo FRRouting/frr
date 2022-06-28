@@ -2604,6 +2604,9 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
 	pcfg = nb_running_get_entry(args->dnode, NULL, true);
 	pcfg->last_hop_behavior = yang_dnode_get_enum(args->dnode, NULL);
 
+	if (pcfg->area && pcfg->area->isis)
+		isis_sr_mpls_update_loopback(pcfg->area->isis->vrf_id);
+
 	return NB_OK;
 }
 

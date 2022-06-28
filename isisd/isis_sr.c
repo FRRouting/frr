@@ -1332,3 +1332,35 @@ void isis_sr_term(void)
 	hook_unregister(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_unregister(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
 }
+
+void isis_sr_mpls_update_loopback(vrf_id_t vrf_id)
+{
+	struct isis *isis;
+	struct isis_area *area;
+	bool val = false;
+	struct listnode *node, *anode;
+	struct sr_prefix_cfg *rb_entry;
+	struct interface *ifp;
+
+	if (vrf_id != VRF_DEFAULT)
+		return;
+
+	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+	if (!ifp)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		if (isis->vrf_id != vrf_id)
+			continue;
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+			/* parse all areas and all prefix entries */
+			frr_each(srdb_prefix_cfg,
+				 &area->srdb.config.prefix_sids, rb_entry) {
+				if (rb_entry->last_hop_behavior == SR_LAST_HOP_BEHAVIOR_EXP_NULL
+				    || rb_entry->last_hop_behavior == SR_LAST_HOP_BEHAVIOR_NO_PHP)
+					val = true;
+			}
+		}
+	}
+	zebra_send_interface_mpls_set(zclient, VRF_DEFAULT, ifp->ifindex, val);
+}
