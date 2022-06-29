@@ -1068,9 +1068,6 @@ void zebra_pbr_dplane_result(struct zebra_dplane_ctx *ctx)
 			EC_ZEBRA_PBR_RULE_UPDATE,
 			"Context received in pbr rule dplane result handler with incorrect OP code (%u)",
 			op);
-
-
-	dplane_ctx_fini(&ctx);
 }
 
 /*

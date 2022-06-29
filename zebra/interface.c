@@ -1504,7 +1504,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: can't find zns id %u", __func__, ns_id);
 
-		goto done;
+		return;
 	}
 
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
@@ -1516,7 +1516,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 					"%s: can't find ifp at nsid %u index %d",
 					__func__, ns_id, ifindex);
 
-			goto done;
+			return;
 		}
 	}
 
@@ -1578,8 +1578,6 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_GRE_SET:
 		break; /* should never hit here */
 	}
-done:
-	dplane_ctx_fini(&ctx);
 }
 
 /* Dump if address information to vty. */

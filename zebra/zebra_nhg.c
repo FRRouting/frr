@@ -3076,8 +3076,6 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_DELETE:
 		break;
 	}
-
-	dplane_ctx_fini(&ctx);
 }
 
 static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
