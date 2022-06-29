@@ -218,7 +218,7 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 	*buf++ = PIM_MSG_ADDRESS_FAMILY;
 	*buf++ = 0;
 	*buf++ = flags;
-	*buf++ = sizeof(group) / 8;
+	*buf++ = sizeof(group) * 8;
 	memcpy(buf, &group, sizeof(group));
 	buf += sizeof(group);
 
