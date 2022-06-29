@@ -38,6 +38,10 @@ extern int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id,
 /* Request info from the host OS. */
 int netlink_request_netconf(int sockfd);
 
+struct nl_batch;
+
+extern enum netlink_msg_status
+netlink_put_intf_netconfig(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

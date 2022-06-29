@@ -509,6 +509,8 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_intf_addrs_in;
 	_Atomic uint32_t dg_intf_addr_errors;
+	_Atomic uint32_t dg_intf_changes;
+	_Atomic uint32_t dg_intf_changes_errors;
 
 	_Atomic uint32_t dg_macs_in;
 	_Atomic uint32_t dg_mac_errors;
@@ -3913,6 +3915,47 @@ dplane_br_port_update(const struct interface *ifp, bool non_df,
 	return result;
 }
 
+enum zebra_dplane_result
+dplane_intf_mpls_modify_state(const struct interface *ifp, bool set)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_ns *zns;
+	int ret = EINVAL;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_INTF_NETCONFIG;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ctx->zd_ifindex = ifp->ifindex;
+	if (set)
+		dplane_ctx_set_netconf_mpls(ctx, DPLANE_NETCONF_STATUS_ENABLED);
+	else
+		dplane_ctx_set_netconf_mpls(ctx,
+					    DPLANE_NETCONF_STATUS_DISABLED);
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_intf_changes, 1,
+				  memory_order_relaxed);
+
+	ret = dplane_update_enqueue(ctx);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		/* Error counter */
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_changes_errors,
+					  1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
 /*
  * Enqueue interface address add for the dataplane.
  */
@@ -4899,6 +4942,13 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "Intf addr updates:        %"PRIu64"\n", incoming);
 	vty_out(vty, "Intf addr errors:         %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_intf_changes,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_intf_changes_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "Intf change updates:        %" PRIu64 "\n", incoming);
+	vty_out(vty, "Intf change errors:         %" PRIu64 "\n", errs);
 
 	incoming = atomic_load_explicit(&zdplane_info.dg_macs_in,
 					memory_order_relaxed);
