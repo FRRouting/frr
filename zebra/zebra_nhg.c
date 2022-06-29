@@ -1613,9 +1613,6 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 
 	THREAD_OFF(nhe->timer);
 
-	if (nhe->refcnt)
-		zlog_debug("nhe_id=%pNG hash refcnt=%d", nhe, nhe->refcnt);
-
 	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
