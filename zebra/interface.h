@@ -36,14 +36,10 @@
 extern "C" {
 #endif
 
-/* For interface multicast configuration. */
-#define IF_ZEBRA_MULTICAST_UNSPEC 0
-#define IF_ZEBRA_MULTICAST_ON     1
-#define IF_ZEBRA_MULTICAST_OFF    2
-
-/* For interface shutdown configuration. */
-#define IF_ZEBRA_SHUTDOWN_OFF    0
-#define IF_ZEBRA_SHUTDOWN_ON     1
+/* For interface configuration. */
+#define IF_ZEBRA_DATA_UNSPEC 0
+#define IF_ZEBRA_DATA_ON 1
+#define IF_ZEBRA_DATA_OFF 2
 
 #define IF_VLAN_BITMAP_MAX 4096
 
