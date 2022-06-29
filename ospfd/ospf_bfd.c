@@ -266,8 +266,12 @@ DEFUN (ip_ospf_bfd_prof,
 	struct ospf_if_params *params;
 	int idx_prof = 4;
 
-	ospf_interface_enable_bfd(ifp);
 	params = IF_DEF_PARAMS(ifp);
+	if (!params->bfd_config) {
+		vty_out(vty, "ip ospf bfd has not been set\n");
+		return CMD_WARNING;
+	}
+
 	strlcpy(params->bfd_config->profile, argv[idx_prof]->arg,
 		sizeof(params->bfd_config->profile));
 	ospf_interface_bfd_apply(ifp);
@@ -288,8 +292,10 @@ DEFUN (no_ip_ospf_bfd_prof,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf_if_params *params;
 
-	ospf_interface_enable_bfd(ifp);
 	params = IF_DEF_PARAMS(ifp);
+	if (!params->bfd_config)
+		return CMD_SUCCESS;
+
 	params->bfd_config->profile[0] = 0;
 	ospf_interface_bfd_apply(ifp);
 
