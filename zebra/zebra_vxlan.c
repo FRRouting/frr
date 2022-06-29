@@ -6260,8 +6260,7 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
  */
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx)
 {
-	/* TODO -- anything other than freeing the context? */
-	dplane_ctx_fini(&ctx);
+	return;
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */
