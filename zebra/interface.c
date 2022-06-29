@@ -2937,6 +2937,27 @@ DEFUN (multicast,
 	return CMD_SUCCESS;
 }
 
+DEFPY (mpls,
+       mpls_cmd,
+       "[no] mpls enable",
+       NO_STR
+       MPLS_STR
+       "Set mpls to be on for the interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *if_data = ifp->info;
+
+	if (no) {
+		dplane_intf_mpls_modify_state(ifp, false);
+		if_data->mpls = IF_ZEBRA_DATA_UNSPEC;
+	} else {
+		dplane_intf_mpls_modify_state(ifp, true);
+		if_data->mpls = IF_ZEBRA_DATA_ON;
+	}
+
+	return CMD_SUCCESS;
+}
+
 int if_multicast_unset(struct interface *ifp)
 {
 	struct zebra_if *if_data;
@@ -4581,6 +4602,8 @@ static int if_config_write(struct vty *vty)
 								IF_ZEBRA_DATA_ON
 							? ""
 							: "no ");
+				if (if_data->mpls == IF_ZEBRA_DATA_ON)
+					vty_out(vty, " mpls\n");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
@@ -4617,6 +4640,7 @@ void zebra_if_init(void)
 	install_element(ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
 	install_element(INTERFACE_NODE, &multicast_cmd);
 	install_element(INTERFACE_NODE, &no_multicast_cmd);
+	install_element(INTERFACE_NODE, &mpls_cmd);
 	install_element(INTERFACE_NODE, &linkdetect_cmd);
 	install_element(INTERFACE_NODE, &no_linkdetect_cmd);
 	install_element(INTERFACE_NODE, &shutdown_if_cmd);
