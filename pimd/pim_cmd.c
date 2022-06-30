@@ -1135,12 +1135,12 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 		json = json_object_new_object();
 		json_object_int_add(json, "totalGroups", pim->igmp_group_count);
 		json_object_int_add(json, "watermarkLimit",
-				    pim->igmp_watermark_limit);
+				    pim->gm_watermark_limit);
 	} else {
 		vty_out(vty, "Total IGMP groups: %u\n", pim->igmp_group_count);
 		vty_out(vty, "Watermark warn limit(%s): %u\n",
-			pim->igmp_watermark_limit ? "Set" : "Not Set",
-			pim->igmp_watermark_limit);
+			pim->gm_watermark_limit ? "Set" : "Not Set",
+			pim->gm_watermark_limit);
 		vty_out(vty,
 			"Interface        Group           Mode Timer    Srcs V Uptime  \n");
 	}
@@ -3334,7 +3334,7 @@ DEFPY (ip_igmp_group_watermark,
        "Group count to generate watermark warning\n")
 {
 	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
-	pim->igmp_watermark_limit = limit;
+	pim->gm_watermark_limit = limit;
 
 	return CMD_SUCCESS;
 }
@@ -3349,7 +3349,7 @@ DEFPY (no_ip_igmp_group_watermark,
        IGNORED_IN_NO_STR)
 {
 	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
-	pim->igmp_watermark_limit = 0;
+	pim->gm_watermark_limit = 0;
 
 	return CMD_SUCCESS;
 }

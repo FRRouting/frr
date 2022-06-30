@@ -260,9 +260,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		++writes;
 	}
 
-	if (pim->igmp_watermark_limit != 0) {
+	if (pim->gm_watermark_limit != 0) {
 		vty_out(vty, "%sip igmp watermark-warn %u\n", spaces,
-			pim->igmp_watermark_limit);
+			pim->gm_watermark_limit);
 		++writes;
 	}
 

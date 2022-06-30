@@ -1009,8 +1009,8 @@ static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 	uint32_t group_count = listcount(pim_ifp->gm_group_list);
 
 	++pim_ifp->pim->igmp_group_count;
-	if (pim_ifp->pim->igmp_group_count
-	    == pim_ifp->pim->igmp_watermark_limit) {
+	if (pim_ifp->pim->igmp_group_count ==
+	    pim_ifp->pim->gm_watermark_limit) {
 		zlog_warn(
 			"IGMP group count reached watermark limit: %u(vrf: %s)",
 			pim_ifp->pim->igmp_group_count,
