@@ -2569,10 +2569,20 @@ def create_route_maps(tgen, input_dict, build=False):
                         if as_path:
                             as_num = as_path.setdefault("as_num", None)
                             as_action = as_path.setdefault("as_action", None)
-                            if as_action and as_num:
+
+                            # if as_path carrying the delete attribute
+                            if "delete" in as_path:
+                                if as_action and as_num:
+                                    rmap_data.append(
+                                        "no set as-path {} {}".format(as_action, as_num)
+                                    )
+
+                            elif as_action and as_num:
                                 rmap_data.append(
                                     "set as-path {} {}".format(as_action, as_num)
                                 )
+                            else:
+                                logger.error("unknown set operation ")
 
                         # Community
                         if community:
