@@ -2148,6 +2148,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			was_bond_slave = IS_ZEBRA_IF_BOND_SLAVE(ifp);
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 
+			if (IS_ZEBRA_IF_DUMMY(ifp))
+				SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
+
 			memcpy(old_hw_addr, ifp->hw_addr, INTERFACE_HWADDR_MAX);
 
 			/* Update link. */
