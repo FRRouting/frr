@@ -2663,6 +2663,51 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /*
+ * A - AS local = AS of peer
+ * R - peer configured as RR Client
+ * L - prefix is locally originated
+ * S - send BGP update
+ * D - drop BGP update
+
+  A R L Action
+  ============
+  - - -  S
+  - - +  S
+  - + -  S
+  - + +  S
+  + - -  D
+  + - +  S
+  + + -  S
+  + + +  S
+ */
+static bool srv6_l3vpn_announce_selected(struct update_subgroup *subgrp,
+					struct bgp_path_info *selected,
+					struct bgp_dest *dest)
+{
+	struct peer *peer;
+	struct bgp *bgp;
+	bool a, r, l;
+	afi_t afi;
+	safi_t safi;
+
+	peer = SUBGRP_PEER(subgrp);
+	bgp = SUBGRP_INST(subgrp);
+	afi = SUBGRP_AFI(subgrp);
+	safi = SUBGRP_SAFI(subgrp);
+
+	a = (bgp->as == peer->as) || (peer->group && bgp->as == peer->group->conf->as);
+	r = CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT);
+	l = selected->type == ZEBRA_ROUTE_KERNEL ||
+		selected->type == ZEBRA_ROUTE_CONNECT ||
+		selected->type == ZEBRA_ROUTE_STATIC;
+
+	if (a && !r && !l) {
+		return false;
+	}
+	return true;
+}
+
+/*
  * A new route/change in bestpath of an existing route. Evaluate the path
  * for advertisement to the subgroup.
  */
@@ -2693,6 +2738,14 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
 				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return;
+
+	if (selected->attr->srv6_l3vpn &&
+		!srv6_l3vpn_announce_selected(subgrp, selected, dest)) {
+		zlog_debug("%s (%d): skip srv6 l3vpn announce for p=%pFX, selected=%p",
+					__func__, __LINE__,
+					p, selected);
+		return;
+	}
 
 	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */
@@ -4385,7 +4438,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, evpn,
 					pfx_buf, sizeof(pfx_buf));
-		zlog_debug("%pBP rcvd %s", peer, pfx_buf);
+		zlog_debug("%s (%d): %pBP rcvd %s", __func__, __LINE__, peer, pfx_buf);
 	}
 
 	/* Make new BGP info. */
