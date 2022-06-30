@@ -341,6 +341,22 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 	case RTPROT_SRTE:
 		proto = ZEBRA_ROUTE_SRTE;
 		break;
+	case RTPROT_UNSPEC:
+	case RTPROT_REDIRECT:
+	case RTPROT_KERNEL:
+	case RTPROT_BOOT:
+	case RTPROT_GATED:
+	case RTPROT_RA:
+	case RTPROT_MRT:
+	case RTPROT_BIRD:
+	case RTPROT_DNROUTED:
+	case RTPROT_XORP:
+	case RTPROT_NTK:
+	case RTPROT_MROUTED:
+	case RTPROT_KEEPALIVED:
+	case RTPROT_OPENR:
+		proto = ZEBRA_ROUTE_KERNEL;
+		break;
 	case RTPROT_ZEBRA:
 		if (is_nexthop) {
 			proto = ZEBRA_ROUTE_NHG;
