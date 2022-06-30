@@ -322,11 +322,11 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 		snl.nl_family = AF_NETLINK;
 		snl.nl_groups = groups;
 
-#if defined SOL_NETLINK
 		if (ext_group_size) {
 			uint8_t i;
 
 			for (i = 0; i < ext_group_size; i++) {
+#if defined SOL_NETLINK
 				ret = setsockopt(sock, SOL_NETLINK,
 						 NETLINK_ADD_MEMBERSHIP,
 						 &ext_groups[i],
@@ -338,9 +338,14 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 						ext_groups[i],
 						safe_strerror(errno), errno);
 				}
+#else
+				zlog_notice(
+					"Unable to use NETLINK_ADD_MEMBERSHIP via SOL_NETLINK for %s(%u) since the linux kernel does not support the socket option",
+					group2str(ext_groups[i]),
+					ext_groups[i]);
+#endif
 			}
 		}
-#endif
 
 		/* Bind the socket to the netlink structure for anything. */
 		ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
