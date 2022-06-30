@@ -66,8 +66,6 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 
-extern int allow_delete;
-
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
@@ -2699,7 +2697,7 @@ DEFUN (allow_external_route_update,
        "allow-external-route-update",
        "Allow FRR routes to be overwritten by external processes\n")
 {
-	allow_delete = 1;
+	zrouter.allow_delete = true;
 
 	return CMD_SUCCESS;
 }
@@ -2710,7 +2708,7 @@ DEFUN (no_allow_external_route_update,
        NO_STR
        "Allow FRR routes to be overwritten by external processes\n")
 {
-	allow_delete = 0;
+	zrouter.allow_delete = false;
 
 	return CMD_SUCCESS;
 }
@@ -3911,7 +3909,7 @@ DEFPY (zebra_nexthop_group_keep,
 
 static int config_write_protocol(struct vty *vty)
 {
-	if (allow_delete)
+	if (zrouter.allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
 
 	if (zrouter.nhg_keep != ZEBRA_DEFAULT_NHG_KEEP_TIMER)
@@ -4011,6 +4009,8 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "Kernel NHG|%s",
 		       zrouter.supports_nhgs ? "Available" : "Unavailable");
 
+	ttable_add_row(table, "Allow Non FRR route deletion|%s",
+		       zrouter.allow_delete ? "Yes" : "No");
 	ttable_add_row(table, "v4 All LinkDown Routes|%s",
 		       zrouter.all_linkdownv4 ? "On" : "Off");
 	ttable_add_row(table, "v4 Default LinkDown Routes|%s",
