@@ -977,8 +977,19 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (nhe_id || ng)
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  &src_p, re, ng, startup);
-			else
+			else {
+				/*
+				 * I really don't see how this is possible
+				 * but since we are testing for it let's
+				 * let the end user know why the route
+				 * that was just received was swallowed
+				 * up and forgotten
+				 */
+				zlog_err(
+					"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
+					__func__, &p);
 				XFREE(MTYPE_RE, re);
+			}
 		}
 	} else {
 		if (nhe_id) {
