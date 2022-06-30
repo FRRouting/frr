@@ -71,9 +71,6 @@ struct thread_master *master;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-/* Allow non-frr entities to delete frr routes */
-int allow_delete = 0;
-
 int graceful_restart;
 
 bool v6_rr_semantics = false;
@@ -336,7 +333,7 @@ int main(int argc, char **argv)
 			// batch_mode = 1;
 			break;
 		case 'a':
-			allow_delete = 1;
+			zrouter.allow_delete = true;
 			break;
 		case 'e': {
 			unsigned long int parsed_multipath =

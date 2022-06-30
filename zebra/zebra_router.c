@@ -278,6 +278,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 {
 	zrouter.sequence_num = 0;
 
+	zrouter.allow_delete = false;
+
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;

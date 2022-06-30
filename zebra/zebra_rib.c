@@ -77,9 +77,6 @@ static struct dplane_ctx_q rib_dplane_q;
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
 
-/* Should we allow non FRR processes to delete our routes */
-extern int allow_delete;
-
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
@@ -3746,8 +3743,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					    rn, fib,
 					    zebra_route_string(fib->type));
 			}
-			if (allow_delete
-			    || CHECK_FLAG(dest->flags, RIB_ROUTE_ANY_QUEUED)) {
+			if (zrouter.allow_delete ||
+			    CHECK_FLAG(dest->flags, RIB_ROUTE_ANY_QUEUED)) {
 				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
 				/* Unset flags. */
 				for (rtnh = fib->nhe->nhg.nexthop; rtnh;
@@ -3792,8 +3789,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	if (same) {
 		struct nexthop *tmp_nh;
 
-		if (fromkernel && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)
-		    && !allow_delete) {
+		if (fromkernel && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) &&
+		    !zrouter.allow_delete) {
 			rib_install_kernel(rn, same, NULL);
 			route_unlock_node(rn);
 
