@@ -687,7 +687,7 @@ DEFPY (ipv6_mld_group_watermark,
 {
 	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
 
-	/* TBD Depends on MLD data structure changes */
+       /* TBD Depends on MLD data structure changes */
 	(void)pim;
 
 	return CMD_SUCCESS;
