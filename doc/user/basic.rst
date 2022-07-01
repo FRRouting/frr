@@ -338,6 +338,12 @@ Basic Config Commands
 
    Restrict vty connections with an access list.
 
+.. clicmd:: allow-reserved-ranges
+
+   Allow using IPv4 reserved (Class E) IP ranges for daemons. E.g.: setting
+   IPv4 addresses for interfaces or allowing reserved ranges in BGP next-hops.
+
+   Default: off.
 
 .. _sample-config-file:
 
