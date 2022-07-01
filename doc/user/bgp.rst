@@ -2827,6 +2827,14 @@ address-family:
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
+.. clicmd:: bgp retain route-target all
+
+It is possible to retain or not VPN prefixes that are not imported by local
+VRF configuration. This can be done via the following command in the context
+of the global VPNv4/VPNv6 family. This command defaults to on and is not
+displayed.
+The `no bgp retain route-target all` form of the command is displayed.
+
 .. _bgp-l3vpn-srv6:
 
 L3VPN SRv6

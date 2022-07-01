@@ -149,6 +149,7 @@ struct bgp;
 				"endOfRibSentAfterUpdate");                    \
 	} while (0)
 
+extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_vty_init(void);
 extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);

@@ -1472,7 +1472,7 @@ void vpn_leak_from_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 	}
 }
 
-static void
+static bool
 vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 			      struct bgp *from_bgp,	   /* from */
 			      struct bgp_path_info *path_vpn) /* route */
@@ -1498,7 +1498,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
 			zlog_debug("%s: skipping: %s", __func__, debugmsg);
-		return;
+		return false;
 	}
 
 	/* Check for intersection of route targets */
@@ -1509,7 +1509,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 			zlog_debug(
 				"from vpn (%s) to vrf (%s), skipping after no intersection of route targets",
 				from_bgp->name_pretty, to_bgp->name_pretty);
-		return;
+		return false;
 	}
 
 	if (debug)
@@ -1604,7 +1604,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 					to_bgp->vpn_policy[afi]
 						.rmap[BGP_VPN_POLICY_DIR_FROMVPN]
 						->name);
-			return;
+			return false;
 		}
 		/*
 		 * if route-map changed nexthop, don't nexthop-self on output
@@ -1674,13 +1674,15 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
 		    num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,
 		    debug);
+	return true;
 }
 
-void vpn_leak_to_vrf_update(struct bgp *from_bgp,	   /* from */
+bool vpn_leak_to_vrf_update(struct bgp *from_bgp,	   /* from */
 			    struct bgp_path_info *path_vpn) /* route */
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
+	bool leak_success = false;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -1692,9 +1694,11 @@ void vpn_leak_to_vrf_update(struct bgp *from_bgp,	   /* from */
 
 		if (!path_vpn->extra
 		    || path_vpn->extra->bgp_orig != bgp) { /* no loop */
-			vpn_leak_to_vrf_update_onevrf(bgp, from_bgp, path_vpn);
+			leak_success |= vpn_leak_to_vrf_update_onevrf(
+				bgp, from_bgp, path_vpn);
 		}
 	}
+	return leak_success;
 }
 
 void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,	   /* from */

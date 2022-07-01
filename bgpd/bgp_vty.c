@@ -951,14 +951,24 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 {
 	switch (error) {
 	case BGP_ERR_AF_UNCONFIGURED:
-		vty_out(vty,
-			"%% BGP: Enable %s address family for the neighbor %s\n",
-			get_afi_safi_str(afi, safi, false), peer->host);
+		if (vty)
+			vty_out(vty,
+				"%% BGP: Enable %s address family for the neighbor %s\n",
+				get_afi_safi_str(afi, safi, false), peer->host);
+		else
+			zlog_warn(
+				"%% BGP: Enable %s address family for the neighbor %s\n",
+				get_afi_safi_str(afi, safi, false), peer->host);
 		break;
 	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
-		vty_out(vty,
-			"%% BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
-			peer->host);
+		if (vty)
+			vty_out(vty,
+				"%% BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
+				peer->host);
+		else
+			zlog_warn(
+				"%% BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
+				peer->host);
 		break;
 	default:
 		break;
@@ -1273,6 +1283,11 @@ static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
 			      BGP_CLEAR_SOFT_OUT, NULL);
 }
 
+
+void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	bgp_clear(NULL, bgp, afi, safi, clear_all, BGP_CLEAR_SOFT_IN, NULL);
+}
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_vty_clippy.c"
@@ -16332,6 +16347,34 @@ DEFUN(no_neighbor_tcp_mss, no_neighbor_tcp_mss_cmd,
 	return peer_tcp_mss_vty(vty, argv[peer_index]->arg, NULL);
 }
 
+DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
+      "[no$no] bgp retain route-target all",
+      NO_STR BGP_STR
+      "Retain BGP updates\n"
+      "Retain BGP updates based on route-target values\n"
+      "Retain all BGP updates\n")
+{
+	bool check;
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	check = CHECK_FLAG(bgp->af_flags[bgp_node_afi(vty)][bgp_node_safi(vty)],
+			   BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
+	if (check != !no) {
+		if (!no)
+			SET_FLAG(bgp->af_flags[bgp_node_afi(vty)]
+					      [bgp_node_safi(vty)],
+				 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
+		else
+			UNSET_FLAG(bgp->af_flags[bgp_node_afi(vty)]
+						[bgp_node_safi(vty)],
+				   BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
+		/* trigger a flush to re-sync with ADJ-RIB-in */
+		bgp_clear(vty, bgp, bgp_node_afi(vty), bgp_node_safi(vty),
+			  clear_all, BGP_CLEAR_SOFT_IN, NULL);
+	}
+	return CMD_SUCCESS;
+}
+
 static void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp,
 					  afi_t afi, safi_t safi)
 {
@@ -17214,6 +17257,14 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	}
 }
 
+static void bgp_vpn_config_write(struct vty *vty, struct bgp *bgp, afi_t afi,
+				 safi_t safi)
+{
+	if (!CHECK_FLAG(bgp->af_flags[afi][safi],
+			BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
+		vty_out(vty, "  no bgp retain route-target all\n");
+}
+
 /* Address family based peer configuration display.  */
 static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				    safi_t safi)
@@ -17283,6 +17334,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	if (safi == SAFI_FLOWSPEC)
 		bgp_fs_config_write_pbr(vty, bgp, afi, safi);
+
+	if (safi == SAFI_MPLS_VPN)
+		bgp_vpn_config_write(vty, bgp, afi, safi);
 
 	if (safi == SAFI_UNICAST) {
 		bgp_vpn_policy_config_write_afi(vty, bgp, afi);
@@ -19267,6 +19321,10 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV4_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
+
+	/* BGP retain all route-target */
+	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);
+	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_cmd);
 
 	/* "clear ip bgp commands" */
 	install_element(ENABLE_NODE, &clear_ip_bgp_all_cmd);

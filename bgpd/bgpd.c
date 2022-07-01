@@ -3240,6 +3240,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].export_vrf = list_new();
 		bgp->vpn_policy[afi].export_vrf->del =
 			bgp_vrf_string_name_delete;
+		SET_FLAG(bgp->af_flags[afi][SAFI_MPLS_VPN],
+			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
