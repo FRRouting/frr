@@ -315,8 +315,9 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Register for conditional routes polling timer */
-	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
-			 bgp->condition_check_period, &bgp->t_condition_check);
+	if (!thread_is_scheduled(bgp->t_condition_check))
+		thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp, 0,
+				 &bgp->t_condition_check);
 }
 
 void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
