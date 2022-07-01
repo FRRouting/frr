@@ -197,11 +197,199 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
-def test_bgp_conditional_advertisement():
-    """
-    Test BGP conditional advertisement functionality.
-    """
+def all_routes_advertised(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": [{"protocol": "bgp"}],
+        "192.0.2.1/32": [{"protocol": "bgp"}],
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": [{"protocol": "bgp"}],
+        "203.0.113.1/32": [{"protocol": "bgp"}],
+    }
+    return topotest.json_cmp(output, expected)
 
+
+def all_routes_withdrawn(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": None,
+        "192.0.2.5/32": None,
+        "10.139.224.0/20": None,
+        "203.0.113.1/32": None,
+    }
+    return topotest.json_cmp(output, expected)
+
+
+# BGP conditional advertisement with route-maps
+# EXIST-MAP, ADV-MAP-1 and RMAP-1
+def exist_map_routes_present(router):
+    return all_routes_advertised(router)
+
+
+def exist_map_routes_not_present(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": None,
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": None,
+        "203.0.113.1/32": [{"protocol": "bgp"}],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def non_exist_map_routes_present(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": [{"protocol": "bgp"}],
+        "192.0.2.1/32": None,
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": None,
+        "203.0.113.1/32": [{"protocol": "bgp"}],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def non_exist_map_routes_not_present(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": [{"protocol": "bgp"}],
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": [{"protocol": "bgp"}],
+        "203.0.113.1/32": [{"protocol": "bgp"}],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def exist_map_no_condition_route_map(router):
+    return non_exist_map_routes_present(router)
+
+
+def non_exist_map_no_condition_route_map(router):
+    return all_routes_advertised(router)
+
+
+def exist_map_routes_present_rmap_filter(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": [{"protocol": "bgp"}],
+        "192.0.2.5/32": None,
+        "10.139.224.0/20": [{"protocol": "bgp"}],
+        "203.0.113.1/32": None,
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def exist_map_routes_present_no_rmap_filter(router):
+    return all_routes_advertised(router)
+
+
+def non_exist_map_routes_present_rmap_filter(router):
+    return all_routes_withdrawn(router)
+
+
+def non_exist_map_routes_present_no_rmap_filter(router):
+    return non_exist_map_routes_present(router)
+
+
+def exist_map_routes_not_present_rmap_filter(router):
+    return all_routes_withdrawn(router)
+
+
+def exist_map_routes_not_present_no_rmap_filter(router):
+    return exist_map_routes_not_present(router)
+
+
+def non_exist_map_routes_not_present_rmap_filter(router):
+    return exist_map_routes_present_rmap_filter(router)
+
+
+def non_exist_map_routes_not_present_no_rmap_filter(router):
+    return non_exist_map_routes_not_present(router)
+
+
+# BGP conditional advertisement with route-maps
+# EXIST-MAP, ADV-MAP-2 and RMAP-2
+def exist_map_routes_not_present_rmap2_filter(router):
+    return all_routes_withdrawn(router)
+
+
+def exist_map_routes_not_present_no_rmap2_filter(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": [{"protocol": "bgp"}],
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": [{"protocol": "bgp"}],
+        "203.0.113.1/32": None,
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def non_exist_map_routes_not_present_rmap2_filter(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": None,
+        "192.0.2.5/32": None,
+        "10.139.224.0/20": None,
+        "203.0.113.1/32": [{"protocol": "bgp", "metric": 911}],
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def non_exist_map_routes_not_present_no_rmap2_filter(router):
+    return non_exist_map_routes_not_present(router)
+
+
+def exist_map_routes_present_rmap2_filter(router):
+    return non_exist_map_routes_not_present_rmap2_filter(router)
+
+
+def exist_map_routes_present_no_rmap2_filter(router):
+    return all_routes_advertised(router)
+
+
+def non_exist_map_routes_present_rmap2_filter(router):
+    return all_routes_withdrawn(router)
+
+
+def non_exist_map_routes_present_no_rmap2_filter(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": [{"protocol": "bgp"}],
+        "192.0.2.1/32": [{"protocol": "bgp"}],
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": [{"protocol": "bgp"}],
+        "203.0.113.1/32": None,
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def exist_map_routes_present_rmap2_network(router):
+    return non_exist_map_routes_not_present_rmap2_filter(router)
+
+
+def exist_map_routes_present_rmap2_no_network(router):
+    return all_routes_withdrawn(router)
+
+
+def non_exist_map_routes_not_present_rmap2_network(router):
+    return non_exist_map_routes_not_present_rmap2_filter(router)
+
+
+def non_exist_map_routes_not_present_rmap2_no_network(router):
+    return all_routes_withdrawn(router)
+
+
+passed = "PASSED!!!"
+failed = "FAILED!!!"
+
+
+def test_bgp_conditional_advertisement_step1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -210,178 +398,25 @@ def test_bgp_conditional_advertisement():
     router2 = tgen.gears["r2"]
     router3 = tgen.gears["r3"]
 
-    passed = "PASSED!!!"
-    failed = "FAILED!!!"
-
-    def _all_routes_advertised(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": [{"protocol": "bgp"}],
-            "192.0.2.1/32": [{"protocol": "bgp"}],
-            "192.0.2.5/32": [{"protocol": "bgp"}],
-            "10.139.224.0/20": [{"protocol": "bgp"}],
-            "203.0.113.1/32": [{"protocol": "bgp"}],
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _all_routes_withdrawn(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": None,
-            "192.0.2.1/32": None,
-            "192.0.2.5/32": None,
-            "10.139.224.0/20": None,
-            "203.0.113.1/32": None,
-        }
-        return topotest.json_cmp(output, expected)
-
-    # BGP conditional advertisement with route-maps
-    # EXIST-MAP, ADV-MAP-1 and RMAP-1
-    def _exist_map_routes_present(router):
-        return _all_routes_advertised(router)
-
-    def _exist_map_routes_not_present(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": None,
-            "192.0.2.1/32": None,
-            "192.0.2.5/32": [{"protocol": "bgp"}],
-            "10.139.224.0/20": None,
-            "203.0.113.1/32": [{"protocol": "bgp"}],
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _non_exist_map_routes_present(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": [{"protocol": "bgp"}],
-            "192.0.2.1/32": None,
-            "192.0.2.5/32": [{"protocol": "bgp"}],
-            "10.139.224.0/20": None,
-            "203.0.113.1/32": [{"protocol": "bgp"}],
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _non_exist_map_routes_not_present(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": None,
-            "192.0.2.1/32": [{"protocol": "bgp"}],
-            "192.0.2.5/32": [{"protocol": "bgp"}],
-            "10.139.224.0/20": [{"protocol": "bgp"}],
-            "203.0.113.1/32": [{"protocol": "bgp"}],
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _exist_map_no_condition_route_map(router):
-        return _non_exist_map_routes_present(router)
-
-    def _non_exist_map_no_condition_route_map(router):
-        return _all_routes_advertised(router)
-
-    def _exist_map_routes_present_rmap_filter(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": None,
-            "192.0.2.1/32": [{"protocol": "bgp"}],
-            "192.0.2.5/32": None,
-            "10.139.224.0/20": [{"protocol": "bgp"}],
-            "203.0.113.1/32": None,
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _exist_map_routes_present_no_rmap_filter(router):
-        return _all_routes_advertised(router)
-
-    def _non_exist_map_routes_present_rmap_filter(router):
-        return _all_routes_withdrawn(router)
-
-    def _non_exist_map_routes_present_no_rmap_filter(router):
-        return _non_exist_map_routes_present(router)
-
-    def _exist_map_routes_not_present_rmap_filter(router):
-        return _all_routes_withdrawn(router)
-
-    def _exist_map_routes_not_present_no_rmap_filter(router):
-        return _exist_map_routes_not_present(router)
-
-    def _non_exist_map_routes_not_present_rmap_filter(router):
-        return _exist_map_routes_present_rmap_filter(router)
-
-    def _non_exist_map_routes_not_present_no_rmap_filter(router):
-        return _non_exist_map_routes_not_present(router)
-
-    # BGP conditional advertisement with route-maps
-    # EXIST-MAP, ADV-MAP-2 and RMAP-2
-    def _exist_map_routes_not_present_rmap2_filter(router):
-        return _all_routes_withdrawn(router)
-
-    def _exist_map_routes_not_present_no_rmap2_filter(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": None,
-            "192.0.2.1/32": [{"protocol": "bgp"}],
-            "192.0.2.5/32": [{"protocol": "bgp"}],
-            "10.139.224.0/20": [{"protocol": "bgp"}],
-            "203.0.113.1/32": None,
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _non_exist_map_routes_not_present_rmap2_filter(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": None,
-            "192.0.2.1/32": None,
-            "192.0.2.5/32": None,
-            "10.139.224.0/20": None,
-            "203.0.113.1/32": [{"protocol": "bgp", "metric": 911}],
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _non_exist_map_routes_not_present_no_rmap2_filter(router):
-        return _non_exist_map_routes_not_present(router)
-
-    def _exist_map_routes_present_rmap2_filter(router):
-        return _non_exist_map_routes_not_present_rmap2_filter(router)
-
-    def _exist_map_routes_present_no_rmap2_filter(router):
-        return _all_routes_advertised(router)
-
-    def _non_exist_map_routes_present_rmap2_filter(router):
-        return _all_routes_withdrawn(router)
-
-    def _non_exist_map_routes_present_no_rmap2_filter(router):
-        output = json.loads(router.vtysh_cmd("show ip route json"))
-        expected = {
-            "0.0.0.0/0": [{"protocol": "bgp"}],
-            "192.0.2.1/32": [{"protocol": "bgp"}],
-            "192.0.2.5/32": [{"protocol": "bgp"}],
-            "10.139.224.0/20": [{"protocol": "bgp"}],
-            "203.0.113.1/32": None,
-        }
-        return topotest.json_cmp(output, expected)
-
-    def _exist_map_routes_present_rmap2_network(router):
-        return _non_exist_map_routes_not_present_rmap2_filter(router)
-
-    def _exist_map_routes_present_rmap2_no_network(router):
-        return _all_routes_withdrawn(router)
-
-    def _non_exist_map_routes_not_present_rmap2_network(router):
-        return _non_exist_map_routes_not_present_rmap2_filter(router)
-
-    def _non_exist_map_routes_not_present_rmap2_no_network(router):
-        return _all_routes_withdrawn(router)
-
     # TC11: R3 BGP convergence, without advertise-map configuration.
     # All routes are advertised to R3.
-    test_func = functools.partial(_all_routes_advertised, router3)
+    test_func = functools.partial(all_routes_advertised, router3)
     success, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
 
     msg = 'TC11: "router3" BGP convergence - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step2():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC21: exist-map routes present in R2's BGP table.
     # advertise-map routes present in R2's BGP table are advertised to R3.
@@ -394,13 +429,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present, router3)
+    test_func = functools.partial(exist_map_routes_present, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = 'TC21: exist-map routes present in "router2" BGP table - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step3():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC22: exist-map routes not present in R2's BGP table
     # advertise-map routes present in R2's BGP table are withdrawn from R3.
@@ -413,13 +458,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_not_present, router3)
+    test_func = functools.partial(exist_map_routes_not_present, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = 'TC22: exist-map routes not present in "router2" BGP table - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step4():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC31: non-exist-map routes not present in R2's BGP table
     # advertise-map routes present in R2's BGP table are advertised to R3.
@@ -432,13 +487,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_non_exist_map_routes_not_present, router3)
+    test_func = functools.partial(non_exist_map_routes_not_present, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = 'TC31: non-exist-map routes not present in "router2" BGP table - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step5():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC32: non-exist-map routes present in R2's BGP table
     # advertise-map routes present in R2's BGP table are withdrawn from R3.
@@ -451,13 +516,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_non_exist_map_routes_present, router3)
+    test_func = functools.partial(non_exist_map_routes_present, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = 'TC32: non-exist-map routes present in "router2" BGP table - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step6():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC41: non-exist-map route-map configuration removed in R2.
     # advertise-map routes present in R2's BGP table are advertised to R3.
@@ -468,13 +543,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_non_exist_map_no_condition_route_map, router3)
+    test_func = functools.partial(non_exist_map_no_condition_route_map, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = 'TC41: non-exist-map route-map removed in "router2" - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step7():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC42: exist-map route-map configuration removed in R2
     # advertise-map routes present in R2's BGP table are withdrawn from R3.
@@ -487,13 +572,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_no_condition_route_map, router3)
+    test_func = functools.partial(exist_map_no_condition_route_map, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = 'TC42: exist-map route-map removed in "router2" - '
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step8():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC51: exist-map routes present in R2's BGP table, with route-map filter.
     # All routes are withdrawn from R3 except advertise-map routes.
@@ -510,13 +605,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present_rmap_filter, router3)
+    test_func = functools.partial(exist_map_routes_present_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC51: exist-map routes present with route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step9():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC52: exist-map routes present in R2's BGP table, no route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -529,13 +634,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present_no_rmap_filter, router3)
+    test_func = functools.partial(exist_map_routes_present_no_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC52: exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step10():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC53: non-exist-map routes present in R2's BGP table, with route-map filter.
     # All routes are withdrawn from R3 including advertise-map routes.
@@ -549,13 +664,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_non_exist_map_routes_present_rmap_filter, router3)
+    test_func = functools.partial(non_exist_map_routes_present_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC53: non-exist-map routes present, with route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step11():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC54: non-exist-map routes present in R2's BGP table, no route-map filter.
     # All routes are advertised to R3 except advertise-map routes.
@@ -568,13 +693,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_non_exist_map_routes_present_no_rmap_filter, router3)
+    test_func = functools.partial(non_exist_map_routes_present_no_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC54: non-exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step12():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC61: exist-map routes not present in R2's BGP table, with route-map filter.
     # All routes are withdrawn from R3 including advertise-map routes.
@@ -596,13 +731,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_not_present_rmap_filter, router3)
+    test_func = functools.partial(exist_map_routes_not_present_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC61: exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step13():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC62: exist-map routes not present in R2's BGP table, without route-map filter.
     # All routes are advertised to R3 except advertise-map routes.
@@ -615,13 +760,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_not_present_no_rmap_filter, router3)
+    test_func = functools.partial(exist_map_routes_not_present_no_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC62: exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step14():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC63: non-exist-map routes not present in R2's BGP table, with route-map filter.
     # All routes are withdrawn from R3 except advertise-map routes.
@@ -635,15 +790,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(
-        _non_exist_map_routes_not_present_rmap_filter, router3
-    )
+    test_func = functools.partial(non_exist_map_routes_not_present_rmap_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC63: non-exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step15():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC64: non-exist-map routes not present in R2's BGP table, without route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -657,7 +820,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(
-        _non_exist_map_routes_not_present_no_rmap_filter, router3
+        non_exist_map_routes_not_present_no_rmap_filter, router3
     )
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
@@ -665,6 +828,16 @@ def test_bgp_conditional_advertisement():
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step16():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC71: exist-map routes present in R2's BGP table, with route-map filter.
     # All routes are withdrawn from R3 except advertise-map routes.
@@ -686,13 +859,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present_rmap2_filter, router3)
+    test_func = functools.partial(exist_map_routes_present_rmap2_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC71: exist-map routes present, route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step17():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC72: exist-map routes present in R2's BGP table, without route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -705,13 +888,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present_no_rmap2_filter, router3)
+    test_func = functools.partial(exist_map_routes_present_no_rmap2_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC72: exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step18():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC73: non-exist-map routes present in R2's BGP table, with route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -725,13 +918,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_non_exist_map_routes_present_rmap2_filter, router3)
+    test_func = functools.partial(non_exist_map_routes_present_rmap2_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC73: non-exist-map routes present, route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step19():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC74: non-exist-map routes present in R2's BGP table, without route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -744,15 +947,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(
-        _non_exist_map_routes_present_no_rmap2_filter, router3
-    )
+    test_func = functools.partial(non_exist_map_routes_present_no_rmap2_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC74: non-exist-map routes present, no route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step20():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC81: exist-map routes not present in R2's BGP table, with route-map filter.
     # All routes are withdrawn from R3 including advertise-map routes.
@@ -774,13 +985,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_not_present_rmap2_filter, router3)
+    test_func = functools.partial(exist_map_routes_not_present_rmap2_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC81: exist-map routes not present, route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step21():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC82: exist-map routes not present in R2's BGP table, without route-map filter.
     # All routes are advertised to R3 except advertise-map routes.
@@ -793,15 +1014,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(
-        _exist_map_routes_not_present_no_rmap2_filter, router3
-    )
+    test_func = functools.partial(exist_map_routes_not_present_no_rmap2_filter, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC82: exist-map routes not present, no route-map filter - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step22():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC83: non-exist-map routes not present in R2's BGP table, with route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -816,7 +1045,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(
-        _non_exist_map_routes_not_present_rmap2_filter, router3
+        non_exist_map_routes_not_present_rmap2_filter, router3
     )
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
@@ -824,6 +1053,16 @@ def test_bgp_conditional_advertisement():
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step23():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC84: non-exist-map routes not present in R2's BGP table, without route-map filter.
     # All routes are advertised to R3 including advertise-map routes.
@@ -837,7 +1076,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(
-        _non_exist_map_routes_not_present_no_rmap2_filter, router3
+        non_exist_map_routes_not_present_no_rmap2_filter, router3
     )
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
@@ -845,6 +1084,16 @@ def test_bgp_conditional_advertisement():
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step24():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC91: exist-map routes present in R2's BGP table, with route-map filter and network.
     # All routes are advertised to R3 including advertise-map routes.
@@ -866,13 +1115,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present_rmap2_network, router3)
+    test_func = functools.partial(exist_map_routes_present_rmap2_network, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC91: exist-map routes present, route-map filter and network - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step25():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC92: exist-map routes present in R2's BGP table, with route-map filter and no network.
     # All routes are advertised to R3 except advertise-map routes.
@@ -885,13 +1144,23 @@ def test_bgp_conditional_advertisement():
         """
     )
 
-    test_func = functools.partial(_exist_map_routes_present_rmap2_no_network, router3)
+    test_func = functools.partial(exist_map_routes_present_rmap2_no_network, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
     msg = "TC92: exist-map routes present, route-map filter and no network - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step26():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC93: non-exist-map routes not present in R2's BGP table, with route-map filter and network.
     # All routes are advertised to R3 including advertise-map routes.
@@ -914,7 +1183,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(
-        _non_exist_map_routes_not_present_rmap2_network, router3
+        non_exist_map_routes_not_present_rmap2_network, router3
     )
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
@@ -922,6 +1191,16 @@ def test_bgp_conditional_advertisement():
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_step27():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
 
     # TC94: non-exist-map routes not present in R2's BGP table, with route-map filter and no network.
     # All routes are advertised to R3 except advertise-map routes.
@@ -935,7 +1214,7 @@ def test_bgp_conditional_advertisement():
     )
 
     test_func = functools.partial(
-        _non_exist_map_routes_not_present_rmap2_no_network, router3
+        non_exist_map_routes_not_present_rmap2_no_network, router3
     )
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
