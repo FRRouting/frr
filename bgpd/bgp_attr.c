@@ -3645,36 +3645,29 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				struct peer *plk;
 
 				plk = peer_lookup_by_host(NULL, peer->host);
-				zlog_debug("%s (%d) CHECK_FLAG(plk->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)=%d, CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)=%d",
-							__func__, __LINE__,
-							plk ? CHECK_FLAG(plk->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) : 1000,
-							CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT));
+				stream_putc(s, 24);
+				stream_putl(s, 0); /* RD = 0, per RFC */
+				stream_putl(s, 0);
 				/*
 				 * Когда получаем апдейт от клиента рр и если ас рр и ас клиента по конфигурации совпадают, то некстхоп берём из апдейта.
 				 * If peer is RR client and RR AS equal peer AS, get nexthop from update
 				 */
 				if (plk && plk->update_source &&
 					plk->update_source->sin6.sin6_family == AF_INET6) {
-					if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
+					if (CHECK_FLAG(plk->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
 						(peer->bgp->as == peer->as ||
 						(peer->group && peer->bgp->as == peer->group->conf->as))) {
-						stream_putc(s, 12);
-						stream_putl(s, 0); /* RD = 0, per RFC */
-						stream_putl(s, 0);
-						stream_put(s, &attr->mp_nexthop_global_in, 4);
+						stream_put(s, &attr->mp_nexthop_global,
+					   				IPV6_MAX_BYTELEN);
 					} else {
-						stream_putc(s, 24);
-						stream_putl(s, 0); /* RD = 0, per RFC */
-						stream_putl(s, 0);
 						stream_put(s,
-							&plk->update_source->sin6.sin6_addr,
+							&plk->update_source->sin6
+									.sin6_addr,
 							IPV6_MAX_BYTELEN);
 					}
 				} else {
-					stream_putc(s, 12);
-					stream_putl(s, 0); /* RD = 0, per RFC */
-					stream_putl(s, 0);
-					stream_put(s, &attr->mp_nexthop_global_in, 4);
+					stream_put(s, &attr->mp_nexthop_global,
+					   IPV6_MAX_BYTELEN);
 				}
 			} else {
 				stream_putc(s, 12);
@@ -3729,10 +3722,6 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 					struct peer *plk;
 
 					plk = peer_lookup_by_host(NULL, peer->host);
-					zlog_debug("%s (%d) CHECK_FLAG(plk->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)=%d, CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)=%d",
-								__func__, __LINE__,
-								plk ? CHECK_FLAG(plk->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) : 1000,
-								CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT));
 					if (plk && plk->update_source &&
 						plk->update_source->sin6.sin6_family == AF_INET6) {
 						if (CHECK_FLAG(plk->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
