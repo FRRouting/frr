@@ -1606,13 +1606,9 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 					       struct attr *attr)
 {
-	in_addr_t nexthop_h;
 	struct bgp *bgp = peer->bgp;
 
-	nexthop_h = ntohl(attr->nexthop.s_addr);
-	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h) ||
-	     !ipv4_unicast_valid(&attr->nexthop)) &&
-	    !bgp->allow_martian) {
+	if (ipv4_martian(&attr->nexthop) && !bgp->allow_martian) {
 		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
 		char buf[INET_ADDRSTRLEN];
 
