@@ -121,6 +121,11 @@ const char *cmd_version_get(void)
 	return host.version;
 }
 
+bool cmd_allow_reserved_ranges_get(void)
+{
+	return host.allow_reserved_ranges;
+}
+
 static int root_on_exit(struct vty *vty);
 
 /* Standard command node structures. */
@@ -453,6 +458,9 @@ static int config_write_host(struct vty *vty)
 	name = cmd_domainname_get();
 	if (name && name[0] != '\0')
 		vty_out(vty, "domainname %s\n", name);
+
+	if (cmd_allow_reserved_ranges_get())
+		vty_out(vty, "allow-reserved-ranges\n");
 
 	/* The following are all configuration commands that are not sent to
 	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
@@ -2294,6 +2302,21 @@ DEFUN (no_banner_motd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(allow_reserved_ranges, allow_reserved_ranges_cmd, "allow-reserved-ranges",
+      "Allow using IPv4 (Class E) reserved IP space\n")
+{
+	host.allow_reserved_ranges = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_allow_reserved_ranges, no_allow_reserved_ranges_cmd,
+      "no allow-reserved-ranges",
+      NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
+{
+	host.allow_reserved_ranges = false;
+	return CMD_SUCCESS;
+}
+
 int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const struct cmd_node *node;
@@ -2483,6 +2506,7 @@ void cmd_init(int terminal)
 	host.lines = -1;
 	cmd_banner_motd_line(FRR_DEFAULT_MOTD);
 	host.motdfile = NULL;
+	host.allow_reserved_ranges = false;
 
 	/* Install top nodes. */
 	install_node(&view_node);
@@ -2552,6 +2576,8 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_banner_motd_cmd);
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
+		install_element(CONFIG_NODE, &allow_reserved_ranges_cmd);
+		install_element(CONFIG_NODE, &no_allow_reserved_ranges_cmd);
 
 		log_cmd_init();
 		vrf_install_commands();

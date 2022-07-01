@@ -84,6 +84,9 @@ struct host {
 	/* Banner configuration. */
 	char *motd;
 	char *motdfile;
+
+	/* Allow using IPv4 (Class E) reserved IP space */
+	bool allow_reserved_ranges;
 };
 
 /* List of CLI nodes. Please remember to update the name array in command.c. */
@@ -614,6 +617,7 @@ extern const char *cmd_domainname_get(void);
 extern const char *cmd_system_get(void);
 extern const char *cmd_release_get(void);
 extern const char *cmd_version_get(void);
+extern bool cmd_allow_reserved_ranges_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init(void);
