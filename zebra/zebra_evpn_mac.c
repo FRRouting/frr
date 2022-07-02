@@ -2177,7 +2177,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 		 * If the install fails then the local cache and kernel might
 		 * get out of sync */
 		vid = zebra_get_bridge_vlan_id(zevpn);
-		if (vid != 0) {
+		if (vid != 0 && zevpn->bridge_if != NULL) {
 			bmac = zebra_l2_brvlan_mac_find(zevpn->bridge_if, vid,
 							macaddr);
 			if (bmac)

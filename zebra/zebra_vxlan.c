@@ -2638,6 +2638,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		/* Inform BGP if the VNI is up and mapped to a bridge. */
 		if (if_is_operative(ctx.ret_ifp) && zif->brslave_info.br_if) {
+			zevpn_bridge_if_set(zevpn, zif->brslave_info.br_if,
+					    true /* set */);
 			zebra_evpn_send_add_to_client(zevpn);
 			zebra_evpn_read_mac_neigh(zevpn, ctx.ret_ifp);
 		}
