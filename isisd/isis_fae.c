@@ -128,7 +128,6 @@ void isis_fae_send_update_all(const struct isis_area *const area,
 	if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		return;
 
-	zlog_debug("%s area %s algo %u", __func__, area->area_tag, algorithm);
 	for (ALL_LIST_ELEMENTS_RO(list, node, dbnode)) {
 		for (unsigned i = 0; i < dbnode->num_clients; i++) {
 			struct zapi_fae_daemon_id *client;
@@ -146,7 +145,6 @@ void isis_fae_send_update_all(const struct isis_area *const area,
  */
 int isis_fae_alloc_db(struct isis_fae_db *db)
 {
-	zlog_debug("%s", __func__);
 	db->active = fae_db_init();
 	if (db->active == NULL)
 		return -1;
@@ -193,8 +191,6 @@ int isis_fae_process_register(
 	int is_dup;
 	int client;
 
-	zlog_debug("%s", __func__);
-
 	if (igp_disc->proto != ZEBRA_ROUTE_ISIS) {
 		zlog_debug("unsupported zf_proto %d", igp_disc->proto);
 		return -1;
@@ -217,8 +213,8 @@ int isis_fae_process_register(
 		char epstr[INET6_ADDRSTRLEN];
 
 		ipaddr2str(&query->endpoint, epstr, sizeof(epstr));
-		zlog_debug("%s found a route (p=%pFX) for endpoint %s",
-			   __func__, &rn->p, epstr);
+		ZLOG_EXTREME("%s found a route (p=%pFX) for endpoint %s",
+			     __func__, &rn->p, epstr);
 		rinfo = rn->info;
 		node = fae_db_insert(&area->fae.active[query->algorithm],
 				     &query->endpoint, client, &is_dup);
@@ -262,8 +258,6 @@ int isis_fae_process_unregister(
 	struct fae_db_node *node;
 	int client;
 
-	zlog_debug("%s", __func__);
-
 	if (igp_disc->proto != ZEBRA_ROUTE_ISIS) {
 		zlog_debug("unsupported zf_proto %d", igp_disc->proto);
 		return -1;
@@ -280,7 +274,7 @@ int isis_fae_process_unregister(
 	if (node) {
 		if (node->num_clients == 0)
 			fae_db_node_free(node, true);
-		zlog_debug("%s found inactive registration", __func__);
+		ZLOG_EXTREME("%s found inactive registration", __func__);
 		goto out;
 	}
 
@@ -293,10 +287,11 @@ int isis_fae_process_unregister(
 		goto out;
 	}
 
-	zlog_debug("%s found active registration", __func__);
+	ZLOG_EXTREME("%s found active registration", __func__);
 	if (node->num_clients == 0) {
-		zlog_debug("%s no remaining clients.  Remove from route node.",
-			   __func__);
+		ZLOG_EXTREME(
+			"%s no remaining clients.  Remove from route node.",
+			__func__);
 		isis_fae_route_node_reg_del(area, node, query);
 		fae_db_node_free(node, true);
 	}
@@ -324,10 +319,6 @@ int isis_fae_process_client_ready(
 	/* For now, there can be only one client.  If a new client shows up,
 	 * assume pathd restarted and clean up the old information.
 	 */
-	zlog_debug("%s proto %u instance %u session_id %u", __func__,
-		   client_daemon_id->proto, client_daemon_id->instance,
-		   client_daemon_id->session_id);
-
 	client = isis_fae_find_client(client_daemon_id);
 	if (client < 0)
 		goto out;
@@ -411,7 +402,7 @@ struct route_node *isis_fae_promote(struct isis_area *area,
 	if (CHECK_FLAG(rn_info->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		goto out;
 
-	zlog_debug("%s %pFX", __func__, &rn->p);
+	ZLOG_EXTREME("%s %pFX", __func__, &rn->p);
 
 	cur = rn;
 	do {
@@ -454,7 +445,7 @@ struct route_node *isis_fae_promote(struct isis_area *area,
 	}
 
 out:
-	zlog_debug("%s return %p", __func__, found_one ? cur : NULL);
+	ZLOG_EXTREME("%s return %p", __func__, found_one ? cur : NULL);
 	return found_one ? cur : NULL;
 }
 
@@ -487,7 +478,7 @@ struct route_node *isis_fae_demote(struct isis_area *area,
 	if (CHECK_FLAG(rn_info->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		goto out;
 
-	zlog_debug("%s %pFX algo %u", __func__, &rn->p, algo);
+	ZLOG_EXTREME("%s %pFX algo %u", __func__, &rn->p, algo);
 
 	list = rn_info->fae_regs[algo];
 	if (list == NULL || list_isempty(list))
@@ -523,7 +514,7 @@ struct route_node *isis_fae_demote(struct isis_area *area,
 	}
 
 out:
-	zlog_debug("%s return %p", __func__, found_one ? cur : NULL);
+	ZLOG_EXTREME("%s return %p", __func__, found_one ? cur : NULL);
 	return found_one ? cur : NULL;
 }
 
@@ -588,8 +579,6 @@ void isis_fae_check_inactive(struct isis_area *area,
 	if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		return;
 
-	zlog_debug("%s", __func__);
-
 	key.endpoint.ipa_type = PREFIX_FAMILY(&rn->p);
 	if (key.endpoint.ipa_type == AF_INET)
 		key.endpoint.ipaddr_v4 = rn->p.u.prefix4;
@@ -624,12 +613,10 @@ isis_fae_route_node_match(const struct isis_area *const area,
 			continue;
 
 		if (endpoint.family == AF_INET && area->ip_circuits > 0) {
-			zlog_debug("looking in SPFTREE_IPV4 level %d", level);
 			spftree = area->spftree[SPFTREE_IPV4][level - 1];
 			route_table = spftree->route_table;
 		} else if (endpoint.family == AF_INET6
 			   && area->ipv6_circuits > 0) {
-			zlog_debug("looking in SPFTREE_IPV6 level %d", level);
 			spftree = area->spftree[SPFTREE_IPV6][level - 1];
 			route_table = spftree->route_table;
 		} else {
@@ -642,8 +629,8 @@ isis_fae_route_node_match(const struct isis_area *const area,
 
 		route_unlock_node(rn);
 		do {
-			zlog_debug("%s checking route node %pFX", __func__,
-				   &rn->p);
+			ZLOG_EXTREME("%s checking route node %pFX", __func__,
+				     &rn->p);
 			rinfo = rn->info;
 			if (rinfo && rinfo->sr_algo[query->algorithm].present) {
 				found = true;
@@ -661,14 +648,14 @@ isis_fae_area_lookup(const struct zapi_fae_igp_discriminator *const igp_disc)
 {
 	struct isis_area *area;
 
-	zlog_debug("%s", __func__);
-
 	area = isis_area_lookup_by_z_area_id(
 		igp_disc->proto_data.isis.z_area_id, igp_disc->vrf_id);
+#ifdef EXTREME_FAE_DEBUG
 	if (area == NULL)
 		zlog_debug("no area z_area_id=%u in vrf %u",
 			   igp_disc->proto_data.isis.z_area_id,
 			   igp_disc->vrf_id);
+#endif
 	return area;
 }
 
@@ -678,12 +665,9 @@ static int isis_fae_route_info_reg_add(struct isis_route_info *rinfo,
 {
 	if (rinfo->fae_regs[algorithm] == NULL) {
 		rinfo->fae_regs[algorithm] = list_new();
-		zlog_debug("%s new list %p", __func__,
-			   rinfo->fae_regs[algorithm]);
 		if (rinfo->fae_regs[algorithm] == NULL)
 			return -1;
 	}
-	zlog_debug("%s add node %p to route info %p", __func__, node, rinfo);
 	listnode_add(rinfo->fae_regs[algorithm], node);
 	return 0;
 }
@@ -703,7 +687,8 @@ static bool isis_fae_route_info_reg_del(struct isis_route_info *rinfo,
 {
 	struct listnode *listnode;
 
-	zlog_debug("%s del node %p from route info %p", __func__, node, rinfo);
+	ZLOG_EXTREME("%s del node %p from route info %p", __func__, node,
+		     rinfo);
 
 	if (rinfo->fae_regs[algorithm] == NULL)
 		return false;
@@ -713,11 +698,8 @@ static bool isis_fae_route_info_reg_del(struct isis_route_info *rinfo,
 		return false;
 
 	list_delete_node(rinfo->fae_regs[algorithm], listnode);
-	if (list_isempty(rinfo->fae_regs[algorithm])) {
-		zlog_debug("%s del list %p", __func__,
-			   rinfo->fae_regs[algorithm]);
+	if (list_isempty(rinfo->fae_regs[algorithm]))
 		list_delete(&rinfo->fae_regs[algorithm]);
-	}
 	return true;
 }
 
@@ -732,7 +714,6 @@ void isis_fae_route_info_reg_move(struct isis_route_info *dst,
 	if (CHECK_FLAG(src->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		return;
 
-	zlog_debug("%s move FAE registrations", __func__);
 	for (i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (src->fae_regs[i] == NULL)
 			continue;
@@ -775,8 +756,8 @@ void isis_fae_route_info_reg_deactivate(struct isis_area *area,
 		char epstr[INET6_ADDRSTRLEN];
 
 		ipaddr2str(&dbnode->endpoint, epstr, sizeof(epstr));
-		zlog_debug("%s deactivate FAE registration %s algo %d",
-			   __func__, epstr, algorithm);
+		ZLOG_EXTREME("%s deactivate FAE registration %s algo %d",
+			     __func__, epstr, algorithm);
 		res = fae_db_move(&area->fae.inactive[algorithm],
 				  &area->fae.active[algorithm], dbnode);
 		assert(res == dbnode);
@@ -803,7 +784,6 @@ void isis_fae_route_info_delete(struct isis_area *area,
 	if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		return;
 
-	zlog_debug("%s deactivate FAE registrations", __func__);
 	for (i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (rinfo->fae_regs[i] == NULL)
 			continue;
@@ -825,7 +805,6 @@ isis_fae_route_node_reg_del(struct isis_area *area,
 
 		rinfo = rn->info;
 		if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_SR_ALGO) == 0) {
-			zlog_debug("%s found a route", __func__);
 			isis_fae_route_info_reg_del(rinfo, node,
 						    query->algorithm);
 		}
