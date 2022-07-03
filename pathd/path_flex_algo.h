@@ -27,6 +27,27 @@
 #include "lib/zapi_fae.h"
 #include "lib/printfrr.h"
 
+#define PATH_DEBUG_FA 0x01
+#define PATH_DEBUG_FA_DETAILED 0x02
+#define PATH_DEBUG_FA_IGP_DEFAULTS 0x04
+
+#define IS_PATH_DEBUG_FA (path_debug_fa & PATH_DEBUG_FA)
+#define IS_PATH_DEBUG_FA_DETAILED (path_debug_fa & PATH_DEBUG_FA_DETAILED)
+#define IS_PATH_DEBUG_FA_IGP_DEFAULTS                                          \
+	(path_debug_fa & PATH_DEBUG_FA_IGP_DEFAULTS)
+
+extern unsigned long path_debug_fa;
+
+#define FA_DEBUG                                                               \
+	if (IS_PATH_DEBUG_FA & path_debug_fa)                                  \
+	zlog_debug
+#define FA_D_DEBUG                                                             \
+	if (IS_PATH_DEBUG_FA_DETAILED & path_debug_fa)                         \
+	zlog_debug
+#define FA_IGPDEF_DEBUG                                                        \
+	if (IS_PATH_DEBUG_FA_IGP_DEFAULTS & path_debug_fa)                     \
+	zlog_debug
+
 extern const struct frr_yang_module_info frr_pathd_flexalgo_info;
 
 extern void path_flex_algo_init(void);
@@ -103,5 +124,7 @@ int pathd_srte_flex_algo_default_isis_area_tag_destroy(
 	struct nb_cb_destroy_args *args);
 void cli_show_flex_algo_igp_defaults(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
+/* show flex algo debugging */
+void path_flex_algo_show_debugging(struct vty *vty);
 
 #endif /* _PATHD_PATH_FLEX_ALGO_H */

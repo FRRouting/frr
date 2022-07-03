@@ -26,6 +26,7 @@
 #include "zapi_fae.h"
 
 #define ZAPI_FAE_DEBUG 0
+#define ZAPI_DEBUG_IGP_DISCRIMINATOR 0
 
 DEFINE_MTYPE(LIB, ZAPI_FAE_AREA_TAG, "ZAPI FAE Area tag");
 
@@ -145,7 +146,9 @@ _encode_igp_discriminator(struct stream *s,
 			stream_write(s, d->proto_data.isis.area_tag, sl);
 		}
 	}
+#if ZAPI_DEBUG_IGP_DISCRIMINATOR
 	zlog_debug("%s: d->proto %u", __func__, d->proto);
+#endif
 }
 
 static int _decode_igp_discriminator(struct stream *s,
@@ -157,7 +160,9 @@ static int _decode_igp_discriminator(struct stream *s,
 
 	STREAM_GETL(s, d->vrf_id);
 	STREAM_GETC(s, d->proto);
+#if ZAPI_DEBUG_IGP_DISCRIMINATOR
 	zlog_debug("%s: d->proto %u", __func__, d->proto);
+#endif
 
 	switch (d->proto) {
 	case ZEBRA_ROUTE_ISIS:

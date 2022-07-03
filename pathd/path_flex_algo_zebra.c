@@ -57,7 +57,7 @@ int path_zebra_debug_send_fae_ready(bool do_ready, uint8_t protocol,
 		d.proto_data.isis.z_area_id = 0;
 	}
 	rv = zapi_fae_ready_send(zclient, do_ready, &d);
-	zlog_debug("%s: sent, d.proto=%u, rv=%d", __func__, d.proto, rv);
+	FA_D_DEBUG("%s: sent, d.proto=%u, rv=%d", __func__, d.proto, rv);
 	if (rv == ZCLIENT_SEND_FAILURE)
 		return -1;
 	return 0;
@@ -68,7 +68,7 @@ int path_zebra_handle_fae_ready(bool ready, struct stream *s)
 	struct zapi_fae_daemon_id igp_daemon_id;
 	struct zapi_fae_igp_discriminator igp_discriminator;
 
-	zlog_debug("%s: start", __func__);
+	FA_D_DEBUG("%s: start", __func__);
 
 	if (zapi_fae_ready_decode(s, &igp_daemon_id, &igp_discriminator)) {
 		zlog_err("%s: [rcv FAE %sready: could not decode.", __func__,
@@ -119,7 +119,7 @@ int path_zebra_debug_send_fae_update(uint8_t protocol, vrf_id_t vrf_id,
 	}
 	rv = zapi_fae_update_send(zclient, &client_daemon_id, &d, &query,
 				  &answer);
-	zlog_debug("%s: sent, d.proto=%u, rv=%d", __func__, d.proto, rv);
+	FA_D_DEBUG("%s: sent, d.proto=%u, rv=%d", __func__, d.proto, rv);
 	if (rv == ZCLIENT_SEND_FAILURE)
 		return -1;
 	return 0;

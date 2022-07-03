@@ -31,6 +31,37 @@
 
 #include "pathd/path_flex_algo_config_clippy.c"
 
+DEFPY (debug_pathd_fa,
+       debug_pathd_fa_cmd,
+       "[no] debug pathd fa [detailed$det|igp-defaults$idef]",
+       NO_STR
+       DEBUG_STR
+       "Path configuration\n"
+       "Debug option set for flex-algo\n"
+       "Debug option set for detailed info\n"
+       "Debug option set for default IGP\n")
+/* clang-format on */
+{
+	if (no) {
+		if (det)
+			path_debug_fa &= ~PATH_DEBUG_FA_DETAILED;
+		else if (idef)
+			path_debug_fa &= ~PATH_DEBUG_FA_IGP_DEFAULTS;
+		else
+			path_debug_fa = 0;
+	} else {
+		if (idef)
+			path_debug_fa |= PATH_DEBUG_FA_IGP_DEFAULTS;
+		else {
+			path_debug_fa |= PATH_DEBUG_FA;
+			if (det)
+				path_debug_fa |= PATH_DEBUG_FA_DETAILED;
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+
 /* clang-format off */
 const struct frr_yang_module_info frr_pathd_flexalgo_info = {
 	.name = "frr-pathd-flexalgo",
@@ -384,6 +415,10 @@ void path_flex_algo_cli_init(void)
 	install_element(ENABLE_NODE, &debug_flex_algo_show_igp_cmd);
 	install_element(ENABLE_NODE, &debug_flex_algo_show_endpoint_cmd);
 	install_element(ENABLE_NODE, &debug_flex_algo_show_igp_defaults_cmd);
+	install_element(ENABLE_NODE, &debug_pathd_fa_cmd);
+
+	install_element(CONFIG_NODE, &debug_pathd_fa_cmd);
+
 	install_element(SR_TRAFFIC_ENG_NODE, &flex_algo_igp_defaults_isis_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE,
 			&no_flex_algo_igp_defaults_isis_cmd);
@@ -556,4 +591,14 @@ int pathd_srte_flex_algo_default_isis_area_tag_destroy(
 		return NB_OK;
 	(void)fa_set_default_igp_isis_area_tag("");
 	return NB_OK;
+}
+
+void path_flex_algo_show_debugging(struct vty *vty)
+{
+	if (IS_PATH_DEBUG_FA)
+		vty_out(vty, "  Path FA debugging is on\n");
+	if (IS_PATH_DEBUG_FA_DETAILED)
+		vty_out(vty, "  Path FA detailed debugging is on\n");
+	if (IS_PATH_DEBUG_FA_IGP_DEFAULTS)
+		vty_out(vty, "  Path FA igp-defaults debugging is on\n");
 }

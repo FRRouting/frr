@@ -735,8 +735,6 @@ int pathd_srte_policy_candidate_path_flex_algo_number_modify(
 	struct srte_candidate *candidate;
 	uint8_t flex_algo_number;
 
-	zlog_debug("%s: entry, event %s", __func__, nb_event_name(args->event));
-
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 

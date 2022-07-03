@@ -30,6 +30,9 @@
 #include "pathd/pathd.h"
 #include "pathd/path_flex_algo.h"
 #include "pathd/path_zebra.h"
+#include "pathd/path_debug.h"
+
+unsigned long path_debug_fa;
 
 /*
  * throttle interval for changes due to route updates
@@ -196,21 +199,21 @@ static bool _igp_defaults_valid(void)
 	/* currently we only support isis */
 	if (ZEBRA_ROUTE_ISIS != _igp_defaults.igp_proto) {
 #if DEBUG_IGP_DEFAULTS
-		zlog_debug("%s: NO: igp_proto %u, wanted %u", __func__,
-			   _igp_defaults.igp_proto, ZEBRA_ROUTE_ISIS);
+		FA_IGPDEF_DEBUG("%s: NO: igp_proto %u, wanted %u", __func__,
+				_igp_defaults.igp_proto, ZEBRA_ROUTE_ISIS);
 #endif
 		return false;
 	} else {
 		if (!_igp_defaults.isis_area) {
 #if DEBUG_IGP_DEFAULTS
-			zlog_debug("%s: NO: isis_area is unset", __func__);
+			FA_IGPDEF_DEBUG("%s: NO: isis_area is unset", __func__);
 #endif
 			return false;
 		}
 	}
 
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: YES", __func__);
+	FA_IGPDEF_DEBUG("%s: YES", __func__);
 #endif
 	/* any vrf id and any instance are valid */
 	return true;
@@ -220,14 +223,14 @@ int fa_check_default_igp_proto(uint8_t proto)
 {
 	if (ZEBRA_ROUTE_ISIS == proto) {
 #if DEBUG_IGP_DEFAULTS
-		zlog_debug("%s: proto is \"%s\": valid", __func__,
-			   zebra_route_string(proto));
+		FA_IGPDEF_DEBUG("%s: proto is \"%s\": valid", __func__,
+				zebra_route_string(proto));
 #endif
 		return 0;
 	}
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: proto is \"%s\": not valid", __func__,
-		   zebra_route_string(proto));
+	FA_IGPDEF_DEBUG("%s: proto is \"%s\": not valid", __func__,
+			zebra_route_string(proto));
 #endif
 	return -1;
 }
@@ -237,8 +240,9 @@ int fa_set_default_igp_proto(uint8_t proto)
 	bool different = (proto != _igp_defaults.igp_proto);
 
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: proto is \"%s\" (%s)", __func__,
-		   zebra_route_string(proto), (different ? "changed" : "same"));
+	FA_IGPDEF_DEBUG("%s: proto is \"%s\" (%s)", __func__,
+			zebra_route_string(proto),
+			(different ? "changed" : "same"));
 #endif
 	switch (proto) {
 	case ZEBRA_ROUTE_ISIS:
@@ -246,12 +250,12 @@ int fa_set_default_igp_proto(uint8_t proto)
 		break;
 	default:
 #if DEBUG_IGP_DEFAULTS
-		zlog_debug("%s: invalid proto, not setting", __func__);
+		FA_IGPDEF_DEBUG("%s: invalid proto, not setting", __func__);
 #endif
 		return -1;
 	}
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: valid proto, set", __func__);
+	FA_IGPDEF_DEBUG("%s: valid proto, set", __func__);
 #endif
 	if (different)
 		_igp_defaults_changed();
@@ -264,7 +268,7 @@ int fa_set_default_igp_instance(uint16_t instance)
 
 	_igp_defaults.igp_instance = instance;
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: instance set to %u", __func__, instance);
+	FA_IGPDEF_DEBUG("%s: instance set to %u", __func__, instance);
 #endif
 	if (different)
 		_igp_defaults_changed();
@@ -277,7 +281,7 @@ int fa_set_default_igp_vrf_id(vrf_id_t vrf_id)
 
 	_igp_defaults.igp_vrf_id = vrf_id;
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: vrf ID set to %u", __func__, vrf_id);
+	FA_IGPDEF_DEBUG("%s: vrf ID set to %u", __func__, vrf_id);
 #endif
 	if (different)
 		_igp_defaults_changed();
@@ -300,8 +304,8 @@ int fa_set_default_igp_isis_area_tag(const char *area_tag)
 			XSTRDUP(MTYPE_ISIS_AREA_TAG, area_tag);
 	}
 #if DEBUG_IGP_DEFAULTS
-	zlog_debug("%s: isis area tag set to: \"%s\"", __func__,
-		   _igp_defaults.isis_area);
+	FA_IGPDEF_DEBUG("%s: isis area tag set to: \"%s\"", __func__,
+			_igp_defaults.isis_area);
 #endif
 	if (different)
 		_igp_defaults_changed();
@@ -338,7 +342,7 @@ struct flex_algo_igp_instance {
 static void _register(struct srte_candidate *c,
 		      struct flex_algo_igp_instance *p)
 {
-	zlog_debug("%s: calling path_zebra_fae_register(true)", __func__);
+	FA_DEBUG("%s: calling path_zebra_fae_register(true)", __func__);
 	/* clang-format off */
 	path_zebra_fae_register(
 		true,
@@ -355,7 +359,7 @@ static void _register(struct srte_candidate *c,
 static void _unregister(struct srte_candidate *c,
 			struct flex_algo_igp_instance *p)
 {
-	zlog_debug("%s: calling path_zebra_fae_register(false)", __func__);
+	FA_DEBUG("%s: calling path_zebra_fae_register(false)", __func__);
 	/* clang-format off */
 	path_zebra_fae_register(
 		false,
@@ -507,9 +511,9 @@ fa_igp_find_p(uint8_t proto, uint16_t instance, vrf_id_t vrf_id, char *area_tag,
 
 	fa_igp_check_vector_size(0);
 
-	zlog_debug("%s: want proto %hhu, instance %u, vrf_id %u, area_tag %s",
-		   __func__, proto, instance, vrf_id,
-		   (area_tag ? area_tag : "(nil)"));
+	FA_DEBUG("%s: want proto %hhu, instance %u, vrf_id %u, area_tag %s",
+		 __func__, proto, instance, vrf_id,
+		 (area_tag ? area_tag : "(nil)"));
 
 	for (unsigned int i = 0; i < vector_active(_igp_instance); ++i) {
 		p = vector_slot(_igp_instance, i);
@@ -596,10 +600,9 @@ static void fa_igp_add(uint8_t proto, uint16_t instance, vrf_id_t vrf_id,
 	if (ZEBRA_ROUTE_ISIS == proto) {
 		p->isis_area = XSTRDUP(MTYPE_ISIS_AREA_TAG, area_tag);
 	}
-	zlog_debug("%s: adding IGP: p=%hhu, i=%u, v=%u, a=%s, sv=%u, s=%u",
-		   __func__, proto, instance, vrf_id,
-		   (area_tag ? area_tag : ""), (session_id_valid ? 1 : 0),
-		   session_id);
+	FA_DEBUG("%s: adding IGP: p=%hhu, i=%u, v=%u, a=%s, sv=%u, s=%u",
+		 __func__, proto, instance, vrf_id, (area_tag ? area_tag : ""),
+		 (session_id_valid ? 1 : 0), session_id);
 
 	(void)vector_set(_igp_instance, p);
 }
@@ -764,8 +767,8 @@ void fa_igp_handle_ready(struct zapi_fae_daemon_id *di,
 	p = fa_igp_find_p(di->proto, di->instance, d->vrf_id,
 			  d->proto_data.isis.area_tag, 0);
 
-	zlog_debug("%s: proto %u, instance %u, vrf_id %d: p=%p", __func__,
-		   di->proto, di->instance, d->vrf_id, p);
+	FA_DEBUG("%s: proto %u, instance %u, vrf_id %d: p=%p", __func__,
+		 di->proto, di->instance, d->vrf_id, p);
 
 	if (p) {
 		bool need_clear = false;
@@ -973,7 +976,7 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 		       F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS)) {
 
 		if (!_igp_defaults_valid()) {
-			zlog_debug(
+			FA_DEBUG(
 				"%s: endpoint %pIA: defaults invalid, skip reg",
 				__func__, &candidate->policy->endpoint);
 			XFREE(MTYPE_FLEX_ALGO_ENDPOINT, f);
@@ -998,7 +1001,7 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 	}
 
 	/* clang-format off */
-	zlog_debug("%s: endpoint %pIA, algo %u, proto %u, inst %u, vrf_id %u",
+	FA_DEBUG("%s: endpoint %pIA, algo %u, proto %u, inst %u, vrf_id %u",
 		__func__,
 		&f->endpoint,
 		f->algorithm,
@@ -1008,7 +1011,7 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 	/* clang-format on */
 
 	if (ZEBRA_ROUTE_ISIS == f->igp_proto)
-		zlog_debug("    area-tag %s", f->isis_area);
+		FA_DEBUG("    area-tag %s", f->isis_area);
 
 	/*
 	 * If it already exists, we get back pointer to list's copy
@@ -1040,10 +1043,10 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 			f->vrf_id,
 			f->isis_area))) {
 
-			zlog_debug("%s: found ready IGP", __func__);
+			FA_DEBUG("%s: found ready IGP", __func__);
 			_register(candidate, p);
 		} else {
-			zlog_debug("%s: Didn't find ready IGP", __func__);
+			FA_DEBUG("%s: Didn't find ready IGP", __func__);
 			/* add not-ready IGP entry */
 			fa_igp_add(f->igp_proto, f->igp_instance, f->vrf_id,
 				   f->isis_area, false, 0, false, 0);
@@ -1226,8 +1229,8 @@ void fa_handle_update(struct zapi_fae_daemon_id *di,
 	if (answer->sid_list.label_num != f->sid_list.label_num)
 		different = true;
 	else {
-		zlog_debug("%s: label_num %u", __func__,
-			   answer->sid_list.label_num);
+		FA_DEBUG("%s: label_num %u", __func__,
+			 answer->sid_list.label_num);
 		for (uint8_t i = 0; i < answer->sid_list.label_num; ++i) {
 			if (answer->sid_list.labels[i]
 			    != f->sid_list.labels[i]) {
@@ -1237,8 +1240,8 @@ void fa_handle_update(struct zapi_fae_daemon_id *di,
 		}
 	}
 
-	zlog_debug("%s: sid-lists are %s", __func__,
-		   (different ? "different" : "the same"));
+	FA_DEBUG("%s: sid-lists are %s", __func__,
+		 (different ? "different" : "the same"));
 
 	if (different) {
 		/*
@@ -1289,15 +1292,15 @@ static int _fa_candidate_updated_hnd(struct srte_candidate *candidate)
 	if (SRTE_CANDIDATE_TYPE_FLEX_ALGO != candidate->type)
 		return 0;
 
-	zlog_debug("%s: is flex-algo type", __func__);
+	FA_DEBUG("%s: is flex-algo type", __func__);
 
 	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_FLEX_ALGO_NUMBER)) {
-		zlog_debug("%s: has flex-algo number", __func__);
+		FA_DEBUG("%s: has flex-algo number", __func__);
 
 		if (CHECK_FLAG(candidate->flags,
 			       F_CANDIDATE_FLEX_ALGO_REGISTERED)) {
 
-			zlog_debug("%s: already registered, skip", __func__);
+			FA_DEBUG("%s: already registered, skip", __func__);
 			return 0;
 		}
 
@@ -1306,7 +1309,7 @@ static int _fa_candidate_updated_hnd(struct srte_candidate *candidate)
 		 *
 		 * add to flex-algo endpoint tracking
 		 */
-		zlog_debug("%s: not yet registered, proceed", __func__);
+		FA_DEBUG("%s: not yet registered, proceed", __func__);
 		fa_candidate_endpoint_add(candidate);
 	}
 	return 0;
@@ -1326,8 +1329,8 @@ static int _fa_candidate_removed_hnd(struct srte_candidate *candidate)
 		if (CHECK_FLAG(candidate->flags,
 			       F_CANDIDATE_FLEX_ALGO_REGISTERED)) {
 
-			zlog_debug("%s: calling fa_candidate_endpoint_del",
-				   __func__);
+			FA_DEBUG("%s: calling fa_candidate_endpoint_del",
+				 __func__);
 			fa_candidate_endpoint_del(candidate);
 		}
 	}
@@ -1354,11 +1357,11 @@ void path_flex_algo_finish(void)
 	unsigned int area_string_count = 0;
 	struct flex_algo_igp_instance *fa_igp_instance;
 
-	zlog_debug("%s: fae_count is %lu", __func__, (long unsigned int) fae_count(&_faehash));
+	FA_DEBUG("%s: fae_count is %lu", __func__, (long unsigned int) fae_count(&_faehash));
 	fae_fini(&_faehash);
 
 	if (_igp_defaults.isis_area) {
-		zlog_debug("%s: freeing _igp_defaults.isis_area", __func__);
+		FA_DEBUG("%s: freeing _igp_defaults.isis_area", __func__);
 		XFREE(MTYPE_ISIS_AREA_TAG, _igp_defaults.isis_area);
 		_igp_defaults.isis_area = NULL;
 	}
@@ -1380,14 +1383,13 @@ void path_flex_algo_finish(void)
 			XFREE(MTYPE_FLEX_ALGO_IGP_INSTANCE, fa_igp_instance);
 		}
 		if (igp_instance_count) {
-			zlog_debug(
-				"%s: freed %u flex_algo_igp_instance structs",
-				__func__, igp_instance_count);
+			FA_DEBUG("%s: freed %u flex_algo_igp_instance structs",
+				 __func__, igp_instance_count);
 			if (area_string_count)
-				zlog_debug("%s: freed %u isis_area strings",
-					   __func__, area_string_count);
+				FA_DEBUG("%s: freed %u isis_area strings",
+					 __func__, area_string_count);
 		}
 		vector_free(_igp_instance);
-		zlog_debug("%s: freed _igp_instance vector", __func__);
+		FA_DEBUG("%s: freed _igp_instance vector", __func__);
 	}
 }

@@ -1160,6 +1160,8 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	/* nothing to do here */
 	path_ted_show_debugging(vty);
 	path_policy_show_debugging(vty);
+	path_flex_algo_show_debugging(vty);
+
 	return CMD_SUCCESS;
 }
 
