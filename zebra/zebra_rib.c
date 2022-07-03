@@ -167,6 +167,30 @@ struct wq_evpn_wrapper {
 #pragma FRR printfrr_ext "%pZN" (struct route_node *)
 #endif
 
+static const char *subqueue2str(uint8_t index)
+{
+	switch (index) {
+	case 0:
+		return "NHG Objects";
+	case 1:
+		return "EVPN/VxLan Objects";
+	case 2:
+		return "Connected Routes";
+	case 3:
+		return "Kernel Routes";
+	case 4:
+		return "Static Routes";
+	case 5:
+		return "RIP/OSPF/ISIS/EIGRP/NHRP Routes";
+	case 6:
+		return "BGP Routes";
+	case 7:
+		return "Other Routes";
+	}
+
+	return "Unknown";
+}
+
 printfrr_ext_autoreg_p("ZN", printfrr_zebra_node);
 static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const void *ptr)
@@ -2407,8 +2431,8 @@ static void process_subq_nhg(struct listnode *lnode)
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"NHG Context id=%u dequeued from sub-queue %u",
-				ctx->id, qindex);
+				"NHG Context id=%u dequeued from sub-queue %s",
+				ctx->id, subqueue2str(qindex));
 
 
 		/* Process nexthop group updates coming 'up' from the OS */
@@ -2418,8 +2442,8 @@ static void process_subq_nhg(struct listnode *lnode)
 		nhe = w->u.nhe;
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("NHG %u dequeued from sub-queue %u",
-				   nhe->id, qindex);
+			zlog_debug("NHG %u dequeued from sub-queue %s", nhe->id,
+				   subqueue2str(qindex));
 
 		/* Process incoming nhg update, probably from a proto daemon */
 		newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
@@ -2465,9 +2489,9 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 		if (dest)
 			re = re_list_first(&dest->routes);
 
-		zlog_debug("%s(%u:%u):%pRN rn %p dequeued from sub-queue %u",
+		zlog_debug("%s(%u:%u):%pRN rn %p dequeued from sub-queue %s",
 			   zvrf_name(zvrf), zvrf_id(zvrf), re ? re->table : 0,
-			   rnode, rnode, qindex);
+			   rnode, rnode, subqueue2str(qindex));
 	}
 
 	if (rnode->info)
@@ -2578,8 +2602,8 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 		       RIB_ROUTE_QUEUED(qindex))) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id,
-				    "rn %p is already queued in sub-queue %u",
-				    (void *)rn, qindex);
+				    "rn %p is already queued in sub-queue %s",
+				    (void *)rn, subqueue2str(qindex));
 		return -1;
 	}
 
@@ -2589,8 +2613,8 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %u",
-			    (void *)rn, qindex);
+		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %s",
+			    (void *)rn, subqueue2str(qindex));
 
 	return 0;
 }
@@ -2615,8 +2639,8 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("NHG Context id=%u queued into sub-queue %u",
-			   ctx->id, qindex);
+		zlog_debug("NHG Context id=%u queued into sub-queue %s",
+			   ctx->id, subqueue2str(qindex));
 
 	return 0;
 }
@@ -2641,8 +2665,8 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("NHG id=%u queued into sub-queue %u",
-			   nhe->id, qindex);
+		zlog_debug("NHG id=%u queued into sub-queue %s", nhe->id,
+			   subqueue2str(qindex));
 
 	return 0;
 }
