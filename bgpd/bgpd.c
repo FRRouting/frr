@@ -3885,7 +3885,7 @@ struct peer *peer_lookup_by_host(struct bgp *bgp, const char *host)
 
 	if (bgp != NULL) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->hostname && !strcmp(peer->host, host) &&
+			if (peer->hostname && strmatch(peer->host, host) &&
 			    !CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
 				return peer;
 	} else if (bm->bgp != NULL) {
@@ -3893,7 +3893,7 @@ struct peer *peer_lookup_by_host(struct bgp *bgp, const char *host)
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (!strcmp(host, peer->host) &&
+				if (strmatch(host, peer->host) &&
 				    !CHECK_FLAG(peer->sflags,
 						PEER_STATUS_ACCEPT_PEER))
 					return peer;
