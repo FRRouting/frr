@@ -1003,10 +1003,10 @@ static void update_subgroup_remove_peer_internal(struct update_subgroup *subgrp,
 	subgrp->peer_count--;
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-		zlog_debug("%s (%d): peer %s deleted from subgroup s%"
-			   PRIu64 " peer cnt %d",
-			   __func__, __LINE__,
-			   paf->peer->host, subgrp->id, subgrp->peer_count);
+		zlog_debug("%s (%d): peer %s deleted from subgroup s%" PRIu64
+			   " peer cnt %d",
+			   __func__, __LINE__, paf->peer->host, subgrp->id,
+			   subgrp->peer_count);
 	SUBGRP_INCR_STAT(subgrp, prune_events);
 }
 

@@ -2681,8 +2681,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
   + + +  S
  */
 static bool srv6_l3vpn_announce_selected(struct update_subgroup *subgrp,
-					struct bgp_path_info *selected,
-					struct bgp_dest *dest)
+					 struct bgp_path_info *selected,
+					 struct bgp_dest *dest)
 {
 	struct peer *peer;
 	struct bgp *bgp;
@@ -2695,11 +2695,12 @@ static bool srv6_l3vpn_announce_selected(struct update_subgroup *subgrp,
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
 
-	a = (bgp->as == peer->as) || (peer->group && bgp->as == peer->group->conf->as);
+	a = (bgp->as == peer->as) ||
+	    (peer->group && bgp->as == peer->group->conf->as);
 	r = CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT);
 	l = selected->type == ZEBRA_ROUTE_KERNEL ||
-		selected->type == ZEBRA_ROUTE_CONNECT ||
-		selected->type == ZEBRA_ROUTE_STATIC;
+	    selected->type == ZEBRA_ROUTE_CONNECT ||
+	    selected->type == ZEBRA_ROUTE_STATIC;
 
 	if (a && !r && !l) {
 		return false;
@@ -2740,10 +2741,10 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 		return;
 
 	if (selected->attr->srv6_l3vpn &&
-		!srv6_l3vpn_announce_selected(subgrp, selected, dest)) {
-		zlog_debug("%s (%d): skip srv6 l3vpn announce for p=%pFX, selected=%p",
-					__func__, __LINE__,
-					p, selected);
+	    !srv6_l3vpn_announce_selected(subgrp, selected, dest)) {
+		zlog_debug(
+			"%s (%d): skip srv6 l3vpn announce for p=%pFX, selected=%p",
+			__func__, __LINE__, p, selected);
 		return;
 	}
 
@@ -4438,7 +4439,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
 					addpath_id ? 1 : 0, addpath_id, evpn,
 					pfx_buf, sizeof(pfx_buf));
-		zlog_debug("%s (%d): %pBP rcvd %s", __func__, __LINE__, peer, pfx_buf);
+		zlog_debug("%s (%d): %pBP rcvd %s", __func__, __LINE__, peer,
+			   pfx_buf);
 	}
 
 	/* Make new BGP info. */

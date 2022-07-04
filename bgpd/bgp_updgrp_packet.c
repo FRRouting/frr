@@ -827,11 +827,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			char pfx_buf[BGP_PRD_PATH_STRLEN];
 
 			if (!send_attr_printed) {
-				zlog_debug("%s (%d): u%" PRIu64 ":s%" PRIu64" send UPDATE for prefix %pFX w/ attr: %s",
-					   __func__, __LINE__,
-					   subgrp->update_group->id, subgrp->id,
-					   dest_p,
-					   send_attr_str);
+				zlog_debug(
+					"%s (%d): u%" PRIu64 ":s%" PRIu64
+					" send UPDATE for prefix %pFX w/ attr: %s",
+					__func__, __LINE__,
+					subgrp->update_group->id, subgrp->id,
+					dest_p, send_attr_str);
 				if (!stream_empty(snlri)) {
 					iana_afi_t pkt_afi;
 					iana_safi_t pkt_safi;
@@ -839,7 +840,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					pkt_afi = afi_int2iana(afi);
 					pkt_safi = safi_int2iana(safi);
 					zlog_debug(
-						"%s (%d): u%" PRIu64 ":s%" PRIu64
+						"%s (%d): u%" PRIu64
+						":s%" PRIu64
 						" send MP_REACH for afi/safi %s/%s for prefix %pFX",
 						__func__, __LINE__,
 						subgrp->update_group->id,
@@ -857,10 +859,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 						addpath_capable, addpath_tx_id,
 						&adv->baa->attr->evpn_overlay,
 						pfx_buf, sizeof(pfx_buf));
-			zlog_debug("%s (%d): u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
-				   __func__, __LINE__,
-				   subgrp->update_group->id, subgrp->id,
-				   pfx_buf);
+			zlog_debug("%s (%d): u%" PRIu64 ":s%" PRIu64
+				   " send UPDATE %s",
+				   __func__, __LINE__, subgrp->update_group->id,
+				   subgrp->id, pfx_buf);
 		}
 
 		/* Synchnorize attribute.  */
@@ -892,10 +894,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			zlog_debug(
 				"%s (%d): u%" PRIu64 ":s%" PRIu64
 				" send UPDATE len %zd (max message len: %hu) numpfx %d",
-				__func__, __LINE__,
-				subgrp->update_group->id, subgrp->id,
-				(stream_get_endp(packet)
-				 - stream_get_getp(packet)),
+				__func__, __LINE__, subgrp->update_group->id,
+				subgrp->id,
+				(stream_get_endp(packet) -
+				 stream_get_getp(packet)),
 				peer->max_packet_size, num_pfx);
 		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
 		stream_reset(s);
