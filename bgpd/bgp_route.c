@@ -4251,15 +4251,15 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				sid_copy(&extra->sid[0].sid,
 					 &attr->srv6_l3vpn->sid);
 				extra->num_sids = 1;
-        
+
 				extra->sid[0].loc_block_len = 0;
 				extra->sid[0].loc_node_len = 0;
 				extra->sid[0].func_len = 0;
 				extra->sid[0].arg_len = 0;
 				extra->sid[0].transposition_len = 0;
 				extra->sid[0].transposition_offset = 0;
-        
-        if (attr->srv6_l3vpn->loc_block_len != 0) {
+
+				if (attr->srv6_l3vpn->loc_block_len != 0) {
 					extra->sid[0].loc_block_len =
 						attr->srv6_l3vpn->loc_block_len;
 					extra->sid[0].loc_node_len =
@@ -4275,29 +4275,38 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						attr->srv6_l3vpn
 							->transposition_offset;
 
-				/*
-				 * draft-ietf-bess-srv6-services-07
-				 * The part of SRv6 SID may be encoded as MPLS
-				 * Label for the efficient packing.
-				 */
-				if (attr->srv6_l3vpn->transposition_len != 0) {
-					if (num_labels != 1) {
-						if (bgp_debug_update(peer, p,
-								     NULL, 1))
-							zlog_debug(
-								"sid try to be transposed, but label not found");
-						bgp_dest_unlock_node(dest);
-						bgp_attr_unintern(&attr_new);
-						return 0;
-					}
+					/*
+					 * draft-ietf-bess-srv6-services-07
+					 * The part of SRv6 SID may be encoded
+					 * as MPLS Label for the efficient
+					 * packing.
+					 */
+					if (attr->srv6_l3vpn
+						    ->transposition_len != 0) {
+						if (num_labels != 1) {
+							if (bgp_debug_update(
+								    peer, p,
+								    NULL, 1))
+								zlog_debug(
+									"sid try to be transposed, but label not found");
+							bgp_dest_unlock_node(
+								dest);
+							bgp_attr_unintern(
+								&attr_new);
+							return 0;
+						}
 
-					transpose_sid(
-						&extra->sid[0].sid,
-						decode_label(&extra->label[0]),
-            extra->sid[0].sid.transposition_offset);
+						transpose_sid(
+							&extra->sid[0].sid,
+							decode_label(
+								&extra->label
+									 [0]),
+							extra->sid[0]
+								.sid
+								.transposition_offset);
 						extra->sid[0].sid.transposition_len);
+					}
 				}
-			}
 		} else if (attr->srv6_vpn) {
 			extra = bgp_path_info_extra_get(pi);
 			if (sid_diff(&extra->sid[0].sid,

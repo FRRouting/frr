@@ -900,14 +900,14 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 					new_attr->srv6_l3vpn->func_len;
 				extra->sid[0].arg_len =
 					new_attr->srv6_l3vpn->arg_len;
-        extra->sid[0].transposition_len =
+				extra->sid[0].transposition_len =
 					new_attr->srv6_l3vpn->transposition_len;
 				extra->sid[0].transposition_offset =
 					new_attr->srv6_l3vpn
 						->transposition_offset;
 
-				if (new_attr->srv6_l3vpn->transposition_len
-				    != 0) {
+				if (new_attr->srv6_l3vpn->transposition_len !=
+				    0) {
 					if (num_labels != 1) {
 						if (debug)
 							zlog_debug(
@@ -1022,7 +1022,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 				new_attr->srv6_l3vpn->loc_node_len;
 			extra->sid[0].func_len = new_attr->srv6_l3vpn->func_len;
 			extra->sid[0].arg_len = new_attr->srv6_l3vpn->arg_len;
-      extra->sid[0].transposition_len =
+			extra->sid[0].transposition_len =
 				new_attr->srv6_l3vpn->transposition_len;
 			extra->sid[0].transposition_offset =
 				new_attr->srv6_l3vpn->transposition_offset;
