@@ -341,6 +341,22 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 	case RTPROT_SRTE:
 		proto = ZEBRA_ROUTE_SRTE;
 		break;
+	case RTPROT_UNSPEC:
+	case RTPROT_REDIRECT:
+	case RTPROT_KERNEL:
+	case RTPROT_BOOT:
+	case RTPROT_GATED:
+	case RTPROT_RA:
+	case RTPROT_MRT:
+	case RTPROT_BIRD:
+	case RTPROT_DNROUTED:
+	case RTPROT_XORP:
+	case RTPROT_NTK:
+	case RTPROT_MROUTED:
+	case RTPROT_KEEPALIVED:
+	case RTPROT_OPENR:
+		proto = ZEBRA_ROUTE_KERNEL;
+		break;
 	case RTPROT_ZEBRA:
 		if (is_nexthop) {
 			proto = ZEBRA_ROUTE_NHG;
@@ -977,8 +993,19 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (nhe_id || ng)
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  &src_p, re, ng, startup);
-			else
+			else {
+				/*
+				 * I really don't see how this is possible
+				 * but since we are testing for it let's
+				 * let the end user know why the route
+				 * that was just received was swallowed
+				 * up and forgotten
+				 */
+				zlog_err(
+					"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
+					__func__, &p);
 				XFREE(MTYPE_RE, re);
+			}
 		}
 	} else {
 		if (nhe_id) {
