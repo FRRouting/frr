@@ -270,7 +270,7 @@ DEFPY (interface_ipv6_pim_drprio,
 
 DEFPY (interface_no_ipv6_pim_drprio,
        interface_no_ipv6_pim_drprio_cmd,
-       "no ip pim drpriority [(1-4294967295)]",
+       "no ipv6 pim drpriority [(1-4294967295)]",
        NO_STR
        IPV6_STR
        PIM_STR
