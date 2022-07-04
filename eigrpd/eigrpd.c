@@ -123,7 +123,7 @@ void eigrp_master_init(void)
 {
 	struct timeval tv;
 
-	memset(&eigrp_master, 0, sizeof(struct eigrp_master));
+	memset(&eigrp_master, 0, sizeof(eigrp_master));
 
 	eigrp_om = &eigrp_master;
 	eigrp_om->eigrp = list_new();
@@ -171,7 +171,6 @@ static struct eigrp *eigrp_new(uint16_t as, vrf_id_t vrf_id)
 
 	eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1);
 
-	eigrp->t_read = NULL;
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
 	eigrp->oi_write_q = list_new();
 

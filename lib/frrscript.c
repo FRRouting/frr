@@ -32,6 +32,96 @@
 
 DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");
 
+/*
+ * Script name hash utilities
+ */
+
+struct frrscript_names_head frrscript_names_hash;
+
+/*
+ * Wrapper for frrscript_names_add
+ * Use this to register hook calls when a daemon starts up
+ */
+int frrscript_names_add_function_name(const char *function_name)
+{
+	struct frrscript_names_entry *insert =
+		XCALLOC(MTYPE_SCRIPT, sizeof(*insert));
+	strlcpy(insert->function_name, function_name,
+		sizeof(insert->function_name));
+
+	if (frrscript_names_add(&frrscript_names_hash, insert)) {
+		zlog_warn(
+			"Failed to add hook call function name to script_names");
+		return 1;
+	}
+	return 0;
+}
+
+void frrscript_names_destroy(void)
+{
+	struct frrscript_names_entry *ne;
+
+	while ((ne = frrscript_names_pop(&frrscript_names_hash)))
+		XFREE(MTYPE_SCRIPT, ne);
+}
+
+/*
+ * Given a function_name, set its script_name. function_names and script_names
+ * are one-to-one. Each set will wipe the previous script_name.
+ * Return 0 if set was successful, else 1.
+ *
+ * script_name is the base name of the file, without .lua.
+ */
+int frrscript_names_set_script_name(const char *function_name,
+				    const char *script_name)
+{
+	struct frrscript_names_entry lookup;
+
+	strlcpy(lookup.function_name, function_name,
+		sizeof(lookup.function_name));
+	struct frrscript_names_entry *snhe =
+		frrscript_names_find(&frrscript_names_hash, &lookup);
+	if (!snhe)
+		return 1;
+	strlcpy(snhe->script_name, script_name, sizeof(snhe->script_name));
+	return 0;
+}
+
+/*
+ * Given a function_name, get its script_name.
+ * Return NULL if function_name not found.
+ *
+ * script_name is the base name of the file, without .lua.
+ */
+char *frrscript_names_get_script_name(const char *function_name)
+{
+	struct frrscript_names_entry lookup;
+
+	strlcpy(lookup.function_name, function_name,
+		sizeof(lookup.function_name));
+	struct frrscript_names_entry *snhe =
+		frrscript_names_find(&frrscript_names_hash, &lookup);
+	if (!snhe)
+		return NULL;
+
+	if (snhe->script_name[0] == '\0')
+		return NULL;
+
+	return snhe->script_name;
+}
+
+uint32_t frrscript_names_hash_key(const struct frrscript_names_entry *snhe)
+{
+	return string_hash_make(snhe->function_name);
+}
+
+int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
+			     const struct frrscript_names_entry *snhe2)
+{
+	return strncmp(snhe1->function_name, snhe2->function_name,
+		       sizeof(snhe1->function_name));
+}
+
 /* Codecs */
 
 struct frrscript_codec frrscript_codecs_lib[] = {
@@ -226,7 +316,7 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 	p = lua_to(lfs->L, 2);
 
 	/* At the end, the Lua state should be same as it was at the start
-	 * i.e. containing soley the returned table.
+	 * i.e. containing solely the returned table.
 	 */
 	assert(lua_gettop(lfs->L) == 1);
 	assert(lua_istable(lfs->L, -1) == 1);
@@ -243,7 +333,7 @@ void frrscript_register_type_codec(struct frrscript_codec *codec)
 		assert(!"Type codec double-registered.");
 	}
 
-	assert(hash_get(codec_hash, &c, codec_alloc));
+	(void)hash_get(codec_hash, &c, codec_alloc);
 }
 
 void frrscript_register_type_codecs(struct frrscript_codec *codecs)
@@ -283,7 +373,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	}
 
 	if (luaL_dofile(L, script_name) != 0) {
-		zlog_err("frrscript: failed loading script '%s.lua': error: %s",
+		zlog_err("frrscript: failed loading script '%s': error: %s",
 			 script_name, lua_tostring(L, -1));
 		goto fail;
 	}
@@ -291,7 +381,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* To check the Lua function, we get it from the global table */
 	lua_getglobal(L, function_name);
 	if (lua_isfunction(L, lua_gettop(L)) == 0) {
-		zlog_err("frrscript: loaded script '%s.lua' but %s not found",
+		zlog_err("frrscript: loaded script '%s' but %s not found",
 			 script_name, function_name);
 		goto fail;
 	}
@@ -301,7 +391,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	if (load_cb && (*load_cb)(fs) != 0) {
 		zlog_err(
-			"frrscript: '%s.lua': %s: loaded but callback returned non-zero exit code",
+			"frrscript: '%s': %s: loaded but callback returned non-zero exit code",
 			script_name, function_name);
 		goto fail;
 	}
@@ -309,7 +399,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 	/* Add the Lua function state to frrscript */
 	struct lua_function_state key = {.name = function_name, .L = L};
 
-	hash_get(fs->lua_function_hash, &key, lua_function_alloc);
+	(void)hash_get(fs->lua_function_hash, &key, lua_function_alloc);
 
 	return 0;
 fail:

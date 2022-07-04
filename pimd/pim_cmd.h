@@ -73,13 +73,4 @@
 
 void pim_cmd_init(void);
 
-/*
- * Special Macro to allow us to get the correct pim_instance;
- */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf;
-
 #endif /* PIM_CMD_H */

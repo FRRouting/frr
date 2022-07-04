@@ -60,20 +60,9 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
 
-int
-babel_interface_up (ZAPI_CALLBACK_ARGS)
+int babel_ifp_up(struct interface *ifp)
 {
-    struct stream *s = NULL;
-    struct interface *ifp = NULL;
-
     debugf(BABEL_DEBUG_IF, "receive a 'interface up'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf_id); /* it updates iflist */
-
-    if (ifp == NULL) {
-        return 0;
-    }
 
     interface_recalculate(ifp);
     return 0;
@@ -484,7 +473,8 @@ DEFUN (babel_set_rtt_min,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->rtt_min = rtt;
+    /* The value is entered in milliseconds but stored as microseconds. */
+    babel_ifp->rtt_min = rtt * 1000;
     return CMD_SUCCESS;
 }
 
@@ -504,7 +494,8 @@ DEFUN (babel_set_rtt_max,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->rtt_max = rtt;
+    /* The value is entered in milliseconds but stored as microseconds. */
+    babel_ifp->rtt_max = rtt * 1000;
     return CMD_SUCCESS;
 }
 
@@ -1233,11 +1224,6 @@ DEFUN (show_babel_parameters,
     return CMD_SUCCESS;
 }
 
-int babel_ifp_up(struct interface *ifp)
-{
-	return 0;
-}
-
 void
 babel_if_init(void)
 {
@@ -1306,7 +1292,7 @@ interface_config_write (struct vty *vty)
     int write = 0;
 
     FOR_ALL_INTERFACES (vrf, ifp) {
-        vty_frame (vty, "interface %s\n",ifp->name);
+        if_vty_config_start(vty, ifp);
         if (ifp->desc)
             vty_out (vty, " description %s\n",ifp->desc);
         babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
@@ -1328,8 +1314,29 @@ interface_config_write (struct vty *vty)
                        babel_ifp->update_interval);
             write++;
         }
-        /* Some parameters have different defaults for wired/wireless. */
-        if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED)) {
+	if (CHECK_FLAG(babel_ifp->flags, BABEL_IF_TIMESTAMPS)) {
+		vty_out(vty, " babel enable-timestamps\n");
+		write++;
+	}
+	if (babel_ifp->max_rtt_penalty != BABEL_DEFAULT_MAX_RTT_PENALTY) {
+		vty_out(vty, " babel max-rtt-penalty %u\n",
+			babel_ifp->max_rtt_penalty);
+		write++;
+	}
+	if (babel_ifp->rtt_decay != BABEL_DEFAULT_RTT_DECAY) {
+		vty_out(vty, " babel rtt-decay %u\n", babel_ifp->rtt_decay);
+		write++;
+	}
+	if (babel_ifp->rtt_min != BABEL_DEFAULT_RTT_MIN) {
+		vty_out(vty, " babel rtt-min %u\n", babel_ifp->rtt_min / 1000);
+		write++;
+	}
+	if (babel_ifp->rtt_max != BABEL_DEFAULT_RTT_MAX) {
+		vty_out(vty, " babel rtt-max %u\n", babel_ifp->rtt_max / 1000);
+		write++;
+	}
+	/* Some parameters have different defaults for wired/wireless. */
+	if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED)) {
             if (!CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON)) {
                 vty_out (vty, " no babel split-horizon\n");
                 write++;
@@ -1362,7 +1369,7 @@ interface_config_write (struct vty *vty)
                 write++;
             }
         }
-        vty_endframe (vty, "exit\n!\n");
+        if_vty_config_end(vty);
         write++;
     }
     return write;
@@ -1395,9 +1402,10 @@ babel_interface_allocate (void)
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
     babel_ifp->hello_seqno = (frr_weak_random() & 0xFFFF);
-    babel_ifp->rtt_min = 10000;
-    babel_ifp->rtt_max = 120000;
-    babel_ifp->max_rtt_penalty = 150;
+    babel_ifp->rtt_decay = BABEL_DEFAULT_RTT_DECAY;
+    babel_ifp->rtt_min = BABEL_DEFAULT_RTT_MIN;
+    babel_ifp->rtt_max = BABEL_DEFAULT_RTT_MAX;
+    babel_ifp->max_rtt_penalty = BABEL_DEFAULT_MAX_RTT_PENALTY;
     babel_ifp->hello_interval = BABEL_DEFAULT_HELLO_INTERVAL;
     babel_ifp->update_interval = BABEL_DEFAULT_UPDATE_INTERVAL;
     babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;

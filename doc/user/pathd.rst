@@ -6,11 +6,175 @@ PATH
 
 :abbr:`PATH` is a daemon that handles the installation and deletion
 of Segment Routing (SR) Policies.
+Based on MPLS (This means that your OS of choice must support MPLS),
+SR add a stack of MPLS labels to ingress packets so these
+packets are egress through the desired path.
+
+.. image:: images/pathd_general.png
+
+The SR policies and Segment Lists can be configured either locally by means
+of vtysh or centralized based on a SDN controller (ODL, Cisco, ...)
+communicating using the PCEP protocol (:rfc:`5440`).
 
 
 .. _starting-path:
 
-Starting PATH
+Configuration
+=============
+
+Explicit Segment Lists
+----------------------
+
+This is the simplest way of configuration, no remote PCE is necessary.
+In order to create a config that match the graphics used in this documentation,
+we will create a segment list (SL) called SL1 with an element for each hop and
+that element will be assigned a MPLS label.
+Then the SL1 will be used in the policy ``example1``, please note also the
+preference as in the case of multiple segment list it will be used with the
+criteria of bigger number more preference.
+Let see now the final configuration that match the graphics shown above.
+
+
+.. code-block:: frr
+
+   segment-routing
+    traffic-eng
+     segment-list SL1
+      index 10  mpls label 16001
+      index 20  mpls label 16002
+     !
+     policy color 1 endpoint 192.0.2.4
+      name example1
+      binding-sid 1111
+      candidate-path preference 100 name CP1 explicit segment-list SL1
+
+
+Explicit Segment Lists and Traffic Engineering Database (TED)
+-------------------------------------------------------------
+
+Sometimes is difficult to know the values of MPLS labels
+(adjacency changes,...).
+Based on the support of IS-IS or OSPF we can activate TED support what will
+allow pathd to resolve MPLS based in different types of segments
+(:rfc: `draft-ietf-spring-segment-routing-policy-07`). The supported types are
+Type C (prefix and local interface), Type E (prefix and algorithm),
+Type F (a pair of IP's).
+So the configuration would change to this
+
+.. code-block:: frr
+
+   segment-routing
+    traffic-eng
+     mpls-te on
+     mpls-te import ospfv2
+     segment-list SL1
+      index 10  nai prefix 10.1.2.1/32 iface 1
+      index 20  nai adjacency 10.1.20.1 10.1.20.2
+     !
+     policy color 1 endpoint 192.0.2.4
+      name example1
+      binding-sid 1111
+      candidate-path preference 100 name CP1 explicit segment-list SL1
+
+
+In this case no MPLS are provided but the pathd TED support will resolve the
+configuration provided to corresponding MPLS labels.
+
+.. note::
+	Please note the ``mpls-te`` configuration added that activate the TED
+	support and points to ``ospfv2`` so
+	the ospfv2 (:ref:`ospf-traffic-engineering`) daemon must be also
+	running and configure to export TED information.
+
+.. note::
+	It would be the same for isis (:ref:`isis-traffic-engineering`) but in the
+	moment of writting it's not fully tested.
+
+Dynamic Segment Lists
+---------------------
+
+One of the useful options to configure is the creation of policies with
+the dynamic option. In this case based on a given endpoint the SL will be
+,first calculated, and then sended by means of PCEP protocol by the configured
+PCE.
+
+.. code-block:: frr
+
+   traffic-eng
+    !
+    pcep
+     !
+     pce PCE1
+      address ip 192.0.2.10
+     !
+     pcc
+      peer PCE1 precedence 10
+    !
+    policy color 1 endpoint 192.0.2.4
+     name example
+     binding-sid 1111
+     candidate-path preference 100 name CP2 dynamic
+
+.. note::
+	Please note the configuration for the remote pce which allows pathd to
+	connect to the given PCE and act as a PCC (PCEP Client)
+
+.. note::
+	If the TED support feature is active, the data obtained from PCE will
+	be validated, so in a SL from PCEP/PCE the IP and MPLS will be checked
+	against local TED obtained and built from the igp configured in that
+	case.
+
+.. image:: images/pathd_config.png
+
+Pce Initiated
+-------------
+
+We can step forward in the use of our controller not only by asking to
+calculate paths to an endpoint but also to create the whole policies in the
+controller and obtain those by means of the PCEP protocol.
+
+
+.. code-block:: frr
+
+   traffic-eng
+    !
+    pcep
+     !
+     pce PCE1
+      address ip 192.0.2.10
+      pce-initiated
+     !
+     pce PCE2
+      address ip 192.0.2.9
+      pce-initiated
+     !
+     pcc
+      peer PCE1 precedence 10
+      peer PCE2 precedence 20
+    !
+
+.. note::
+	Now there is no locally created policies in the config as they will
+	be obtain from the configured pce.
+	Please check command :clicmd:`show sr-te policy` in ``vtysh`` to see
+	the obtained policies.
+
+.. note::
+	Another interesting command is :clicmd:`show mpls table`
+	to check the installed mpls configuration based in those obtained
+	policies.
+
+.. note::
+	SR Policies could be a mix of local, remote obtained from PCE and
+	delegated to a PCE (but while testing Pce Initiated with Cisco PCE,
+	happens that controller sends PCE initiated delete commands to delete
+	the locally created configuration related to that PCE).
+
+
+.. image:: images/pathd_initiated_multi.png
+
+Starting
 =============
 
 Default configuration file for *pathd* is :file:`pathd.conf`.  The typical
@@ -24,7 +188,6 @@ present and the :file:`frr.conf` is read instead.
 :abbr:`PATH` supports all the common FRR daemon start options which are
 documented elsewhere.
 
-
 PCEP Support
 ============
 
@@ -34,6 +197,11 @@ A pceplib is included in the frr source tree and build by default.
 To start pathd with pcep support the extra parameter `-M pathd_pcep` should be
 passed to the pathd daemon.
 
+An example of command line with pcep module could be this
+
+.. code-block:: frr
+
+  pathd -u root -g root -f pathd.conf -z /tmp/zebra-demo1.sock --vty_socket=/var/run/demo1.vty -i /tmp/pathd-demo1.pid -M frr/modules/pathd_pcep.so --log file:/tmp/kk.txt
 
 Pathd Configuration
 ===================
@@ -42,53 +210,53 @@ Example:
 
 .. code-block:: frr
 
-  debug pathd pcep basic
-  segment-routing
-   traffic-eng
-    mpls-te on
-    mpls-te import ospfv2
-    segment-list SL1
-     index 10 mpls label 16010
-     index 20 mpls label 16030
-    !
-    segment-list SL2
-     index 10 nai prefix 10.1.2.1/32 iface 1
-     index 20 nai adjacency 10.1.20.1 10.1.20.2
-     index 30 nai prefix 10.10.10.5/32 algorithm 0
-     index 40 mpls label 18001
-    !
-    policy color 1 endpoint 1.1.1.1
-     name default
-     binding-sid 4000
-     candidate-path preference 100 name CP1 explicit segment-list SL1
-     candidate-path preference 200 name CP2 dynamic
-      affinity include-any 0x000000FF
-      bandwidth 100000
-      metric bound msd 16 required
-      metric te 10
-      objective-function mcp required
-    !
-    pcep
-     pce-config GROUP1
-      source-address ip 1.1.1.1
-      tcp-md5-auth secret
-      timer keep-alive 30
+   debug pathd pcep basic
+   segment-routing
+    traffic-eng
+     mpls-te on
+     mpls-te import ospfv2
+     segment-list SL1
+      index 10 mpls label 16010
+      index 20 mpls label 16030
      !
-     pce PCE1
-      config GROUP1
-      address ip 10.10.10.10
+     segment-list SL2
+      index 10  nai prefix 10.1.2.1/32 iface 1
+      index 20  nai adjacency 10.1.20.1 10.1.20.2
+      index 30  nai prefix 10.10.10.5/32 algorithm 0
+      index 40  mpls label 18001
      !
-     pce PCE2
-      config GROUP1
-      address ip 9.9.9.9
+     policy color 1 endpoint 192.0.2.1
+      name default
+      binding-sid 4000
+      candidate-path preference 100 name CP1 explicit segment-list SL1
+      candidate-path preference 200 name CP2 dynamic
+       affinity include-any 0x000000FF
+       bandwidth 100000
+       metric bound msd 16 required
+       metric te 10
+       objective-function mcp required
      !
-     pcc
-      peer PCE1 precedence 10
-      peer PCE2 precedence 20
+     pcep
+      pce-config GROUP1
+       source-address 192.0.2.1
+       tcp-md5-auth secret
+       timer keep-alive 30
+      !
+      pce PCE1
+       config GROUP1
+       address ip 192.0.2.10
+      !
+      pce PCE2
+       config GROUP1
+       address ip 192.0.2.9
+      !
+      pcc
+       peer PCE1 precedence 10
+       peer PCE2 precedence 20
+      !
      !
     !
    !
-  !
 
 
 .. _path-commands:
@@ -326,14 +494,14 @@ Introspection Commands
 
    Endpoint  Color  Name     BSID  Status
    ------------------------------------------
-   1.1.1.1   1      default  4000  Active
+   192.0.2.1   1      default  4000  Active
 
 
 .. code-block:: frr
 
   router# show sr-te policy detail
 
-  Endpoint: 1.1.1.1  Color: 1  Name: LOW_DELAY  BSID: 4000  Status: Active
+  Endpoint: 192.0.2.1  Color: 1  Name: LOW_DELAY  BSID: 4000  Status: Active
       Preference: 100  Name: cand1  Type: explicit  Segment-List: sl1  Protocol-Origin: Local
     * Preference: 200  Name: cand1  Type: dynamic  Segment-List: 32453452  Protocol-Origin: PCEP
 
@@ -384,19 +552,19 @@ learned through BGP using route-maps:
    set sr-te color 1
   !
   router bgp 1
-   bgp router-id 2.2.2.2
-   neighbor 1.1.1.1 remote-as 1
-   neighbor 1.1.1.1 update-source lo
+   bgp router-id 192.0.2.2
+   neighbor 192.0.2.1 remote-as 1
+   neighbor 192.0.2.1 update-source lo
    !
    address-family ipv4 unicast
-    neighbor 1.1.1.1 next-hop-self
-    neighbor 1.1.1.1 route-map SET_SR_POLICY in
+    neighbor 192.0.2.1 next-hop-self
+    neighbor 192.0.2.1 route-map SET_SR_POLICY in
     redistribute static
    exit-address-family
    !
   !
 
-In this case, the SR Policy with color `1` and endpoint `1.1.1.1` is selected.
+In this case, the SR Policy with color `1` and endpoint `192.0.2.1` is selected.
 
 
 Sample configuration
@@ -419,13 +587,13 @@ Sample configuration
       index 10 mpls label 321
       index 20 mpls label 654
      !
-     policy color 1 endpoint 1.1.1.1
+     policy color 1 endpoint 192.0.2.1
       name one
       binding-sid 100
       candidate-path preference 100 name test1 explicit segment-list test1
       candidate-path preference 200 name test2 explicit segment-list test2
      !
-     policy color 2 endpoint 2.2.2.2
+     policy color 2 endpoint 192.0.2.2
       name two
       binding-sid 101
       candidate-path preference 100 name def explicit segment-list test2

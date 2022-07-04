@@ -102,9 +102,9 @@ extern void zlog_backtrace_sigsafe(int priority, void *program_counter);
    It caches the most recent localtime result and can therefore
    avoid multiple calls within the same second.  If buflen is too small,
    *buf will be set to '\0', and 0 will be returned. */
-#define QUAGGA_TIMESTAMP_LEN 40
-extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
-			       char *buf, size_t buflen);
+#define FRR_TIMESTAMP_LEN 40
+extern size_t frr_timestamp(int timestamp_precision /* # subsecond digits */,
+			    char *buf, size_t buflen);
 
 extern void zlog_hexdump(const void *mem, size_t len);
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in,
@@ -135,8 +135,8 @@ struct timestamp_control {
 	size_t len;			/* length of rendered timestamp */
 	int precision;			/* configuration parameter */
 	int already_rendered;		/* should be initialized to 0 */
-	char buf[QUAGGA_TIMESTAMP_LEN]; /* will contain the rendered timestamp
-					   */
+	char buf[FRR_TIMESTAMP_LEN];	/* will contain the rendered timestamp
+					 */
 };
 
 /* Defines for use in command construction: */

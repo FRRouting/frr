@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/* Disctirubte list types. */
+/* Distribute list types. */
 enum distribute_type {
 	DISTRIBUTE_V4_IN,
 	DISTRIBUTE_V6_IN,

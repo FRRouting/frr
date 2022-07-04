@@ -130,6 +130,11 @@ Basic Config Commands
    debugging. Note that the existing code logs its most important messages with
    severity ``errors``.
 
+   .. note::
+
+      If ``systemd`` is in use and stdout is connected to systemd, FRR will
+      automatically switch to ``journald`` extended logging for this target.
+
    .. warning::
 
       FRRouting uses the ``writev()`` system call to write log messages.  This
@@ -160,15 +165,24 @@ Basic Config Commands
    debugging, but can be changed using the deprecated ``log trap`` command) will
    be used. The ``no`` form of the command disables logging to syslog.
 
+   .. note::
+
+      This uses the system's ``syslog()`` API, which does not support message
+      batching or structured key/value data pairs.  If possible, use
+      :clicmd:`log extended EXTLOGNAME` with
+      :clicmd:`destination syslog [supports-rfc5424]` instead of this.
+
+.. clicmd:: log extended EXTLOGNAME
+
+   Create an extended logging target with the specified name.  The name has
+   no further meaning and is only used to identify the target.  Multiple
+   targets can be created and deleted with the ``no`` form.
+
+   Refer to :ref:`ext-log-target` for further details and suboptions.
+
 .. clicmd:: log monitor [LEVEL]
 
-   Enable logging output to vty terminals that have enabled logging using the
-   ``terminal monitor`` command. By default, monitor logging is enabled at the
-   debugging level, but this command (or the deprecated ``log trap`` command)
-   can be used to change the monitor logging level. If the optional second
-   argument specifying the logging level is not present, the default logging
-   level (typically debugging) will be used. The ``no`` form of the command
-   disables logging to terminal monitors.
+   This command is deprecated and does nothing.
 
 .. clicmd:: log facility [FACILITY]
 
@@ -243,6 +257,42 @@ Basic Config Commands
 
    Use unbuffered output for log and debug messages; normally there is
    some internal buffering.
+
+.. clicmd:: log unique-id
+
+   Include ``[XXXXX-XXXXX]`` log message unique identifier in the textual part
+   of log messages.  This is enabled by default, but can be disabled with
+   ``no log unique-id``.  Please make sure the IDs are enabled when including
+   logs for FRR bug reports.
+
+   The unique identifiers are automatically generated based on source code
+   file name, format string (before filling out) and severity.  They do not
+   change "randomly", but some cleanup work may cause large chunks of ID
+   changes between releases.  The IDs always start with a letter, consist of
+   letters and numbers (and a dash for readability), are case insensitive, and
+   ``I``, ``L``, ``O`` & ``U`` are excluded.
+
+   This option will not affect future logging targets which allow putting the
+   unique identifier in auxiliary metadata outside the log message text
+   content.  (No such logging target exists currently, but RFC5424 syslog and
+   systemd's journald both support it.)
+
+.. clicmd:: debug unique-id XXXXX-XXXXX backtrace
+
+   Print backtraces (call stack) for specific log messages, identified by
+   their unique ID (see above.)  Includes source code location and current
+   event handler being executed.  On some systems you may need to install a
+   `debug symbols` package to get proper function names rather than raw code
+   pointers.
+
+   This command can be issued inside and outside configuration mode, and is
+   saved to configuration only if it was given in configuration mode.
+
+   .. warning::
+
+      Printing backtraces can significantly slow down logging calls and cause
+      log files to quickly balloon in size.  Remember to disable backtraces
+      when they're no longer needed.
 
 .. clicmd:: service password-encryption
 
@@ -421,7 +471,7 @@ recommendations apply in regards to upgrades:
    for differences against your old configuration.  If any defaults changed
    that affect your setup, lines may appear or disappear.  If a new line
    appears, it was previously the default (or not supported) and is now
-   neccessary to retain previous behavior.  If a line disappears, it
+   necessary to retain previous behavior.  If a line disappears, it
    previously wasn't the default, but now is, so it is no longer necessary.
 
 3. Check the log files for deprecation warnings by using ``grep -i deprecat``.
@@ -623,6 +673,25 @@ Terminal Mode Commands
    we are setting each individual fd for the poll command at that point
    in time.
 
+.. clicmd:: show thread timers
+
+   This command displays FRR's timer data for timers that will pop in
+   the future.
+
+.. clicmd:: show yang operational-data XPATH [{format <json|xml>|translate TRANSLATOR|with-config}] DAEMON
+
+   Display the YANG operational data starting from XPATH. The default
+   format is JSON, but can be displayed in XML as well.
+
+   Normally YANG operational data are located inside containers marked
+   as `read-only`.
+
+   Optionally it is also possible to display configuration leaves in
+   addition to operational data with the option `with-config`. This
+   option enables the display of configuration leaves with their
+   currently configured value (if the leaf is optional it will only show
+   if it was created or has a default value).
+
 .. _common-invocation-options:
 
 Common Invocation Options
@@ -675,6 +744,14 @@ These options apply to all |PACKAGE_NAME| daemons.
    Set the namespace that the daemon will run in.  A "/<namespace>" will
    be added to all files that use the statedir.  If you have "/var/run/frr"
    as the default statedir then it will become "/var/run/frr/<namespace>".
+
+.. option:: -o, --vrfdefaultname <name>
+
+   Set the name used for the *Default VRF* in CLI commands and YANG models.
+   This option must be the same for all running daemons. By default, the name
+   is "default".
+
+   .. seealso:: :ref:`zebra-vrf`
 
 .. option:: -v, --version
 

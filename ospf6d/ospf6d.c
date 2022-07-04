@@ -48,6 +48,7 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
 
@@ -98,6 +99,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_flood(vty);
 	config_write_ospf6_debug_nssa(vty);
 	config_write_ospf6_debug_gr_helper(vty);
+	config_write_ospf6_debug_auth(vty);
 
 	return 0;
 }
@@ -292,10 +294,7 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 		json_object_array_add(json_array, json_obj);
 		json_object_object_add(json, "asScopedLinkStateDb", json_array);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 }
@@ -386,12 +385,9 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 		assert(0);
 		break;
 	}
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	} else
+	if (uj)
+		vty_json(vty, json);
+	else
 		vty_out(vty, "\n");
 }
 
@@ -426,6 +422,8 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -477,6 +475,8 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -517,6 +517,8 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -562,6 +564,8 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -631,6 +635,8 @@ DEFUN_HIDDEN(
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -686,6 +692,8 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -746,6 +754,8 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -795,6 +805,8 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -843,6 +855,8 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -904,6 +918,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -973,6 +989,8 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1013,6 +1031,8 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1070,6 +1090,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1133,6 +1155,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1192,6 +1216,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1269,6 +1295,8 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1312,6 +1340,8 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1351,6 +1381,8 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1428,4 +1460,7 @@ void ospf6_init(struct thread_master *master)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
+	install_element_ospf6_debug_auth();
+	ospf6_interface_auth_trailer_cmd_init();
+	install_element_ospf6_clear_intf_auth();
 }

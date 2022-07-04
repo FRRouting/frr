@@ -6,7 +6,15 @@ set -x
 ##
 # Package version needs to be decimal
 ##
-GITREV="$(git rev-parse --short=10 HEAD)"
+
+##
+# Set GITREV=0 or similar in ENV if you want the tag to just be updated to -0
+# everytime for automation usage/scripts/etc locally.
+#
+# Ex) GITREV=0 ./build.sh
+##
+
+GITREV="${GITREV:=$(git rev-parse --short=10 HEAD)}"
 PKGVER="$(printf '%u\n' 0x$GITREV)"
 
 docker build \

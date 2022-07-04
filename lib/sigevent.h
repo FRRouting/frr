@@ -20,8 +20,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _QUAGGA_SIGNAL_H
-#define _QUAGGA_SIGNAL_H
+#ifndef _FRR_SIGNAL_H
+#define _FRR_SIGNAL_H
 
 #include <thread.h>
 
@@ -29,9 +29,9 @@
 extern "C" {
 #endif
 
-#define QUAGGA_SIGNAL_TIMER_INTERVAL 2L
+#define FRR_SIGNAL_TIMER_INTERVAL 2L
 
-struct quagga_signal_t {
+struct frr_signal_t {
 	int signal;	    /* signal number    */
 	void (*handler)(void); /* handler to call  */
 
@@ -42,11 +42,11 @@ struct quagga_signal_t {
  * takes:
  * - pointer to valid struct thread_master
  * - number of elements in passed in signals array
- * - array of quagga_signal_t's describing signals to handle
+ * - array of frr_signal_t's describing signals to handle
  *   and handlers to use for each signal
  */
 extern void signal_init(struct thread_master *m, int sigc,
-			struct quagga_signal_t *signals);
+			struct frr_signal_t *signals);
 
 
 /*
@@ -58,10 +58,10 @@ extern void signal_init(struct thread_master *m, int sigc,
 bool frr_sigevent_check(sigset_t *setp);
 
 /* check whether there are signals to handle, process any found */
-extern int quagga_sigevent_process(void);
+extern int frr_sigevent_process(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _QUAGGA_SIGNAL_H */
+#endif /* _FRR_SIGNAL_H */

@@ -42,10 +42,17 @@ RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 # general helpers
 #
 
+is_user_root () {
+	[ "${EUID:-$(id -u)}" -eq 0 ] || {
+		log_failure_msg "Only users having EUID=0 can start/stop daemons"
+		return 1
+	}
+}
+
 debug() {
 	[ -n "$watchfrr_debug" ] || return 0
 
-	printf '%s %s(%s):' "`date +%Y-%m-%dT%H:%M:%S.%N`" "$0" $$ >&2
+	printf '%s %s(%s):' "$(date +%Y-%m-%dT%H:%M:%S.%N)" "$0" $$ >&2
 	# this is to show how arguments are split regarding whitespace & co.
 	# (e.g. for use with `debug "message" "$@"`)
 	while [ $# -gt 0 ]; do
@@ -66,12 +73,16 @@ chownfrr() {
 
 vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
-	[ -r "$C_PATH/frr.conf" ] || return 0
-	if [ -n "$1" ]; then
-		"$VTYSH" `echo $nsopt` -b -d "$1"
-	else
-		"$VTYSH" `echo $nsopt` -b
+	if [ ! -r "$C_PATH/frr.conf" ]; then
+		log_warning_msg "$C_PATH/frr.conf does not exist; skipping config apply"
+		return 0
 	fi
+
+	cmd="$VTYSH $nsopt -b"
+	[ -n "$1" ] && cmd="${cmd} -d $1"
+
+	log_success_msg "Sending config with '$cmd'"
+	eval "$cmd"
 }
 
 daemon_inst() {
@@ -150,12 +161,14 @@ daemon_prep() {
 daemon_start() {
 	local dmninst daemon inst args instopt wrap bin
 
+	is_user_root || exit 1
+
 	all=false
 	[ "$1" = "--all" ] && { all=true; shift; }
 
 	daemon_inst "$1"
 
-	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
+	[ "$MAX_FDS" != "" ] && ulimit -n "$MAX_FDS" > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
 	if test ! -d "$V_PATH"; then
 		mkdir -p "$V_PATH"
@@ -167,7 +180,9 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	if eval "$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"; then
+	cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	log_success_msg "Starting $daemon with command: '$cmd'"
+	if eval "$cmd"; then
 		log_success_msg "Started $dmninst"
 		if $all; then
 			debug "Skipping startup of vtysh until all have started"
@@ -183,15 +198,21 @@ daemon_stop() {
 	local dmninst daemon inst pidfile vtyfile pid cnt fail
 	daemon_inst "$1"
 
+	is_user_root || exit 1
+
+	all=false
+	[ "$2" = "--reallyall" ] && all=true
+
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
 
 	[ -r "$pidfile" ] || fail="pid file not found"
-	[ -z "$fail" ] && pid="`cat \"$pidfile\"`"
+	$all && [ -n "$fail" ] && return 0
+	[ -z "$fail" ] && pid="$(cat \"$pidfile\")"
 	[ -z "$fail" -a -z "$pid" ] && fail="pid file is empty"
 	[ -n "$fail" ] || kill -0 "$pid" 2>/dev/null || fail="pid $pid not running"
 
-	if [ -n "$fail" ]; then
+	if [ -n "$fail" ] && [ "$2" != "--quiet" ]; then
 		log_failure_msg "Cannot stop $dmninst: $fail"
 		return 1
 	fi
@@ -221,7 +242,7 @@ daemon_status() {
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 
 	[ -r "$pidfile" ] || return 3
-	pid="`cat \"$pidfile\"`"
+	pid="$(cat \"$pidfile\")"
 	[ -z "$pid" ] && return 1
 	kill -0 "$pid" 2>/dev/null || return 1
 	return 0
@@ -253,16 +274,16 @@ all_start() {
 all_stop() {
 	local pids reversed
 
-	daemon_list daemons disabled
-	[ "$1" = "--reallyall" ] && daemons="$daemons $disabled"
+	daemon_list enabled_daemons disabled_daemons
+	[ "$1" = "--reallyall" ] && enabled_daemons="$enabled_daemons $disabled_daemons"
 
 	reversed=""
-	for dmninst in $daemons; do
+	for dmninst in $enabled_daemons; do
 		reversed="$dmninst $reversed"
 	done
 
 	for dmninst in $reversed; do
-		daemon_stop "$dmninst" &
+		daemon_stop "$dmninst" "$1" &
 		pids="$pids $!"
 	done
 	for pid in $pids; do
@@ -345,12 +366,12 @@ frrcommon_main() {
 	cmd="$1"
 	shift
 
-	if [ "$1" = "all" -o -z "$1" ]; then
+	if [ "$1" = "all" ] || [ -z "$1" ]; then
 		case "$cmd" in
 		start)	all_start;;
 		stop)	all_stop;;
 		restart)
-			all_stop
+			all_stop --quiet
 			all_start
 			;;
 		*)	$cmd "$@";;

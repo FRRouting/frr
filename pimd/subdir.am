@@ -3,42 +3,37 @@
 #
 
 if PIMD
-noinst_LIBRARIES += pimd/libpim.a
 sbin_PROGRAMS += pimd/pimd
 bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
-vtysh_scan += pimd/pim_cmd.c
+vtysh_scan += \
+	pimd/pim_cmd.c \
+	pimd/pim6_cmd.c \
+	pimd/pim6_mld.c \
+	#end
 vtysh_daemons += pimd
+vtysh_daemons += pim6d
 man8 += $(MANBUILD)/frr-pimd.8
 man8 += $(MANBUILD)/mtracebis.8
 endif
 
-pimd_libpim_a_SOURCES = \
+pim_common = \
+	pimd/pim_addr.c \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
-	pimd/pim_bsm.c \
-	pimd/pim_cmd.c \
+	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
 	pimd/pim_iface.c \
 	pimd/pim_ifchannel.c \
-	pimd/pim_igmp.c \
-	pimd/pim_igmp_mtrace.c \
-	pimd/pim_igmp_stats.c \
-	pimd/pim_igmpv2.c \
-	pimd/pim_igmpv3.c \
 	pimd/pim_instance.c \
 	pimd/pim_int.c \
 	pimd/pim_join.c \
 	pimd/pim_jp_agg.c \
 	pimd/pim_macro.c \
 	pimd/pim_memory.c \
-	pimd/pim_mlag.c \
 	pimd/pim_mroute.c \
-	pimd/pim_msdp.c \
-	pimd/pim_msdp_packet.c \
-	pimd/pim_msdp_socket.c \
 	pimd/pim_msg.c \
 	pimd/pim_nb.c \
 	pimd/pim_nb_config.c \
@@ -46,16 +41,15 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_nht.c \
 	pimd/pim_oil.c \
 	pimd/pim_pim.c \
-	pimd/pim_register.c \
 	pimd/pim_routemap.c \
 	pimd/pim_rp.c \
 	pimd/pim_rpf.c \
-	pimd/pim_signals.c \
 	pimd/pim_sock.c \
 	pimd/pim_ssm.c \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
 	pimd/pim_str.c \
+	pimd/pim_tib.c \
 	pimd/pim_time.c \
 	pimd/pim_tlv.c \
 	pimd/pim_upstream.c \
@@ -64,19 +58,56 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
 	pimd/pim_vxlan.c \
-	pimd/pim_zpthread.c \
+	pimd/pim_register.c \
 	pimd/pimd.c \
+	# end
+
+pimd_pimd_SOURCES = \
+	$(pim_common) \
+	pimd/pim_bsm.c \
+	pimd/pim_cmd.c \
+	pimd/pim_igmp.c \
+	pimd/pim_igmp_mtrace.c \
+	pimd/pim_igmp_stats.c \
+	pimd/pim_igmpv2.c \
+	pimd/pim_igmpv3.c \
+	pimd/pim_main.c \
+	pimd/pim_mlag.c \
+	pimd/pim_msdp.c \
+	pimd/pim_msdp_packet.c \
+	pimd/pim_msdp_socket.c \
+	pimd/pim_signals.c \
+	pimd/pim_zpthread.c \
+	# end
+
+nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
-	yang/frr-igmp.yang.c \
+	yang/frr-gmp.yang.c \
+	# end
+
+pimd_pim6d_SOURCES = \
+	$(pim_common) \
+	pimd/pim6_main.c \
+	pimd/pim6_mld.c \
+	pimd/pim6_stubs.c \
+	pimd/pim6_cmd.c \
+	# end
+
+nodist_pimd_pim6d_SOURCES = \
+	yang/frr-pim.yang.c \
+	yang/frr-pim-rp.yang.c \
+	yang/frr-gmp.yang.c \
 	# end
 
 noinst_HEADERS += \
+	pimd/pim_addr.h \
 	pimd/pim_assert.h \
 	pimd/pim_bfd.h \
 	pimd/pim_br.h \
 	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
+	pimd/pim_cmd_common.h \
 	pimd/pim_errors.h \
 	pimd/pim_hello.h \
 	pimd/pim_iface.h \
@@ -113,6 +144,7 @@ noinst_HEADERS += \
 	pimd/pim_ssmpingd.h \
 	pimd/pim_static.h \
 	pimd/pim_str.h \
+	pimd/pim_tib.h \
 	pimd/pim_time.h \
 	pimd/pim_tlv.h \
 	pimd/pim_upstream.h \
@@ -123,27 +155,39 @@ noinst_HEADERS += \
 	pimd/pim_vxlan.h \
 	pimd/pim_vxlan_instance.h \
 	pimd/pimd.h \
+	pimd/pim6_mld.h \
+	pimd/pim6_mld_protocol.h \
 	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
+	pimd/pim6_cmd.h \
 	# end
 
 clippy_scan += \
 	pimd/pim_cmd.c \
+	pimd/pim6_cmd.c \
+	pimd/pim6_mld.c \
 	# end
 
-nodist_pimd_pimd_SOURCES = \
-	yang/frr-igmp.yang.c \
-	yang/frr-pim.yang.c \
-	yang/frr-pim-rp.yang.c \
-	# end
+pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
+pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
 
-pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la $(LIBCAP)
-pimd_pimd_SOURCES = pimd/pim_main.c
+if PIMD
+if DEV_BUILD
+#
+# pim6d is only enabled for --enable-dev-build, and NOT installed currently
+# (change noinst_ to sbin_ below to install it.)
+#
+noinst_PROGRAMS += pimd/pim6d
+pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
+pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
+endif
+endif
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
 
 pimd_mtracebis_LDADD =  lib/libfrr.la
+pimd_mtracebis_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_mtracebis_SOURCES = pimd/mtracebis.c \
 			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \

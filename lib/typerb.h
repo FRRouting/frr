@@ -20,6 +20,7 @@
 #ifndef _FRR_TYPERB_H
 #define _FRR_TYPERB_H
 
+#include <string.h>
 #include "typesafe.h"
 
 #ifdef __cplusplus
@@ -61,7 +62,11 @@ const struct typed_rb_entry *typed_rb_find_lt(const struct typed_rb_root *rbt,
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
 struct typed_rb_entry *typed_rb_min(const struct typed_rb_root *rbt);
+struct typed_rb_entry *typed_rb_max(const struct typed_rb_root *rbt);
+struct typed_rb_entry *typed_rb_prev(const struct typed_rb_entry *rbe);
 struct typed_rb_entry *typed_rb_next(const struct typed_rb_entry *rbe);
+bool typed_rb_member(const struct typed_rb_root *rbt,
+		     const struct typed_rb_entry *rbe);
 
 #define _PREDECL_RBTREE(prefix)                                                \
 struct prefix ## _head { struct typed_rb_root rr; };                           \
@@ -132,15 +137,40 @@ macro_pure const type *prefix ## _const_next(const struct prefix##_head *h,    \
 	return container_of_null(re, type, field.re);                          \
 }                                                                              \
 TYPESAFE_FIRST_NEXT(prefix, type)                                              \
+macro_pure const type *prefix ## _const_last(const struct prefix##_head *h)    \
+{                                                                              \
+	const struct typed_rb_entry *re;                                       \
+	re = typed_rb_max(&h->rr);                                             \
+	return container_of_null(re, type, field.re);                          \
+}                                                                              \
+macro_pure const type *prefix ## _const_prev(const struct prefix##_head *h,    \
+					     const type *item)                 \
+{                                                                              \
+	const struct typed_rb_entry *re;                                       \
+	re = typed_rb_prev(&item->field.re);                                   \
+	return container_of_null(re, type, field.re);                          \
+}                                                                              \
+TYPESAFE_LAST_PREV(prefix, type)                                               \
 macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 {                                                                              \
 	struct typed_rb_entry *re;                                             \
 	re = item ? typed_rb_next(&item->field.re) : NULL;                     \
 	return container_of_null(re, type, field.re);                          \
 }                                                                              \
+macro_pure type *prefix ## _prev_safe(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	struct typed_rb_entry *re;                                             \
+	re = item ? typed_rb_prev(&item->field.re) : NULL;                     \
+	return container_of_null(re, type, field.re);                          \
+}                                                                              \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->rr.count;                                                    \
+}                                                                              \
+macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
+				  const type *item)                            \
+{                                                                              \
+	return typed_rb_member(&h->rr, &item->field.re);                       \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 

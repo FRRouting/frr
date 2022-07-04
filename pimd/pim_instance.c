@@ -25,6 +25,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_ssm.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
@@ -68,6 +69,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_oil_terminate(pim);
 
 	pim_msdp_exit(pim);
+
+	pim_mroute_socket_disable(pim);
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
@@ -113,6 +116,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
 
 	pim->send_v6_secondary = 1;
+
+	pim->gm_socket = -1;
 
 	pim_rp_init(pim);
 
@@ -228,13 +233,27 @@ static int pim_vrf_config_write(struct vty *vty)
 
 void pim_vrf_init(void)
 {
-	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable,
-		 pim_vrf_delete, NULL);
+	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable, pim_vrf_delete);
 
 	vrf_cmd_init(pim_vrf_config_write);
 }
 
 void pim_vrf_terminate(void)
 {
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct pim_instance *pim;
+
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		pim_ssmpingd_destroy(pim);
+		pim_instance_terminate(pim);
+
+		vrf->info = NULL;
+	}
+
 	vrf_terminate();
 }

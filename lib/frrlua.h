@@ -100,6 +100,10 @@ void lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
 
 void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *addr);
 
+void lua_pushipaddr(lua_State *L, const struct ipaddr *addr);
+
+void lua_pushethaddr(lua_State *L, const struct ethaddr *addr);
+
 /*
  * Converts the Lua value at idx to an in6_addr.
  *
@@ -137,6 +141,10 @@ void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su);
  *    sockunion allocated with MTYPE_TMP.
  */
 void *lua_tosockunion(lua_State *L, int idx);
+
+void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng);
+
+void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop);
 
 /*
  * Converts an int to a Lua value and pushes it on the stack.

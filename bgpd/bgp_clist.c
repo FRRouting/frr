@@ -184,7 +184,7 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 	new->name_hash = bgp_clist_hash_key_community_list(new);
 
 	/* Save for later */
-	hash_get(cm->hash, new, hash_alloc_intern);
+	(void)hash_get(cm->hash, new, hash_alloc_intern);
 
 	/* If name is made by all digit character.  We treat it as
 	   number. */
@@ -557,7 +557,7 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = community_str(com, false);
+		str = community_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
 
@@ -631,7 +631,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = lcommunity_str(com, false);
+		str = lcommunity_str(com, false, true);
 
 	regstr = bgp_alias2community_str(str);
 
@@ -720,7 +720,7 @@ bool lcommunity_list_exact_match(struct lcommunity *lcom,
 			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
-			if (lcommunity_cmp(lcom, entry->u.com))
+			if (lcommunity_cmp(lcom, entry->u.lcom))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == LARGE_COMMUNITY_LIST_EXPANDED) {
 			if (lcommunity_regexp_match(lcom, entry->reg))

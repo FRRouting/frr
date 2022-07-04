@@ -1035,6 +1035,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	char *argstr;
 	const char *condition;
 	route_map_event_t event;
+	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
@@ -1072,8 +1073,14 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 		rhc->rhc_event = RMAP_EVENT_ECLIST_DELETED;
 	}
 
-	bgp_route_match_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, event,
-			    args->errmsg, args->errmsg_len);
+	ret = bgp_route_match_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, event,
+				  args->errmsg, args->errmsg_len);
+	/*
+	 * At this point if this is not a successful operation
+	 * bgpd is about to crash.  Let's just cut to the
+	 * chase and do it.
+	 */
+	assert(ret == RMAP_COMPILE_SUCCESS);
 
 	if (argstr != value)
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
@@ -1227,7 +1234,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv6_address_modify(
 
 		/* Set destroy information. */
 		rhc->rhc_mhook = bgp_route_match_delete;
-		rhc->rhc_rule = "ipv6 next-hop";
+		rhc->rhc_rule = "ipv6 next-hop address";
 		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
 		ret = bgp_route_match_add(rhc->rhc_rmi, rhc->rhc_rule,
@@ -2202,6 +2209,58 @@ lib_route_map_entry_set_action_rmap_set_action_exclude_as_path_destroy(
 
 /*
  * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:replace-as-path
+ */
+int lib_route_map_entry_set_action_rmap_set_action_replace_as_path_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *type;
+	int rv;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		type = yang_dnode_get_string(args->dnode, NULL);
+
+		/* Set destroy information. */
+		rhc->rhc_shook = generic_set_delete;
+		rhc->rhc_rule = "as-path replace";
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+
+		rv = generic_set_add(rhc->rhc_rmi, "as-path replace", type,
+				     args->errmsg, args->errmsg_len);
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_replace_as_path_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:community-none
  */
 int lib_route_map_entry_set_action_rmap_set_action_community_none_modify(
@@ -2440,6 +2499,7 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 	const char *asn;
 	const char *addr;
 	char *argstr;
+	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
@@ -2456,8 +2516,15 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 	rhc->rhc_rule = "aggregator as";
 	rhc->rhc_event = RMAP_EVENT_SET_DELETED;
 
-	generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, argstr,
-			args->errmsg, args->errmsg_len);
+	ret = generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, args->errmsg,
+			      args->errmsg_len);
+	/*
+	 * At this point if this is not a successful operation
+	 * bgpd is about to crash.  Let's just cut to the
+	 * chase and do it.
+	 */
+	assert(ret == CMD_SUCCESS);
+
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
 }
 /*
@@ -2604,6 +2671,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	enum ecommunity_lb_type lb_type;
 	char str[VTY_BUFSIZ];
 	uint16_t bandwidth;
+	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
@@ -2629,9 +2697,14 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	if (yang_dnode_get_bool(args->dnode, "./two-octet-as-specific"))
 		strlcat(str, " non-transitive", sizeof(str));
 
-	generic_set_add(rhc->rhc_rmi,
-			"extcommunity bandwidth", str,
-			args->errmsg, args->errmsg_len);
+	ret = generic_set_add(rhc->rhc_rmi, "extcommunity bandwidth", str,
+			      args->errmsg, args->errmsg_len);
+	/*
+	 * At this point if this is not a successful operation
+	 * bgpd is about to crash.  Let's just cut to the
+	 * chase and do it.
+	 */
+	assert(ret == CMD_SUCCESS);
 }
 
 /*

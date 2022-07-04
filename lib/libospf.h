@@ -36,7 +36,7 @@ extern "C" {
 #define IPPROTO_OSPFIGP         89
 #endif /* IPPROTO_OSPFIGP */
 
-/* Architectual Constants */
+/* Architectural Constants */
 #ifdef DEBUG
 #define OSPF_LS_REFRESH_TIME                   120
 #else

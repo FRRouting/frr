@@ -157,7 +157,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -1224,7 +1224,7 @@ def test_shut_noshut_p1(request):
     result = create_router_bgp(tgen, topo, input_dict_3)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Api call to modfiy BGP timers")
+    step("Api call to modify BGP timers")
 
     input_dict_4 = {
         "r1": {
@@ -1757,7 +1757,7 @@ def test_vrf_vlan_routing_table_p1(request):
             tc_name, result
         )
 
-    step("Api call to modfiy BGP timers")
+    step("Api call to modify BGP timers")
 
     input_dict_4 = {
         "r3": {
@@ -2422,7 +2422,7 @@ def test_delete_and_re_add_vrf_p1(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    step("Api call to modfiy BGP timers")
+    step("Api call to modify BGP timers")
 
     input_dict_4 = {
         "r1": {
@@ -3034,7 +3034,7 @@ def test_vrf_name_significance_p1(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_4)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    step("Api call to modfiy BGP timers")
+    step("Api call to modify BGP timers")
 
     input_dict_4 = {
         "r3": {
@@ -3437,7 +3437,7 @@ def test_vrf_name_significance_p1(request):
     result = create_router_bgp(tgen, topo_modify["routers"])
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Api call to modfiy BGP timers")
+    step("Api call to modify BGP timers")
 
     input_dict_4 = {
         "r3": {

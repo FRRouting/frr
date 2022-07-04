@@ -320,7 +320,7 @@ route_match_interface(void *rule, const struct prefix *prefix, void *object)
 	struct external_info *ei;
 
 	ei = object;
-	ifp = if_lookup_by_name_all_vrf((char *)rule);
+	ifp = if_lookup_by_name((char *)rule, ei->ospf->vrf_id);
 
 	if (ifp == NULL || ifp->ifindex != ei->ifindex)
 		return RMAP_NOMATCH;

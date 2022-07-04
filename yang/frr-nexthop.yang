@@ -61,7 +61,7 @@ module frr-nexthop {
     type union {
       type inet:ip-address;
       type string {
-        pattern "";
+        length "0";
       }
     }
   }

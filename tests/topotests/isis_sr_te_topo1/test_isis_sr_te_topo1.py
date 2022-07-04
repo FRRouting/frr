@@ -232,13 +232,52 @@ def cmp_json_output_exact(rname, command, reference):
     return cmp_json_output(rname, command, reference, True)
 
 
-def add_candidate_path(rname, endpoint, pref, name, segment_list="default"):
+def compare_json_test_inverted(router, command, reference, exact):
+    "logically inverts result of compare_json_test"
+
+    # None vs something else
+    result = compare_json_test(router, command, reference, exact)
+    if result is None:
+        return "Some"
+    return None
+
+
+def cmp_json_output_doesnt(rname, command, reference):
+    "Compare router JSON output, shouldn't include reference"
+
+    logger.info('Comparing (anti) router "%s" "%s" output', rname, command)
+
+    tgen = get_topogen()
+    filename = "{}/{}/{}".format(CWD, rname, reference)
+    expected = json.loads(open(filename).read())
+
+    # Run test function until we get an result. Wait at most 60 seconds.
+    test_func = partial(
+        compare_json_test_inverted, tgen.gears[rname], command, expected, exact=False
+    )
+    _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
+    assert diff is None, assertmsg
+
+
+def dump_json(v):
+    if isinstance(v, (dict, list)):
+        return "\t" + "\t".join(
+            json.dumps(v, indent=4, separators=(",", ": ")).splitlines(True)
+        )
+    else:
+        return "'{}'".format(v)
+
+
+def add_candidate_path(rname, endpoint, pref, name, segment_list="default", color=1):
     get_topogen().net[rname].cmd(
         """ \
         vtysh -c "conf t" \
               -c "segment-routing" \
               -c "traffic-eng" \
-              -c "policy color 1 endpoint """
+              -c "policy color """
+        + str(color)
+        + " endpoint "
         + endpoint
         + """" \
               -c "candidate-path preference """
@@ -251,13 +290,15 @@ def add_candidate_path(rname, endpoint, pref, name, segment_list="default"):
     )
 
 
-def delete_candidate_path(rname, endpoint, pref):
+def delete_candidate_path(rname, endpoint, pref, color=1):
     get_topogen().net[rname].cmd(
         """ \
         vtysh -c "conf t" \
               -c "segment-routing" \
               -c "traffic-eng" \
-              -c "policy color 1 endpoint """
+              -c "policy color """
+        + str(color)
+        + " endpoint "
         + endpoint
         + """" \
               -c "no candidate-path preference """
@@ -347,6 +388,50 @@ def delete_prefix_sid(rname, prefix):
               -c "no segment-routing prefix "'''
         + prefix
     )
+
+
+def set_route_map_color(rname, color):
+    get_topogen().net[rname].cmd(
+        ''' \
+        vtysh -c "conf t" \
+              -c "route-map SET_SR_POLICY permit 10" \
+              -c "set sr-te color  "'''
+        + str(color)
+    )
+
+
+def router_bgp_shutdown_neighbor(rname, neighbor):
+    get_topogen().net[rname].cmd(
+        """ \
+        vtysh -c "conf t" \
+              -c "router bgp 1" \
+              -c " neighbor """
+        + neighbor
+        + ' shutdown"'
+    )
+
+
+def router_bgp_no_shutdown_neighbor(rname, neighbor):
+    get_topogen().net[rname].cmd(
+        """ \
+        vtysh -c "conf t" \
+              -c "router bgp 1" \
+              -c " no neighbor """
+        + neighbor
+        + ' shutdown"'
+    )
+
+
+def show_running_cfg(rname):
+    output = (
+        get_topogen()
+        .net[rname]
+        .cmd(
+            """ \
+        vtysh -c "show run" """
+        )
+    )
+    logger.info(output)
 
 
 #
@@ -542,6 +627,22 @@ def test_srte_segment_list_add_segment_check_mpls_table_step4():
     delete_candidate_path("rt1", "6.6.6.6", 100)
 
 
+def save_rt(routername, filename):
+    save_filename = routername + "/" + filename
+    tgen = get_topogen()
+    router = tgen.gears[routername]
+
+    config_output = router.vtysh_cmd("sh run")
+
+    route_output_json = json.loads(router.vtysh_cmd("show ip route bgp json"))
+    route_output = dump_json(route_output_json)
+
+    f = open(save_filename, "w")
+    f.write(config_output)
+    f.write(route_output)
+    f.close()
+
+
 #
 # Step 5
 #
@@ -574,6 +675,147 @@ def test_srte_route_map_with_sr_policy_check_nextop_step5():
         )
 
         delete_candidate_path("rt1", "6.6.6.6", 100)
+
+
+def test_srte_route_map_sr_policy_vs_route_order_step5():
+    setup_testcase(
+        "Test (step 5): Config policy first, add route after and check route validity"
+    )
+
+    #
+    # BGP route and route-map are already configured.
+    # route-map sets color 1 on BGP routes
+
+    # Developer: to force pause here
+    # tgen = get_topogen()
+    # tgen.mininet_cli()
+
+    #
+    # Configure policy/path
+    #
+    add_candidate_path("rt1", "6.6.6.6", 100, "default", "default", 1)
+
+    #
+    # Route should be valid
+    #
+    logger.info(
+        "BGP route and route-map are already configured, SR candidate path added after. Route should be valid"
+    )
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    #
+    # shutdown/no-shutdown on BGP neighbor to delete/re-add BGP route
+    #
+    router_bgp_shutdown_neighbor("rt1", "6.6.6.6")
+    router_bgp_no_shutdown_neighbor("rt1", "6.6.6.6")
+
+    #
+    # Route should be valid (but isn't)
+    #
+    logger.info(
+        "After shutdown + no-shutdown neighbor. Route should be valid, but isn't"
+    )
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    #
+    # delete and re-add policy/path
+    #
+    delete_candidate_path("rt1", "6.6.6.6", 100, 1)
+    add_candidate_path("rt1", "6.6.6.6", 100, "default", "default", 1)
+
+    #
+    # Route should be valid
+    #
+    logger.info("After re-add candidate path. Route should be valid")
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    # Developer: to force pause here
+    # tgen = get_topogen()
+    # tgen.mininet_cli()
+
+    # clean up
+    delete_candidate_path("rt1", "6.6.6.6", 100, 2)
+
+
+def test_srte_route_map_sr_policy_vs_routemap_order_step5():
+    setup_testcase(
+        "Test (step 5): Config policy first, set route-map after and check route validity"
+    )
+
+    #
+    # BGP route and route-map are already configured.
+    # route-map sets color 1 on BGP routes
+    #
+
+    #
+    # Configure policy/path
+    #
+    add_candidate_path("rt1", "6.6.6.6", 100, "default", "default", 1)
+
+    #
+    # Route should be valid
+    #
+    logger.info("After add candidate path. Route should be valid")
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    # Developer: to force pause here
+    # tgen = get_topogen()
+    # tgen.mininet_cli()
+
+    #
+    # change route-map color to someting else and back again
+    #
+    set_route_map_color("rt1", 2)
+    logger.info("route-map color was set to 2")
+    # show_running_cfg("rt1")
+    # 220625 nexthop no longer becomes empty. Colored routes without
+    # matching SR policies now fall back to their non-colored equivalent
+    # nexthops. So the route to 9.9.9.9/32 will now be valid, but with
+    # different nexthop values.
+    logger.info("now route table will lose policy-mapped route")
+    cmp_json_output_doesnt(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+    set_route_map_color("rt1", 1)
+    logger.info("route-map color was set to 1")
+    # show_running_cfg("rt1")
+
+    #
+    # Route should be valid (but isn't)
+    #
+    logger.info("After change route-map color. Route should be valid, but isn't")
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    #
+    # delete and re-add policy/path
+    #
+    delete_candidate_path("rt1", "6.6.6.6", 100, 1)
+    add_candidate_path("rt1", "6.6.6.6", 100, "default", "default", 1)
+
+    #
+    # Route should be valid
+    #
+    logger.info("After delete/re-add candidate path. Route should be valid")
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    # Developer: force pause
+    # tgen = get_topogen()
+    # tgen.mininet_cli()
+
+    # clean up
+    delete_candidate_path("rt1", "6.6.6.6", 100, 2)
 
 
 def test_srte_route_map_with_sr_policy_reinstall_prefix_sid_check_nextop_step5():

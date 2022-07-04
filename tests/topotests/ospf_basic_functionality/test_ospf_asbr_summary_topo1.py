@@ -146,7 +146,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Creating configuration from JSON
@@ -668,89 +668,6 @@ def test_ospf_type5_summary_tc48_p0(request):
     assert (
         result is True
     ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Configure metric type as 1 in route map.")
-
-    routemaps = {
-        "r0": {
-            "route_maps": {
-                "rmap_ipv4": [{"action": "permit", "set": {"metric-type": "type-1"}}]
-            }
-        }
-    }
-    result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2."
-    )
-    input_dict = {
-        SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
-        }
-    }
-    dut = "r0"
-    result = verify_ospf_summary(tgen, topo, dut, input_dict)
-    assert (
-        result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Un configure metric type from route map.")
-
-    routemaps = {
-        "r0": {
-            "route_maps": {
-                "rmap_ipv4": [
-                    {
-                        "action": "permit",
-                        "set": {"metric-type": "type-1"},
-                        "delete": True,
-                    }
-                ]
-            }
-        }
-    }
-    result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2."
-    )
-    input_dict = {
-        SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
-        }
-    }
-    dut = "r0"
-    result = verify_ospf_summary(tgen, topo, dut, input_dict)
-    assert (
-        result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Change rule from permit to deny in prefix list.")
-    pfx_list = {
-        "r0": {
-            "prefix_lists": {
-                "ipv4": {
-                    "pf_list_1_ipv4": [
-                        {"seqid": 10, "network": "any", "action": "deny"}
-                    ]
-                }
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

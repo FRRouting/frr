@@ -109,6 +109,27 @@ No script, multi-arch (ex. amd64, arm64)::
 
 
 
+Building ubi 8 Image
+-----------------------
+
+Script::
+
+   ./docker/ubi-8/build.sh
+
+Script with params, an example could be this (all that info will go to docker label) ::
+
+   ./docker/ubi-8/build.sh  frr:ubi-8-my-test "$(git rev-parse --short=10 HEAD)" my_release my_name my_vendor
+
+No script::
+
+   docker build -f docker/ubi-8/Dockerfile .
+
+No script, multi-arch (ex. amd64, arm64)::
+
+   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ubi-8/Dockerfile -t frr-ubi-8:latest .
+
+
+
 Building Ubuntu 18.04 Image
 ---------------------------
 

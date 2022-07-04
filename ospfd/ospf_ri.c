@@ -66,14 +66,16 @@
 static struct ospf_router_info OspfRI;
 
 /*------------------------------------------------------------------------------*
- * Followings are initialize/terminate functions for Router Information
+ * Following are initialize/terminate functions for Router Information
  *handling.
  *------------------------------------------------------------------------------*/
 
 static void ospf_router_info_ism_change(struct ospf_interface *oi,
 					int old_status);
 static void ospf_router_info_config_write_router(struct vty *vty);
-static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_router_info_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa);
 static int ospf_router_info_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_router_info_lsa_schedule(struct ospf_ri_area_info *ai,
@@ -88,7 +90,7 @@ int ospf_router_info_init(void)
 
 	zlog_info("RI (%s): Initialize Router Information", __func__);
 
-	memset(&OspfRI, 0, sizeof(struct ospf_router_info));
+	memset(&OspfRI, 0, sizeof(OspfRI));
 	OspfRI.enabled = false;
 	OspfRI.registered = 0;
 	OspfRI.scope = OSPF_OPAQUE_AS_LSA;
@@ -230,7 +232,7 @@ static struct ospf_ri_area_info *lookup_by_area(struct ospf_area *area)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are control functions for ROUTER INFORMATION parameters
+ * Following are control functions for ROUTER INFORMATION parameters
  *management.
  *------------------------------------------------------------------------*/
 
@@ -666,7 +668,7 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are callback functions against generic Opaque-LSAs handling.
+ * Following are callback functions against generic Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 static void ospf_router_info_ism_change(struct ospf_interface *oi,
 					int old_state)
@@ -691,7 +693,7 @@ static void ospf_router_info_ism_change(struct ospf_interface *oi,
 }
 
 /*------------------------------------------------------------------------*
- * Followings are OSPF protocol processing functions for ROUTER INFORMATION
+ * Following are OSPF protocol processing functions for ROUTER INFORMATION
  *------------------------------------------------------------------------*/
 
 static void build_tlv_header(struct stream *s, struct tlv_header *tlvh)
@@ -1221,7 +1223,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty session control functions.
+ * Following are vty session control functions.
  *------------------------------------------------------------------------*/
 
 #define check_tlv_size(size, msg)                                              \
@@ -1552,11 +1554,16 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_router_info_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1653,7 +1660,7 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 }
 
 /*------------------------------------------------------------------------*
- * Followings are vty command functions.
+ * Following are vty command functions.
  *------------------------------------------------------------------------*/
 /* Simple wrapper schedule RI LSA action in function of the scope */
 static void ospf_router_info_schedule(enum lsa_opcode opcode)

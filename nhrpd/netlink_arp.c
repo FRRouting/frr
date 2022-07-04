@@ -100,14 +100,13 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
 }
 
-static int netlink_log_recv(struct thread *t)
+static void netlink_log_recv(struct thread *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
 	int fd = THREAD_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
-	netlink_log_thread = NULL;
 
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
@@ -125,8 +124,6 @@ static int netlink_log_recv(struct thread *t)
 
 	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
 			&netlink_log_thread);
-
-	return 0;
 }
 
 void netlink_set_nflog_group(int nlgroup)
@@ -148,7 +145,7 @@ void netlink_set_nflog_group(int nlgroup)
 	}
 }
 
-void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
+int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
 	struct interface *ifp;
@@ -158,7 +155,7 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 
 	zclient_neigh_ip_decode(zclient->ibuf, &api);
 	if (api.ip_in.ipa_type == AF_UNSPEC)
-		return;
+		return 0;
 	sockunion_family(&addr) = api.ip_in.ipa_type;
 	memcpy((uint8_t *)sockunion_get_addr(&addr), &api.ip_in.ip.addr,
 	       family2addrsize(api.ip_in.ipa_type));
@@ -173,10 +170,10 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	ndm_state = api.ndm_state;
 
 	if (!ifp)
-		return;
+		return 0;
 	c = nhrp_cache_get(ifp, &addr, 0);
 	if (!c)
-		return;
+		return 0;
 	debugf(NHRP_DEBUG_KERNEL,
 	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
 	       (cmd == ZEBRA_NHRP_NEIGH_GET)
@@ -201,4 +198,5 @@ void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			: ZEBRA_NEIGH_STATE_FAILED;
 		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
+	return 0;
 }

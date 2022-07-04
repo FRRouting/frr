@@ -44,7 +44,6 @@ char backup_config_file[256];
 
 bool mpls_enabled;
 
-
 zebra_capabilities_t _caps_p[] = {
 };
 
@@ -91,7 +90,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t static_signals[] = {
+struct frr_signal_t static_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,

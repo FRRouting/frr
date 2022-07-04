@@ -135,7 +135,7 @@ def setup_module(mod):
         l3mdev_accept = 0
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     tgen.start_topology()
 
     # Configure MAC address for hosts as these MACs are advertised with EVPN type-2 routes
@@ -192,7 +192,7 @@ def setup_module(mod):
         pe.cmd_raises("sysctl -w net.ipv4.udp_l3mdev_accept={}".format(l3mdev_accept))
         pe.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
 
-    # For all registred routers, load the zebra configuration file
+    # For all registered routers, load the zebra configuration file
     for (name, router) in tgen.routers().items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(name))

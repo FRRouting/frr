@@ -163,6 +163,10 @@ static struct {
 			{
 				1, (pvalue_t[]){CAP_IPC_LOCK},
 			},
+		[ZCAP_SYS_RAWIO] =
+			{
+				1, (pvalue_t[]){CAP_SYS_RAWIO},
+			},
 #endif /* HAVE_LCAPS */
 };
 
@@ -282,9 +286,6 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 		}
 	}
 
-	if (!zprivs_state.syscaps_p)
-		return;
-
 	if (!(zprivs_state.caps = cap_init())) {
 		fprintf(stderr, "privs_init: failed to cap_init, %s\n",
 			safe_strerror(errno));
@@ -297,10 +298,12 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 		exit(1);
 	}
 
-	/* set permitted caps */
-	cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
-		     zprivs_state.syscaps_p->num, zprivs_state.syscaps_p->caps,
-		     CAP_SET);
+	/* set permitted caps, if any */
+	if (zprivs_state.syscaps_p && zprivs_state.syscaps_p->num) {
+		cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
+			     zprivs_state.syscaps_p->num,
+			     zprivs_state.syscaps_p->caps, CAP_SET);
+	}
 
 	/* set inheritable caps, if any */
 	if (zprivs_state.syscaps_i && zprivs_state.syscaps_i->num) {
@@ -360,7 +363,7 @@ static void zprivs_caps_terminate(void)
 	}
 
 	/* free up private state */
-	if (zprivs_state.syscaps_p->num) {
+	if (zprivs_state.syscaps_p && zprivs_state.syscaps_p->num) {
 		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p->caps);
 		XFREE(MTYPE_PRIVS, zprivs_state.syscaps_p);
 	}
@@ -684,7 +687,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 #else  /* !HAVE_CAPABILITIES */
 	/* we dont have caps. we'll need to maintain rid and saved uid
-	 * and change euid back to saved uid (who we presume has all neccessary
+	 * and change euid back to saved uid (who we presume has all necessary
 	 * privileges) whenever we are asked to raise our privileges.
 	 *
 	 * This is not worth that much security wise, but all we can do.

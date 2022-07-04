@@ -137,10 +137,7 @@ struct ripng {
 
 	/* RIPng threads. */
 	struct thread *t_read;
-	struct thread *t_write;
 	struct thread *t_update;
-	struct thread *t_garbage;
-	struct thread *t_zebra;
 
 	/* Triggered update hack. */
 	int trigger;

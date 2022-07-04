@@ -150,7 +150,7 @@ static struct ospf_lsa *ospf_gr_lsa_new(struct ospf_interface *oi)
 }
 
 /* Originate and install Grace-LSA for a given interface. */
-static void ospf_gr_lsa_originate(struct ospf_interface *oi)
+static void ospf_gr_lsa_originate(struct ospf_interface *oi, bool maxage)
 {
 	struct ospf_lsa *lsa, *old;
 
@@ -163,6 +163,9 @@ static void ospf_gr_lsa_originate(struct ospf_interface *oi)
 		zlog_warn("%s: ospf_gr_lsa_new() failed", __func__);
 		return;
 	}
+
+	if (maxage)
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 
 	/* Find the old LSA and increase the seqno. */
 	old = ospf_gr_lsa_lookup(oi->ospf, oi->area);
@@ -183,37 +186,6 @@ static void ospf_gr_lsa_originate(struct ospf_interface *oi)
 	ospf_flood_through_interface(oi, NULL, lsa);
 }
 
-/* Flush a given self-originated Grace-LSA. */
-static struct ospf_lsa *ospf_gr_flush_grace_lsa(struct ospf_interface *oi,
-						struct ospf_lsa *old)
-{
-	struct ospf_lsa *lsa;
-
-	if (ospf_interface_neighbor_count(oi) == 0)
-		return NULL;
-
-	if (IS_DEBUG_OSPF_GR)
-		zlog_debug(
-			"GR: flushing self-originated Grace-LSAs [interface %s]",
-			oi->ifp->name);
-
-	lsa = ospf_lsa_dup(old);
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
-	lsa->data->ls_seqnum = lsa_seqnum_increment(lsa);
-
-	/* Install updated LSA into LSDB. */
-	if (ospf_lsa_install(oi->ospf, oi, lsa) == NULL) {
-		zlog_warn("%s: ospf_lsa_install() failed", __func__);
-		ospf_lsa_unlock(&lsa);
-		return NULL;
-	}
-
-	/* Flood the LSA through out the interface */
-	ospf_flood_through_interface(oi, NULL, lsa);
-
-	return lsa;
-}
-
 /* Flush all self-originated Grace-LSAs. */
 static void ospf_gr_flush_grace_lsas(struct ospf *ospf)
 {
@@ -221,7 +193,6 @@ static void ospf_gr_flush_grace_lsas(struct ospf *ospf)
 	struct listnode *anode;
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, anode, area)) {
-		struct ospf_lsa *lsa;
 		struct ospf_interface *oi;
 		struct listnode *inode;
 
@@ -230,15 +201,8 @@ static void ospf_gr_flush_grace_lsas(struct ospf *ospf)
 				"GR: flushing self-originated Grace-LSAs [area %pI4]",
 				&area->area_id);
 
-		lsa = ospf_gr_lsa_lookup(ospf, area);
-		if (!lsa) {
-			zlog_warn("%s: Grace-LSA not found [area %pI4]",
-				  __func__, &area->area_id);
-			continue;
-		}
-
 		for (ALL_LIST_ELEMENTS_RO(area->oiflist, inode, oi))
-			ospf_gr_flush_grace_lsa(oi, lsa);
+			ospf_gr_lsa_originate(oi, true);
 	}
 }
 
@@ -546,14 +510,12 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 }
 
 /* Handling of grace period expiry. */
-static int ospf_gr_grace_period_expired(struct thread *thread)
+static void ospf_gr_grace_period_expired(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 
 	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
-
-	return 0;
 }
 
 /*
@@ -584,7 +546,7 @@ static void ospf_gr_nvm_update(struct ospf *ospf)
 	json_object *json_instance;
 
 	filepath = ospf_gr_nvm_filepath(ospf);
-	inst_name = ospf->name ? ospf->name : VRF_DEFAULT_NAME;
+	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
@@ -630,7 +592,7 @@ static void ospf_gr_nvm_delete(struct ospf *ospf)
 	json_object *json_instances;
 
 	filepath = ospf_gr_nvm_filepath(ospf);
-	inst_name = ospf->name ? ospf->name : VRF_DEFAULT_NAME;
+	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
@@ -663,7 +625,7 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 	time_t timestamp = 0;
 
 	filepath = ospf_gr_nvm_filepath(ospf);
-	inst_name = ospf->name ? ospf->name : VRF_DEFAULT_NAME;
+	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
@@ -750,7 +712,7 @@ static void ospf_gr_prepare(void)
 
 		/* Send a Grace-LSA to all neighbors. */
 		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, inode, oi))
-			ospf_gr_lsa_originate(oi);
+			ospf_gr_lsa_originate(oi, false);
 
 		/* Record end of the grace period in non-volatile memory. */
 		ospf_gr_nvm_update(ospf);
@@ -768,8 +730,20 @@ DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
       "Graceful Restart commands\n"
       "Prepare upcoming graceful restart\n"
       IP_STR
-      "Prepare to restart the OSPF process")
+      "Prepare to restart the OSPF process\n")
 {
+	struct ospf *ospf;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
+			vty_out(vty,
+				"%% Can't start graceful restart: opaque capability not enabled (VRF %s)\n\n",
+				ospf_get_name(ospf));
+			return CMD_WARNING;
+		}
+	}
+
 	ospf_gr_prepare();
 
 	return CMD_SUCCESS;
@@ -794,7 +768,7 @@ DEFPY(graceful_restart, graceful_restart_cmd,
 }
 
 DEFPY(no_graceful_restart, no_graceful_restart_cmd,
-      "no graceful-restart [period (1-1800)]",
+      "no graceful-restart [grace-period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")

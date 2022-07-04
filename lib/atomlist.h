@@ -100,7 +100,7 @@ static inline bool atomptr_u(atomptr_t val)
 /* single-linked list, unsorted/arbitrary.
  * can be used as queue with add_tail / pop
  *
- * all operations are lock-free, but not neccessarily wait-free.  this means
+ * all operations are lock-free, but not necessarily wait-free.  this means
  * that there is no state where the system as a whole stops making process,
  * but it *is* possible that a *particular* thread is delayed by some time.
  *

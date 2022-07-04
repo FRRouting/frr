@@ -238,7 +238,7 @@ static void vnc_rhnck(char *tag)
 		struct prefix pfx_orig_nexthop;
 
 		memset(&pfx_orig_nexthop, 0,
-		       sizeof(struct prefix)); /* keep valgrind happy */
+		       sizeof(pfx_orig_nexthop)); /* keep valgrind happy */
 
 		pkey = p->key;
 		pb = p->value;
@@ -303,7 +303,7 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 	struct prefix pfx_orig_nexthop;
 
 	memset(&pfx_orig_nexthop, 0,
-	       sizeof(struct prefix)); /* keep valgrind happy */
+	       sizeof(pfx_orig_nexthop)); /* keep valgrind happy */
 
 	/*
 	 * prefix list check
@@ -346,7 +346,7 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 	 * must be freed before we return. It's easier to put it after
 	 * all of the possible returns above.
 	 */
-	memset(&hattr, 0, sizeof(struct attr));
+	memset(&hattr, 0, sizeof(hattr));
 	/* hattr becomes a ghost attr */
 	hattr = *attr;
 
@@ -373,8 +373,8 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 	 */
 	rfapiUnicastNexthop2Prefix(afi, &hattr, unicast_nexthop);
 
-	if (hattr.ecommunity)
-		*ecom = ecommunity_dup(hattr.ecommunity);
+	if (bgp_attr_get_ecommunity(&hattr))
+		*ecom = ecommunity_dup(bgp_attr_get_ecommunity(&hattr));
 	else
 		*ecom = ecommunity_new();
 
@@ -480,8 +480,8 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 
 	struct ecommunity *new_ecom = ecommunity_dup(ecom);
 
-	if (bpi->attr->ecommunity)
-		ecommunity_merge(new_ecom, bpi->attr->ecommunity);
+	if (bgp_attr_get_ecommunity(bpi->attr))
+		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
 	if (bpi->extra)
 		label = decode_label(&bpi->extra->label[0]);
@@ -773,7 +773,7 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	 * must be freed before we return. It's easier to put it after
 	 * all of the possible returns above.
 	 */
-	memset(&hattr, 0, sizeof(struct attr));
+	memset(&hattr, 0, sizeof(hattr));
 	/* hattr becomes a ghost attr */
 	hattr = *attr;
 
@@ -818,8 +818,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 		memset(&prd, 0, sizeof(prd));
 		rfapi_set_autord_from_vn(&prd, &vnaddr);
 
-		if (iattr && iattr->ecommunity)
-			ecom = ecommunity_dup(iattr->ecommunity);
+		if (iattr && bgp_attr_get_ecommunity(iattr))
+			ecom = ecommunity_dup(bgp_attr_get_ecommunity(iattr));
 	}
 
 	local_pref = calc_local_pref(iattr, peer);
@@ -966,7 +966,7 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 	 * must be freed before we return. It's easier to put it after
 	 * all of the possible returns above.
 	 */
-	memset(&hattr, 0, sizeof(struct attr));
+	memset(&hattr, 0, sizeof(hattr));
 	/* hattr becomes a ghost attr */
 	hattr = *attr;
 
@@ -1015,8 +1015,9 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 		else
 			ecom = ecommunity_new();
 
-		if (iattr && iattr->ecommunity)
-			ecom = ecommunity_merge(ecom, iattr->ecommunity);
+		if (iattr && bgp_attr_get_ecommunity(iattr))
+			ecom = ecommunity_merge(ecom,
+						bgp_attr_get_ecommunity(iattr));
 	}
 
 	local_pref = calc_local_pref(iattr, peer);
@@ -1419,7 +1420,7 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 		uint32_t local_pref;
 
 		memset(&pfx_unicast_nexthop, 0,
-		       sizeof(struct prefix)); /* keep valgrind happy */
+		       sizeof(pfx_unicast_nexthop)); /* keep valgrind happy */
 
 		if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE))
 			vnc_zlog_debug_any(
@@ -1537,7 +1538,7 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 		struct prefix pfx_unicast_nexthop;
 
 		memset(&pfx_unicast_nexthop, 0,
-		       sizeof(struct prefix)); /* keep valgrind happy */
+		       sizeof(pfx_unicast_nexthop)); /* keep valgrind happy */
 
 		if (process_unicast_route(bgp, afi, &pb->upfx, pb->ubpi, &ecom,
 					  &pfx_unicast_nexthop)) {
@@ -1712,7 +1713,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 					prd = NULL;
 
 				/* use local_pref from unicast route */
-				memset(&new_attr, 0, sizeof(struct attr));
+				memset(&new_attr, 0, sizeof(new_attr));
 				new_attr = *bpi_interior->attr;
 				if (info->attr->flag
 				    & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
@@ -1806,7 +1807,7 @@ void vnc_import_bgp_exterior_del_route(
 		return;
 
 	memset(&pfx_orig_nexthop, 0,
-	       sizeof(struct prefix)); /* keep valgrind happy */
+	       sizeof(pfx_orig_nexthop)); /* keep valgrind happy */
 
 	h = bgp_default->rfapi;
 	hc = bgp_default->rfapi_cfg;
@@ -2472,7 +2473,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 					prd = NULL;
 
 				/* use local_pref from unicast route */
-				memset(&new_attr, 0, sizeof(struct attr));
+				memset(&new_attr, 0, sizeof(new_attr));
 				new_attr = *bpi->attr;
 				if (bpi_exterior
 				    && (bpi_exterior->attr->flag

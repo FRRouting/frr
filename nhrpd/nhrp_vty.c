@@ -987,10 +987,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	if (uj) {
 		json_object_object_add(json_vrf_path, "attr", json_vrf);
 		json_object_object_add(json_vrf_path, "table", ctx.json);
-		vty_out(vty, "%s",
-			json_object_to_json_string_ext(
-			       json_vrf_path, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_vrf_path);
+		vty_json(vty, json_vrf_path);
 	}
 	return ret;
 }
@@ -1004,18 +1001,15 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 {
 	struct dmvpn_cfg *ctxt = ctx;
 	struct vty *vty;
-	char buf[2][SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
 
 	if (!ctxt || !ctxt->vty)
 		return;
 	vty = ctxt->vty;
-	sockunion2str(&vc->local.nbma, buf[0], sizeof(buf[0]));
-	sockunion2str(&vc->remote.nbma, buf[1], sizeof(buf[1]));
 	if (ctxt->json) {
 		json = json_object_new_object();
-		json_object_string_add(json, "src", buf[0]);
-		json_object_string_add(json, "dst", buf[1]);
+		json_object_string_addf(json, "src", "%pSU", &vc->local.nbma);
+		json_object_string_addf(json, "dst", "%pSU", &vc->remote.nbma);
 
 		if (notifier_active(&vc->notifier_list))
 			json_object_boolean_true_add(json, "notifierActive");
@@ -1026,9 +1020,10 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 		json_object_string_add(json, "identity", vc->remote.id);
 		json_object_array_add(ctxt->json, json);
 	} else {
-		vty_out(vty, "%-24s %-24s %c      %-4d %-24s\n",
-			buf[0], buf[1], notifier_active(&vc->notifier_list) ?
-			'n' : ' ', vc->ipsec, vc->remote.id);
+		vty_out(vty, "%-24pSU %-24pSU %c      %-4d %-24s\n",
+			&vc->local.nbma, &vc->remote.nbma,
+			notifier_active(&vc->notifier_list) ? 'n' : ' ',
+			vc->ipsec, vc->remote.id);
 	}
 }
 
@@ -1052,12 +1047,8 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 		ctxt.json = json_path;
 	}
 	nhrp_vc_foreach(show_dmvpn_entry, &ctxt);
-	if (uj) {
-		vty_out(vty, "%s",
-			json_object_to_json_string_ext(
-			       json_path, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_path);
-	}
+	if (uj)
+		vty_json(vty, json_path);
 	return CMD_SUCCESS;
 }
 
@@ -1150,7 +1141,7 @@ static int interface_config_write(struct vty *vty)
 	int i;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		vty_frame(vty, "interface %s\n", ifp->name);
+		if_vty_config_start(vty, ifp);
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -1200,9 +1191,7 @@ static int interface_config_write(struct vty *vty)
 			nhrp_cache_config_foreach(
 				ifp, interface_config_write_nhrp_map, &mapctx);
 
-			list_for_each_entry(nhs, &ad->nhslist_head,
-					    nhslist_entry)
-			{
+			frr_each (nhrp_nhslist, &ad->nhslist_head, nhs) {
 				vty_out(vty, " %s nhrp nhs ", aficmd);
 				if (sockunion_family(&nhs->proto_addr)
 				   == AF_UNSPEC)
@@ -1212,9 +1201,7 @@ static int interface_config_write(struct vty *vty)
 				vty_out(vty, " nbma %s\n", nhs->nbma_fqdn);
 			}
 
-			list_for_each_entry(mcast, &ad->mcastlist_head,
-					    list_entry)
-			{
+			frr_each (nhrp_mcastlist, &ad->mcastlist_head, mcast) {
 				vty_out(vty, " %s nhrp map multicast ", aficmd);
 				if (sockunion_family(&mcast->nbma_addr)
 				   == AF_UNSPEC)
@@ -1225,7 +1212,7 @@ static int interface_config_write(struct vty *vty)
 			}
 		}
 
-		vty_endframe(vty, "exit\n!\n");
+		if_vty_config_end(vty);
 	}
 
 	return 0;

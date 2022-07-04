@@ -83,12 +83,12 @@ from lib.pim import (
     create_pim_config,
     create_igmp_config,
     verify_igmp_groups,
-    verify_ip_mroutes,
-    verify_pim_interface_traffic,
+    verify_mroutes,
+    get_pim_interface_traffic,
     verify_upstream_iif,
-    verify_ip_pim_join,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    verify_pim_join,
+    clear_mroute,
+    clear_pim_interface_traffic,
     verify_igmp_config,
     McastTesterHelper,
 )
@@ -179,7 +179,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, tgen.json_topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Don"t run this test if we have any failure.
@@ -280,7 +280,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     step("get joinRx value before join")
     intf_r2_l1 = topo["routers"]["r2"]["links"]["l1"]["interface"]
     state_dict = {"r2": {intf_r2_l1: ["joinRx"]}}
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -337,7 +337,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     ]
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -352,7 +352,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("joinRx value after join sent")
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -369,7 +369,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     step("l1 sent PIM (S,G) join to f1 , verify using 'show ip pim join'")
     dut = "f1"
     interface = intf_f1_r2
-    result = verify_ip_pim_join(tgen, topo, dut, interface, IGMP_JOIN)
+    result = verify_pim_join(tgen, topo, dut, interface, IGMP_JOIN)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
@@ -392,9 +392,9 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure RP on R2 (loopback interface) for the" " group range 225.0.0.0/8")
 
@@ -425,7 +425,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     step("joinRx value before join sent")
     state_dict = {"r2": {"r2-l1-eth2": ["joinRx"]}}
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -453,7 +453,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     # previous 80 retries with 2s wait if we assume .5s per vtysh/show ip mroute runtime
     # (41 * (2 + .5)) == 102.
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -474,7 +474,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("joinRx value after join sent")
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -491,7 +491,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     step("l1 sent PIM (S,G) join to f1 , verify using 'show ip pim join'")
     dut = "f1"
     interface = "f1-r2-eth3"
-    result = verify_ip_pim_join(tgen, topo, dut, interface, IGMP_JOIN)
+    result = verify_pim_join(tgen, topo, dut, interface, IGMP_JOIN)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
@@ -514,9 +514,9 @@ def test_clear_pim_neighbors_and_mroute_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP on c1 for group (225.1.1.1-5)")
     input_dict = {
@@ -558,13 +558,13 @@ def test_clear_pim_neighbors_and_mroute_p0(request):
     ]
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
 
     step("Clear mroutes on l1")
-    clear_ip_mroute(tgen, "l1")
+    clear_mroute(tgen, "l1")
 
     step(
         "After clear ip mroute (*,g) entries are re-populated again"
@@ -573,7 +573,7 @@ def test_clear_pim_neighbors_and_mroute_p0(request):
     )
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -607,9 +607,9 @@ def test_verify_mroute_when_same_receiver_in_FHR_LHR_and_RP_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure RP on R2 (loopback interface) for the" " group range 225.0.0.0/8")
 
@@ -684,7 +684,7 @@ def test_verify_mroute_when_same_receiver_in_FHR_LHR_and_RP_p0(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -709,9 +709,9 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) and (232.1.1.1-5)" " in c1")
 
@@ -837,7 +837,7 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
         },
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -874,7 +874,7 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
         },
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -923,7 +923,7 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
         },
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -996,7 +996,7 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
         },
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1026,9 +1026,9 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c2")
     input_dict = {
@@ -1074,7 +1074,7 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
         {"dut": "c2", "src_address": source, "iif": "c2-f1-eth1", "oil": "c2-c1-eth0"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -1100,7 +1100,7 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
         " router 'show ip mroute'"
     )
 
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, "c1", "*", IGMP_JOIN, "c1-c2-eth1", "c1-l1-eth0", expected=False
     )
     assert (
@@ -1129,9 +1129,9 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure RP on FRR2 (loopback interface) for " "the group range 225.0.0.0/8")
 
@@ -1187,7 +1187,7 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -1201,7 +1201,7 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     sleep(20)
 
     step("Clear the mroute on f1")
-    clear_ip_mroute(tgen, "f1")
+    clear_mroute(tgen, "f1")
 
     step(
         "After Shut the RP interface and clear the mroute verify all "
@@ -1209,7 +1209,7 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
         " 'show ip mroute' "
     )
 
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, "f1", "*", IGMP_JOIN, "f1-r2-eth3", "f1-i8-eth2", expected=False
     )
     assert (
@@ -1246,9 +1246,9 @@ def test_modify_igmp_query_timer_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     result = app_helper.run_join("i1", IGMP_JOIN, "l1")
@@ -1290,7 +1290,7 @@ def test_modify_igmp_query_timer_p0(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-r2-eth3"},
     ]
     for data in input_dict_4:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -1375,9 +1375,9 @@ def test_modify_igmp_max_query_response_timer_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     result = app_helper.run_join("i1", IGMP_JOIN, "l1")
@@ -1440,7 +1440,7 @@ def test_modify_igmp_max_query_response_timer_p0(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-r2-eth3"},
     ]
     for data in input_dict_5:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)

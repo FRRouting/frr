@@ -382,9 +382,16 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 	struct route_table *nbrs;
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
+	uint8_t shutdown_save = top->inst_shutdown;
 
 	/* At first, flush self-originated LSAs from routing domain. */
 	ospf_flush_self_originated_lsas_now(top);
+
+	/* ospf_flush_self_originated_lsas_now is primarily intended for shut
+	 * down scenarios. Reset the inst_shutdown flag that it sets. We are
+	 * just changing configuration, and the flag can change the scheduling
+	 * of when maxage LSAs are sent. */
+	top->inst_shutdown = shutdown_save;
 
 	/* Revert all neighbor status to ExStart. */
 	for (ALL_LIST_ELEMENTS_RO(top->oiflist, node, oi)) {

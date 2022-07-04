@@ -265,35 +265,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
 
-    # area interface information for ospf6d only
-    if ospf == "ospf6":
-        area_iface = ospf_data.setdefault("neighbors", {})
-        if area_iface:
-            for neighbor in area_iface:
-                if "area" in area_iface[neighbor]:
-                    iface = input_dict[router]["links"][neighbor]["interface"]
-                    cmd = "interface {} area {}".format(
-                        iface, area_iface[neighbor]["area"]
-                    )
-                    if area_iface[neighbor].setdefault("delete", False):
-                        cmd = "no {}".format(cmd)
-                    config_data.append(cmd)
-
-                try:
-                    if "area" in input_dict[router]["links"][neighbor]["ospf6"]:
-                        iface = input_dict[router]["links"][neighbor]["interface"]
-                        cmd = "interface {} area {}".format(
-                            iface,
-                            input_dict[router]["links"][neighbor]["ospf6"]["area"],
-                        )
-                        if input_dict[router]["links"][neighbor].setdefault(
-                            "delete", False
-                        ):
-                            cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
-                except KeyError:
-                    pass
-
     # summary information
     summary_data = ospf_data.setdefault("summary-address", {})
     if summary_data:
@@ -361,69 +332,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
     logger.debug("Exiting lib API: create_ospf_global()")
 
     return config_data
-
-
-def create_router_ospf6(
-    tgen, topo=None, input_dict=None, build=False, load_config=True
-):
-    """
-    API to configure ospf on router
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : json file data
-    * `input_dict` : Input dict data, required when configuring from testcase
-    * `build` : Only for initial setup phase this is set as True.
-
-    Usage
-    -----
-    input_dict = {
-        "r1": {
-            "ospf6": {
-                "router_id": "22.22.22.22",
-        }
-    }
-
-    Returns
-    -------
-    True or False
-    """
-    logger.debug("Entering lib API: create_router_ospf6()")
-    result = False
-
-    if topo is None:
-        topo = tgen.json_topo
-
-    if not input_dict:
-        input_dict = deepcopy(topo)
-    else:
-        topo = topo["routers"]
-        input_dict = deepcopy(input_dict)
-
-    config_data_dict = {}
-
-    for router in input_dict.keys():
-        if "ospf6" not in input_dict[router]:
-            logger.debug("Router %s: 'ospf6' not present in input_dict", router)
-            continue
-
-        config_data = __create_ospf_global(
-            tgen, input_dict, router, build, load_config, "ospf6"
-        )
-        if config_data:
-            config_data_dict[router] = config_data
-
-    try:
-        result = create_common_configurations(
-            tgen, config_data_dict, "ospf6", build, load_config
-        )
-    except InvalidCLIError:
-        logger.error("create_router_ospf6", exc_info=True)
-        result = False
-
-    logger.debug("Exiting lib API: create_router_ospf6()")
-    return result
 
 
 def config_ospf_interface(
@@ -874,6 +782,16 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
     }
     result = verify_ospf6_neighbor(tgen, topo, dut, input_dict, lan=True)
 
+    3. To check there are no neighbors.
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "neighbors": []
+            }
+        }
+    }
+    result = verify_ospf6_neighbor(tgen, topo, dut, input_dict)
+
     Returns
     -------
     True or False (Error Message)
@@ -903,6 +821,19 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
 
             ospf_data_list = input_dict[router]["ospf6"]
             ospf_nbr_list = ospf_data_list["neighbors"]
+
+            # Check if looking for no neighbors
+            if ospf_nbr_list == []:
+                if show_ospf_json["neighbors"] == []:
+                    logger.info("[DUT: {}] OSPF6 no neighbors found".format(router))
+                    return True
+                else:
+                    errormsg = (
+                        "[DUT: {}] OSPF6 active neighbors found, expected None".format(
+                            router
+                        )
+                    )
+                    return errormsg
 
             for ospf_nbr, nbr_data in ospf_nbr_list.items():
 
@@ -1737,7 +1668,7 @@ def verify_ospf6_rib(
             logger.info("Checking router %s RIB:", router)
 
             # Verifying RIB routes
-            command = "show ipv6 ospf route"
+            command = "show ipv6 ospf route detail"
 
             found_routes = []
             missing_routes = []
@@ -1779,6 +1710,8 @@ def verify_ospf6_rib(
 
                     # Generating IPs for verification
                     ip_list = generate_ips(network, no_of_ip)
+                    if len(ip_list) == 1:
+                        ip_list = [network]
                     st_found = False
                     nh_found = False
                     for st_rt in ip_list:
@@ -1915,7 +1848,7 @@ def verify_ospf6_rib(
                                     return errormsg
 
                             if metric is not None:
-                                if "type2cost" not in ospf_rib_json[st_rt]:
+                                if "metricCostE2" not in ospf_rib_json[st_rt]:
                                     errormsg = (
                                         "[DUT: {}]: metric is"
                                         " not present for"
@@ -1923,7 +1856,7 @@ def verify_ospf6_rib(
                                     )
                                     return errormsg
 
-                                if metric != ospf_rib_json[st_rt]["type2cost"]:
+                                if metric != ospf_rib_json[st_rt]["metricCostE2"]:
                                     errormsg = (
                                         "[DUT: {}]: metric value "
                                         "{} is not matched for "
@@ -2002,7 +1935,7 @@ def verify_ospf6_interface(tgen, topo=None, dut=None, lan=False, input_dict=None
     True or False (Error Message)
     """
 
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    logger.debug("Entering lib API: verify_ospf6_interface")
     result = False
 
     if topo is None:
@@ -2380,6 +2313,7 @@ def config_ospf6_interface(
     -------
     True or False
     """
+
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
     if topo is None:
@@ -2406,6 +2340,7 @@ def config_ospf6_interface(
             ospf_data = input_dict[router]["links"][lnk]["ospf6"]
             data_ospf_area = ospf_data.setdefault("area", None)
             data_ospf_auth = ospf_data.setdefault("hash-algo", None)
+            data_ospf_keychain = ospf_data.setdefault("keychain", None)
             data_ospf_dr_priority = ospf_data.setdefault("priority", None)
             data_ospf_cost = ospf_data.setdefault("cost", None)
             data_ospf_mtu = ospf_data.setdefault("mtu_ignore", None)
@@ -2438,9 +2373,18 @@ def config_ospf6_interface(
                         ospf_data["hash-algo"],
                         ospf_data["key"],
                     )
-                    if "del_action" in ospf_data:
-                        cmd = "no {}".format(cmd)
-                    config_data.append(cmd)
+                config_data.append(cmd)
+
+            # interface ospf auth with keychain
+            if data_ospf_keychain:
+                cmd = "ipv6 ospf6 authentication"
+
+                if "del_action" in ospf_data:
+                    cmd = "no {}".format(cmd)
+
+                if "keychain" in ospf_data:
+                    cmd = "{} keychain {}".format(cmd, ospf_data["keychain"])
+                config_data.append(cmd)
 
             # interface ospf dr priority
             if data_ospf_dr_priority:

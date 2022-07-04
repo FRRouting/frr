@@ -63,7 +63,7 @@ void ecommunity_strfree(char **s)
 	XFREE(MTYPE_ECOMMUNITY_STR, *s);
 }
 
-/* Allocate ecommunities.  */
+/* Free ecommunities.  */
 void ecommunity_free(struct ecommunity **ecom)
 {
 	if (!(*ecom))
@@ -210,7 +210,7 @@ ecommunity_uniq_sort_internal(struct ecommunity *ecom,
 	return new;
 }
 
-/* This function takes pointer to Extended Communites strucutre then
+/* This function takes pointer to Extended Communites structure then
  * create a new Extended Communities structure by uniq and sort each
  * Extended Communities value.
  */
@@ -934,7 +934,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			strlcat(str_buf, " ", str_size);
 
 		/* Retrieve value field */
-		pnt = ecom->val + (i * 8);
+		pnt = ecom->val + (i * ecom->unit_size);
 
 		/* High-order octet is the type */
 		type = *pnt++;

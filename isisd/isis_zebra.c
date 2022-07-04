@@ -38,6 +38,7 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "bfd.h"
+#include "link_state.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -747,6 +748,25 @@ static void isis_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
+/**
+ * Register / unregister Link State ZAPI Opaque Message
+ *
+ * @param up	True to register, false to unregister
+ *
+ * @return	0 if success, -1 otherwise
+ */
+int isis_zebra_ls_register(bool up)
+{
+	int rc;
+
+	if (up)
+		rc = ls_register(zclient, true);
+	else
+		rc = ls_unregister(zclient, true);
+
+	return rc;
+}
+
 /*
  * opaque messages between processes
  */
@@ -754,6 +774,7 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct zapi_opaque_msg info;
+	struct zapi_opaque_reg_info dst;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct zapi_rlfa_response rlfa;
@@ -764,6 +785,13 @@ static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	switch (info.type) {
+	case LINK_STATE_SYNC:
+		STREAM_GETC(s, dst.proto);
+		STREAM_GETW(s, dst.instance);
+		STREAM_GETL(s, dst.session_id);
+		dst.type = LINK_STATE_SYNC;
+		ret = isis_te_sync_ted(dst);
+		break;
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
 		STREAM_GET(&state, s, sizeof(state));
 		ret = isis_ldp_sync_state_update(state);
@@ -800,23 +828,31 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+static zclient_handler *const isis_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = isis_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = isis_zebra_if_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = isis_zebra_if_address_del,
+	[ZEBRA_INTERFACE_LINK_PARAMS] = isis_zebra_link_params,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = isis_zebra_read,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = isis_zebra_read,
+
+	[ZEBRA_OPAQUE_MESSAGE] = isis_opaque_msg_handler,
+
+	[ZEBRA_CLIENT_CLOSE_NOTIFY] = isis_zebra_client_close_notify,
+};
+
 void isis_zebra_init(struct thread_master *master, int instance)
 {
 	/* Initialize asynchronous zclient. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, isis_handlers,
+			      array_size(isis_handlers));
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
-	zclient->router_id_update = isis_router_id_update_zebra;
-	zclient->interface_address_add = isis_zebra_if_address_add;
-	zclient->interface_address_delete = isis_zebra_if_address_del;
-	zclient->interface_link_params = isis_zebra_link_params;
-	zclient->redistribute_route_add = isis_zebra_read;
-	zclient->redistribute_route_del = isis_zebra_read;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_ISIS;
 	zclient_sync->instance = instance;
@@ -826,10 +862,6 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	 */
 	zclient_sync->session_id = 1;
 	zclient_sync->privs = &isisd_privs;
-
-	zclient->opaque_msg_handler = isis_opaque_msg_handler;
-
-	zclient->zebra_client_close_notify = isis_zebra_client_close_notify;
 }
 
 void isis_zebra_stop(void)

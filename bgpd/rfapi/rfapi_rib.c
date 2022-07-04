@@ -291,7 +291,7 @@ struct rfapi_rib_tcb {
 /*
  * remove route from rib
  */
-static int rfapiRibExpireTimer(struct thread *t)
+static void rfapiRibExpireTimer(struct thread *t)
 {
 	struct rfapi_rib_tcb *tcb = t->arg;
 
@@ -328,8 +328,6 @@ static int rfapiRibExpireTimer(struct thread *t)
 	XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 
 	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	return 0;
 }
 
 static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
@@ -682,10 +680,11 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 		memcpy(&vo->v.l2addr.macaddr, bpi->extra->vnc.import.rd.val + 2,
 		       ETH_ALEN);
 
-		(void)rfapiEcommunityGetLNI(bpi->attr->ecommunity,
+		(void)rfapiEcommunityGetLNI(bgp_attr_get_ecommunity(bpi->attr),
 					    &vo->v.l2addr.logical_net_id);
-		(void)rfapiEcommunityGetEthernetTag(bpi->attr->ecommunity,
-						    &vo->v.l2addr.tag_id);
+		(void)rfapiEcommunityGetEthernetTag(
+			bgp_attr_get_ecommunity(bpi->attr),
+			&vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from RD */
 		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
@@ -1950,7 +1949,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			    && RFAPI_HOST_PREFIX(&rk.aux_prefix)) {
 				/* mark as "none" if nhp->prefix is 0/32 or
 				 * 0/128 */
-				rk.aux_prefix.family = 0;
+				rk.aux_prefix.family = AF_UNSPEC;
 			}
 		}
 
@@ -2109,10 +2108,9 @@ void rfapiRibPendingDeleteRoute(struct bgp *bgp, struct rfapi_import_table *it,
 				sl);
 
 			for (cursor = NULL,
-			    rc = skiplist_next(sl, NULL, (void **)&m,
-					       (void **)&cursor);
+			    rc = skiplist_next(sl, NULL, (void **)&m, &cursor);
 			     !rc; rc = skiplist_next(sl, NULL, (void **)&m,
-						     (void **)&cursor)) {
+						     &cursor)) {
 
 #if DEBUG_PENDING_DELETE_ROUTE
 				vnc_zlog_debug_verbose("%s: eth monitor rfd=%p",

@@ -24,7 +24,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include <prefix.h>
+#include "prefix.h"
+#include "pim_addr.h"
+
+#include "pim_addr.h"
 
 /*
  * Longest possible length of a (S,G) string is 36 bytes
@@ -35,12 +38,10 @@
  */
 #define PIM_SG_LEN PREFIX_SG_STR_LEN
 #define pim_inet4_dump prefix_mcast_inet4_dump
-#define pim_str_sg_set prefix_sg2str
 
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
 		    int buf_size);
-char *pim_str_sg_dump(const struct prefix_sg *sg);
 
 #endif

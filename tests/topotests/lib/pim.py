@@ -21,8 +21,10 @@ import os
 import re
 import sys
 import traceback
+import functools
 from copy import deepcopy
 from time import sleep
+from lib import topotest
 
 
 # Import common_config to use commomnly used APIs
@@ -271,18 +273,20 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                 config_data.append(cmd)
                 protocol = "igmp"
                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
+                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 cmd = "ip igmp"
                 if del_action:
                     cmd = "no {}".format(cmd)
-                config_data.append(cmd)
+                if not del_attr:
+                    config_data.append(cmd)
 
-                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 for attribute, data in intf_data[intf_name]["igmp"].items():
                     if attribute == "version":
                         cmd = "ip {} {} {}".format(protocol, attribute, data)
                         if del_action:
                             cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
+                        if not del_attr:
+                            config_data.append(cmd)
 
                     if attribute == "join":
                         for group in data:
@@ -521,6 +525,9 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected
             if "pim" not in data:
                 continue
 
+            if "pim" in data and data["pim"] == "disable":
+                continue
+
             if "pim" in data and data["pim"] == "enable":
                 local_interface = data["interface"]
 
@@ -600,7 +607,7 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected
     return True
 
 
-@retry(retry_timeout=40)
+@retry(retry_timeout=40, diag_pct=0)
 def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     """
     Verify IGMP groups are received from an intended interface
@@ -674,7 +681,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     return True
 
 
-@retry(retry_timeout=60)
+@retry(retry_timeout=60, diag_pct=0)
 def verify_upstream_iif(
     tgen,
     dut,
@@ -957,8 +964,8 @@ def verify_join_state_and_timer(
     return True
 
 
-@retry(retry_timeout=120)
-def verify_ip_mroutes(
+@retry(retry_timeout=120, diag_pct=0)
+def verify_mroutes(
     tgen,
     dut,
     src_address,
@@ -971,7 +978,7 @@ def verify_ip_mroutes(
 ):
     """
     Verify ip mroutes and make sure (*, G)/(S, G) is present in mroutes
-    by running "show ip pim upstream" cli
+    by running "show ip/ipv6 mroute" cli
 
     Parameters
     ----------
@@ -989,7 +996,7 @@ def verify_ip_mroutes(
     -----
     dut = "r1"
     group_address = "225.1.1.1"
-    result = verify_ip_mroutes(tgen, dut, src_address, group_address)
+    result = verify_mroutes(tgen, dut, src_address, group_address)
 
     Returns
     -------
@@ -1162,7 +1169,7 @@ def verify_ip_mroutes(
     return True if return_uptime == False else uptime_dict
 
 
-@retry(retry_timeout=60)
+@retry(retry_timeout=60, diag_pct=0)
 def verify_pim_rp_info(
     tgen,
     topo,
@@ -1327,7 +1334,7 @@ def verify_pim_rp_info(
     return True
 
 
-@retry(retry_timeout=60)
+@retry(retry_timeout=60, diag_pct=0)
 def verify_pim_state(
     tgen,
     dut,
@@ -1441,16 +1448,16 @@ def verify_pim_state(
     return True
 
 
-def verify_pim_interface_traffic(tgen, input_dict):
+def get_pim_interface_traffic(tgen, input_dict):
     """
-    Verify ip pim interface traffice by running
+    get ip pim interface traffice by running
     "show ip pim interface traffic" cli
 
     Parameters
     ----------
     * `tgen`: topogen object
     * `input_dict(dict)`: defines DUT, what and from which interfaces
-                          traffic needs to be verified
+                          traffic needs to be retrieved
     Usage
     -----
     input_dict = {
@@ -1464,7 +1471,7 @@ def verify_pim_interface_traffic(tgen, input_dict):
         }
     }
 
-    result = verify_pim_interface_traffic(tgen, input_dict)
+    result = get_pim_interface_traffic(tgen, input_dict)
 
     Returns
     -------
@@ -1481,30 +1488,40 @@ def verify_pim_interface_traffic(tgen, input_dict):
         rnode = tgen.routers()[dut]
 
         logger.info("[DUT: %s]: Verifying pim interface traffic", dut)
-        show_pim_intf_traffic_json = run_frr_cmd(
-            rnode, "show ip pim interface traffic json", isjson=True
+
+        def show_pim_intf_traffic(rnode, dut, input_dict, output_dict):
+            show_pim_intf_traffic_json = run_frr_cmd(
+                rnode, "show ip pim interface traffic json", isjson=True
+            )
+
+            output_dict[dut] = {}
+            for intf, data in input_dict[dut].items():
+                interface_json = show_pim_intf_traffic_json[intf]
+                for state in data:
+
+                    # Verify Tx/Rx
+                    if state in interface_json:
+                        output_dict[dut][state] = interface_json[state]
+                    else:
+                        errormsg = (
+                            "[DUT %s]: %s is not present"
+                            "for interface %s [FAILED]!! " % (dut, state, intf)
+                        )
+                        return errormsg
+            return None
+
+        test_func = functools.partial(
+            show_pim_intf_traffic, rnode, dut, input_dict, output_dict
         )
-
-        output_dict[dut] = {}
-        for intf, data in input_dict[dut].items():
-            interface_json = show_pim_intf_traffic_json[intf]
-            for state in data:
-
-                # Verify Tx/Rx
-                if state in interface_json:
-                    output_dict[dut][state] = interface_json[state]
-                else:
-                    errormsg = (
-                        "[DUT %s]: %s is not present"
-                        "for interface %s [FAILED]!! " % (dut, state, intf)
-                    )
-                    return errormsg
+        (result, out) = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        if not result:
+            return out
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return output_dict
 
 
-@retry(retry_timeout=40)
+@retry(retry_timeout=40, diag_pct=0)
 def verify_pim_interface(
     tgen, topo, dut, interface=None, interface_ip=None, expected=True
 ):
@@ -1575,6 +1592,13 @@ def verify_pim_interface(
 
                     if pim_interface in show_ip_pim_interface_json:
                         pim_intf_json = show_ip_pim_interface_json[pim_interface]
+                    else:
+                        errormsg = (
+                            "[DUT %s]: PIM interface: %s "
+                            "PIM interface ip: %s, not Found"
+                            % (dut, pim_interface, pim_intf_ip)
+                        )
+                        return errormsg
 
                     # Verifying PIM interface
                     if (
@@ -1609,10 +1633,10 @@ def verify_pim_interface(
     return True
 
 
-def clear_ip_pim_interface_traffic(tgen, topo):
+def clear_pim_interface_traffic(tgen, topo):
     """
-    Clear ip pim interface traffice by running
-    "clear ip pim interface traffic" cli
+    Clear ip/ipv6 pim interface traffice by running
+    "clear ip/ipv6 pim interface traffic" cli
 
     Parameters
     ----------
@@ -1620,7 +1644,7 @@ def clear_ip_pim_interface_traffic(tgen, topo):
     Usage
     -----
 
-    result = clear_ip_pim_interface_traffic(tgen, topo)
+    result = clear_pim_interface_traffic(tgen, topo)
 
     Returns
     -------
@@ -1643,10 +1667,10 @@ def clear_ip_pim_interface_traffic(tgen, topo):
     return True
 
 
-def clear_ip_pim_interfaces(tgen, dut):
+def clear_pim_interfaces(tgen, dut):
     """
-    Clear ip pim interface by running
-    "clear ip pim interfaces" cli
+    Clear ip/ipv6 pim interface by running
+    "clear ip/ipv6 pim interfaces" cli
 
     Parameters
     ----------
@@ -1655,7 +1679,7 @@ def clear_ip_pim_interfaces(tgen, dut):
     Usage
     -----
 
-    result = clear_ip_pim_interfaces(tgen, dut)
+    result = clear_pim_interfaces(tgen, dut)
 
     Returns
     -------
@@ -1734,10 +1758,10 @@ def clear_ip_pim_interfaces(tgen, dut):
     return True
 
 
-def clear_ip_igmp_interfaces(tgen, dut):
+def clear_igmp_interfaces(tgen, dut):
     """
-    Clear ip igmp interfaces by running
-    "clear ip igmp interfaces" cli
+    Clear ip/ipv6 igmp interfaces by running
+    "clear ip/ipv6 igmp interfaces" cli
 
     Parameters
     ----------
@@ -1747,7 +1771,7 @@ def clear_ip_igmp_interfaces(tgen, dut):
     Usage
     -----
     dut = "r1"
-    result = clear_ip_igmp_interfaces(tgen, dut)
+    result = clear_igmp_interfaces(tgen, dut)
     Returns
     -------
     errormsg(str) or True
@@ -1814,9 +1838,9 @@ def clear_ip_igmp_interfaces(tgen, dut):
 
 
 @retry(retry_timeout=20)
-def clear_ip_mroute_verify(tgen, dut, expected=True):
+def clear_mroute_verify(tgen, dut, expected=True):
     """
-    Clear ip mroute by running "clear ip mroute" cli and verify
+    Clear ip/ipv6 mroute by running "clear ip/ipv6 mroute" cli and verify
     mroutes are up again after mroute clear
 
     Parameters
@@ -1828,7 +1852,7 @@ def clear_ip_mroute_verify(tgen, dut, expected=True):
     Usage
     -----
 
-    result = clear_ip_mroute_verify(tgen, dut)
+    result = clear_mroute_verify(tgen, dut)
 
     Returns
     -------
@@ -1914,9 +1938,9 @@ def clear_ip_mroute_verify(tgen, dut, expected=True):
     return True
 
 
-def clear_ip_mroute(tgen, dut=None):
+def clear_mroute(tgen, dut=None):
     """
-    Clear ip mroute by running "clear ip mroute" cli
+    Clear ip/ipv6 mroute by running "clear ip mroute" cli
 
     Parameters
     ----------
@@ -1925,7 +1949,7 @@ def clear_ip_mroute(tgen, dut=None):
 
     Usage
     -----
-    clear_ip_mroute(tgen, dut)
+    clear_mroute(tgen, dut)
     """
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
@@ -2283,7 +2307,7 @@ def verify_pim_grp_rp_source(
     return errormsg
 
 
-@retry(retry_timeout=60)
+@retry(retry_timeout=60, diag_pct=0)
 def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     """
     Verify all PIM interface are up and running, config is verified
@@ -2339,13 +2363,13 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
     return True
 
 
-@retry(retry_timeout=60)
-def verify_ip_pim_upstream_rpf(
+@retry(retry_timeout=60, diag_pct=0)
+def verify_pim_upstream_rpf(
     tgen, topo, dut, interface, group_addresses, rp=None, expected=True
 ):
     """
-    Verify IP PIM upstream rpf, config is verified
-    using "show ip pim neighbor" cli
+    Verify IP/IPv6 PIM upstream rpf, config is verified
+    using "show ip/ipv6 pim neighbor" cli
 
     Parameters
     ----------
@@ -2360,7 +2384,7 @@ def verify_ip_pim_upstream_rpf(
 
     Usage
     -----
-    result = verify_ip_pim_upstream_rpf(gen, topo, dut, interface,
+    result = verify_pim_upstream_rpf(gen, topo, dut, interface,
                                         group_addresses, rp=None)
 
     Returns
@@ -2539,12 +2563,12 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
     return result
 
 
-@retry(retry_timeout=60)
-def verify_ip_pim_join(
+@retry(retry_timeout=60, diag_pct=0)
+def verify_pim_join(
     tgen, topo, dut, interface, group_addresses, src_address=None, expected=True
 ):
     """
-    Verify ip pim join by running "show ip pim join" cli
+    Verify ip/ipv6 pim join by running "show ip/ipv6 pim join" cli
 
     Parameters
     ----------
@@ -2561,7 +2585,7 @@ def verify_ip_pim_join(
     dut = "r1"
     interface = "r1-r0-eth0"
     group_address = "225.1.1.1"
-    result = verify_ip_pim_join(tgen, dut, star, group_address, interface)
+    result = verify_pim_join(tgen, dut, star, group_address, interface)
 
     Returns
     -------
@@ -2632,7 +2656,7 @@ def verify_ip_pim_join(
     return True
 
 
-@retry(retry_timeout=60)
+@retry(retry_timeout=60, diag_pct=0)
 def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
     """
     Verify igmp interface details, verifying following configs:
@@ -2922,7 +2946,7 @@ def verify_igmp_config(tgen, input_dict, stats_return=False, expected=True):
     return True if stats_return == False else igmp_stats
 
 
-@retry(retry_timeout=60)
+@retry(retry_timeout=60, diag_pct=0)
 def verify_pim_config(tgen, input_dict, expected=True):
     """
     Verify pim interface details, verifying following configs:
@@ -3048,7 +3072,7 @@ def verify_pim_config(tgen, input_dict, expected=True):
     return True
 
 
-@retry(retry_timeout=40)
+@retry(retry_timeout=20, diag_pct=0)
 def verify_multicast_traffic(tgen, input_dict, return_traffic=False, expected=True):
     """
     Verify multicast traffic by running
@@ -3291,7 +3315,7 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
     return refCount
 
 
-@retry(retry_timeout=40)
+@retry(retry_timeout=40, diag_pct=0)
 def verify_multicast_flag_state(
     tgen, dut, src_address, group_addresses, flag, expected=True
 ):
@@ -3388,7 +3412,7 @@ def verify_multicast_flag_state(
     return True
 
 
-@retry(retry_timeout=40)
+@retry(retry_timeout=40, diag_pct=0)
 def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=True):
     """
     Verify all IGMP interface are up and running, config is verified
@@ -3537,6 +3561,141 @@ class McastTesterHelper(HostApplicationHelper):
             self.run(host, ["--send=0.7", send_to, bind_intf])
 
         return True
+
+
+@retry(retry_timeout=62)
+def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
+    """
+    Verify local IGMP groups are received from an intended interface
+    by running "show ip igmp join json" command
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface`: interface, from which IGMP groups are configured
+    * `group_addresses`: IGMP group address
+
+    Usage
+    -----
+    dut = "r1"
+    interface = "r1-r0-eth0"
+    group_address = "225.1.1.1"
+    result = verify_local_igmp_groups(tgen, dut, interface, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying local IGMP groups received:", dut)
+    show_ip_local_igmp_json = run_frr_cmd(rnode, "show ip igmp join json", isjson=True)
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    if interface not in show_ip_local_igmp_json:
+
+        errormsg = (
+            "[DUT %s]: Verifying local IGMP group received"
+            " from interface %s [FAILED]!! " % (dut, interface)
+        )
+        return errormsg
+
+    for grp_addr in group_addresses:
+        found = False
+        for index in show_ip_local_igmp_json[interface]["groups"]:
+            if index["group"] == grp_addr:
+                found = True
+                break
+        if not found:
+            errormsg = (
+                "[DUT %s]: Verifying local IGMP group received"
+                " from interface %s [FAILED]!! "
+                " Expected: %s " % (dut, interface, grp_addr)
+            )
+            return errormsg
+
+        logger.info(
+            "[DUT %s]: Verifying local IGMP group %s received "
+            "from interface %s [PASSED]!! ",
+            dut,
+            grp_addr,
+            interface,
+        )
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def verify_pim_interface_traffic(tgen, input_dict, return_stats=True):
+    """
+    Verify ip pim interface traffice by running
+    "show ip pim interface traffic" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict(dict)`: defines DUT, what and from which interfaces
+                          traffic needs to be verified
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "r1-r0-eth0": {
+                "helloRx": 0,
+                "helloTx": 1,
+                "joinRx": 0,
+                "joinTx": 0
+            }
+        }
+    }
+
+    result = verify_pim_interface_traffic(tgen, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    output_dict = {}
+    for dut in input_dict.keys():
+        if dut not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[dut]
+
+        logger.info("[DUT: %s]: Verifying pim interface traffic", dut)
+        show_pim_intf_traffic_json = run_frr_cmd(
+            rnode, "show ip pim interface traffic json", isjson=True
+        )
+
+        output_dict[dut] = {}
+        for intf, data in input_dict[dut].items():
+            interface_json = show_pim_intf_traffic_json[intf]
+            for state in data:
+
+                # Verify Tx/Rx
+                if state in interface_json:
+                    output_dict[dut][state] = interface_json[state]
+                else:
+                    errormsg = (
+                        "[DUT %s]: %s is not present"
+                        "for interface %s [FAILED]!! " % (dut, state, intf)
+                    )
+                    return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True if return_stats == False else output_dict
 
     # def cleanup(self):
     #     super(McastTesterHelper, self).cleanup()

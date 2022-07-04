@@ -34,7 +34,7 @@ static struct ospf *test_init(struct ospf_test_node *root)
 	struct in_addr area_id;
 	struct in_addr router_id;
 
-	ospf = ospf_new_alloc(0, NULL);
+	ospf = ospf_new_alloc(0, VRF_DEFAULT_NAME);
 
 	area_id.s_addr = OSPF_AREA_BACKBONE;
 	area = ospf_area_new(ospf, area_id);
@@ -52,6 +52,7 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 			 enum protection_type protection_type, bool verbose)
 {
 	struct route_table *new_table, *new_rtrs;
+	struct route_table *all_rtrs = NULL;
 	struct ospf_area *area;
 	struct p_space *p_space;
 	struct q_space *q_space;
@@ -63,10 +64,11 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 
 	new_table = route_table_init();
 	new_rtrs = route_table_init();
+	all_rtrs = route_table_init();
 
 	/* dryrun true, root_node false */
-	ospf_spf_calculate(area, area->router_lsa_self, new_table, new_rtrs,
-			   true, false);
+	ospf_spf_calculate(area, area->router_lsa_self, new_table, all_rtrs,
+			   new_rtrs, true, false);
 
 	if (verbose) {
 		vty_out(vty, "SPF Tree without TI-LFA backup paths:\n\n");

@@ -41,7 +41,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    """
+    r"""
       CE1     CE3      CE5
     (eth0)  (eth0)   (eth0)
       :2      :2      :2
@@ -152,13 +152,14 @@ def check_ping(name, dest_addr, expect_connected):
         tgen = get_topogen()
         output = tgen.gears[name].run("ping6 {} -c 1 -w 1".format(dest_addr))
         logger.info(output)
-        assert match in output, "ping fail"
+        if match not in output:
+            return "ping fail"
 
     match = "{} packet loss".format("0%" if expect_connected else "100%")
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, match)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    success, result = topotest.run_and_expect(func, None, count=10, wait=1)
     assert result is None, "Failed"
 
 
@@ -171,7 +172,7 @@ def check_rib(name, cmd, expected_file):
         expected = open_json_file("{}/{}".format(CWD, expected_file))
         return topotest.json_cmp(output, expected)
 
-    logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+    logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)

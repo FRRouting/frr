@@ -1,13 +1,15 @@
 #
 # libfrr
 #
+
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
 	lib/atomlist.c \
+	lib/base64.c \
 	lib/bfd.c \
 	lib/buffer.c \
 	lib/checksum.c \
@@ -16,10 +18,12 @@ lib_libfrr_la_SOURCES = \
 	lib/command_lex.l \
 	lib/command_match.c \
 	lib/command_parse.y \
+	lib/cspf.c \
 	lib/csv.c \
 	lib/debug.c \
 	lib/defaults.c \
 	lib/distribute.c \
+	lib/explicit_bzero.c \
 	lib/ferr.c \
 	lib/filter.c \
 	lib/filter_cli.c \
@@ -110,6 +114,9 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/zlog.c \
+	lib/zlog_5424.c \
+	lib/zlog_5424_cli.c \
+	lib/zlog_live.c \
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
@@ -130,7 +137,6 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
-	yang/frr-nexthop.yang.c \
 	# end
 
 vtysh_scan += \
@@ -169,11 +175,13 @@ clippy_scan += \
 	lib/routemap_cli.c \
 	lib/thread.c \
 	lib/vty.c \
+	lib/zlog_5424_cli.c \
 	# end
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
 	lib/atomlist.h \
+	lib/base64.h \
 	lib/bfd.h \
 	lib/bitfield.h \
 	lib/buffer.h \
@@ -183,6 +191,7 @@ pkginclude_HEADERS += \
 	lib/command_graph.h \
 	lib/command_match.h \
 	lib/compiler.h \
+	lib/cspf.h \
 	lib/csv.h \
 	lib/db.h \
 	lib/debug.h \
@@ -282,6 +291,8 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
+	lib/zlog_5424.h \
+	lib/zlog_live.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/routing_nb.h \
@@ -327,6 +338,7 @@ lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
 	lib/snmp.c \
 	# end
+
 
 #
 # c-ares support
@@ -514,6 +526,11 @@ lib/clippy-command_parse.$(OBJEXT): lib/command_lex.h
 lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
 
+DISTCLEANFILES += lib/command_lex.h \
+		  lib/command_lex.c \
+		  lib/command_parse.h \
+		  lib/command_parse.c
+
 rt_enabled =
 
 if BABELD
@@ -574,7 +591,7 @@ DISTCLEANFILES += lib/route_types.h
 
 if GIT_VERSION
 # bit of a trick here to always have up-to-date git stamps without triggering
-# unneccessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
+# unnecessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
 # but if we use that on gitversion.h it'll ripple through the .c file deps.
 # (even if gitversion.h's file timestamp doesn't change, make will think it
 # did, because of .PHONY...)

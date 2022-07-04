@@ -224,7 +224,7 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 	return ret;
 }
 
-int irdp_read_raw(struct thread *r)
+void irdp_read_raw(struct thread *r)
 {
 	struct interface *ifp;
 	struct zebra_if *zi;
@@ -233,7 +233,6 @@ int irdp_read_raw(struct thread *r)
 	int ret, ifindex = 0;
 
 	int irdp_sock = THREAD_FD(r);
-	t_irdp_raw = NULL;
 	thread_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
 			&t_irdp_raw);
 
@@ -244,22 +243,22 @@ int irdp_read_raw(struct thread *r)
 
 	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 	if (!ifp)
-		return ret;
+		return;
 
 	zi = ifp->info;
 	if (!zi)
-		return ret;
+		return;
 
 	irdp = zi->irdp;
 	if (!irdp)
-		return ret;
+		return;
 
 	if (!(irdp->flags & IF_ACTIVE)) {
 
 		if (irdp->flags & IF_DEBUG_MISC)
 			zlog_debug("IRDP: RX ICMP for disabled interface %s",
 				   ifp->name);
-		return 0;
+		return;
 	}
 
 	if (irdp->flags & IF_DEBUG_PACKET) {
@@ -270,8 +269,6 @@ int irdp_read_raw(struct thread *r)
 	}
 
 	parse_irdp_packet(buf, ret, ifp);
-
-	return ret;
 }
 
 void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,

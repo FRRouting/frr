@@ -128,7 +128,7 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 
 void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 {
-	if (circuit->state != C_STATE_UP) {
+	if (!circuit->area) {
 		circuit->is_type = newtype;
 		return;
 	}
@@ -148,6 +148,11 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 			"ISIS-Evt (%s) circuit type change - invalid level %s because area is %s",
 			circuit->area->area_tag, circuit_t2string(newtype),
 			circuit_t2string(circuit->area->is_type));
+		return;
+	}
+
+	if (circuit->state != C_STATE_UP) {
+		circuit->is_type = newtype;
 		return;
 	}
 
@@ -204,7 +209,7 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 
 /* events supporting code */
 
-int isis_event_dis_status_change(struct thread *thread)
+void isis_event_dis_status_change(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 
@@ -212,15 +217,13 @@ int isis_event_dis_status_change(struct thread *thread)
 
 	/* invalid arguments */
 	if (!circuit || !circuit->area)
-		return 0;
+		return;
 	if (IS_DEBUG_EVENTS)
 		zlog_debug("ISIS-Evt (%s) DIS status change",
 			   circuit->area->area_tag);
 
 	/* LSP generation again */
 	lsp_regenerate_schedule(circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return 0;
 }
 
 void isis_event_auth_failure(char *area_tag, const char *error_string,

@@ -5,6 +5,7 @@ noinst_HEADERS += \
 	include/linux/lwtunnel.h \
 	include/linux/mpls_iptunnel.h \
 	include/linux/neighbour.h \
+	include/linux/netconf.h \
 	include/linux/netlink.h \
 	include/linux/nexthop.h \
 	include/linux/rtnetlink.h \
@@ -16,4 +17,6 @@ noinst_HEADERS += \
 	include/linux/seg6_hmac.h \
 	include/linux/seg6_iptunnel.h \
 	include/linux/seg6_local.h \
+	include/linux/mroute.h \
+	include/linux/mroute6.h \
 	# end

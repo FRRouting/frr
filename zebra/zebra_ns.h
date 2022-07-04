@@ -39,6 +39,9 @@ struct nlsock {
 	int seq;
 	struct sockaddr_nl snl;
 	char name[64];
+
+	uint8_t *buf;
+	size_t buflen;
 };
 #endif
 
@@ -69,7 +72,7 @@ struct zebra_ns {
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
-int zebra_ns_init(const char *optional_default_name);
+int zebra_ns_init(void);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
 int zebra_ns_disabled(struct ns *ns);
 int zebra_ns_early_shutdown(struct ns *ns,

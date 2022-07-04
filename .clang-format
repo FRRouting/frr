@@ -15,7 +15,7 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AlignAfterOpenBracket: true
 SpaceAfterCStyleCast: false
 MaxEmptyLinesToKeep: 2
-BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBinaryOperators: None
 BreakStringLiterals: false
 SortIncludes:    false
 IncludeCategories:
@@ -28,6 +28,9 @@ ForEachMacros:
   - frr_each
   - frr_each_safe
   - frr_each_from
+  - frr_rev_each
+  - frr_rev_each_safe
+  - frr_rev_each_from
   - frr_with_mutex
   - frr_with_privs
   - LIST_FOREACH
@@ -69,6 +72,7 @@ ForEachMacros:
   - SUBGRP_FOREACH_ADJ_SAFE
   - AF_FOREACH
   - FOREACH_AFI_SAFI
+  - FOREACH_AFI_SAFI_NSF
   - FOREACH_SAFI
   # ospfd
   - LSDB_LOOP

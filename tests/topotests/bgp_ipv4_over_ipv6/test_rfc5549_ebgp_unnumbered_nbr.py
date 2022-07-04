@@ -126,7 +126,7 @@ def setup_module(mod):
     topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -154,7 +154,7 @@ def teardown_module():
 
 def get_llip(onrouter, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -181,7 +181,7 @@ def get_llip(onrouter, intf):
 
 def get_glipv6(onrouter, intf):
     """
-    API to get the global ipv6 address of a perticular interface
+    API to get the global ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -436,7 +436,6 @@ def test_restart_frr_p2(request):
     step("Activate same IPv6 nbr from IPv4 unicast family")
     step("Enable cap ext nh on r1 and r2 and activate in ipv4 addr family")
     step("Verify bgp convergence as ipv6 nbr is enabled on ipv4 addr family.")
-    reset_config_on_routers(tgen)
     bgp_convergence = verify_bgp_convergence(tgen, topo)
     assert bgp_convergence is True, "Testcase {} :Failed \n Error: {}".format(
         tc_name, bgp_convergence

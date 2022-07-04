@@ -26,6 +26,7 @@ import socket
 import subprocess
 import sys
 import traceback
+import functools
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -224,17 +225,9 @@ def run_frr_cmd(rnode, cmd, isjson=False):
     if cmd:
         ret_data = rnode.vtysh_cmd(cmd, isjson=isjson)
 
-        if True:
-            if isjson:
-                print_data = json.dumps(ret_data)
-            else:
-                print_data = ret_data
-            logger.info(
-                "Output for command [%s] on router %s:\n%s",
-                cmd,
-                rnode.name,
-                print_data,
-            )
+        if isjson:
+            rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
+
         return ret_data
 
     else:
@@ -1185,16 +1178,18 @@ def add_interfaces_to_vlan(tgen, input_dict):
                             interface, vlan_intf, vlan
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Bringing interface up
                         cmd = "ip link set {} up".format(vlan_intf)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Assigning IP address
                         ifaddr = ipaddress.ip_interface(
-                            u"{}/{}".format(
+                            "{}/{}".format(
                                 frr_unicode(data["ip"]), frr_unicode(data["subnet"])
                             )
                         )
@@ -1203,7 +1198,8 @@ def add_interfaces_to_vlan(tgen, input_dict):
                             ifaddr.version, vlan_intf, ifaddr
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
 
 def tcpdump_capture_start(
@@ -1504,11 +1500,9 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
             config_data = []
             if "vrfs" in c_data:
                 for vrf in c_data["vrfs"]:
-                    del_action = vrf.setdefault("delete", False)
                     name = vrf.setdefault("name", None)
                     table_id = vrf.setdefault("id", None)
-                    vni = vrf.setdefault("vni", None)
-                    del_vni = vrf.setdefault("no_vni", None)
+                    del_action = vrf.setdefault("delete", False)
 
                     if del_action:
                         # Kernel cmd- Add VRF and table
@@ -1542,43 +1536,45 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             )
                             rnode.run(cmd)
 
-                            if "links" in c_data:
-                                for destRouterLink, data in sorted(
-                                    c_data["links"].items()
-                                ):
-                                    # Loopback interfaces
-                                    if "type" in data and data["type"] == "loopback":
-                                        interface_name = destRouterLink
-                                    else:
-                                        interface_name = data["interface"]
+                for vrf in c_data["vrfs"]:
+                    vni = vrf.setdefault("vni", None)
+                    del_vni = vrf.setdefault("no_vni", None)
 
-                                    if "vrf" in data:
-                                        vrf_list = data["vrf"]
+                    if "links" in c_data:
+                        for destRouterLink, data in sorted(c_data["links"].items()):
+                            # Loopback interfaces
+                            if "type" in data and data["type"] == "loopback":
+                                interface_name = destRouterLink
+                            else:
+                                interface_name = data["interface"]
 
-                                        if type(vrf_list) is not list:
-                                            vrf_list = [vrf_list]
+                            if "vrf" in data:
+                                vrf_list = data["vrf"]
 
-                                        for _vrf in vrf_list:
-                                            cmd = "ip link set {} master {}".format(
-                                                interface_name, _vrf
-                                            )
+                                if type(vrf_list) is not list:
+                                    vrf_list = [vrf_list]
 
-                                            logger.info(
-                                                "[DUT: %s]: Running" " kernel cmd [%s]",
-                                                c_router,
-                                                cmd,
-                                            )
-                                            rnode.run(cmd)
+                                for _vrf in vrf_list:
+                                    cmd = "ip link set {} master {}".format(
+                                        interface_name, _vrf
+                                    )
 
-                        if vni:
-                            config_data.append("vrf {}".format(vrf["name"]))
-                            cmd = "vni {}".format(vni)
-                            config_data.append(cmd)
+                                    logger.info(
+                                        "[DUT: %s]: Running" " kernel cmd [%s]",
+                                        c_router,
+                                        cmd,
+                                    )
+                                    rnode.run(cmd)
 
-                        if del_vni:
-                            config_data.append("vrf {}".format(vrf["name"]))
-                            cmd = "no vni {}".format(del_vni)
-                            config_data.append(cmd)
+                    if vni:
+                        config_data.append("vrf {}".format(vrf["name"]))
+                        cmd = "vni {}".format(vni)
+                        config_data.append(cmd)
+
+                    if del_vni:
+                        config_data.append("vrf {}".format(vrf["name"]))
+                        cmd = "no vni {}".format(del_vni)
+                        config_data.append(cmd)
 
             if config_data:
                 config_data_dict[c_router] = config_data
@@ -1625,7 +1621,7 @@ def create_interface_in_kernel(
         ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
     else:
         ifaddr = ipaddress.ip_interface(
-            u"{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
+            "{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
         )
     cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
         ifaddr.version, name, ifaddr
@@ -2082,15 +2078,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                 else:
                     interface_name = data["interface"]
 
-                # Include vrf if present
-                if "vrf" in data:
-                    interface_data.append(
-                        "interface {} vrf {}".format(
-                            str(interface_name), str(data["vrf"])
-                        )
-                    )
-                else:
-                    interface_data.append("interface {}".format(str(interface_name)))
+                interface_data.append("interface {}".format(str(interface_name)))
 
                 if "ipv4" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv4"]
@@ -2543,6 +2531,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         ipv6_data = set_data.setdefault("ipv6", {})
                         local_preference = set_data.setdefault("locPrf", None)
                         metric = set_data.setdefault("metric", None)
+                        metric_type = set_data.setdefault("metric-type", None)
                         as_path = set_data.setdefault("path", {})
                         weight = set_data.setdefault("weight", None)
                         community = set_data.setdefault("community", {})
@@ -2552,6 +2541,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         nexthop = set_data.setdefault("nexthop", None)
                         origin = set_data.setdefault("origin", None)
                         ext_comm_list = set_data.setdefault("extcommunity", {})
+                        metrictype = set_data.setdefault("metric-type", {})
 
                         # Local Preference
                         if local_preference:
@@ -2559,9 +2549,17 @@ def create_route_maps(tgen, input_dict, build=False):
                                 "set local-preference {}".format(local_preference)
                             )
 
+                        # Metric-Type
+                        if metrictype:
+                            rmap_data.append("set metric-type {}\n".format(metrictype))
+
                         # Metric
                         if metric:
-                            rmap_data.append("set metric {} \n".format(metric))
+                            del_comm = set_data.setdefault("delete", None)
+                            if del_comm:
+                                rmap_data.append("no set metric {}".format(metric))
+                            else:
+                                rmap_data.append("set metric {}".format(metric))
 
                         # Origin
                         if origin:
@@ -2925,7 +2923,7 @@ def addKernelRoute(
     Parameters:
     -----------
     * `tgen`  : Topogen object
-    * `router`: router for which kernal routes needs to be added
+    * `router`: router for which kernel routes needs to be added
     * `intf`: interface name, for which kernel routes needs to be added
     * `bindToAddress`: bind to <host>, an interface or multicast
                        address
@@ -2965,23 +2963,33 @@ def addKernelRoute(
         logger.info("[DUT: {}]: Running command: [{}]".format(router, cmd))
         output = rnode.run(cmd)
 
-        # Verifying if ip route added to kernal
-        result = rnode.run(verify_cmd)
-        logger.debug("{}\n{}".format(verify_cmd, result))
-        if "/" in grp_addr:
-            ip, mask = grp_addr.split("/")
-            if mask == "32" or mask == "128":
-                grp_addr = ip
-        else:
-            mask = "32" if addr_type == "ipv4" else "128"
+        def check_in_kernel(rnode, verify_cmd, grp_addr, router):
+            # Verifying if ip route added to kernel
+            errormsg = None
+            result = rnode.run(verify_cmd)
+            logger.debug("{}\n{}".format(verify_cmd, result))
+            if "/" in grp_addr:
+                ip, mask = grp_addr.split("/")
+                if mask == "32" or mask == "128":
+                    grp_addr = ip
+                else:
+                    mask = "32" if addr_type == "ipv4" else "128"
 
-        if not re_search(r"{}".format(grp_addr), result) and mask != "0":
-            errormsg = (
-                "[DUT: {}]: Kernal route is not added for group"
-                " address {} Config output: {}".format(router, grp_addr, output)
-            )
+                    if not re_search(r"{}".format(grp_addr), result) and mask != "0":
+                        errormsg = (
+                            "[DUT: {}]: Kernal route is not added for group"
+                            " address {} Config output: {}".format(
+                                router, grp_addr, output
+                            )
+                        )
 
             return errormsg
+
+        test_func = functools.partial(
+            check_in_kernel, rnode, verify_cmd, grp_addr, router
+        )
+        (result, out) = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result, out
 
     logger.debug("Exiting lib API: addKernelRoute()")
     return True
@@ -3229,7 +3237,7 @@ def configure_interface_mac(tgen, input_dict):
 #############################################
 # Verification APIs
 #############################################
-@retry(retry_timeout=12)
+@retry(retry_timeout=40)
 def verify_rib(
     tgen,
     addr_type,
@@ -3357,8 +3365,9 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
+                        st_rt = str(
+                            ipaddress.ip_network(frr_unicode(st_rt), strict=False)
+                        )
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
                             continue
@@ -3367,11 +3376,18 @@ def verify_rib(
                             st_found = True
                             found_routes.append(st_rt)
 
+                            if "queued" in rib_routes_json[st_rt][0]:
+                                errormsg = "Route {} is queued\n".format(st_rt)
+                                return errormsg
+
                             if fib and next_hop:
                                 if type(next_hop) is not list:
                                     next_hop = [next_hop]
 
                                 for mnh in range(0, len(rib_routes_json[st_rt])):
+                                    if not "selected" in rib_routes_json[st_rt][mnh]:
+                                        continue
+
                                     if (
                                         "fib"
                                         in rib_routes_json[st_rt][mnh]["nexthops"][0]
@@ -3516,8 +3532,8 @@ def verify_rib(
 
                 if nh_found:
                     logger.info(
-                        "[DUT: {}]: Found next_hop {} for all bgp"
-                        " routes in RIB".format(router, next_hop)
+                        "[DUT: {}]: Found next_hop {} for"
+                        " RIB routes: {}".format(router, next_hop, found_routes)
                     )
 
                 if len(missing_routes) > 0:
@@ -3581,7 +3597,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt), strict=False))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3590,6 +3606,10 @@ def verify_rib(
                     if st_rt in rib_routes_json:
                         st_found = True
                         found_routes.append(st_rt)
+
+                        if "queued" in rib_routes_json[st_rt][0]:
+                            errormsg = "Route {} is queued\n".format(st_rt)
+                            return errormsg
 
                         if next_hop:
                             if type(next_hop) is not list:
@@ -3734,8 +3754,9 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
+                        st_rt = str(
+                            ipaddress.ip_network(frr_unicode(st_rt), strict=False)
+                        )
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
                             continue
@@ -3839,7 +3860,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt), strict=False))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -4194,7 +4215,7 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
 def get_ipv6_linklocal_address(topo, node, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -4913,8 +4934,13 @@ def verify_ip_nht(tgen, input_dict):
 
         for nh in nh_list:
             if nh in show_ip_nht:
-                logger.info("Nexthop %s is resolved on %s", nh, router)
-                return True
+                nht = run_frr_cmd(rnode, f"show ip nht {nh}")
+                if "unresolved" in nht:
+                    errormsg = "Nexthop {} became unresolved on {}".format(nh, router)
+                    return errormsg
+                else:
+                    logger.info("Nexthop %s is resolved on %s", nh, router)
+                    return True
             else:
                 errormsg = "Nexthop {} is resolved on {}".format(nh, router)
                 return errormsg

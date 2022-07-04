@@ -45,22 +45,20 @@ struct pim_nexthop_cache {
 
 	struct list *rp_list;
 	struct hash *upstream_hash;
-	/* Ideally this has to be list of scope zone. But for now we can just
-	 * have as a bool variable to say bsr_tracking.
-	 * Later this variable can be changed as a list of scope zones for
-	 * tracking same bsr for multiple scope zones.
+
+	/* bsr_count won't currently go above 1 as we only have global_scope,
+	 * but if anyone adds scope support multiple scopes may NHT-track the
+	 * same BSR
 	 */
-	bool bsr_tracking;
+	uint32_t bsr_count;
 };
 
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
 int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 			      struct pim_upstream *up, struct rp_info *rp,
-			      bool bsr_track_needed,
 			      struct pim_nexthop_cache *out_pnc);
 void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
-				struct pim_upstream *up, struct rp_info *rp,
-				bool del_bsr_tracking);
+				struct pim_upstream *up, struct rp_info *rp);
 struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
 						 struct pim_rpf *rpf);
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
@@ -72,9 +70,12 @@ void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 				     struct prefix *src, struct prefix *grp);
 void pim_rp_nexthop_del(struct rp_info *rp_info);
-bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
-		       struct in_addr ip_src);
-bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
-				 struct in_addr ip_src);
+
+/* for RPF check on BSM message receipt */
+void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr bsr_addr);
+void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr bsr_addr);
+/* RPF(bsr_addr) == src_ip%src_ifp? */
+bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
+			   struct interface *src_ifp, pim_addr src_ip);
 
 #endif

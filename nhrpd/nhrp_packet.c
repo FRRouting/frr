@@ -290,7 +290,7 @@ err:
 	return -1;
 }
 
-static int nhrp_packet_recvraw(struct thread *t)
+static void nhrp_packet_recvraw(struct thread *t)
 {
 	int fd = THREAD_FD(t), ifindex;
 	struct zbuf *zb;
@@ -304,7 +304,7 @@ static int nhrp_packet_recvraw(struct thread *t)
 
 	zb = zbuf_alloc(1500);
 	if (!zb)
-		return 0;
+		return;
 
 	len = zbuf_size(zb);
 	addrlen = sizeof(addr);
@@ -332,11 +332,10 @@ static int nhrp_packet_recvraw(struct thread *t)
 
 	nhrp_peer_recv(p, zb);
 	nhrp_peer_unref(p);
-	return 0;
+	return;
 
 err:
 	zbuf_free(zb);
-	return 0;
 }
 
 int nhrp_packet_init(void)

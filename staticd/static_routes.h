@@ -163,6 +163,7 @@ static_route_info_from_rnode(struct route_node *rn)
 }
 
 extern bool mpls_enabled;
+extern uint32_t zebra_ecmp_count;
 
 extern struct zebra_privs_t static_privs;
 

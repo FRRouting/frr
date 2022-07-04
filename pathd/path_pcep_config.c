@@ -301,7 +301,7 @@ int path_pcep_config_initiate_path(struct path *path)
 				return ERROR_19_9;
 			}
 			zlog_warn(
-				"(%s)PCE tried to REMOVE found canidate!, let's remove",
+				"(%s)PCE tried to REMOVE found candidate!, let's remove",
 				__func__);
 			candidate->policy->srp_id = path->srp_id;
 			SET_FLAG(candidate->policy->flags, F_POLICY_DELETED);

@@ -75,7 +75,8 @@ static const char * const ospf_rejected_reason_desc[] = {
 	"Router is in the process of graceful restart",
 };
 
-static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa);
+static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
+				     struct ospf_lsa *lsa);
 static bool ospf_check_change_in_rxmt_list(struct ospf_neighbor *nbr);
 
 static unsigned int ospf_enable_rtr_hash_key(const void *data)
@@ -345,14 +346,13 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf_handle_grace_timer_expiry(struct thread *thread)
+static void ospf_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf_neighbor *nbr = THREAD_ARG(thread);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
 	ospf_gr_helper_exit(nbr, OSPF_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF_GR_SUCCESS;
 }
 
 /*
@@ -623,9 +623,6 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 	struct listnode *node;
 	struct ospf_interface *oi;
 
-	if (!ospf->active_restarter_cnt)
-		return;
-
 	/* Topo change not required to be handled if strict
 	 * LSA check is disabled for this router.
 	 */
@@ -723,14 +720,10 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 
 	/* check exit triggered due to successful completion
 	 * of graceful restart.
-	 * If no, bring down the neighbour.
 	 */
 	if (reason != OSPF_GR_HELPER_COMPLETED) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug(
-				"%s, Failed GR exit, so bringing down the neighbour",
-				__func__);
-		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_KillNbr);
+			zlog_debug("%s, Unsuccessful GR exit", __func__);
 	}
 
 	/*Recalculate the DR for the network segment */
@@ -853,8 +846,8 @@ void ospf_gr_helper_support_set(struct ospf *ospf, bool support)
 				lookup.advRtrAddr.s_addr =
 					nbr->router_id.s_addr;
 				/* check if helper support enabled for the
-				 * corresponding routerid.If enabled, dont
-				 * dont exit from helper role.
+				 * corresponding routerid.If enabled, don't
+				 * exit from helper role.
 				 */
 				if (hash_lookup(ospf->enable_rtr_list, &lookup))
 					continue;
@@ -940,8 +933,8 @@ void ospf_gr_helper_support_set_per_routerid(struct ospf *ospf,
 
 	} else {
 		/* Add the routerid to the enable router hash table */
-		hash_get(ospf->enable_rtr_list, &temp,
-			 ospf_enable_rtr_hash_alloc);
+		(void)hash_get(ospf->enable_rtr_list, &temp,
+			       ospf_enable_rtr_hash_alloc);
 	}
 }
 
@@ -1016,7 +1009,8 @@ void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
  * Returns:
  *    Nothing.
  */
-static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
+static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
+				     struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = NULL;
 	struct tlv_header *tlvh = NULL;
@@ -1025,6 +1019,9 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 	struct grace_tlv_restart_addr *restartAddr;
 	uint16_t length = 0;
 	int sum = 0;
+
+	if (json)
+		return;
 
 	lsah = (struct lsa_header *)lsa->data;
 

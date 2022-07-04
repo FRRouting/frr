@@ -20,6 +20,9 @@
  */
 #include <zebra.h>
 
+/* for basename */
+#include <libgen.h>
+
 #include "log.h"
 #include "linklist.h"
 #include "command.h"
@@ -44,6 +47,7 @@
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vrf_clippy.c"
 #endif
+#include "zebra/table_manager.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -113,6 +117,10 @@ static int zebra_vrf_new(struct vrf *vrf)
 	otable_init(&zvrf->other_tables);
 
 	router_id_init(zvrf);
+
+	/* Initiate Table Manager per ZNS */
+	table_manager_enable(zvrf);
+
 	return 0;
 }
 
@@ -133,9 +141,8 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
 	else
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
-#if defined(HAVE_RTADV)
+
 	rtadv_vrf_init(zvrf);
-#endif
 
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
@@ -153,7 +160,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 		table = route_table_init();
 		table->cleanup = zebra_rnhtable_node_cleanup;
-		zvrf->import_check_table[afi] = table;
+		zvrf->rnh_table_multicast[afi] = table;
 	}
 
 	/* Kick off any VxLAN-EVPN processing. */
@@ -169,7 +176,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	struct interface *ifp;
 	afi_t afi;
 	safi_t safi;
-	unsigned i;
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
@@ -179,9 +185,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
 
-#if defined(HAVE_RTADV)
 	rtadv_vrf_terminate(zvrf);
-#endif
 
 	/* Inform clients that the VRF is now inactive. This is a
 	 * delete for the clients.
@@ -196,8 +200,8 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
-		route_table_finish(zvrf->import_check_table[afi]);
-		zvrf->import_check_table[afi] = NULL;
+		route_table_finish(zvrf->rnh_table_multicast[afi]);
+		zvrf->rnh_table_multicast[afi] = NULL;
 
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
@@ -214,21 +218,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
 	/* clean-up work queues */
-	for (i = 0; i < MQ_SIZE; i++) {
-		struct listnode *lnode, *nnode;
-		struct route_node *rnode;
-		rib_dest_t *dest;
-
-		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
-				       rnode)) {
-			dest = rib_dest_from_rnode(rnode);
-			if (dest && rib_dest_vrf(dest) == zvrf) {
-				route_unlock_node(rnode);
-				list_delete_node(zrouter.mq->subq[i], lnode);
-				zrouter.mq->size--;
-			}
-		}
-	}
+	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
 
 	/* Cleanup (free) routing tables and NHT tables. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -254,53 +244,20 @@ static int zebra_vrf_delete(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
 	struct other_route_table *otable;
-	struct route_table *table;
-	afi_t afi;
-	safi_t safi;
-	unsigned i;
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("VRF %s id %u deleted", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	/* clean-up work queues */
-	for (i = 0; i < MQ_SIZE; i++) {
-		struct listnode *lnode, *nnode;
-		struct route_node *rnode;
-		rib_dest_t *dest;
+	table_manager_disable(zvrf);
 
-		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
-				       rnode)) {
-			dest = rib_dest_from_rnode(rnode);
-			if (dest && rib_dest_vrf(dest) == zvrf) {
-				route_unlock_node(rnode);
-				list_delete_node(zrouter.mq->subq[i], lnode);
-				zrouter.mq->size--;
-			}
-		}
-	}
+	/* clean-up work queues */
+	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
 
 	/* Free Vxlan and MPLS. */
 	zebra_vxlan_close_tables(zvrf);
 	zebra_mpls_close_tables(zvrf);
-
-	/* release allocated memory */
-	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
-		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
-			table = zvrf->table[afi][safi];
-			if (table) {
-				zebra_router_release_table(zvrf, zvrf->table_id,
-							   afi, safi);
-				zvrf->table[afi][safi] = NULL;
-			}
-		}
-
-		if (zvrf->rnh_table[afi])
-			route_table_finish(zvrf->rnh_table[afi]);
-		if (zvrf->import_check_table[afi])
-			route_table_finish(zvrf->import_check_table[afi]);
-	}
 
 	otable = otable_pop(&zvrf->other_tables);
 	while (otable) {
@@ -324,18 +281,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 	vrf->info = NULL;
 
-	return 0;
-}
-
-static int zebra_vrf_update(struct vrf *vrf)
-{
-	struct zebra_vrf *zvrf = vrf->info;
-
-	assert(zvrf);
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u, name updated", vrf->name,
-			   zvrf_id(zvrf));
-	zebra_vrf_add_update(zvrf);
 	return 0;
 }
 
@@ -503,6 +448,12 @@ static int vrf_config_write(struct vty *vty)
 
 			if (zvrf->zebra_rnh_ipv6_default_route)
 				vty_out(vty, "ipv6 nht resolve-via-default\n");
+
+			if (zvrf->tbl_mgr
+			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
+				vty_out(vty, "ip table range %u %u\n",
+					zvrf->tbl_mgr->start,
+					zvrf->tbl_mgr->end);
 		} else {
 			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
@@ -517,6 +468,12 @@ static int vrf_config_write(struct vty *vty)
 
 			if (zvrf->zebra_rnh_ipv6_default_route)
 				vty_out(vty, " ipv6 nht resolve-via-default\n");
+
+			if (zvrf->tbl_mgr && vrf_is_backend_netns()
+			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
+				vty_out(vty, " ip table range %u %u\n",
+					zvrf->tbl_mgr->start,
+					zvrf->tbl_mgr->end);
 		}
 
 
@@ -546,10 +503,8 @@ DEFPY (vrf_netns,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	frr_with_privs(&zserv_privs) {
-		ret = vrf_netns_handler_create(vty, vrf, pathname,
-					       NS_UNKNOWN,
-					       NS_UNKNOWN,
-					       NS_UNKNOWN);
+		ret = zebra_vrf_netns_handler_create(
+			vty, vrf, pathname, NS_UNKNOWN, NS_UNKNOWN, NS_UNKNOWN);
 	}
 
 	return ret;
@@ -588,11 +543,104 @@ DEFUN (no_vrf_netns,
 	return CMD_SUCCESS;
 }
 
+/* if ns_id is different and not VRF_UNKNOWN,
+ * then update vrf identifier, and enable VRF
+ */
+static void vrf_update_vrf_id(ns_id_t ns_id, void *opaqueptr)
+{
+	ns_id_t vrf_id = (vrf_id_t)ns_id;
+	vrf_id_t old_vrf_id;
+	struct vrf *vrf = (struct vrf *)opaqueptr;
+
+	if (!vrf)
+		return;
+	old_vrf_id = vrf->vrf_id;
+	if (vrf_id == vrf->vrf_id)
+		return;
+	if (vrf->vrf_id != VRF_UNKNOWN)
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+	vrf->vrf_id = vrf_id;
+	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+	if (old_vrf_id == VRF_UNKNOWN)
+		vrf_enable(vrf);
+}
+
+int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
+				   char *pathname, ns_id_t ns_id,
+				   ns_id_t internal_ns_id,
+				   ns_id_t rel_def_ns_id)
+{
+	struct ns *ns = NULL;
+
+	if (!vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (vrf->vrf_id != VRF_UNKNOWN && vrf->ns_ctxt == NULL) {
+		if (vty)
+			vty_out(vty,
+				"VRF %u is already configured with VRF %s\n",
+				vrf->vrf_id, vrf->name);
+		else
+			zlog_info("VRF %u is already configured with VRF %s",
+				  vrf->vrf_id, vrf->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (vrf->ns_ctxt != NULL) {
+		ns = (struct ns *)vrf->ns_ctxt;
+		if (!strcmp(ns->name, pathname)) {
+			if (vty)
+				vty_out(vty,
+					"VRF %u already configured with NETNS %s\n",
+					vrf->vrf_id, ns->name);
+			else
+				zlog_info(
+					"VRF %u already configured with NETNS %s",
+					vrf->vrf_id, ns->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	ns = ns_lookup_name(pathname);
+	if (ns && ns->vrf_ctxt) {
+		struct vrf *vrf2 = (struct vrf *)ns->vrf_ctxt;
+
+		if (vrf2 == vrf)
+			return CMD_SUCCESS;
+		if (vty)
+			vty_out(vty,
+				"NS %s is already configured with VRF %u(%s)\n",
+				ns->name, vrf2->vrf_id, vrf2->name);
+		else
+			zlog_info("NS %s is already configured with VRF %u(%s)",
+				  ns->name, vrf2->vrf_id, vrf2->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	ns = ns_get_created(ns, pathname, ns_id);
+	ns->internal_ns_id = internal_ns_id;
+	ns->relative_default_ns = rel_def_ns_id;
+	ns->vrf_ctxt = (void *)vrf;
+	vrf->ns_ctxt = (void *)ns;
+	/* update VRF netns NAME */
+	strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
+
+	if (!ns_enable(ns, vrf_update_vrf_id)) {
+		if (vty)
+			vty_out(vty, "Can not associate NS %u with NETNS %s\n",
+				ns->ns_id, ns->name);
+		else
+			zlog_info("Can not associate NS %u with NETNS %s",
+				  ns->ns_id, ns->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* Zebra VRF initialization. */
 void zebra_vrf_init(void)
 {
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
-		 zebra_vrf_delete, zebra_vrf_update);
+		 zebra_vrf_delete);
+
+	hook_register(zserv_client_close, release_daemon_table_chunks);
 
 	vrf_cmd_init(vrf_config_write);
 

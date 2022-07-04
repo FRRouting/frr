@@ -113,7 +113,7 @@ const char *family2str(int family)
 	return "?";
 }
 
-/* Address Famiy Identifier to Address Family converter. */
+/* Address Family Identifier to Address Family converter. */
 int afi2family(afi_t afi)
 {
 	if (afi == AFI_IP)
@@ -177,8 +177,10 @@ const char *safi2str(safi_t safi)
 }
 
 /* If n includes p prefix then return 1 else return 0. */
-int prefix_match(const struct prefix *n, const struct prefix *p)
+int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 {
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
@@ -274,9 +276,11 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 }
 
 /* If n includes p then return 1 else return 0. Prefix mask is not considered */
-int prefix_match_network_statement(const struct prefix *n,
-				   const struct prefix *p)
+int prefix_match_network_statement(union prefixconstptr unet,
+				   union prefixconstptr upfx)
 {
+	const struct prefix *n = unet.p;
+	const struct prefix *p = upfx.p;
 	int offset;
 	int shift;
 	const uint8_t *np, *pp;
@@ -472,8 +476,10 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
  * address families don't match, return -1; otherwise the return value is
  * in range 0 ... maximum prefix length for the address family.
  */
-int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
+int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub)
 {
+	const struct prefix *p1 = ua.p;
+	const struct prefix *p2 = ub.p;
 	int pos, bit;
 	int length = 0;
 	uint8_t xor ;
@@ -509,8 +515,10 @@ int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
 }
 
 /* Return prefix family type string. */
-const char *prefix_family_str(const struct prefix *p)
+const char *prefix_family_str(union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
+
 	if (p->family == AF_INET)
 		return "inet";
 	if (p->family == AF_INET6)
@@ -815,14 +823,16 @@ void apply_mask_ipv6(struct prefix_ipv6 *p)
 	}
 }
 
-void apply_mask(struct prefix *p)
+void apply_mask(union prefixptr pu)
 {
+	struct prefix *p = pu.p;
+
 	switch (p->family) {
 	case AF_INET:
-		apply_mask_ipv4((struct prefix_ipv4 *)p);
+		apply_mask_ipv4(pu.p4);
 		break;
 	case AF_INET6:
-		apply_mask_ipv6((struct prefix_ipv6 *)p);
+		apply_mask_ipv6(pu.p6);
 		break;
 	default:
 		break;
@@ -868,8 +878,10 @@ void prefix2sockunion(const struct prefix *p, union sockunion *su)
 		       sizeof(struct in6_addr));
 }
 
-int prefix_blen(const struct prefix *p)
+int prefix_blen(union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
+
 	switch (p->family) {
 	case AF_INET:
 		return IPV4_MAX_BYTELEN;
@@ -915,12 +927,13 @@ static const char *prefixevpn_ead2str(const struct prefix_evpn *p, char *str,
 	char buf1[INET6_ADDRSTRLEN];
 
 	family = IS_IPADDR_V4(&p->prefix.ead_addr.ip) ? AF_INET : AF_INET6;
-	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]", p->prefix.route_type,
-		 p->prefix.ead_addr.eth_tag,
+	snprintf(str, size, "[%d]:[%u]:[%s]:[%d]:[%s]:[%u]",
+		 p->prefix.route_type, p->prefix.ead_addr.eth_tag,
 		 esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)),
 		 (family == AF_INET) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN,
 		 inet_ntop(family, &p->prefix.ead_addr.ip.ipaddr_v4, buf1,
-			   sizeof(buf1)));
+			   sizeof(buf1)),
+		 p->prefix.ead_addr.frag_id);
 	return str;
 }
 
@@ -1069,6 +1082,26 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	}
 
 	return str;
+}
+
+static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
+{
+	const struct prefix *p = pu.p;
+	char buf[PREFIX2STR_BUFFER];
+
+	switch (p->family) {
+	case AF_INET:
+	case AF_INET6:
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+		return bputs(fbuf, buf);
+
+	case AF_ETHERNET:
+		prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf));
+		return bputs(fbuf, buf);
+
+	default:
+		return bprintfrr(fbuf, "{prefix.af=%dPF}", p->family);
+	}
 }
 
 void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
@@ -1353,7 +1386,7 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	return buf;
 }
 
-printfrr_ext_autoreg_p("EA", printfrr_ea)
+printfrr_ext_autoreg_p("EA", printfrr_ea);
 static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1368,60 +1401,117 @@ static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("IA", printfrr_ia)
+printfrr_ext_autoreg_p("IA", printfrr_ia);
 static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	const struct ipaddr *ipa = ptr;
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ipa)
 		return bputs(buf, "(null)");
+
+	if (use_star) {
+		struct in_addr zero4 = {};
+		struct in6_addr zero6 = {};
+
+		switch (ipa->ipa_type) {
+		case IPADDR_V4:
+			if (!memcmp(&ipa->ip.addr, &zero4, sizeof(zero4)))
+				return bputch(buf, '*');
+			break;
+
+		case IPADDR_V6:
+			if (!memcmp(&ipa->ip.addr, &zero6, sizeof(zero6)))
+				return bputch(buf, '*');
+			break;
+
+		default:
+			break;
+		}
+	}
 
 	ipaddr2str(ipa, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I4", printfrr_i4)
+printfrr_ext_autoreg_p("I4", printfrr_i4);
 static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET_ADDRSTRLEN];
+	bool use_star = false;
+	struct in_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I6", printfrr_i6)
+printfrr_ext_autoreg_p("I6", printfrr_i6);
 static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+	struct in6_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("FX", printfrr_pfx)
+printfrr_ext_autoreg_p("FX", printfrr_pfx);
 static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
-	char cbuf[PREFIX_STRLEN];
+	bool host_only = false;
+
+	if (ea->fmt[0] == 'h') {
+		ea->fmt++;
+		host_only = true;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
 
-	prefix2str(ptr, cbuf, sizeof(cbuf));
-	return bputs(buf, cbuf);
+	if (host_only)
+		return prefixhost2str(buf, (struct prefix *)ptr);
+	else {
+		char cbuf[PREFIX_STRLEN];
+
+		prefix2str(ptr, cbuf, sizeof(cbuf));
+		return bputs(buf, cbuf);
+	}
 }
 
-printfrr_ext_autoreg_p("SG4", printfrr_psg)
+printfrr_ext_autoreg_p("PSG4", printfrr_psg);
 static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {

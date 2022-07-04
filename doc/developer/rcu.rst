@@ -133,9 +133,9 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
       become invalid, as another thread may have called :c:func:`rcu_free` on
       them.
 
-.. c:type:: struct rcu_head
-.. c:type:: struct rcu_head_close
-.. c:type:: struct rcu_action
+.. c:struct:: rcu_head
+.. c:struct:: rcu_head_close
+.. c:struct:: rcu_action
 
    The ``rcu_head`` structures are small (16-byte) bits that contain the
    queueing machinery for the RCU sweeper/cleanup mechanisms.
@@ -209,7 +209,7 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
 Internals
 ^^^^^^^^^
 
-.. c:type:: struct rcu_thread
+.. c:struct:: rcu_thread
 
    Per-thread state maintained by the RCU code, set up by the following
    functions.  A pointer to a thread's own ``rcu_thread`` is saved in

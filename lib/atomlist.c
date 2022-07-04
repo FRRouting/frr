@@ -18,6 +18,8 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
+
 #include "atomlist.h"
 
 void atomlist_add_head(struct atomlist_head *h, struct atomlist_item *item)
@@ -121,7 +123,7 @@ static void atomlist_del_core(struct atomlist_head *h,
 					memory_order_consume);
 
 			/* track the beginning of a chain of deleted items
-			 * this is neccessary to make this lock-free; we can
+			 * this is necessary to make this lock-free; we can
 			 * complete deletions started by other threads.
 			 */
 			if (!atomptr_l(prevval)) {
@@ -265,7 +267,7 @@ static void atomsort_del_core(struct atomsort_head *h,
 					memory_order_consume);
 
 			/* track the beginning of a chain of deleted items
-			 * this is neccessary to make this lock-free; we can
+			 * this is necessary to make this lock-free; we can
 			 * complete deletions started by other threads.
 			 */
 			if (!atomptr_l(prevval)) {

@@ -32,6 +32,7 @@ extern "C" {
 struct _vector {
 	unsigned int active;  /* number of active slots */
 	unsigned int alloced; /* number of allocated slot */
+	unsigned int count;
 	void **index;	 /* index to data */
 };
 typedef struct _vector *vector;
@@ -59,7 +60,11 @@ extern void vector_unset_value(vector v, void *val);
 extern void vector_remove(vector v, unsigned int ix);
 extern void vector_compact(vector v);
 
-extern unsigned int vector_count(vector v);
+static inline unsigned int vector_count(vector v)
+{
+	return v->count;
+}
+
 extern void vector_free(vector v);
 extern vector vector_copy(vector v);
 

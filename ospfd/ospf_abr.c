@@ -318,10 +318,29 @@ int ospf_area_range_substitute_unset(struct ospf *ospf, struct in_addr area_id,
 
 int ospf_act_bb_connection(struct ospf *ospf)
 {
+	struct ospf_interface *oi;
+	struct listnode *node;
+	int full_nbrs = 0;
+
 	if (ospf->backbone == NULL)
 		return 0;
 
-	return ospf->backbone->full_nbrs;
+	for (ALL_LIST_ELEMENTS_RO(ospf->backbone->oiflist, node, oi)) {
+		struct ospf_neighbor *nbr;
+		struct route_node *rn;
+
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			nbr = rn->info;
+			if (!nbr)
+				continue;
+
+			if (nbr->state == NSM_Full
+			    || OSPF_GR_IS_ACTIVE_HELPER(nbr))
+				full_nbrs++;
+		}
+	}
+
+	return full_nbrs;
 }
 
 /* Determine whether this router is elected translator or not for area */
@@ -1810,7 +1829,7 @@ void ospf_abr_task(struct ospf *ospf)
 		zlog_debug("ospf_abr_task(): Stop");
 }
 
-static int ospf_abr_task_timer(struct thread *thread)
+static void ospf_abr_task_timer(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 
@@ -1824,8 +1843,6 @@ static int ospf_abr_task_timer(struct thread *thread)
 
 	ospf_abr_task(ospf);
 	ospf_abr_nssa_task(ospf); /* if nssa-abr, then scan Type-7 LSDB */
-
-	return 0;
 }
 
 void ospf_schedule_abr_task(struct ospf *ospf)

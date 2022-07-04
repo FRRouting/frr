@@ -24,8 +24,10 @@
 #include "command.h"
 #include "lib/log.h"
 #include "lib/zlog_targets.h"
+#include "lib/zlog_5424.h"
 #include "lib/lib_errors.h"
 #include "lib/printfrr.h"
+#include "lib/systemd.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/log_vty_clippy.c"
@@ -35,6 +37,8 @@
 
 DEFINE_HOOK(zlog_rotate, (), ());
 DEFINE_HOOK(zlog_cli_show, (struct vty * vty), (vty));
+
+static unsigned logmsgs_with_persist_bt;
 
 static const int log_default_lvl = LOG_DEBUG;
 
@@ -49,14 +53,33 @@ static struct zlog_cfg_file zt_file_cmdline = {
 static struct zlog_cfg_file zt_file = {
 	.prio_min = ZLOG_DISABLED,
 };
-static struct zlog_cfg_file zt_stdout = {
-	.prio_min = ZLOG_DISABLED,
-};
 static struct zlog_cfg_filterfile zt_filterfile = {
 	.parent = {
 		.prio_min = ZLOG_DISABLED,
 	},
 };
+
+static struct zlog_cfg_file zt_stdout_file = {
+	.prio_min = ZLOG_DISABLED,
+};
+static struct zlog_cfg_5424 zt_stdout_journald = {
+	.prio_min = ZLOG_DISABLED,
+
+	.fmt = ZLOG_FMT_JOURNALD,
+	.dst = ZLOG_5424_DST_UNIX,
+	.filename = "/run/systemd/journal/socket",
+
+	/* this can't be changed through config since this target substitutes
+	 * in for the "plain" stdout target
+	 */
+	.facility = LOG_DAEMON,
+	.kw_version = false,
+	.kw_location = true,
+	.kw_uid = true,
+	.kw_ec = true,
+	.kw_args = true,
+};
+static bool stdout_journald_in_use;
 
 const char *zlog_progname;
 static const char *zlog_protoname;
@@ -136,6 +159,7 @@ void zlog_rotate(void)
 {
 	zlog_file_rotate(&zt_file);
 	zlog_file_rotate(&zt_filterfile.parent);
+	zlog_file_rotate(&zt_file_cmdline);
 	hook_call(zlog_rotate);
 }
 
@@ -160,14 +184,18 @@ DEFUN_NOSH (show_logging,
 	    SHOW_STR
 	    "Show current logging configuration\n")
 {
+	int stdout_prio;
+
 	log_show_syslog(vty);
 
+	stdout_prio = stdout_journald_in_use ? zt_stdout_journald.prio_min
+					     : zt_stdout_file.prio_min;
+
 	vty_out(vty, "Stdout logging: ");
-	if (zt_stdout.prio_min == ZLOG_DISABLED)
+	if (stdout_prio == ZLOG_DISABLED)
 		vty_out(vty, "disabled");
 	else
-		vty_out(vty, "level %s",
-			zlog_priority[zt_stdout.prio_min]);
+		vty_out(vty, "level %s", zlog_priority[stdout_prio]);
 	vty_out(vty, "\n");
 
 	vty_out(vty, "File logging: ");
@@ -207,6 +235,21 @@ DEFUN_NOSH (show_logging,
 	return CMD_SUCCESS;
 }
 
+static void log_stdout_apply_level(void)
+{
+	int maxlvl;
+
+	maxlvl = ZLOG_MAXLVL(log_config_stdout_lvl, log_cmdline_stdout_lvl);
+
+	if (stdout_journald_in_use) {
+		zt_stdout_journald.prio_min = maxlvl;
+		zlog_5424_apply_meta(&zt_stdout_journald);
+	} else {
+		zt_stdout_file.prio_min = maxlvl;
+		zlog_file_set_other(&zt_stdout_file);
+	}
+}
+
 DEFPY (config_log_stdout,
        config_log_stdout_cmd,
        "log stdout [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
@@ -224,9 +267,7 @@ DEFPY (config_log_stdout,
 		level = log_default_lvl;
 
 	log_config_stdout_lvl = level;
-	zt_stdout.prio_min = ZLOG_MAXLVL(log_config_stdout_lvl,
-					 log_cmdline_stdout_lvl);
-	zlog_file_set_other(&zt_stdout);
+	log_stdout_apply_level();
 	return CMD_SUCCESS;
 }
 
@@ -239,9 +280,7 @@ DEFUN (no_config_log_stdout,
        LOG_LEVEL_DESC)
 {
 	log_config_stdout_lvl = ZLOG_DISABLED;
-	zt_stdout.prio_min = ZLOG_MAXLVL(log_config_stdout_lvl,
-					 log_cmdline_stdout_lvl);
-	zlog_file_set_other(&zt_stdout);
+	log_stdout_apply_level();
 	return CMD_SUCCESS;
 }
 
@@ -264,6 +303,43 @@ DEFUN_HIDDEN (no_config_log_monitor,
        "Disable terminal line (monitor) logging\n"
        LOG_LEVEL_DESC)
 {
+	return CMD_SUCCESS;
+}
+
+DEFPY_NOSH (debug_uid_backtrace,
+	    debug_uid_backtrace_cmd,
+	    "[no] debug unique-id UID backtrace",
+	    NO_STR
+	    DEBUG_STR
+	    "Options per individual log message, by unique ID\n"
+	    "Log message unique ID (XXXXX-XXXXX)\n"
+	    "Add backtrace to log when message is printed\n")
+{
+	struct xrefdata search, *xrd;
+	struct xrefdata_logmsg *xrdl;
+	uint8_t flag;
+
+	strlcpy(search.uid, uid, sizeof(search.uid));
+	xrd = xrefdata_uid_find(&xrefdata_uid, &search);
+
+	if (!xrd)
+		return CMD_ERR_NOTHING_TODO;
+
+	if (xrd->xref->type != XREFT_LOGMSG) {
+		vty_out(vty, "%% ID \"%s\" is not a log message\n", uid);
+		return CMD_WARNING;
+	}
+	xrdl = container_of(xrd, struct xrefdata_logmsg, xrefdata);
+
+	flag = (vty->node == CONFIG_NODE) ? LOGMSG_FLAG_PERSISTENT
+					  : LOGMSG_FLAG_EPHEMERAL;
+
+	if ((xrdl->fl_print_bt & flag) == (no ? 0 : flag))
+		return CMD_SUCCESS;
+	if (flag == LOGMSG_FLAG_PERSISTENT)
+		logmsgs_with_persist_bt += no ? -1 : 1;
+
+	xrdl->fl_print_bt ^= flag;
 	return CMD_SUCCESS;
 }
 
@@ -338,9 +414,7 @@ void command_setup_early_logging(const char *dest, const char *level)
 
 	if (strcmp(type, "stdout") == 0) {
 		log_cmdline_stdout_lvl = nlevel;
-		zt_stdout.prio_min = ZLOG_MAXLVL(log_config_stdout_lvl,
-						 log_cmdline_stdout_lvl);
-		zlog_file_set_other(&zt_stdout);
+		log_stdout_apply_level();
 		return;
 	}
 	if (strcmp(type, "syslog") == 0) {
@@ -352,6 +426,22 @@ void command_setup_early_logging(const char *dest, const char *level)
 	if (strcmp(type, "file") == 0 && sep) {
 		sep++;
 		set_log_file(&zt_file_cmdline, NULL, sep, nlevel);
+		return;
+	}
+	if (strcmp(type, "monitor") == 0 && sep) {
+		struct zlog_live_cfg cfg = {};
+		unsigned long fd;
+		char *endp;
+
+		sep++;
+		fd = strtoul(sep, &endp, 10);
+		if (!*sep || *endp) {
+			fprintf(stderr, "invalid monitor fd \"%s\"\n", sep);
+			exit(1);
+		}
+
+		zlog_live_open_fd(&cfg, nlevel, fd);
+		zlog_live_disown(&cfg);
 		return;
 	}
 
@@ -374,9 +464,7 @@ DEFUN (clear_log_cmdline,
 					     log_cmdline_syslog_lvl));
 
 	log_cmdline_stdout_lvl = ZLOG_DISABLED;
-	zt_stdout.prio_min = ZLOG_MAXLVL(log_config_stdout_lvl,
-					 log_cmdline_stdout_lvl);
-	zlog_file_set_other(&zt_stdout);
+	log_stdout_apply_level();
 
 	return CMD_SUCCESS;
 }
@@ -484,8 +572,10 @@ DEFUN (config_log_record_priority,
 {
 	zt_file.record_priority = true;
 	zlog_file_set_other(&zt_file);
-	zt_stdout.record_priority = true;
-	zlog_file_set_other(&zt_stdout);
+	if (!stdout_journald_in_use) {
+		zt_stdout_file.record_priority = true;
+		zlog_file_set_other(&zt_stdout_file);
+	}
 	zt_filterfile.parent.record_priority = true;
 	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
@@ -500,8 +590,10 @@ DEFUN (no_config_log_record_priority,
 {
 	zt_file.record_priority = false;
 	zlog_file_set_other(&zt_file);
-	zt_stdout.record_priority = false;
-	zlog_file_set_other(&zt_stdout);
+	if (!stdout_journald_in_use) {
+		zt_stdout_file.record_priority = false;
+		zlog_file_set_other(&zt_stdout_file);
+	}
 	zt_filterfile.parent.record_priority = false;
 	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
@@ -517,8 +609,10 @@ DEFPY (config_log_timestamp_precision,
 {
 	zt_file.ts_subsec = precision;
 	zlog_file_set_other(&zt_file);
-	zt_stdout.ts_subsec = precision;
-	zlog_file_set_other(&zt_stdout);
+	if (!stdout_journald_in_use) {
+		zt_stdout_file.ts_subsec = precision;
+		zlog_file_set_other(&zt_stdout_file);
+	}
 	zt_filterfile.parent.ts_subsec = precision;
 	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
@@ -535,8 +629,10 @@ DEFUN (no_config_log_timestamp_precision,
 {
 	zt_file.ts_subsec = 0;
 	zlog_file_set_other(&zt_file);
-	zt_stdout.ts_subsec = 0;
-	zlog_file_set_other(&zt_stdout);
+	if (!stdout_journald_in_use) {
+		zt_stdout_file.ts_subsec = 0;
+		zlog_file_set_other(&zt_stdout_file);
+	}
 	zt_filterfile.parent.ts_subsec = 0;
 	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
@@ -751,6 +847,24 @@ void log_config_write(struct vty *vty)
 		vty_out(vty, "no log error-category\n");
 	if (!zlog_get_prefix_xid())
 		vty_out(vty, "no log unique-id\n");
+
+	if (logmsgs_with_persist_bt) {
+		struct xrefdata *xrd;
+		struct xrefdata_logmsg *xrdl;
+
+		vty_out(vty, "!\n");
+
+		frr_each (xrefdata_uid, &xrefdata_uid, xrd) {
+			if (xrd->xref->type != XREFT_LOGMSG)
+				continue;
+
+			xrdl = container_of(xrd, struct xrefdata_logmsg,
+					    xrefdata);
+			if (xrdl->fl_print_bt & LOGMSG_FLAG_PERSISTENT)
+				vty_out(vty, "debug unique-id %s backtrace\n",
+					xrd->uid);
+		}
+	}
 }
 
 static int log_vty_init(const char *progname, const char *protoname,
@@ -764,7 +878,12 @@ static int log_vty_init(const char *progname, const char *protoname,
 
 	zlog_filterfile_init(&zt_filterfile);
 
-	zlog_file_set_fd(&zt_stdout, STDOUT_FILENO);
+	if (sd_stdout_is_journal) {
+		stdout_journald_in_use = true;
+		zlog_5424_init(&zt_stdout_journald);
+		zlog_5424_apply_dst(&zt_stdout_journald);
+	} else
+		zlog_file_set_fd(&zt_stdout_file, STDOUT_FILENO);
 	return 0;
 }
 
@@ -801,4 +920,9 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &no_config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &log_immediate_mode_cmd);
+
+	install_element(ENABLE_NODE, &debug_uid_backtrace_cmd);
+	install_element(CONFIG_NODE, &debug_uid_backtrace_cmd);
+
+	log_5424_cmd_init();
 }

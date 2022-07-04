@@ -531,7 +531,7 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 		   mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
 }
 
-int bfd_recv_cb(struct thread *t)
+void bfd_recv_cb(struct thread *t)
 {
 	int sd = THREAD_FD(t);
 	struct bfd_session *bfd;
@@ -546,15 +546,13 @@ int bfd_recv_cb(struct thread *t)
 	struct interface *ifp = NULL;
 	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
 
-	vrfid = bvrf->vrf->vrf_id;
-
 	/* Schedule next read. */
 	bfd_sd_reschedule(bvrf, sd);
 
 	/* Handle echo packets. */
 	if (sd == bvrf->bg_echo || sd == bvrf->bg_echov6) {
 		ptm_bfd_process_echo_pkt(bvrf, sd);
-		return 0;
+		return;
 	}
 
 	/* Sanitize input/output. */
@@ -573,27 +571,33 @@ int bfd_recv_cb(struct thread *t)
 				     &local, &peer);
 	}
 
-	/* update vrf-id because when in vrf-lite mode,
-	 * the socket is on default namespace
+	/*
+	 * With netns backend, we have a separate socket in each VRF. It means
+	 * that bvrf here is correct and we believe the bvrf->vrf->vrf_id.
+	 * With VRF-lite backend, we have a single socket in the default VRF.
+	 * It means that we can't believe the bvrf->vrf->vrf_id. But in
+	 * VRF-lite, the ifindex is globally unique, so we can retrieve the
+	 * correct vrf_id from the interface.
 	 */
+	vrfid = bvrf->vrf->vrf_id;
 	if (ifindex) {
 		ifp = if_lookup_by_index(ifindex, vrfid);
 		if (ifp)
-			vrfid = ifp->vrf_id;
+			vrfid = ifp->vrf->vrf_id;
 	}
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "too small (%ld bytes)", mlen);
-		return 0;
+		return;
 	}
 
 	/* Validate single hop packet TTL. */
 	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
-		return 0;
+		return;
 	}
 
 	/*
@@ -607,57 +611,62 @@ int bfd_recv_cb(struct thread *t)
 	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "bad version %d", BFD_GETVER(cp->diag));
-		return 0;
+		return;
 	}
 
 	if (cp->detect_mult == 0) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "detect multiplier set to zero");
-		return 0;
+		return;
 	}
 
 	if ((cp->len < BFD_PKT_LEN) || (cp->len > mlen)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small");
-		return 0;
+		return;
 	}
 
 	if (cp->discrs.my_discr == 0) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'my discriminator' is zero");
-		return 0;
+		return;
 	}
 
 	/* Find the session that this packet belongs. */
-	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifindex, vrfid, is_mhop);
+	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifp, vrfid, is_mhop);
 	if (bfd == NULL) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "no session found");
-		return 0;
+		return;
 	}
 
-	bfd->stats.rx_ctrl_pkt++;
+	/* Ensure that existing good sessions are not overridden. */
+	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
+	    bfd->ses_state != PTM_BFD_ADM_DOWN) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "'remote discriminator' is zero, not overridden");
+		return;
+	}
 
 	/*
 	 * Multi hop: validate packet TTL.
-	 * Single hop: set local address that received the packet.
 	 */
 	if (is_mhop) {
 		if (ttl < bfd->mh_ttl) {
 			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
 				 bfd->mh_ttl, ttl);
-			return 0;
+			return;
 		}
-	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {
-		bfd->local_address = local;
 	}
+
+	bfd->stats.rx_ctrl_pkt++;
 
 	/*
 	 * If no interface was detected, save the interface where the
 	 * packet came in.
 	 */
 	if (!is_mhop && bfd->ifp == NULL)
-		bfd->ifp = if_lookup_by_index(ifindex, vrfid);
+		bfd->ifp = ifp;
 
 	/* Log remote discriminator changes. */
 	if ((bfd->discrs.remote_discr != 0)
@@ -688,15 +697,30 @@ int bfd_recv_cb(struct thread *t)
 
 	/* RFC 5880, Section 6.5: handle POLL/FINAL negotiation sequence. */
 	if (bfd->polling && BFD_GETFBIT(cp->flags)) {
-		/* Disable pooling. */
+		/* Disable polling. */
 		bfd->polling = 0;
 
 		/* Handle poll finalization. */
 		bs_final_handler(bfd);
-	} else {
-		/* Received a packet, lets update the receive timer. */
-		bfd_recvtimer_update(bfd);
 	}
+
+	/*
+	 * Detection timeout calculation:
+	 * The minimum detection timeout is the remote detection
+	 * multipler (number of packets to be missed) times the agreed
+	 * transmission interval.
+	 *
+	 * RFC 5880, Section 6.8.4.
+	 */
+	if (bfd->cur_timers.required_min_rx > bfd->remote_timers.desired_min_tx)
+		bfd->detect_TO = bfd->remote_detect_mult
+				 * bfd->cur_timers.required_min_rx;
+	else
+		bfd->detect_TO = bfd->remote_detect_mult
+				 * bfd->remote_timers.desired_min_tx;
+
+	/* Apply new receive timer immediately. */
+	bfd_recvtimer_update(bfd);
 
 	/* Handle echo timers changes. */
 	bs_echo_timer_handler(bfd);
@@ -714,8 +738,6 @@ int bfd_recv_cb(struct thread *t)
 		/* Send the control packet with the final bit immediately. */
 		ptm_bfd_snd(bfd, 1);
 	}
-
-	return 0;
 }
 
 /*

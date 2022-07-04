@@ -601,6 +601,16 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 			rhc->rhc_rmi, "ip next-hop", acl,
 			RMAP_EVENT_FILTER_ADDED,
 			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv6_NEXTHOP_LIST(condition)) {
+		if (rmap_match_set_hook.match_ipv6_next_hop == NULL)
+			return NB_OK;
+		rhc->rhc_mhook = rmap_match_set_hook.no_match_ipv6_next_hop;
+		rhc->rhc_rule = "ipv6 next-hop";
+		rhc->rhc_event = RMAP_EVENT_FILTER_DELETED;
+		rv = rmap_match_set_hook.match_ipv6_next_hop(
+			rhc->rhc_rmi, "ipv6 next-hop", acl,
+			RMAP_EVENT_FILTER_ADDED, args->errmsg,
+			args->errmsg_len);
 	} else if (IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(condition)) {
 		if (rmap_match_set_hook.match_ip_next_hop_prefix_list == NULL)
 			return NB_OK;
@@ -612,6 +622,16 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 			rhc->rhc_rmi, "ip next-hop prefix-list", acl,
 			RMAP_EVENT_PLIST_ADDED,
 			args->errmsg, args->errmsg_len);
+	} else if (IS_MATCH_IPv6_NEXTHOP_PREFIX_LIST(condition)) {
+		if (rmap_match_set_hook.match_ipv6_next_hop_prefix_list == NULL)
+			return NB_OK;
+		rhc->rhc_mhook =
+			rmap_match_set_hook.no_match_ipv6_next_hop_prefix_list;
+		rhc->rhc_rule = "ipv6 next-hop prefix-list";
+		rhc->rhc_event = RMAP_EVENT_PLIST_DELETED;
+		rv = rmap_match_set_hook.match_ipv6_next_hop_prefix_list(
+			rhc->rhc_rmi, "ipv6 next-hop prefix-list", acl,
+			RMAP_EVENT_PLIST_ADDED, args->errmsg, args->errmsg_len);
 	} else if (IS_MATCH_IPv6_ADDRESS_LIST(condition)) {
 		if (rmap_match_set_hook.match_ipv6_address == NULL)
 			return NB_OK;
@@ -867,7 +887,7 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 		 * only implemented action.
 		 */
 		yang_dnode_get_ipv4(&ia, args->dnode, NULL);
-		if (ia.s_addr == INADDR_ANY || IPV4_CLASS_DE(ntohl(ia.s_addr)))
+		if (ia.s_addr == INADDR_ANY || !ipv4_unicast_valid(&ia))
 			return NB_ERR_VALIDATION;
 		/* FALLTHROUGH */
 	case NB_EV_PREPARE:

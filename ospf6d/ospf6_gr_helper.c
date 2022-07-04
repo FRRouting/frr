@@ -154,11 +154,27 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug("%s: undersized (%u B) lsa", __func__,
+				   ntohs(lsah->length));
+		return OSPF6_FAILURE;
+	}
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len against overall LSA */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s: Malformed packet: Invalid TLV len:%d",
+					__func__, TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
@@ -198,14 +214,11 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf6_handle_grace_timer_expiry(struct thread *thread)
+static void ospf6_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
 
-	nbr->gr_helper_info.t_grace_timer = NULL;
-
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF6_SUCCESS;
 }
 
 /*
@@ -387,8 +400,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		if (restarter->gr_helper_info.t_grace_timer)
-			THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+		THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;
@@ -824,8 +836,8 @@ static void ospf6_gr_helper_support_set_per_routerid(struct ospf6 *ospf6,
 
 	} else {
 		/* Add the routerid to the enable router hash table */
-		hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
-			 ospf6_enable_rtr_hash_alloc);
+		(void)hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
+			       ospf6_enable_rtr_hash_alloc);
 	}
 }
 
@@ -953,13 +965,22 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 			json, "supportedGracePeriod",
 			ospf6->ospf6_helper_cfg.supported_grace_time);
 
-		if (ospf6->ospf6_helper_cfg.last_exit_reason
-		    != OSPF6_GR_HELPER_EXIT_NONE)
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
+		if (ospf6->ospf6_helper_cfg.last_exit_reason !=
+		    OSPF6_GR_HELPER_EXIT_NONE) {
 			json_object_string_add(
 				json, "LastExitReason",
 				ospf6_exit_reason_desc
 					[ospf6->ospf6_helper_cfg
 						 .last_exit_reason]);
+			json_object_string_add(
+				json, "lastExitReason",
+				ospf6_exit_reason_desc
+					[ospf6->ospf6_helper_cfg
+						 .last_exit_reason]);
+		}
 
 		if (OSPF6_HELPER_ENABLE_RTR_COUNT(ospf6)) {
 			struct json_object *json_rid_array =
@@ -988,11 +1009,17 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 					json_object_object_get_ex(
 						json, "Neighbors",
 						&json_neighbors);
+					json_object_object_get_ex(
+						json, "neighbors",
+						&json_neighbors);
 					if (!json_neighbors) {
 						json_neighbors =
 						json_object_new_object();
 						json_object_object_add(
 							json, "Neighbors",
+							json_neighbors);
+						json_object_object_add(
+							json, "neighbors",
 							json_neighbors);
 					}
 				}
@@ -1180,12 +1207,8 @@ DEFPY(show_ipv6_ospf6_gr_helper,
 
 	show_ospf6_gr_helper_details(vty, ospf6, json, uj, detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1227,6 +1250,12 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug("%s: undersized (%u B) lsa", __func__,
+				   ntohs(lsah->length));
+		return OSPF6_FAILURE;
+	}
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
@@ -1237,8 +1266,20 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (vty)
+				vty_out(vty, "%% Invalid TLV length: %d\n",
+					TLV_SIZE(tlvh));
+			else if (IS_DEBUG_OSPF6_GR)
+				zlog_debug("%% Invalid TLV length: %d",
+					   TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;

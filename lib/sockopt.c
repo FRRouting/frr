@@ -122,7 +122,7 @@ int setsockopt_ipv6_pktinfo(int sock, int val)
 	if (ret < 0)
 		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_PKTINFO : %s",
 			 safe_strerror(errno));
-#endif /* INIA_IPV6 */
+#endif /* IANA_IPV6 */
 	return ret;
 }
 
@@ -595,7 +595,7 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 
 		/* If this does not work, then all users of this sockopt will
 		 * need to
-		 * differentiate between IPv4 and IPv6, and keep seperate
+		 * differentiate between IPv4 and IPv6, and keep separate
 		 * sockets for
 		 * each.
 		 *

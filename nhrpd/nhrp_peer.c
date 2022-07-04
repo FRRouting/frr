@@ -54,7 +54,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	XFREE(MTYPE_NHRP_PEER, p);
 }
 
-static int nhrp_peer_notify_up(struct thread *t)
+static void nhrp_peer_notify_up(struct thread *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -68,8 +68,6 @@ static int nhrp_peer_notify_up(struct thread *t)
 		notifier_call(&p->notifier_list, NOTIFY_PEER_UP);
 		nhrp_peer_unref(p);
 	}
-
-	return 0;
 }
 
 static void __nhrp_peer_check(struct nhrp_peer *p)
@@ -258,17 +256,16 @@ void nhrp_peer_unref(struct nhrp_peer *p)
 	}
 }
 
-static int nhrp_peer_request_timeout(struct thread *t)
+static void nhrp_peer_request_timeout(struct thread *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 
-	p->t_fallback = NULL;
 
 	if (p->online)
-		return 0;
+		return;
 
 	if (nifp->ipsec_fallback_profile && !p->prio
 	    && !p->fallback_requested) {
@@ -280,11 +277,9 @@ static int nhrp_peer_request_timeout(struct thread *t)
 	} else {
 		p->requested = p->fallback_requested = 0;
 	}
-
-	return 0;
 }
 
-static int nhrp_peer_defer_vici_request(struct thread *t)
+static void nhrp_peer_defer_vici_request(struct thread *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -305,7 +300,6 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
 			&p->t_fallback);
 	}
-	return 0;
 }
 
 int nhrp_peer_check(struct nhrp_peer *p, int establish)
@@ -360,7 +354,7 @@ void nhrp_peer_notify_add(struct nhrp_peer *p, struct notifier_block *n,
 
 void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *n)
 {
-	notifier_del(n);
+	notifier_del(n, &p->notifier_list);
 	nhrp_peer_check_delete(p);
 }
 
@@ -1089,7 +1083,6 @@ err:
 
 static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 {
-	char buf[2][SU_ADDRSTRLEN];
 	union sockunion src_nbma, src_proto, dst_proto;
 	struct nhrp_packet_header *hdr;
 	struct zbuf zhdr;
@@ -1101,14 +1094,12 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 	zbuf_init(&zhdr, zb->buf, zb->tail - zb->buf, zb->tail - zb->buf);
 	hdr = nhrp_packet_pull(&zhdr, &src_nbma, &src_proto, &dst_proto);
 
-	sockunion2str(&src_proto, buf[0], sizeof(buf[0]));
-	sockunion2str(&dst_proto, buf[1], sizeof(buf[1]));
-
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
-	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %s -> %s", dir,
+	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %pSU -> %pSU", dir,
 	       (packet_types[hdr->type].name ? packet_types[hdr->type].name
 					     : "Unknown"),
-	       hdr->type, reply ? buf[1] : buf[0], reply ? buf[0] : buf[1]);
+	       hdr->type, reply ? &dst_proto : &src_proto,
+	       reply ? &src_proto : &dst_proto);
 }
 
 static int proto2afi(uint16_t proto)

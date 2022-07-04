@@ -20,13 +20,15 @@
 #ifndef __PIM_JP_AGG_H__
 #define __PIM_JP_AGG_H__
 
+#include "pim_rpf.h"
+
 struct pim_jp_sources {
 	struct pim_upstream *up;
 	int is_join;
 };
 
 struct pim_jp_agg_group {
-	struct in_addr group;
+	pim_addr group;
 	struct list *sources;
 };
 

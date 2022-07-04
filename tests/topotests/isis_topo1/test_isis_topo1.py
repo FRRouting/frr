@@ -161,9 +161,16 @@ def test_isis_route_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd("show ip route json", isjson=True)
+
+        def compare_isis_installed_routes(router, expected):
+            "Helper function to test ISIS routes installed in rib."
+            actual = router.vtysh_cmd("show ip route json", isjson=True)
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(compare_isis_installed_routes, router, expected)
+        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result, assertmsg
 
 
 def test_isis_linux_route_installation():
@@ -197,9 +204,18 @@ def test_isis_route6_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
+
+        def compare_isis_v6_installed_routes(router, expected):
+            "Helper function to test ISIS v6 routes installed in rib."
+            actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(
+            compare_isis_v6_installed_routes, router, expected
+        )
+        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result, assertmsg
 
 
 def test_isis_linux_route6_installation():
@@ -218,6 +234,94 @@ def test_isis_linux_route6_installation():
         actual = topotest.ip6_route(router)
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+
+def test_isis_summary_json():
+    "Check json struct in show isis summary json"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking 'show isis summary json'")
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis summary json", isjson=True)
+        assertmsg = "Test isis summary json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['vrf'] == "default", assertmsg
+        assert json_output['areas'][0]['area'] == "1", assertmsg
+        assert json_output['areas'][0]['levels'][0]['id'] != '3', assertmsg
+
+
+def test_isis_interface_json():
+    "Check json struct in show isis interface json"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking 'show isis interface json'")
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis interface json", isjson=True)
+        assertmsg = "Test isis interface json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['areas'][0]['circuits'][0]['interface']['name'] == rname+"-eth0", assertmsg
+
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis interface detail json", isjson=True)
+        assertmsg = "Test isis interface json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['areas'][0]['circuits'][0]['interface']['name'] == rname+"-eth0", assertmsg
+
+
+def test_isis_neighbor_json():
+    "Check json struct in show isis neighbor json"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #tgen.mininet_cli()
+    logger.info("Checking 'show isis neighbor json'")
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis neighbor json", isjson=True)
+        assertmsg = "Test isis neighbor json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['areas'][0]['circuits'][0]['interface'] == rname+"-eth0", assertmsg
+
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis neighbor detail json", isjson=True)
+        assertmsg = "Test isis neighbor json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['areas'][0]['circuits'][0]['interface']['name'] == rname+"-eth0", assertmsg
+
+
+def test_isis_database_json():
+    "Check json struct in show isis database json"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #tgen.mininet_cli()
+    logger.info("Checking 'show isis database json'")
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis database json", isjson=True)
+        assertmsg = "Test isis database json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['areas'][0]['area']['name'] == "1", assertmsg
+        assert json_output['areas'][0]['levels'][0]['id'] != '3', assertmsg
+
+    for rname, router in tgen.routers().items():
+        logger.info("Checking router %s", rname)
+        json_output = tgen.gears[rname].vtysh_cmd("show isis database detail json", isjson=True)
+        assertmsg = "Test isis database json failed in '{}' data '{}'".format(rname, json_output)
+        assert json_output['areas'][0]['area']['name'] == "1", assertmsg
+        assert json_output['areas'][0]['levels'][0]['id'] != '3', assertmsg
 
 
 def test_memory_leak():

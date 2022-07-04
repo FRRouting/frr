@@ -94,7 +94,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t sharp_signals[] = {
+struct frr_signal_t sharp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -181,7 +181,7 @@ int main(int argc, char **argv, char **envp)
 	sharp_global_init();
 
 	sharp_nhgroup_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 
 	sharp_zebra_init();
 

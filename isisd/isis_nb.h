@@ -211,6 +211,11 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args);
 int isis_instance_mpls_te_router_address_destroy(
 	struct nb_cb_destroy_args *args);
+int isis_instance_mpls_te_router_address_ipv6_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_mpls_te_router_address_ipv6_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_create(struct nb_cb_create_args *args);
 int lib_interface_isis_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
@@ -286,7 +291,7 @@ int lib_interface_isis_password_password_type_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(
 	struct nb_cb_modify_args *args);
-int lib_interface_isis_multi_topology_ipv4_unicast_modify(
+int lib_interface_isis_multi_topology_standard_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_multicast_modify(
 	struct nb_cb_modify_args *args);
@@ -413,141 +418,178 @@ void isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 
 /* Optional 'cli_show' callbacks. */
-void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
+void cli_show_router_isis(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void cli_show_router_isis_end(struct vty *vty, struct lyd_node *dnode);
-void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
+void cli_show_router_isis_end(struct vty *vty, const struct lyd_node *dnode);
+void cli_show_ip_isis_ipv4(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_ipv6(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_bfd_monitoring(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults);
-void cli_show_isis_area_address(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_area_address(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_is_type(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_isis_dynamic_hostname(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_dynamic_hostname(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_isis_attached_send(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_attached_send(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
-void cli_show_isis_attached_receive(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_attached_receive(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_isis_overload(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_overload(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
-void cli_show_isis_metric_style(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_isis_area_pwd(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
-void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_domain_pwd(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_isis_lsp_timers(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_isis_lsp_mtu(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_isis_spf_min_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_spf_min_interval(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_spf_ietf_backoff(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_isis_spf_prefix_priority(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_spf_prefix_priority(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults);
-void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_te(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_isis_mpls_te_router_addr(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_te_router_addr(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults);
-void cli_show_isis_def_origin_ipv4(struct vty *vty, struct lyd_node *dnode,
-				   bool show_defaults);
-void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
-				   bool show_defaults);
-void cli_show_isis_redistribute_ipv4(struct vty *vty, struct lyd_node *dnode,
-				     bool show_defaults);
-void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
-				     bool show_defaults);
-void cli_show_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
-				     bool show_defaults);
-void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
-				bool show_defaults);
-void cli_show_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
-				   bool show_defaults);
-void cli_show_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
-				     bool show_defaults);
-void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
-				bool show_defaults);
-void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_te_router_addr_ipv6(struct vty *vty,
+					    const struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_isis_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
-			      bool show_defaults);
-void cli_show_isis_label_blocks(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_def_origin_ipv4(struct vty *vty,
+				   const struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_isis_def_origin_ipv6(struct vty *vty,
+				   const struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_isis_redistribute_ipv4(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_isis_redistribute_ipv6(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_isis_mt_ipv4_multicast(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv6_unicast(struct vty *vty,
+				   const struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_isis_mt_ipv6_multicast(struct vty *vty,
+				     const struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+void cli_show_isis_sr_enabled(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults);
+void cli_show_isis_label_blocks(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
+void cli_show_isis_node_msd(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
-void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_isis_frr_lfa_priority_limit(struct vty *vty,
-					  struct lyd_node *dnode,
+					  const struct lyd_node *dnode,
 					  bool show_defaults);
-void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults);
-void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_frr_lfa_load_sharing(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_frr_remote_lfa_plist(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
-void cli_show_ip_isis_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults);
-void cli_show_ip_isis_hello_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_hello_interval(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults);
-void cli_show_ip_isis_hello_multi(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-void cli_show_ip_isis_threeway_shake(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_threeway_shake(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults);
-void cli_show_ip_isis_hello_padding(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_hello_padding(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_ip_isis_csnp_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_csnp_interval(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_ip_isis_psnp_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_psnp_interval(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty, struct lyd_node *dnode,
-				      bool show_defaults);
-void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_standard(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults);
-void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults);
-void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void cli_show_frr_lfa_exclude_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_frr_lfa_exclude_interface(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_frr_remote_lfa_max_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_frr_remote_lfa_max_metric(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_ip_isis_circ_type(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_ip_isis_network_type(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_network_type(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
-void cli_show_isis_log_adjacency(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_log_adjacency(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
-void cli_show_isis_mpls_ldp_sync(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_ldp_sync(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
 void cli_show_isis_mpls_ldp_sync_holddown(struct vty *vty,
-					  struct lyd_node *dnode,
+					  const struct lyd_node *dnode,
 					  bool show_defaults);
-void cli_show_isis_mpls_if_ldp_sync(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_if_ldp_sync(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
 void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
-					     struct lyd_node *dnode,
+					     const struct lyd_node *dnode,
 					     bool show_defaults);
 
 /* Notifications. */

@@ -1,0 +1,32 @@
+{
+  "neighbors": {
+    "2.2.2.2": [
+      {
+        "dbSummaryCounter": 0,
+        "retransmitCounter": 0,
+        "priority": 1,
+        "converged": "Full",
+        "address": "10.0.2.2",
+        "requestCounter": 0
+      },
+      {
+        "dbSummaryCounter": 0,
+        "retransmitCounter": 0,
+        "priority": 1,
+        "converged": "Full",
+        "address": "10.0.3.2",
+        "requestCounter": 0
+      }
+    ],
+    "4.4.4.4": [
+      {
+        "dbSummaryCounter": 0,
+        "retransmitCounter": 0,
+        "priority": 1,
+        "converged": "Full",
+        "address": "10.0.2.4",
+        "requestCounter": 0
+      }
+    ]
+  }
+}

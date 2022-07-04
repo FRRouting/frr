@@ -195,35 +195,36 @@ bfdd_bfd_sessions_multi_hop_stats_echo_packet_output_count_get_elem(
 	struct nb_cb_get_elem_args *args);
 
 /* Optional 'cli_show' callbacks. */
-void bfd_cli_show_header(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_header(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults);
-void bfd_cli_show_header_end(struct vty *vty, struct lyd_node *dnode);
-void bfd_cli_show_single_hop_peer(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_header_end(struct vty *vty, const struct lyd_node *dnode);
+void bfd_cli_show_single_hop_peer(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-void bfd_cli_show_multi_hop_peer(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_multi_hop_peer(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
-void bfd_cli_show_peer_end(struct vty *vty, struct lyd_node *dnode);
-void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_peer_end(struct vty *vty, const struct lyd_node *dnode);
+void bfd_cli_show_mult(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults);
-void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_tx(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults);
-void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_rx(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults);
-void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_echo(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults);
 void bfd_cli_show_desired_echo_transmission_interval(
-	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
-void bfd_cli_show_required_echo_receive_interval(
-	struct vty *vty, struct lyd_node *dnode, bool show_defaults);
-void bfd_cli_show_profile(struct vty *vty, struct lyd_node *dnode,
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bfd_cli_show_required_echo_receive_interval(struct vty *vty,
+						 const struct lyd_node *dnode,
+						 bool show_defaults);
+void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void bfd_cli_peer_profile_show(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_peer_profile_show(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
-void bfd_cli_show_passive(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_passive(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void bfd_cli_show_minimum_ttl(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
 
 #endif /* _FRR_BFDD_NB_H_ */

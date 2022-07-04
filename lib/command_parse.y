@@ -217,10 +217,12 @@ cmd_token:
 {
   if ((ctx->currnode = graph_add_edge (ctx->currnode, $1)) != $1)
     graph_delete_node (ctx->graph, $1);
+  cmd_token_varname_seqappend($1);
 }
 | selector
 {
   graph_add_edge (ctx->currnode, $1.start);
+  cmd_token_varname_seqappend($1.start);
   ctx->currnode = $1.end;
 }
 ;
@@ -295,9 +297,8 @@ placeholder_token_real:
 placeholder_token:
   placeholder_token_real varname_token
 {
-  struct cmd_token *token = $$->data;
   $$ = $1;
-  cmd_token_varname_set (token, $2);
+  cmd_token_varname_set ($$->data, $2);
   XFREE (MTYPE_LEX, $2);
 };
 
@@ -306,7 +307,7 @@ placeholder_token:
 selector: '<' selector_seq_seq '>' varname_token
 {
   $$ = $2;
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 };
 
@@ -338,11 +339,11 @@ selector: '{' selector_seq_seq '}' varname_token
    * 1) this allows "at least 1 of" semantics, which are otherwise impossible
    * 2) this would add a start->end->start loop in the graph that the current
    *    loop-avoidal fails to handle
-   * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
+   * just use [{a|b}] if necessary, that will work perfectly fine, and reason
    * #1 is good enough to keep it this way. */
 
   loopcheck(ctx, &$$);
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 };
 
@@ -359,6 +360,7 @@ selector_token_seq:
   selector_token_seq selector_token
 {
   graph_add_edge ($1.end, $2.start);
+  cmd_token_varname_seqappend($2.start);
   $$.start = $1.start;
   $$.end   = $2.end;
 }
@@ -370,7 +372,7 @@ selector: '[' selector_seq_seq ']' varname_token
 {
   $$ = $2;
   graph_add_edge ($$.start, $$.end);
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 }
 ;
@@ -383,7 +385,7 @@ selector: EXCL_BRACKET selector_seq_seq ']' varname_token
   $$ = $2;
   graph_add_edge ($$.start, neg_only);
   graph_add_edge (neg_only, $$.end);
-  cmd_token_varname_set ($2.end->data, $4);
+  cmd_token_varname_join ($2.end, $4);
   XFREE (MTYPE_LEX, $4);
 }
 ;

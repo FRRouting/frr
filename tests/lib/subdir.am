@@ -1,0 +1,372 @@
+##############################################################################
+if SCRIPTING
+check_PROGRAMS += tests/lib/test_frrlua
+endif
+tests_lib_test_frrlua_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_frrlua_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_frrlua_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_frrlua_SOURCES = tests/lib/test_frrlua.c
+EXTRA_DIST += tests/lib/test_frrlua.py
+
+if SCRIPTING
+check_PROGRAMS += tests/lib/test_frrscript
+endif
+tests_lib_test_frrscript_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_frrscript_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_frrscript_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_frrscript_SOURCES = tests/lib/test_frrscript.c
+EXTRA_DIST += tests/lib/test_frrscript.py
+
+
+##############################################################################
+GRPC_TESTS_LDADD = staticd/libstatic.a grpc/libfrrgrpc_pb.la -lgrpc++ -lprotobuf $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) -lm
+
+if GRPC
+check_PROGRAMS += tests/lib/test_grpc
+endif
+tests_lib_test_grpc_CXXFLAGS = $(WERROR) $(TESTS_CXXFLAGS)
+tests_lib_test_grpc_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_grpc_LDADD = $(GRPC_TESTS_LDADD)
+tests_lib_test_grpc_SOURCES = tests/lib/test_grpc.cpp
+
+
+##############################################################################
+if ZEROMQ
+check_PROGRAMS += tests/lib/test_zmq
+endif
+tests_lib_test_zmq_CFLAGS = $(TESTS_CFLAGS) $(ZEROMQ_CFLAGS)
+tests_lib_test_zmq_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_zmq_LDADD = lib/libfrrzmq.la $(ALL_TESTS_LDADD) $(ZEROMQ_LIBS)
+tests_lib_test_zmq_SOURCES = tests/lib/test_zmq.c
+
+
+##############################################################################
+if CARES
+check_PROGRAMS += tests/lib/test_resolver
+endif
+tests_lib_test_resolver_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_resolver_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_resolver_LDADD = $(ALL_TESTS_LDADD) lib/libfrrcares.la
+tests_lib_test_resolver_SOURCES = tests/lib/test_resolver.c tests/lib/cli/common_cli.c
+
+
+##############################################################################
+noinst_HEADERS += \
+	tests/helpers/c/prng.h \
+	tests/helpers/c/tests.h \
+	tests/lib/cli/common_cli.h \
+	# end
+
+
+check_PROGRAMS += tests/lib/cxxcompat
+tests_lib_cxxcompat_CFLAGS = $(TESTS_CFLAGS) $(CXX_COMPAT_CFLAGS) $(WERROR)
+tests_lib_cxxcompat_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_cxxcompat_SOURCES = tests/lib/cxxcompat.c
+tests_lib_cxxcompat_LDADD = $(ALL_TESTS_LDADD)
+
+
+check_PROGRAMS += tests/lib/fuzz_zlog
+tests_lib_fuzz_zlog_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_fuzz_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_fuzz_zlog_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_fuzz_zlog_SOURCES = tests/lib/fuzz_zlog.c
+EXTRA_DIST += tests/lib/fuzz_zlog_inputs.py
+
+
+check_PROGRAMS += tests/lib/cli/test_cli
+tests_lib_cli_test_cli_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_cli_test_cli_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_cli_test_cli_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_cli_test_cli_SOURCES = tests/lib/cli/test_cli.c tests/lib/cli/common_cli.c
+clippy_scan += tests/lib/cli/test_cli.c
+EXTRA_DIST += \
+	tests/lib/cli/test_cli.in \
+	tests/lib/cli/test_cli.py \
+	tests/lib/cli/test_cli.refout \
+	# end
+
+
+check_PROGRAMS += tests/lib/cli/test_commands
+tests_lib_cli_test_commands_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_cli_test_commands_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
+nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
+tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
+tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
+	@mkdir -p tests/lib/cli
+	$(AM_V_GEN)sed \
+		-e 's%"vtysh/vtysh\.h"%"tests/helpers/c/tests.h"%' \
+		-e 's/vtysh_init_cmd/test_init_cmd/' \
+		-e 's/VTYSH_[A-Z][A-Z_0-9]*/0/g' \
+		< vtysh/vtysh_cmd.c \
+		> "$@"
+CLEANFILES += tests/lib/cli/test_commands_defun.c
+EXTRA_DIST += \
+	tests/lib/cli/test_commands.in \
+	tests/lib/cli/test_commands.py \
+	tests/lib/cli/test_commands.refout \
+	# end
+
+
+check_PROGRAMS += tests/lib/northbound/test_oper_data
+tests_lib_northbound_test_oper_data_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_northbound_test_oper_data_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_northbound_test_oper_data_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_northbound_test_oper_data_SOURCES = tests/lib/northbound/test_oper_data.c
+nodist_tests_lib_northbound_test_oper_data_SOURCES = yang/frr-test-module.yang.c
+EXTRA_DIST += \
+	tests/lib/northbound/test_oper_data.in \
+	tests/lib/northbound/test_oper_data.py \
+	tests/lib/northbound/test_oper_data.refout \
+	# end
+
+
+check_PROGRAMS += tests/lib/test_assert
+tests_lib_test_assert_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_assert_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_assert_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_assert_SOURCES = tests/lib/test_assert.c
+EXTRA_DIST += tests/lib/test_assert.py
+
+
+check_PROGRAMS += tests/lib/test_atomlist
+tests_lib_test_atomlist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_atomlist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_atomlist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_atomlist_SOURCES = tests/lib/test_atomlist.c
+EXTRA_DIST += tests/lib/test_atomlist.py
+
+
+check_PROGRAMS += tests/lib/test_buffer
+tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_buffer_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_buffer_SOURCES = tests/lib/test_buffer.c
+
+
+check_PROGRAMS += tests/lib/test_checksum
+tests_lib_test_checksum_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_checksum_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_checksum_SOURCES = tests/lib/test_checksum.c tests/helpers/c/prng.c
+
+
+check_PROGRAMS += tests/lib/test_graph
+tests_lib_test_graph_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_graph_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_graph_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_graph_SOURCES = tests/lib/test_graph.c
+EXTRA_DIST += \
+	tests/lib/test_graph.py \
+	tests/lib/test_graph.refout \
+	# end
+
+
+check_PROGRAMS += tests/lib/test_heavy
+tests_lib_test_heavy_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_heavy_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_heavy_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_heavy_SOURCES = tests/lib/test_heavy.c tests/helpers/c/main.c
+
+
+check_PROGRAMS += tests/lib/test_heavy_thread
+tests_lib_test_heavy_thread_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_heavy_thread_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_heavy_thread_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_heavy_thread_SOURCES = tests/lib/test_heavy_thread.c tests/helpers/c/main.c
+
+
+check_PROGRAMS += tests/lib/test_heavy_wq
+tests_lib_test_heavy_wq_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_heavy_wq_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_heavy_wq_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_heavy_wq_SOURCES = tests/lib/test_heavy_wq.c tests/helpers/c/main.c
+
+
+check_PROGRAMS += tests/lib/test_idalloc
+tests_lib_test_idalloc_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_idalloc_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_idalloc_SOURCES = tests/lib/test_idalloc.c
+
+
+check_PROGRAMS += tests/lib/test_memory
+tests_lib_test_memory_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_memory_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_memory_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_memory_SOURCES = tests/lib/test_memory.c
+
+
+check_PROGRAMS += tests/lib/test_nexthop_iter
+tests_lib_test_nexthop_iter_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_nexthop_iter_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_nexthop_iter_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_nexthop_iter_SOURCES = tests/lib/test_nexthop_iter.c tests/helpers/c/prng.c
+EXTRA_DIST += tests/lib/test_nexthop_iter.py
+
+
+check_PROGRAMS += tests/lib/test_nexthop
+tests_lib_test_nexthop_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_nexthop_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_nexthop_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_nexthop_SOURCES = tests/lib/test_nexthop.c
+EXTRA_DIST += tests/lib/test_nexthop.py
+
+
+check_PROGRAMS += tests/lib/test_ntop
+tests_lib_test_ntop_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_ntop_CPPFLAGS = $(CPPFLAGS_BASE) # no assert override
+tests_lib_test_ntop_LDADD = # none
+tests_lib_test_ntop_SOURCES = tests/lib/test_ntop.c tests/helpers/c/prng.c
+EXTRA_DIST += tests/lib/test_ntop.py
+
+
+check_PROGRAMS += tests/lib/test_plist
+tests_lib_test_plist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_plist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_plist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_plist_SOURCES = tests/lib/test_plist.c tests/lib/cli/common_cli.c
+
+
+check_PROGRAMS += tests/lib/test_prefix2str
+tests_lib_test_prefix2str_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_prefix2str_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_prefix2str_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_prefix2str_SOURCES = tests/lib/test_prefix2str.c tests/helpers/c/prng.c
+EXTRA_DIST += tests/lib/test_prefix2str.py
+
+
+check_PROGRAMS += tests/lib/test_printfrr
+tests_lib_test_printfrr_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_printfrr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_printfrr_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_printfrr_SOURCES = tests/lib/test_printfrr.c
+EXTRA_DIST += tests/lib/test_printfrr.py
+
+
+check_PROGRAMS += tests/lib/test_privs
+tests_lib_test_privs_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_privs_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_privs_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_privs_SOURCES = tests/lib/test_privs.c
+
+
+check_PROGRAMS += tests/lib/test_ringbuf
+tests_lib_test_ringbuf_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_ringbuf_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_ringbuf_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_ringbuf_SOURCES = tests/lib/test_ringbuf.c
+EXTRA_DIST += tests/lib/test_ringbuf.py
+
+
+check_PROGRAMS += tests/lib/test_segv
+tests_lib_test_segv_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_segv_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_segv_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_segv_SOURCES = tests/lib/test_segv.c
+
+
+check_PROGRAMS += tests/lib/test_seqlock
+tests_lib_test_seqlock_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_seqlock_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_seqlock_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_seqlock_SOURCES = tests/lib/test_seqlock.c
+
+
+check_PROGRAMS += tests/lib/test_sig
+tests_lib_test_sig_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_sig_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_sig_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_sig_SOURCES = tests/lib/test_sig.c
+
+
+check_PROGRAMS += tests/lib/test_skiplist
+tests_lib_test_skiplist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_skiplist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_skiplist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_skiplist_SOURCES = tests/lib/test_skiplist.c
+
+
+check_PROGRAMS += tests/lib/test_srcdest_table
+tests_lib_test_srcdest_table_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_srcdest_table_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_srcdest_table_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_srcdest_table_SOURCES = tests/lib/test_srcdest_table.c tests/helpers/c/prng.c
+EXTRA_DIST += tests/lib/test_srcdest_table.py
+
+
+check_PROGRAMS += tests/lib/test_stream
+tests_lib_test_stream_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_stream_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_stream_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_stream_SOURCES = tests/lib/test_stream.c
+EXTRA_DIST += \
+	tests/lib/test_stream.py \
+	tests/lib/test_stream.refout \
+	# end
+
+
+check_PROGRAMS += tests/lib/test_table
+tests_lib_test_table_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_table_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_table_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_table_SOURCES = tests/lib/test_table.c
+EXTRA_DIST += tests/lib/test_table.py
+
+
+check_PROGRAMS += tests/lib/test_timer_correctness
+tests_lib_test_timer_correctness_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_timer_correctness_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_timer_correctness_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_timer_correctness_SOURCES = tests/lib/test_timer_correctness.c tests/helpers/c/prng.c
+EXTRA_DIST += tests/lib/test_timer_correctness.py
+
+
+check_PROGRAMS += tests/lib/test_timer_performance
+tests_lib_test_timer_performance_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_timer_performance_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_timer_performance_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_timer_performance_SOURCES = tests/lib/test_timer_performance.c tests/helpers/c/prng.c
+
+
+check_PROGRAMS += tests/lib/test_ttable
+tests_lib_test_ttable_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_ttable_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_ttable_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_ttable_SOURCES = tests/lib/test_ttable.c
+EXTRA_DIST += \
+	tests/lib/test_ttable.py \
+	tests/lib/test_ttable.refout \
+	# end
+
+
+check_PROGRAMS += tests/lib/test_typelist
+tests_lib_test_typelist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_typelist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_typelist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_typelist_SOURCES = tests/lib/test_typelist.c tests/helpers/c/prng.c
+noinst_HEADERS += tests/lib/test_typelist.h
+EXTRA_DIST += tests/lib/test_typelist.py
+
+
+check_PROGRAMS += tests/lib/test_versioncmp
+tests_lib_test_versioncmp_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_versioncmp_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_versioncmp_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_versioncmp_SOURCES = tests/lib/test_versioncmp.c
+EXTRA_DIST += tests/lib/test_versioncmp.py
+
+
+check_PROGRAMS += tests/lib/test_xref
+tests_lib_test_xref_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_xref_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_xref_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_xref_SOURCES = tests/lib/test_xref.c
+EXTRA_DIST += tests/lib/test_xref.py
+
+
+check_PROGRAMS += tests/lib/test_zlog
+tests_lib_test_zlog_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_zlog_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_zlog_SOURCES = tests/lib/test_zlog.c
+EXTRA_DIST += tests/lib/test_zlog.py

@@ -228,7 +228,7 @@ struct route_node *route_node_match_ipv4(struct route_table *table,
 {
 	struct prefix_ipv4 p;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = *addr;
@@ -241,7 +241,7 @@ struct route_node *route_node_match_ipv6(struct route_table *table,
 {
 	struct prefix_ipv6 p;
 
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = *addr;
@@ -393,7 +393,7 @@ void route_node_delete(struct route_node *node)
 		route_node_delete(parent);
 }
 
-/* Get fist node and lock it.  This function is useful when one want
+/* Get first node and lock it.  This function is useful when one wants
    to lookup all the node exist in the routing table. */
 struct route_node *route_top(struct route_table *table)
 {

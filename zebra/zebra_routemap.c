@@ -319,7 +319,7 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	route_map_counter_increment(NHT_RM_MAP(zvrf, afi, rtype));
 
 	if (NHT_RM_MAP(zvrf, afi, rtype))
-		zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AFI_IP, 1, NULL, SAFI_UNICAST);
 
 	return CMD_SUCCESS;
 }
@@ -340,8 +340,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 					zvrf->vrf->vrf_id, rtype);
 			NHT_RM_MAP(zvrf, afi, rtype) = NULL;
 
-			zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE,
-					   NULL);
+			zebra_evaluate_rnh(zvrf, AFI_IP, 1, NULL, SAFI_UNICAST);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
 	}
@@ -639,7 +638,7 @@ DEFPY_YANG (ip_protocol,
 	assert(proto);
 	assert(rmap);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -673,7 +672,7 @@ DEFPY_YANG (no_ip_protocol,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -720,7 +719,7 @@ DEFPY_YANG (ipv6_protocol,
 	assert(rmap);
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -754,7 +753,7 @@ DEFPY_YANG (no_ipv6_protocol,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -802,7 +801,7 @@ DEFPY_YANG (ip_protocol_nht_rmap,
 	assert(proto);
 	assert(rmap);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -836,7 +835,7 @@ DEFPY_YANG (no_ip_protocol_nht_rmap,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -884,7 +883,7 @@ DEFPY_YANG (ipv6_protocol_nht_rmap,
 	assert(rmap);
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -918,7 +917,7 @@ DEFPY_YANG (no_ipv6_protocol_nht_rmap,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -1589,8 +1588,8 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ip = 1;
 
 						zebra_evaluate_rnh(
-							zvrf, AFI_IP, 1,
-							RNH_NEXTHOP_TYPE, NULL);
+							zvrf, AFI_IP, 1, NULL,
+							SAFI_UNICAST);
 					}
 				}
 			}
@@ -1620,8 +1619,8 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ipv6 = 1;
 
 						zebra_evaluate_rnh(
-							zvrf, AFI_IP, 1,
-							RNH_NEXTHOP_TYPE, NULL);
+							zvrf, AFI_IP, 1, NULL,
+							SAFI_UNICAST);
 					}
 				}
 			}
@@ -1639,7 +1638,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_nht_rm_update(rmap_name);
 }
 
-static int zebra_route_map_update_timer(struct thread *thread)
+static void zebra_route_map_update_timer(struct thread *thread)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event driven route-map update triggered");
@@ -1656,7 +1655,6 @@ static int zebra_route_map_update_timer(struct thread *thread)
 	 * 1) VRF Aware <sigh>
 	 * 2) Route-map aware
 	 */
-	return 0;
 }
 
 static void zebra_route_map_set_delay_timer(uint32_t value)

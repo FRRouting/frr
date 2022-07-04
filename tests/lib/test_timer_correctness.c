@@ -76,7 +76,7 @@ static void terminate_test(void)
 	exit(exit_code);
 }
 
-static int timer_func(struct thread *thread)
+static void timer_func(struct thread *thread)
 {
 	int rv;
 
@@ -90,8 +90,6 @@ static int timer_func(struct thread *thread)
 	timers_pending--;
 	if (!timers_pending)
 		terminate_test();
-
-	return 0;
 }
 
 static int cmp_timeval(const void *a, const void *b)
@@ -124,7 +122,7 @@ int main(int argc, char **argv)
 
 	prng = prng_new(0);
 
-	timers = XMALLOC(MTYPE_TMP, SCHEDULE_TIMERS * sizeof(*timers));
+	timers = XCALLOC(MTYPE_TMP, SCHEDULE_TIMERS * sizeof(*timers));
 
 	for (i = 0; i < SCHEDULE_TIMERS; i++) {
 		long interval_msec;
@@ -134,7 +132,6 @@ int main(int argc, char **argv)
 		/* Schedule timers to expire in 0..5 seconds */
 		interval_msec = prng_rand(prng) % 5000;
 		arg = XMALLOC(MTYPE_TMP, TIMESTR_LEN + 1);
-		timers[i] = NULL;
 		thread_add_timer_msec(master, timer_func, arg, interval_msec,
 				      &timers[i]);
 		ret = snprintf(arg, TIMESTR_LEN + 1, "%lld.%06lld",
@@ -154,7 +151,6 @@ int main(int argc, char **argv)
 
 		XFREE(MTYPE_TMP, timers[index]->arg);
 		thread_cancel(&timers[index]);
-		timers[index] = NULL;
 		timers_pending--;
 	}
 
@@ -163,7 +159,7 @@ int main(int argc, char **argv)
 	 * representing the expected "output" of the timers when they
 	 * are run. */
 	j = 0;
-	alarms = XMALLOC(MTYPE_TMP, timers_pending * sizeof(*alarms));
+	alarms = XCALLOC(MTYPE_TMP, timers_pending * sizeof(*alarms));
 	for (i = 0; i < SCHEDULE_TIMERS; i++) {
 		if (!timers[i])
 			continue;

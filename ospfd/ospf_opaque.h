@@ -64,7 +64,7 @@
 #define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
 #define OPAQUE_TYPE_MAX                                8
 
-/* Followings types are proposed in internet-draft documents. */
+/* Following types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
 #define OPAQUE_TYPE_SECONDARY_NEIGHBOR_DISCOVERY	224
 #define OPAQUE_TYPE_FLOODGATE                           225
@@ -76,6 +76,8 @@
 	(OPAQUE_TYPE_MAX <= (type) && (type) <= 127)
 
 #define OPAQUE_TYPE_RANGE_RESERVED(type) (127 < (type) && (type) <= 255)
+
+#define OSPF_OPAQUE_LSA_MIN_SIZE 4U
 
 #define VALID_OPAQUE_INFO_LEN(lsahdr)                                          \
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
@@ -136,7 +138,8 @@ extern int ospf_register_opaque_functab(
 	void (*config_write_router)(struct vty *vty),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa),
 	int (*lsa_originator)(void *arg),
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa),
 	int (*new_lsa_hook)(struct ospf_lsa *lsa),
@@ -169,5 +172,7 @@ extern void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa);
 extern void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 						     struct ospf_lsa *lsa);
 extern struct ospf *oi_to_top(struct ospf_interface *oi);
+
+extern int ospf_opaque_is_owned(struct ospf_lsa *lsa);
 
 #endif /* _ZEBRA_OSPF_OPAQUE_H */

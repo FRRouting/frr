@@ -34,7 +34,7 @@ extern "C" {
 /* return type when this error indication stuff is used.
  *
  * guaranteed to have boolean evaluation to "false" when OK, "true" when error
- * (i.e. can be changed to pointer in the future if neccessary)
+ * (i.e. can be changed to pointer in the future if necessary)
  *
  * For checking, always use "if (value)", nothing else.
  * Do _NOT_ use any integer constant (!= 0), or sign check (< 0).

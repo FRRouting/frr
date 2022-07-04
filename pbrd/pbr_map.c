@@ -178,9 +178,9 @@ static void pbr_map_pbrms_uninstall(struct pbr_map_sequence *pbrms)
 }
 
 static const char *const pbr_map_reason_str[] = {
-	"Invalid NH-group",     "Invalid NH",	 "No Nexthops",
-	"Both NH and NH-Group", "Invalid Src or Dst", "Invalid VRF",
-	"Deleting Sequence",
+	"Invalid NH-group",	"Invalid NH",	 "No Nexthops",
+	"Both NH and NH-Group",    "Invalid Src or Dst", "Invalid VRF",
+	"Both VLAN Set and Strip", "Deleting Sequence",
 };
 
 void pbr_map_reason_string(unsigned int reason, char *buf, int size)
@@ -408,8 +408,7 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, char *ifname,
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-			if (strncmp(pmi->ifp->name, ifname, INTERFACE_NAMSIZ)
-			    != 0)
+			if (strcmp(pmi->ifp->name, ifname) != 0)
 				continue;
 
 			if (ppmi)
@@ -539,6 +538,13 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->seqno = seqno;
 		pbrms->ruleno = pbr_nht_get_next_rule(seqno);
 		pbrms->parent = pbrm;
+
+		pbrms->action_vlan_id = 0;
+		pbrms->action_vlan_flags = 0;
+		pbrms->action_pcp = 0;
+
+		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
+
 		pbrms->reason =
 			PBR_MAP_INVALID_EMPTY |
 			PBR_MAP_INVALID_NO_NEXTHOPS;
@@ -601,9 +607,27 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield)
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark && !pbrms->dsfield
+	    && !pbrms->action_vlan_id && !pbrms->action_vlan_flags
+	    && !pbrms->action_pcp
+	    && pbrms->action_queue_id == PBR_MAP_UNDEFINED_QUEUE_ID)
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
+
+static void pbr_map_sequence_check_vlan_actions(struct pbr_map_sequence *pbrms)
+{
+	/* The set vlan tag action does the following:
+	 *  1. If the frame is untagged, it tags the frame with the
+	 *     configured VLAN ID.
+	 *  2. If the frame is tagged, if replaces the tag.
+	 *
+	 * The strip vlan action removes any inner tag, so it is invalid to
+	 * specify both a set and strip action.
+	 */
+	if ((pbrms->action_vlan_id != 0) && (pbrms->action_vlan_flags != 0))
+		pbrms->reason |= PBR_MAP_INVALID_SET_STRIP_VLAN;
+}
+
 
 /*
  * Checks to see if we think that the pbmrs is valid.  If we think
@@ -612,7 +636,7 @@ static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 static void pbr_map_sequence_check_valid(struct pbr_map_sequence *pbrms)
 {
 	pbr_map_sequence_check_nexthops_valid(pbrms);
-
+	pbr_map_sequence_check_vlan_actions(pbrms);
 	pbr_map_sequence_check_not_empty(pbrms);
 }
 
@@ -766,6 +790,12 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 
 			if (found_name) {
 				bool original = pbrm->valid;
+
+				/* Set data we were waiting on */
+				if (pbrms->nhgrp_name)
+					pbr_nht_set_seq_nhg_data(
+						pbrms,
+						nhgc_find(pbrms->nhgrp_name));
 
 				pbr_map_check_valid_internal(pbrm);
 

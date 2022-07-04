@@ -22,6 +22,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "network.h"
+#include "libfrr.h"
 
 #include "pathd/pathd.h"
 #include "pathd/path_zebra.h"
@@ -44,9 +45,9 @@ DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate));
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
-static int trigger_pathd_candidate_created_timer(struct thread *thread);
+static void trigger_pathd_candidate_created_timer(struct thread *thread);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
-static int trigger_pathd_candidate_updated_timer(struct thread *thread);
+static void trigger_pathd_candidate_updated_timer(struct thread *thread);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
@@ -1223,6 +1224,7 @@ void pathd_shutdown(void)
 {
 	path_ted_teardown();
 	srte_clean_zebra();
+	frr_fini();
 }
 
 void trigger_pathd_candidate_created(struct srte_candidate *candidate)
@@ -1238,11 +1240,11 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-int trigger_pathd_candidate_created_timer(struct thread *thread)
+void trigger_pathd_candidate_created_timer(struct thread *thread)
 {
 	struct srte_candidate *candidate = THREAD_ARG(thread);
 	candidate->hook_timer = NULL;
-	return hook_call(pathd_candidate_created, candidate);
+	hook_call(pathd_candidate_created, candidate);
 }
 
 void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
@@ -1258,11 +1260,11 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-int trigger_pathd_candidate_updated_timer(struct thread *thread)
+void trigger_pathd_candidate_updated_timer(struct thread *thread)
 {
 	struct srte_candidate *candidate = THREAD_ARG(thread);
 	candidate->hook_timer = NULL;
-	return hook_call(pathd_candidate_updated, candidate);
+	hook_call(pathd_candidate_updated, candidate);
 }
 
 void trigger_pathd_candidate_removed(struct srte_candidate *candidate)
@@ -1343,7 +1345,7 @@ int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
 		zlog_warn(" %s: PATHD-TED: SL: ERROR query C : ted-sid (%d)",
 			  __func__, ted_sid);
 	} else {
-		zlog_debug("%s: PATHD-TED: SL: Sucess query C : ted-sid (%d)",
+		zlog_debug("%s: PATHD-TED: SL: Success query C : ted-sid (%d)",
 			   __func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
@@ -1373,7 +1375,7 @@ int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
 		zlog_warn(" %s: PATHD-TED: SL: ERROR query E : ted-sid (%d)",
 			  __func__, ted_sid);
 	} else {
-		zlog_debug("%s: PATHD-TED: SL: Sucess query E : ted-sid (%d)",
+		zlog_debug("%s: PATHD-TED: SL: Success query E : ted-sid (%d)",
 			   __func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
@@ -1402,7 +1404,7 @@ int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 		zlog_warn("%s:SL:  ERROR query F : ted-sid (%d)", __func__,
 			  ted_sid);
 	} else {
-		zlog_debug("%s:SL: Sucess query F : ted-sid (%d)", __func__,
+		zlog_debug("%s:SL: Success query F : ted-sid (%d)", __func__,
 			   ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,

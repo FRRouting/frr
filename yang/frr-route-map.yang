@@ -106,6 +106,18 @@ module frr-route-map {
       "Match an IPv6 prefix-list";
   }
 
+  identity ipv6-next-hop-list {
+    base rmap-match-type;
+    description
+      "Match an IPv6 next-hop";
+  }
+
+  identity ipv6-next-hop-prefix-list {
+    base rmap-match-type;
+    description
+      "Match an IPv6 next-hop prefix list";
+  }
+
   identity ipv6-next-hop-type {
     base rmap-match-type;
     description
@@ -200,6 +212,8 @@ module frr-route-map {
              + "derived-from-or-self(../condition, 'ipv4-next-hop-list') or "
              + "derived-from-or-self(../condition, 'ipv4-next-hop-prefix-list') or "
              + "derived-from-or-self(../condition, 'ipv6-address-list') or "
+             + "derived-from-or-self(../condition, 'ipv6-next-hop-list') or "
+             + "derived-from-or-self(../condition, 'ipv6-next-hop-prefix-list') or "
              + "derived-from-or-self(../condition, 'ipv6-prefix-list')";
           leaf list-name {
             type filter:access-list-name;

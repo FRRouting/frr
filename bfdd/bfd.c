@@ -51,8 +51,6 @@ static void bs_admin_down_handler(struct bfd_session *bs, int nstate);
 static void bs_down_handler(struct bfd_session *bs, int nstate);
 static void bs_init_handler(struct bfd_session *bs, int nstate);
 static void bs_up_handler(struct bfd_session *bs, int nstate);
-static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
-					    uint8_t diag);
 
 /**
  * Remove BFD profile from all BFD sessions so we don't leave dangling
@@ -315,45 +313,28 @@ int bfd_session_enable(struct bfd_session *bs)
 		vrf = vrf_lookup_by_name(bs->key.vrfname);
 		if (vrf == NULL) {
 			zlog_err(
-				"session-enable: specified VRF doesn't exists.");
+				"session-enable: specified VRF %s doesn't exists.",
+				bs->key.vrfname);
 			return 0;
 		}
+	} else {
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	}
 
-	if (!vrf_is_backend_netns() && vrf && vrf->vrf_id != VRF_DEFAULT
-	    && !if_lookup_by_name(vrf->name, vrf->vrf_id)) {
-		zlog_err("session-enable: vrf interface %s not available yet",
-			 vrf->name);
-		return 0;
-	}
+	assert(vrf);
 
 	if (bs->key.ifname[0]) {
-		if (vrf)
-			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
-		else
-			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
+		ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
 		if (ifp == NULL) {
 			zlog_err(
 				"session-enable: specified interface %s (VRF %s) doesn't exist.",
-				bs->key.ifname, vrf ? vrf->name : "<all>");
+				bs->key.ifname, vrf->name);
 			return 0;
-		}
-		if (bs->key.ifname[0] && !vrf) {
-			vrf = vrf_lookup_by_id(ifp->vrf_id);
-			if (vrf == NULL) {
-				zlog_err(
-					"session-enable: specified VRF %u doesn't exist.",
-					ifp->vrf_id);
-				return 0;
-			}
 		}
 	}
 
 	/* Assign interface/VRF pointers. */
 	bs->vrf = vrf;
-	if (bs->vrf == NULL)
-		bs->vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	assert(bs->vrf);
 
 	/* Assign interface pointer (if any). */
 	bs->ifp = ifp;
@@ -607,10 +588,10 @@ static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
-				      ifindex_t ifindex, vrf_id_t vrfid,
+				      struct interface *ifp,
+				      vrf_id_t vrfid,
 				      bool is_mhop)
 {
-	struct interface *ifp;
 	struct vrf *vrf;
 	struct bfd_key key;
 
@@ -618,21 +599,8 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	if (cp->discrs.remote_discr)
 		return bfd_find_disc(peer, ntohl(cp->discrs.remote_discr));
 
-	/*
-	 * Search for session without using discriminator.
-	 *
-	 * XXX: we can't trust `vrfid` because the VRF handling is not
-	 * properly implemented. Meanwhile we should use the interface
-	 * VRF to find out which one it belongs.
-	 */
-	ifp = if_lookup_by_index_all_vrf(ifindex);
-	if (ifp == NULL) {
-		if (vrfid != VRF_DEFAULT)
-			vrf = vrf_lookup_by_id(vrfid);
-		else
-			vrf = NULL;
-	} else
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
+	/* Search for session without using discriminator. */
+	vrf = vrf_lookup_by_id(vrfid);
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
 		    vrf ? vrf->name : VRF_DEFAULT_NAME);
@@ -641,27 +609,23 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	return bfd_key_lookup(key);
 }
 
-int bfd_xmt_cb(struct thread *t)
+void bfd_xmt_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
 	ptm_bfd_xmt_TO(bs, 0);
-
-	return 0;
 }
 
-int bfd_echo_xmt_cb(struct thread *t)
+void bfd_echo_xmt_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
 	if (bs->echo_xmt_TO > 0)
 		ptm_bfd_echo_xmt_TO(bs);
-
-	return 0;
 }
 
 /* Was ptm_bfd_detect_TO() */
-int bfd_recvtimer_cb(struct thread *t)
+void bfd_recvtimer_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
@@ -669,22 +633,12 @@ int bfd_recvtimer_cb(struct thread *t)
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
-		bfd_recvtimer_update(bs);
-		break;
-
-	default:
-		/* Second detect time expiration, zero remote discr (section
-		 * 6.5.1)
-		 */
-		bs->discrs.remote_discr = 0;
 		break;
 	}
-
-	return 0;
 }
 
 /* Was ptm_bfd_echo_detect_TO() */
-int bfd_echo_recvtimer_cb(struct thread *t)
+void bfd_echo_recvtimer_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
@@ -694,8 +648,6 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
 		break;
 	}
-
-	return 0;
 }
 
 struct bfd_session *bfd_session_new(void)
@@ -817,7 +769,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 * Apply profile last: it also calls `bfd_set_shutdown`.
 	 *
 	 * There is no problem calling `shutdown` twice if the value doesn't
-	 * change or if it is overriden by peer specific configuration.
+	 * change or if it is overridden by peer specific configuration.
 	 */
 	if (bpc->bpc_has_profile)
 		bfd_profile_apply(bpc->bpc_profile, bs);
@@ -1035,9 +987,18 @@ static void bs_down_handler(struct bfd_session *bs, int nstate)
 		 */
 		bs->ses_state = PTM_BFD_INIT;
 
-		/* Answer peer with INIT immediately in passive mode. */
+		/*
+		 * RFC 5880, Section 6.1.
+		 * A system taking the Passive role MUST NOT begin
+		 * sending BFD packets for a particular session until
+		 * it has received a BFD packet for that session, and thus
+		 * has learned the remote system's discriminator value.
+		 *
+		 * Now we can start transmission timer in passive mode.
+		 */
 		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE))
-			ptm_bfd_snd(bs, 0);
+			ptm_bfd_xmt_TO(bs, 0);
+
 		break;
 
 	case PTM_BFD_INIT:
@@ -1064,7 +1025,7 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 		 * Remote peer doesn't want to talk, so lets make the
 		 * connection down.
 		 */
-		bs->ses_state = PTM_BFD_DOWN;
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
 		break;
 
 	case PTM_BFD_DOWN:
@@ -1085,46 +1046,10 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
-static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
-					    uint8_t diag)
-{
-	int old_state = bfd->ses_state;
-
-	bfd->local_diag = diag;
-	bfd->discrs.remote_discr = 0;
-	bfd->ses_state = PTM_BFD_DOWN;
-	bfd->polling = 0;
-	bfd->demand_mode = 0;
-	monotime(&bfd->downtime);
-
-	/* Slow down the control packets, the connection is down. */
-	bs_set_slow_timers(bfd);
-
-	/* only signal clients when going from up->down state */
-	if (old_state == PTM_BFD_UP)
-		control_notify(bfd, PTM_BFD_ADM_DOWN);
-
-	/* Stop echo packet transmission if they are active */
-	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
-		ptm_bfd_echo_stop(bfd);
-
-	if (old_state != bfd->ses_state) {
-		bfd->stats.session_down++;
-		if (bglobal.debug_peer_event)
-			zlog_debug("state-change: [%s] %s -> %s reason:%s",
-				   bs_to_string(bfd), state_list[old_state].str,
-				   state_list[bfd->ses_state].str,
-				   get_diag_str(bfd->local_diag));
-	}
-}
-
 static void bs_up_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
-		bs_neighbour_admin_down_handler(bs, BD_ADMIN_DOWN);
-		break;
-
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
 		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
@@ -1255,27 +1180,6 @@ void bs_final_handler(struct bfd_session *bs)
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
-
-	/*
-	 * Detection timeout calculation:
-	 * The minimum detection timeout is the remote detection
-	 * multipler (number of packets to be missed) times the agreed
-	 * transmission interval.
-	 *
-	 * RFC 5880, Section 6.8.4.
-	 *
-	 * TODO: support sending/counting more packets inside detection
-	 * timeout.
-	 */
-	if (bs->timers.required_min_rx > bs->remote_timers.desired_min_tx)
-		bs->detect_TO = bs->remote_detect_mult
-				* bs->timers.required_min_rx;
-	else
-		bs->detect_TO = bs->remote_detect_mult
-				* bs->remote_timers.desired_min_tx;
-
-	/* Apply new receive timer immediately. */
-	bfd_recvtimer_update(bs);
 
 	/* Notify watchers about changed timers. */
 	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
@@ -1512,7 +1416,7 @@ int strtosa(const char *addr, struct sockaddr_any *sa)
 
 void integer2timestr(uint64_t time, char *buf, size_t buflen)
 {
-	unsigned int year, month, day, hour, minute, second;
+	uint64_t year, month, day, hour, minute, second;
 	int rv;
 
 #define MINUTES (60)
@@ -1524,7 +1428,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		year = time / YEARS;
 		time -= year * YEARS;
 
-		rv = snprintf(buf, buflen, "%u year(s), ", year);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " year(s), ", year);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1532,7 +1436,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		month = time / MONTHS;
 		time -= month * MONTHS;
 
-		rv = snprintf(buf, buflen, "%u month(s), ", month);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " month(s), ", month);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1540,7 +1444,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		day = time / DAYS;
 		time -= day * DAYS;
 
-		rv = snprintf(buf, buflen, "%u day(s), ", day);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " day(s), ", day);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1548,7 +1452,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		hour = time / HOURS;
 		time -= hour * HOURS;
 
-		rv = snprintf(buf, buflen, "%u hour(s), ", hour);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " hour(s), ", hour);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1556,12 +1460,12 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		minute = time / MINUTES;
 		time -= minute * MINUTES;
 
-		rv = snprintf(buf, buflen, "%u minute(s), ", minute);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " minute(s), ", minute);
 		buf += rv;
 		buflen -= rv;
 	}
 	second = time % MINUTES;
-	snprintf(buf, buflen, "%u second(s)", second);
+	snprintfrr(buf, buflen, "%" PRIu64 " second(s)", second);
 }
 
 const char *bs_to_string(const struct bfd_session *bs)
@@ -2005,19 +1909,6 @@ static int bfd_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-static int bfd_vrf_update(struct vrf *vrf)
-{
-	if (!vrf_is_enabled(vrf))
-		return 0;
-
-	if (bglobal.debug_zebra)
-		zlog_debug("VRF update: %s(%u)", vrf->name, vrf->vrf_id);
-
-	/* a different name is given; update bfd list */
-	bfdd_sessions_enable_vrf(vrf);
-	return 0;
-}
-
 static int bfd_vrf_enable(struct vrf *vrf)
 {
 	struct bfd_vrf_global *bvrf;
@@ -2129,8 +2020,7 @@ static int bfd_vrf_disable(struct vrf *vrf)
 
 void bfd_vrf_init(void)
 {
-	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable,
-		 bfd_vrf_delete, bfd_vrf_update);
+	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable, bfd_vrf_delete);
 }
 
 void bfd_vrf_terminate(void)
@@ -2153,63 +2043,6 @@ struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
 	if (!bfd->vrf)
 		return NULL;
 	return bfd->vrf->info;
-}
-
-void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
-{
-	if (!vrf || !bs)
-		return;
-	/* update key */
-	hash_release(bfd_key_hash, bs);
-	/*
-	 * HACK: Change the BFD VRF in the running configuration directly,
-	 * bypassing the northbound layer. This is necessary to avoid deleting
-	 * the BFD and readding it in the new VRF, which would have
-	 * several implications.
-	 */
-	if (yang_module_find("frr-bfdd") && bs->key.vrfname[0]) {
-		struct lyd_node *bfd_dnode;
-		char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
-		char oldpath[XPATH_MAXLEN], newpath[XPATH_MAXLEN];
-		char addr_buf[INET6_ADDRSTRLEN];
-		int slen;
-
-		/* build xpath */
-		if (bs->key.mhop) {
-			inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-			snprintf(xpath_srcaddr, sizeof(xpath_srcaddr), "[source-addr='%s']",
-				 addr_buf);
-		} else
-			xpath_srcaddr[0] = 0;
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		slen = snprintf(xpath, sizeof(xpath),
-				"/frr-bfdd:bfdd/bfd/sessions/%s%s[dest-addr='%s']",
-				bs->key.mhop ? "multi-hop" : "single-hop", xpath_srcaddr,
-				addr_buf);
-		if (bs->key.ifname[0])
-			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-					 "[interface='%s']", bs->key.ifname);
-		else
-			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-					 "[interface='*']");
-		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
-			 bs->key.vrfname);
-
-		bfd_dnode = yang_dnode_getf(running_config->dnode, xpath,
-					    bs->key.vrfname);
-		if (bfd_dnode) {
-			yang_dnode_get_path(lyd_parent(bfd_dnode), oldpath,
-					    sizeof(oldpath));
-			yang_dnode_change_leaf(bfd_dnode, vrf->name);
-			yang_dnode_get_path(lyd_parent(bfd_dnode), newpath,
-					    sizeof(newpath));
-			nb_running_move_tree(oldpath, newpath);
-			running_config->version++;
-		}
-	}
-	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));
-	strlcpy(bs->key.vrfname, vrf->name, sizeof(bs->key.vrfname));
-	hash_get(bfd_key_hash, bs, hash_alloc_intern);
 }
 
 unsigned long bfd_get_session_count(void)

@@ -29,36 +29,32 @@
 #include "linklist.h"
 
 struct pim_br {
-	struct prefix_sg sg;
-	struct in_addr pmbr;
+	pim_sgaddr sg;
+	pim_addr pmbr;
 };
-
-struct in_addr pim_br_unknown = {.s_addr = 0};
 
 static struct list *pim_br_list = NULL;
 
-struct in_addr pim_br_get_pmbr(struct prefix_sg *sg)
+pim_addr pim_br_get_pmbr(pim_sgaddr *sg)
 {
 	struct listnode *node;
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_br_list, node, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (!pim_sgaddr_cmp(*sg, pim_br->sg))
 			return pim_br->pmbr;
 	}
 
-	return pim_br_unknown;
+	return PIMADDR_ANY;
 }
 
-void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
+void pim_br_set_pmbr(pim_sgaddr *sg, pim_addr br)
 {
 	struct listnode *node, *next;
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS(pim_br_list, node, next, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (!pim_sgaddr_cmp(*sg, pim_br->sg))
 			break;
 	}
 
@@ -75,14 +71,13 @@ void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
 /*
  * Remove the (S,G) from the stored values
  */
-void pim_br_clear_pmbr(struct prefix_sg *sg)
+void pim_br_clear_pmbr(pim_sgaddr *sg)
 {
 	struct listnode *node, *next;
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS(pim_br_list, node, next, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (!pim_sgaddr_cmp(*sg, pim_br->sg))
 			break;
 	}
 

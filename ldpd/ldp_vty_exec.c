@@ -447,7 +447,6 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_adj		*adj;
-	char 			buf[PREFIX_STRLEN];
 	json_object		*json_array;
 	json_object		*json_adj;
 
@@ -467,9 +466,8 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 		json_adj = json_object_new_object();
 		json_object_string_add(json_adj, "addressFamily",
 		    af_name(adj->af));
-		json_object_string_add(json_adj, "neighborId",
-				       inet_ntop(AF_INET, &adj->id, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_adj, "neighborId", "%pI4",
+					&adj->id);
 		switch(adj->type) {
 		case HELLO_LINK:
 			json_object_string_add(json_adj, "type", "link");
@@ -498,7 +496,6 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 static void
 show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 {
-	char buf[PREFIX_STRLEN];
 	json_object *json_adj;
 	json_object *json_array;
 
@@ -509,8 +506,7 @@ show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 	}
 
 	json_adj = json_object_new_object();
-	json_object_string_add(json_adj, "lsrId", inet_ntop(AF_INET, &adj->id,
-							    buf, sizeof(buf)));
+	json_object_string_addf(json_adj, "lsrId", "%pI4", &adj->id);
 	json_object_string_add(json_adj, "sourceAddress", log_addr(adj->af,
 	    &adj->src_addr));
 	json_object_string_add(json_adj, "transportAddress", log_addr(adj->af,
@@ -532,7 +528,6 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_disc_tnbr	*tnbr;
 	struct in_addr		 rtr_id;
 	union ldpd_addr		*trans_addr;
-	char buf[PREFIX_STRLEN];
 	json_object		*json_interface;
 	json_object		*json_target;
 	static json_object	*json_interfaces;
@@ -542,9 +537,7 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_DISCOVERY:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		json_object_string_add(json, "lsrId",
-				       inet_ntop(AF_INET, &rtr_id, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json, "lsrId", "%pI4", &rtr_id);
 		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
 			json_object_string_add(json, "transportAddressIPv4",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
@@ -749,7 +742,6 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
-	char buf[PREFIX_STRLEN];
 	json_object		*json_array;
 	json_object		*json_nbr;
 
@@ -766,9 +758,8 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
 		json_nbr = json_object_new_object();
 		json_object_string_add(json_nbr, "addressFamily",
 		    af_name(nbr->af));
-		json_object_string_add(json_nbr, "neighborId",
-				       inet_ntop(AF_INET, &nbr->id, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_nbr, "neighborId", "%pI4",
+					&nbr->id);
 		json_object_string_add(json_nbr, "state",
 		    nbr_state_name(nbr->nbr_state));
 		json_object_string_add(json_nbr, "transportAddress",
@@ -830,9 +821,7 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_object_add(json,
 				       inet_ntop(AF_INET, &nbr->id, buf,
 						 sizeof(buf)), json_nbr);
-		json_object_string_add(json_nbr, "peerId",
-				       inet_ntop(AF_INET, &nbr->id, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_nbr, "peerId", "%pI4", &nbr->id);
 		json_object_string_add(json_nbr, "tcpLocalAddress",
 		    log_addr(nbr->af, &nbr->laddr));
 		json_object_int_add(json_nbr, "tcpLocalPort",
@@ -1235,7 +1224,6 @@ show_lib_msg_json(struct imsg *imsg, struct show_params *params,
 	json_object	*json_array;
 	json_object	*json_lib_entry;
 	char		 dstnet[BUFSIZ];
-	char buf[PREFIX_STRLEN];
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_LIB_BEGIN:
@@ -1258,9 +1246,8 @@ show_lib_msg_json(struct imsg *imsg, struct show_params *params,
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
 		json_object_string_add(json_lib_entry, "prefix", dstnet);
-		json_object_string_add(json_lib_entry, "neighborId",
-				       inet_ntop(AF_INET, &rt->nexthop, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_lib_entry, "neighborId", "%pI4",
+					&rt->nexthop);
 		json_object_string_add(json_lib_entry, "localLabel",
 				       log_label(rt->local_label));
 		json_object_string_add(json_lib_entry, "remoteLabel",
@@ -1284,7 +1271,6 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 {
 	struct ctl_rt		*rt = NULL;
 	char			 dstnet[BUFSIZ];
-	char buf[PREFIX_STRLEN];
 	static json_object	*json_lib_entry;
 	static json_object	*json_adv_labels;
 	json_object		*json_adv_label;
@@ -1316,18 +1302,16 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		rt = imsg->data;
 
 		json_adv_label = json_object_new_object();
-		json_object_string_add(json_adv_label, "neighborId",
-				       inet_ntop(AF_INET, &rt->nexthop, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_adv_label, "neighborId", "%pI4",
+					&rt->nexthop);
 		json_object_array_add(json_adv_labels, json_adv_label);
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
 
 		json_remote_label = json_object_new_object();
-		json_object_string_add(json_remote_label, "neighborId",
-				       inet_ntop(AF_INET, &rt->nexthop,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_remote_label, "neighborId", "%pI4",
+					&rt->nexthop);
 		json_object_string_add(json_remote_label, "label",
 				       log_label(rt->remote_label));
 		json_object_int_add(json_remote_label, "inUse", rt->in_use);
@@ -1394,16 +1378,14 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_pw	*pw;
 	json_object	*json_pw;
 	char 		 key_name[64];
-	char buf[PREFIX_STRLEN];
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_L2VPN_BINDING:
 		pw = imsg->data;
 
 		json_pw = json_object_new_object();
-		json_object_string_add(json_pw, "destination",
-				       inet_ntop(AF_INET, &pw->lsr_id, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_pw, "destination", "%pI4",
+					&pw->lsr_id);
 		json_object_int_add(json_pw, "vcId", pw->pwid);
 
 		/* local binding */
@@ -1481,7 +1463,6 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_pw	*pw;
-	char buf[PREFIX_STRLEN];
 	json_object	*json_pw;
 
 	switch (imsg->hdr.type) {
@@ -1489,11 +1470,13 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
 		pw = imsg->data;
 
 		json_pw = json_object_new_object();
-		json_object_string_add(json_pw, "peerId",
-				       inet_ntop(AF_INET, &pw->lsr_id,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_pw, "peerId", "%pI4", &pw->lsr_id);
 		json_object_int_add(json_pw, "vcId", pw->pwid);
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
 		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
+		json_object_string_add(json_pw, "vpnName", pw->l2vpn_name);
 		if (pw->status == PW_FORWARDING)
 			json_object_string_add(json_pw, "status", "up");
 		else
@@ -1865,9 +1848,7 @@ ldp_vty_dispatch(struct vty *vty, struct imsgbuf *ibuf, enum show_command cmd,
  done:
 	close(ibuf->fd);
 	if (json) {
-		vty_out (vty, "%s\n",
-			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return (ret);
@@ -2027,9 +2008,7 @@ ldp_vty_show_capabilities(struct vty *vty, const char *json)
 		    "0x0603");
 		json_object_array_add(json_array, json_cap);
 
-		vty_out (vty, "%s\n",
-			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 		return (0);
 	}
 

@@ -6,6 +6,10 @@ if OSPFCLIENT
 lib_LTLIBRARIES += ospfclient/libfrrospfapiclient.la
 noinst_PROGRAMS += ospfclient/ospfclient
 #man8 += $(MANBUILD)/frr-ospfclient.8
+
+sbin_SCRIPTS += \
+	ospfclient/ospfclient.py \
+	# end
 endif
 
 ospfclient_libfrrospfapiclient_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
@@ -40,4 +44,8 @@ endif
 
 ospfclient_ospfclient_SOURCES = \
 	ospfclient/ospfclient.c \
+	# end
+
+EXTRA_DIST += \
+	ospfclient/ospfclient.py \
 	# end

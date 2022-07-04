@@ -1,6 +1,7 @@
 /*
  * API message handling module for OSPF daemon and client.
  * Copyright (C) 2001, 2002 Ralph Keller
+ * Copyright (c) 2022, LabN Consulting, L.L.C.
  *
  * This file is part of GNU Zebra.
  *
@@ -25,6 +26,9 @@
 
 #ifndef _OSPF_API_H
 #define _OSPF_API_H
+
+#include <zebra.h>
+#include "ospf_lsa.h"
 
 #define OSPF_API_VERSION           1
 
@@ -112,6 +116,10 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_SYNC_LSDB             4
 #define MSG_ORIGINATE_REQUEST     5
 #define MSG_DELETE_REQUEST        6
+#define MSG_SYNC_REACHABLE        7
+#define MSG_SYNC_ISM              8
+#define MSG_SYNC_NSM              9
+#define MSG_SYNC_ROUTER_ID        19
 
 /* Messages from OSPF daemon. */
 #define MSG_REPLY                10
@@ -122,6 +130,8 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_DEL_IF               15
 #define MSG_ISM_CHANGE           16
 #define MSG_NSM_CHANGE           17
+#define MSG_REACHABLE_CHANGE     18
+#define MSG_ROUTER_ID_CHANGE     20
 
 struct msg_register_opaque_type {
 	uint8_t lsatype;
@@ -247,6 +257,16 @@ struct msg_nsm_change {
 	uint8_t pad[3];
 };
 
+struct msg_reachable_change {
+	uint16_t nadd;
+	uint16_t nremove;
+	struct in_addr router_ids[]; /* add followed by remove */
+};
+
+struct msg_router_id_change {
+	struct in_addr router_id; /* this systems router id */
+};
+
 /* We make use of a union to define a structure that covers all
    possible API messages. This allows us to find out how much memory
    needs to be reserved for the largest API message. */
@@ -265,6 +285,8 @@ struct apimsg {
 		struct msg_ism_change ism_change;
 		struct msg_nsm_change nsm_change;
 		struct msg_lsa_change_notify lsa_change_notify;
+		struct msg_reachable_change reachable_change;
+		struct msg_router_id_change router_id_change;
 	} u;
 };
 
@@ -320,6 +342,13 @@ extern struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 					     uint8_t is_self_originated,
 					     struct lsa_header *data);
 
+extern struct msg *new_msg_reachable_change(uint32_t seqnum, uint16_t nadd,
+					    struct in_addr *add,
+					    uint16_t nremove,
+					    struct in_addr *remove);
+
+extern struct msg *new_msg_router_id_change(uint32_t seqnr,
+					    struct in_addr router_id);
 /* string printing functions */
 extern const char *ospf_api_errname(int errcode);
 extern const char *ospf_api_typename(int msgtype);

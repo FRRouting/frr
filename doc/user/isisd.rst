@@ -272,7 +272,7 @@ ISIS interface
 Showing ISIS information
 ========================
 
-.. clicmd:: show isis summary
+.. clicmd:: show isis [vrf <NAME|all>] summary [json]
 
    Show summary information about ISIS.
 
@@ -280,17 +280,17 @@ Showing ISIS information
 
    Show information about ISIS node.
 
-.. clicmd:: show isis interface [detail] [IFNAME]
+.. clicmd:: show isis [vrf <NAME|all>] interface [detail] [IFNAME] [json]
 
    Show state and configuration of ISIS specified interface, or all interfaces
    if no interface is given with or without details.
 
-.. clicmd:: show isis neighbor [detail] [SYSTEMID]
+.. clicmd:: show isis [vrf <NAME|all>] neighbor [detail] [SYSTEMID] [json]
 
    Show state and information of ISIS specified neighbor, or all neighbors if
    no system id is given with or without details.
 
-.. clicmd:: show isis database [detail] [LSPID]
+.. clicmd:: show isis [vrf <NAME|all>] database [detail] [LSPID] [json]
 
    Show the ISIS database globally, for a specific LSP id without or with
    details.
@@ -318,6 +318,11 @@ Traffic Engineering
 
 .. note::
 
+   IS-IS-TE supports RFC 5305 (base TE), RFC 6119 (IPv6) and RFC 7810 / 8570
+   (Extended Metric) with or without Multi-Topology. All Traffic Engineering
+   information are stored in a database formally named TED. However, best
+   acccuracy is provided without Multi-Topology due to inconsistency of Traffic
+   Engineering Advertisement of 3rd party commercial routers when MT is enabled.
    At this time, FRR offers partial support for some of the routing protocol
    extensions that can be used with MPLS-TE. FRR does not currently support a
    complete RSVP-TE solution.
@@ -330,6 +335,15 @@ Traffic Engineering
 
    Configure stable IP address for MPLS-TE.
 
+.. clicmd:: mpls-te router-address ipv6 <X:X::X:X>
+
+   Configure stable IPv6 address for MPLS-TE.
+
+.. clicmd:: mpls-te export
+
+   Export Traffic Engineering DataBase to other daemons through the ZAPI
+   Opaque Link State messages.
+
 .. clicmd:: show isis mpls-te interface
 
 .. clicmd:: show isis mpls-te interface INTERFACE
@@ -339,6 +353,16 @@ Traffic Engineering
 .. clicmd:: show isis mpls-te router
 
    Show Traffic Engineering router parameters.
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database [detail|json]
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database vertex [WORD] [detail|json]
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database edge [A.B.C.D|X:X::X:X] [detail|json]
+
+.. clicmd:: show isis [vrf <NAME|all>] mpls-te database subnet [A.B.C.D/M|X:X::X:X/M] [detail|json]
+
+   Show Traffic Engineering Database
 
 .. seealso::
 
@@ -372,13 +396,6 @@ Known limitations:
    may not exceed 65535. Optionally sets also the Segment Routing Local Block.
    The negative command always unsets both.
 
-.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
-
-   Set the Segment Routing Local Block i.e. the label range used by MPLS
-   to store label in the MPLS FIB for Adjacency SID. Note that the block size
-   may not exceed 65535. This command is deprecated in favor of the combined
-   'segment-routing global-block A B local-block C D' command.
-
 .. clicmd:: segment-routing node-msd (1-16)
 
    Set the Maximum Stack Depth supported by the router. The value depend of the
@@ -394,11 +411,7 @@ Known limitations:
    clear the Node flag that is set by default for Prefix-SIDs associated to
    loopback addresses. This option is necessary to configure Anycast-SIDs.
 
-.. clicmd:: show isis segment-routing prefix-sids
-
-   Show detailed information about all learned Segment Routing Prefix-SIDs.
-
-.. clicmd:: show isis segment-routing nodes
+.. clicmd:: show isis segment-routing node
 
    Show detailed information about all learned Segment Routing Nodes.
 
@@ -448,6 +461,10 @@ Debugging ISIS
 
 
    Update related packets.
+
+.. clicmd:: debug isis te-events
+
+   IS-IS Traffic Engineering events
 
 .. clicmd:: debug isis sr-events
 

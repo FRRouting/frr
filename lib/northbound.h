@@ -488,7 +488,8 @@ struct nb_callbacks {
 	 *    >0 when the CLI command for the dnode2 should be printed first
 	 *     0 when there is no difference
 	 */
-	int (*cli_cmp)(struct lyd_node *dnode1, struct lyd_node *dnode2);
+	int (*cli_cmp)(const struct lyd_node *dnode1,
+		       const struct lyd_node *dnode2);
 
 	/*
 	 * Optional callback to show the CLI command associated to the given
@@ -510,7 +511,7 @@ struct nb_callbacks {
 	 *    nodes, in which case it might be desirable to hide one or more
 	 *    parts of the command when this parameter is set to false.
 	 */
-	void (*cli_show)(struct vty *vty, struct lyd_node *dnode,
+	void (*cli_show)(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults);
 
 	/*
@@ -523,7 +524,7 @@ struct nb_callbacks {
 	 *    libyang data node that should be shown in the form of a CLI
 	 *    command.
 	 */
-	void (*cli_show_end)(struct vty *vty, struct lyd_node *dnode);
+	void (*cli_show_end)(struct vty *vty, const struct lyd_node *dnode);
 };
 
 struct nb_dependency_callbacks {

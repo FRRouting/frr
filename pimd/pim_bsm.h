@@ -115,7 +115,7 @@ struct bsm_rpinfo {
 	uint32_t elapse_time;           /* upd at expiry of elected RP node */
 	uint16_t rp_prio;               /* RP priority */
 	uint16_t rp_holdtime;           /* RP holdtime - g2rp timer value */
-	struct in_addr rp_address;      /* RP Address */
+	pim_addr rp_address;		/* RP Address */
 	struct bsgrp_node *bsgrp_node;  /* Back ptr to bsgrp_node */
 	struct thread *g2rp_timer;      /* Run only for elected RP node */
 };
@@ -205,18 +205,11 @@ struct bsmmsg_rpinfo {
 /* API */
 void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
+void pim_bsm_clear(struct pim_instance *pim);
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp);
-int  pim_bsm_process(struct interface *ifp,
-		     struct ip *ip_hdr,
-		     uint8_t *buf,
-		     uint32_t buf_size,
-		     bool no_fwd);
+int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
+		    uint32_t buf_size, bool no_fwd);
 bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
-void pim_bs_timer_stop(struct bsm_scope *scope);
-void pim_bsm_frags_free(struct bsm_scope *scope);
-void pim_bsm_rpinfos_free(struct bsm_rpinfos_head *head);
-void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node);
-void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp);
 #endif

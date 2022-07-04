@@ -58,7 +58,7 @@ static void map_slaves_to_bridge(struct interface *br_if, int link,
 	struct zebra_vrf *zvrf;
 	struct zebra_ns *zns;
 
-	zvrf = zebra_vrf_lookup_by_id(br_if->vrf_id);
+	zvrf = br_if->vrf->info;
 	assert(zvrf);
 	zns = zvrf->zns;
 	assert(zns);
@@ -162,7 +162,7 @@ void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf_id)
 	struct zebra_if *bond_zif;
 	struct zebra_l2info_bondslave *bond_slave = &zif->bondslave_info;
 
-	bond_if = if_lookup_by_index_all_vrf(bond_slave->bond_ifindex);
+	bond_if = if_lookup_by_index(bond_slave->bond_ifindex, vrf_id);
 	if (bond_if == bond_slave->bond_if)
 		return;
 
@@ -425,16 +425,16 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	zif = ifp->info;
 	assert(zif);
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf)
 		return;
 
 	if (zif->zif_type == ZEBRA_IF_VXLAN
 	    && chgflags != ZEBRA_BRIDGE_NO_ACTION) {
-		if (ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
+		if (chgflags & ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
 			zebra_vxlan_if_update(ifp,
 					      ZEBRA_VXLIF_MASTER_MAC_CHANGE);
-		if (ZEBRA_BRIDGE_MASTER_UP)
+		if (chgflags & ZEBRA_BRIDGE_MASTER_UP)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 	}
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
@@ -505,7 +505,7 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
 
 	/* Set up or remove link with master */
 	if (bond_ifindex != IFINDEX_INTERNAL)
-		zebra_l2_map_slave_to_bond(zif, ifp->vrf_id);
+		zebra_l2_map_slave_to_bond(zif, ifp->vrf->vrf_id);
 	else if (old_bond_ifindex != IFINDEX_INTERNAL)
 		zebra_l2_unmap_slave_from_bond(zif);
 }

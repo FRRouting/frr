@@ -282,8 +282,7 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 {
 	struct json_object *jo = __display_peer_json(bs);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 struct bfd_vrf_tuple {
@@ -353,8 +352,7 @@ static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
 	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
@@ -407,8 +405,7 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 {
 	struct json_object *jo = __display_peer_counters_json(bs);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg)
@@ -472,11 +469,10 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_counter_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
-static void _clear_peer_counter(struct bfd_session *bs) 
+static void _clear_peer_counter(struct bfd_session *bs)
 {
 	/* Clear only pkt stats, intention is not to loose system
 	   events counters */
@@ -490,21 +486,12 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 {
 	char addr_buf[INET6_ADDRSTRLEN];
 
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
-	} else {
-		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		vty_out(vty, " %-40s", satostr(&bs->local_address));
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
-	}
+	vty_out(vty, "%-10u", bs->discrs.my_discr);
+	inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+	vty_out(vty, " %-40s", addr_buf);
+	inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+	vty_out(vty, " %-40s", addr_buf);
+	vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
 }
 
 static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
@@ -556,8 +543,7 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 
 	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static struct bfd_session *
@@ -579,7 +565,7 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		pl = pl_find(label);
 		if (pl)
 			bs = pl->pl_bs;
-	} else {
+	} else if (peer_str) {
 		strtosa(peer_str, &psa);
 		if (local_str) {
 			strtosa(local_str, &lsa);
@@ -599,6 +585,9 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		}
 
 		bs = bs_peer_find(&bpc);
+	} else {
+		vty_out(vty, "%% Invalid arguments\n");
+		return NULL;
 	}
 
 	/* Find peer data. */
@@ -745,7 +734,7 @@ DEFPY(bfd_clear_peer_counters, bfd_clear_peer_counters_cmd,
 				ifname, vrfname);
 	if (bs == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
-    
+
 	_clear_peer_counter(bs);
 
 	return CMD_SUCCESS;

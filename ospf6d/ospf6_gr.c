@@ -58,7 +58,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi)
 	char buffer[OSPF6_MAX_LSASIZE];
 
 	if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
-		zlog_debug("Originate Link-LSA for Interface %s",
+		zlog_debug("Originate Grace-LSA for Interface %s",
 			   oi->interface->name);
 
 	/* prepare buffer */
@@ -455,14 +455,11 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 }
 
 /* Handling of grace period expiry. */
-static int ospf6_gr_grace_period_expired(struct thread *thread)
+static void ospf6_gr_grace_period_expired(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 
-	ospf6->gr_info.t_grace_period = NULL;
 	ospf6_gr_restart_exit(ospf6, "grace period has expired");
-
-	return 0;
 }
 
 /*
@@ -691,7 +688,7 @@ DEFPY(ospf6_graceful_restart_prepare, ospf6_graceful_restart_prepare_cmd,
       "graceful-restart prepare ipv6 ospf",
       "Graceful Restart commands\n"
       "Prepare upcoming graceful restart\n" IPV6_STR
-      "Prepare to restart the OSPFv3 process")
+      "Prepare to restart the OSPFv3 process\n")
 {
 	ospf6_gr_prepare();
 

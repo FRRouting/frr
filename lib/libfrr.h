@@ -21,6 +21,7 @@
 #ifndef _ZEBRA_FRR_H
 #define _ZEBRA_FRR_H
 
+#include "typesafe.h"
 #include "sigevent.h"
 #include "privs.h"
 #include "thread.h"
@@ -40,15 +41,25 @@ extern "C" {
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
 #define FRR_LIMITED_CLI		(1 << 2)
-#define FRR_NO_CFG_PID_DRY	(1 << 3)
-#define FRR_NO_ZCLIENT		(1 << 4)
+#define FRR_NO_SPLIT_CONFIG	(1 << 3)
+#define FRR_NO_PID		(1 << 4)
+#define FRR_NO_CFG_PID_DRY	(FRR_NO_PID | FRR_NO_SPLIT_CONFIG)
+#define FRR_NO_ZCLIENT		(1 << 5)
 /* If FRR_DETACH_LATER is used, the daemon will keep its parent running
  * until frr_detach() is called.  Normally "somedaemon -d" returns once the
  * main event loop is reached in the daemon;  use this for extra startup bits.
  *
  * Does nothing if -d isn't used.
  */
-#define FRR_DETACH_LATER	(1 << 5)
+#define FRR_DETACH_LATER	(1 << 6)
+
+PREDECL_DLIST(log_args);
+struct log_arg {
+	struct log_args_item itm;
+
+	char target[0];
+};
+DECLARE_DLIST(log_args, struct log_arg, itm);
 
 enum frr_cli_mode {
 	FRR_CLI_CLASSIC = 0,
@@ -86,7 +97,7 @@ struct frr_daemon_info {
 	const char *pathspace;
 	bool zpathspace;
 
-	const char *early_logging;
+	struct log_args_head early_logging[1];
 	const char *early_loglevel;
 
 	const char *proghelp;
@@ -94,7 +105,7 @@ struct frr_daemon_info {
 	const char *copyright;
 	char startinfo[128];
 
-	struct quagga_signal_t *signals;
+	struct frr_signal_t *signals;
 	size_t n_signals;
 
 	struct zebra_privs_t *privs;
@@ -142,6 +153,7 @@ extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
 
 /* call order of these hooks is as ordered here */
+DECLARE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
 /* fork() happens between late_init and config_pre */
 DECLARE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));

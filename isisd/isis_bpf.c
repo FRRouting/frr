@@ -161,7 +161,7 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 	/*
 	 * And set the filter
 	 */
-	memset(&bpf_prog, 0, sizeof(struct bpf_program));
+	memset(&bpf_prog, 0, sizeof(bpf_prog));
 	bpf_prog.bf_len = 8;
 	bpf_prog.bf_insns = &(llcfilter[0]);
 	if (ioctl(fd, BIOCSETF, (caddr_t)&bpf_prog) < 0) {

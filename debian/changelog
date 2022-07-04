@@ -1,8 +1,26 @@
-frr (8.1~dev-1) UNRELEASED; urgency=medium
+frr (8.4~dev-1) UNRELEASED; urgency=medium
 
   * New upstream release...
 
- -- Ondřej Surý <ondrej@debian.org>  Tue, 04 May 2021 22:52:47 +0200
+ -- Donatas Abraitis <donatas@opensourcerouting.org>  Tue, 07 May 2022 23:00:00 +0300
+
+frr (8.2-0) UNRELEASED; urgency=medium
+
+  * New upstream release FRR 8.2
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 01 Mar 2022 10:00:00 +0500
+
+frr (8.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.1
+
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 02 Nov 2021 14:00:00 +0500
+
+frr (8.0-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.0
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Wed, 21 Jul 2021 13:42:00 +0200
 
 frr (7.5.1-1) unstable; urgency=medium
 
@@ -977,7 +995,7 @@ quagga (0.98.3-6) testing-proposed-updates; urgency=high
 quagga (0.98.3-5) unstable; urgency=high
 
   * The patch which tried to remove the OpenSSL dependency, which is
-    not only unneccessary but also a violation of the licence and thus RC,
+    not only unnecessary but also a violation of the licence and thus RC,
     stopped working a while ago, since autoreconf is no longer run before
     building the binaries. So now ./configure is patched directly (thanks
     to Faidon Liambotis for reporting). Closes: #306840
@@ -1358,7 +1376,7 @@ quagga (0.96.4x-3) unstable; urgency=low
   * Made the directory (but not the config/log files!) world accessible
     again on user request (thanks to Anand Kumria)). Closes: #213129
   * No longer providing sample configuration in /etc/quagga/. They are
-    now only available in /usr/share/doc/quagga/ to avoid accidently
+    now only available in /usr/share/doc/quagga/ to avoid accidentally
     using them without changing the adresses (thanks to Marc Haber).
     Closes: #215918
 
@@ -1418,7 +1436,7 @@ quagga (0.96.3-1) unstable; urgency=medium
 
 quagga (0.96.2-9) unstable; urgency=medium
 
-  * Removed /usr/share/info/dir.* which were accidently there and prevented
+  * Removed /usr/share/info/dir.* which were accidentally there and prevented
     the installation by dpkg (thanks to Simon Raven). Closes: #212614
   * Reworded package description (thanks to Anand Kumria). Closes: #213125
   * Added french debconf translation (thanks to Christian Perrier).

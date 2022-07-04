@@ -33,6 +33,7 @@
 #include "lib_errors.h"
 #include "vrf.h"
 #include "ldp_sync.h"
+#include "link_state.h"
 
 #include "isisd/isisd.h"
 #include "isisd/isis_nb.h"
@@ -51,6 +52,7 @@
 #include "isisd/isis_redist.h"
 #include "isisd/isis_ldp_sync.h"
 #include "isisd/isis_dr.h"
+#include "isisd/isis_zebra.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
@@ -391,30 +393,11 @@ int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args)
  */
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 {
-	struct listnode *node;
-	struct isis_circuit *circuit;
 	uint16_t lsp_mtu = yang_dnode_get_uint16(args->dnode, NULL);
 	struct isis_area *area;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		area = nb_running_get_entry(args->dnode, NULL, false);
-		if (!area)
-			break;
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-			if (circuit->state != C_STATE_INIT
-			    && circuit->state != C_STATE_UP)
-				continue;
-			if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"ISIS area contains circuit %s, which has a maximum PDU size of %zu",
-					circuit->interface->name,
-					isis_circuit_pdu_size(circuit));
-				return NB_ERR_VALIDATION;
-			}
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -1827,11 +1810,18 @@ int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
 		new->inter_as = off;
 		new->interas_areaid.s_addr = 0;
 		new->router_id.s_addr = 0;
+		new->ted = ls_ted_new(1, "ISIS", 0);
+		if (!new->ted)
+			zlog_warn("Unable to create Link State Data Base");
 
 		area->mta = new;
 	} else {
 		area->mta->status = enable;
 	}
+
+	/* Initialize Link State Database */
+	if (area->mta->ted)
+		isis_te_init_ted(area);
 
 	/* Update Extended TLVs according to Interface link parameters */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
@@ -1857,6 +1847,9 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 		area->mta->status = disable;
 	else
 		return NB_OK;
+
+	/* Remove Link State Database */
+	ls_ted_del_all(&area->mta->ted);
 
 	/* Flush LSP if circuit engage */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
@@ -1925,6 +1918,88 @@ int isis_instance_mpls_te_router_address_destroy(
 
 	/* And re-schedule LSP update */
 	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/router-address-v6
+ */
+int isis_instance_mpls_te_router_address_ipv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct in6_addr value;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	yang_dnode_get_ipv6(&value, args->dnode, NULL);
+	/* Update Area IPv6 Router ID if different */
+	if (!IPV6_ADDR_SAME(&area->mta->router_id_ipv6, &value)) {
+		IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &value);
+
+		/* And re-schedule LSP update */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
+
+	return NB_OK;
+}
+
+int isis_instance_mpls_te_router_address_ipv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	/* Reset Area Router ID */
+	IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &in6addr_any);
+
+	/* And re-schedule LSP update */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/export
+ */
+int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	area->mta->export = yang_dnode_get_bool(args->dnode, NULL);
+	if (area->mta->export) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Enabled Link State export");
+		if (isis_zebra_ls_register(true) != 0)
+			zlog_warn("Unable to register Link State");
+	} else {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Disable Link State export");
+		if (isis_zebra_ls_register(false) != 0)
+			zlog_warn("Unable to register Link State");
+	}
 
 	return NB_OK;
 }
@@ -2458,43 +2533,14 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_isis_create(struct nb_cb_create_args *args)
 {
-	struct isis_area *area = NULL;
 	struct interface *ifp;
 	struct isis_circuit *circuit = NULL;
 	const char *area_tag = yang_dnode_get_string(args->dnode, "./area-tag");
-	uint32_t min_mtu, actual_mtu;
 
 	switch (args->event) {
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		break;
 	case NB_EV_VALIDATE:
-		/* check if interface mtu is sufficient. If the area has not
-		 * been created yet, assume default MTU for the area
-		 */
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		/* zebra might not know yet about the MTU - nothing we can do */
-		if (!ifp || ifp->mtu == 0)
-			break;
-		actual_mtu =
-			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
-
-		area = isis_area_lookup(area_tag, ifp->vrf_id);
-		if (area)
-			min_mtu = area->lsp_mtu;
-		else
-#ifndef FABRICD
-			min_mtu = yang_get_default_uint16(
-				"/frr-isisd:isis/instance/lsp/mtu");
-#else
-			min_mtu = DEFAULT_LSP_MTU;
-#endif /* ifndef FABRICD */
-		if (actual_mtu < min_mtu) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Interface %s has MTU %u, minimum MTU for the area is %u",
-				 ifp->name, actual_mtu, min_mtu);
-			return NB_ERR_VALIDATION;
-		}
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
@@ -2526,31 +2572,12 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *area_tag, *ifname, *vrfname;
 
 	if (args->event == NB_EV_VALIDATE) {
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-
-		if (!ifp)
-			return NB_OK;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		area_tag = yang_dnode_get_string(args->dnode, NULL);
-		if (circuit && circuit->area && circuit->area->area_tag
-		    && strcmp(circuit->area->area_tag, area_tag)) {
+		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL, false);
+		if (circuit) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "ISIS circuit is already defined on %s",
-				 circuit->area->area_tag);
+				 "Changing area tag is not allowed");
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -2565,39 +2592,15 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 {
 	int circ_type = yang_dnode_get_enum(args->dnode, NULL);
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *ifname, *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-		if (!ifp)
-			break;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->state == C_STATE_UP
-		    && circuit->area->is_type != IS_LEVEL_1_AND_2
-		    && circuit->area->is_type != circ_type) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid circuit level for area %s",
-				 circuit->area->area_tag);
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit->is_type_config = circ_type;
 		isis_circuit_is_type_set(circuit, circ_type);
 		break;
 	}
@@ -2979,23 +2982,7 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
 	bool passive = yang_dnode_get_bool(args->dnode, NULL);
-
-	/* validation only applies if we are setting passive to false */
-	if (!passive && args->event == NB_EV_VALIDATE) {
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (!circuit)
-			return NB_OK;
-		ifp = circuit->interface;
-		if (!ifp)
-			return NB_OK;
-		if (if_is_loopback_or_vrf(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Loopback is always passive");
-			return NB_ERR_VALIDATION;
-		}
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3083,10 +3070,6 @@ int lib_interface_isis_disable_three_way_handshake_modify(
 	return NB_OK;
 }
 
-/*
- * XPath:
- * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast
- */
 static int lib_interface_isis_multi_topology_common(
 	enum nb_event event, const struct lyd_node *dnode, char *errmsg,
 	size_t errmsg_len, uint16_t mtid)
@@ -3117,12 +3100,16 @@ static int lib_interface_isis_multi_topology_common(
 	return NB_OK;
 }
 
-int lib_interface_isis_multi_topology_ipv4_unicast_modify(
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/standard
+ */
+int lib_interface_isis_multi_topology_standard_modify(
 	struct nb_cb_modify_args *args)
 {
 	return lib_interface_isis_multi_topology_common(
 		args->event, args->dnode, args->errmsg, args->errmsg_len,
-		ISIS_MT_IPV4_UNICAST);
+		ISIS_MT_STANDARD);
 }
 
 /*
@@ -3204,19 +3191,9 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3248,19 +3225,9 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3281,19 +3248,9 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;

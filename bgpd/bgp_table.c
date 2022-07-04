@@ -88,7 +88,7 @@ struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest)
 const char *bgp_dest_get_prefix_str(struct bgp_dest *dest)
 {
 	const struct prefix *p = NULL;
-	char str[PREFIX_STRLEN] = {0};
+	static char str[PREFIX_STRLEN] = {0};
 
 	p = bgp_dest_get_prefix(dest);
 	if (p)
@@ -237,7 +237,7 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 	return matched;
 }
 
-printfrr_ext_autoreg_p("BD", printfrr_bd)
+printfrr_ext_autoreg_p("BD", printfrr_bd);
 static ssize_t printfrr_bd(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {

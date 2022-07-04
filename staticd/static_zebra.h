@@ -33,7 +33,6 @@ extern void static_zebra_init(void);
 extern void static_zebra_stop(void);
 extern void static_zebra_vrf_register(struct vrf *vrf);
 extern void static_zebra_vrf_unregister(struct vrf *vrf);
-extern int static_zebra_nh_update(struct static_nexthop *nh);
 
 #ifdef __cplusplus
 }

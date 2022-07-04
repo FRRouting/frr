@@ -22,7 +22,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 test_ldp_topo1.py: Simple FRR LDP Test
 
              +---------+
@@ -63,7 +63,14 @@ import os
 import re
 import sys
 import pytest
+import json
+from functools import partial
 from time import sleep
+from lib.topolog import logger
+
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
@@ -103,6 +110,29 @@ def build_topo(tgen):
 
 #####################################################
 ##
+##   Helper functions
+##
+#####################################################
+
+
+def router_compare_json_output(rname, command, reference, count=60, wait=1):
+    "Compare router JSON output"
+
+    logger.info('Comparing router "%s" "%s" output', rname, command)
+
+    tgen = get_topogen()
+    filename = "{}/{}/{}".format(CWD, rname, reference)
+    expected = json.loads(open(filename).read())
+
+    # Run test function until we get an result.
+    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
+    _, diff = topotest.run_and_expect(test_func, None, count, wait)
+    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
+    assert diff is None, assertmsg
+
+
+#####################################################
+##
 ##   Tests starting
 ##
 #####################################################
@@ -126,7 +156,7 @@ def setup_module(module):
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def teardown_module(module):
@@ -152,9 +182,6 @@ def test_router_running():
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_mpls_interfaces():
@@ -219,8 +246,18 @@ def test_mpls_interfaces():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+
+def test_ospf_convergence():
+    logger.info("Test: check OSPF adjacencies")
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.json"
+        )
 
 
 def test_mpls_ldp_neighbor_establish():
@@ -230,6 +267,13 @@ def test_mpls_ldp_neighbor_establish():
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
         pytest.skip(fatal_error)
+
+    neighbors_operational = {
+        1: 1,
+        2: 3,
+        3: 2,
+        4: 2,
+    }
 
     # Wait for MPLS LDP neighbors to establish.
     print("\n\n** Verify MPLS LDP neighbors to establish")
@@ -260,9 +304,14 @@ def test_mpls_ldp_neighbor_establish():
                     established = ""  # Empty string shows NOT established
                 if re.search(operational, lines[j]):
                     found_operational += 1
+
+            logger.info("Found operational %d" % found_operational)
             if found_operational < 1:
                 # Need at least one operational neighbor
                 established = ""  # Empty string shows NOT established
+            else:
+                if found_operational != neighbors_operational[i]:
+                    established = ""
             if not established:
                 print("Waiting for r%s" % i)
                 sys.stdout.flush()
@@ -356,9 +405,6 @@ def test_mpls_ldp_discovery():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_mpls_ldp_neighbor():
     global fatal_error
@@ -425,9 +471,6 @@ def test_mpls_ldp_neighbor():
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_mpls_ldp_binding():
@@ -509,17 +552,15 @@ def test_mpls_ldp_binding():
             else:
                 print("r%s ok" % i)
 
-            assert (
-                failures == 0
-            ), "MPLS LDP Interface binding output for router r%s:\n%s" % (i, diff)
+            assert failures == 0, "MPLS LDP binding output for router r%s:\n%s" % (
+                i,
+                diff,
+            )
 
     # Make sure that all daemons are running
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_zebra_ipv4_routingTable():
@@ -594,9 +635,6 @@ def test_zebra_ipv4_routingTable():
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_mpls_table():
@@ -673,9 +711,6 @@ def test_mpls_table():
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_linux_mpls_routes():
@@ -757,9 +792,6 @@ def test_linux_mpls_routes():
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_shutdown_check_stderr():

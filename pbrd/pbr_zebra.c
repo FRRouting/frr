@@ -64,7 +64,7 @@ void pbr_if_del(struct interface *ifp)
 	XFREE(MTYPE_PBR_INTERFACE, ifp->info);
 }
 
-/* Inteface addition message from zebra. */
+/* Interface addition message from zebra. */
 int pbr_ifp_create(struct interface *ifp)
 {
 	DEBUGD(&pbr_dbg_zebra, "%s: %s", __func__, ifp->name);
@@ -399,17 +399,19 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route nhr;
+	struct prefix matched;
 	uint32_t i;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("Failure to decode Nexthop update message");
 		return 0;
 	}
 
 	if (DEBUG_MODE_CHECK(&pbr_dbg_zebra, DEBUG_MODE_ALL)) {
 
-		DEBUGD(&pbr_dbg_zebra, "%s: Received Nexthop update: %pFX",
-		       __func__, &nhr.prefix);
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Received Nexthop update: %pFX against %pFX",
+		       __func__, &matched, &nhr.prefix);
 
 		DEBUGD(&pbr_dbg_zebra, "%s:   (Nexthops(%u)", __func__,
 		       nhr.nexthop_num);
@@ -423,26 +425,31 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
+	nhr.prefix = matched;
 	pbr_nht_nexthop_update(&nhr);
 	return 1;
 }
 
 extern struct zebra_privs_t pbr_privs;
 
+static zclient_handler *const pbr_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = interface_vrf_update,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
+	[ZEBRA_NEXTHOP_UPDATE] = pbr_zebra_nexthop_update,
+};
+
 void pbr_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, pbr_handlers,
+			      array_size(pbr_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_address_add = interface_address_add;
-	zclient->interface_address_delete = interface_address_delete;
-	zclient->interface_vrf_update = interface_vrf_update;
-	zclient->route_notify_owner = route_notify_owner;
-	zclient->rule_notify_owner = rule_notify_owner;
-	zclient->nexthop_update = pbr_zebra_nexthop_update;
 }
 
 void pbr_send_rnh(struct nexthop *nhop, bool reg)
@@ -478,7 +485,8 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 		break;
 	}
 
-	if (zclient_send_rnh(zclient, command, &p, false, nhop->vrf_id)
+	if (zclient_send_rnh(zclient, command, &p, SAFI_UNICAST, false, false,
+			     nhop->vrf_id)
 	    == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 	}
@@ -509,7 +517,7 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 	struct pbr_vrf *pbr_vrf;
 
 	if (pbrms->vrf_unchanged)
-		pbr_vrf = pbr_vrf_lookup_by_id(ifp->vrf_id);
+		pbr_vrf = ifp->vrf->info;
 	else
 		pbr_vrf = pbr_vrf_lookup_by_name(pbrms->vrf_name);
 
@@ -541,6 +549,12 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, pbrms->dst_prt);
 	stream_putc(s, pbrms->dsfield);
 	stream_putl(s, pbrms->mark);
+
+	stream_putl(s, pbrms->action_queue_id);
+
+	stream_putw(s, pbrms->action_vlan_id);
+	stream_putw(s, pbrms->action_vlan_flags);
+	stream_putw(s, pbrms->action_pcp);
 
 	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
 		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);

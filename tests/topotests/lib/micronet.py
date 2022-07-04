@@ -266,7 +266,7 @@ class Commander(object):  # pylint: disable=R0205
                 )
             if raises:
                 # error = Exception("stderr: {}".format(stderr))
-                # This annoyingly doesnt' show stderr when printed normally
+                # This annoyingly doesn't' show stderr when printed normally
                 error = subprocess.CalledProcessError(rc, actual_cmd)
                 error.stdout, error.stderr = stdout, stderr
                 raise error
@@ -358,11 +358,14 @@ class Commander(object):  # pylint: disable=R0205
             # wait for not supported in screen for now
             channel = None
             cmd = [self.get_exec_path("screen")]
+            if title:
+                cmd.append("-t")
+                cmd.append(title)
             if not os.path.exists(
                 "/run/screen/S-{}/{}".format(os.environ["USER"], os.environ["STY"])
             ):
                 cmd = ["sudo", "-u", os.environ["SUDO_USER"]] + cmd
-            cmd.append(nscmd)
+            cmd.extend(nscmd.split(" "))
         elif "DISPLAY" in os.environ:
             # We need it broken up for xterm
             user_cmd = cmd
@@ -552,8 +555,11 @@ class LinuxNamespace(Commander):
             self.base_pre_cmd.append("-F")
         self.set_pre_cmd(self.base_pre_cmd + ["--wd=" + self.cwd])
 
-        # Remount /sys to pickup any changes
+        # Remount sysfs and cgroup to pickup any changes
         self.cmd_raises("mount -t sysfs sysfs /sys")
+        self.cmd_raises(
+            "mount -o rw,nosuid,nodev,noexec,relatime -t cgroup2 cgroup /sys/fs/cgroup"
+        )
 
         # Set the hostname to the namespace name
         if uts and set_hostname:

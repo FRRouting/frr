@@ -137,7 +137,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -371,7 +371,7 @@ def test_bgp_timers_functionality(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
-    # Api call to modfiy BGP timerse
+    # Api call to modify BGP timerse
     input_dict = {
         "r1": {
             "bgp": {

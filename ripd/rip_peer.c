@@ -67,15 +67,13 @@ struct rip_peer *rip_peer_lookup_next(struct rip *rip, struct in_addr *addr)
 }
 
 /* RIP peer is timeout. */
-static int rip_peer_timeout(struct thread *t)
+static void rip_peer_timeout(struct thread *t)
 {
 	struct rip_peer *peer;
 
 	peer = THREAD_ARG(t);
 	listnode_delete(peer->rip->peer_list, peer);
 	rip_peer_free(peer);
-
-	return 0;
 }
 
 /* Get RIP peer.  At the same time update timeout thread. */
@@ -95,7 +93,6 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 	}
 
 	/* Update timeout thread. */
-	peer->t_timeout = NULL;
 	thread_add_timer(master, rip_peer_timeout, peer, RIP_PEER_TIMER_DEFAULT,
 			 &peer->t_timeout);
 

@@ -72,7 +72,6 @@ import os
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -193,15 +192,14 @@ def test_bfd_isis_interface_failure_rt2_step3():
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
     # TODO: add check for array size
-    sleep(2)
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 1, 0
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 1, 0
+        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 20, 1
     )
 
     # Check recovery, this can take some time
@@ -232,15 +230,14 @@ def test_bfd_isis_interface_failure_rt3_step3():
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
     # TODO: add check for array size
-    sleep(2)
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt3_down.ref", 1, 0
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt3_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt3_down.ref", 1, 0
+        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt3_down.ref", 20, 1
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 20, 1
     )
 
     # Check recovery, this can take some time

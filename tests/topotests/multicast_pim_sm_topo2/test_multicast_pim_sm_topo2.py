@@ -81,13 +81,13 @@ from lib.pim import (
     create_pim_config,
     create_igmp_config,
     verify_igmp_groups,
-    verify_ip_mroutes,
-    verify_pim_interface_traffic,
+    verify_mroutes,
+    get_pim_interface_traffic,
     verify_upstream_iif,
     verify_pim_neighbors,
     verify_pim_state,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    clear_mroute,
+    clear_pim_interface_traffic,
     McastTesterHelper,
 )
 from lib.topolog import logger
@@ -176,7 +176,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Don"t run this test if we have any failure.
@@ -273,9 +273,9 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -365,7 +365,7 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -386,7 +386,7 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     start_router_daemons(tgen, "f1", ["pimd"])
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -434,7 +434,7 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
         {"dut": "f1", "src_address": "*", "iif": "f1-c2-eth0", "oil": "f1-i8-eth2"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -448,7 +448,7 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "none"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -483,9 +483,9 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -575,7 +575,7 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -596,7 +596,7 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     start_router(tgen, "f1")
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -643,7 +643,7 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
         {"dut": "f1", "src_address": "*", "iif": "f1-c2-eth0", "oil": "f1-i8-eth2"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -657,7 +657,7 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "none"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -692,9 +692,9 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) and " "(232.1.1.1-5) in c2")
 
@@ -731,7 +731,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
 
     step("registerRx and registerStopTx value before traffic sent")
     state_dict = {"c2": {"c2-f1-eth1": ["registerRx", "registerStopTx"]}}
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \nError: {}".format(
@@ -746,7 +746,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         " 'show ip mroute' and mroute OIL is towards RP."
     )
 
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen,
         "f1",
         "10.0.5.2",
@@ -756,7 +756,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
     )
     assert result is True, "Testcase {} : " "Failed Error: {}".format(tc_name, result)
 
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, "f1", "10.0.5.2", _IGMP_JOIN_RANGE, "f1-i2-eth1", "f1-r2-eth3"
     )
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
@@ -773,7 +773,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         {"dut": "l1", "src_address": source, "iif": "l1-r2-eth4", "oil": "l1-i1-eth1"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -804,7 +804,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         {"dut": "c2", "src_address": source, "iif": "c2-f1-eth1", "oil": "none"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -815,7 +815,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("registerRx and registerStopTx value after traffic sent")
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \nError: {}".format(
@@ -844,9 +844,9 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -939,7 +939,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
         {"dut": "f1", "src_address": source, "iif": "f1-i2-eth1", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -968,7 +968,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -991,7 +991,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     )
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1021,8 +1021,8 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     intf = "f1-r2-eth3"
     shutdown_bringup_interface(tgen, dut, intf, True)
 
-    clear_ip_mroute(tgen, "l1")
-    clear_ip_mroute(tgen, "l1")
+    clear_mroute(tgen, "l1")
+    clear_mroute(tgen, "l1")
 
     step(
         "After no shut, verify traffic resume to all the receivers"
@@ -1030,7 +1030,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     )
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1065,7 +1065,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     shutdown_bringup_interface(tgen, dut, intf_l1_c1, True)
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1079,7 +1079,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     app_helper.stop_all_hosts()
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1114,9 +1114,9 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP on c1 for group range " "(226.1.1.1-5) and (232.1.1.1-5)")
 
@@ -1194,7 +1194,7 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
         {"dut": "c2", "src_address": source, "iif": "c2-f1-eth1", "oil": "c2-i5-eth2"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1247,9 +1247,9 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for group range (226.1.1.1-5) and " "(232.1.1.1-5) on c1")
     _GROUP_RANGE = GROUP_RANGE_2 + GROUP_RANGE_3
@@ -1344,7 +1344,7 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         {"dut": "l1", "src_address": source, "iif": "l1-r2-eth4", "oil": "l1-i1-eth1"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1381,7 +1381,7 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         {"dut": "l1", "src_address": "*", "iif": "l1-c1-eth0", "oil": "l1-i1-eth1"},
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1404,7 +1404,7 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
     ]
 
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1436,9 +1436,9 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -1573,7 +1573,7 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
         {"dut": "f1", "src_address": source, "iif": "f1-r2-eth3", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1601,7 +1601,7 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
         {"dut": "l1", "src_address": source, "iif": "l1-r2-eth4", "oil": "l1-i1-eth1"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1625,7 +1625,7 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
         {"dut": "f1", "src_address": source, "iif": "f1-r2-eth3", "oil": "f1-i8-eth2"}
     ]
     for data in input_dict:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1645,7 +1645,7 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1674,9 +1674,9 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -1789,7 +1789,7 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
         },
     ]
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1814,7 +1814,7 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
         " 'show ip mroute' "
     )
 
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen,
         "f1",
         source_i2,

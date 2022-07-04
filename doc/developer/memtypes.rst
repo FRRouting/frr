@@ -42,7 +42,7 @@ Example:
 Definition
 ----------
 
-.. c:type:: struct memtype
+.. c:struct:: memtype
 
    This is the (internal) type used for MTYPE definitions.  The macros below
    should be used to create these, but in some cases it is useful to pass a

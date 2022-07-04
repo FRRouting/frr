@@ -145,8 +145,7 @@ struct stream *stream_dup(const struct stream *s)
 
 	STREAM_VERIFY_SANE(s);
 
-	if ((snew = stream_new(s->endp)) == NULL)
-		return NULL;
+	snew = stream_new(s->endp);
 
 	return (stream_copy(snew, s));
 }
@@ -691,7 +690,7 @@ double stream_getd(struct stream *s)
 	return u.r;
 }
 
-/* Copy to source to stream.
+/* Copy from source to stream.
  *
  * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
  * around. This should be fixed once the stream updates are working.
@@ -990,7 +989,7 @@ int stream_put_in6_addr_at(struct stream *s, size_t putp,
 
 /* Put prefix by nlri type format. */
 int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
-			      int addpath_encode, uint32_t addpath_tx_id)
+			      bool addpath_capable, uint32_t addpath_tx_id)
 {
 	size_t psize;
 	size_t psize_with_addpath;
@@ -999,7 +998,7 @@ int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 
 	psize = PSIZE(p->prefixlen);
 
-	if (addpath_encode)
+	if (addpath_capable)
 		psize_with_addpath = psize + 4;
 	else
 		psize_with_addpath = psize;
@@ -1009,7 +1008,7 @@ int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 		return 0;
 	}
 
-	if (addpath_encode) {
+	if (addpath_capable) {
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
@@ -1030,7 +1029,7 @@ int stream_put_prefix(struct stream *s, const struct prefix *p)
 
 /* Put NLRI with label */
 int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
-			      mpls_label_t *label, int addpath_encode,
+			      mpls_label_t *label, bool addpath_capable,
 			      uint32_t addpath_tx_id)
 {
 	size_t psize;
@@ -1040,14 +1039,14 @@ int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 	STREAM_VERIFY_SANE(s);
 
 	psize = PSIZE(p->prefixlen);
-	psize_with_addpath = psize + (addpath_encode ? 4 : 0);
+	psize_with_addpath = psize + (addpath_capable ? 4 : 0);
 
 	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
-	if (addpath_encode) {
+	if (addpath_capable) {
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
 		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);

@@ -31,7 +31,7 @@ struct event_manager {
 	uint8_t ibuf_data[4 * 1024];
 };
 
-static int evmgr_reconnect(struct thread *t);
+static void evmgr_reconnect(struct thread *t);
 
 static void evmgr_connection_error(struct event_manager *evmgr)
 {
@@ -78,16 +78,15 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 	}
 }
 
-static int evmgr_read(struct thread *t)
+static void evmgr_read(struct thread *t)
 {
 	struct event_manager *evmgr = THREAD_ARG(t);
 	struct zbuf *ibuf = &evmgr->ibuf;
 	struct zbuf msg;
 
-	evmgr->t_read = NULL;
 	if (zbuf_read(ibuf, evmgr->fd, (size_t)-1) < 0) {
 		evmgr_connection_error(evmgr);
-		return 0;
+		return;
 	}
 
 	/* Process all messages in buffer */
@@ -95,15 +94,13 @@ static int evmgr_read(struct thread *t)
 		evmgr_recv_message(evmgr, &msg);
 
 	thread_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
-	return 0;
 }
 
-static int evmgr_write(struct thread *t)
+static void evmgr_write(struct thread *t)
 {
 	struct event_manager *evmgr = THREAD_ARG(t);
 	int r;
 
-	evmgr->t_write = NULL;
 	r = zbufq_write(&evmgr->obuf, evmgr->fd);
 	if (r > 0) {
 		thread_add_write(master, evmgr_write, evmgr, evmgr->fd,
@@ -111,8 +108,6 @@ static int evmgr_write(struct thread *t)
 	} else if (r < 0) {
 		evmgr_connection_error(evmgr);
 	}
-
-	return 0;
 }
 
 static void evmgr_hexdump(struct zbuf *zb, const uint8_t *val, size_t vallen)
@@ -188,14 +183,13 @@ static void evmgr_submit(struct event_manager *evmgr, struct zbuf *obuf)
 				 &evmgr->t_write);
 }
 
-static int evmgr_reconnect(struct thread *t)
+static void evmgr_reconnect(struct thread *t)
 {
 	struct event_manager *evmgr = THREAD_ARG(t);
 	int fd;
 
-	evmgr->t_reconnect = NULL;
 	if (evmgr->fd >= 0 || !nhrp_event_socket_path)
-		return 0;
+		return;
 
 	fd = sock_open_unix(nhrp_event_socket_path);
 	if (fd < 0) {
@@ -204,14 +198,12 @@ static int evmgr_reconnect(struct thread *t)
 		zbufq_reset(&evmgr->obuf);
 		thread_add_timer(master, evmgr_reconnect, evmgr, 10,
 				 &evmgr->t_reconnect);
-		return 0;
+		return;
 	}
 
 	zlog_info("Connected to Event Manager");
 	evmgr->fd = fd;
 	thread_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
-
-	return 0;
 }
 
 static struct event_manager evmgr_connection;

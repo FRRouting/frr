@@ -129,8 +129,9 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 	 *  if LDP-IGP Sync is configured globally set state
 	 *  if ptop interface inform LDP LDP-SYNC is enabled
 	 */
-	if (if_is_loopback(ifp) || (ifp->vrf_id != VRF_DEFAULT) ||
-	    !(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)))
+	if (if_is_loopback(ifp) || (ifp->vrf->vrf_id != VRF_DEFAULT)
+	    || !(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags,
+			    LDP_SYNC_FLAG_ENABLE)))
 		return;
 
 	ols_debug("ldp_sync: init if %s",ifp->name);
@@ -140,7 +141,7 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 
 	ldp_sync_info = params->ldp_sync_info;
 
-	/* specifed on interface overrides global config. */
+	/* specified on interface overrides global config. */
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
 		ldp_sync_info->holddown = oi->ospf->ldp_sync_cmd.holddown;
 
@@ -325,7 +326,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
 		ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	if (remove) {
-		ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
+		ldp_sync_info_free(&ldp_sync_info);
 		params->ldp_sync_info = NULL;
 	}
 }
@@ -352,7 +353,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static int ospf_ldp_sync_holddown_timer(struct thread *thread)
+static void ospf_ldp_sync_holddown_timer(struct thread *thread)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;
@@ -374,7 +375,6 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 
 		ospf_if_recalculate_output_cost(ifp);
 	}
-	return 0;
 }
 
 void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
@@ -441,7 +441,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 	struct ldp_sync_info *ldp_sync_info;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config
+	 *  specified on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
 	 */
 	if (if_is_loopback(ifp))
@@ -479,7 +479,7 @@ void ospf_if_set_ldp_sync_holddown(struct ospf *ospf, struct interface *ifp)
 	struct ldp_sync_info *ldp_sync_info;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config.
+	 *  specified on interface overrides global config.
 	 */
 	if (if_is_loopback(ifp))
 		return;
@@ -508,9 +508,16 @@ void ospf_ldp_sync_show_info(struct vty *vty, struct ospf *ospf,
 
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (use_json) {
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
 			json_object_boolean_true_add(json_vrf,
 						     "MplsLdpIgpSyncEnabled");
+			json_object_boolean_true_add(json_vrf,
+						     "mplsLdpIgpSyncEnabled");
 			json_object_int_add(json_vrf, "MplsLdpIgpSyncHolddown",
+					    ospf->ldp_sync_cmd.holddown);
+			json_object_int_add(json_vrf, "mplsLdpIgpSyncHolddown",
 					    ospf->ldp_sync_cmd.holddown);
 		} else {
 			vty_out(vty, " MPLS LDP-IGP Sync is enabled\n");
@@ -856,7 +863,7 @@ DEFPY (mpls_ldp_sync,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -897,7 +904,7 @@ DEFPY (no_mpls_ldp_sync,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -940,7 +947,7 @@ DEFPY (mpls_ldp_sync_holddown,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -978,7 +985,7 @@ DEFPY (no_mpls_ldp_sync_holddown,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -1030,32 +1037,25 @@ DEFPY (show_ip_ospf_mpls_ldp_interface,
 	/* Display default ospf (instance 0) info */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running) {
-		if (uj) {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "%% OSPF instance not found\n");
 		return CMD_SUCCESS;
 	}
 
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		if (uj) {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "LDP-sync is disabled\n");
 		return CMD_SUCCESS;
 	}
 
 	ret = show_ip_ospf_mpls_ldp_interface_common(vty, ospf, intf_name,
 						     json, uj);
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-			json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return ret;
 }

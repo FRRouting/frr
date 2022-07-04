@@ -91,7 +91,7 @@ sub scan_file {
 
         # $protocol is VTYSH_PROTO format for redirection of user input
         if ($file =~ /lib\/keychain\.c$/) {
-            $protocol = "VTYSH_RIPD|VTYSH_EIGRPD";
+            $protocol = "VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_OSPF6D";
         }
         elsif ($file =~ /lib\/routemap\.c$/ || $file =~ /lib\/routemap_cli\.c$/) {
             $protocol = "VTYSH_RMAP";
@@ -116,7 +116,7 @@ sub scan_file {
 	}
         elsif ($file =~ /lib\/plist\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
-                $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
+                $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIM6D|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             } else {
                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             }
@@ -142,6 +142,9 @@ sub scan_file {
         }
         elsif ($fabricd) {
            $protocol = "VTYSH_FABRICD";
+        }
+        elsif ($file =~ /pimd\/pim6_.*\.c$/) {
+           $protocol = "VTYSH_PIM6D";
         }
         else {
            ($protocol) = ($file =~ /^(?:.*\/)?([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);

@@ -75,14 +75,14 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				       struct route_map *rmap,
 				       enum update_type update_type)
 {
-	int addpath_capable;
+	bool addpath_capable;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 	struct bgp_path_info path;
 	struct peer_af *paf;
 	const struct prefix *dest_p;
 	struct update_subgroup *subgrp;
-	struct attr dummy_attr = {0}, attr = {0};
+	struct attr advmap_attr = {0}, attr = {0};
 	struct bgp_path_info_extra path_extra = {0};
 	route_map_result_t ret;
 
@@ -94,6 +94,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 	/* Ignore if subgroup doesn't exist (implies AF is not negotiated) */
 	if (!subgrp)
 		return;
+
+	subgrp->pscount = 0;
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("%s: %s routes to/from %s for %s", __func__,
@@ -107,67 +110,62 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 		assert(dest_p);
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
-			dummy_attr = *pi->attr;
+			advmap_attr = *pi->attr;
 
 			/* Fill temp path_info */
 			prep_for_rmap_apply(&path, &path_extra, dest, pi,
-					    pi->peer, &dummy_attr);
+					    pi->peer, &advmap_attr);
 
-			RESET_FLAG(dummy_attr.rmap_change_flags);
+			RESET_FLAG(advmap_attr.rmap_change_flags);
 
 			ret = route_map_apply(rmap, dest_p, &path);
-			bgp_attr_flush(&dummy_attr);
-
-			if (ret != RMAP_PERMITMATCH)
+			if (ret != RMAP_PERMITMATCH ||
+			    !bgp_check_selected(pi, peer, addpath_capable, afi,
+						safi)) {
+				bgp_attr_flush(&advmap_attr);
 				continue;
-
-			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    || (addpath_capable
-				&& bgp_addpath_tx_path(
-					   peer->addpath_type[afi][safi],
-					   pi))) {
-
-				/* Skip route-map checks in
-				 * subgroup_announce_check while executing from
-				 * the conditional advertise scanner process.
-				 * otherwise when route-map is also configured
-				 * on same peer, routes in advertise-map may not
-				 * be advertised as expected.
-				 */
-				if ((update_type == ADVERTISE)
-				    && subgroup_announce_check(dest, pi, subgrp,
-							       dest_p, &attr,
-							       true))
-					bgp_adj_out_set_subgroup(dest, subgrp,
-								 &attr, pi);
-				else {
-					/* If default originate is enabled for
-					 * the peer, do not send explicit
-					 * withdraw. This will prevent deletion
-					 * of default route advertised through
-					 * default originate.
-					 */
-					if (CHECK_FLAG(
-						    peer->af_flags[afi][safi],
-						    PEER_FLAG_DEFAULT_ORIGINATE)
-					    && is_default_prefix(dest_p))
-						break;
-
-					bgp_adj_out_unset_subgroup(
-						dest, subgrp, 1,
-						bgp_addpath_id_for_peer(
-							peer, afi, safi,
-							&pi->tx_addpath));
-				}
 			}
+
+			/* Skip route-map checks in
+			 * subgroup_announce_check while executing from
+			 * the conditional advertise scanner process.
+			 * otherwise when route-map is also configured
+			 * on same peer, routes in advertise-map may not
+			 * be advertised as expected.
+			 */
+			if (update_type == ADVERTISE &&
+			    subgroup_announce_check(dest, pi, subgrp, dest_p,
+						    &attr, &advmap_attr)) {
+				bgp_adj_out_set_subgroup(dest, subgrp, &attr,
+							 pi);
+			} else {
+				/* If default originate is enabled for
+				 * the peer, do not send explicit
+				 * withdraw. This will prevent deletion
+				 * of default route advertised through
+				 * default originate.
+				 */
+				if (CHECK_FLAG(peer->af_flags[afi][safi],
+					       PEER_FLAG_DEFAULT_ORIGINATE) &&
+				    is_default_prefix(dest_p))
+					break;
+
+				bgp_adj_out_unset_subgroup(
+					dest, subgrp, 1,
+					bgp_addpath_id_for_peer(
+						peer, afi, safi,
+						&pi->tx_addpath));
+			}
+			bgp_attr_flush(&advmap_attr);
 		}
 	}
+	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 }
 
 /* Handler of conditional advertisement timer event.
  * Each route in the condition-map is evaluated.
  */
-static int bgp_conditional_adv_timer(struct thread *t)
+static void bgp_conditional_adv_timer(struct thread *t)
 {
 	afi_t afi;
 	safi_t safi;
@@ -288,7 +286,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 		}
 		peer->advmap_table_change = false;
 	}
-	return 0;
 }
 
 void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
@@ -303,7 +300,7 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	 */
 	peer->advmap_config_change[afi][safi] = true;
 
-	/* advertise-map is already configured on atleast one of its
+	/* advertise-map is already configured on at least one of its
 	 * neighbors (AFI/SAFI). So just increment the counter.
 	 */
 	if (++bgp->condition_filter_count > 1) {

@@ -176,16 +176,16 @@ enum fpm_nl_events {
 /*
  * Prototypes.
  */
-static int fpm_process_event(struct thread *t);
+static void fpm_process_event(struct thread *t);
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
-static int fpm_lsp_send(struct thread *t);
-static int fpm_lsp_reset(struct thread *t);
-static int fpm_nhg_send(struct thread *t);
-static int fpm_nhg_reset(struct thread *t);
-static int fpm_rib_send(struct thread *t);
-static int fpm_rib_reset(struct thread *t);
-static int fpm_rmac_send(struct thread *t);
-static int fpm_rmac_reset(struct thread *t);
+static void fpm_lsp_send(struct thread *t);
+static void fpm_lsp_reset(struct thread *t);
+static void fpm_nhg_send(struct thread *t);
+static void fpm_nhg_reset(struct thread *t);
+static void fpm_rib_send(struct thread *t);
+static void fpm_rib_reset(struct thread *t);
+static void fpm_rmac_send(struct thread *t);
+static void fpm_rmac_reset(struct thread *t);
 
 /*
  * CLI.
@@ -363,8 +363,7 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
 	json_object_int_add(jo, "user-configures",
 			    gfnc->counters.user_configures);
 	json_object_int_add(jo, "user-disables", gfnc->counters.user_disables);
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 
 	return CMD_SUCCESS;
 }
@@ -420,7 +419,7 @@ static struct cmd_node fpm_node = {
 /*
  * FPM functions.
  */
-static int fpm_connect(struct thread *t);
+static void fpm_connect(struct thread *t);
 
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
@@ -459,7 +458,7 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 			 &fnc->t_connect);
 }
 
-static int fpm_read(struct thread *t)
+static void fpm_read(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	ssize_t rv;
@@ -472,7 +471,7 @@ static int fpm_read(struct thread *t)
 		/* Schedule next read. */
 		thread_add_read(fnc->fthread->master, fpm_read, fnc,
 				fnc->socket, &fnc->t_read);
-		return 0;
+		return;
 	}
 	if (rv == 0) {
 		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
@@ -482,7 +481,7 @@ static int fpm_read(struct thread *t)
 			zlog_debug("%s: connection closed", __func__);
 
 		FPM_RECONNECT(fnc);
-		return 0;
+		return;
 	}
 	if (rv == -1) {
 		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
@@ -490,7 +489,7 @@ static int fpm_read(struct thread *t)
 		zlog_warn("%s: connection failure: %s", __func__,
 			  strerror(errno));
 		FPM_RECONNECT(fnc);
-		return 0;
+		return;
 	}
 	stream_reset(fnc->ibuf);
 
@@ -500,11 +499,9 @@ static int fpm_read(struct thread *t)
 
 	thread_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket,
 			&fnc->t_read);
-
-	return 0;
 }
 
-static int fpm_write(struct thread *t)
+static void fpm_write(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	socklen_t statuslen;
@@ -531,7 +528,7 @@ static int fpm_write(struct thread *t)
 				memory_order_relaxed);
 
 			FPM_RECONNECT(fnc);
-			return 0;
+			return;
 		}
 
 		fnc->connecting = false;
@@ -585,7 +582,7 @@ static int fpm_write(struct thread *t)
 				  strerror(errno));
 
 			FPM_RECONNECT(fnc);
-			return 0;
+			return;
 		}
 
 		/* Account all bytes sent. */
@@ -604,13 +601,11 @@ static int fpm_write(struct thread *t)
 		stream_pulldown(fnc->obuf);
 		thread_add_write(fnc->fthread->master, fpm_write, fnc,
 				 fnc->socket, &fnc->t_write);
-		return 0;
+		return;
 	}
-
-	return 0;
 }
 
-static int fpm_connect(struct thread *t)
+static void fpm_connect(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct sockaddr_in *sin = (struct sockaddr_in *)&fnc->addr;
@@ -625,7 +620,7 @@ static int fpm_connect(struct thread *t)
 			 strerror(errno));
 		thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 				 &fnc->t_connect);
-		return 0;
+		return;
 	}
 
 	set_nonblocking(sock);
@@ -651,7 +646,7 @@ static int fpm_connect(struct thread *t)
 			  strerror(errno));
 		thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 				 &fnc->t_connect);
-		return 0;
+		return;
 	}
 
 	fnc->connecting = (errno == EINPROGRESS);
@@ -671,8 +666,6 @@ static int fpm_connect(struct thread *t)
 	if (!fnc->connecting)
 		thread_add_timer(zrouter.master, fpm_lsp_reset, fnc, 0,
 				 &fnc->t_lspreset);
-
-	return 0;
 }
 
 /**
@@ -787,6 +780,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len += (size_t)rv;
 		break;
 
+	/* Un-handled by FPM at this time. */
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
@@ -800,15 +794,30 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
 	case DPLANE_OP_NONE:
 		break;
 
-	default:
-		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: unhandled data plane message (%d) %s",
-				   __func__, dplane_ctx_get_op(ctx),
-				   dplane_op2str(dplane_ctx_get_op(ctx)));
-		break;
 	}
 
 	/* Skip empty enqueues. */
@@ -894,7 +903,7 @@ static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int fpm_lsp_send(struct thread *t)
+static void fpm_lsp_send(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -919,8 +928,6 @@ static int fpm_lsp_send(struct thread *t)
 		thread_add_timer(zrouter.master, fpm_lsp_send, fnc, 0,
 				 &fnc->t_lspwalk);
 	}
-
-	return 0;
 }
 
 /*
@@ -956,7 +963,7 @@ static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int fpm_nhg_send(struct thread *t)
+static void fpm_nhg_send(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct fpm_nhg_arg fna;
@@ -980,14 +987,12 @@ static int fpm_nhg_send(struct thread *t)
 	} else /* Otherwise reschedule next hop group again. */
 		thread_add_timer(zrouter.master, fpm_nhg_send, fnc, 0,
 				 &fnc->t_nhgwalk);
-
-	return 0;
 }
 
 /**
  * Send all RIB installed routes to the connected data plane.
  */
-static int fpm_rib_send(struct thread *t)
+static void fpm_rib_send(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	rib_dest_t *dest;
@@ -1021,7 +1026,7 @@ static int fpm_rib_send(struct thread *t)
 
 				thread_add_timer(zrouter.master, fpm_rib_send,
 						 fnc, 1, &fnc->t_ribwalk);
-				return 0;
+				return;
 			}
 
 			/* Mark as sent. */
@@ -1038,8 +1043,6 @@ static int fpm_rib_send(struct thread *t)
 	/* Schedule next event: RMAC reset. */
 	thread_add_event(zrouter.master, fpm_rmac_reset, fnc, 0,
 			 &fnc->t_rmacreset);
-
-	return 0;
 }
 
 /*
@@ -1093,7 +1096,7 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
 }
 
-static int fpm_rmac_send(struct thread *t)
+static void fpm_rmac_send(struct thread *t)
 {
 	struct fpm_rmac_arg fra;
 
@@ -1106,8 +1109,6 @@ static int fpm_rmac_send(struct thread *t)
 	/* RMAC walk completed. */
 	if (fra.complete)
 		WALK_FINISH(fra.fnc, FNE_RMAC_FINISHED);
-
-	return 0;
 }
 
 /*
@@ -1121,7 +1122,7 @@ static void fpm_nhg_reset_cb(struct hash_bucket *bucket, void *arg)
 	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_FPM);
 }
 
-static int fpm_nhg_reset(struct thread *t)
+static void fpm_nhg_reset(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 
@@ -1129,8 +1130,6 @@ static int fpm_nhg_reset(struct thread *t)
 
 	/* Schedule next step: send next hop groups. */
 	thread_add_event(zrouter.master, fpm_nhg_send, fnc, 0, &fnc->t_nhgwalk);
-
-	return 0;
 }
 
 /*
@@ -1143,7 +1142,7 @@ static void fpm_lsp_reset_cb(struct hash_bucket *bucket, void *arg)
 	UNSET_FLAG(lsp->flags, LSP_FLAG_FPM);
 }
 
-static int fpm_lsp_reset(struct thread *t)
+static void fpm_lsp_reset(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -1152,14 +1151,12 @@ static int fpm_lsp_reset(struct thread *t)
 
 	/* Schedule next step: send LSPs */
 	thread_add_event(zrouter.master, fpm_lsp_send, fnc, 0, &fnc->t_lspwalk);
-
-	return 0;
 }
 
 /**
  * Resets the RIB FPM flags so we send all routes again.
  */
-static int fpm_rib_reset(struct thread *t)
+static void fpm_rib_reset(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	rib_dest_t *dest;
@@ -1181,8 +1178,6 @@ static int fpm_rib_reset(struct thread *t)
 
 	/* Schedule next step: send RIB routes. */
 	thread_add_event(zrouter.master, fpm_rib_send, fnc, 0, &fnc->t_ribwalk);
-
-	return 0;
 }
 
 /*
@@ -1202,7 +1197,7 @@ static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
 }
 
-static int fpm_rmac_reset(struct thread *t)
+static void fpm_rmac_reset(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 
@@ -1211,11 +1206,9 @@ static int fpm_rmac_reset(struct thread *t)
 	/* Schedule next event: send RMAC entries. */
 	thread_add_event(zrouter.master, fpm_rmac_send, fnc, 0,
 			 &fnc->t_rmacwalk);
-
-	return 0;
 }
 
-static int fpm_process_queue(struct thread *t)
+static void fpm_process_queue(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	struct zebra_dplane_ctx *ctx;
@@ -1242,7 +1235,8 @@ static int fpm_process_queue(struct thread *t)
 		 * the output data in the STREAM_WRITEABLE
 		 * check above, so we can ignore the return
 		 */
-		(void)fpm_nl_enqueue(fnc, ctx);
+		if (fnc->socket != -1)
+			(void)fpm_nl_enqueue(fnc, ctx);
 
 		/* Account the processed entries. */
 		processed_contexts++;
@@ -1270,14 +1264,12 @@ static int fpm_process_queue(struct thread *t)
 	 */
 	if (dplane_provider_out_ctx_queue_len(fnc->prov) > 0)
 		dplane_provider_work_ready();
-
-	return 0;
 }
 
 /**
  * Handles external (e.g. CLI, data plane or others) events.
  */
-static int fpm_process_event(struct thread *t)
+static void fpm_process_event(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
 	int event = THREAD_VAL(t);
@@ -1339,8 +1331,6 @@ static int fpm_process_event(struct thread *t)
 			zlog_debug("%s: unhandled event %d", __func__, event);
 		break;
 	}
-
-	return 0;
 }
 
 /*

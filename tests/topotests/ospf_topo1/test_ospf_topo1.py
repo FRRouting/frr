@@ -30,6 +30,7 @@ import os
 import re
 import sys
 from functools import partial
+from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -135,7 +136,7 @@ def test_wait_protocol_convergence():
             )
             if (
                 topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"state": "Full/DR"}]}}
+                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
                 )
                 is None
             ):
@@ -143,14 +144,14 @@ def test_wait_protocol_convergence():
 
             if (
                 topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"state": "Full/DROther"}]}}
+                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
                 )
                 is None
             ):
                 return None
 
             return topotest.json_cmp(
-                result, {"neighbors": {neighbor: [{"state": "Full/Backup"}]}}
+                result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
             )
 
         _, result = topotest.run_and_expect(
@@ -475,7 +476,18 @@ def test_ospf_link_down_kernel_route():
         assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down'.format(
             router.name
         )
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        count = 0
+        not_found = True
+        while not_found and count < 10:
+            not_found = topotest.json_cmp(routes, expected)
+            if not_found:
+                sleep(1)
+                routes = topotest.ip4_route(router)
+                count += 1
+            else:
+                not_found = False
+                break
+        assert not_found is False, assertmsg
 
 
 def test_ospf6_link_down():
@@ -547,7 +559,19 @@ def test_ospf6_link_down_kernel_route():
         assertmsg = 'OSPF IPv6 route mismatch in router "{}" after link down'.format(
             router.name
         )
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        count = 0
+        not_found = True
+        while not_found and count < 10:
+            not_found = topotest.json_cmp(routes, expected)
+            if not_found:
+                sleep(1)
+                routes = topotest.ip6_route(router)
+                count += 1
+            else:
+                not_found = False
+                break
+
+        assert not_found is False, assertmsg
 
 
 def test_memory_leak():

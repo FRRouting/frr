@@ -78,7 +78,7 @@ enum pim_msdp_sa_flags {
 struct pim_msdp_sa {
 	struct pim_instance *pim;
 
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	char sg_str[PIM_SG_LEN];
 	struct in_addr rp;   /* Last RP address associated with this SA */
 	struct in_addr peer; /* last peer from who we heard this SA */
@@ -227,6 +227,7 @@ struct pim_msdp {
 #define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
 #define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)
 
+#if PIM_IPV != 6
 // struct pim_msdp *msdp;
 struct pim_instance;
 void pim_msdp_init(struct pim_instance *pim, struct thread_master *master);
@@ -239,21 +240,21 @@ void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
-int pim_msdp_write(struct thread *thread);
+void pim_msdp_write(struct thread *thread);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 			  const char *spaces);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 				const char *spaces);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
-		     struct prefix_sg *sg, struct in_addr rp);
+		     pim_sgaddr *sg, struct in_addr rp);
 void pim_msdp_sa_local_update(struct pim_upstream *up);
-void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg);
+void pim_msdp_sa_local_del(struct pim_instance *pim, pim_sgaddr *sg);
 void pim_msdp_i_am_rp_changed(struct pim_instance *pim);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 				    struct pim_upstream *xg_up);
-void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg);
+void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg);
 enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 				  const char *mesh_group_name);
 
@@ -317,5 +318,51 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp);
  */
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr);
+
+#else /* PIM_IPV == 6 */
+static inline void pim_msdp_init(struct pim_instance *pim,
+				 struct thread_master *master)
+{
+}
+
+static inline void pim_msdp_exit(struct pim_instance *pim)
+{
+}
+
+static inline void pim_msdp_i_am_rp_changed(struct pim_instance *pim)
+{
+}
+
+static inline void pim_msdp_up_join_state_changed(struct pim_instance *pim,
+						  struct pim_upstream *xg_up)
+{
+}
+
+static inline void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
+{
+}
+
+static inline void pim_msdp_sa_local_update(struct pim_upstream *up)
+{
+}
+
+static inline void pim_msdp_sa_local_del(struct pim_instance *pim,
+					 pim_sgaddr *sg)
+{
+}
+
+static inline int pim_msdp_config_write(struct pim_instance *pim,
+					struct vty *vty, const char *spaces)
+{
+	return 0;
+}
+
+static inline bool pim_msdp_peer_config_write(struct vty *vty,
+					      struct pim_instance *pim,
+					      const char *spaces)
+{
+	return false;
+}
+#endif /* PIM_IPV == 6 */
 
 #endif

@@ -61,6 +61,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_gr.h"
+#include "ospfd/ospf_apiserver.h"
 
 
 DEFINE_QOBJ_TYPE(ospf);
@@ -192,7 +193,7 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		   hit
 		   asserts in ospf_refresher_unregister_lsa(). This step is
 		   needed
-		   because the current quagga code does look-up for
+		   because the current frr code does look-up for
 		   self-originated LSAs
 		   based on the self router-id alone but expects OSPF_LSA_SELF
 		   to be
@@ -241,6 +242,10 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		}
 
 		ospf_external_lsa_rid_change(ospf);
+
+#ifdef SUPPORT_OSPF_API
+		ospf_apiserver_clients_notify_router_id_change(router_id);
+#endif
 	}
 
 	ospf->inst_shutdown = 0;
@@ -314,22 +319,19 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->instance = instance;
 	new->router_id.s_addr = htonl(0);
 	new->router_id_static.s_addr = htonl(0);
-	if (name) {
-		vrf = vrf_lookup_by_name(name);
-		if (vrf)
-			new->vrf_id = vrf->vrf_id;
-		else
-			new->vrf_id = VRF_UNKNOWN;
-		/* Freed in ospf_finish_final */
-		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"%s: Create new ospf instance with vrf_name %s vrf_id %u",
-				__func__, name, new->vrf_id);
-	} else {
-		new->vrf_id = VRF_DEFAULT;
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	}
+
+	vrf = vrf_lookup_by_name(name);
+	if (vrf)
+		new->vrf_id = vrf->vrf_id;
+	else
+		new->vrf_id = VRF_UNKNOWN;
+
+	/* Freed in ospf_finish_final */
+	new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug(
+			"%s: Create new ospf instance with vrf_name %s vrf_id %u",
+			__func__, name, new->vrf_id);
 
 	if (vrf)
 		ospf_vrf_link(new, vrf);
@@ -479,9 +481,6 @@ struct ospf *ospf_lookup_by_inst_name(unsigned short instance, const char *name)
 	struct ospf *ospf = NULL;
 	struct listnode *node, *nnode;
 
-	if (name == NULL || strmatch(name, VRF_DEFAULT_NAME))
-		return ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf)) {
 		if ((ospf->instance == instance)
 		    && ((ospf->name == NULL && name == NULL)
@@ -582,6 +581,7 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 	/* ospfd being shut-down? If so, was this the last ospf instance? */
 	if (CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN)
 	    && (listcount(om->ospf) == 0)) {
+		frr_fini();
 		exit(0);
 	}
 
@@ -589,13 +589,11 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 }
 
 /* Timer thread for G-R */
-static int ospf_deferred_shutdown_timer(struct thread *t)
+static void ospf_deferred_shutdown_timer(struct thread *t)
 {
 	struct ospf *ospf = THREAD_ARG(t);
 
 	ospf_deferred_shutdown_finish(ospf);
-
-	return 0;
 }
 
 /* Check whether deferred-shutdown must be scheduled, otherwise call
@@ -910,8 +908,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (vrf)
 		ospf_vrf_unlink(ospf, vrf);
 
-	if (ospf->name)
-		XFREE(MTYPE_OSPF_TOP, ospf->name);
+	XFREE(MTYPE_OSPF_TOP, ospf->name);
 	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
@@ -1095,7 +1092,7 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	ospf_ldp_sync_if_init(oi);
 
 	/*
-	 * if router_id is not configured, dont bring up
+	 * if router_id is not configured, don't bring up
 	 * interfaces.
 	 * ospf_router_id_update() will call ospf_if_update
 	 * whenever r-id is configured instead.
@@ -1442,8 +1439,8 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %pI4",
-			__func__, ifp->name, ifp->vrf_id,
+			"%s: interface %s vrf %s(%u) ospf vrf %s vrf_id %u router_id %pI4",
+			__func__, ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
 			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
 			&ospf->router_id);
 
@@ -2122,7 +2119,7 @@ int ospf_nbr_nbma_poll_interval_unset(struct ospf *ospf, struct in_addr addr)
 
 void ospf_master_init(struct thread_master *master)
 {
-	memset(&ospf_master, 0, sizeof(struct ospf_master));
+	memset(&ospf_master, 0, sizeof(ospf_master));
 
 	om = &ospf_master;
 	om->ospf = list_new();
@@ -2210,10 +2207,6 @@ static int ospf_vrf_enable(struct vrf *vrf)
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
-		if (ospf->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_OSPF_TOP, ospf->name);
-			ospf->name = NULL;
-		}
 		old_vrf_id = ospf->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		ospf_vrf_link(ospf, vrf);
@@ -2282,7 +2275,7 @@ static int ospf_vrf_disable(struct vrf *vrf)
 void ospf_vrf_init(void)
 {
 	vrf_init(ospf_vrf_new, ospf_vrf_enable, ospf_vrf_disable,
-		 ospf_vrf_delete, ospf_vrf_enable);
+		 ospf_vrf_delete);
 }
 
 void ospf_vrf_terminate(void)

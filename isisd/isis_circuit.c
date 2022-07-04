@@ -82,7 +82,7 @@ static void isis_circuit_enable(struct isis_circuit *circuit)
 	struct interface *ifp = circuit->interface;
 
 	if (!area) {
-		area = isis_area_lookup(circuit->tag, ifp->vrf_id);
+		area = isis_area_lookup(circuit->tag, ifp->vrf->vrf_id);
 		if (area)
 			isis_area_add_circuit(area, circuit);
 	}
@@ -116,7 +116,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	 * Default values
 	 */
 #ifndef FABRICD
-	circuit->is_type = yang_get_default_enum(
+	circuit->is_type_config = yang_get_default_enum(
 		"/frr-interface:lib/interface/frr-isisd:isis/circuit-type");
 	circuit->flags = 0;
 
@@ -156,7 +156,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #else
-	circuit->is_type = IS_LEVEL_1_AND_2;
+	circuit->is_type_config = IS_LEVEL_1_AND_2;
 	circuit->flags = 0;
 	circuit->pad_hellos = 1;
 	for (i = 0; i < 2; i++) {
@@ -172,6 +172,8 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	}
 #endif /* ifndef FABRICD */
 
+	circuit->is_type = circuit->is_type_config;
+
 	circuit_mt_init(circuit);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL2);
@@ -182,6 +184,10 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	QOBJ_REG(circuit, isis_circuit);
 
 	isis_circuit_if_bind(circuit, ifp);
+
+	circuit->ip_addrs = list_new();
+	circuit->ipv6_link = list_new();
+	circuit->ipv6_non_link = list_new();
 
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		isis_circuit_enable(circuit);
@@ -206,6 +212,10 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	circuit_mt_finish(circuit);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+
+	list_delete(&circuit->ip_addrs);
+	list_delete(&circuit->ipv6_link);
+	list_delete(&circuit->ipv6_non_link);
 
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
@@ -253,6 +263,10 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	/* Free the index of SRM and SSN flags */
 	flags_free_index(&area->flags, circuit->idx);
 	circuit->idx = 0;
+
+	/* Reset IS type to configured */
+	circuit->is_type = circuit->is_type_config;
+
 	/* Remove circuit from area */
 	assert(circuit->area == area);
 	listnode_delete(area->circuit_list, circuit);
@@ -260,24 +274,6 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	circuit->isis = NULL;
 
 	return;
-}
-
-struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
-					   struct list *list)
-{
-	struct isis_circuit *circuit = NULL;
-	struct listnode *node;
-
-	if (!list)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(list, node, circuit))
-		if (circuit->interface == ifp) {
-			assert(ifp->info == circuit);
-			return circuit;
-		}
-
-	return NULL;
 }
 
 struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
@@ -324,8 +320,10 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 						0);
 
 #ifdef EXTREME_DEBUG
-		zlog_debug("Added IP address %pFX to circuit %s",
-			   connected->address, circuit->interface->name);
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("Added IP address %pFX to circuit %s",
+				   connected->address,
+				   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
@@ -347,15 +345,25 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 		if (IN6_IS_ADDR_LINKLOCAL(&ipv6->prefix))
 			listnode_add(circuit->ipv6_link, ipv6);
-		else
+		else {
 			listnode_add(circuit->ipv6_non_link, ipv6);
+			/* Update Local IPv6 address param. if MPLS TE is on */
+			if (circuit->ext && circuit->area
+			    && IS_MPLS_TE(circuit->area->mta)) {
+				IPV6_ADDR_COPY(&circuit->ext->local_addr6,
+					       &ipv6->prefix);
+				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);
+			}
+		}
 		if (circuit->area)
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
 						0);
 
 #ifdef EXTREME_DEBUG
-		zlog_debug("Added IPv6 address %pFX to circuit %s",
-			   connected->address, circuit->interface->name);
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("Added IPv6 address %pFX to circuit %s",
+				   connected->address,
+				   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 
@@ -499,7 +507,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback_or_vrf(ifp)) {
+	} else if (if_is_loopback(ifp)) {
 		circuit->circ_type = CIRCUIT_T_LOOPBACK;
 		circuit->is_passive = 1;
 	} else {
@@ -508,10 +516,6 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 			zlog_debug("isis_circuit_if_add: unsupported media");
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
-
-	circuit->ip_addrs = list_new();
-	circuit->ipv6_link = list_new();
-	circuit->ipv6_non_link = list_new();
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
@@ -528,21 +532,6 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	/* destroy addresses */
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_del_addr(circuit, conn);
-
-	if (circuit->ip_addrs) {
-		assert(listcount(circuit->ip_addrs) == 0);
-		list_delete(&circuit->ip_addrs);
-	}
-
-	if (circuit->ipv6_link) {
-		assert(listcount(circuit->ipv6_link) == 0);
-		list_delete(&circuit->ipv6_link);
-	}
-
-	if (circuit->ipv6_non_link) {
-		assert(listcount(circuit->ipv6_non_link) == 0);
-		list_delete(&circuit->ipv6_non_link);
-	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
 }
@@ -661,8 +650,11 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			"Interface MTU %zu on %s is too low to support area lsp mtu %u!",
 			isis_circuit_pdu_size(circuit),
 			circuit->interface->name, circuit->area->lsp_mtu);
-		isis_circuit_update_all_srmflags(circuit, 0);
-		return ISIS_ERROR;
+
+		/* Allow ISIS to continue configuration.   With this
+		 * configuration failure ISIS will attempt to send lsp
+		 * packets but will fail until the mtu is configured properly
+		 */
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
@@ -685,9 +677,11 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			       ETH_ALEN);
 		}
 #ifdef EXTREME_DEGUG
-		zlog_debug("isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
-			   circuit->interface->ifindex, ISO_MTU(circuit),
-			   snpa_print(circuit->u.bc.snpa));
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
+				circuit->interface->ifindex, ISO_MTU(circuit),
+				snpa_print(circuit->u.bc.snpa));
 #endif /* EXTREME_DEBUG */
 
 		circuit->u.bc.adjdb[0] = list_new();
@@ -937,6 +931,150 @@ void circuit_update_nlpids(struct isis_circuit *circuit)
 	return;
 }
 
+void isis_circuit_print_json(struct isis_circuit *circuit,
+			     struct json_object *json, char detail)
+{
+	int level;
+	json_object *iface_json, *ipv4_addr_json, *ipv6_link_json,
+		*ipv6_non_link_json, *hold_json, *lan_prio_json, *levels_json,
+		*level_json;
+	char buf_prx[INET6_BUFSIZ];
+	char buf[255];
+
+	snprintfrr(buf, sizeof(buf), "0x%x", circuit->circuit_id);
+	if (detail == ISIS_UI_LEVEL_BRIEF) {
+		iface_json = json_object_new_object();
+		json_object_object_add(json, "interface", iface_json);
+		json_object_string_add(iface_json, "name",
+				       circuit->interface->name);
+		json_object_string_add(iface_json, "circuit-id", buf);
+		json_object_string_add(iface_json, "state",
+				       circuit_state2string(circuit->state));
+		json_object_string_add(iface_json, "type",
+				       circuit_type2string(circuit->circ_type));
+		json_object_string_add(iface_json, "level",
+				       circuit_t2string(circuit->is_type));
+	}
+
+	if (detail == ISIS_UI_LEVEL_DETAIL) {
+		struct listnode *node;
+		struct prefix *ip_addr;
+
+		iface_json = json_object_new_object();
+		json_object_object_add(json, "interface", iface_json);
+		json_object_string_add(iface_json, "name",
+				       circuit->interface->name);
+		json_object_string_add(iface_json, "state",
+				       circuit_state2string(circuit->state));
+		if (circuit->is_passive)
+			json_object_string_add(iface_json, "is-passive",
+					       "passive");
+		else
+			json_object_string_add(iface_json, "is-passive",
+					       "active");
+		json_object_string_add(iface_json, "circuit-id", buf);
+		json_object_string_add(iface_json, "type",
+				       circuit_type2string(circuit->circ_type));
+		json_object_string_add(iface_json, "level",
+				       circuit_t2string(circuit->is_type));
+		if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+			json_object_string_add(iface_json, "snpa",
+					       snpa_print(circuit->u.bc.snpa));
+
+
+		levels_json = json_object_new_array();
+		json_object_object_add(iface_json, "levels", levels_json);
+		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			if ((circuit->is_type & level) == 0)
+				continue;
+			level_json = json_object_new_object();
+			json_object_string_add(level_json, "level",
+					       circuit_t2string(level));
+			if (circuit->area->newmetric)
+				json_object_int_add(level_json, "metric",
+						    circuit->te_metric[0]);
+			else
+				json_object_int_add(level_json, "metric",
+						    circuit->metric[0]);
+			if (!circuit->is_passive) {
+				json_object_int_add(level_json,
+						    "active-neighbors",
+						    circuit->upadjcount[0]);
+				json_object_int_add(level_json,
+						    "hello-interval",
+						    circuit->hello_interval[0]);
+				hold_json = json_object_new_object();
+				json_object_object_add(level_json, "holddown",
+						       hold_json);
+				json_object_int_add(
+					hold_json, "count",
+					circuit->hello_multiplier[0]);
+				json_object_string_add(
+					hold_json, "pad",
+					(circuit->pad_hellos ? "yes" : "no"));
+				json_object_int_add(level_json, "cnsp-interval",
+						    circuit->csnp_interval[0]);
+				json_object_int_add(level_json, "psnp-interval",
+						    circuit->psnp_interval[0]);
+				if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+					lan_prio_json =
+						json_object_new_object();
+					json_object_object_add(level_json,
+							       "lan",
+							       lan_prio_json);
+					json_object_int_add(
+						lan_prio_json, "priority",
+						circuit->priority[0]);
+					json_object_string_add(
+						lan_prio_json, "is-dis",
+						(circuit->u.bc.is_dr[0]
+							 ? "yes"
+							 : "no"));
+				}
+			}
+			json_object_array_add(levels_json, level_json);
+		}
+
+		if (listcount(circuit->ip_addrs) > 0) {
+			ipv4_addr_json = json_object_new_object();
+			json_object_object_add(iface_json, "ip-prefix",
+					       ipv4_addr_json);
+			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
+						  ip_addr)) {
+				snprintfrr(buf_prx, INET6_BUFSIZ, "%pFX",
+					   ip_addr);
+				json_object_string_add(ipv4_addr_json, "ip",
+						       buf_prx);
+			}
+		}
+		if (listcount(circuit->ipv6_link) > 0) {
+			ipv6_link_json = json_object_new_object();
+			json_object_object_add(iface_json, "ipv6-link-locals",
+					       ipv6_link_json);
+			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
+						  ip_addr)) {
+				snprintfrr(buf_prx, INET6_BUFSIZ, "%pFX",
+					   ip_addr);
+				json_object_string_add(ipv6_link_json, "ipv6",
+						       buf_prx);
+			}
+		}
+		if (listcount(circuit->ipv6_non_link) > 0) {
+			ipv6_non_link_json = json_object_new_object();
+			json_object_object_add(iface_json, "ipv6-prefixes",
+					       ipv6_non_link_json);
+			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
+						  ip_addr)) {
+				snprintfrr(buf_prx, INET6_BUFSIZ, "%pFX",
+					   ip_addr);
+				json_object_string_add(ipv6_non_link_json,
+						       "ipv6", buf_prx);
+			}
+		}
+	}
+	return;
+}
+
 void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 			    char detail)
 {
@@ -1033,20 +1171,19 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, "\n");
 			}
 		}
-		if (circuit->ip_addrs && listcount(circuit->ip_addrs) > 0) {
+		if (listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
 						  ip_addr))
 				vty_out(vty, "      %pFX\n", ip_addr);
 		}
-		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {
+		if (listcount(circuit->ipv6_link) > 0) {
 			vty_out(vty, "    IPv6 Link-Locals:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
 						  ip_addr))
 				vty_out(vty, "      %pFX\n", ip_addr);
 		}
-		if (circuit->ipv6_non_link
-		    && listcount(circuit->ipv6_non_link) > 0) {
+		if (listcount(circuit->ipv6_non_link) > 0) {
 			vty_out(vty, "    IPv6 Prefixes:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
 						  ip_addr))
@@ -1067,21 +1204,13 @@ static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
-	struct listnode *node;
 	struct interface *ifp;
-	struct isis_area *area;
 	struct isis_circuit *circuit;
 	int i;
-	struct isis *isis = NULL;
-
-	isis = isis_lookup_by_vrfid(vrf->vrf_id);
-
-	if (isis == NULL)
-		return 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
-		vty_frame(vty, "interface %s\n", ifp->name);
+		if_vty_config_start(vty, ifp);
 		write++;
 		/* IF desc */
 		if (ifp->desc) {
@@ -1089,14 +1218,13 @@ static int isis_interface_config_write(struct vty *vty)
 			write++;
 		}
 		/* ISIS Circuit */
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			circuit =
-				circuit_lookup_by_ifp(ifp, area->circuit_list);
+		do {
+			circuit = circuit_scan_by_ifp(ifp);
 			if (circuit == NULL)
-				continue;
+				break;
 			if (circuit->ip_router) {
 				vty_out(vty, " ip router " PROTO_NAME " %s\n",
-					area->area_tag);
+					circuit->tag);
 				write++;
 			}
 			if (circuit->is_passive) {
@@ -1109,7 +1237,7 @@ static int isis_interface_config_write(struct vty *vty)
 			}
 			if (circuit->ipv6_router) {
 				vty_out(vty, " ipv6 router " PROTO_NAME " %s\n",
-					area->area_tag);
+					circuit->tag);
 				write++;
 			}
 
@@ -1289,34 +1417,10 @@ static int isis_interface_config_write(struct vty *vty)
 			}
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
-		}
-		vty_endframe(vty, "exit\n!\n");
+		} while (0);
+		if_vty_config_end(vty);
 	}
 
-	return write;
-}
-#else
-static int isis_interface_config_write(struct vty *vty)
-{
-	struct vrf *vrf = NULL;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write++;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
 	return write;
 }
 #endif /* ifdef FABRICD */
@@ -1350,7 +1454,7 @@ ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 	if (circuit->is_passive == passive)
 		return ferr_ok();
 
-	if (if_is_loopback_or_vrf(circuit->interface) && !passive)
+	if (if_is_loopback(circuit->interface) && !passive)
 		return ferr_cfg_invalid("loopback is always passive");
 
 	if (circuit->state != C_STATE_UP) {
@@ -1529,7 +1633,11 @@ void isis_circuit_init(void)
 	hook_register_prio(if_del, 0, isis_if_delete_hook);
 
 	/* Install interface node */
+#ifdef FABRICD
 	if_cmd_init(isis_interface_config_write);
+#else
+	if_cmd_init_default();
+#endif
 	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
 			  isis_ifp_down, isis_ifp_destroy);
 }
