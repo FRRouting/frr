@@ -334,10 +334,10 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	pim_enable_dnode =
 		yang_dnode_getf(dnode,
 				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
-				if_xpath, "frr-routing:ipv4");
+				if_xpath, FRR_PIM_AF_XPATH_VAL);
 	igmp_enable_dnode = yang_dnode_getf(dnode,
 			"%s/frr-gmp:gmp/address-family[address-family='%s']/enable",
-			if_xpath, "frr-routing:ipv4");
+			if_xpath, FRR_PIM_AF_XPATH_VAL);
 
 	if (((pim_enable_dnode) &&
 	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||
