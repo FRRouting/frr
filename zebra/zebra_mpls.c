@@ -1855,8 +1855,6 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	} /* Switch */
-
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -2064,7 +2062,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	/* Look for zebra LSP object */
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (zvrf == NULL)
-		goto done;
+		return;
 
 	lsp_table = zvrf->lsp_table;
 
@@ -2074,7 +2072,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		if (is_debug)
 			zlog_debug("dplane LSP notif: in-label %u not found",
 				   dplane_ctx_get_in_label(ctx));
-		goto done;
+		return;
 	}
 
 	/*
@@ -2147,9 +2145,6 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 	}
-
-done:
-	dplane_ctx_fini(&ctx);
 }
 
 /*
