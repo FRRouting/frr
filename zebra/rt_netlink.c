@@ -1123,8 +1123,13 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	} else if (rtm->rtm_family == RTNL_FAMILY_IP6MR) {
 		SET_IPADDR_V6(&m->src);
 		SET_IPADDR_V6(&m->grp);
+	} else if (rtm->rtm_family == AF_INET6) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"Received a v6 multicast route that FRR is not prepared to fully decode at this point in time");
 	} else {
-		zlog_warn("%s: Invalid rtm_family received", __func__);
+		zlog_warn("%s: Invalid rtm_family received %u", __func__,
+			  rtm->rtm_family);
 		return 0;
 	}
 
@@ -1177,11 +1182,12 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Connected route. */
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s %s %s proto %s NS %u",
+		zlog_debug("%s %s %s proto %s NS %u table: %u",
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   nl_family_to_str(rtm->rtm_family),
 			   nl_rttype_to_str(rtm->rtm_type),
-			   nl_rtproto_to_str(rtm->rtm_protocol), ns_id);
+			   nl_rtproto_to_str(rtm->rtm_protocol), ns_id,
+			   rtm->rtm_table);
 
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
