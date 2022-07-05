@@ -7225,18 +7225,15 @@ static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,
 
 	/* Increment condition_filter_count and/or create timer. */
 	if (!filter_exists) {
-		filter->advmap.update_type = ADVERTISE;
+		filter->advmap.update_type = UPDATE_TYPE_ADVERTISE;
 		bgp_conditional_adv_enable(peer, afi, safi);
 	}
+
+	/* Process peer route updates. */
+	peer_on_policy_change(peer, afi, safi, 1);
 }
 
-/* Set advertise-map to the peer but do not process peer route updates here.  *
- * Hold filter changes until the conditional routes polling thread is called  *
- * AS we need to advertise/withdraw prefixes (in advertise-map) based on the  *
- * condition (exist-map/non-exist-map) and routes(specified in condition-map) *
- * in BGP table. So do not call peer_on_policy_change() here, only create     *
- * polling timer thread, update filters and increment condition_filter_count.
- */
+/* Set advertise-map to the peer. */
 int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 			   const char *advertise_name,
 			   struct route_map *advertise_map,
@@ -7316,7 +7313,6 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 				   __func__, peer->host,
 				   get_afi_safi_str(afi, safi, false));
 
-		peer_on_policy_change(peer, afi, safi, 1);
 		return 0;
 	}
 
@@ -7339,8 +7335,6 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 			zlog_debug("%s: Send normal update to %s for %s ",
 				   __func__, member->host,
 				   get_afi_safi_str(afi, safi, false));
-
-		peer_on_policy_change(member, afi, safi, 1);
 	}
 
 	return 0;
