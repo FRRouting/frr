@@ -3437,7 +3437,22 @@ def verify_rib(
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
+                                    if "ip" in rib_r
                                 ]
+
+                                # If somehow key "ip" is not found in nexthops JSON
+                                # then found_hops would be 0, this particular
+                                # situation will be handled here
+                                if not len(found_hops):
+                                    errormsg = (
+                                        "Nexthop {} is Missing for "
+                                        "route {} in RIB of router {}\n".format(
+                                            next_hop,
+                                            st_rt,
+                                            dut,
+                                        )
+                                    )
+                                    return errormsg
 
                                 # Check only the count of nexthops
                                 if count_only:
