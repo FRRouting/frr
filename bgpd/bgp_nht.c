@@ -858,24 +858,22 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	tree = &bgp->nexthop_cache_table[afi];
 
 	bnc_nhc = bnc_find(tree, &match, nhr.srte_color, 0);
-	if (!bnc_nhc) {
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
-				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
-	} else
+	if (bnc_nhc)
 		bgp_process_nexthop_update(bnc_nhc, &nhr, false);
+	else if (BGP_DEBUG(nht, NHT))
+		zlog_debug(
+			"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
+			&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 
 	tree = &bgp->import_check_table[afi];
 
 	bnc_import = bnc_find(tree, &match, nhr.srte_color, 0);
-	if (!bnc_import) {
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
-				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
-	} else
+	if (bnc_import)
 		bgp_process_nexthop_update(bnc_import, &nhr, true);
+	else if (BGP_DEBUG(nht, NHT))
+		zlog_debug(
+			"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
+			&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
