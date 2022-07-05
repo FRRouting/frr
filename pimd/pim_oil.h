@@ -187,9 +187,6 @@ extern int pim_channel_oil_compare(const struct channel_oil *c1,
 DECLARE_RBTREE_UNIQ(rb_pim_oil, struct channel_oil, oil_rb,
                     pim_channel_oil_compare);
 
-
-extern struct list *pim_channel_oil_list;
-
 void pim_oil_init(struct pim_instance *pim);
 void pim_oil_terminate(struct pim_instance *pim);
 
