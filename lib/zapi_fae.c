@@ -54,6 +54,9 @@ DEFINE_MTYPE(LIB, ZAPI_FAE_AREA_TAG, "ZAPI FAE Area tag");
 	 sizeof(struct zapi_fae_query) + sizeof(struct zapi_fae_answer))
 
 
+static struct zapi_fae_daemon_id _clients[1];
+static unsigned _num_clients = 0;
+
 /*
  *  0                   1                   2                   3
  *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -530,4 +533,49 @@ void zapi_fae_igp_discriminator_clean(
 	if (ZEBRA_ROUTE_ISIS == igp_discriminator->proto)
 		XFREE(MTYPE_ZAPI_FAE_AREA_TAG,
 		      igp_discriminator->proto_data.isis.area_tag);
+}
+
+/* This matches only the proto and instance.  Caller should check the
+ * session ID.  Expand this later to deal with multiple clients.
+ */
+int zapi_fae_find_client(const struct zapi_fae_daemon_id *const id)
+{
+	if (_num_clients == 1 && _clients[0].proto == id->proto
+	    && _clients[0].instance == id->instance)
+		return 0;
+	return -1;
+}
+
+/* Expand this later to deal with multiple clients */
+int zapi_fae_del_client(int client)
+{
+	if (_num_clients > 0 && client == 0) {
+		_num_clients--;
+		return 0;
+	}
+	return -1;
+}
+
+/* Expand this later to deal with multiple clients  / restarted client */
+int zapi_fae_get_client(const struct zapi_fae_daemon_id *const id)
+{
+	if (_num_clients == 0) {
+		_clients[0].proto = id->proto;
+		_clients[0].instance = id->instance;
+		_clients[0].session_id = id->session_id;
+		_num_clients++;
+		return 0;
+	}
+
+	if (_clients[0].proto == id->proto
+	    && _clients[0].instance == id->instance
+	    && _clients[0].session_id == id->session_id)
+		return 0;
+	return -1;
+}
+
+void zapi_fae_find_client_from_index(int index,
+				     struct zapi_fae_daemon_id **client)
+{
+	*client = &_clients[index];
 }

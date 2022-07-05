@@ -56,9 +56,6 @@ isis_fae_route_node_reg_del(struct isis_area *area,
 			    const struct fae_db_node *const node,
 			    const struct zapi_fae_query *const query);
 
-static struct zapi_fae_daemon_id _clients[1];
-static unsigned _num_clients = 0;
-
 static void ipaddr2prefix(struct prefix *p, const struct ipaddr *const addr)
 {
 	p->family = ipaddr_family(addr);
@@ -69,45 +66,6 @@ static void ipaddr2prefix(struct prefix *p, const struct ipaddr *const addr)
 		p->prefixlen = IPV6_MAX_BITLEN;
 		p->u.prefix6 = addr->ipaddr_v6;
 	}
-}
-
-/* Expand this later to deal with multiple clients  / restarted client */
-static int isis_fae_get_client(const struct zapi_fae_daemon_id *const id)
-{
-	if (_num_clients == 0) {
-		_clients[0].proto = id->proto;
-		_clients[0].instance = id->instance;
-		_clients[0].session_id = id->session_id;
-		_num_clients++;
-		return 0;
-	}
-
-	if (_clients[0].proto == id->proto
-	    && _clients[0].instance == id->instance
-	    && _clients[0].session_id == id->session_id)
-		return 0;
-	return -1;
-}
-
-/* This matches only the proto and instance.  Caller should check the
- * session ID.  Expand this later to deal with multiple clients.
- */
-static int isis_fae_find_client(const struct zapi_fae_daemon_id *const id)
-{
-	if (_num_clients == 1 && _clients[0].proto == id->proto
-	    && _clients[0].instance == id->instance)
-		return 0;
-	return -1;
-}
-
-/* Expand this later to deal with multiple clients */
-static int isis_fae_del_client(int client)
-{
-	if (_num_clients > 0 && client == 0) {
-		_num_clients--;
-		return 0;
-	}
-	return -1;
 }
 
 /* Send updates, for all endpoints tracked by this route + algo, to all
@@ -130,9 +88,11 @@ void isis_fae_send_update_all(const struct isis_area *const area,
 
 	for (ALL_LIST_ELEMENTS_RO(list, node, dbnode)) {
 		for (unsigned i = 0; i < dbnode->num_clients; i++) {
-			struct zapi_fae_daemon_id *client;
+			struct zapi_fae_daemon_id *client = NULL, **pclient;
 
-			client = &_clients[dbnode->client[i]];
+			pclient = &client;
+			zapi_fae_find_client_from_index(dbnode->client[i],
+							pclient);
 			isis_zebra_fae_update_send(area, &dbnode->endpoint,
 						   rinfo, algorithm, client);
 		}
@@ -196,7 +156,7 @@ int isis_fae_process_register(
 		return -1;
 	}
 
-	client = isis_fae_get_client(client_daemon_id);
+	client = zapi_fae_get_client(client_daemon_id);
 	if (client < 0) {
 		zlog_debug("%s unable to find add/find client", __func__);
 		return -1;
@@ -267,7 +227,7 @@ int isis_fae_process_unregister(
 	if (area == NULL)
 		return -1;
 
-	client = isis_fae_get_client(client_daemon_id);
+	client = zapi_fae_get_client(client_daemon_id);
 
 	node = fae_db_delete(&area->fae.inactive[query->algorithm],
 			     &query->endpoint, client);
@@ -319,7 +279,7 @@ int isis_fae_process_client_ready(
 	/* For now, there can be only one client.  If a new client shows up,
 	 * assume pathd restarted and clean up the old information.
 	 */
-	client = isis_fae_find_client(client_daemon_id);
+	client = zapi_fae_find_client(client_daemon_id);
 	if (client < 0)
 		goto out;
 
@@ -355,13 +315,13 @@ int isis_fae_process_client_ready(
 		}
 	}
 
-	if (isis_fae_del_client(client)) {
+	if (zapi_fae_del_client(client)) {
 		zlog_warn("%s Unable to replace client", __func__);
 		return -1;
 	}
 
 out:
-	if (isis_fae_get_client(client_daemon_id) < 0)
+	if (zapi_fae_get_client(client_daemon_id) < 0)
 		return -1;
 
 	/* Notify the client of available areas */

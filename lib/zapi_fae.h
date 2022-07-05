@@ -143,4 +143,10 @@ extern int zapi_fae_update_decode(
 extern void
 zapi_fae_igp_discriminator_clean(struct zapi_fae_igp_discriminator *d);
 
+/* API handling of list of pathd clients from IS-IS, BGP perspective */
+int zapi_fae_find_client(const struct zapi_fae_daemon_id *const id);
+int zapi_fae_del_client(int client);
+int zapi_fae_get_client(const struct zapi_fae_daemon_id *const id);
+void zapi_fae_find_client_from_index(int index,
+				     struct zapi_fae_daemon_id **client);
 #endif /* __ZAPI_FAE_H */
