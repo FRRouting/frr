@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "command.h"
 #include "prefix.h"
 #include "ipaddr.h"
 #include "vty.h"
@@ -1384,6 +1385,23 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	}
 
 	return buf;
+}
+
+bool ipv4_unicast_valid(const struct in_addr *addr)
+{
+	in_addr_t ip = ntohl(addr->s_addr);
+
+	if (IPV4_CLASS_D(ip))
+		return false;
+
+	if (IPV4_CLASS_E(ip)) {
+		if (cmd_allow_reserved_ranges_get())
+			return true;
+		else
+			return false;
+	}
+
+	return true;
 }
 
 printfrr_ext_autoreg_p("EA", printfrr_ea);
