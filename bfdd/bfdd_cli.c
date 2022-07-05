@@ -423,12 +423,19 @@ DEFPY_YANG(
 	"Configure echo mode\n")
 {
 	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
-		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		vty_out(vty,
+			"%% Echo mode is only available for single hop sessions.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (!no && !bglobal.bg_use_dplane) {
-		vty_out(vty, "%% Current implementation of echo mode works only when the peer is also FRR.\n");
+#ifdef BFD_LINUX
+		vty_out(vty,
+			"%% Echo mode works correctly for IPv4, but only works when the peer is also FRR for IPv6.\n");
+#else
+		vty_out(vty,
+			"%% Current implementation of echo mode works only when the peer is also FRR.\n");
+#endif /* BFD_LINUX */
 	}
 
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,

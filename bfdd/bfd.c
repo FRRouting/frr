@@ -454,7 +454,17 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 {
 	/* Send the scheduled echo  packet */
-	ptm_bfd_echo_snd(bfd);
+	/* if ipv4 use the new echo implementation that causes
+	 * the packet to be looped in forwarding plane of peer
+	 */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6) == 0)
+#ifdef BFD_LINUX
+		ptm_bfd_echo_fp_snd(bfd);
+#else
+		ptm_bfd_echo_snd(bfd);
+#endif
+	else
+		ptm_bfd_echo_snd(bfd);
 
 	/* Restart the timer for next time */
 	ptm_bfd_start_xmt_timer(bfd, true);
@@ -558,6 +568,12 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 				   state_list[bfd->ses_state].str,
 				   get_diag_str(bfd->local_diag));
 	}
+
+	/* clear peer's mac address */
+	UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
+	memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
+	/* reset local address ,it might has been be changed after bfd is up*/
+	memset(&bfd->local_address, 0, sizeof(bfd->local_address));
 }
 
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
