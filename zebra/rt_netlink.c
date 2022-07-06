@@ -2349,9 +2349,6 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 
 	req.n.nlmsg_type = RTM_GETROUTE;
 
-	nl_attr_put32(&req.n, sizeof(req), RTA_IIF, mroute->ifindex);
-	nl_attr_put32(&req.n, sizeof(req), RTA_OIF, mroute->ifindex);
-
 	if (mroute->family == AF_INET) {
 		req.rtm.rtm_family = RTNL_FAMILY_IPMR;
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
