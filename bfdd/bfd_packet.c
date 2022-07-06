@@ -219,8 +219,8 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 
 	/* add eth hdr */
 	eth = (struct ethhdr *)(sendbuff);
-	memcpy(eth->h_source, bfd->ifp->hw_addr, sizeof(bfd->ifp->hw_addr));
-	memcpy(eth->h_dest, bfd->peer_hw_addr, sizeof(bfd->peer_hw_addr));
+	memcpy(eth->h_source, bfd->ifp->hw_addr, sizeof(eth->h_source));
+	memcpy(eth->h_dest, bfd->peer_hw_addr, sizeof(eth->h_dest));
 
 	total_len += sizeof(struct ethhdr);
 
@@ -1569,6 +1569,7 @@ int bp_echo_socket(const struct vrf *vrf)
 	    -1) {
 		zlog_warn("%s: setsockopt(SO_ATTACH_FILTER): %s", __func__,
 			  strerror(errno));
+		close(s);
 		return -1;
 	}
 
@@ -1579,6 +1580,7 @@ int bp_echo_socket(const struct vrf *vrf)
 	if (bind(s, (struct sockaddr *)&sll, sizeof(sll)) < 0) {
 		zlog_warn("Failed to bind echo socket: %s",
 			  safe_strerror(errno));
+		close(s);
 		return -1;
 	}
 
