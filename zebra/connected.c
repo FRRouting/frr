@@ -387,10 +387,14 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf->vrf_id,
 	};
-	struct zebra_vrf *zvrf;
-	uint32_t count = 0;
+	struct zebra_vrf *zvrf, *zvrf_iter;
+	uint32_t count = 0, count_ipv4 = 0;
 	struct listnode *cnode;
 	struct connected *c;
+	struct route_table *table;
+	struct route_node *rn;
+	struct route_entry *re, *next;
+	struct vrf *vrf;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -459,6 +463,8 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		if (prefix_same(&p, &cp) &&
 		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
 			count++;
+		else if (p.family == AF_INET)
+			count_ipv4++;
 
 		if (count >= 1)
 			return;
@@ -473,6 +479,38 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 
 	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
 		   0, 0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+
+	/* When the last IP v4 address of an interface is deleted, Linux removes
+	 * all routes using this interface without any Netlink advertisement.
+	 * Remove all kernel routes using this interface from zebra RIBs.
+	 */
+	if (afi == AFI_IP && count_ipv4 == 0) {
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			zvrf_iter = vrf->info;
+
+			if (!zvrf_iter)
+				continue;
+
+			table = zvrf_iter->table[AFI_IP][SAFI_UNICAST];
+			if (!table)
+				continue;
+
+			for (rn = route_top(table); rn;
+			     rn = srcdest_route_next(rn)) {
+				RNODE_FOREACH_RE_SAFE (rn, re, next) {
+					if (CHECK_FLAG(re->status,
+						       ROUTE_ENTRY_REMOVED))
+						continue;
+					if (re->nhe->ifp != ifp)
+						continue;
+					if (re->type != ZEBRA_ROUTE_KERNEL)
+						continue;
+
+					rib_delnode(rn, re);
+				}
+			}
+		}
+	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
