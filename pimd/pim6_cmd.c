@@ -1072,14 +1072,15 @@ DEFPY (show_ipv6_pim_neighbor_vrf_all,
 
 DEFPY (show_ipv6_pim_nexthop,
        show_ipv6_pim_nexthop_cmd,
-       "show ipv6 pim [vrf NAME] nexthop",
+       "show ipv6 pim [vrf NAME] nexthop [json$json]",
        SHOW_STR
        IPV6_STR
        PIM_STR
        VRF_CMD_HELP_STR
-       "PIM cached nexthop rpf information\n")
+       "PIM cached nexthop rpf information\n"
+       JSON_STR)
 {
-	return pim_show_nexthop_cmd_helper(vrf, vty);
+	return pim_show_nexthop_cmd_helper(vrf, vty, !!json);
 }
 
 DEFPY (show_ipv6_pim_nexthop_lookup,
