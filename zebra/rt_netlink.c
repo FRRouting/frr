@@ -2333,7 +2333,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	struct mcast_route_data *mr = (struct mcast_route_data *)in;
 	struct {
 		struct nlmsghdr n;
-		struct ndmsg ndm;
+		struct rtmsg rtm;
 		char buf[256];
 	} req;
 
@@ -2343,7 +2343,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	zns = zvrf->zns;
 	memset(&req, 0, sizeof(req));
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 
@@ -2353,7 +2353,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	nl_attr_put32(&req.n, sizeof(req), RTA_OIF, mroute->ifindex);
 
 	if (mroute->family == AF_INET) {
-		req.ndm.ndm_family = RTNL_FAMILY_IPMR;
+		req.rtm.rtm_family = RTNL_FAMILY_IPMR;
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
 			    &mroute->src.ipaddr_v4,
 			    sizeof(mroute->src.ipaddr_v4));
@@ -2361,7 +2361,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 			    &mroute->grp.ipaddr_v4,
 			    sizeof(mroute->grp.ipaddr_v4));
 	} else {
-		req.ndm.ndm_family = RTNL_FAMILY_IP6MR;
+		req.rtm.rtm_family = RTNL_FAMILY_IP6MR;
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
 			    &mroute->src.ipaddr_v6,
 			    sizeof(mroute->src.ipaddr_v6));
