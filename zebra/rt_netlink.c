@@ -2351,6 +2351,9 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 
 	if (mroute->family == AF_INET) {
 		req.rtm.rtm_family = RTNL_FAMILY_IPMR;
+		req.rtm.rtm_dst_len = IPV4_MAX_BITLEN;
+		req.rtm.rtm_src_len = IPV4_MAX_BITLEN;
+
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
 			    &mroute->src.ipaddr_v4,
 			    sizeof(mroute->src.ipaddr_v4));
@@ -2359,6 +2362,9 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 			    sizeof(mroute->grp.ipaddr_v4));
 	} else {
 		req.rtm.rtm_family = RTNL_FAMILY_IP6MR;
+		req.rtm.rtm_dst_len = IPV6_MAX_BITLEN;
+		req.rtm.rtm_src_len = IPV6_MAX_BITLEN;
+
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
 			    &mroute->src.ipaddr_v6,
 			    sizeof(mroute->src.ipaddr_v6));
@@ -2381,8 +2387,13 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	 * and the kernel goes screw you and the delicious cookies you
 	 * are trying to give me.  So now we have this little hack.
 	 */
-	actual_table = (zvrf->table_id == RT_TABLE_MAIN) ? RT_TABLE_DEFAULT :
-		zvrf->table_id;
+	if (mroute->family == AF_INET)
+		actual_table = (zvrf->table_id == RT_TABLE_MAIN)
+				       ? RT_TABLE_DEFAULT
+				       : zvrf->table_id;
+	else
+		actual_table = zvrf->table_id;
+
 	nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table);
 
 	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
