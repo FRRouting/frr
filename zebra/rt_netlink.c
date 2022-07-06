@@ -1044,7 +1044,6 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	struct rtmsg *rtm;
 	struct rtattr *tb[RTA_MAX + 1];
 	struct mcast_route_data *m;
-	struct mcast_route_data mr;
 	int iif = 0;
 	int count;
 	int oif[256];
@@ -1053,12 +1052,8 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	vrf_id_t vrf;
 	int table;
 
-	if (mroute)
-		m = mroute;
-	else {
-		memset(&mr, 0, sizeof(mr));
-		m = &mr;
-	}
+	assert(mroute);
+	m = mroute;
 
 	rtm = NLMSG_DATA(h);
 
@@ -1165,9 +1160,19 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
-	if (!(rtm->rtm_family == AF_INET ||
-	      rtm->rtm_family == AF_INET6 ||
-	      rtm->rtm_family == RTNL_FAMILY_IPMR )) {
+	switch (rtm->rtm_family) {
+	case AF_INET:
+	case AF_INET6:
+		break;
+
+	case RTNL_FAMILY_IPMR:
+	case RTNL_FAMILY_IP6MR:
+		/* notifications on IPMR are irrelevant to zebra, we only care
+		 * about responses to RTM_GETROUTE requests we sent.
+		 */
+		return 0;
+
+	default:
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel route change: %s",
@@ -1193,10 +1198,14 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	}
 
+	/* these are "magic" kernel-managed *unicast* routes used for
+	 * outputting locally generated multicast traffic (which uses unicast
+	 * handling on Linux because ~reasons~.
+	 */
 	if (rtm->rtm_type == RTN_MULTICAST)
-		netlink_route_change_read_multicast(h, ns_id, startup);
-	else
-		netlink_route_change_read_unicast(h, ns_id, startup);
+		return 0;
+
+	netlink_route_change_read_unicast(h, ns_id, startup);
 	return 0;
 }
 
