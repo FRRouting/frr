@@ -543,6 +543,8 @@ const char *rtm_rta2str(int type)
 		return "MFC_STATS";
 	case RTA_NH_ID:
 		return "NH_ID";
+	case RTA_EXPIRES:
+		return "EXPIRES";
 	default:
 		return "UNKNOWN";
 	}
@@ -1070,9 +1072,11 @@ next_rta:
 
 static void nlroute_dump(struct rtmsg *rtm, size_t msglen)
 {
+	struct rta_mfc_stats *mfc_stats;
 	struct rtattr *rta;
 	size_t plen;
 	uint32_t u32v;
+	uint64_t u64v;
 
 	/* Get the first attribute and go from there. */
 	rta = RTM_RTA(rtm);
@@ -1095,6 +1099,11 @@ next_rta:
 		zlog_debug("      %u", u32v);
 		break;
 
+	case RTA_EXPIRES:
+		u64v = *(uint64_t *)RTA_DATA(rta);
+		zlog_debug("      %" PRIu64, u64v);
+		break;
+
 	case RTA_GATEWAY:
 	case RTA_DST:
 	case RTA_SRC:
@@ -1111,6 +1120,14 @@ next_rta:
 		default:
 			break;
 		}
+		break;
+
+	case RTA_MFC_STATS:
+		mfc_stats = (struct rta_mfc_stats *)RTA_DATA(rta);
+		zlog_debug("      pkts=%ju bytes=%ju wrong_if=%ju",
+			   (uintmax_t)mfc_stats->mfcs_packets,
+			   (uintmax_t)mfc_stats->mfcs_bytes,
+			   (uintmax_t)mfc_stats->mfcs_wrong_if);
 		break;
 
 	default:
