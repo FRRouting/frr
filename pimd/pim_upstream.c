@@ -930,7 +930,16 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 					__func__, up->sg_str);
 		}
 
-		if (up->rpf.source_nexthop.interface) {
+		/* Consider a case where (S,G,rpt) prune is received and this
+		 * upstream is getting created due to that, then as per RFC
+		 * until prune pending time we need to behave same as NOINFO
+		 * state, therefore do not install if OIF is NULL until then
+		 * This is for PIM Conformance PIM-SM 16.3 fix
+		 * When the prune pending timer pop, this mroute will get
+		 * installed with none as OIF */
+		if (up->rpf.source_nexthop.interface &&
+		    !(pim_upstream_empty_inherited_olist(up) && (ch != NULL) &&
+		      PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))) {
 			pim_upstream_mroute_iif_update(up->channel_oil,
 					__func__);
 		}
