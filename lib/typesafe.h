@@ -308,9 +308,27 @@ struct dlist_head {
 static inline void typesafe_dlist_add(struct dlist_head *head,
 		struct dlist_item *prev, struct dlist_item *item)
 {
+	/* SA on clang-11 thinks this can happen, but in reality -assuming no
+	 * memory corruption- it can't.  DLIST uses a "closed" ring, i.e. the
+	 * termination at the end of the list is not NULL but rather a pointer
+	 * back to the head.  (This eliminates special-casing the first or last
+	 * item.)
+	 *
+	 * Sadly, can't use assert() here since the libfrr assert / xref code
+	 * uses typesafe lists itself...  that said, if an assert tripped here
+	 * we'd already be way past some memory corruption, so we might as
+	 * well just take the SEGV.  (In the presence of corruption, we'd see
+	 * random SEGVs from places that make no sense at all anyway, an
+	 * assert might actually be a red herring.)
+	 *
+	 * ("assume()" tells the compiler to produce code as if the condition
+	 * will always hold;  it doesn't have any actual effect here, it'll
+	 * just SEGV out on "item->next->prev = item".)
+	 */
+	assume(prev->next != NULL);
+
 	item->next = prev->next;
-	if (item->next)
-		item->next->prev = item;
+	item->next->prev = item;
 	item->prev = prev;
 	prev->next = item;
 	head->count++;
