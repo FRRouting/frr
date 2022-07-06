@@ -219,8 +219,8 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 
 	/* add eth hdr */
 	eth = (struct ethhdr *)(sendbuff);
-	memcpy(eth->h_source, bfd->ifp->hw_addr, sizeof(bfd->ifp->hw_addr));
-	memcpy(eth->h_dest, bfd->peer_hw_addr, sizeof(bfd->peer_hw_addr));
+	memcpy(eth->h_source, bfd->ifp->hw_addr, sizeof(eth->h_source));
+	memcpy(eth->h_dest, bfd->peer_hw_addr, sizeof(eth->h_dest));
 
 	total_len += sizeof(struct ethhdr);
 
