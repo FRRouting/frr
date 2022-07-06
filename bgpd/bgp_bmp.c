@@ -135,6 +135,12 @@ static int bmp_listener_cmp(const struct bmp_listener *a,
 DECLARE_SORTLIST_UNIQ(bmp_listeners, struct bmp_listener, bli,
 		      bmp_listener_cmp);
 
+static void bmp_listener_put(struct bmp_listener *bl)
+{
+	bmp_listeners_del(&bl->targets->listeners, bl);
+	XFREE(MTYPE_BMP_LISTENER, bl);
+}
+
 static int bmp_targets_cmp(const struct bmp_targets *a,
 			   const struct bmp_targets *b)
 {
@@ -1544,11 +1550,16 @@ static struct bmp_bgp *bmp_bgp_get(struct bgp *bgp)
 static void bmp_bgp_put(struct bmp_bgp *bmpbgp)
 {
 	struct bmp_targets *bt;
+	struct bmp_listener *bl;
 
 	bmp_bgph_del(&bmp_bgph, bmpbgp);
 
-	frr_each_safe(bmp_targets, &bmpbgp->targets, bt)
+	frr_each_safe (bmp_targets, &bmpbgp->targets, bt) {
+		frr_each_safe (bmp_listeners, &bt->listeners, bl)
+			bmp_listener_put(bl);
+
 		bmp_targets_put(bt);
+	}
 
 	bmp_mirrorq_fini(&bmpbgp->mirrorq);
 	XFREE(MTYPE_BMP, bmpbgp);
@@ -1676,12 +1687,6 @@ static struct bmp_listener *bmp_listener_get(struct bmp_targets *bt,
 
 	bmp_listeners_add(&bt->listeners, bl);
 	return bl;
-}
-
-static void bmp_listener_put(struct bmp_listener *bl)
-{
-	bmp_listeners_del(&bl->targets->listeners, bl);
-	XFREE(MTYPE_BMP_LISTENER, bl);
 }
 
 static void bmp_listener_start(struct bmp_listener *bl)
