@@ -61,8 +61,8 @@ struct zclient_options zclient_options_default = {.receive_notify = false,
 struct sockaddr_storage zclient_addr;
 socklen_t zclient_addr_len;
 
-/* This file local debug flag. */
-static int zclient_debug;
+DECLARE_DEBUGFLAG(ZCLIENT);
+DEFINE_DEBUGFLAG(ZCLIENT, "zclient", "ZAPI client implementation\n");
 
 /* Allocate zclient structure. */
 struct zclient *zclient_new(struct thread_master *master,
@@ -170,8 +170,7 @@ void zclient_stop(struct zclient *zclient)
 	afi_t afi;
 	int i;
 
-	if (zclient_debug)
-		zlog_debug("zclient %p stopped", zclient);
+	dbg(ZCLIENT, "zclient %p stopped", zclient);
 
 	/* Stop threads. */
 	THREAD_OFF(zclient->t_read);
@@ -244,9 +243,8 @@ int zclient_socket_connect(struct zclient *zclient)
 	/* Connect to zebra. */
 	ret = connect(sock, (struct sockaddr *)&zclient_addr, zclient_addr_len);
 	if (ret < 0) {
-		if (zclient_debug)
-			zlog_debug("connect failure: %d(%s)", errno,
-				   safe_strerror(errno));
+		dbg(ZCLIENT, "connect failure: %d(%s)", errno,
+			   safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -490,8 +488,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	if (zclient->sock < 0)
 		return;
 
-	if (zclient_debug)
-		zlog_debug("send register messages for VRF %u", vrf_id);
+	dbg(ZCLIENT, "send register messages for VRF %u", vrf_id);
 
 	/* We need router-id information. */
 	zclient_send_router_id_update(zclient, ZEBRA_ROUTER_ID_ADD, AFI_IP,
@@ -557,8 +554,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	if (zclient->sock < 0)
 		return;
 
-	if (zclient_debug)
-		zlog_debug("send deregister messages for VRF %u", vrf_id);
+	dbg(ZCLIENT, "send deregister messages for VRF %u", vrf_id);
 
 	/* We need router-id information. */
 	zclient_send_router_id_update(zclient, ZEBRA_ROUTER_ID_DELETE, AFI_IP,
@@ -676,9 +672,6 @@ zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
 /* Make connection to zebra daemon. */
 int zclient_start(struct zclient *zclient)
 {
-	if (zclient_debug)
-		zlog_info("zclient_start is called");
-
 	/* If already connected to the zebra. */
 	if (zclient->sock >= 0)
 		return 0;
@@ -688,8 +681,7 @@ int zclient_start(struct zclient *zclient)
 		return 0;
 
 	if (zclient_socket_connect(zclient) < 0) {
-		if (zclient_debug)
-			zlog_debug("zclient connection fail");
+		dbg(ZCLIENT, "zclient connection fail");
 		zclient->fail++;
 		zclient_event(ZCLIENT_CONNECT, zclient);
 		return -1;
@@ -701,9 +693,8 @@ int zclient_start(struct zclient *zclient)
 
 	/* Clear fail count. */
 	zclient->fail = 0;
-	if (zclient_debug)
-		zlog_debug("zclient connect success with socket [%d]",
-			   zclient->sock);
+	dbg(ZCLIENT, "zclient connect success with socket [%d]",
+		   zclient->sock);
 
 	/* Create read thread. */
 	zclient_event(ZCLIENT_READ, zclient);
@@ -748,8 +739,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 		zclient->default_information[afi] = vrf_bitmap_init();
 	}
 
-	if (zclient_debug)
-		zlog_debug("scheduling zclient connection");
+	dbg(ZCLIENT, "scheduling zclient connection");
 
 	zclient_event(ZCLIENT_SCHEDULE, zclient);
 }
@@ -763,8 +753,7 @@ static void zclient_connect(struct thread *t)
 	zclient = THREAD_ARG(t);
 	zclient->t_connect = NULL;
 
-	if (zclient_debug)
-		zlog_debug("zclient_connect is called");
+	dbg(ZCLIENT, "zclient_connect is called");
 
 	zclient_start(zclient);
 }
@@ -1705,8 +1694,7 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	STREAM_GETL(s, uni);
 	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
 
-	if (zclient_debug)
-		zlog_debug("%u %u %u %s", seq, prio, uni, ifname);
+	dbg(ZCLIENT, "%u %u %u %s", seq, prio, uni, ifname);
 	*seqno = seq;
 	*priority = prio;
 	*unique = uni;
@@ -1727,8 +1715,7 @@ bool zapi_ipset_notify_decode(struct stream *s, uint32_t *unique,
 
 	STREAM_GETL(s, uni);
 
-	if (zclient_debug)
-		zlog_debug("%u", uni);
+	dbg(ZCLIENT, "%u", uni);
 	*unique = uni;
 	*note = (enum zapi_ipset_notify_owner)notew;
 	return true;
@@ -1750,8 +1737,7 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 
 	STREAM_GET(ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
-	if (zclient_debug)
-		zlog_debug("%u", uni);
+	dbg(ZCLIENT, "%u", uni);
 	*unique = uni;
 	*note = (enum zapi_ipset_entry_notify_owner)notew;
 
@@ -1772,8 +1758,7 @@ bool zapi_iptable_notify_decode(struct stream *s,
 
 	STREAM_GETL(s, uni);
 
-	if (zclient_debug)
-		zlog_debug("%u", uni);
+	dbg(ZCLIENT, "%u", uni);
 	*unique = uni;
 	*note = (enum zapi_iptable_notify_owner)notew;
 
@@ -1995,8 +1980,7 @@ bool zapi_error_decode(struct stream *s, enum zebra_error_types *error)
 
 	STREAM_GET(error, s, sizeof(*error));
 
-	if (zclient_debug)
-		zlog_debug("type: %s", zebra_error_type2str(*error));
+	dbg(ZCLIENT, "type: %s", zebra_error_type2str(*error));
 
 	return true;
 stream_failure:
@@ -2748,8 +2732,7 @@ static int zclient_read_sync_response(struct zclient *zclient,
 		/* read response */
 		ret = zclient_read_header(s, zclient->sock, &size, &marker,
 					  &version, &vrf_id, &cmd);
-		if (zclient_debug)
-			zlog_debug("Response (%d bytes) received", size);
+		dbg(ZCLIENT, "Response (%d bytes) received", size);
 	}
 	if (ret != 0) {
 		flog_err(EC_LIB_ZAPI_ENCODE, "%s: Invalid Sync Message Reply",
@@ -2777,8 +2760,7 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 	uint16_t cmd = async ? ZEBRA_LABEL_MANAGER_CONNECT_ASYNC :
 			       ZEBRA_LABEL_MANAGER_CONNECT;
 
-	if (zclient_debug)
-		zlog_debug("Connecting to Label Manager (LM)");
+	dbg(ZCLIENT, "Connecting to Label Manager (LM)");
 
 	if (zclient->sock < 0) {
 		zlog_debug("invalid zclient socket");
@@ -2811,8 +2793,7 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 		zclient->sock = -1;
 		return -1;
 	}
-	if (zclient_debug)
-		zlog_debug("LM connect request sent (%d bytes)", ret);
+	dbg(ZCLIENT, "LM connect request sent (%d bytes)", ret);
 
 	if (async)
 		return 0;
@@ -2845,8 +2826,7 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 
 	/* result code */
 	STREAM_GETC(s, result);
-	if (zclient_debug)
-		zlog_debug("LM connect-response received, result %u", result);
+	dbg(ZCLIENT, "LM connect-response received, result %u", result);
 
 	return (int)result;
 
@@ -2867,8 +2847,7 @@ int srv6_manager_get_locator_chunk(struct zclient *zclient,
 	struct stream *s;
 	const size_t len = strlen(locator_name);
 
-	if (zclient_debug)
-		zlog_debug("Getting SRv6-Locator Chunk %s", locator_name);
+	dbg(ZCLIENT, "Getting SRv6-Locator Chunk %s", locator_name);
 
 	if (zclient->sock < 0)
 		return -1;
@@ -2902,8 +2881,7 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
 	struct stream *s;
 	const size_t len = strlen(locator_name);
 
-	if (zclient_debug)
-		zlog_debug("Releasing SRv6-Locator Chunk %s", locator_name);
+	dbg(ZCLIENT, "Releasing SRv6-Locator Chunk %s", locator_name);
 
 	if (zclient->sock < 0)
 		return -1;
@@ -2940,8 +2918,7 @@ enum zclient_send_status zclient_send_get_label_chunk(struct zclient *zclient,
 {
 	struct stream *s;
 
-	if (zclient_debug)
-		zlog_debug("Getting Label Chunk");
+	dbg(ZCLIENT, "Getting Label Chunk");
 
 	if (zclient->sock < 0)
 		return ZCLIENT_SEND_FAILURE;
@@ -2984,8 +2961,7 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	struct stream *s;
 	uint8_t response_keep;
 
-	if (zclient_debug)
-		zlog_debug("Getting Label Chunk");
+	dbg(ZCLIENT, "Getting Label Chunk");
 
 	if (zclient->sock < 0)
 		return -1;
@@ -3020,8 +2996,7 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 		zclient->sock = -1;
 		return -1;
 	}
-	if (zclient_debug)
-		zlog_debug("Label chunk request (%d bytes) sent", ret);
+	dbg(ZCLIENT, "Label chunk request (%d bytes) sent", ret);
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_GET_LABEL_CHUNK) != 0)
@@ -3077,9 +3052,8 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 		return -1;
 	}
 
-	if (zclient_debug)
-		zlog_debug("Label Chunk assign: %u - %u (%u)", *start, *end,
-			   response_keep);
+	dbg(ZCLIENT, "Label Chunk assign: %u - %u (%u)", *start, *end,
+		   response_keep);
 
 	return 0;
 
@@ -3101,8 +3075,7 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 	int ret;
 	struct stream *s;
 
-	if (zclient_debug)
-		zlog_debug("Releasing Label Chunk %u - %u", start, end);
+	dbg(ZCLIENT, "Releasing Label Chunk %u - %u", start, end);
 
 	if (zclient->sock < 0)
 		return -1;
@@ -3156,8 +3129,7 @@ int tm_table_manager_connect(struct zclient *zclient)
 	struct stream *s;
 	uint8_t result;
 
-	if (zclient_debug)
-		zlog_debug("Connecting to Table Manager");
+	dbg(ZCLIENT, "Connecting to Table Manager");
 
 	if (zclient->sock < 0)
 		return ZCLIENT_SEND_FAILURE;
@@ -3179,8 +3151,7 @@ int tm_table_manager_connect(struct zclient *zclient)
 	if (ret == ZCLIENT_SEND_FAILURE)
 		return -1;
 
-	if (zclient_debug)
-		zlog_debug("Table manager connect request sent");
+	dbg(ZCLIENT, "Table manager connect request sent");
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_TABLE_MANAGER_CONNECT)
@@ -3190,9 +3161,8 @@ int tm_table_manager_connect(struct zclient *zclient)
 	/* result */
 	s = zclient->ibuf;
 	STREAM_GETC(s, result);
-	if (zclient_debug)
-		zlog_debug("Table Manager connect response received, result %u",
-			   result);
+	dbg(ZCLIENT, "Table Manager connect response received, result %u",
+		   result);
 
 	return (int)result;
 stream_failure:
@@ -3217,8 +3187,7 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 	int ret;
 	struct stream *s;
 
-	if (zclient_debug)
-		zlog_debug("Getting Table Chunk");
+	dbg(ZCLIENT, "Getting Table Chunk");
 
 	if (zclient->sock < 0)
 		return -1;
@@ -3247,8 +3216,7 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 		zclient->sock = -1;
 		return -1;
 	}
-	if (zclient_debug)
-		zlog_debug("Table chunk request (%d bytes) sent", ret);
+	dbg(ZCLIENT, "Table chunk request (%d bytes) sent", ret);
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_GET_TABLE_CHUNK) != 0)
@@ -3259,8 +3227,7 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 	STREAM_GETL(s, *start);
 	STREAM_GETL(s, *end);
 
-	if (zclient_debug)
-		zlog_debug("Table Chunk assign: %u - %u ", *start, *end);
+	dbg(ZCLIENT, "Table Chunk assign: %u - %u ", *start, *end);
 
 	return 0;
 stream_failure:
@@ -3280,8 +3247,7 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 {
 	struct stream *s;
 
-	if (zclient_debug)
-		zlog_debug("Releasing Table Chunk");
+	dbg(ZCLIENT, "Releasing Table Chunk");
 
 	if (zclient->sock < 0)
 		return -1;
@@ -3932,10 +3898,9 @@ static void zclient_read(struct thread *thread)
 					      ZEBRA_HEADER_SIZE - already))
 		     == 0)
 		    || (nbyte == -1)) {
-			if (zclient_debug)
-				zlog_debug(
-					"zclient connection closed socket [%d].",
-					zclient->sock);
+			dbg(ZCLIENT,
+				"zclient connection closed socket [%d].",
+				zclient->sock);
 			zclient_failed(zclient);
 			return;
 		}
@@ -3994,10 +3959,9 @@ static void zclient_read(struct thread *thread)
 					      length - already))
 		     == 0)
 		    || (nbyte == -1)) {
-			if (zclient_debug)
-				zlog_debug(
-					"zclient connection closed socket [%d].",
-					zclient->sock);
+			dbg(ZCLIENT,
+				"zclient connection closed socket [%d].",
+				zclient->sock);
 			zclient_failed(zclient);
 			return;
 		}
@@ -4010,9 +3974,8 @@ static void zclient_read(struct thread *thread)
 
 	length -= ZEBRA_HEADER_SIZE;
 
-	if (zclient_debug)
-		zlog_debug("zclient %p command %s VRF %u", zclient,
-			   zserv_command_string(command), vrf_id);
+	dbg(ZCLIENT, "zclient %p command %s VRF %u", zclient,
+		   zserv_command_string(command), vrf_id);
 
 	if (command < array_size(lib_handlers) && lib_handlers[command])
 		lib_handlers[command](command, zclient, length, vrf_id);
@@ -4094,10 +4057,9 @@ static void zclient_event(enum zclient_event event, struct zclient *zclient)
 				 &zclient->t_connect);
 		break;
 	case ZCLIENT_CONNECT:
-		if (zclient_debug)
-			zlog_debug(
-				"zclient connect failures: %d schedule interval is now %d",
-				zclient->fail, zclient->fail < 3 ? 10 : 60);
+		dbg(ZCLIENT,
+			"zclient connect failures: %d schedule interval is now %d",
+			zclient->fail, zclient->fail < 3 ? 10 : 60);
 		thread_add_timer(zclient->master, zclient_connect, zclient,
 				 zclient->fail < 3 ? 10 : 60,
 				 &zclient->t_connect);
