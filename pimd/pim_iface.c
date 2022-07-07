@@ -635,9 +635,7 @@ void pim_if_addr_add(struct connected *ifc)
 			   with RNH address to receive update and add the
 			   interface as nexthop. */
 			memset(&rpf, 0, sizeof(struct pim_rpf));
-			rpf.rpf_addr.family = AF_INET;
-			rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-			rpf.rpf_addr.u.prefix4 = ifc->address->u.prefix4;
+			rpf.rpf_addr = pim_addr_from_prefix(ifc->address);
 			pnc = pim_nexthop_cache_find(pim_ifp->pim, &rpf);
 			if (pnc)
 				pim_sendmsg_zebra_rnh(pim_ifp->pim, zclient,

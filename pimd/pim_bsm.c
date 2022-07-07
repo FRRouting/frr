@@ -571,7 +571,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 	struct route_node *rn;
 	struct route_node *rpnode;
 	struct bsgrp_node *bsgrp;
-	struct prefix nht_p;
+	pim_addr nht_p;
 	struct prefix g_all;
 	struct rp_info *rp_all;
 	struct pim_upstream *up;
@@ -617,16 +617,14 @@ void pim_bsm_clear(struct pim_instance *pim)
 		}
 
 		/* Deregister addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+		nht_p = rp_info->rp.rpf_addr;
 
 		if (PIM_DEBUG_PIM_NHT_RP) {
-			zlog_debug("%s: Deregister RP addr %pFX with Zebra ",
+			zlog_debug("%s: Deregister RP addr %pPA with Zebra ",
 				   __func__, &nht_p);
 		}
 
-		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
+		pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
 
 		if (!pim_get_all_mcast_group(&g_all))
 			return;
@@ -634,7 +632,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		rp_all = pim_rp_find_match_group(pim, &g_all);
 
 		if (rp_all == rp_info) {
-			pim_addr_to_prefix(&rp_all->rp.rpf_addr, PIMADDR_ANY);
+			rp_all->rp.rpf_addr = PIMADDR_ANY;
 			rp_all->i_am_rp = 0;
 		} else {
 			/* Delete the rp_info from rp-list */

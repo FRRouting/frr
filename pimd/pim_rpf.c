@@ -203,11 +203,10 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 {
 	struct pim_rpf *rpf = &up->rpf;
 	struct pim_rpf saved;
-	struct prefix nht_p;
-	struct prefix src, grp;
+	pim_addr src;
+	struct prefix grp;
 	bool neigh_needed = true;
 	uint32_t saved_mrib_route_metric;
-	pim_addr rpf_addr;
 
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
@@ -226,25 +225,22 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		old->rpf_addr = saved.rpf_addr;
 	}
 
-	pim_addr_to_prefix(&nht_p, up->upstream_addr);
-
-	pim_addr_to_prefix(&src, up->upstream_addr); // RP or Src address
+	src = up->upstream_addr; // RP or Src address
 	pim_addr_to_prefix(&grp, up->sg.grp);
 
 	if ((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		neigh_needed = false;
-	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, NULL);
-	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src, &grp,
-				neigh_needed)) {
+	pim_find_or_track_nexthop(pim, up->upstream_addr, up, NULL, NULL);
+	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, src, &grp,
+				     neigh_needed)) {
 		/* Route is Deleted in Zebra, reset the stored NH data */
 		pim_upstream_rpf_clear(pim, up);
 		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 		return PIM_RPF_FAILURE;
 	}
 
-	rpf_addr = pim_rpf_find_rpf_addr(up);
-	pim_addr_to_prefix(&rpf->rpf_addr, rpf_addr);
+	rpf->rpf_addr = pim_rpf_find_rpf_addr(up);
 
 	if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA) {
 		/* RPF'(S,G) not found */
@@ -287,7 +283,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	}
 
 	/* detect change in RPF'(S,G) */
-	if (!prefix_same(&saved.rpf_addr, &rpf->rpf_addr) ||
+	if (pim_addr_cmp(saved.rpf_addr, rpf->rpf_addr) ||
 	    saved.source_nexthop.interface != rpf->source_nexthop.interface) {
 		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 		return PIM_RPF_CHANGED;
@@ -321,7 +317,7 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 			router->infinite_assert_metric.metric_preference;
 		up->rpf.source_nexthop.mrib_route_metric =
 			router->infinite_assert_metric.route_metric;
-		pim_addr_to_prefix(&up->rpf.rpf_addr, PIMADDR_ANY);
+		up->rpf.rpf_addr = PIMADDR_ANY;
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 }
@@ -375,15 +371,7 @@ static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
 {
-	pim_addr rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
-
-	switch (rpf->rpf_addr.family) {
-	case AF_INET:
-	case AF_INET6:
-		return pim_addr_is_any(rpf_addr);
-	default:
-		return 0;
-	}
+	return pim_addr_is_any(rpf->rpf_addr);
 }
 
 int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
@@ -399,10 +387,10 @@ unsigned int pim_rpf_hash_key(const void *arg)
 	const struct pim_nexthop_cache *r = arg;
 
 #if PIM_IPV == 4
-	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
+	return jhash_1word(r->rpf.rpf_addr.s_addr, 0);
 #else
-	return jhash2(r->rpf.rpf_addr.u.prefix6.s6_addr32,
-		      array_size(r->rpf.rpf_addr.u.prefix6.s6_addr32), 0);
+	return jhash2(r->rpf.rpf_addr.s6_addr32,
+		      array_size(r->rpf.rpf_addr.s6_addr32), 0);
 #endif
 }
 
@@ -413,5 +401,5 @@ bool pim_rpf_equal(const void *arg1, const void *arg2)
 	const struct pim_nexthop_cache *r2 =
 		(const struct pim_nexthop_cache *)arg2;
 
-	return prefix_same(&r1->rpf.rpf_addr, &r2->rpf.rpf_addr);
+	return (!pim_addr_cmp(r1->rpf.rpf_addr, r2->rpf.rpf_addr));
 }

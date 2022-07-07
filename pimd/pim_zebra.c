@@ -255,7 +255,7 @@ void pim_zebra_update_all_interfaces(struct pim_instance *pim)
 			struct pim_rpf rpf;
 
 			rpf.source_nexthop.interface = ifp;
-			pim_addr_to_prefix(&rpf.rpf_addr, us->address);
+			rpf.rpf_addr = us->address;
 			pim_joinprune_send(&rpf, us->us);
 			pim_jp_agg_clear_group(us->us);
 		}
@@ -269,8 +269,8 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	if (old->source_nexthop.interface) {
 		struct pim_neighbor *nbr;
 
-		nbr = pim_neighbor_find_prefix(old->source_nexthop.interface,
-					       &old->rpf_addr);
+		nbr = pim_neighbor_find(old->source_nexthop.interface,
+					old->rpf_addr);
 		if (nbr)
 			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
