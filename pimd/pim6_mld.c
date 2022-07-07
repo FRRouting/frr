@@ -2280,6 +2280,22 @@ void gm_ifp_update(struct interface *ifp)
 	}
 }
 
+void gm_group_delete(struct gm_if *gm_ifp)
+{
+	struct gm_sg *sg, *sg_start;
+
+	sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	/* clean up all mld groups */
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		THREAD_OFF(sg->t_sg_expire);
+		if (sg->oil)
+			pim_channel_oil_del(sg->oil, __func__);
+		gm_sgs_del(gm_ifp->sgs, sg);
+		gm_sg_free(sg);
+	}
+}
+
 /*
  * CLI (show commands only)
  */
