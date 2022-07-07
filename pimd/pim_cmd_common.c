@@ -56,6 +56,7 @@
 #include "pim_addr.h"
 #include "pim_static.h"
 #include "pim_util.h"
+#include "pim6_mld.h"
 
 /**
  * Get current node VRF name.
@@ -3994,6 +3995,12 @@ void clear_mroute(struct pim_instance *pim)
 				igmp_group_delete(grp);
 			}
 		}
+#else
+		struct gm_if *gm_ifp;
+
+		gm_ifp = pim_ifp->mld;
+		if (gm_ifp)
+			gm_group_delete(gm_ifp);
 #endif
 	}
 
