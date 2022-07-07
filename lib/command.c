@@ -2582,7 +2582,6 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_allow_reserved_ranges_cmd);
 
 		log_cmd_init();
-		vrf_install_commands();
 		zlog_debug_init_cmd();
 	}
 

@@ -287,10 +287,6 @@ extern int vrf_switchback_to_initial(void);
  */
 extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
 
-/* VRF vty debugging
- */
-extern void vrf_install_commands(void);
-
 /*
  * VRF utilities
  */
