@@ -1044,7 +1044,6 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	struct rtmsg *rtm;
 	struct rtattr *tb[RTA_MAX + 1];
 	struct mcast_route_data *m;
-	struct mcast_route_data mr;
 	int iif = 0;
 	int count;
 	int oif[256];
@@ -1053,12 +1052,8 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	vrf_id_t vrf;
 	int table;
 
-	if (mroute)
-		m = mroute;
-	else {
-		memset(&mr, 0, sizeof(mr));
-		m = &mr;
-	}
+	assert(mroute);
+	m = mroute;
 
 	rtm = NLMSG_DATA(h);
 
@@ -1165,9 +1160,19 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
-	if (!(rtm->rtm_family == AF_INET ||
-	      rtm->rtm_family == AF_INET6 ||
-	      rtm->rtm_family == RTNL_FAMILY_IPMR )) {
+	switch (rtm->rtm_family) {
+	case AF_INET:
+	case AF_INET6:
+		break;
+
+	case RTNL_FAMILY_IPMR:
+	case RTNL_FAMILY_IP6MR:
+		/* notifications on IPMR are irrelevant to zebra, we only care
+		 * about responses to RTM_GETROUTE requests we sent.
+		 */
+		return 0;
+
+	default:
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel route change: %s",
@@ -1193,10 +1198,14 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	}
 
+	/* these are "magic" kernel-managed *unicast* routes used for
+	 * outputting locally generated multicast traffic (which uses unicast
+	 * handling on Linux because ~reasons~.
+	 */
 	if (rtm->rtm_type == RTN_MULTICAST)
-		netlink_route_change_read_multicast(h, ns_id, startup);
-	else
-		netlink_route_change_read_unicast(h, ns_id, startup);
+		return 0;
+
+	netlink_route_change_read_unicast(h, ns_id, startup);
 	return 0;
 }
 
@@ -2324,7 +2333,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	struct mcast_route_data *mr = (struct mcast_route_data *)in;
 	struct {
 		struct nlmsghdr n;
-		struct ndmsg ndm;
+		struct rtmsg rtm;
 		char buf[256];
 	} req;
 
@@ -2334,17 +2343,17 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	zns = zvrf->zns;
 	memset(&req, 0, sizeof(req));
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 
 	req.n.nlmsg_type = RTM_GETROUTE;
 
-	nl_attr_put32(&req.n, sizeof(req), RTA_IIF, mroute->ifindex);
-	nl_attr_put32(&req.n, sizeof(req), RTA_OIF, mroute->ifindex);
-
 	if (mroute->family == AF_INET) {
-		req.ndm.ndm_family = RTNL_FAMILY_IPMR;
+		req.rtm.rtm_family = RTNL_FAMILY_IPMR;
+		req.rtm.rtm_dst_len = IPV4_MAX_BITLEN;
+		req.rtm.rtm_src_len = IPV4_MAX_BITLEN;
+
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
 			    &mroute->src.ipaddr_v4,
 			    sizeof(mroute->src.ipaddr_v4));
@@ -2352,7 +2361,10 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 			    &mroute->grp.ipaddr_v4,
 			    sizeof(mroute->grp.ipaddr_v4));
 	} else {
-		req.ndm.ndm_family = RTNL_FAMILY_IP6MR;
+		req.rtm.rtm_family = RTNL_FAMILY_IP6MR;
+		req.rtm.rtm_dst_len = IPV6_MAX_BITLEN;
+		req.rtm.rtm_src_len = IPV6_MAX_BITLEN;
+
 		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
 			    &mroute->src.ipaddr_v6,
 			    sizeof(mroute->src.ipaddr_v6));
@@ -2375,8 +2387,13 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	 * and the kernel goes screw you and the delicious cookies you
 	 * are trying to give me.  So now we have this little hack.
 	 */
-	actual_table = (zvrf->table_id == RT_TABLE_MAIN) ? RT_TABLE_DEFAULT :
-		zvrf->table_id;
+	if (mroute->family == AF_INET)
+		actual_table = (zvrf->table_id == RT_TABLE_MAIN)
+				       ? RT_TABLE_DEFAULT
+				       : zvrf->table_id;
+	else
+		actual_table = zvrf->table_id;
+
 	nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table);
 
 	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
