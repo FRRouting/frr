@@ -55,8 +55,14 @@ tool available) could not be found.  It should be included with the sources.
 
 XREFT_THREADSCHED = 0x100
 XREFT_LOGMSG = 0x200
+XREFT_LOGDBG = 0x220
+XREFT_LOGBLK = 0x240
+XREFT_ASSERT = 0x280
 XREFT_DEFUN = 0x300
 XREFT_INSTALL_ELEMENT = 0x301
+
+ZDF_PLAIN = 0
+ZDF_COMBO = 1
 
 # LOG_*
 priovals = {}
@@ -74,6 +80,12 @@ class XrelfoJson(object):
         pass
 
 
+class ELFDissectXref(ELFDissectStruct):
+    @classmethod
+    def _contain(cls, xref):
+        return xref.container_of(cls, "xref")
+
+
 class Xref(ELFDissectStruct, XrelfoJson):
     struct = "xref"
     fieldrename = {"type": "typ"}
@@ -89,7 +101,7 @@ class Xref(ELFDissectStruct, XrelfoJson):
     def container(self):
         if self._container is None:
             if self.typ in self.containers:
-                self._container = self.container_of(self.containers[self.typ], "xref")
+                self._container = self.containers[self.typ]._contain(self)
         return self._container
 
     def check(self, *args, **kwargs):
@@ -119,14 +131,14 @@ class XrefPtr(ELFDissectStruct):
     ]
 
 
-class XrefThreadSched(ELFDissectStruct, XrelfoJson):
+class XrefThreadSched(ELFDissectXref, XrelfoJson):
     struct = "xref_threadsched"
 
 
 Xref.containers[XREFT_THREADSCHED] = XrefThreadSched
 
 
-class XrefLogmsg(ELFDissectStruct, XrelfoJson):
+class XrefLogmsg(ELFDissectXref, XrelfoJson):
     struct = "xref_logmsg"
 
     def _warn_fmt(self, text):
@@ -262,12 +274,37 @@ class XrefLogmsg(ELFDissectStruct, XrelfoJson):
             jsobj.setdefault("flags", []).append("getaddrinfo")
 
         xrelfo["refs"].setdefault(self.xref.xrefdata.uid, []).append(jsobj)
+        return jsobj
 
 
 Xref.containers[XREFT_LOGMSG] = XrefLogmsg
 
 
-class CmdElement(ELFDissectStruct, XrelfoJson):
+class XrefLogDebug(ELFDissectXref, XrelfoJson):
+    struct = "xref_logdebug"
+
+    @classmethod
+    def _contain(cls, xref):
+        return xref.container_of(XrefLogmsg, "xref").container_of(cls, "logmsg")
+
+    def check(self, wopt):
+        yield from self.logmsg.check(wopt)
+
+    def dump(self):
+        self.logmsg.dump()
+
+    def to_dict(self, xrelfo):
+        jsobj = self.logmsg.to_dict(xrelfo)
+        jsobj["type"] = "logdebug"
+        jsobj["debugflag"] = self.debugflag.code_name
+
+        self.debugflag.to_dict(xrelfo)
+
+
+Xref.containers[XREFT_LOGDBG] = XrefLogDebug
+
+
+class CmdElement(ELFDissectXref, XrelfoJson):
     struct = "cmd_element"
 
     def __init__(self, *args, **kwargs):
@@ -302,7 +339,7 @@ class CmdElement(ELFDissectStruct, XrelfoJson):
 Xref.containers[XREFT_DEFUN] = CmdElement
 
 
-class XrefInstallElement(ELFDissectStruct, XrelfoJson):
+class XrefInstallElement(ELFDissectXref, XrelfoJson):
     struct = "xref_install_element"
 
     def to_dict(self, xrelfo):
@@ -325,14 +362,58 @@ class XrefInstallElement(ELFDissectStruct, XrelfoJson):
 
 Xref.containers[XREFT_INSTALL_ELEMENT] = XrefInstallElement
 
+
+class DebugFlagPlain(ELFDissectStruct):
+    struct = "zlog_debugflag_plain"
+
+    @classmethod
+    def _contain(cls, debugflag):
+        return debugflag.container_of(cls, "common")
+
+    def to_dict(self, xrelfo, jsobj):
+        jsobj["cli_name"] = self.cli_name
+        jsobj["cli_cmd"] = self.cmd.string
+        jsobj["cli_help"] = self.cmd.doc
+
+
+class DebugFlag(ELFDissectStruct):
+    struct = "zlog_debugflag"
+    containers = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._container = None
+
+    def container(self):
+        if self._container is None:
+            if self.kind in self.containers:
+                self._container = self.containers[self.kind]._contain(self)
+        return self._container
+
+    def to_dict(self, xrelfo):
+        jsobj = xrelfo["debugflags"].setdefault(self.code_name, {})
+        jsobj["name"] = self.code_name
+
+        self.container().to_dict(xrelfo, jsobj)
+
+    # def ref_from(self, xref, typ):
+    #    self.xref = xref
+
+
+DebugFlag.containers[ZDF_PLAIN] = DebugFlagPlain
+
 # shove in field defs
 fieldapply = FieldApplicator(xrefstructs)
 fieldapply.add(Xref)
 fieldapply.add(Xrefdata)
 fieldapply.add(XrefLogmsg)
+fieldapply.add(XrefLogDebug)
 fieldapply.add(XrefThreadSched)
 fieldapply.add(CmdElement)
 fieldapply.add(XrefInstallElement)
+fieldapply.add(DebugFlag)
+fieldapply.add(DebugFlagPlain)
 fieldapply()
 
 
@@ -342,6 +423,7 @@ class Xrelfo(dict):
             {
                 "refs": {},
                 "cli": {},
+                "debugflags": {},
             }
         )
         self._xrefs = []

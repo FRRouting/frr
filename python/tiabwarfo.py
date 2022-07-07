@@ -31,7 +31,16 @@ structs = [
     "xrefdata",
     "xrefdata_logmsg",
     "cmd_element",
+    "xref_logdebug",
+    "xrefdata_logdebug",
+    "zlog_debugflag",
+    "zlog_debugflag_plain",
 ]
+
+structs_terminate = {
+    "xrefdata": "xui",
+    "zlog_debugflag_plain": "zdf_item",
+}
 
 
 def extract(filename="lib/.libs/libfrr.so"):
@@ -55,29 +64,51 @@ def extract(filename="lib/.libs/libfrr.so"):
         ["pahole", "-C", ",".join(structs), filename]
     ).decode("UTF-8")
 
-    struct_re = re.compile(r"^struct ([^ ]+) \{([^\}]+)};", flags=re.M | re.S)
+    struct_re = re.compile(r"^struct ([^ ]+) \{(.+?)^};", flags=re.M | re.S)
+    field_unnamed_re = re.compile(r"^\s*(?P<type>struct|union)\s+\{\s*$")
     field_re = re.compile(
         r"^\s*(?P<type>[^;\(]+)\s+(?P<name>[^;\[\]]+)(?:\[(?P<array>\d+)\])?;\s*\/\*(?P<comment>.*)\*\/\s*$"
     )
     comment_re = re.compile(r"^\s*\/\*.*\*\/\s*$")
+    indent_re = re.compile(r"^\s+")
 
-    pastructs = struct_re.findall(pahole)
-    out = {}
+    def extract_one(sname, lines, next_offs=0):
+        while lines:
+            line = lines.pop(0)
 
-    for sname, data in pastructs:
-        this = out.setdefault(sname, {})
-        fields = this.setdefault("fields", [])
-
-        lines = data.strip().splitlines()
-
-        next_offs = 0
-
-        for line in lines:
             if line.strip() == "":
                 continue
             m = comment_re.match(line)
             if m is not None:
                 continue
+
+            m = field_unnamed_re.match(line)
+            if m is not None:
+                gtype = m.group("type")
+
+                if m.group("type") == "struct":
+                    # ignore unnamed nested structs, no effect really
+                    continue
+
+                # unions... ugh...
+                indent_m = indent_re.match(lines[0])
+                assert indent_m is not None
+                indent = indent_m.group(0)
+
+                variants = []
+
+                while lines and lines[0].startswith(indent):
+                    variants.append(extract_one(None, lines, next_offs))
+
+                line = lines.pop(0)
+                assert line.lstrip().startswith("};")
+
+                # just return the longest
+                longest = max(
+                    variants,
+                    key=lambda v: (v[1], not v[0]["type"].startswith("atomic_")),
+                )
+                return longest
 
             m = field_re.match(line)
             if m is not None:
@@ -92,6 +123,9 @@ def extract(filename="lib/.libs/libfrr.so"):
                     typ_ = typ_ + " *"
                     name = name[2:].split(")")[0]
 
+                if name == structs_terminate.get(sname):
+                    break
+
                 data = {
                     "name": name,
                     "type": typ_,
@@ -101,16 +135,33 @@ def extract(filename="lib/.libs/libfrr.so"):
                 if m.group("array"):
                     data["array"] = int(m.group("array"))
 
-                fields.append(data)
                 if offs != next_offs:
                     raise ValueError(
                         "%d padding bytes before struct %s.%s"
                         % (offs - next_offs, sname, name)
                     )
                 next_offs = offs + size
-                continue
+                return data, next_offs
 
             raise ValueError("cannot process line: %s" % line)
+
+        return None, next_offs
+
+    pastructs = struct_re.findall(pahole)
+    out = {}
+
+    for sname, data in pastructs:
+        this = out.setdefault(sname, {})
+        fields = this.setdefault("fields", [])
+
+        lines = data.strip().splitlines()
+        next_offs = 0
+
+        while lines:
+            field, next_offs = extract_one(sname, lines, next_offs)
+            if field is None:
+                break
+            fields.append(field)
 
     return out
 
