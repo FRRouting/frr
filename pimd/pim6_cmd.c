@@ -1265,7 +1265,7 @@ DEFPY (clear_ipv6_mroute,
        "clear ipv6 mroute [vrf NAME]$name",
        CLEAR_STR
        IPV6_STR
-       "Reset multicast routes\n"
+       MROUTE_STR
        VRF_CMD_HELP_STR)
 {
 	struct vrf *v = pim_cmd_lookup(vty, name);
