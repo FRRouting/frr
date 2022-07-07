@@ -245,7 +245,6 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
 
         # Add static routes
         input_dict = {
-            fhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop}]},
             rp: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_rp}]},
             lhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_lhr}]},
         }
@@ -254,9 +253,11 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying static routes are installed
-        for dut, _nexthop in zip([fhr, rp, lhr], [next_hop, next_hop_rp, next_hop_lhr]):
+        for dut, _nexthop in zip([rp, lhr], [next_hop_rp, next_hop_lhr]):
             input_routes = {dut: input_dict[dut]}
-            result = verify_rib(tgen, "ipv4", dut, input_routes, _nexthop)
+            result = verify_rib(
+                tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+            )
             assert result is True, "Testcase {} : Failed \n Error {}".format(
                 tc_name, result
             )
@@ -300,7 +301,9 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying static routes are installed
-        result = verify_rib(tgen, "ipv4", fhr, input_dict, next_hop_fhr)
+        result = verify_rib(
+            tgen, "ipv4", fhr, input_dict, next_hop_fhr, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -312,7 +315,9 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying static routes are installed
-        result = verify_rib(tgen, "ipv4", lhr, input_dict, next_hop_lhr)
+        result = verify_rib(
+            tgen, "ipv4", lhr, input_dict, next_hop_lhr, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
