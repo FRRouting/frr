@@ -304,7 +304,6 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
 
         # Add static routes
         input_dict = {
-            fhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop}]},
             rp: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_rp}]},
             lhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_lhr}]},
         }
@@ -313,9 +312,11 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying static routes are installed
-        for dut, _nexthop in zip([fhr, rp, lhr], [next_hop, next_hop_rp, next_hop_lhr]):
+        for dut, _nexthop in zip([rp, lhr], [next_hop_rp, next_hop_lhr]):
             input_routes = {dut: input_dict[dut]}
-            result = verify_rib(tgen, "ipv4", dut, input_routes, _nexthop)
+            result = verify_rib(
+                tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+            )
             assert result is True, "Testcase {} : Failed \n Error {}".format(
                 tc_name, result
             )
@@ -343,7 +344,9 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying static routes are installed
-        result = verify_rib(tgen, "ipv4", fhr, input_dict, next_hop_fhr)
+        result = verify_rib(
+            tgen, "ipv4", fhr, input_dict, next_hop_fhr, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -355,7 +358,9 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Verifying static routes are installed
-        result = verify_rib(tgen, "ipv4", lhr, input_dict, next_hop_lhr)
+        result = verify_rib(
+            tgen, "ipv4", lhr, input_dict, next_hop_lhr, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -473,7 +478,9 @@ def test_BSR_higher_prefer_ip_p0(request):
     # Verifying static routes are installed
     for dut, _nexthop in zip(["i1", "l1"], [next_hop_rp, next_hop_lhr]):
         input_routes = {dut: input_dict[dut]}
-        result = verify_rib(tgen, "ipv4", dut, input_routes, _nexthop)
+        result = verify_rib(
+            tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -482,7 +489,9 @@ def test_BSR_higher_prefer_ip_p0(request):
         input_routes = {
             "f1": {"static_routes": [{"network": bsr_add, "next_hop": next_hop}]}
         }
-        result = verify_rib(tgen, "ipv4", "f1", input_routes, next_hop)
+        result = verify_rib(
+            tgen, "ipv4", "f1", input_routes, next_hop, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -673,7 +682,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     # Verifying static routes are installed
     for dut, _nexthop in zip(["i1", "l1"], [next_hop_rp, next_hop_lhr]):
         input_routes = {dut: input_dict[dut]}
-        result = verify_rib(tgen, "ipv4", dut, input_routes, _nexthop)
+        result = verify_rib(
+            tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+        )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
@@ -681,7 +692,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     input_routes = {
         "f1": {"static_routes": [{"network": CRP, "next_hop": next_hop_fhr}]}
     }
-    result = verify_rib(tgen, "ipv4", "f1", input_routes, expected=False)
+    result = verify_rib(
+        tgen, "ipv4", "f1", input_routes, protocol="static", expected=False
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "Route is still present \n Error {}".format(
@@ -705,7 +718,7 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     # Verifying static routes are installed
-    result = verify_rib(tgen, "ipv4", "f1", input_dict)
+    result = verify_rib(tgen, "ipv4", "f1", input_dict, protocol="static")
     assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     intf_f1_i1 = topo["routers"]["f1"]["links"]["i1"]["interface"]
@@ -764,7 +777,7 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     input_dict = {
         "f1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": NEXT_HOP1}]}
     }
-    result = verify_rib(tgen, "ipv4", "f1", input_dict, NEXT_HOP1)
+    result = verify_rib(tgen, "ipv4", "f1", input_dict, NEXT_HOP1, protocol="static")
     assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     input_dict = {
@@ -774,7 +787,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
             ]
         }
     }
-    result = verify_rib(tgen, "ipv4", "f1", input_dict, expected=False)
+    result = verify_rib(
+        tgen, "ipv4", "f1", input_dict, protocol="static", expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "Routes:[{}, {}] are still present \n Error {}".format(
@@ -1703,7 +1718,9 @@ def test_iif_join_state_p0(request):
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     # Verifying static routes are installed
-    result = verify_rib(tgen, "ipv4", "l1", input_dict, expected=False)
+    result = verify_rib(
+        tgen, "ipv4", "l1", input_dict, protocol="static", expected=False
+    )
     assert (
         result is not True
     ), "Testcase {} : Failed \n " "Routes:{} are still present \n Error {}".format(
@@ -1751,7 +1768,7 @@ def test_iif_join_state_p0(request):
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     # Verifying static routes are installed
-    result = verify_rib(tgen, "ipv4", "l1", input_dict, next_hop_lhr)
+    result = verify_rib(tgen, "ipv4", "l1", input_dict, next_hop_lhr, protocol="static")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify that (*,G) installed in mroute again
