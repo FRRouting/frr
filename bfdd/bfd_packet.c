@@ -876,6 +876,14 @@ void bfd_recv_cb(struct thread *t)
 			 "no session found");
 		return;
 	}
+	/*
+	 * We may have a situation where received packet is on wrong vrf
+	 */
+	if (bfd && bfd->vrf && bfd->vrf != bvrf->vrf) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+			 "wrong vrfid.");
+		return;
+	}
 
 	/* Ensure that existing good sessions are not overridden. */
 	if (!cp->discrs.remote_discr && bfd->ses_state != PTM_BFD_DOWN &&
@@ -1208,9 +1216,40 @@ int bp_set_tos(int sd, uint8_t value)
 	return 0;
 }
 
+static bool bp_set_reuse_addr(int sd)
+{
+	int one = 1;
+
+	if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1) {
+		zlog_warn("set-reuse-addr: setsockopt(SO_REUSEADDR, %d): %s",
+			  one, strerror(errno));
+		return false;
+	}
+	return true;
+}
+
+static bool bp_set_reuse_port(int sd)
+{
+	int one = 1;
+
+	if (setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) == -1) {
+		zlog_warn("set-reuse-port: setsockopt(SO_REUSEPORT, %d): %s",
+			  one, strerror(errno));
+		return false;
+	}
+	return true;
+}
+
+
 static void bp_set_ipopts(int sd)
 {
 	int rcvttl = BFD_RCV_TTL_VAL;
+
+	if (!bp_set_reuse_addr(sd))
+		zlog_fatal("set-reuse-addr: failed");
+
+	if (!bp_set_reuse_port(sd))
+		zlog_fatal("set-reuse-port: failed");
 
 	if (bp_set_ttl(sd, BFD_TTL_VAL) != 0)
 		zlog_fatal("set-ipopts: TTL configuration failed");
@@ -1452,6 +1491,12 @@ static void bp_set_ipv6opts(int sd)
 {
 	int ipv6_pktinfo = BFD_IPV6_PKT_INFO_VAL;
 	int ipv6_only = BFD_IPV6_ONLY_VAL;
+
+	if (!bp_set_reuse_addr(sd))
+		zlog_fatal("set-reuse-addr: failed");
+
+	if (!bp_set_reuse_port(sd))
+		zlog_fatal("set-reuse-port: failed");
 
 	if (bp_set_ttlv6(sd, BFD_TTL_VAL) == -1)
 		zlog_fatal(
