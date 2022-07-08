@@ -702,11 +702,6 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 			n->flags |= ZEBRA_NEIGH_LOCAL_INACTIVE;
 		}
 
-		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
-			SET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY);
-		else
-			SET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE);
-
 		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT)) {
 			SET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY);
 			/* if the neigh was peer-active previously we
