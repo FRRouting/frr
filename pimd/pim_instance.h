@@ -172,7 +172,7 @@ struct pim_instance {
 	int gm_socket;
 	struct thread *t_gm_recv;
 
-	unsigned int igmp_group_count;
+	unsigned int gm_group_count;
 	unsigned int gm_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
