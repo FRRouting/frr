@@ -1662,7 +1662,7 @@ DEFPY (clear_ip_mroute,
        "clear ip mroute [vrf NAME]$name",
        CLEAR_STR
        IP_STR
-       "Reset multicast routes\n"
+       MROUTE_STR
        VRF_CMD_HELP_STR)
 {
 	struct vrf *v = pim_cmd_lookup(vty, name);
