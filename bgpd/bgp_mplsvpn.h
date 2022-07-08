@@ -53,27 +53,27 @@ extern int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     int tags, bool use_json);
 
-extern void vpn_leak_from_vrf_update(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
+extern void vpn_leak_from_vrf_update(struct bgp *to_bgp, struct bgp *from_bgp,
 				     struct bgp_path_info *path_vrf);
 
-extern void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
+extern void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp, struct bgp *from_bgp,
 				       struct bgp_path_info *path_vrf);
 
-extern void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn,
-					   struct bgp *bgp_vrf, afi_t afi);
+extern void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp,
+					   struct bgp *from_bgp, afi_t afi);
 
-extern void vpn_leak_from_vrf_update_all(struct bgp *bgp_vpn,
-					 struct bgp *bgp_vrf, afi_t afi);
+extern void vpn_leak_from_vrf_update_all(struct bgp *to_bgp,
+					 struct bgp *from_bgp, afi_t afi);
 
-extern void vpn_leak_to_vrf_withdraw_all(struct bgp *bgp_vrf, afi_t afi);
+extern void vpn_leak_to_vrf_withdraw_all(struct bgp *to_bgp, afi_t afi);
 
-extern void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, struct bgp *bgp_vpn,
+extern void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 				       afi_t afi);
 
-extern void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,
+extern void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 				   struct bgp_path_info *path_vpn);
 
-extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
+extern void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,
 				     struct bgp_path_info *path_vpn);
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
