@@ -641,10 +641,70 @@ void subgroup_clear_table(struct update_subgroup *subgrp)
 		bgp_adj_out_remove_subgroup(aout->dest, aout, subgrp);
 }
 
+static void _subgroup_announce_table(struct update_subgroup *subgrp,
+			     struct bgp_table *table);
+
 /*
  * subgroup_announce_table
  */
 void subgroup_announce_table(struct update_subgroup *subgrp,
+			     struct bgp_table *table)
+{
+	struct bgp_dest *dest;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_table *table2;
+
+	peer = SUBGRP_PEER(subgrp);
+	afi = SUBGRP_AFI(subgrp);
+	safi = SUBGRP_SAFI(subgrp);
+
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+
+	if (!table)
+		table = peer->bgp->rib[afi][safi];
+
+	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN
+	    && CHECK_FLAG(peer->af_flags[afi][safi],
+			  PEER_FLAG_DEFAULT_ORIGINATE))
+		subgroup_default_originate(subgrp, 0);
+
+	subgrp->pscount = 0;
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
+
+	if ((table->safi == SAFI_MPLS_VPN) || (table->safi == SAFI_ENCAP)
+	    || (table->safi == SAFI_EVPN)) {
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			table2 = bgp_dest_get_bgp_table_info(dest);
+			if (!table2)
+				continue;
+			_subgroup_announce_table(subgrp, table2);
+		}
+	} else
+		_subgroup_announce_table(subgrp, table);
+
+	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
+
+	/*
+	 * We walked through the whole table -- make sure our version number
+	 * is consistent with the one on the table. This should allow
+	 * subgroups to merge sooner if a peer comes up when the route node
+	 * with the largest version is no longer in the table. This also
+	 * covers the pathological case where all routes in the table have
+	 * now been deleted.
+	 */
+	subgrp->version = MAX(subgrp->version, table->version);
+
+	/*
+	 * Start a task to merge the subgroup if necessary.
+	 */
+	update_subgroup_trigger_merge_check(subgrp, 0);
+}
+
+static void _subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table)
 {
 	struct bgp_dest *dest;
@@ -665,17 +725,6 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
-
-	if (!table)
-		table = peer->bgp->rib[afi][safi];
-
-	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN
-	    && CHECK_FLAG(peer->af_flags[afi][safi],
-			  PEER_FLAG_DEFAULT_ORIGINATE))
-		subgroup_default_originate(subgrp, 0);
-
-	subgrp->pscount = 0;
-	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
@@ -727,22 +776,6 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 				}
 			}
 	}
-	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
-
-	/*
-	 * We walked through the whole table -- make sure our version number
-	 * is consistent with the one on the table. This should allow
-	 * subgroups to merge sooner if a peer comes up when the route node
-	 * with the largest version is no longer in the table. This also
-	 * covers the pathological case where all routes in the table have
-	 * now been deleted.
-	 */
-	subgrp->version = MAX(subgrp->version, table->version);
-
-	/*
-	 * Start a task to merge the subgroup if necessary.
-	 */
-	update_subgroup_trigger_merge_check(subgrp, 0);
 }
 
 /*

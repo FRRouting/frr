@@ -24,8 +24,49 @@
 #include "bgpd/bgp_vty.h"
 
 static route_map_result_t
+_bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
+					      struct route_map *rmap);
+
+
+static route_map_result_t
 bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 				     struct route_map *rmap)
+{
+	struct bgp_dest *dest;
+	route_map_result_t ret = RMAP_DENYMATCH;
+	struct bgp_table *table2;
+
+	if ((table->safi == SAFI_MPLS_VPN) || (table->safi == SAFI_ENCAP)
+	    || (table->safi == SAFI_EVPN)) {
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			table2 = bgp_dest_get_bgp_table_info(dest);
+			if (!table2)
+				continue;
+			ret = _bgp_check_rmap_prefixes_in_bgp_table(table2, rmap);
+			if (ret == RMAP_PERMITMATCH) {
+				/* we found a given prefix for a RD.
+				 * should we continue or not in next RD ?
+				 */
+				return ret;
+			} else {
+				continue;
+			}
+		}
+	} else {
+		ret = _bgp_check_rmap_prefixes_in_bgp_table(table, rmap);
+		if (ret == RMAP_PERMITMATCH)
+			return ret;
+	}
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("%s: Condition map routes not present in BGP table",
+			   __func__);
+	return ret;
+}
+
+static route_map_result_t
+_bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
+					      struct route_map *rmap)
 {
 	struct attr dummy_attr = {0};
 	struct bgp_dest *dest;
@@ -70,7 +111,60 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 	return ret;
 }
 
+static void _bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
+				       safi_t safi, struct bgp_table *table,
+				       struct route_map *rmap,
+				       enum update_type update_type);
+
 static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
+				       safi_t safi, struct bgp_table *table,
+				       struct route_map *rmap,
+				       enum update_type update_type)
+{
+	struct bgp_dest *dest;
+	struct peer_af *paf;
+	struct update_subgroup *subgrp;
+	struct bgp_table *table2;
+
+	paf = peer_af_find(peer, afi, safi);
+	if (!paf)
+		return;
+
+	subgrp = PAF_SUBGRP(paf);
+	/* Ignore if subgroup doesn't exist (implies AF is not negotiated) */
+	if (!subgrp)
+		return;
+
+	subgrp->pscount = 0;
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
+
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("%s: %s routes to/from %s for %s", __func__,
+			   update_type == ADVERTISE ? "Advertise" : "Withdraw",
+			   peer->host, get_afi_safi_str(afi, safi, false));
+
+	if ((table->safi == SAFI_MPLS_VPN) || (table->safi == SAFI_ENCAP)
+	    || (table->safi == SAFI_EVPN)) {
+		for (dest = bgp_table_top(table); dest;
+		     dest = bgp_route_next(dest)) {
+			table2 = bgp_dest_get_bgp_table_info(dest);
+			if (!table2)
+				continue;
+			_bgp_conditional_adv_routes(peer, afi,
+							       safi, table2,
+							       rmap,
+							       update_type);
+		}
+	} else
+		_bgp_conditional_adv_routes(peer, afi,
+						       safi, table,
+						       rmap,
+						       update_type);
+
+	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
+}
+
+static void _bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				       safi_t safi, struct bgp_table *table,
 				       struct route_map *rmap,
 				       enum update_type update_type)
@@ -92,16 +186,6 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 	subgrp = PAF_SUBGRP(paf);
 	/* Ignore if subgroup doesn't exist (implies AF is not negotiated) */
-	if (!subgrp)
-		return;
-
-	subgrp->pscount = 0;
-	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
-
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: %s routes to/from %s for %s", __func__,
-			   update_type == ADVERTISE ? "Advertise" : "Withdraw",
-			   peer->host, get_afi_safi_str(afi, safi, false));
 
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
@@ -159,7 +243,6 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			bgp_attr_flush(&advmap_attr);
 		}
 	}
-	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 }
 
 /* Handler of conditional advertisement timer event.
@@ -273,8 +356,8 @@ static void bgp_conditional_adv_timer(struct thread *t)
 					update_subgroup_split_peer(paf, NULL);
 					subgrp = paf->subgroup;
 					if (subgrp && subgrp->update_group)
-						subgroup_announce_table(
-							paf->subgroup, NULL);
+						subgroup_announce_route(
+							paf->subgroup);
 				}
 				peer->advmap_config_change[afi][safi] = false;
 			}
