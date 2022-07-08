@@ -1066,8 +1066,7 @@ struct pim_msdp_peer *pim_msdp_peer_add(struct pim_instance *pim,
 	return mp;
 }
 
-struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
-					 struct in_addr peer_addr)
+struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr)
 {
 	struct pim_msdp_peer lookup;
 
