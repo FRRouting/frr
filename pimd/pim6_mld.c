@@ -39,8 +39,10 @@
 #include "pimd/pim_memory.h"
 #include "pimd/pim_instance.h"
 #include "pimd/pim_iface.h"
+#include "pimd/pim_cmd_common.h"
 #include "pimd/pim_util.h"
 #include "pimd/pim_tib.h"
+#include "pimd/pim_time.h"
 #include "pimd/pimd.h"
 
 #ifndef IPV6_MULTICAST_ALL
@@ -2831,6 +2833,131 @@ DEFPY(gm_show_interface_joins,
 	return vty_json(vty, js);
 }
 
+static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
+{
+	struct interface *ifp;
+	time_t now;
+	char grp_str[PIM_ADDRSTRLEN];
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
+	json_object *json_tmp = NULL;
+	struct pim_instance *pim = vrf->info;
+
+	now = pim_time_monotonic_sec();
+
+	json = json_object_new_object();
+
+	if (uj) {
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->gm_watermark_limit);
+	} else {
+		vty_out(vty, "Total MLD groups: %u\n", pim->gm_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->gm_watermark_limit ? "Set" : "Not Set",
+			pim->gm_watermark_limit);
+		vty_out(vty, "Interface        Group           V Uptime\n");
+	}
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (vrf, ifp) {
+
+		struct pim_interface *pim_ifp = ifp->info;
+		struct gm_if *gm_ifp;
+		struct gm_sg *sg;
+
+		if (!pim_ifp || !pim_ifp->mld)
+			continue;
+
+		gm_ifp = pim_ifp->mld;
+
+		/* scan mld groups */
+		frr_each (gm_sgs, gm_ifp->sgs, sg) {
+			char uptime[10];
+
+			pim_time_uptime(uptime, sizeof(uptime),
+					now - sg->created.tv_sec);
+
+			json_object_object_get_ex(json, ifp->name, &json_iface);
+
+			if (!json_iface) {
+				json_iface = json_object_new_object();
+				json_object_pim_ifp_add(json_iface, ifp);
+				json_object_object_add(json, ifp->name,
+						       json_iface);
+				json_groups = json_object_new_array();
+				json_object_object_add(json_iface, "groups",
+						       json_groups);
+			}
+			snprintfrr(grp_str, sizeof(grp_str), "%pPAs",
+				   &sg->sgaddr.grp);
+			json_object_object_get_ex(json, grp_str, &json_group);
+
+			if (!json_group) {
+				json_group = json_object_new_object();
+				json_object_string_addf(json_group, "group",
+							"%pPAs",
+							&sg->sgaddr.grp);
+
+				json_object_int_add(json_group, "version",
+						    pim_ifp->mld_version);
+				json_object_string_add(json_group, "uptime",
+						       uptime);
+				json_object_array_add(json_groups, json_group);
+			}
+		} /* scan gm groups */
+	}	 /* scan interfaces */
+
+	if (!uj) {
+		json_object_object_foreach(json, key, val)
+		{
+			vty_out(vty, "%-16s  ", key);
+
+			json_object_object_get_ex(val, "group", &json_tmp);
+			vty_out(vty, "%-15s  ",
+				json_object_get_string(json_tmp));
+
+			json_object_object_get_ex(val, "version", &json_tmp);
+			vty_out(vty, "%d  ", json_object_get_int(json_tmp));
+
+			json_object_object_get_ex(val, "uptime", &json_tmp);
+			vty_out(vty, "%8s  ", json_object_get_string(json_tmp));
+		}
+	} else {
+		vty_json(vty, json);
+	}
+}
+
+DEFPY(gm_show_mld_groups,
+      gm_show_mld_groups_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] groups [json$json]",
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      "MLD group information\n"
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+	bool uj = !!json;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (vrf)
+		gm_show_groups(vty, vrf, uj);
+
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_groups(vty, vrf, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(gm_debug_show,
       gm_debug_show_cmd,
       "debug show mld interface IFNAME",
@@ -3005,6 +3132,7 @@ void gm_cli_init(void)
 	install_element(VIEW_NODE, &gm_show_interface_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_stats_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_joins_cmd);
+	install_element(VIEW_NODE, &gm_show_mld_groups_cmd);
 
 	install_element(VIEW_NODE, &gm_debug_show_cmd);
 	install_element(INTERFACE_NODE, &gm_debug_iface_cfg_cmd);
