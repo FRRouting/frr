@@ -163,8 +163,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
 	return 0;
 }
 
-#if PIM_IPV == 4
-void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
+void pim_nht_bsr_add(struct pim_instance *pim, pim_addr addr)
 {
 	struct pim_nexthop_cache *pnc;
 
@@ -172,7 +171,6 @@ void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr addr)
 
 	pnc->bsr_count++;
 }
-#endif /* PIM_IPV == 4 */
 
 static void pim_nht_drop_maybe(struct pim_instance *pim,
 			       struct pim_nexthop_cache *pnc)
@@ -242,8 +240,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, pim_addr addr,
 	pim_nht_drop_maybe(pim, pnc);
 }
 
-#if PIM_IPV == 4
-void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
+void pim_nht_bsr_del(struct pim_instance *pim, pim_addr addr)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
@@ -253,7 +250,7 @@ void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 	 * is 0.0.0.0 as that the BSR has not been registered
 	 * for tracking yet.
 	 */
-	if (addr.s_addr == INADDR_ANY)
+	if (pim_addr_is_any(addr))
 		return;
 
 	lookup.rpf.rpf_addr = addr;
@@ -261,18 +258,18 @@ void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 	pnc = hash_lookup(pim->rpf_hash, &lookup);
 
 	if (!pnc) {
-		zlog_warn("attempting to delete nonexistent NHT BSR entry %pI4",
+		zlog_warn("attempting to delete nonexistent NHT BSR entry %pPA",
 			  &addr);
 		return;
 	}
 
-	assertf(pnc->bsr_count > 0, "addr=%pI4", &addr);
+	assertf(pnc->bsr_count > 0, "addr=%pPA", &addr);
 	pnc->bsr_count--;
 
 	pim_nht_drop_maybe(pim, pnc);
 }
 
-bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
+bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -392,7 +389,6 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 	}
 	return false;
 }
-#endif /* PIM_IPV == 4 */
 
 void pim_rp_nexthop_del(struct rp_info *rp_info)
 {

@@ -130,11 +130,7 @@ int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *node1,
 		return 1;
 	if (node1->hash > node2->hash)
 		return -1;
-	if (node1->rp_address.s_addr < node2->rp_address.s_addr)
-		return 1;
-	if (node1->rp_address.s_addr > node2->rp_address.s_addr)
-		return -1;
-	return 0;
+	return pim_addr_cmp(node2->rp_address, node1->rp_address);
 }
 
 static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
@@ -173,11 +169,10 @@ static void pim_on_bs_timer(struct thread *t)
 			   __func__, scope->sz_id);
 
 	pim_nht_bsr_del(scope->pim, scope->current_bsr);
-
 	/* Reset scope zone data */
 	scope->accept_nofwd_bsm = false;
 	scope->state = ACCEPT_ANY;
-	scope->current_bsr.s_addr = INADDR_ANY;
+	scope->current_bsr = PIMADDR_ANY;
 	scope->current_bsr_prio = 0;
 	scope->current_bsr_first_ts = 0;
 	scope->current_bsr_last_ts = 0;
@@ -353,10 +348,9 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 	THREAD_OFF(bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
-			"%s : starting g2rp timer for grp: %pFX - rp: %pI4 with timeout  %d secs(Actual Hold time : %d secs)",
-			__func__, &bsrp->bsgrp_node->group,
-			&bsrp->rp_address, hold_time,
-			bsrp->rp_holdtime);
+			"%s : starting g2rp timer for grp: %pFX - rp: %pPAs with timeout  %d secs(Actual Hold time : %d secs)",
+			__func__, &bsrp->bsgrp_node->group, &bsrp->rp_address,
+			hold_time, bsrp->rp_holdtime);
 
 	thread_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
 			 &bsrp->g2rp_timer);
@@ -374,7 +368,7 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 		return;
 
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %pI4",
+		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %pPAs",
 			   __func__, &bsrp->bsgrp_node->group,
 			   &bsrp->rp_address);
 
@@ -462,8 +456,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 		route_unlock_node(rn);
 
 		if (active && pend) {
-			if ((active->rp_address.s_addr
-			     != pend->rp_address.s_addr))
+			if (pim_addr_cmp(active->rp_address, pend->rp_address))
 				pim_rp_change(pim, pend->rp_address,
 					      bsgrp_node->group, RP_SRC_BSR);
 		}
@@ -531,18 +524,17 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 }
 
-static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
+static bool is_preferred_bsr(struct pim_instance *pim, pim_addr bsr,
 			     uint32_t bsr_prio)
 {
-	if (bsr.s_addr == pim->global_scope.current_bsr.s_addr)
+	if (!pim_addr_cmp(bsr, pim->global_scope.current_bsr))
 		return true;
 
 	if (bsr_prio > pim->global_scope.current_bsr_prio)
 		return true;
 
 	else if (bsr_prio == pim->global_scope.current_bsr_prio) {
-		if (ntohl(bsr.s_addr)
-		    >= ntohl(pim->global_scope.current_bsr.s_addr))
+		if (pim_addr_cmp(bsr, pim->global_scope.current_bsr) >= 0)
 			return true;
 		else
 			return false;
@@ -550,10 +542,10 @@ static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 		return false;
 }
 
-static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
+static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 			   uint32_t bsr_prio)
 {
-	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
+	if (pim_addr_cmp(bsr, pim->global_scope.current_bsr)) {
 		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 		pim_nht_bsr_add(pim, bsr);
 
@@ -583,7 +575,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 	/* Reset scope zone data */
 	pim->global_scope.accept_nofwd_bsm = false;
 	pim->global_scope.state = ACCEPT_ANY;
-	pim->global_scope.current_bsr.s_addr = INADDR_ANY;
+	pim->global_scope.current_bsr = PIMADDR_ANY;
 	pim->global_scope.current_bsr_prio = 0;
 	pim->global_scope.current_bsr_first_ts = 0;
 	pim->global_scope.current_bsr_last_ts = 0;
@@ -942,7 +934,6 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	struct pim_interface *pim_ifp;
 	struct bsm_scope *scope;
 	struct bsm_frag *bsfrag;
-	char neigh_src_str[INET_ADDRSTRLEN];
 	uint32_t pim_mtu;
 	bool no_fwd = true;
 	bool ret = false;
@@ -980,13 +971,13 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	if (!pim_ifp->ucast_bsm_accept) {
 		dst_addr = qpim_all_pim_routers_addr;
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Sending BSM mcast to %s", __func__,
-				   neigh_src_str);
+			zlog_debug("%s: Sending BSM mcast to %pPA", __func__,
+				   &neigh->source_addr);
 	} else {
 		dst_addr = neigh->source_addr;
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Sending BSM ucast to %s", __func__,
-				   neigh_src_str);
+			zlog_debug("%s: Sending BSM ucast to %pPA", __func__,
+				   &neigh->source_addr);
 	}
 	pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
 	pim_hello_require(ifp);
@@ -1038,7 +1029,7 @@ struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 	return bsgrp;
 }
 
-static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
+static uint32_t hash_calc_on_grp_rp(struct prefix group, pim_addr rp,
 				    uint8_t hashmasklen)
 {
 	uint64_t temp;
@@ -1056,13 +1047,24 @@ static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
 	/* in_addr stores ip in big endian, hence network byte order
 	 * convert to uint32 before processing hash
 	 */
+#if PIM_IPV == 4
 	grpaddr = ntohl(group.u.prefix4.s_addr);
+#else
+	grpaddr = group.u.prefix6.s6_addr32[0] ^ group.u.prefix6.s6_addr32[1] ^
+		  group.u.prefix6.s6_addr32[2] ^ group.u.prefix6.s6_addr32[3];
+#endif
 	/* Avoid shifting by 32 bit on a 32 bit register */
 	if (hashmasklen)
 		grpaddr = grpaddr & ((mask << (32 - hashmasklen)));
 	else
 		grpaddr = grpaddr & mask;
+
+#if PIM_IPV == 4
 	rp_add = ntohl(rp.s_addr);
+#else
+	rp_add = rp.s6_addr32[0] ^ rp.s6_addr32[1] ^ rp.s6_addr32[2] ^
+		 rp.s6_addr32[3];
+#endif
 	temp = 1103515245 * ((1103515245 * (uint64_t)grpaddr + 12345) ^ rp_add)
 	       + 12345;
 	hash = temp & (0x7fffffff);
@@ -1081,8 +1083,7 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 
 	bsm_rpinfo->rp_prio = rp->rp_pri;
 	bsm_rpinfo->rp_holdtime = rp->rp_holdtime;
-	memcpy(&bsm_rpinfo->rp_address, &rp->rpaddr.addr,
-	       sizeof(struct in_addr));
+	bsm_rpinfo->rp_address = rp->rpaddr.addr;
 	bsm_rpinfo->elapse_time = 0;
 
 	/* Back pointer to the group node. */
@@ -1140,6 +1141,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 	int frag_rp_cnt = 0;
 	int offset = 0;
 	int ins_count = 0;
+	pim_addr grp_addr;
 
 	while (buflen > offset) {
 		if (offset + (int)sizeof(struct bsmmsg_grpinfo) > buflen) {
@@ -1151,31 +1153,28 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		}
 		/* Extract Group tlv from BSM */
 		memcpy(&grpinfo, buf, sizeof(struct bsmmsg_grpinfo));
+		grp_addr = grpinfo.group.addr;
 
-		if (PIM_DEBUG_BSM) {
-			char grp_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<Group?>", grpinfo.group.addr, grp_str,
-				       sizeof(grp_str));
+		if (PIM_DEBUG_BSM)
 			zlog_debug(
-				"%s, Group %s  Rpcount:%d Fragment-Rp-count:%d",
-				__func__, grp_str, grpinfo.rp_count,
+				"%s, Group %pPAs  Rpcount:%d Fragment-Rp-count:%d",
+				__func__, &grp_addr, grpinfo.rp_count,
 				grpinfo.frag_rp_count);
-		}
 
 		buf += sizeof(struct bsmmsg_grpinfo);
 		offset += sizeof(struct bsmmsg_grpinfo);
 
-		group.family = AF_INET;
-		if (grpinfo.group.mask > IPV4_MAX_BITLEN) {
+		group.family = PIM_AF;
+		if (grpinfo.group.mask > PIM_MAX_BITLEN) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"%s, v4 prefix length specified: %d is too long",
+					"%s, prefix length specified: %d is too long",
 					__func__, grpinfo.group.mask);
 			return false;
 		}
+
+		pim_addr_to_prefix(&group, grp_addr);
 		group.prefixlen = grpinfo.group.mask;
-		group.u.prefix4.s_addr = grpinfo.group.addr.s_addr;
 
 		/* Get the Group node for the BSM rp table */
 		bsgrp = pim_bsm_get_bsgrp_node(scope, &group);
@@ -1187,14 +1186,10 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			if (!bsgrp)
 				continue;
 
-			if (PIM_DEBUG_BSM) {
-				char grp_str[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<Group?>", grpinfo.group.addr,
-					       grp_str, sizeof(grp_str));
-				zlog_debug("%s, Rp count is zero for group: %s",
-					   __func__, grp_str);
-			}
+			if (PIM_DEBUG_BSM)
+				zlog_debug(
+					"%s, Rp count is zero for group: %pPAs",
+					__func__, &grp_addr);
 
 			old_rpinfo = bsm_rpinfos_first(bsgrp->bsrp_list);
 			if (old_rpinfo)
@@ -1247,13 +1242,12 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			offset += sizeof(struct bsmmsg_rpinfo);
 
 			if (PIM_DEBUG_BSM) {
-				char rp_str[INET_ADDRSTRLEN];
+				pim_addr rp_addr;
 
-				pim_inet4_dump("<Rpaddr?>", rpinfo.rpaddr.addr,
-					       rp_str, sizeof(rp_str));
+				rp_addr = rpinfo.rpaddr.addr;
 				zlog_debug(
-					"%s, Rp address - %s; pri:%d hold:%d",
-					__func__, rp_str, rpinfo.rp_pri,
+					"%s, Rp address - %pPAs; pri:%d hold:%d",
+					__func__, &rp_addr, rpinfo.rp_pri,
 					rpinfo.rp_holdtime);
 			}
 
@@ -1285,7 +1279,6 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	struct pim_interface *pim_ifp = NULL;
 	struct bsm_frag *bsfrag;
 	struct pim_instance *pim;
-	char bsr_str[INET_ADDRSTRLEN];
 	uint16_t frag_tag;
 	bool empty_bsm = false;
 
@@ -1328,11 +1321,10 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	bshdr = (struct bsm_hdr *)(buf + PIM_MSG_HEADER_LEN);
-	pim_inet4_dump("<bsr?>", bshdr->bsr_addr.addr, bsr_str,
-		       sizeof(bsr_str));
-	if (bshdr->hm_len > IPV4_MAX_BITLEN) {
-		zlog_warn("Bad hashmask length for IPv4; got %hhu, expected value in range 0-32",
-			  bshdr->hm_len);
+	if (bshdr->hm_len > PIM_MAX_BITLEN) {
+		zlog_warn(
+			"Bad hashmask length for %s; got %hhu, expected value in range 0-32",
+			PIM_AF_NAME, bshdr->hm_len);
 		pim->bsm_dropped++;
 		return -1;
 	}
@@ -1375,20 +1367,16 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		} else {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"%s : nofwd_bsm received on %s when accpt_nofwd_bsm false",
-					__func__, bsr_str);
+					"%s : nofwd_bsm received on %pPAs when accpt_nofwd_bsm false",
+					__func__,
+					(pim_addr *)&bshdr->bsr_addr.addr);
 			pim->bsm_dropped++;
 			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
 			return -1;
 		}
 	}
 
-#if PIM_IPV == 4
-	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr))
-#else
-	if (0)
-#endif
-	{
+	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr)) {
 		/* Multicast BSMs are only accepted if source interface & IP
 		 * match RPF towards the BSR's IP address, or they have
 		 * no-forward set
@@ -1397,8 +1385,9 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 						      ifp, sg->src)) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"BSM check: RPF to BSR %s is not %pPA%%%s",
-					bsr_str, &sg->src, ifp->name);
+					"BSM check: RPF to BSR %pPAs is not %pPA%%%s",
+					(pim_addr *)&bshdr->bsr_addr.addr,
+					&sg->src, ifp->name);
 			pim->bsm_dropped++;
 			return -1;
 		}

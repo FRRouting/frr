@@ -860,10 +860,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
 		char grp_str[PREFIX_STRLEN];
-		char rp_str[INET_ADDRSTRLEN];
-		char bsr_str[INET_ADDRSTRLEN];
 		struct bsmmsg_grpinfo *group;
-		struct bsmmsg_rpinfo *rpaddr;
+		struct bsmmsg_rpinfo *bsm_rpinfo;
 		struct prefix grp;
 		struct bsm_hdr *hdr;
 		uint32_t offset = 0;
@@ -884,12 +882,10 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		buf += sizeof(struct bsm_hdr);
 		len -= sizeof(struct bsm_hdr);
 
-		pim_inet4_dump("<BSR Address?>", hdr->bsr_addr.addr, bsr_str,
-			       sizeof(bsr_str));
-
-
 		if (uj) {
-			json_object_string_add(json, "BSR address", bsr_str);
+			json_object_string_addf(
+				json, "BSR address", "%pPA",
+				(pim_addr *)&hdr->bsr_addr.addr);
 			json_object_int_add(json, "BSR priority",
 					    hdr->bsr_prio);
 			json_object_int_add(json, "Hashmask Length",
@@ -901,9 +897,9 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 			vty_out(vty, "------------------\n");
 			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
 				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
-			vty_out(vty, "%-15s %-15d %-15d %-15d\n", bsr_str,
-				hdr->bsr_prio, hdr->hm_len,
-				ntohs(hdr->frag_tag));
+			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n",
+				(pim_addr *)&hdr->bsr_addr.addr, hdr->bsr_prio,
+				hdr->hm_len, ntohs(hdr->frag_tag));
 		}
 
 		vty_out(vty, "\n");
@@ -913,9 +909,16 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 			if (group->group.family == PIM_MSG_ADDRESS_FAMILY_IPV4)
 				grp.family = AF_INET;
+			else if (group->group.family ==
+				 PIM_MSG_ADDRESS_FAMILY_IPV6)
+				grp.family = AF_INET6;
 
 			grp.prefixlen = group->group.mask;
-			grp.u.prefix4.s_addr = group->group.addr.s_addr;
+#if PIM_IPV == 4
+			grp.u.prefix4 = group->group.addr;
+#else
+			grp.u.prefix6 = group->group.addr;
+#endif
 
 			prefix2str(&grp, grp_str, sizeof(grp_str));
 
@@ -954,31 +957,33 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 					"RpAddress     HoldTime     Priority\n");
 
 			while (frag_rp_cnt--) {
-				rpaddr = (struct bsmmsg_rpinfo *)buf;
+				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
 
 				buf += sizeof(struct bsmmsg_rpinfo);
 				offset += sizeof(struct bsmmsg_rpinfo);
 
-				pim_inet4_dump("<Rp addr?>",
-					       rpaddr->rpaddr.addr, rp_str,
-					       sizeof(rp_str));
-
 				if (uj) {
 					json_row = json_object_new_object();
-					json_object_string_add(
-						json_row, "Rp Address", rp_str);
+					json_object_string_addf(
+						json_row, "Rp Address", "%pPA",
+						(pim_addr *)&bsm_rpinfo->rpaddr
+							.addr);
 					json_object_int_add(
 						json_row, "Rp HoldTime",
-						ntohs(rpaddr->rp_holdtime));
+						ntohs(bsm_rpinfo->rp_holdtime));
 					json_object_int_add(json_row,
 							    "Rp Priority",
-							    rpaddr->rp_pri);
-					json_object_object_add(
-						json_group, rp_str, json_row);
+							    bsm_rpinfo->rp_pri);
+					json_object_object_addf(
+						json_group, json_row, "%pPA",
+						(pim_addr *)&bsm_rpinfo->rpaddr
+							.addr);
 				} else {
-					vty_out(vty, "%-15s %-12d %d\n", rp_str,
-						ntohs(rpaddr->rp_holdtime),
-						rpaddr->rp_pri);
+					vty_out(vty, "%-15pPA %-12d %d\n",
+						(pim_addr *)&bsm_rpinfo->rpaddr
+							.addr,
+						ntohs(bsm_rpinfo->rp_holdtime),
+						bsm_rpinfo->rp_pri);
 				}
 			}
 			vty_out(vty, "\n");
@@ -998,24 +1003,17 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	struct bsgrp_node *bsgrp;
 	struct bsm_rpinfo *bsm_rp;
 	struct route_node *rn;
-	char bsr_str[INET_ADDRSTRLEN];
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY)
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
-
-	else
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr, bsr_str,
-			       sizeof(bsr_str));
-
 	if (uj) {
 		json = json_object_new_object();
-		json_object_string_add(json, "BSR Address", bsr_str);
-	} else {
-		vty_out(vty, "BSR Address  %s\n", bsr_str);
-	}
+		json_object_string_addf(json, "BSR Address", "%pPA",
+					&pim->global_scope.current_bsr);
+	} else
+		vty_out(vty, "BSR Address  %pPA\n",
+			&pim->global_scope.current_bsr);
 
 	for (rn = route_top(pim->global_scope.bsrp_table); rn;
 	     rn = route_next(rn)) {
@@ -1045,27 +1043,24 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		}
 
 		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
-			char rp_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<Rp Address?>", bsm_rp->rp_address,
-				       rp_str, sizeof(rp_str));
-
 			if (uj) {
 				json_row = json_object_new_object();
-				json_object_string_add(json_row, "Rp Address",
-						       rp_str);
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPA",
+							&bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
 						    bsm_rp->rp_prio);
 				json_object_int_add(json_row, "Hash Val",
 						    bsm_rp->hash);
-				json_object_object_add(json_group, rp_str,
-						       json_row);
+				json_object_object_addf(json_group, json_row,
+							"%pPA",
+							&bsm_rp->rp_address);
 
 			} else {
-				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
-					rp_str, bsm_rp->rp_prio,
+				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
 		}
@@ -1086,26 +1081,23 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		}
 
 		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
-			char rp_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<Rp Addr?>", bsm_rp->rp_address, rp_str,
-				       sizeof(rp_str));
-
 			if (uj) {
 				json_row = json_object_new_object();
-				json_object_string_add(json_row, "Rp Address",
-						       rp_str);
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPA",
+							&bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
 						    bsm_rp->rp_prio);
 				json_object_int_add(json_row, "Hash Val",
 						    bsm_rp->hash);
-				json_object_object_add(json_group, rp_str,
-						       json_row);
+				json_object_object_addf(json_group, json_row,
+							"%pPA",
+							&bsm_rp->rp_address);
 			} else {
-				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
-					rp_str, bsm_rp->rp_prio,
+				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
 		}
@@ -1451,11 +1443,9 @@ static void pim_show_bsr(struct pim_instance *pim,
 	char last_bsm_seen[10];
 	time_t now;
 	char bsr_state[20];
-	char bsr_str[PREFIX_STRLEN];
 	json_object *json = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY) {
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
 		pim_time_uptime(uptime, sizeof(uptime),
 				pim->global_scope.current_bsr_first_ts);
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
@@ -1463,8 +1453,6 @@ static void pim_show_bsr(struct pim_instance *pim,
 	}
 
 	else {
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr,
-			       bsr_str, sizeof(bsr_str));
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(uptime, sizeof(uptime),
 				(now - pim->global_scope.current_bsr_first_ts));
@@ -1486,9 +1474,11 @@ static void pim_show_bsr(struct pim_instance *pim,
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
 
+
 	if (uj) {
 		json = json_object_new_object();
-		json_object_string_add(json, "bsr", bsr_str);
+		json_object_string_addf(json, "bsr", "%pPA",
+					&pim->global_scope.current_bsr);
 		json_object_int_add(json, "priority",
 				    pim->global_scope.current_bsr_prio);
 		json_object_int_add(json, "fragmentTag",
@@ -1500,7 +1490,8 @@ static void pim_show_bsr(struct pim_instance *pim,
 
 	else {
 		vty_out(vty, "PIMv2 Bootstrap information\n");
-		vty_out(vty, "Current preferred BSR address: %s\n", bsr_str);
+		vty_out(vty, "Current preferred BSR address: %pPA\n",
+			&pim->global_scope.current_bsr);
 		vty_out(vty,
 			"Priority        Fragment-Tag       State           UpTime\n");
 		vty_out(vty, "  %-12d    %-12d    %-13s    %7s\n",

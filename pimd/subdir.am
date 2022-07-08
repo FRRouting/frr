@@ -22,6 +22,7 @@ pim_common = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
+	pimd/pim_bsm.c \
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
@@ -64,7 +65,6 @@ pim_common = \
 
 pimd_pimd_SOURCES = \
 	$(pim_common) \
-	pimd/pim_bsm.c \
 	pimd/pim_cmd.c \
 	pimd/pim_igmp.c \
 	pimd/pim_igmp_mtrace.c \
@@ -90,7 +90,6 @@ pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim6_main.c \
 	pimd/pim6_mld.c \
-	pimd/pim6_stubs.c \
 	pimd/pim6_cmd.c \
 	# end
 
