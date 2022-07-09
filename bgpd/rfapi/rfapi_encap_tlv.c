@@ -170,7 +170,6 @@ struct rfapi_un_option *rfapi_encap_tlv_to_un_option(struct attr *attr)
 	stlv = attr->encap_subtlvs;
 
 	uo = XCALLOC(MTYPE_RFAPI_UN_OPTION, sizeof(struct rfapi_un_option));
-	assert(uo);
 	uo->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
 	uo->v.tunnel.type = attr->encap_tunneltype;
 	tto = &uo->v.tunnel;

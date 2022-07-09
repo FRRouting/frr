@@ -357,10 +357,9 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose("%s: rfd %p pfx %pRN life %u", __func__, rfd, rn,
 			       ri->lifetime);
-	ri->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
 			 &ri->timer);
-	assert(ri->timer);
 }
 
 extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
@@ -1179,7 +1178,6 @@ callback:
 
 			new = XCALLOC(MTYPE_RFAPI_NEXTHOP,
 				      sizeof(struct rfapi_next_hop_entry));
-			assert(new);
 
 			if (ri->rk.aux_prefix.family) {
 				rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
@@ -1269,7 +1267,6 @@ callback:
 				new = XCALLOC(
 					MTYPE_RFAPI_NEXTHOP,
 					sizeof(struct rfapi_next_hop_entry));
-				assert(new);
 
 				if (ri->rk.aux_prefix.family) {
 					rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
@@ -1718,7 +1715,6 @@ void rfapiRibUpdatePendingNode(
 
 		urq = XCALLOC(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE,
 			      sizeof(struct rfapi_updated_responses_queue));
-		assert(urq);
 		if (!rfd->updated_responses_queue)
 			updated_responses_queue_init(rfd);
 

@@ -459,7 +459,6 @@ int rfapiApAdd(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	if (rc) {
 		/* Not found */
 		adb = XCALLOC(MTYPE_RFAPI_ADB, sizeof(struct rfapi_adb));
-		assert(adb);
 		adb->lifetime = lifetime;
 		adb->u.key = rk;
 
