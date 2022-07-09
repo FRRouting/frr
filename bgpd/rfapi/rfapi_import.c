@@ -1273,7 +1273,6 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 #endif
 
 	new = XCALLOC(MTYPE_RFAPI_NEXTHOP, sizeof(struct rfapi_next_hop_entry));
-	assert(new);
 
 	new->prefix = *rprefix;
 
@@ -1286,7 +1285,6 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 		vo = XCALLOC(MTYPE_RFAPI_VN_OPTION,
 			     sizeof(struct rfapi_vn_option));
-		assert(vo);
 
 		vo->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
 
@@ -2308,7 +2306,6 @@ rfapiMonitorEncapAdd(struct rfapi_import_table *import_table,
 
 	m = XCALLOC(MTYPE_RFAPI_MONITOR_ENCAP,
 		    sizeof(struct rfapi_monitor_encap));
-	assert(m);
 
 	m->node = vpn_rn;
 	m->bpi = vpn_bpi;
@@ -2791,7 +2788,6 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	 * service routine, which is supposed to free the wcb.
 	 */
 	wcb = XCALLOC(MTYPE_RFAPI_WITHDRAW, sizeof(struct rfapi_withdraw));
-	assert(wcb);
 	wcb->node = rn;
 	wcb->info = bpi;
 	wcb->import_table = import_table;
@@ -3224,7 +3220,6 @@ static void rfapiBgpInfoFilteredImportEncap(
 		struct agg_table *referenced_vpn_table;
 
 		referenced_vpn_table = agg_table_init();
-		assert(referenced_vpn_table);
 
 /*
  * iterate over the set of monitors at this ENCAP node.
@@ -3282,7 +3277,6 @@ static void rfapiBgpInfoFilteredImportEncap(
 				mnext = XCALLOC(
 					MTYPE_RFAPI_MONITOR_ENCAP,
 					sizeof(struct rfapi_monitor_encap));
-				assert(mnext);
 				mnext->node = m->node;
 				mnext->next = referenced_vpn_prefix->info;
 				referenced_vpn_prefix->info = mnext;
@@ -4332,7 +4326,6 @@ rfapiImportTableRefAdd(struct bgp *bgp, struct ecommunity *rt_import_list,
 	if (!it) {
 		it = XCALLOC(MTYPE_RFAPI_IMPORTTABLE,
 			     sizeof(struct rfapi_import_table));
-		assert(it);
 		it->next = h->imports;
 		h->imports = it;
 
@@ -4551,7 +4544,6 @@ static void rfapiDeleteRemotePrefixesIt(
 							MTYPE_RFAPI_NVE_ADDR,
 							sizeof(struct
 							       rfapi_nve_addr));
-						assert(nap);
 						*nap = na;
 						nap->info = is_active
 								    ? pAHcount

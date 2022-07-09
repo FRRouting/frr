@@ -564,7 +564,6 @@ static struct ecommunity *vnc_route_origin_ecom_single(struct in_addr *origin)
 	roec.val[7] = 0;
 
 	new = ecommunity_new();
-	assert(new);
 	ecommunity_add_val(new, &roec, false, false);
 
 	if (!new->size) {
