@@ -780,7 +780,7 @@ struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
 	bn.subcode = notify->raw_data[1];
 	bn.length = notify->length - 2;
 
-	bn.raw_data = XCALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
+	bn.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
 	memcpy(bn.raw_data, notify->raw_data + 2, bn.length);
 
 	return bn;
@@ -2114,6 +2114,8 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		}
 
 		bgp_notify_print(peer, &inner, "received", hard_reset);
+		XFREE(MTYPE_BGP_NOTIFICATION, inner.raw_data);
+
 		if (inner.length) {
 			XFREE(MTYPE_BGP_NOTIFICATION, inner.data);
 			inner.length = 0;
