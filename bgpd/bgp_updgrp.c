@@ -421,10 +421,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(
-			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %" PRIu64
-			" UpdGrpAFFlags: %u",
+			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %u",
 			peer, peer->sort,
-			(uint64_t)(peer->flags & PEER_UPDGRP_FLAGS),
+			(intmax_t)(peer->flags & PEER_UPDGRP_FLAGS),
 			flags & PEER_UPDGRP_AF_FLAGS);
 		zlog_debug(
 			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u",
@@ -464,10 +463,8 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			peer->shared_network &&
 				peer_afi_active_nego(peer, AFI_IP6));
 		zlog_debug(
-			"%pBP Update Group Hash: Lonesoul: %" PRIu64
-			" ORF prefix: %u ORF old: %u max prefix out: %u",
-			peer,
-			(uint64_t)CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
+			"%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u ORF old: %u max prefix out: %u",
+			peer, !!CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
 			CHECK_FLAG(peer->af_cap[afi][safi],
 				   PEER_CAP_ORF_PREFIX_SM_RCV),
 			CHECK_FLAG(peer->af_cap[afi][safi],
