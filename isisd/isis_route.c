@@ -459,21 +459,6 @@ void isis_route_delete(struct isis_area *area, struct route_node *rode,
 	route_unlock_node(rode);
 }
 
-static void isis_route_remove_previous_sid(struct isis_area *area,
-					   struct prefix *prefix,
-					   struct isis_route_info *route_info)
-{
-	/*
-	 * Explicitly uninstall previous Prefix-SID label if it has
-	 * changed or was removed.
-	 */
-	if (route_info->sr_previous.present &&
-	    (!route_info->sr.present ||
-	     route_info->sr_previous.label != route_info->sr.label))
-		isis_zebra_prefix_sid_uninstall(area, prefix, route_info,
-						&route_info->sr_previous);
-}
-
 static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 			      struct prefix_ipv6 *src_p,
 			      struct isis_route_info *route_info)
@@ -482,7 +467,17 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
 
-		isis_route_remove_previous_sid(area, prefix, route_info);
+		/*
+		 * Explicitly uninstall previous Prefix-SID label if it has
+		 * changed or was removed.
+		 */
+		if (route_info->sr_previous.present
+		    && (!route_info->sr.present
+			|| route_info->sr_previous.label
+				   != route_info->sr.label))
+			isis_zebra_prefix_sid_uninstall(
+				area, prefix, route_info,
+				&route_info->sr_previous);
 
 		/* Install route. */
 		isis_zebra_route_add_route(area->isis, prefix, src_p,
@@ -770,7 +765,6 @@ void isis_route_switchover_nexthop(struct isis_area *area,
 				       (const struct prefix **)&src_p);
 
 		/* Switchover route. */
-		isis_route_remove_previous_sid(area, prefix, rinfo);
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 		isis_route_update(area, prefix, src_p, rinfo->backup);
 
