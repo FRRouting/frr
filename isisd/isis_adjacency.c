@@ -328,8 +328,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	if (new_state == old_state)
 		return;
 
-	if (old_state == ISIS_ADJ_UP &&
-	    !CHECK_FLAG(adj->circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z)) {
+	if (old_state == ISIS_ADJ_UP) {
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(
 				"ISIS-Adj (%s): Starting fast-reroute on state change "
