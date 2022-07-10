@@ -1631,8 +1631,7 @@ static int isis_ifp_down(struct interface *ifp)
 	afi_t afi;
 	struct isis_circuit *circuit = ifp->info;
 
-	if (circuit &&
-	    !CHECK_FLAG(circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z)) {
+	if (circuit) {
 		SET_FLAG(circuit->flags, ISIS_CIRCUIT_IF_DOWN_FROM_Z);
 		for (afi = AFI_IP; afi <= AFI_IP6; afi++)
 			isis_circuit_switchover_routes(
