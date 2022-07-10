@@ -91,15 +91,9 @@ static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 	struct isis_nexthop *nh;
 
 	for (ALL_LIST_ELEMENTS_RO(nexthops, node, nh)) {
-		if (nh->ifindex != ifindex)
-			continue;
-
-		/* if the IP is unspecified, return the first nexthop found on
-		 * the interface */
-		if (!ip)
-			return nh;
-
 		if (nh->family != family)
+			continue;
+		if (nh->ifindex != ifindex)
 			continue;
 
 		switch (family) {
