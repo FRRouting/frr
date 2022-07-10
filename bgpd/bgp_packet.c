@@ -780,7 +780,7 @@ struct bgp_notify bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify)
 	bn.subcode = notify->raw_data[1];
 	bn.length = notify->length - 2;
 
-	bn.raw_data = XCALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
+	bn.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, bn.length);
 	memcpy(bn.raw_data, notify->raw_data + 2, bn.length);
 
 	return bn;
@@ -2121,6 +2121,12 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		if (outer.length) {
 			XFREE(MTYPE_BGP_NOTIFICATION, outer.data);
 			XFREE(MTYPE_BGP_NOTIFICATION, outer.raw_data);
+
+			/* If this is a Hard Reset notification, we MUST free
+			 * the inner (encapsulated) notification too.
+			 */
+			if (hard_reset)
+				XFREE(MTYPE_BGP_NOTIFICATION, inner.raw_data);
 			outer.length = 0;
 		}
 	}
