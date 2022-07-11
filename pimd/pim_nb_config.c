@@ -454,14 +454,17 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 }
 #endif
 
-#if PIM_IPV == 4
-static void change_query_max_response_time(struct pim_interface *pim_ifp,
-		int query_max_response_time_dsec)
+static void change_query_max_response_time(struct interface *ifp,
+					   int query_max_response_time_dsec)
 {
+#if PIM_IPV == 4
 	struct listnode *sock_node;
 	struct gm_sock *igmp;
 	struct listnode *grp_node;
 	struct gm_group *grp;
+#endif
+
+	struct pim_interface *pim_ifp = ifp->info;
 
 	if (pim_ifp->gm_query_max_response_time_dsec ==
 	    query_max_response_time_dsec)
@@ -469,6 +472,9 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 
 	pim_ifp->gm_query_max_response_time_dsec = query_max_response_time_dsec;
 
+#if PIM_IPV == 6
+	gm_ifp_update(ifp);
+#else
 	/*
 	 * Below we modify socket/group/source timers in order to quickly
 	 * reflect the change. Otherwise, those timers would args->eventually
@@ -501,8 +507,8 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 				igmp_source_reset_gmi(grp, src);
 		}
 	}
+#endif /* PIM_IPV == 4 */
 }
-#endif
 
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
@@ -2797,7 +2803,6 @@ int lib_interface_gmp_address_family_query_interval_modify(
 int lib_interface_gmp_address_family_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	int query_max_response_time_dsec;
 
@@ -2810,13 +2815,9 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		query_max_response_time_dsec =
 			yang_dnode_get_uint16(args->dnode, NULL);
-		change_query_max_response_time(ifp->info,
-				query_max_response_time_dsec);
+		change_query_max_response_time(ifp,
+					       query_max_response_time_dsec);
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif
-
 
 	return NB_OK;
 }
