@@ -352,7 +352,7 @@ union prefixconstptr {
 #define PREFIX_STRLEN 80
 
 /*
- * Longest possible length of a (S,G) string is 36 bytes
+ * Longest possible length of a (S,G) string is 34 bytes
  * 123.123.123.123 = 15 * 2
  * (,) = 3
  * NULL Character at end = 1
