@@ -435,12 +435,10 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 		 * All other bits MUST be sent as a 0 and silently
 		 * ignored on reception
 		 */
-		if (CHECK_FLAG(flags, ~BABEL_UNICAST_HELLO)) {
+		if (CHECK_FLAG(flags, ~BABEL_UNICAST_HELLO))
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Hello from %s on %s that does not have all 0's in the unused section of flags, ignoring",
 			       format_address(from), ifp->name);
-			continue;
-		}
 
 		/*
 		 * RFC 8966 Appendix F
