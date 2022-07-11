@@ -2906,11 +2906,15 @@ static int install_evpn_route_entry_in_vni_common(
 
 		new_local_es = bgp_evpn_attr_is_local_es(pi->attr);
 	} else {
-		if (attrhash_cmp(pi->attr, parent_pi->attr)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
-			bgp_dest_unlock_node(dest);
+		/* Return early if attributes haven't changed
+		 * and dest isn't flagged for removal.
+		 * dest will be unlocked by either
+		 * install_evpn_route_entry_in_vni_mac() or
+		 * install_evpn_route_entry_in_vni_ip()
+		 */
+		if (attrhash_cmp(pi->attr, parent_pi->attr) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
 			return 0;
-		}
 		/* The attribute has changed. */
 		/* Add (or update) attribute to hash. */
 		attr_new = bgp_attr_intern(parent_pi->attr);
