@@ -30,9 +30,9 @@ THE SOFTWARE.
 #define KERNEL_INFINITY 0xFFFF
 
 enum babel_kernel_routes {
-    ROUTE_FLUSH,
-    ROUTE_ADD,
-    ROUTE_MODIFY,
+	ROUTE_FLUSH,
+	ROUTE_ADD,
+	ROUTE_MODIFY,
 };
 
 int kernel_interface_operational(struct interface *interface);

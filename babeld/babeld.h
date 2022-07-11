@@ -38,11 +38,11 @@ THE SOFTWARE.
 #undef MAX
 #undef MIN
 
-#define MAX(x,y) ((x)<=(y)?(y):(x))
-#define MIN(x,y) ((x)<=(y)?(x):(y))
+#define MAX(x, y) ((x) <= (y) ? (y) : (x))
+#define MIN(x, y) ((x) <= (y) ? (x) : (y))
 
 #if defined(__GNUC__) && (__GNUC__ >= 3)
-#define ATTRIBUTE(x) __attribute__ (x)
+#define ATTRIBUTE(x) __attribute__(x)
 #define LIKELY(_x) __builtin_expect(!!(_x), 1)
 #define UNLIKELY(_x) __builtin_expect(!!(_x), 0)
 #else
@@ -52,7 +52,7 @@ THE SOFTWARE.
 #endif
 
 #if defined(__GNUC__) && (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 3)
-#define COLD __attribute__ ((cold))
+#define COLD __attribute__((cold))
 #else
 #define COLD /**/
 #endif
@@ -66,10 +66,14 @@ THE SOFTWARE.
 #include <valgrind/memcheck.h>
 #else
 #ifndef VALGRIND_MAKE_MEM_UNDEFINED
-#define VALGRIND_MAKE_MEM_UNDEFINED(a, b) do {} while(0)
+#define VALGRIND_MAKE_MEM_UNDEFINED(a, b)                                      \
+	do {                                                                   \
+	} while (0)
 #endif
 #ifndef VALGRIND_CHECK_MEM_IS_DEFINED
-#define VALGRIND_CHECK_MEM_IS_DEFINED(a, b) do {} while(0)
+#define VALGRIND_CHECK_MEM_IS_DEFINED(a, b)                                    \
+	do {                                                                   \
+	} while (0)
 #endif
 #endif
 
@@ -98,25 +102,24 @@ THE SOFTWARE.
 #define BABEL_DEFAULT_MAX_RTT_PENALTY 150
 
 /* Babel structure. */
-struct babel
-{
-    /* Babel threads. */
-    struct thread *t_read;    /* on Babel protocol's socket */
-    struct thread *t_update;  /* timers */
-    /* distribute_ctx */
-    struct distribute_ctx *distribute_ctx;
+struct babel {
+	/* Babel threads. */
+	struct thread *t_read;   /* on Babel protocol's socket */
+	struct thread *t_update; /* timers */
+	/* distribute_ctx */
+	struct distribute_ctx *distribute_ctx;
 };
 
 extern struct zebra_privs_t babeld_privs;
 
 extern void babeld_quagga_init(void);
-extern int input_filter(const unsigned char *id,
-                        const unsigned char *prefix, unsigned short plen,
-                        const unsigned char *neigh, unsigned int ifindex);
+extern int input_filter(const unsigned char *id, const unsigned char *prefix,
+			unsigned short plen, const unsigned char *neigh,
+			unsigned int ifindex);
 extern int output_filter(const unsigned char *id, const unsigned char *prefix,
-                         unsigned short plen, unsigned int ifindex);
+			 unsigned short plen, unsigned int ifindex);
 extern int redistribute_filter(const unsigned char *prefix, unsigned short plen,
-                               unsigned int ifindex, int proto);
+			       unsigned int ifindex, int proto);
 extern int resize_receive_buffer(int size);
 extern void schedule_neighbours_check(int msecs, int override);
 extern struct babel *babel_lookup(void);

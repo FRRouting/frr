@@ -25,8 +25,8 @@ THE SOFTWARE.
 
 #include "vty.h"
 
-extern struct timeval babel_now;         /* current time             */
-extern struct thread_master *master;     /* quagga's threads handler */
+extern struct timeval babel_now;     /* current time             */
+extern struct thread_master *master; /* quagga's threads handler */
 extern int debug;
 extern int resend_delay;
 
@@ -41,6 +41,6 @@ extern int kernel_socket;
 extern int max_request_hopcount;
 
 void babel_load_state_file(void);
-void show_babel_main_configuration (struct vty *vty);
+void show_babel_main_configuration(struct vty *vty);
 
 #endif /* BABEL_MAIN_H */
