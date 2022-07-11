@@ -41,3 +41,21 @@ void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 
 	errno = save_errno;
 }
+
+void pim_inet6_dump(const char *onfail, struct in6_addr addr, char *buf,
+		    int buf_size)
+{
+	int save_errno = errno;
+	struct in6_addr zero = {};
+
+	if (memcmp(&addr, &zero, sizeof(zero)) == 0)
+		strlcpy(buf, "*", buf_size);
+	else {
+		if (!inet_ntop(AF_INET6, &addr, buf, buf_size)) {
+			if (onfail)
+				snprintf(buf, buf_size, "%s", onfail);
+		}
+	}
+
+	errno = save_errno;
+}
