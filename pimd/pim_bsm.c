@@ -1279,6 +1279,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	struct pim_interface *pim_ifp = NULL;
 	struct bsm_frag *bsfrag;
 	struct pim_instance *pim;
+	char bsr_str[PIM_ADDRSTRLEN];
 	uint16_t frag_tag;
 	bool empty_bsm = false;
 
@@ -1321,6 +1322,8 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	bshdr = (struct bsm_hdr *)(buf + PIM_MSG_HEADER_LEN);
+	pim_inet_dump("<bsr?>", bshdr->bsr_addr.addr, bsr_str, sizeof(bsr_str));
+
 	if (bshdr->hm_len > PIM_MAX_BITLEN) {
 		zlog_warn(
 			"Bad hashmask length for %s; got %hhu, expected value in range 0-32",
@@ -1367,9 +1370,8 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		} else {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"%s : nofwd_bsm received on %pPAs when accpt_nofwd_bsm false",
-					__func__,
-					(pim_addr *)&bshdr->bsr_addr.addr);
+					"%s : nofwd_bsm received on %s when accpt_nofwd_bsm false",
+					__func__, bsr_str);
 			pim->bsm_dropped++;
 			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
 			return -1;
@@ -1385,9 +1387,8 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 						      ifp, sg->src)) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"BSM check: RPF to BSR %pPAs is not %pPA%%%s",
-					(pim_addr *)&bshdr->bsr_addr.addr,
-					&sg->src, ifp->name);
+					"BSM check: RPF to BSR %s is not %pPA%%%s",
+					bsr_str, &sg->src, ifp->name);
 			pim->bsm_dropped++;
 			return -1;
 		}
