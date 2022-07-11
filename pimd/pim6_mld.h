@@ -324,6 +324,7 @@ struct gm_if {
 	unsigned int cur_query_intv_trig; /* ms */
 	unsigned int cur_max_resp;	  /* ms */
 	enum gm_version cur_version;
+	int cur_lmqc; /* last member query count in ds */
 
 	/* this value (positive, default 10ms) defines our "timing tolerance":
 	 * - added to deadlines for expiring joins
