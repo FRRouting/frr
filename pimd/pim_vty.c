@@ -388,6 +388,13 @@ static int gm_config_write(struct vty *vty, int writes,
 	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
 		vty_out(vty, " ipv6 mld query-interval %d\n",
 			pim_ifp->gm_default_query_interval);
+
+	/* IF ipv6 mld last-member_query-count */
+	if (pim_ifp->gm_last_member_query_count !=
+	    IGMP_DEFAULT_ROBUSTNESS_VARIABLE)
+		vty_out(vty, " ipv6 mld last-member-query-count %d\n",
+			pim_ifp->gm_last_member_query_count);
+
 	return 0;
 }
 #endif
