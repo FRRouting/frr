@@ -114,6 +114,12 @@ static struct log_ref ferr_path_warn[] = {
 		.suggestion = "The PCE is overloaded or incompatible with the PCC, try with a different PCE"
 	},
 	{
+		.code = EC_PATH_BSID_OVERFLOW,
+		.title = "BSID index overflow",
+		.description = "Path has detected that a BSID index falls outside of its associated pool",
+		.suggestion = "Configure a larger pool"
+	},
+	{
 		.code = END_FERR,
 	}
 

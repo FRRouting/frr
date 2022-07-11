@@ -101,6 +101,28 @@ module frr-pathd-triggered-srte {
 	}
       }
     }
+    container policy-label-blocks {
+      description
+        "Label blocks used by SRTE policies.";
+      container template {
+        description
+          "Label block used by policies instantiated from policy-templates.";
+        leaf lower-bound {
+            must "../upper-bound > .";
+            type uint32;
+            default "24000";
+            description
+              "Lower value in the label range.";
+        }
+        leaf upper-bound {
+            must ". > ../lower-bound";
+            type uint32;
+            default "25999";
+            description
+              "Upper value in the label range.";
+        }
+      }
+    }
   }
 
   augment "/frr-pathd:pathd/frr-pathd:srte" {

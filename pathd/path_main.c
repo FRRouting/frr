@@ -19,6 +19,7 @@
 #include "pathd.h"
 #include "path_nb.h"
 #include "path_zebra.h"
+#include "path_bsid.h"
 #include "path_errors.h"
 #include "path_ted.h"
 #include "path_flex_algo.h"
@@ -144,6 +145,7 @@ int main(int argc, char **argv, char **envp)
 	path_cli_init();
 	path_ted_init(master);
 	path_flex_algo_init();
+	path_bsid_init();
 
 	frr_config_fork();
 	frr_run(master);

@@ -80,6 +80,58 @@ bool get_ipv6_router_id(struct in6_addr *router_id)
 	return retval;
 }
 
+/**
+ * Request Label Range to the Label Manager.
+ * This range is for dynamic MPLS label range used for policy templates
+ *
+ * @param base		base label of the label range to request
+ * @param chunk_size	size of the label range to request
+ *
+ * @return 	0 on success, -1 on failure
+ */
+int path_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
+{
+	int ret;
+	uint32_t start, end;
+
+	if (zclient_sync->sock < 0)
+		return -1;
+
+	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
+				 &end);
+	if (ret < 0) {
+		zlog_warn("%s: error getting label range!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Release Label Range to the Label Manager.
+ * This range is for dynamic MPLS label range used for policy templates
+ *
+ * @param start		start of label range to release
+ * @param end		end of label range to release
+ *
+ * @return		0 on success, -1 otherwise
+ */
+int path_zebra_release_label_range(uint32_t start, uint32_t end)
+{
+	int ret;
+
+	if (zclient_sync->sock < 0)
+		return -1;
+
+	ret = lm_release_label_chunk(zclient_sync, start, end);
+	if (ret < 0) {
+		zlog_warn("%s: error releasing label range!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
 static void path_zebra_connected(struct zclient *zclient)
 {
 	struct srte_policy *policy;

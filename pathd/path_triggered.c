@@ -27,6 +27,7 @@
 #include "path_triggered.h"
 #include "path_template.h"
 #include "path_tsrte.h"
+#include "path_bsid.h"
 
 bool path_triggered_enabled = false;
 
@@ -98,6 +99,7 @@ srte_triggered_update_entry(struct srte_triggered_policy *bgp_policy)
 			bgp_policy->color, endpoint_str);
 		policy = srte_policy_add(bgp_policy->color,
 					 &bgp_policy->endpoint, SRTE_ORIGIN_BGP, NULL);
+		policy->binding_sid = path_bsid_request_label();
 		policy_template->counter++;
 		snprintf(policy->name, sizeof(policy->name), "__%s__%u__",
 			 policy_template->name, policy_template->counter);
@@ -110,6 +112,8 @@ srte_triggered_update_entry(struct srte_triggered_policy *bgp_policy)
 				"PATHD: policy Color %u Endpoint %s: template conflict with config, continue",
 				bgp_policy->color, endpoint_str);
 			SET_FLAG(policy->flags, F_POLICY_TEMPLATE);
+			if (policy->binding_sid == MPLS_LABEL_NONE)
+				policy->binding_sid = path_bsid_request_label();
 			changed = true;
 		}
 	}
@@ -237,6 +241,8 @@ void srte_triggered_update(void)
 		zlog_info("configured for %saccepting BGP TE policies",
 			  protocol_bgp_enabled ? "" : "not ");
 		path_zebra_send_te_ready(srte_triggered_get_protocol_origin());
+		if (path_bsid_enable_pool(protocol_bgp_enabled))
+			srte_apply_changes();
 	}
 }
 

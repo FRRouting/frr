@@ -16,6 +16,7 @@ endif
 endif
 
 pathd_libpath_a_SOURCES = \
+	pathd/path_bsid.c \
 	pathd/path_cli.c \
 	pathd/path_debug.c \
 	pathd/path_errors.c \
@@ -39,9 +40,11 @@ clippy_scan += \
 	pathd/path_pcep_cli.c \
 	pathd/path_ted.c \
 	pathd/path_tsrte_config.c \
+	pathd/path_bsid.c \
 	# end
 
 noinst_HEADERS += \
+	pathd/path_bsid.h \
 	pathd/path_debug.h \
 	pathd/path_errors.h \
 	pathd/path_nb.h \

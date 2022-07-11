@@ -32,6 +32,7 @@
 #include "lib_errors.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_bsid.h"
 #include "pathd/path_tsrte.h"
 #include "pathd/path_template.h"
 #include "pathd/path_triggered.h"
@@ -109,6 +110,30 @@ const struct frr_yang_module_info frr_pathd_triggered_srte_info = {
 			.cbs = {
 				.modify = pathd_srte_policy_template_candidate_path_flex_algo_number_modify,
 				.destroy = dummy_destroy,
+			}
+		},
+		{
+			 .xpath = "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks",
+			 .cbs = {
+				 .pre_validate = pathd_srte_policy_label_blocks_pre_validate,
+			}
+		},
+		{
+			 .xpath = "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template",
+			 .cbs = {
+				 .apply_finish = pathd_srte_policy_label_blocks_apply_finish,
+			}
+		},
+		{
+			 .xpath = "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template/lower-bound",
+			 .cbs = {
+				 .modify = pathd_srte_policy_label_blocks_template_lower_bound_modify,
+			}
+		},
+		{
+			 .xpath = "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template/upper-bound",
+			 .cbs = {
+				 .modify = pathd_srte_policy_label_blocks_template_upper_bound_modify,
 			}
 		},
 		{
@@ -386,6 +411,31 @@ static int path_template_cli_debug_set_all(uint32_t flags, bool set)
 	return 0;
 }
 
+/*
+ * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template-label-block
+ */
+DEFPY(srte_policy_label_blocks_template,
+      srte_policy_label_blocks_template_cmd,
+      "[no] policy-label-blocks template (16-1048575)$lower_bound (16-1048575)$upper_bound",
+      NO_STR
+      "Segment Routing Policy Label Blocks Configuration\n"
+      "Policy-Template Label Allocation\n"
+      "The lower bound of the global block\n"
+      "The upper bound of the global block (block size may not exceed 65535)\n")
+{
+	nb_cli_enqueue_change(
+		vty,
+		"/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template/lower-bound",
+		NB_OP_MODIFY, no ? NULL : lower_bound_str);
+	nb_cli_enqueue_change(
+		vty,
+		"/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template/upper-bound",
+		NB_OP_MODIFY, no ? NULL : upper_bound_str);
+
+	return nb_cli_apply_changes(
+		vty, "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks");
+}
+
 /* cli initialisation triggered srte */
 void path_tsrte_cli_init(void)
 {
@@ -409,6 +459,8 @@ void path_tsrte_cli_init(void)
 			&srte_policy_template_candidate_flexalgo_cmd);
 	install_element(SR_POLICY_TEMPLATE_NODE,
 			&srte_policy_template_no_candidate_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE,
+			&srte_policy_label_blocks_template_cmd);
 }
 
 /* northbound configuration */
@@ -796,6 +848,91 @@ const void *pathd_srte_policy_template_candidate_path_lookup_entry(
 	preference = yang_str2uint32(args->keys->key[0]);
 
 	return srte_candidate_template_find(policy, preference);
+}
+
+/*
+ * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks
+ */
+int pathd_srte_policy_label_blocks_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	uint32_t lbound;
+	uint32_t ubound;
+
+	lbound = yang_dnode_get_uint32(args->dnode, "./template/lower-bound");
+	ubound = yang_dnode_get_uint32(args->dnode, "./template/upper-bound");
+
+	/* Check that the block size does not exceed 65535 */
+	if ((ubound - lbound + 1) > 65535) {
+		snprintf(
+			args->errmsg, args->errmsg_len,
+			"New Dynamic MPLS Label Block (%u/%u) exceed the limit of 65535",
+			lbound, ubound);
+		return NB_ERR_VALIDATION;
+	}
+	/* XXX the range should not conflict with IGP SRGB */
+	return NB_OK;
+}
+
+int pathd_srte_policy_label_blocks_template_upper_bound_modify(
+	struct nb_cb_modify_args *args)
+{
+	uint32_t upper_bound = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Invalid Dynamic MPLS Label Block upper bound: %u",
+				upper_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pathd_srte_policy_label_blocks_template_lower_bound_modify(
+	struct nb_cb_modify_args *args)
+{
+	uint32_t lower_bound = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Invalid Dynamic MPLS Label Block lower bound: %u",
+				lower_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+void pathd_srte_policy_label_blocks_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	uint32_t lower_bound, upper_bound;
+
+	lower_bound = yang_dnode_get_uint32(args->dnode, "./lower-bound");
+	upper_bound = yang_dnode_get_uint32(args->dnode, "./upper-bound");
+
+	/* reconfiguration has been performed */
+	if (path_bsid_configure_label_range(lower_bound, upper_bound))
+		srte_apply_changes();
 }
 
 static int dummy_destroy(struct nb_cb_destroy_args *args)

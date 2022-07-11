@@ -21,6 +21,7 @@
 #include "pathd/path_cli_clippy.c"
 #include "pathd/path_ted.h"
 #include "pathd/path_zebra.h"     /* for fae debug commands */
+#include "pathd/path_bsid.h"
 #include "pathd/path_template.h"
 #include "pathd/path_flex_algo.h" /* for fa_vty_igp_show_all */
 #include "pathd/path_tsrte.h"
@@ -1165,6 +1166,8 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	path_flex_algo_show_debugging(vty);
 
 	srte_template_show_debugging(vty);
+	path_bsid_show_debugging(vty);
+
 	return CMD_SUCCESS;
 }
 
@@ -1373,6 +1376,8 @@ int config_write_segment_routing(struct vty *vty)
 	vty_out(vty, " traffic-eng\n");
 
 	path_ted_config_write(vty);
+
+	path_bsid_config_write(vty);
 
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/flex-algo");

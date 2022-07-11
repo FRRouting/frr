@@ -16,6 +16,11 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 void path_zebra_delete_sr_policy(struct srte_policy *policy);
 int path_zebra_request_label(mpls_label_t label);
 void path_zebra_release_label(mpls_label_t label);
+
+/* for dynamic mpls label range */
+int path_zebra_release_label_range(uint32_t start, uint32_t end);
+int path_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
+
 extern void path_zebra_fae_igp_opaque_register(void);
 void path_zebra_init(struct event_loop *master);
 void path_zebra_stop(void);

@@ -15,6 +15,7 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_zebra.h"
+#include "pathd/path_bsid.h"
 #include "pathd/path_debug.h"
 #include "pathd/path_ted.h"
 #include "pathd/path_template.h"
@@ -350,7 +351,10 @@ void srte_policy_del(struct srte_policy *policy)
 
 	path_zebra_delete_sr_policy(policy);
 
-	path_zebra_release_label(policy->binding_sid);
+	if (CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE))
+		path_bsid_release_label(policy->binding_sid);
+	else
+		path_zebra_release_label(policy->binding_sid);
 
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =
@@ -515,6 +519,11 @@ srte_policy_best_candidate(const struct srte_policy *policy)
 {
 	struct srte_candidate *candidate;
 
+	/* invalid BSID */
+	if (CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE)
+	    && policy->binding_sid == MPLS_LABEL_NONE)
+		return NULL;
+
 	RB_FOREACH_REVERSE (candidate, srte_candidate_head,
 			    &policy->candidate_paths) {
 		/* search for highest preference with existing segment list */
@@ -537,6 +546,8 @@ void srte_clean_zebra(void)
 
 	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol)
 		srte_policy_del(policy);
+
+	path_bsid_enable_pool(false);
 
 	path_zebra_stop();
 }

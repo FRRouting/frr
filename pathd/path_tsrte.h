@@ -65,6 +65,14 @@ int pathd_srte_policy_template_candidate_path_flex_algo_number_modify(
 	struct nb_cb_modify_args *args);
 int pathd_srte_policy_template_candidate_path_flex_algo_number_destroy(
 	struct nb_cb_destroy_args *args);
+int pathd_srte_policy_label_blocks_pre_validate(
+	struct nb_cb_pre_validate_args *args);
+void pathd_srte_policy_label_blocks_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+int pathd_srte_policy_label_blocks_template_upper_bound_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_policy_label_blocks_template_lower_bound_modify(
+	struct nb_cb_modify_args *args);
 void cli_show_srte_policy_template(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
 void cli_show_srte_policy_template_name(struct vty *vty, const struct lyd_node *dnode,
