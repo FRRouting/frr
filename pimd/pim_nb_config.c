@@ -2828,7 +2828,6 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 int lib_interface_gmp_address_family_last_member_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	int last_member_query_interval;
@@ -2848,9 +2847,6 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 
 		break;
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif
 
 	return NB_OK;
 }
