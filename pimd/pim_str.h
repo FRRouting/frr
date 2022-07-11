@@ -41,9 +41,12 @@
 
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
-void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
-		    int buf_size);
 void pim_inet6_dump(const char *onfail, struct in6_addr addr, char *buf,
 		    int buf_size);
+#if PIM_IPV == 4
+#define pim_inet_dump pim_inet4_dump
+#else
+#define pim_inet_dump pim_inet6_dump
+#endif
 
 #endif
