@@ -636,7 +636,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 						    len - parsed_len, channels);
 	    }
 
-	    if (ignore_update)
+	    if (!ignore_update)
 		    update_route(router_id, prefix, plen, seqno, metric,
 				 interval, neigh, nh, channels,
 				 channels_len(channels));
