@@ -27,8 +27,6 @@
 #include "prefix.h"
 #include "pim_addr.h"
 
-#include "pim_addr.h"
-
 /*
  * Longest possible length of a (S,G) string is 36 bytes
  * 123.123.123.123 = 16 * 2
