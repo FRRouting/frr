@@ -395,6 +395,12 @@ static int gm_config_write(struct vty *vty, int writes,
 		vty_out(vty, " ipv6 mld last-member-query-count %d\n",
 			pim_ifp->gm_last_member_query_count);
 
+	/* IF ipv6 mld last-member_query-interval */
+	if (pim_ifp->gm_specific_query_max_response_time_dsec !=
+	    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
+			pim_ifp->gm_specific_query_max_response_time_dsec);
+
 	return 0;
 }
 #endif
