@@ -497,6 +497,27 @@ DEFPY (no_ipv6_pim_bsm,
 	return pim_process_no_bsm_cmd(vty);
 }
 
+DEFPY (ipv6_pim_ucast_bsm,
+       ipv6_pim_ucast_bsm_cmd,
+       "ipv6 pim unicast-bsm",
+       IPV6_STR
+       PIM_STR
+       "Accept/Send unicast BSM on the interface\n")
+{
+        return pim_process_unicast_bsm_cmd(vty);
+}
+
+DEFPY (no_ipv6_pim_ucast_bsm,
+       no_ipv6_pim_ucast_bsm_cmd,
+       "no ipv6 pim unicast-bsm",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Block send/receive unicast BSM on this interface\n")
+{
+        return pim_process_no_unicast_bsm_cmd(vty);
+}
+
 DEFPY (ipv6_ssmpingd,
       ipv6_ssmpingd_cmd,
       "ipv6 ssmpingd [X:X::X:X]$source",
@@ -1708,6 +1729,8 @@ void pim_cmd_init(void)
 	/* Install BSM command */
 	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &ipv6_pim_ucast_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_pim_ucast_bsm_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_rp_cmd);
 	install_element(VRF_NODE, &ipv6_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_cmd);
