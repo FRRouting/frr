@@ -339,9 +339,7 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 {
 	struct listnode *node;
 	struct pim_secondary_addr *sec_addr;
-	struct prefix rpf_addr;
-
-	pim_addr_to_prefix(&rpf_addr, rp_info->rp.rpf_addr);
+	pim_addr sec_paddr;
 
 	if (!pim_addr_cmp(pim_ifp->primary_address, rp_info->rp.rpf_addr))
 		return 1;
@@ -351,9 +349,11 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
-		if (prefix_same(&sec_addr->addr, &rpf_addr)) {
+		sec_paddr = pim_addr_from_prefix(&sec_addr->addr);
+		/* If an RP-address is self, It should be enough to say
+		 * I am RP the prefix-length should not matter here */
+		if (!pim_addr_cmp(sec_paddr, rp_info->rp.rpf_addr))
 			return 1;
-		}
 	}
 
 	return 0;
