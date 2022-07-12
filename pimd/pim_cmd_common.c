@@ -1672,7 +1672,7 @@ int pim_show_join_cmd_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
 	}
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -1773,7 +1773,7 @@ int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty)
 		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
 	}
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4098,7 +4098,7 @@ int pim_show_rpf_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4154,7 +4154,7 @@ int pim_show_rp_helper(const char *vrf, struct vty *vty, const char *group_str,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4225,7 +4225,7 @@ int pim_show_secondary_helper(const char *vrf, struct vty *vty)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4248,7 +4248,7 @@ int pim_show_statistics_helper(const char *vrf, struct vty *vty,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4277,7 +4277,7 @@ int pim_show_upstream_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
 	}
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4341,7 +4341,7 @@ int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4363,7 +4363,7 @@ int pim_show_upstream_rpf_helper(const char *vrf, struct vty *vty, bool uj)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4387,7 +4387,7 @@ int pim_show_state_helper(const char *vrf, struct vty *vty,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4441,7 +4441,7 @@ int pim_show_multicast_helper(const char *vrf, struct vty *vty)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4476,7 +4476,7 @@ int pim_show_multicast_count_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4533,7 +4533,7 @@ int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4596,7 +4596,7 @@ int pim_show_mroute_count_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4652,7 +4652,7 @@ int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4888,7 +4888,7 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
