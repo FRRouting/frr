@@ -23,9 +23,6 @@
 struct pim_upstream;
 struct pim_instance;
 
-/* duplicated from pim_instance.h - needed to avoid dependency mess */
-struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
-
 const char *pim_cli_get_vrf_name(struct vty *vty);
 int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str);
 int pim_process_no_join_prune_cmd(struct vty *vty);
