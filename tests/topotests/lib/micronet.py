@@ -599,6 +599,60 @@ class LinuxNamespace(Commander):
         self.cmd_raises("mkdir -p " + inner)
         self.cmd_raises("mount --rbind {} {} ".format(outer, inner))
 
+    def add_vlan(self, vlanname, linkiface, vlanid):
+        self.logger.debug("Adding VLAN interface: %s (%s)", vlanname, vlanid)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises(
+            [
+                ip_path,
+                "link",
+                "add",
+                "link",
+                linkiface,
+                "name",
+                vlanname,
+                "type",
+                "vlan",
+                "id",
+                vlanid,
+            ]
+        )
+        self.cmd_raises([ip_path, "link", "set", "dev", vlanname, "up"])
+
+    def add_loop(self, loopname):
+        self.logger.debug("Adding Linux iface: %s", loopname)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises([ip_path, "link", "add", loopname, "type", "dummy"])
+        self.cmd_raises([ip_path, "link", "set", "dev", loopname, "up"])
+
+    def add_l3vrf(self, vrfname, tableid):
+        self.logger.debug("Adding Linux VRF: %s", vrfname)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises(
+            [ip_path, "link", "add", vrfname, "type", "vrf", "table", tableid]
+        )
+        self.cmd_raises([ip_path, "link", "set", "dev", vrfname, "up"])
+
+    def del_iface(self, iface):
+        self.logger.debug("Removing Linux Iface: %s", iface)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises([ip_path, "link", "del", iface])
+
+    def attach_iface_to_l3vrf(self, ifacename, vrfname):
+        self.logger.debug("Attaching Iface %s to Linux VRF %s", ifacename, vrfname)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        if vrfname:
+            self.cmd_raises(
+                [ip_path, "link", "set", "dev", ifacename, "master", vrfname]
+            )
+        else:
+            self.cmd_raises([ip_path, "link", "set", "dev", ifacename, "nomaster"])
+
     def add_netns(self, ns):
         self.logger.debug("Adding network namespace %s", ns)
 
