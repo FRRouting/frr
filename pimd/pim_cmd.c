@@ -1000,122 +1000,6 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_json(vty, json);
 }
 
-/*Display the group-rp mappings */
-static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
-					    struct vty *vty, bool uj)
-{
-	struct bsgrp_node *bsgrp;
-	struct bsm_rpinfo *bsm_rp;
-	struct route_node *rn;
-	json_object *json = NULL;
-	json_object *json_group = NULL;
-	json_object *json_row = NULL;
-
-	if (uj) {
-		json = json_object_new_object();
-		json_object_string_addf(json, "BSR Address", "%pPA",
-					&pim->global_scope.current_bsr);
-	} else
-		vty_out(vty, "BSR Address  %pPA\n",
-			&pim->global_scope.current_bsr);
-
-	for (rn = route_top(pim->global_scope.bsrp_table); rn;
-	     rn = route_next(rn)) {
-		bsgrp = (struct bsgrp_node *)rn->info;
-
-		if (!bsgrp)
-			continue;
-
-		char grp_str[PREFIX_STRLEN];
-
-		prefix2str(&bsgrp->group, grp_str, sizeof(grp_str));
-
-		if (uj) {
-			json_object_object_get_ex(json, grp_str, &json_group);
-			if (!json_group) {
-				json_group = json_object_new_object();
-				json_object_object_add(json, grp_str,
-						       json_group);
-			}
-		} else {
-			vty_out(vty, "Group Address %pFX\n", &bsgrp->group);
-			vty_out(vty, "--------------------------\n");
-			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "Rp Address",
-				"priority", "Holdtime", "Hash");
-
-			vty_out(vty, "(ACTIVE)\n");
-		}
-
-		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
-			if (uj) {
-				json_row = json_object_new_object();
-				json_object_string_addf(json_row, "Rp Address",
-							"%pPA",
-							&bsm_rp->rp_address);
-				json_object_int_add(json_row, "Rp HoldTime",
-						    bsm_rp->rp_holdtime);
-				json_object_int_add(json_row, "Rp Priority",
-						    bsm_rp->rp_prio);
-				json_object_int_add(json_row, "Hash Val",
-						    bsm_rp->hash);
-				json_object_object_addf(json_group, json_row,
-							"%pPA",
-							&bsm_rp->rp_address);
-
-			} else {
-				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
-					&bsm_rp->rp_address, bsm_rp->rp_prio,
-					bsm_rp->rp_holdtime, bsm_rp->hash);
-			}
-		}
-		if (!bsm_rpinfos_count(bsgrp->bsrp_list) && !uj)
-			vty_out(vty, "Active List is empty.\n");
-
-		if (uj) {
-			json_object_int_add(json_group, "Pending RP count",
-					    bsgrp->pend_rp_cnt);
-		} else {
-			vty_out(vty, "(PENDING)\n");
-			vty_out(vty, "Pending RP count :%d\n",
-				bsgrp->pend_rp_cnt);
-			if (bsgrp->pend_rp_cnt)
-				vty_out(vty, "%-15s %-15s %-15s %-15s\n",
-					"Rp Address", "priority", "Holdtime",
-					"Hash");
-		}
-
-		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
-			if (uj) {
-				json_row = json_object_new_object();
-				json_object_string_addf(json_row, "Rp Address",
-							"%pPA",
-							&bsm_rp->rp_address);
-				json_object_int_add(json_row, "Rp HoldTime",
-						    bsm_rp->rp_holdtime);
-				json_object_int_add(json_row, "Rp Priority",
-						    bsm_rp->rp_prio);
-				json_object_int_add(json_row, "Hash Val",
-						    bsm_rp->hash);
-				json_object_object_addf(json_group, json_row,
-							"%pPA",
-							&bsm_rp->rp_address);
-			} else {
-				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
-					&bsm_rp->rp_address, bsm_rp->rp_prio,
-					bsm_rp->rp_holdtime, bsm_rp->hash);
-			}
-		}
-		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
-			vty_out(vty, "Partial List is empty\n");
-
-		if (!uj)
-			vty_out(vty, "\n");
-	}
-
-	if (uj)
-		vty_json(vty, json);
-}
-
 static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
@@ -2722,9 +2606,9 @@ DEFUN (show_ip_pim_bsm_db,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_bsrp,
+DEFPY (show_ip_pim_bsrp,
        show_ip_pim_bsrp_cmd,
-       "show ip pim bsrp-info [vrf NAME] [json]",
+       "show ip pim bsrp-info [vrf NAME] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2732,16 +2616,7 @@ DEFUN (show_ip_pim_bsrp,
        VRF_CMD_HELP_STR
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	pim_show_group_rp_mappings_info(vrf->info, vty, uj);
-
-	return CMD_SUCCESS;
+	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
 }
 
 DEFPY (show_ip_pim_statistics,
