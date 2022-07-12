@@ -64,6 +64,8 @@ int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 				 const char *group_str, const char *src_str);
 int pim_process_bsm_cmd(struct vty *vty);
 int pim_process_no_bsm_cmd(struct vty *vty);
+int pim_process_unicast_bsm_cmd(struct vty *vty);
+int pim_process_no_unicast_bsm_cmd(struct vty *vty);
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
 void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json);
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty);

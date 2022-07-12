@@ -3446,6 +3446,36 @@ int pim_process_no_bsm_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+int pim_process_unicast_bsm_cmd(struct vty *vty)
+{
+	const struct lyd_node *gm_enable_dnode;
+
+	gm_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					  FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					  FRR_PIM_AF_XPATH_VAL);
+	if (!gm_enable_dnode)
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	else {
+		if (!yang_dnode_get_bool(gm_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_unicast_bsm_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
