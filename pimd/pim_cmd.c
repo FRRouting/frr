@@ -837,169 +837,6 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
-/* Display the bsm database details */
-static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
-{
-	int count = 0;
-	int fragment = 1;
-	struct bsm_frag *bsfrag;
-	json_object *json = NULL;
-	json_object *json_group = NULL;
-	json_object *json_row = NULL;
-
-	count = bsm_frags_count(pim->global_scope.bsm_frags);
-
-	if (uj) {
-		json = json_object_new_object();
-		json_object_int_add(json, "Number of the fragments", count);
-	} else {
-		vty_out(vty, "Scope Zone: Global\n");
-		vty_out(vty, "Number of the fragments: %d\n", count);
-		vty_out(vty, "\n");
-	}
-
-	frr_each (bsm_frags, pim->global_scope.bsm_frags, bsfrag) {
-		char grp_str[PREFIX_STRLEN];
-		struct bsmmsg_grpinfo *group;
-		struct bsmmsg_rpinfo *bsm_rpinfo;
-		struct prefix grp;
-		struct bsm_hdr *hdr;
-		pim_addr bsr_addr;
-		uint32_t offset = 0;
-		uint8_t *buf;
-		uint32_t len = 0;
-		uint32_t frag_rp_cnt = 0;
-
-		buf = bsfrag->data;
-		len = bsfrag->size;
-
-		/* skip pim header */
-		buf += PIM_MSG_HEADER_LEN;
-		len -= PIM_MSG_HEADER_LEN;
-
-		hdr = (struct bsm_hdr *)buf;
-		/* NB: bshdr->bsr_addr.addr is packed/unaligned => memcpy */
-		memcpy(&bsr_addr, &hdr->bsr_addr.addr, sizeof(bsr_addr));
-
-		/* BSM starts with bsr header */
-		buf += sizeof(struct bsm_hdr);
-		len -= sizeof(struct bsm_hdr);
-
-		if (uj) {
-			json_object_string_addf(json, "BSR address", "%pPA",
-						&bsr_addr);
-			json_object_int_add(json, "BSR priority",
-					    hdr->bsr_prio);
-			json_object_int_add(json, "Hashmask Length",
-					    hdr->hm_len);
-			json_object_int_add(json, "Fragment Tag",
-					    ntohs(hdr->frag_tag));
-		} else {
-			vty_out(vty, "BSM Fragment : %d\n", fragment);
-			vty_out(vty, "------------------\n");
-			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
-				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
-			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n", &bsr_addr,
-				hdr->bsr_prio, hdr->hm_len,
-				ntohs(hdr->frag_tag));
-		}
-
-		vty_out(vty, "\n");
-
-		while (offset < len) {
-			group = (struct bsmmsg_grpinfo *)buf;
-
-			if (group->group.family == PIM_MSG_ADDRESS_FAMILY_IPV4)
-				grp.family = AF_INET;
-			else if (group->group.family ==
-				 PIM_MSG_ADDRESS_FAMILY_IPV6)
-				grp.family = AF_INET6;
-
-			grp.prefixlen = group->group.mask;
-#if PIM_IPV == 4
-			grp.u.prefix4 = group->group.addr;
-#else
-			grp.u.prefix6 = group->group.addr;
-#endif
-
-			prefix2str(&grp, grp_str, sizeof(grp_str));
-
-			buf += sizeof(struct bsmmsg_grpinfo);
-			offset += sizeof(struct bsmmsg_grpinfo);
-
-			if (uj) {
-				json_object_object_get_ex(json, grp_str,
-							  &json_group);
-				if (!json_group) {
-					json_group = json_object_new_object();
-					json_object_int_add(json_group,
-							    "Rp Count",
-							    group->rp_count);
-					json_object_int_add(
-						json_group, "Fragment Rp count",
-						group->frag_rp_count);
-					json_object_object_add(json, grp_str,
-							       json_group);
-				}
-			} else {
-				vty_out(vty, "Group : %s\n", grp_str);
-				vty_out(vty, "-------------------\n");
-				vty_out(vty, "Rp Count:%d\n", group->rp_count);
-				vty_out(vty, "Fragment Rp Count : %d\n",
-					group->frag_rp_count);
-			}
-
-			frag_rp_cnt = group->frag_rp_count;
-
-			if (!frag_rp_cnt)
-				continue;
-
-			if (!uj)
-				vty_out(vty,
-					"RpAddress     HoldTime     Priority\n");
-
-			while (frag_rp_cnt--) {
-				pim_addr rp_addr;
-
-				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
-				/* unaligned, again */
-				memcpy(&rp_addr, &bsm_rpinfo->rpaddr.addr,
-				       sizeof(rp_addr));
-
-				buf += sizeof(struct bsmmsg_rpinfo);
-				offset += sizeof(struct bsmmsg_rpinfo);
-
-				if (uj) {
-					json_row = json_object_new_object();
-					json_object_string_addf(
-						json_row, "Rp Address", "%pPA",
-						&rp_addr);
-					json_object_int_add(
-						json_row, "Rp HoldTime",
-						ntohs(bsm_rpinfo->rp_holdtime));
-					json_object_int_add(json_row,
-							    "Rp Priority",
-							    bsm_rpinfo->rp_pri);
-					json_object_object_addf(
-						json_group, json_row, "%pPA",
-						&rp_addr);
-				} else {
-					vty_out(vty, "%-15pPA %-12d %d\n",
-						&rp_addr,
-						ntohs(bsm_rpinfo->rp_holdtime),
-						bsm_rpinfo->rp_pri);
-				}
-			}
-			vty_out(vty, "\n");
-		}
-
-		fragment++;
-	}
-
-	if (uj)
-		vty_json(vty, json);
-}
-
 static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
@@ -2585,9 +2422,9 @@ DEFPY (show_ip_pim_interface_traffic,
 	return pim_show_interface_traffic_helper(vrf, if_name, vty, !!json);
 }
 
-DEFUN (show_ip_pim_bsm_db,
+DEFPY (show_ip_pim_bsm_db,
        show_ip_pim_bsm_db_cmd,
-       "show ip pim bsm-database [vrf NAME] [json]",
+       "show ip pim bsm-database [vrf NAME] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2595,15 +2432,7 @@ DEFUN (show_ip_pim_bsm_db,
        VRF_CMD_HELP_STR
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	pim_show_bsm_db(vrf->info, vty, uj);
-	return CMD_SUCCESS;
+	return pim_show_bsm_db_helper(vrf, vty, !!json);
 }
 
 DEFPY (show_ip_pim_bsrp,
