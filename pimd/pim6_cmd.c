@@ -476,6 +476,26 @@ DEFPY (no_ipv6_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
+DEFPY (ipv6_pim_bsm,
+       ipv6_pim_bsm_cmd,
+       "ipv6 pim bsm",
+       IPV6_STR
+       PIM_STR
+       "Enables BSM support on the interface\n")
+{
+	return pim_process_bsm_cmd(vty);
+}
+
+DEFPY (no_ipv6_pim_bsm,
+       no_ipv6_pim_bsm_cmd,
+       "no ipv6 pim bsm",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Disables BSM support\n")
+{
+	return pim_process_no_bsm_cmd(vty);
+}
 
 DEFPY (ipv6_ssmpingd,
       ipv6_ssmpingd_cmd,
@@ -1685,6 +1705,9 @@ void pim_cmd_init(void)
 			&interface_no_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
+	/* Install BSM command */
+	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_pim_bsm_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_rp_cmd);
 	install_element(VRF_NODE, &ipv6_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_cmd);
