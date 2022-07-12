@@ -864,6 +864,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		struct bsmmsg_rpinfo *bsm_rpinfo;
 		struct prefix grp;
 		struct bsm_hdr *hdr;
+		pim_addr bsr_addr;
 		uint32_t offset = 0;
 		uint8_t *buf;
 		uint32_t len = 0;
@@ -877,15 +878,16 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		len -= PIM_MSG_HEADER_LEN;
 
 		hdr = (struct bsm_hdr *)buf;
+		/* NB: bshdr->bsr_addr.addr is packed/unaligned => memcpy */
+		memcpy(&bsr_addr, &hdr->bsr_addr.addr, sizeof(bsr_addr));
 
 		/* BSM starts with bsr header */
 		buf += sizeof(struct bsm_hdr);
 		len -= sizeof(struct bsm_hdr);
 
 		if (uj) {
-			json_object_string_addf(
-				json, "BSR address", "%pPA",
-				(pim_addr *)&hdr->bsr_addr.addr);
+			json_object_string_addf(json, "BSR address", "%pPA",
+						&bsr_addr);
 			json_object_int_add(json, "BSR priority",
 					    hdr->bsr_prio);
 			json_object_int_add(json, "Hashmask Length",
@@ -897,9 +899,9 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 			vty_out(vty, "------------------\n");
 			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "BSR-Address",
 				"BSR-Priority", "Hashmask-len", "Fragment-Tag");
-			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n",
-				(pim_addr *)&hdr->bsr_addr.addr, hdr->bsr_prio,
-				hdr->hm_len, ntohs(hdr->frag_tag));
+			vty_out(vty, "%-15pPA %-15d %-15d %-15d\n", &bsr_addr,
+				hdr->bsr_prio, hdr->hm_len,
+				ntohs(hdr->frag_tag));
 		}
 
 		vty_out(vty, "\n");
@@ -957,7 +959,12 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 					"RpAddress     HoldTime     Priority\n");
 
 			while (frag_rp_cnt--) {
+				pim_addr rp_addr;
+
 				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
+				/* unaligned, again */
+				memcpy(&rp_addr, &bsm_rpinfo->rpaddr,
+				       sizeof(rp_addr));
 
 				buf += sizeof(struct bsmmsg_rpinfo);
 				offset += sizeof(struct bsmmsg_rpinfo);
@@ -966,8 +973,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 					json_row = json_object_new_object();
 					json_object_string_addf(
 						json_row, "Rp Address", "%pPA",
-						(pim_addr *)&bsm_rpinfo->rpaddr
-							.addr);
+						&rp_addr);
 					json_object_int_add(
 						json_row, "Rp HoldTime",
 						ntohs(bsm_rpinfo->rp_holdtime));
@@ -976,12 +982,10 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 							    bsm_rpinfo->rp_pri);
 					json_object_object_addf(
 						json_group, json_row, "%pPA",
-						(pim_addr *)&bsm_rpinfo->rpaddr
-							.addr);
+						&rp_addr);
 				} else {
 					vty_out(vty, "%-15pPA %-12d %d\n",
-						(pim_addr *)&bsm_rpinfo->rpaddr
-							.addr,
+						&rp_addr,
 						ntohs(bsm_rpinfo->rp_holdtime),
 						bsm_rpinfo->rp_pri);
 				}
