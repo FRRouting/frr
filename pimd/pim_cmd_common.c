@@ -5243,3 +5243,92 @@ void clear_pim_interfaces(struct pim_instance *pim)
 			pim_neighbor_delete_all(ifp, "interface cleared");
 	}
 }
+
+void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
+{
+	char uptime[10];
+	char last_bsm_seen[10];
+	time_t now;
+	char bsr_state[20];
+	json_object *json = NULL;
+
+	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
+		pim_time_uptime(uptime, sizeof(uptime),
+				pim->global_scope.current_bsr_first_ts);
+		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
+				pim->global_scope.current_bsr_last_ts);
+	}
+
+	else {
+		now = pim_time_monotonic_sec();
+		pim_time_uptime(uptime, sizeof(uptime),
+				(now - pim->global_scope.current_bsr_first_ts));
+		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
+				now - pim->global_scope.current_bsr_last_ts);
+	}
+
+	switch (pim->global_scope.state) {
+	case NO_INFO:
+		strlcpy(bsr_state, "NO_INFO", sizeof(bsr_state));
+		break;
+	case ACCEPT_ANY:
+		strlcpy(bsr_state, "ACCEPT_ANY", sizeof(bsr_state));
+		break;
+	case ACCEPT_PREFERRED:
+		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
+		break;
+	default:
+		strlcpy(bsr_state, "", sizeof(bsr_state));
+	}
+
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_addf(json, "bsr", "%pPA",
+					&pim->global_scope.current_bsr);
+		json_object_int_add(json, "priority",
+				    pim->global_scope.current_bsr_prio);
+		json_object_int_add(json, "fragmentTag",
+				    pim->global_scope.bsm_frag_tag);
+		json_object_string_add(json, "state", bsr_state);
+		json_object_string_add(json, "upTime", uptime);
+		json_object_string_add(json, "lastBsmSeen", last_bsm_seen);
+	}
+
+	else {
+		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "Current preferred BSR address: %pPA\n",
+			&pim->global_scope.current_bsr);
+		vty_out(vty,
+			"Priority        Fragment-Tag       State           UpTime\n");
+		vty_out(vty, "  %-12d    %-12d    %-13s    %7s\n",
+			pim->global_scope.current_bsr_prio,
+			pim->global_scope.bsm_frag_tag, bsr_state, uptime);
+		vty_out(vty, "Last BSM seen: %s\n", last_bsm_seen);
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
+int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_bsr(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}

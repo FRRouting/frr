@@ -1439,77 +1439,6 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 	}		  /* scan interfaces */
 }
 
-static void pim_show_bsr(struct pim_instance *pim,
-			 struct vty *vty,
-			 bool uj)
-{
-	char uptime[10];
-	char last_bsm_seen[10];
-	time_t now;
-	char bsr_state[20];
-	json_object *json = NULL;
-
-	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
-		pim_time_uptime(uptime, sizeof(uptime),
-				pim->global_scope.current_bsr_first_ts);
-		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
-				pim->global_scope.current_bsr_last_ts);
-	}
-
-	else {
-		now = pim_time_monotonic_sec();
-		pim_time_uptime(uptime, sizeof(uptime),
-				(now - pim->global_scope.current_bsr_first_ts));
-		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
-				now - pim->global_scope.current_bsr_last_ts);
-	}
-
-	switch (pim->global_scope.state) {
-	case NO_INFO:
-		strlcpy(bsr_state, "NO_INFO", sizeof(bsr_state));
-		break;
-	case ACCEPT_ANY:
-		strlcpy(bsr_state, "ACCEPT_ANY", sizeof(bsr_state));
-		break;
-	case ACCEPT_PREFERRED:
-		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
-		break;
-	default:
-		strlcpy(bsr_state, "", sizeof(bsr_state));
-	}
-
-
-	if (uj) {
-		json = json_object_new_object();
-		json_object_string_addf(json, "bsr", "%pPA",
-					&pim->global_scope.current_bsr);
-		json_object_int_add(json, "priority",
-				    pim->global_scope.current_bsr_prio);
-		json_object_int_add(json, "fragmentTag",
-				    pim->global_scope.bsm_frag_tag);
-		json_object_string_add(json, "state", bsr_state);
-		json_object_string_add(json, "upTime", uptime);
-		json_object_string_add(json, "lastBsmSeen", last_bsm_seen);
-	}
-
-	else {
-		vty_out(vty, "PIMv2 Bootstrap information\n");
-		vty_out(vty, "Current preferred BSR address: %pPA\n",
-			&pim->global_scope.current_bsr);
-		vty_out(vty,
-			"Priority        Fragment-Tag       State           UpTime\n");
-		vty_out(vty, "  %-12d    %-12d    %-13s    %7s\n",
-			pim->global_scope.current_bsr_prio,
-			pim->global_scope.bsm_frag_tag,
-			bsr_state,
-			uptime);
-		vty_out(vty, "Last BSM seen: %s\n", last_bsm_seen);
-	}
-
-	if (uj)
-		vty_json(vty, json);
-}
-
 static void clear_igmp_interfaces(struct pim_instance *pim)
 {
 	struct interface *ifp;
@@ -3586,25 +3515,17 @@ DEFUN (show_ip_pim_group_type,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_bsr,
+DEFPY (show_ip_pim_bsr,
        show_ip_pim_bsr_cmd,
-       "show ip pim bsr [json]",
+       "show ip pim bsr [vrf NAME] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
        "boot-strap router information\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	pim_show_bsr(vrf->info, vty, uj);
-
-	return CMD_SUCCESS;
+	return pim_show_bsr_helper(vrf, vty, !!json);
 }
 
 DEFUN (ip_ssmpingd,
