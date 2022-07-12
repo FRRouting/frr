@@ -1294,6 +1294,19 @@ DEFPY (show_ipv6_pim_bsr,
 	return pim_show_bsr_helper(vrf, vty, !!json);
 }
 
+DEFPY (show_ipv6_pim_bsm_db,
+       show_ipv6_pim_bsm_db_cmd,
+       "show ipv6 pim bsm-database [vrf NAME] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       "PIM cached bsm packets information\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	return pim_show_bsm_db_helper(vrf, vty, !!json);
+}
+
 DEFPY (clear_ipv6_pim_statistics,
        clear_ipv6_pim_statistics_cmd,
        "clear ipv6 pim statistics [vrf NAME]$name",
@@ -1814,6 +1827,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_mroute_summary_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_traffic_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_bsm_db_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
