@@ -5010,27 +5010,9 @@ DEFUN (ip_pim_bsm,
        "ip pim bsm",
        IP_STR
        PIM_STR
-       "Enables BSM support on the interface\n")
+       "Enable BSM support on the interface\n")
 {
-	const struct lyd_node *igmp_enable_dnode;
-
-	igmp_enable_dnode =
-		yang_dnode_getf(vty->candidate_config->dnode,
-				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
-				"frr-routing:ipv4");
-	if (!igmp_enable_dnode)
-		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-				      "true");
-	else {
-		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					      "true");
-	}
-
-	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "true");
-
-	return nb_cli_apply_changes(vty,
-			FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv4");
+	return pim_process_bsm_cmd(vty);
 }
 
 DEFUN (no_ip_pim_bsm,
@@ -5039,12 +5021,9 @@ DEFUN (no_ip_pim_bsm,
        NO_STR
        IP_STR
        PIM_STR
-       "Disables BSM support\n")
+       "Enable BSM support on the interface\n")
 {
-	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "false");
-
-	return nb_cli_apply_changes(vty,
-			FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv4");
+	return pim_process_no_bsm_cmd(vty);
 }
 
 DEFUN (ip_pim_ucast_bsm,
