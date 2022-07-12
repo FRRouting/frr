@@ -10392,9 +10392,24 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 static char *bgp_peer_description_stripped(char *desc, uint32_t size)
 {
 	static char stripped[BUFSIZ];
-	uint32_t len = size > strlen(desc) ? strlen(desc) : size;
+	uint32_t i = 0;
+	uint32_t last_space = 0;
 
-	strlcpy(stripped, desc, len + 1);
+	while (i < size) {
+		if (*(desc + i) == 0) {
+			stripped[i] = '\0';
+			return stripped;
+		}
+		if (i != 0 && *(desc + i) == ' ' && last_space != i - 1)
+			last_space = i;
+		stripped[i] = *(desc + i);
+		i++;
+	}
+
+	if (last_space > size)
+		stripped[size + 1] = '\0';
+	else
+		stripped[last_space] = '\0';
 
 	return stripped;
 }
