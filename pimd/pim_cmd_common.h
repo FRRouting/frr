@@ -118,6 +118,8 @@ void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json);
 void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			json_object *json);
+int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
+					   bool uj);
 int gm_process_query_max_response_time_cmd(struct vty *vty,
 					   const char *qmrt_str);
 int gm_process_no_query_max_response_time_cmd(struct vty *vty);
