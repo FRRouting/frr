@@ -51,6 +51,7 @@ __all__ = [
     "AssertPacket",
     "AssertLog",
     "DaemonRestart",
+    "Delay",
     "ModifyLinkStatus",
     "BackgroundCommand",
 ]
@@ -387,6 +388,28 @@ class AssertLog(TopotatoAssertion):
             if isinstance(detail, re.Pattern):
                 detail = detail.pattern
             raise TopotatoLogFail(detail)
+
+
+class Delay(TopotatoAssertion):
+    # pylint does not understand that from_parent is our __init__
+    _maxwait: float
+
+    # pylint: disable=arguments-differ,protected-access,too-many-arguments
+    @classmethod
+    def from_parent(cls, parent, name, *, maxwait=None):
+        name = "%s" % (name,)
+        self: AssertLog = super().from_parent(parent, name=name)
+
+        self._maxwait = maxwait
+        return self
+
+    @skiptrace
+    def __call__(self):
+        # inst = self.getparent(TopotatoInstance)
+        deadline = time.time() + self._maxwait
+
+        for _ in self.instance.poller.run_iter(deadline):
+            pass
 
 
 class DaemonRestart(TopotatoModifier):
