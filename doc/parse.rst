@@ -1,3 +1,5 @@
+.. _ascii-diagrams:
+
 ASCII Network diagrams
 ======================
 
