@@ -492,8 +492,9 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		isis_route_remove_previous_sid(area, prefix, route_info);
 
 		/* Install route. */
-		isis_zebra_route_add_route(area->isis, prefix, src_p,
-					   route_info);
+		if (area)
+			isis_zebra_route_add_route(area->isis, prefix, src_p,
+						   route_info);
 		/* Install/reinstall Prefix-SID label. */
 		if (route_info->sr.present)
 			isis_zebra_prefix_sid_install(area, prefix, route_info,
@@ -508,8 +509,9 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 			isis_zebra_prefix_sid_uninstall(
 				area, prefix, route_info, &route_info->sr);
 		/* Uninstall route. */
-		isis_zebra_route_del_route(area->isis, prefix, src_p,
-					   route_info);
+		if (area)
+			isis_zebra_route_del_route(area->isis, prefix, src_p,
+						   route_info);
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
