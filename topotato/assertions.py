@@ -383,7 +383,10 @@ class AssertLog(TopotatoAssertion):
             msg.match_for.append(self)
             break
         else:
-            raise TopotatoLogFail(self._msg)
+            detail = self._msg
+            if isinstance(detail, re.Pattern):
+                detail = detail.pattern
+            raise TopotatoLogFail(detail)
 
 
 class DaemonRestart(TopotatoModifier):
