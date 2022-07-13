@@ -9,6 +9,7 @@ import logging
 
 from typing import (
     Any,
+    Optional,
 )
 
 import pytest
@@ -38,6 +39,8 @@ class ScapySend(TopotatoModifier):
     _rtr: Any
     _iface: str
     _pkt: Any
+    _repeat: Optional[int]
+    _interval: Optional[float]
 
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
@@ -72,7 +75,7 @@ class ScapySend(TopotatoModifier):
         if self._repeat:
             netinst = self.getparent(TopotatoInstance).netinst
 
-            for i in range(1, self._repeat):
+            for _ in range(1, self._repeat):
                 netinst.poller.sleep(self._interval)
                 with router:
                     sock.send(self._pkt)

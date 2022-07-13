@@ -1,4 +1,15 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+Basic IPv4 PIM test.
+
+TBD: Currently uses BGP to set up routes.  Should probably be removed and
+replaced with static routes.
+
+TBD: stop using mcast-tx.py + mcast-rx.py tools, replace with built-in topotato
+features.
+"""
 
 from topotato import *
 
