@@ -1,4 +1,9 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+Basic IPv6 PIM test.
+"""
 
 from topotato import *
 from topotato.multicast import *

@@ -1,4 +1,12 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+Simple demo test for topotato.
+
+TBD: check that the other protocols are up & running, to make it fully
+equivalent to topotests "all_startup"
+"""
 
 from topotato import *
 

@@ -1,4 +1,9 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+IPv6 Multicast Listener Discovery tests.
+"""
 
 from topotato import *
 from topotato.multicast import *
