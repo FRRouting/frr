@@ -45,7 +45,7 @@ extern unsigned char config_debug_ospf6_nssa;
 #define OSPF6_LSA_APPROVED      0x08
 #define OSPF6_LSA_LOCAL_XLT     0x40
 
-#define OSPF6_ABR_TASK_DELAY    7
+#define OSPF6_ABR_TASK_DELAY    5
 
 int ospf6_area_nssa_no_summary_set(struct ospf6 *ospf6, struct in_addr area_id);
 int ospf6_area_nssa_unset(struct ospf6 *ospf6, struct ospf6_area *area);
