@@ -1280,6 +1280,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	struct bsm_frag *bsfrag;
 	struct pim_instance *pim;
 	uint16_t frag_tag;
+	pim_addr bsr_addr;
 	bool empty_bsm = false;
 
 	/* BSM Packet acceptance validation */
@@ -1330,6 +1331,8 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 	pim->global_scope.hashMasklen = bshdr->hm_len;
 	frag_tag = ntohs(bshdr->frag_tag);
+	/* NB: bshdr->bsr_addr.addr is packed/unaligned => memcpy */
+	memcpy(&bsr_addr, &bshdr->bsr_addr.addr, sizeof(bsr_addr));
 
 	/* Identify empty BSM */
 	if ((buf_size - PIM_BSM_HDR_LEN - PIM_MSG_HEADER_LEN) < PIM_BSM_GRP_LEN)
@@ -1351,7 +1354,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	/* Drop if bsr is not preferred bsr */
-	if (!is_preferred_bsr(pim, bshdr->bsr_addr.addr, bshdr->bsr_prio)) {
+	if (!is_preferred_bsr(pim, bsr_addr, bshdr->bsr_prio)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s : Received a non-preferred BSM",
 				   __func__);
@@ -1368,8 +1371,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s : nofwd_bsm received on %pPAs when accpt_nofwd_bsm false",
-					__func__,
-					(pim_addr *)&bshdr->bsr_addr.addr);
+					__func__, &bsr_addr);
 			pim->bsm_dropped++;
 			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
 			return -1;
@@ -1381,13 +1383,12 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		 * match RPF towards the BSR's IP address, or they have
 		 * no-forward set
 		 */
-		if (!no_fwd && !pim_nht_bsr_rpf_check(pim, bshdr->bsr_addr.addr,
-						      ifp, sg->src)) {
+		if (!no_fwd &&
+		    !pim_nht_bsr_rpf_check(pim, bsr_addr, ifp, sg->src)) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"BSM check: RPF to BSR %pPAs is not %pPA%%%s",
-					(pim_addr *)&bshdr->bsr_addr.addr,
-					&sg->src, ifp->name);
+					&bsr_addr, &sg->src, ifp->name);
 			pim->bsm_dropped++;
 			return -1;
 		}
@@ -1446,7 +1447,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	/* update the scope information from bsm */
-	pim_bsm_update(pim, bshdr->bsr_addr.addr, bshdr->bsr_prio);
+	pim_bsm_update(pim, bsr_addr, bshdr->bsr_prio);
 
 	if (!no_fwd) {
 		pim_bsm_fwd_whole_sz(pim_ifp->pim, buf, buf_size, sz);
