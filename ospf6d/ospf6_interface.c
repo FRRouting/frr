@@ -37,6 +37,7 @@
 #include "ospf6_route.h"
 #include "ospf6_area.h"
 #include "ospf6_abr.h"
+#include "ospf6_nssa.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
@@ -1736,8 +1737,10 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	ospf6_interface_enable(oi);
 
 	/* If the router is ABR, originate summary routes */
-	if (ospf6_check_and_set_router_abr(ospf6))
+	if (ospf6_check_and_set_router_abr(ospf6)) {
 		ospf6_abr_enable_area(oa);
+		ospf6_schedule_abr_task(ospf6);
+	}
 }
 
 void ospf6_interface_stop(struct ospf6_interface *oi)
