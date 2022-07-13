@@ -281,14 +281,14 @@ class PrettyInstance(list):
         toposvg = ElementTree.fromstring(self[0].toposvg)
         toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
 
+        pdml = ''
         if hasattr(topotatoinst, 'liveshark'):
             if not hasattr(topotatoinst.liveshark, 'xml'):
                 breakpoint()
             pdml = topotatoinst.liveshark.xml
+            if pdml is not None:
             # pdml.attrib['xmlns'] = 'https://xmlns.frrouting.org/topotato/pdml/'
-            pdml = ElementTree.tostring(pdml).decode('UTF-8')
-        else:
-            pdml = ''
+                pdml = ElementTree.tostring(pdml).decode('UTF-8')
 
         pdml_json = json.dumps(pdml)
 
@@ -431,11 +431,14 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
     def when_call(self, call, result):
         super().when_call(call, result)
 
+        self._pcap = None
+
         if getattr(self.instance, 'pcapfile', None):
-            with open(self.instance.pcapfile, 'rb') as fd:
-                self._pcap = fd.read()
-        else:
-            self._pcap = None
+            try:
+                with open(self.instance.pcapfile, 'rb') as fd:
+                    self._pcap = fd.read()
+            except FileNotFoundError:
+                pass
 
         self.instance.pretty.distribute()
 

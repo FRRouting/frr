@@ -8,16 +8,41 @@ import os
 import subprocess
 import time
 import ctypes
+import ctypes.util
+import errno
 
 from typing import List
 
-_setns = ctypes.cdll.LoadLibrary("libc.so.6").setns
+_libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+
+_setns = _libc.setns
+_setns.argtypes = [ctypes.c_int, ctypes.c_int]
+_setns.restype = ctypes.c_int
+
+_unshare = _libc.unshare
+_unshare.argtypes = [ctypes.c_int]
+_unshare.restype = ctypes.c_int
+
+CLONE_NEWNS = 0x00020000
+CLONE_NEWNET = 0x40000000
 
 
 def setns(nsfd: int, nstype: int = 0):
     ret = _setns(nsfd, nstype)
     if ret != 0:
-        raise OSError(ctypes.get_errno())
+        _errno = ctypes.get_errno()
+        raise OSError(_errno, os.strerror(_errno))
+
+
+def unshare(nstype: int = 0):
+    ret = _unshare(nstype)
+    if ret != 0:
+        _errno = ctypes.get_errno()
+        raise OSError(_errno, os.strerror(_errno))
+
+
+class LinuxNamespaceJoinFailed(SystemError):
+    pass
 
 
 _orig_ns = {}
@@ -155,6 +180,27 @@ class LinuxNamespace:
             nsfd = os.open("/proc/%d/ns/%s" % (self.pid, nstype), os.O_RDONLY)
             try:
                 setns(nsfd)
+            except OSError as e:
+                if nstype == "mnt" and e.errno == errno.EINVAL:
+                    try:
+                        # KERNEL BUG: 5.18-ish needs the current mntns to have
+                        # no other users before switching, so switch to an
+                        # empty one as a workaround.  Note this empty one only
+                        # exists for the time between unshare() and setns(),
+                        # and __exit__ will switch back to the "proper"
+                        # original one.
+
+                        unshare(CLONE_NEWNS)
+                        setns(nsfd)
+                        return self
+                    except OSError:
+                        # original exception below is more useful
+                        pass
+
+                raise LinuxNamespaceJoinFailed(
+                    "Failed to enter %s namespace of PID %d" % (nstype, self.pid)
+                ) from e
+
             finally:
                 os.close(nsfd)
         return self
