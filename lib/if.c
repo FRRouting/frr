@@ -580,7 +580,8 @@ struct interface *if_get_vrf_loopback(vrf_id_t vrf_id)
 }
 
 /* Get interface by name if given name interface doesn't exist create
-   one. */
+ * one.
+ */
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 				 const char *vrf_name)
 {
