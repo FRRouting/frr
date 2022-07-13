@@ -4162,25 +4162,20 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 	      "The Group we are resetting\n")
 {
 	struct pim_upstream *up;
+	struct vrf *vrf;
 	struct pim_instance *pim;
 	pim_sgaddr sg;
 
 	sg.src = source;
 	sg.grp = group;
 
-	if (!name)
-		pim = pim_get_pim_instance(VRF_DEFAULT);
-	else {
-		struct vrf *vrf = vrf_lookup_by_name(name);
-
-		if (!vrf) {
-			vty_out(vty, "%% Vrf specified: %s does not exist\n",
-				name);
-			return CMD_WARNING;
-		}
-
-		pim = pim_get_pim_instance(vrf->vrf_id);
+	vrf = vrf_lookup_by_name(name ? name : VRF_DEFAULT_NAME);
+	if (!vrf) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", name);
+		return CMD_WARNING;
 	}
+
+	pim = vrf->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
