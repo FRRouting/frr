@@ -189,7 +189,15 @@ class TopotatoItem(nodes.Item, ClassHooks):
         )
         self.fixturenames = self._fixtureinfo.names_closure
         self.funcargs = {}
-        self._request = _pytest.fixtures.FixtureRequest(self, _ispytest=True)  # type: ignore
+
+        _kwargs = {}
+        if (
+            "_ispytest"
+            in inspect.getfullargspec(_pytest.fixtures.FixtureRequest).kwonlyargs
+        ):
+            # work around warning - TBD: find a better way to do this?
+            _kwargs["_ispytest"] = True
+        self._request = _pytest.fixtures.FixtureRequest(self, **_kwargs)  # type: ignore
 
         self.add_marker(pytest.mark.usefixtures(self._obj.instancefn.__name__))
         return self
