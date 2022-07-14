@@ -16,8 +16,8 @@ import subprocess
 import tempfile
 import time
 
-import scapy.all
-import scapy.config
+import scapy.all  # type: ignore
+import scapy.config  # type: ignore
 
 from typing import Union, Dict, List, Any, Optional
 
@@ -60,13 +60,13 @@ class NetworkInstance(ClassHooks):
     _exec = LinuxNamespace._exec
     _exec.update(
         {
-            "dumpcap": None,
+            "tshark": None,
             "ip": None,
         }
     )
 
     _exec_optional = {
-        "dumpcap": "dumpcap not available -- packet dumps will be missing and AssertPacket checks will be skipped",
+        "tshark": "tshark not available -- packet dumps will be missing",
     }
 
     _bridge_settings = [
@@ -191,7 +191,7 @@ class NetworkInstance(ClassHooks):
         tcpdump from the switch NS and (c) allows setting links down on the
         bridge side so the router gets "carrier down"
 
-        also dumpcap runs inside the switch NS to get a pcap file of all the
+        also tshark runs inside the switch NS to get a pcap file of all the
         traffic (it runs in multi-iface mode so you get 1 pcap file with all
         interfaces.)
         """
@@ -311,7 +311,8 @@ class NetworkInstance(ClassHooks):
     routers: Dict[str, RouterNS]
     bridges: List[str]
     pcapfile: Optional[str]
-    dumpcap: Optional[subprocess.Popen]
+    pdmlfile: Optional[str]
+    tshark: Optional[subprocess.Popen]
 
     def __init__(self, network: Network):
         self.network = network
@@ -319,7 +320,8 @@ class NetworkInstance(ClassHooks):
         self.routers = {}
         self.bridges = []
         self.pcapfile = None
-        self.dumpcap = None
+        self.pdmlfile = None
+        self.tshark = None
 
         # pylint: disable=consider-using-with
         self.tempdir = tempfile.TemporaryDirectory()
@@ -340,7 +342,7 @@ class NetworkInstance(ClassHooks):
         kick everything up
 
         also add the various interfaces to the bridges in the switch-NS, and
-        finally start up dumpcap for a pcap file.
+        finally start up tshark for a pcap file.
         """
 
         self.switch_ns.start()
@@ -432,7 +434,6 @@ class NetworkInstance(ClassHooks):
                 )
 
         self.scapys = {}
-        self.pcapfile = self.tempfile("dump.pcapng")
         args = []
 
         with self.switch_ns:
@@ -442,40 +443,48 @@ class NetworkInstance(ClassHooks):
                 self.scapys[br] = scapy.config.conf.L2socket(iface=br)
                 os.set_blocking(self.scapys[br].fileno(), False)
 
-        if self._exec.get("dumpcap"):
-            self.dumpcap = self.switch_ns.popen(
-                [self._exec["dumpcap"], "-B", "1", "-t", "-q", "-w", self.pcapfile]
-                + args,
-                stderr=subprocess.PIPE,
-            )
+        if self._exec.get("tshark"):
+            self.pcapfile = self.tempfile("dump.pcapng")
+            self.pdmlfile = self.tempfile("dump.pdml")
 
-            # starting dumpcap has been shown to take a few seconds on a loaded
-            # CI box... to the point of tests completing before dumpcap even
-            # started, which in turn caused hangs because dumpcap then couldn't
+            with open(self.pdmlfile, 'wb') as pdmlfd:
+                self.tshark = self.switch_ns.popen(
+                    [self._exec["tshark"], "-B", "1", "-q", "-w", self.pcapfile, '-T', 'pdml']
+                    + args,
+                    stdout=pdmlfd,
+                    stderr=subprocess.PIPE,
+                )
+
+            # starting tshark has been shown to take a few seconds on a loaded
+            # CI box... to the point of tests completing before tshark even
+            # started, which in turn caused hangs because tshark then couldn't
             # be killed :S
 
             start = time.time()
             timeout = 15.0
 
-            os.set_blocking(self.dumpcap.stderr.fileno(), False)
+            os.set_blocking(self.tshark.stderr.fileno(), False)
             out = ""
 
             while time.time() < start + timeout:
                 r = select.select(
-                    [self.dumpcap.stderr], [], [], start + timeout - time.time()
+                    [self.tshark.stderr], [], [], start + timeout - time.time()
                 )
                 if len(r[0]) == 0:
-                    raise TimeoutError("failed to start dumpcap")
-                out += self.dumpcap.stderr.read(4096).decode("UTF-8")
-                if out.find("File") >= 0:
+                    raise TimeoutError("failed to start tshark")
+                out += self.tshark.stderr.read(4096).decode("UTF-8")
+                if out.find("File:") >= 0:
                     break
 
+            # "File: " is only printed when the file is really open, and packet
+            # sockets are running, so we should be ready to go.  Give it an
+            # extra 250ms anyway...
             time.sleep(0.25)
 
     def stop(self):
-        dumpcap_pid = find_child(self.dumpcap.pid)
-        os.kill(dumpcap_pid, signal.SIGINT)
-        self.dumpcap.wait()
+        tshark_pid = find_child(self.tshark.pid)
+        os.kill(tshark_pid, signal.SIGINT)
+        self.tshark.wait()
 
         for rns in self.routers.values():
             rns.end()

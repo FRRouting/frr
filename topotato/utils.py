@@ -423,55 +423,6 @@ def exec_find(name, stacklevel=1):
     logger.warning("executable %s not found in PATH", shlex.quote(name))
 
 
-class MiniPollee(ABC):
-    @abstractmethod
-    def filenos(self) -> Iterable[Tuple[int, Callable[[int], None]]]:
-        pass
-
-
-class MiniPoller(list):
-    def sleep(self, duration, final=False):
-        for _ in self.run_iter(time.time() + duration, final=final):
-            pass
-
-    def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__, super().__repr__())
-
-    def run_iter(self, deadline=float("inf"), final=False):
-        relist = True
-        first = True
-
-        while True:
-            if relist:
-                fds = []
-                fdmap = {}
-
-                for target in self:
-                    items = list(target.filenos())
-                    fds.extend([i[0] for i in items])
-                    fdmap.update(items)
-
-            if final and not fds:
-                break
-
-            timeout = max(deadline - time.time(), 0)
-            if timeout == 0 and not first:
-                return
-            if timeout == float("inf"):
-                timeout = None
-
-            ready, _, _ = select.select(fds, [], [], timeout)
-            if not ready:
-                break
-
-            for fd in ready:
-                assert fd in fdmap
-                ret = yield from fdmap[fd](fd)
-                if ret:
-                    relist = True
-            first = False
-
-
 class ClassHooks:
     _hooked_classes: List[type] = []
 

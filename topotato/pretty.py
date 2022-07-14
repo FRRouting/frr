@@ -28,6 +28,7 @@ from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .utils import ClassHooks, exec_find
 from .scapy import ScapySend
+from .timeline import TimedElement
 
 
 jenv = jinja2.Environment(
@@ -81,7 +82,7 @@ class fmt(html):
         class_ = 'assert-match-item'
 
 
-class PrettyLog(base.TimedElement):
+class PrettyLog(TimedElement):
     log_id_re = re.compile(r'^(?:\[(?P<uid>[A-Z0-9]{5}-[A-Z0-9]{5})\])?(?:\[EC (?P<ec>\d+)\])? ?')
 
     def __init__(self, prettysession, seqno, msg):
@@ -110,7 +111,8 @@ class PrettyLog(base.TimedElement):
 
     def __repr__(self):
         return '<%s @%.6f %r>' % (self.__class__.__name__, self._ts, self._text)
-    
+
+    @property
     def ts(self):
         return (self._ts, self._seqno)
 
@@ -204,6 +206,8 @@ class PrettyInstance(list):
         self.timed = []
 
     def distribute(self):
+        raise NotImplementedError()
+
         for router in self.instance.routers.values():
             for daemonlog in router.livelogs.values():
                 for seqno, msg in enumerate(daemonlog):
@@ -281,16 +285,23 @@ class PrettyInstance(list):
         toposvg = ElementTree.fromstring(self[0].toposvg)
         toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
 
-        pdml = ''
-        if hasattr(topotatoinst, 'liveshark'):
-            if not hasattr(topotatoinst.liveshark, 'xml'):
-                breakpoint()
-            pdml = topotatoinst.liveshark.xml
-            if pdml is not None:
-            # pdml.attrib['xmlns'] = 'https://xmlns.frrouting.org/topotato/pdml/'
-                pdml = ElementTree.tostring(pdml).decode('UTF-8')
+        data = {
+            'timed': topotatoinst.netinst.timeline.serialize(),
+        }
+        if items[-1]._pdml:
+            data['pdml'] = items[-1]._pdml
+        data_json = json.dumps(data, ensure_ascii=True).encode('ASCII')
 
-        pdml_json = json.dumps(pdml)
+        #pdml = ''
+        #if hasattr(topotatoinst, 'liveshark'):
+        #    if not hasattr(topotatoinst.liveshark, 'xml'):
+        #        breakpoint()
+        #    pdml = topotatoinst.liveshark.xml
+        #    if pdml is not None:
+        #    # pdml.attrib['xmlns'] = 'https://xmlns.frrouting.org/topotato/pdml/'
+        #        pdml = ElementTree.tostring(pdml).decode('UTF-8')
+
+        #pdml_json = json.dumps(pdml)
 
         extrafiles = {}
         for item in self:
@@ -402,14 +413,14 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
         super().when_call(call, result)
 
         self.instance.ts_rel = self.item.parent.starting_ts
-        self.instance.protomato = None
+        #self.instance.protomato = None
 
         if call.excinfo:
             return
 
-        self.instance.protomato = ProtomatoDumper(self.instance.network.macmap(),
-                self.instance.ts_rel)
-        self.item.parent.liveshark.subscribe(self.instance.protomato.submit)
+        #self.instance.protomato = ProtomatoDumper(self.instance.network.macmap(),
+        #        self.instance.ts_rel)
+        #self.item.parent.liveshark.subscribe(self.instance.protomato.submit)
 
     def files(self):
         dot = self.instance.network.dot()
@@ -432,15 +443,20 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
         super().when_call(call, result)
 
         self._pcap = None
-
-        if getattr(self.instance, 'pcapfile', None):
+        if self.instance.pcapfile:
             try:
                 with open(self.instance.pcapfile, 'rb') as fd:
                     self._pcap = fd.read()
             except FileNotFoundError:
                 pass
 
-        self.instance.pretty.distribute()
+        self._pdml = None
+        if self.instance.pdmlfile:
+            try:
+                with open(self.instance.pdmlfile, 'r', encoding='UTF-8') as fd:
+                    self._pdml = fd.read()
+            except FileNotFoundError:
+                pass
 
         for idx, prettyitem in enumerate(self.instance.pretty):
             prettyitem.finalize(idx)
@@ -455,7 +471,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
     template = jenv.get_template('item_vtysh.html.j2')
 
-    class Line(base.TimedElement):
+    class Line(TimedElement):
         def __init__(self, ts, router, daemon, cmd, out, rc, result, same):
             super().__init__()
 
@@ -472,8 +488,12 @@ class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
             self._result = result
             self._same = same
 
+        @property
         def ts(self):
             return (self._ts, 0)
+
+        def serialize(self):
+            return {}
 
         def html(self, id_, ts_rel):
             clicmd = fmt.clicmd([

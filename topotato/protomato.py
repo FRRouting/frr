@@ -5,7 +5,7 @@ import time
 from lxml import etree
 from py.xml import html
 from collections import OrderedDict
-from .base import TimedElement
+from .timeline import TimedElement
 
 class fmt(html):
     """custom styling"""

@@ -42,7 +42,7 @@ from .exceptions import (
     TopotatoEarlierFailSkip,
     TopotatoDaemonCrash,
 )
-from .liveshark import LiveShark, LiveScapy
+from .liveshark import LiveScapy
 from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
@@ -101,29 +101,6 @@ to debug when a test fails.
    Add a testrun/pytest option that disables this, for bug hunting in topotato
    itself.
 """
-
-
-class TimedElement(ABC):
-    """
-    Abstract base for test report items.
-
-    Sortable by timestamp, and possibly with a HTML conversion function.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.match_for = []
-
-    @abstractmethod
-    def ts(self):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def html(self, ts_start):
-        raise NotImplementedError()
-
-    def __lt__(self, other):
-        return self.ts() < other.ts()
 
 
 # false warning on get_closest_marker()
@@ -276,7 +253,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
         deadline = min(abs_until, abs_delay)
 
         tinst = self.getparent(TopotatoInstance)
-        tinst.netinst.poller.sleep(deadline - time.time())
+        tinst.netinst.timeline.sleep(deadline - time.time())
 
     def reportinfo(self):  # -> Tuple[Union[py.path.local, str], int, str]:
         fspath = self._codeloc.filename
@@ -589,10 +566,7 @@ class TopotatoInstance(_pytest.python.Instance):
 
     starting_ts: float
     started_ts: float
-    liveshark: LiveShark
     netinst: "FRRNetworkInstance"
-    pcap_tail_f: Optional[subprocess.Popen]
-    tshark_proc: Optional[subprocess.Popen]
 
     # pylint: disable=protected-access
     @classmethod
@@ -602,9 +576,6 @@ class TopotatoInstance(_pytest.python.Instance):
         self = super().from_parent(parent, *args, **kw)
 
         self.skipall = None
-
-        self.pcap_tail_f = None
-        self.tshark_proc = None
         return self
 
     def collect(self):
@@ -630,7 +601,7 @@ class TopotatoInstance(_pytest.python.Instance):
         self.netinst = netinst = startitem.instance
 
         netinst.start()
-        netinst.poller.sleep(0.2)
+        netinst.timeline.sleep(0.2)
         # netinst.status()
 
         startitem.commands = OrderedDict()
@@ -654,65 +625,24 @@ class TopotatoInstance(_pytest.python.Instance):
                     failed.append((rtr, daemon))
 
         if len(failed) > 0:
-            netinst.poller.sleep(0)
+            netinst.timeline.sleep(0)
             raise TopotatoDaemonCrash("daemons failed to start: %r" % failed)
 
-        # let tshark decode in the background (otherwise it adds a few seconds
-        # during shutdown to dump everything)
-        pdml_rd = None
-
-        # pylint: disable=consider-using-with
-        if getattr(netinst, "pcapfile", None):
-            for _ in range(0, 10):
-                if os.path.exists(netinst.pcapfile):
-                    break
-                time.sleep(0.025)
-
-            pcap_rd, pcap_wr = os.pipe()
-            pdml_rd, pdml_wr = os.pipe()
-
-            self.pcap_tail_f = subprocess.Popen(
-                ["tail", "-f", "-c", "+0", netinst.pcapfile],
-                stdout=pcap_wr,
-            )
-            self.tshark_proc = subprocess.Popen(
-                ["tshark", "-r", "-", "-q", "-l", "-T", "pdml"],
-                stdout=pdml_wr,
-                stdin=pcap_rd,
-            )
-
-            os.close(pcap_rd)
-            os.close(pcap_wr)
-            os.close(pdml_wr)
-
         self.started_ts = time.time()
-        self.liveshark = LiveShark(pdml_rd, self.started_ts)
-        netinst.poller.append(self.liveshark)
 
-        self.livescapy = LiveScapy(netinst, self.started_ts)
-        netinst.poller.append(self.livescapy)
+        for ifname, sock in netinst.scapys.items():
+            netinst.timeline.install(LiveScapy(ifname, sock))
 
     def do_stop(self, stopitem):
         netinst = stopitem.instance
 
         netinst.stop()
 
-        if self.pcap_tail_f:
-            self.pcap_tail_f.send_signal(signal.SIGINT)
-            self.pcap_tail_f.wait()
-
-            self.liveshark.expect_eof = True
-
         for router in netinst.routers.values():
             for daemonlog in router.livelogs.values():
                 daemonlog.close_prep()
 
-        netinst.poller.sleep(2, final=True)  # FIXME
-
-        if self.tshark_proc:
-            if self.tshark_proc.wait(timeout=2.0) != 0:
-                logger.error("tshark nonzero exit")
-            self.liveshark.close()
+        netinst.timeline.sleep(1, final=True)
 
 
 # false warning on get_closest_marker()

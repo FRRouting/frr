@@ -14,14 +14,35 @@ import logging
 
 from typing import List, Dict, Tuple, Any, Optional, Callable, Iterable
 
-from scapy.packet import Packet
-from scapy.supersocket import SuperSocket
+from scapy.packet import Packet  # type: ignore
+from scapy.supersocket import SuperSocket  # type: ignore
 from xml.etree.ElementTree import XMLPullParser
 
-from .utils import MiniPollee
+from .timeline import MiniPollee, TimedElement
 from .pdmlpacket import PDMLPacket
 
 _logger = logging.getLogger("topotato")
+
+
+class TimedScapy(TimedElement):
+    def __init__(self, pkt):
+        super().__init__()
+        self._pkt = pkt
+
+    @property
+    def ts(self):
+        return (self._pkt.time, 0)
+
+    @property
+    def pkt(self):
+        return self._pkt
+
+    def serialize(self):
+        return {
+            'type': 'packet',
+            'iface': self._pkt.sniffed_on,
+            'dump': self._pkt.show(dump=True),
+        }
 
 
 class LiveScapy(MiniPollee):
@@ -29,61 +50,34 @@ class LiveScapy(MiniPollee):
     DOCME
     """
 
-    packets: List[Packet]
-    receivers: List[Callable[[Packet], Any]]
+    _ifname: str
+    _sock: Optional[SuperSocket]
 
-    _socks: Dict[int, Tuple[str, SuperSocket]]
-    _abs_start_ts: float
+    def __init__(self, ifname: str, sock: SuperSocket):
+        super().__init__()
 
-    def __init__(
-        self,
-        netinst,
-        abs_start_ts: Optional[float] = None,
-    ):
-        self._abs_start_ts = abs_start_ts or time.time()
-        self._socks = {}
+        self._ifname = ifname
+        self._sock = sock
 
-        for ifname, sock in netinst.scapys.items():
-            self._socks[sock.fileno()] = (ifname, sock)
+    def fileno(self):
+        if self._sock is None:
+            return None
+        return self._sock.fileno()
 
-        self.receivers = []
-        self.packets = []
-
-    def _handle_packet(self, pkt: Packet):
-        _logger.debug("iface %r pkt %r live-delay %fs", pkt.sniffed_on, pkt, time.time() - pkt.time)
-
-        self.packets.append(pkt)
-        for receiver in self.receivers:
-            receiver(pkt)
-        return pkt
-
-    def subscribe(self, receiver: Callable[[Packet], Any]):
-        """
-        add a receiver that gets all the packets passed, used to make the
-        HTML dumps.  receiver gets all the history packets first.
-        """
-        for pkt in self.packets:
-            receiver(pkt)
-        self.receivers.append(receiver)
-
-    def _do_read(self, fd: int):
-        ifname, sock = self._socks[fd]
+    def readable(self):
         maxdelay = time.time() + 0.1
 
         while time.time() < maxdelay:
             try:
-                pkt = sock.recv()
+                pkt = self._sock.recv()
             except BlockingIOError:
                 break
-            pkt.sniffed_on = ifname
-            yield (True, self._handle_packet(pkt))
-
-    def filenos(self):
-        for i in self._socks.keys():
-            yield (i, self._do_read)
+            pkt.sniffed_on = self._ifname
+            yield TimedScapy(pkt)
 
     def close(self):
-        pass
+        self._sock.close()
+        self._sock = None
 
 
 class LiveSharkEOFError(EOFError):
@@ -139,13 +133,11 @@ class LiveShark(MiniPollee):
             receiver(pkt)
         self.receivers.append(receiver)
 
-    def filenos(self):
-        if self._pdmlfd:
-            yield (self._pdmlfd, self._pdml_read)
+    def fileno(self):
+        return self._pdmlfd
 
-    def _pdml_read(self, fd):
-        _ = fd  # unused
-
+    def readable(self):
+        yield from []
         rddata = os.read(self._pdmlfd, 16384)
         if not rddata:
             self.close()
@@ -157,7 +149,8 @@ class LiveShark(MiniPollee):
         self._pdml_pp.feed(rddata)
         for _, obj in self._pdml_pp.read_events():
             if obj.tag == "packet":
-                yield (True, self._handle_packet(obj))
+                pass
+                #yield (True, self._handle_packet(obj))
             if obj.tag == "pdml":
                 self.xml = obj
         return False
