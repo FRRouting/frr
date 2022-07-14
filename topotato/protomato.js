@@ -347,6 +347,14 @@ function onclick_pkt(evt) {
 	infopane.replaceChildren(htmlpacket);
 }
 
+function b64_inflate_json(b64data) {
+	var bytearr = Uint8Array.from(atob(b64data), i => i.charCodeAt(0))
+	var text = new TextDecoder().decode(pako.inflate(bytearr));
+	return JSON.parse(text);
+}
+
+var jsdata;
+
 function init() {
 	document.getElementsByTagName("body")[0].onhashchange = onhashchange;
 
@@ -358,8 +366,10 @@ function init() {
 		obj.onclick = onclick_pkt;
 	}
 
+	jsdata = b64_inflate_json(data);
+
 	var parser = new DOMParser();
-	pdmltree = parser.parseFromString(pdml, "application/xml");
+	pdmltree = parser.parseFromString(jsdata.pdml, "application/xml");
 
 	anchor_update();
 }

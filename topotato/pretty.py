@@ -13,6 +13,7 @@ import time
 import os
 import urllib.parse
 import json
+import zlib
 from xml.etree import ElementTree
 
 import logging
@@ -291,6 +292,7 @@ class PrettyInstance(list):
         if items[-1]._pdml:
             data['pdml'] = items[-1]._pdml
         data_json = json.dumps(data, ensure_ascii=True).encode('ASCII')
+        data_bz = base64.b64encode(zlib.compress(data_json, level=6)).decode('ASCII')
 
         #pdml = ''
         #if hasattr(topotatoinst, 'liveshark'):
