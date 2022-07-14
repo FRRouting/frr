@@ -1301,6 +1301,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_LARGE_COMMUNITIES:
 	case BGP_ATTR_ORIGINATOR_ID:
 	case BGP_ATTR_CLUSTER_LIST:
+	case BGP_ATTR_OTC:
 		return BGP_ATTR_PARSE_WITHDRAW;
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
@@ -3042,6 +3043,11 @@ static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 	}
 
 	attr->otc = stream_getl(peer->curr);
+	if (!attr->otc) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH, "OTC attribute value is 0");
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  args->total);
+	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_OTC);
 
