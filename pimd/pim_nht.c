@@ -436,7 +436,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	 * RPF nbr is now unreachable the MFC has already been updated
 	 * by pim_rpf_clear
 	 */
-	if (rpf_result != PIM_RPF_FAILURE)
+	if (rpf_result != PIM_RPF_CHANGED)
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 	if (rpf_result == PIM_RPF_CHANGED ||
