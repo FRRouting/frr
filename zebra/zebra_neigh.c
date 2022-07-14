@@ -272,8 +272,13 @@ void zebra_neigh_init(void)
 
 void zebra_neigh_terminate(void)
 {
+	struct zebra_neigh_ent *n, *next;
+
 	if (!zrouter.neigh_info)
 		return;
 
+	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree,
+			 next)
+		zebra_neigh_free(n);
 	XFREE(MTYPE_ZNEIGH_INFO, zneigh_info);
 }
