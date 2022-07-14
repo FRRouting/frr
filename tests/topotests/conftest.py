@@ -1,6 +1,7 @@
 """
 Topotest conftest.py file.
 """
+# pylint: disable=consider-using-f-string
 
 import glob
 import os
@@ -135,7 +136,7 @@ def check_for_memleaks():
     assert topotest_extra_config["valgrind_memleaks"]
 
     leaks = []
-    tgen = get_topogen()
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
     latest = []
     existing = []
     if tgen is not None:
@@ -143,19 +144,28 @@ def check_for_memleaks():
         if hasattr(tgen, "valgrind_existing_files"):
             existing = tgen.valgrind_existing_files
         latest = glob.glob(os.path.join(logdir, "*.valgrind.*"))
+        latest = [x for x in latest if "core" not in x]
 
     daemons = set()
     for vfile in latest:
         if vfile in existing:
             continue
-        existing.append(vfile)
+        # do not consider memleaks from parent fork (i.e., owned by root)
+        if os.stat(vfile).st_uid == 0:
+            existing.append(vfile)  # do not check again
+            logger.debug("Skipping valgrind file %s owned by root", vfile)
+            continue
+        logger.debug("Checking valgrind file %s not owned by root", vfile)
         with open(vfile, encoding="ascii") as vf:
             vfcontent = vf.read()
             match = re.search(r"ERROR SUMMARY: (\d+) errors", vfcontent)
+            if match:
+                existing.append(vfile)  # have summary don't check again
             if match and match.group(1) != "0":
                 emsg = "{} in {}".format(match.group(1), vfile)
                 leaks.append(emsg)
-                daemons.add(re.match(r".*\.valgrind\.(.*)\.\d+", vfile).group(1))
+                daemon = re.match(r".*\.valgrind\.(.*)\.\d+", vfile).group(1)
+                daemons.add("{}({})".format(daemon, match.group(1)))
 
     if tgen is not None:
         tgen.valgrind_existing_files = existing
@@ -163,6 +173,15 @@ def check_for_memleaks():
     if leaks:
         logger.error("valgrind memleaks found:\n\t%s", "\n\t".join(leaks))
         pytest.fail("valgrind memleaks found for daemons: " + " ".join(daemons))
+
+
+@pytest.fixture(autouse=True, scope="module")
+def module_check_memtest(request):
+    del request  # disable unused warning
+    yield
+    if topotest_extra_config["valgrind_memleaks"]:
+        if get_topogen() is not None:
+            check_for_memleaks()
 
 
 def pytest_runtest_logstart(nodeid, location):
@@ -178,6 +197,7 @@ def pytest_runtest_logfinish(nodeid, location):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item: pytest.Item) -> None:
     "Hook the function that is called to execute the test."
+    del item  # disable unused warning
 
     # For topology only run the CLI then exit
     if topotest_extra_config["topology_only"]:
@@ -416,7 +436,7 @@ def pytest_runtest_makereport(item, call):
                 )
 
             # (topogen) Set topology error to avoid advancing in the test.
-            tgen = get_topogen()
+            tgen = get_topogen()  # pylint: disable=redefined-outer-name
             if tgen is not None:
                 # This will cause topogen to report error on `routers_have_failure`.
                 tgen.set_error("{}/{}".format(modname, item.name))
@@ -499,7 +519,7 @@ def pytest_runtest_makereport(item, call):
         if user == "cli":
             cli(Mininet.g_mnet_inst)
         elif user == "pdb":
-            pdb.set_trace()
+            pdb.set_trace()  # pylint: disable=forgotten-debug-statement
         elif user:
             print('Unrecognized input: "%s"' % user)
         else:
