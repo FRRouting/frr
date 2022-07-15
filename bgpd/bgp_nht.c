@@ -38,6 +38,10 @@ extern struct zclient *zclient;
 
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
+
+DEFINE_HOOK(bgp_hook_nht_update, (struct bgp_nexthop_cache * bnc, bool created),
+	    (bnc, created));
+
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 static void bgp_nht_ifp_initial(struct event *thread);
 
@@ -146,6 +150,7 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 		/* only unregister if this is the last nh for this prefix*/
 		if (!bnc_existing_for_prefix(bnc))
 			unregister_zebra_rnh(bnc);
+		hook_call(bgp_hook_nht_update, bnc, false);
 		bnc_free(bnc);
 	}
 }
@@ -393,6 +398,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   &bnc->prefix, bnc->ifindex_ipv6_ll,
 				   bnc->srte_color, bnc->bgp->name_pretty,
 				   peer);
+		if (!is_bgp_static_route && !peer)
+			hook_call(bgp_hook_nht_update, bnc, true);
 	} else {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(

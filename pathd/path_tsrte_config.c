@@ -34,6 +34,7 @@
 #include "pathd/pathd.h"
 #include "pathd/path_tsrte.h"
 #include "pathd/path_template.h"
+#include "pathd/path_triggered.h"
 
 #include "pathd/path_tsrte_config_clippy.c"
 
@@ -120,8 +121,14 @@ int path_zebra_handle_tsrte_bgp_ready(struct zclient *zclient,
 				      struct stream *s)
 {
 	zlog_debug("%s(): received BGP_TE_READY, sending back reply", __func__);
-	zapi_tsrte_client_ready_send(zclient, SRTE_ORIGIN_UNDEFINED);
+	zapi_tsrte_client_ready_send(zclient,
+				     srte_triggered_get_protocol_origin());
 	return 0;
+}
+
+int path_zebra_send_te_ready(enum srte_protocol_origin protocol_origin)
+{
+	return zapi_tsrte_client_ready_send(zclient, protocol_origin);
 }
 
 static struct cmd_node srte_policy_template_node = {
@@ -395,6 +402,7 @@ int pathd_srte_policy_template_create(struct nb_cb_create_args *args)
 
 	color = yang_dnode_get_uint32(args->dnode, "./color");
 	policy = srte_policy_template_add(color);
+	srte_triggered_update();
 
 	nb_running_set_entry(args->dnode, policy);
 	SET_FLAG(policy->flags, F_POLICY_NEW);

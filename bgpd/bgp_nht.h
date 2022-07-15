@@ -6,6 +6,10 @@
 #ifndef _BGP_NHT_H
 #define _BGP_NHT_H
 
+#include "hook.h"
+
+DECLARE_HOOK(bgp_hook_nht_update,
+	     (struct bgp_nexthop_cache * bnc, bool created), (bnc, created));
 /**
  * bgp_nexthop_update() - process a nexthop update message from Zebra.
  */

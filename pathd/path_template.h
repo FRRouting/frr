@@ -108,4 +108,8 @@ srte_candidate_template_find(struct srte_policy_template *policy,
 void srte_template_clean_zebra(void);
 void srte_template_apply_changes(void);
 void srte_template_show_debugging(struct vty *vty);
+
+void srte_template_update_tsrte(void);
+enum srte_protocol_origin srte_template_get_protocol_origin(void);
+
 #endif

@@ -3210,6 +3210,10 @@ static int bgp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	switch (info.type) {
 	case TSRTE_CLIENT_READY:
 		ret = bgp_te_process_tsrte_client_ready(s);
+		break;
+	case TSRTE_BGP_UPDATE:
+		ret = bgp_te_process_tsrte_bgp_update(s);
+		break;
 	}
 	return ret;
 }

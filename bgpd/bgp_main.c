@@ -50,6 +50,7 @@
 #include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
 #include "bgpd/bgp_community_alias.h"
+#include "bgpd/bgp_te.h"
 
 DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 	    (vty, vrf));
@@ -519,6 +520,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_SCRIPTING
 	bgp_script_init();
 #endif
+	bgp_te_init();
 
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);

@@ -25,6 +25,7 @@
 #include "lib/link_state.h"
 #include "lib/zapi_triggered_srte.h"
 #include "pathd/path_flex_algo.h"
+#include "pathd/path_triggered.h"
 #include "pathd/path_tsrte.h"
 
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
@@ -88,7 +89,8 @@ static void path_zebra_connected(struct zclient *zclient)
 
 	path_zebra_fae_igp_opaque_register();
 	zapi_fae_client_ready_send(zclient);
-	zapi_tsrte_client_ready_send(zclient, SRTE_ORIGIN_UNDEFINED);
+	zapi_tsrte_client_ready_send(zclient,
+				     srte_triggered_get_protocol_origin());
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;

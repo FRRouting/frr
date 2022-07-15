@@ -21,13 +21,18 @@
 #include "debug.h"
 
 #include "pathd.h"
+#include "path_zebra.h"
 #include "path_template.h"
+#include "path_triggered.h"
+#include "path_tsrte.h"
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY_TEMPLATE, "SR Policy Template");
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_TEMPLATE,
 		    "SR Policy candidate template path");
 
 struct debug path_template_debug;
+
+bool srte_template_tsrte_enabled = false;
 
 /* Generate rb-tree of Candidate Path instances. */
 static inline int
@@ -227,6 +232,7 @@ void srte_template_apply_changes(void)
 			 &srte_policies_template, safe_pol_tpl) {
 		if (CHECK_FLAG(policy_tpl->flags, F_POLICY_DELETED)) {
 			srte_policy_template_del(policy_tpl);
+			srte_triggered_update();
 			continue;
 		}
 		srte_policy_template_apply_changes(policy_tpl);

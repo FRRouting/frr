@@ -23,7 +23,40 @@
 #define __BGP_TE_H
 
 #include "lib/zapi_client.h"
+#include "lib/mpls.h"
+#include "lib/ipaddr.h"
+
+struct bgp_te_entry {
+	/* RB-tree entry. */
+	RB_ENTRY(bgp_te_entry) entry;
+
+	/* Color */
+	uint32_t color;
+	/* Endpoint */
+	struct ipaddr endpoint;
+
+	/* callback pointer */
+	struct bgp_nexthop_cache *bnc;
+
+	/* response */
+	/* Name */
+	char name[SRTE_POLICY_NAME_MAX_LENGTH];
+	/* Binding SID */
+	mpls_label_t binding_sid;
+	/* segment list name */
+	char segmentlistname[SRTE_SEGMENT_LIST_NAME_MAX_LENGTH];
+};
+
+extern int bgp_te_entry_compare(const struct bgp_te_entry *a,
+				const struct bgp_te_entry *b);
+RB_HEAD(bgp_te_entry_head, bgp_te_entry);
+RB_PROTOTYPE(bgp_te_entry_head, bgp_te_entry, entry, bgp_te_entry_compare)
 
 int bgp_te_process_tsrte_client_ready(struct stream *s);
+int bgp_te_process_tsrte_bgp_update(struct stream *s);
+
+struct bgp_te_entry *bgp_te_entry_find(uint32_t color, struct ipaddr *ipaddr);
+
+void bgp_te_init(void);
 
 #endif

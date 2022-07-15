@@ -27,6 +27,7 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_flex_algo_config.c \
 	pathd/path_ted.c \
 	pathd/path_template.c \
+	pathd/path_triggered.c \
 	pathd/path_tsrte_config.c \
 	pathd/path_zebra.c \
 	pathd/pathd.c \
@@ -54,6 +55,7 @@ noinst_HEADERS += \
 	pathd/path_pcep_pcc.h \
 	pathd/path_ted.h \
 	pathd/path_template.h \
+	pathd/path_triggered.h \
 	pathd/path_tsrte.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
