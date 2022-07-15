@@ -593,15 +593,14 @@ void zebra_evpn_arp_nd_udp_sock_create(void)
 
 			if (zevpn_arp_nd_info.udp_fd <= 0) {
 				flog_err(EC_LIB_SOCKET,
-					 "evpn arp_nd UDP sock fd %d bind to %pI4 errno %s",
-					 zevpn_arp_nd_info.udp_fd, &zmh_info->es_originator_ip,
-					 safe_strerror(errno));
+					 "evpn arp_nd UDP sock socket(): fd %d errno %s",
+					 zevpn_arp_nd_info.udp_fd, safe_strerror(errno));
 				return;
 			}
 			if (setsockopt(zevpn_arp_nd_info.udp_fd, SOL_SOCKET, SO_REUSEADDR,
 				       (void *)&reuse, sizeof(reuse)))
 				flog_err(EC_LIB_SOCKET,
-					 "evpn arp_nd sock SO_REUSEADDR set: fd %d errno %s",
+					 "evpn arp_nd UDP sock SO_REUSEADDR set: fd %d errno %s",
 					 zevpn_arp_nd_info.udp_fd, safe_strerror(errno));
 		}
 
