@@ -1174,6 +1174,214 @@ TI-LFA requires a proper Segment Routing configuration.
 
    Note that so far only P2P interfaces are supported.
 
+Flexible Algorithms (Flex-Algo)
+===============================
+
+This is a bare-minimum implementation of : :t:`draft-ietf-lsr-flex-algo`. Currently
+`Shortest Path First` is the only algorithm supported, with `IGP-Metric` and
+`Shortest-Path-First` are the only values supported for `metric-type` and
+`calculation-type` respectively. In future support for more algorithms,
+metric-types and calculation-types shall be added.
+
+Please note, since Flexible Algorithm Definitions (also referred to as FAD)
+are advertised in Opaque LSAs (one ore more), capability to carry Opaque
+Linkstate Information (in the form of Opaque LSAs) should be turned on using
+``capability opaque`` and ``router-info area`` configration commands under
+`router ospf` level.
+
+.. clicmd:: [no] flexible-algorithm (128-255)
+
+   Add a new or remove an existing Flexible Algorithm Definition for the
+   current router to support.
+
+   The add will result in the router advertsing the new flexible-algorithm
+   definition (with the specified algorithm-id) in all relevant types of
+   self-originated LSAs. By default, `calculation-type` and `metric-type`
+   for the new flexible-algorithm shall be set to `Shortest-Path-First` and
+   `IGP-Metric` respectively.
+
+   Removing an existing Flexible Algorithm Definition will result in the
+   router removing all advertisements for the specified algorithm-id from all
+   the relevant types of self-originated LSAs.
+
+.. clicmd:: [no] flexible-algorithm (128-255) calculation-type (spf)
+
+   Set (or reset) the `calculation-type` for the Flexible Algorithm Definition
+   specified by the algorithm-id. Currently `spf` (i.e. Shortest-Path-First)
+   only allowed value. Support for more metric-types shall be added in future.
+
+   Resetting the `calculation-type` for the Flexible Algorithm Definition will
+   reset it to the default value of `spf`.
+
+.. clicmd:: [no] flexible-algorithm (128-255) metric-type (igp)
+
+   Set the (or reset) `metric-type` for the Flexible Algorithm Definition
+   specified by the algorithm-id. Currently `igp-metric` is the only allowed
+   value. Support for more metric-types shall be added in future.
+
+   Resetting the `metric-type` for the Flexible Algorithm Definition will
+   reset it to efault value of `igp-metric`.
+
+.. clicmd:: [no] flexible-algorithm (128-255) priority (0-4294967295)
+
+   Set the (or reset) `priority` for the Flexible Algorithm Definition
+   specified by the algorithm-id. Default value of priority is 0.
+
+   Resetting the `priority` for the Flexible Algorithm Definition will reset
+   it to default value 0.
+
+.. clicmd:: [no] flexible-algorithm (128-255) exclude-admin-group (0-4294967295)
+
+   Add (or remove) the specified `admin-group` value to (or from) the list of
+   Exclude-Admin-Groups for the Flexible Algorithm Definition specified by the
+   algorithm-id.
+
+   This will add (or remove) the admin-group to (or from) the list of
+   admin-groups advertised in the Exclude-Admin-Group Sub-TLV included in the
+   corresponding Flexible Algorithm Definition TLV (carried inside the
+   Router-Info external LSA).
+
+.. clicmd:: [no] flexible-algorithm (128-255) include-any-admin-group (0-4294967295)
+
+   Add (or remove) the specified `admin-group` value to (or from) the list of
+   Include-Any-Admin-Groups for the Flexible Algorithm Definition specified by
+   the algorithm-id.
+
+   This will add (or remove) the admin-group to (or from) the list of
+   admin-groups advertised in the Include-Any-Admin-Group Sub-TLV included in
+   the corresponding Flexible Algorithm Definition TLV (carried inside the
+   Router-Info external LSA).
+
+.. clicmd:: [no] flexible-algorithm (128-255) include-all-admin-group (0-4294967295)
+
+   Add (or remove) the specified `admin-group` value to (or from) the list of
+   Include-All-Admin-Groups for the Flexible Algorithm Definition specified by
+   the algorithm-id.
+
+   This will add (or remove) the admin-group to (or from) the list of
+   admin-groups advertised in the Include-All-Admin-Group Sub-TLV included in
+   the corresponding Flexible Algorithm Definition TLV (carried inside the
+   Router-Info external LSA).
+
+.. clicmd:: [no] flexible-algorithm (128-255) exclude-srlg (0-4294967295)
+
+   Add (or remove) the specified `srlg` value to (or from) the list of
+   Exclude-SRLGs for the Flexible Algorithm Definition specified by the
+   algorithm-id.
+
+   This will add (or remove) the admin-group to (or from) the list of
+   SRLGs advertised in the Exclude-SRLG Sub-TLV included in the
+   corresponding Flexible Algorithm Definition TLV (carried inside the
+   Router-Info external LSA).
+
+.. clicmd:: [no] flexible-algorithm (128-255) advertise-prefix-metric (0-4294967295)
+
+   Set (or reset) the `advertise-prefix-metric` for the Flexible Algorithm
+   Definition specified by the algorithm-id.
+
+   Setting the `advertise-prefix-metric` for the Flexible Algorithm
+   Definition will results in the router advertising the configured value
+   inside a Flexible-Algorithm Prefix-Metric(FAPM) Sub-TLV (carried inside
+   Extended Prefix TLV within a Extended Prefix Opaque LSA), as well as
+   inside a Flexible-Algorithm ASBR Metric(FAAM) Sub-TLV (to be carried in
+   the Extended Inter-Area ASBR TLV within a new Extended Inter-Area LSA).
+   By default no prefix metric is advertised.
+
+   Resetting the `advertise-prefix-metric` for the Flexible Algorithm Definition
+   specified by the algorithm-id will remove advertisement of the previously
+   configured value from all the relevant Sub-TLVs, TLVs and LSAs.
+
+.. clicmd:: show ip ospf [vrf (vrf-name)] database opaque-area
+
+   This existing command's output has been enhanced to display the new
+   Flexible-Algorithm definition LSAs, TLVs and Sub-TLVs.
+
+   Following show command output shows the new Flexible Algoritms Definition
+   LSAs, TLVs and Sub-TLVs advertised.
+
+   .. code-block:: frr
+
+      frr# show ip ospf database opaque-area
+
+            OSPF Router with ID (1.1.1.1)
+
+
+                     Area-Local Opaque-LSA (Area 0.0.0.0)
+
+      LS age: 524
+      Options: 0x42 : *|O|-|-|-|-|E|-
+      LS Flags: 0x1
+      LS Type: Area-Local Opaque-LSA
+      Link State ID: 4.0.0.0 (Area-Local Opaque-Type/ID)
+      Advertising Router: 1.1.1.1
+      LS Seq Number: 8000000b
+      Checksum: 0x9b60
+      Length: 80
+
+      Opaque-Type 4 (Router Information LSA)
+      Opaque-ID   0x0
+      Opaque-Info: 60 octets of data
+      Router Capabilities: 0x10000000
+      Flexible Algorithm Defintion TLV: Length: 48
+         Algorithm-Identifier = 128
+         Priority = 10
+         Metric-Type = Invalid-Metric-Type
+         Calculation-Type = spf
+         FAD Exclude Admin Groups:
+            [ 30 ]
+         FAD Include Any Admin Groups:
+            [ 60, 70 ]
+         FAD Include All Admin Groups:
+            [ 20 ]
+         FAD Flags:
+            [ 10 ]
+         FAD Exclude SRLGs:
+            [ 10 ]
+
+      LS age: 771
+      Options: 0x42 : *|O|-|-|-|-|E|-
+      LS Flags: 0x6
+      LS Type: Area-Local Opaque-LSA
+      Link State ID: 4.0.0.0 (Area-Local Opaque-Type/ID)
+      Advertising Router: 2.2.2.2
+      LS Seq Number: 8000000b
+      Checksum: 0x4d9d
+      Length: 28
+
+      Opaque-Type 7 (Extended Prefix Opaque LSA)
+      Opaque-ID   0x1
+      Opaque-Info: 24 octets of data
+      Extended Prefix TLV: Length 20
+         Route Type: 1
+         Address Family: 0x0
+         Flags: 0x40
+         Address: 1.1.1.1/32
+      Prefix FAPM Sub-TLV: Length 8
+         Algorithm: 128
+         Flags: 0x0
+         Metric: 100
+
+      LS age: 1383
+      Options: 0x42 : *|O|-|-|-|-|E|-
+      LS Flags: 0x1
+      LS Type: Area-Local Opaque-LSA
+      Link State ID: 11.0.0.0 (Area-Local Opaque-Type/ID)
+      Advertising Router: 1.1.1.1
+      LS Seq Number: 8000000a
+      Checksum: 0xc826
+      Length: 40
+
+      Opaque-Type 11 (Extended Inter-Area ASBR Opaque LSA)
+      Opaque-ID   0x0
+      Opaque-Info: 20 octets of data
+      Extended Inter-Area ASBR TLV: Length 16
+         ASBR-Router-Id: 1.1.1.1
+      Flex-Algo ASBR Metric Sub-TLV: Length 8
+         Algorithm: 128
+         Metric:100
+
+      frr#
+
 .. _debugging-ospf:
 
 Debugging OSPF
