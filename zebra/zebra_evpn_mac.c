@@ -374,8 +374,9 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 								: "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) ? "DUP " : "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT) ? "FPM " : "",
-		CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE) ? "LOC Active "
-								 : "",
+		CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)
+			? "PEER Active "
+			: "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY " : "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)
 			? "LOC Inactive "
