@@ -81,9 +81,16 @@ void bgp_community_alias_init(void)
 			    "BGP community alias (alias)");
 }
 
+static void bgp_ca_free(void *ca)
+{
+	XFREE(MTYPE_COMMUNITY_ALIAS, ca);
+}
+
 void bgp_community_alias_finish(void)
 {
+	hash_clean(bgp_ca_community_hash, bgp_ca_free);
 	hash_free(bgp_ca_community_hash);
+	hash_clean(bgp_ca_alias_hash, bgp_ca_free);
 	hash_free(bgp_ca_alias_hash);
 }
 
