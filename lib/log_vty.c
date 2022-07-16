@@ -138,6 +138,7 @@ void zlog_rotate(void)
 {
 	zlog_file_rotate(&zt_file);
 	zlog_file_rotate(&zt_filterfile.parent);
+	zlog_file_rotate(&zt_file_cmdline);
 	hook_call(zlog_rotate);
 }
 
