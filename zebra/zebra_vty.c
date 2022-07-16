@@ -4033,6 +4033,7 @@ DEFUN (show_zebra,
 	vty_out(vty, "%s\n", out);
 	XFREE(MTYPE_TMP, out);
 
+	ttable_del(table);
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
 	vty_out(vty,
