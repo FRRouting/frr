@@ -428,7 +428,7 @@ static void plist_dnode_to_prefix(const struct lyd_node *dnode, bool *any,
 static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 {
 	struct plist_dup_args *pda = arg;
-	struct prefix p;
+	struct prefix p = {};
 	int ge, le;
 	bool any;
 
