@@ -437,10 +437,10 @@ static enum seg6local_action_t
 parse_encap_seg6local(struct rtattr *tb,
 		      struct seg6local_context *ctx)
 {
-	struct rtattr *tb_encap[256] = {};
+	struct rtattr *tb_encap[SEG6_LOCAL_MAX + 1] = {};
 	enum seg6local_action_t act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 
-	netlink_parse_rtattr_nested(tb_encap, 256, tb);
+	netlink_parse_rtattr_nested(tb_encap, SEG6_LOCAL_MAX, tb);
 
 	if (tb_encap[SEG6_LOCAL_ACTION])
 		act = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_ACTION]);
@@ -465,11 +465,11 @@ parse_encap_seg6local(struct rtattr *tb,
 
 static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 {
-	struct rtattr *tb_encap[256] = {};
+	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
 	struct in6_addr *segments = NULL;
 
-	netlink_parse_rtattr_nested(tb_encap, 256, tb);
+	netlink_parse_rtattr_nested(tb_encap, SEG6_IPTUNNEL_MAX, tb);
 
 	/*
 	 * TODO: It's not support multiple SID list.
