@@ -18,7 +18,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     ncurses-libs ncurses-terminfo ncurses-terminfo-base patch pax-utils pcre
     perl pkgconf python3 python3-dev readline readline-dev sqlite-libs
     squashfs-tools sudo tar texinfo xorriso xz-libs py-pip rtrlib rtrlib-dev
-    py3-sphinx elfutils elfutils-dev"
+    py3-sphinx elfutils elfutils-dev libyang-dev"
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
