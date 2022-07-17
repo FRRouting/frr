@@ -911,8 +911,16 @@ void community_init(void)
 			    "BGP Community Hash");
 }
 
+static void community_hash_free(void *data)
+{
+	struct community *com = data;
+
+	community_free(&com);
+}
+
 void community_finish(void)
 {
+	hash_clean(comhash, community_hash_free);
 	hash_free(comhash);
 	comhash = NULL;
 }
