@@ -1463,8 +1463,13 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 			if (ospf_nexthop_calculation(area, v, w, l, distance,
 						     lsa_pos))
 				vertex_pqueue_add(candidate, w);
-			else if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("Nexthop Calc failed");
+			else {
+				listnode_delete(area->spf_vertex_list, w);
+				ospf_vertex_free(w);
+				w_lsa->stat = LSA_SPF_NOT_EXPLORED;
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug("Nexthop Calc failed");
+			}
 		} else if (w_lsa->stat != LSA_SPF_IN_SPFTREE) {
 			w = w_lsa->stat;
 			if (w->distance < distance) {
