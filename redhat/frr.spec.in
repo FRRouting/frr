@@ -779,11 +779,127 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
-* Sun May 29 2022 Christian Hopps <chopps@labn.net> - %{version}
-- ospfclient:
--     Add OSPF API python client ospfclient.py
+* Wed Jul 13 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
-* Tue Mar  1 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Wed Jul 13 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.3
+- General:
+-    Add camelcase json keys in addition to pascalcase (Wrong JSON keys will be depracated)
+-    Fix corruption when route-map delete/add sequence happens (fast re-add)
+-    Reworked gRPC
+-    RFC5424 & journald extended syslog target
+- bfdd:
+-    Fix broken FSM in active/passive modes
+- bgpd:
+-    Notification Message Support for BGP Graceful Restart (rfc8538)
+-    BGP Cease Notification Subcode For BFD
+-    Send Hold Timer for BGP (own implementation without an additional knob)
+-    New `set as-path replace` command for BGP route-map
+-    New `match peer` command for BGP route-map
+-    New `ead-es-frag evi-limit` command for EVPN
+-    New `match evpn route-type` command for EVPN route-map to match Type-1/Type-4
+-    JSON outputs for all RPKI show commands
+-    Set attributes via route-map for BGP conditional advertisements
+-    Pass non-transitive extended communities between RS and RS-clients
+-    Send MED attribute when aggregate prefix is created
+-    Fix aspath memory leak in aggr_suppress_map_test
+-    Fix crash for `show ip bgp vrf all all neighbors 192.168.0.1 ...`
+-    Fix crash for `show ip bgp vrf all all`
+-    Fix memory leak for BGP Community Alias in CLI
+-    Fix memory leak when setting BGP community at egress
+-    Fix memory leak when setting BGP large-community at egress
+-    Fix SR color nexthop processing in BGP
+-    Fix setting local-preference in route-map using +/-
+-    Fix crash using Lua and route-map to set attributes via scripts
+-    Fix crash when issuing various forms of `bgp no-rib`
+- isisd:
+-    JSON output for show summary command
+-    Fix crash when MTU mismatch occurs
+-    Fix crash with xfrm interface type
+-    Fix infinite loop when parsing LSPs
+-    Fix router capability TLV parsing issues
+- vtysh:
+-    New `show thread timers` command
+- ospfd6:
+-    Add LSA statistics to LSA database
+-    Add LSA stats to `show area json` output
+-    Show time left in hello timer for `show ipv6 ospf6 int`
+-    Restart SPF when distance is updated
+-    Support keychain for ospf6 authentication
+- ospfd:
+-    New `show ip ospf reachable-routers` command
+-    Restart SPF when distance is updated
+-    Use consistent JSON keys for `show ip ospf neighbor` and detail version
+- pimd:
+-    Add additional IGMP stats
+-    Add IGMP join sent/failed statistics
+-    Add IGMP total groups and total source groups to statistics
+-    New `debug igmp trace detail` command
+-    New `ip pim passive` command
+-    JSON support added for command `show ip igmp sources`
+-    Allow the LPM match work properly with prefix lists and normal RPs
+-    Do not allow 224.0.0.0/24 range in IGMP join
+-    Fix IGMP packet/query check
+-    Handle PIM join/prune receive flow for IPv6
+-    Handle receive of (*,G) register stop with source address as 0
+-    Handle of exclude mode IGMPv3 report messages for SSM-aware group
+-    Handle of IGMPv2 report message for SSM-aware group range
+-    Send immediate join with possible sg rpt prune bit set
+-    Show group-type under `show ip pim rp-info`
+-    Show total received messages IGMP stats
+- staticd:
+-    Capture zebra advertised ECMP limit
+-    Do not register existing nexthop to Zebra
+-    Reject route config with too many nexthops
+-    Track nexthops per-safi
+- watchfrr:
+-    Add some more information to `show watchfrr`
+-    Send operational state to systemd
+- zebra:
+-    Add ability to know when FRR is not ASIC offloaded
+-    Add command for setting protodown bit
+-    Add dplane type for netconf data
+-    Add ECMP supported to `show zebra`
+-    Add EVPN status to `show zebra`
+-    Add if v4/v6 forwarding is turned on/off to `show zebra`
+-    Add initial zebra tracepoint support
+-    Add kernel nexthop group support to `show zebra`
+-    Add knowledge about ra and rfc 5549 to `show zebra`
+-    Add mpls status to `show zebra`
+-    Add netlink debug dump for netconf messages
+-    Add netlink debugs for ip rules
+-    Add OS and version to `show zebra`
+-    Add support for end.dt4
+-    Add to `show zebra` the type of vrf devices being used
+-    Allow *BSD to specify a receive buffer size
+-    Allow multiple connected routes to be choosen for kernel routes
+-    Allow system routes to recurse through themselves
+-    Do not send RAs w/o link-local v6 or on bridge-ports
+-    Evpn disable remove l2vni from l3vni list
+-    Evpn-mh bonds protodown check for set
+-    Evpn-mh use protodown update reason api
+-    Fix cleanup of meta queues on vrf disable
+-    Fix crash in evpn neigh cleanup all
+-    Fix missing delete vtep during vni transition
+-    Fix missing vrf change of l2vni on vxlan interface
+-    Fix rtadv startup when config read in is before interface up
+-    Fix use after deletion event in FreeBSD
+-    Fix v6 route replace failure turned into success
+-    Get zebra graceful restart working when restarting on *BSD
+-    Handle FreeBSD routing socket enobufs
+-    Handle protodown netlink for vxlan device
+-    Include mpls enabled status in interface output
+-    Include old reason in evpn-mh bond update
+-    Keep the interface flags safe on multiple ioctl calls
+-    Let /32 host route with same ip cross vrf
+-    Make router advertisement warnings show up once every 6 hours
+-    Prevent crash if zebra_route_all is used for a route type
+-    Prevent installation of connected multiple times
+-    Protodown-up event trigger interface up
+-    Register nht nexthops with proper safi
+-    Update advertise-svi-ip macips w/ new mac
+-    When handling unprocessed messages from kernel print usable string
+-    New `show ip nht mrib` command
+-    Handle ENOBUFS errors for FreeBSD
 
 * Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
 - The FRRouting community would like to announce FRR Release 8.2.
