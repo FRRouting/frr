@@ -744,19 +744,17 @@ static void rfapiMonitorTimerExpire(struct thread *t)
 
 static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 {
-	if (m->timer) {
-		unsigned long remain = thread_timer_remain_second(m->timer);
+	unsigned long remain = thread_timer_remain_second(m->timer);
 
-		/* unexpected case, but avoid wraparound problems below */
-		if (remain > m->rfd->response_lifetime)
-			return;
+	/* unexpected case, but avoid wraparound problems below */
+	if (remain > m->rfd->response_lifetime)
+		return;
 
-		/* don't restart if we just restarted recently */
-		if (m->rfd->response_lifetime - remain < 2)
-			return;
+	/* don't restart if we just restarted recently */
+	if (m->rfd->response_lifetime - remain < 2)
+		return;
 
-		thread_cancel(&m->timer);
-	}
+	THREAD_OFF(m->timer);
 
 	{
 		char buf[BUFSIZ];
@@ -766,7 +764,7 @@ static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 			rfapi_ntop(m->p.family, m->p.u.val, buf, BUFSIZ),
 			m->rfd->response_lifetime);
 	}
-	m->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiMonitorTimerExpire, m,
 			 m->rfd->response_lifetime, &m->timer);
 }
@@ -1054,19 +1052,17 @@ static void rfapiMonitorEthTimerExpire(struct thread *t)
 
 static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 {
-	if (m->timer) {
-		unsigned long remain = thread_timer_remain_second(m->timer);
+	unsigned long remain = thread_timer_remain_second(m->timer);
 
-		/* unexpected case, but avoid wraparound problems below */
-		if (remain > m->rfd->response_lifetime)
-			return;
+	/* unexpected case, but avoid wraparound problems below */
+	if (remain > m->rfd->response_lifetime)
+		return;
 
-		/* don't restart if we just restarted recently */
-		if (m->rfd->response_lifetime - remain < 2)
-			return;
+	/* don't restart if we just restarted recently */
+	if (m->rfd->response_lifetime - remain < 2)
+		return;
 
-		thread_cancel(&m->timer);
-	}
+	THREAD_OFF(m->timer);
 
 	{
 		char buf[BUFSIZ];
@@ -1076,7 +1072,7 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 			rfapiEthAddr2Str(&m->macaddr, buf, BUFSIZ),
 			m->rfd->response_lifetime);
 	}
-	m->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiMonitorEthTimerExpire, m,
 			 m->rfd->response_lifetime, &m->timer);
 }

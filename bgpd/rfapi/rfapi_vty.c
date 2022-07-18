@@ -928,12 +928,9 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
-				if (m->timer) {
-					rfapiFormatSeconds(
-						thread_timer_remain_second(
-							m->timer),
-						buf_remain, BUFSIZ);
-				}
+				rfapiFormatSeconds(
+					thread_timer_remain_second(m->timer),
+					buf_remain, BUFSIZ);
 				fp(out, " %-15s %-10s\n",
 				   inet_ntop(m->p.family, &m->p.u.prefix,
 					     buf_pfx, BUFSIZ),
@@ -1005,12 +1002,9 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
-				if (mon_eth->timer) {
-					rfapiFormatSeconds(
-						thread_timer_remain_second(
-							mon_eth->timer),
-						buf_remain, BUFSIZ);
-				}
+				rfapiFormatSeconds(thread_timer_remain_second(
+							   mon_eth->timer),
+						   buf_remain, BUFSIZ);
 				fp(out, " %-17s %10d %-10s\n",
 				   rfapi_ntop(pfx_mac.family, &pfx_mac.u.prefix,
 					      buf_pfx, BUFSIZ),
