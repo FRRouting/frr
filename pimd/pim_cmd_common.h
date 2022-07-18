@@ -139,6 +139,7 @@ int clear_ip_mroute_count_command(struct vty *vty, const char *name);
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
 void clear_mroute(struct pim_instance *pim);
 void clear_pim_statistics(struct pim_instance *pim);
+int clear_pim_interface_traffic(const char *vrf, struct vty *vty);
 int pim_debug_pim_cmd(void);
 int pim_no_debug_pim_cmd(void);
 int pim_debug_pim_packets_cmd(const char *hello, const char *joins,

@@ -4052,6 +4052,46 @@ void clear_pim_statistics(struct pim_instance *pim)
 	}
 }
 
+int clear_pim_interface_traffic(const char *vrf, struct vty *vty)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
+
+	struct vrf *v = pim_cmd_lookup(vty, vrf);
+
+	if (!v)
+		return CMD_WARNING;
+
+	FOR_ALL_INTERFACES (v, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		pim_ifp->pim_ifstat_hello_recv = 0;
+		pim_ifp->pim_ifstat_hello_sent = 0;
+		pim_ifp->pim_ifstat_join_recv = 0;
+		pim_ifp->pim_ifstat_join_send = 0;
+		pim_ifp->pim_ifstat_prune_recv = 0;
+		pim_ifp->pim_ifstat_prune_send = 0;
+		pim_ifp->pim_ifstat_reg_recv = 0;
+		pim_ifp->pim_ifstat_reg_send = 0;
+		pim_ifp->pim_ifstat_reg_stop_recv = 0;
+		pim_ifp->pim_ifstat_reg_stop_send = 0;
+		pim_ifp->pim_ifstat_assert_recv = 0;
+		pim_ifp->pim_ifstat_assert_send = 0;
+		pim_ifp->pim_ifstat_bsm_rx = 0;
+		pim_ifp->pim_ifstat_bsm_tx = 0;
+#if PIM_IPV == 4
+		pim_ifp->igmp_ifstat_joins_sent = 0;
+		pim_ifp->igmp_ifstat_joins_failed = 0;
+		pim_ifp->igmp_peak_group_count = 0;
+#endif
+	}
+
+	return CMD_SUCCESS;
+}
+
 int pim_debug_pim_cmd(void)
 {
 	PIM_DO_DEBUG_PIM_EVENTS;
