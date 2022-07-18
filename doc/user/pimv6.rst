@@ -389,6 +389,11 @@ Clear commands reset various variables.
 
    Reset PIMv6 interfaces.
 
+.. clicmd:: clear ipv6 pim [vrf NAME] interface traffic
+
+   When this command is issued, resets the information about the 
+   number of PIM protocol packets sent/received on an interface.
+
 .. clicmd:: clear ipv6 pim oil
 
    Rescan PIMv6 OIL (output interface list).
