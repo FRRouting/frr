@@ -4010,6 +4010,13 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 	}
 }
 
+static void lsp_table_free(void *p)
+{
+	struct zebra_lsp *lsp = p;
+
+	XFREE(MTYPE_LSP, lsp);
+}
+
 /*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
@@ -4018,9 +4025,9 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 void zebra_mpls_close_tables(struct zebra_vrf *zvrf)
 {
 	hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
-	hash_clean(zvrf->lsp_table, NULL);
+	hash_clean(zvrf->lsp_table, lsp_table_free);
 	hash_free(zvrf->lsp_table);
-	hash_clean(zvrf->slsp_table, NULL);
+	hash_clean(zvrf->slsp_table, lsp_table_free);
 	hash_free(zvrf->slsp_table);
 	route_table_finish(zvrf->fec_table[AFI_IP]);
 	route_table_finish(zvrf->fec_table[AFI_IP6]);
