@@ -1768,9 +1768,7 @@ static int pim_ifp_down(struct interface *ifp)
 
 	if (ifp->info) {
 		pim_if_del_vif(ifp);
-#if PIM_IPV == 4
 		pim_ifstat_reset(ifp);
-#endif
 	}
 
 	return 0;
