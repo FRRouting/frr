@@ -2215,8 +2215,13 @@ DEFPY(bmp_monitor_cfg,
       NO_STR
       BMP_STR
       "Send BMP route monitoring messages\n"
-      "Address Family\nAddress Family\nAddress Family\n"
-      "Address Family\nAddress Family\nAddress Family\nAddress Family\n"
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
       "Send state before policy and filter processing\n"
       "Send state with policy and filters applied\n")
 {

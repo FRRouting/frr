@@ -14189,9 +14189,9 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
+       BGP_AF_STR
+       BGP_AF_STR
+       BGP_AF_MODIFIER_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -14377,7 +14377,7 @@ DEFUN (show_bgp_afi_vpn_rd_route,
        SHOW_STR
        BGP_STR
        BGP_AFI_HELP_STR
-       "Address Family modifier\n"
+       BGP_AF_MODIFIER_STR
        "Display information for a route distinguisher\n"
        "Route Distinguisher\n"
        "All Route Distinguishers\n"
