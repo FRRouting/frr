@@ -9367,7 +9367,7 @@ DEFUN_NOSH (address_family_ipv4_safi,
 	address_family_ipv4_safi_cmd,
 	"address-family ipv4 [<unicast|multicast|vpn|labeled-unicast|flowspec>]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
+	BGP_AF_STR
 	BGP_SAFI_WITH_LABEL_HELP_STR)
 {
 
@@ -9392,7 +9392,7 @@ DEFUN_NOSH (address_family_ipv6_safi,
 	address_family_ipv6_safi_cmd,
 	"address-family ipv6 [<unicast|multicast|vpn|labeled-unicast|flowspec>]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
+	BGP_AF_STR
 	BGP_SAFI_WITH_LABEL_HELP_STR)
 {
 	if (argc == 3) {
@@ -9417,8 +9417,8 @@ DEFUN_NOSH (address_family_vpnv4,
        address_family_vpnv4_cmd,
        "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
-       "Address Family\n"
-       "Address Family modifier\n")
+       BGP_AF_STR
+       BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -9428,8 +9428,8 @@ DEFUN_NOSH (address_family_vpnv6,
        address_family_vpnv6_cmd,
        "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
-       "Address Family\n"
-       "Address Family modifier\n")
+       BGP_AF_STR
+       BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -9440,8 +9440,8 @@ DEFUN_NOSH (address_family_evpn,
        address_family_evpn_cmd,
        "address-family l2vpn evpn",
        "Enter Address Family command mode\n"
-       "Address Family\n"
-       "Address Family modifier\n")
+       BGP_AF_STR
+       BGP_AF_MODIFIER_STR)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	vty->node = BGP_EVPN_NODE;
@@ -9692,9 +9692,9 @@ DEFUN (clear_ip_bgp_all,
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       "Address Family\n"
+       BGP_AF_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
-       "Address Family modifier\n"
+       BGP_AF_MODIFIER_STR
        "Clear all peers\n"
        "BGP IPv4 neighbor to clear\n"
        "BGP IPv6 neighbor to clear\n"
@@ -9827,7 +9827,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        CLEAR_STR
        IP_STR
        BGP_STR
-       "Address Family\n"
+       BGP_AF_STR
        BGP_SAFI_HELP_STR
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
@@ -9851,7 +9851,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
+       BGP_AF_STR
        BGP_SAFI_HELP_STR
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
@@ -14672,8 +14672,8 @@ DEFUN (show_ip_bgp_neighbors,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
+       BGP_AF_STR
+       BGP_AF_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"

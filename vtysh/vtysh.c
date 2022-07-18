@@ -51,6 +51,7 @@
 #include "frrstr.h"
 #include "json.h"
 #include "ferr.h"
+#include "bgpd/bgp_vty.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
@@ -1685,8 +1686,8 @@ DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 	"address-family vpnv4 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -1695,8 +1696,8 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 	"address-family vpnv6 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -1706,8 +1707,8 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 	"address-family ipv4 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4_NODE;
 	return CMD_SUCCESS;
@@ -1716,8 +1717,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_flowspecv4, address_family_flowspecv4_cmd,
 	"address-family ipv4 flowspec",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV4_NODE;
 	return CMD_SUCCESS;
@@ -1726,8 +1727,8 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv4, address_family_flowspecv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 	"address-family ipv6 flowspec",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV6_NODE;
 	return CMD_SUCCESS;
@@ -1736,8 +1737,8 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4_multicast,
 	address_family_ipv4_multicast_cmd, "address-family ipv4 multicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4M_NODE;
 	return CMD_SUCCESS;
@@ -1746,8 +1747,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_multicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4_vpn, address_family_ipv4_vpn_cmd,
 	"address-family ipv4 vpn",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -1757,8 +1758,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_labeled_unicast,
 	address_family_ipv4_labeled_unicast_cmd,
 	"address-family ipv4 labeled-unicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4L_NODE;
 	return CMD_SUCCESS;
@@ -1767,8 +1768,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_labeled_unicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6, address_family_ipv6_cmd,
 	"address-family ipv6 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6_NODE;
 	return CMD_SUCCESS;
@@ -1777,8 +1778,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6, address_family_ipv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6_multicast,
 	address_family_ipv6_multicast_cmd, "address-family ipv6 multicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6M_NODE;
 	return CMD_SUCCESS;
@@ -1787,8 +1788,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_multicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6_vpn, address_family_ipv6_vpn_cmd,
 	"address-family ipv6 vpn",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -1798,8 +1799,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 	address_family_ipv6_labeled_unicast_cmd,
 	"address-family ipv6 labeled-unicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6L_NODE;
 	return CMD_SUCCESS;
@@ -1863,8 +1864,8 @@ DEFUNSH(VTYSH_BGPD,
 DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 	"address-family <l2vpn evpn>",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_EVPN_NODE;
 	return CMD_SUCCESS;

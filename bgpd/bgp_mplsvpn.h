@@ -32,9 +32,7 @@
 	 || (label) == MPLS_LABEL_IPV6_EXPLICIT_NULL                           \
 	 || (label) == MPLS_LABEL_IMPLICIT_NULL)
 
-#define BGP_VPNVX_HELP_STR                                                     \
-	"Address Family\n"                                                     \
-	"Address Family\n"
+#define BGP_VPNVX_HELP_STR BGP_AF_STR BGP_AF_STR
 
 #define V4_HEADER                                                              \
 	"   Network          Next Hop            Metric LocPrf Weight Path\n"
