@@ -149,8 +149,9 @@ associated with a particular ``bmp targets``:
 .. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
-   IPv6 are currently valid for AFI, and only unicast and multicast are valid
-   for SAFI.  Other AFI/SAFI combinations may be added in the future.
+   IPv6 are currently valid for AFI. SAFI valid values are currently 
+   unicast, multicast, evpn and vpn.
+   Other AFI/SAFI combinations may be added in the future.
 
    All BGP neighbors are included in Route Monitoring.  Options to select
    a subset of BGP sessions may be added in the future.
