@@ -543,11 +543,8 @@ ldp_sync_to_ctl(struct iface *iface)
 	ictl.wait_time = if_get_wait_for_sync_interval();
 	ictl.timer_running = iface->ldp_sync.wait_for_sync_timer ? true : false;
 
-	if (iface->ldp_sync.wait_for_sync_timer)
-		ictl.wait_time_remaining =
+	ictl.wait_time_remaining =
 		thread_timer_remain_second(iface->ldp_sync.wait_for_sync_timer);
-	else
-		ictl.wait_time_remaining = 0;
 
 	memset(&ictl.peer_ldp_id, 0, sizeof(ictl.peer_ldp_id));
 

@@ -847,11 +847,8 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.stats = nbr->stats;
 	nctl.flags = nbr->flags;
 	nctl.max_pdu_len = nbr->max_pdu_len;
-	if (nbr->keepalive_timer)
-		nctl.hold_time_remaining =
-		    thread_timer_remain_second(nbr->keepalive_timer);
-	else
-		nctl.hold_time_remaining = 0;
+	nctl.hold_time_remaining =
+		thread_timer_remain_second(nbr->keepalive_timer);
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {
