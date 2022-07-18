@@ -13,7 +13,7 @@ operation (and not a set of APIs.)  The core ideas are:
   "invisible" copies.  Other threads, when they access the structure, see an
   older (but consistent) copy.
 
-* once done, the updated copy is swapped in in a single operation so that
+* once done, the updated copy is swapped in a single operation so that
   other threads see either the old or the new data but no inconsistent state
   between.
 
