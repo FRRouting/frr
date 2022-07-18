@@ -756,6 +756,9 @@ unsigned long thread_timer_remain_msec(struct thread *thread)
 {
 	int64_t remain;
 
+	if (!thread_is_scheduled(thread))
+		return 0;
+
 	frr_with_mutex(&thread->mtx) {
 		remain = monotime_until(&thread->u.sands, NULL) / 1000LL;
 	}
