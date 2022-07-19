@@ -29,6 +29,7 @@
 #include "pathd/path_tsrte.h"
 
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+static void path_zebra_tsrte_opaque_register(void);
 
 struct zclient *zclient;
 static struct zclient *zclient_sync;
@@ -88,6 +89,7 @@ static void path_zebra_connected(struct zclient *zclient)
 				      VRF_DEFAULT);
 
 	path_zebra_fae_igp_opaque_register();
+	path_zebra_tsrte_opaque_register();
 	zapi_fae_client_ready_send(zclient);
 	zapi_tsrte_client_ready_send(zclient,
 				     srte_triggered_get_protocol_origin());
@@ -268,6 +270,12 @@ static void path_zebra_label_manager_connect(void)
 	}
 }
 
+static void path_zebra_tsrte_opaque_register(void)
+{
+	zclient_register_opaque(zclient, TSRTE_BGP_REGISTER);
+	zclient_register_opaque(zclient, TSRTE_BGP_UNREGISTER);
+}
+
 void path_zebra_fae_igp_opaque_register(void)
 {
 	zclient_register_opaque(zclient, FAE_READY);
@@ -331,6 +339,10 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	case TSRTE_BGP_READY:
 		ret = path_zebra_handle_tsrte_bgp_ready(zclient, s);
 		break;
+	case TSRTE_BGP_REGISTER:
+	case TSRTE_BGP_UNREGISTER:
+		ret = path_zebra_handle_triggered_te_register(s, info.type);
+		break;
 	default:
 		zlog_debug("%s: [rcv ted] unknown opaque event (%d) !",
 			   __func__, info.type);
@@ -376,6 +388,8 @@ void path_zebra_stop(void)
 	zclient_unregister_opaque(zclient, FAE_READY);
 	zclient_unregister_opaque(zclient, FAE_NOTREADY);
 	zclient_unregister_opaque(zclient, TSRTE_BGP_READY);
+	zclient_unregister_opaque(zclient, TSRTE_BGP_REGISTER);
+	zclient_unregister_opaque(zclient, TSRTE_BGP_UNREGISTER);
 
 	zclient_stop(zclient);
 	zclient_free(zclient);

@@ -18,12 +18,43 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#include "zebra.h"
+#include "ipaddr.h"
+#include "srte.h"
+
 #include "path_zebra.h"
 #include "path_triggered.h"
 #include "path_template.h"
 #include "path_tsrte.h"
 
 bool path_triggered_enabled = false;
+
+DEFINE_MTYPE_STATIC(PATHD, PATH_SR_TRIGGERED_POLICY, "SR Triggered Policy");
+
+/* Generate rb-tree of SR Triggered Policy instances. */
+static inline int
+srte_triggered_policy_compare(const struct srte_triggered_policy *a,
+			      const struct srte_triggered_policy *b)
+{
+	return sr_policy_compare(&a->endpoint, &b->endpoint, a->color,
+				 b->color);
+}
+
+RB_GENERATE(srte_triggered_policy_head, srte_triggered_policy, entry,
+	    srte_triggered_policy_compare)
+struct srte_triggered_policy_head srte_triggered_policies =
+	RB_INITIALIZER(&srte_triggered_policies);
+
+static struct srte_triggered_policy *
+srte_triggered_policy_find(uint32_t color, struct ipaddr *endpoint)
+{
+	struct srte_triggered_policy search;
+
+	search.color = color;
+	search.endpoint = *endpoint;
+	return RB_FIND(srte_triggered_policy_head, &srte_triggered_policies,
+		       &search);
+}
 
 /**
  * Update protocol-origin for policies generated from templates
@@ -58,4 +89,36 @@ enum srte_protocol_origin srte_triggered_get_protocol_origin()
 	if (path_triggered_enabled)
 		return SRTE_ORIGIN_BGP;
 	return SRTE_ORIGIN_LOCAL;
+}
+
+void srte_triggered_add(uint32_t color, struct ipaddr *endpoint)
+{
+	struct srte_triggered_policy *policy;
+
+	policy = srte_triggered_policy_find(color, endpoint);
+	if (policy)
+		return;
+
+	policy = XCALLOC(MTYPE_PATH_SR_TRIGGERED_POLICY, sizeof(*policy));
+	policy->color = color;
+	policy->endpoint = *endpoint;
+	RB_INSERT(srte_triggered_policy_head, &srte_triggered_policies, policy);
+
+	/* XXX if policy template available, create policy
+	 * and candidate path associated
+	 */
+}
+
+void srte_triggered_del(uint32_t color, struct ipaddr *endpoint)
+{
+	struct srte_triggered_policy *policy;
+
+	policy = srte_triggered_policy_find(color, endpoint);
+	if (!policy)
+		return;
+	/* XXX if policy template available, delete policy
+	 * and candidate path associated
+	 */
+	RB_REMOVE(srte_triggered_policy_head, &srte_triggered_policies, policy);
+	XFREE(MTYPE_PATH_SR_TRIGGERED_POLICY, policy);
 }

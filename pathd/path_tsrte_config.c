@@ -131,6 +131,29 @@ int path_zebra_send_te_ready(enum srte_protocol_origin protocol_origin)
 	return zapi_tsrte_client_ready_send(zclient, protocol_origin);
 }
 
+int path_zebra_handle_triggered_te_register(struct stream *s,
+					    uint32_t type)
+{
+	uint32_t srte_color;
+	struct ipaddr endpoint = {};
+	char endpoint_str[ENDPOINT_STR_LENGTH];
+
+	if (srte_triggered_get_protocol_origin() != SRTE_ORIGIN_BGP)
+		return 0;
+	if (zapi_tsrte_registration_decode(s, &srte_color, &endpoint) == -1)
+		return 0;
+	ipaddr2str(&endpoint, endpoint_str, sizeof(endpoint_str));
+	PATH_TEMPLATE_DEBUG("PATHD: %s received: Color %u NH %s",
+			    zserv_command_string(type), srte_color,
+			    endpoint_str);
+
+	if (type == TSRTE_BGP_REGISTER)
+		srte_triggered_add(srte_color, &endpoint);
+	else
+		srte_triggered_del(srte_color, &endpoint);
+	return 0;
+}
+
 static struct cmd_node srte_policy_template_node = {
 	.name = "srte policy template",
 	.node = SR_POLICY_TEMPLATE_NODE,

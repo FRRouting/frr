@@ -19,9 +19,27 @@
 #ifndef _FRR_PATH_TRIGGERED_H_
 #define _FRR_PATH_TRIGGERED_H_
 
+#include "lib/ipaddr.h"
 #include "lib/srte.h"
 
 void srte_triggered_update(void);
 enum srte_protocol_origin srte_triggered_get_protocol_origin(void);
+
+void srte_triggered_add(uint32_t color, struct ipaddr *endpoint);
+void srte_triggered_del(uint32_t color, struct ipaddr *endpoint);
+
+struct srte_triggered_policy {
+	RB_ENTRY(srte_triggered_policy) entry;
+
+	/* Color */
+	uint32_t color;
+
+	/* Endpoint */
+	struct ipaddr endpoint;
+};
+
+RB_HEAD(srte_triggered_policy_head, srte_triggered_policy);
+RB_PROTOTYPE(srte_triggered_policy_head, srte_triggered_policy, entry,
+	     srte_triggered_policy_compare)
 
 #endif
