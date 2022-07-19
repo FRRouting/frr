@@ -601,6 +601,11 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 					struct cluster_list *cl)
 {
 	attr->cluster1 = cl;
+
+	if (cl)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 }
 
 static inline const struct bgp_route_evpn *

@@ -1117,7 +1117,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		cluster_unintern(&cluster);
 		bgp_attr_set_cluster(attr, cluster);
 	}
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 
 	struct transit *transit = bgp_attr_get_transit(attr);
 
@@ -2019,8 +2018,6 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 
 	/* XXX: Fix cluster_parse to use stream API and then remove this */
 	stream_forward_getp(peer->curr, length);
-
-	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
