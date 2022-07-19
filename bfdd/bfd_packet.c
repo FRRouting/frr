@@ -1573,7 +1573,7 @@ int bp_echo_socket(const struct vrf *vrf)
 		return -1;
 	}
 
-
+	memset(&sll, 0, sizeof(sll));
 	sll.sll_family = AF_PACKET;
 	sll.sll_protocol = htons(ETH_P_IP);
 	sll.sll_ifindex = 0;
