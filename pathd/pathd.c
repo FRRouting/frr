@@ -578,7 +578,7 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 	struct srte_candidate *candidate, *safe;
 	struct srte_candidate *old_best_candidate;
 	struct srte_candidate *new_best_candidate;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
 
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
@@ -734,7 +734,7 @@ void srte_candidate_set_bandwidth(struct srte_candidate *candidate,
 				  float bandwidth, bool required)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
 
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG(
@@ -762,7 +762,8 @@ void srte_lsp_set_bandwidth(struct srte_lsp *lsp, float bandwidth,
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s %slsp bandwidth set to %f B/s",
@@ -783,7 +784,8 @@ void srte_lsp_set_bandwidth(struct srte_lsp *lsp, float bandwidth,
 void srte_candidate_unset_bandwidth(struct srte_candidate *candidate)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG("SR-TE(%s, %u): candidate %s config bandwidth unset",
 			  endpoint, policy->color, candidate->name);
@@ -805,7 +807,8 @@ void srte_lsp_unset_bandwidth(struct srte_lsp *lsp)
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG("SR-TE(%s, %u): candidate %s lsp bandwidth unset",
 			  endpoint, policy->color, candidate->name);
@@ -833,7 +836,8 @@ void srte_candidate_set_metric(struct srte_candidate *candidate,
 			       bool is_computed)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s %sconfig metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
@@ -867,7 +871,8 @@ void srte_lsp_set_metric(struct srte_lsp *lsp,
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s %slsp metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
@@ -902,7 +907,8 @@ void srte_candidate_unset_metric(struct srte_candidate *candidate,
 				 enum srte_candidate_metric_type type)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s config metric %s (%u) unset",
@@ -927,7 +933,8 @@ void srte_lsp_unset_metric(struct srte_lsp *lsp,
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s lsp metric %s (%u) unset",
@@ -956,7 +963,8 @@ void srte_candidate_set_objfun(struct srte_candidate *candidate, bool required,
 			       enum objfun_type type)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	candidate->objfun = type;
@@ -977,7 +985,8 @@ void srte_candidate_set_objfun(struct srte_candidate *candidate, bool required,
 void srte_candidate_unset_objfun(struct srte_candidate *candidate)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_OBJFUN);
@@ -1029,7 +1038,8 @@ void srte_candidate_set_affinity_filter(struct srte_candidate *candidate,
 					uint32_t filter)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	assert(type > AFFINITY_FILTER_UNDEFINED);
@@ -1054,7 +1064,8 @@ void srte_candidate_unset_affinity_filter(struct srte_candidate *candidate,
 					  enum affinity_filter_type type)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	assert(type > AFFINITY_FILTER_UNDEFINED);
@@ -1110,7 +1121,8 @@ srte_segment_entry_find(struct srte_segment_list *segment_list, uint32_t index)
 void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG("SR-TE(%s, %u): zebra updated status to %d", endpoint,
 			  policy->color, status);

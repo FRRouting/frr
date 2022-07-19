@@ -330,6 +330,8 @@ struct srte_candidate {
 RB_HEAD(srte_candidate_head, srte_candidate);
 RB_PROTOTYPE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
 
+#define ENDPOINT_STR_LENGTH IPADDR_STRING_SIZE
+
 struct srte_policy {
 	RB_ENTRY(srte_policy) entry;
 
