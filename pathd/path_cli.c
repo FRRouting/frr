@@ -126,7 +126,7 @@ DEFPY(show_srte_policy,
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
-		char endpoint[46];
+		char endpoint[ENDPOINT_STR_LENGTH];
 		char binding_sid[16] = "-";
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
@@ -173,7 +173,7 @@ DEFPY(show_srte_policy_detail,
 	vty_out(vty, "\n");
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
-		char endpoint[46];
+		char endpoint[ENDPOINT_STR_LENGTH];
 		char binding_sid[16] = "-";
 		char *segment_list_info;
 		static char undefined_info[] = "(undefined)";
