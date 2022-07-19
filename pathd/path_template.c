@@ -135,22 +135,25 @@ struct srte_policy_template *srte_policy_template_find(uint32_t color)
 void srte_policy_template_apply_changes(struct srte_policy_template *policy)
 {
 	struct srte_candidate_template *candidate, *safe;
+	bool changed = false;
 
 	RB_FOREACH_SAFE (candidate, srte_candidate_template_head,
 			 &policy->candidate_paths, safe) {
 		if (CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)) {
-			/* XXX trigger instantiated candidates templates */
+			srte_triggered_update_candidate_removing(
+				policy->color, candidate->preference);
 			srte_candidate_template_del(candidate);
 			continue;
-		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW)) {
-			/* XXX trigger new candidate */
-		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED)) {
-			/* XXX trigger modified candidate */
+		} else if (CHECK_FLAG(candidate->flags,
+				      F_CANDIDATE_NEW | F_CANDIDATE_MODIFIED)) {
+			changed = true;
 		}
 
 		UNSET_FLAG(candidate->flags, F_CANDIDATE_NEW);
 		UNSET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
 	}
+	if (changed)
+		srte_triggered_update_candidate_changed(policy->color);
 }
 
 /**

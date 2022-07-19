@@ -306,6 +306,7 @@ struct srte_candidate {
 #define F_CANDIDATE_HAS_FLEX_ALGO_NUMBER 0x8000
 #define F_CANDIDATE_FLEX_ALGO_REGISTERED 0x10000
 #define F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS 0x20000
+#define F_CANDIDATE_TEMPLATE 0x40000
 
 	/* Metrics Configured Values */
 	struct srte_metric metrics[MAX_METRIC_TYPE];
@@ -388,6 +389,8 @@ struct srte_policy {
 #define F_POLICY_NEW 0x0002
 #define F_POLICY_MODIFIED 0x0004
 #define F_POLICY_DELETED 0x0008
+#define F_POLICY_TEMPLATE 0x0010
+#define F_POLICY_CONFIG 0x0020
 	/* SRP id for PcInitiated support */
 	int srp_id;
 };

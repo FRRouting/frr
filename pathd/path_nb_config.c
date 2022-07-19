@@ -250,6 +250,7 @@ int pathd_srte_policy_create(struct nb_cb_create_args *args)
 	struct srte_policy *policy;
 	uint32_t color;
 	struct ipaddr endpoint;
+	char endpoint_str[ENDPOINT_STR_LENGTH];
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -257,9 +258,20 @@ int pathd_srte_policy_create(struct nb_cb_create_args *args)
 	color = yang_dnode_get_uint32(args->dnode, "color");
 	yang_dnode_get_ip(&endpoint, args->dnode, "endpoint");
 	policy = srte_policy_add(color, &endpoint, SRTE_ORIGIN_LOCAL, NULL);
+	if (policy) {
+		if (CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE)) {
+			ipaddr2str(&policy->endpoint, endpoint_str,
+				   sizeof(endpoint_str));
+			zlog_warn(
+				"PATHD: policy Color %u Endpoint %s: already created by template",
+				policy->color, endpoint_str);
+		}
+	} else
+		policy = srte_policy_add(color, &endpoint, SRTE_ORIGIN_LOCAL, NULL);
 
 	nb_running_set_entry(args->dnode, policy);
 	SET_FLAG(policy->flags, F_POLICY_NEW);
+	SET_FLAG(policy->flags, F_POLICY_CONFIG);
 
 	return NB_OK;
 }
@@ -268,9 +280,19 @@ int pathd_srte_policy_destroy(struct nb_cb_destroy_args *args)
 {
 	struct srte_policy *policy;
 
-	if (args->event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
+	if (args->event == NB_EV_VALIDATE) {
+		policy = nb_running_get_entry(args->dnode, NULL, true);
+		if (policy && CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE)) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"The SR Policy is derived from policy-template!");
+			return NB_ERR;
+		}
+		return NB_OK;
+	}
 	policy = nb_running_unset_entry(args->dnode);
 	SET_FLAG(policy->flags, F_POLICY_DELETED);
 

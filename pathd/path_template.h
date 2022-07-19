@@ -89,6 +89,9 @@ struct srte_policy_template {
 	struct srte_candidate_template_head candidate_paths;
 	/* Status flags. */
 	uint16_t flags;
+
+	/* when template is instantiated, used for policy naming */
+	uint16_t counter;
 };
 
 extern struct srte_policy_template_head srte_policies_template;

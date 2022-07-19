@@ -42,4 +42,13 @@ RB_HEAD(srte_triggered_policy_head, srte_triggered_policy);
 RB_PROTOTYPE(srte_triggered_policy_head, srte_triggered_policy, entry,
 	     srte_triggered_policy_compare)
 
+void srte_triggered_clean_zebra(void);
+void srte_triggered_removing(struct srte_triggered_policy *bgp_policy);
+void srte_bgp_policy_candidate_removing(
+	struct srte_triggered_policy *bgp_policy, uint32_t preference);
+void srte_triggered_update_candidate_removing(uint32_t color,
+					      uint32_t preference);
+void srte_triggered_update_candidate_changed(uint32_t color);
+void srte_triggered_del(uint32_t color, struct ipaddr *endpoint);
+void srte_triggered_add(uint32_t color, struct ipaddr *endpoint);
 #endif

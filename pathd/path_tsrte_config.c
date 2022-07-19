@@ -667,8 +667,23 @@ int pathd_srte_policy_template_name_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
+	name = yang_dnode_get_string(args->dnode, NULL);
 
 	if (args->event == NB_EV_VALIDATE) {
+		if (CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE)) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"The SR Policy name must not conflict with policy-template name!");
+			return NB_ERR;
+		}
+
+		if ((strlen(name) + 1) > sizeof(policy->name)) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"The SR Policy name is too long!");
+			return NB_ERR;
+		}
+
 		/* the policy name is fixed after setting it once */
 		if (strlen(policy->name) > 0) {
 			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
@@ -678,7 +693,6 @@ int pathd_srte_policy_template_name_modify(struct nb_cb_modify_args *args)
 			return NB_OK;
 	}
 
-	name = yang_dnode_get_string(args->dnode, NULL);
 	strlcpy(policy->name, name, sizeof(policy->name));
 	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
