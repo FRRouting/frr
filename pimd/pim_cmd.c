@@ -1521,17 +1521,6 @@ static void clear_igmp_interfaces(struct pim_instance *pim)
 		pim_if_addr_add_all(ifp);
 }
 
-static void clear_pim_interfaces(struct pim_instance *pim)
-{
-	struct interface *ifp;
-
-	FOR_ALL_INTERFACES (pim->vrf, ifp) {
-		if (ifp->info) {
-			pim_neighbor_delete_all(ifp, "interface cleared");
-		}
-	}
-}
-
 static void clear_interfaces(struct pim_instance *pim)
 {
 	clear_igmp_interfaces(pim);
@@ -1670,7 +1659,7 @@ DEFPY (clear_ip_mroute,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_pim_interfaces,
+DEFPY (clear_ip_pim_interfaces,
        clear_ip_pim_interfaces_cmd,
        "clear ip pim [vrf NAME] interfaces",
        CLEAR_STR
@@ -1679,13 +1668,12 @@ DEFUN (clear_ip_pim_interfaces,
        VRF_CMD_HELP_STR
        "Reset PIM interfaces\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct vrf *v = pim_cmd_lookup(vty, vrf);
 
-	if (!vrf)
+	if (!v)
 		return CMD_WARNING;
 
-	clear_pim_interfaces(vrf->info);
+	clear_pim_interfaces(v->info);
 
 	return CMD_SUCCESS;
 }
