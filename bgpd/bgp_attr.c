@@ -181,6 +181,9 @@ static struct cluster_list *cluster_intern(struct cluster_list *cluster)
 
 static void cluster_unintern(struct cluster_list **cluster)
 {
+	if (!*cluster)
+		return;
+
 	if ((*cluster)->refcnt)
 		(*cluster)->refcnt--;
 
@@ -1113,10 +1116,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
-	if (cluster) {
-		cluster_unintern(&cluster);
-		bgp_attr_set_cluster(attr, cluster);
-	}
+	cluster_unintern(&cluster);
+	bgp_attr_set_cluster(attr, cluster);
 
 	struct transit *transit = bgp_attr_get_transit(attr);
 
@@ -1201,10 +1202,9 @@ void bgp_attr_flush(struct attr *attr)
 	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
-	if (cluster && !cluster->refcnt) {
+	if (cluster && !cluster->refcnt)
 		cluster_free(cluster);
-		bgp_attr_set_cluster(attr, NULL);
-	}
+	bgp_attr_set_cluster(attr, NULL);
 
 	struct transit *transit = bgp_attr_get_transit(attr);
 
