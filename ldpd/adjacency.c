@@ -386,9 +386,7 @@ adj_to_ctl(struct adj *adj)
 	}
 	actl.holdtime = adj->holdtime;
 	actl.holdtime_remaining =
-		thread_is_scheduled(adj->inactivity_timer)
-			? thread_timer_remain_second(adj->inactivity_timer)
-			: 0;
+		thread_timer_remain_second(adj->inactivity_timer);
 	actl.trans_addr = adj->trans_addr;
 	actl.ds_tlv = adj->ds_tlv;
 
