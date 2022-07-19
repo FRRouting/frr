@@ -4902,3 +4902,13 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 
 	return CMD_SUCCESS;
 }
+
+void clear_pim_interfaces(struct pim_instance *pim)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		if (ifp->info)
+			pim_neighbor_delete_all(ifp, "interface cleared");
+	}
+}
