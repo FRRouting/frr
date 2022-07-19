@@ -385,6 +385,10 @@ Clear commands reset various variables.
    packet count, byte count and wrong interface to 0 and start count
    up from this spot.
 
+.. clicmd:: clear ipv6 pim interfaces
+
+   Reset PIMv6 interfaces.
+
 .. clicmd:: clear ipv6 pim oil
 
    Rescan PIMv6 OIL (output interface list).
