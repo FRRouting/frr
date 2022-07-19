@@ -830,39 +830,51 @@ static int rtadv_make_socket(ns_id_t ns_id)
 	int sock = -1;
 	int ret = 0;
 	struct icmp6_filter filter;
+	int error;
 
 	frr_with_privs(&zserv_privs) {
 
 		sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
-
+		/*
+		 * with privs might set errno too if it fails save
+		 * to the side
+		 */
+		error = errno;
 	}
 
 	if (sock < 0) {
+		zlog_warn("RTADV socket for ns: %u failure to create: %s(%u)",
+			  ns_id, safe_strerror(error), error);
 		return -1;
 	}
 
 	ret = setsockopt_ipv6_pktinfo(sock, 1);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set Packet Information");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_multicast_loop(sock, 0);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set multicast Loop detection");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_unicast_hops(sock, 255);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set maximum unicast hops");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_multicast_hops(sock, 255);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set maximum multicast hops");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_hoplimit(sock, 1);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set maximum incoming hop limit");
 		close(sock);
 		return ret;
 	}
