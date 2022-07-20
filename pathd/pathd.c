@@ -510,6 +510,8 @@ void srte_clean_zebra(void)
 
 	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol)
 		srte_policy_del(policy);
+
+	path_zebra_stop();
 }
 
 /**
