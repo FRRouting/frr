@@ -3935,9 +3935,9 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 
 		if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 			zlog_debug(
-				"LSA[Refresh:Type%d:%pI4]: ospf_refresher_register_lsa(): setting refresh_list on lsa %p (slod %d)",
-				lsa->data->type, &lsa->data->id,
-				(void *)lsa, index);
+				"LSA[Refresh:Type%d:%pI4]: ospf_refresher_register_lsa(): setting refresh_list on lsa %p (slot %d)",
+				lsa->data->type, &lsa->data->id, (void *)lsa,
+				index);
 	}
 }
 
