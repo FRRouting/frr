@@ -721,7 +721,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 		encaptlv = XCALLOC(MTYPE_ENCAP_TLV,
 				   sizeof(struct bgp_attr_encap_subtlv) + 4);
-		assert(encaptlv);
 		encaptlv->type =
 			BGP_VNC_SUBTLV_TYPE_LIFETIME; /* prefix lifetime */
 		encaptlv->length = 4;
@@ -766,7 +765,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 					MTYPE_ENCAP_TLV,
 					sizeof(struct bgp_attr_encap_subtlv) + 2
 						+ hop->length);
-				assert(encaptlv);
 				encaptlv->type =
 					BGP_VNC_SUBTLV_TYPE_RFPOPTION; /* RFP
 									  option
@@ -1041,7 +1039,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	SET_FLAG(new->flags, BGP_PATH_VALID);
 
 	/* save backref to rfapi handle */
-	assert(bgp_path_info_extra_get(new));
+	bgp_path_info_extra_get(new);
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
 	encode_label(label_val, &new->extra->label[0]);
 
@@ -1963,7 +1961,6 @@ int rfapi_open(void *rfp_start_val, struct rfapi_ip_addr *vn,
 		rfd = XCALLOC(MTYPE_RFAPI_DESC,
 			      sizeof(struct rfapi_descriptor));
 	}
-	assert(rfd);
 
 	rfd->bgp = bgp;
 	if (default_options) {

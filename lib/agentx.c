@@ -118,7 +118,6 @@ static void agentx_events_update(void)
 	snmp_select_info(&maxfd, &fds, &timeout, &block);
 
 	if (!block) {
-		timeout_thr = NULL;
 		thread_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
 				    &timeout_thr);
 	}

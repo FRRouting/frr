@@ -8228,18 +8228,20 @@ void bgp_terminate(void)
 	 * of a large number of peers this will ensure that no peer is left with
 	 * a dangling connection
 	 */
-	/* reverse bgp_master_init */
+
 	bgp_close();
-
-	if (bm->listen_sockets)
-		list_delete(&bm->listen_sockets);
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp))
+	/* reverse bgp_master_init */
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		bgp_close_vrf_socket(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 			if (peer_established(peer) || peer->status == OpenSent
 			    || peer->status == OpenConfirm)
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+	}
+
+	if (bm->listen_sockets)
+		list_delete(&bm->listen_sockets);
 
 	BGP_TIMER_OFF(bm->t_rmap_update);
 

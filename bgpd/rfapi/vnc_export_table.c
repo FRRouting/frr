@@ -119,7 +119,6 @@ struct vnc_export_info *vnc_eti_get(struct bgp *bgp, vnc_export_type_t etype,
 		agg_unlock_node(etn);
 	} else {
 		eti = XCALLOC(MTYPE_RFAPI_ETI, sizeof(struct vnc_export_info));
-		assert(eti);
 		eti->node = etn;
 		eti->peer = peer;
 		peer_lock(peer);
