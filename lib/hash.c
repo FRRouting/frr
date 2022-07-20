@@ -56,7 +56,7 @@ struct hash *hash_create_size(unsigned int size,
 	hash->name = name ? XSTRDUP(MTYPE_HASH, name) : NULL;
 	hash->stats.empty = hash->size;
 
-	frr_with_mutex(&_hashes_mtx) {
+	frr_with_mutex (&_hashes_mtx) {
 		if (!_hashes)
 			_hashes = list_new();
 
@@ -329,7 +329,7 @@ struct list *hash_to_list(struct hash *hash)
 
 void hash_free(struct hash *hash)
 {
-	frr_with_mutex(&_hashes_mtx) {
+	frr_with_mutex (&_hashes_mtx) {
 		if (_hashes) {
 			listnode_delete(_hashes, hash);
 			if (_hashes->count == 0) {

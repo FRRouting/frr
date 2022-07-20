@@ -488,7 +488,7 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 	 * Serialize 'raise' operations; particularly important for
 	 * OSes where privs are process-wide.
 	 */
-	frr_with_mutex(&(privs->mutex)) {
+	frr_with_mutex (&(privs->mutex)) {
 		/* Locate ref-counting object to use */
 		refs = get_privs_refs(privs);
 
@@ -517,7 +517,7 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 	/* Serialize 'lower privs' operation - particularly important
 	 * when OS privs are process-wide.
 	 */
-	frr_with_mutex(&(*privs)->mutex) {
+	frr_with_mutex (&(*privs)->mutex) {
 		refs = get_privs_refs(*privs);
 
 		if (--(refs->refcount) == 0) {

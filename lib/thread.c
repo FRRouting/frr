@@ -217,7 +217,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	tmp.funcname = "TOTAL";
 	tmp.types = filter;
 
-	frr_with_mutex(&masters_mtx) {
+	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			const char *name = m->name ? m->name : "main";
 
@@ -283,9 +283,9 @@ static void cpu_record_clear(uint8_t filter)
 	struct thread_master *m;
 	struct listnode *ln;
 
-	frr_with_mutex(&masters_mtx) {
+	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
-			frr_with_mutex(&m->mtx) {
+			frr_with_mutex (&m->mtx) {
 				void *args[2] = {tmp, m->cpu_record};
 				hash_iterate(
 					m->cpu_record,
@@ -463,7 +463,7 @@ DEFUN_NOSH (show_thread_poll,
 	struct listnode *node;
 	struct thread_master *m;
 
-	frr_with_mutex(&masters_mtx) {
+	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
 			show_thread_poll_helper(vty, m);
 		}
@@ -630,7 +630,7 @@ struct thread_master *thread_master_create(const char *name)
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
 
 	/* add to list of threadmasters */
-	frr_with_mutex(&masters_mtx) {
+	frr_with_mutex (&masters_mtx) {
 		if (!masters)
 			masters = list_new();
 
@@ -642,7 +642,7 @@ struct thread_master *thread_master_create(const char *name)
 
 void thread_master_set_name(struct thread_master *master, const char *name)
 {
-	frr_with_mutex(&master->mtx) {
+	frr_with_mutex (&master->mtx) {
 		XFREE(MTYPE_THREAD_MASTER, master->name);
 		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
 	}
@@ -708,7 +708,7 @@ static void thread_array_free(struct thread_master *m,
  */
 void thread_master_free_unused(struct thread_master *m)
 {
-	frr_with_mutex(&m->mtx) {
+	frr_with_mutex (&m->mtx) {
 		struct thread *t;
 		while ((t = thread_list_pop(&m->unuse)))
 			thread_free(m, t);
@@ -720,7 +720,7 @@ void thread_master_free(struct thread_master *m)
 {
 	struct thread *t;
 
-	frr_with_mutex(&masters_mtx) {
+	frr_with_mutex (&masters_mtx) {
 		listnode_delete(masters, m);
 		if (masters->count == 0) {
 			list_delete(&masters);
@@ -759,7 +759,7 @@ unsigned long thread_timer_remain_msec(struct thread *thread)
 	if (!thread_is_scheduled(thread))
 		return 0;
 
-	frr_with_mutex(&thread->mtx) {
+	frr_with_mutex (&thread->mtx) {
 		remain = monotime_until(&thread->u.sands, NULL) / 1000LL;
 	}
 
@@ -775,7 +775,7 @@ unsigned long thread_timer_remain_second(struct thread *thread)
 struct timeval thread_timer_remain(struct thread *thread)
 {
 	struct timeval remain;
-	frr_with_mutex(&thread->mtx) {
+	frr_with_mutex (&thread->mtx) {
 		monotime_until(&thread->u.sands, &remain);
 	}
 	return remain;
@@ -990,7 +990,7 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 	if (fd >= m->fd_limit)
 		assert(!"Number of FD's open is greater than FRR currently configured to handle, aborting");
 
-	frr_with_mutex(&m->mtx) {
+	frr_with_mutex (&m->mtx) {
 		if (t_ptr && *t_ptr)
 			// thread is already scheduled; don't reschedule
 			break;
@@ -1033,7 +1033,7 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 			m->handler.pfdcount++;
 
 		if (thread) {
-			frr_with_mutex(&thread->mtx) {
+			frr_with_mutex (&thread->mtx) {
 				thread->u.fd = fd;
 				thread_array[thread->u.fd] = thread;
 			}
@@ -1069,14 +1069,14 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 	monotime(&t);
 	timeradd(&t, time_relative, &t);
 
-	frr_with_mutex(&m->mtx) {
+	frr_with_mutex (&m->mtx) {
 		if (t_ptr && *t_ptr)
 			/* thread is already scheduled; don't reschedule */
 			return;
 
 		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
 
-		frr_with_mutex(&thread->mtx) {
+		frr_with_mutex (&thread->mtx) {
 			thread->u.sands = t;
 			thread_timer_list_add(&m->timer, thread);
 			if (t_ptr) {
@@ -1154,13 +1154,13 @@ void _thread_add_event(const struct xref_threadsched *xref,
 
 	assert(m != NULL);
 
-	frr_with_mutex(&m->mtx) {
+	frr_with_mutex (&m->mtx) {
 		if (t_ptr && *t_ptr)
 			/* thread is already scheduled; don't reschedule */
 			break;
 
 		thread = thread_get(m, THREAD_EVENT, func, arg, xref);
-		frr_with_mutex(&thread->mtx) {
+		frr_with_mutex (&thread->mtx) {
 			thread->u.val = val;
 			thread_list_add_tail(&m->event, thread);
 		}
@@ -1441,7 +1441,7 @@ static void cancel_event_helper(struct thread_master *m, void *arg, int flags)
 
 	cr->flags = flags;
 
-	frr_with_mutex(&m->mtx) {
+	frr_with_mutex (&m->mtx) {
 		cr->eventobj = arg;
 		listnode_add(m->cancel_req, cr);
 		do_thread_cancel(m);
@@ -1499,7 +1499,7 @@ void thread_cancel(struct thread **thread)
 
 	assert(master->owner == pthread_self());
 
-	frr_with_mutex(&master->mtx) {
+	frr_with_mutex (&master->mtx) {
 		struct cancel_req *cr =
 			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
 		cr->thread = *thread;
@@ -1551,7 +1551,7 @@ void thread_cancel_async(struct thread_master *master, struct thread **thread,
 
 	assert(master->owner != pthread_self());
 
-	frr_with_mutex(&master->mtx) {
+	frr_with_mutex (&master->mtx) {
 		master->canceled = false;
 
 		if (thread) {
@@ -1931,7 +1931,7 @@ unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 int thread_should_yield(struct thread *thread)
 {
 	int result;
-	frr_with_mutex(&thread->mtx) {
+	frr_with_mutex (&thread->mtx) {
 		result = monotime_since(&thread->real, NULL)
 			 > (int64_t)thread->yield;
 	}
@@ -1940,7 +1940,7 @@ int thread_should_yield(struct thread *thread)
 
 void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
 {
-	frr_with_mutex(&thread->mtx) {
+	frr_with_mutex (&thread->mtx) {
 		thread->yield = yield_time;
 	}
 }
@@ -2082,11 +2082,11 @@ void _thread_execute(const struct xref_threadsched *xref,
 	struct thread *thread;
 
 	/* Get or allocate new thread to execute. */
-	frr_with_mutex(&m->mtx) {
+	frr_with_mutex (&m->mtx) {
 		thread = thread_get(m, THREAD_EVENT, func, arg, xref);
 
 		/* Set its event value. */
-		frr_with_mutex(&thread->mtx) {
+		frr_with_mutex (&thread->mtx) {
 			thread->add_type = THREAD_EXECUTE;
 			thread->u.val = val;
 			thread->ref = &thread;

@@ -193,7 +193,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 			 * is not strictly necessary, but serves as a reminder
 			 * to those who may meddle...
 			 */
-			frr_with_mutex(&vncHD1VR.peer->io_mtx) {
+			frr_with_mutex (&vncHD1VR.peer->io_mtx) {
 				// we don't need any I/O related facilities
 				if (vncHD1VR.peer->ibuf)
 					stream_fifo_free(vncHD1VR.peer->ibuf);

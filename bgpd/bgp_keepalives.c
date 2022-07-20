@@ -252,7 +252,7 @@ void bgp_keepalives_on(struct peer *peer)
 	 */
 	assert(peerhash_mtx);
 
-	frr_with_mutex(peerhash_mtx) {
+	frr_with_mutex (peerhash_mtx) {
 		holder.peer = peer;
 		if (!hash_lookup(peerhash, &holder)) {
 			struct pkat *pkat = pkat_new(peer);
@@ -280,7 +280,7 @@ void bgp_keepalives_off(struct peer *peer)
 	 */
 	assert(peerhash_mtx);
 
-	frr_with_mutex(peerhash_mtx) {
+	frr_with_mutex (peerhash_mtx) {
 		holder.peer = peer;
 		struct pkat *res = hash_release(peerhash, &holder);
 		if (res) {
@@ -293,7 +293,7 @@ void bgp_keepalives_off(struct peer *peer)
 
 void bgp_keepalives_wake(void)
 {
-	frr_with_mutex(peerhash_mtx) {
+	frr_with_mutex (peerhash_mtx) {
 		pthread_cond_signal(peerhash_cond);
 	}
 }

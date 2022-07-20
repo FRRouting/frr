@@ -43,14 +43,14 @@ static int zlog_filter_lookup(const char *lookup)
 
 void zlog_filter_clear(void)
 {
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		zlog_filter_count = 0;
 	}
 }
 
 int zlog_filter_add(const char *filter)
 {
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		if (zlog_filter_count >= ZLOG_FILTERS_MAX)
 			return 1;
 
@@ -74,7 +74,7 @@ int zlog_filter_add(const char *filter)
 
 int zlog_filter_del(const char *filter)
 {
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		int found_idx = zlog_filter_lookup(filter);
 		int last_idx = zlog_filter_count - 1;
 
@@ -96,7 +96,7 @@ int zlog_filter_dump(char *buf, size_t max_size)
 {
 	int len = 0;
 
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		for (int i = 0; i < zlog_filter_count; i++) {
 			int ret;
 
@@ -115,7 +115,7 @@ static int search_buf(const char *buf, size_t len)
 {
 	char *found = NULL;
 
-	frr_with_mutex(&logfilterlock) {
+	frr_with_mutex (&logfilterlock) {
 		for (int i = 0; i < zlog_filter_count; i++) {
 			found = memmem(buf, len, zlog_filters[i],
 				       strlen(zlog_filters[i]));
