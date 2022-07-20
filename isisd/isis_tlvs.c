@@ -2966,9 +2966,9 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 }
 
 static int unpack_tlv_router_cap(enum isis_tlv_context context,
-				       uint8_t tlv_type, uint8_t tlv_len,
-				       struct stream *s, struct sbuf *log,
-				       void *dest, int indent)
+				 uint8_t tlv_type, uint8_t tlv_len,
+				 struct stream *s, struct sbuf *log, void *dest,
+				 int indent)
 {
 	struct isis_tlvs *tlvs = dest;
 	struct isis_router_cap *rcap;
@@ -3013,7 +3013,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				log, indent,
 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
 			stream_forward_getp(s, STREAM_READABLE(s));
-
+			XFREE(MTYPE_ISIS_TLV, rcap);
 			return 0;
 		}
 
