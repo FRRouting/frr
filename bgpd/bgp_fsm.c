@@ -194,7 +194,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	 * on various buffers. Those need to be transferred or dropped,
 	 * otherwise we'll get spurious failures during session establishment.
 	 */
-	frr_with_mutex(&peer->io_mtx, &from_peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx, &from_peer->io_mtx) {
 		fd = peer->fd;
 		peer->fd = from_peer->fd;
 		from_peer->fd = fd;
@@ -1501,7 +1501,7 @@ int bgp_stop(struct peer *peer)
 	BGP_TIMER_OFF(peer->t_delayopen);
 
 	/* Clear input and output buffer.  */
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		if (peer->ibuf)
 			stream_fifo_clean(peer->ibuf);
 		if (peer->obuf)

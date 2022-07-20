@@ -247,7 +247,7 @@ uint32_t zebra_opaque_enqueue_batch(struct stream_fifo *batch)
 	/* Dequeue messages from the incoming batch, and save them
 	 * on the module fifo.
 	 */
-	frr_with_mutex(&zo_info.mutex) {
+	frr_with_mutex (&zo_info.mutex) {
 		msg = stream_fifo_pop(batch);
 		while (msg) {
 			stream_fifo_push(&zo_info.in_fifo, msg);
@@ -288,7 +288,7 @@ static void process_messages(struct thread *event)
 	 * Dequeue some messages from the incoming queue, temporarily
 	 * save them on the local fifo
 	 */
-	frr_with_mutex(&zo_info.mutex) {
+	frr_with_mutex (&zo_info.mutex) {
 
 		for (i = 0; i < zo_info.msgs_per_cycle; i++) {
 			msg = stream_fifo_pop(&zo_info.in_fifo);
