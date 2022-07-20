@@ -173,17 +173,22 @@ DEFPY(show_srte_policy_detail,
 		char *segment_list_info;
 		static char undefined_info[] = "(undefined)";
 		static char created_by_pce_info[] = "(created by PCE)";
-
+		char protocol_origin[30];
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 		if (policy->binding_sid != MPLS_LABEL_NONE)
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
+		if (CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE))
+			snprintf(protocol_origin, sizeof(protocol_origin), " (origin BGP)");
+		else
+			protocol_origin[0] = '\0';
 		vty_out(vty,
-			"Endpoint: %s  Color: %u  Name: %s  BSID: %s  Status: %s\n",
+			"Endpoint: %s  Color: %u  Name: %s  BSID: %s  Status: %s%s\n",
 			endpoint, policy->color, policy->name, binding_sid,
 			policy->status == SRTE_POLICY_STATUS_UP ? "Active"
-								: "Inactive");
+								: "Inactive",
+			protocol_origin);
 
 		RB_FOREACH (candidate, srte_candidate_head,
 			    &policy->candidate_paths) {
