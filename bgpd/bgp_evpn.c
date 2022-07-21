@@ -6428,7 +6428,7 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn,
 		return;
 
 	tree = &vpn->bgp_vrf->nexthop_cache_table[afi];
-	bnc = bnc_find(tree, &p, 0);
+	bnc = bnc_find(tree, &p, 0, 0);
 
 	if (!bnc || !bnc->is_evpn_gwip_nexthop)
 		return;
