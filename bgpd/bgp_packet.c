@@ -2440,6 +2440,14 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				"%s CAPABILITY has action: %d, code: %u, length %u",
 				peer->host, action, hdr->code, hdr->length);
 
+		if (hdr->length < sizeof(struct capability_mp_data)) {
+			zlog_info(
+				"%pBP Capability structure is not properly filled out, expected at least %zu bytes but header length specified is %d",
+				peer, sizeof(struct capability_mp_data),
+				hdr->length);
+			return BGP_Stop;
+		}
+
 		/* Capability length check. */
 		if ((pnt + hdr->length + 3) > end) {
 			zlog_info("%s Capability length error", peer->host);
