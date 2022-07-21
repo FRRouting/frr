@@ -1258,7 +1258,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	 * since this peer is not on the I/O thread, this lock is not strictly
 	 * necessary, but serves as a reminder to those who may meddle...
 	 */
-	frr_with_mutex(&rfd->peer->io_mtx) {
+	frr_with_mutex (&rfd->peer->io_mtx) {
 		// we don't need any I/O related facilities
 		if (rfd->peer->ibuf)
 			stream_fifo_free(rfd->peer->ibuf);

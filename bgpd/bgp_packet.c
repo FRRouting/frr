@@ -125,7 +125,7 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 	intmax_t delta;
 	uint32_t holdtime;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		/* if the queue is empty, reset the "last OK" timestamp to
 		 * now, otherwise if we write another packet immediately
 		 * after it'll get confused
@@ -2777,7 +2777,7 @@ void bgp_process_packet(struct thread *thread)
 		bgp_size_t size;
 		char notify_data_length[2];
 
-		frr_with_mutex(&peer->io_mtx) {
+		frr_with_mutex (&peer->io_mtx) {
 			peer->curr = stream_fifo_pop(peer->ibuf);
 		}
 
@@ -2904,7 +2904,7 @@ void bgp_process_packet(struct thread *thread)
 
 	if (fsm_update_result != FSM_PEER_TRANSFERRED
 	    && fsm_update_result != FSM_PEER_STOPPED) {
-		frr_with_mutex(&peer->io_mtx) {
+		frr_with_mutex (&peer->io_mtx) {
 			// more work to do, come back later
 			if (peer->ibuf->count > 0)
 				thread_add_event(
