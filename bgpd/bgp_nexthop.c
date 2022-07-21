@@ -56,6 +56,11 @@ int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 	if (a->srte_color > b->srte_color)
 		return 1;
 
+	if (a->ifindex < b->ifindex)
+		return -1;
+	if (a->ifindex > b->ifindex)
+		return 1;
+
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
 
@@ -70,13 +75,15 @@ void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
-				  struct prefix *prefix, uint32_t srte_color)
+				  struct prefix *prefix, uint32_t srte_color,
+				  ifindex_t ifindex)
 {
 	struct bgp_nexthop_cache *bnc;
 
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
 	bnc->prefix = *prefix;
+	bnc->ifindex = ifindex;
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
@@ -106,7 +113,8 @@ void bnc_free(struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
-				   struct prefix *prefix, uint32_t srte_color)
+				   struct prefix *prefix, uint32_t srte_color,
+				   ifindex_t ifindex)
 {
 	struct bgp_nexthop_cache bnc = {};
 
@@ -115,6 +123,7 @@ struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 
 	bnc.prefix = *prefix;
 	bnc.srte_color = srte_color;
+	bnc.ifindex = ifindex;
 	return bgp_nexthop_cache_find(tree, &bnc);
 }
 
@@ -915,7 +924,7 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		}
 		tree = import_table ? &bgp->import_check_table
 				    : &bgp->nexthop_cache_table;
-		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop, 0);
+		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop, 0, 0);
 		if (!bnc) {
 			vty_out(vty, "specified nexthop does not have entry\n");
 			return CMD_SUCCESS;
