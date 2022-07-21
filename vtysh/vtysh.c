@@ -826,9 +826,22 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	int lineno = 0;
 	/* once we have an error, we remember & return that */
 	int retcode = CMD_SUCCESS;
+	char *vty_buf_copy = XCALLOC(MTYPE_VTYSH_CMD, VTY_BUFSIZ);
+	char *vty_buf_trimmed = NULL;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
+
+		strlcpy(vty_buf_copy, vty->buf, VTY_BUFSIZ);
+		vty_buf_trimmed = trim(vty_buf_copy);
+
+		/*
+		 * Ignore the "end" lines, we will generate these where
+		 * appropriate, otherwise we never execute
+		 * XFRR_end_configuration, and start/end markers do not work.
+		 */
+		if (strmatch(vty_buf_trimmed, "end"))
+			continue;
 
 		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
@@ -895,6 +908,8 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		}
 		}
 	}
+
+	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
 	return (retcode);
 }
