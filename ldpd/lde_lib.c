@@ -1068,7 +1068,7 @@ void lde_gc_timer(struct thread *thread)
 void
 lde_gc_start_timer(void)
 {
-	thread_cancel(&gc_timer);
+	THREAD_OFF(gc_timer);
 	thread_add_timer(master, lde_gc_timer, NULL, LDE_GC_INTERVAL,
 			 &gc_timer);
 }
@@ -1076,5 +1076,5 @@ lde_gc_start_timer(void)
 void
 lde_gc_stop_timer(void)
 {
-	thread_cancel(&gc_timer);
+	THREAD_OFF(gc_timer);
 }
