@@ -167,8 +167,12 @@ DEFUN (show_srv6_locator_detail,
 		prefix2str(&locator->prefix, str, sizeof(str));
 		vty_out(vty, "Name: %s\n", locator->name);
 		vty_out(vty, "Prefix: %s\n", str);
+		vty_out(vty, "Block-Bit-Len: %u\n", locator->block_bits_length);
+		vty_out(vty, "Node-Bit-Len: %u\n", locator->node_bits_length);
 		vty_out(vty, "Function-Bit-Len: %u\n",
 			locator->function_bits_length);
+		vty_out(vty, "Argument-Bit-Len: %u\n",
+			locator->argument_bits_length);
 
 		vty_out(vty, "Chunks:\n");
 		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
