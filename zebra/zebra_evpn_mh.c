@@ -779,6 +779,15 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
 	if (!acc_bd)
 		acc_bd = zebra_evpn_acc_bd_alloc_on_ref(vid, br_if);
+
+	old_vni = acc_bd->vni;
+	if (vni_id == old_vni) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("This is a duplicate msg for access_vlan %d VNI %d VNI Refcount: %d",
+				   vid, vni_id, acc_bd->vni_refcnt);
+
+		return;
+	}
 	/* Check if the current vni is active, if active then we have multiple
 	 * VNI's getting mapped to the same VLAN which is momentary hence
 	 * increment the vni count and return else continue processing as the
@@ -792,10 +801,6 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				   acc_bd->vni_refcnt);
 		return;
 	}
-	old_vni = acc_bd->vni;
-
-	if (vni_id == old_vni)
-		return;
 
 	acc_bd->vni = vni_id;
 	acc_bd->vxlan_zif = vxlan_zif;
