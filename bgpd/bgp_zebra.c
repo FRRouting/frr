@@ -2687,6 +2687,11 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	else
 		stream_putl(s, pbra->fwmark);  /* fwmark */
 
+	stream_putl(s, 0); /* queue id */
+	stream_putw(s, 0); /* vlan_id */
+	stream_putw(s, 0); /* vlan_flags */
+	stream_putw(s, 0); /* pcp */
+
 	stream_putl(s, pbra->table_id);
 
 	memset(ifname, 0, sizeof(ifname));
