@@ -85,6 +85,11 @@ DEFINE_HOOK(bgp_rpki_prefix_status,
 	     const struct prefix *prefix),
 	    (peer, attr, prefix));
 
+DEFINE_HOOK(bgp_route_update,
+	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
+	     struct bgp_path_info *updated_route, bool withdraw),
+	    (bgp, afi, safi, bn, updated_route, withdraw));
+
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -3435,6 +3440,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				&bgp->t_rmap_def_originate_eval);
 	}
 
+	// TODO BMP insert rib update hook
 	if (old_select)
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
@@ -3446,6 +3452,16 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
+
+	if (old_select || new_select) {
+		zlog_info("old_select==NULL %s | new_select==NULL %s",
+			  old_select == NULL ? "YES" : "NO",
+			  new_select == NULL ? "YES" : "NO");
+		bool is_withdraw = old_select && !new_select;
+		hook_call(bgp_route_update, bgp, afi, safi, dest,
+			  is_withdraw ? old_select : new_select, is_withdraw);
+	}
+
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
