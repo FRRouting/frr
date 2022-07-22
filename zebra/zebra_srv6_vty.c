@@ -365,9 +365,18 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "   locator %s\n", locator->name);
 			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
+			if (locator->block_bits_length)
+				vty_out(vty, " block-len %u",
+					locator->block_bits_length);
+			if (locator->node_bits_length)
+				vty_out(vty, " node-len %u",
+					locator->node_bits_length);
 			if (locator->function_bits_length)
 				vty_out(vty, " func-bits %u",
 					locator->function_bits_length);
+			if (locator->argument_bits_length)
+				vty_out(vty, " arg-len %u",
+					locator->argument_bits_length);
 			vty_out(vty, "\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
