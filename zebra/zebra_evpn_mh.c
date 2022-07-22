@@ -780,9 +780,32 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 		acc_bd = zebra_evpn_acc_bd_alloc_on_ref(vid, br_if);
 
 	old_vni = acc_bd->vni;
+<<<<<<< HEAD
 
 	if (vni_id == old_vni)
 		return;
+=======
+	if (vni_id == old_vni) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("This is a duplicate msg for access_vlan %d VNI %d VNI Refcount: %d",
+				   vid, vni_id, acc_bd->vni_refcnt);
+
+		return;
+	}
+	/* Check if the current vni is active, if active then we have multiple
+	 * VNI's getting mapped to the same VLAN which is momentary hence
+	 * increment the vni count and return else continue processing as the
+	 * VNI has changed for this VLAN and needs to be updated
+	 */
+	else if (acc_bd->vxlan_zif && zebra_vxlan_if_vni_find(acc_bd->vxlan_zif, acc_bd->vni)) {
+		tmp_cnt = acc_bd->vni_refcnt;
+		acc_bd->vni_refcnt++;
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("access_vlan %d increment VNI count: %d->%d", vid, tmp_cnt,
+				   acc_bd->vni_refcnt);
+		return;
+	}
+>>>>>>> 7be28d655 (zebra: fix the access-vlan vni refcount on bridge flap)
 
 	acc_bd->vni = vni_id;
 	acc_bd->vxlan_zif = vxlan_zif;
