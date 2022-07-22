@@ -2401,12 +2401,12 @@ void peer_nsf_stop(struct peer *peer)
 		peer->nsf[afi][safi] = 0;
 
 	if (peer->t_gr_restart) {
-		BGP_TIMER_OFF(peer->t_gr_restart);
+		THREAD_OFF(peer->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 	if (peer->t_gr_stale) {
-		BGP_TIMER_OFF(peer->t_gr_stale);
+		THREAD_OFF(peer->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP graceful restart stalepath timer stopped",
@@ -3584,7 +3584,7 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
-		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+		THREAD_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
@@ -3651,7 +3651,7 @@ int bgp_delete(struct bgp *bgp)
 		if (!gr_info)
 			continue;
 
-		BGP_TIMER_OFF(gr_info->t_select_deferral);
+		THREAD_OFF(gr_info->t_select_deferral);
 
 		t = gr_info->t_route_select;
 		if (t) {
@@ -3659,7 +3659,7 @@ int bgp_delete(struct bgp *bgp)
 
 			XFREE(MTYPE_TMP, info);
 		}
-		BGP_TIMER_OFF(gr_info->t_route_select);
+		THREAD_OFF(gr_info->t_route_select);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
@@ -3682,7 +3682,7 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
-		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+		THREAD_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
@@ -4351,7 +4351,7 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 
 			if (peer->t_pmax_restart) {
-				BGP_TIMER_OFF(peer->t_pmax_restart);
+				THREAD_OFF(peer->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Maximum-prefix restart timer canceled",
@@ -7371,7 +7371,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	if (peer->t_pmax_restart) {
-		BGP_TIMER_OFF(peer->t_pmax_restart);
+		THREAD_OFF(peer->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP Maximum-prefix restart timer cancelled",
@@ -8243,7 +8243,7 @@ void bgp_terminate(void)
 	if (bm->listen_sockets)
 		list_delete(&bm->listen_sockets);
 
-	BGP_TIMER_OFF(bm->t_rmap_update);
+	THREAD_OFF(bm->t_rmap_update);
 
 	bgp_mac_finish();
 }

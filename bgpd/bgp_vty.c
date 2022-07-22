@@ -2055,7 +2055,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 
 	/* Cancel max-med onstartup if its on */
 	if (bgp->t_maxmed_onstartup) {
-		thread_cancel(&bgp->t_maxmed_onstartup);
+		THREAD_OFF(bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
 
@@ -7256,7 +7256,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 		 * fired.
 		 */
 		if (!rmap_delay_timer && bm->t_rmap_update) {
-			BGP_TIMER_OFF(bm->t_rmap_update);
+			THREAD_OFF(bm->t_rmap_update);
 			thread_execute(bm->master, bgp_route_map_update_timer,
 				       NULL, 0);
 		}
