@@ -65,6 +65,7 @@ from lib.common_config import (
     create_static_routes,
     required_linux_kernel_version,
     topo_daemons,
+    create_debug_log_config
 )
 from lib.bgp import create_router_bgp
 from lib.pim import (
@@ -3081,6 +3082,13 @@ def test_mroutes_after_restart_frr_services_p2(request):
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    input_dict = {
+            "r4": {"debug": {"log_file": "r4_debug.log", "enable": ["pimd"]}},
+            "r2": {"debug": {"log_file": "r2_debug.log", "enable": ["pimd"]}},
+            "r1": {"debug": {"log_file": "r1_debug.log", "enable": ["pimd"]}},
+    }
+    result = create_debug_log_config(tgen, input_dict)
 
     step("Enable IGMP on DUT and R4 interface")
     intf_r1_i1 = topo["routers"]["r1"]["links"]["i1"]["interface"]
