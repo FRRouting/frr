@@ -485,6 +485,7 @@ DEFUN(as_path, bgp_as_path_cmd,
 	if (!config_bgp_aspath_validate(regstr)) {
 		vty_out(vty, "Invalid character in as-path access-list %s\n",
 			regstr);
+		XFREE(MTYPE_TMP, regstr);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
