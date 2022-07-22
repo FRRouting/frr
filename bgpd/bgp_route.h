@@ -670,13 +670,13 @@ static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest,
 
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
-	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct peer *peer, bool withdraw),
 	     (bgp, afi, safi, bn, peer, withdraw));
 
 /* called when a route is updated in the rib */
 DECLARE_HOOK(bgp_route_update,
-	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct bgp_path_info *updated_route, bool withdraw),
 	     (bgp, afi, safi, bn, updated_route, withdraw));
 

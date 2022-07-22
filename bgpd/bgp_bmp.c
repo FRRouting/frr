@@ -243,25 +243,26 @@ static void bmp_free(struct bmp *bmp)
 static void bmp_common_hdr(struct stream *s, uint8_t ver, uint8_t type)
 {
 	stream_putc(s, ver);
-	stream_putl(s, 0); //dummy message length. will be set later.
+	stream_putl(s, 0); /*dummy message length. will be set later. */
 	stream_putc(s, type);
 }
 
 static void bmp_per_peer_hdr(struct stream *s, struct peer *peer,
-		uint8_t flags, const struct timeval *tv)
+		uint8_t flags, uint8_t peer_type_flag, const struct timeval *tv)
 {
 	char peer_distinguisher[8];
 
 #define BMP_PEER_TYPE_GLOBAL_INSTANCE 0
 #define BMP_PEER_TYPE_RD_INSTANCE     1
 #define BMP_PEER_TYPE_LOCAL_INSTANCE  2
+#define BMP_PEER_TYPE_LOC_RIB_INSTANCE 3
 
 #define BMP_PEER_FLAG_V (1 << 7)
 #define BMP_PEER_FLAG_L (1 << 6)
 #define BMP_PEER_FLAG_A (1 << 5)
 
 	/* Peer Type */
-	stream_putc(s, BMP_PEER_TYPE_GLOBAL_INSTANCE);
+	stream_putc(s, peer_type_flag);
 
 	/* Peer Flags */
 	if (peer->su.sa.sa_family == AF_INET6)
@@ -328,7 +329,7 @@ static int bmp_send_initiation(struct bmp *bmp)
 	bmp_put_info_tlv(s, BMP_INFO_TYPE_SYSNAME, cmd_hostname_get());
 
 	len = stream_get_endp(s);
-	stream_putl_at(s, BMP_LENGTH_POS, len); //message length is set.
+	stream_putl_at(s, BMP_LENGTH_POS, len); /*message length is set. */
 
 	pullwr_write_stream(bmp->pullwr, s);
 	stream_free(s);
@@ -375,7 +376,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_UP_NOTIFICATION);
-		bmp_per_peer_hdr(s, peer, 0, &uptime_real);
+		bmp_per_peer_hdr(s, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &uptime_real);
 
 		/* Local Address (16 bytes) */
 		if (peer->su_local->sa.sa_family == AF_INET6)
@@ -428,7 +429,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bmp_common_hdr(s, BMP_VERSION_3,
 				BMP_TYPE_PEER_DOWN_NOTIFICATION);
-		bmp_per_peer_hdr(s, peer, 0, &uptime_real);
+		bmp_per_peer_hdr(s, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &uptime_real);
 
 		type_pos = stream_get_endp(s);
 		stream_putc(s, 0);	/* placeholder for down reason */
@@ -460,7 +461,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 	}
 
 	len = stream_get_endp(s);
-	stream_putl_at(s, BMP_LENGTH_POS, len); //message length is set.
+	stream_putl_at(s, BMP_LENGTH_POS, len); /*message length is set. */
 	return s;
 }
 
@@ -618,7 +619,7 @@ static void bmp_wrmirror_lost(struct bmp *bmp, struct pullwr *pullwr)
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_ROUTE_MIRRORING);
-	bmp_per_peer_hdr(s, bmp->targets->bgp->peer_self, 0, &tv);
+	bmp_per_peer_hdr(s, bmp->targets->bgp->peer_self, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &tv);
 
 	stream_putw(s, BMP_MIRROR_TLV_TYPE_INFO);
 	stream_putw(s, 2);
@@ -656,7 +657,7 @@ static bool bmp_wrmirror(struct bmp *bmp, struct pullwr *pullwr)
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_ROUTE_MIRRORING);
-	bmp_per_peer_hdr(s, peer, 0, &bmq->tv);
+	bmp_per_peer_hdr(s, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &bmq->tv);
 
 	/* BMP Mirror TLV. */
 	stream_putw(s, BMP_MIRROR_TLV_TYPE_BGP_MESSAGE);
@@ -805,7 +806,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 
 		bmp_common_hdr(s2, BMP_VERSION_3,
 				BMP_TYPE_ROUTE_MONITORING);
-		bmp_per_peer_hdr(s2, peer, flags, NULL);
+		bmp_per_peer_hdr(s2, peer, flags, BMP_PEER_TYPE_GLOBAL_INSTANCE, NULL);
 
 		stream_putl_at(s2, BMP_LENGTH_POS,
 				stream_get_endp(s) + stream_get_endp(s2));
@@ -910,9 +911,9 @@ static struct stream *bmp_withdraw(const struct prefix *p,
 }
 
 static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
-			const struct prefix *p, struct prefix_rd *prd,
-			struct attr *attr, afi_t afi, safi_t safi,
-			time_t uptime)
+			uint8_t peer_type_flags, const struct prefix *p,
+			struct prefix_rd *prd, struct attr *attr,
+			afi_t afi, safi_t safi, time_t uptime)
 {
 	struct stream *hdr, *msg;
 	struct timeval tv = { .tv_sec = uptime, .tv_usec = 0 };
@@ -926,7 +927,7 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 	hdr = stream_new(BGP_MAX_PACKET_SIZE);
 	bmp_common_hdr(hdr, BMP_VERSION_3, BMP_TYPE_ROUTE_MONITORING);
-	bmp_per_peer_hdr(hdr, peer, flags, &uptime_real);
+	bmp_per_peer_hdr(hdr, peer, flags, peer_type_flags, &uptime_real);
 
 	stream_putl_at(hdr, BMP_LENGTH_POS,
 			stream_get_endp(hdr) + stream_get_endp(msg));
@@ -1049,7 +1050,7 @@ afibreak:
 			prefix_copy(&bmp->syncpos, bgp_dest_get_prefix(bn));
 		}
 
-		// TODO BMP add BMP_MON_LOC_RIB case
+		/* TODO BMP add BMP_MON_LOC_RIB case */
 		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
 			for (bpiter = bgp_dest_get_bgp_path_info(bn); bpiter;
 			     bpiter = bpiter->next) {
@@ -1103,10 +1104,10 @@ afibreak:
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(bmp->syncrdpos);
 
 	if (bpi)
-		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bn_p, prd,
+		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, BMP_PEER_TYPE_GLOBAL_INSTANCE, bn_p, prd,
 			    bpi->attr, afi, safi, bpi->uptime);
 	if (adjin)
-		bmp_monitor(bmp, adjin->peer, 0, bn_p, prd, adjin->attr, afi,
+		bmp_monitor(bmp, adjin->peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, bn_p, prd, adjin->attr, afi,
 			    safi, adjin->uptime);
 
 	if (bn)
@@ -1148,8 +1149,9 @@ static inline struct bmp_queue_entry *bmp_pull_locrib(struct bmp *bmp)
 				   &bmp->locrib_queuepos);
 }
 
-// TODO BMP_MON_LOCRIB  find a way to merge properly this function with
-// bmp_wrqueue or abstract it if possible
+/* TODO BMP_MON_LOCRIB  find a way to merge properly this function with
+ * bmp_wrqueue or abstract it if possible
+ */
 static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 {
 
@@ -1175,13 +1177,16 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	case BMP_AFI_SYNC:
 		if (prefix_cmp(&bqe->p, &bmp->syncpos) <= 0)
 			/* currently syncing but have already passed this
-			 * prefix => send it. */
+			 * prefix => send it.
+			 */
 			break;
 
-		// TODO BMP_MON_LOCRIB check if this is true after implenting
-		// LOCRIB syncing
+		/* TODO BMP_MON_LOCRIB check if this is true after implenting
+		 * LOCRIB syncing
+		 */
 		/* currently syncing & haven't reached this prefix yet
-		 * => it'll be sent as part of the table sync, no need here */
+		 * => it'll be sent as part of the table sync, no need here
+		 */
 		zlog_info(
 			"bmp: skipping direct monitor msg bc will be sent with sync :)");
 		goto out;
@@ -1203,6 +1208,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 
 	bn = bgp_node_lookup(bmp->targets->bgp->rib[afi][safi], &bqe->p);
 	struct prefix_rd *prd = NULL;
+
 	if ((bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
 	    (bqe->safi == SAFI_MPLS_VPN))
 		prd = &bqe->rd;
@@ -1211,17 +1217,16 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		zlog_info("bmp: loc rib monitoring on");
 		struct bgp_path_info *bpi;
 
-		// TODO BMP_MON_LOC_RIB understand this part more, why iterate
-		// through the table ?
+		/* TODO BMP_MON_LOC_RIB understand this part more, why iterate
+		 * through the table ?
+		 */
 		for (bpi = bn ? bgp_dest_get_bgp_path_info(bn) : NULL; bpi;
 		     bpi = bpi->next) {
-			//			if (!CHECK_FLAG(bpi->flags,
-			//BGP_PATH_VALID)) 				continue;
 			if (bpi->peer == peer)
 				break;
 		}
 
-		bmp_monitor(bmp, peer, 5, &bqe->p, prd, bpi ? bpi->attr : NULL,
+		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd, bpi ? bpi->attr : NULL,
 			    afi, safi, bpi ? bpi->uptime : monotime(NULL));
 		written = true;
 	}
@@ -1279,7 +1284,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 				  &bqe->p, prd);
 
 
-	// TODO BMP add MON_BGP_LOC_RIB case
+	/* TODO BMP add MON_BGP_LOC_RIB case */
 	if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
 		struct bgp_path_info *bpi;
 
@@ -1291,7 +1296,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 				break;
 		}
 
-		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L, &bqe->p, prd,
+		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L, BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
 			    bpi ? bpi->attr : NULL, afi, safi,
 			    bpi ? bpi->uptime : monotime(NULL));
 		written = true;
@@ -1305,7 +1310,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 			if (adjin->peer == peer)
 				break;
 		}
-		bmp_monitor(bmp, peer, 0, &bqe->p, prd,
+		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &bqe->p, prd,
 			    adjin ? adjin->attr : NULL, afi, safi,
 			    adjin ? adjin->uptime : monotime(NULL));
 		written = true;
@@ -1461,7 +1466,7 @@ static void bmp_stats(struct event *thread)
 
 		s = stream_new(BGP_MAX_PACKET_SIZE);
 		bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_STATISTICS_REPORT);
-		bmp_per_peer_hdr(s, peer, 0, &tv);
+		bmp_per_peer_hdr(s, peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE, &tv);
 
 		count_pos = stream_get_endp(s);
 		stream_putl(s, 0);
@@ -2312,7 +2317,7 @@ DEFPY(bmp_stats_cfg,
 }
 
 DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
-      // TODO BMP add loc-rib option
+      /* TODO BMP add loc-rib option */
       "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy|loc-rib>$policy",
       NO_STR BMP_STR
       "Send BMP route monitoring messages\n" BGP_AF_STR BGP_AF_STR BGP_AF_STR
@@ -2332,7 +2337,7 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	argv_find_and_parse_afi(argv, argc, &index, &afi);
 	argv_find_and_parse_safi(argv, argc, &index, &safi);
 
-	// TODO BMP set right flag
+	/* TODO BMP set right flag */
 	if (policy[0] == 'l') {
 		flag = BMP_MON_LOC_RIB;
 		vty_out(vty,
@@ -2668,8 +2673,7 @@ static int bgp_bmp_init(struct event_loop *tm)
 	return 0;
 }
 
-
-// TODO remove "bn", redundant with updated_route->net ?
+/* TODO remove "bn", redundant with updated_route->net ? */
 static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 			    struct bgp_dest *bn,
 			    struct bgp_path_info *updated_route, bool withdraw)
@@ -2705,6 +2709,7 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 
 
 		uint8_t flags = 5;
+
 		zlog_info("bmp wanna monitor : peer=%pBP", updated_route->peer);
 		zlog_info("flags=%d", flags);
 		zlog_info("prefix=%pFX", prefix);
@@ -2740,6 +2745,7 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 			zlog_info("bmp: before hash check");
 			bqe = bmp_qhash_find(&bt->locupdhash, &bqeref);
 			uint32_t key = bmp_qhash_hkey(&bqeref);
+
 			zlog_info("bmp: key = %lu", key);
 			if (bqe) {
 				zlog_info("bmp: prefix already registered");
