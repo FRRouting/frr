@@ -1,0 +1,34 @@
+{
+  "locators":[
+    {
+      "name": "loc2",
+      "prefix": "2001:db8:2::/48",
+      "blockBitsLength": 24,
+      "nodeBitsLength": 24,
+      "functionBitsLength": 16,
+      "argumentBitsLength": 0,
+      "statusUp": true,
+      "chunks": [
+        {
+          "prefix": "2001:db8:2::/48",
+          "proto": "system"
+        }
+      ]
+    },
+    {
+      "name": "loc3",
+      "prefix": "2001:db8:3::/48",
+      "statusUp": true,
+      "blockBitsLength": 32,
+      "nodeBitsLength": 16,
+      "functionBitsLength": 16,
+      "argumentBitsLength": 0,
+      "chunks":[
+        {
+          "prefix": "2001:db8:3::/48",
+          "proto": "system"
+        }
+      ]
+    }
+  ]
+}
