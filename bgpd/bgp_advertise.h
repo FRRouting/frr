@@ -165,5 +165,6 @@ extern void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 				 struct bgp_advertise *adv);
 extern void bgp_advertise_unintern(struct hash *hash,
 				   struct bgp_advertise_attr *baa);
+extern void baa_free(struct bgp_advertise_attr *baa);
 
 #endif /* _QUAGGA_BGP_ADVERTISE_H */
