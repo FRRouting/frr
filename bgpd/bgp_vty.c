@@ -17667,6 +17667,7 @@ int bgp_config_write(struct vty *vty)
 	struct listnode *mnode, *mnnode;
 	afi_t afi;
 	safi_t safi;
+	uint32_t tovpn_sid_index = 0;
 
 	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
@@ -18051,6 +18052,13 @@ int bgp_config_write(struct vty *vty)
 			vty_endframe(vty, " exit\n");
 		}
 
+		tovpn_sid_index = bgp->tovpn_sid_index;
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
+			vty_out(vty, " sid vpn per-vrf export auto\n");
+		} else if (tovpn_sid_index != 0) {
+			vty_out(vty, " sid vpn per-vrf export %d\n",
+				tovpn_sid_index);
+		}
 
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
