@@ -49,7 +49,7 @@ struct bgp_advertise_attr *baa_new(void)
 		       sizeof(struct bgp_advertise_attr));
 }
 
-static void baa_free(struct bgp_advertise_attr *baa)
+void baa_free(struct bgp_advertise_attr *baa)
 {
 	XFREE(MTYPE_BGP_ADVERTISE_ATTR, baa);
 }

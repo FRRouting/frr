@@ -115,8 +115,10 @@ static void sync_init(struct update_subgroup *subgrp,
 static void sync_delete(struct update_subgroup *subgrp)
 {
 	XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
-	if (subgrp->hash)
+	if (subgrp->hash) {
+		hash_clean(subgrp->hash, (void (*)(void *))baa_free);
 		hash_free(subgrp->hash);
+	}
 	subgrp->hash = NULL;
 	if (subgrp->work)
 		stream_free(subgrp->work);
