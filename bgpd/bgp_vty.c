@@ -331,6 +331,9 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		/* refresh vpnv6 tovpn_sid */
 		XFREE(MTYPE_BGP_SRV6_SID,
 		      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+
+		/* refresh per-vrf tovpn_sid */
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
 
 	/* update vpn bgp processes */
@@ -356,6 +359,9 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			srv6_locator_chunk_free(tovpn_sid_locator);
 			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
 		}
+
+		/* refresh per-vrf tovpn_sid_locator */
+		srv6_locator_chunk_free(bgp_vrf->tovpn_sid_locator);
 	}
 
 	/* clear locator name */
@@ -8995,6 +9001,14 @@ DEFPY (af_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (bgp->tovpn_sid_index != 0 ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
+		vty_out(vty,
+			"per-vrf sid and per-af sid are mutually exclusive\n"
+			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* skip when it's already configured */
 	if ((sid_idx != 0 && bgp->vpn_policy[afi].tovpn_sid_index != 0)
 	    || (sid_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
@@ -9033,6 +9047,86 @@ DEFPY (af_sid_vpn_export,
 	/* post-change */
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			    bgp_get_default(), bgp);
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_sid_vpn_export,
+       bgp_sid_vpn_export_cmd,
+       "[no] sid vpn per-vrf export <(1-255)$sid_idx|auto$sid_auto>",
+       NO_STR
+       "sid value for VRF\n"
+       "Between current vrf and vpn\n"
+       "sid per-VRF (both IPv4 and IPv6 address families)\n"
+       "For routes leaked from current vrf to vpn\n"
+       "Sid allocation index\n"
+       "Automatically assign a label\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int debug;
+
+	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
+		 BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
+
+	if (no) {
+		/* implement me */
+		vty_out(vty, "It's not implemented\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
+	    CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags,
+		       BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	    bgp->vpn_policy[AFI_IP6].tovpn_sid_index != 0 ||
+	    CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags,
+		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+		vty_out(vty,
+			"per-vrf sid and per-af sid are mutually exclusive\n"
+			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* skip when it's already configured */
+	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0) ||
+	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)))
+		return CMD_SUCCESS;
+
+	/*
+	 * mode change between sid_idx and sid_auto isn't supported.
+	 * user must negate sid vpn export when they want to change the mode
+	 */
+	if ((sid_auto && bgp->tovpn_sid_index != 0) ||
+	    (sid_idx != 0 &&
+	     CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))) {
+		vty_out(vty, "it's already configured as %s.\n",
+			sid_auto ? "auto-mode" : "idx-mode");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			   bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+			   bgp);
+
+	if (sid_auto) {
+		/* SID allocation auto-mode */
+		if (debug)
+			zlog_debug("%s: auto per-vrf sid alloc.", __func__);
+		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	} else {
+		/* SID allocation index-mode */
+		if (debug)
+			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
+				   sid_idx);
+		bgp->tovpn_sid_index = sid_idx;
+	}
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			    bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6,
+			    bgp_get_default(), bgp);
+
 	return CMD_SUCCESS;
 }
 
@@ -19803,6 +19897,7 @@ void bgp_vty_init(void)
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
+	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
 
 	bgp_vty_if_init();
 }
