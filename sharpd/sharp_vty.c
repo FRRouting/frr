@@ -432,7 +432,8 @@ DEFPY (install_seg6local_routes,
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
-	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table>\
+	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
+	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -452,6 +453,8 @@ DEFPY (install_seg6local_routes,
        "SRv6 End.DT6 function to use\n"
        "Redirect table id to use\n"
        "SRv6 End.DT4 function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 End.DT46 function to use\n"
        "Redirect table id to use\n"
        "How many to create\n"
        "Should we repeat this command\n"
@@ -508,6 +511,9 @@ DEFPY (install_seg6local_routes,
 	} else if (seg6l_enddt4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
 		ctx.table = seg6l_enddt4_table;
+	} else if (seg6l_enddt46) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		ctx.table = seg6l_enddt46_table;
 	} else {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 	}
