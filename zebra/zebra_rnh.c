@@ -780,11 +780,10 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 	if (p) {
 		/* Evaluating a specific entry, make sure it exists. */
 		nrn = route_node_lookup(rnh_table, p);
-		if (nrn && nrn->info)
+		if (nrn) {
 			zebra_rnh_evaluate_entry(zvrf, afi, force, nrn);
-
-		if (nrn)
 			route_unlock_node(nrn);
+		}
 	} else {
 		/* Evaluate entire table. */
 		nrn = route_top(rnh_table);
