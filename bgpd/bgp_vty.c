@@ -9870,6 +9870,7 @@ DEFPY (show_bgp_srv6,
 			bgp->vpn_policy[AFI_IP].tovpn_sid);
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %pI6\n",
 			bgp->vpn_policy[AFI_IP6].tovpn_sid);
+		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
 	}
 
 	return CMD_SUCCESS;
