@@ -982,4 +982,9 @@ static inline void debug_gimple_stmt(const_gimple s)
 #define SET_DECL_MODE(decl, mode)	DECL_MODE(decl) = (mode)
 #endif
 
+#if BUILDING_GCC_VERSION < 12000
+#define check_function_arguments_recurse(arg, ctx, tree, num, opt)             \
+	check_function_arguments_recurse(arg, ctx, tree, num)
+#endif
+
 #endif
