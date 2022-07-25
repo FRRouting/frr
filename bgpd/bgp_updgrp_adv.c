@@ -437,7 +437,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 		next = baa->adv;
 
 		/* Unintern BGP advertise attribute.  */
-		bgp_advertise_unintern(subgrp->hash, baa);
+		bgp_advertise_attr_unintern(subgrp->hash, baa);
 	} else
 		fhead = &subgrp->sync->withdraw;
 
@@ -523,7 +523,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	adv->baa = bgp_advertise_intern(subgrp->hash, attr);
+	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
 	adv->adj = adj;
 	adj->attr_hash = attr_hash;
 

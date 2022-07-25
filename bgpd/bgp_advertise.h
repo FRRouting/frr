@@ -152,19 +152,19 @@ extern void bgp_adj_in_remove(struct bgp_dest *dest, struct bgp_adj_in *bai);
 
 extern void bgp_sync_init(struct peer *peer);
 extern void bgp_sync_delete(struct peer *peer);
-extern unsigned int baa_hash_key(const void *p);
-extern bool baa_hash_cmp(const void *p1, const void *p2);
+extern unsigned int bgp_advertise_attr_hash_key(const void *p);
+extern bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2);
 extern void bgp_advertise_add(struct bgp_advertise_attr *baa,
 			      struct bgp_advertise *adv);
 extern struct bgp_advertise *bgp_advertise_new(void);
 extern void bgp_advertise_free(struct bgp_advertise *adv);
-extern struct bgp_advertise_attr *bgp_advertise_intern(struct hash *hash,
-						       struct attr *attr);
-extern struct bgp_advertise_attr *baa_new(void);
+extern struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
+							    struct attr *attr);
+extern struct bgp_advertise_attr *bgp_advertise_attr_new(void);
 extern void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 				 struct bgp_advertise *adv);
-extern void bgp_advertise_unintern(struct hash *hash,
-				   struct bgp_advertise_attr *baa);
-extern void baa_free(struct bgp_advertise_attr *baa);
+extern void bgp_advertise_attr_unintern(struct hash *hash,
+					struct bgp_advertise_attr *baa);
+extern void bgp_advertise_attr_free(struct bgp_advertise_attr *baa);
 
 #endif /* _QUAGGA_BGP_ADVERTISE_H */
