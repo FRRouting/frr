@@ -518,6 +518,10 @@ You can inspect the current BFD peer status with the following commands:
    frr# show bfd peer 192.168.0.1 json
    {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-receive-interval":50,"echo-transmit-interval":0,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-receive-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
 
+If you are running IPV4 BFD Echo, on a Linux platform, we also
+calculate round trip time for the packets.  We display minimum,
+average and maximum time it took to receive the looped Echo packets
+in the RTT fields.
 
 You can inspect the current BFD peer status in brief with the following commands:
 
