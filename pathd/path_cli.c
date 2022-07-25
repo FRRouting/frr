@@ -1096,6 +1096,20 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	cmd_show_lib_debugs(vty);
 	/* nothing to do here */
 	path_ted_show_debugging(vty);
+	path_policy_show_debugging(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_path_policy, debug_path_policy_cmd, "[no] debug pathd policy",
+      NO_STR DEBUG_STR
+      "path debugging\n"
+      "policy debugging\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+	bool no_debug = no;
+
+	DEBUG_MODE_SET(&path_policy_debug, mode, !no);
+	DEBUG_FLAGS_SET(&path_policy_debug, PATH_POLICY_DEBUG_BASIC, !no_debug);
 	return CMD_SUCCESS;
 }
 
@@ -1294,8 +1308,34 @@ int config_write_segment_routing(struct vty *vty)
 	return 1;
 }
 
+static int path_policy_cli_debug_config_write(struct vty *vty)
+{
+	if (DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_CONF)) {
+		if (DEBUG_FLAGS_CHECK(&path_policy_debug,
+				      PATH_POLICY_DEBUG_BASIC))
+			vty_out(vty, "debug pathd policy\n");
+		return 1;
+	}
+	return 0;
+}
+
+static int path_policy_cli_debug_set_all(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&path_policy_debug, flags, set);
+
+	/* If all modes have been turned off, don't preserve options. */
+	if (!DEBUG_MODE_CHECK(&path_policy_debug, DEBUG_MODE_ALL))
+		DEBUG_CLEAR(&path_policy_debug);
+
+	return 0;
+}
+
 void path_cli_init(void)
 {
+	hook_register(nb_client_debug_config_write,
+		      path_policy_cli_debug_config_write);
+	hook_register(nb_client_debug_set_all, path_policy_cli_debug_set_all);
+
 	install_node(&segment_routing_node);
 	install_node(&sr_traffic_eng_node);
 	install_node(&srte_segment_list_node);
@@ -1310,6 +1350,9 @@ void path_cli_init(void)
 	install_element(ENABLE_NODE, &show_debugging_pathd_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_detail_cmd);
+
+	install_element(ENABLE_NODE, &debug_path_policy_cmd);
+	install_element(CONFIG_NODE, &debug_path_policy_cmd);
 
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
