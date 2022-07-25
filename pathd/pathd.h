@@ -23,13 +23,6 @@ DECLARE_MGROUP(PATHD);
 
 DECLARE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
 
-enum srte_protocol_origin {
-	SRTE_ORIGIN_UNDEFINED = 0,
-	SRTE_ORIGIN_PCEP = 1,
-	SRTE_ORIGIN_BGP = 2,
-	SRTE_ORIGIN_LOCAL = 3,
-};
-
 extern struct debug path_policy_debug;
 
 #define PATH_POLICY_DEBUG_BASIC 0x01

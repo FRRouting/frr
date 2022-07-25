@@ -34,15 +34,15 @@ module frr-pathd {
       "Indication for the protocol origin of an object.";
     type enumeration {
       enum pcep {
-        value 1;
+        value 10;
         description "The object was created through PCEP";
       }
       enum bgp {
-        value 2;
+        value 20;
         description "The object was created through GBP";
       }
       enum local {
-        value 3;
+        value 30;
         description "The object was created through CLI, Yang model via Netconf, gRPC, etc";
       }
     }

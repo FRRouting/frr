@@ -19,6 +19,13 @@ enum zebra_sr_policy_status {
 	ZEBRA_SR_POLICY_DOWN,
 };
 
+enum srte_protocol_origin {
+	SRTE_ORIGIN_UNDEFINED = 0,
+	SRTE_ORIGIN_PCEP = 10,
+	SRTE_ORIGIN_BGP = 20,
+	SRTE_ORIGIN_LOCAL = 30,
+};
+
 static inline int sr_policy_compare(const struct ipaddr *a_endpoint,
 				    const struct ipaddr *b_endpoint,
 				    uint32_t a_color, uint32_t b_color)
