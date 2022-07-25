@@ -91,7 +91,8 @@ static void sync_init(struct update_subgroup *subgrp,
 	bgp_adv_fifo_init(&subgrp->sync->withdraw);
 	bgp_adv_fifo_init(&subgrp->sync->withdraw_low);
 	subgrp->hash =
-		hash_create(baa_hash_key, baa_hash_cmp, "BGP SubGroup Hash");
+		hash_create(bgp_advertise_attr_hash_key,
+			    bgp_advertise_attr_hash_cmp, "BGP SubGroup Hash");
 
 	/* We use a larger buffer for subgrp->work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
@@ -115,8 +116,11 @@ static void sync_init(struct update_subgroup *subgrp,
 static void sync_delete(struct update_subgroup *subgrp)
 {
 	XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
-	if (subgrp->hash)
+	if (subgrp->hash) {
+		hash_clean(subgrp->hash,
+			   (void (*)(void *))bgp_advertise_attr_free);
 		hash_free(subgrp->hash);
+	}
 	subgrp->hash = NULL;
 	if (subgrp->work)
 		stream_free(subgrp->work);
