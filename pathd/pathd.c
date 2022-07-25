@@ -110,6 +110,20 @@ RB_GENERATE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
 struct srte_policy_head srte_policies = RB_INITIALIZER(&srte_policies);
 
+static void srte_policy_status_log(struct srte_policy *policy)
+{
+	char endpoint[ENDPOINT_STR_LENGTH];
+
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	if (policy->status == SRTE_POLICY_STATUS_DOWN) {
+		PATH_POLICY_DEBUG("SR-TE(%s, %u): policy is DOWN", endpoint,
+				  policy->color);
+	} else if (policy->status == SRTE_POLICY_STATUS_UP) {
+		PATH_POLICY_DEBUG("SR-TE(%s, %u): policy is UP", endpoint,
+				  policy->color);
+	}
+}
+
 /**
  * Adds a segment list to pathd.
  *
@@ -544,6 +558,10 @@ void srte_apply_changes(void)
 
 	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol) {
 		if (CHECK_FLAG(policy->flags, F_POLICY_DELETED)) {
+			if (policy->status != SRTE_POLICY_STATUS_DOWN) {
+				policy->status = SRTE_POLICY_STATUS_DOWN;
+				srte_policy_status_log(policy);
+			}
 			srte_policy_del(policy);
 			continue;
 		}
@@ -1138,9 +1156,8 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_DOWN:
 			return;
 		default:
-			PATH_POLICY_DEBUG("SR-TE(%s, %u): policy is DOWN",
-					  endpoint, policy->color);
 			policy->status = SRTE_POLICY_STATUS_DOWN;
+			srte_policy_status_log(policy);
 			break;
 		}
 		break;
@@ -1149,9 +1166,8 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_UP:
 			return;
 		default:
-			PATH_POLICY_DEBUG("SR-TE(%s, %u): policy is UP",
-					  endpoint, policy->color);
 			policy->status = SRTE_POLICY_STATUS_UP;
+			srte_policy_status_log(policy);
 			break;
 		}
 		break;
