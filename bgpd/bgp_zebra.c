@@ -25,6 +25,7 @@
 #include "vxlan.h"
 #include "pbr.h"
 #include "frrdistance.h"
+#include "lib/zapi_triggered_srte.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -55,6 +56,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_te.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -2877,6 +2879,10 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
+	zclient_register_opaque(zclient, TSRTE_CLIENT_READY);
+
+	zapi_tsrte_bgp_ready_send(zclient);
+
 	/* At this point, we may or may not have BGP instances configured, but
 	 * we're only interested in the default VRF (others wouldn't have learnt
 	 * the VRF from Zebra yet.)
@@ -3190,6 +3196,24 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int bgp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	int ret = -1;
+	struct stream *s;
+	struct zapi_opaque_msg info;
+
+	s = zclient->ibuf;
+
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case TSRTE_CLIENT_READY:
+		ret = bgp_te_process_tsrte_client_ready(s);
+	}
+	return ret;
+}
+
 static int bgp_zebra_tracker(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = zclient->ibuf;
@@ -3449,6 +3473,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_IPSET_NOTIFY_OWNER] = ipset_notify_owner,
 	[ZEBRA_IPSET_ENTRY_NOTIFY_OWNER] = ipset_entry_notify_owner,
 	[ZEBRA_IPTABLE_NOTIFY_OWNER] = iptable_notify_owner,
+	[ZEBRA_OPAQUE_MESSAGE] = bgp_zebra_opaque_msg_handler,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = bgp_zebra_route_notify_owner,
 	[ZEBRA_SRV6_LOCATOR_ADD] = bgp_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,

@@ -1339,6 +1339,10 @@ enum zapi_opaque_registry {
 	FAE_UPDATE = 14,
 	/* Flex-algo Endpoint Client ready to receive updates */
 	FAE_CLIENT_READY = 15,
+	/* Sent by SRTE service to BGP service */
+	TSRTE_CLIENT_READY = 16,
+	/* Sent by BGP service to SRTE service */
+	TSRTE_BGP_READY = 17,
 };
 
 /* Send the hello message.
