@@ -20,6 +20,7 @@
 #include "pathd/path_ted.h"
 #include "pathd/path_template.h"
 #include "pathd/path_triggered.h"
+#include "pathd/path_tsrte.h"
 #include "pathd/path_flex_algo.h"
 
 #define HOOK_DELAY 3
@@ -575,6 +576,8 @@ void srte_apply_changes(void)
 				policy->status = SRTE_POLICY_STATUS_DOWN;
 				srte_policy_status_log(policy);
 			}
+			path_zebra_srte_bgp_policy_candidate_changed(policy,
+								     NULL);
 			srte_policy_del(policy);
 			continue;
 		}
@@ -1177,6 +1180,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 {
 	struct srte_policy *policy = candidate->policy;
 	char endpoint[ENDPOINT_STR_LENGTH];
+	bool changed = false;
 
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 	PATH_POLICY_DEBUG("SR-TE(%s, %u): zebra updated status to %d", endpoint,
@@ -1197,6 +1201,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_DOWN:
 			policy->status = SRTE_POLICY_STATUS_DOWN;
 			srte_policy_status_log(policy);
+			changed = true;
 			break;
 		}
 		break;
@@ -1210,11 +1215,14 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_UP:
 			policy->status = SRTE_POLICY_STATUS_UP;
 			srte_policy_status_log(policy);
+			changed = true;
 			break;
 		}
 		break;
 	}
-
+	if (changed) {
+		path_zebra_srte_bgp_policy_candidate_changed(policy, candidate);
+	}
 	trigger_pathd_candidate_updated(candidate);
 }
 

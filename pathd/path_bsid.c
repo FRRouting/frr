@@ -28,6 +28,7 @@
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"
 #include "pathd/path_bsid.h"
+#include "pathd/path_tsrte.h"
 #include "pathd/path_zebra.h"
 
 #include "pathd/path_bsid_clippy.c"
@@ -93,7 +94,8 @@ static bool path_bsid_handle_labels_from_policies(bool allocate)
 				    && CHECK_FLAG(policy->best_candidate->flags,
 						  F_CANDIDATE_TEMPLATE)) {
 					path_zebra_delete_sr_policy(policy);
-					/* XXX inform BGP that policy candidate changed */
+					path_zebra_srte_bgp_policy_candidate_changed(
+						policy, NULL);
 				}
 				if (policy->binding_sid != MPLS_LABEL_NONE)
 					path_bsid_release_label(
@@ -105,7 +107,8 @@ static bool path_bsid_handle_labels_from_policies(bool allocate)
 						policy,
 						policy->best_candidate->lsp
 							->segment_list);
-					/* XXX inform BGP that policy candidate changed */
+					path_zebra_srte_bgp_policy_candidate_changed(
+						policy, policy->best_candidate);
 				} else if (policy->binding_sid
 					   != MPLS_LABEL_NONE) {
 					srte_policy_apply_changes(policy);

@@ -179,6 +179,38 @@ int path_zebra_handle_triggered_te_register(struct stream *s,
 	return 0;
 }
 
+
+void path_zebra_srte_bgp_policy_candidate_changed(
+	struct srte_policy *policy, struct srte_candidate *candidate)
+{
+	const char *segment_list_name;
+	char buff[SRTE_SEGMENT_LIST_NAME_MAX_LENGTH] = {0};
+
+	if (!policy)
+		return;
+
+	if (!CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE))
+		return;
+
+	if (!CHECK_FLAG(policy->flags, F_POLICY_DELETED) && candidate
+	    && policy->status == SRTE_POLICY_STATUS_UP && candidate->lsp
+	    && candidate->lsp->segment_list
+	    && (candidate->lsp->segment_list->name[0] != '\0'))
+		segment_list_name = candidate->lsp->segment_list->name;
+	else
+		segment_list_name = buff;
+
+	if (!CHECK_FLAG(policy->flags, F_POLICY_DELETED)
+	    && policy->status == SRTE_POLICY_STATUS_UP && candidate)
+		zapi_tsrte_update_send(zclient, policy->color,
+				       &policy->endpoint, policy->binding_sid,
+				       segment_list_name, policy->name);
+	else
+		zapi_tsrte_update_send(zclient, policy->color,
+				       &policy->endpoint, MPLS_LABEL_NONE,
+				       segment_list_name, policy->name);
+}
+
 static struct cmd_node srte_policy_template_node = {
 	.name = "srte policy template",
 	.node = SR_POLICY_TEMPLATE_NODE,

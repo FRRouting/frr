@@ -38,6 +38,8 @@ int path_zebra_send_te_ready(enum srte_protocol_origin protocol_origin);
 
 int path_zebra_handle_triggered_te_register(struct stream *s,
 					    uint32_t type);
+void path_zebra_srte_bgp_policy_candidate_changed(
+	struct srte_policy *policy, struct srte_candidate *candidate);
 
 /* triggered srte northbound configuration */
 int pathd_srte_policy_template_create(struct nb_cb_create_args *args);
