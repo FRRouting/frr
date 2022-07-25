@@ -381,6 +381,9 @@ int bfd_session_enable(struct bfd_session *bs)
 		ptm_bfd_start_xmt_timer(bs, false);
 	}
 
+	/* initialize RTT */
+	bfd_rtt_init(bs);
+
 	return 0;
 }
 
@@ -574,6 +577,9 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
 	/* reset local address ,it might has been be changed after bfd is up*/
 	memset(&bfd->local_address, 0, sizeof(bfd->local_address));
+
+	/* reset RTT */
+	bfd_rtt_init(bfd);
 }
 
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
@@ -2062,4 +2068,15 @@ struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
 unsigned long bfd_get_session_count(void)
 {
 	return bfd_key_hash->count;
+}
+
+void bfd_rtt_init(struct bfd_session *bfd)
+{
+	uint8_t i;
+
+	/* initialize RTT */
+	bfd->rtt_valid = 0;
+	bfd->rtt_index = 0;
+	for (i = 0; i < BFD_RTT_SAMPLE; i++)
+		bfd->rtt[i] = 0;
 }
