@@ -25,6 +25,8 @@
 #include "memory.h"
 #include "zapi_fae.h"
 #include "vty.h"
+#include "zapi_client.h"
+
 #include "pathd/pathd.h"
 #include "pathd/path_flex_algo.h"
 
@@ -65,7 +67,7 @@ int path_zebra_debug_send_fae_ready(bool do_ready, uint8_t protocol,
 
 int path_zebra_handle_fae_ready(bool ready, struct stream *s)
 {
-	struct zapi_fae_daemon_id igp_daemon_id;
+	struct zapi_client_daemon_id igp_daemon_id;
 	struct zapi_fae_igp_discriminator igp_discriminator;
 
 	FA_D_DEBUG("%s: start", __func__);
@@ -95,15 +97,15 @@ int path_zebra_debug_send_fae_update(uint8_t protocol, vrf_id_t vrf_id,
 				     struct ipaddr *endpoint, uint8_t algorithm,
 				     struct zapi_srte_tunnel *sid_list)
 {
-	struct zapi_fae_daemon_id client_daemon_id;
+	struct zapi_client_daemon_id igp_daemon_id;
 	struct zapi_fae_igp_discriminator d;
 	struct zapi_fae_query query;
 	struct zapi_fae_answer answer;
 	enum zclient_send_status rv;
 
-	client_daemon_id.proto = zclient->redist_default; /* self */
-	client_daemon_id.instance = zclient->instance;
-	client_daemon_id.session_id = zclient->session_id;
+	igp_daemon_id.proto = zclient->redist_default; /* self */
+	igp_daemon_id.instance = zclient->instance;
+	igp_daemon_id.session_id = zclient->session_id;
 
 	query.endpoint = *endpoint;
 	query.algorithm = algorithm;
@@ -117,7 +119,7 @@ int path_zebra_debug_send_fae_update(uint8_t protocol, vrf_id_t vrf_id,
 		d.proto_data.isis.z_area_id = z_area_id;
 		d.proto_data.isis.area_tag = NULL;
 	}
-	rv = zapi_fae_update_send(zclient, &client_daemon_id, &d, &query,
+	rv = zapi_fae_update_send(zclient, &igp_daemon_id, &d, &query,
 				  &answer);
 	FA_D_DEBUG("%s: sent, d.proto=%u, rv=%d", __func__, d.proto, rv);
 	if (rv == ZCLIENT_SEND_FAILURE)
@@ -127,7 +129,7 @@ int path_zebra_debug_send_fae_update(uint8_t protocol, vrf_id_t vrf_id,
 
 int path_zebra_handle_fae_update(struct stream *s)
 {
-	struct zapi_fae_daemon_id igp_daemon_id;
+	struct zapi_client_daemon_id igp_daemon_id;
 	struct zapi_fae_igp_discriminator igp_discriminator;
 	struct zapi_fae_query query;
 	struct zapi_fae_answer answer;
@@ -146,7 +148,7 @@ void path_zebra_fae_register(bool do_register, struct ipaddr *endpoint,
 			     uint16_t instance, uint32_t session_id,
 			     vrf_id_t vrf_id, uint32_t isis_z_area_id)
 {
-	struct zapi_fae_daemon_id igp_daemon_id;
+	struct zapi_client_daemon_id igp_daemon_id;
 	struct zapi_fae_igp_discriminator igp_discriminator;
 	struct zapi_fae_query query;
 

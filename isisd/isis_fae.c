@@ -22,6 +22,7 @@
 #include <zebra.h>
 #include "flex_algo.h"
 #include "linklist.h"
+#include "zapi_client.h"
 #include "isisd/isis_fae.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_route.h"
@@ -88,11 +89,11 @@ void isis_fae_send_update_all(const struct isis_area *const area,
 
 	for (ALL_LIST_ELEMENTS_RO(list, node, dbnode)) {
 		for (unsigned i = 0; i < dbnode->num_clients; i++) {
-			struct zapi_fae_daemon_id *client = NULL, **pclient;
+			struct zapi_client_daemon_id *client = NULL, **pclient;
 
 			pclient = &client;
-			zapi_fae_find_client_from_index(dbnode->client[i],
-							pclient);
+			zapi_client_find_client_from_index(dbnode->client[i],
+							   pclient);
 			isis_zebra_fae_update_send(area, &dbnode->endpoint,
 						   rinfo, algorithm, client);
 		}
@@ -141,7 +142,7 @@ void isis_fae_free_db(struct isis_fae_db *db)
  * @param query			registration information
  */
 int isis_fae_process_register(
-	const struct zapi_fae_daemon_id *const client_daemon_id,
+	const struct zapi_client_daemon_id *const client_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_disc,
 	const struct zapi_fae_query *const query)
 {
@@ -156,7 +157,7 @@ int isis_fae_process_register(
 		return -1;
 	}
 
-	client = zapi_fae_get_client(client_daemon_id);
+	client = zapi_client_get_client(client_daemon_id);
 	if (client < 0) {
 		zlog_debug("%s unable to find add/find client", __func__);
 		return -1;
@@ -210,7 +211,7 @@ fail:
  * @param reg		the registration received by isisd
  */
 int isis_fae_process_unregister(
-	const struct zapi_fae_daemon_id *const client_daemon_id,
+	const struct zapi_client_daemon_id *const client_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_disc,
 	const struct zapi_fae_query *const query)
 {
@@ -227,7 +228,7 @@ int isis_fae_process_unregister(
 	if (area == NULL)
 		return -1;
 
-	client = zapi_fae_get_client(client_daemon_id);
+	client = zapi_client_get_client(client_daemon_id);
 
 	node = fae_db_delete(&area->fae.inactive[query->algorithm],
 			     &query->endpoint, client);
@@ -268,7 +269,7 @@ out:
  * @return			0 on success, -1 otherwise.
  */
 int isis_fae_process_client_ready(
-	const struct zapi_fae_daemon_id *const client_daemon_id)
+	const struct zapi_client_daemon_id *const client_daemon_id)
 {
 	int client;
 	struct isis *isis;
@@ -279,7 +280,7 @@ int isis_fae_process_client_ready(
 	/* For now, there can be only one client.  If a new client shows up,
 	 * assume pathd restarted and clean up the old information.
 	 */
-	client = zapi_fae_find_client(client_daemon_id);
+	client = zapi_client_find_client(client_daemon_id);
 	if (client < 0)
 		goto out;
 
@@ -315,13 +316,13 @@ int isis_fae_process_client_ready(
 		}
 	}
 
-	if (zapi_fae_del_client(client)) {
+	if (zapi_client_del_client(client)) {
 		zlog_warn("%s Unable to replace client", __func__);
 		return -1;
 	}
 
 out:
-	if (zapi_fae_get_client(client_daemon_id) < 0)
+	if (zapi_client_get_client(client_daemon_id) < 0)
 		return -1;
 
 	/* Notify the client of available areas */

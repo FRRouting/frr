@@ -24,6 +24,7 @@
 
 #include <zebra.h>
 #include "pathd/pathd.h"
+#include "lib/zapi_client.h"
 #include "lib/zapi_fae.h"
 #include "lib/printfrr.h"
 
@@ -69,13 +70,13 @@ extern void fa_candidate_endpoint_add(struct srte_candidate *candidate);
 
 extern void fa_candidate_endpoint_del(struct srte_candidate *candidate);
 
-extern void fa_igp_handle_ready(struct zapi_fae_daemon_id *di,
+extern void fa_igp_handle_ready(struct zapi_client_daemon_id *di,
 				struct zapi_fae_igp_discriminator *d);
 
-extern void fa_igp_handle_notready(struct zapi_fae_daemon_id *di,
+extern void fa_igp_handle_notready(struct zapi_client_daemon_id *di,
 				   struct zapi_fae_igp_discriminator *d);
 
-extern void fa_handle_update(struct zapi_fae_daemon_id *di,
+extern void fa_handle_update(struct zapi_client_daemon_id *di,
 			     struct zapi_fae_igp_discriminator *d,
 			     struct zapi_fae_query *query,
 			     struct zapi_fae_answer *answer);

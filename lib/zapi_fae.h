@@ -23,6 +23,7 @@
 #define __ZAPI_FAE_H
 
 #include "zclient.h" /* for enum zclient_send_status */
+#include "zapi_client.h"
 
 /*
  * identify valid protocols for protocol-specific unions in
@@ -35,12 +36,6 @@ DECLARE_MTYPE(ZAPI_FAE_AREA_TAG);
 
 enum { ZAPI_FAE_NOT_READY = 0,
        ZAPI_FAE_IS_READY,
-};
-
-struct zapi_fae_daemon_id {
-	uint8_t proto;
-	uint16_t instance;
-	uint32_t session_id;
 };
 
 struct zapi_fae_igp_discriminator {
@@ -100,12 +95,12 @@ extern enum zclient_send_status zapi_fae_ready_send(
 
 extern enum zclient_send_status zapi_fae_ready_unicast_send(
 	struct zclient *zclient, bool do_ready,
-	const struct zapi_fae_daemon_id *const igp_daemon_id,
+	const struct zapi_client_daemon_id *const igp_daemon_id,
 	const struct zapi_fae_igp_discriminator *const d);
 
 extern int
 zapi_fae_client_ready_decode(struct stream *s,
-			     struct zapi_fae_daemon_id *client_daemon_id);
+			     struct zapi_client_daemon_id *client_daemon_id);
 
 /*
  * Note! When decoding ISIS ready messages, this function allocates a
@@ -113,40 +108,33 @@ zapi_fae_client_ready_decode(struct stream *s,
  */
 extern int
 zapi_fae_ready_decode(struct stream *s,
-		      struct zapi_fae_daemon_id *igp_daemon_id,
+		      struct zapi_client_daemon_id *igp_daemon_id,
 		      struct zapi_fae_igp_discriminator *igp_discriminator);
 
 extern enum zclient_send_status zapi_fae_register_send(
 	struct zclient *zclient, bool do_register,
-	const struct zapi_fae_daemon_id *const igp_daemon_id,
+	const struct zapi_client_daemon_id *const igp_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_discriminator,
 	const struct zapi_fae_query *const query);
 
 extern int
 zapi_fae_register_decode(struct stream *s,
-			 struct zapi_fae_daemon_id *client_daemon_id,
+			 struct zapi_client_daemon_id *client_daemon_id,
 			 struct zapi_fae_igp_discriminator *igp_discriminator,
 			 struct zapi_fae_query *query);
 
 extern enum zclient_send_status zapi_fae_update_send(
 	struct zclient *zclient,
-	const struct zapi_fae_daemon_id *const client_daemon_id,
+	const struct zapi_client_daemon_id *const client_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_discriminator,
 	const struct zapi_fae_query *const query,
 	const struct zapi_fae_answer *const answer);
 
 extern int zapi_fae_update_decode(
-	struct stream *s, struct zapi_fae_daemon_id *igp_daemon_id,
+	struct stream *s, struct zapi_client_daemon_id *igp_daemon_id,
 	struct zapi_fae_igp_discriminator *igp_discriminator,
 	struct zapi_fae_query *query, struct zapi_fae_answer *answer);
 
 extern void
 zapi_fae_igp_discriminator_clean(struct zapi_fae_igp_discriminator *d);
-
-/* API handling of list of pathd clients from IS-IS, BGP perspective */
-int zapi_fae_find_client(const struct zapi_fae_daemon_id *const id);
-int zapi_fae_del_client(int client);
-int zapi_fae_get_client(const struct zapi_fae_daemon_id *const id);
-void zapi_fae_find_client_from_index(int index,
-				     struct zapi_fae_daemon_id **client);
 #endif /* __ZAPI_FAE_H */

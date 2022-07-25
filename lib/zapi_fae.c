@@ -24,6 +24,7 @@
 #include "zclient.h"
 #include "lib_errors.h"
 #include "zapi_fae.h"
+#include "zapi_client.h"
 
 #define ZAPI_FAE_DEBUG 0
 #define ZAPI_DEBUG_IGP_DISCRIMINATOR 0
@@ -40,49 +41,19 @@ DEFINE_MTYPE(LIB, ZAPI_FAE_AREA_TAG, "ZAPI FAE Area tag");
  */
 
 #define _FAE_READY_SIZE                                                        \
-	(sizeof(struct zapi_fae_daemon_id) +	/* igp's */                \
+	(sizeof(struct zapi_client_daemon_id) +     /* igp's */                \
 	 sizeof(struct zapi_fae_igp_discriminator)) /* igp's */
 
 #define _FAE_REGISTER_SIZE                                                     \
-	(sizeof(struct zapi_fae_daemon_id) +	 /* client's */            \
+	(sizeof(struct zapi_client_daemon_id) +      /* client's */            \
 	 sizeof(struct zapi_fae_igp_discriminator) + /* igp's */               \
 	 sizeof(struct zapi_fae_query))
 
 #define _FAE_UPDATE_SIZE                                                       \
-	(sizeof(struct zapi_fae_daemon_id) +	 /* igp's */               \
+	(sizeof(struct zapi_client_daemon_id) +      /* igp's */               \
 	 sizeof(struct zapi_fae_igp_discriminator) + /* igp's */               \
 	 sizeof(struct zapi_fae_query) + sizeof(struct zapi_fae_answer))
 
-
-static struct zapi_fae_daemon_id _clients[1];
-static unsigned _num_clients = 0;
-
-/*
- *  0                   1                   2                   3
- *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |      Proto    |          Instance             |   Session-ID
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     Session-ID cont'd (32 bits)                 |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-static void _encode_daemon_id(struct stream *s, struct zclient *zclient)
-{
-	stream_putc(s, zclient->redist_default);
-	stream_putw(s, zclient->instance);
-	stream_putl(s, zclient->session_id);
-}
-
-static int _decode_daemon_id(struct stream *s, struct zapi_fae_daemon_id *di)
-{
-	STREAM_GETC(s, di->proto);
-	STREAM_GETW(s, di->instance);
-	STREAM_GETL(s, di->session_id);
-	return 0;
-
-stream_failure:
-	return -1;
-}
 
 static size_t
 _igp_discriminator_size(const struct zapi_fae_igp_discriminator *const d,
@@ -294,7 +265,7 @@ zapi_fae_client_ready_send(struct zclient *zclient)
 	struct stream *s = stream_new(_FAE_READY_SIZE);
 	enum zclient_send_status status;
 
-	_encode_daemon_id(s, zclient);
+	zapi_client_encode_daemon_id(s, zclient);
 	status = zclient_send_opaque(zclient, FAE_CLIENT_READY, s->data, s->endp);
 
 	stream_free(s);
@@ -307,7 +278,7 @@ static void _encode_fae_ready(struct stream *s, struct zclient *zclient,
 {
 	assert(zclient->redist_default == d->proto);
 
-	_encode_daemon_id(s, zclient);
+	zapi_client_encode_daemon_id(s, zclient);
 	_encode_igp_discriminator(s, d, true);
 }
 
@@ -316,7 +287,7 @@ zapi_fae_ready_send(struct zclient *zclient, bool do_ready,
 		    const struct zapi_fae_igp_discriminator *const d)
 {
 	enum zclient_send_status status;
-	struct stream *s = stream_new(sizeof(struct zapi_fae_daemon_id)
+	struct stream *s = stream_new(sizeof(struct zapi_client_daemon_id)
 				      + _igp_discriminator_size(d, true));
 
 	/*
@@ -335,7 +306,7 @@ zapi_fae_ready_send(struct zclient *zclient, bool do_ready,
 
 enum zclient_send_status zapi_fae_ready_unicast_send(
 	struct zclient *zclient, bool do_ready,
-	const struct zapi_fae_daemon_id *const igp_daemon_id,
+	const struct zapi_client_daemon_id *const igp_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_discriminator)
 {
 	struct stream *s = stream_new(_FAE_READY_SIZE);
@@ -353,11 +324,11 @@ enum zclient_send_status zapi_fae_ready_unicast_send(
 }
 
 int zapi_fae_client_ready_decode(struct stream *s,
-				 struct zapi_fae_daemon_id *client_daemon_id)
+				 struct zapi_client_daemon_id *client_daemon_id)
 {
 	int rc;
 
-	rc = _decode_daemon_id(s, client_daemon_id);
+	rc = zapi_client_decode_daemon_id(s, client_daemon_id);
 	if (rc)
 		return -1;
 
@@ -369,12 +340,12 @@ int zapi_fae_client_ready_decode(struct stream *s,
  * string that the CALLER MUST FREE
  */
 int zapi_fae_ready_decode(struct stream *s,
-			  struct zapi_fae_daemon_id *igp_daemon_id,
+			  struct zapi_client_daemon_id *igp_daemon_id,
 			  struct zapi_fae_igp_discriminator *igp_discriminator)
 {
 	int rc;
 
-	rc = _decode_daemon_id(s, igp_daemon_id);
+	rc = zapi_client_decode_daemon_id(s, igp_daemon_id);
 	if (rc)
 		return -1;
 	rc = _decode_igp_discriminator(s, igp_discriminator, true);
@@ -404,14 +375,14 @@ int zapi_fae_ready_decode(struct stream *s,
 
 enum zclient_send_status
 zapi_fae_register_send(struct zclient *zclient, bool do_register,
-		       const struct zapi_fae_daemon_id *const igp_daemon_id,
+		       const struct zapi_client_daemon_id *const igp_daemon_id,
 		       const struct zapi_fae_igp_discriminator *const d,
 		       const struct zapi_fae_query *const query)
 {
 	struct stream *s = stream_new(_FAE_REGISTER_SIZE);
 	enum zclient_send_status status;
 
-	_encode_daemon_id(s, zclient);
+	zapi_client_encode_daemon_id(s, zclient);
 	_encode_igp_discriminator(s, d, false);
 	_encode_query(s, query);
 
@@ -426,13 +397,13 @@ zapi_fae_register_send(struct zclient *zclient, bool do_register,
 }
 
 int zapi_fae_register_decode(
-	struct stream *s, struct zapi_fae_daemon_id *client_daemon_id,
+	struct stream *s, struct zapi_client_daemon_id *client_daemon_id,
 	struct zapi_fae_igp_discriminator *igp_discriminator,
 	struct zapi_fae_query *query)
 {
 	int rc;
 
-	rc = _decode_daemon_id(s, client_daemon_id);
+	rc = zapi_client_decode_daemon_id(s, client_daemon_id);
 	if (rc)
 		return -1;
 
@@ -449,7 +420,7 @@ int zapi_fae_register_decode(
 
 enum zclient_send_status
 zapi_fae_update_send(struct zclient *zclient,
-		     const struct zapi_fae_daemon_id *const client_daemon_id,
+		     const struct zapi_client_daemon_id *const client_daemon_id,
 		     const struct zapi_fae_igp_discriminator *const d,
 		     const struct zapi_fae_query *const query,
 		     const struct zapi_fae_answer *const answer)
@@ -466,7 +437,7 @@ zapi_fae_update_send(struct zclient *zclient,
 #endif
 		assert(zclient->redist_default == d->proto);
 
-	_encode_daemon_id(s, zclient);
+	zapi_client_encode_daemon_id(s, zclient);
 	_encode_igp_discriminator(s, d, false);
 	_encode_query(s, query);
 	if (_encode_answer(s, answer)) {
@@ -485,14 +456,14 @@ zapi_fae_update_send(struct zclient *zclient,
 }
 
 int zapi_fae_update_decode(struct stream *s,
-			   struct zapi_fae_daemon_id *igp_daemon_id,
+			   struct zapi_client_daemon_id *igp_daemon_id,
 			   struct zapi_fae_igp_discriminator *igp_discriminator,
 			   struct zapi_fae_query *query,
 			   struct zapi_fae_answer *answer)
 {
 	int rc;
 
-	rc = _decode_daemon_id(s, igp_daemon_id);
+	rc = zapi_client_decode_daemon_id(s, igp_daemon_id);
 	if (rc)
 		return -1;
 
@@ -533,49 +504,4 @@ void zapi_fae_igp_discriminator_clean(
 	if (ZEBRA_ROUTE_ISIS == igp_discriminator->proto)
 		XFREE(MTYPE_ZAPI_FAE_AREA_TAG,
 		      igp_discriminator->proto_data.isis.area_tag);
-}
-
-/* This matches only the proto and instance.  Caller should check the
- * session ID.  Expand this later to deal with multiple clients.
- */
-int zapi_fae_find_client(const struct zapi_fae_daemon_id *const id)
-{
-	if (_num_clients == 1 && _clients[0].proto == id->proto
-	    && _clients[0].instance == id->instance)
-		return 0;
-	return -1;
-}
-
-/* Expand this later to deal with multiple clients */
-int zapi_fae_del_client(int client)
-{
-	if (_num_clients > 0 && client == 0) {
-		_num_clients--;
-		return 0;
-	}
-	return -1;
-}
-
-/* Expand this later to deal with multiple clients  / restarted client */
-int zapi_fae_get_client(const struct zapi_fae_daemon_id *const id)
-{
-	if (_num_clients == 0) {
-		_clients[0].proto = id->proto;
-		_clients[0].instance = id->instance;
-		_clients[0].session_id = id->session_id;
-		_num_clients++;
-		return 0;
-	}
-
-	if (_clients[0].proto == id->proto
-	    && _clients[0].instance == id->instance
-	    && _clients[0].session_id == id->session_id)
-		return 0;
-	return -1;
-}
-
-void zapi_fae_find_client_from_index(int index,
-				     struct zapi_fae_daemon_id **client)
-{
-	*client = &_clients[index];
 }

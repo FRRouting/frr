@@ -28,11 +28,11 @@
 int isis_zebra_fae_ready_send(const struct isis_area *const area, bool);
 int isis_zebra_fae_ready_unicast_send(
 	const struct isis_area *const area, bool ready,
-	const struct zapi_fae_daemon_id *const client_daemon_id);
+	const struct zapi_client_daemon_id *const client_daemon_id);
 int isis_zebra_fae_update_send(
 	const struct isis_area *const area, const struct ipaddr *const endpoint,
 	const struct isis_route_info *const rinfo, uint8_t algorithm,
-	const struct zapi_fae_daemon_id *const client_daemon_id);
+	const struct zapi_client_daemon_id *const client_daemon_id);
 int isis_zebra_fae_process_register(struct stream *s);
 int isis_zebra_fae_process_unregister(struct stream *s);
 int isis_zebra_fae_process_client_ready(struct stream *s);

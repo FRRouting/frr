@@ -60,7 +60,7 @@ int isis_zebra_fae_ready_send(const struct isis_area *const area, bool ready)
 
 int isis_zebra_fae_ready_unicast_send(
 	const struct isis_area *const area, bool ready,
-	const struct zapi_fae_daemon_id *const client_daemon_id)
+	const struct zapi_client_daemon_id *const client_daemon_id)
 {
 	struct zapi_fae_igp_discriminator igp_disc;
 
@@ -75,7 +75,7 @@ int isis_zebra_fae_ready_unicast_send(
 int isis_zebra_fae_update_send(
 	const struct isis_area *const area, const struct ipaddr *const endpoint,
 	const struct isis_route_info *const rinfo, uint8_t algorithm,
-	const struct zapi_fae_daemon_id *const client_daemon_id)
+	const struct zapi_client_daemon_id *const client_daemon_id)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -141,7 +141,7 @@ int isis_zebra_fae_update_send(
 
 int isis_zebra_fae_process_register(struct stream *s)
 {
-	struct zapi_fae_daemon_id client_daemon_id;
+	struct zapi_client_daemon_id client_daemon_id;
 	struct zapi_fae_igp_discriminator igp_disc;
 	struct zapi_fae_query query;
 	int ret;
@@ -156,7 +156,7 @@ int isis_zebra_fae_process_register(struct stream *s)
 
 int isis_zebra_fae_process_unregister(struct stream *s)
 {
-	struct zapi_fae_daemon_id client_daemon_id;
+	struct zapi_client_daemon_id client_daemon_id;
 	struct zapi_fae_igp_discriminator igp_disc;
 	struct zapi_fae_query query;
 	int ret;
@@ -172,7 +172,7 @@ int isis_zebra_fae_process_unregister(struct stream *s)
 
 int isis_zebra_fae_process_client_ready(struct stream *s)
 {
-	struct zapi_fae_daemon_id client_daemon_id;
+	struct zapi_client_daemon_id client_daemon_id;
 	int ret;
 
 	ret = zapi_fae_client_ready_decode(s, &client_daemon_id);

@@ -755,7 +755,7 @@ void fa_vty_endpoint_show_all(struct vty *vty, bool detail)
  * We note the zapi rendezvous parameters so we can later send
  * endpoint registration requests.
  */
-void fa_igp_handle_ready(struct zapi_fae_daemon_id *di,
+void fa_igp_handle_ready(struct zapi_client_daemon_id *di,
 			 struct zapi_fae_igp_discriminator *d)
 {
 	struct flex_algo_igp_instance *p;
@@ -852,7 +852,7 @@ void fa_igp_handle_ready(struct zapi_fae_daemon_id *di,
 	}
 }
 
-void fa_igp_handle_notready(struct zapi_fae_daemon_id *di,
+void fa_igp_handle_notready(struct zapi_client_daemon_id *di,
 			    struct zapi_fae_igp_discriminator *d)
 {
 	struct flex_algo_igp_instance *p;
@@ -1163,7 +1163,7 @@ void fa_candidate_endpoint_del(struct srte_candidate *c)
 	 */
 }
 
-void fa_handle_update(struct zapi_fae_daemon_id *di,
+void fa_handle_update(struct zapi_client_daemon_id *di,
 		      struct zapi_fae_igp_discriminator *d,
 		      struct zapi_fae_query *query,
 		      struct zapi_fae_answer *answer)

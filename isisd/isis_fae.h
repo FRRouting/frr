@@ -29,6 +29,7 @@
 #include "isisd/isis_fae_db.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_route.h"
+#include "zapi_client.h"
 #include "zapi_fae.h"
 
 enum { ISIS_FAE_OK = 0,
@@ -44,17 +45,17 @@ int isis_fae_alloc_db(struct isis_fae_db *);
 void isis_fae_free_db(struct isis_fae_db *);
 
 extern int isis_fae_process_register(
-	const struct zapi_fae_daemon_id *const client_daemon_id,
+	const struct zapi_client_daemon_id *const client_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_disc,
 	const struct zapi_fae_query *const query);
 
 extern int isis_fae_process_unregister(
-	const struct zapi_fae_daemon_id *const client_daemon_id,
+	const struct zapi_client_daemon_id *const client_daemon_id,
 	const struct zapi_fae_igp_discriminator *const igp_disc,
 	const struct zapi_fae_query *const query);
 
 extern int isis_fae_process_client_ready(
-	const struct zapi_fae_daemon_id *const client_daemon_id);
+	const struct zapi_client_daemon_id *const client_daemon_id);
 
 struct route_node *isis_fae_promote(struct isis_area *, struct route_node *,
 				    uint8_t);
