@@ -57,6 +57,9 @@ int bgp_te_process_tsrte_bgp_update(struct stream *s);
 
 struct bgp_te_entry *bgp_te_entry_find(uint32_t color, struct ipaddr *ipaddr);
 
+void bgp_te_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
+				 struct bgp_nexthop_cache *bnc);
+
 void bgp_te_init(void);
 
 #endif

@@ -31,6 +31,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
+#include "bgpd/bgp_te.h"
 #include "bgpd/bgp_mplsvpn.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
@@ -1013,6 +1014,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "\n");
 		}
 		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
+		bgp_te_show_nexthops_detail(vty, bgp, bnc);
 	} else if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE)) {
 		if (json) {
 			json_object_boolean_true_add(json_nexthop, "valid");

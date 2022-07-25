@@ -2880,6 +2880,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_register_opaque(zclient, TSRTE_CLIENT_READY);
+	zclient_register_opaque(zclient, TSRTE_BGP_UPDATE);
 
 	zapi_tsrte_bgp_ready_send(zclient);
 

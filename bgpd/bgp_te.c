@@ -380,3 +380,27 @@ void bgp_te_init(void)
 	install_element(CONFIG_NODE, &no_debug_te_cmd);
 	install_element(ENABLE_NODE, &no_debug_te_cmd);
 }
+
+void bgp_te_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
+				 struct bgp_nexthop_cache *bnc)
+{
+	struct ipaddr ip_endpoint = {};
+	struct bgp_te_entry *bgp_te;
+	char binding_sid[16] = "-";
+
+	if (!bnc->srte_color)
+		return;
+	if (!bgp_te_provision_ipaddr(bnc, &ip_endpoint))
+		return;
+	bgp_te = bgp_te_entry_find(bnc->srte_color, &ip_endpoint);
+	if (bgp_te && bgp_te->name[0] != '\0') {
+		if (bgp_te->binding_sid != MPLS_LABEL_NONE)
+			snprintf(binding_sid, sizeof(binding_sid), "%u",
+				 bgp_te->binding_sid);
+		vty_out(vty, "  policy %s, bsid %s", bgp_te->name, binding_sid);
+		if (bgp_te->binding_sid != MPLS_LABEL_NONE) {
+			vty_out(vty, " (seg-list %s)", bgp_te->segmentlistname);
+		}
+		vty_out(vty, "\n");
+	}
+}

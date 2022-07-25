@@ -136,7 +136,8 @@ srte_triggered_update_entry(struct srte_triggered_policy *bgp_policy)
 			SET_FLAG(candidate->flags,
 				 F_CANDIDATE_FLEX_ALGO_IGP_USE_DEFAULTS);
 			SET_FLAG(candidate->flags, F_CANDIDATE_TEMPLATE);
-		} else {
+		} else if (!CHECK_FLAG(candidate->flags,
+				       F_CANDIDATE_TEMPLATE)) {
 			zlog_warn(
 				"PATHD: Candidate Color %u Endpoint %s Preference %u: conflict with config, not created !",
 				bgp_policy->color, endpoint_str,
