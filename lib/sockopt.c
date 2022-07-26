@@ -268,12 +268,9 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 	    && (errno == EADDRINUSE)) {
 		/* see above: handle possible problem when interface comes back
 		 * up */
-		char buf[1][INET_ADDRSTRLEN];
 		zlog_info(
-			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %s, ifindex %u)",
-			sock, inet_ntop(AF_INET, &mreqn.imr_multiaddr, buf[0],
-					sizeof(buf[0])),
-			ifindex);
+			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %pI4, ifindex %u)",
+			sock, &mreqn.imr_multiaddr, ifindex);
 		setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&mreqn,
 			   sizeof(mreqn));
 		ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
