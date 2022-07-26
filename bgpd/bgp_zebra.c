@@ -1000,19 +1000,13 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 				p, &path->attr->nexthop);
 		}
 		if (p->family == AF_INET6) {
-			char buf[2][INET6_ADDRSTRLEN];
 			ifindex_t ifindex;
 			struct in6_addr *nexthop;
 
 			nexthop = bgp_path_info_to_ipv6_nexthop(path, &ifindex);
 			zlog_debug(
-				"Zebra rmap deny: IPv6 route %pFX nexthop %s",
-				p,
-				nexthop ? inet_ntop(AF_INET6, nexthop, buf[1],
-						    sizeof(buf[1]))
-					: inet_ntop(AF_INET,
-						    &path->attr->nexthop,
-						    buf[1], sizeof(buf[1])));
+				"Zebra rmap deny: IPv6 route %pFX nexthop %pI6",
+				p, nexthop);
 		}
 	}
 	return false;
