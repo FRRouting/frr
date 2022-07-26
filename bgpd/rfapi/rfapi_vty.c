@@ -2509,7 +2509,7 @@ DEFUN (add_vnc_prefix,
  ************************************************************************/
 DEFUN (add_vnc_mac_vni_prefix_cost_life,
        add_vnc_mac_vni_prefix_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255) lifetime (1-4294967295)",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255) lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2539,7 +2539,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
 
 DEFUN (add_vnc_mac_vni_prefix_life,
        add_vnc_mac_vni_prefix_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2566,7 +2566,7 @@ DEFUN (add_vnc_mac_vni_prefix_life,
 
 DEFUN (add_vnc_mac_vni_prefix_cost,
        add_vnc_mac_vni_prefix_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255)",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2592,7 +2592,7 @@ DEFUN (add_vnc_mac_vni_prefix_cost,
 
 DEFUN (add_vnc_mac_vni_prefix,
        add_vnc_mac_vni_prefix_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2616,7 +2616,7 @@ DEFUN (add_vnc_mac_vni_prefix,
 
 DEFUN (add_vnc_mac_vni_cost_life,
        add_vnc_mac_vni_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2643,7 +2643,7 @@ DEFUN (add_vnc_mac_vni_cost_life,
 
 DEFUN (add_vnc_mac_vni_cost,
        add_vnc_mac_vni_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2667,7 +2667,7 @@ DEFUN (add_vnc_mac_vni_cost,
 
 DEFUN (add_vnc_mac_vni_life,
        add_vnc_mac_vni_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -2692,7 +2692,7 @@ DEFUN (add_vnc_mac_vni_life,
 
 DEFUN (add_vnc_mac_vni,
        add_vnc_mac_vni_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
+       "add vnc mac X:X:X:X:X:X virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
        "Add registration\n"
        "VNC Information\n"
        "Add/modify mac address information\n"
@@ -3743,7 +3743,7 @@ DEFUN (clear_vnc_prefix_all,
  */
 DEFUN (clear_vnc_mac_vn_un,
        clear_vnc_mac_vn_un_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3776,7 +3776,7 @@ DEFUN (clear_vnc_mac_vn_un,
 
 DEFUN (clear_vnc_mac_un_vn,
        clear_vnc_mac_un_vn_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3809,7 +3809,7 @@ DEFUN (clear_vnc_mac_un_vn,
 
 DEFUN (clear_vnc_mac_un,
        clear_vnc_mac_un_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3838,7 +3838,7 @@ DEFUN (clear_vnc_mac_un,
 
 DEFUN (clear_vnc_mac_vn,
        clear_vnc_mac_vn_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3867,7 +3867,7 @@ DEFUN (clear_vnc_mac_vn,
 
 DEFUN (clear_vnc_mac_all,
        clear_vnc_mac_all_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> *",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> *",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3897,7 +3897,7 @@ DEFUN (clear_vnc_mac_all,
 
 DEFUN (clear_vnc_mac_vn_un_prefix,
        clear_vnc_mac_vn_un_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3934,7 +3934,7 @@ DEFUN (clear_vnc_mac_vn_un_prefix,
 
 DEFUN (clear_vnc_mac_un_vn_prefix,
        clear_vnc_mac_un_vn_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M> prefix <*|A.B.C.D/M|X:X::X:X/M>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -3975,7 +3975,7 @@ DEFUN (clear_vnc_mac_un_vn_prefix,
 
 DEFUN (clear_vnc_mac_un_prefix,
        clear_vnc_mac_un_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -4008,7 +4008,7 @@ DEFUN (clear_vnc_mac_un_prefix,
 
 DEFUN (clear_vnc_mac_vn_prefix,
        clear_vnc_mac_vn_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -4041,7 +4041,7 @@ DEFUN (clear_vnc_mac_vn_prefix,
 
 DEFUN (clear_vnc_mac_all_prefix,
        clear_vnc_mac_all_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> prefix <*|A.B.C.D/M|X:X::X:X/M>",
+       "clear vnc mac <*|X:X:X:X:X:X> virtual-network-identifier <*|(1-4294967295)> prefix <*|A.B.C.D/M|X:X::X:X/M>",
        "clear\n"
        "VNC Information\n"
        "Clear mac registration information\n"
@@ -4389,13 +4389,15 @@ static void rfapi_show_registrations(struct vty *vty,
 
 DEFUN (vnc_show_registrations_pfx,
        vnc_show_registrations_pfx_cmd,
-       "show vnc registrations [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+       "show vnc registrations [<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M|X:X:X:X:X:X>]",
        SHOW_STR
        VNC_SHOW_STR
        "List active prefix registrations\n"
+       "Limit output to a particualr IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particualr IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particular IPv6 address\n")
+       "Limit output to a particular MAC address\n")
 {
 	struct prefix p;
 	struct prefix *p_addr = NULL;
@@ -4415,7 +4417,7 @@ DEFUN (vnc_show_registrations_pfx,
 
 DEFUN (vnc_show_registrations_some_pfx,
          vnc_show_registrations_some_pfx_cmd,
-         "show vnc registrations <all|holddown|imported|local|remote> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+         "show vnc registrations <all|holddown|imported|local|remote> [<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M|X:X:X:X:X:X>]",
          SHOW_STR
          VNC_SHOW_STR
          "List active prefix registrations\n"
@@ -4424,9 +4426,11 @@ DEFUN (vnc_show_registrations_some_pfx,
          "show only imported prefixes\n"
          "show only local registrations\n"
          "show only remote registrations\n"
-         "Limit output to a particular prefix or address\n"
-         "Limit output to a particular prefix or address\n"
-         "Limit output to a particular prefix or address\n")
+         "Limit output to a particualr IPV4 address\n"
+         "Limit output to a particular IPv4 prefix\n"
+         "Limit output to a particualr IPV6 address\n"
+         "Limit output to a particular IPv6 prefix\n"
+         "Limit output to a particular MAC address\n")
 {
 	struct prefix p;
 	struct prefix *p_addr = NULL;
@@ -4476,13 +4480,15 @@ DEFUN (vnc_show_registrations_some_pfx,
 
 DEFUN (vnc_show_responses_pfx,
        vnc_show_responses_pfx_cmd,
-       "show vnc responses [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+       "show vnc responses [<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M|X:X:X:X:X:X>]",
        SHOW_STR
        VNC_SHOW_STR
        "List recent query responses\n"
+       "Limit output to a particualr IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particualr IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particular IPv6 address\n" )
+       "Limit output to a particular MAC address\n" )
 {
 	struct prefix p;
 	struct prefix *p_addr = NULL;
@@ -4507,15 +4513,17 @@ DEFUN (vnc_show_responses_pfx,
 
 DEFUN (vnc_show_responses_some_pfx,
        vnc_show_responses_some_pfx_cmd,
-       "show vnc responses <active|removed> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+       "show vnc responses <active|removed> [<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M|X:X:X:X:X:X>]",
        SHOW_STR
        VNC_SHOW_STR
        "List recent query responses\n"
        "show only active query responses\n"
        "show only removed query responses\n"
+       "Limit output to a particualr IPV4 address\n"
        "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particualr IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particular IPV6 address\n")
+       "Limit output to a particular MAC address\n")
 {
 	struct prefix p;
 	struct prefix *p_addr = NULL;
@@ -4559,13 +4567,15 @@ DEFUN (vnc_show_responses_some_pfx,
 
 DEFUN (show_vnc_queries_pfx,
        show_vnc_queries_pfx_cmd,
-       "show vnc queries [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
+       "show vnc queries [<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M|X:X:X:X:X:X>]",
        SHOW_STR
        VNC_SHOW_STR
        "List active queries\n"
-       "Limit output to a particular IPv4 prefix or address\n"
+       "Limit output to a particualr IPV4 address\n"
+       "Limit output to a particular IPv4 prefix\n"
+       "Limit output to a particualr IPV6 address\n"
        "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particualr IPV6 address\n")
+       "Limit output to a particualr MAC address\n")
 {
 	struct prefix pfx;
 	struct prefix *p = NULL;

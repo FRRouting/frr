@@ -3078,7 +3078,7 @@ DEFUN (debug_rfapi_register_vn_un,
 
 DEFUN (debug_rfapi_register_vn_un_l2o,
        debug_rfapi_register_vn_un_l2o_cmd,
-       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS macaddr YY:YY:YY:YY:YY:YY lni (0-16777215)",
+       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS macaddr X:X:X:X:X:X lni (0-16777215)",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3306,7 +3306,7 @@ DEFUN (debug_rfapi_query_vn_un,
 
 DEFUN (debug_rfapi_query_vn_un_l2o,
        debug_rfapi_query_vn_un_l2o_cmd,
-       "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lni LNI target YY:YY:YY:YY:YY:YY",
+       "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lni LNI target X:X:X:X:X:X",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_query\n"
