@@ -1180,11 +1180,13 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	if (!peer_established(peer))
 		goto out;
 
-	bn = bgp_node_lookup(bmp->targets->bgp->rib[afi][safi], &bqe->p);
-	struct prefix_rd *prd = NULL;
-	if ((bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
-	    (bqe->safi == SAFI_MPLS_VPN))
-		prd = &bqe->rd;
+	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
+		      (bqe->safi == SAFI_MPLS_VPN);
+
+	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
+	bn = bgp_afi_node_lookup(bmp->targets->bgp->rib[afi][safi], afi, safi,
+				 &bqe->p, prd);
+
 
 	if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
 		struct bgp_path_info *bpi;
