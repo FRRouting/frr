@@ -527,6 +527,8 @@ struct bgp {
 /* vrf-route leaking flags */
 #define BGP_CONFIG_VRF_TO_VRF_IMPORT (1 << 9)
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
+/* vpnvx retain flag */
+#define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
