@@ -1174,6 +1174,12 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	afi_t afi = bqe->afi;
 	safi_t safi = bqe->safi;
 
+	if (!CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_LOC_RIB)) {
+		zlog_info("bmp: loc rib monitoring not enabled, ignoring");
+		goto out;
+	}
+
+
 	switch (bmp->afistate[afi][safi]) {
 	case BMP_AFI_INACTIVE:
 	case BMP_AFI_NEEDSYNC:
@@ -1210,37 +1216,53 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		goto out;
 	}
 
+	zlog_info("bmp: for prefix=%pFX in vrf=%d afi/safi is %s", &bqe->p, bmp->targets->bgp->vrf_id, get_afi_safi_str(afi, safi, false));
 	bn = bgp_node_lookup(bmp->targets->bgp->rib[afi][safi], &bqe->p);
 	struct prefix_rd *prd = NULL;
 
-	if ((bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
-	    (bqe->safi == SAFI_MPLS_VPN))
+	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) || (bqe->safi == SAFI_MPLS_VPN);
+	if (is_vpn) {
 		prd = &bqe->rd;
-
-	if (bmp->targets->afimon[afi][safi] & BMP_MON_LOC_RIB) {
-		zlog_info("bmp: loc rib monitoring on");
-		struct bgp_path_info *bpi;
-
-		/* TODO BMP_MON_LOC_RIB understand this part more, why iterate
-		 * through the table ?
-		 */
-		for (bpi = bn ? bgp_dest_get_bgp_path_info(bn) : NULL; bpi;
-		     bpi = bpi->next) {
-			if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
-				continue;
-			if (bpi->peer == peer)
-				break;
-		}
-
-		uint8_t peer_distinguisher[8] = {0};
-		if (bmp->targets->bgp->inst_type != VRF_DEFAULT) {
-			memcpy(peer_distinguisher, &bmp->targets->bgp->vrf_id, sizeof(vrf_id_t));
-		}
-		bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, peer_distinguisher,
-			    &bqe->p, prd, bpi ? bpi->attr : NULL,
-			    afi, safi, bpi ? bpi->uptime : monotime(NULL));
-		written = true;
+		bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], afi, safi, &bqe->p, &bqe->rd);
 	}
+
+	zlog_info("bmp: loc rib monitoring on");
+	struct bgp_path_info *bpi;
+
+	struct bgp_path_info *pathinfo = NULL;
+	pathinfo = bgp_dest_get_bgp_path_info(bn);
+	if (!pathinfo)
+		zlog_info("bmp: no info on path %pRN", bn);
+
+
+	for (bpi = bn ? bgp_dest_get_bgp_path_info(bn) : NULL; bpi;
+	     bpi = bpi->next) {
+		zlog_info("bmp: path info for dest(bn)=%pRN", bn);
+		zlog_info("bmp: is null? %s", bpi == NULL ? "yes" : "no");
+		if (bpi) {
+			zlog_info("bmp: type=%d, subtype=%d", bpi->type, bpi->sub_type);
+			if (bpi->peer)
+				zlog_info("bmp: peer=%pBP", bpi->peer);
+			if (bpi->attr) {
+				zlog_info("bmp: has attr");
+				zlog_info("bmp: nh=%pI4", &bpi->attr->nexthop);
+			}
+		}
+		if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
+			continue;
+		if (bpi->peer == peer)
+			break;
+	}
+
+	uint8_t peer_distinguisher[8] = {0};
+	if (bmp->targets->bgp->inst_type != VRF_DEFAULT) {
+		memcpy(peer_distinguisher, &bmp->targets->bgp->vrf_id, sizeof(vrf_id_t));
+	}
+
+	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, peer_distinguisher,
+		    &bqe->p, prd, bpi ? bpi->attr : NULL,
+		    afi, safi, bpi ? bpi->uptime : monotime(NULL));
+	written = true;
 
 out:
 	if (!bqe->refcount)
@@ -1287,13 +1309,13 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	if (!peer_established(peer))
 		goto out;
 
+
 	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
 		      (bqe->safi == SAFI_MPLS_VPN);
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
 	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi,
 				  &bqe->p, prd);
-
 
 	/* TODO BMP add MON_BGP_LOC_RIB case */
 	if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
@@ -2751,11 +2773,13 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 			zlog_info("before afi/safi check");
 			if ((afi == AFI_L2VPN && safi == SAFI_EVPN &&
 			     bn->pdest) ||
-			    (safi == SAFI_MPLS_VPN))
+			    (safi == SAFI_MPLS_VPN)) {
+				zlog_info("bmp: added prefix rd info to bqe");
 				prefix_copy(
 					&bqeref.rd,
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						bn->pdest));
+			}
 
 			zlog_info("bmp: before hash check");
 			bqe = bmp_qhash_find(&bt->locupdhash, &bqeref);
