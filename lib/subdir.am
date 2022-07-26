@@ -469,11 +469,7 @@ am__v_XRELFO_ = $(am__v_XRELFO_$(AM_DEFAULT_VERBOSITY))
 am__v_XRELFO_0 = @echo "  XRELFO  " $@;
 am__v_XRELFO_1 =
 
-if DEV_BUILD
 XRELFO_FLAGS = -Wlog-format -Wlog-args
-else
-XRELFO_FLAGS =
-endif
 
 SUFFIXES += .xref
 %.xref: % $(CLIPPY)
