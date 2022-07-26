@@ -1363,12 +1363,12 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		nh_weight = 0;
 
 		/* Get nexthop address-family */
-		if (p->family == AF_INET
-		    && !BGP_ATTR_NEXTHOP_AFI_IP6(mpinfo_cp->attr))
+		if (p->family == AF_INET &&
+		    !BGP_ATTR_MP_NEXTHOP_LEN_IP6(mpinfo_cp->attr))
 			nh_family = AF_INET;
-		else if (p->family == AF_INET6
-			 || (p->family == AF_INET
-			     && BGP_ATTR_NEXTHOP_AFI_IP6(mpinfo_cp->attr)))
+		else if (p->family == AF_INET6 ||
+			 (p->family == AF_INET &&
+			  BGP_ATTR_MP_NEXTHOP_LEN_IP6(mpinfo_cp->attr)))
 			nh_family = AF_INET6;
 		else
 			continue;
