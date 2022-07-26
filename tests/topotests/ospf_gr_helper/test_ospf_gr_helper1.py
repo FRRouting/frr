@@ -57,6 +57,8 @@ from lib.ospf import (
     create_router_ospf,
 )
 
+pytestmark = [pytest.mark.ospfd]
+
 # Global variables
 topo = None
 Iters = 5

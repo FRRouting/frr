@@ -52,6 +52,8 @@ from lib.bgp import create_router_bgp, verify_bgp_convergence, verify_bgp_rib
 
 from lib.topojson import build_config_from_json
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
 # Global variables
 topo = None
 

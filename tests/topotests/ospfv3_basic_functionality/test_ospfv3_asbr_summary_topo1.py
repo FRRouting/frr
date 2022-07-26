@@ -68,6 +68,7 @@ from lib.ospf import (
     verify_ospf_summary,
 )
 
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 
 # Global variables
 topo = None

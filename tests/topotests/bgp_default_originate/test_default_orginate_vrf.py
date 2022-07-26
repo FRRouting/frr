@@ -73,6 +73,8 @@ from lib.common_config import (
     delete_route_maps,
 )
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

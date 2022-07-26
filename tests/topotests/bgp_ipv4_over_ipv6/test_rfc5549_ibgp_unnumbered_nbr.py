@@ -54,6 +54,7 @@ from lib.topojson import build_config_from_json
 # Global variables
 topo = None
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 # Global variables
 NETWORK_CMD_IP = "1.0.1.17/32"
