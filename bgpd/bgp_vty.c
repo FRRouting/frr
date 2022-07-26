@@ -957,7 +957,7 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 				get_afi_safi_str(afi, safi, false), peer->host);
 		else
 			zlog_warn(
-				"%% BGP: Enable %s address family for the neighbor %s\n",
+				"%% BGP: Enable %s address family for the neighbor %s",
 				get_afi_safi_str(afi, safi, false), peer->host);
 		break;
 	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
@@ -967,7 +967,7 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 				peer->host);
 		else
 			zlog_warn(
-				"%% BGP: Inbound soft reconfig for %s not possible as it\n      has neither refresh capability, nor inbound soft reconfig\n",
+				"%% BGP: Inbound soft reconfig for %s not possible as it has neither refresh capability, nor inbound soft reconfig",
 				peer->host);
 		break;
 	default:
