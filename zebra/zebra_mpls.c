@@ -1142,6 +1142,21 @@ static void lsp_check_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		lsp_free(lsp_table, plsp);
 }
 
+static void lsp_free_nhlfe(struct zebra_lsp *lsp)
+{
+	struct zebra_nhlfe *nhlfe;
+
+	while ((nhlfe = nhlfe_list_first(&lsp->nhlfe_list))) {
+		nhlfe_list_del(&lsp->nhlfe_list, nhlfe);
+		nhlfe_free(nhlfe);
+	}
+
+	while ((nhlfe = nhlfe_list_first(&lsp->backup_nhlfe_list))) {
+		nhlfe_list_del(&lsp->backup_nhlfe_list, nhlfe);
+		nhlfe_free(nhlfe);
+	}
+}
+
 /*
  * Dtor for an LSP: remove from ile hash, release any internal allocations,
  * free LSP object.
@@ -1149,7 +1164,6 @@ static void lsp_check_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 {
 	struct zebra_lsp *lsp;
-	struct zebra_nhlfe *nhlfe;
 
 	if (plsp == NULL || *plsp == NULL)
 		return;
@@ -1160,13 +1174,7 @@ static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		zlog_debug("Free LSP in-label %u flags 0x%x",
 			   lsp->ile.in_label, lsp->flags);
 
-	/* Free nhlfes, if any. */
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe)
-		nhlfe_del(nhlfe);
-
-	/* Free backup nhlfes, if any. */
-	frr_each_safe(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe)
-		nhlfe_del(nhlfe);
+	lsp_free_nhlfe(lsp);
 
 	hash_release(lsp_table, &lsp->ile);
 	XFREE(MTYPE_LSP, lsp);
@@ -3669,6 +3677,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	 */
 	if (nhlfe_list_first(&lsp->nhlfe_list) == NULL) {
 		lsp = hash_release(slsp_table, &tmp_ile);
+		lsp_free_nhlfe(lsp);
 		XFREE(MTYPE_LSP, lsp);
 	}
 
@@ -4008,6 +4017,8 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 static void lsp_table_free(void *p)
 {
 	struct zebra_lsp *lsp = p;
+
+	lsp_free_nhlfe(lsp);
 
 	XFREE(MTYPE_LSP, lsp);
 }
