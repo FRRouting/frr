@@ -139,7 +139,6 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	struct pim_instance *pim = pim_ifp->pim;
 	struct pim_upstream *up = NULL;
 	struct pim_rpf *rp;
-	pim_addr rpf_addr;
 	pim_sgaddr sg;
 	struct listnode *up_node;
 	struct pim_upstream *child;
@@ -174,8 +173,12 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 
 	rp = RP(pim_ifp->pim, sg.grp);
 	if (rp) {
-		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
-		if (pim_addr_cmp(sg.src, rpf_addr) == 0) {
+		/* As per RFC 7761, Section 4.9.4:
+		 * A special wildcard value consisting of an address field of
+		 * all zeros can be used to indicate any source.
+		 */
+		if ((pim_addr_cmp(sg.src, rp->rpf_addr) == 0) ||
+		    pim_addr_is_any(sg.src)) {
 			handling_star = true;
 			sg.src = PIMADDR_ANY;
 		}
@@ -229,6 +232,48 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	return 0;
 }
 
+#if PIM_IPV == 6
+struct in6_addr pim_register_get_unicast_v6_addr(struct pim_interface *p_ifp)
+{
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct pim_secondary_addr *sec_addr;
+	struct pim_interface *pim_ifp;
+	struct interface *ifp;
+	struct pim_instance *pim = p_ifp->pim;
+
+	/* Trying to get the unicast address from the RPF interface first */
+	for (ALL_LIST_ELEMENTS(p_ifp->sec_addr_list, node, nextnode,
+			       sec_addr)) {
+		if (!is_ipv6_global_unicast(&sec_addr->addr.u.prefix6))
+			continue;
+
+		return sec_addr->addr.u.prefix6;
+	}
+
+	/* Loop through all the pim interface and try to return a global
+	 * unicast ipv6 address
+	 */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		for (ALL_LIST_ELEMENTS(pim_ifp->sec_addr_list, node, nextnode,
+				       sec_addr)) {
+			if (!is_ipv6_global_unicast(&sec_addr->addr.u.prefix6))
+				continue;
+
+			return sec_addr->addr.u.prefix6;
+		}
+	}
+
+	zlog_warn("No global address found for use to send register message");
+	return PIMADDR_ANY;
+}
+#endif
+
 void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up)
@@ -237,11 +282,10 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 	unsigned char *b1;
 	struct pim_interface *pinfo;
 	struct interface *ifp;
-	pim_addr dst = pim_addr_from_prefix(&rpg->rpf_addr);
 
 	if (PIM_DEBUG_PIM_REG) {
 		zlog_debug("Sending %s %sRegister Packet to %pPA", up->sg_str,
-			   null_register ? "NULL " : "", &dst);
+			   null_register ? "NULL " : "", &rpg->rpf_addr);
 	}
 
 	ifp = rpg->source_nexthop.interface;
@@ -263,7 +307,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 	if (PIM_DEBUG_PIM_REG) {
 		zlog_debug("%s: Sending %s %sRegister Packet to %pPA on %s",
 			   __func__, up->sg_str, null_register ? "NULL " : "",
-			   &dst, ifp->name);
+			   &rpg->rpf_addr, ifp->name);
 	}
 
 	memset(buffer, 0, 10000);
@@ -273,13 +317,21 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
-	pim_msg_build_header(src, dst, buffer, buf_size + PIM_MSG_REGISTER_LEN,
+#if PIM_IPV == 6
+	/* While sending Register message to RP, we cannot use link-local
+	 * address therefore using unicast ipv6 address here, choosing it
+	 * from the RPF Interface
+	 */
+	src = pim_register_get_unicast_v6_addr(pinfo);
+#endif
+	pim_msg_build_header(src, rpg->rpf_addr, buffer,
+			     buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
 	if (!pinfo->pim_passive_enable)
 		++pinfo->pim_ifstat_reg_send;
 
-	if (pim_msg_send(pinfo->pim_sock_fd, src, dst, buffer,
+	if (pim_msg_send(pinfo->pim_sock_fd, src, rpg->rpf_addr, buffer,
 			 buf_size + PIM_MSG_REGISTER_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
@@ -564,7 +616,7 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 		}
 	}
 
-	rp_addr = pim_addr_from_prefix(&(RP(pim, sg.grp))->rpf_addr);
+	rp_addr = (RP(pim, sg.grp))->rpf_addr;
 	if (i_am_rp && (!pim_addr_cmp(dest_addr, rp_addr))) {
 		sentRegisterStop = 0;
 

@@ -71,6 +71,10 @@ static int vtysh_pam(const char *user)
 		fprintf(stderr, "vtysh_pam: Failure to initialize pam: %s(%d)",
 			pam_strerror(pamh, ret), ret);
 
+	if (pam_acct_mgmt(pamh, 0) != PAM_SUCCESS)
+		fprintf(stderr, "%s: Failed in account validation: %s(%d)",
+			__func__, pam_strerror(pamh, ret), ret);
+
 	/* close Linux-PAM */
 	if (pam_end(pamh, ret) != PAM_SUCCESS) {
 		pamh = NULL;

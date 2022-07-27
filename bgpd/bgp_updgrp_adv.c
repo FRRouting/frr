@@ -347,7 +347,7 @@ static void subgroup_coalesce_timer(struct thread *thread)
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			peer = PAF_PEER(paf);
-			BGP_TIMER_OFF(peer->t_routeadv);
+			THREAD_OFF(peer->t_routeadv);
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 		}
 	}
@@ -437,7 +437,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 		next = baa->adv;
 
 		/* Unintern BGP advertise attribute.  */
-		bgp_advertise_unintern(subgrp->hash, baa);
+		bgp_advertise_attr_unintern(subgrp->hash, baa);
 	} else
 		fhead = &subgrp->sync->withdraw;
 
@@ -523,7 +523,7 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	adv->baa = bgp_advertise_intern(subgrp->hash, attr);
+	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr);
 	adv->adj = adj;
 	adj->attr_hash = attr_hash;
 
@@ -796,8 +796,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct peer *peer;
 	struct bgp_adj_out *adj;
 	route_map_result_t ret = RMAP_DENYMATCH;
+	route_map_result_t new_ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
+	int pref = 65536;
+	int new_pref = 0;
 
 	if (!subgrp)
 		return;
@@ -812,12 +815,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	bgp = peer->bgp;
 	from = bgp->peer_self;
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 
 	/* make coverity happy */
 	assert(attr.aspath);
 
-	attr.local_pref = bgp->default_local_pref;
 	attr.med = 0;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 
@@ -854,34 +856,45 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				tmp_pi.attr = &tmp_attr;
 
-				ret = route_map_apply_ext(
+				new_ret = route_map_apply_ext(
 					peer->default_rmap[afi][safi].map,
-					bgp_dest_get_prefix(dest), pi, &tmp_pi);
+					bgp_dest_get_prefix(dest), pi, &tmp_pi,
+					&new_pref);
 
-				if (ret == RMAP_DENYMATCH) {
-					bgp_attr_flush(&tmp_attr);
-					continue;
-				} else {
-					new_attr = bgp_attr_intern(&tmp_attr);
-
+				if (new_ret == RMAP_PERMITMATCH) {
+					if (new_pref < pref) {
+						pref = new_pref;
+						bgp_attr_flush(new_attr);
+						new_attr = bgp_attr_intern(
+							tmp_pi.attr);
+						bgp_attr_flush(tmp_pi.attr);
+					}
 					subgroup_announce_reset_nhop(
 						(peer_cap_enhe(peer, afi, safi)
 							 ? AF_INET6
 							 : AF_INET),
 						new_attr);
-
-					break;
-				}
-			}
-			if (ret == RMAP_PERMITMATCH) {
-				bgp_dest_unlock_node(dest);
-				break;
+					ret = new_ret;
+				} else
+					bgp_attr_flush(&tmp_attr);
 			}
 		}
 		bgp->peer_self->rmap_type = 0;
 
-		if (ret == RMAP_DENYMATCH)
+		if (ret == RMAP_DENYMATCH) {
+			/*
+			 * If its a implicit withdraw due to routemap
+			 * deny operation need to set the flag back.
+			 * This is a convertion of update flow to
+			 * withdraw flow.
+			 */
+			if (!withdraw &&
+			    (!CHECK_FLAG(subgrp->sflags,
+					 SUBGRP_STATUS_DEFAULT_ORIGINATE)))
+				SET_FLAG(subgrp->sflags,
+					 SUBGRP_STATUS_DEFAULT_ORIGINATE);
 			withdraw = 1;
+		}
 	}
 
 	/* Check if the default route is in local BGP RIB which is

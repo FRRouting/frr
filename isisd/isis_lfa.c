@@ -1519,7 +1519,7 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 			  spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] += 1;
 
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_rlfa_rib_update);
 	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
 			 &area->t_rlfa_rib_update);
 
@@ -1538,7 +1538,7 @@ void isis_rlfa_deactivate(struct isis_spftree *spftree, struct rlfa *rlfa)
 	isis_route_delete(area, rn, spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] -= 1;
 
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_rlfa_rib_update);
 	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
 			 &area->t_rlfa_rib_update);
 }

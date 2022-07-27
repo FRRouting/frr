@@ -40,6 +40,7 @@
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_packet.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
@@ -62,12 +63,18 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
 		    && bfd_sess_cbit(bsp) && !bss->remote_cbit) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
-				zlog_info(
+				zlog_debug(
 					"%s BFD DOWN message ignored in the process of graceful restart when C bit is cleared",
 					peer->host);
 			return;
 		}
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
+
+		/* draft-ietf-idr-bfd-subcode */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_BFD_DOWN);
+
 		BGP_EVENT_ADD(peer, BGP_Stop);
 	}
 

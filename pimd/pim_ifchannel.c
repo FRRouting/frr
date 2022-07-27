@@ -685,8 +685,7 @@ static void on_ifjoin_prune_pending_timer(struct thread *t)
 				struct pim_rpf rpf;
 
 				rpf.source_nexthop.interface = ifp;
-				pim_addr_to_prefix(&rpf.rpf_addr,
-						   pim_ifp->primary_address);
+				rpf.rpf_addr = pim_ifp->primary_address;
 				pim_jp_agg_single_upstream_send(
 					&rpf, ch->upstream, 0);
 			}
@@ -751,7 +750,7 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 		return;
 	}
 
-	rpf_addr = pim_addr_from_prefix(&up->rpf.rpf_addr);
+	rpf_addr = up->rpf.rpf_addr;
 
 	/* upstream directed to RPF'(S,G) ? */
 	if (pim_addr_cmp(upstream, rpf_addr)) {

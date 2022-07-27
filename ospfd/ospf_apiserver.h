@@ -22,6 +22,10 @@
 #ifndef _OSPF_APISERVER_H
 #define _OSPF_APISERVER_H
 
+#include <zebra.h>
+#include "ospf_api.h"
+#include "ospf_lsdb.h"
+
 /* MTYPE definition is not reflected to "memory.h". */
 #define MTYPE_OSPF_APISERVER MTYPE_TMP
 #define MTYPE_OSPF_APISERVER_MSGFILTER MTYPE_TMP
@@ -51,6 +55,9 @@ struct ospf_apiserver {
 
 	/* Temporary storage for LSA instances to be refreshed. */
 	struct ospf_lsdb reserve;
+
+	/* Sync reachable routers */
+	bool reachable_sync;
 
 	/* filter for LSA update/delete notifies */
 	struct lsa_filter_type *filter;
@@ -118,6 +125,8 @@ extern void ospf_apiserver_clients_notify_new_if(struct ospf_interface *oi);
 extern void ospf_apiserver_clients_notify_del_if(struct ospf_interface *oi);
 extern void ospf_apiserver_clients_notify_ism_change(struct ospf_interface *oi);
 extern void ospf_apiserver_clients_notify_nsm_change(struct ospf_neighbor *nbr);
+extern void
+ospf_apiserver_clients_notify_router_id_change(struct in_addr router_id);
 
 extern int ospf_apiserver_is_ready_type9(struct ospf_interface *oi);
 extern int ospf_apiserver_is_ready_type10(struct ospf_area *area);
@@ -144,7 +153,17 @@ extern int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 						struct msg *msg);
 extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 					   struct msg *msg);
+extern int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
+						struct msg *msg);
+extern int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
+					  struct msg *msg);
+extern int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
+					  struct msg *msg);
+extern int ospf_apiserver_handle_sync_router_id(struct ospf_apiserver *apiserv,
+						struct msg *msg);
 
+extern void ospf_apiserver_notify_reachable(struct route_table *ort,
+					    struct route_table *nrt);
 
 /* -----------------------------------------------------------
  * Following are functions for LSA origination/deletion
@@ -164,7 +183,8 @@ extern struct ospf_interface *
 ospf_apiserver_if_lookup_by_addr(struct in_addr address);
 extern struct ospf_interface *
 ospf_apiserver_if_lookup_by_ifp(struct interface *ifp);
-extern int ospf_apiserver_originate1(struct ospf_lsa *lsa);
+extern int ospf_apiserver_originate1(struct ospf_lsa *lsa,
+				     struct ospf_lsa *old);
 extern void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa);
 
 
@@ -200,8 +220,5 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 
 extern int ospf_apiserver_lsa_update(struct ospf_lsa *lsa);
 extern int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa);
-
-extern void ospf_apiserver_clients_lsa_change_notify(uint8_t msgtype,
-						     struct ospf_lsa *lsa);
 
 #endif /* _OSPF_APISERVER_H */

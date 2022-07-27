@@ -525,6 +525,11 @@ union sockunion *sockunion_getsockname(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getsockname call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 
@@ -561,6 +566,11 @@ union sockunion *sockunion_getpeername(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getpeername call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 

@@ -34,7 +34,7 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	struct pim_interface *pim_oif = oif->info;
 	int input_iface_vif_index = 0;
 	pim_addr vif_source;
-	struct prefix src, grp;
+	struct prefix grp;
 	struct pim_nexthop nexthop;
 	struct pim_upstream *up = NULL;
 
@@ -43,20 +43,19 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 		return pim_channel_oil_add(pim, &sg, __func__);
 	}
 
-	pim_addr_to_prefix(&src, vif_source); // RP or Src addr
 	pim_addr_to_prefix(&grp, sg.grp);
 
 	up = pim_upstream_find(pim, &sg);
 	if (up) {
 		memcpy(&nexthop, &up->rpf.source_nexthop,
 		       sizeof(struct pim_nexthop));
-		pim_ecmp_nexthop_lookup(pim, &nexthop, &src, &grp, 0);
+		pim_ecmp_nexthop_lookup(pim, &nexthop, vif_source, &grp, 0);
 		if (nexthop.interface)
 			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
 				pim, nexthop.interface->ifindex);
 	} else
 		input_iface_vif_index =
-			pim_ecmp_fib_lookup_if_vif_index(pim, &src, &grp);
+			pim_ecmp_fib_lookup_if_vif_index(pim, vif_source, &grp);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT %pSG vif_source %pPAs vif_index:%d",

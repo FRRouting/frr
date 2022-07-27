@@ -496,7 +496,7 @@ static inline void zfpm_write_on(void)
  */
 static inline void zfpm_read_off(void)
 {
-	thread_cancel(&zfpm_g->t_read);
+	THREAD_OFF(zfpm_g->t_read);
 }
 
 /*
@@ -504,12 +504,12 @@ static inline void zfpm_read_off(void)
  */
 static inline void zfpm_write_off(void)
 {
-	thread_cancel(&zfpm_g->t_write);
+	THREAD_OFF(zfpm_g->t_write);
 }
 
 static inline void zfpm_connect_off(void)
 {
-	thread_cancel(&zfpm_g->t_connect);
+	THREAD_OFF(zfpm_g->t_connect);
 }
 
 /*
@@ -583,7 +583,7 @@ static void zfpm_connection_up(const char *detail)
 	/*
 	 * Start thread to push existing routes to the FPM.
 	 */
-	thread_cancel(&zfpm_g->t_conn_up);
+	THREAD_OFF(zfpm_g->t_conn_up);
 
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_up_state.iter);
 	zfpm_g->fpm_mac_dump_done = false;
@@ -1687,7 +1687,7 @@ static void zfpm_stop_stats_timer(void)
 		return;
 
 	zfpm_debug("Stopping existing stats timer");
-	thread_cancel(&zfpm_g->t_stats);
+	THREAD_OFF(zfpm_g->t_stats);
 }
 
 /*

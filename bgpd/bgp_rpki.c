@@ -114,12 +114,12 @@ static struct rtr_mgr_group *get_groups(void);
 #if defined(FOUND_SSH)
 static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
-			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
 			 const uint8_t preference, const char *bindaddr);
 #endif
 static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket);
 static struct cache *find_cache(const uint8_t preference);
+static void rpki_delete_all_cache_nodes(void);
 static int add_tcp_cache(const char *host, const char *port,
 			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty,
@@ -274,6 +274,17 @@ static struct cache *find_cache(const uint8_t preference)
 			return cache;
 	}
 	return NULL;
+}
+
+static void rpki_delete_all_cache_nodes(void)
+{
+	struct listnode *cache_node, *cache_next;
+	struct cache *cache;
+
+	for (ALL_LIST_ELEMENTS(cache_list, cache_node, cache_next, cache)) {
+		rtr_mgr_remove_group(rtr_config, cache->preference);
+		listnode_delete(cache_list, cache);
+	}
 }
 
 static void print_record(const struct pfx_record *record, struct vty *vty,
@@ -916,7 +927,6 @@ static int add_tcp_cache(const char *host, const char *port,
 #if defined(FOUND_SSH)
 static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
-			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
 			 const uint8_t preference, const char *bindaddr)
 {
@@ -991,16 +1001,14 @@ static int config_write(struct vty *vty)
 	struct listnode *cache_node;
 	struct cache *cache;
 
-	if (!listcount(cache_list))
-		return 0;
-
 	if (rpki_debug)
 		vty_out(vty, "debug rpki\n");
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
-	vty_out(vty, " rpki polling_period %d\n", polling_period);
 
+	if (polling_period != POLLING_PERIOD_DEFAULT)
+		vty_out(vty, " rpki polling_period %d\n", polling_period);
 	if (retry_interval != RETRY_INTERVAL_DEFAULT)
 		vty_out(vty, " rpki retry_interval %d\n", retry_interval);
 	if (expire_interval != EXPIRE_INTERVAL_DEFAULT)
@@ -1052,6 +1060,17 @@ DEFUN_NOSH (rpki,
 	    "Enable rpki and enter rpki configuration mode\n")
 {
 	vty->node = RPKI_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_rpki,
+       no_rpki_cmd,
+       "no rpki",
+       NO_STR
+       "Enable rpki and enter rpki configuration mode\n")
+{
+	rpki_delete_all_cache_nodes();
+	stop();
 	return CMD_SUCCESS;
 }
 
@@ -1161,15 +1180,15 @@ DEFUN (no_rpki_retry_interval,
 }
 
 DEFPY(rpki_cache, rpki_cache_cmd,
-      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
-      "IP address of cache server\n Hostname of cache server\n"
+      "IP address of cache server\n"
+      "Hostname of cache server\n"
       "TCP port number\n"
       "SSH port number\n"
       "SSH user name\n"
       "Path to own SSH private key\n"
-      "Path to own SSH public key\n"
       "Path to Public key of cache server\n"
       "Configure source IP address of RPKI connection\n"
       "Define a Source IP Address\n"
@@ -1193,9 +1212,9 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	// use ssh connection
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
-		return_value = add_ssh_cache(
-			cache, sshport, ssh_uname, ssh_privkey, ssh_pubkey,
-			server_pubkey, preference, bindaddr_str);
+		return_value =
+			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
+				      server_pubkey, preference, bindaddr_str);
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
@@ -1216,20 +1235,27 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 
 DEFPY (no_rpki_cache,
        no_rpki_cache_cmd,
-       "no rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport> preference (1-255)$preference",
+       "no rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
        NO_STR
        RPKI_OUTPUT_STRING
-       "Remove a cache server\n"
-       "IP address of cache server\n Hostname of cache server\n"
+       "Install a cache server to current group\n"
+       "IP address of cache server\n"
+       "Hostname of cache server\n"
        "TCP port number\n"
        "SSH port number\n"
+       "SSH user name\n"
+       "Path to own SSH private key\n"
+       "Path to Public key of cache server\n"
+       "Configure source IP address of RPKI connection\n"
+       "Define a Source IP Address\n"
        "Preference of the cache server\n"
        "Preference value\n")
 {
 	struct cache *cache_p = find_cache(preference);
 
 	if (!cache_p) {
-		vty_out(vty, "Could not find cache %ld\n", preference);
+		vty_out(vty, "Could not find cache with preference %ld\n",
+			preference);
 		return CMD_WARNING;
 	}
 
@@ -1237,9 +1263,9 @@ DEFPY (no_rpki_cache,
 		stop();
 	} else if (is_running()) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
-			vty_out(vty, "Could not remove cache %ld", preference);
-
-			vty_out(vty, "\n");
+			vty_out(vty,
+				"Could not remove cache with preference %ld\n",
+				preference);
 			return CMD_WARNING;
 		}
 	}
@@ -1392,9 +1418,11 @@ DEFPY (show_rpki_cache_server,
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		if (cache->type == TCP) {
 			if (!json) {
-				vty_out(vty, "host: %s port: %s\n",
+				vty_out(vty,
+					"host: %s port: %s, preference: %hhu\n",
 					cache->tr_config.tcp_config->host,
-					cache->tr_config.tcp_config->port);
+					cache->tr_config.tcp_config->port,
+					cache->preference);
 			} else {
 				json_server = json_object_new_object();
 				json_object_string_add(json_server, "mode",
@@ -1405,6 +1433,8 @@ DEFPY (show_rpki_cache_server,
 				json_object_string_add(
 					json_server, "port",
 					cache->tr_config.tcp_config->port);
+				json_object_int_add(json_server, "preference",
+						    cache->preference);
 				json_object_array_add(json_servers,
 						      json_server);
 			}
@@ -1413,14 +1443,15 @@ DEFPY (show_rpki_cache_server,
 		} else if (cache->type == SSH) {
 			if (!json) {
 				vty_out(vty,
-					"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
+					"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s, preference: %hhu\n",
 					cache->tr_config.ssh_config->host,
 					cache->tr_config.ssh_config->port,
 					cache->tr_config.ssh_config->username,
 					cache->tr_config.ssh_config
 						->server_hostkey_path,
 					cache->tr_config.ssh_config
-						->client_privkey_path);
+						->client_privkey_path,
+					cache->preference);
 			} else {
 				json_server = json_object_new_object();
 				json_object_string_add(json_server, "mode",
@@ -1442,6 +1473,8 @@ DEFPY (show_rpki_cache_server,
 					json_server, "clientPrivkeyPath",
 					cache->tr_config.ssh_config
 						->client_privkey_path);
+				json_object_int_add(json_server, "preference",
+						    cache->preference);
 				json_object_array_add(json_servers,
 						      json_server);
 			}
@@ -1662,6 +1695,8 @@ static void install_cli_commands(void)
 	install_default(RPKI_NODE);
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(ENABLE_NODE, &rpki_cmd);
+	install_element(CONFIG_NODE, &no_rpki_cmd);
+
 
 	install_element(ENABLE_NODE, &bgp_rpki_start_cmd);
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);

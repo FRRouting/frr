@@ -68,6 +68,7 @@ from lib.common_config import (
     run_frr_cmd,
     required_linux_kernel_version,
     topo_daemons,
+    verify_rib,
 )
 
 from lib.pim import (
@@ -86,6 +87,7 @@ from lib.pim import (
     clear_mroute,
     clear_pim_interface_traffic,
     McastTesterHelper,
+    verify_pim_neighbors,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -159,6 +161,10 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    # Verify PIM neighbors
+    result = verify_pim_neighbors(tgen, topo)
+    assert result is True, " Verify PIM neighbor: Failed Error: {}".format(result)
 
     # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
     global app_helper
@@ -239,13 +245,22 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
 
         # Add static routes
         input_dict = {
-            fhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop}]},
             rp: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_rp}]},
             lhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_lhr}]},
         }
 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying static routes are installed
+        for dut, _nexthop in zip([rp, lhr], [next_hop_rp, next_hop_lhr]):
+            input_routes = {dut: input_dict[dut]}
+            result = verify_rib(
+                tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+            )
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
 
     # Add kernel route for source
     group = topo["routers"][bsr]["bsm"]["bsr_packets"][packet]["pkt_dst"]
@@ -285,11 +300,28 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
+        # Verifying static routes are installed
+        result = verify_rib(
+            tgen, "ipv4", fhr, input_dict, next_hop_fhr, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
         input_dict = {
             lhr: {"static_routes": [{"network": rp_list, "next_hop": next_hop_lhr}]},
         }
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying static routes are installed
+        result = verify_rib(
+            tgen, "ipv4", lhr, input_dict, next_hop_lhr, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
     return True
 
 

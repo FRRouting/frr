@@ -454,7 +454,17 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 {
 	/* Send the scheduled echo  packet */
-	ptm_bfd_echo_snd(bfd);
+	/* if ipv4 use the new echo implementation that causes
+	 * the packet to be looped in forwarding plane of peer
+	 */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6) == 0)
+#ifdef BFD_LINUX
+		ptm_bfd_echo_fp_snd(bfd);
+#else
+		ptm_bfd_echo_snd(bfd);
+#endif
+	else
+		ptm_bfd_echo_snd(bfd);
 
 	/* Restart the timer for next time */
 	ptm_bfd_start_xmt_timer(bfd, true);
@@ -558,6 +568,12 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 				   state_list[bfd->ses_state].str,
 				   get_diag_str(bfd->local_diag));
 	}
+
+	/* clear peer's mac address */
+	UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
+	memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
+	/* reset local address ,it might has been be changed after bfd is up*/
+	memset(&bfd->local_address, 0, sizeof(bfd->local_address));
 }
 
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
@@ -1934,40 +1950,38 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	if (bglobal.debug_zebra)
 		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
 
-	if (vrf->vrf_id == VRF_DEFAULT ||
-	    vrf_get_backend() == VRF_BACKEND_NETNS) {
-		if (!bvrf->bg_shop)
-			bvrf->bg_shop = bp_udp_shop(vrf);
-		if (!bvrf->bg_mhop)
-			bvrf->bg_mhop = bp_udp_mhop(vrf);
-		if (!bvrf->bg_shop6)
-			bvrf->bg_shop6 = bp_udp6_shop(vrf);
-		if (!bvrf->bg_mhop6)
-			bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
-		if (!bvrf->bg_echo)
-			bvrf->bg_echo = bp_echo_socket(vrf);
-		if (!bvrf->bg_echov6)
-			bvrf->bg_echov6 = bp_echov6_socket(vrf);
+	if (!bvrf->bg_shop)
+		bvrf->bg_shop = bp_udp_shop(vrf);
+	if (!bvrf->bg_mhop)
+		bvrf->bg_mhop = bp_udp_mhop(vrf);
+	if (!bvrf->bg_shop6)
+		bvrf->bg_shop6 = bp_udp6_shop(vrf);
+	if (!bvrf->bg_mhop6)
+		bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
+	if (!bvrf->bg_echo)
+		bvrf->bg_echo = bp_echo_socket(vrf);
+	if (!bvrf->bg_echov6)
+		bvrf->bg_echov6 = bp_echov6_socket(vrf);
 
-		if (!bvrf->bg_ev[0] && bvrf->bg_shop != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf,
-					bvrf->bg_shop, &bvrf->bg_ev[0]);
-		if (!bvrf->bg_ev[1] && bvrf->bg_mhop != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf,
-					bvrf->bg_mhop, &bvrf->bg_ev[1]);
-		if (!bvrf->bg_ev[2] && bvrf->bg_shop6 != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf,
-					bvrf->bg_shop6, &bvrf->bg_ev[2]);
-		if (!bvrf->bg_ev[3] && bvrf->bg_mhop6 != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf,
-					bvrf->bg_mhop6, &bvrf->bg_ev[3]);
-		if (!bvrf->bg_ev[4] && bvrf->bg_echo != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf,
-					bvrf->bg_echo, &bvrf->bg_ev[4]);
-		if (!bvrf->bg_ev[5] && bvrf->bg_echov6 != -1)
-			thread_add_read(master, bfd_recv_cb, bvrf,
-					bvrf->bg_echov6, &bvrf->bg_ev[5]);
-	}
+	if (!bvrf->bg_ev[0] && bvrf->bg_shop != -1)
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+				&bvrf->bg_ev[0]);
+	if (!bvrf->bg_ev[1] && bvrf->bg_mhop != -1)
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+				&bvrf->bg_ev[1]);
+	if (!bvrf->bg_ev[2] && bvrf->bg_shop6 != -1)
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+				&bvrf->bg_ev[2]);
+	if (!bvrf->bg_ev[3] && bvrf->bg_mhop6 != -1)
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+				&bvrf->bg_ev[3]);
+	if (!bvrf->bg_ev[4] && bvrf->bg_echo != -1)
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+				&bvrf->bg_ev[4]);
+	if (!bvrf->bg_ev[5] && bvrf->bg_echov6 != -1)
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+				&bvrf->bg_ev[5]);
+
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
 		bfdd_sessions_enable_vrf(vrf);

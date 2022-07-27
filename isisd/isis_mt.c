@@ -56,8 +56,8 @@ const char *isis_mtid2str(uint16_t mtid)
 	static char buf[sizeof("65535")];
 
 	switch (mtid) {
-	case ISIS_MT_IPV4_UNICAST:
-		return "ipv4-unicast";
+	case ISIS_MT_STANDARD:
+		return "standard";
 	case ISIS_MT_IPV4_MGMT:
 		return "ipv4-mgmt";
 	case ISIS_MT_IPV6_UNICAST:
@@ -80,6 +80,8 @@ uint16_t isis_str2mtid(const char *name)
 {
 	if (!strcmp(name, "ipv4-unicast"))
 		return ISIS_MT_IPV4_UNICAST;
+	if (!strcmp(name, "standard"))
+		return ISIS_MT_STANDARD;
 	if (!strcmp(name, "ipv4-mgmt"))
 		return ISIS_MT_IPV4_MGMT;
 	if (!strcmp(name, "ipv6-unicast"))

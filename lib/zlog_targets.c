@@ -242,14 +242,14 @@ static bool zlog_file_cycle(struct zlog_cfg_file *zcf)
 
 void zlog_file_set_other(struct zlog_cfg_file *zcf)
 {
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		zlog_file_cycle(zcf);
 	}
 }
 
 bool zlog_file_set_filename(struct zlog_cfg_file *zcf, const char *filename)
 {
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		XFREE(MTYPE_LOG_FD_NAME, zcf->filename);
 		zcf->filename = XSTRDUP(MTYPE_LOG_FD_NAME, filename);
 		zcf->fd = -1;
@@ -261,7 +261,7 @@ bool zlog_file_set_filename(struct zlog_cfg_file *zcf, const char *filename)
 
 bool zlog_file_set_fd(struct zlog_cfg_file *zcf, int fd)
 {
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		if (zcf->fd == fd)
 			return true;
 
@@ -283,7 +283,7 @@ bool zlog_file_rotate(struct zlog_cfg_file *zcf)
 	struct rcu_close_rotate *rcr;
 	int fd;
 
-	frr_with_mutex(&zcf->cfg_mtx) {
+	frr_with_mutex (&zcf->cfg_mtx) {
 		if (!zcf->active || !zcf->filename)
 			return true;
 
@@ -517,7 +517,7 @@ void zlog_syslog_set_facility(int facility)
 	struct zlog_target *newztc;
 	struct zlt_syslog *newzt;
 
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		if (facility == syslog_facility)
 			return;
 		syslog_facility = facility;
@@ -540,7 +540,7 @@ void zlog_syslog_set_facility(int facility)
 
 int zlog_syslog_get_facility(void)
 {
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		return syslog_facility;
 	}
 	assert(0);
@@ -551,7 +551,7 @@ void zlog_syslog_set_prio_min(int prio_min)
 	struct zlog_target *newztc;
 	struct zlt_syslog *newzt = NULL;
 
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		if (prio_min == syslog_prio_min)
 			return;
 		syslog_prio_min = prio_min;
@@ -577,7 +577,7 @@ void zlog_syslog_set_prio_min(int prio_min)
 
 int zlog_syslog_get_prio_min(void)
 {
-	frr_with_mutex(&syslog_cfg_mutex) {
+	frr_with_mutex (&syslog_cfg_mutex) {
 		return syslog_prio_min;
 	}
 	assert(0);

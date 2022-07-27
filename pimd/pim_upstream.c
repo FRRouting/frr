@@ -192,7 +192,6 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	struct listnode *node, *nnode;
 	struct pim_ifchannel *ch;
 	bool notify_msdp = false;
-	struct prefix nht_p;
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
@@ -267,12 +266,11 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	 */
 	if (!pim_addr_is_any(up->upstream_addr)) {
 		/* Deregister addr with Zebra NHT */
-		pim_addr_to_prefix(&nht_p, up->upstream_addr);
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
-				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
-				__func__, up->sg_str, &nht_p);
-		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
+				"%s: Deregister upstream %s addr %pPA with Zebra NHT",
+				__func__, up->sg_str, &up->upstream_addr);
+		pim_delete_tracked_nexthop(pim, up->upstream_addr, up, NULL);
 	}
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);
@@ -290,16 +288,13 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	}
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		char rpf_str[PREFIX_STRLEN];
-		pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str,
-			      sizeof(rpf_str));
-		zlog_debug("%s: RPF'%s=%s(%s) for Interface %s", __func__,
-			   up->sg_str, rpf_str,
+		zlog_debug("%s: RPF'%s=%pPA(%s) for Interface %s", __func__,
+			   up->sg_str, &up->rpf.rpf_addr,
 			   pim_upstream_state2str(up->join_state),
 			   up->rpf.source_nexthop.interface->name);
 		if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
-			zlog_debug("%s: can't send join upstream: RPF'%s=%s",
-				   __func__, up->sg_str, rpf_str);
+			zlog_debug("%s: can't send join upstream: RPF'%s=%pPA",
+				   __func__, up->sg_str, &up->rpf.rpf_addr);
 			/* warning only */
 		}
 	}
@@ -345,8 +340,8 @@ static void join_timer_stop(struct pim_upstream *up)
 	THREAD_OFF(up->t_join_timer);
 
 	if (up->rpf.source_nexthop.interface)
-		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
-					       &up->rpf.rpf_addr);
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
@@ -359,8 +354,8 @@ void join_timer_start(struct pim_upstream *up)
 	struct pim_neighbor *nbr = NULL;
 
 	if (up->rpf.source_nexthop.interface) {
-		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
-					       &up->rpf.rpf_addr);
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
@@ -428,7 +423,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 	}
 }
 
-void pim_upstream_join_suppress(struct pim_upstream *up, struct prefix rpf,
+void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 				int holdtime)
 {
 	long t_joinsuppress_msec;
@@ -451,23 +446,19 @@ void pim_upstream_join_suppress(struct pim_upstream *up, struct prefix rpf,
 			pim_time_timer_remain_msec(up->t_join_timer);
 	else {
 		/* Remove it from jp agg from the nbr for suppression */
-		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
-					       &up->rpf.rpf_addr);
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr);
 		if (nbr) {
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
 		}
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char rpf_str[INET_ADDRSTRLEN];
-
-		pim_addr_dump("<rpf?>", &rpf, rpf_str, sizeof(rpf_str));
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s %s: detected Join%s to RPF'(S,G)=%s: join_timer=%ld msec t_joinsuppress=%ld msec",
-			__FILE__, __func__, up->sg_str, rpf_str,
+			"%s %s: detected Join%s to RPF'(S,G)=%pPA: join_timer=%ld msec t_joinsuppress=%ld msec",
+			__FILE__, __func__, up->sg_str, &rpf,
 			join_timer_remain_msec, t_joinsuppress_msec);
-	}
 
 	if (join_timer_remain_msec < t_joinsuppress_msec) {
 		if (PIM_DEBUG_PIM_TRACE) {
@@ -507,8 +498,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		/* upstream join tracked with neighbor jp timer */
 		struct pim_neighbor *nbr;
 
-		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
-					       &up->rpf.rpf_addr);
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr);
 		if (nbr)
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -517,17 +508,11 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 			join_timer_remain_msec = t_override_msec + 1;
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char rpf_str[INET_ADDRSTRLEN];
-
-		pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str,
-			      sizeof(rpf_str));
-
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
-			debug_label, up->sg_str, rpf_str,
+			"%s: to RPF'%s=%pPA: join_timer=%ld msec t_override=%d msec",
+			debug_label, up->sg_str, &up->rpf.rpf_addr,
 			join_timer_remain_msec, t_override_msec);
-	}
 
 	if (join_timer_remain_msec > t_override_msec) {
 		if (PIM_DEBUG_PIM_TRACE) {
@@ -842,9 +827,7 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 	up->rpf.source_nexthop.mrib_metric_preference =
 		ZEBRA_CONNECT_DISTANCE_DEFAULT;
 	up->rpf.source_nexthop.mrib_route_metric = 0;
-	up->rpf.rpf_addr.family = AF_INET;
-	up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
-
+	up->rpf.rpf_addr = PIMADDR_ANY;
 }
 
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
@@ -903,7 +886,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
 		router->infinite_assert_metric.route_metric;
-	pim_addr_to_prefix(&up->rpf.rpf_addr, PIMADDR_ANY);
+	up->rpf.rpf_addr = PIMADDR_ANY;
 	up->ifchannels = list_new();
 	up->ifchannels->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
 
@@ -947,7 +930,16 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 					__func__, up->sg_str);
 		}
 
-		if (up->rpf.source_nexthop.interface) {
+		/* Consider a case where (S,G,rpt) prune is received and this
+		 * upstream is getting created due to that, then as per RFC
+		 * until prune pending time we need to behave same as NOINFO
+		 * state, therefore do not install if OIF is NULL until then
+		 * This is for PIM Conformance PIM-SM 16.3 fix
+		 * When the prune pending timer pop, this mroute will get
+		 * installed with none as OIF */
+		if (up->rpf.source_nexthop.interface &&
+		    !(pim_upstream_empty_inherited_olist(up) && (ch != NULL) &&
+		      PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))) {
 			pim_upstream_mroute_iif_update(up->channel_oil,
 					__func__);
 		}
@@ -1070,7 +1062,7 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		if (up)
-			zlog_debug("%s(%s): %s, iif %pFX (%s) found: %d: ref_count: %d",
+			zlog_debug("%s(%s): %s, iif %pPA (%s) found: %d: ref_count: %d",
 		   __func__, name,
 		   up->sg_str, &up->rpf.rpf_addr, up->rpf.source_nexthop.interface ?
                    up->rpf.source_nexthop.interface->name : "Unknown" ,
@@ -1274,7 +1266,7 @@ void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		pim_addr rpf_addr;
 
-		rpf_addr = pim_addr_from_prefix(&up->rpf.rpf_addr);
+		rpf_addr = up->rpf.rpf_addr;
 
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
@@ -1948,8 +1940,8 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	struct pim_upstream *up;
 
 	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
-		pim_upstream_del(pim, up, __func__);
-		pim_upstream_timers_stop(up);
+		if (pim_upstream_del(pim, up, __func__))
+			pim_upstream_timers_stop(up);
 	}
 
 	rb_pim_upstream_fini(&pim->upstream_head);

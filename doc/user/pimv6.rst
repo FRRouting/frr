@@ -292,6 +292,10 @@ PIM protocol state
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. clicmd:: show ipv6 pim [vrf NAME] interface traffic [WORD] [json]
+
+   Display information about the number of PIM protocol packets sent/received
+   on an interface.
 
 MLD state
 ---------
@@ -381,9 +385,19 @@ Clear commands reset various variables.
    packet count, byte count and wrong interface to 0 and start count
    up from this spot.
 
+.. clicmd:: clear ipv6 pim interfaces
+
+   Reset PIMv6 interfaces.
+
 .. clicmd:: clear ipv6 pim oil
 
    Rescan PIMv6 OIL (output interface list).
+
+.. clicmd:: clear ipv6 pim [vrf NAME] bsr-data
+
+   This command will clear the BSM scope data struct. This command also
+   removes the next hop tracking for the bsr and resets the upstreams
+   for the dynamically learnt RPs.
 
 PIMv6 Debug Commands
 ====================

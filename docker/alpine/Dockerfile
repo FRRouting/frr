@@ -15,11 +15,12 @@ RUN adduser -D -G abuild builder && su builder -c 'abuild-keygen -a -n'
 # This stage builds a libyang APK from source
 FROM alpine-builder as libyang-builder
 RUN mkdir -p /libyang && chown -R builder /pkgs /libyang
-COPY docker/alpine/libyang/ /libyang
-USER builder
-RUN cd /libyang \
-	&& abuild checksum \
-	&& abuild -r -P /pkgs/apk
+# -- Not currently needed - libyang currently available in Alpine upstream
+# COPY docker/alpine/libyang/ /libyang
+# USER builder
+# RUN cd /libyang \
+# 	&& abuild checksum \
+# 	&& abuild -r -P /pkgs/apk
 
 # This stage builds a dist tarball from the source
 FROM alpine:3.15 as source-builder
@@ -37,10 +38,11 @@ RUN source /src/alpine/APKBUILD.in \
 	&& pip install pytest
 
 RUN mkdir -p /pkgs/apk
-COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
-RUN apk add \
-		--no-cache \
-		--allow-untrusted /pkgs/apk/*/*.apk
+# -- Not needed while libyang is not built
+# COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
+# RUN apk add \
+# 		--no-cache \
+# 		--allow-untrusted /pkgs/apk/*/*.apk \
 
 COPY . /src
 ARG PKGVER
@@ -53,12 +55,13 @@ RUN cd /src \
 
 # This stage builds an APK from the dist tarball
 FROM alpine-builder as frr-apk-builder
-COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
+# -- Not needed while libyang is not built
+# COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
+# RUN apk add \
+# 		--no-cache \
+# 		--allow-untrusted /pkgs/apk/*/*.apk
 COPY --from=source-builder /src/frr-*.tar.gz /src/alpine/* /dist/
 RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
-RUN apk add \
-		--no-cache \
-		--allow-untrusted /pkgs/apk/*/*.apk
 RUN chown -R builder /dist /pkgs
 USER builder
 RUN cd /dist \

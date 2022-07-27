@@ -725,6 +725,7 @@ class TopoRouter(TopoGear):
     RD_PBRD = 16
     RD_PATH = 17
     RD_SNMP = 18
+    RD_PIM6 = 19
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -735,6 +736,7 @@ class TopoRouter(TopoGear):
         RD_ISIS: "isisd",
         RD_BGP: "bgpd",
         RD_PIM: "pimd",
+        RD_PIM6: "pim6d",
         RD_LDP: "ldpd",
         RD_EIGRP: "eigrpd",
         RD_NHRP: "nhrpd",
@@ -820,7 +822,8 @@ class TopoRouter(TopoGear):
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
-        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP.
+        TopoRouter.RD_PIM, TopoRouter.RD_PIM6, TopoRouter.RD_PBR,
+        TopoRouter.RD_SNMP.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -1276,6 +1279,7 @@ def diagnose_env_linux(rundir):
             "ripngd",
             "isisd",
             "pimd",
+            "pim6d",
             "ldpd",
             "pbrd",
         ]:

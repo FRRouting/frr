@@ -1094,12 +1094,10 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 static void nexthop_group_write_nexthop_internal(struct vty *vty,
 						 const struct nexthop_hold *nh)
 {
-	char buf[100];
-
 	vty_out(vty, "nexthop");
 
 	if (nh->addr)
-		vty_out(vty, " %s", sockunion2str(nh->addr, buf, sizeof(buf)));
+		vty_out(vty, " %pSU", nh->addr);
 
 	if (nh->intf)
 		vty_out(vty, " %s", nh->intf);

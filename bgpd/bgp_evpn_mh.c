@@ -636,7 +636,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = es->originator_ip;
 	attr.mp_nexthop_global_in = es->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -946,7 +946,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = es->originator_ip;
 	attr.mp_nexthop_global_in = es->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -4952,7 +4952,7 @@ void bgp_evpn_mh_finish(void)
 		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
-		thread_cancel(&bgp_mh_info->t_cons_check);
+		THREAD_OFF(bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);

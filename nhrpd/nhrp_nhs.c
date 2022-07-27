@@ -163,7 +163,6 @@ static void nhrp_reg_send_req(struct thread *t)
 {
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_nhs *nhs = r->nhs;
-	char buf1[SU_ADDRSTRLEN], buf2[SU_ADDRSTRLEN];
 	struct interface *ifp = nhs->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_afi_data *if_ad = &nifp->afi[nhs->afi];
@@ -189,10 +188,8 @@ static void nhrp_reg_send_req(struct thread *t)
 	if (sockunion_family(dst_proto) == AF_UNSPEC)
 		dst_proto = &if_ad->addr;
 
-	sockunion2str(&if_ad->addr, buf1, sizeof(buf1));
-	sockunion2str(dst_proto, buf2, sizeof(buf2));
-	debugf(NHRP_DEBUG_COMMON, "NHS: Register %s -> %s (timeout %d)", buf1,
-	       buf2, r->timeout);
+	debugf(NHRP_DEBUG_COMMON, "NHS: Register %pSU -> %pSU (timeout %d)",
+	       &if_ad->addr, dst_proto, r->timeout);
 
 	/* No protocol address configured for tunnel interface */
 	if (sockunion_family(&if_ad->addr) == AF_UNSPEC)

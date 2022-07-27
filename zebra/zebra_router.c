@@ -29,6 +29,7 @@
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
 #include "zebra_nhg.h"
+#include "zebra_neigh.h"
 #include "debug.h"
 #include "zebra_script.h"
 
@@ -242,6 +243,7 @@ void zebra_router_terminate(void)
 
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
+	zebra_neigh_terminate();
 
 	/* Free NHE in ID table only since it has unhashable entries as well */
 	hash_clean(zrouter.nhgs_id, zebra_nhg_hash_free);
@@ -276,10 +278,15 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 {
 	zrouter.sequence_num = 0;
 
+	zrouter.allow_delete = false;
+
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+
+	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
 	zebra_vxlan_init();
 	zebra_mlag_init();
+	zebra_neigh_init();
 
 	zrouter.rules_hash = hash_create_size(8, zebra_pbr_rules_hash_key,
 					      zebra_pbr_rules_hash_equal,

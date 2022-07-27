@@ -307,7 +307,7 @@ nbr_del(struct nbr *nbr)
 	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
-		thread_cancel(&nbr->ev_connect);
+		THREAD_OFF(nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -435,7 +435,7 @@ nbr_start_ktimer(struct nbr *nbr)
 
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
-	thread_cancel(&nbr->keepalive_timer);
+	THREAD_OFF(nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
 	thread_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
@@ -443,7 +443,7 @@ nbr_start_ktimer(struct nbr *nbr)
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timer);
+	THREAD_OFF(nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
@@ -462,7 +462,7 @@ static void nbr_ktimeout(struct thread *thread)
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timeout);
+	THREAD_OFF(nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
 	thread_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
 			 &nbr->keepalive_timeout);
@@ -471,7 +471,7 @@ nbr_start_ktimeout(struct nbr *nbr)
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timeout);
+	THREAD_OFF(nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
@@ -491,7 +491,7 @@ nbr_start_itimeout(struct nbr *nbr)
 	int		 secs;
 
 	secs = INIT_FSM_TIMEOUT;
-	thread_cancel(&nbr->init_timeout);
+	THREAD_OFF(nbr->init_timeout);
 	nbr->init_timeout = NULL;
 	thread_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
@@ -499,7 +499,7 @@ nbr_start_itimeout(struct nbr *nbr)
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->init_timeout);
+	THREAD_OFF(nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
@@ -537,7 +537,7 @@ nbr_start_idtimer(struct nbr *nbr)
 		break;
 	}
 
-	thread_cancel(&nbr->initdelay_timer);
+	THREAD_OFF(nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
 	thread_add_timer(master, nbr_idtimer, nbr, secs,
 			 &nbr->initdelay_timer);
@@ -546,7 +546,7 @@ nbr_start_idtimer(struct nbr *nbr)
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	thread_cancel(&nbr->initdelay_timer);
+	THREAD_OFF(nbr->initdelay_timer);
 }
 
 int
@@ -847,11 +847,8 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.stats = nbr->stats;
 	nctl.flags = nbr->flags;
 	nctl.max_pdu_len = nbr->max_pdu_len;
-	if (nbr->keepalive_timer)
-		nctl.hold_time_remaining =
-		    thread_timer_remain_second(nbr->keepalive_timer);
-	else
-		nctl.hold_time_remaining = 0;
+	nctl.hold_time_remaining =
+		thread_timer_remain_second(nbr->keepalive_timer);
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

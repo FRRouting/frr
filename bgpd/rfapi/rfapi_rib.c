@@ -268,8 +268,8 @@ static void rfapi_info_free(struct rfapi_info *goner)
 		if (goner->timer) {
 			struct rfapi_rib_tcb *tcb;
 
-			tcb = goner->timer->arg;
-			thread_cancel(&goner->timer);
+			tcb = THREAD_ARG(goner->timer);
+			THREAD_OFF(goner->timer);
 			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 		}
 		XFREE(MTYPE_RFAPI_INFO, goner);
@@ -293,7 +293,7 @@ struct rfapi_rib_tcb {
  */
 static void rfapiRibExpireTimer(struct thread *t)
 {
-	struct rfapi_rib_tcb *tcb = t->arg;
+	struct rfapi_rib_tcb *tcb = THREAD_ARG(t);
 
 	RFAPI_RIB_CHECK_COUNTS(1, 0);
 
@@ -338,8 +338,8 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 	struct rfapi_rib_tcb *tcb = NULL;
 
 	if (ri->timer) {
-		tcb = ri->timer->arg;
-		thread_cancel(&ri->timer);
+		tcb = THREAD_ARG(ri->timer);
+		THREAD_OFF(ri->timer);
 	} else {
 		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
 			      sizeof(struct rfapi_rib_tcb));
@@ -357,10 +357,9 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose("%s: rfd %p pfx %pRN life %u", __func__, rfd, rn,
 			       ri->lifetime);
-	ri->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
 			 &ri->timer);
-	assert(ri->timer);
 }
 
 extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
@@ -914,8 +913,8 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (ri->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ri->timer->arg;
-					thread_cancel(&ri->timer);
+					tcb = THREAD_ARG(ri->timer);
+					THREAD_OFF(ri->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 
@@ -999,8 +998,8 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (ori->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ori->timer->arg;
-					thread_cancel(&ori->timer);
+					tcb = THREAD_ARG(ori->timer);
+					THREAD_OFF(ori->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 
@@ -1179,7 +1178,6 @@ callback:
 
 			new = XCALLOC(MTYPE_RFAPI_NEXTHOP,
 				      sizeof(struct rfapi_next_hop_entry));
-			assert(new);
 
 			if (ri->rk.aux_prefix.family) {
 				rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
@@ -1269,7 +1267,6 @@ callback:
 				new = XCALLOC(
 					MTYPE_RFAPI_NEXTHOP,
 					sizeof(struct rfapi_next_hop_entry));
-				assert(new);
 
 				if (ri->rk.aux_prefix.family) {
 					rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
@@ -1345,8 +1342,8 @@ callback:
 				if (ri->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ri->timer->arg;
-					thread_cancel(&ri->timer);
+					tcb = THREAD_ARG(ri->timer);
+					THREAD_OFF(ri->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
@@ -1718,7 +1715,6 @@ void rfapiRibUpdatePendingNode(
 
 		urq = XCALLOC(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE,
 			      sizeof(struct rfapi_updated_responses_queue));
-		assert(urq);
 		if (!rfd->updated_responses_queue)
 			updated_responses_queue_init(rfd);
 

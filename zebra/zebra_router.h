@@ -159,6 +159,8 @@ struct zebra_router {
 	/* Tables and other global info maintained for EVPN multihoming */
 	struct zebra_evpn_mh_info *mh_info;
 
+	struct zebra_neigh_info *neigh_info;
+
 	/* EVPN MH broadcast domains indexed by the VID */
 	struct hash *evpn_vlan_table;
 
@@ -219,6 +221,17 @@ struct zebra_router {
 	bool notify_on_ack;
 
 	bool supports_nhgs;
+
+	bool all_mc_forwardingv4, default_mc_forwardingv4;
+	bool all_mc_forwardingv6, default_mc_forwardingv6;
+	bool all_linkdownv4, default_linkdownv4;
+	bool all_linkdownv6, default_linkdownv6;
+
+#define ZEBRA_DEFAULT_NHG_KEEP_TIMER 180
+	uint32_t nhg_keep;
+
+	/* Should we allow non FRR processes to delete our routes */
+	bool allow_delete;
 };
 
 #define GRACEFUL_RESTART_TIME 60

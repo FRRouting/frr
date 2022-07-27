@@ -48,6 +48,7 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ti_lfa.h"
 #include "ospfd/ospf_errors.h"
+#include "ospfd/ospf_apiserver.h"
 
 /* Variables to ensure a SPF scheduled log message is printed only once */
 
@@ -1463,8 +1464,13 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 			if (ospf_nexthop_calculation(area, v, w, l, distance,
 						     lsa_pos))
 				vertex_pqueue_add(candidate, w);
-			else if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("Nexthop Calc failed");
+			else {
+				listnode_delete(area->spf_vertex_list, w);
+				ospf_vertex_free(w);
+				w_lsa->stat = LSA_SPF_NOT_EXPLORED;
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug("Nexthop Calc failed");
+			}
 		} else if (w_lsa->stat != LSA_SPF_IN_SPFTREE) {
 			w = w_lsa->stat;
 			if (w->distance < distance) {
@@ -1669,6 +1675,7 @@ void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list)
 /* Calculating the shortest-path tree for an area, see RFC2328 16.1. */
 void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 			struct route_table *new_table,
+			struct route_table *all_rtrs,
 			struct route_table *new_rtrs, bool is_dry_run,
 			bool is_root_node)
 {
@@ -1737,10 +1744,13 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 		ospf_vertex_add_parent(v);
 
 		/* RFC2328 16.1. (4). */
-		if (v->type == OSPF_VERTEX_ROUTER)
-			ospf_intra_add_router(new_rtrs, v, area);
-		else
+		if (v->type != OSPF_VERTEX_ROUTER)
 			ospf_intra_add_transit(new_table, v, area);
+		else {
+			ospf_intra_add_router(new_rtrs, v, area, false);
+			if (all_rtrs)
+				ospf_intra_add_router(all_rtrs, v, area, true);
+		}
 
 		/* Iterate back to (2), see RFC2328 16.1. (5). */
 	}
@@ -1748,6 +1758,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 	if (IS_DEBUG_OSPF_EVENT) {
 		ospf_spf_dump(area->spf, 0);
 		ospf_route_table_dump(new_table);
+		if (all_rtrs)
+			ospf_router_route_table_dump(all_rtrs);
 	}
 
 	/*
@@ -1771,10 +1783,11 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 
 void ospf_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
 			     struct route_table *new_table,
+			     struct route_table *all_rtrs,
 			     struct route_table *new_rtrs)
 {
-	ospf_spf_calculate(area, area->router_lsa_self, new_table, new_rtrs,
-			   false, true);
+	ospf_spf_calculate(area, area->router_lsa_self, new_table, all_rtrs,
+			   new_rtrs, false, true);
 
 	if (ospf->ti_lfa_enabled)
 		ospf_ti_lfa_compute(area, new_table,
@@ -1787,6 +1800,7 @@ void ospf_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
 }
 
 void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
+			      struct route_table *all_rtrs,
 			      struct route_table *new_rtrs)
 {
 	struct ospf_area *area;
@@ -1799,13 +1813,14 @@ void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 		if (ospf->backbone && ospf->backbone == area)
 			continue;
 
-		ospf_spf_calculate_area(ospf, area, new_table, new_rtrs);
+		ospf_spf_calculate_area(ospf, area, new_table, all_rtrs,
+					new_rtrs);
 	}
 
 	/* SPF for backbone, if required */
 	if (ospf->backbone)
 		ospf_spf_calculate_area(ospf, ospf->backbone, new_table,
-					new_rtrs);
+					all_rtrs, new_rtrs);
 }
 
 /* Worker for SPF calculation scheduler. */
@@ -1813,6 +1828,7 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
+	struct route_table *all_rtrs = NULL;
 	struct timeval start_time, spf_start_time;
 	unsigned long ia_time, prune_time, rt_time;
 	unsigned long abr_time, total_spf_time, spf_time;
@@ -1829,7 +1845,12 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	monotime(&spf_start_time);
 	new_table = route_table_init(); /* routing table */
 	new_rtrs = route_table_init();  /* ABR/ASBR routing table */
-	ospf_spf_calculate_areas(ospf, new_table, new_rtrs);
+
+	/* If we have opaque enabled then track all router reachability */
+	if (CHECK_FLAG(ospf->opaque, OPAQUE_OPERATION_READY_BIT))
+		all_rtrs = route_table_init();
+
+	ospf_spf_calculate_areas(ospf, new_table, all_rtrs, new_rtrs);
 	spf_time = monotime_since(&spf_start_time, NULL);
 
 	ospf_vl_shut_unapproved(ospf);
@@ -1842,6 +1863,8 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	/* Get rid of transit networks and routers we cannot reach anyway. */
 	monotime(&start_time);
 	ospf_prune_unreachable_networks(new_table);
+	if (all_rtrs)
+		ospf_prune_unreachable_routers(all_rtrs);
 	ospf_prune_unreachable_routers(new_rtrs);
 	prune_time = monotime_since(&start_time, NULL);
 
@@ -1865,6 +1888,16 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	monotime(&start_time);
 	ospf_route_install(ospf, new_table);
 	rt_time = monotime_since(&start_time, NULL);
+
+	/* Free old all routers routing table */
+	if (ospf->oall_rtrs)
+		/* ospf_route_delete (ospf->old_rtrs); */
+		ospf_rtrs_free(ospf->oall_rtrs);
+
+	/* Update all routers routing table */
+	ospf->oall_rtrs = ospf->all_rtrs;
+	ospf->all_rtrs = all_rtrs;
+	ospf_apiserver_notify_reachable(ospf->oall_rtrs, ospf->all_rtrs);
 
 	/* Free old ABR/ASBR routing table */
 	if (ospf->old_rtrs)

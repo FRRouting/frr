@@ -61,7 +61,7 @@ struct bsm_scope {
 	int sz_id;			/* scope zone id */
 	enum ncbsr_state state;		/* non candidate BSR state */
 	bool accept_nofwd_bsm;		/* no fwd bsm accepted for scope */
-	struct in_addr current_bsr;     /* current elected BSR for the sz */
+	pim_addr current_bsr;		/* current elected BSR for the sz */
 	uint32_t current_bsr_prio;      /* current BSR priority */
 	int64_t current_bsr_first_ts;   /* current BSR elected time */
 	int64_t current_bsr_last_ts;    /* Last BSM received from E-BSR */
@@ -185,18 +185,30 @@ struct bsm_hdr {
 	uint16_t frag_tag;
 	uint8_t hm_len;
 	uint8_t bsr_prio;
+#if PIM_IPV == 4
 	struct pim_encoded_ipv4_unicast bsr_addr;
+#else
+	struct pim_encoded_ipv6_unicast bsr_addr;
+#endif
 } __attribute__((packed));
 
 struct bsmmsg_grpinfo {
+#if PIM_IPV == 4
 	struct pim_encoded_group_ipv4 group;
+#else
+	struct pim_encoded_group_ipv6 group;
+#endif
 	uint8_t rp_count;
 	uint8_t frag_rp_count;
 	uint16_t reserved;
 } __attribute__((packed));
 
 struct bsmmsg_rpinfo {
+#if PIM_IPV == 4
 	struct pim_encoded_ipv4_unicast rpaddr;
+#else
+	struct pim_encoded_ipv6_unicast rpaddr;
+#endif
 	uint16_t rp_holdtime;
 	uint8_t rp_pri;
 	uint8_t reserved;

@@ -2643,6 +2643,70 @@ Large Communities in Route Map
 Note that the large expanded community is only used for `match` rule, not for
 `set` actions.
 
+.. _bgp-roles-and-only-to-customers:
+
+BGP Roles and Only to Customers
+-------------------------------
+
+BGP roles are defined in :rfc:`9234` and provide an easy way to route leaks
+prevention, detection and mitigation.
+
+To enable its mechanics, you must set your local role to reflect your type of
+peering relationship with your neighbor. Possible values of ``LOCAL-ROLE`` are:
+
+- provider
+- rs-server
+- rs-client
+- customer
+- peer
+
+The local Role value is negotiated with the new BGP Role capability with a
+built-in check of the corresponding value. In case of mismatch the new OPEN
+Roles Mismatch Notification <2, 11> would be sent.
+
+The correct Role pairs are:
+
+* Provider - Customer
+* Peer - Peer
+* RS-Server - RS-Client
+
+.. code-block:: shell
+
+   ~# vtysh -c 'show bgp neighbor' | grep 'Role'
+     Local Role: customer
+     Neighbor Role: provider
+       Role: advertised and received
+
+If strict-mode is set BGP session won't become established until BGP neighbor
+set local Role on its side. This configuration parameter is defined in
+:rfc:`9234` and used to enforce corresponding configuration at your
+counter-part side. Default value - disabled.
+
+Routes that sent from provider, rs-server, or peer local-role (or if received
+by customer, rs-clinet, or peer local-role) will be marked with a new
+Only to Customer (OTC) attribute.
+
+Routes with this attribute can only be sent to your neighbor if your
+local-role is provider or rs-server. Routes with this attribute can be
+received only if your local-role is customer or rs-client.
+
+In case of peer-peer relationship routes can be received only if
+OTC value is equal to your neighbor AS number.
+
+All these rules with OTC help to detect and mitigate route leaks and
+happened automatically if local-role is set.
+
+.. clicmd:: neighbor PEER local-role LOCAL-ROLE [strict-mode]
+
+   This command set your local-role to ``LOCAL-ROLE``:
+   <provider|rs-server|rs-client|customer|peer>.
+
+   This role helps to detect and prevent route leaks.
+
+   If ``strict-mode`` is set, your neighbor must send you Capability with the
+   value of his role (by setting local-role on his side). Otherwise, a Role
+   Mismatch Notification will be sent.
+
 .. _bgp-l3vpn-vrfs:
 
 L3VPN VRFs
@@ -2762,6 +2826,14 @@ address-family:
    `import vpn` and `export vpn` statements for the two VRF's involved.
    The CLI will disallow attempts to configure incompatible leaking
    modes.
+
+.. clicmd:: bgp retain route-target all
+
+It is possible to retain or not VPN prefixes that are not imported by local
+VRF configuration. This can be done via the following command in the context
+of the global VPNv4/VPNv6 family. This command defaults to on and is not
+displayed.
+The `no bgp retain route-target all` form of the command is displayed.
 
 .. _bgp-l3vpn-srv6:
 
@@ -3364,6 +3436,12 @@ Debugging
 
    Display Listen sockets and the vrf that created them.  Useful for debugging of when
    listen is not working and this is considered a developer debug statement.
+
+.. clicmd:: debug bgp allow-martian
+
+   Enable or disable BGP accepting martian nexthops from a peer.  Please note
+   this is not an actual debug command and this command is also being deprecated
+   and will be removed soon.  The new command is :clicmd:`bgp allow-martian-nexthop`
 
 .. clicmd:: debug bgp bfd
 
@@ -4005,6 +4083,12 @@ starting the daemon and the configuration gets saved, the option will persist
 unless removed from the configuration with the negating command prior to the
 configuration write operation.  At this point in time non SAFI_UNICAST BGP
 data is not properly withdrawn from zebra when this command is issued.
+
+.. clicmd:: bgp allow-martian-nexthop
+
+When a peer receives a martian nexthop as part of the NLRI for a route
+permit the nexthop to be used as such, instead of rejecting and resetting
+the connection.
 
 .. clicmd:: bgp send-extra-data zebra
 

@@ -830,39 +830,51 @@ static int rtadv_make_socket(ns_id_t ns_id)
 	int sock = -1;
 	int ret = 0;
 	struct icmp6_filter filter;
+	int error;
 
 	frr_with_privs(&zserv_privs) {
 
 		sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
-
+		/*
+		 * with privs might set errno too if it fails save
+		 * to the side
+		 */
+		error = errno;
 	}
 
 	if (sock < 0) {
+		zlog_warn("RTADV socket for ns: %u failure to create: %s(%u)",
+			  ns_id, safe_strerror(error), error);
 		return -1;
 	}
 
 	ret = setsockopt_ipv6_pktinfo(sock, 1);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set Packet Information");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_multicast_loop(sock, 0);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set multicast Loop detection");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_unicast_hops(sock, 255);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set maximum unicast hops");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_multicast_hops(sock, 255);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set maximum multicast hops");
 		close(sock);
 		return ret;
 	}
 	ret = setsockopt_ipv6_hoplimit(sock, 1);
 	if (ret < 0) {
+		zlog_warn("RTADV failure to set maximum incoming hop limit");
 		close(sock);
 		return ret;
 	}
@@ -1205,6 +1217,29 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 	rtadv_prefix_reset(zif, &rp);
 }
 
+static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
+					 struct zebra_if *zif)
+{
+	struct adv_if *adv_if = NULL;
+
+	if (zif->ifp->ifindex == IFINDEX_INTERNAL) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug(
+				"%s(%s) has not configured an ifindex yet, delaying until we have one",
+				zif->ifp->name, zvrf->vrf->name);
+		return;
+	}
+
+	adv_if = adv_if_add(zvrf, zif->ifp->name);
+	if (adv_if != NULL)
+		return; /* Already added */
+
+	if_join_all_router(zvrf->rtadv.sock, zif->ifp);
+
+	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
+		rtadv_event(zvrf, RTADV_START, 0);
+}
+
 static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 				    enum ipv6_nd_suppress_ra_status status)
 {
@@ -1249,14 +1284,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 					RTADV_NUM_FAST_REXMITS;
 			}
 
-			adv_if = adv_if_add(zvrf, ifp->name);
-			if (adv_if != NULL)
-				return; /* Alread added */
-
-			if_join_all_router(zvrf->rtadv.sock, ifp);
-
-			if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
-				rtadv_event(zvrf, RTADV_START, 0);
+			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
 }
@@ -2780,6 +2808,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 
 void rtadv_if_up(struct zebra_if *zif)
 {
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(zif->ifp);
+
 	/* Enable fast tx of RA if enabled && RA interval is not in msecs */
 	if (zif->rtadv.AdvSendAdvertisements &&
 	    (zif->rtadv.MaxRtrAdvInterval >= 1000) &&
@@ -2787,6 +2817,13 @@ void rtadv_if_up(struct zebra_if *zif)
 		zif->rtadv.inFastRexmit = 1;
 		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
 	}
+
+	/*
+	 * startup the state machine, if it hasn't been already
+	 * due to a delayed ifindex on startup ordering
+	 */
+	if (zif->rtadv.AdvSendAdvertisements)
+		rtadv_start_interface_events(zvrf, zif);
 }
 
 void rtadv_if_init(struct zebra_if *zif)

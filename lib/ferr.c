@@ -84,7 +84,7 @@ void log_ref_add(struct log_ref *ref)
 {
 	uint32_t i = 0;
 
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		while (ref[i].code != END_FERR) {
 			(void)hash_get(refs, &ref[i], hash_alloc_intern);
 			i++;
@@ -98,7 +98,7 @@ struct log_ref *log_ref_get(uint32_t code)
 	struct log_ref *ref;
 
 	holder.code = code;
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		ref = hash_lookup(refs, &holder);
 	}
 
@@ -115,7 +115,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 	if (json)
 		top = json_object_new_object();
 
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		errlist = code ? list_new() : hash_to_list(refs);
 	}
 
@@ -182,7 +182,7 @@ DEFUN_NOSH(show_error_code,
 
 void log_ref_init(void)
 {
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		refs = hash_create(ferr_hash_key, ferr_hash_cmp,
 				   "Error Reference Texts");
 	}
@@ -190,7 +190,7 @@ void log_ref_init(void)
 
 void log_ref_fini(void)
 {
-	frr_with_mutex(&refs_mtx) {
+	frr_with_mutex (&refs_mtx) {
 		hash_clean(refs, NULL);
 		hash_free(refs);
 		refs = NULL;

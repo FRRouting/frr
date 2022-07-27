@@ -77,9 +77,6 @@ static struct dplane_ctx_q rib_dplane_q;
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
 
-/* Should we allow non FRR processes to delete our routes */
-extern int allow_delete;
-
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
@@ -166,6 +163,30 @@ struct wq_evpn_wrapper {
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pZN" (struct route_node *)
 #endif
+
+static const char *subqueue2str(uint8_t index)
+{
+	switch (index) {
+	case 0:
+		return "NHG Objects";
+	case 1:
+		return "EVPN/VxLan Objects";
+	case 2:
+		return "Connected Routes";
+	case 3:
+		return "Kernel Routes";
+	case 4:
+		return "Static Routes";
+	case 5:
+		return "RIP/OSPF/ISIS/EIGRP/NHRP Routes";
+	case 6:
+		return "BGP Routes";
+	case 7:
+		return "Other Routes";
+	}
+
+	return "Unknown";
+}
 
 printfrr_ext_autoreg_p("ZN", printfrr_zebra_node);
 static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
@@ -2087,9 +2108,6 @@ done:
 
 	if (rn)
 		route_unlock_node(rn);
-
-	/* Return context to dataplane module */
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -2323,9 +2341,6 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 done:
 	if (rn)
 		route_unlock_node(rn);
-
-	/* Return context to dataplane module */
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -2407,8 +2422,8 @@ static void process_subq_nhg(struct listnode *lnode)
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"NHG Context id=%u dequeued from sub-queue %u",
-				ctx->id, qindex);
+				"NHG Context id=%u dequeued from sub-queue %s",
+				ctx->id, subqueue2str(qindex));
 
 
 		/* Process nexthop group updates coming 'up' from the OS */
@@ -2418,8 +2433,8 @@ static void process_subq_nhg(struct listnode *lnode)
 		nhe = w->u.nhe;
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("NHG %u dequeued from sub-queue %u",
-				   nhe->id, qindex);
+			zlog_debug("NHG %u dequeued from sub-queue %s", nhe->id,
+				   subqueue2str(qindex));
 
 		/* Process incoming nhg update, probably from a proto daemon */
 		newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
@@ -2465,9 +2480,9 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 		if (dest)
 			re = re_list_first(&dest->routes);
 
-		zlog_debug("%s(%u:%u):%pRN rn %p dequeued from sub-queue %u",
+		zlog_debug("%s(%u:%u):%pRN rn %p dequeued from sub-queue %s",
 			   zvrf_name(zvrf), zvrf_id(zvrf), re ? re->table : 0,
-			   rnode, rnode, qindex);
+			   rnode, rnode, subqueue2str(qindex));
 	}
 
 	if (rnode->info)
@@ -2578,8 +2593,8 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 		       RIB_ROUTE_QUEUED(qindex))) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id,
-				    "rn %p is already queued in sub-queue %u",
-				    (void *)rn, qindex);
+				    "rn %p is already queued in sub-queue %s",
+				    (void *)rn, subqueue2str(qindex));
 		return -1;
 	}
 
@@ -2589,8 +2604,8 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %u",
-			    (void *)rn, qindex);
+		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %s",
+			    (void *)rn, subqueue2str(qindex));
 
 	return 0;
 }
@@ -2615,8 +2630,8 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("NHG Context id=%u queued into sub-queue %u",
-			   ctx->id, qindex);
+		zlog_debug("NHG Context id=%u queued into sub-queue %s",
+			   ctx->id, subqueue2str(qindex));
 
 	return 0;
 }
@@ -2641,8 +2656,8 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 	mq->size++;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("NHG id=%u queued into sub-queue %u",
-			   nhe->id, qindex);
+		zlog_debug("NHG id=%u queued into sub-queue %s", nhe->id,
+			   subqueue2str(qindex));
 
 	return 0;
 }
@@ -3302,7 +3317,7 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s",
+	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
 		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
 		   nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
 		   nexthop->vrf_id,
@@ -3327,7 +3342,9 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)
 		    ? "BACKUP " : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE)
-		    ? "SRTE " : ""));
+		    ? "SRTE " : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)
+		    ? "EVPN " : ""));
 
 }
 
@@ -3720,8 +3737,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					    rn, fib,
 					    zebra_route_string(fib->type));
 			}
-			if (allow_delete
-			    || CHECK_FLAG(dest->flags, RIB_ROUTE_ANY_QUEUED)) {
+			if (zrouter.allow_delete ||
+			    CHECK_FLAG(dest->flags, RIB_ROUTE_ANY_QUEUED)) {
 				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
 				/* Unset flags. */
 				for (rtnh = fib->nhe->nhg.nexthop; rtnh;
@@ -3764,8 +3781,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	}
 
 	if (same) {
-		if (fromkernel && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)
-		    && !allow_delete) {
+		struct nexthop *tmp_nh;
+
+		if (fromkernel && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) &&
+		    !zrouter.allow_delete) {
 			rib_install_kernel(rn, same, NULL);
 			route_unlock_node(rn);
 
@@ -3776,12 +3795,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		 * EVPN - the nexthop (and associated MAC) need to be
 		 * uninstalled if no more refs.
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			struct nexthop *tmp_nh;
+		for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
+			struct ipaddr vtep_ip;
 
-			for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
-				struct ipaddr vtep_ip;
-
+			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
 				if (afi == AFI_IP) {
 					vtep_ip.ipa_type = IPADDR_V4;
@@ -4171,21 +4188,15 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 void rib_close_table(struct route_table *table)
 {
 	struct route_node *rn;
-	struct rib_table_info *info;
 	rib_dest_t *dest;
 
 	if (!table)
 		return;
 
-	info = route_table_get_info(table);
-
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
 		if (dest && dest->selected_fib) {
-			if (info->safi == SAFI_UNICAST)
-				hook_call(rib_update, rn, NULL);
-
 			rib_uninstall_kernel(rn, dest->selected_fib);
 			dest->selected_fib = NULL;
 		}
@@ -4195,7 +4206,7 @@ void rib_close_table(struct route_table *table)
 /*
  * Handler for async dataplane results after a pseudowire installation
  */
-static int handle_pw_result(struct zebra_dplane_ctx *ctx)
+static void handle_pw_result(struct zebra_dplane_ctx *ctx)
 {
 	struct zebra_pw *pw;
 	struct zebra_vrf *vrf;
@@ -4204,7 +4215,7 @@ static int handle_pw_result(struct zebra_dplane_ctx *ctx)
 	 * result for installation attempts here.
 	 */
 	if (dplane_ctx_get_op(ctx) != DPLANE_OP_PW_INSTALL)
-		goto done;
+		return;
 
 	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
 		vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
@@ -4213,13 +4224,7 @@ static int handle_pw_result(struct zebra_dplane_ctx *ctx)
 			zebra_pw_install_failure(pw,
 						 dplane_ctx_get_pw_status(ctx));
 	}
-
-done:
-	dplane_ctx_fini(&ctx);
-
-	return 0;
 }
-
 
 /*
  * Handle results from the dataplane system. Dequeue update context
@@ -4237,7 +4242,7 @@ static void rib_process_dplane_results(struct thread *thread)
 		TAILQ_INIT(&ctxlist);
 
 		/* Take lock controlling queue of results */
-		frr_with_mutex(&dplane_mutex) {
+		frr_with_mutex (&dplane_mutex) {
 			/* Dequeue list of context structs */
 			dplane_ctx_list_append(&ctxlist, &rib_dplane_q);
 		}
@@ -4293,7 +4298,6 @@ static void rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_ROUTE_INSTALL:
 			case DPLANE_OP_ROUTE_UPDATE:
 			case DPLANE_OP_ROUTE_DELETE:
-			{
 				/* Bit of special case for route updates
 				 * that were generated by async notifications:
 				 * we don't want to continue processing these
@@ -4301,10 +4305,7 @@ static void rib_process_dplane_results(struct thread *thread)
 				 */
 				if (dplane_ctx_get_notif_provider(ctx) == 0)
 					rib_process_result(ctx);
-				else
-					dplane_ctx_fini(&ctx);
-			}
-			break;
+				break;
 
 			case DPLANE_OP_ROUTE_NOTIFY:
 				rib_process_dplane_notify(ctx);
@@ -4319,17 +4320,13 @@ static void rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_LSP_INSTALL:
 			case DPLANE_OP_LSP_UPDATE:
 			case DPLANE_OP_LSP_DELETE:
-			{
 				/* Bit of special case for LSP updates
 				 * that were generated by async notifications:
 				 * we don't want to continue processing these.
 				 */
 				if (dplane_ctx_get_notif_provider(ctx) == 0)
 					zebra_mpls_lsp_dplane_result(ctx);
-				else
-					dplane_ctx_fini(&ctx);
-			}
-			break;
+				break;
 
 			case DPLANE_OP_LSP_NOTIFY:
 				zebra_mpls_process_dplane_notify(ctx);
@@ -4342,8 +4339,6 @@ static void rib_process_dplane_results(struct thread *thread)
 
 			case DPLANE_OP_SYS_ROUTE_ADD:
 			case DPLANE_OP_SYS_ROUTE_DELETE:
-				/* No further processing in zebra for these. */
-				dplane_ctx_fini(&ctx);
 				break;
 
 			case DPLANE_OP_MAC_INSTALL:
@@ -4387,12 +4382,11 @@ static void rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_NONE:
-				/* Don't expect this: just return the struct? */
-				dplane_ctx_fini(&ctx);
 				break;
 
 			} /* Dispatch by op code */
 
+			dplane_ctx_fini(&ctx);
 			ctx = dplane_ctx_dequeue(&ctxlist);
 		}
 
@@ -4407,7 +4401,7 @@ static void rib_process_dplane_results(struct thread *thread)
 static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 {
 	/* Take lock controlling queue of results */
-	frr_with_mutex(&dplane_mutex) {
+	frr_with_mutex (&dplane_mutex) {
 		/* Enqueue context blocks */
 		dplane_ctx_list_append(&rib_dplane_q, ctxlist);
 	}

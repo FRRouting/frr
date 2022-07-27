@@ -119,6 +119,14 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX];
 static void append_item(struct isis_item_list *dest, struct isis_item *item);
 static void init_item_list(struct isis_item_list *items);
 
+/* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
+static const char *isis_mtid2str_fake(uint16_t mtid)
+{
+	if (mtid == ISIS_MT_STANDARD)
+		return "ipv4-unicast";
+	return isis_mtid2str(mtid);
+}
+
 /* Functions for Extended IS Reachability SubTLVs a.k.a Traffic Engineering */
 struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 {
@@ -2391,7 +2399,7 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(mt_json, "attached", info->attached?"true":"false");
 	} else
 		sbuf_push(buf, indent, "MT Router Info: %s%s%s\n",
-			  isis_mtid2str(info->mtid),
+			  isis_mtid2str_fake(info->mtid),
 			  info->overload ? " Overload" : "",
 			  info->attached ? " Attached" : "");
 }
@@ -3572,9 +3580,9 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 }
 
 static int unpack_tlv_router_cap(enum isis_tlv_context context,
-				       uint8_t tlv_type, uint8_t tlv_len,
-				       struct stream *s, struct sbuf *log,
-				       void *dest, int indent)
+				 uint8_t tlv_type, uint8_t tlv_len,
+				 struct stream *s, struct sbuf *log, void *dest,
+				 int indent)
 {
 	struct isis_tlvs *tlvs = dest;
 	struct isis_router_cap *rcap;
@@ -3619,7 +3627,7 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				log, indent,
 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
 			stream_forward_getp(s, STREAM_READABLE(s));
-
+			XFREE(MTYPE_ISIS_TLV, rcap);
 			return 0;
 		}
 
@@ -4306,7 +4314,7 @@ static int unpack_tlv_with_items(enum isis_tlv_context context,
 		mtid = stream_getw(s) & ISIS_MT_MASK;
 		tlv_pos += 2;
 		sbuf_push(log, indent, "Unpacking as MT %s item TLV...\n",
-			  isis_mtid2str(mtid));
+			  isis_mtid2str_fake(mtid));
 	} else {
 		sbuf_push(log, indent, "Unpacking as item TLV...\n");
 		mtid = ISIS_MT_IPV4_UNICAST;
