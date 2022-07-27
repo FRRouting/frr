@@ -992,7 +992,7 @@ afibreak:
 	}
 
 	struct bgp_table *table = bmp->targets->bgp->rib[afi][safi];
-	struct bgp_dest *bn;
+	struct bgp_dest *bn = NULL;
 	struct bgp_path_info *bpi = NULL, *bpiter;
 	struct bgp_adj_in *adjin = NULL, *adjiter;
 
@@ -1120,6 +1120,9 @@ afibreak:
 		bmp_monitor(bmp, adjin->peer, 0, bn_p, prd, adjin->attr, afi,
 			    safi, adjin->uptime);
 
+	if (bn)
+		bgp_dest_unlock_node(bn);
+
 	return true;
 }
 
@@ -1145,7 +1148,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 {
 	struct bmp_queue_entry *bqe;
 	struct peer *peer;
-	struct bgp_dest *bn;
+	struct bgp_dest *bn = NULL;
 	bool written = false;
 
 	bqe = bmp_pull(bmp);
@@ -1220,6 +1223,10 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 out:
 	if (!bqe->refcount)
 		XFREE(MTYPE_BMP_QUEUE, bqe);
+
+	if (bn)
+		bgp_dest_unlock_node(bn);
+
 	return written;
 }
 
