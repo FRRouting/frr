@@ -68,6 +68,7 @@ from lib.common_config import (
     check_router_status,
 )
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -1137,6 +1138,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
             )
 
     write_test_footer(tc_name)
+
 
 def test_verify_default_originate_after_shut_no_shut_bgp_neighbor_p1(request):
     """
@@ -2531,6 +2533,7 @@ def test_verify_default_originate_after_shut_no_shut_bgp_neighbor_p1(request):
         )
 
     write_test_footer(tc_name)
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
