@@ -363,7 +363,7 @@ void ospf_route_install(struct ospf *ospf, struct route_table *rt)
 
 /* RFC2328 16.1. (4). For "router". */
 void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
-			   struct ospf_area *area)
+			   struct ospf_area *area, bool add_all)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -388,7 +388,8 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	/* If the newly added vertex is an area border router or AS boundary
 	   router, a routing table entry is added whose destination type is
 	   "router". */
-	if (!IS_ROUTER_LSA_BORDER(lsa) && !IS_ROUTER_LSA_EXTERNAL(lsa)) {
+	if (!add_all && !IS_ROUTER_LSA_BORDER(lsa) &&
+	    !IS_ROUTER_LSA_EXTERNAL(lsa)) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"ospf_intra_add_router: this router is neither ASBR nor ABR, skipping it");
@@ -730,6 +731,24 @@ void ospf_route_table_dump(struct route_table *rt)
 					   ospf_path_type_str[or->path_type],
 					   or->cost);
 		}
+	zlog_debug("========================================");
+}
+
+void ospf_router_route_table_dump(struct route_table *rt)
+{
+	struct route_node *rn;
+	struct ospf_route *or;
+	struct listnode *node;
+
+	zlog_debug("========== OSPF routing table ==========");
+	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node, or)) {
+			assert(or->type == OSPF_DESTINATION_ROUTER);
+			zlog_debug("R %-18pI4 %-15pI4 %s %d", &rn->p.u.prefix4,
+				   &or->u.std.area_id,
+				   ospf_path_type_str[or->path_type], or->cost);
+		}
+	}
 	zlog_debug("========================================");
 }
 

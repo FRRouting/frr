@@ -1354,6 +1354,16 @@ static void kernel_read(struct thread *thread)
 
 	if (nbytes < 0) {
 		if (errno == ENOBUFS) {
+#ifdef __FreeBSD__
+			/*
+			 * ENOBUFS indicates a temporary resource
+			 * shortage and is not harmful for consistency of
+			 * reading the routing socket.  Ignore it.
+			 */
+			thread_add_read(zrouter.master, kernel_read, NULL, sock,
+					NULL);
+			return;
+#else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
 				 "routing socket overrun: %s",
 				 safe_strerror(errno));
@@ -1363,6 +1373,7 @@ static void kernel_read(struct thread *thread)
 			 *  recover zebra at this point.
 			 */
 			exit(-1);
+#endif
 		}
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",

@@ -45,19 +45,23 @@ static struct rtattr *netconf_rta(struct netconfmsg *ncm)
  * Handle netconf update about a single interface: create dplane
  * context, and enqueue for processing in the main zebra pthread.
  */
-static int netlink_netconf_dplane_update(ns_id_t ns_id, ifindex_t ifindex,
-					 enum dplane_netconf_status_e mpls_on,
-					 enum dplane_netconf_status_e mcast_on)
+static int
+netlink_netconf_dplane_update(ns_id_t ns_id, afi_t afi, ifindex_t ifindex,
+			      enum dplane_netconf_status_e mpls_on,
+			      enum dplane_netconf_status_e mcast_on,
+			      enum dplane_netconf_status_e linkdown_on)
 {
 	struct zebra_dplane_ctx *ctx;
 
 	ctx = dplane_ctx_alloc();
 	dplane_ctx_set_op(ctx, DPLANE_OP_INTF_NETCONFIG);
-	dplane_ctx_set_netconf_ns_id(ctx, ns_id);
-	dplane_ctx_set_netconf_ifindex(ctx, ifindex);
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_afi(ctx, afi);
+	dplane_ctx_set_ifindex(ctx, ifindex);
 
 	dplane_ctx_set_netconf_mpls(ctx, mpls_on);
 	dplane_ctx_set_netconf_mcast(ctx, mcast_on);
+	dplane_ctx_set_netconf_linkdown(ctx, linkdown_on);
 
 	/* Enqueue ctx for main pthread to process */
 	dplane_provider_enqueue_to_zebra(ctx);
@@ -75,8 +79,11 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	int len;
 	ifindex_t ifindex;
 	uint32_t ival;
+	afi_t afi;
 	enum dplane_netconf_status_e mpls_on = DPLANE_NETCONF_STATUS_UNKNOWN;
 	enum dplane_netconf_status_e mcast_on = DPLANE_NETCONF_STATUS_UNKNOWN;
+	enum dplane_netconf_status_e linkdown_on =
+		DPLANE_NETCONF_STATUS_UNKNOWN;
 
 	if (h->nlmsg_type != RTM_NEWNETCONF && h->nlmsg_type != RTM_DELNETCONF)
 		return 0;
@@ -91,6 +98,18 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	ncm = NLMSG_DATA(h);
 
+	/*
+	 * FRR does not have an internal representation of afi_t for
+	 * the MPLS Address Family that the kernel has.  So let's
+	 * just call it v4.  This is ok because the kernel appears
+	 * to do a good job of not sending data that is mixed/matched
+	 * across families
+	 */
+	if (ncm->ncm_family == AF_MPLS)
+		afi = AFI_IP;
+	else
+		afi = family2afi(ncm->ncm_family);
+
 	netlink_parse_rtattr(tb, NETCONFA_MAX, netconf_rta(ncm), len);
 
 	if (!tb[NETCONFA_IFINDEX]) {
@@ -99,23 +118,6 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	ifindex = *(ifindex_t *)RTA_DATA(tb[NETCONFA_IFINDEX]);
-
-	switch (ifindex) {
-	case NETCONFA_IFINDEX_ALL:
-	case NETCONFA_IFINDEX_DEFAULT:
-		/*
-		 * We need the ability to handle netlink messages intended
-		 * for all and default interfaces.  I am not 100% sure
-		 * what that is yet, or where we would store it.
-		 */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: Ignoring global ifindex %d",
-				   __func__, ifindex);
-
-		return 0;
-	default:
-		break;
-	}
 
 	if (tb[NETCONFA_INPUT]) {
 		ival = *(uint32_t *)RTA_DATA(tb[NETCONFA_INPUT]);
@@ -133,12 +135,23 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			mcast_on = DPLANE_NETCONF_STATUS_DISABLED;
 	}
 
+	if (tb[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]) {
+		ival = *(uint32_t *)RTA_DATA(
+			tb[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]);
+		if (ival != 0)
+			linkdown_on = DPLANE_NETCONF_STATUS_ENABLED;
+		else
+			linkdown_on = DPLANE_NETCONF_STATUS_DISABLED;
+	}
+
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: interface %u is mpls on: %d multicast on: %d",
-			   __func__, ifindex, mpls_on, mcast_on);
+		zlog_debug(
+			"%s: interface %u is mpls on: %d multicast on: %d linkdown: %d",
+			__func__, ifindex, mpls_on, mcast_on, linkdown_on);
 
 	/* Create a dplane context and pass it along for processing */
-	netlink_netconf_dplane_update(ns_id, ifindex, mpls_on, mcast_on);
+	netlink_netconf_dplane_update(ns_id, afi, ifindex, mpls_on, mcast_on,
+				      linkdown_on);
 
 	return 0;
 }

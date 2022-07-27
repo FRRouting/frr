@@ -100,6 +100,7 @@ void pim_router_init(void)
 	router->debugs = 0;
 	router->master = frr_init();
 	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
+	router->multipath = MULTIPATH_NUM;
 
 	/*
 	  RFC 4601: 4.6.3.  Assert Metrics

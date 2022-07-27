@@ -1,6 +1,7 @@
 /*
  * API message handling module for OSPF daemon and client.
  * Copyright (C) 2001, 2002 Ralph Keller
+ * Copyright (c) 2022, LabN Consulting, L.L.C.
  *
  * This file is part of GNU Zebra.
  *
@@ -176,6 +177,10 @@ const char *ospf_api_typename(int msgtype)
 		},
 		{
 			MSG_NSM_CHANGE, "NSM change",
+		},
+		{
+			MSG_REACHABLE_CHANGE,
+			"Reachable change",
 		},
 	};
 
@@ -649,6 +654,41 @@ struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 	len += sizeof(struct msg_lsa_change_notify) - sizeof(struct lsa_header);
 
 	return msg_new(msgtype, nmsg, seqnum, len);
+}
+
+struct msg *new_msg_reachable_change(uint32_t seqnum, uint16_t nadd,
+				     struct in_addr *add, uint16_t nremove,
+				     struct in_addr *remove)
+{
+	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
+	struct msg_reachable_change *nmsg = (void *)buf;
+	const uint insz = sizeof(*nmsg->router_ids);
+	const uint nmax = (sizeof(buf) - sizeof(*nmsg)) / insz;
+	uint len;
+
+	if (nadd > nmax)
+		nadd = nmax;
+	if (nremove > (nmax - nadd))
+		nremove = (nmax - nadd);
+
+	if (nadd)
+		memcpy(nmsg->router_ids, add, nadd * insz);
+	if (nremove)
+		memcpy(&nmsg->router_ids[nadd], remove, nremove * insz);
+
+	nmsg->nadd = htons(nadd);
+	nmsg->nremove = htons(nremove);
+	len = sizeof(*nmsg) + insz * (nadd + nremove);
+
+	return msg_new(MSG_REACHABLE_CHANGE, nmsg, seqnum, len);
+}
+
+struct msg *new_msg_router_id_change(uint32_t seqnum, struct in_addr router_id)
+{
+	struct msg_router_id_change rmsg = {.router_id = router_id};
+
+	return msg_new(MSG_ROUTER_ID_CHANGE, &rmsg, seqnum,
+		       sizeof(struct msg_router_id_change));
 }
 
 #endif /* SUPPORT_OSPF_API */

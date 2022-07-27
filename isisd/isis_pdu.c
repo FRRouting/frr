@@ -205,7 +205,7 @@ static int process_p2p_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	thread_cancel(&adj->t_expire);
+	THREAD_OFF(adj->t_expire);
 	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			 &adj->t_expire);
 
@@ -497,7 +497,7 @@ static int process_lan_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	thread_cancel(&adj->t_expire);
+	THREAD_OFF(adj->t_expire);
 	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			 &adj->t_expire);
 
@@ -778,8 +778,8 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	iih.v4_usable = (fabricd_ip_addrs(circuit)
 			 && iih.tlvs->ipv4_address.count);
 
-	iih.v6_usable = (circuit->ipv6_link && listcount(circuit->ipv6_link)
-			 && iih.tlvs->ipv6_address.count);
+	iih.v6_usable =
+		(listcount(circuit->ipv6_link) && iih.tlvs->ipv6_address.count);
 
 	if (!iih.v4_usable && !iih.v6_usable) {
 		if (IS_DEBUG_ADJ_PACKETS) {
@@ -1969,11 +1969,11 @@ int send_hello(struct isis_circuit *circuit, int level)
 			isis_tlvs_add_ipv4_addresses(tlvs, circuit_ip_addrs);
 	}
 
-	if (circuit->ipv6_router && circuit->ipv6_link)
+	if (circuit->ipv6_router)
 		isis_tlvs_add_ipv6_addresses(tlvs, circuit->ipv6_link);
 
 	/* RFC6119 section 4 define TLV 233 to provide Global IPv6 address */
-	if (circuit->ipv6_router && circuit->ipv6_non_link)
+	if (circuit->ipv6_router)
 		isis_tlvs_add_global_ipv6_addresses(tlvs,
 						    circuit->ipv6_non_link);
 
@@ -2064,7 +2064,7 @@ static void _send_hello_sched(struct isis_circuit *circuit,
 		if (thread_timer_remain_msec(*threadp) < (unsigned long)delay)
 			return;
 
-		thread_cancel(threadp);
+		THREAD_OFF(*threadp);
 	}
 
 	thread_add_timer_msec(master, send_hello_cb,

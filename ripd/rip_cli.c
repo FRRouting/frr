@@ -439,7 +439,7 @@ void cli_show_rip_non_passive_interface(struct vty *vty,
  */
 DEFPY_YANG (rip_redistribute,
        rip_redistribute_cmd,
-       "[no] redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map WORD}]",
+       "[no] redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map RMAP_NAME$route_map}]",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD

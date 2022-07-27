@@ -967,7 +967,7 @@ static bool peer_hash_same(const void *p1, const void *p2)
 			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
 }
 
-void peer_flag_inherit(struct peer *peer, uint32_t flag)
+void peer_flag_inherit(struct peer *peer, uint64_t flag)
 {
 	bool group_val;
 
@@ -1374,6 +1374,8 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
+	peer->local_role = ROLE_UNDEFINED;
+	peer->remote_role = ROLE_UNDEFINED;
 	peer->password = NULL;
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
@@ -1470,6 +1472,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->tcp_mss = peer_src->tcp_mss;
 	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
+	peer_dst->local_role = peer_src->local_role;
 
 	peer_dst->max_packet_size = peer_src->max_packet_size;
 
@@ -1996,6 +1999,25 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 	return 0;
 }
 
+const char *bgp_get_name_by_role(uint8_t role)
+{
+	switch (role) {
+	case ROLE_PROVIDER:
+		return "provider";
+	case ROLE_RS_SERVER:
+		return "rs-server";
+	case ROLE_RS_CLIENT:
+		return "rs-client";
+	case ROLE_CUSTOMER:
+		return "customer";
+	case ROLE_PEER:
+		return "peer";
+	case ROLE_UNDEFINED:
+		return "undefined";
+	}
+	return "unknown";
+}
+
 static void peer_group2peer_config_copy_af(struct peer_group *group,
 					   struct peer *peer, afi_t afi,
 					   safi_t safi)
@@ -2379,12 +2401,12 @@ void peer_nsf_stop(struct peer *peer)
 		peer->nsf[afi][safi] = 0;
 
 	if (peer->t_gr_restart) {
-		BGP_TIMER_OFF(peer->t_gr_restart);
+		THREAD_OFF(peer->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 	if (peer->t_gr_stale) {
-		BGP_TIMER_OFF(peer->t_gr_stale);
+		THREAD_OFF(peer->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP graceful restart stalepath timer stopped",
@@ -2708,6 +2730,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 					      MTYPE_PEER_UPDATE_SOURCE);
 		}
 	}
+
+	/* role */
+	PEER_ATTR_INHERIT(peer, group, local_role);
 
 	/* Update GR flags for the peer. */
 	bgp_peer_gr_flags_update(peer);
@@ -3126,6 +3151,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp_lock(bgp);
 
+	bgp->allow_martian = false;
 	bgp_process_queue_init(bgp);
 	bgp->heuristic_coalesce = true;
 	bgp->inst_type = inst_type;
@@ -3214,6 +3240,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].export_vrf = list_new();
 		bgp->vpn_policy[afi].export_vrf->del =
 			bgp_vrf_string_name_delete;
+		SET_FLAG(bgp->af_flags[afi][SAFI_MPLS_VPN],
+			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
 	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
@@ -3558,7 +3586,7 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
-		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+		THREAD_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
@@ -3625,7 +3653,7 @@ int bgp_delete(struct bgp *bgp)
 		if (!gr_info)
 			continue;
 
-		BGP_TIMER_OFF(gr_info->t_select_deferral);
+		THREAD_OFF(gr_info->t_select_deferral);
 
 		t = gr_info->t_route_select;
 		if (t) {
@@ -3633,7 +3661,7 @@ int bgp_delete(struct bgp *bgp)
 
 			XFREE(MTYPE_TMP, info);
 		}
-		BGP_TIMER_OFF(gr_info->t_route_select);
+		THREAD_OFF(gr_info->t_route_select);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
@@ -3656,7 +3684,7 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
-		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+		THREAD_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
 	}
@@ -4227,7 +4255,7 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 
 struct peer_flag_action {
 	/* Peer's flag.  */
-	uint32_t flag;
+	uint64_t flag;
 
 	/* This flag can be set for peer-group member.  */
 	uint8_t not_for_member;
@@ -4259,6 +4287,9 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
+	{PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_reset},
+	{PEER_FLAG_ROLE, 0, peer_change_reset},
+	{PEER_FLAG_PORT, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4295,7 +4326,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 /* Proper action set. */
 static int peer_flag_action_set(const struct peer_flag_action *action_list,
 				int size, struct peer_flag_action *action,
-				uint32_t flag)
+				uint64_t flag)
 {
 	int i;
 	int found = 0;
@@ -4349,7 +4380,7 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 
 			if (peer->t_pmax_restart) {
-				BGP_TIMER_OFF(peer->t_pmax_restart);
+				THREAD_OFF(peer->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Maximum-prefix restart timer canceled",
@@ -4471,7 +4502,7 @@ void bgp_shutdown_disable(struct bgp *bgp)
 }
 
 /* Change specified peer flag. */
-static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
+static int peer_flag_modify(struct peer *peer, uint64_t flag, int set)
 {
 	int found;
 	int size;
@@ -4582,12 +4613,12 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 	return 0;
 }
 
-int peer_flag_set(struct peer *peer, uint32_t flag)
+int peer_flag_set(struct peer *peer, uint64_t flag)
 {
 	return peer_flag_modify(peer, flag, 1);
 }
 
-int peer_flag_unset(struct peer *peer, uint32_t flag)
+int peer_flag_unset(struct peer *peer, uint64_t flag)
 {
 	return peer_flag_modify(peer, flag, 0);
 }
@@ -4928,6 +4959,114 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 	return 0;
 }
 
+/* Set Open Policy Role and check its correctness */
+int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	peer_flag_set(peer, PEER_FLAG_ROLE);
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		if (peer->sort != BGP_PEER_EBGP)
+			return BGP_ERR_INVALID_INTERNAL_ROLE;
+
+		if (peer->local_role == role) {
+			if (CHECK_FLAG(peer->flags,
+				       PEER_FLAG_ROLE_STRICT_MODE) &&
+			    !strict_mode)
+				/* TODO: Is session restart needed if it was
+				 * down?
+				 */
+				UNSET_FLAG(peer->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			if (!CHECK_FLAG(peer->flags,
+					PEER_FLAG_ROLE_STRICT_MODE) &&
+			    strict_mode) {
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				/* Restart session to throw Role Mismatch
+				 * Notification
+				 */
+				if (peer->remote_role == ROLE_UNDEFINED)
+					bgp_session_reset(peer);
+			}
+		} else {
+			peer->local_role = role;
+			if (strict_mode)
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+			else
+				UNSET_FLAG(peer->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			bgp_session_reset(peer);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	peer->local_role = role;
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		if (member->sort != BGP_PEER_EBGP)
+			return BGP_ERR_INVALID_INTERNAL_ROLE;
+
+		if (member->local_role == role) {
+			if (CHECK_FLAG(member->flags,
+				       PEER_FLAG_ROLE_STRICT_MODE) &&
+			    !strict_mode)
+				/* TODO: Is session restart needed if it was
+				 * down?
+				 */
+				UNSET_FLAG(member->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			if (!CHECK_FLAG(member->flags,
+					PEER_FLAG_ROLE_STRICT_MODE) &&
+			    strict_mode) {
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				SET_FLAG(member->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				/* Restart session to throw Role Mismatch
+				 * Notification
+				 */
+				if (member->remote_role == ROLE_UNDEFINED)
+					bgp_session_reset(member);
+			}
+		} else {
+			member->local_role = role;
+
+			if (strict_mode) {
+				SET_FLAG(peer->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+				SET_FLAG(member->flags,
+					 PEER_FLAG_ROLE_STRICT_MODE);
+			} else {
+				UNSET_FLAG(member->flags,
+					   PEER_FLAG_ROLE_STRICT_MODE);
+			}
+			bgp_session_reset(member);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+int peer_role_unset(struct peer *peer)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	peer_flag_unset(peer, PEER_FLAG_ROLE);
+
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return peer_role_set(peer, ROLE_UNDEFINED, 0);
+
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member))
+		peer_role_set(member, ROLE_UNDEFINED, 0);
+
+	return CMD_SUCCESS;
+}
+
 /* Neighbor description. */
 void peer_description_set(struct peer *peer, const char *desc)
 {
@@ -5165,15 +5304,30 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
+	struct update_subgroup *subgrp;
 
 	/* Set flag and configuration on peer. */
 	peer_af_flag_set(peer, afi, safi, PEER_FLAG_DEFAULT_ORIGINATE);
+
+	subgrp = peer_subgroup(peer, afi, safi);
+
 	if (rmap) {
 		if (!peer->default_rmap[afi][safi].name
 		    || strcmp(rmap, peer->default_rmap[afi][safi].name) != 0) {
 			if (peer->default_rmap[afi][safi].name)
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      peer->default_rmap[afi][safi].name);
+
+			/*
+			 * When there is a change in route-map policy,
+			 * this flow gets triggered. Since, the default
+			 * route is already originated, the flag is set.
+			 * The flag should be unset here,
+			 * to trigger the flow of sending update message.
+			 */
+			if (subgrp)
+				UNSET_FLAG(subgrp->sflags,
+					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
 			route_map_counter_decrement(peer->default_rmap[afi][safi].map);
 			peer->default_rmap[afi][safi].name =
@@ -5185,6 +5339,15 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 		if (peer->default_rmap[afi][safi].name)
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
+
+		/*
+		 * This is triggered in case of route-map deletion.
+		 * The flag needs to be unset, to trigger the flow
+		 * of sending an update message.
+		 */
+		if (subgrp)
+			UNSET_FLAG(subgrp->sflags,
+				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
 		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
 		peer->default_rmap[afi][safi].name = NULL;
@@ -5314,11 +5477,13 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 void peer_port_set(struct peer *peer, uint16_t port)
 {
 	peer->port = port;
+	peer_flag_set(peer, PEER_FLAG_PORT);
 }
 
 void peer_port_unset(struct peer *peer)
 {
 	peer->port = BGP_PORT_DEFAULT;
+	peer_flag_unset(peer, PEER_FLAG_PORT);
 }
 
 /* Set the TCP-MSS value in the peer structure,
@@ -7115,18 +7280,15 @@ static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,
 
 	/* Increment condition_filter_count and/or create timer. */
 	if (!filter_exists) {
-		filter->advmap.update_type = ADVERTISE;
+		filter->advmap.update_type = UPDATE_TYPE_ADVERTISE;
 		bgp_conditional_adv_enable(peer, afi, safi);
 	}
+
+	/* Process peer route updates. */
+	peer_on_policy_change(peer, afi, safi, 1);
 }
 
-/* Set advertise-map to the peer but do not process peer route updates here.  *
- * Hold filter changes until the conditional routes polling thread is called  *
- * AS we need to advertise/withdraw prefixes (in advertise-map) based on the  *
- * condition (exist-map/non-exist-map) and routes(specified in condition-map) *
- * in BGP table. So do not call peer_on_policy_change() here, only create     *
- * polling timer thread, update filters and increment condition_filter_count.
- */
+/* Set advertise-map to the peer. */
 int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 			   const char *advertise_name,
 			   struct route_map *advertise_map,
@@ -7206,7 +7368,6 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 				   __func__, peer->host,
 				   get_afi_safi_str(afi, safi, false));
 
-		peer_on_policy_change(peer, afi, safi, 1);
 		return 0;
 	}
 
@@ -7229,8 +7390,6 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 			zlog_debug("%s: Send normal update to %s for %s ",
 				   __func__, member->host,
 				   get_afi_safi_str(afi, safi, false));
-
-		peer_on_policy_change(member, afi, safi, 1);
 	}
 
 	return 0;
@@ -7243,7 +7402,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	if (peer->t_pmax_restart) {
-		BGP_TIMER_OFF(peer->t_pmax_restart);
+		THREAD_OFF(peer->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP Maximum-prefix restart timer cancelled",
@@ -8100,20 +8259,22 @@ void bgp_terminate(void)
 	 * of a large number of peers this will ensure that no peer is left with
 	 * a dangling connection
 	 */
-	/* reverse bgp_master_init */
+
 	bgp_close();
-
-	if (bm->listen_sockets)
-		list_delete(&bm->listen_sockets);
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp))
+	/* reverse bgp_master_init */
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		bgp_close_vrf_socket(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 			if (peer_established(peer) || peer->status == OpenSent
 			    || peer->status == OpenConfirm)
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+	}
 
-	BGP_TIMER_OFF(bm->t_rmap_update);
+	if (bm->listen_sockets)
+		list_delete(&bm->listen_sockets);
+
+	THREAD_OFF(bm->t_rmap_update);
 
 	bgp_mac_finish();
 }

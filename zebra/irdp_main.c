@@ -260,7 +260,7 @@ void irdp_advert_off(struct interface *ifp)
 	if (!irdp)
 		return;
 
-	thread_cancel(&irdp->t_advertise);
+	THREAD_OFF(irdp->t_advertise);
 
 	if (ifp->connected)
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
@@ -295,7 +295,7 @@ void process_solicit(struct interface *ifp)
 		return;
 
 	irdp->flags |= IF_SOLICIT;
-	thread_cancel(&irdp->t_advertise);
+	THREAD_OFF(irdp->t_advertise);
 
 	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 

@@ -139,9 +139,10 @@ extern void ospf_route_table_free(struct route_table *);
 
 extern void ospf_route_install(struct ospf *, struct route_table *);
 extern void ospf_route_table_dump(struct route_table *);
+extern void ospf_router_route_table_dump(struct route_table *rt);
 
-extern void ospf_intra_add_router(struct route_table *, struct vertex *,
-				  struct ospf_area *);
+extern void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
+				  struct ospf_area *area, bool add_all);
 
 extern void ospf_intra_add_transit(struct route_table *, struct vertex *,
 				   struct ospf_area *);

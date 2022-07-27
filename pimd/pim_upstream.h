@@ -317,7 +317,7 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 				      struct pim_upstream *up);
 
 void pim_update_suppress_timers(uint32_t suppress_time);
-void pim_upstream_join_suppress(struct pim_upstream *up, struct prefix rpf,
+void pim_upstream_join_suppress(struct pim_upstream *up, pim_addr rpf,
 				int holdtime);
 
 void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,

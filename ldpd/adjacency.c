@@ -196,7 +196,7 @@ static void adj_itimer(struct thread *thread)
 void
 adj_start_itimer(struct adj *adj)
 {
-	thread_cancel(&adj->inactivity_timer);
+	THREAD_OFF(adj->inactivity_timer);
 	adj->inactivity_timer = NULL;
 	thread_add_timer(master, adj_itimer, adj, adj->holdtime,
 			 &adj->inactivity_timer);
@@ -205,7 +205,7 @@ adj_start_itimer(struct adj *adj)
 void
 adj_stop_itimer(struct adj *adj)
 {
-	thread_cancel(&adj->inactivity_timer);
+	THREAD_OFF(adj->inactivity_timer);
 }
 
 /* targeted neighbors */
@@ -354,7 +354,7 @@ static void tnbr_hello_timer(struct thread *thread)
 static void
 tnbr_start_hello_timer(struct tnbr *tnbr)
 {
-	thread_cancel(&tnbr->hello_timer);
+	THREAD_OFF(tnbr->hello_timer);
 	tnbr->hello_timer = NULL;
 	thread_add_timer(master, tnbr_hello_timer, tnbr, tnbr_get_hello_interval(tnbr),
 			 &tnbr->hello_timer);
@@ -363,7 +363,7 @@ tnbr_start_hello_timer(struct tnbr *tnbr)
 static void
 tnbr_stop_hello_timer(struct tnbr *tnbr)
 {
-	thread_cancel(&tnbr->hello_timer);
+	THREAD_OFF(tnbr->hello_timer);
 }
 
 struct ctl_adj *
@@ -386,7 +386,7 @@ adj_to_ctl(struct adj *adj)
 	}
 	actl.holdtime = adj->holdtime;
 	actl.holdtime_remaining =
-	    thread_timer_remain_second(adj->inactivity_timer);
+		thread_timer_remain_second(adj->inactivity_timer);
 	actl.trans_addr = adj->trans_addr;
 	actl.ds_tlv = adj->ds_tlv;
 

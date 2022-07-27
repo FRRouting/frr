@@ -62,6 +62,7 @@ unsigned long conf_debug_ospf_defaultinfo = 0;
 unsigned long conf_debug_ospf_ldp_sync = 0;
 unsigned long conf_debug_ospf_gr = 0;
 unsigned long conf_debug_ospf_bfd;
+unsigned long conf_debug_ospf_client_api;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -79,6 +80,7 @@ unsigned long term_debug_ospf_defaultinfo;
 unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr = 0;
 unsigned long term_debug_ospf_bfd;
+unsigned long term_debug_ospf_client_api;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1620,6 +1622,33 @@ DEFPY(debug_ospf_bfd, debug_ospf_bfd_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(debug_ospf_client_api,
+      debug_ospf_client_api_cmd,
+      "debug ospf client-api",
+      DEBUG_STR OSPF_STR
+      "OSPF client API information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(client_api, CLIENT_API);
+	TERM_DEBUG_ON(client_api, CLIENT_API);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_ospf_client_api,
+      no_debug_ospf_client_api_cmd,
+      "no debug ospf client-api",
+      NO_STR
+      DEBUG_STR
+      OSPF_STR
+      "OSPF client API information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(client_api, CLIENT_API);
+	TERM_DEBUG_OFF(client_api, CLIENT_API);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1654,6 +1683,7 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(te, TE);
 		DEBUG_OFF(sr, SR);
 		DEBUG_OFF(ti_lfa, TI_LFA);
+		DEBUG_OFF(client_api, CLIENT_API);
 
 		/* BFD debugging is two parts: OSPF and library. */
 		DEBUG_OFF(bfd, BFD_LIB);
@@ -1690,6 +1720,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(sr, SR);
 	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
+	TERM_DEBUG_OFF(client_api, CLIENT_API);
 
 	return CMD_SUCCESS;
 }
@@ -1815,7 +1846,9 @@ static int show_debugging_ospf_common(struct vty *vty)
 		vty_out(vty,
 			"  OSPF BFD integration library debugging is on\n");
 
-	vty_out(vty, "\n");
+	/* Show debug status for LDP-SYNC. */
+	if (IS_DEBUG_OSPF(client_api, CLIENT_API) == OSPF_DEBUG_CLIENT_API)
+		vty_out(vty, "  OSPF client-api debugging is on\n");
 
 	return CMD_SUCCESS;
 }
@@ -2007,6 +2040,13 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf client-api */
+	if (IS_CONF_DEBUG_OSPF(client_api, CLIENT_API) ==
+	    OSPF_DEBUG_CLIENT_API) {
+		vty_out(vty, "debug ospf%s client-api\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
@@ -2027,6 +2067,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -2038,6 +2079,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
@@ -2072,6 +2114,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
@@ -2082,6 +2125,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_ti_lfa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ldp_sync_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 

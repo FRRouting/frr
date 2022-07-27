@@ -7,7 +7,7 @@ FRR ships two small wrappers around ``pthread_mutex_lock()`` /
 ``pthread_mutex_unlock``.  Use ``#include "frr_pthread.h"`` to get these
 macros.
 
-.. c:macro:: frr_with_mutex(mutex)
+.. c:macro:: frr_with_mutex (mutex)
 
    (With ``pthread_mutex_t *mutex``.)
 
@@ -17,7 +17,7 @@ macros.
 
       int somefunction(int option)
       {
-          frr_with_mutex(&my_mutex) {
+          frr_with_mutex (&my_mutex) {
               /* mutex will be locked */
 
               if (!option)

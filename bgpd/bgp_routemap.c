@@ -1968,7 +1968,7 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set local preference value. */
-	if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (path->attr->local_pref)
 		locpref = path->attr->local_pref;
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
@@ -4410,8 +4410,8 @@ DEFUN_YANG (set_evpn_gw_ip_ipv4,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (su.sin.sin_addr.s_addr == 0
-	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+	if (su.sin.sin_addr.s_addr == 0 ||
+	    !ipv4_unicast_valid(&su.sin.sin_addr)) {
 		vty_out(vty,
 			"%% Gateway IP cannot be 0.0.0.0, multicast or reserved\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -4448,8 +4448,8 @@ DEFUN_YANG (no_set_evpn_gw_ip_ipv4,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (su.sin.sin_addr.s_addr == 0
-	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+	if (su.sin.sin_addr.s_addr == 0 ||
+	    !ipv4_unicast_valid(&su.sin.sin_addr)) {
 		vty_out(vty,
 			"%% Gateway IP cannot be 0.0.0.0, multicast or reserved\n");
 		return CMD_WARNING_CONFIG_FAILED;

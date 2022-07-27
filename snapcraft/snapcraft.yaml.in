@@ -1,5 +1,5 @@
 name: frr
-version: @VERSION@
+version: '@VERSION@'
 summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
 description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
  FRRouting (FRR) is free software which manages TCP/IP based routing

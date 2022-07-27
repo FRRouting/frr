@@ -52,7 +52,7 @@ is_user_root () {
 debug() {
 	[ -n "$watchfrr_debug" ] || return 0
 
-	printf '%s %s(%s):' "`date +%Y-%m-%dT%H:%M:%S.%N`" "$0" $$ >&2
+	printf '%s %s(%s):' "$(date +%Y-%m-%dT%H:%M:%S.%N)" "$0" $$ >&2
 	# this is to show how arguments are split regarding whitespace & co.
 	# (e.g. for use with `debug "message" "$@"`)
 	while [ $# -gt 0 ]; do
@@ -73,12 +73,16 @@ chownfrr() {
 
 vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
-	[ -r "$C_PATH/frr.conf" ] || return 0
-	if [ -n "$1" ]; then
-		"$VTYSH" `echo $nsopt` -b -d "$1"
-	else
-		"$VTYSH" `echo $nsopt` -b
+	if [ ! -r "$C_PATH/frr.conf" ]; then
+		log_warning_msg "$C_PATH/frr.conf does not exist; skipping config apply"
+		return 0
 	fi
+
+	cmd="$VTYSH $nsopt -b"
+	[ -n "$1" ] && cmd="${cmd} -d $1"
+
+	log_success_msg "Sending config with '$cmd'"
+	eval "$cmd"
 }
 
 daemon_inst() {
@@ -164,7 +168,7 @@ daemon_start() {
 
 	daemon_inst "$1"
 
-	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
+	[ "$MAX_FDS" != "" ] && ulimit -n "$MAX_FDS" > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
 	if test ! -d "$V_PATH"; then
 		mkdir -p "$V_PATH"
@@ -176,7 +180,9 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	if eval "$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"; then
+	cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	log_success_msg "Starting $daemon with command: '$cmd'"
+	if eval "$cmd"; then
 		log_success_msg "Started $dmninst"
 		if $all; then
 			debug "Skipping startup of vtysh until all have started"
@@ -202,7 +208,7 @@ daemon_stop() {
 
 	[ -r "$pidfile" ] || fail="pid file not found"
 	$all && [ -n "$fail" ] && return 0
-	[ -z "$fail" ] && pid="`cat \"$pidfile\"`"
+	[ -z "$fail" ] && pid="$(cat "$pidfile")"
 	[ -z "$fail" -a -z "$pid" ] && fail="pid file is empty"
 	[ -n "$fail" ] || kill -0 "$pid" 2>/dev/null || fail="pid $pid not running"
 
@@ -236,7 +242,7 @@ daemon_status() {
 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
 
 	[ -r "$pidfile" ] || return 3
-	pid="`cat \"$pidfile\"`"
+	pid="$(cat "$pidfile")"
 	[ -z "$pid" ] && return 1
 	kill -0 "$pid" 2>/dev/null || return 1
 	return 0
@@ -360,7 +366,7 @@ frrcommon_main() {
 	cmd="$1"
 	shift
 
-	if [ "$1" = "all" -o -z "$1" ]; then
+	if [ "$1" = "all" ] || [ -z "$1" ]; then
 		case "$cmd" in
 		start)	all_start;;
 		stop)	all_stop;;

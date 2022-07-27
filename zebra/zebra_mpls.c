@@ -1142,6 +1142,21 @@ static void lsp_check_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		lsp_free(lsp_table, plsp);
 }
 
+static void lsp_free_nhlfe(struct zebra_lsp *lsp)
+{
+	struct zebra_nhlfe *nhlfe;
+
+	while ((nhlfe = nhlfe_list_first(&lsp->nhlfe_list))) {
+		nhlfe_list_del(&lsp->nhlfe_list, nhlfe);
+		nhlfe_free(nhlfe);
+	}
+
+	while ((nhlfe = nhlfe_list_first(&lsp->backup_nhlfe_list))) {
+		nhlfe_list_del(&lsp->backup_nhlfe_list, nhlfe);
+		nhlfe_free(nhlfe);
+	}
+}
+
 /*
  * Dtor for an LSP: remove from ile hash, release any internal allocations,
  * free LSP object.
@@ -1149,7 +1164,6 @@ static void lsp_check_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 {
 	struct zebra_lsp *lsp;
-	struct zebra_nhlfe *nhlfe;
 
 	if (plsp == NULL || *plsp == NULL)
 		return;
@@ -1160,13 +1174,7 @@ static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		zlog_debug("Free LSP in-label %u flags 0x%x",
 			   lsp->ile.in_label, lsp->flags);
 
-	/* Free nhlfes, if any. */
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe)
-		nhlfe_del(nhlfe);
-
-	/* Free backup nhlfes, if any. */
-	frr_each_safe(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe)
-		nhlfe_del(nhlfe);
+	lsp_free_nhlfe(lsp);
 
 	hash_release(lsp_table, &lsp->ile);
 	XFREE(MTYPE_LSP, lsp);
@@ -1855,8 +1863,6 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	} /* Switch */
-
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -2064,7 +2070,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	/* Look for zebra LSP object */
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (zvrf == NULL)
-		goto done;
+		return;
 
 	lsp_table = zvrf->lsp_table;
 
@@ -2074,7 +2080,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		if (is_debug)
 			zlog_debug("dplane LSP notif: in-label %u not found",
 				   dplane_ctx_get_in_label(ctx));
-		goto done;
+		return;
 	}
 
 	/*
@@ -2147,9 +2153,6 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 	}
-
-done:
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -3674,6 +3677,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	 */
 	if (nhlfe_list_first(&lsp->nhlfe_list) == NULL) {
 		lsp = hash_release(slsp_table, &tmp_ile);
+		lsp_free_nhlfe(lsp);
 		XFREE(MTYPE_LSP, lsp);
 	}
 
@@ -4010,6 +4014,15 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 	}
 }
 
+static void lsp_table_free(void *p)
+{
+	struct zebra_lsp *lsp = p;
+
+	lsp_free_nhlfe(lsp);
+
+	XFREE(MTYPE_LSP, lsp);
+}
+
 /*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
@@ -4018,9 +4031,9 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 void zebra_mpls_close_tables(struct zebra_vrf *zvrf)
 {
 	hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
-	hash_clean(zvrf->lsp_table, NULL);
+	hash_clean(zvrf->lsp_table, lsp_table_free);
 	hash_free(zvrf->lsp_table);
-	hash_clean(zvrf->slsp_table, NULL);
+	hash_clean(zvrf->slsp_table, lsp_table_free);
 	hash_free(zvrf->slsp_table);
 	route_table_finish(zvrf->fec_table[AFI_IP]);
 	route_table_finish(zvrf->fec_table[AFI_IP6]);
