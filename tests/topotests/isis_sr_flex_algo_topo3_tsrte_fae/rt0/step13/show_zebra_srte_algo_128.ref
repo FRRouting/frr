@@ -3,28 +3,24 @@
     "Endpoint":"10.254.0.10",
     "Color":1,
     "Status":"Active",
-    "Local Label":16,
     "Segment List":"20119"
   },
   {
     "Endpoint":"10.254.0.10",
     "Color":2,
     "Status":"Active",
-    "Local Label":17,
     "Segment List":"20209"
   },
   {
     "Endpoint":"2001:db8:f::a",
     "Color":3,
     "Status":"Active",
-    "Local Label":18,
     "Segment List":"21309"
   },
   {
     "Endpoint":"2001:db8:f::a",
     "Color":4,
     "Status":"Active",
-    "Local Label":19,
     "Segment List":"21409"
   }
 ]

@@ -32,7 +32,7 @@ test_isis_sr_flex_algo_topo3_tsrte_fae.py:
 +--------+       |      \\                   |      \\
 |        |       |       +--------+          |       +--------+  +--------+
 |  RT0   |       |       |        |          |       |        |  |        |
-|        |       |       |  RT4   |------------------|  RT3   |  |  H9    |
+|        |       |       |  RT4   |------------------|  RT3   |  |  H9-0  |
 +--------+       |       |        |          |       |        |  |        |
     |     \\     |       +--------+          |       +--------+  +--------+
     |      \\    |           |               |            |    \\     |
@@ -42,13 +42,13 @@ test_isis_sr_flex_algo_topo3_tsrte_fae.py:
 |        |  |        |       |          |        |        |      |  RT9   |
 +--------+  +--------+       |          +--------+        |      |        |
                       \\     |                    \\      |      +--------+
-                       \\    |                     \\     |     /
-                        \\   |                      \\    |    /
-                         +--------+                  +--------+
-                         |        |                  |        |
-                         |  RT8   |------------------|  RT7   |
-                         |        |                  |        |
-                         +--------+                  +--------+
+                       \\    |                     \\     |     /    |
+                        \\   |                      \\    |    /     |
+                         +--------+                  +--------+  +--------+
+                         |        |                  |        |  |        |
+                         |  RT8   |------------------|  RT7   |  |  H9-1  |
+                         |        |                  |        |  |        |
+                         +--------+                  +--------+  +--------+
 """
 
 import os
@@ -137,6 +137,64 @@ exit
 route-map sr-te permit 10
  set sr-te color 1
 exit
+!"""
+
+bgpd_conf_extra_fmt = """\
+configure terminal
+router bgp 1
+ no bgp network import-check
+ neighbor {} remote-as 1
+ neighbor {} update-source lo
+ !
+ address-family ipv4 unicast
+  network {}
+  no neighbor {} activate
+ exit-address-family
+ address-family ipv6 unicast
+  network {}
+  network {}
+  neighbor {} activate
+  neighbor {} route-map sr-te-v6 in
+ exit-address-family
+exit
+!
+access-list 1 seq 1 permit {}
+access-list 2 seq 1 permit {}
+ipv6 access-list 3 seq 1 permit {}
+ipv6 access-list 4 seq 1 permit {}
+route-map sr-te permit 10
+ match ip address 1
+ set sr-te color 1
+exit
+route-map sr-te permit 20
+ match ip address 2
+ set sr-te color 2
+exit
+route-map sr-te-v6 permit 10
+ match ipv6 address 3
+ set sr-te color 3
+exit
+route-map sr-te-v6 permit 20
+ match ipv6 address 4
+ set sr-te color 4
+exit
+!"""
+
+# only IPV6 colored are removed
+bgpd_conf_no_extra_fmt = """\
+configure terminal
+router bgp 1
+ no neighbor {} remote-as 1
+ !
+ address-family ipv6 unicast
+  no network {}
+  no network {}
+ exit-address-family
+exit
+!
+no ipv6 access-list 3
+no ipv6 access-list 4
+no route-map sr-te-v6
 !"""
 
 # Segment routing policies will be created as the tests run.
@@ -292,16 +350,20 @@ router_links = (
 lo_v4_base = ip_network("10.254.0.0/32")
 lo_v6_base = ip_network("2001:db8:f::0/128")
 network_v4_base = ip_network("10.255.0.0/24")
-network_v6_base = ip_network("2001:db8:ff00::/64")
+network_v6_base = ip_network("2001:db8:ff00::/112")
+network_v4_base_extra = ip_network("10.252.0.0/24")
+network_v6_base_extra = ip_network("2001:db2:ff00::/112")
 
-switch_names = ("sw0", "sw9")
+switch_names = ("sw0-0", "sw9-0", "sw0-1", "sw9-1")
 router_switch_links = (
     # sw, rtr, v4-subnet, v6-subnet
     (0, 0, network_v4_base, network_v6_base),
     (1, 9, network_v4_base, network_v6_base),
+    (2, 0, network_v4_base_extra, network_v6_base_extra),
+    (3, 9, network_v4_base_extra, network_v6_base_extra),
 )
 
-host_names = ("h0-0", "h9", "h0-1")
+host_names = ("h00", "h90", "h01", "h91")
 host_links = (
     # host, switch, v4-address, v4-gateway, v6-address, v6-gateway
     (
@@ -322,17 +384,244 @@ host_links = (
     ),
     (
         2,
-        0,
-        faconfig.v4net(0, network_v4_base, host=True, offset=3),
-        faconfig.v4net(0, network_v4_base, 1).split("/")[0],
-        faconfig.v6net(0, network_v6_base, host=True, offset=3),
-        faconfig.v6net(0, network_v6_base, 1).split("/")[0],
+        2,
+        faconfig.v4net(0, network_v4_base_extra, host=True, offset=3),
+        faconfig.v4net(0, network_v4_base_extra, 1).split("/")[0],
+        faconfig.v6net(0, network_v6_base_extra, host=True, offset=3),
+        faconfig.v6net(0, network_v6_base_extra, 1).split("/")[0],
+    ),
+    (
+        3,
+        3,
+        faconfig.v4net(9, network_v4_base_extra, host=True, offset=3),
+        faconfig.v4net(9, network_v4_base_extra, 1).split("/")[0],
+        faconfig.v6net(9, network_v6_base_extra, host=True, offset=3),
+        faconfig.v6net(9, network_v6_base_extra, 1).split("/")[0],
     ),
 )
 
 _nft_links = [[car, f"eth-{cadr}"] for car, cadr, *cdr in router_links] + [
     [cadr, f"eth-{car}"] for car, cadr, *cdr in router_links
 ]
+
+
+def connect_routers(tgen, left_idx, right_idx, create=True):
+    left = "rt{}".format(left_idx)
+    right = "rt{}".format(right_idx)
+    if create:
+        tgen.gears[left].add_link(
+            tgen.gears[right], myif=f"eth-{right_idx}", nodeif=f"eth-{left_idx}"
+        )
+    else:
+        l_addr = "52:54:00:{}:{}:{}".format(left_idx, right_idx, left_idx)
+        tgen.net[left].cmd("ip link set eth-{} down".format(right_idx))
+        tgen.net[left].cmd("ip link set eth-{} address {}".format(right_idx, l_addr))
+        tgen.net[left].cmd("ip link set eth-{} up".format(right_idx))
+        r_addr = "52:54:00:{}:{}:{}".format(left_idx, right_idx, right_idx)
+        tgen.net[right].cmd("ip link set eth-{} down".format(left_idx))
+        tgen.net[right].cmd("ip link set eth-{} address {}".format(left_idx, r_addr))
+        tgen.net[right].cmd("ip link set eth-{} up".format(left_idx))
+
+
+def connect_switch(tgen, swidx, ridx, v4base, v6base):
+    sw = switch_names[swidx]
+    rtr = router_names[ridx]
+    tgen.gears[sw].add_link(tgen.gears[rtr], nodeif=f"eth-{sw}")
+
+
+def connect_host(tgen, swidx, hidx):
+    sw = switch_names[swidx]
+    host = host_names[hidx]
+    tgen.gears[sw].add_link(tgen.gears[host], nodeif=f"eth-{sw}")
+
+
+def zebra_conf_itfs(tgen, idx):
+    cfg = (
+        "interface lo\n"
+        + f" ip address {faconfig.v4addr(idx, lo_v4_base)}\n"
+        + f" ipv6 address {faconfig.v6addr(idx, lo_v6_base)}\n"
+        + "!\n"
+    )
+    for link in (ll for ll in router_links if ll[0] == idx):
+        cfg += (
+            f"interface eth-{link[1]}\n"
+            + f" ip address {faconfig.v4addr(idx, link[2])}\n"
+            + f" ipv6 address {faconfig.v6addr(idx, link[3])}\n"
+            + "!\n"
+        )
+    for link in (ll for ll in router_links if ll[1] == idx):
+        cfg += (
+            f"interface eth-{link[0]}\n"
+            + f" ip address {faconfig.v4addr(idx, link[2])}\n"
+            + f" ipv6 address {faconfig.v6addr(idx, link[3])}\n"
+            + "!\n"
+        )
+    for link in (ll for ll in router_switch_links if ll[1] == idx):
+        # only ipv4 for now
+        sw = switch_names[link[0]]
+        cfg += (
+            f"interface eth-{sw}\n"
+            + f" ip address {faconfig.v4net(idx, link[2], 1)}\n"
+            + "!\n"
+        )
+    return cfg[:-2]  # drop the trailing newline
+
+
+def isisd_conf_itfs(tgen, idx):
+    cfg = (
+        "interface lo\n"
+        + " ip router isis 1\n"
+        + " ipv6 router isis 1\n"
+        + " isis passive\n!\n"
+    )
+    for link in (ll for ll in router_links if ll[0] == idx):
+        cfg += f"interface eth-{link[1]}\n" + isisd_conf_itf
+        if len(link[4]) > 0:
+            cfg += f' isis affinity flex-algo {" ".join(link[4])}\n'
+        cfg += "!\n"
+    for link in (ll for ll in router_links if ll[1] == idx):
+        cfg += f"interface eth-{link[0]}\n" + isisd_conf_itf
+        if len(link[4]) > 0:
+            cfg += f' isis affinity flex-algo {" ".join(link[4])}\n'
+        cfg += "!\n"
+    return cfg[:-2]  # drop the trailing newline
+
+
+def write_zebra_conf(tgen, idx, filename):
+    with open(filename, "w") as _fp:
+        print(zebra_conf_head, file=_fp)
+        print(zebra_conf_itfs(tgen, idx), file=_fp)
+        print(zebra_conf_tail, file=_fp)
+    return
+
+
+def write_isisd_conf(tgen, idx, filename):
+    idx_02x = f"{idx:02x}" if idx > 0 else f"{num_routers:02x}"
+    with open(filename, "w") as _fp:
+        print(isisd_conf_itfs(tgen, idx), file=_fp)
+        print(isisd_conf_area_fmt.format(isis_area, idx_02x), file=_fp)
+        for _fa, aff, part in zip(
+            sr_flex_algos, sr_flex_algos_affinity, sr_flex_algo_participation[idx]
+        ):
+            if not part:
+                continue
+            print(f" flex-algo {_fa}", file=_fp)
+            if advertise_flex_algos[idx]:
+                print(f"  advertise-definition", file=_fp)
+                if aff is not None:
+                    print(f"  affinity {aff}", file=_fp)
+            print(" !", file=_fp)
+        print(isisd_conf_area_sr_fmt.format(*sr_global_block), file=_fp)
+        lov4 = faconfig.v4addr(idx, lo_v4_base)
+        lov6 = faconfig.v6addr(idx, lo_v6_base)
+        for _fa, v4sid, v6sid, part in zip(
+            sr_flex_algos,
+            ipv4_indices[idx],
+            ipv6_indices[idx],
+            sr_flex_algo_participation[idx],
+        ):
+            if not part:
+                continue
+            print(
+                f" segment-routing prefix {lov4} algorithm {_fa} index {v4sid}",
+                file=_fp,
+            )
+            print(
+                f" segment-routing prefix {lov6} algorithm {_fa} index {v6sid}",
+                file=_fp,
+            )
+
+
+def write_bgpd_conf(tgen, idx, peeridx, filename):
+    neighbor = faconfig.v4addr(peeridx, lo_v4_base).split("/")[0]
+    network = faconfig.v4net(idx, network_v4_base)
+    args = (neighbor, neighbor, network, neighbor)
+    with open(filename, "w") as _fp:
+        print(bgpd_conf_fmt.format(*args), file=_fp)
+
+
+def write_pathd_conf(tgen, idx, filename):
+    with open(filename, "w") as _fp:
+        print(pathd_conf_fmt.format(isis_area), file=_fp)
+
+
+def build_topo(tgen):
+    "Build function"
+
+    tgen = get_topogen()
+
+    #
+    # Define FRR Routers
+    #
+    for switch in switch_names:
+        tgen.add_switch(switch)
+
+    for rtr in router_names:
+        tgen.add_router(rtr)
+
+    for name, info in zip(host_names, host_links):
+        logger.info(f"HOST {info}")
+        tgen.add_host(name, info[2], "via " + info[3])
+        connect_host(tgen, info[1], info[0])
+
+    for link in router_links:
+        connect_routers(tgen, *link[0:2])
+
+    for link in router_switch_links:
+        connect_switch(tgen, *link)
+
+    for rtr in router_names:
+        try:
+            os.mkdir(f"{CWD}/{rtr}")
+        except FileExistsError:
+            pass
+
+
+def setup_module(mod):
+    "Sets up the pytest environment"
+    tgen = Topogen(build_topo, mod.__name__)
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+    if not os.path.isfile(os.path.join(frrdir, "pathd")):
+        pytest.skip("pathd daemon wasn't built")
+    tgen.start_topology()
+    router_list = tgen.routers()
+    for link in router_links:
+        connect_routers(tgen, *link[0:2], create=False)
+    for idx in range(0, num_routers):
+        tgen.net[router_names[idx]].cmd("ip link add dummy0 type dummy")
+    for idx in range(0, num_routers):
+        write_zebra_conf(tgen, idx, f"{CWD}/{router_names[idx]}/zebra.conf")
+        write_isisd_conf(tgen, idx, f"{CWD}/{router_names[idx]}/isisd.conf")
+    write_bgpd_conf(tgen, 0, num_routers - 1, f"{CWD}/{router_names[0]}/bgpd.conf")
+    write_bgpd_conf(
+        tgen, num_routers - 1, 0, f"{CWD}/{router_names[num_routers-1]}/bgpd.conf"
+    )
+    write_pathd_conf(tgen, 0, f"{CWD}/{router_names[0]}/pathd.conf")
+    write_pathd_conf(
+        tgen, num_routers - 1, f"{CWD}/{router_names[num_routers-1]}/pathd.conf"
+    )
+
+    # For all registered routers, load the zebra configuration file
+    for rname, router in router_list.items():
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_PATH, os.path.join(CWD, "{}/pathd.conf".format(rname))
+        )
+    tgen.start_router()
+
+
+def teardown_module(mod):
+    "Teardown the pytest environment"
+    tgen = get_topogen()
+    tgen.stop_topology()
 
 
 def _num_mpls_nexthops(router):
@@ -379,11 +668,7 @@ def _ping(tgen, hidx, addr, count=5):
     host = tgen.gears[hostname]
     cmd = f"ping -c {count} -n -W 1 {addr}"
     logger.info(f"{hostname}: {cmd}")
-    rc, out, err = host.net.cmd_status(cmd)
-    if rc != 0:
-        logger.info(f"{hostname}: ping returned {rc}")
-        return False
-
+    out = tgen.net[hostname].cmd(cmd)
     success = False
     stats = False
     for line in out.splitlines():
@@ -465,17 +750,11 @@ def _add_nft_counter(tgen, hostname, device, addr):
 
     cmd = f"nft add table netdev t-fa1"
     logger.info(f"{hostname}: {cmd}")
-    rc, out, err = host.net.cmd_status(cmd)
-    if rc != 0:
-        logger.info(f"{hostname}: nft returned {rc}")
-        return False
+    out = tgen.net[hostname].cmd(cmd)
 
     cmd = f"nft add chain netdev t-fa1 {n_chain} '{{type filter hook ingress device {device} priority -500;}}'"
     logger.info(f"{hostname}: {cmd}")
-    rc, out, err = host.net.cmd_status(cmd)
-    if rc != 0:
-        logger.info(f"{hostname}: nft returned {rc}")
-        return False
+    out = tgen.net[hostname].cmd(cmd)
 
     #
     # despite "nft describe ether_type" output listing ip == 0x0008,
@@ -483,10 +762,7 @@ def _add_nft_counter(tgen, hostname, device, addr):
     #
     cmd = f"nft add rule netdev t-fa1 {n_chain} ether type 0x8847 counter"
     logger.info(f"{hostname}: {cmd}")
-    rc, out, err = host.net.cmd_status(cmd)
-    if rc != 0:
-        logger.info(f"{hostname}: nft returned {rc}")
-        return False
+    out = tgen.net[hostname].cmd(cmd)
 
     #
     # We have to left-shift the labels 4 bits for alignment on 8-bit boundary,
@@ -498,17 +774,11 @@ def _add_nft_counter(tgen, hostname, device, addr):
         vs = v << 4
         cmd = f"nft add rule netdev t-fa1 {n_chain} ether type 0x8847 @ll,112,24 '&' 0xfffff0 {vs} counter"
         logger.info(f"{hostname}: {cmd}")
-        rc, out, err = host.net.cmd_status(cmd)
-        if rc != 0:
-            logger.info(f"{hostname}: nft returned {rc}")
-            return False
+        out = tgen.net[hostname].cmd(cmd)
 
     cmd = f"nft add rule netdev t-fa1 {n_chain} ip daddr {addr} counter"
     logger.info(f"{hostname}: {cmd}")
-    rc, out, err = host.net.cmd_status(cmd)
-    if rc != 0:
-        logger.info(f"{hostname}: nft returned {rc}")
-        return False
+    out = tgen.net[hostname].cmd(cmd)
 
     return True
 
@@ -530,10 +800,7 @@ def _read_nft_counter(tgen, hostname, device, addr=None):
 
     cmd = f"nft list chain netdev t-fa1 {n_chain}"
     logger.info(f"{hostname}: {cmd}")
-    rc, out, err = host.net.cmd_status(cmd)
-    if rc != 0:
-        logger.info(f"{hostname}: nft list returned {rc}")
-        return ""
+    out = tgen.net[hostname].cmd(cmd)
 
     logger.info(f'{hostname}: nft list output: "{out}"')
 
@@ -681,207 +948,6 @@ def check_nft_counters_by_link_affinity(counters, affinities, packets, label):
     return True
 
 
-def build_topo(tgen):
-    "Build function"
-
-    def connect_routers(tgen, left_idx, right_idx):
-        left = "rt{}".format(left_idx)
-        right = "rt{}".format(right_idx)
-        tgen.gears[left].add_link(
-            tgen.gears[right], myif=f"eth-{right_idx}", nodeif=f"eth-{left_idx}"
-        )
-        l_addr = "52:54:00:{}:{}:{}".format(left_idx, right_idx, left_idx)
-        tgen.gears[left].run("ip link set eth-{} down".format(right_idx))
-        tgen.gears[left].run("ip link set eth-{} address {}".format(right_idx, l_addr))
-        tgen.gears[left].run("ip link set eth-{} up".format(right_idx))
-        r_addr = "52:54:00:{}:{}:{}".format(left_idx, right_idx, right_idx)
-        tgen.gears[right].run("ip link set eth-{} down".format(left_idx))
-        tgen.gears[right].run("ip link set eth-{} address {}".format(left_idx, r_addr))
-        tgen.gears[right].run("ip link set eth-{} up".format(left_idx))
-
-    def connect_switch(tgen, swidx, ridx, v4base, v6base):
-        sw = switch_names[swidx]
-        rtr = router_names[ridx]
-        tgen.gears[sw].add_link(tgen.gears[rtr], nodeif=f"eth-{sw}")
-
-    def connect_host(tgen, swidx, hidx):
-        sw = switch_names[swidx]
-        host = host_names[hidx]
-        tgen.gears[sw].add_link(tgen.gears[host], nodeif=f"eth-{sw}")
-
-    def zebra_conf_itfs(tgen, idx):
-        cfg = (
-            "interface lo\n"
-            + f" ip address {faconfig.v4addr(idx, lo_v4_base)}\n"
-            + f" ipv6 address {faconfig.v6addr(idx, lo_v6_base)}\n"
-            + "!\n"
-        )
-        for link in (ll for ll in router_links if ll[0] == idx):
-            cfg += (
-                f"interface eth-{link[1]}\n"
-                + f" ip address {faconfig.v4addr(idx, link[2])}\n"
-                + f" ipv6 address {faconfig.v6addr(idx, link[3])}\n"
-                + "!\n"
-            )
-        for link in (ll for ll in router_links if ll[1] == idx):
-            cfg += (
-                f"interface eth-{link[0]}\n"
-                + f" ip address {faconfig.v4addr(idx, link[2])}\n"
-                + f" ipv6 address {faconfig.v6addr(idx, link[3])}\n"
-                + "!\n"
-            )
-        for link in (ll for ll in router_switch_links if ll[1] == idx):
-            # only ipv4 for now
-            sw = switch_names[link[0]]
-            cfg += (
-                f"interface eth-{sw}\n"
-                + f" ip address {faconfig.v4net(idx, link[2], 1)}\n"
-                + "!\n"
-            )
-        return cfg[:-2]  # drop the trailing newline
-
-    def isisd_conf_itfs(tgen, idx):
-        cfg = (
-            "interface lo\n"
-            + " ip router isis 1\n"
-            + " ipv6 router isis 1\n"
-            + " isis passive\n!\n"
-        )
-        for link in (ll for ll in router_links if ll[0] == idx):
-            cfg += f"interface eth-{link[1]}\n" + isisd_conf_itf
-            if len(link[4]) > 0:
-                cfg += f' isis affinity flex-algo {" ".join(link[4])}\n'
-            cfg += "!\n"
-        for link in (ll for ll in router_links if ll[1] == idx):
-            cfg += f"interface eth-{link[0]}\n" + isisd_conf_itf
-            if len(link[4]) > 0:
-                cfg += f' isis affinity flex-algo {" ".join(link[4])}\n'
-            cfg += "!\n"
-        return cfg[:-2]  # drop the trailing newline
-
-    def write_zebra_conf(tgen, idx, filename):
-        with open(filename, "w") as _fp:
-            print(zebra_conf_head, file=_fp)
-            print(zebra_conf_itfs(tgen, idx), file=_fp)
-            print(zebra_conf_tail, file=_fp)
-        return
-
-    def write_isisd_conf(tgen, idx, filename):
-        idx_02x = f"{idx:02x}" if idx > 0 else f"{num_routers:02x}"
-        with open(filename, "w") as _fp:
-            print(isisd_conf_itfs(tgen, idx), file=_fp)
-            print(isisd_conf_area_fmt.format(isis_area, idx_02x), file=_fp)
-            for _fa, aff, part in zip(
-                sr_flex_algos, sr_flex_algos_affinity, sr_flex_algo_participation[idx]
-            ):
-                if not part:
-                    continue
-                print(f" flex-algo {_fa}", file=_fp)
-                if advertise_flex_algos[idx]:
-                    print(f"  advertise-definition", file=_fp)
-                    if aff is not None:
-                        print(f"  affinity {aff}", file=_fp)
-                print(" !", file=_fp)
-            print(isisd_conf_area_sr_fmt.format(*sr_global_block), file=_fp)
-            lov4 = faconfig.v4addr(idx, lo_v4_base)
-            lov6 = faconfig.v6addr(idx, lo_v6_base)
-            for _fa, v4sid, v6sid, part in zip(
-                sr_flex_algos,
-                ipv4_indices[idx],
-                ipv6_indices[idx],
-                sr_flex_algo_participation[idx],
-            ):
-                if not part:
-                    continue
-                print(
-                    f" segment-routing prefix {lov4} algorithm {_fa} index {v4sid}",
-                    file=_fp,
-                )
-                print(
-                    f" segment-routing prefix {lov6} algorithm {_fa} index {v6sid}",
-                    file=_fp,
-                )
-
-    def write_bgpd_conf(tgen, idx, peeridx, filename):
-        neighbor = faconfig.v4addr(peeridx, lo_v4_base).split("/")[0]
-        network = faconfig.v4net(idx, network_v4_base)
-        args = (neighbor, neighbor, network, neighbor)
-        with open(filename, "w") as _fp:
-            print(bgpd_conf_fmt.format(*args), file=_fp)
-
-    def write_pathd_conf(tgen, idx, filename):
-        with open(filename, "w") as _fp:
-            print(pathd_conf_fmt.format(isis_area), file=_fp)
-
-    for switch in switch_names:
-        tgen.add_switch(switch)
-
-    for rtr in router_names:
-        tgen.add_router(rtr)
-
-    for name, info in zip(host_names, host_links):
-        logger.info(f"HOST {info}")
-        tgen.add_host(name, info[2], "via " + info[3])
-        connect_host(tgen, info[1], info[0])
-
-    for link in router_links:
-        connect_routers(tgen, *link[0:2])
-
-    for link in router_switch_links:
-        connect_switch(tgen, *link)
-
-    for rtr in router_names:
-        try:
-            os.mkdir(f"{CWD}/{rtr}")
-        except FileExistsError:
-            pass
-
-    for idx in range(0, num_routers):
-        tgen.gears[router_names[idx]].cmd_raises("ip link add dummy0 type dummy")
-        write_zebra_conf(tgen, idx, f"{CWD}/{router_names[idx]}/zebra.conf")
-        write_isisd_conf(tgen, idx, f"{CWD}/{router_names[idx]}/isisd.conf")
-    write_bgpd_conf(tgen, 0, num_routers - 1, f"{CWD}/{router_names[0]}/bgpd.conf")
-    write_bgpd_conf(
-        tgen, num_routers - 1, 0, f"{CWD}/{router_names[num_routers-1]}/bgpd.conf"
-    )
-    write_pathd_conf(tgen, 0, f"{CWD}/{router_names[0]}/pathd.conf")
-    write_pathd_conf(
-        tgen, num_routers - 1, f"{CWD}/{router_names[num_routers-1]}/pathd.conf"
-    )
-
-
-def setup_module(mod):
-    "Sets up the pytest environment"
-    tgen = Topogen(build_topo, mod.__name__)
-    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
-    if not os.path.isfile(os.path.join(frrdir, "pathd")):
-        pytest.skip("pathd daemon wasn't built")
-    tgen.start_topology()
-    router_list = tgen.routers()
-
-    # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_PATH, os.path.join(CWD, "{}/pathd.conf".format(rname))
-        )
-    tgen.start_router()
-
-
-def teardown_module(mod):
-    "Teardown the pytest environment"
-    tgen = get_topogen()
-    tgen.stop_topology()
-
-
 def setup_testcase(msg):
     logger.info(msg)
     tgen = get_topogen()
@@ -994,14 +1060,33 @@ def test_mpls_lib_step1():
 # - BGP route on RT0 to RT9's LAN takes MPLS path as determined by
 #   segment-routing.
 
+step2_label_blocks = (
+    # rt0
+    {
+        "binding-sid-lower": 16,
+        "binding-sid-upper": 17,
+    },
+    None,  # rt1
+    None,  # rt2
+    None,  # rt3
+    None,  # rt4
+    None,  # rt5
+    None,  # rt6
+    None,  # rt7
+    None,  # rt8
+    {  # rt9
+        "binding-sid-lower": 17,
+        "binding-sid-upper": 16,
+    },
+)
+
 step2_policies = (
     {  # rt0
         # (color, endpoint)
-        (1, ip_address("10.254.0.10")): {
-            "binding-sid": 16,
+        (1): {
             "candidate-path": [
                 {"preference": 10, "name": "candidate-1", "flex-algo": 128},
-            ],
+            ]
         }
     },
     None,  # rt1
@@ -1013,11 +1098,10 @@ step2_policies = (
     None,  # rt7
     None,  # rt8
     {  # rt9
-        (1, ip_address("10.254.0.1")): {
-            "binding-sid": 17,
+        (1): {
             "candidate-path": [
                 {"preference": 10, "name": "candidate-1", "flex-algo": 128},
-            ],
+            ]
         }
     },
 )
@@ -1029,6 +1113,11 @@ def test_step2_create_policies():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    for rtr, block in zip(router_names, step2_label_blocks):
+        if block is None:
+            continue
+        cmd = faconfig.fmt_label_blocks(block, 3)
+        tgen.gears[rtr].vtysh_cmd(cmd)
     for rtr, policies in zip(router_names, step2_policies):
         if policies is None:
             continue
@@ -1114,14 +1203,33 @@ def test_step2_bgp_routes():
 #  -The sr-te policy is still active with the new candidate path selected.
 #  -The BGP route has been updated with the new MPLS label in the next-hop
 
+step3_label_blocks = (
+    # rt0
+    {
+        "binding-sid-lower": 16,
+        "binding-sid-upper": 17,
+    },
+    None,  # rt1
+    None,  # rt2
+    None,  # rt3
+    None,  # rt4
+    None,  # rt5
+    None,  # rt6
+    None,  # rt7
+    None,  # rt8
+    {  # rt9
+        "binding-sid-lower": 17,
+        "binding-sid-upper": 16,
+    },
+)
+
 step3_policies = (
     {  # rt0
         # (color, endpoint)
-        (1, ip_address("10.254.0.10")): {
-            "binding-sid": 16,
+        (1): {
             "candidate-path": [
                 {"preference": 15, "name": "candidate-2", "flex-algo": 131},
-            ],
+            ]
         }
     },
     None,  # rt1
@@ -1133,11 +1241,10 @@ step3_policies = (
     None,  # rt7
     None,  # rt8
     {  # rt9
-        (1, ip_address("10.254.0.1")): {
-            "binding-sid": 17,
+        (1): {
             "candidate-path": [
                 {"preference": 15, "name": "candidate-2", "flex-algo": 131},
-            ],
+            ]
         }
     },
 )
@@ -1149,6 +1256,11 @@ def test_step3_create_policies():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    for rtr, block in zip(router_names, step3_label_blocks):
+        if block is None:
+            continue
+        cmd = faconfig.fmt_label_blocks(block, 3)
+        tgen.gears[rtr].vtysh_cmd(cmd)
     for rtr, policies in zip(router_names, step3_policies):
         if policies is None:
             continue
@@ -1504,7 +1616,7 @@ def test_step7_less_specific_route():
 
     idx = 9
     rtr = router_names[idx]
-    tgen.gears[rtr].cmd_raises("ip link set up dev dummy0")
+    tgen.net[rtr].cmd("ip link set up dev dummy0")
     v4sid = list(ipv4_indices[idx])[0]
     new_v4sid = list(ipv4_indices[idx])[-1] + 100
     cmd = (
@@ -2042,31 +2154,32 @@ def test_step10_bgp_routes():
 # Excpected Changes:
 #  -Zebra will have an updated label after each change to RT9's config.
 
+step13_rt0_label_block = {
+    "binding-sid-lower": 20,
+    "binding-sid-upper": 30,
+}
+
 step13_rt0_policies = {
-    # (color, endpoint)
-    (1, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 16,
+    # (color)
+    (1): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-1", "flex-algo": 128},
-        ],
+        ]
     },
-    (2, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 17,
+    (2): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-2", "flex-algo": 129},
-        ],
+        ]
     },
-    (3, ip_address(faconfig.v6addr(num_routers - 1, lo_v6_base, with_masklen=False))): {
-        "binding-sid": 18,
+    (3): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-3", "flex-algo": 130},
-        ],
+        ]
     },
-    (4, ip_address(faconfig.v6addr(num_routers - 1, lo_v6_base, with_masklen=False))): {
-        "binding-sid": 19,
+    (4): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-4", "flex-algo": 131},
-        ],
+        ]
     },
 }
 
@@ -2079,7 +2192,66 @@ def test_step13_setup():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    # complete BGP configuration for rt0
+    neighborv6 = faconfig.v6addr(9, lo_v6_base).split("/")[0]
+    networkextra = faconfig.v4net(0, network_v4_base_extra)
+    networkv6 = faconfig.v6net(0, network_v6_base)
+    networkv6extra = faconfig.v6net(0, network_v6_base_extra)
+    networkremote = faconfig.v4net(9, network_v4_base)
+    networkremoteextra = faconfig.v4net(9, network_v4_base_extra)
+    networkv6remote = faconfig.v6net(9, network_v6_base)
+    networkv6remoteextra = faconfig.v6net(9, network_v6_base_extra)
+
     rtr = router_names[0]
+    args = (
+        neighborv6,
+        neighborv6,
+        networkextra,
+        neighborv6,
+        networkv6,
+        networkv6extra,
+        neighborv6,
+        neighborv6,
+        networkremote,
+        networkremoteextra,
+        networkv6remote,
+        networkv6remoteextra,
+    )
+
+    cmd = bgpd_conf_extra_fmt.format(*args)
+    tgen.gears[rtr].vtysh_cmd(cmd)
+
+    # complete BGP configuration for rt9
+    neighborv6 = faconfig.v6addr(0, lo_v6_base).split("/")[0]
+    networkextra = faconfig.v4net(9, network_v4_base_extra)
+    networkv6 = faconfig.v6net(9, network_v6_base)
+    networkv6extra = faconfig.v6net(9, network_v6_base_extra)
+    networkremote = faconfig.v4net(0, network_v4_base)
+    networkremoteextra = faconfig.v4net(0, network_v4_base_extra)
+    networkv6remote = faconfig.v6net(0, network_v6_base)
+    networkv6remoteextra = faconfig.v6net(0, network_v6_base_extra)
+
+    rtr = router_names[9]
+    args = (
+        neighborv6,
+        neighborv6,
+        networkextra,
+        neighborv6,
+        networkv6,
+        networkv6extra,
+        neighborv6,
+        neighborv6,
+        networkremote,
+        networkremoteextra,
+        networkv6remote,
+        networkv6remoteextra,
+    )
+    cmd = bgpd_conf_extra_fmt.format(*args)
+    tgen.gears[rtr].vtysh_cmd(cmd)
+
+    rtr = router_names[0]
+    cmd = faconfig.fmt_label_blocks(step13_rt0_label_block, 3)
+    tgen.gears[rtr].vtysh_cmd(cmd)
     cmd = faconfig.fmt_policies(step13_rt0_policies, 3)
     tgen.gears[rtr].vtysh_cmd(cmd)
     router_compare_json_output(
@@ -2125,6 +2297,30 @@ def test_step13_clean_up():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    # Delete BGP extra part
+    # complete BGP configuration for rt0
+    neighborv6 = faconfig.v6addr(9, lo_v6_base).split("/")[0]
+    networkextra = faconfig.v4net(0, network_v4_base_extra)
+    networkv6 = faconfig.v6net(0, network_v6_base)
+    networkv6extra = faconfig.v6net(0, network_v6_base_extra)
+
+    rtr = router_names[0]
+    args = (neighborv6, networkv6, networkv6extra)
+
+    cmd = bgpd_conf_no_extra_fmt.format(*args)
+    tgen.gears[rtr].vtysh_cmd(cmd)
+
+    # complete BGP configuration for rt9
+    neighborv6 = faconfig.v6addr(0, lo_v6_base).split("/")[0]
+    networkextra = faconfig.v4net(9, network_v4_base_extra)
+    networkv6 = faconfig.v6net(9, network_v6_base)
+    networkv6extra = faconfig.v6net(9, network_v6_base_extra)
+
+    rtr = router_names[9]
+    args = (neighborv6, networkv6, networkv6extra)
+    cmd = bgpd_conf_no_extra_fmt.format(*args)
+    tgen.gears[rtr].vtysh_cmd(cmd)
+
     # Delete policies
     rtr = router_names[0]
     cmd = faconfig.fmt_policies(step13_rt0_policies, 3, remove=True)
@@ -2165,34 +2361,39 @@ def test_step13_clean_up():
 # Expected Results:
 #  - The Binding-SID selects the forwarding path.
 
+step14_rt0_label_block = {
+    "binding-sid-lower": 16,
+    "binding-sid-upper": 17,
+}
+step14_rt9_label_block = {
+    "binding-sid-lower": 18,
+    "binding-sid-upper": 19,
+}
+
 step14_rt0_policies = {
-    # (color, endpoint)
-    (1, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 16,
+    # (color)
+    (1): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-1", "flex-algo": 128},
-        ],
+        ]
     },
-    (2, ip_address(faconfig.v4addr(num_routers - 1, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 17,
+    (2): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-2", "flex-algo": 129},
-        ],
+        ]
     },
 }
 step14_rt9_policies = {
-    # (color, endpoint)
-    (1, ip_address(faconfig.v4addr(0, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 18,
+    # (color)
+    (1): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-1", "flex-algo": 128},
-        ],
+        ]
     },
-    (2, ip_address(faconfig.v4addr(0, lo_v4_base, with_masklen=False))): {
-        "binding-sid": 19,
+    (2): {
         "candidate-path": [
             {"preference": 10, "name": "candidate-2", "flex-algo": 129},
-        ],
+        ]
     },
 }
 
@@ -2205,10 +2406,7 @@ def test_step14_setup():
         nexthop = host_links[src_hidx][3]
         cmd = f"ip route add {dest} encap mpls {label} via {nexthop}"
         logger.info(f"{hostname}: {cmd}")
-        rc, out, err = host.net.cmd_status(cmd)
-        if rc != 0:
-            logger.info(f"{hostname}: ip returned {rc}")
-            return False
+        out = tgen.net[hostname].cmd(cmd)
 
     logger.info("Test (step 14) - forwarding by Binding-SID setup")
     tgen = get_topogen()
@@ -2216,16 +2414,20 @@ def test_step14_setup():
         pytest.skip(tgen.errors)
 
     rtr = router_names[0]
+    cmd = faconfig.fmt_label_blocks(step14_rt0_label_block, 3)
+    tgen.gears[rtr].vtysh_cmd(cmd)
     cmd = faconfig.fmt_policies(step14_rt0_policies, 3)
     tgen.gears[rtr].vtysh_cmd(cmd)
     rtr = router_names[9]
+    cmd = faconfig.fmt_label_blocks(step14_rt9_label_block, 3)
+    tgen.gears[rtr].vtysh_cmd(cmd)
     cmd = faconfig.fmt_policies(step14_rt9_policies, 3)
     tgen.gears[rtr].vtysh_cmd(cmd)
 
-    set_route(0, 1, 16)  # h0-0 -> h1
-    set_route(2, 1, 17)  # h0-1 -> h1
-    set_route(1, 0, 18)  # h1 -> h0-0
-    set_route(1, 2, 19)  # h1 -> h0-1
+    set_route(0, 1, 16)  # h0-0 -> h1-0
+    set_route(2, 3, 17)  # h0-1 -> h1-1
+    set_route(1, 0, 18)  # h1-0 -> h0-0
+    set_route(3, 2, 19)  # h1-1 -> h0-1
 
 
 def test_step14_policy_active():
@@ -2259,6 +2461,7 @@ def test_step14_validate_path():
         assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == True
         assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == False
 
+    addr = host_links[3][2].split("/")[0]
     before = read_nft_all_counters(tgen, addr)
     assert _ping(tgen, 2, addr) == True
     after = read_nft_all_counters(tgen, addr)
@@ -2267,3 +2470,8 @@ def test_step14_validate_path():
     if _nft_version_ok():
         assert check_nft_counters_by_link_affinity(diff, ["green"], 5, label) == False
         assert check_nft_counters_by_link_affinity(diff, ["red"], 5, label) == True
+
+
+if __name__ == "__main__":
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))
