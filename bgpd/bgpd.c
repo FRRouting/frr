@@ -4263,6 +4263,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
 	{PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_reset},
 	{PEER_FLAG_ROLE, 0, peer_change_reset},
+	{PEER_FLAG_PORT, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -5450,11 +5451,13 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 void peer_port_set(struct peer *peer, uint16_t port)
 {
 	peer->port = port;
+	peer_flag_set(peer, PEER_FLAG_PORT);
 }
 
 void peer_port_unset(struct peer *peer)
 {
 	peer->port = BGP_PORT_DEFAULT;
+	peer_flag_unset(peer, PEER_FLAG_PORT);
 }
 
 /* Set the TCP-MSS value in the peer structure,

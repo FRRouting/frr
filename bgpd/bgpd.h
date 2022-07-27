@@ -1345,6 +1345,7 @@ struct peer {
 #define PEER_FLAG_ROLE_STRICT_MODE (1ULL << 31)
 	/* `local-role` configured */
 #define PEER_FLAG_ROLE (1ULL << 32)
+#define PEER_FLAG_PORT (1ULL << 33)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
