@@ -762,7 +762,7 @@ static int bmp_peer_backward(struct peer *peer)
 	return 0;
 }
 
-static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
+static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint8_t peer_type_flag)
 {
 	struct peer *peer;
 	struct listnode *node;
@@ -770,7 +770,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
-	frrtrace(3, frr_bgp, bmp_eor, afi, safi, flags);
+	frrtrace(3, frr_bgp, bmp_eor, afi, safi, flags, peer_type_flag);
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -806,7 +806,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 
 		bmp_common_hdr(s2, BMP_VERSION_3,
 				BMP_TYPE_ROUTE_MONITORING);
-		bmp_per_peer_hdr(s2, peer, flags, BMP_PEER_TYPE_GLOBAL_INSTANCE, NULL, NULL);
+		bmp_per_peer_hdr(s2, peer, flags, peer_type_flag, NULL, NULL);
 
 		stream_putl_at(s2, BMP_LENGTH_POS,
 				stream_get_endp(s) + stream_get_endp(s2));
@@ -943,6 +943,7 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
 
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 {
+	zlog_info("bmp: sync ran!");
 	afi_t afi;
 	safi_t safi;
 
@@ -1040,8 +1041,10 @@ afibreak:
 				zlog_info("bmp[%s] %s %s table completed (EoR)",
 						bmp->remote, afi2str(afi),
 						safi2str(safi));
-				bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L);
-				bmp_eor(bmp, afi, safi, 0);
+
+				bmp_eor(bmp, afi, safi, BMP_PEER_FLAG_L, BMP_PEER_TYPE_GLOBAL_INSTANCE);
+				bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE);
+				bmp_eor(bmp, afi, safi, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE);
 
 				bmp->afistate[afi][safi] = BMP_AFI_LIVE;
 				bmp->syncafi = AFI_MAX;
@@ -1053,10 +1056,12 @@ afibreak:
 		}
 
 		/* TODO BMP add BMP_MON_LOC_RIB case */
-		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
+		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY
+		    || bmp->targets->afimon[afi][safi] & BMP_MON_LOC_RIB) {
 			for (bpiter = bgp_dest_get_bgp_path_info(bn); bpiter;
 			     bpiter = bpiter->next) {
-				if (!CHECK_FLAG(bpiter->flags, BGP_PATH_VALID))
+				if (!CHECK_FLAG(bpiter->flags, BGP_PATH_VALID)
+				    && !CHECK_FLAG(bpiter->flags, BGP_PATH_SELECTED))
 					continue;
 				if (bpiter->peer->qobj_node.nid
 				    <= bmp->syncpeerid)
@@ -1105,10 +1110,26 @@ afibreak:
 	    (safi == SAFI_MPLS_VPN))
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(bmp->syncrdpos);
 
-	if (bpi)
+	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED)
+	    && CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_LOC_RIB)) {
+		uint8_t peer_distinguisher[8] = {0};
+		if (bmp->targets->bgp->inst_type != VRF_DEFAULT) {
+			memcpy(peer_distinguisher,
+			       &bmp->targets->bgp->vrf_id,
+			       sizeof(vrf_id_t));
+		}
+
+		bmp_monitor(bmp, bpi->peer, 0,
+			    BMP_PEER_TYPE_LOC_RIB_INSTANCE, peer_distinguisher, bn_p,
+			    prd, bpi->attr, afi, safi, bpi->uptime);
+	}
+
+	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_VALID)
+	    && CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_POSTPOLICY))
 		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L,
-			    BMP_PEER_TYPE_GLOBAL_INSTANCE, NULL, bn_p, prd,
-			    bpi->attr, afi, safi, bpi->uptime);
+			    BMP_PEER_TYPE_GLOBAL_INSTANCE, NULL, bn_p,
+			    prd, bpi->attr, afi, safi, bpi->uptime);
+
 	if (adjin)
 		bmp_monitor(bmp, adjin->peer, 0, BMP_PEER_TYPE_GLOBAL_INSTANCE,
 			    NULL, bn_p, prd, adjin->attr, afi, safi,
@@ -2393,6 +2414,7 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	if (prev == bt->afimon[afi][safi])
 		return CMD_SUCCESS;
 
+	vty_out(vty, "setting sync states\n");
 	frr_each (bmp_session, &bt->sessions, bmp) {
 		if (bmp->syncafi == afi && bmp->syncsafi == safi) {
 			bmp->syncafi = AFI_MAX;
@@ -2403,7 +2425,8 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 			bmp->afistate[afi][safi] = BMP_AFI_INACTIVE;
 			continue;
 		}
-
+		vty_out(vty, "%s needs sync now\n", get_afi_safi_str(afi, safi, false));
+		zlog_info("bmp: %s needs sync now\n", get_afi_safi_str(afi, safi, false));
 		bmp->afistate[afi][safi] = BMP_AFI_NEEDSYNC;
 	}
 
