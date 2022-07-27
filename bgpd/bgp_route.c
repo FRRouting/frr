@@ -1773,12 +1773,10 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 static void bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct peer *peer, struct attr *attr)
 {
-	if (peer->sort == BGP_PEER_EBGP
-	    && peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE)) {
-		if (aspath_single_asn_check(attr->aspath, peer->as))
-			attr->aspath = aspath_replace_specific_asn(
-				attr->aspath, peer->as, bgp->as);
-	}
+	if (peer->sort == BGP_PEER_EBGP &&
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
+		attr->aspath = aspath_replace_specific_asn(attr->aspath,
+							   peer->as, bgp->as);
 }
 
 void bgp_attr_add_llgr_community(struct attr *attr)
