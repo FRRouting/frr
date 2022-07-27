@@ -1,0 +1,539 @@
+[
+  {
+    "area":"1",
+    "level-1":{
+      "area":"1",
+      "ipv4":[
+        {
+          "Prefix":"10.254.0.0\/16",
+          "Metric":50,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":509,
+          "Label Op.":"Swap(20509, 20509)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.2\/32",
+          "Metric":20,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":101,
+          "Label Op.":"Pop(20101)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.2\/32",
+          "Metric":20,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":301,
+          "Label Op.":"Pop(20301)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.2\/32",
+          "Metric":20,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":401,
+          "Label Op.":"Pop(20401)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.3\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":102,
+          "Label Op.":"Swap(20102, 20102)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.3\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":302,
+          "Label Op.":"Swap(20302, 20302)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.3\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":402,
+          "Label Op.":"Swap(20402, 20402)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.4\/32",
+          "Metric":40,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":103,
+          "Label Op.":"Swap(20103, 20103)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.4\/32",
+          "Metric":40,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":303,
+          "Label Op.":"Swap(20303, 20303)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.4\/32",
+          "Metric":40,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":403,
+          "Label Op.":"Swap(20403, 20403)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.5\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":104,
+          "Label Op.":"Swap(20104, 20104)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.5\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":404,
+          "Label Op.":"Swap(20404, 20404)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.6\/32",
+          "Metric":20,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":205,
+          "Label Op.":"Pop(20205)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.6\/32",
+          "Metric":20,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":305,
+          "Label Op.":"Pop(20305)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.6\/32",
+          "Metric":20,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":405,
+          "Label Op.":"Swap(20405, 20405)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.7\/32",
+          "Metric":30,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":206,
+          "Label Op.":"Swap(20206, 20206)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.7\/32",
+          "Metric":30,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":306,
+          "Label Op.":"Swap(20306, 20306)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.7\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":406,
+          "Label Op.":"Swap(20406, 20406)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.8\/32",
+          "Metric":40,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":207,
+          "Label Op.":"Swap(20207, 20207)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.8\/32",
+          "Metric":40,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":307,
+          "Label Op.":"Swap(20307, 20307)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.8\/32",
+          "Metric":40,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":407,
+          "Label Op.":"Swap(20407, 20407)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.9\/32",
+          "Metric":30,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":208,
+          "Label Op.":"Swap(20208, 20208)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.9\/32",
+          "Metric":30,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":408,
+          "Label Op.":"Swap(20408, 20408)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.10\/32",
+          "Metric":50,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":109,
+          "Label Op.":"Swap(20109, 20109)",
+          "Algo":128,
+          "Regs":1
+        },
+        {
+          "Prefix":"10.254.0.10\/32",
+          "Metric":50,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":209,
+          "Label Op.":"Swap(20209, 20209)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.10\/32",
+          "Metric":50,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":309,
+          "Label Op.":"Swap(20309, 20309)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.10\/32",
+          "Metric":50,
+          "Interface":"eth-5",
+          "Nexthop":"10.5.0.6",
+          "SID":309,
+          "Label Op.":"Swap(20309, 20309)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"10.254.0.10\/32",
+          "Metric":50,
+          "Interface":"eth-1",
+          "Nexthop":"10.1.0.2",
+          "SID":409,
+          "Label Op.":"Swap(20409, 20409)",
+          "Algo":131,
+          "Regs":0
+        }
+      ],
+      "ipv6":[
+        {
+          "Prefix":"2001:db8:f::2\/128",
+          "Metric":20,
+          "Interface":"eth-1",
+          "SID":1101,
+          "Label Op.":"Pop(21101)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::2\/128",
+          "Metric":20,
+          "Interface":"eth-1",
+          "SID":1301,
+          "Label Op.":"Pop(21301)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::2\/128",
+          "Metric":20,
+          "Interface":"eth-1",
+          "SID":1401,
+          "Label Op.":"Pop(21401)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::3\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1102,
+          "Label Op.":"Swap(21102, 21102)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::3\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1302,
+          "Label Op.":"Swap(21302, 21302)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::3\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1402,
+          "Label Op.":"Swap(21402, 21402)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::4\/128",
+          "Metric":40,
+          "Interface":"eth-1",
+          "SID":1103,
+          "Label Op.":"Swap(21103, 21103)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::4\/128",
+          "Metric":40,
+          "Interface":"eth-1",
+          "SID":1303,
+          "Label Op.":"Swap(21303, 21303)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::4\/128",
+          "Metric":40,
+          "Interface":"eth-1",
+          "SID":1403,
+          "Label Op.":"Swap(21403, 21403)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::5\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1104,
+          "Label Op.":"Swap(21104, 21104)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::5\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1404,
+          "Label Op.":"Swap(21404, 21404)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::6\/128",
+          "Metric":20,
+          "Interface":"eth-5",
+          "SID":1205,
+          "Label Op.":"Pop(21205)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::6\/128",
+          "Metric":20,
+          "Interface":"eth-5",
+          "SID":1305,
+          "Label Op.":"Pop(21305)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::6\/128",
+          "Metric":20,
+          "Interface":"eth-1",
+          "SID":1405,
+          "Label Op.":"Swap(21405, 21405)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::7\/128",
+          "Metric":30,
+          "Interface":"eth-5",
+          "SID":1206,
+          "Label Op.":"Swap(21206, 21206)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::7\/128",
+          "Metric":30,
+          "Interface":"eth-5",
+          "SID":1306,
+          "Label Op.":"Swap(21306, 21306)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::7\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1406,
+          "Label Op.":"Swap(21406, 21406)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::8\/128",
+          "Metric":40,
+          "Interface":"eth-5",
+          "SID":1207,
+          "Label Op.":"Swap(21207, 21207)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::8\/128",
+          "Metric":40,
+          "Interface":"eth-5",
+          "SID":1307,
+          "Label Op.":"Swap(21307, 21307)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::8\/128",
+          "Metric":40,
+          "Interface":"eth-1",
+          "SID":1407,
+          "Label Op.":"Swap(21407, 21407)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::9\/128",
+          "Metric":30,
+          "Interface":"eth-5",
+          "SID":1208,
+          "Label Op.":"Swap(21208, 21208)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::9\/128",
+          "Metric":30,
+          "Interface":"eth-1",
+          "SID":1408,
+          "Label Op.":"Swap(21408, 21408)",
+          "Algo":131,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::a\/128",
+          "Metric":50,
+          "Interface":"eth-1",
+          "SID":1109,
+          "Label Op.":"Swap(21109, 21109)",
+          "Algo":128,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::a\/128",
+          "Metric":50,
+          "Interface":"eth-5",
+          "SID":1209,
+          "Label Op.":"Swap(21209, 21209)",
+          "Algo":129,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::a\/128",
+          "Metric":50,
+          "Interface":"eth-1",
+          "SID":1309,
+          "Label Op.":"Swap(21309, 21309)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::a\/128",
+          "Metric":50,
+          "Interface":"eth-5",
+          "SID":1309,
+          "Label Op.":"Swap(21309, 21309)",
+          "Algo":130,
+          "Regs":0
+        },
+        {
+          "Prefix":"2001:db8:f::a\/128",
+          "Metric":50,
+          "Interface":"eth-1",
+          "SID":1409,
+          "Label Op.":"Swap(21409, 21409)",
+          "Algo":131,
+          "Regs":0
+        }
+      ]
+    },
+    "level-2":{
+      "area":"1"
+    },
+    "vrf_id":0
+  }
+]

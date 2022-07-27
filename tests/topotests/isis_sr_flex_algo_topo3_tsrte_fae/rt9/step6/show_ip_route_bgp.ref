@@ -1,0 +1,33 @@
+{
+  "10.255.0.0/24": [
+    {
+      "prefix": "10.255.0.0/24",
+      "protocol": "bgp",
+      "selected": true,
+      "destSelected": true,
+      "distance": 200,
+      "metric": 0,
+      "installed": true,
+      "nexthops": [
+        {
+          "ip": "10.254.0.1",
+          "afi": "ipv4",
+          "active": true,
+          "recursive": true,
+          "srteColor": 1
+        },
+        {
+          "fib": true,
+          "ip": "10.39.0.4",
+          "afi": "ipv4",
+          "interfaceName": "eth-3",
+          "resolver": true,
+          "active": true,
+          "labels": [
+            20100
+          ]
+        }
+      ]
+    }
+  ]
+}
