@@ -112,7 +112,6 @@ extern unsigned int aspath_get_first_as(struct aspath *aspath);
 extern unsigned int aspath_get_last_as(struct aspath *aspath);
 extern int aspath_loop_check(struct aspath *aspath, as_t asno);
 extern bool aspath_private_as_check(struct aspath *aspath);
-extern bool aspath_single_asn_check(struct aspath *aspath, as_t asn);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);

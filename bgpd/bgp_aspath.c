@@ -1209,28 +1209,6 @@ bool aspath_private_as_check(struct aspath *aspath)
 	return true;
 }
 
-/* Return True if the entire ASPATH consist of the specified ASN */
-bool aspath_single_asn_check(struct aspath *aspath, as_t asn)
-{
-	struct assegment *seg;
-
-	if (!(aspath && aspath->segments))
-		return false;
-
-	seg = aspath->segments;
-
-	while (seg) {
-		int i;
-
-		for (i = 0; i < seg->length; i++) {
-			if (seg->as[i] != asn)
-				return false;
-		}
-		seg = seg->next;
-	}
-	return true;
-}
-
 /* Replace all instances of the target ASN with our own ASN */
 struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 					   as_t target_asn, as_t our_asn)
