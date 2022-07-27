@@ -340,7 +340,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	    && !OSPF6_GR_IS_PLANNED_RESTART(restart_reason)) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Router supports only planned restarts but received the GRACE LSA due a unplanned restart",
+				"%s, Router supports only planned restarts but received the GRACE LSA due to an unplanned restart",
 				__func__);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_PLANNED_ONLY_RESTART;
