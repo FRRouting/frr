@@ -3855,6 +3855,11 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 	afi_t afi = bgp_vty_afi_from_str(afi_str);
 	safi_t safi;
 
+	/*
+	 * Impossible situation but making coverity happy
+	 */
+	assert(afi != AFI_MAX);
+
 	if (strmatch(safi_str, "labeled"))
 		safi = bgp_vty_safi_from_str("labeled-unicast");
 	else
