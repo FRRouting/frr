@@ -254,9 +254,11 @@ def test_pimv6_add_delete_static_RP_p0(request):
     if tgen.routers_have_failure():
         check_router_status(tgen)
 
-    step("Shut link b/w R1 and R3")
-    intf = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
-    shutdown_bringup_interface(tgen, "r1", intf, ifaceaction=False)
+    step("Shut link b/w R1 and R3 and R1 and R4 as per tescase topology")
+    intf_r1_r3 = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
+    intf_r1_r4 = TOPO["routers"]["r1"]["links"]["r4"]["interface"]
+    for intf in [intf_r1_r3, intf_r1_r4]:
+        shutdown_bringup_interface(tgen, "r1", intf, ifaceaction=False)
 
     step("Enable PIM between r1 and r2")
     step("Enable MLD on r1 interface and send IGMP " "join (FF08::1) to r1")
