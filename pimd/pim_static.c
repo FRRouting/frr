@@ -97,10 +97,11 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
-		if (!pim_addr_cmp(s_route->group, group)
-		    && !pim_addr_cmp(s_route->source, source)) {
-			if (s_route->iif == iif_index
-			    && s_route->oif_ttls[oif_index]) {
+		if (!pim_addr_cmp(s_route->group, group) &&
+		    !pim_addr_cmp(s_route->source, source) &&
+		    (s_route->iif == iif_index)) {
+
+			if (s_route->oif_ttls[oif_index]) {
 				zlog_warn(
 					"%s %s: Unable to add static route: Route already exists (iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
 					__FILE__, __func__, iif_index,
@@ -122,42 +123,11 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 
 			/* Route exists and has the same input interface, but
 			 * adding a new output interface */
-			if (s_route->iif == iif_index) {
-				s_route->oif_ttls[oif_index] = 1;
-				oil_if_set(&s_route->c_oil, oif_index, 1);
-				s_route->c_oil.oif_creation[oif_index] =
-					pim_time_monotonic_sec();
-				++s_route->c_oil.oil_ref_count;
-			} else {
-				/* input interface changed */
-				s_route->iif = iif_index;
-				pim_static_mroute_iif_update(
-					&s_route->c_oil, iif_index, __func__);
-
-#ifdef PIM_ENFORCE_LOOPFREE_MFC
-				/* check to make sure the new input was not an
-				 * old output */
-				if (s_route->oif_ttls[iif_index]) {
-					s_route->oif_ttls[iif_index] = 0;
-					s_route->c_oil.oif_creation[iif_index] =
-						0;
-					oil_if_set(&s_route->c_oil, iif_index,
-						   0);
-					--s_route->c_oil.oil_ref_count;
-				}
-#endif
-
-				/* now add the new output, if it is new */
-				if (!s_route->oif_ttls[oif_index]) {
-					s_route->oif_ttls[oif_index] = 1;
-					s_route->c_oil.oif_creation[oif_index] =
-						pim_time_monotonic_sec();
-					oil_if_set(&s_route->c_oil, oif_index,
-						   1);
-					++s_route->c_oil.oil_ref_count;
-				}
-			}
-
+			s_route->oif_ttls[oif_index] = 1;
+			oil_if_set(&s_route->c_oil, oif_index, 1);
+			s_route->c_oil.oif_creation[oif_index] =
+				pim_time_monotonic_sec();
+			++s_route->c_oil.oil_ref_count;
 			break;
 		}
 	}
