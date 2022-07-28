@@ -1761,7 +1761,7 @@ static struct ospf_lsa *ospf_handle_exnl_lsa_lsId_chg(struct ospf *ospf,
 	struct as_external_lsa *al;
 	struct in_addr mask;
 	struct ospf_lsa *new;
-	struct external_info ei_summary;
+	struct external_info ei_summary = {};
 	struct external_info *ei_old;
 
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
