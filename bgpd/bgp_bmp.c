@@ -344,6 +344,19 @@ static void bmp_put_info_tlv(struct stream *s, uint16_t type,
 	stream_put(s, string, len);
 }
 
+static void bmp_put_vrftablename_info_tlv(struct stream *s, struct bmp *bmp)
+{
+
+#define BMP_INFO_TYPE_VRFTABLENAME 3
+	char *vrftablename = "global";
+	if (bmp->targets->bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+		struct vrf *vrf = vrf_lookup_by_id(bmp->targets->bgp->vrf_id);
+		vrftablename = vrf ? vrf->name : NULL;
+	}
+	if (vrftablename != NULL)
+		bmp_put_info_tlv(s, BMP_INFO_TYPE_VRFTABLENAME, vrftablename);
+}
+
 static int bmp_send_initiation(struct bmp *bmp)
 {
 	int len;
