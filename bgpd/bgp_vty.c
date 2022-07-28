@@ -3865,6 +3865,7 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 	else
 		safi = bgp_vty_safi_from_str(safi_str);
 
+	assert(safi != SAFI_MAX);
 	if (no)
 		bgp->default_af[afi][safi] = false;
 	else {
