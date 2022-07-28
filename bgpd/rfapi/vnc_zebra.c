@@ -202,12 +202,10 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 
 				if (vncHD1VR.peer->ibuf_work)
 					ringbuf_del(vncHD1VR.peer->ibuf_work);
-				if (vncHD1VR.peer->obuf_work)
-					stream_free(vncHD1VR.peer->obuf_work);
+				stream_free(vncHD1VR.peer->obuf_work);
 
 				vncHD1VR.peer->ibuf = NULL;
 				vncHD1VR.peer->obuf = NULL;
-				vncHD1VR.peer->obuf_work = NULL;
 				vncHD1VR.peer->ibuf_work = NULL;
 			}
 

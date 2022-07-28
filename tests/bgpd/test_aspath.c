@@ -882,8 +882,7 @@ static struct aspath *make_aspath(const uint8_t *data, size_t len, int use32bit)
 	}
 	as = aspath_parse(s, len, use32bit);
 
-	if (s)
-		stream_free(s);
+	stream_free(s);
 
 	return as;
 }

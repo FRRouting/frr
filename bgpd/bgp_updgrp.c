@@ -122,12 +122,8 @@ static void sync_delete(struct update_subgroup *subgrp)
 		hash_free(subgrp->hash);
 	}
 	subgrp->hash = NULL;
-	if (subgrp->work)
-		stream_free(subgrp->work);
-	subgrp->work = NULL;
-	if (subgrp->scratch)
-		stream_free(subgrp->scratch);
-	subgrp->scratch = NULL;
+	stream_free(subgrp->work);
+	stream_free(subgrp->scratch);
 }
 
 /**

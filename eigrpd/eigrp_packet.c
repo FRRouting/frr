@@ -935,8 +935,7 @@ void eigrp_packet_delete(struct eigrp_interface *ei)
 
 void eigrp_packet_free(struct eigrp_packet *ep)
 {
-	if (ep->s)
-		stream_free(ep->s);
+	stream_free(ep->s);
 
 	THREAD_OFF(ep->t_retrans_timer);
 

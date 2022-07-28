@@ -152,8 +152,7 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 	ret = 1;
 
 out:
-	if (s)
-		stream_free(s);
+	stream_free(s);
 	XFREE(MTYPE_TMP, half);
 	return ret;
 }

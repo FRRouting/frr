@@ -2528,15 +2528,8 @@ int peer_delete(struct peer *peer)
 		peer->ibuf_work = NULL;
 	}
 
-	if (peer->obuf_work) {
-		stream_free(peer->obuf_work);
-		peer->obuf_work = NULL;
-	}
-
-	if (peer->scratch) {
-		stream_free(peer->scratch);
-		peer->scratch = NULL;
-	}
+	stream_free(peer->obuf_work);
+	stream_free(peer->scratch);
 
 	/* Local and remote addresses. */
 	if (peer->su_local) {

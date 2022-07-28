@@ -901,15 +901,8 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->fd = 0;
 	}
 
-	if (circuit->rcv_stream != NULL) {
-		stream_free(circuit->rcv_stream);
-		circuit->rcv_stream = NULL;
-	}
-
-	if (circuit->snd_stream != NULL) {
-		stream_free(circuit->snd_stream);
-		circuit->snd_stream = NULL;
-	}
+	stream_free(circuit->rcv_stream);
+	stream_free(circuit->snd_stream);
 
 	thread_cancel_event(master, circuit);
 

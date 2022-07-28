@@ -452,8 +452,7 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 								  sizeof(buf),
 								  client));
 				/* Registered but gone? */
-				if (dup)
-					stream_free(dup);
+				stream_free(dup);
 			}
 
 			/* If unicast, we're done */
@@ -463,8 +462,7 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 
 drop_it:
 
-		if (msg)
-			stream_free(msg);
+	stream_free(msg);
 	}
 
 	return 0;

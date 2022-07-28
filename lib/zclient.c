@@ -96,10 +96,8 @@ struct zclient *zclient_new(struct thread_master *master,
    Free zclient structure. */
 void zclient_free(struct zclient *zclient)
 {
-	if (zclient->ibuf)
-		stream_free(zclient->ibuf);
-	if (zclient->obuf)
-		stream_free(zclient->obuf);
+	stream_free(zclient->ibuf);
+	stream_free(zclient->obuf);
 	if (zclient->wb)
 		buffer_free(zclient->wb);
 

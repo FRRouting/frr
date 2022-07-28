@@ -146,8 +146,7 @@ static struct ospf_packet *ospf_packet_new(size_t size)
 
 void ospf_packet_free(struct ospf_packet *op)
 {
-	if (op->s)
-		stream_free(op->s);
+	stream_free(op->s);
 
 	XFREE(MTYPE_OSPF_PACKET, op);
 }

@@ -1098,9 +1098,7 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 	 */
 	pim_msdp_peer_stop_tcp_conn(mp, false);
 
-	if (mp->ibuf) {
-		stream_free(mp->ibuf);
-	}
+	stream_free(mp->ibuf);
 
 	if (mp->obuf) {
 		stream_fifo_free(mp->obuf);
@@ -1400,9 +1398,7 @@ void pim_msdp_exit(struct pim_instance *pim)
 		list_delete(&pim->msdp.sa_list);
 	}
 
-	if (pim->msdp.work_obuf)
-		stream_free(pim->msdp.work_obuf);
-	pim->msdp.work_obuf = NULL;
+	stream_free(pim->msdp.work_obuf);
 }
 
 void pim_msdp_mg_src_add(struct pim_instance *pim, struct pim_msdp_mg *mg,

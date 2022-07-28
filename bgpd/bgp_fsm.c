@@ -218,7 +218,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			 * due to connection transfer.
 			 */
 			stream_free(peer->curr);
-			peer->curr = NULL;
 		}
 
 		// copy each packet from old peer's output queue to new peer
@@ -1511,10 +1510,7 @@ int bgp_stop(struct peer *peer)
 		if (peer->obuf_work)
 			stream_reset(peer->obuf_work);
 
-		if (peer->curr) {
-			stream_free(peer->curr);
-			peer->curr = NULL;
-		}
+		stream_free(peer->curr);
 	}
 
 	/* Close of file descriptor. */

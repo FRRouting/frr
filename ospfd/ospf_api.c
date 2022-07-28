@@ -268,8 +268,7 @@ void msg_print(struct msg *msg)
 
 void msg_free(struct msg *msg)
 {
-	if (msg->s)
-		stream_free(msg->s);
+	stream_free(msg->s);
 
 	XFREE(MTYPE_OSPF_API_MSG, msg);
 }

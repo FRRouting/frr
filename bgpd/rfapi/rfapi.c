@@ -1267,12 +1267,10 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 
 		if (rfd->peer->ibuf_work)
 			ringbuf_del(rfd->peer->ibuf_work);
-		if (rfd->peer->obuf_work)
-			stream_free(rfd->peer->obuf_work);
+		stream_free(rfd->peer->obuf_work);
 
 		rfd->peer->ibuf = NULL;
 		rfd->peer->obuf = NULL;
-		rfd->peer->obuf_work = NULL;
 		rfd->peer->ibuf_work = NULL;
 	}
 

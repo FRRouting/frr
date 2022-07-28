@@ -611,10 +611,8 @@ static void zserv_client_free(struct zserv *client)
 	}
 
 	/* Free stream buffers. */
-	if (client->ibuf_work)
-		stream_free(client->ibuf_work);
-	if (client->obuf_work)
-		stream_free(client->obuf_work);
+	stream_free(client->ibuf_work);
+	stream_free(client->obuf_work);
 	if (client->ibuf_fifo)
 		stream_fifo_free(client->ibuf_fifo);
 	if (client->obuf_fifo)

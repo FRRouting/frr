@@ -76,9 +76,7 @@ struct bpacket *bpacket_alloc(void)
 
 void bpacket_free(struct bpacket *pkt)
 {
-	if (pkt->buffer)
-		stream_free(pkt->buffer);
-	pkt->buffer = NULL;
+	stream_free(pkt->buffer);
 	XFREE(MTYPE_BGP_PACKET, pkt);
 }
 

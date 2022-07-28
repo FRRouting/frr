@@ -143,8 +143,7 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	isis_spf_schedule(lsp->area, lsp->level);
 
-	if (lsp->pdu)
-		stream_free(lsp->pdu);
+	stream_free(lsp->pdu);
 
 	fabricd_lsp_free(lsp);
 	XFREE(MTYPE_ISIS_LSP, lsp);
@@ -506,8 +505,7 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 	lsp_clear_data(lsp);
 
 	/* copying only the relevant part of our stream */
-	if (lsp->pdu != NULL)
-		stream_free(lsp->pdu);
+	stream_free(lsp->pdu);
 	lsp->pdu = stream_dup(stream);
 
 	memcpy(&lsp->hdr, hdr, sizeof(lsp->hdr));
