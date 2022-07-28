@@ -278,6 +278,7 @@ def test_pimv6_add_delete_static_RP_p0(request):
         }
     }
 
+    assert True
     result = create_pim_config(tgen, TOPO, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
