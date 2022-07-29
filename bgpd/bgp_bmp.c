@@ -326,7 +326,8 @@ static void bmp_per_peer_hdr(struct stream *s, struct bgp* bgp, struct peer *pee
 	stream_put_in_addr(s, bgp_id);
 
 	/* Timestamp */
-	if (tv) {
+	/* set to 0 for LOC-RIB INSTANCE as install uptime is not saved atm */
+	if (!is_locrib && tv) {
 		stream_putl(s, tv->tv_sec);
 		stream_putl(s, tv->tv_usec);
 	} else {
