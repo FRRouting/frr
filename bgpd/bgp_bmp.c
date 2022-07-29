@@ -1165,7 +1165,7 @@ afibreak:
 	    CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_LOC_RIB)) {
 		bmp_monitor(bmp, bpi->peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE,
 			    bmp_get_peer_distinguisher(bmp, afi), bn_p, prd,
-			    bpi->attr, afi, safi, bpi->uptime);
+			    bpi->attr, afi, safi, bpi->rib_uptime);
 	}
 
 	if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_VALID)
@@ -1322,7 +1322,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE,
 		    bmp_get_peer_distinguisher(bmp, afi), &bqe->p, prd,
 		    bpi ? bpi->attr : NULL, afi, safi,
-		    bpi ? bpi->uptime : monotime(NULL));
+		    bpi ? bpi->rib_uptime : monotime(NULL));
 	written = true;
 
 out:
