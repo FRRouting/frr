@@ -71,6 +71,7 @@ kernel_intf_update(struct zebra_dplane_ctx *ctx);
 
 extern enum zebra_dplane_result
 kernel_intf_netconf_update(struct zebra_dplane_ctx *ctx);
+extern enum zebra_dplane_result kernel_tc_update(struct zebra_dplane_ctx *ctx);
 
 #endif /* !HAVE_NETLINK */
 

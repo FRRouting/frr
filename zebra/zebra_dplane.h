@@ -193,6 +193,11 @@ enum dplane_op_e {
 	DPLANE_OP_INTF_INSTALL,
 	DPLANE_OP_INTF_UPDATE,
 	DPLANE_OP_INTF_DELETE,
+
+	/* Traffic control */
+	DPLANE_OP_TC_INSTALL,
+	DPLANE_OP_TC_UPDATE,
+	DPLANE_OP_TC_DELETE,
 };
 
 /*
@@ -377,6 +382,16 @@ uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for traffic control context */
+uint64_t dplane_ctx_tc_get_rate(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_get_ceil(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_get_filter_bm(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_tc_get_src_ip(const struct zebra_dplane_ctx *ctx);
+const struct prefix *
+dplane_ctx_tc_get_dst_ip(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_get_ip_proto(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
@@ -708,6 +723,13 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_delete(const struct interface *ifp);
 
 /*
+ * Enqueue interface link changes for the dataplane.
+ */
+enum zebra_dplane_result dplane_tc_add(void);
+enum zebra_dplane_result dplane_tc_update(void);
+enum zebra_dplane_result dplane_tc_delete(void);
+
+/*
  * Link layer operations for the dataplane.
  */
 enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
@@ -848,6 +870,9 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 /* Encode interface information into data plane context. */
 int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			 const struct interface *ifp);
+
+/* Encode traffic control information into data plane context. */
+int dplane_ctx_tc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);

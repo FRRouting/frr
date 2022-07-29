@@ -4391,6 +4391,11 @@ static void rib_process_dplane_results(struct thread *thread)
 				zebra_if_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_TC_INSTALL:
+			case DPLANE_OP_TC_UPDATE:
+			case DPLANE_OP_TC_DELETE:
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
