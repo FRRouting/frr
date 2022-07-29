@@ -3454,6 +3454,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		zlog_info("old_select==NULL %s | new_select==NULL %s",
 			  old_select == NULL ? "YES" : "NO",
 			  new_select == NULL ? "YES" : "NO");
+
+		if (old_select) /* route is not installed in locrib anymore */
+			old_select->rib_uptime = (time_t)(-1L);
+		if (new_select) /* route is installed in locrib from now on */
+			new_select->rib_uptime = bgp_clock();
 		bool is_withdraw = old_select && !new_select;
 
 		hook_call(bgp_route_update, bgp, afi, safi, dest,
@@ -3986,6 +3991,7 @@ struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
 	new->peer = peer;
 	new->attr = attr;
 	new->uptime = monotime(NULL);
+	new->rib_uptime = (time_t)(-1L);
 	new->net = dest;
 	return new;
 }
