@@ -715,7 +715,7 @@ size_t yang_dnode_get_binary_buf(char *buf, size_t size,
 
 	canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
 	cannon_len = strlen(canon);
-	decode_len = cannon_len;
+	decode_len = cannon_len + 1;
 	value_str = (char *)malloc(decode_len);
 	base64_init_decodestate(&s);
 	cnt = base64_decode_block(canon, cannon_len, value_str, &s);
