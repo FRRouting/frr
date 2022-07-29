@@ -316,17 +316,26 @@ def test_ospf6_kernel_route():
     for router in rlist:
         logger.info('Checking OSPF IPv6 kernel routes in "%s"', router.name)
 
-        routes = topotest.ip6_route(router)
-        expected = {
-            "2001:db8:1::/64": {},
-            "2001:db8:2::/64": {},
-            "2001:db8:3::/64": {},
-            "2001:db8:100::/64": {},
-            "2001:db8:200::/64": {},
-            "2001:db8:300::/64": {},
-        }
+        def _routes_in_fib6():
+            routes = topotest.ip6_route(router)
+            expected = {
+                "2001:db8:1::/64": {},
+                "2001:db8:2::/64": {},
+                "2001:db8:3::/64": {},
+                "2001:db8:100::/64": {},
+                "2001:db8:200::/64": {},
+                "2001:db8:300::/64": {},
+            }
+            logger.info("Routes:")
+            logger.info(routes)
+            logger.info(topotest.json_cmp(routes, expected))
+            logger.info("ENd:")
+            return topotest.json_cmp(routes, expected)
+
+        _, result = topotest.run_and_expect(_routes_in_fib6, None, count=20, wait=1)
+
         assertmsg = 'OSPF IPv6 route mismatch in router "{}"'.format(router.name)
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        assert result is None, assertmsg
 
 
 def test_ospf_json():
@@ -337,6 +346,7 @@ def test_ospf_json():
 
     for rnum in range(1, 5):
         router = tgen.gears["r{}".format(rnum)]
+        logger.info(router.vtysh_cmd("show ip ospf database"))
         logger.info('Comparing router "%s" "show ip ospf json" output', router.name)
         expected = {
             "routerId": "10.0.255.{}".format(rnum),
