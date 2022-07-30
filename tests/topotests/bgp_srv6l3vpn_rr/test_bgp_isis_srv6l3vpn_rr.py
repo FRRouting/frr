@@ -167,7 +167,6 @@ def setup_module(mod):
     tgen.gears["h42"].run("ip route add 10.0.1.0/24 via 169.254.0.2 dev h42r4")
     tgen.gears["h42"].run("ip -6 route add 4444::/64 via fe80::2 dev h42r4")
 
-    router_list = tgen.routers()
     for rname, router in tgen.routers().items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
@@ -178,7 +177,7 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
-
+    sleep(30)
     tgen.start_router()
 
     # FOR DEVELOPER:
@@ -234,7 +233,7 @@ def check_setup_completed(rname, match):
         if match in res:
             return True
         count += 1
-        sleep(1)
+        sleep(4)
     return False
 
 
@@ -254,7 +253,7 @@ def check_rib(name, cmd, expected_file):
     assert result is None, "Failed"
 
 
-def check_kernel_v6_state(rname, dest_addr, vrfname, matchlist):
+def check_kernel_v6_vrf_state(rname, dest_addr, vrfname, matchlist):
     count = 0
     tgen = get_topogen()
     while count < 60:
@@ -266,7 +265,20 @@ def check_kernel_v6_state(rname, dest_addr, vrfname, matchlist):
                     return False
             return True
         count += 1
-        sleep(1)
+        sleep(4)
+    return False
+
+def check_kernel_seg6local_encap(rname, vrfname, endfunc, match):
+    count = 0
+    tgen = get_topogen()
+    while count < 60:
+        res = tgen.gears[rname].run("ip -6 route | grep seg6local | grep {} | grep \"{}\"".format(vrfname, endfunc))
+        logger.info("count-{} result {}".format(count, res))
+        if res:
+            if match in res:
+                return True
+        count += 1
+        sleep(4)
     return False
 
 def test_topology():
@@ -351,11 +363,31 @@ def test_topology():
     check_ping("r1", "fcff:0:6::1", "r1r6", True)
 
 def test_kernel_state():
+    logger.info("Check r1 kernel seg6local encap")
+    if not check_kernel_seg6local_encap("r1", "vrf10", "End.DT4", "fcff:0:1:1::"):
+        assert False, "r1 doesn't contains End.DT4 seg6local encapsulation in vrf vrf10"
+    if not check_kernel_seg6local_encap("r1", "vrf10", "End.DT6", "fcff:0:1:2::"):
+        assert False, "r1 doesn't contains End.DT6 seg6local encapsulation in vrf vrf10"
+    if not check_kernel_seg6local_encap("r1", "vrf20", "End.DT4", "fcff:0:1:3::"):
+        assert False, "r1 doesn't contains End.DT4 seg6local encapsulation in vrf vrf20"
+    if not check_kernel_seg6local_encap("r1", "vrf20", "End.DT6", "fcff:0:1:4::"):
+        assert False, "r1 doesn't contains End.DT6 seg6local encapsulation in vrf vrf20"
+
+    logger.info("Check r4 kernel seg6local encap")
+    if not check_kernel_seg6local_encap("r4", "vrf10", "End.DT4", "fcff:0:4:1::"):
+        assert False, "r4 doesn't contains End.DT4 seg6local encapsulation in vrf vrf10"
+    if not check_kernel_seg6local_encap("r4", "vrf10", "End.DT6", "fcff:0:4:2::"):
+        assert False, "r4 doesn't contains End.DT6 seg6local encapsulation in vrf vrf10"
+    if not check_kernel_seg6local_encap("r4", "vrf20", "End.DT4", "fcff:0:4:3::"):
+        assert False, "r4 doesn't contains End.DT4 seg6local encapsulation in vrf vrf20"
+    if not check_kernel_seg6local_encap("r4", "vrf20", "End.DT6", "fcff:0:4:4::"):
+        assert False, "r4 doesn't contains End.DT4 seg6local encapsulation in vrf vrf20"
+
     logger.info("Check r1 kernel state (vrf10)")
-    if not check_kernel_v6_state("r1", "4444::2", "vrf10", ["fcff:0:4:2::","encap seg6","r1r6", "r1r5"]):
+    if not check_kernel_v6_vrf_state("r1", "4444::2", "vrf10", ["fcff:0:4:2::","encap seg6","r1r6", "r1r5"]):
         assert False, "r1 doesn't contains ipv6 route to 4444::2 in vrf vrf10"
     logger.info("Check r4 kernel state (vrf10)")
-    if not check_kernel_v6_state("r4", "4444::1", "vrf10", ["fcff:0:1:2::","encap seg6","r4r6", "r4r5"]):
+    if not check_kernel_v6_vrf_state("r4", "4444::1", "vrf10", ["fcff:0:1:2::","encap seg6","r4r6", "r4r5"]):
         assert False, "r4 doesn't contains ipv6 route to 4444::1 in vrf vrf10"
 
     logger.info("Check h11-h41 connectivity")
@@ -375,10 +407,10 @@ def test_kernel_state():
     check_ping("h41", "10.0.1.4", None, False)
 
     logger.info("Check r1 kernel state (vrf20)")
-    if not check_kernel_v6_state("r1", "4444::4", "vrf20", ["fcff:0:4:4::","encap seg6","r1r6", "r1r5"]):
+    if not check_kernel_v6_vrf_state("r1", "4444::4", "vrf20", ["fcff:0:4:4::","encap seg6","r1r6", "r1r5"]):
         assert False, "r1 doesn't contains ipv6 route to 4444::4 in vrf vrf20"
     logger.info("Check r4 kernel state (vrf20)")
-    if not check_kernel_v6_state("r4", "4444::3", "vrf20", ["fcff:0:1:4::","encap seg6","r4r6", "r4r5"]):
+    if not check_kernel_v6_vrf_state("r4", "4444::3", "vrf20", ["fcff:0:1:4::","encap seg6","r4r6", "r4r5"]):
         assert False, "r4 doesn't contains ipv6 route to 4444::3 in vrf vrf20"
 
     logger.info("Check h12-h42 connectivity")

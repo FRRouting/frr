@@ -57,6 +57,7 @@ RUN cd ~/frr && \
        --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-pim6d \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
