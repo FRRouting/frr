@@ -122,7 +122,7 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
-    result = required_linux_kernel_version("4.15")
+    result = required_linux_kernel_version("5.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
@@ -177,7 +177,6 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
-    sleep(30)
     tgen.start_router()
 
     # FOR DEVELOPER:
