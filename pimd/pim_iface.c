@@ -801,22 +801,13 @@ void pim_if_addr_add_all(struct interface *ifp)
 		pim_if_addr_add(ifc);
 	}
 
-	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
-		if (pim_ifp->pim_enable) {
-
-			/* Interface has a valid primary address ? */
-			if (!pim_addr_is_any(pim_ifp->primary_address)) {
-
-				/* Interface has a valid socket ? */
-				if (pim_ifp->pim_sock_fd < 0) {
-					if (pim_sock_add(ifp)) {
-						zlog_warn(
-							"Failure creating PIM socket for interface %s",
-							ifp->name);
-					}
-				}
-			}
-		} /* pim */
+	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp) &&
+	    pim_ifp->pim_enable && !pim_addr_is_any(pim_ifp->primary_address) &&
+	    pim_ifp->pim_sock_fd < 0 && pim_sock_add(ifp)) {
+		/* Interface has a valid primary address ? */
+		/* Interface has a valid socket ? */
+		zlog_warn("Failure creating PIM socket for interface %s",
+			  ifp->name);
 	}
 	/*
 	 * PIM or IGMP is enabled on interface, and there is at least one
