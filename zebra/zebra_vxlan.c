@@ -4038,6 +4038,19 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	struct zebra_evpn_es *es;
 	struct interface *acc_ifp;
 
+	/* If netlink message is with vid, it will have no nexthop.
+	 * So skip it.
+	 */
+	if (vid) {
+		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("dpAdd MAC %pEA VID %u - ignore as no nhid",
+				   macaddr, vid);
+		return 0;
+	}
+
+	/* Get vxlan's vid for netlink message has no it. */
+	vid = ((struct zebra_if *)ifp->info)->l2info.vxl.access_vlan;
+
 	/* if remote mac delete the local entry */
 	if (!nhg_id || !zebra_evpn_nhg_is_local_es(nhg_id, &es)
 	    || !zebra_evpn_es_local_mac_via_network_port(es)) {
