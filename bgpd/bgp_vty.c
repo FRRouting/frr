@@ -17400,6 +17400,8 @@ int bgp_config_write(struct vty *vty)
 	/* No-RIB (Zebra) option flag configuration */
 	if (bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
+	else if (!list_isempty(bm->addresses))
+		vty_out(vty, "no bgp no-rib\n");
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
 		vty_out(vty, "bgp send-extra-data zebra\n");
