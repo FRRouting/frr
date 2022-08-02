@@ -178,16 +178,17 @@ struct route_entry {
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
  * sub-queue 1: EVPN/VxLAN objects
- * sub-queue 2: Early Label Processing
- * sub-queue 2: connected
- * sub-queue 3: kernel
- * sub-queue 4: static
- * sub-queue 5: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
- * sub-queue 6: iBGP, eBGP
- * sub-queue 7: any other origin (if any) typically those that
+ * sub-queue 2: Early Route Processing
+ * sub-queue 3: Early Label Processing
+ * sub-queue 4: connected
+ * sub-queue 5: kernel
+ * sub-queue 6: static
+ * sub-queue 7: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
+ * sub-queue 8: iBGP, eBGP
+ * sub-queue 9: any other origin (if any) typically those that
  *              don't generate routes
  */
-#define MQ_SIZE 9
+#define MQ_SIZE 10
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
