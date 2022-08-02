@@ -325,6 +325,9 @@ MLD state
    a MLDv2 querier.  MLDv1 joins are recorded as "untracked" and shown in the
    ``NonTrkSeen`` output column.
 
+.. clicmd:: show ipv6 mld [vrf NAME] groups [json]
+
+   Display MLD group information.
 
 General multicast routing state
 -------------------------------
