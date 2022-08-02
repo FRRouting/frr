@@ -161,8 +161,6 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	pim_router_init();
-	/* TODO PIM6: temporary enable all debugs, remove later in PIMv6 work */
-	router->debugs = ~0U;
 
 	access_list_init();
 	prefix_list_init();
