@@ -454,16 +454,13 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	struct ospf_neighbor *onbr;
 	struct route_node *rn;
 	int retx_flag;
-	char buf[PREFIX_STRLEN];
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: considering int %s (%s), INBR(%s), LSA[%s] AGE %u",
+			"%s: considering int %s (%s), INBR(%pI4), LSA[%s] AGE %u",
 			__func__, IF_NAME(oi), ospf_get_name(oi->ospf),
-			inbr ? inet_ntop(AF_INET, &inbr->router_id, buf,
-					 sizeof(buf))
-			     : "NULL",
-			dump_lsa_key(lsa), ntohs(lsa->data->ls_age));
+			inbr ? &inbr->router_id : NULL, dump_lsa_key(lsa),
+			ntohs(lsa->data->ls_age));
 
 	if (!ospf_if_is_enable(oi))
 		return 0;
