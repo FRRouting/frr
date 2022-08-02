@@ -33,12 +33,15 @@
 #include "lib/prefix.h"
 #include "lib/checksum.h"
 #include "lib/thread.h"
+#include "termtable.h"
 
 #include "pimd/pim6_mld.h"
 #include "pimd/pim6_mld_protocol.h"
 #include "pimd/pim_memory.h"
 #include "pimd/pim_instance.h"
 #include "pimd/pim_iface.h"
+#include "pimd/pim6_cmd.h"
+#include "pimd/pim_cmd_common.h"
 #include "pimd/pim_util.h"
 #include "pimd/pim_tib.h"
 #include "pimd/pimd.h"
@@ -2314,8 +2317,6 @@ void gm_group_delete(struct gm_if *gm_ifp)
 #include "pimd/pim6_mld_clippy.c"
 #endif
 
-#define MLD_STR "Multicast Listener Discovery\n"
-
 static struct vrf *gm_cmd_vrf_lookup(struct vty *vty, const char *vrf_str,
 				     int *err)
 {
@@ -2855,6 +2856,125 @@ DEFPY(gm_show_interface_joins,
 	return vty_json(vty, js);
 }
 
+static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
+{
+	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table;
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
+	struct pim_instance *pim = vrf->info;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->gm_watermark_limit);
+	} else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Group|Version|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+
+		vty_out(vty, "Total MLD groups: %u\n", pim->gm_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->gm_watermark_limit ? "Set" : "Not Set",
+			pim->gm_watermark_limit);
+	}
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (vrf, ifp) {
+
+		struct pim_interface *pim_ifp = ifp->info;
+		struct gm_if *gm_ifp;
+		struct gm_sg *sg;
+
+		if (!pim_ifp)
+			continue;
+
+		gm_ifp = pim_ifp->mld;
+		if (!gm_ifp)
+			continue;
+
+		/* scan mld groups */
+		frr_each (gm_sgs, gm_ifp->sgs, sg) {
+
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
+
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_pim_ifp_add(json_iface,
+								ifp);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_groups = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_groups);
+				}
+
+				json_group = json_object_new_object();
+				json_object_string_addf(json_group, "group",
+							"%pPAs",
+							&sg->sgaddr.grp);
+
+				json_object_int_add(json_group, "version",
+						    pim_ifp->mld_version);
+				json_object_string_addf(json_group, "uptime",
+							"%pTVMs", &sg->created);
+				json_object_array_add(json_groups, json_group);
+			} else {
+				ttable_add_row(tt, "%s|%pPAs|%d|%pTVMs",
+					       ifp->name, &sg->sgaddr.grp,
+					       pim_ifp->mld_version,
+					       &sg->created);
+			}
+		} /* scan gm groups */
+	}	 /* scan interfaces */
+
+	if (uj)
+		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
+}
+
+DEFPY(gm_show_mld_groups,
+      gm_show_mld_groups_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] groups [json$json]",
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      MLD_GROUP_STR
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (vrf)
+		gm_show_groups(vty, vrf, !!json);
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_groups(vty, vrf, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(gm_debug_show,
       gm_debug_show_cmd,
       "debug show mld interface IFNAME",
@@ -3029,6 +3149,7 @@ void gm_cli_init(void)
 	install_element(VIEW_NODE, &gm_show_interface_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_stats_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_joins_cmd);
+	install_element(VIEW_NODE, &gm_show_mld_groups_cmd);
 
 	install_element(VIEW_NODE, &gm_debug_show_cmd);
 	install_element(INTERFACE_NODE, &gm_debug_iface_cfg_cmd);
