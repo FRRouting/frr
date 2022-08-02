@@ -1653,6 +1653,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 		thread_add_timer(zrouter.master, zebra_nhg_timer, nhe,
 				 zrouter.nhg_keep, &nhe->timer);
+		return;
 	}
 
 	if (!zebra_nhg_depends_is_empty(nhe))
