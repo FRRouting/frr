@@ -179,6 +179,46 @@ static inline int pim_setsockopt(int protocol, int fd, struct interface *ifp)
 }
 #endif
 
+int pim_reg_sock(void)
+{
+	int fd;
+	long flags;
+
+	frr_with_privs (&pimd_privs) {
+		fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	}
+
+	if (fd < 0) {
+		zlog_warn("Could not create raw socket: errno=%d: %s", errno,
+			  safe_strerror(errno));
+		return PIM_SOCK_ERR_SOCKET;
+	}
+
+	if (sockopt_reuseaddr(fd)) {
+		close(fd);
+		return PIM_SOCK_ERR_REUSE;
+	}
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0) {
+		zlog_warn(
+			"Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
+			fd, errno, safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_NONBLOCK_GETFL;
+	}
+
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
+		zlog_warn(
+			"Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
+			fd, errno, safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_NONBLOCK_SETFL;
+	}
+
+	return fd;
+}
+
 int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 		     uint8_t loop)
 {
