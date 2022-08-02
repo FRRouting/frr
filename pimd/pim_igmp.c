@@ -1008,12 +1008,11 @@ static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 {
 	uint32_t group_count = listcount(pim_ifp->gm_group_list);
 
-	++pim_ifp->pim->igmp_group_count;
-	if (pim_ifp->pim->igmp_group_count ==
-	    pim_ifp->pim->gm_watermark_limit) {
+	++pim_ifp->pim->gm_group_count;
+	if (pim_ifp->pim->gm_group_count == pim_ifp->pim->gm_watermark_limit) {
 		zlog_warn(
 			"IGMP group count reached watermark limit: %u(vrf: %s)",
-			pim_ifp->pim->igmp_group_count,
+			pim_ifp->pim->gm_group_count,
 			VRF_LOGNAME(pim_ifp->pim->vrf));
 	}
 
@@ -1023,13 +1022,13 @@ static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 
 static void igmp_group_count_decr(struct pim_interface *pim_ifp)
 {
-	if (pim_ifp->pim->igmp_group_count == 0) {
+	if (pim_ifp->pim->gm_group_count == 0) {
 		zlog_warn("Cannot decrement igmp group count below 0(vrf: %s)",
 			  VRF_LOGNAME(pim_ifp->pim->vrf));
 		return;
 	}
 
-	--pim_ifp->pim->igmp_group_count;
+	--pim_ifp->pim->gm_group_count;
 }
 
 void igmp_group_delete(struct gm_group *group)

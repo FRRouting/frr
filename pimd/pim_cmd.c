@@ -1129,11 +1129,11 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		json = json_object_new_object();
-		json_object_int_add(json, "totalGroups", pim->igmp_group_count);
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
 		json_object_int_add(json, "watermarkLimit",
 				    pim->gm_watermark_limit);
 	} else {
-		vty_out(vty, "Total IGMP groups: %u\n", pim->igmp_group_count);
+		vty_out(vty, "Total IGMP groups: %u\n", pim->gm_group_count);
 		vty_out(vty, "Watermark warn limit(%s): %u\n",
 			pim->gm_watermark_limit ? "Set" : "Not Set",
 			pim->gm_watermark_limit);
