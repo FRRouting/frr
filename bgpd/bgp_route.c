@@ -11052,6 +11052,13 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				    != PREFIX_PERMIT)
 					continue;
 			}
+			if (type == bgp_show_type_access_list) {
+				struct access_list *alist = output_arg;
+
+				if (access_list_apply(alist, dest_p) !=
+				    FILTER_PERMIT)
+					continue;
+			}
 			if (type == bgp_show_type_filter_list) {
 				struct as_list *as_list = output_arg;
 
@@ -12285,6 +12292,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
           |filter-list AS_PATH_FILTER_NAME\
           |prefix-list WORD\
+          |access-list ACCESSLIST_NAME\
           |route-map RMAP_NAME\
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
@@ -12323,6 +12331,8 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "Regular expression access list name\n"
       "Display routes conforming to the prefix-list\n"
       "Prefix-list name\n"
+      "Display routes conforming to the access-list\n"
+      "Access-list name\n"
       "Display routes matching the route-map\n"
       "A route-map to match on\n"
       "RPKI route types\n"
@@ -12464,6 +12474,21 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 
 		sh_type = bgp_show_type_prefix_list;
 		output_arg = plist;
+	}
+
+	if (argv_find(argv, argc, "access-list", &idx)) {
+		const char *access_list_str = argv[++idx]->arg;
+		struct access_list *alist;
+
+		alist = access_list_lookup(afi, access_list_str);
+		if (!alist) {
+			vty_out(vty, "%% %s is not a valid access-list name\n",
+				access_list_str);
+			return CMD_WARNING;
+		}
+
+		sh_type = bgp_show_type_access_list;
+		output_arg = alist;
 	}
 
 	if (argv_find(argv, argc, "route-map", &idx)) {

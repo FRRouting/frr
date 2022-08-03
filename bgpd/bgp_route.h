@@ -37,6 +37,7 @@ enum bgp_show_type {
 	bgp_show_type_normal,
 	bgp_show_type_regexp,
 	bgp_show_type_prefix_list,
+	bgp_show_type_access_list,
 	bgp_show_type_filter_list,
 	bgp_show_type_route_map,
 	bgp_show_type_neighbor,
