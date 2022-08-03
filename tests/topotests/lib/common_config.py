@@ -3244,33 +3244,29 @@ def configure_interface_mac(tgen, input_dict):
     return True
 
 
-def socat_send_igmp_join_traffic(
+def socat_send_mld_join(
     tgen,
     server,
     protocol_option,
-    igmp_groups,
+    mld_groups,
     send_from_intf,
     send_from_intf_ip=None,
     port=12345,
     reuseaddr=True,
-    join=False,
-    traffic=False,
 ):
     """
-    API to send IGMP join using SOCAT tool
+    API to send MLD join using SOCAT tool
 
     Parameters:
     -----------
     * `tgen`  : Topogen object
     * `server`: iperf server, from where IGMP join would be sent
     * `protocol_option`: Protocol options, ex: UDP6-RECV
-    * `igmp_groups`: IGMP group for which join has to be sent
+    * `mld_groups`: IGMP group for which join has to be sent
     * `send_from_intf`: Interface from which join would be sent
     * `send_from_intf_ip`: Interface IP, default is None
     * `port`: Port to be used, default is 12345
     * `reuseaddr`: True|False, bydefault True
-    * `join`: If join needs to be sent
-    * `traffic`: If traffic needs to be sent
 
     returns:
     --------
@@ -3280,36 +3276,32 @@ def socat_send_igmp_join_traffic(
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     rnode = tgen.routers()[server]
-    socat_cmd = "socat -u "
+    socat_args = "socat -u "
 
-    # UDP4/TCP4/UDP6/UDP6-RECV
+    # UDP4/TCP4/UDP6/UDP6-RECV/UDP6-SEND
     if protocol_option:
-        socat_cmd += "{}".format(protocol_option)
+        socat_args += "{}".format(protocol_option)
 
     if port:
-        socat_cmd += ":{},".format(port)
+        socat_args += ":{},".format(port)
 
     if reuseaddr:
-        socat_cmd += "{},".format("reuseaddr")
+        socat_args += "{},".format("reuseaddr")
 
     # Group address range to cover
-    if igmp_groups:
-        if not isinstance(igmp_groups, list):
-            igmp_groups = [igmp_groups]
+    if mld_groups:
+        if not isinstance(mld_groups, list):
+            mld_groups = [mld_groups]
 
-    for igmp_group in igmp_groups:
-        if join:
-            join_traffic_option = "ipv6-join-group"
-        elif traffic:
-            join_traffic_option = "ipv6-join-group-source"
+    for mld_group in mld_groups:
+        socat_cmd = socat_args
+        join_option = "ipv6-join-group"
 
         if send_from_intf and not send_from_intf_ip:
-            socat_cmd += "{}='[{}]:{}'".format(
-                join_traffic_option, igmp_group, send_from_intf
-            )
+            socat_cmd += "{}='[{}]:{}'".format(join_option, mld_group, send_from_intf)
         else:
             socat_cmd += "{}='[{}]:{}:[{}]'".format(
-                join_traffic_option, igmp_group, send_from_intf, send_from_intf_ip
+                join_option, mld_group, send_from_intf, send_from_intf_ip
             )
 
         socat_cmd += " STDOUT"
@@ -3322,6 +3314,124 @@ def socat_send_igmp_join_traffic(
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+def socat_send_pim6_traffic(
+    tgen,
+    server,
+    protocol_option,
+    mld_groups,
+    send_from_intf,
+    port=12345,
+    multicast_hops=True,
+):
+    """
+    API to send pim6 data taffic using SOCAT tool
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `server`: iperf server, from where IGMP join would be sent
+    * `protocol_option`: Protocol options, ex: UDP6-RECV
+    * `mld_groups`: MLD group for which join has to be sent
+    * `send_from_intf`: Interface from which join would be sent
+    * `port`: Port to be used, default is 12345
+    * `multicast_hops`: multicast-hops count, default is 255
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[server]
+    socat_args = "socat -u STDIO "
+
+    # UDP4/TCP4/UDP6/UDP6-RECV/UDP6-SEND
+    if protocol_option:
+        socat_args += "'{}".format(protocol_option)
+
+    # Group address range to cover
+    if mld_groups:
+        if not isinstance(mld_groups, list):
+            mld_groups = [mld_groups]
+
+    for mld_group in mld_groups:
+        socat_cmd = socat_args
+        if port:
+            socat_cmd += ":[{}]:{},".format(mld_group, port)
+
+        if send_from_intf:
+            socat_cmd += "interface={0},so-bindtodevice={0},".format(send_from_intf)
+
+        if multicast_hops:
+            socat_cmd += "multicast-hops=255'"
+
+        socat_cmd += " &>{}/socat.logs &".format(tgen.logdir)
+
+        # Run socat command to send pim6 traffic
+        logger.info(
+            "[DUT: {}]: Running command: [set +m; ( while sleep 1; do date; done ) | {}]".format(
+                server, socat_cmd
+            )
+        )
+
+        # Open a shell script file and write data to it, which will be
+        # used to send pim6 traffic continously
+        traffic_shell_script = "{}/{}/traffic.sh".format(tgen.logdir, server)
+        with open("{}".format(traffic_shell_script), "w") as taffic_sh:
+            taffic_sh.write(
+                "#!/usr/bin/env bash\n( while sleep 1; do date; done ) | {}\n".format(
+                    socat_cmd
+                )
+            )
+
+        rnode.run("chmod 755 {}".format(traffic_shell_script))
+        output = rnode.run("{} &> /dev/null".format(traffic_shell_script))
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def kill_socat(tgen, dut=None, action=None):
+    """
+    Killing socat process if running for any router in topology
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `dut`   : Any iperf hostname to send igmp prune
+    * `action`: to kill mld join using socat
+                to kill mld traffic using socat
+
+    Usage:
+    ------
+    kill_socat(tgen, dut ="i6", action="remove_mld_join")
+
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    router_list = tgen.routers()
+    for router, rnode in router_list.items():
+        if dut is not None and router != dut:
+            continue
+
+        if action == "remove_mld_join":
+            cmd = "ps -ef | grep socat | grep UDP6-RECV | grep {}".format(router)
+        elif action == "remove_mld_traffic":
+            cmd = "ps -ef | grep socat | grep UDP6-SEND | grep {}".format(router)
+        else:
+            cmd = "ps -ef | grep socat".format(router)
+
+        awk_cmd = "awk -F' ' '{print $2}' | xargs kill -9 &>/dev/null &"
+        cmd = "{} | {}".format(cmd, awk_cmd)
+
+        logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
+        rnode.run(cmd)
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
 
 #############################################
