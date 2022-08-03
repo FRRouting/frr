@@ -32,6 +32,7 @@
 #include "ferr.h"
 #include "lib/srcdest_table.h"
 #include "lib/linklist.h"
+#include "termtable.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -2124,6 +2125,8 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
 	bool uj = true;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json_row = NULL;
 	json_object *json_tmp;
 
@@ -2167,43 +2170,60 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	}
 
 	if (!uj) {
-		vty_out(vty,
-			"Interface         State          Address  PIM Nbrs           PIM DR  FHR IfChannels\n");
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|State|Address|PIM Nbrs|PIM DR|FHR|IfChannels");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 
 		json_object_object_foreach(json, key, val)
 		{
-			vty_out(vty, "%-16s  ", key);
+			const char *state, *address, *pimdr;
+			int neighbors, firsthpr, pimifchnl;
 
 			json_object_object_get_ex(val, "state", &json_tmp);
-			vty_out(vty, "%5s  ", json_object_get_string(json_tmp));
+			state = json_object_get_string(json_tmp);
 
 			json_object_object_get_ex(val, "address", &json_tmp);
-			vty_out(vty, "%15s  ",
-				json_object_get_string(json_tmp));
+			address = json_object_get_string(json_tmp);
 
 			json_object_object_get_ex(val, "pimNeighbors",
 						  &json_tmp);
-			vty_out(vty, "%8d  ", json_object_get_int(json_tmp));
+			neighbors = json_object_get_int(json_tmp);
 
 			if (json_object_object_get_ex(
 				    val, "pimDesignatedRouterLocal",
 				    &json_tmp)) {
-				vty_out(vty, "%15s  ", "local");
+				pimdr = "local";
 			} else {
 				json_object_object_get_ex(
 					val, "pimDesignatedRouter", &json_tmp);
-				vty_out(vty, "%15s  ",
-					json_object_get_string(json_tmp));
+				pimdr = json_object_get_string(json_tmp);
 			}
 
 			json_object_object_get_ex(val, "firstHopRouter",
 						  &json_tmp);
-			vty_out(vty, "%3d  ", json_object_get_int(json_tmp));
+			firsthpr = json_object_get_int(json_tmp);
 
 			json_object_object_get_ex(val, "pimIfChannels",
 						  &json_tmp);
-			vty_out(vty, "%9d\n", json_object_get_int(json_tmp));
+			pimifchnl = json_object_get_int(json_tmp);
+
+			ttable_add_row(tt, "%s|%s|%s|%d|%s|%d|%d", key, state,
+				       address, neighbors, pimdr, firsthpr,
+				       pimifchnl);
 		}
+
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+
+		ttable_del(tt);
 	}
 }
 
