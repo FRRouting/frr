@@ -121,11 +121,13 @@ static inline int qpb__l3_prefix__get(const Qpb__L3Prefix *pb_prefix,
 	switch (family) {
 
 	case AF_INET:
-		memset(prefix, 0, sizeof(struct prefix_ipv4));
+		memset((struct prefix_ipv4 *)prefix, 0,
+		       sizeof(struct prefix_ipv4));
 		break;
 
 	case AF_INET6:
-		memset(prefix, 0, sizeof(struct prefix_ipv6));
+		memset((struct prefix_ipv6 *)prefix, 0,
+		       sizeof(struct prefix_ipv6));
 		break;
 
 	default:
