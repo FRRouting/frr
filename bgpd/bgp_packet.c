@@ -2006,10 +2006,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
 					/* Best path selection */
-					if (bgp_best_path_select_defer(
-						    peer->bgp, afi, safi)
-					    < 0)
-						return BGP_Stop;
+					bgp_best_path_select_defer(peer->bgp,
+								   afi, safi);
 				}
 			}
 
