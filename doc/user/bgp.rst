@@ -3809,6 +3809,10 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
+.. clicmd:: show [ip] bgp [afi] [safi] [all] access-list WORD [wide|json]
+
+   Display routes that match the specified access-list.
+
 .. clicmd:: show [ip] bgp [afi] [safi] [all] filter-list WORD [wide|json]
 
    Display routes that match the specified AS-Path filter-list.
