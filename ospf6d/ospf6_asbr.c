@@ -3175,7 +3175,6 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 						&aggr->p);
 
 	hash_free(aggr->match_extnl_hash);
-	aggr->match_extnl_hash = NULL;
 
 	XFREE(MTYPE_OSPF6_EXTERNAL_RT_AGGR, aggr);
 }

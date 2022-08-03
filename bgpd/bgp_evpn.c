@@ -5962,15 +5962,9 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		     bgp);
 
 	hash_free(bgp->import_rt_hash);
-	bgp->import_rt_hash = NULL;
-
 	hash_free(bgp->vrf_import_rt_hash);
-	bgp->vrf_import_rt_hash = NULL;
-
 	hash_free(bgp->vni_svi_hash);
-	bgp->vni_svi_hash = NULL;
 	hash_free(bgp->vnihash);
-	bgp->vnihash = NULL;
 
 	list_delete(&bgp->vrf_import_rtl);
 	list_delete(&bgp->vrf_export_rtl);
@@ -6151,7 +6145,6 @@ static void bgp_evpn_remote_ip_hash_destroy(struct bgpevpn *vpn)
 	vpn);
 
 	hash_free(vpn->remote_ip_hash);
-	vpn->remote_ip_hash = NULL;
 }
 
 /* Add a remote MAC/IP route to hash table */

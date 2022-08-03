@@ -473,7 +473,6 @@ void ospf_external_aggregator_free(struct ospf_external_aggr_rt *aggr)
 		zlog_debug("%s: Release the aggregator Address(%pI4/%d)",
 			   __func__, &aggr->p.prefix, aggr->p.prefixlen);
 	hash_free(aggr->match_extnl_hash);
-	aggr->match_extnl_hash = NULL;
 
 	XFREE(MTYPE_OSPF_EXTERNAL_RT_AGGR, aggr);
 }

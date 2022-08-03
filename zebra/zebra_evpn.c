@@ -1049,11 +1049,9 @@ int zebra_evpn_del(struct zebra_evpn *zevpn)
 
 	/* Free the neighbor hash table. */
 	hash_free(zevpn->neigh_table);
-	zevpn->neigh_table = NULL;
 
 	/* Free the MAC hash table. */
 	hash_free(zevpn->mac_table);
-	zevpn->mac_table = NULL;
 
 	/* Remove references to the zevpn in the MH databases */
 	if (zevpn->vxlan_if)

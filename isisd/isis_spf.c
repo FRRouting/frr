@@ -257,7 +257,6 @@ void isis_vertex_del(struct isis_vertex *vertex)
 	if (vertex->firsthops) {
 		hash_clean(vertex->firsthops, NULL);
 		hash_free(vertex->firsthops);
-		vertex->firsthops = NULL;
 	}
 
 	memset(vertex, 0, sizeof(struct isis_vertex));

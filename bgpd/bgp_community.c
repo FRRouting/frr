@@ -925,7 +925,6 @@ void community_finish(void)
 {
 	hash_clean(comhash, community_hash_free);
 	hash_free(comhash);
-	comhash = NULL;
 }
 
 static struct community *bgp_aggr_community_lookup(

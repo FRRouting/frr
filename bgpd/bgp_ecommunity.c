@@ -381,7 +381,6 @@ void ecommunity_finish(void)
 {
 	hash_clean(ecomhash, (void (*)(void *))ecommunity_hash_free);
 	hash_free(ecomhash);
-	ecomhash = NULL;
 }
 
 /* Extended Communities token enum. */

@@ -3787,10 +3787,8 @@ void bgp_free(struct bgp *bgp)
 	list_delete(&bgp->group);
 	list_delete(&bgp->peer);
 
-	if (bgp->peerhash) {
+	if (bgp->peerhash)
 		hash_free(bgp->peerhash);
-		bgp->peerhash = NULL;
-	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		/* Special handling for 2-level routing tables. */

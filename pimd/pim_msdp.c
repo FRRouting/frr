@@ -1383,7 +1383,6 @@ void pim_msdp_exit(struct pim_instance *pim)
 	if (pim->msdp.peer_hash) {
 		hash_clean(pim->msdp.peer_hash, NULL);
 		hash_free(pim->msdp.peer_hash);
-		pim->msdp.peer_hash = NULL;
 	}
 
 	if (pim->msdp.peer_list) {
@@ -1393,7 +1392,6 @@ void pim_msdp_exit(struct pim_instance *pim)
 	if (pim->msdp.sa_hash) {
 		hash_clean(pim->msdp.sa_hash, NULL);
 		hash_free(pim->msdp.sa_hash);
-		pim->msdp.sa_hash = NULL;
 	}
 
 	if (pim->msdp.sa_list) {

@@ -208,7 +208,6 @@ void nhrp_peer_interface_del(struct interface *ifp)
 		hash_clean(nifp->peer_hash, do_peer_hash_free);
 		assert(nifp->peer_hash->count == 0);
 		hash_free(nifp->peer_hash);
-		nifp->peer_hash = NULL;
 	}
 }
 

@@ -1717,11 +1717,9 @@ static int zl3vni_del(struct zebra_l3vni *zl3vni)
 
 	/* Free the rmac table */
 	hash_free(zl3vni->rmac_table);
-	zl3vni->rmac_table = NULL;
 
 	/* Free the nh table */
 	hash_free(zl3vni->nh_table);
-	zl3vni->nh_table = NULL;
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_zl3vni = hash_release(zrouter.l3vni_table, zl3vni);
@@ -5888,7 +5886,6 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 	if (zvrf->vxlan_sg_table) {
 		zebra_vxlan_cleanup_sg_table(zvrf);
 		hash_free(zvrf->vxlan_sg_table);
-		zvrf->vxlan_sg_table = NULL;
 	}
 }
 

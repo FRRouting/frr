@@ -61,7 +61,6 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	if (pim->rpf_hash) {
 		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
 		hash_free(pim->rpf_hash);
-		pim->rpf_hash = NULL;
 	}
 
 	pim_if_terminate(pim);

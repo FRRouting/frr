@@ -189,7 +189,6 @@ void bgp_tip_hash_destroy(struct bgp *bgp)
 		return;
 	hash_clean(bgp->tip_hash, bgp_tip_hash_free);
 	hash_free(bgp->tip_hash);
-	bgp->tip_hash = NULL;
 }
 
 void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
@@ -313,7 +312,6 @@ void bgp_address_destroy(struct bgp *bgp)
 		return;
 	hash_clean(bgp->address_hash, bgp_address_hash_free);
 	hash_free(bgp->address_hash);
-	bgp->address_hash = NULL;
 }
 
 static void bgp_address_add(struct bgp *bgp, struct connected *ifc,

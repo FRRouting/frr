@@ -2604,7 +2604,6 @@ void cmd_terminate(void)
 				vector_free(cmd_node->cmd_vector);
 				hash_clean(cmd_node->cmd_hash, NULL);
 				hash_free(cmd_node->cmd_hash);
-				cmd_node->cmd_hash = NULL;
 			}
 
 		vector_free(cmdvec);

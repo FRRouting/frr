@@ -743,7 +743,6 @@ void thread_master_free(struct thread_master *m)
 
 	hash_clean(m->cpu_record, cpu_record_hash_free);
 	hash_free(m->cpu_record);
-	m->cpu_record = NULL;
 
 	XFREE(MTYPE_THREAD_MASTER, m->name);
 	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);

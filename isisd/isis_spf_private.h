@@ -216,7 +216,6 @@ static void isis_vertex_queue_free(struct isis_vertex_queue *queue)
 	isis_vertex_queue_clear(queue);
 
 	hash_free(queue->hash);
-	queue->hash = NULL;
 
 	if (queue->insert_counter) {
 		skiplist_free(queue->l.slist);

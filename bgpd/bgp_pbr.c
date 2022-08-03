@@ -1402,17 +1402,14 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 	if (bgp->pbr_match_hash) {
 		hash_clean(bgp->pbr_match_hash, bgp_pbr_match_free);
 		hash_free(bgp->pbr_match_hash);
-		bgp->pbr_match_hash = NULL;
 	}
 	if (bgp->pbr_rule_hash) {
 		hash_clean(bgp->pbr_rule_hash, bgp_pbr_rule_free);
 		hash_free(bgp->pbr_rule_hash);
-		bgp->pbr_rule_hash = NULL;
 	}
 	if (bgp->pbr_action_hash) {
 		hash_clean(bgp->pbr_action_hash, bgp_pbr_action_free);
 		hash_free(bgp->pbr_action_hash);
-		bgp->pbr_action_hash = NULL;
 	}
 	if (bgp->bgp_pbr_cfg == NULL)
 		return;
