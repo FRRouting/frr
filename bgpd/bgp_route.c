@@ -3191,7 +3191,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
-int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
+void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	int cnt = 0;
@@ -3238,7 +3238,7 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 		/* Send route processing complete message to RIB */
 		bgp_zebra_update(afi, safi, bgp->vrf_id,
 				 ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
-		return 0;
+		return;
 	}
 
 	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
@@ -3253,7 +3253,6 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	thread_add_timer(bm->master, bgp_route_select_timer_expire, thread_info,
 			BGP_ROUTE_SELECT_DELAY,
 			&bgp->gr_info[afi][safi].t_route_select);
-	return 0;
 }
 
 static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
