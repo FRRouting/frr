@@ -1058,7 +1058,7 @@ static void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 	/* If we're in shutdown, this interface event needs to clean
 	 * up installed NHGs, so don't clear that flag directly.
 	 */
-	if (!zrouter.in_shutdown)
+	if (!zebra_router_in_shutdown())
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
 	/* Update validity of nexthops depending on it */
@@ -1697,7 +1697,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	nhe->refcnt--;
 
-	if (!zrouter.in_shutdown && nhe->refcnt <= 0 &&
+	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
 	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
 		nhe->refcnt = 1;
