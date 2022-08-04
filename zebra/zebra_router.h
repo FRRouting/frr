@@ -285,6 +285,11 @@ static inline void zebra_router_set_supports_nhgs(bool support)
 	zrouter.supports_nhgs = support;
 }
 
+static inline bool zebra_router_in_shutdown(void)
+{
+	return atomic_load_explicit(&zrouter.in_shutdown, memory_order_relaxed);
+}
+
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
 
