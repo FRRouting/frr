@@ -4346,6 +4346,12 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 				json, "flooding",
 				bgp_evpn->vxlan_flood_ctrl ==
 						VXLAN_FLOOD_HEAD_END_REPL
+					? "Head-end replication"
+					: "Disabled");
+			json_object_string_add(
+				json, "vxlanFlooding",
+				bgp_evpn->vxlan_flood_ctrl ==
+						VXLAN_FLOOD_HEAD_END_REPL
 					? "Enabled"
 					: "Disabled");
 			json_object_int_add(json, "numVnis", num_vnis);
@@ -4361,6 +4367,11 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 			vty_out(vty, "Advertise All VNI flag: %s\n",
 				is_evpn_enabled() ? "Enabled" : "Disabled");
 			vty_out(vty, "BUM flooding: %s\n",
+				bgp_evpn->vxlan_flood_ctrl ==
+						VXLAN_FLOOD_HEAD_END_REPL
+					? "Head-end replication"
+					: "Disabled");
+			vty_out(vty, "VXLAN flooding: %s\n",
 				bgp_evpn->vxlan_flood_ctrl ==
 						VXLAN_FLOOD_HEAD_END_REPL
 					? "Enabled"
