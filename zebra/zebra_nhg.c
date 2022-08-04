@@ -1621,10 +1621,61 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 	XFREE(MTYPE_NHG, nhe);
 }
 
+/*
+ * Let's just drop the memory associated with each item
+ */
 void zebra_nhg_hash_free(void *p)
 {
-	zebra_nhg_release_all_deps((struct nhg_hash_entry *)p);
-	zebra_nhg_free((struct nhg_hash_entry *)p);
+	struct nhg_hash_entry *nhe = p;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		/* Group or singleton? */
+		if (nhe->nhg.nexthop && nhe->nhg.nexthop->next)
+			zlog_debug("%s: nhe %p (%u), refcnt %d", __func__, nhe,
+				   nhe->id, nhe->refcnt);
+		else
+			zlog_debug("%s: nhe %p (%pNG), refcnt %d, NH %pNHv",
+				   __func__, nhe, nhe, nhe->refcnt,
+				   nhe->nhg.nexthop);
+	}
+
+	THREAD_OFF(nhe->timer);
+
+	nexthops_free(nhe->nhg.nexthop);
+
+	XFREE(MTYPE_NHG, nhe);
+}
+
+/*
+ * On cleanup there are nexthop groups that have not
+ * been resolved at all( a nhe->id of 0 ).  As such
+ * zebra needs to clean up the memory associated with
+ * those entries.
+ */
+void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg)
+{
+	struct nhg_hash_entry *nhe = b->data;
+	struct nhg_connected *dep;
+
+	while ((dep = nhg_connected_tree_pop(&nhe->nhg_depends))) {
+		if (dep->nhe->id == 0)
+			zebra_nhg_hash_free(dep->nhe);
+
+		nhg_connected_free(dep);
+	}
+
+	while ((dep = nhg_connected_tree_pop(&nhe->nhg_dependents)))
+		nhg_connected_free(dep);
+
+	if (nhe->backup_info && nhe->backup_info->nhe->id == 0) {
+		while ((dep = nhg_connected_tree_pop(
+				&nhe->backup_info->nhe->nhg_depends)))
+			nhg_connected_free(dep);
+
+		zebra_nhg_hash_free(nhe->backup_info->nhe);
+
+		XFREE(MTYPE_NHG, nhe->backup_info);
+	}
 }
 
 static void zebra_nhg_timer(struct thread *thread)
