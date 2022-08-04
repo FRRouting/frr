@@ -4700,7 +4700,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	if (uj)
 		json = json_object_new_object();
 
-	if (argv_find(argv, argc, "all", &rd_all)) {
+	if (!argv_find(argv, argc, "all", &rd_all)) {
 		/* get the RD */
 		if (argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			      &idx_ext_community)) {
@@ -4772,7 +4772,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
 		json = json_object_new_object();
 
 	/* get the prd */
-	if (argv_find(argv, argc, "all", &rd_all)) {
+	if (!argv_find(argv, argc, "all", &rd_all)) {
 		if (argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			      &idx_ext_community)) {
 			ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
