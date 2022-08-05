@@ -1547,7 +1547,7 @@ static int update_group_periodic_merge_walkcb(struct update_group *updgrp,
  *             update groups.
  */
 void update_group_policy_update(struct bgp *bgp, enum bgp_policy_type ptype,
-				const char *pname, int route_update,
+				const char *pname, bool route_update,
 				int start_event)
 {
 	struct updwalk_context ctx;
