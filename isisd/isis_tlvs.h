@@ -597,6 +597,7 @@ void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *src,
 				     uint32_t metric);
 struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void);
+void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext);
 void isis_tlvs_add_adj_sid(struct isis_ext_subtlvs *exts,
 			   struct isis_adj_sid *adj);
 void isis_tlvs_del_adj_sid(struct isis_ext_subtlvs *exts,

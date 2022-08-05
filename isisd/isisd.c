@@ -224,6 +224,12 @@ struct isis *isis_new(const char *vrf_name)
 
 void isis_finish(struct isis *isis)
 {
+	struct isis_area *area;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(isis->area_list, node, nnode, area))
+		isis_area_destroy(area);
+
 	struct vrf *vrf = NULL;
 
 	listnode_delete(im->isis, isis);
@@ -273,6 +279,13 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
+static void delete_area_addr(void *arg)
+{
+	struct area_addr *addr = (struct area_addr *)arg;
+
+	XFREE(MTYPE_ISIS_AREA_ADDR, addr);
+}
+
 struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 {
 	struct isis_area *area;
@@ -318,6 +331,8 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
+	area->area_addrs->del = delete_area_addr;
+
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
@@ -481,16 +496,11 @@ void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
-	struct area_addr *addr;
 
 	QOBJ_UNREG(area);
 
 	if (fabricd)
 		fabricd_finish(area->fabricd);
-
-	/* Disable MPLS if necessary before flooding LSP */
-	if (IS_MPLS_TE(area->mta))
-		area->mta->status = disable;
 
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
@@ -499,6 +509,9 @@ void isis_area_destroy(struct isis_area *area)
 
 		list_delete(&area->circuit_list);
 	}
+	if (area->flags.free_idcs)
+		list_delete(&area->flags.free_idcs);
+
 	list_delete(&area->adjacency_list);
 
 	lsp_db_fini(&area->lspdb[0]);
@@ -509,6 +522,8 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_verify_routes(area);
 
 	isis_sr_area_term(area);
+
+	isis_mpls_te_term(area);
 
 	spftree_area_del(area);
 
@@ -525,11 +540,7 @@ void isis_area_destroy(struct isis_area *area)
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
 
-	for (ALL_LIST_ELEMENTS(area->area_addrs, node, nnode, addr)) {
-		list_delete_node(area->area_addrs, node);
-		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
-	}
-	area->area_addrs = NULL;
+	list_delete(&area->area_addrs);
 
 	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
 	     i++) {
@@ -553,10 +564,6 @@ void isis_area_destroy(struct isis_area *area)
 	free(area->area_tag);
 
 	area_mt_finish(area);
-
-	if (listcount(area->isis->area_list) == 0) {
-		isis_finish(area->isis);
-	}
 
 	XFREE(MTYPE_ISIS_AREA, area);
 
