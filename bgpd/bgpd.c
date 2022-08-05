@@ -5497,12 +5497,23 @@ static void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			return;
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG))
+			       PEER_FLAG_SOFT_RECONFIG)) {
 			bgp_soft_reconfig_in(peer, afi, safi);
-		else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-			 || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
-					       BGP_ROUTE_REFRESH_NORMAL);
+		} else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
+			   CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
+			if (CHECK_FLAG(peer->af_cap[afi][safi],
+				       PEER_CAP_ORF_PREFIX_SM_ADV) &&
+			    (CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_ORF_PREFIX_RM_RCV) ||
+			     CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_ORF_PREFIX_RM_OLD_RCV)))
+				peer_clear_soft(peer, afi, safi,
+						BGP_CLEAR_SOFT_IN_ORF_PREFIX);
+			else
+				bgp_route_refresh_send(
+					peer, afi, safi, 0, 0, 0,
+					BGP_ROUTE_REFRESH_NORMAL);
+		}
 	}
 }
 
@@ -6546,7 +6557,7 @@ static void peer_distribute_update(struct access_list *access)
 		if (access->name)
 			update_group_policy_update(bgp,
 						   BGP_POLICY_DISTRIBUTE_LIST,
-						   access->name, 0, 0);
+						   access->name, true, 0);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			FOREACH_AFI_SAFI (afi, safi) {
 				filter = &peer->filter[afi][safi];
@@ -6735,7 +6746,7 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 		 */
 		update_group_policy_update(
 			bgp, BGP_POLICY_PREFIX_LIST,
-			plist ? prefix_list_name(plist) : NULL, 0, 0);
+			plist ? prefix_list_name(plist) : NULL, true, 0);
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			FOREACH_AFI_SAFI (afi, safi) {
@@ -6753,6 +6764,14 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 						filter->plist[direct].plist =
 							NULL;
 				}
+
+				/* If we touch prefix-list, we need to process
+				 * new updates. This is important for ORF to
+				 * work correctly as well.
+				 */
+				if (peer->afc_nego[afi][safi])
+					peer_on_policy_change(peer, afi, safi,
+							      0);
 			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
@@ -6912,7 +6931,7 @@ static void peer_aslist_update(const char *aslist_name)
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 		update_group_policy_update(bgp, BGP_POLICY_FILTER_LIST,
-					   aslist_name, 0, 0);
+					   aslist_name, true, 0);
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			FOREACH_AFI_SAFI (afi, safi) {

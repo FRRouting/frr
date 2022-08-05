@@ -298,7 +298,7 @@ struct updwalk_context {
 	enum bgp_policy_type policy_type;
 	const char *policy_name;
 	int policy_event_start_flag;
-	int policy_route_update;
+	bool policy_route_update;
 	updgrp_walkcb cb;
 	void *context;
 	uint8_t flags;
@@ -377,7 +377,7 @@ extern bool update_subgroup_trigger_merge_check(struct update_subgroup *,
 						int force);
 extern void update_group_policy_update(struct bgp *bgp,
 				       enum bgp_policy_type ptype,
-				       const char *pname, int route_update,
+				       const char *pname, bool route_update,
 				       int start_event);
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 				 updgrp_walkcb cb, void *ctx);
