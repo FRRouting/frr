@@ -3372,6 +3372,8 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty, "Mroute socket descriptor:");
 
 	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
+	vty_out(vty, "PIM Register socket descriptor:");
+	vty_out(vty, " %d(%s)\n", pim->reg_sock, vrf->name);
 
 	pim_time_uptime(uptime, sizeof(uptime),
 			now - pim->mroute_socket_creation);
