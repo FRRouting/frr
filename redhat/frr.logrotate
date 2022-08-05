@@ -134,6 +134,14 @@
     endscript
 }
 
+/var/log/frr/pim6d.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/pim6d.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
 /var/log/frr/sharpd.log {
     notifempty
     missingok

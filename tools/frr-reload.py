@@ -1886,6 +1886,7 @@ if __name__ == "__main__":
         "ospfd",
         "pbrd",
         "pimd",
+        "pim6d",
         "ripd",
         "ripngd",
         "sharpd",
