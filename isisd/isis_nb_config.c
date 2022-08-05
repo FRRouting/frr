@@ -54,7 +54,6 @@
 #include "isisd/isis_dr.h"
 #include "isisd/isis_zebra.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 
 /*
@@ -86,12 +85,17 @@ int isis_instance_create(struct nb_cb_create_args *args)
 int isis_instance_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
+	struct isis *isis;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	area = nb_running_unset_entry(args->dnode);
-
+	isis = area->isis;
 	isis_area_destroy(area);
+
+	if (listcount(isis->area_list) == 0)
+		isis_finish(isis);
+
 	return NB_OK;
 }
 
@@ -1787,45 +1791,13 @@ int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args)
  */
 int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
 {
-	struct listnode *node;
 	struct isis_area *area;
-	struct isis_circuit *circuit;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	if (area->mta == NULL) {
-
-		struct mpls_te_area *new;
-
-		zlog_debug("ISIS-TE(%s): Initialize MPLS Traffic Engineering",
-			   area->area_tag);
-
-		new = XCALLOC(MTYPE_ISIS_MPLS_TE, sizeof(struct mpls_te_area));
-
-		/* Initialize MPLS_TE structure */
-		new->status = enable;
-		new->level = 0;
-		new->inter_as = off;
-		new->interas_areaid.s_addr = 0;
-		new->router_id.s_addr = 0;
-		new->ted = ls_ted_new(1, "ISIS", 0);
-		if (!new->ted)
-			zlog_warn("Unable to create Link State Data Base");
-
-		area->mta = new;
-	} else {
-		area->mta->status = enable;
-	}
-
-	/* Initialize Link State Database */
-	if (area->mta->ted)
-		isis_te_init_ted(area);
-
-	/* Update Extended TLVs according to Interface link parameters */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
-		isis_link_params_update(circuit, circuit->interface);
+	isis_mpls_te_create(area);
 
 	/* Reoriginate STD_TE & GMPLS circuits */
 	lsp_regenerate_schedule(area, area->is_type, 0);
@@ -1835,35 +1807,16 @@ int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
 
 int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 {
-	struct listnode *node;
 	struct isis_area *area;
-	struct isis_circuit *circuit;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
-	if (IS_MPLS_TE(area->mta))
-		area->mta->status = disable;
-	else
+	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
 
-	/* Remove Link State Database */
-	ls_ted_del_all(&area->mta->ted);
-
-	/* Flush LSP if circuit engage */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		if (!IS_EXT_TE(circuit->ext))
-			continue;
-
-		/* disable MPLS_TE Circuit keeping SR one's */
-		if (IS_SUBTLV(circuit->ext, EXT_ADJ_SID))
-			circuit->ext->status = EXT_ADJ_SID;
-		else if (IS_SUBTLV(circuit->ext, EXT_LAN_ADJ_SID))
-			circuit->ext->status = EXT_LAN_ADJ_SID;
-		else
-			circuit->ext->status = 0;
-	}
+	isis_mpls_te_disable(area);
 
 	/* Reoriginate STD_TE & GMPLS circuits */
 	lsp_regenerate_schedule(area, area->is_type, 0);
