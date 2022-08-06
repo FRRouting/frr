@@ -1257,3 +1257,47 @@ int bp_echov6_socket(const struct vrf *vrf)
 
 	return s;
 }
+<<<<<<< HEAD
+=======
+
+#ifdef BFD_LINUX
+/* get peer's mac address to be used with Echo packets when they are looped in
+ * peers forwarding plane
+ */
+void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
+		      struct sockaddr_any *peer, struct interface *ifp)
+{
+	struct arpreq arpreq_;
+
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
+		return;
+	if (ifp->flags & IFF_NOARP)
+		return;
+
+	if (peer->sa_sin.sin_family == AF_INET) {
+		/* IPV4 */
+		struct sockaddr_in *addr =
+			(struct sockaddr_in *)&arpreq_.arp_pa;
+
+		memset(&arpreq_, 0, sizeof(struct arpreq));
+		addr->sin_family = AF_INET;
+		memcpy(&addr->sin_addr.s_addr, &peer->sa_sin.sin_addr,
+		       sizeof(addr->sin_addr));
+		strlcpy(arpreq_.arp_dev, ifp->name, sizeof(arpreq_.arp_dev));
+
+		if (ioctl(sd, SIOCGARP, &arpreq_) < 0) {
+			zlog_warn(
+				"BFD: getting peer's mac on %s failed error %s",
+				ifp->name, strerror(errno));
+			UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
+			memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
+
+		} else {
+			memcpy(bfd->peer_hw_addr, arpreq_.arp_ha.sa_data,
+			       sizeof(bfd->peer_hw_addr));
+			SET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
+		}
+	}
+}
+#endif
+>>>>>>> 97739c280 (bfdd: Some interfaces don't have mac addresses)
