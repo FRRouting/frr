@@ -256,6 +256,7 @@ struct nhg_hash_entry *zebra_nhg_alloc(void);
 void zebra_nhg_free(struct nhg_hash_entry *nhe);
 /* In order to clear a generic hash, we need a generic api, sigh. */
 void zebra_nhg_hash_free(void *p);
+void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg);
 
 /* Init an nhe, for use in a hash lookup for example. There's some fuzziness
  * if the nhe represents only a single nexthop, so we try to capture that
