@@ -1100,7 +1100,6 @@ afibreak:
 			prefix_copy(&bmp->syncpos, bgp_dest_get_prefix(bn));
 		}
 
-		/* TODO BMP add BMP_MON_LOC_RIB case */
 		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY
 		    || bmp->targets->afimon[afi][safi] & BMP_MON_LOC_RIB) {
 			for (bpiter = bgp_dest_get_bgp_path_info(bn); bpiter;
@@ -1234,7 +1233,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		goto out;
 	}
 
-
 	switch (bmp->afistate[afi][safi]) {
 	case BMP_AFI_INACTIVE:
 	case BMP_AFI_NEEDSYNC:
@@ -1246,9 +1244,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 			 */
 			break;
 
-		/* TODO BMP_MON_LOCRIB check if this is true after implenting
-		 * LOCRIB syncing
-		 */
 		/* currently syncing & haven't reached this prefix yet
 		 * => it'll be sent as part of the table sync, no need here
 		 */
@@ -1269,14 +1264,12 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		goto out;
 	}
 
-	bn = bgp_node_lookup(bmp->targets->bgp->rib[afi][safi], &bqe->p);
-	struct prefix_rd *prd = NULL;
+	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
+		      (bqe->safi == SAFI_MPLS_VPN);
 
-	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) || (bqe->safi == SAFI_MPLS_VPN);
-	if (is_vpn) {
-		prd = &bqe->rd;
-		bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], afi, safi, &bqe->p, &bqe->rd);
-	}
+	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
+	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi,
+				 &bqe->p, prd);
 
 	struct bgp_path_info *bpi;
 
@@ -1349,7 +1342,6 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi,
 				  &bqe->p, prd);
 
-	/* TODO BMP add MON_BGP_LOC_RIB case */
 	if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
 		struct bgp_path_info *bpi;
 
@@ -1425,7 +1417,7 @@ static void bmp_wrerr(struct bmp *bmp, struct pullwr *pullwr, bool eof)
 	bmp_free(bmp);
 }
 
-static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp, afi_t afi,
+static struct bmp_queue_entry* bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head* updhash, struct bmp_qlist_head* updlist, struct bgp *bgp, afi_t afi,
 			    safi_t safi, struct bgp_dest *bn, struct peer *peer)
 {
 	struct bmp *bmp;
@@ -1447,26 +1439,26 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp, afi_t afi,
 		prefix_copy(&bqeref.rd,
 			    (struct prefix_rd *)bgp_dest_get_prefix(bn->pdest));
 
-	bqe = bmp_qhash_find(&bt->updhash, &bqeref);
+	bqe = bmp_qhash_find(updhash, &bqeref);
 	if (bqe) {
 		if (bqe->refcount >= refcount)
 			/* nothing to do here */
 			return;
 
-		bmp_qlist_del(&bt->updlist, bqe);
+		bmp_qlist_del(updlist, bqe);
 	} else {
 		bqe = XMALLOC(MTYPE_BMP_QUEUE, sizeof(*bqe));
 		memcpy(bqe, &bqeref, sizeof(*bqe));
 
-		bmp_qhash_add(&bt->updhash, bqe);
+		bmp_qhash_add(updhash, bqe);
 	}
 
 	bqe->refcount = refcount;
-	bmp_qlist_add_tail(&bt->updlist, bqe);
+	bmp_qlist_add_tail(updlist, bqe);
 
-	frr_each (bmp_session, &bt->sessions, bmp)
-		if (!bmp->queuepos)
-			bmp->queuepos = bqe;
+	return bqe;
+
+	/* need to update correct queue pos for all sessions of the target after a call to this function */
 }
 
 static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
@@ -1488,12 +1480,16 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 		return 0;
 
 	frr_each(bmp_targets, &bmpbgp->targets, bt) {
-		if (!bt->afimon[afi][safi])
+		/* check if any monitoring is enabled (ignoring loc-rib since it uses another hook & queue */
+		if (!(bt->afimon[afi][safi] & ~BMP_MON_LOC_RIB))
 			continue;
 
-		bmp_process_one(bt, bgp, afi, safi, bn, peer);
+		struct bmp_queue_entry* last_item = bmp_process_one(bt, &bt->updhash, &bt->updlist, bgp, afi, safi, bn, peer);
 
 		frr_each(bmp_session, &bt->sessions, bmp) {
+			if (!bmp->queuepos)
+				bmp->queuepos = last_item;
+
 			pullwr_bump(bmp->pullwr);
 		}
 	}
@@ -2386,8 +2382,8 @@ DEFPY(bmp_stats_cfg,
 	return CMD_SUCCESS;
 }
 
-DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
-      /* TODO BMP add loc-rib option */
+DEFPY(bmp_monitor_cfg,
+      bmp_monitor_cmd,
       "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy|loc-rib>$policy",
       NO_STR BMP_STR
       "Send BMP route monitoring messages\n" BGP_AF_STR BGP_AF_STR BGP_AF_STR
@@ -2407,11 +2403,8 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	argv_find_and_parse_afi(argv, argc, &index, &afi);
 	argv_find_and_parse_safi(argv, argc, &index, &safi);
 
-	/* TODO BMP set right flag */
 	if (policy[0] == 'l') {
 		flag = BMP_MON_LOC_RIB;
-		vty_out(vty,
-			"changing loc rib monitoring config for this target\n");
 	} else if (policy[1] == 'r')
 		flag = BMP_MON_PREPOLICY;
 	else
@@ -2760,48 +2753,11 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	frr_each(bmp_targets, &bmpbgp->targets, bt) {
 		if (bt->afimon[afi][safi] & BMP_MON_LOC_RIB) {
 
-			struct bmp_queue_entry *bqe, bqeref;
-			size_t refcount;
-
-			refcount = bmp_session_count(&bt->sessions);
-			if (refcount == 0)
-				return 0;
-
-			memset(&bqeref, 0, sizeof(bqeref));
-			prefix_copy(&bqeref.p, prefix);
-			bqeref.peerid = peer->qobj_node.nid;
-			bqeref.afi = afi;
-			bqeref.safi = safi;
-
-			if ((afi == AFI_L2VPN && safi == SAFI_EVPN &&
-			     bn->pdest) ||
-			    (safi == SAFI_MPLS_VPN))
-				prefix_copy(
-					&bqeref.rd,
-					(struct prefix_rd *)bgp_dest_get_prefix(
-						bn->pdest));
-
-			bqe = bmp_qhash_find(&bt->locupdhash, &bqeref);
-			uint32_t key = bmp_qhash_hkey(&bqeref);
-
-			if (bqe) {
-				if (bqe->refcount >= refcount)
-					/* nothing to do here */
-					return 0;
-
-				bmp_qlist_del(&bt->locupdlist, bqe);
-			} else {
-				bqe = XMALLOC(MTYPE_BMP_QUEUE, sizeof(*bqe));
-				memcpy(bqe, &bqeref, sizeof(*bqe));
-				bmp_qhash_add(&bt->locupdhash, bqe);
-			}
-
-			bqe->refcount = refcount;
-			bmp_qlist_add_tail(&bt->locupdlist, bqe);
+			struct bmp_queue_entry *last_item = bmp_process_one(bt, &bt->locupdhash, &bt->locupdlist, bgp, afi, safi, bn, peer);
 
 			frr_each (bmp_session, &bt->sessions, bmp) {
 				if (!bmp->locrib_queuepos)
-					bmp->locrib_queuepos = bqe;
+					bmp->locrib_queuepos = last_item;
 
 				pullwr_bump(bmp->pullwr);
 			};
