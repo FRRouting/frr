@@ -147,8 +147,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if = XCALLOC(MTYPE_ZINFO, sizeof(struct zebra_if));
 	zebra_if->ifp = ifp;
 
-	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
-	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
+	zebra_if->shutdown = IF_ZEBRA_DATA_OFF;
 
 	zebra_if_nhg_dependents_init(zebra_if);
 
@@ -583,9 +583,9 @@ void if_add_update(struct interface *ifp)
 	if_data = ifp->info;
 	assert(if_data);
 
-	if (if_data->multicast == IF_ZEBRA_MULTICAST_ON)
+	if (if_data->multicast == IF_ZEBRA_DATA_ON)
 		if_set_flags(ifp, IFF_MULTICAST);
-	else if (if_data->multicast == IF_ZEBRA_MULTICAST_OFF)
+	else if (if_data->multicast == IF_ZEBRA_DATA_OFF)
 		if_unset_flags(ifp, IFF_MULTICAST);
 
 	zebra_ptm_if_set_ptm_state(ifp, if_data);
@@ -595,7 +595,7 @@ void if_add_update(struct interface *ifp)
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
-		if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON) {
+		if (if_data->shutdown == IF_ZEBRA_DATA_ON) {
 			if (IS_ZEBRA_DEBUG_KERNEL) {
 				zlog_debug(
 					"interface %s vrf %s(%u) index %d is shutdown. Won't wake it up.",
@@ -1453,9 +1453,10 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 		/*
 		 * mpls netconf data is neither v4 or v6 it's AF_MPLS!
 		 */
-		if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
+		if (mpls == DPLANE_NETCONF_STATUS_ENABLED) {
 			zif->mpls = true;
-		else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
+			zebra_mpls_turned_on();
+		} else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
 			zif->mpls = false;
 	}
 
@@ -2908,7 +2909,7 @@ int if_multicast_set(struct interface *ifp)
 		if_refresh(ifp);
 	}
 	if_data = ifp->info;
-	if_data->multicast = IF_ZEBRA_MULTICAST_ON;
+	if_data->multicast = IF_ZEBRA_DATA_ON;
 
 	return 0;
 }
@@ -2931,7 +2932,28 @@ DEFUN (multicast,
 		if_refresh(ifp);
 	}
 	if_data = ifp->info;
-	if_data->multicast = IF_ZEBRA_MULTICAST_ON;
+	if_data->multicast = IF_ZEBRA_DATA_ON;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (mpls,
+       mpls_cmd,
+       "[no] mpls enable",
+       NO_STR
+       MPLS_STR
+       "Set mpls to be on for the interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *if_data = ifp->info;
+
+	if (no) {
+		dplane_intf_mpls_modify_state(ifp, false);
+		if_data->mpls = IF_ZEBRA_DATA_UNSPEC;
+	} else {
+		dplane_intf_mpls_modify_state(ifp, true);
+		if_data->mpls = IF_ZEBRA_DATA_ON;
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2949,7 +2971,7 @@ int if_multicast_unset(struct interface *ifp)
 		if_refresh(ifp);
 	}
 	if_data = ifp->info;
-	if_data->multicast = IF_ZEBRA_MULTICAST_OFF;
+	if_data->multicast = IF_ZEBRA_DATA_OFF;
 
 	return 0;
 }
@@ -2973,7 +2995,7 @@ DEFUN (no_multicast,
 		if_refresh(ifp);
 	}
 	if_data = ifp->info;
-	if_data->multicast = IF_ZEBRA_MULTICAST_OFF;
+	if_data->multicast = IF_ZEBRA_DATA_OFF;
 
 	return CMD_SUCCESS;
 }
@@ -3039,7 +3061,7 @@ int if_shutdown(struct interface *ifp)
 		if_refresh(ifp);
 	}
 	if_data = ifp->info;
-	if_data->shutdown = IF_ZEBRA_SHUTDOWN_ON;
+	if_data->shutdown = IF_ZEBRA_DATA_ON;
 
 	return 0;
 }
@@ -3064,7 +3086,7 @@ DEFUN (shutdown_if,
 		if_refresh(ifp);
 	}
 	if_data = ifp->info;
-	if_data->shutdown = IF_ZEBRA_SHUTDOWN_ON;
+	if_data->shutdown = IF_ZEBRA_DATA_ON;
 
 	return CMD_SUCCESS;
 }
@@ -3088,7 +3110,7 @@ int if_no_shutdown(struct interface *ifp)
 	}
 
 	if_data = ifp->info;
-	if_data->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+	if_data->shutdown = IF_ZEBRA_DATA_OFF;
 
 	return 0;
 }
@@ -3119,7 +3141,7 @@ DEFUN (no_shutdown_if,
 	}
 
 	if_data = ifp->info;
-	if_data->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+	if_data->shutdown = IF_ZEBRA_DATA_OFF;
 
 	return CMD_SUCCESS;
 }
@@ -3906,9 +3928,9 @@ int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 		SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
 	/* In case of this route need to install kernel. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    && CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)
-	    && !(if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)) {
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
+	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
+	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
 		/* Some system need to up the interface to set IP address. */
 		if (!if_is_up(ifp)) {
 			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
@@ -4001,9 +4023,9 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 		SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
 	/* In case of this route need to install kernel. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    && CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)
-	    && !(if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)) {
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
+	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
+	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
 		/* Some system need to up the interface to set IP address. */
 		if (!if_is_up(ifp)) {
 			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
@@ -4264,9 +4286,9 @@ int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
 		SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
 	/* In case of this route need to install kernel. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    && CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)
-	    && !(if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)) {
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
+	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
+	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
 		/* Some system need to up the interface to set IP address. */
 		if (!if_is_up(ifp)) {
 			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
@@ -4337,9 +4359,9 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 		SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
 	/* In case of this route need to install kernel. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    && CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)
-	    && !(if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)) {
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
+	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
+	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
 		/* Some system need to up the interface to set IP address. */
 		if (!if_is_up(ifp)) {
 			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
@@ -4524,7 +4546,7 @@ static int if_config_write(struct vty *vty)
 			if_vty_config_start(vty, ifp);
 
 			if (if_data) {
-				if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
+				if (if_data->shutdown == IF_ZEBRA_DATA_ON)
 					vty_out(vty, " shutdown\n");
 
 				zebra_ptm_if_write(vty, if_data);
@@ -4574,13 +4596,14 @@ static int if_config_write(struct vty *vty)
 			}
 
 			if (if_data) {
-				if (if_data->multicast
-				    != IF_ZEBRA_MULTICAST_UNSPEC)
+				if (if_data->multicast != IF_ZEBRA_DATA_UNSPEC)
 					vty_out(vty, " %smulticast\n",
-						if_data->multicast
-								== IF_ZEBRA_MULTICAST_ON
+						if_data->multicast ==
+								IF_ZEBRA_DATA_ON
 							? ""
 							: "no ");
+				if (if_data->mpls == IF_ZEBRA_DATA_ON)
+					vty_out(vty, " mpls\n");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
@@ -4617,6 +4640,7 @@ void zebra_if_init(void)
 	install_element(ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
 	install_element(INTERFACE_NODE, &multicast_cmd);
 	install_element(INTERFACE_NODE, &no_multicast_cmd);
+	install_element(INTERFACE_NODE, &mpls_cmd);
 	install_element(INTERFACE_NODE, &linkdetect_cmd);
 	install_element(INTERFACE_NODE, &no_linkdetect_cmd);
 	install_element(INTERFACE_NODE, &shutdown_if_cmd);
