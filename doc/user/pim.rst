@@ -13,7 +13,7 @@ network for optimizing forwarding of overlay BUM traffic.
 
 .. note::
 
-   On Linux for PIM-SM operation you *must* have kernel version 4.18 or greater.
+   On Linux for PIM-SM operation you *must* have kernel version 4.19 or greater.
    To use PIM for EVPN BUM forwarding, kernels 5.0 or greater are required.
    OpenBSD has no multicast support and FreeBSD, and NetBSD only
    have support for SSM.
