@@ -1683,6 +1683,8 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
 		return;
+	if (ifp->flags & IFF_NOARP)
+		return;
 
 	if (peer->sa_sin.sin_family == AF_INET) {
 		/* IPV4 */
@@ -1696,8 +1698,9 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 		strlcpy(arpreq_.arp_dev, ifp->name, sizeof(arpreq_.arp_dev));
 
 		if (ioctl(sd, SIOCGARP, &arpreq_) < 0) {
-			zlog_warn("BFD: getting peer's mac failed error %s",
-				  strerror(errno));
+			zlog_warn(
+				"BFD: getting peer's mac on %s failed error %s",
+				ifp->name, strerror(errno));
 			UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
 			memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
 
