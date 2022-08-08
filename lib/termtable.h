@@ -105,13 +105,6 @@ struct ttable *ttable_new(const struct ttable_style *tts);
 void ttable_del(struct ttable *tt);
 
 /**
- * Deletes an individual cell.
- *
- * @param cell the cell to destroy
- */
-void ttable_cell_del(struct ttable_cell *cell);
-
-/**
  * Inserts a new row at the given index.
  *
  * The row contents are determined by a format string. The format string has
