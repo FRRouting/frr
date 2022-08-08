@@ -43,35 +43,35 @@
 /* BGP advertise attribute is used for pack same attribute update into
    one packet.  To do that we maintain attribute hash in struct
    peer.  */
-struct bgp_advertise_attr *baa_new(void)
+struct bgp_advertise_attr *bgp_advertise_attr_new(void)
 {
 	return XCALLOC(MTYPE_BGP_ADVERTISE_ATTR,
 		       sizeof(struct bgp_advertise_attr));
 }
 
-static void baa_free(struct bgp_advertise_attr *baa)
+void bgp_advertise_attr_free(struct bgp_advertise_attr *baa)
 {
 	XFREE(MTYPE_BGP_ADVERTISE_ATTR, baa);
 }
 
-static void *baa_hash_alloc(void *p)
+static void *bgp_advertise_attr_hash_alloc(void *p)
 {
 	struct bgp_advertise_attr *ref = (struct bgp_advertise_attr *)p;
 	struct bgp_advertise_attr *baa;
 
-	baa = baa_new();
+	baa = bgp_advertise_attr_new();
 	baa->attr = ref->attr;
 	return baa;
 }
 
-unsigned int baa_hash_key(const void *p)
+unsigned int bgp_advertise_attr_hash_key(const void *p)
 {
 	const struct bgp_advertise_attr *baa = p;
 
 	return attrhash_key_make(baa->attr);
 }
 
-bool baa_hash_cmp(const void *p1, const void *p2)
+bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2)
 {
 	const struct bgp_advertise_attr *baa1 = p1;
 	const struct bgp_advertise_attr *baa2 = p2;
@@ -115,20 +115,22 @@ void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 		baa->adv = adv->next;
 }
 
-struct bgp_advertise_attr *bgp_advertise_intern(struct hash *hash,
-						struct attr *attr)
+struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
+						     struct attr *attr)
 {
 	struct bgp_advertise_attr ref;
 	struct bgp_advertise_attr *baa;
 
 	ref.attr = bgp_attr_intern(attr);
-	baa = (struct bgp_advertise_attr *)hash_get(hash, &ref, baa_hash_alloc);
+	baa = (struct bgp_advertise_attr *)hash_get(
+		hash, &ref, bgp_advertise_attr_hash_alloc);
 	baa->refcnt++;
 
 	return baa;
 }
 
-void bgp_advertise_unintern(struct hash *hash, struct bgp_advertise_attr *baa)
+void bgp_advertise_attr_unintern(struct hash *hash,
+				 struct bgp_advertise_attr *baa)
 {
 	if (baa->refcnt)
 		baa->refcnt--;
@@ -140,7 +142,7 @@ void bgp_advertise_unintern(struct hash *hash, struct bgp_advertise_attr *baa)
 			hash_release(hash, baa);
 			bgp_attr_unintern(&baa->attr);
 		}
-		baa_free(baa);
+		bgp_advertise_attr_free(baa);
 	}
 }
 

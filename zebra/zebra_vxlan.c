@@ -4038,6 +4038,19 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	struct zebra_evpn_es *es;
 	struct interface *acc_ifp;
 
+	/* If netlink message is with vid, it will have no nexthop.
+	 * So skip it.
+	 */
+	if (vid) {
+		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("dpAdd MAC %pEA VID %u - ignore as no nhid",
+				   macaddr, vid);
+		return 0;
+	}
+
+	/* Get vxlan's vid for netlink message has no it. */
+	vid = ((struct zebra_if *)ifp->info)->l2info.vxl.access_vlan;
+
 	/* if remote mac delete the local entry */
 	if (!nhg_id || !zebra_evpn_nhg_is_local_es(nhg_id, &es)
 	    || !zebra_evpn_es_local_mac_via_network_port(es)) {
@@ -5273,10 +5286,6 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 			   add ? "ADD" : "DEL");
 
 	if (add) {
-
-		/* Remove L2VNI if present */
-		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
-
 		/* check if the vni is already present under zvrf */
 		if (zvrf->l3vni) {
 			snprintf(err, err_str_sz,
@@ -5291,6 +5300,9 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 				 "VNI is already configured as L3-VNI");
 			return -1;
 		}
+
+		/* Remove L2VNI if present */
+		zebra_vxlan_handle_vni_transition(zvrf, vni, add);
 
 		/* add the L3-VNI to the global table */
 		zl3vni = zl3vni_add(vni, zvrf_id(zvrf));
@@ -6261,8 +6273,7 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
  */
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx)
 {
-	/* TODO -- anything other than freeing the context? */
-	dplane_ctx_fini(&ctx);
+	return;
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */

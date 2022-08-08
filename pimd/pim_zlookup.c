@@ -211,7 +211,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	metric = stream_getl(s);
 	nexthop_num = stream_getc(s);
 
-	if (nexthop_num < 1) {
+	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
 			zlog_debug("%s: socket %d bad nexthop_num=%d", __func__,
 				   zlookup->sock, nexthop_num);
@@ -258,8 +258,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
 #else
-			zlog_warn("cannot use IPv4 nexthop %pI4 for IPv6 %pPA",
-				  &nh_ip4, &addr);
+			zlog_warn(
+				"cannot use IPv4 nexthop %pI4(%d) for IPv6 %pPA",
+				&nh_ip4, nh_ifi, &addr);
 #endif
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:

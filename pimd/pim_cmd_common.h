@@ -23,9 +23,6 @@
 struct pim_upstream;
 struct pim_instance;
 
-/* duplicated from pim_instance.h - needed to avoid dependency mess */
-struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
-
 const char *pim_cli_get_vrf_name(struct vty *vty);
 int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str);
 int pim_process_no_join_prune_cmd(struct vty *vty);
@@ -107,8 +104,8 @@ void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj);
 int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 				       pim_addr source, pim_addr group);
-int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty);
-void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty, bool uj);
+void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj);
 int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
 				  const char *json, const char *interface);
 int pim_show_neighbors_vrf_all_cmd_helper(struct vty *vty, const char *json,
@@ -142,6 +139,7 @@ int clear_ip_mroute_count_command(struct vty *vty, const char *name);
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
 void clear_mroute(struct pim_instance *pim);
 void clear_pim_statistics(struct pim_instance *pim);
+int clear_pim_interface_traffic(const char *vrf, struct vty *vty);
 int pim_debug_pim_cmd(void);
 int pim_no_debug_pim_cmd(void);
 int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
@@ -187,6 +185,7 @@ void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
 				bool uj);
 int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 				      struct vty *vty, bool uj);
+void clear_pim_interfaces(struct pim_instance *pim);
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */

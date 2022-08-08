@@ -429,7 +429,7 @@ static void bgp_accept(struct thread *thread)
 				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
 
 			bgp_fsm_change_status(peer1, Active);
-			BGP_TIMER_OFF(
+			THREAD_OFF(
 				peer1->t_start); /* created in peer_create() */
 
 			if (peer_active(peer1)) {
@@ -558,7 +558,7 @@ static void bgp_accept(struct thread *thread)
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
-	BGP_TIMER_OFF(peer->t_start); /* created in peer_create() */
+	THREAD_OFF(peer->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */

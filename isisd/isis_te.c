@@ -108,8 +108,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_ADM_GRP);
 
 		/* If known, register local IPv4 addr from ip_addr list */
-		if (circuit->ip_addrs != NULL
-		    && listcount(circuit->ip_addrs) != 0) {
+		if (listcount(circuit->ip_addrs) != 0) {
 			addr = (struct prefix_ipv4 *)listgetdata(
 				(struct listnode *)listhead(circuit->ip_addrs));
 			IPV4_ADDR_COPY(&ext->local_addr, &addr->prefix);
@@ -118,8 +117,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_LOCAL_ADDR);
 
 		/* If known, register local IPv6 addr from ip_addr list */
-		if (circuit->ipv6_non_link != NULL
-		    && listcount(circuit->ipv6_non_link) != 0) {
+		if (listcount(circuit->ipv6_non_link) != 0) {
 			addr6 = (struct prefix_ipv6 *)listgetdata(
 				(struct listnode *)listhead(
 					circuit->ipv6_non_link));

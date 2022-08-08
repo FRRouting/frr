@@ -1761,7 +1761,7 @@ static struct ospf_lsa *ospf_handle_exnl_lsa_lsId_chg(struct ospf *ospf,
 	struct as_external_lsa *al;
 	struct in_addr mask;
 	struct ospf_lsa *new;
-	struct external_info ei_summary;
+	struct external_info ei_summary = {};
 	struct external_info *ei_old;
 
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
@@ -3625,7 +3625,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 * without conflicting to other threads.
 	 */
 	if (ospf->t_maxage != NULL) {
-		OSPF_TIMER_OFF(ospf->t_maxage);
+		THREAD_OFF(ospf->t_maxage);
 		thread_execute(master, ospf_maxage_lsa_remover, ospf, 0);
 	}
 
@@ -3935,9 +3935,9 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 
 		if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 			zlog_debug(
-				"LSA[Refresh:Type%d:%pI4]: ospf_refresher_register_lsa(): setting refresh_list on lsa %p (slod %d)",
-				lsa->data->type, &lsa->data->id,
-				(void *)lsa, index);
+				"LSA[Refresh:Type%d:%pI4]: ospf_refresher_register_lsa(): setting refresh_list on lsa %p (slot %d)",
+				lsa->data->type, &lsa->data->id, (void *)lsa,
+				index);
 	}
 }
 

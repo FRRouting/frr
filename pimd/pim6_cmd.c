@@ -270,7 +270,7 @@ DEFPY (interface_ipv6_pim_drprio,
 
 DEFPY (interface_no_ipv6_pim_drprio,
        interface_no_ipv6_pim_drprio_cmd,
-       "no ip pim drpriority [(1-4294967295)]",
+       "no ipv6 pim drpriority [(1-4294967295)]",
        NO_STR
        IPV6_STR
        PIM_STR
@@ -686,9 +686,7 @@ DEFPY (ipv6_mld_group_watermark,
        "Group count to generate watermark warning\n")
 {
 	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
-
-	/* TBD Depends on MLD data structure changes */
-	(void)pim;
+	pim->gm_watermark_limit = limit;
 
 	return CMD_SUCCESS;
 }
@@ -703,9 +701,7 @@ DEFPY (no_ipv6_mld_group_watermark,
        IGNORED_IN_NO_STR)
 {
 	PIM_DECLVAR_CONTEXT_VRF(vrf, pim);
-
-	/* TBD Depends on MLD data structure changes */
-	(void)pim;
+	pim->gm_watermark_limit = 0;
 
 	return CMD_SUCCESS;
 }
@@ -1076,14 +1072,15 @@ DEFPY (show_ipv6_pim_neighbor_vrf_all,
 
 DEFPY (show_ipv6_pim_nexthop,
        show_ipv6_pim_nexthop_cmd,
-       "show ipv6 pim [vrf NAME] nexthop",
+       "show ipv6 pim [vrf NAME] nexthop [json$json]",
        SHOW_STR
        IPV6_STR
        PIM_STR
        VRF_CMD_HELP_STR
-       "PIM cached nexthop rpf information\n")
+       "PIM cached nexthop rpf information\n"
+       JSON_STR)
 {
-	return pim_show_nexthop_cmd_helper(vrf, vty);
+	return pim_show_nexthop_cmd_helper(vrf, vty, !!json);
 }
 
 DEFPY (show_ipv6_pim_nexthop_lookup,
@@ -1263,12 +1260,25 @@ DEFPY (clear_ipv6_pim_statistics,
 	return CMD_SUCCESS;
 }
 
+DEFPY (clear_ipv6_pim_interface_traffic,
+       clear_ipv6_pim_interface_traffic_cmd,
+       "clear ipv6 pim [vrf NAME] interface traffic",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset PIM interfaces\n"
+       "Reset Protocol Packet counters\n")
+{
+	return clear_pim_interface_traffic(vrf, vty);
+}
+
 DEFPY (clear_ipv6_mroute,
        clear_ipv6_mroute_cmd,
        "clear ipv6 mroute [vrf NAME]$name",
        CLEAR_STR
        IPV6_STR
-       "Reset multicast routes\n"
+       MROUTE_STR
        VRF_CMD_HELP_STR)
 {
 	struct vrf *v = pim_cmd_lookup(vty, name);
@@ -1310,6 +1320,45 @@ DEFPY (clear_ipv6_mroute_count,
        "Route and packet count data\n")
 {
 	return clear_ip_mroute_count_command(vty, name);
+}
+
+DEFPY (clear_ipv6_pim_interfaces,
+       clear_ipv6_pim_interfaces_cmd,
+       "clear ipv6 pim [vrf NAME] interfaces",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset PIM interfaces\n")
+{
+	struct vrf *v = pim_cmd_lookup(vty, vrf);
+
+	if (!v)
+		return CMD_WARNING;
+
+	clear_pim_interfaces(v->info);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (clear_ipv6_pim_bsr_db,
+       clear_ipv6_pim_bsr_db_cmd,
+       "clear ipv6 pim [vrf NAME] bsr-data",
+       CLEAR_STR
+       IPV6_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset pim bsr data\n")
+{
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+	if (!v)
+		return CMD_WARNING;
+
+	pim_bsm_clear(v->info);
+
+	return CMD_SUCCESS;
 }
 
 DEFPY (debug_pimv6,
@@ -1467,6 +1516,20 @@ DEFPY (debug_pimv6_zebra,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH (show_debugging_pimv6,
+	    show_debugging_pimv6_cmd,
+	    "show debugging [pimv6]",
+	    SHOW_STR
+	    DEBUG_STR
+	    "PIMv6 Information\n")
+{
+	vty_out(vty, "PIMv6 debugging status\n");
+
+	pim_debug_config_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1581,6 +1644,12 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_count_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_bsr_db_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_interfaces_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_pim_interface_traffic_cmd);
+
+	install_element(ENABLE_NODE, &show_debugging_pimv6_cmd);
+
 	install_element(ENABLE_NODE, &debug_pimv6_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_nht_det_cmd);

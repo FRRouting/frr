@@ -28,23 +28,20 @@ struct bgp;
 #define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
 #define BGP_INSTANCE_ALL_HELP_STR "BGP view\nBGP VRF\nAll Views/VRFs\n"
 
+#define BGP_AF_STR "Address Family\n"
+#define BGP_AF_MODIFIER_STR "Address Family modifier\n"
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
-#define BGP_AFI_HELP_STR        "Address Family\nAddress Family\n"
+#define BGP_AFI_HELP_STR BGP_AF_STR BGP_AF_STR
 #define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
 #define BGP_SAFI_HELP_STR                                                      \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"
+	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 #define BGP_AFI_SAFI_CMD_STR    BGP_AFI_CMD_STR" "BGP_SAFI_CMD_STR
 #define BGP_AFI_SAFI_HELP_STR   BGP_AFI_HELP_STR BGP_SAFI_HELP_STR
 
 #define BGP_SAFI_WITH_LABEL_CMD_STR  "<unicast|multicast|vpn|labeled-unicast|flowspec>"
 #define BGP_SAFI_WITH_LABEL_HELP_STR                                           \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"
+	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
+		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 
 #define SHOW_GR_HEADER \
 	"Codes: GR - Graceful Restart," \
@@ -152,6 +149,7 @@ struct bgp;
 				"endOfRibSentAfterUpdate");                    \
 	} while (0)
 
+extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_vty_init(void);
 extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);

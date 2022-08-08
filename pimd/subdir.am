@@ -22,6 +22,7 @@ pim_common = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
+	pimd/pim_bsm.c \
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
@@ -64,7 +65,6 @@ pim_common = \
 
 pimd_pimd_SOURCES = \
 	$(pim_common) \
-	pimd/pim_bsm.c \
 	pimd/pim_cmd.c \
 	pimd/pim_igmp.c \
 	pimd/pim_igmp_mtrace.c \
@@ -78,7 +78,6 @@ pimd_pimd_SOURCES = \
 	pimd/pim_msdp_socket.c \
 	pimd/pim_signals.c \
 	pimd/pim_zpthread.c \
-	pimd/pim_mroute_msg.c \
 	# end
 
 nodist_pimd_pimd_SOURCES = \
@@ -91,9 +90,7 @@ pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim6_main.c \
 	pimd/pim6_mld.c \
-	pimd/pim6_stubs.c \
 	pimd/pim6_cmd.c \
-	pimd/pim6_mroute_msg.c \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \
@@ -173,16 +170,10 @@ clippy_scan += \
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
 
-if PIMD
-if DEV_BUILD
-#
-# pim6d is only enabled for --enable-dev-build, and NOT installed currently
-# (change noinst_ to sbin_ below to install it.)
-#
-noinst_PROGRAMS += pimd/pim6d
+if PIM6D
+sbin_PROGRAMS += pimd/pim6d
 pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
 pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
-endif
 endif
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la

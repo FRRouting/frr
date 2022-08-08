@@ -2198,7 +2198,7 @@ void gm_ifp_teardown(struct interface *ifp)
 static void gm_update_ll(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp = pim_ifp ? pim_ifp->mld : NULL;
+	struct gm_if *gm_ifp = pim_ifp->mld;
 	bool was_querier;
 
 	was_querier =
@@ -2277,6 +2277,22 @@ void gm_ifp_update(struct interface *ifp)
 			zlog_debug(log_ifp(
 				"MLD querier config changed, querying"));
 		gm_bump_querier(gm_ifp);
+	}
+}
+
+void gm_group_delete(struct gm_if *gm_ifp)
+{
+	struct gm_sg *sg, *sg_start;
+
+	sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	/* clean up all mld groups */
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		THREAD_OFF(sg->t_sg_expire);
+		if (sg->oil)
+			pim_channel_oil_del(sg->oil, __func__);
+		gm_sgs_del(gm_ifp->sgs, sg);
+		gm_sg_free(sg);
 	}
 }
 

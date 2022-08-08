@@ -1058,7 +1058,7 @@ static void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 	/* If we're in shutdown, this interface event needs to clean
 	 * up installed NHGs, so don't clear that flag directly.
 	 */
-	if (!zrouter.in_shutdown)
+	if (!zebra_router_in_shutdown())
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
 	/* Update validity of nexthops depending on it */
@@ -1611,18 +1611,68 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 				   nhe->nhg.nexthop);
 	}
 
-	if (nhe->refcnt)
-		zlog_debug("nhe_id=%pNG hash refcnt=%d", nhe, nhe->refcnt);
+	THREAD_OFF(nhe->timer);
 
 	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
 }
 
+/*
+ * Let's just drop the memory associated with each item
+ */
 void zebra_nhg_hash_free(void *p)
 {
-	zebra_nhg_release_all_deps((struct nhg_hash_entry *)p);
-	zebra_nhg_free((struct nhg_hash_entry *)p);
+	struct nhg_hash_entry *nhe = p;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		/* Group or singleton? */
+		if (nhe->nhg.nexthop && nhe->nhg.nexthop->next)
+			zlog_debug("%s: nhe %p (%u), refcnt %d", __func__, nhe,
+				   nhe->id, nhe->refcnt);
+		else
+			zlog_debug("%s: nhe %p (%pNG), refcnt %d, NH %pNHv",
+				   __func__, nhe, nhe, nhe->refcnt,
+				   nhe->nhg.nexthop);
+	}
+
+	THREAD_OFF(nhe->timer);
+
+	nexthops_free(nhe->nhg.nexthop);
+
+	XFREE(MTYPE_NHG, nhe);
+}
+
+/*
+ * On cleanup there are nexthop groups that have not
+ * been resolved at all( a nhe->id of 0 ).  As such
+ * zebra needs to clean up the memory associated with
+ * those entries.
+ */
+void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg)
+{
+	struct nhg_hash_entry *nhe = b->data;
+	struct nhg_connected *dep;
+
+	while ((dep = nhg_connected_tree_pop(&nhe->nhg_depends))) {
+		if (dep->nhe->id == 0)
+			zebra_nhg_hash_free(dep->nhe);
+
+		nhg_connected_free(dep);
+	}
+
+	while ((dep = nhg_connected_tree_pop(&nhe->nhg_dependents)))
+		nhg_connected_free(dep);
+
+	if (nhe->backup_info && nhe->backup_info->nhe->id == 0) {
+		while ((dep = nhg_connected_tree_pop(
+				&nhe->backup_info->nhe->nhg_depends)))
+			nhg_connected_free(dep);
+
+		zebra_nhg_hash_free(nhe->backup_info->nhe);
+
+		XFREE(MTYPE_NHG, nhe->backup_info);
+	}
 }
 
 static void zebra_nhg_timer(struct thread *thread)
@@ -1644,13 +1694,14 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	nhe->refcnt--;
 
-	if (!zrouter.in_shutdown && nhe->refcnt <= 0 &&
+	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
 	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
 		nhe->refcnt = 1;
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 		thread_add_timer(zrouter.master, zebra_nhg_timer, nhe,
 				 zrouter.nhg_keep, &nhe->timer);
+		return;
 	}
 
 	if (!zebra_nhg_depends_is_empty(nhe))
@@ -2084,11 +2135,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		 * route and interface is up, its active. We trust kernel routes
 		 * to be good.
 		 */
-		if (ifp
-		    && (if_is_operative(ifp)
-			|| (if_is_up(ifp)
-			    && (type == ZEBRA_ROUTE_KERNEL
-				|| type == ZEBRA_ROUTE_SYSTEM))))
+		if (ifp && (if_is_operative(ifp)))
 			return 1;
 		else
 			return 0;
@@ -2457,20 +2504,19 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
 
 	/*
-	 * If the kernel has sent us a NEW route, then
+	 * If this is a kernel route, then if the interface is *up* then
 	 * by golly gee whiz it's a good route.
-	 *
-	 * If its an already INSTALLED route we have already handled, then the
-	 * kernel route's nexthop might have became unreachable
-	 * and we have to handle that.
 	 */
-	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) &&
-	    (re->type == ZEBRA_ROUTE_KERNEL ||
-	     re->type == ZEBRA_ROUTE_SYSTEM)) {
-		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		goto skip_check;
-	}
+	if (re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_SYSTEM) {
+		struct interface *ifp;
 
+		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+
+		if (ifp && (if_is_operative(ifp) || if_is_up(ifp))) {
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			goto skip_check;
+		}
+	}
 
 	vrf_id = zvrf_id(rib_dest_vrf(rib_dest_from_rnode(rn)));
 	switch (nexthop->type) {
@@ -3081,8 +3127,6 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_DELETE:
 		break;
 	}
-
-	dplane_ctx_fini(&ctx);
 }
 
 static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)

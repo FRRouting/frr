@@ -466,7 +466,7 @@ static void ospf_ls_req_timer(struct thread *thread)
 
 void ospf_ls_req_event(struct ospf_neighbor *nbr)
 {
-	thread_cancel(&nbr->t_ls_req);
+	THREAD_OFF(nbr->t_ls_req);
 	thread_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
@@ -4103,7 +4103,7 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 		 * is actually turned off.
 		 */
 		if (list_isempty(oi->ospf->oi_write_q))
-			OSPF_TIMER_OFF(oi->ospf->t_write);
+			THREAD_OFF(oi->ospf->t_write);
 	} else {
 		/* Hook thread to write packet. */
 		OSPF_ISM_WRITE_ON(oi->ospf);

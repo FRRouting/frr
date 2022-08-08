@@ -49,7 +49,7 @@ struct pim_nexthop {
 
 struct pim_rpf {
 	struct pim_nexthop source_nexthop;
-	struct prefix rpf_addr; /* RPF'(S,G) */
+	pim_addr rpf_addr; /* RPF'(S,G) */
 };
 
 enum pim_rpf_result { PIM_RPF_OK = 0, PIM_RPF_CHANGED, PIM_RPF_FAILURE };

@@ -1753,6 +1753,16 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 	}
 
+	/* router mac is only needed for type-2 routes here. */
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+		uint8_t af_flags = 0;
+
+		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP))
+			SET_FLAG(af_flags, BGP_EVPN_MACIP_TYPE_SVI_IP);
+
+		bgp_evpn_get_rmac_nexthop(vpn, p, &attr, af_flags);
+	}
+
 	if (bgp_debug_zebra(NULL)) {
 		char buf3[ESI_STR_LEN];
 
@@ -1762,15 +1772,6 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 				     : " ",
 			vpn->vni, p, &attr.rmac, &attr.mp_nexthop_global_in,
 			esi_to_str(esi, buf3, sizeof(buf3)));
-	}
-	/* router mac is only needed for type-2 routes here. */
-	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
-		uint8_t af_flags = 0;
-
-		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP))
-			SET_FLAG(af_flags, BGP_EVPN_MACIP_TYPE_SVI_IP);
-
-		bgp_evpn_get_rmac_nexthop(vpn, p, &attr, af_flags);
 	}
 
 	vni2label(vpn->vni, &(attr.label));
@@ -2447,8 +2448,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	if (attr.evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP) {
 		if (afi == AFI_IP6)
 			evpn_convert_nexthop_to_ipv6(&attr);
-		else
+		else {
+			attr.nexthop = attr.mp_nexthop_global_in;
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		}
 	} else {
 
 		/*
@@ -6427,7 +6430,7 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn,
 		return;
 
 	tree = &vpn->bgp_vrf->nexthop_cache_table[afi];
-	bnc = bnc_find(tree, &p, 0);
+	bnc = bnc_find(tree, &p, 0, 0);
 
 	if (!bnc || !bnc->is_evpn_gwip_nexthop)
 		return;

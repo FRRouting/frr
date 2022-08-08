@@ -721,7 +721,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 		encaptlv = XCALLOC(MTYPE_ENCAP_TLV,
 				   sizeof(struct bgp_attr_encap_subtlv) + 4);
-		assert(encaptlv);
 		encaptlv->type =
 			BGP_VNC_SUBTLV_TYPE_LIFETIME; /* prefix lifetime */
 		encaptlv->length = 4;
@@ -766,7 +765,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 					MTYPE_ENCAP_TLV,
 					sizeof(struct bgp_attr_encap_subtlv) + 2
 						+ hop->length);
-				assert(encaptlv);
 				encaptlv->type =
 					BGP_VNC_SUBTLV_TYPE_RFPOPTION; /* RFP
 									  option
@@ -1041,7 +1039,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	SET_FLAG(new->flags, BGP_PATH_VALID);
 
 	/* save backref to rfapi handle */
-	assert(bgp_path_info_extra_get(new));
+	bgp_path_info_extra_get(new);
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
 	encode_label(label_val, &new->extra->label[0]);
 
@@ -1260,7 +1258,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	 * since this peer is not on the I/O thread, this lock is not strictly
 	 * necessary, but serves as a reminder to those who may meddle...
 	 */
-	frr_with_mutex(&rfd->peer->io_mtx) {
+	frr_with_mutex (&rfd->peer->io_mtx) {
 		// we don't need any I/O related facilities
 		if (rfd->peer->ibuf)
 			stream_fifo_free(rfd->peer->ibuf);
@@ -1963,7 +1961,6 @@ int rfapi_open(void *rfp_start_val, struct rfapi_ip_addr *vn,
 		rfd = XCALLOC(MTYPE_RFAPI_DESC,
 			      sizeof(struct rfapi_descriptor));
 	}
-	assert(rfd);
 
 	rfd->bgp = bgp;
 	if (default_options) {
@@ -3081,7 +3078,7 @@ DEFUN (debug_rfapi_register_vn_un,
 
 DEFUN (debug_rfapi_register_vn_un_l2o,
        debug_rfapi_register_vn_un_l2o_cmd,
-       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS macaddr YY:YY:YY:YY:YY:YY lni (0-16777215)",
+       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS macaddr X:X:X:X:X:X lni (0-16777215)",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3309,7 +3306,7 @@ DEFUN (debug_rfapi_query_vn_un,
 
 DEFUN (debug_rfapi_query_vn_un_l2o,
        debug_rfapi_query_vn_un_l2o_cmd,
-       "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lni LNI target YY:YY:YY:YY:YY:YY",
+       "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lni LNI target X:X:X:X:X:X",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_query\n"

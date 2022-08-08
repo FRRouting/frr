@@ -32,6 +32,7 @@
 #include "ferr.h"
 #include "lib/srcdest_table.h"
 #include "lib/linklist.h"
+#include "termtable.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -56,6 +57,7 @@
 #include "pim_addr.h"
 #include "pim_static.h"
 #include "pim_util.h"
+#include "pim6_mld.h"
 
 /**
  * Get current node VRF name.
@@ -898,12 +900,8 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		char rpf_addr_str[PREFIX_STRLEN];
 		const char *rpf_ifname;
 		struct pim_rpf *rpf = &up->rpf;
-
-		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
-			      sizeof(rpf_addr_str));
 
 		rpf_ifname =
 			rpf->source_nexthop.interface ? rpf->source_nexthop
@@ -932,8 +930,8 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 			json_object_string_add(json_row, "group", grp_str);
 			json_object_string_add(json_row, "rpfInterface",
 					       rpf_ifname);
-			json_object_string_add(json_row, "rpfAddress",
-					       rpf_addr_str);
+			json_object_string_addf(json_row, "rpfAddress", "%pPA",
+						&rpf->rpf_addr);
 			json_object_string_addf(
 				json_row, "ribNexthop", "%pPAs",
 				&rpf->source_nexthop.mrib_nexthop_addr);
@@ -947,9 +945,9 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 
 		} else {
 			vty_out(vty,
-				"%-15pPAs %-15pPAs %-16s %-15s %-15pPAs %6d %4d\n",
+				"%-15pPAs %-15pPAs %-16s %-15pPA %-15pPAs %6d %4d\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
-				rpf_addr_str,
+				&rpf->rpf_addr,
 				&rpf->source_nexthop.mrib_nexthop_addr,
 				rpf->source_nexthop.mrib_route_metric,
 				rpf->source_nexthop.mrib_metric_preference);
@@ -1352,9 +1350,9 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		if (!up->t_join_timer && up->rpf.source_nexthop.interface) {
 			struct pim_neighbor *nbr;
 
-			nbr = pim_neighbor_find_prefix(
+			nbr = pim_neighbor_find(
 				up->rpf.source_nexthop.interface,
-				&up->rpf.rpf_addr);
+				up->rpf.rpf_addr);
 			if (nbr)
 				pim_time_timer_to_hhmmss(join_timer,
 							 sizeof(join_timer),
@@ -1418,7 +1416,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 
 				rpg = RP(pim, up->sg.grp);
 				json_object_string_addf(json_row, "rpfAddress",
-							"%pFX", &rpg->rpf_addr);
+							"%pPA", &rpg->rpf_addr);
 			} else {
 				json_object_string_add(json_row, "rpfAddress",
 						       src_str);
@@ -1534,14 +1532,10 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		char rpf_addr_str[PREFIX_STRLEN];
 		struct pim_rpf *rpf;
 		const char *rpf_ifname;
 
 		rpf = &up->rpf;
-
-		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
-			      sizeof(rpf_addr_str));
 
 		rpf_ifname =
 			rpf->source_nexthop.interface ? rpf->source_nexthop
@@ -1573,14 +1567,15 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			json_object_string_addf(
 				json_row, "ribNexthop", "%pPAs",
 				&rpf->source_nexthop.mrib_nexthop_addr);
-			json_object_string_add(json_row, "rpfAddress",
-					       rpf_addr_str);
+			json_object_string_addf(json_row, "rpfAddress", "%pPA",
+						&rpf->rpf_addr);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty, "%-15pPAs %-15pPAs %-16s %-15pPA %-15s\n",
+			vty_out(vty,
+				"%-15pPAs %-15pPAs %-16s %-15pPA %-15pPA\n",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
 				&rpf->source_nexthop.mrib_nexthop_addr,
-				rpf_addr_str);
+				&rpf->rpf_addr);
 		}
 	}
 
@@ -1679,7 +1674,7 @@ int pim_show_join_cmd_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
 	}
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -1780,7 +1775,7 @@ int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty)
 		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
 	}
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -2131,6 +2126,8 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
 	bool uj = true;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json_row = NULL;
 	json_object *json_tmp;
 
@@ -2174,43 +2171,60 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	}
 
 	if (!uj) {
-		vty_out(vty,
-			"Interface         State          Address  PIM Nbrs           PIM DR  FHR IfChannels\n");
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|State|Address|PIM Nbrs|PIM DR|FHR|IfChannels");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 
 		json_object_object_foreach(json, key, val)
 		{
-			vty_out(vty, "%-16s  ", key);
+			const char *state, *address, *pimdr;
+			int neighbors, firsthpr, pimifchnl;
 
 			json_object_object_get_ex(val, "state", &json_tmp);
-			vty_out(vty, "%5s  ", json_object_get_string(json_tmp));
+			state = json_object_get_string(json_tmp);
 
 			json_object_object_get_ex(val, "address", &json_tmp);
-			vty_out(vty, "%15s  ",
-				json_object_get_string(json_tmp));
+			address = json_object_get_string(json_tmp);
 
 			json_object_object_get_ex(val, "pimNeighbors",
 						  &json_tmp);
-			vty_out(vty, "%8d  ", json_object_get_int(json_tmp));
+			neighbors = json_object_get_int(json_tmp);
 
 			if (json_object_object_get_ex(
 				    val, "pimDesignatedRouterLocal",
 				    &json_tmp)) {
-				vty_out(vty, "%15s  ", "local");
+				pimdr = "local";
 			} else {
 				json_object_object_get_ex(
 					val, "pimDesignatedRouter", &json_tmp);
-				vty_out(vty, "%15s  ",
-					json_object_get_string(json_tmp));
+				pimdr = json_object_get_string(json_tmp);
 			}
 
 			json_object_object_get_ex(val, "firstHopRouter",
 						  &json_tmp);
-			vty_out(vty, "%3d  ", json_object_get_int(json_tmp));
+			firsthpr = json_object_get_int(json_tmp);
 
 			json_object_object_get_ex(val, "pimIfChannels",
 						  &json_tmp);
-			vty_out(vty, "%9d\n", json_object_get_int(json_tmp));
+			pimifchnl = json_object_get_int(json_tmp);
+
+			ttable_add_row(tt, "%s|%s|%s|%d|%s|%d|%d", key, state,
+				       address, neighbors, pimdr, firsthpr,
+				       pimifchnl);
 		}
+
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+
+		ttable_del(tt);
 	}
 }
 
@@ -2635,32 +2649,83 @@ void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty, "SSM group range : %s\n", range_str);
 }
 
-struct pnc_cache_walk_data {
+struct vty_pnc_cache_walk_data {
 	struct vty *vty;
 	struct pim_instance *pim;
 };
 
-static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
+struct json_pnc_cache_walk_data {
+	json_object *json_obj;
+	struct pim_instance *pim;
+};
+
+static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct pim_nexthop_cache *pnc = bucket->data;
-	struct pnc_cache_walk_data *cwd = arg;
+	struct vty_pnc_cache_walk_data *cwd = arg;
 	struct vty *vty = cwd->vty;
 	struct pim_instance *pim = cwd->pim;
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
-	char buf[PREFIX_STRLEN];
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		first_ifindex = nh_node->ifindex;
+
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
+
+		vty_out(vty, "%-15pPA ", &pnc->rpf.rpf_addr);
+		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
+#if PIM_IPV == 4
+		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
+#else
+		vty_out(vty, "%pI6 ", &nh_node->gate.ipv6);
+#endif
+		vty_out(vty, "\n");
+	}
+	return CMD_SUCCESS;
+}
+
+static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
+					   void *arg)
+{
+	struct pim_nexthop_cache *pnc = backet->data;
+	struct json_pnc_cache_walk_data *cwd = arg;
+	struct pim_instance *pim = cwd->pim;
+	struct nexthop *nh_node = NULL;
+	ifindex_t first_ifindex;
+	struct interface *ifp = NULL;
+	char addr_str[PIM_ADDRSTRLEN];
+	json_object *json_row = NULL;
+	json_object *json_ifp = NULL;
+	json_object *json_arr = NULL;
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
-
-		vty_out(vty, "%-15s ",
-			inet_ntop(AF_INET, &pnc->rpf.rpf_addr.u.prefix4, buf,
-				  sizeof(buf)));
-		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
-		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
-		vty_out(vty, "\n");
+		snprintfrr(addr_str, sizeof(addr_str), "%pPA",
+			   &pnc->rpf.rpf_addr);
+		json_object_object_get_ex(cwd->json_obj, addr_str, &json_row);
+		if (!json_row) {
+			json_row = json_object_new_object();
+			json_object_string_addf(json_row, "address", "%pPA",
+						&pnc->rpf.rpf_addr);
+			json_object_object_addf(cwd->json_obj, json_row, "%pPA",
+						&pnc->rpf.rpf_addr);
+			json_arr = json_object_new_array();
+			json_object_object_add(json_row, "nexthops", json_arr);
+		}
+		json_ifp = json_object_new_object();
+		json_object_string_add(json_ifp, "interface",
+				       ifp ? ifp->name : "NULL");
+#if PIM_IPV == 4
+		json_object_string_addf(json_ifp, "nexthop", "%pI4",
+					&nh_node->gate.ipv4);
+#else
+		json_object_string_addf(json_ifp, "nexthop", "%pI6",
+					&nh_node->gate.ipv6);
+#endif
+		json_object_array_add(json_arr, json_ifp);
 	}
 	return CMD_SUCCESS;
 }
@@ -2668,7 +2733,6 @@ static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 				       pim_addr source, pim_addr group)
 {
-	struct prefix nht_p;
 	int result = 0;
 	pim_addr vif_source;
 	struct prefix grp;
@@ -2698,11 +2762,11 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
 		return CMD_SUCCESS;
 
-	pim_addr_to_prefix(&nht_p, vif_source);
 	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	result = pim_ecmp_nexthop_lookup(v->info, &nexthop, &nht_p, &grp, 0);
+	result =
+		pim_ecmp_nexthop_lookup(v->info, &nexthop, vif_source, &grp, 0);
 
 	if (!result) {
 		vty_out(vty,
@@ -2718,7 +2782,7 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty)
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty, bool uj)
 {
 	struct vrf *v;
 
@@ -2727,23 +2791,35 @@ int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty)
 	if (!v)
 		return CMD_WARNING;
 
-	pim_show_nexthop(v->info, vty);
+	pim_show_nexthop(v->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
+void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj)
 {
-	struct pnc_cache_walk_data cwd;
+	struct vty_pnc_cache_walk_data cwd;
+	struct json_pnc_cache_walk_data jcwd;
 
 	cwd.vty = vty;
 	cwd.pim = pim;
-	vty_out(vty, "Number of registered addresses: %lu\n",
-		pim->rpf_hash->count);
-	vty_out(vty, "Address         Interface        Nexthop\n");
-	vty_out(vty, "---------------------------------------------\n");
+	jcwd.pim = pim;
 
-	hash_walk(pim->rpf_hash, pim_print_pnc_cache_walkcb, &cwd);
+	if (uj) {
+		jcwd.json_obj = json_object_new_object();
+	} else {
+		vty_out(vty, "Number of registered addresses: %lu\n",
+			pim->rpf_hash->count);
+		vty_out(vty, "Address         Interface        Nexthop\n");
+		vty_out(vty, "---------------------------------------------\n");
+	}
+
+	if (uj) {
+		hash_walk(pim->rpf_hash, pim_print_json_pnc_cache_walkcb,
+			  &jcwd);
+		vty_json(vty, jcwd.json_obj);
+	} else
+		hash_walk(pim->rpf_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
 }
 
 int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
@@ -3297,6 +3373,8 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty, "Mroute socket descriptor:");
 
 	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
+	vty_out(vty, "PIM Register socket descriptor:");
+	vty_out(vty, " %d(%s)\n", pim->reg_sock, vrf->name);
 
 	pim_time_uptime(uptime, sizeof(uptime),
 			now - pim->mroute_socket_creation);
@@ -3562,10 +3640,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				}
 
 				vty_out(vty,
-					"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
-					oil_origin(c_oil), oil_mcastgrp(c_oil),
-					state_str, proto, in_ifname, out_ifname,
-					ttl, mroute_uptime);
+					"%-15s %-15s %-8s %-6s %-16s %-16s %-3d  %8s\n",
+					src_str, grp_str, state_str, proto,
+					in_ifname, out_ifname, ttl,
+					mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';
@@ -3939,6 +4017,12 @@ void clear_mroute(struct pim_instance *pim)
 				igmp_group_delete(grp);
 			}
 		}
+#else
+		struct gm_if *gm_ifp;
+
+		gm_ifp = pim_ifp->mld;
+		if (gm_ifp)
+			gm_group_delete(gm_ifp);
 #endif
 	}
 
@@ -3968,6 +4052,46 @@ void clear_pim_statistics(struct pim_instance *pim)
 	}
 }
 
+int clear_pim_interface_traffic(const char *vrf, struct vty *vty)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
+
+	struct vrf *v = pim_cmd_lookup(vty, vrf);
+
+	if (!v)
+		return CMD_WARNING;
+
+	FOR_ALL_INTERFACES (v, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		pim_ifp->pim_ifstat_hello_recv = 0;
+		pim_ifp->pim_ifstat_hello_sent = 0;
+		pim_ifp->pim_ifstat_join_recv = 0;
+		pim_ifp->pim_ifstat_join_send = 0;
+		pim_ifp->pim_ifstat_prune_recv = 0;
+		pim_ifp->pim_ifstat_prune_send = 0;
+		pim_ifp->pim_ifstat_reg_recv = 0;
+		pim_ifp->pim_ifstat_reg_send = 0;
+		pim_ifp->pim_ifstat_reg_stop_recv = 0;
+		pim_ifp->pim_ifstat_reg_stop_send = 0;
+		pim_ifp->pim_ifstat_assert_recv = 0;
+		pim_ifp->pim_ifstat_assert_send = 0;
+		pim_ifp->pim_ifstat_bsm_rx = 0;
+		pim_ifp->pim_ifstat_bsm_tx = 0;
+#if PIM_IPV == 4
+		pim_ifp->igmp_ifstat_joins_sent = 0;
+		pim_ifp->igmp_ifstat_joins_failed = 0;
+		pim_ifp->igmp_peak_group_count = 0;
+#endif
+	}
+
+	return CMD_SUCCESS;
+}
+
 int pim_debug_pim_cmd(void)
 {
 	PIM_DO_DEBUG_PIM_EVENTS;
@@ -3990,6 +4114,8 @@ int pim_no_debug_pim_cmd(void)
 
 	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
 	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	PIM_DONT_DEBUG_BSM;
+	PIM_DONT_DEBUG_VXLAN;
 	return CMD_SUCCESS;
 }
 
@@ -4043,7 +4169,7 @@ int pim_show_rpf_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4099,7 +4225,7 @@ int pim_show_rp_helper(const char *vrf, struct vty *vty, const char *group_str,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4170,7 +4296,7 @@ int pim_show_secondary_helper(const char *vrf, struct vty *vty)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4193,7 +4319,7 @@ int pim_show_statistics_helper(const char *vrf, struct vty *vty,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4222,7 +4348,7 @@ int pim_show_upstream_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
 	}
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4286,7 +4412,7 @@ int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4308,7 +4434,7 @@ int pim_show_upstream_rpf_helper(const char *vrf, struct vty *vty, bool uj)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4332,7 +4458,7 @@ int pim_show_state_helper(const char *vrf, struct vty *vty,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4386,7 +4512,7 @@ int pim_show_multicast_helper(const char *vrf, struct vty *vty)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4421,7 +4547,7 @@ int pim_show_multicast_count_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4478,7 +4604,7 @@ int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4541,7 +4667,7 @@ int pim_show_mroute_count_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4597,7 +4723,7 @@ int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json)
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4683,10 +4809,10 @@ void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
 					    pim_ifp->pim_ifstat_join_recv);
 			json_object_int_add(json_row, "joinTx",
 					    pim_ifp->pim_ifstat_join_send);
-			json_object_int_add(json_row, "pruneTx",
-					    pim_ifp->pim_ifstat_prune_send);
 			json_object_int_add(json_row, "pruneRx",
 					    pim_ifp->pim_ifstat_prune_recv);
+			json_object_int_add(json_row, "pruneTx",
+					    pim_ifp->pim_ifstat_prune_send);
 			json_object_int_add(json_row, "registerRx",
 					    pim_ifp->pim_ifstat_reg_recv);
 			json_object_int_add(json_row, "registerTx",
@@ -4833,7 +4959,7 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 	if (!v)
 		return CMD_WARNING;
 
-	pim = pim_get_pim_instance(v->vrf_id);
+	pim = v->info;
 
 	if (!pim) {
 		vty_out(vty, "%% Unable to find pim instance\n");
@@ -4846,4 +4972,14 @@ int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 		pim_show_interface_traffic(v->info, vty, uj);
 
 	return CMD_SUCCESS;
+}
+
+void clear_pim_interfaces(struct pim_instance *pim)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		if (ifp->info)
+			pim_neighbor_delete_all(ifp, "interface cleared");
+	}
 }

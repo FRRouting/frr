@@ -37,6 +37,7 @@ enum bgp_show_type {
 	bgp_show_type_normal,
 	bgp_show_type_regexp,
 	bgp_show_type_prefix_list,
+	bgp_show_type_access_list,
 	bgp_show_type_filter_list,
 	bgp_show_type_route_map,
 	bgp_show_type_neighbor,
@@ -468,12 +469,16 @@ struct bgp_aggregate {
 		 ? 0                                                           \
 		 : ((nhlen) < IPV6_MAX_BYTELEN ? AFI_IP : AFI_IP6))
 
+#define BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)                                      \
+	((attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||               \
+	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||        \
+	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||              \
+	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+
 #define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                         \
-	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))             \
-	 && ((attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL              \
-	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL    \
-	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL          \
-	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL))
+	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) &&          \
+	 BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))
+
 #define BGP_PATH_COUNTABLE(BI)                                                 \
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
 	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))
@@ -827,7 +832,7 @@ extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     bool use_json);
-extern int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_dest *dest);

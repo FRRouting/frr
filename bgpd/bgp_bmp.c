@@ -136,6 +136,12 @@ static int bmp_listener_cmp(const struct bmp_listener *a,
 DECLARE_SORTLIST_UNIQ(bmp_listeners, struct bmp_listener, bli,
 		      bmp_listener_cmp);
 
+static void bmp_listener_put(struct bmp_listener *bl)
+{
+	bmp_listeners_del(&bl->targets->listeners, bl);
+	XFREE(MTYPE_BMP_LISTENER, bl);
+}
+
 static int bmp_targets_cmp(const struct bmp_targets *a,
 			   const struct bmp_targets *b)
 {
@@ -162,6 +168,16 @@ static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
 	else if (b->afi == AFI_L2VPN && b->safi == SAFI_EVPN)
 		return -1;
 
+	if (a->afi == b->afi && a->safi == SAFI_MPLS_VPN &&
+	    b->safi == SAFI_MPLS_VPN) {
+		ret = prefix_cmp(&a->rd, &b->rd);
+		if (ret)
+			return ret;
+	} else if (a->safi == SAFI_MPLS_VPN)
+		return 1;
+	else if (b->safi == SAFI_MPLS_VPN)
+		return -1;
+
 	ret = prefix_cmp(&a->p, &b->p);
 	if (ret)
 		return ret;
@@ -180,7 +196,8 @@ static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
 		    offsetof(struct bmp_queue_entry, refcount)
 			    - offsetof(struct bmp_queue_entry, peerid),
 		    key);
-	if (e->afi == AFI_L2VPN && e->safi == SAFI_EVPN)
+	if ((e->afi == AFI_L2VPN && e->safi == SAFI_EVPN) ||
+	    (e->safi == SAFI_MPLS_VPN))
 		key = jhash(&e->rd,
 			    offsetof(struct bmp_queue_entry, rd)
 				    - offsetof(struct bmp_queue_entry, refcount)
@@ -975,11 +992,12 @@ afibreak:
 	}
 
 	struct bgp_table *table = bmp->targets->bgp->rib[afi][safi];
-	struct bgp_dest *bn;
+	struct bgp_dest *bn = NULL;
 	struct bgp_path_info *bpi = NULL, *bpiter;
 	struct bgp_adj_in *adjin = NULL, *adjiter;
 
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+	if ((afi == AFI_L2VPN && safi == SAFI_EVPN) ||
+	    (safi == SAFI_MPLS_VPN)) {
 		/* initialize syncrdpos to the first
 		 * mid-layer table entry
 		 */
@@ -1008,7 +1026,8 @@ afibreak:
 		if (!bn) {
 			bn = bgp_table_get_next(table, &bmp->syncpos);
 			if (!bn) {
-				if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+				if ((afi == AFI_L2VPN && safi == SAFI_EVPN) ||
+				    (safi == SAFI_MPLS_VPN)) {
 					/* reset bottom-layer pointer */
 					memset(&bmp->syncpos, 0,
 					       sizeof(bmp->syncpos));
@@ -1090,7 +1109,8 @@ afibreak:
 
 	const struct prefix *bn_p = bgp_dest_get_prefix(bn);
 	struct prefix_rd *prd = NULL;
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+	if (((afi == AFI_L2VPN) && (safi == SAFI_EVPN)) ||
+	    (safi == SAFI_MPLS_VPN))
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(bmp->syncrdpos);
 
 	if (bpi)
@@ -1099,6 +1119,9 @@ afibreak:
 	if (adjin)
 		bmp_monitor(bmp, adjin->peer, 0, bn_p, prd, adjin->attr, afi,
 			    safi, adjin->uptime);
+
+	if (bn)
+		bgp_dest_unlock_node(bn);
 
 	return true;
 }
@@ -1125,7 +1148,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 {
 	struct bmp_queue_entry *bqe;
 	struct peer *peer;
-	struct bgp_dest *bn;
+	struct bgp_dest *bn = NULL;
 	bool written = false;
 
 	bqe = bmp_pull(bmp);
@@ -1160,10 +1183,13 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 	if (!peer_established(peer))
 		goto out;
 
-	bn = bgp_node_lookup(bmp->targets->bgp->rib[afi][safi], &bqe->p);
-	struct prefix_rd *prd = NULL;
-	if (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN)
-		prd = &bqe->rd;
+	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
+		      (bqe->safi == SAFI_MPLS_VPN);
+
+	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
+	bn = bgp_afi_node_lookup(bmp->targets->bgp->rib[afi][safi], afi, safi,
+				 &bqe->p, prd);
+
 
 	if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
 		struct bgp_path_info *bpi;
@@ -1199,6 +1225,10 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 out:
 	if (!bqe->refcount)
 		XFREE(MTYPE_BMP_QUEUE, bqe);
+
+	if (bn)
+		bgp_dest_unlock_node(bn);
+
 	return written;
 }
 
@@ -1250,7 +1280,8 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp, afi_t afi,
 	bqeref.afi = afi;
 	bqeref.safi = safi;
 
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN && bn->pdest)
+	if ((afi == AFI_L2VPN && safi == SAFI_EVPN && bn->pdest) ||
+	    (safi == SAFI_MPLS_VPN))
 		prefix_copy(&bqeref.rd,
 			    (struct prefix_rd *)bgp_dest_get_prefix(bn->pdest));
 
@@ -1541,11 +1572,16 @@ static struct bmp_bgp *bmp_bgp_get(struct bgp *bgp)
 static void bmp_bgp_put(struct bmp_bgp *bmpbgp)
 {
 	struct bmp_targets *bt;
+	struct bmp_listener *bl;
 
 	bmp_bgph_del(&bmp_bgph, bmpbgp);
 
-	frr_each_safe(bmp_targets, &bmpbgp->targets, bt)
+	frr_each_safe (bmp_targets, &bmpbgp->targets, bt) {
+		frr_each_safe (bmp_listeners, &bt->listeners, bl)
+			bmp_listener_put(bl);
+
 		bmp_targets_put(bt);
+	}
 
 	bmp_mirrorq_fini(&bmpbgp->mirrorq);
 	XFREE(MTYPE_BMP, bmpbgp);
@@ -1673,12 +1709,6 @@ static struct bmp_listener *bmp_listener_get(struct bmp_targets *bt,
 
 	bmp_listeners_add(&bt->listeners, bl);
 	return bl;
-}
-
-static void bmp_listener_put(struct bmp_listener *bl)
-{
-	bmp_listeners_del(&bl->targets->listeners, bl);
-	XFREE(MTYPE_BMP_LISTENER, bl);
 }
 
 static void bmp_listener_start(struct bmp_listener *bl)
@@ -2190,12 +2220,17 @@ DEFPY(bmp_stats_cfg,
 
 DEFPY(bmp_monitor_cfg,
       bmp_monitor_cmd,
-      "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn> <pre-policy|post-policy>$policy",
+      "[no] bmp monitor <ipv4|ipv6|l2vpn> <unicast|multicast|evpn|vpn> <pre-policy|post-policy>$policy",
       NO_STR
       BMP_STR
       "Send BMP route monitoring messages\n"
-      "Address Family\nAddress Family\nAddress Family\n"
-      "Address Family\nAddress Family\nAddress Family\n"
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_STR
       "Send state before policy and filter processing\n"
       "Send state with policy and filters applied\n")
 {

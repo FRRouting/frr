@@ -55,7 +55,7 @@ static struct list *frr_pthread_list;
 
 void frr_pthread_init(void)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		frr_pthread_list = list_new();
 	}
 }
@@ -64,7 +64,7 @@ void frr_pthread_finish(void)
 {
 	frr_pthread_stop_all();
 
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		struct listnode *n, *nn;
 		struct frr_pthread *fpt;
 
@@ -105,7 +105,7 @@ struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 	pthread_mutex_init(fpt->running_cond_mtx, NULL);
 	pthread_cond_init(fpt->running_cond, NULL);
 
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		listnode_add(frr_pthread_list, fpt);
 	}
 
@@ -126,7 +126,7 @@ static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 
 void frr_pthread_destroy(struct frr_pthread *fpt)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		listnode_delete(frr_pthread_list, fpt);
 	}
 
@@ -193,7 +193,7 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 
 void frr_pthread_wait_running(struct frr_pthread *fpt)
 {
-	frr_with_mutex(fpt->running_cond_mtx) {
+	frr_with_mutex (fpt->running_cond_mtx) {
 		while (!fpt->running)
 			pthread_cond_wait(fpt->running_cond,
 					  fpt->running_cond_mtx);
@@ -202,7 +202,7 @@ void frr_pthread_wait_running(struct frr_pthread *fpt)
 
 void frr_pthread_notify_running(struct frr_pthread *fpt)
 {
-	frr_with_mutex(fpt->running_cond_mtx) {
+	frr_with_mutex (fpt->running_cond_mtx) {
 		fpt->running = true;
 		pthread_cond_signal(fpt->running_cond);
 	}
@@ -219,7 +219,7 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 
 void frr_pthread_stop_all(void)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
+	frr_with_mutex (&frr_pthread_list_mtx) {
 		struct listnode *n;
 		struct frr_pthread *fpt;
 		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt)) {

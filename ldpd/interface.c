@@ -467,7 +467,7 @@ static void if_hello_timer(struct thread *thread)
 static void
 if_start_hello_timer(struct iface_af *ia)
 {
-	thread_cancel(&ia->hello_timer);
+	THREAD_OFF(ia->hello_timer);
 	thread_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
 			 &ia->hello_timer);
 }
@@ -475,7 +475,7 @@ if_start_hello_timer(struct iface_af *ia)
 static void
 if_stop_hello_timer(struct iface_af *ia)
 {
-	thread_cancel(&ia->hello_timer);
+	THREAD_OFF(ia->hello_timer);
 }
 
 struct ctl_iface *
@@ -543,11 +543,8 @@ ldp_sync_to_ctl(struct iface *iface)
 	ictl.wait_time = if_get_wait_for_sync_interval();
 	ictl.timer_running = iface->ldp_sync.wait_for_sync_timer ? true : false;
 
-	if (iface->ldp_sync.wait_for_sync_timer)
-		ictl.wait_time_remaining =
+	ictl.wait_time_remaining =
 		thread_timer_remain_second(iface->ldp_sync.wait_for_sync_timer);
-	else
-		ictl.wait_time_remaining = 0;
 
 	memset(&ictl.peer_ldp_id, 0, sizeof(ictl.peer_ldp_id));
 

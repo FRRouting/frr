@@ -38,6 +38,12 @@ Installing Topotest Requirements
    # To enable the gRPC topotest install:
    python3 -m pip install grpcio grpcio-tools
 
+   # Install Socat tool to run PIMv6 tests,
+   # Socat code can be taken from below url,
+   # which has latest changes done for PIMv6,
+   # join and traffic:
+   https://github.com/opensourcerouting/socat/
+
 
 Enable Coredumps
 """"""""""""""""

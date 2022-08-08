@@ -303,7 +303,6 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	struct pim_upstream *up;
 	struct pim_interface *term_ifp;
 	int flags = 0;
-	struct prefix nht_p;
 	struct pim_instance *pim = vxlan_sg->pim;
 
 	if (vxlan_sg->up) {
@@ -353,9 +352,8 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		 * iif
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
-			pim_addr_to_prefix(&nht_p, up->upstream_addr);
-			pim_delete_tracked_nexthop(vxlan_sg->pim, &nht_p, up,
-						   NULL);
+			pim_delete_tracked_nexthop(vxlan_sg->pim,
+						   up->upstream_addr, up, NULL);
 		}
 		/* We are acting FHR; clear out use_rpt setting if any */
 		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
@@ -1172,7 +1170,7 @@ void pim_vxlan_del_term_dev(struct pim_instance *pim)
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
 		pim_ifp->pim_enable = false;
-		if (!pim_ifp->igmp_enable)
+		if (!pim_ifp->gm_enable)
 			pim_if_delete(ifp);
 	}
 }

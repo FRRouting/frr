@@ -449,6 +449,8 @@ def check_router_status(tgen):
                     daemons.append("zebra")
                 if "pimd" in result:
                     daemons.append("pimd")
+                if "pim6d" in result:
+                    daemons.append("pim6d")
                 if "ospfd" in result:
                     daemons.append("ospfd")
                 if "ospf6d" in result:
@@ -1035,6 +1037,12 @@ def start_topology(tgen, daemon=None):
                 TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(tgen.logdir, rname)
             )
 
+        if daemon and "pim6d" in daemon:
+            # Loading empty pimd.conf file to router, to start the pim6d deamon
+            router.load_config(
+                TopoRouter.RD_PIM6, "{}/{}/pim6d.conf".format(tgen.logdir, rname)
+            )
+
     # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
@@ -1131,6 +1139,8 @@ def topo_daemons(tgen, topo=None):
         for val in topo["routers"][rtr]["links"].values():
             if "pim" in val and "pimd" not in daemon_list:
                 daemon_list.append("pimd")
+            if "pim6" in val and "pim6d" not in daemon_list:
+                daemon_list.append("pim6d")
             if "ospf" in val and "ospfd" not in daemon_list:
                 daemon_list.append("ospfd")
             if "ospf6" in val and "ospf6d" not in daemon_list:
@@ -3234,6 +3244,86 @@ def configure_interface_mac(tgen, input_dict):
     return True
 
 
+def socat_send_igmp_join_traffic(
+    tgen,
+    server,
+    protocol_option,
+    igmp_groups,
+    send_from_intf,
+    send_from_intf_ip=None,
+    port=12345,
+    reuseaddr=True,
+    join=False,
+    traffic=False,
+):
+    """
+    API to send IGMP join using SOCAT tool
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `server`: iperf server, from where IGMP join would be sent
+    * `protocol_option`: Protocol options, ex: UDP6-RECV
+    * `igmp_groups`: IGMP group for which join has to be sent
+    * `send_from_intf`: Interface from which join would be sent
+    * `send_from_intf_ip`: Interface IP, default is None
+    * `port`: Port to be used, default is 12345
+    * `reuseaddr`: True|False, bydefault True
+    * `join`: If join needs to be sent
+    * `traffic`: If traffic needs to be sent
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[server]
+    socat_cmd = "socat -u "
+
+    # UDP4/TCP4/UDP6/UDP6-RECV
+    if protocol_option:
+        socat_cmd += "{}".format(protocol_option)
+
+    if port:
+        socat_cmd += ":{},".format(port)
+
+    if reuseaddr:
+        socat_cmd += "{},".format("reuseaddr")
+
+    # Group address range to cover
+    if igmp_groups:
+        if not isinstance(igmp_groups, list):
+            igmp_groups = [igmp_groups]
+
+    for igmp_group in igmp_groups:
+        if join:
+            join_traffic_option = "ipv6-join-group"
+        elif traffic:
+            join_traffic_option = "ipv6-join-group-source"
+
+        if send_from_intf and not send_from_intf_ip:
+            socat_cmd += "{}='[{}]:{}'".format(
+                join_traffic_option, igmp_group, send_from_intf
+            )
+        else:
+            socat_cmd += "{}='[{}]:{}:[{}]'".format(
+                join_traffic_option, igmp_group, send_from_intf, send_from_intf_ip
+            )
+
+        socat_cmd += " STDOUT"
+
+        socat_cmd += " &>{}/socat.logs &".format(tgen.logdir)
+
+        # Run socat command to send IGMP join
+        logger.info("[DUT: {}]: Running command: [{}]".format(server, socat_cmd))
+        output = rnode.run("set +m; {} sleep 0.5".format(socat_cmd))
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
 #############################################
 # Verification APIs
 #############################################
@@ -3437,7 +3527,22 @@ def verify_rib(
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
+                                    if "ip" in rib_r
                                 ]
+
+                                # If somehow key "ip" is not found in nexthops JSON
+                                # then found_hops would be 0, this particular
+                                # situation will be handled here
+                                if not len(found_hops):
+                                    errormsg = (
+                                        "Nexthop {} is Missing for "
+                                        "route {} in RIB of router {}\n".format(
+                                            next_hop,
+                                            st_rt,
+                                            dut,
+                                        )
+                                    )
+                                    return errormsg
 
                                 # Check only the count of nexthops
                                 if count_only:

@@ -64,8 +64,7 @@
 #include "zebra/table_manager.h"
 #include "zebra/zebra_script.h"
 #include "zebra/rtadv.h"
-
-extern int allow_delete;
+#include "zebra/zebra_neigh.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -376,6 +375,9 @@ static void show_nexthop_detail_helper(struct vty *vty,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		vty_out(vty, " onlink");
 
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		vty_out(vty, " linkdown");
+
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		vty_out(vty, " (recursive)");
 
@@ -657,6 +659,9 @@ static void show_route_nexthop_helper(struct vty *vty,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		vty_out(vty, " onlink");
 
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		vty_out(vty, " linkdown");
+
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		vty_out(vty, " (recursive)");
 
@@ -836,6 +841,9 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
 		json_object_boolean_true_add(json_nexthop,
 					     "onLink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_LINKDOWN))
+		json_object_boolean_true_add(json_nexthop, "linkDown");
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		json_object_boolean_true_add(json_nexthop,
@@ -2689,7 +2697,7 @@ DEFUN (allow_external_route_update,
        "allow-external-route-update",
        "Allow FRR routes to be overwritten by external processes\n")
 {
-	allow_delete = 1;
+	zrouter.allow_delete = true;
 
 	return CMD_SUCCESS;
 }
@@ -2700,7 +2708,7 @@ DEFUN (no_allow_external_route_update,
        NO_STR
        "Allow FRR routes to be overwritten by external processes\n")
 {
-	allow_delete = 0;
+	zrouter.allow_delete = false;
 
 	return CMD_SUCCESS;
 }
@@ -2993,6 +3001,15 @@ DEFUN (show_evpn_global,
 	bool uj = use_json(argc, argv);
 
 	zebra_vxlan_print_evpn(vty, uj);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_evpn_neigh, show_neigh_cmd, "show ip neigh",
+      SHOW_STR IP_STR "neighbors\n")
+
+{
+	zebra_neigh_show(vty);
+
 	return CMD_SUCCESS;
 }
 
@@ -3633,6 +3650,29 @@ DEFUN (show_pbr_iptable,
 	return CMD_SUCCESS;
 }
 
+/* policy routing contexts */
+DEFPY (show_pbr_rule,
+       show_pbr_rule_cmd,
+       "show pbr rule",
+       SHOW_STR
+       "Policy-Based Routing\n"
+       "Rule\n")
+{
+	zebra_pbr_show_rule(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY (pbr_nexthop_resolve,
+       pbr_nexthop_resolve_cmd,
+       "[no$no] pbr nexthop-resolve",
+       NO_STR
+       "Policy Based Routing\n"
+       "Resolve nexthop for dataplane programming\n")
+{
+	zebra_pbr_expand_action_update(!no);
+	return CMD_SUCCESS;
+}
+
 DEFPY (clear_evpn_dup_addr,
        clear_evpn_dup_addr_cmd,
        "clear evpn dup-addr vni <all$vni_all |" CMD_VNI_RANGE"$vni [mac X:X:X:X:X:X | ip <A.B.C.D|X:X::X:X>]>",
@@ -3869,7 +3909,7 @@ DEFPY (zebra_nexthop_group_keep,
 
 static int config_write_protocol(struct vty *vty)
 {
-	if (allow_delete)
+	if (zrouter.allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
 
 	if (zrouter.nhg_keep != ZEBRA_DEFAULT_NHG_KEEP_TIMER)
@@ -3902,6 +3942,8 @@ static int config_write_protocol(struct vty *vty)
 	dplane_config_write_helper(vty);
 
 	zebra_evpn_mh_config_write(vty);
+
+	zebra_pbr_config_write(vty);
 
 	/* Include nexthop-group config */
 	if (!zebra_nhg_kernel_nexthops_enabled())
@@ -3967,10 +4009,31 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "Kernel NHG|%s",
 		       zrouter.supports_nhgs ? "Available" : "Unavailable");
 
+	ttable_add_row(table, "Allow Non FRR route deletion|%s",
+		       zrouter.allow_delete ? "Yes" : "No");
+	ttable_add_row(table, "v4 All LinkDown Routes|%s",
+		       zrouter.all_linkdownv4 ? "On" : "Off");
+	ttable_add_row(table, "v4 Default LinkDown Routes|%s",
+		       zrouter.default_linkdownv4 ? "On" : "Off");
+	ttable_add_row(table, "v6 All LinkDown Routes|%s",
+		       zrouter.all_linkdownv6 ? "On" : "Off");
+	ttable_add_row(table, "v6 Default LinkDown Routes|%s",
+		       zrouter.default_linkdownv6 ? "On" : "Off");
+
+	ttable_add_row(table, "v4 All MC Forwarding|%s",
+		       zrouter.all_mc_forwardingv4 ? "On" : "Off");
+	ttable_add_row(table, "v4 Default MC Forwarding|%s",
+		       zrouter.default_mc_forwardingv4 ? "On" : "Off");
+	ttable_add_row(table, "v6 All MC Forwarding|%s",
+		       zrouter.all_mc_forwardingv6 ? "On" : "Off");
+	ttable_add_row(table, "v6 Default MC Forwarding|%s",
+		       zrouter.default_mc_forwardingv6 ? "On" : "Off");
+
 	out = ttable_dump(table, "\n");
 	vty_out(vty, "%s\n", out);
 	XFREE(MTYPE_TMP, out);
 
+	ttable_del(table);
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
 	vty_out(vty,
@@ -4520,8 +4583,12 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
 
+	install_element(VIEW_NODE, &show_neigh_cmd);
+
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);
 	install_element(VIEW_NODE, &show_pbr_iptable_cmd);
+	install_element(VIEW_NODE, &show_pbr_rule_cmd);
+	install_element(CONFIG_NODE, &pbr_nexthop_resolve_cmd);
 	install_element(VIEW_NODE, &show_route_zebra_dump_cmd);
 
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);

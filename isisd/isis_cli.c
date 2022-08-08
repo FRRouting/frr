@@ -1629,8 +1629,10 @@ DEFPY_YANG (isis_sr_prefix_sid,
 
 		if (strmatch(lh_behavior, "no-php-flag"))
 			value = "no-php";
-		else
+		else if (strmatch(lh_behavior, "explicit-null"))
 			value = "explicit-null";
+		else
+			value = "php";
 
 		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
 				      value);
