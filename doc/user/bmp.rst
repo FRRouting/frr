@@ -36,8 +36,8 @@ The `BMP` implementation in FRR has the following properties:
   successfully.  OPEN messages for failed sessions cannot currently be
   mirrored.
 
-- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast and
-  multicast SAFIs.  Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
+- **route monitoring** is available for IPv4 and IPv6 AFIs, unicast, multicast 
+  EVPN and VPN SAFIs. Other SAFIs (VPN, Labeled-Unicast, Flowspec, etc.) are not
   currently supported.
 
 - monitoring peers that have BGP **add-path** enabled on the session will
@@ -57,6 +57,51 @@ The `BMP` implementation in FRR has the following properties:
 
 - monitoring peers with :rfc:`5549` extended next-hops has not been tested.
 
+RFC 7854
+========
+Unsupported features (non exhaustive):
+  - Per-Peer Header
+    
+    - Peer Type Flag
+    - Peer Distingsher
+  
+  - Peer Up
+  
+    - Reason codes (according to TODO comments in code)
+
+Peer Type Flag and Peer Distinguisher can be implemented easily using RFC 9069's base code.
+    
+RFC 9069
+========
+Everything that isn't listed here is implemented and should be working.
+Unsupported features (should be exhaustive):
+
+- Per-Peer Header
+
+  - Timestamp
+
+    - set to 0
+    - value is now saved `struct bgp_path_info -> locrib_uptime`
+    - needs testing
+
+- Peer Up/Down
+
+  - VRF/Table Name TLV
+  
+    - code for TLV exists
+    - need better RFC understanding
+
+- Peer Down Only
+
+  - Reason code (bc not supported in RFC 7854 either)
+
+- Statistics Report
+
+  - Stat Type = 8: (64-bit Gauge) Number of routes in Loc-RIB.
+  - Stat Type = 10: Number of routes in per-AFI/SAFI Loc-RIB. The value is 
+    structured as: 2-byte AFI, 1-byte SAFI, followed by a 64-bit Gauge.
+ 
+   
 Starting BMP
 ============
 
@@ -146,7 +191,7 @@ associated with a particular ``bmp targets``:
    Send BMP Statistics (counter) messages at the specified interval (in
    milliseconds.)
 
-.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy>
+.. clicmd:: bmp monitor AFI SAFI <pre-policy|post-policy|loc-rib>
 
    Perform Route Monitoring for the specified AFI and SAFI.  Only IPv4 and
    IPv6 are currently valid for AFI. SAFI valid values are currently 
