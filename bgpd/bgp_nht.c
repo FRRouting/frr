@@ -199,8 +199,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		   to derive
 		   address-family from the next-hop. */
 		if (!is_bgp_static_route)
-			afi = BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr) ? AFI_IP6
-								 : AFI_IP;
+			afi = BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr) ? AFI_IP6
+								    : AFI_IP;
 
 		/* Validation for the ipv4 mapped ipv6 nexthop. */
 		if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
@@ -847,7 +847,11 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				p->u.prefix4 = ipv4;
 				p->prefixlen = IPV4_MAX_BITLEN;
 			} else {
-				p->u.prefix4 = pi->attr->nexthop;
+				if (p_orig->family == AF_EVPN)
+					p->u.prefix4 =
+						pi->attr->mp_nexthop_global_in;
+				else
+					p->u.prefix4 = pi->attr->nexthop;
 				p->prefixlen = IPV4_MAX_BITLEN;
 			}
 		}
