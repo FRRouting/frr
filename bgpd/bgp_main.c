@@ -454,8 +454,7 @@ int main(int argc, char **argv)
 		}
 		case 'l':
 			listnode_add_sort_nodup(addresses, optarg);
-		/* listenon implies -n */
-		/* fallthru */
+			break;
 		case 'n':
 			no_fib_flag = 1;
 			break;
