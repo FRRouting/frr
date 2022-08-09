@@ -178,6 +178,7 @@ struct route_entry {
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
  * sub-queue 1: EVPN/VxLAN objects
+ * sub-queue 2: Early Label Processing
  * sub-queue 2: connected
  * sub-queue 3: kernel
  * sub-queue 4: static
@@ -186,7 +187,7 @@ struct route_entry {
  * sub-queue 7: any other origin (if any) typically those that
  *              don't generate routes
  */
-#define MQ_SIZE 8
+#define MQ_SIZE 9
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */

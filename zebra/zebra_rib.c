@@ -81,6 +81,7 @@ DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 enum meta_queue_indexes {
 	META_QUEUE_NHG,
 	META_QUEUE_EVPN,
+	META_QUEUE_EARLY_LABEL,
 	META_QUEUE_CONNECTED,
 	META_QUEUE_KERNEL,
 	META_QUEUE_STATIC,
@@ -173,6 +174,26 @@ struct wq_evpn_wrapper {
 #define WQ_EVPN_WRAPPER_TYPE_REM_MACIP    0x03
 #define WQ_EVPN_WRAPPER_TYPE_REM_VTEP     0x04
 
+enum wq_label_types {
+	WQ_LABEL_FTN_UNINSTALL,
+	WQ_LABEL_LABELS_PROCESS,
+};
+
+struct wq_label_wrapper {
+	enum wq_label_types type;
+	vrf_id_t vrf_id;
+
+	struct prefix p;
+	enum lsp_types_t ltype;
+	uint8_t route_type;
+	uint8_t route_instance;
+
+	bool add_p;
+	struct zapi_labels zl;
+
+	int afi;
+};
+
 /* %pRN is already a printer for route_nodes that just prints the prefix */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pZN" (struct route_node *)
@@ -185,6 +206,8 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 		return "NHG Objects";
 	case META_QUEUE_EVPN:
 		return "EVPN/VxLan Objects";
+	case META_QUEUE_EARLY_LABEL:
+		return "Early Label Handling";
 	case META_QUEUE_CONNECTED:
 		return "Connected Routes";
 	case META_QUEUE_KERNEL:
@@ -2468,6 +2491,33 @@ static void process_subq_nhg(struct listnode *lnode)
 	XFREE(MTYPE_WQ_WRAPPER, w);
 }
 
+static void process_subq_early_label(struct listnode *lnode)
+{
+	struct wq_label_wrapper *w = listgetdata(lnode);
+	struct zebra_vrf *zvrf;
+
+	if (!w)
+		return;
+
+	zvrf = vrf_info_lookup(w->vrf_id);
+	if (!zvrf) {
+		XFREE(MTYPE_WQ_WRAPPER, w);
+		return;
+	}
+
+	switch (w->type) {
+	case WQ_LABEL_FTN_UNINSTALL:
+		zebra_mpls_ftn_uninstall(zvrf, w->ltype, &w->p, w->route_type,
+					 w->route_instance);
+		break;
+	case WQ_LABEL_LABELS_PROCESS:
+		zebra_mpls_zapi_labels_process(w->add_p, zvrf, &w->zl);
+		break;
+	}
+
+	XFREE(MTYPE_WQ_WRAPPER, w);
+}
+
 static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 {
 	struct route_node *rnode = NULL;
@@ -2524,6 +2574,9 @@ static unsigned int process_subq(struct list *subq,
 		break;
 	case META_QUEUE_NHG:
 		process_subq_nhg(lnode);
+		break;
+	case META_QUEUE_EARLY_LABEL:
+		process_subq_early_label(lnode);
 		break;
 	case META_QUEUE_CONNECTED:
 	case META_QUEUE_KERNEL:
@@ -2635,6 +2688,13 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+static int early_label_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	listnode_add(mq->subq[META_QUEUE_EARLY_LABEL], data);
+	mq->size++;
+	return 0;
+}
+
 static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 {
 	struct nhg_ctx *ctx = NULL;
@@ -2716,6 +2776,44 @@ static int mq_add_handler(void *data,
 		work_queue_add(zrouter.ribq, zrouter.mq);
 
 	return mq_add_func(zrouter.mq, data);
+}
+
+void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			struct prefix *prefix, uint8_t route_type,
+			uint8_t route_instance)
+{
+	struct wq_label_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_label_wrapper));
+
+	w->type = WQ_LABEL_FTN_UNINSTALL;
+	w->vrf_id = zvrf->vrf->vrf_id;
+	w->p = *prefix;
+	w->ltype = type;
+	w->route_type = route_type;
+	w->route_instance = route_instance;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("Early Label Handling for %pFX", prefix);
+
+	mq_add_handler(w, early_label_meta_queue_add);
+}
+
+void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			      const struct zapi_labels *zl)
+{
+	struct wq_label_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_label_wrapper));
+	w->type = WQ_LABEL_LABELS_PROCESS;
+	w->vrf_id = zvrf->vrf->vrf_id;
+	w->add_p = add_p;
+	w->zl = *zl;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("Early Label Handling: Labels Process");
+
+	mq_add_handler(w, early_label_meta_queue_add);
 }
 
 /* Add route_node to work queue and schedule processing */
@@ -3034,6 +3132,29 @@ static void nhg_meta_queue_free(struct meta_queue *mq, struct list *l,
 	}
 }
 
+static void early_label_meta_queue_free(struct meta_queue *mq, struct list *l,
+					struct zebra_vrf *zvrf)
+{
+	struct wq_label_wrapper *w;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(l, node, nnode, w)) {
+		if (zvrf && zvrf->vrf->vrf_id != w->vrf_id)
+			continue;
+
+		switch (w->type) {
+		case WQ_LABEL_FTN_UNINSTALL:
+		case WQ_LABEL_LABELS_PROCESS:
+			break;
+		}
+
+		node->data = NULL;
+		XFREE(MTYPE_WQ_WRAPPER, w);
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
 static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 				struct zebra_vrf *zvrf)
 {
@@ -3066,6 +3187,9 @@ void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 			break;
 		case META_QUEUE_EVPN:
 			evpn_meta_queue_free(mq, mq->subq[i], zvrf);
+			break;
+		case META_QUEUE_EARLY_LABEL:
+			early_label_meta_queue_free(mq, mq->subq[i], zvrf);
 			break;
 		case META_QUEUE_CONNECTED:
 		case META_QUEUE_KERNEL:
