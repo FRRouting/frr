@@ -2747,9 +2747,9 @@ static bool ftn_update_nexthop(bool add_p, struct nexthop *nexthop,
 	return true;
 }
 
-int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		       struct prefix *prefix, uint8_t route_type,
-		       unsigned short route_instance)
+void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			struct prefix *prefix, uint8_t route_type,
+			unsigned short route_instance)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2761,7 +2761,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf_id(zvrf));
 	if (!table)
-		return -1;
+		return;
 
 	/* Lookup existing route */
 	rn = route_node_get(table, prefix);
@@ -2772,7 +2772,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 			break;
 	}
 	if (re == NULL)
-		return -1;
+		return;
 
 	/*
 	 * Nexthops are now shared by multiple routes, so we have to make
@@ -2801,8 +2801,6 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	zebra_nhg_free(new_nhe);
 
 	rib_queue_add(rn);
-
-	return 0;
 }
 
 /*
@@ -2884,8 +2882,8 @@ static bool ftn_update_znh(bool add_p, enum lsp_types_t type,
  * There are several changes that need to be made, in several zebra
  * data structures, so we want to do all the work required at once.
  */
-int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
-			     const struct zapi_labels *zl)
+void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			      const struct zapi_labels *zl)
 {
 	int i, counter, ret = 0;
 	char buf[NEXTHOP_STRLEN];
@@ -2906,7 +2904,7 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 		/* Lookup table. */
 		lsp_table = zvrf->lsp_table;
 		if (!lsp_table)
-			return -1;
+			return;
 
 		/* Find or create LSP object */
 		tmp_ile.in_label = zl->local_label;
@@ -3070,8 +3068,6 @@ znh_done:
 
 	if (new_nhe)
 		zebra_nhg_free(new_nhe);
-
-	return ret;
 }
 
 /*
