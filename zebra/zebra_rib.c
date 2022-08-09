@@ -2958,44 +2958,6 @@ int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
 
-/* Clean up the EVPN meta-queue list */
-static void evpn_meta_queue_free(struct list *l)
-{
-	struct listnode *node;
-	struct wq_evpn_wrapper *w;
-
-	/* Free the node wrapper object, and the struct it wraps */
-	while ((node = listhead(l)) != NULL) {
-		w = node->data;
-		node->data = NULL;
-
-		XFREE(MTYPE_WQ_WRAPPER, w);
-
-		list_delete_node(l, node);
-	}
-}
-
-/* Clean up the nhg meta-queue list */
-static void nhg_meta_queue_free(struct list *l)
-{
-	struct wq_nhg_wrapper *w;
-	struct listnode *node;
-
-	/* Free the node wrapper object, and the struct it wraps */
-	while ((node = listhead(l)) != NULL) {
-		w = node->data;
-		node->data = NULL;
-
-		if (w->type == WQ_NHG_WRAPPER_TYPE_CTX)
-			nhg_ctx_free(&w->u.ctx);
-		else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG)
-			zebra_nhg_free(w->u.nhe);
-
-		XFREE(MTYPE_WQ_WRAPPER, w);
-
-		list_delete_node(l, node);
-	}
-}
 
 /* Create new meta queue.
    A destructor function doesn't seem to be necessary here.
@@ -3015,7 +2977,84 @@ static struct meta_queue *meta_queue_new(void)
 	return new;
 }
 
-void meta_queue_free(struct meta_queue *mq)
+/* Clean up the EVPN meta-queue list */
+static void evpn_meta_queue_free(struct meta_queue *mq, struct list *l,
+				 struct zebra_vrf *zvrf)
+{
+	struct listnode *node, *nnode;
+	struct wq_evpn_wrapper *w;
+
+	/* Free the node wrapper object, and the struct it wraps */
+	for (ALL_LIST_ELEMENTS(l, node, nnode, w)) {
+		if (zvrf) {
+			vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+			if (w->vrf_id != vrf_id)
+				continue;
+		}
+
+		node->data = NULL;
+
+		XFREE(MTYPE_WQ_WRAPPER, w);
+
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
+/* Clean up the nhg meta-queue list */
+static void nhg_meta_queue_free(struct meta_queue *mq, struct list *l,
+				struct zebra_vrf *zvrf)
+{
+	struct wq_nhg_wrapper *w;
+	struct listnode *node, *nnode;
+
+	/* Free the node wrapper object, and the struct it wraps */
+	for (ALL_LIST_ELEMENTS(l, node, nnode, w)) {
+		if (zvrf) {
+			vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+			if (w->type == WQ_NHG_WRAPPER_TYPE_CTX &&
+			    w->u.ctx->vrf_id != vrf_id)
+				continue;
+			else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG &&
+				 w->u.nhe->vrf_id != vrf_id)
+				continue;
+		}
+		if (w->type == WQ_NHG_WRAPPER_TYPE_CTX)
+			nhg_ctx_free(&w->u.ctx);
+		else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG)
+			zebra_nhg_free(w->u.nhe);
+
+		node->data = NULL;
+		XFREE(MTYPE_WQ_WRAPPER, w);
+
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
+static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
+				struct zebra_vrf *zvrf)
+{
+	struct route_node *rnode;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(l, node, nnode, rnode)) {
+		rib_dest_t *dest = rib_dest_from_rnode(rnode);
+
+		if (dest && rib_dest_vrf(dest) != zvrf)
+			continue;
+
+		route_unlock_node(rnode);
+		node->data = NULL;
+		list_delete_node(l, node);
+		mq->size--;
+	}
+}
+
+
+void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf)
 {
 	enum meta_queue_indexes i;
 
@@ -3023,10 +3062,10 @@ void meta_queue_free(struct meta_queue *mq)
 		/* Some subqueues may need cleanup - nhgs for example */
 		switch (i) {
 		case META_QUEUE_NHG:
-			nhg_meta_queue_free(mq->subq[i]);
+			nhg_meta_queue_free(mq, mq->subq[i], zvrf);
 			break;
 		case META_QUEUE_EVPN:
-			evpn_meta_queue_free(mq->subq[i]);
+			evpn_meta_queue_free(mq, mq->subq[i], zvrf);
 			break;
 		case META_QUEUE_CONNECTED:
 		case META_QUEUE_KERNEL:
@@ -3034,76 +3073,15 @@ void meta_queue_free(struct meta_queue *mq)
 		case META_QUEUE_NOTBGP:
 		case META_QUEUE_BGP:
 		case META_QUEUE_OTHER:
+			rib_meta_queue_free(mq, mq->subq[i], zvrf);
 			break;
 		}
-		list_delete(&mq->subq[i]);
+		if (!zvrf)
+			list_delete(&mq->subq[i]);
 	}
 
-	XFREE(MTYPE_WORK_QUEUE, mq);
-}
-
-void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
-{
-	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
-	enum meta_queue_indexes i;
-
-	for (i = 0; i < MQ_SIZE; i++) {
-		struct listnode *lnode, *nnode;
-		void *data;
-		bool del;
-
-		for (ALL_LIST_ELEMENTS(mq->subq[i], lnode, nnode, data)) {
-			del = false;
-
-			switch (i) {
-			case META_QUEUE_EVPN: {
-				struct wq_evpn_wrapper *w = data;
-
-				if (w->vrf_id == vrf_id) {
-					XFREE(MTYPE_WQ_WRAPPER, w);
-					del = true;
-				}
-				break;
-			}
-			case META_QUEUE_NHG: {
-				struct wq_nhg_wrapper *w = data;
-
-				if (w->type == WQ_NHG_WRAPPER_TYPE_CTX &&
-				    w->u.ctx->vrf_id == vrf_id) {
-					nhg_ctx_free(&w->u.ctx);
-					XFREE(MTYPE_WQ_WRAPPER, w);
-					del = true;
-				} else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG &&
-					   w->u.nhe->vrf_id == vrf_id) {
-					zebra_nhg_free(w->u.nhe);
-					XFREE(MTYPE_WQ_WRAPPER, w);
-					del = true;
-				}
-				break;
-			}
-			case META_QUEUE_CONNECTED:
-			case META_QUEUE_KERNEL:
-			case META_QUEUE_STATIC:
-			case META_QUEUE_NOTBGP:
-			case META_QUEUE_BGP:
-			case META_QUEUE_OTHER: {
-				struct route_node *rnode = data;
-				rib_dest_t *dest = rib_dest_from_rnode(rnode);
-
-				if (dest && rib_dest_vrf(dest) == zvrf) {
-					route_unlock_node(rnode);
-					del = true;
-				}
-				break;
-			}
-			}
-
-			if (del) {
-				list_delete_node(mq->subq[i], lnode);
-				mq->size--;
-			}
-		}
-	}
+	if (!zvrf)
+		XFREE(MTYPE_WORK_QUEUE, mq);
 }
 
 /* initialise zebra rib work queue */
