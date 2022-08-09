@@ -86,7 +86,8 @@ struct bfd_echo_pkt {
 		};
 	};
 	uint32_t my_discr;
-	uint8_t pad[16];
+	uint64_t time_sent_sec;
+	uint64_t time_sent_usec;
 };
 
 
@@ -249,6 +250,8 @@ struct bfd_config_timers {
 	uint32_t required_min_echo_rx;
 };
 
+#define BFD_RTT_SAMPLE 8
+
 /*
  * Session state information
  */
@@ -311,6 +314,10 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
+
+	uint8_t rtt_valid;	    /* number of valid samples */
+	uint8_t rtt_index;	    /* last index added */
+	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
 struct peer_label {
@@ -635,6 +642,7 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+void bfd_rtt_init(struct bfd_session *bfd);
 
 /**
  * Set the BFD session echo state.
