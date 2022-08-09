@@ -261,15 +261,15 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
  * Handle zapi request to install/uninstall LSP and
  * (optionally) FEC-To-NHLFE (FTN) bindings.
  */
-int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
-			     const struct zapi_labels *zl);
+void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			      const struct zapi_labels *zl);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.
  */
-int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		       struct prefix *prefix, uint8_t route_type,
-		       unsigned short route_instance);
+void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			struct prefix *prefix, uint8_t route_type,
+			unsigned short route_instance);
 
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be

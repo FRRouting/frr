@@ -2492,7 +2492,6 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
-	int ret;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2510,12 +2509,7 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 	if (zapi_labels_validate(&zl) < 0)
 		return;
 
-	ret = mpls_zapi_labels_process(true, zvrf, &zl);
-	if (ret < 0) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Error processing zapi request",
-				   __func__);
-	}
+	mpls_zapi_labels_process(true, zvrf, &zl);
 }
 
 /*
@@ -2532,7 +2526,6 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
-	int ret;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2547,12 +2540,7 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 		return;
 
 	if (zl.nexthop_num > 0) {
-		ret = mpls_zapi_labels_process(false /*delete*/, zvrf, &zl);
-		if (ret < 0) {
-			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: Error processing zapi request",
-					   __func__);
-		}
+		mpls_zapi_labels_process(false /*delete*/, zvrf, &zl);
 	} else {
 		mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
 
