@@ -77,51 +77,64 @@ static struct dplane_ctx_q rib_dplane_q;
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
 
+/* Meta Q's specific names */
+enum meta_queue_indexes {
+	META_QUEUE_NHG,
+	META_QUEUE_EVPN,
+	META_QUEUE_CONNECTED,
+	META_QUEUE_KERNEL,
+	META_QUEUE_STATIC,
+	META_QUEUE_NOTBGP,
+	META_QUEUE_BGP,
+	META_QUEUE_OTHER,
+};
+
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
 	uint8_t distance;
-	uint8_t meta_q_map;
+	enum meta_queue_indexes meta_q_map;
 } route_info[ZEBRA_ROUTE_MAX] = {
-	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Unneeded for nhg's */, 0},
-	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 7},
-	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 3},
-	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, 2},
-	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 4},
-	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 5},
-	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 5},
-	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 5},
-	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 5},
-	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 5},
-	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 6},
-	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 7},
-	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 5},
-	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 5},
-	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 7},
-	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 7},
-	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 4},
-	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 7},
-	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 6},
-	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 6},
-	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 6},
-	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 6},
-	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 6},
-	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 5},
-	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 7},
-	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 7},
-	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 7},
-	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 5},
-	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 7},
-	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 7},
-	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, 255, 7},
+	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Unneeded for nhg's */,
+			     META_QUEUE_NHG},
+	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, META_QUEUE_KERNEL},
+	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, META_QUEUE_CONNECTED},
+	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, META_QUEUE_STATIC},
+	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */,
+			     META_QUEUE_BGP},
+	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, META_QUEUE_STATIC},
+	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, META_QUEUE_BGP},
+	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, META_QUEUE_BGP},
+	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20,
+				       META_QUEUE_BGP},
+	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, META_QUEUE_BGP},
+	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20,
+					META_QUEUE_BGP},
+	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115,
+				    META_QUEUE_NOTBGP},
+	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, 255, META_QUEUE_OTHER},
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
 };
-
-/* Meta Q's specific names */
-#define META_QUEUE_NHG 0
-#define META_QUEUE_EVPN 1
 
 /* Wrapper struct for nhg workqueue items; a 'ctx' is an incoming update
  * from the OS, and an 'nhe' is a nhe update.
@@ -165,24 +178,24 @@ struct wq_evpn_wrapper {
 #pragma FRR printfrr_ext "%pZN" (struct route_node *)
 #endif
 
-static const char *subqueue2str(uint8_t index)
+static const char *subqueue2str(enum meta_queue_indexes index)
 {
 	switch (index) {
 	case META_QUEUE_NHG:
 		return "NHG Objects";
 	case META_QUEUE_EVPN:
 		return "EVPN/VxLan Objects";
-	case 2:
+	case META_QUEUE_CONNECTED:
 		return "Connected Routes";
-	case 3:
+	case META_QUEUE_KERNEL:
 		return "Kernel Routes";
-	case 4:
+	case META_QUEUE_STATIC:
 		return "Static Routes";
-	case 5:
+	case META_QUEUE_NOTBGP:
 		return "RIP/OSPF/ISIS/EIGRP/NHRP Routes";
-	case 6:
+	case META_QUEUE_BGP:
 		return "BGP Routes";
-	case 7:
+	case META_QUEUE_OTHER:
 		return "Other Routes";
 	}
 
@@ -2497,19 +2510,30 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
  * Examine the specified subqueue; process one entry and return 1 if
  * there is a node, return 0 otherwise.
  */
-static unsigned int process_subq(struct list *subq, uint8_t qindex)
+static unsigned int process_subq(struct list *subq,
+				 enum meta_queue_indexes qindex)
 {
 	struct listnode *lnode = listhead(subq);
 
 	if (!lnode)
 		return 0;
 
-	if (qindex == META_QUEUE_EVPN)
+	switch (qindex) {
+	case META_QUEUE_EVPN:
 		process_subq_evpn(lnode);
-	else if (qindex == META_QUEUE_NHG)
+		break;
+	case META_QUEUE_NHG:
 		process_subq_nhg(lnode);
-	else
+		break;
+	case META_QUEUE_CONNECTED:
+	case META_QUEUE_KERNEL:
+	case META_QUEUE_STATIC:
+	case META_QUEUE_NOTBGP:
+	case META_QUEUE_BGP:
+	case META_QUEUE_OTHER:
 		process_subq_route(lnode, qindex);
+		break;
+	}
 
 	list_delete_node(subq, lnode);
 
@@ -2993,15 +3017,25 @@ static struct meta_queue *meta_queue_new(void)
 
 void meta_queue_free(struct meta_queue *mq)
 {
-	unsigned i;
+	enum meta_queue_indexes i;
 
 	for (i = 0; i < MQ_SIZE; i++) {
 		/* Some subqueues may need cleanup - nhgs for example */
-		if (i == META_QUEUE_NHG)
+		switch (i) {
+		case META_QUEUE_NHG:
 			nhg_meta_queue_free(mq->subq[i]);
-		else if (i == META_QUEUE_EVPN)
+			break;
+		case META_QUEUE_EVPN:
 			evpn_meta_queue_free(mq->subq[i]);
-
+			break;
+		case META_QUEUE_CONNECTED:
+		case META_QUEUE_KERNEL:
+		case META_QUEUE_STATIC:
+		case META_QUEUE_NOTBGP:
+		case META_QUEUE_BGP:
+		case META_QUEUE_OTHER:
+			break;
+		}
 		list_delete(&mq->subq[i]);
 	}
 
@@ -3011,7 +3045,7 @@ void meta_queue_free(struct meta_queue *mq)
 void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
 {
 	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
-	unsigned int i;
+	enum meta_queue_indexes i;
 
 	for (i = 0; i < MQ_SIZE; i++) {
 		struct listnode *lnode, *nnode;
@@ -3021,14 +3055,17 @@ void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
 		for (ALL_LIST_ELEMENTS(mq->subq[i], lnode, nnode, data)) {
 			del = false;
 
-			if (i == META_QUEUE_EVPN) {
+			switch (i) {
+			case META_QUEUE_EVPN: {
 				struct wq_evpn_wrapper *w = data;
 
 				if (w->vrf_id == vrf_id) {
 					XFREE(MTYPE_WQ_WRAPPER, w);
 					del = true;
 				}
-			} else if (i == META_QUEUE_NHG) {
+				break;
+			}
+			case META_QUEUE_NHG: {
 				struct wq_nhg_wrapper *w = data;
 
 				if (w->type == WQ_NHG_WRAPPER_TYPE_CTX &&
@@ -3042,7 +3079,14 @@ void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
 					XFREE(MTYPE_WQ_WRAPPER, w);
 					del = true;
 				}
-			} else {
+				break;
+			}
+			case META_QUEUE_CONNECTED:
+			case META_QUEUE_KERNEL:
+			case META_QUEUE_STATIC:
+			case META_QUEUE_NOTBGP:
+			case META_QUEUE_BGP:
+			case META_QUEUE_OTHER: {
 				struct route_node *rnode = data;
 				rib_dest_t *dest = rib_dest_from_rnode(rnode);
 
@@ -3050,6 +3094,8 @@ void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
 					route_unlock_node(rnode);
 					del = true;
 				}
+				break;
+			}
 			}
 
 			if (del) {
