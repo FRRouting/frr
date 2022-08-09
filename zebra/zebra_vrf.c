@@ -218,7 +218,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
 	/* clean-up work queues */
-	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
+	meta_queue_free(zrouter.mq, zvrf);
 
 	/* Cleanup (free) routing tables and NHT tables. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -253,7 +253,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	table_manager_disable(zvrf);
 
 	/* clean-up work queues */
-	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
+	meta_queue_free(zrouter.mq, zvrf);
 
 	/* Free Vxlan and MPLS. */
 	zebra_vxlan_close_tables(zvrf);
