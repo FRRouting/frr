@@ -1609,6 +1609,10 @@ def compare_context_objects(newconf, running):
     candidates_to_add = []
     delete_bgpd = False
     restart_frr = False
+    def_vrf_ctx = None
+
+    if ("vrf default",) in newconf.contexts:
+        def_vrf_ctx = newconf.contexts[('vrf default',)]
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -1665,11 +1669,22 @@ def compare_context_objects(newconf, running):
             # doing vtysh -c inefficient (and can time out.)  For
             # these commands, instead of adding them to lines_to_del,
             # add the "no " version to lines_to_add.
+            #
+            # Handle the case where default-vrf static routes may
+            # be in a vrf/exit-vrf context, even though that's not
+            # necessary.
             elif running_ctx_keys[0].startswith("ip route") or running_ctx_keys[
                 0
             ].startswith("ipv6 route"):
-                add_cmd = ("no " + running_ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
+                # If default vrf context block, check it
+                if (def_vrf_ctx and
+                    (running_ctx_keys[0] not in def_vrf_ctx.lines)):
+                    add_cmd = ('no ' + running_ctx_keys[0],)
+                    lines_to_add.append((add_cmd, None))
+                elif not def_vrf_ctx:
+                    # Else remove the line
+                    add_cmd = ('no ' + running_ctx_keys[0],)
+                    lines_to_add.append((add_cmd, None))
 
             # if this an interface sub-subcontext in an address-family block in ldpd and
             # we are already deleting the whole context, then ignore this
@@ -1800,6 +1815,8 @@ def compare_context_objects(newconf, running):
     for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
 
         if newconf_ctx_keys not in running.contexts:
+            need_key = True
+            temp_lines = newconf_ctx.lines
 
             # candidate paths can only be added after the policy and segment list,
             # so add them to a separate array that is going to be appended at the end
@@ -1817,6 +1834,30 @@ def compare_context_objects(newconf, running):
 
                 for line in newconf_ctx.lines:
                     lines_to_add.append((newconf_ctx_keys, line))
+
+            if "vrf default" == newconf_ctx_keys[0]:
+                temp_lines = []
+                #
+                # Skip default vrf static routes if present in running config
+                #
+                for line in newconf_ctx.lines:
+                    if ((line.startswith("ip route") or
+                          line.startswith("ipv6 route")) and
+                         (line,) in running.contexts):
+                        continue
+                    temp_lines.append(line)
+
+                # Skip top-level key line if nothing to add
+                if len(temp_lines) == 0:
+                    need_key = False
+
+            # Add key line(s), if needed
+            if need_key:
+                lines_to_add.append((newconf_ctx_keys, None))
+
+            # Add remaining line(s), if any
+            for line in temp_lines:
+                lines_to_add.append((newconf_ctx_keys, line))
 
     # if we have some candidate paths commands to add, append them to lines_to_add
     if len(candidates_to_add) > 0:
