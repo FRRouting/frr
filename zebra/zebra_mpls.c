@@ -2747,9 +2747,9 @@ static bool ftn_update_nexthop(bool add_p, struct nexthop *nexthop,
 	return true;
 }
 
-void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
-			struct prefix *prefix, uint8_t route_type,
-			unsigned short route_instance)
+void zebra_mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			      struct prefix *prefix, uint8_t route_type,
+			      uint8_t route_instance)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2882,8 +2882,8 @@ static bool ftn_update_znh(bool add_p, enum lsp_types_t type,
  * There are several changes that need to be made, in several zebra
  * data structures, so we want to do all the work required at once.
  */
-void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
-			      const struct zapi_labels *zl)
+void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+				    const struct zapi_labels *zl)
 {
 	int i, counter, ret = 0;
 	char buf[NEXTHOP_STRLEN];
