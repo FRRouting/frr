@@ -956,17 +956,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
 
-			re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-			re->type = proto;
-			re->distance = distance;
-			re->flags = flags;
-			re->metric = metric;
-			re->mtu = mtu;
-			re->vrf_id = vrf_id;
-			re->table = table;
-			re->uptime = monotime(NULL);
-			re->tag = tag;
-			re->nhe_id = nhe_id;
+			re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags,
+						       nhe_id, table, metric,
+						       mtu, distance, tag);
 
 			if (!nhe_id) {
 				uint8_t nhop_num;
