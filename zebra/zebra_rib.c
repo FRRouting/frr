@@ -119,7 +119,8 @@ static const struct {
 	/* no entry/default: 150 */
 };
 
-/* EVPN/VXLAN subqueue is number 1 */
+/* Meta Q's specific names */
+#define META_QUEUE_NHG 0
 #define META_QUEUE_EVPN 1
 
 /* Wrapper struct for nhg workqueue items; a 'ctx' is an incoming update
@@ -167,9 +168,9 @@ struct wq_evpn_wrapper {
 static const char *subqueue2str(uint8_t index)
 {
 	switch (index) {
-	case 0:
+	case META_QUEUE_NHG:
 		return "NHG Objects";
-	case 1:
+	case META_QUEUE_EVPN:
 		return "EVPN/VxLan Objects";
 	case 2:
 		return "Connected Routes";
@@ -2407,7 +2408,7 @@ static void process_subq_nhg(struct listnode *lnode)
 	struct nhg_ctx *ctx;
 	struct nhg_hash_entry *nhe, *newnhe;
 	struct wq_nhg_wrapper *w;
-	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
+	uint8_t qindex = META_QUEUE_NHG;
 
 	w = listgetdata(lnode);
 
@@ -2505,7 +2506,7 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 
 	if (qindex == META_QUEUE_EVPN)
 		process_subq_evpn(lnode);
-	else if (qindex == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
+	else if (qindex == META_QUEUE_NHG)
 		process_subq_nhg(lnode);
 	else
 		process_subq_route(lnode, qindex);
@@ -2613,7 +2614,7 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 {
 	struct nhg_ctx *ctx = NULL;
-	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
+	uint8_t qindex = META_QUEUE_NHG;
 	struct wq_nhg_wrapper *w;
 
 	ctx = (struct nhg_ctx *)data;
@@ -2639,7 +2640,7 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 {
 	struct nhg_hash_entry *nhe = NULL;
-	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
+	uint8_t qindex = META_QUEUE_NHG;
 	struct wq_nhg_wrapper *w;
 
 	nhe = (struct nhg_hash_entry *)data;
@@ -2996,7 +2997,7 @@ void meta_queue_free(struct meta_queue *mq)
 
 	for (i = 0; i < MQ_SIZE; i++) {
 		/* Some subqueues may need cleanup - nhgs for example */
-		if (i == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
+		if (i == META_QUEUE_NHG)
 			nhg_meta_queue_free(mq->subq[i]);
 		else if (i == META_QUEUE_EVPN)
 			evpn_meta_queue_free(mq->subq[i]);
@@ -3027,8 +3028,7 @@ void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
 					XFREE(MTYPE_WQ_WRAPPER, w);
 					del = true;
 				}
-			} else if (i ==
-				   route_info[ZEBRA_ROUTE_NHG].meta_q_map) {
+			} else if (i == META_QUEUE_NHG) {
 				struct wq_nhg_wrapper *w = data;
 
 				if (w->type == WQ_NHG_WRAPPER_TYPE_CTX &&
