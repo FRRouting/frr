@@ -4062,7 +4062,7 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	}
 
 	/* If local MAC on a down local ES translate the network-mac-add
-	 * to a local-inactive-mac-add
+	 * to a local-active-mac-add
 	 */
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 		zlog_debug("dpAdd local-nw-MAC %pEA VID %u", macaddr, vid);
