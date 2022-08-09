@@ -423,7 +423,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	ecmd.cmd = ETHTOOL_GSET; /* ETHTOOL_GLINK */
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
-	/* use ioctl to get IP address of an interface */
+	/* use ioctl to get speed of an interface */
 	frr_with_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
 				interface->vrf->vrf_id, NULL);
@@ -436,7 +436,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 				*error = -1;
 			return 0;
 		}
-	/* Get the current link state for the interface */
+		/* Get the current link state for the interface */
 		rc = vrf_ioctl(interface->vrf->vrf_id, sd, SIOCETHTOOL,
 			       (char *)&ifdata);
 	}
