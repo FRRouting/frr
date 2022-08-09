@@ -344,6 +344,12 @@ extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      union prefixconstptr src_pp,
 			      const struct route_entry *re);
 
+struct route_entry *
+zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
+			  uint32_t flags, uint32_t nhe_id, uint32_t table_id,
+			  uint32_t metric, uint32_t mtu, uint8_t distance,
+			  route_tag_t tag);
+
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
 #define ZEBRA_RIB_FOUND_NOGATE 1

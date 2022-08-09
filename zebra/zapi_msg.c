@@ -2052,17 +2052,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			   (int)api.message, api.flags);
 
 	/* Allocate new route. */
-	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-	re->type = api.type;
-	re->instance = api.instance;
-	re->flags = api.flags;
-	re->uptime = monotime(NULL);
-	re->vrf_id = vrf_id;
-
-	if (api.tableid)
-		re->table = api.tableid;
-	else
-		re->table = zvrf->table_id;
+	re = zebra_rib_route_entry_new(
+		vrf_id, api.type, api.instance, api.flags, api.nhgid,
+		api.tableid ? api.tableid : zvrf->table_id, api.metric, api.mtu,
+		api.distance, api.tag);
 
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
 	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
@@ -2087,9 +2080,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				&api.prefix);
 	}
 
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG))
-		re->nhe_id = api.nhgid;
-
 	if (!re->nhe_id
 	    && (!zapi_read_nexthops(client, &api.prefix, api.nexthops,
 				    api.flags, api.message, api.nexthop_num,
@@ -2104,15 +2094,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		XFREE(MTYPE_RE, re);
 		return;
 	}
-
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		re->distance = api.distance;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		re->metric = api.metric;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
-		re->tag = api.tag;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_MTU))
-		re->mtu = api.mtu;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
 		re->opaque =

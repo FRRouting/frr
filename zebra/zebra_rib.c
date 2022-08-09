@@ -4037,6 +4037,30 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
+					      uint8_t instance, uint32_t flags,
+					      uint32_t nhe_id,
+					      uint32_t table_id,
+					      uint32_t metric, uint32_t mtu,
+					      uint8_t distance, route_tag_t tag)
+{
+	struct route_entry *re;
+
+	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
+	re->type = type;
+	re->instance = instance;
+	re->distance = distance;
+	re->flags = flags;
+	re->metric = metric;
+	re->mtu = mtu;
+	re->table = table_id;
+	re->vrf_id = vrf_id;
+	re->uptime = monotime(NULL);
+	re->tag = tag;
+	re->nhe_id = nhe_id;
+
+	return re;
+}
 /*
  * Internal route-add implementation; there are a couple of different public
  * signatures. Callers in this path are responsible for the memory they
@@ -4119,16 +4143,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	struct route_entry *re = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 
-	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-	re->type = type;
-	re->instance = instance;
-	re->distance = distance;
-	re->flags = flags;
-	re->metric = metric;
-	re->table = table_id;
-	re->vrf_id = vrf_id;
-	re->uptime = monotime(NULL);
-	re->nhe_id = nhe_id;
+	re = zebra_rib_route_entry_new(vrf_id, type, instance, flags, nhe_id,
+				       table_id, metric, 0, distance, 0);
 
 	if (nh) {
 		nhe = zebra_nhg_alloc();
@@ -4163,18 +4179,8 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	struct nexthop_group ng = {};
 
 	/* Allocate new route_entry structure. */
-	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-	re->type = type;
-	re->instance = instance;
-	re->distance = distance;
-	re->flags = flags;
-	re->metric = metric;
-	re->mtu = mtu;
-	re->table = table_id;
-	re->vrf_id = vrf_id;
-	re->uptime = monotime(NULL);
-	re->tag = tag;
-	re->nhe_id = nhe_id;
+	re = zebra_rib_route_entry_new(vrf_id, type, instance, flags, nhe_id,
+				       table_id, metric, mtu, distance, tag);
 
 	/* If the owner of the route supplies a shared nexthop-group id,
 	 * we'll use that. Otherwise, pass the nexthop along directly.
