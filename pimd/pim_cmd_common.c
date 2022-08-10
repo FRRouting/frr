@@ -3427,6 +3427,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	struct listnode *node;
 	struct channel_oil *c_oil;
 	struct static_route *s_route;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	time_t now;
 	json_object *json_group = NULL;
 	json_object *json_source = NULL;
@@ -3449,8 +3451,14 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		vty_out(vty, "Flags: S - Sparse, C - Connected, P - Pruned\n");
 		vty_out(vty,
 			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
-		vty_out(vty,
-			"\nSource          Group           Flags    Proto  Input            Output           TTL  Uptime\n");
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt, "Source|Group|Flags|Proto|Input|Output|TTL|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	now = pim_time_monotonic_sec();
@@ -3654,11 +3662,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 					strlcpy(proto, "STAR", sizeof(proto));
 				}
 
-				vty_out(vty,
-					"%-15s %-15s %-8s %-6s %-16s %-16s %-3d  %8s\n",
-					src_str, grp_str, state_str, proto,
-					in_ifname, out_ifname, ttl,
-					mroute_uptime);
+				ttable_add_row(tt, "%s|%s|%s|%s|%s|%s|%d|%s",
+					       src_str, grp_str, state_str,
+					       proto, in_ifname, out_ifname,
+					       ttl, mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';
@@ -3672,11 +3679,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 
 		if (!json && !found_oif) {
-			vty_out(vty,
-				"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
-				oil_origin(c_oil), oil_mcastgrp(c_oil),
-				state_str, "none", in_ifname, "none", 0,
-				"--:--:--");
+			ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
+				       oil_origin(c_oil), oil_mcastgrp(c_oil),
+				       state_str, "none", in_ifname, "none", 0,
+				       "--:--:--");
 		}
 	}
 
@@ -3780,8 +3786,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				json_object_object_add(json_oil, out_ifname,
 						       json_ifp_out);
 			} else {
-				vty_out(vty,
-					"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
+				ttable_add_row(
+					tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
 					&s_route->source, &s_route->group, "-",
 					proto, in_ifname, out_ifname, ttl,
 					oif_uptime);
@@ -3795,11 +3801,17 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 
 		if (!json && !found_oif) {
-			vty_out(vty,
-				"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
-				&s_route->source, &s_route->group, "-", proto,
-				in_ifname, "none", 0, "--:--:--");
+			ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
+				       &s_route->source, &s_route->group, "-",
+				       proto, in_ifname, "none", 0, "--:--:--");
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
