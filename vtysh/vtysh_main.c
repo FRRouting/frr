@@ -78,36 +78,56 @@ int execute_flag = 0;
 /* Flag to indicate if in user/unprivileged mode. */
 int user_mode;
 
-/* For sigsetjmp() & siglongjmp(). */
-static sigjmp_buf jmpbuf;
-
-/* Flag for avoid recursive siglongjmp() call. */
-static int jmpflag = 0;
-
 /* Master of threads. */
 struct thread_master *master;
 
 /* Command logging */
 FILE *logfile;
 
+static void vtysh_rl_callback(char *line_read)
+{
+	HIST_ENTRY *last;
+
+	rl_callback_handler_remove();
+
+	if (!line_read) {
+		vtysh_loop_exited = true;
+		return;
+	}
+
+	/* If the line has any text in it, save it on the history. But only if
+	 * last command in history isn't the same one.
+	 */
+	if (*line_read) {
+		using_history();
+		last = previous_history();
+		if (!last || strcmp(last->line, line_read) != 0) {
+			add_history(line_read);
+			append_history(1, history_file);
+		}
+	}
+
+	vtysh_execute(line_read);
+
+	if (!vtysh_loop_exited)
+		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+}
+
 /* SIGTSTP handler.  This function care user's ^Z input. */
 static void sigtstp(int sig)
 {
+	rl_callback_handler_remove();
+
 	/* Execute "end" command. */
 	vtysh_execute("end");
+
+	if (!vtysh_loop_exited)
+		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
 
 	/* Initialize readline. */
 	rl_initialize();
 	printf("\n");
-
-	/* Check jmpflag for duplicate siglongjmp(). */
-	if (!jmpflag)
-		return;
-
-	jmpflag = 0;
-
-	/* Back to main command loop. */
-	siglongjmp(jmpbuf, 1);
+	rl_forced_update_display();
 }
 
 /* SIGINT handler.  This function care user's ^Z input.  */
@@ -206,34 +226,6 @@ struct option longopts[] = {
 	{0}};
 
 bool vtysh_loop_exited;
-
-static void vtysh_rl_callback(char *line_read)
-{
-	HIST_ENTRY *last;
-
-	rl_callback_handler_remove();
-
-	if (!line_read) {
-		vtysh_loop_exited = true;
-		return;
-	}
-
-	/* If the line has any text in it, save it on the history. But only if
-	 * last command in history isn't the same one. */
-	if (*line_read) {
-		using_history();
-		last = previous_history();
-		if (!last || strcmp(last->line, line_read) != 0) {
-			add_history(line_read);
-			append_history(1, history_file);
-		}
-	}
-
-	vtysh_execute(line_read);
-
-	if (!vtysh_loop_exited)
-		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
-}
 
 static struct thread *vtysh_rl_read_thread;
 
@@ -751,10 +743,6 @@ int main(int argc, char **argv, char **env)
 		vtysh_execute("enable");
 
 	vtysh_add_timestamp = ts_flag;
-
-	/* Preparation for longjmp() in sigtstp(). */
-	sigsetjmp(jmpbuf, 1);
-	jmpflag = 1;
 
 	/* Main command loop. */
 	vtysh_rl_run();
