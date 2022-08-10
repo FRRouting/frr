@@ -83,6 +83,7 @@ zebra_zebra_SOURCES = \
 	zebra/rule_socket.c \
 	zebra/table_manager.c \
 	zebra/tc_netlink.c \
+	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
