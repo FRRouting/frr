@@ -638,13 +638,15 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 	if (oi->type == OSPF_IFTYPE_NBMA) {
 		struct ospf_neighbor *nbr;
 
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-			if ((nbr = rn->info) != NULL)
-				if (nbr != oi->nbr_self
-				    && nbr->state >= NSM_Exchange)
-					ospf_ls_upd_send_lsa(
-						nbr, lsa,
-						OSPF_SEND_PACKET_DIRECT);
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+			nbr = rn->info;
+
+			if (!nbr)
+				continue;
+			if (nbr != oi->nbr_self && nbr->state >= NSM_Exchange)
+				ospf_ls_upd_send_lsa(nbr, lsa,
+						     OSPF_SEND_PACKET_DIRECT);
+		}
 	} else
 		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
 				     OSPF_SEND_PACKET_INDIRECT);
@@ -991,18 +993,20 @@ static void ospf_ls_retransmit_delete_nbr_if(struct ospf_interface *oi,
 	struct ospf_lsa *lsr;
 
 	if (ospf_if_is_enable(oi))
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
+		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 			/* If LSA find in LS-retransmit list, then remove it. */
-			if ((nbr = rn->info) != NULL) {
-				lsr = ospf_ls_retransmit_lookup(nbr, lsa);
+			nbr = rn->info;
 
-				/* If LSA find in ls-retransmit list, remove it.
-				 */
-				if (lsr != NULL
-				    && lsr->data->ls_seqnum
-					       == lsa->data->ls_seqnum)
-					ospf_ls_retransmit_delete(nbr, lsr);
-			}
+			if (!nbr)
+				continue;
+
+			lsr = ospf_ls_retransmit_lookup(nbr, lsa);
+
+			/* If LSA find in ls-retransmit list, remove it. */
+			if (lsr != NULL &&
+			    lsr->data->ls_seqnum == lsa->data->ls_seqnum)
+				ospf_ls_retransmit_delete(nbr, lsr);
+		}
 }
 
 void ospf_ls_retransmit_delete_nbr_area(struct ospf_area *area,

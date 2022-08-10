@@ -66,15 +66,16 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		nbr = rn->info;
-		if (nbr) {
-			/* Do not show myself. */
-			if (nbr == oi->nbr_self)
-				continue;
-			/* Down state is not shown. */
-			if (nbr->state == NSM_Down)
-				continue;
-			count++;
-		}
+		if (!nbr)
+			continue;
+
+		/* Do not show myself. */
+		if (nbr == oi->nbr_self)
+			continue;
+		/* Down state is not shown. */
+		if (nbr->state == NSM_Down)
+			continue;
+		count++;
 	}
 
 	return count;
@@ -315,10 +316,11 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	}
 
 	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		if ((nbr = rn->info) != NULL)
 			if (nbr != oi->nbr_self)
 				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
 
 	/* Cleanup Link State Acknowlegdment list. */
 	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))

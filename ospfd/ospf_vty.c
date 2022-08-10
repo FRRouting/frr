@@ -4476,19 +4476,22 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 	struct ospf_neighbor *nbr, *prev_nbr = NULL;
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-		if ((nbr = rn->info)) {
-			/* Do not show myself. */
-			if (nbr == oi->nbr_self)
-				continue;
-			/* Down state is not shown. */
-			if (nbr->state == NSM_Down)
-				continue;
+		nbr = rn->info;
 
-			prev_nbr = nbr;
+		if (!nbr)
+			continue;
 
-			show_ip_ospf_neighbour_brief(vty, nbr, prev_nbr, json,
-						     use_json);
-		}
+		/* Do not show myself. */
+		if (nbr == oi->nbr_self)
+			continue;
+		/* Down state is not shown. */
+		if (nbr->state == NSM_Down)
+			continue;
+
+		prev_nbr = nbr;
+
+		show_ip_ospf_neighbour_brief(vty, nbr, prev_nbr, json,
+					     use_json);
 	}
 }
 
@@ -5402,14 +5405,17 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	ospf_show_vrf_name(ospf, vty, json, use_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		if ((nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, router_id))) {
-			if (is_detail)
-				show_ip_ospf_neighbor_detail_sub(
-					vty, oi, nbr, NULL, json, use_json);
-			else
-				show_ip_ospf_neighbour_brief(vty, nbr, NULL,
-							     json, use_json);
-		}
+		nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, router_id);
+
+		if (!nbr)
+			continue;
+
+		if (is_detail)
+			show_ip_ospf_neighbor_detail_sub(vty, oi, nbr, NULL,
+							 json, use_json);
+		else
+			show_ip_ospf_neighbour_brief(vty, nbr, NULL, json,
+						     use_json);
 	}
 
 	if (use_json)
@@ -5498,16 +5504,19 @@ static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
 		struct ospf_neighbor *nbr, *prev_nbr = NULL;
 
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-			if ((nbr = rn->info)) {
-				if (nbr != oi->nbr_self) {
-					if (nbr->state != NSM_Down) {
-						show_ip_ospf_neighbor_detail_sub(
-							vty, oi, nbr, prev_nbr,
-							json_nbr_sub, use_json);
-					}
+			nbr = rn->info;
+
+			if (!nbr)
+				continue;
+
+			if (nbr != oi->nbr_self) {
+				if (nbr->state != NSM_Down) {
+					show_ip_ospf_neighbor_detail_sub(
+						vty, oi, nbr, prev_nbr,
+						json_nbr_sub, use_json);
 				}
-				prev_nbr = nbr;
 			}
+			prev_nbr = nbr;
 		}
 	}
 
@@ -5668,27 +5677,29 @@ static int show_ip_ospf_neighbor_detail_all_common(struct vty *vty,
 		struct ospf_nbr_nbma *nbr_nbma;
 
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-			if ((nbr = rn->info)) {
-				if (nbr != oi->nbr_self)
-					if (nbr->state != NSM_Down)
-						show_ip_ospf_neighbor_detail_sub(
-							vty, oi, rn->info,
-							prev_nbr,
-							json_vrf, use_json);
-				prev_nbr = nbr;
-			}
+			nbr = rn->info;
+
+			if (!nbr)
+				continue;
+
+			if (nbr != oi->nbr_self)
+				if (nbr->state != NSM_Down)
+					show_ip_ospf_neighbor_detail_sub(
+						vty, oi, rn->info, prev_nbr,
+						json_vrf, use_json);
+			prev_nbr = nbr;
 		}
 
-		if (oi->type == OSPF_IFTYPE_NBMA) {
-			struct listnode *nd;
+		if (oi->type != OSPF_IFTYPE_NBMA)
+			continue;
 
-			for (ALL_LIST_ELEMENTS_RO(oi->nbr_nbma, nd, nbr_nbma)) {
-				if (nbr_nbma->nbr == NULL
-				    || nbr_nbma->nbr->state == NSM_Down)
-					show_ip_ospf_nbr_nbma_detail_sub(
-						vty, oi, nbr_nbma, use_json,
-						json_vrf);
-			}
+		struct listnode *nd;
+
+		for (ALL_LIST_ELEMENTS_RO(oi->nbr_nbma, nd, nbr_nbma)) {
+			if (nbr_nbma->nbr == NULL ||
+			    nbr_nbma->nbr->state == NSM_Down)
+				show_ip_ospf_nbr_nbma_detail_sub(
+					vty, oi, nbr_nbma, use_json, json_vrf);
 		}
 	}
 
@@ -5853,19 +5864,25 @@ static int show_ip_ospf_neighbor_int_detail_common(struct vty *vty,
 	}
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if ((oi = rn->info)) {
-			for (nrn = route_top(oi->nbrs); nrn;
-			     nrn = route_next(nrn)) {
-				if ((nbr = nrn->info)) {
-					if (nbr != oi->nbr_self) {
-						if (nbr->state != NSM_Down)
-							show_ip_ospf_neighbor_detail_sub(
-								vty, oi, nbr,
-								NULL,
-								json, use_json);
-					}
-				}
-			}
+		oi = rn->info;
+
+		if (!oi)
+			continue;
+
+		for (nrn = route_top(oi->nbrs); nrn; nrn = route_next(nrn)) {
+			nbr = nrn->info;
+
+			if (!nbr)
+				continue;
+
+			if (nbr == oi->nbr_self)
+				continue;
+
+			if (nbr->state == NSM_Down)
+				continue;
+
+			show_ip_ospf_neighbor_detail_sub(vty, oi, nbr, NULL,
+							 json, use_json);
 		}
 	}
 
@@ -8019,13 +8036,17 @@ static void ospf_nbr_timer_update(struct ospf_interface *oi)
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
 
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info)) {
-			nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
-			nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
-			nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
-			nbr->v_ls_upd = OSPF_IF_PARAM(oi, retransmit_interval);
-		}
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+
+		if (!nbr)
+			continue;
+
+		nbr->v_inactivity = OSPF_IF_PARAM(oi, v_wait);
+		nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
+		nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
+		nbr->v_ls_upd = OSPF_IF_PARAM(oi, retransmit_interval);
+	}
 }
 
 static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
