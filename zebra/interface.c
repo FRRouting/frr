@@ -848,10 +848,6 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Send out notification on interface VRF change. */
 	/* This is to issue an ADD, if needed. */
 	zebra_interface_vrf_update_add(ifp, old_vrf_id);
-
-	/* Install connected routes (in new VRF). */
-	if (if_is_operative(ifp))
-		if_install_connected(ifp);
 }
 
 static void ipv6_ll_address_to_mac(struct in6_addr *address, uint8_t *mac)
