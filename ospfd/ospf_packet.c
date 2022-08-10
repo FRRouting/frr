@@ -623,7 +623,6 @@ static void ospf_write(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct ospf_interface *oi;
-	struct ospf_interface *last_serviced_oi = NULL;
 	struct ospf_packet *op;
 	struct sockaddr_in sa_dst;
 	struct ip iph;
@@ -664,13 +663,7 @@ static void ospf_write(struct thread *thread)
 		ipid = (time(NULL) & 0xffff);
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
-	while ((pkt_count < ospf->write_oi_count) && oi
-	       && (last_serviced_oi != oi)) {
-		/* If there is only packet in the queue, the oi is removed from
-		   write-q, so fix up the last interface that was serviced */
-		if (last_serviced_oi == NULL) {
-			last_serviced_oi = oi;
-		}
+	while ((pkt_count < ospf->write_oi_count) && oi) {
 		pkt_count++;
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 		/* convenience - max OSPF data per packet */
@@ -853,11 +846,9 @@ static void ospf_write(struct thread *thread)
 		list_delete_node(ospf->oi_write_q, node);
 		if (ospf_fifo_head(oi->obuf) == NULL) {
 			oi->on_write_q = 0;
-			last_serviced_oi = NULL;
 			oi = NULL;
-		} else {
+		} else
 			listnode_add(ospf->oi_write_q, oi);
-		}
 
 		/* Setup to service from the head of the queue again */
 		if (!list_isempty(ospf->oi_write_q)) {
