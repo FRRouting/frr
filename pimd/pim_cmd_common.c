@@ -3285,13 +3285,22 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			       json_object *json)
 {
 	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json_row = NULL;
 
 	vty_out(vty, "\n");
 
-	if (!json)
-		vty_out(vty,
-			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|Address|ifi|Vif|PktsIn|PktsOut|BytesIn|BytesOut");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -3347,15 +3356,21 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 					    (unsigned long)vreq.obytes);
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
-			vty_out(vty,
-				"%-16s %-15pPAs %3d %3d %7lu %7lu %10lu %10lu\n",
-				ifp->name, &pim_ifp->primary_address,
-				ifp->ifindex, pim_ifp->mroute_vif_index,
-				(unsigned long)vreq.icount,
-				(unsigned long)vreq.ocount,
-				(unsigned long)vreq.ibytes,
-				(unsigned long)vreq.obytes);
+			ttable_add_row(tt, "%s|%pPAs|%d|%d|%lu|%lu|%lu|%lu",
+				       ifp->name, &pim_ifp->primary_address,
+				       ifp->ifindex, pim_ifp->mroute_vif_index,
+				       (unsigned long)vreq.icount,
+				       (unsigned long)vreq.ocount,
+				       (unsigned long)vreq.ibytes,
+				       (unsigned long)vreq.obytes);
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
