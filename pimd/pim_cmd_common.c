@@ -1502,7 +1502,8 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 static void pim_show_join_desired_helper(struct pim_instance *pim,
 					 struct vty *vty,
 					 struct pim_upstream *up,
-					 json_object *json, bool uj)
+					 json_object *json, bool uj,
+					 struct ttable *tt)
 {
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
@@ -1533,31 +1534,46 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 		json_object_object_add(json_group, src_str, json_row);
 
 	} else {
-		vty_out(vty, "%-15pPAs %-15pPAs %-6s\n", &up->sg.src,
-			&up->sg.grp,
-			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
-								    : "no");
+		ttable_add_row(tt, "%pPAs|%pPAs|%s", &up->sg.src, &up->sg.grp,
+			       pim_upstream_evaluate_join_desired(pim, up)
+				       ? "yes"
+				       : "no");
 	}
 }
 
 void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct pim_upstream *up;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
-	else
-		vty_out(vty, "Source          Group           EvalJD\n");
+	else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Source|Group|EvalJD");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* scan all interfaces */
-		pim_show_join_desired_helper(pim, vty, up, json, uj);
+		pim_show_join_desired_helper(pim, vty, up, json, uj, tt);
 	}
 
 	if (uj)
 		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
