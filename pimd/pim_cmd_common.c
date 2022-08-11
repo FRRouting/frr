@@ -1343,15 +1343,24 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		       pim_sgaddr *sg, json_object *json)
 {
 	struct pim_upstream *up;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	time_t now;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (!json)
-		vty_out(vty,
-			"Iif             Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Iif|Source|Group|State|Uptime|JoinTimer|RSTimer|KATimer|RefCnt");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char uptime[10];
@@ -1472,14 +1481,21 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			json_object_int_add(json_row, "sptBit", up->sptbit);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty,
-				"%-16s%-15pPAs %-15pPAs %-11s %-8s %-9s %-9s %-9s %6d\n",
+			ttable_add_row(tt,
+				"%s|%pPAs|%pPAs|%s|%s|%s|%s|%s|%d",
 				up->rpf.source_nexthop.interface
 				? up->rpf.source_nexthop.interface->name
 				: "Unknown",
 				&up->sg.src, &up->sg.grp, state_str, uptime,
 				join_timer, rs_timer, ka_timer, up->ref_count);
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
