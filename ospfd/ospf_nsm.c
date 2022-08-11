@@ -439,14 +439,7 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 	 * be sending packets.  Let's flush anything
 	 * we got.
 	 */
-	ospf_fifo_flush(oi->obuf);
-	if (oi->on_write_q) {
-		listnode_delete(oi->ospf->oi_write_q, oi);
-		if (list_isempty(oi->ospf->oi_write_q))
-			THREAD_OFF(oi->ospf->t_write);
-		oi->on_write_q = 0;
-	}
-
+	ospf_interface_fifo_flush(oi);
 	return 0;
 }
 
