@@ -3805,7 +3805,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 
 static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 					      json_object *json,
-					      struct vty *vty)
+					      struct vty *vty,
+					      struct ttable *tt)
 {
 	json_object *json_group = NULL;
 	json_object *json_source = NULL;
@@ -3840,12 +3841,12 @@ static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 		json_object_int_add(json_source, "wrongIf", c_oil->cc.wrong_if);
 
 	} else {
-		vty_out(vty, "%-15pPAs %-15pPAs %-8llu %-7ld %-10ld %-7ld\n",
-			oil_origin(c_oil), oil_mcastgrp(c_oil),
-			c_oil->cc.lastused / 100,
-			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
-			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
-			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
+		ttable_add_row(tt, "%pPAs|%pPAs|%llu|%ld|%ld|%ld",
+			       oil_origin(c_oil), oil_mcastgrp(c_oil),
+			       c_oil->cc.lastused / 100,
+			       c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
+			       c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
+			       c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
 	}
 }
 
@@ -3855,20 +3856,35 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 	struct listnode *node;
 	struct channel_oil *c_oil;
 	struct static_route *sr;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	if (!json) {
 		vty_out(vty, "\n");
 
-		vty_out(vty,
-			"Source          Group           LastUsed Packets Bytes WrongIf  \n");
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt,
+			       "Source|Group|LastUsed|Packets|Bytes|WrongIf");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	/* Print PIM and IGMP route counts */
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
-		show_mroute_count_per_channel_oil(c_oil, json, vty);
+		show_mroute_count_per_channel_oil(c_oil, json, vty, tt);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
-		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
+		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty, tt);
+
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
