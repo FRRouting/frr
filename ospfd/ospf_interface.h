@@ -351,6 +351,8 @@ extern void ospf_if_interface(struct interface *ifp);
 extern uint32_t ospf_if_count_area_params(struct interface *ifp);
 extern void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 				   bool is_addr);
+
+extern void ospf_interface_fifo_flush(struct ospf_interface *oi);
 DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd));
 DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd));
 
