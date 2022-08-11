@@ -974,9 +974,15 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 {
 	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
-	vty_out(vty,
-		"Interface        Address         Neighbor        Secondary      \n");
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Interface|Address|Neighbor|Secondary");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -1004,12 +1010,16 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 
 			for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list,
 						  prefix_node, p))
-				vty_out(vty,
-					"%-16s %-15pPAs %-15pPAs %-15pFX\n",
-					ifp->name, &ifaddr, &neigh->source_addr,
-					p);
+				ttable_add_row(tt, "%s|%pPAs|%pPAs|%pFX",
+					       ifp->name, &ifaddr,
+					       &neigh->source_addr, p);
 		}
 	}
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
 }
 
 void pim_show_state(struct pim_instance *pim, struct vty *vty,
