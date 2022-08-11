@@ -183,7 +183,7 @@ def test_ospfv3_p2p_tc3_p0(request):
     step("Verify that interface is enabled in ospf.")
     step("Verify that config is successful.")
     dut = "r0"
-    input_dict = {"r0": {"links": {"r3": {"ospf6": {"ospf6Enabled": True}}}}}
+    input_dict = {"r0": {"links": {"r3": {"ospf6": {}}}}}
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -339,7 +339,7 @@ def test_ospfv3_p2p_tc3_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
     step("Verify that interface is enabled in ospf.")
     dut = "r0"
-    input_dict = {"r0": {"links": {"r3": {"ospf6": {"ospf6Enabled": True}}}}}
+    input_dict = {"r0": {"links": {"r3": {"ospf6": {}}}}}
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -374,7 +374,7 @@ def test_ospfv3_p2p_tc3_p0(request):
 
     step("Verify that interface is enabled in ospf.")
     dut = "r0"
-    input_dict = {"r0": {"links": {"r3": {"ospf6": {"ospf6Enabled": True}}}}}
+    input_dict = {"r0": {"links": {"r3": {"ospf6": {}}}}}
     result = verify_ospf6_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -1172,7 +1172,6 @@ def test_ospfv3_show_p1(request):
                     "ospf6": {
                         "status": "up",
                         "type": "BROADCAST",
-                        "ospf6Enabled": True,
                         "attachedToArea": True,
                         "instanceId": 0,
                         "interfaceMtu": 1500,
