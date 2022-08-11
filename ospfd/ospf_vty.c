@@ -4008,13 +4008,15 @@ static void show_ip_ospf_interface_traffic_sub(struct vty *vty,
 				    oi->ls_ack_in);
 		json_object_int_add(json_interface_sub, "lsAckOut",
 				    oi->ls_ack_out);
+		json_object_int_add(json_interface_sub, "packetsQueued",
+				    listcount(oi->obuf));
 	} else {
 		vty_out(vty,
-			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %12lu\n",
 			oi->ifp->name, oi->hello_in, oi->hello_out,
 			oi->db_desc_in, oi->db_desc_out, oi->ls_req_in,
 			oi->ls_req_out, oi->ls_upd_in, oi->ls_upd_out,
-			oi->ls_ack_in, oi->ls_ack_out);
+			oi->ls_ack_in, oi->ls_ack_out, listcount(oi->obuf));
 	}
 }
 
@@ -4030,14 +4032,14 @@ static int show_ip_ospf_interface_traffic_common(
 
 	if (!use_json && !display_once) {
 		vty_out(vty, "\n");
-		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n", "Interface",
-			"    HELLO", "    DB-Desc", "   LS-Req", "   LS-Update",
-			"   LS-Ack");
-		vty_out(vty, "%-10s%-18s%-18s%-17s%-17s%-17s\n", "",
+		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s\n",
+			"Interface", "    HELLO", "    DB-Desc", "   LS-Req",
+			"   LS-Update", "   LS-Ack", "    Packets");
+		vty_out(vty, "%-10s%-18s%-18s%-17s%-17s%-17s%-17s\n", "",
 			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
-			"    Rx/Tx");
+			"    Rx/Tx", "    Queued");
 		vty_out(vty,
-			"--------------------------------------------------------------------------------------------\n");
+			"-------------------------------------------------------------------------------------------------------------\n");
 	} else if (use_json) {
 		if (use_vrf)
 			json_vrf = json_object_new_object();
