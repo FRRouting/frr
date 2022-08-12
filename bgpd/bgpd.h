@@ -857,7 +857,7 @@ struct bgp_nexthop {
 #define CONDITION_NON_EXIST	false
 #define CONDITION_EXIST		true
 
-enum update_type { WITHDRAW, ADVERTISE };
+enum update_type { UPDATE_TYPE_WITHDRAW, UPDATE_TYPE_ADVERTISE };
 
 #include "filter.h"
 
