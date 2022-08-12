@@ -3450,7 +3450,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
-	/* call bmp hook for loc-rib route update / withdraw after flags were set */
+	/* call bmp hook for loc-rib route update / withdraw after flags were
+	 * set */
 	if (old_select || new_select) {
 
 		if (old_select) /* route is not installed in locrib anymore */
