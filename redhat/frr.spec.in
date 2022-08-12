@@ -409,9 +409,6 @@ routing state through standard SNMP MIBs.
     --disable-bgp-vnc \
 %endif
     --enable-isisd \
-%if "%{initsystem}" == "systemd"
-    --enable-systemd \
-%endif
     --enable-rpki \
 %if %{with_bfdd}
     --enable-bfdd \
