@@ -2128,32 +2128,34 @@ extern void bgp_router_id_static_set(struct bgp *, struct in_addr);
 
 extern void bm_wait_for_fib_set(bool set);
 extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
-extern int bgp_cluster_id_set(struct bgp *, struct in_addr *);
-extern int bgp_cluster_id_unset(struct bgp *);
+extern void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id);
+extern void bgp_cluster_id_unset(struct bgp *bgp);
 
-extern void bgp_confederation_id_set(struct bgp *, as_t);
-extern int bgp_confederation_id_unset(struct bgp *);
+extern void bgp_confederation_id_set(struct bgp *bgp, as_t as);
+extern void bgp_confederation_id_unset(struct bgp *bgp);
 extern bool bgp_confederation_peers_check(struct bgp *, as_t);
 
-extern int bgp_confederation_peers_add(struct bgp *, as_t);
-extern int bgp_confederation_peers_remove(struct bgp *, as_t);
+extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as);
+extern void bgp_confederation_peers_remove(struct bgp *bgp, as_t as);
 
 extern void bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
 			   uint32_t connect_retry, uint32_t delayopen);
 extern void bgp_timers_unset(struct bgp *);
 
-extern int bgp_default_local_preference_set(struct bgp *, uint32_t);
-extern int bgp_default_local_preference_unset(struct bgp *);
+extern void bgp_default_local_preference_set(struct bgp *bgp,
+					     uint32_t local_pref);
+extern void bgp_default_local_preference_unset(struct bgp *bgp);
 
-extern int bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp, uint32_t);
-extern int bgp_default_subgroup_pkt_queue_max_unset(struct bgp *bgp);
+extern void bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp,
+						   uint32_t queue_size);
+extern void bgp_default_subgroup_pkt_queue_max_unset(struct bgp *bgp);
 
-extern int bgp_listen_limit_set(struct bgp *, int);
-extern int bgp_listen_limit_unset(struct bgp *);
+extern void bgp_listen_limit_set(struct bgp *bgp, int listen_limit);
+extern void bgp_listen_limit_unset(struct bgp *bgp);
 
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
-extern int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
+extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void peer_as_change(struct peer *, as_t, int);
 extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
 			  int);
@@ -2194,8 +2196,9 @@ extern void peer_description_set(struct peer *, const char *);
 extern void peer_description_unset(struct peer *);
 
 extern int peer_update_source_if_set(struct peer *, const char *);
-extern int peer_update_source_addr_set(struct peer *, const union sockunion *);
-extern int peer_update_source_unset(struct peer *);
+extern void peer_update_source_addr_set(struct peer *peer,
+					const union sockunion *su);
+extern void peer_update_source_unset(struct peer *peer);
 
 extern int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 				      const char *rmap,

@@ -482,14 +482,14 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 }
 
 /* BGP's cluster-id control. */
-int bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
+void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
 	if (bgp_config_check(bgp, BGP_CONFIG_CLUSTER_ID)
 	    && IPV4_ADDR_SAME(&bgp->cluster_id, cluster_id))
-		return 0;
+		return;
 
 	IPV4_ADDR_COPY(&bgp->cluster_id, cluster_id);
 	bgp_config_set(bgp, BGP_CONFIG_CLUSTER_ID);
@@ -505,16 +505,15 @@ int bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
-	return 0;
 }
 
-int bgp_cluster_id_unset(struct bgp *bgp)
+void bgp_cluster_id_unset(struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
 	if (!bgp_config_check(bgp, BGP_CONFIG_CLUSTER_ID))
-		return 0;
+		return;
 
 	bgp->cluster_id.s_addr = 0;
 	bgp_config_unset(bgp, BGP_CONFIG_CLUSTER_ID);
@@ -530,7 +529,6 @@ int bgp_cluster_id_unset(struct bgp *bgp)
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
-	return 0;
 }
 
 /* time_t value that is monotonicly increasing
@@ -623,7 +621,7 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as)
 	return;
 }
 
-int bgp_confederation_id_unset(struct bgp *bgp)
+void bgp_confederation_id_unset(struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -645,7 +643,6 @@ int bgp_confederation_id_unset(struct bgp *bgp)
 				bgp_session_reset_safe(peer, &nnode);
 		}
 	}
-	return 0;
 }
 
 /* Is an AS part of the confed or not? */
@@ -664,16 +661,16 @@ bool bgp_confederation_peers_check(struct bgp *bgp, as_t as)
 }
 
 /* Add an AS to the confederation set.  */
-int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
+void bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
 	if (bgp->as == as)
-		return BGP_ERR_INVALID_AS;
+		return;
 
 	if (bgp_confederation_peers_check(bgp, as))
-		return -1;
+		return;
 
 	bgp->confed_peers =
 		XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
@@ -699,11 +696,10 @@ int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 			}
 		}
 	}
-	return 0;
 }
 
 /* Delete an AS from the confederation set.  */
-int bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
+void bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 {
 	int i;
 	int j;
@@ -711,10 +707,10 @@ int bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 	struct listnode *node, *nnode;
 
 	if (!bgp)
-		return -1;
+		return;
 
 	if (!bgp_confederation_peers_check(bgp, as))
-		return -1;
+		return;
 
 	for (i = 0; i < bgp->confed_peers_cnt; i++)
 		if (bgp->confed_peers[i] == as)
@@ -751,71 +747,58 @@ int bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 			}
 		}
 	}
-
-	return 0;
 }
 
 /* Local preference configuration.  */
-int bgp_default_local_preference_set(struct bgp *bgp, uint32_t local_pref)
+void bgp_default_local_preference_set(struct bgp *bgp, uint32_t local_pref)
 {
 	if (!bgp)
-		return -1;
+		return;
 
 	bgp->default_local_pref = local_pref;
-
-	return 0;
 }
 
-int bgp_default_local_preference_unset(struct bgp *bgp)
+void bgp_default_local_preference_unset(struct bgp *bgp)
 {
 	if (!bgp)
-		return -1;
+		return;
 
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
-
-	return 0;
 }
 
 /* Local preference configuration.  */
-int bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp, uint32_t queue_size)
+void bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp,
+					    uint32_t queue_size)
 {
 	if (!bgp)
-		return -1;
+		return;
 
 	bgp->default_subgroup_pkt_queue_max = queue_size;
-
-	return 0;
 }
 
-int bgp_default_subgroup_pkt_queue_max_unset(struct bgp *bgp)
+void bgp_default_subgroup_pkt_queue_max_unset(struct bgp *bgp)
 {
 	if (!bgp)
-		return -1;
+		return;
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
-
-	return 0;
 }
 
 /* Listen limit configuration.  */
-int bgp_listen_limit_set(struct bgp *bgp, int listen_limit)
+void bgp_listen_limit_set(struct bgp *bgp, int listen_limit)
 {
 	if (!bgp)
-		return -1;
+		return;
 
 	bgp->dynamic_neighbors_limit = listen_limit;
-
-	return 0;
 }
 
-int bgp_listen_limit_unset(struct bgp *bgp)
+void bgp_listen_limit_unset(struct bgp *bgp)
 {
 	if (!bgp)
-		return -1;
+		return;
 
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
-
-	return 0;
 }
 
 int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
@@ -1828,7 +1811,7 @@ struct peer *peer_create_accept(struct bgp *bgp)
 /*
  * Return true if we have a peer configured to use this afi/safi
  */
-int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
+bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct listnode *node;
 	struct peer *peer;
@@ -1838,10 +1821,10 @@ int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 			continue;
 
 		if (peer->afc[afi][safi])
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
 /* Change peer's AS number.  */
@@ -5127,7 +5110,7 @@ int peer_update_source_if_set(struct peer *peer, const char *ifname)
 	return 0;
 }
 
-int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
+void peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
@@ -5136,7 +5119,7 @@ int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 	peer_flag_set(peer, PEER_FLAG_UPDATE_SOURCE);
 	if (peer->update_source) {
 		if (sockunion_cmp(peer->update_source, su) == 0)
-			return 0;
+			return;
 		sockunion_free(peer->update_source);
 	}
 	peer->update_source = sockunion_dup(su);
@@ -5157,7 +5140,7 @@ int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 			bgp_peer_bfd_update_source(peer);
 
 		/* Skip peer-group mechanics for regular peers. */
-		return 0;
+		return;
 	}
 
 	/*
@@ -5193,17 +5176,15 @@ int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 		if (member->bfd_config)
 			bgp_peer_bfd_update_source(member);
 	}
-
-	return 0;
 }
 
-int peer_update_source_unset(struct peer *peer)
+void peer_update_source_unset(struct peer *peer)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
 
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE))
-		return 0;
+		return;
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
@@ -5234,7 +5215,7 @@ int peer_update_source_unset(struct peer *peer)
 			bgp_peer_bfd_update_source(peer);
 
 		/* Skip peer-group mechanics for regular peers. */
-		return 0;
+		return;
 	}
 
 	/*
@@ -5269,8 +5250,6 @@ int peer_update_source_unset(struct peer *peer)
 		if (member->bfd_config)
 			bgp_peer_bfd_update_source(member);
 	}
-
-	return 0;
 }
 
 int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
