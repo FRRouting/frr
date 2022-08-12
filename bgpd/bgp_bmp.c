@@ -1213,7 +1213,7 @@ static inline struct bmp_queue_entry *bmp_pull_locrib(struct bmp *bmp)
 				   &bmp->locrib_queuepos);
 }
 
-/* TODO BMP_MON_LOCRIB  find a way to merge properly this function with
+/* TODO BMP_MON_LOCRIB find a way to merge properly this function with
  * bmp_wrqueue or abstract it if possible
  */
 static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
@@ -1221,7 +1221,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 
 	struct bmp_queue_entry *bqe;
 	struct peer *peer;
-	struct bgp_dest *bn;
+	struct bgp_dest *bn = NULL;
 	bool written = false;
 
 	bqe = bmp_pull_locrib(bmp);
@@ -1274,10 +1274,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 				 &bqe->p, prd);
 
 	struct bgp_path_info *bpi;
-
-	struct bgp_path_info *pathinfo = NULL;
-	pathinfo = bgp_dest_get_bgp_path_info(bn);
-
 	for (bpi = bn ? bgp_dest_get_bgp_path_info(bn) : NULL; bpi;
 	     bpi = bpi->next) {
 		if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
@@ -1294,6 +1290,10 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 out:
 	if (!bqe->refcount)
 		XFREE(MTYPE_BMP_QUEUE, bqe);
+
+	if (bn)
+		bgp_dest_unlock_node(bn);
+
 	return written;
 }
 
