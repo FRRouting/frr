@@ -1067,7 +1067,7 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 		    && !OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_abr_process_network_rt(): this is route is not backbone one, skipping");
+					"ospf_abr_process_network_rt(): this route is not backbone one, skipping");
 			continue;
 		}
 
