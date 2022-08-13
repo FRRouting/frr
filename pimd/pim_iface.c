@@ -155,7 +155,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->pim_enable = pim;
 	pim_ifp->pim_passive_enable = false;
 #if PIM_IPV == 4
-	pim_ifp->igmp_enable = igmp;
+	pim_ifp->gm_enable = igmp;
 #endif
 
 	pim_ifp->gm_join_list = NULL;
@@ -213,8 +213,8 @@ void pim_if_delete(struct interface *ifp)
 #if PIM_IPV == 4
 	igmp_sock_delete_all(ifp);
 #endif
-
-	pim_neighbor_delete_all(ifp, "Interface removed from configuration");
+	if (pim_ifp->pim_sock_fd >= 0)
+		pim_sock_delete(ifp, "Interface removed from configuration");
 
 	pim_if_del_vif(ifp);
 
@@ -542,7 +542,7 @@ void pim_if_addr_add(struct connected *ifc)
 #if PIM_IPV == 4
 	struct in_addr ifaddr = ifc->address->u.prefix4;
 
-	if (pim_ifp->igmp_enable) {
+	if (pim_ifp->gm_enable) {
 		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
@@ -635,9 +635,7 @@ void pim_if_addr_add(struct connected *ifc)
 			   with RNH address to receive update and add the
 			   interface as nexthop. */
 			memset(&rpf, 0, sizeof(struct pim_rpf));
-			rpf.rpf_addr.family = AF_INET;
-			rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-			rpf.rpf_addr.u.prefix4 = ifc->address->u.prefix4;
+			rpf.rpf_addr = pim_addr_from_prefix(ifc->address);
 			pnc = pim_nexthop_cache_find(pim_ifp->pim, &rpf);
 			if (pnc)
 				pim_sendmsg_zebra_rnh(pim_ifp->pim, zclient,
@@ -803,22 +801,13 @@ void pim_if_addr_add_all(struct interface *ifp)
 		pim_if_addr_add(ifc);
 	}
 
-	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
-		if (pim_ifp->pim_enable) {
-
-			/* Interface has a valid primary address ? */
-			if (!pim_addr_is_any(pim_ifp->primary_address)) {
-
-				/* Interface has a valid socket ? */
-				if (pim_ifp->pim_sock_fd < 0) {
-					if (pim_sock_add(ifp)) {
-						zlog_warn(
-							"Failure creating PIM socket for interface %s",
-							ifp->name);
-					}
-				}
-			}
-		} /* pim */
+	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp) &&
+	    pim_ifp->pim_enable && !pim_addr_is_any(pim_ifp->primary_address) &&
+	    pim_ifp->pim_sock_fd < 0 && pim_sock_add(ifp)) {
+		/* Interface has a valid primary address ? */
+		/* Interface has a valid socket ? */
+		zlog_warn("Failure creating PIM socket for interface %s",
+			  ifp->name);
 	}
 	/*
 	 * PIM or IGMP is enabled on interface, and there is at least one
@@ -1040,7 +1029,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
 
-	gm_ifp_update(ifp);
+	if (!ispimreg)
+		gm_ifp_update(ifp);
 
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
@@ -1546,9 +1536,9 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 
 	if (!pim->regiface) {
 		if (pim->vrf->vrf_id == VRF_DEFAULT)
-			strlcpy(pimreg_name, "pimreg", sizeof(pimreg_name));
+			strlcpy(pimreg_name, PIMREG, sizeof(pimreg_name));
 		else
-			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
+			snprintf(pimreg_name, sizeof(pimreg_name), PIMREG "%u",
 				 pim->vrf->data.l.table_id);
 
 		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
@@ -1718,7 +1708,7 @@ static int pim_ifp_up(struct interface *ifp)
 	 * If we have a pimreg device callback and it's for a specific
 	 * table set the master appropriately
 	 */
-	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
+	if (sscanf(ifp->name, "" PIMREG "%" SCNu32, &table_id) == 1) {
 		struct vrf *vrf;
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
@@ -1769,9 +1759,7 @@ static int pim_ifp_down(struct interface *ifp)
 
 	if (ifp->info) {
 		pim_if_del_vif(ifp);
-#if PIM_IPV == 4
 		pim_ifstat_reset(ifp);
-#endif
 	}
 
 	return 0;

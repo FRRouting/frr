@@ -258,7 +258,7 @@ feature you're interested in, it should be supported on your platform.
 +-----------------------------------+----------------+--------------+------------+------------+
 | **Multicast Routing**             |                |              |            |            |
 +-----------------------------------+----------------+--------------+------------+------------+
-| `pimd` (PIM)                      | :mark:`≥4.18`  | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
+| `pimd` (PIM)                      | :mark:`≥4.19`  | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 |    SSM (Source Specific)          | :mark:`Y`      | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
@@ -383,6 +383,8 @@ BGP
   :t:`Extended BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder, A. Azimov. January 2021`
 - :rfc:`9072`
   :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021`
+- :rfc:`9234`
+  :t:`Route Leak Prevention and Detection Using Roles in UPDATE and OPEN Messages. A. Azimov, E. Bogomazov, R. Bush, K. Patel, K. Sriram. May 2022`
 
 OSPF
 ----

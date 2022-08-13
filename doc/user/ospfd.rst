@@ -798,6 +798,8 @@ Showing Information
 
 .. clicmd:: show ip ospf neighbor detail [json]
 
+.. clicmd:: show ip ospf neighbor A.B.C.D [detail] [json]
+
 .. clicmd:: show ip ospf neighbor INTERFACE detail [json]
 
    Display lsa information of LSDB.
@@ -866,6 +868,12 @@ Opaque LSA
 .. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external) self-originate
 
    Show Opaque LSA from the database.
+
+.. clicmd:: show ip ospf (1-65535) reachable-routers
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] reachable-routers
+
+   Show routing table of reachable routers.
 
 .. _ospf-traffic-engineering:
 
@@ -985,12 +993,6 @@ dataplane.
    Block, i.e. the label range used for Adjacency SID. The negative version
    of the command always unsets both ranges.
 
-.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
-
-   Set the Segment Routing Local Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB for Adjacency SID. This command is deprecated
-   in favor of the combined command above.
-
 .. clicmd:: segment-routing node-msd (1-16)
 
    Fix the Maximum Stack Depth supported by the router. The value depend of the
@@ -1063,6 +1065,10 @@ Debugging OSPF
    Enable or disable debugging for BFD events. This will show BFD integration
    library messages and OSPF BFD integration messages that are mostly state
    transitions and validation problems.
+
+.. clicmd:: debug ospf client-api
+
+   Show debug information for the OSPF opaque data client API.
 
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 

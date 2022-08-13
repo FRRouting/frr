@@ -564,7 +564,6 @@ static struct ecommunity *vnc_route_origin_ecom_single(struct in_addr *origin)
 	roec.val[7] = 0;
 
 	new = ecommunity_new();
-	assert(new);
 	ecommunity_add_val(new, &roec, false, false);
 
 	if (!new->size) {
@@ -731,7 +730,7 @@ void vnc_direct_bgp_add_prefix(struct bgp *bgp,
 		return;
 	}
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/* TBD set some configured med, see add_vnc_route() */
 
 	vnc_zlog_debug_verbose(
@@ -980,7 +979,7 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 				return;
 			}
 
-			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+			bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 			/* TBD set some configured med, see add_vnc_route() */
 
 			/*
@@ -1307,7 +1306,7 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 		return;
 	}
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/* TBD set some configured med, see add_vnc_route() */
 
 	/*
@@ -1713,7 +1712,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	 * export expiration timer is already running on
 	 * this route: cancel it
 	 */
-	thread_cancel(&eti->timer);
+	THREAD_OFF(eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1727,7 +1726,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 
 static void vncExportWithdrawTimer(struct thread *t)
 {
-	struct vnc_export_info *eti = t->arg;
+	struct vnc_export_info *eti = THREAD_ARG(t);
 	const struct prefix *p = agg_node_get_prefix(eti->node);
 
 	/*
@@ -1944,7 +1943,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					 * already running on
 					 * this route: cancel it
 					 */
-					thread_cancel(&eti->timer);
+					THREAD_OFF(eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -2013,7 +2012,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					thread_cancel(&eti->timer);
+					THREAD_OFF(eti->timer);
 					vnc_eti_delete(eti);
 				}
 

@@ -326,8 +326,8 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 		XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_spaces_head));
 
 	/* dry run true, root node false */
-	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, new_rtrs, true,
-			   false);
+	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, NULL, new_rtrs,
+			   true, false);
 
 	q_node = ospf_spf_vertex_find(end_vertex->id, area->spf_vertex_list);
 
@@ -676,6 +676,7 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 				       sizeof(struct ospf_ti_lfa_node_info));
 
 	new_table = route_table_init();
+	/* XXX do these get  freed?? */
 	new_rtrs = route_table_init();
 
 	/*
@@ -683,7 +684,8 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	 * dry run true, root node false
 	 */
 	area->spf_reversed = true;
-	ospf_spf_calculate(area, dest->lsa_p, new_table, new_rtrs, true, false);
+	ospf_spf_calculate(area, dest->lsa_p, new_table, NULL, new_rtrs, true,
+			   false);
 
 	/* Reset the flag for reverse SPF */
 	area->spf_reversed = false;
@@ -750,6 +752,7 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	struct route_table *new_table, *new_rtrs;
 
 	new_table = route_table_init();
+	/* XXX do these get  freed?? */
 	new_rtrs = route_table_init();
 
 	area->spf_protected_resource = p_space->protected_resource;
@@ -769,8 +772,8 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	 * endeavour (because LSAs are stored as a 'raw' stream), so we go with
 	 * this rather hacky way for now.
 	 */
-	ospf_spf_calculate(area, area->router_lsa_self, new_table, new_rtrs,
-			   true, false);
+	ospf_spf_calculate(area, area->router_lsa_self, new_table, NULL,
+			   new_rtrs, true, false);
 
 	p_space->pc_spf = area->spf;
 	p_space->pc_vertex_list = area->spf_vertex_list;

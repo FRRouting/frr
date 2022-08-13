@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [8.3-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [8.4-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -635,6 +635,8 @@ AC_ARG_ENABLE([isisd],
   AS_HELP_STRING([--disable-isisd], [do not build isisd]))
 AC_ARG_ENABLE([pimd],
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
+AC_ARG_ENABLE([pim6d],
+  AS_HELP_STRING([--enable-pim6d], [build pim6d]))
 AC_ARG_ENABLE([pbrd],
   AS_HELP_STRING([--disable-pbrd], [do not build pbrd]))
 AC_ARG_ENABLE([sharpd],
@@ -1317,6 +1319,7 @@ AC_CHECK_FUNCS([ \
 	unlinkat \
 	posix_fallocate \
 	sendmmsg \
+	explicit_bzero \
 	])
 
 AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
@@ -1750,6 +1753,10 @@ AS_IF([test "$enable_pimd" != "no"], [
   AC_DEFINE([HAVE_PIMD], [1], [pimd])
 ])
 
+AS_IF([test "$enable_pim6d" = "yes"], [
+  AC_DEFINE([HAVE_PIM6D], [1], [pim6d])
+])
+
 AS_IF([test "$enable_pbrd" != "no"], [
   AC_DEFINE([HAVE_PBRD], [1], [pbrd])
 ])
@@ -1791,7 +1798,6 @@ fi
 AS_IF([test "$enable_pathd" != "no"], [
   AC_DEFINE([HAVE_PATHD], [1], [pathd])
 ])
-
 
 if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "$BFDD" = "bfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
@@ -1969,7 +1975,7 @@ dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
-  PKG_CHECK_MODULES([SYSREPO], [sysrepo],
+  PKG_CHECK_MODULES([SYSREPO], [sysrepo >= 2.1.42],
       [AC_DEFINE([HAVE_SYSREPO], [1], [Enable sysrepo integration])
       SYSREPO=true],
       [SYSREPO=false
@@ -1996,6 +2002,18 @@ if test "$enable_grpc" = "yes"; then
     AC_MSG_ERROR([grpc/grpc++ were not found on your system.])
   ])
   AC_LANG_POP([C++])
+fi
+
+dnl ---------
+dnl DPDK
+dnl ---------
+if test "$enable_dp_dpdk" = "yes"; then
+  PKG_CHECK_MODULES([DPDK], [libdpdk], [
+    AC_DEFINE([HAVE_DPDK], [1], [Enable DPDK backend])
+    DPDK=true
+  ], [
+    AC_MSG_ERROR([configuration specifies --enable-dp-dpdk but DPDK libs were not found])
+  ])
 fi
 
 dnl -----
@@ -2699,6 +2717,7 @@ AM_CONDITIONAL([BABELD], [test "$enable_babeld" != "no"])
 AM_CONDITIONAL([OSPF6D], [test "$enable_ospf6d" != "no"])
 AM_CONDITIONAL([ISISD], [test "$enable_isisd" != "no"])
 AM_CONDITIONAL([PIMD], [test "$enable_pimd" != "no"])
+AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" = "yes"])
 AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
 AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
@@ -2706,6 +2725,7 @@ AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
+AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
 
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"

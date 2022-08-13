@@ -514,10 +514,10 @@ void isis_area_destroy(struct isis_area *area)
 
 	if (area->spf_timer[0])
 		isis_spf_timer_free(THREAD_ARG(area->spf_timer[0]));
-	thread_cancel(&area->spf_timer[0]);
+	THREAD_OFF(area->spf_timer[0]);
 	if (area->spf_timer[1])
 		isis_spf_timer_free(THREAD_ARG(area->spf_timer[1]));
-	thread_cancel(&area->spf_timer[1]);
+	THREAD_OFF(area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
@@ -541,10 +541,10 @@ void isis_area_destroy(struct isis_area *area)
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL1);
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL2);
 
-	thread_cancel(&area->t_tick);
-	thread_cancel(&area->t_lsp_refresh[0]);
-	thread_cancel(&area->t_lsp_refresh[1]);
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_tick);
+	THREAD_OFF(area->t_lsp_refresh[0]);
+	THREAD_OFF(area->t_lsp_refresh[1]);
+	THREAD_OFF(area->t_rlfa_rib_update);
 
 	thread_cancel_event(master, area);
 
@@ -3094,12 +3094,12 @@ static void area_resign_level(struct isis_area *area, int level)
 	if (area->spf_timer[level - 1])
 		isis_spf_timer_free(THREAD_ARG(area->spf_timer[level - 1]));
 
-	thread_cancel(&area->spf_timer[level - 1]);
+	THREAD_OFF(area->spf_timer[level - 1]);
 
 	sched_debug(
 		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
 		area->area_tag, level);
-	thread_cancel(&area->t_lsp_refresh[level - 1]);
+	THREAD_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
 

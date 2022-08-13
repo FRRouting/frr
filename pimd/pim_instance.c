@@ -36,6 +36,7 @@
 #include "pim_vty.h"
 #include "pim_bsm.h"
 #include "pim_mlag.h"
+#include "pim_sock.h"
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
@@ -69,6 +70,10 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_oil_terminate(pim);
 
 	pim_msdp_exit(pim);
+
+	close(pim->reg_sock);
+
+	pim_mroute_socket_disable(pim);
 
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
@@ -128,6 +133,10 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_instance_mlag_init(pim);
 
 	pim->last_route_change_time = -1;
+
+	pim->reg_sock = pim_reg_sock();
+	if (pim->reg_sock < 0)
+		assert(0);
 
 	/* MSDP global timer defaults. */
 	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
@@ -238,5 +247,20 @@ void pim_vrf_init(void)
 
 void pim_vrf_terminate(void)
 {
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct pim_instance *pim;
+
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		pim_ssmpingd_destroy(pim);
+		pim_instance_terminate(pim);
+
+		vrf->info = NULL;
+	}
+
 	vrf_terminate();
 }

@@ -382,7 +382,6 @@ static void vty_auth(struct vty *vty, char *buf)
 	char *passwd = NULL;
 	enum node_type next_node = 0;
 	int fail;
-	char *crypt(const char *, const char *);
 
 	switch (vty->node) {
 	case AUTH_NODE:

@@ -252,6 +252,13 @@ struct update_subgroup {
 #define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
 #define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
 #define SUBGRP_STATUS_TABLE_REPARSING (1 << 2)
+/*
+ * This flag has been added to ensure that the SNT counters
+ * gets incremented and decremented only during the creation
+ * and deletion workflows of default originate,
+ * not during the update workflow.
+ */
+#define SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED (1 << 3)
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
@@ -291,7 +298,7 @@ struct updwalk_context {
 	enum bgp_policy_type policy_type;
 	const char *policy_name;
 	int policy_event_start_flag;
-	int policy_route_update;
+	bool policy_route_update;
 	updgrp_walkcb cb;
 	void *context;
 	uint8_t flags;
@@ -370,7 +377,7 @@ extern bool update_subgroup_trigger_merge_check(struct update_subgroup *,
 						int force);
 extern void update_group_policy_update(struct bgp *bgp,
 				       enum bgp_policy_type ptype,
-				       const char *pname, int route_update,
+				       const char *pname, bool route_update,
 				       int start_event);
 extern void update_group_af_walk(struct bgp *bgp, afi_t afi, safi_t safi,
 				 updgrp_walkcb cb, void *ctx);

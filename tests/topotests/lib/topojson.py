@@ -41,7 +41,11 @@ from lib.common_config import (
     number_to_column,
 )
 from lib.ospf import create_router_ospf
-from lib.pim import create_igmp_config, create_pim_config
+from lib.pim import (
+    create_igmp_config,
+    create_pim_config,
+    create_mld_config,
+)
 from lib.topolog import logger
 
 
@@ -332,6 +336,7 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
             ("route_maps", create_route_maps),
             ("pim", create_pim_config),
             ("igmp", create_igmp_config),
+            ("mld", create_mld_config),
             ("bgp", create_router_bgp),
             ("ospf", create_router_ospf),
         ]
@@ -352,7 +357,9 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
         logger.info("build_config_from_json: failed to configure topology")
         pytest.exit(1)
 
-    logger.info("Built config now clearing ospf neighbors as that router-id might not be what is used")
+    logger.info(
+        "Built config now clearing ospf neighbors as that router-id might not be what is used"
+    )
     for ospf in ["ospf", "ospf6"]:
         for router in data:
             if ospf not in data[router]:

@@ -208,7 +208,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 	if (!nhi.gateway && nhi.if_index == 0)
 		return 0;
 
-	if (re && CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)) {
 		nhi.encap_info.encap_type = FPM_NH_ENCAP_VXLAN;
 
 		/* Extract VNI id for the nexthop SVI interface */

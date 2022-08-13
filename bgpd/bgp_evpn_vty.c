@@ -1940,7 +1940,7 @@ DEFUN(show_bgp_l2vpn_evpn_com,
 /* For testing purpose, static route of EVPN RT-5. */
 DEFUN(evpnrt5_network,
       evpnrt5_network_cmd,
-      "network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map WORD]",
+      "network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map RMAP_NAME]",
       "Specify a network to announce via BGP\n"
       "IP prefix\n"
       "IPv6 prefix\n"
@@ -3812,7 +3812,7 @@ DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
 
 DEFUN (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
-       "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [gateway-ip] [route-map WORD]",
+       "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [gateway-ip] [route-map RMAP_NAME]",
        "Advertise prefix routes\n"
        BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
@@ -4344,9 +4344,15 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 								 : "Disabled");
 			json_object_string_add(
 				json, "flooding",
-				bgp_evpn->vxlan_flood_ctrl
-						== VXLAN_FLOOD_HEAD_END_REPL
+				bgp_evpn->vxlan_flood_ctrl ==
+						VXLAN_FLOOD_HEAD_END_REPL
 					? "Head-end replication"
+					: "Disabled");
+			json_object_string_add(
+				json, "vxlanFlooding",
+				bgp_evpn->vxlan_flood_ctrl ==
+						VXLAN_FLOOD_HEAD_END_REPL
+					? "Enabled"
 					: "Disabled");
 			json_object_int_add(json, "numVnis", num_vnis);
 			json_object_int_add(json, "numL2Vnis", num_l2vnis);
@@ -4361,9 +4367,14 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 			vty_out(vty, "Advertise All VNI flag: %s\n",
 				is_evpn_enabled() ? "Enabled" : "Disabled");
 			vty_out(vty, "BUM flooding: %s\n",
-				bgp_evpn->vxlan_flood_ctrl
-						== VXLAN_FLOOD_HEAD_END_REPL
+				bgp_evpn->vxlan_flood_ctrl ==
+						VXLAN_FLOOD_HEAD_END_REPL
 					? "Head-end replication"
+					: "Disabled");
+			vty_out(vty, "VXLAN flooding: %s\n",
+				bgp_evpn->vxlan_flood_ctrl ==
+						VXLAN_FLOOD_HEAD_END_REPL
+					? "Enabled"
 					: "Disabled");
 			vty_out(vty, "Number of L2 VNIs: %u\n", num_l2vnis);
 			vty_out(vty, "Number of L3 VNIs: %u\n", num_l3vnis);
@@ -4700,7 +4711,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	if (uj)
 		json = json_object_new_object();
 
-	if (argv_find(argv, argc, "all", &rd_all)) {
+	if (!argv_find(argv, argc, "all", &rd_all)) {
 		/* get the RD */
 		if (argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			      &idx_ext_community)) {
@@ -4772,7 +4783,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
 		json = json_object_new_object();
 
 	/* get the prd */
-	if (argv_find(argv, argc, "all", &rd_all)) {
+	if (!argv_find(argv, argc, "all", &rd_all)) {
 		if (argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN",
 			      &idx_ext_community)) {
 			ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);

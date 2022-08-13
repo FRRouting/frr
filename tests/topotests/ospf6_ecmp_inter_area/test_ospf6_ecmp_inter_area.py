@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 test_ospf6_ecmp_inter_area.py: Test OSPFv3 ECMP inter-area nexthop update
 
 Check proper removal of ECMP nexthops after a path used by one nexthop

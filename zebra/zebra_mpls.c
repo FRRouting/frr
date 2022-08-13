@@ -53,7 +53,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 
-int mpls_enabled;
+bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
 
 /* static function declarations */
@@ -1035,15 +1035,12 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 	struct zebra_lsp *lsp;
 	struct hash *lsp_table;
 	struct zebra_nhlfe *nhlfe;
-	bool in_shutdown = false;
 
 	/* If zebra is shutting down, don't delete any structs,
 	 * just ignore this callback. The LSPs will be cleaned up
 	 * during the shutdown processing.
 	 */
-	in_shutdown = atomic_load_explicit(&zrouter.in_shutdown,
-					   memory_order_relaxed);
-	if (in_shutdown)
+	if (zebra_router_in_shutdown())
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -1142,6 +1139,21 @@ static void lsp_check_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		lsp_free(lsp_table, plsp);
 }
 
+static void lsp_free_nhlfe(struct zebra_lsp *lsp)
+{
+	struct zebra_nhlfe *nhlfe;
+
+	while ((nhlfe = nhlfe_list_first(&lsp->nhlfe_list))) {
+		nhlfe_list_del(&lsp->nhlfe_list, nhlfe);
+		nhlfe_free(nhlfe);
+	}
+
+	while ((nhlfe = nhlfe_list_first(&lsp->backup_nhlfe_list))) {
+		nhlfe_list_del(&lsp->backup_nhlfe_list, nhlfe);
+		nhlfe_free(nhlfe);
+	}
+}
+
 /*
  * Dtor for an LSP: remove from ile hash, release any internal allocations,
  * free LSP object.
@@ -1149,7 +1161,6 @@ static void lsp_check_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 {
 	struct zebra_lsp *lsp;
-	struct zebra_nhlfe *nhlfe;
 
 	if (plsp == NULL || *plsp == NULL)
 		return;
@@ -1160,13 +1171,7 @@ static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 		zlog_debug("Free LSP in-label %u flags 0x%x",
 			   lsp->ile.in_label, lsp->flags);
 
-	/* Free nhlfes, if any. */
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe)
-		nhlfe_del(nhlfe);
-
-	/* Free backup nhlfes, if any. */
-	frr_each_safe(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe)
-		nhlfe_del(nhlfe);
+	lsp_free_nhlfe(lsp);
 
 	hash_release(lsp_table, &lsp->ile);
 	XFREE(MTYPE_LSP, lsp);
@@ -1743,14 +1748,9 @@ static int lsp_cmp(const struct zebra_lsp *lsp1, const struct zebra_lsp *lsp2)
 /*
  * Initialize work queue for processing changed LSPs.
  */
-static int mpls_processq_init(void)
+static void mpls_processq_init(void)
 {
 	zrouter.lsp_process_q = work_queue_new(zrouter.master, "LSP processing");
-	if (!zrouter.lsp_process_q) {
-		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
-			 "%s: could not initialise work queue!", __func__);
-		return -1;
-	}
 
 	zrouter.lsp_process_q->spec.workfunc = &lsp_process;
 	zrouter.lsp_process_q->spec.del_item_data = &lsp_processq_del;
@@ -1758,8 +1758,6 @@ static int mpls_processq_init(void)
 	zrouter.lsp_process_q->spec.completion_func = &lsp_processq_complete;
 	zrouter.lsp_process_q->spec.max_retries = 0;
 	zrouter.lsp_process_q->spec.hold = 10;
-
-	return 0;
 }
 
 
@@ -1855,8 +1853,6 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	} /* Switch */
-
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -2064,7 +2060,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	/* Look for zebra LSP object */
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (zvrf == NULL)
-		goto done;
+		return;
 
 	lsp_table = zvrf->lsp_table;
 
@@ -2074,7 +2070,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		if (is_debug)
 			zlog_debug("dplane LSP notif: in-label %u not found",
 				   dplane_ctx_get_in_label(ctx));
-		goto done;
+		return;
 	}
 
 	/*
@@ -2147,9 +2143,6 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 	}
-
-done:
-	dplane_ctx_fini(&ctx);
 }
 
 /*
@@ -2754,9 +2747,9 @@ static bool ftn_update_nexthop(bool add_p, struct nexthop *nexthop,
 	return true;
 }
 
-int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		       struct prefix *prefix, uint8_t route_type,
-		       unsigned short route_instance)
+void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			struct prefix *prefix, uint8_t route_type,
+			unsigned short route_instance)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2768,7 +2761,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf_id(zvrf));
 	if (!table)
-		return -1;
+		return;
 
 	/* Lookup existing route */
 	rn = route_node_get(table, prefix);
@@ -2779,7 +2772,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 			break;
 	}
 	if (re == NULL)
-		return -1;
+		return;
 
 	/*
 	 * Nexthops are now shared by multiple routes, so we have to make
@@ -2808,8 +2801,6 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	zebra_nhg_free(new_nhe);
 
 	rib_queue_add(rn);
-
-	return 0;
 }
 
 /*
@@ -2891,8 +2882,8 @@ static bool ftn_update_znh(bool add_p, enum lsp_types_t type,
  * There are several changes that need to be made, in several zebra
  * data structures, so we want to do all the work required at once.
  */
-int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
-			     const struct zapi_labels *zl)
+void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			      const struct zapi_labels *zl)
 {
 	int i, counter, ret = 0;
 	char buf[NEXTHOP_STRLEN];
@@ -2913,7 +2904,7 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 		/* Lookup table. */
 		lsp_table = zvrf->lsp_table;
 		if (!lsp_table)
-			return -1;
+			return;
 
 		/* Find or create LSP object */
 		tmp_ile.in_label = zl->local_label;
@@ -3077,8 +3068,6 @@ znh_done:
 
 	if (new_nhe)
 		zebra_nhg_free(new_nhe);
-
-	return ret;
 }
 
 /*
@@ -3674,6 +3663,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	 */
 	if (nhlfe_list_first(&lsp->nhlfe_list) == NULL) {
 		lsp = hash_release(slsp_table, &tmp_ile);
+		lsp_free_nhlfe(lsp);
 		XFREE(MTYPE_LSP, lsp);
 	}
 
@@ -4010,6 +4000,15 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 	}
 }
 
+static void lsp_table_free(void *p)
+{
+	struct zebra_lsp *lsp = p;
+
+	lsp_free_nhlfe(lsp);
+
+	XFREE(MTYPE_LSP, lsp);
+}
+
 /*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
@@ -4018,9 +4017,9 @@ void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
 void zebra_mpls_close_tables(struct zebra_vrf *zvrf)
 {
 	hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
-	hash_clean(zvrf->lsp_table, NULL);
+	hash_clean(zvrf->lsp_table, lsp_table_free);
 	hash_free(zvrf->lsp_table);
-	hash_clean(zvrf->slsp_table, NULL);
+	hash_clean(zvrf->slsp_table, lsp_table_free);
 	hash_free(zvrf->slsp_table);
 	route_table_finish(zvrf->fec_table[AFI_IP]);
 	route_table_finish(zvrf->fec_table[AFI_IP6]);
@@ -4051,12 +4050,23 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 	zvrf->mpls_srgb.end_label = MPLS_DEFAULT_MAX_SRGB_LABEL;
 }
 
+void zebra_mpls_turned_on(void)
+{
+	if (!mpls_enabled) {
+		mpls_processq_init();
+		mpls_enabled = true;
+	}
+
+	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+}
+
 /*
  * Global MPLS initialization.
  */
 void zebra_mpls_init(void)
 {
-	mpls_enabled = 0;
+	mpls_enabled = false;
 	mpls_pw_reach_strict = false;
 
 	if (mpls_kernel_init() < 0) {
@@ -4065,9 +4075,5 @@ void zebra_mpls_init(void)
 		return;
 	}
 
-	if (!mpls_processq_init())
-		mpls_enabled = 1;
-
-	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
-	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
+	zebra_mpls_turned_on();
 }

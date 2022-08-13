@@ -165,8 +165,6 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
 		if (cost < 1)
 			cost = 1;
-		else if (cost > UINT32_MAX)
-			cost = UINT32_MAX;
 	}
 
 	return cost;
@@ -968,10 +966,6 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 	return "UNKNOWN";
 }
 
-#if CONFDATE > 20220709
-CPP_NOTICE("Time to remove ospf6Enabled from JSON output")
-#endif
-
 /* show specified interface structure */
 static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				json_object *json_obj, bool use_json)
@@ -998,11 +992,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       ospf6_iftype_str(default_iftype));
 		json_object_int_add(json_obj, "interfaceId", ifp->ifindex);
 
-		if (ifp->info == NULL) {
-			json_object_boolean_false_add(json_obj, "ospf6Enabled");
+		if (ifp->info == NULL)
 			return 0;
-		}
-		json_object_boolean_true_add(json_obj, "ospf6Enabled");
 
 		oi = (struct ospf6_interface *)ifp->info;
 
@@ -1721,8 +1712,11 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	if (oi->area_id_format == OSPF6_AREA_FMT_UNSET)
 		return;
 
-	if (oi->area)
+	if (oi->area) {
+		/* Recompute cost */
+		ospf6_interface_recalculate_cost(oi);
 		return;
+	}
 
 	ospf6 = oi->interface->vrf->info;
 	if (!ospf6)

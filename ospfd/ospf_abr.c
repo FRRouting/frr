@@ -350,7 +350,6 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 	struct ospf_lsa *lsa;
 	struct router_lsa *rlsa;
 	struct in_addr *best = NULL;
-	char buf[PREFIX_STRLEN];
 
 	LSDB_LOOP (ROUTER_LSDB(area), rn, lsa) {
 		/* sanity checks */
@@ -382,9 +381,8 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug(
-			"ospf_abr_nssa_am_elected: best electable ABR is: %s",
-			(best) ? inet_ntop(AF_INET, best, buf, sizeof(buf)) :
-			"<none>");
+			"ospf_abr_nssa_am_elected: best electable ABR is: %pI4",
+			best);
 
 	if (best == NULL)
 		return 1;
@@ -1069,7 +1067,7 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 		    && !OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"ospf_abr_process_network_rt(): this is route is not backbone one, skipping");
+					"ospf_abr_process_network_rt(): this route is not backbone one, skipping");
 			continue;
 		}
 

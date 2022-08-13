@@ -439,6 +439,12 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 	struct lsa_header *lsah;
 	uint32_t tmp;
 
+	/* Validate opaque LSA length */
+	if ((size_t)opaquelen > sizeof(buf) - sizeof(struct lsa_header)) {
+		fprintf(stderr, "opaquelen(%d) is larger than buf size %zu\n",
+			opaquelen, sizeof(buf));
+		return OSPF_API_NOMEMORY;
+	}
 
 	/* We can only originate opaque LSAs */
 	if (!IS_OPAQUE_LSA(lsa_type)) {

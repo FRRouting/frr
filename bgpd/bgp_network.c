@@ -59,14 +59,10 @@ void bgp_dump_listener_info(struct vty *vty)
 
 	vty_out(vty, "Name             fd Address\n");
 	vty_out(vty, "---------------------------\n");
-	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
-		char buf[SU_ADDRSTRLEN];
-
-		vty_out(vty, "%-16s %d %s\n",
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
+		vty_out(vty, "%-16s %d %pSU\n",
 			listener->name ? listener->name : VRF_DEFAULT_NAME,
-			listener->fd,
-			sockunion2str(&listener->su, buf, sizeof(buf)));
-	}
+			listener->fd, &listener->su);
 }
 
 /*
@@ -103,21 +99,18 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 #endif /* HAVE_TCP_MD5SIG */
 
 	if (ret < 0) {
-		char sabuf[SU_ADDRSTRLEN];
-		sockunion2str(su, sabuf, sizeof(sabuf));
-
 		switch (ret) {
 		case -2:
 			flog_warn(
 				EC_BGP_NO_TCP_MD5,
-				"Unable to set TCP MD5 option on socket for peer %s (sock=%d): This platform does not support MD5 auth for prefixes",
-				sabuf, socket);
+				"Unable to set TCP MD5 option on socket for peer %pSU (sock=%d): This platform does not support MD5 auth for prefixes",
+				su, socket);
 			break;
 		default:
 			flog_warn(
 				EC_BGP_NO_TCP_MD5,
-				"Unable to set TCP MD5 option on socket for peer %s (sock=%d): %s",
-				sabuf, socket, safe_strerror(en));
+				"Unable to set TCP MD5 option on socket for peer %pSU (sock=%d): %s",
+				su, socket, safe_strerror(en));
 		}
 	}
 
@@ -224,8 +217,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 {
 	int ret = 0;
 
-	/* In case of peer is EBGP, we should set TTL for this connection.  */
-	if (!peer->gtsm_hops && (peer_sort_lookup(peer) == BGP_PEER_EBGP)) {
+	if (!peer->gtsm_hops) {
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, peer->ttl);
 		if (ret) {
 			flog_err(
@@ -234,7 +226,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 				__func__, &peer->remote_id, errno);
 			return ret;
 		}
-	} else if (peer->gtsm_hops) {
+	} else {
 		/* On Linux, setting minttl without setting ttl seems to mess
 		   with the
 		   outgoing ttl. Therefore setting both.
@@ -437,7 +429,7 @@ static void bgp_accept(struct thread *thread)
 				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
 
 			bgp_fsm_change_status(peer1, Active);
-			BGP_TIMER_OFF(
+			THREAD_OFF(
 				peer1->t_start); /* created in peer_create() */
 
 			if (peer_active(peer1)) {
@@ -566,7 +558,7 @@ static void bgp_accept(struct thread *thread)
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
-	BGP_TIMER_OFF(peer->t_start); /* created in peer_create() */
+	THREAD_OFF(peer->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
@@ -632,7 +624,7 @@ static char *bgp_get_bound_name(struct peer *peer)
 	return peer->bgp->name;
 }
 
-static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
+int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 			      union sockunion *addr)
 {
 	struct prefix *p, *sel, d;

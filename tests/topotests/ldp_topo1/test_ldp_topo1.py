@@ -63,8 +63,14 @@ import os
 import re
 import sys
 import pytest
+import json
+from functools import partial
 from time import sleep
 from lib.topolog import logger
+
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
@@ -100,6 +106,29 @@ def build_topo(tgen):
     switch = tgen.add_switch("sw2")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
+
+#####################################################
+##
+##   Helper functions
+##
+#####################################################
+
+
+def router_compare_json_output(rname, command, reference, count=60, wait=1):
+    "Compare router JSON output"
+
+    logger.info('Comparing router "%s" "%s" output', rname, command)
+
+    tgen = get_topogen()
+    filename = "{}/{}/{}".format(CWD, rname, reference)
+    expected = json.loads(open(filename).read())
+
+    # Run test function until we get an result.
+    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
+    _, diff = topotest.run_and_expect(test_func, None, count, wait)
+    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
+    assert diff is None, assertmsg
 
 
 #####################################################
@@ -216,6 +245,19 @@ def test_mpls_interfaces():
     for i in range(1, 5):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
+
+
+def test_ospf_convergence():
+    logger.info("Test: check OSPF adjacencies")
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.json"
+        )
 
 
 def test_mpls_ldp_neighbor_establish():
@@ -510,9 +552,10 @@ def test_mpls_ldp_binding():
             else:
                 print("r%s ok" % i)
 
-            assert (
-                failures == 0
-            ), "MPLS LDP Interface binding output for router r%s:\n%s" % (i, diff)
+            assert failures == 0, "MPLS LDP binding output for router r%s:\n%s" % (
+                i,
+                diff,
+            )
 
     # Make sure that all daemons are running
     for i in range(1, 5):

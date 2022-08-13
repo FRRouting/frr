@@ -482,9 +482,9 @@ struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *nam
 extern route_map_result_t route_map_apply_ext(struct route_map *map,
 					      const struct prefix *prefix,
 					      void *match_object,
-					      void *set_object);
+					      void *set_object, int *pref);
 #define route_map_apply(map, prefix, object)                                   \
-	route_map_apply_ext(map, prefix, object, object)
+	route_map_apply_ext(map, prefix, object, object, NULL)
 
 extern void route_map_add_hook(void (*func)(const char *));
 extern void route_map_delete_hook(void (*func)(const char *));

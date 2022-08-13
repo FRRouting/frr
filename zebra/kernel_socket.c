@@ -1354,6 +1354,16 @@ static void kernel_read(struct thread *thread)
 
 	if (nbytes < 0) {
 		if (errno == ENOBUFS) {
+#ifdef __FreeBSD__
+			/*
+			 * ENOBUFS indicates a temporary resource
+			 * shortage and is not harmful for consistency of
+			 * reading the routing socket.  Ignore it.
+			 */
+			thread_add_read(zrouter.master, kernel_read, NULL, sock,
+					NULL);
+			return;
+#else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
 				 "routing socket overrun: %s",
 				 safe_strerror(errno));
@@ -1363,6 +1373,7 @@ static void kernel_read(struct thread *thread)
 			 *  recover zebra at this point.
 			 */
 			exit(-1);
+#endif
 		}
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
@@ -1518,7 +1529,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_q handled_list;
-	enum zebra_dplane_result res;
+	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	TAILQ_INIT(&handled_list);
 
@@ -1600,9 +1611,27 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 
-		default:
-			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+		case DPLANE_OP_INTF_NETCONFIG:
+			res = kernel_intf_netconf_update(ctx);
 			break;
+
+		case DPLANE_OP_NONE:
+		case DPLANE_OP_BR_PORT_UPDATE:
+		case DPLANE_OP_IPTABLE_ADD:
+		case DPLANE_OP_IPTABLE_DELETE:
+		case DPLANE_OP_IPSET_ADD:
+		case DPLANE_OP_IPSET_DELETE:
+		case DPLANE_OP_IPSET_ENTRY_ADD:
+		case DPLANE_OP_IPSET_ENTRY_DELETE:
+		case DPLANE_OP_NEIGH_IP_INSTALL:
+		case DPLANE_OP_NEIGH_IP_DELETE:
+		case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		case DPLANE_OP_GRE_SET:
+		case DPLANE_OP_INTF_ADDR_ADD:
+		case DPLANE_OP_INTF_ADDR_DEL:
+			zlog_err("Unhandled dplane data for %s",
+				 dplane_op2str(dplane_ctx_get_op(ctx)));
+			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 
 	skip_one:

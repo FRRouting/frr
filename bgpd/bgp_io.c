@@ -134,7 +134,7 @@ static void bgp_process_writes(struct thread *thread)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_write(peer);
 		reschedule = (stream_fifo_head(peer->obuf) != NULL);
 	}
@@ -188,7 +188,7 @@ static void bgp_process_reads(struct thread *thread)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_read(peer, &code);
 	}
 
@@ -247,7 +247,7 @@ static void bgp_process_reads(struct thread *thread)
 			stream_set_endp(pkt, pktsize);
 
 			frrtrace(2, frr_bgp, packet_read, peer, pkt);
-			frr_with_mutex(&peer->io_mtx) {
+			frr_with_mutex (&peer->io_mtx) {
 				stream_fifo_push(peer->ibuf, pkt);
 			}
 

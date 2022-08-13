@@ -179,6 +179,8 @@ struct bmp_active {
 	char *hostname;
 	int port;
 	unsigned minretry, maxretry;
+	char *ifsrc;
+	union sockunion addrsrc;
 
 	struct resolver_query resq;
 

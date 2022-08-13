@@ -290,8 +290,10 @@ int sockopt_reuseaddr(int sock)
 	ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&on,
 			 sizeof(on));
 	if (ret < 0) {
-		flog_err(EC_LIB_SOCKET,
-			 "can't set sockopt SO_REUSEADDR to socket %d", sock);
+		flog_err(
+			EC_LIB_SOCKET,
+			"can't set sockopt SO_REUSEADDR to socket %d errno=%d: %s",
+			sock, errno, safe_strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -525,6 +527,11 @@ union sockunion *sockunion_getsockname(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getsockname call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 
@@ -561,6 +568,11 @@ union sockunion *sockunion_getpeername(int fd)
 		sockunion_normalise_mapped(su);
 		return su;
 	}
+
+	flog_err(
+		EC_LIB_SOCKET,
+		"Unexpected AFI received(%d) for sockunion_getpeername call for fd: %d",
+		name.sa.sa_family, fd);
 	return NULL;
 }
 

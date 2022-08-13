@@ -92,7 +92,7 @@ static void tx_queue_element_free(void *element)
 {
 	struct isis_tx_queue_entry *e = element;
 
-	thread_cancel(&(e->retry));
+	THREAD_OFF(e->retry);
 
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
 }
@@ -161,7 +161,7 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 
 	e->type = type;
 
-	thread_cancel(&(e->retry));
+	THREAD_OFF(e->retry);
 	thread_add_event(master, tx_queue_send_event, e, 0, &e->retry);
 
 	e->is_retry = false;
@@ -184,7 +184,7 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			   func, file, line);
 	}
 
-	thread_cancel(&(e->retry));
+	THREAD_OFF(e->retry);
 
 	hash_release(queue->hash, e);
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
