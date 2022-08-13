@@ -454,9 +454,7 @@ int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
 int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
 				      struct in_addr vtep_ip);
 
-extern void meta_queue_free(struct meta_queue *mq);
-extern void rib_meta_queue_free_vrf(struct meta_queue *mq,
-				    struct zebra_vrf *zvrf);
+extern void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
 extern struct route_table *rib_table_ipv6;
 

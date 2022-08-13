@@ -1357,7 +1357,6 @@ struct ls_message *ls_parse_msg(struct stream *s)
 	/* Read LS Message header */
 	STREAM_GETC(s, msg->event);
 	STREAM_GETC(s, msg->type);
-	STREAM_GET(&msg->remote_id, s, sizeof(struct ls_node_id));
 
 	/* Read Message Payload */
 	switch (msg->type) {
@@ -1365,6 +1364,7 @@ struct ls_message *ls_parse_msg(struct stream *s)
 		msg->data.node = ls_parse_node(s);
 		break;
 	case LS_MSG_TYPE_ATTRIBUTES:
+		STREAM_GET(&msg->remote_id, s, sizeof(struct ls_node_id));
 		msg->data.attr = ls_parse_attributes(s);
 		break;
 	case LS_MSG_TYPE_PREFIX:
@@ -1563,13 +1563,14 @@ static int ls_format_msg(struct stream *s, struct ls_message *msg)
 	/* Prepare Link State header */
 	stream_putc(s, msg->event);
 	stream_putc(s, msg->type);
-	stream_put(s, &msg->remote_id, sizeof(struct ls_node_id));
 
 	/* Add Message Payload */
 	switch (msg->type) {
 	case LS_MSG_TYPE_NODE:
 		return ls_format_node(s, msg->data.node);
 	case LS_MSG_TYPE_ATTRIBUTES:
+		/* Add remote node first */
+		stream_put(s, &msg->remote_id, sizeof(struct ls_node_id));
 		return ls_format_attributes(s, msg->data.attr);
 	case LS_MSG_TYPE_PREFIX:
 		return ls_format_prefix(s, msg->data.prefix);
@@ -1625,7 +1626,6 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 
 	return zclient_send_message(zclient);
 }
-
 struct ls_message *ls_vertex2msg(struct ls_message *msg,
 				 struct ls_vertex *vertex)
 {

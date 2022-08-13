@@ -32,6 +32,7 @@
 #include "ferr.h"
 #include "lib/srcdest_table.h"
 #include "lib/linklist.h"
+#include "termtable.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -56,6 +57,7 @@
 #include "pim_addr.h"
 #include "pim_static.h"
 #include "pim_util.h"
+#include "pim6_mld.h"
 
 /**
  * Get current node VRF name.
@@ -2124,6 +2126,8 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
 	bool uj = true;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json_row = NULL;
 	json_object *json_tmp;
 
@@ -2167,43 +2171,60 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	}
 
 	if (!uj) {
-		vty_out(vty,
-			"Interface         State          Address  PIM Nbrs           PIM DR  FHR IfChannels\n");
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|State|Address|PIM Nbrs|PIM DR|FHR|IfChannels");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 
 		json_object_object_foreach(json, key, val)
 		{
-			vty_out(vty, "%-16s  ", key);
+			const char *state, *address, *pimdr;
+			int neighbors, firsthpr, pimifchnl;
 
 			json_object_object_get_ex(val, "state", &json_tmp);
-			vty_out(vty, "%5s  ", json_object_get_string(json_tmp));
+			state = json_object_get_string(json_tmp);
 
 			json_object_object_get_ex(val, "address", &json_tmp);
-			vty_out(vty, "%15s  ",
-				json_object_get_string(json_tmp));
+			address = json_object_get_string(json_tmp);
 
 			json_object_object_get_ex(val, "pimNeighbors",
 						  &json_tmp);
-			vty_out(vty, "%8d  ", json_object_get_int(json_tmp));
+			neighbors = json_object_get_int(json_tmp);
 
 			if (json_object_object_get_ex(
 				    val, "pimDesignatedRouterLocal",
 				    &json_tmp)) {
-				vty_out(vty, "%15s  ", "local");
+				pimdr = "local";
 			} else {
 				json_object_object_get_ex(
 					val, "pimDesignatedRouter", &json_tmp);
-				vty_out(vty, "%15s  ",
-					json_object_get_string(json_tmp));
+				pimdr = json_object_get_string(json_tmp);
 			}
 
 			json_object_object_get_ex(val, "firstHopRouter",
 						  &json_tmp);
-			vty_out(vty, "%3d  ", json_object_get_int(json_tmp));
+			firsthpr = json_object_get_int(json_tmp);
 
 			json_object_object_get_ex(val, "pimIfChannels",
 						  &json_tmp);
-			vty_out(vty, "%9d\n", json_object_get_int(json_tmp));
+			pimifchnl = json_object_get_int(json_tmp);
+
+			ttable_add_row(tt, "%s|%s|%s|%d|%s|%d|%d", key, state,
+				       address, neighbors, pimdr, firsthpr,
+				       pimifchnl);
 		}
+
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+
+		ttable_del(tt);
 	}
 }
 
@@ -3264,13 +3285,22 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			       json_object *json)
 {
 	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json_row = NULL;
 
 	vty_out(vty, "\n");
 
-	if (!json)
-		vty_out(vty,
-			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|Address|ifi|Vif|PktsIn|PktsOut|BytesIn|BytesOut");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -3326,15 +3356,21 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 					    (unsigned long)vreq.obytes);
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
-			vty_out(vty,
-				"%-16s %-15pPAs %3d %3d %7lu %7lu %10lu %10lu\n",
-				ifp->name, &pim_ifp->primary_address,
-				ifp->ifindex, pim_ifp->mroute_vif_index,
-				(unsigned long)vreq.icount,
-				(unsigned long)vreq.ocount,
-				(unsigned long)vreq.ibytes,
-				(unsigned long)vreq.obytes);
+			ttable_add_row(tt, "%s|%pPAs|%d|%d|%lu|%lu|%lu|%lu",
+				       ifp->name, &pim_ifp->primary_address,
+				       ifp->ifindex, pim_ifp->mroute_vif_index,
+				       (unsigned long)vreq.icount,
+				       (unsigned long)vreq.ocount,
+				       (unsigned long)vreq.ibytes,
+				       (unsigned long)vreq.obytes);
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
@@ -3352,6 +3388,8 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty, "Mroute socket descriptor:");
 
 	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
+	vty_out(vty, "PIM Register socket descriptor:");
+	vty_out(vty, " %d(%s)\n", pim->reg_sock, vrf->name);
 
 	pim_time_uptime(uptime, sizeof(uptime),
 			now - pim->mroute_socket_creation);
@@ -3389,6 +3427,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	struct listnode *node;
 	struct channel_oil *c_oil;
 	struct static_route *s_route;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	time_t now;
 	json_object *json_group = NULL;
 	json_object *json_source = NULL;
@@ -3411,8 +3451,14 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		vty_out(vty, "Flags: S - Sparse, C - Connected, P - Pruned\n");
 		vty_out(vty,
 			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
-		vty_out(vty,
-			"\nSource          Group           Flags    Proto  Input            Output           TTL  Uptime\n");
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt, "Source|Group|Flags|Proto|Input|Output|TTL|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	now = pim_time_monotonic_sec();
@@ -3616,11 +3662,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 					strlcpy(proto, "STAR", sizeof(proto));
 				}
 
-				vty_out(vty,
-					"%-15s %-15s %-8s %-6s %-16s %-16s %-3d  %8s\n",
-					src_str, grp_str, state_str, proto,
-					in_ifname, out_ifname, ttl,
-					mroute_uptime);
+				ttable_add_row(tt, "%s|%s|%s|%s|%s|%s|%d|%s",
+					       src_str, grp_str, state_str,
+					       proto, in_ifname, out_ifname,
+					       ttl, mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';
@@ -3634,11 +3679,10 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 
 		if (!json && !found_oif) {
-			vty_out(vty,
-				"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
-				oil_origin(c_oil), oil_mcastgrp(c_oil),
-				state_str, "none", in_ifname, "none", 0,
-				"--:--:--");
+			ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
+				       oil_origin(c_oil), oil_mcastgrp(c_oil),
+				       state_str, "none", in_ifname, "none", 0,
+				       "--:--:--");
 		}
 	}
 
@@ -3742,8 +3786,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				json_object_object_add(json_oil, out_ifname,
 						       json_ifp_out);
 			} else {
-				vty_out(vty,
-					"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
+				ttable_add_row(
+					tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
 					&s_route->source, &s_route->group, "-",
 					proto, in_ifname, out_ifname, ttl,
 					oif_uptime);
@@ -3757,17 +3801,24 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 
 		if (!json && !found_oif) {
-			vty_out(vty,
-				"%-15pPAs %-15pPAs %-8s %-6s %-16s %-16s %-3d  %8s\n",
-				&s_route->source, &s_route->group, "-", proto,
-				in_ifname, "none", 0, "--:--:--");
+			ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
+				       &s_route->source, &s_route->group, "-",
+				       proto, in_ifname, "none", 0, "--:--:--");
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
 static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 					      json_object *json,
-					      struct vty *vty)
+					      struct vty *vty,
+					      struct ttable *tt)
 {
 	json_object *json_group = NULL;
 	json_object *json_source = NULL;
@@ -3802,12 +3853,12 @@ static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 		json_object_int_add(json_source, "wrongIf", c_oil->cc.wrong_if);
 
 	} else {
-		vty_out(vty, "%-15pPAs %-15pPAs %-8llu %-7ld %-10ld %-7ld\n",
-			oil_origin(c_oil), oil_mcastgrp(c_oil),
-			c_oil->cc.lastused / 100,
-			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
-			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
-			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
+		ttable_add_row(tt, "%pPAs|%pPAs|%llu|%ld|%ld|%ld",
+			       oil_origin(c_oil), oil_mcastgrp(c_oil),
+			       c_oil->cc.lastused / 100,
+			       c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
+			       c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
+			       c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
 	}
 }
 
@@ -3817,20 +3868,35 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 	struct listnode *node;
 	struct channel_oil *c_oil;
 	struct static_route *sr;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	if (!json) {
 		vty_out(vty, "\n");
 
-		vty_out(vty,
-			"Source          Group           LastUsed Packets Bytes WrongIf  \n");
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt,
+			       "Source|Group|LastUsed|Packets|Bytes|WrongIf");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	/* Print PIM and IGMP route counts */
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
-		show_mroute_count_per_channel_oil(c_oil, json, vty);
+		show_mroute_count_per_channel_oil(c_oil, json, vty, tt);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
-		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty);
+		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty, tt);
+
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
@@ -3994,6 +4060,12 @@ void clear_mroute(struct pim_instance *pim)
 				igmp_group_delete(grp);
 			}
 		}
+#else
+		struct gm_if *gm_ifp;
+
+		gm_ifp = pim_ifp->mld;
+		if (gm_ifp)
+			gm_group_delete(gm_ifp);
 #endif
 	}
 
@@ -4023,6 +4095,46 @@ void clear_pim_statistics(struct pim_instance *pim)
 	}
 }
 
+int clear_pim_interface_traffic(const char *vrf, struct vty *vty)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
+
+	struct vrf *v = pim_cmd_lookup(vty, vrf);
+
+	if (!v)
+		return CMD_WARNING;
+
+	FOR_ALL_INTERFACES (v, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		pim_ifp->pim_ifstat_hello_recv = 0;
+		pim_ifp->pim_ifstat_hello_sent = 0;
+		pim_ifp->pim_ifstat_join_recv = 0;
+		pim_ifp->pim_ifstat_join_send = 0;
+		pim_ifp->pim_ifstat_prune_recv = 0;
+		pim_ifp->pim_ifstat_prune_send = 0;
+		pim_ifp->pim_ifstat_reg_recv = 0;
+		pim_ifp->pim_ifstat_reg_send = 0;
+		pim_ifp->pim_ifstat_reg_stop_recv = 0;
+		pim_ifp->pim_ifstat_reg_stop_send = 0;
+		pim_ifp->pim_ifstat_assert_recv = 0;
+		pim_ifp->pim_ifstat_assert_send = 0;
+		pim_ifp->pim_ifstat_bsm_rx = 0;
+		pim_ifp->pim_ifstat_bsm_tx = 0;
+#if PIM_IPV == 4
+		pim_ifp->igmp_ifstat_joins_sent = 0;
+		pim_ifp->igmp_ifstat_joins_failed = 0;
+		pim_ifp->igmp_peak_group_count = 0;
+#endif
+	}
+
+	return CMD_SUCCESS;
+}
+
 int pim_debug_pim_cmd(void)
 {
 	PIM_DO_DEBUG_PIM_EVENTS;
@@ -4045,6 +4157,8 @@ int pim_no_debug_pim_cmd(void)
 
 	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
 	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	PIM_DONT_DEBUG_BSM;
+	PIM_DONT_DEBUG_VXLAN;
 	return CMD_SUCCESS;
 }
 

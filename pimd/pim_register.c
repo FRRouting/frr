@@ -331,7 +331,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 	if (!pinfo->pim_passive_enable)
 		++pinfo->pim_ifstat_reg_send;
 
-	if (pim_msg_send(pinfo->pim_sock_fd, src, rpg->rpf_addr, buffer,
+	if (pim_msg_send(pinfo->pim->reg_sock, src, rpg->rpf_addr, buffer,
 			 buf_size + PIM_MSG_REGISTER_LEN, ifp)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(

@@ -1613,9 +1613,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
-	case DPLANE_OP_INTF_NETCONFIG:
 	case DPLANE_OP_NONE:
 		return FRR_NETLINK_ERROR;
+
+	case DPLANE_OP_INTF_NETCONFIG:
+		return netlink_put_intf_netconfig(bth, ctx);
 
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:

@@ -3867,7 +3867,7 @@ static void bgp_route_map_update_peer_group(const char *rmap_name,
  * network statements, etc looking to see if they use this route-map.
  */
 static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
-					 int route_update)
+					 bool route_update)
 {
 	int i;
 	bool matched;
@@ -4080,7 +4080,7 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	struct bgp *bgp;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp_route_map_process_update(bgp, rmap_name, 1);
+		bgp_route_map_process_update(bgp, rmap_name, true);
 
 #ifdef ENABLE_BGP_VNC
 		vnc_routemap_update(bgp, __func__);
@@ -4116,12 +4116,11 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 		/* Signal the groups that a route-map update event has
 		 * started */
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-			update_group_policy_update(bgp,
-						   BGP_POLICY_ROUTE_MAP,
-						   rmap_name, 1, 1);
+			update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP,
+						   rmap_name, true, 1);
 	} else {
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			bgp_route_map_process_update(bgp, rmap_name, 0);
+			bgp_route_map_process_update(bgp, rmap_name, false);
 #ifdef ENABLE_BGP_VNC
 			vnc_routemap_update(bgp, __func__);
 #endif

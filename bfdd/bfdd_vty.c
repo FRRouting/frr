@@ -66,6 +66,9 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json);
+static void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
+			 struct bfd_session *bs);
+
 static struct bfd_session *
 _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *label, const char *peer_str,
@@ -106,6 +109,9 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 {
 	char buf[256];
 	time_t now;
+	uint32_t min = 0;
+	uint32_t avg = 0;
+	uint32_t max = 0;
 
 	_display_peer_header(vty, bs);
 
@@ -150,6 +156,8 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\tRemote diagnostics: %s\n", diag2str(bs->remote_diag));
 	vty_out(vty, "\t\tPeer Type: %s\n",
 		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
+	_display_rtt(&min, &avg, &max, bs);
+	vty_out(vty, "\t\tRTT min/avg/max: %u/%u/%u usec\n", min, avg, max);
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
@@ -217,6 +225,9 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 static struct json_object *__display_peer_json(struct bfd_session *bs)
 {
 	struct json_object *jo = _peer_json_header(bs);
+	uint32_t min = 0;
+	uint32_t avg = 0;
+	uint32_t max = 0;
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
@@ -274,6 +285,11 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 			    bs->remote_timers.required_min_echo / 1000);
 	json_object_int_add(jo, "remote-detect-multiplier",
 			    bs->remote_detect_mult);
+
+	_display_rtt(&min, &avg, &max, bs);
+	json_object_int_add(jo, "rtt-min", min);
+	json_object_int_add(jo, "rtt-avg", avg);
+	json_object_int_add(jo, "rtt-max", max);
 
 	return jo;
 }
@@ -608,6 +624,31 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 	return bs;
 }
 
+void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
+		  struct bfd_session *bs)
+{
+#ifdef BFD_LINUX
+	uint8_t i;
+	uint32_t average = 0;
+
+	if (bs->rtt_valid == 0)
+		return;
+
+	*max = bs->rtt[0];
+	*min = 1000;
+	*avg = 0;
+
+	for (i = 0; i < bs->rtt_valid; i++) {
+		if (bs->rtt[i] < *min)
+			*min = bs->rtt[i];
+		if (bs->rtt[i] > *max)
+			*max = bs->rtt[i];
+		average += bs->rtt[i];
+	}
+	*avg = average / bs->rtt_valid;
+
+#endif
+}
 
 /*
  * Show commands.

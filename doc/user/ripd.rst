@@ -119,14 +119,14 @@ RIP Configuration
 .. clicmd:: neighbor A.B.C.D
 
 
-   Specify RIP neighbor. When a neighbor doesn't understand multicast, this
-   command is used to specify neighbors. In some cases, not all routers will be
-   able to understand multicasting, where packets are sent to a network or a
-   group of addresses. In a situation where a neighbor cannot process multicast
-   packets, it is necessary to establish a direct link between routers. The
-   neighbor command allows the network administrator to specify a router as a
-   RIP neighbor. The `no neighbor a.b.c.d` command will disable the RIP
-   neighbor.
+   Specify a RIP neighbor to send updates to. This is required when a neighbor
+   is connected via a network that does not support multicast, or when it is
+   desired to statically define a neighbor. RIP updates will be sent via unicast
+   to each neighbour. Neighbour updates are in addition to any multicast updates
+   sent when an interface is not in passive mode (see the `passive-interface`
+   command). RIP will continue to process updates received from both the
+   neighbor and any received via multicast. The `no neighbor a.b.c.d` command
+   will disable the RIP neighbor.
 
    Below is very simple RIP configuration. Interface `eth0` and interface which
    address match to `10.0.0.0/8` are RIP enabled.

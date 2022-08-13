@@ -1678,50 +1678,17 @@ DEFPY (clear_ip_pim_interfaces,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ip_pim_interface_traffic,
+DEFPY (clear_ip_pim_interface_traffic,
        clear_ip_pim_interface_traffic_cmd,
        "clear ip pim [vrf NAME] interface traffic",
-       "Reset functions\n"
-       "IP information\n"
-       "PIM clear commands\n"
+       CLEAR_STR
+       IP_STR
+       CLEAR_IP_PIM_STR
        VRF_CMD_HELP_STR
        "Reset PIM interfaces\n"
        "Reset Protocol Packet counters\n")
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct interface *ifp = NULL;
-	struct pim_interface *pim_ifp = NULL;
-
-	if (!vrf)
-		return CMD_WARNING;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			continue;
-
-		pim_ifp->pim_ifstat_hello_recv = 0;
-		pim_ifp->pim_ifstat_hello_sent = 0;
-		pim_ifp->pim_ifstat_join_recv = 0;
-		pim_ifp->pim_ifstat_join_send = 0;
-		pim_ifp->pim_ifstat_prune_recv = 0;
-		pim_ifp->pim_ifstat_prune_send = 0;
-		pim_ifp->pim_ifstat_reg_recv = 0;
-		pim_ifp->pim_ifstat_reg_send = 0;
-		pim_ifp->pim_ifstat_reg_stop_recv = 0;
-		pim_ifp->pim_ifstat_reg_stop_send = 0;
-		pim_ifp->pim_ifstat_assert_recv = 0;
-		pim_ifp->pim_ifstat_assert_send = 0;
-		pim_ifp->pim_ifstat_bsm_rx = 0;
-		pim_ifp->pim_ifstat_bsm_tx = 0;
-		pim_ifp->igmp_ifstat_joins_sent = 0;
-		pim_ifp->igmp_ifstat_joins_failed = 0;
-		pim_ifp->igmp_peak_group_count = 0;
-	}
-
-	return CMD_SUCCESS;
+	return clear_pim_interface_traffic(vrf, vty);
 }
 
 DEFPY (clear_ip_pim_oil,

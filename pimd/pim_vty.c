@@ -129,12 +129,12 @@ int pim_debug_config_write(struct vty *vty)
         }
 
 	if (PIM_DEBUG_BSM) {
-		vty_out(vty, "debug pim bsm\n");
+		vty_out(vty, "debug " PIM_AF_DBG " bsm\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_VXLAN) {
-		vty_out(vty, "debug pim vxlan\n");
+		vty_out(vty, "debug " PIM_AF_DBG " vxlan\n");
 		++writes;
 	}
 

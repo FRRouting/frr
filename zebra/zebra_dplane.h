@@ -690,6 +690,8 @@ enum zebra_dplane_result dplane_lsp_notif_update(struct zebra_lsp *lsp,
 enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw);
 enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw);
 
+enum zebra_dplane_result
+dplane_intf_mpls_modify_state(const struct interface *ifp, const bool set);
 /*
  * Enqueue interface address changes for the dataplane.
  */

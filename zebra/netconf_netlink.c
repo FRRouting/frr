@@ -29,6 +29,7 @@
 
 #include "linux/netconf.h"
 
+#include "lib/lib_errors.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/kernel_netlink.h"
@@ -183,6 +184,58 @@ int netlink_request_netconf(int sockfd)
 	req.ncm.ncm_family = AF_UNSPEC;
 
 	return netlink_request(nls, &req);
+}
+
+extern struct zebra_privs_t zserv_privs;
+/*
+ * Currently netconf has no ability to set from netlink.
+ * So we've received a request to do this work in the data plane.
+ * as such we need to set the value via the /proc system
+ */
+enum netlink_msg_status netlink_put_intf_netconfig(struct nl_batch *bth,
+						   struct zebra_dplane_ctx *ctx)
+{
+	const char *ifname = dplane_ctx_get_ifname(ctx);
+	enum dplane_netconf_status_e mpls_on = dplane_ctx_get_netconf_mpls(ctx);
+	char set[64];
+	char mpls_proc[PATH_MAX];
+	int fd, ret = FRR_NETLINK_ERROR;
+
+	snprintf(mpls_proc, sizeof(mpls_proc),
+		 "/proc/sys/net/mpls/conf/%s/input", ifname);
+
+	if (mpls_on == DPLANE_NETCONF_STATUS_ENABLED)
+		snprintf(set, sizeof(set), "1\n");
+	else if (mpls_on == DPLANE_NETCONF_STATUS_DISABLED)
+		snprintf(set, sizeof(set), "0\n");
+	else {
+		flog_err_sys(
+			EC_LIB_DEVELOPMENT,
+			"%s: Expected interface %s to be set to ENABLED or DISABLED was %d",
+			__func__, ifname, mpls_on);
+		return ret;
+	}
+
+	frr_with_privs (&zserv_privs) {
+		fd = open(mpls_proc, O_WRONLY);
+		if (fd < 0) {
+			flog_err_sys(
+				EC_LIB_SOCKET,
+				"%s: Unable to open %s for writing: %s(%d)",
+				__func__, mpls_proc, safe_strerror(errno),
+				errno);
+			return ret;
+		}
+		if (write(fd, set, 2) == 2)
+			ret = FRR_NETLINK_SUCCESS;
+		else
+			flog_err_sys(EC_LIB_SOCKET,
+				     "%s: Unsuccessful write to %s: %s(%d)",
+				     __func__, mpls_proc, safe_strerror(errno),
+				     errno);
+		close(fd);
+	}
+	return ret;
 }
 
 #endif	/* HAVE_NETLINK */

@@ -55,8 +55,8 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      struct sockaddr_any *peer);
 int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 		struct sockaddr *to, socklen_t tolen);
-int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
-		   uint8_t *ttl, uint32_t *my_discr);
+int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
+		   uint32_t *my_discr, uint64_t *my_rtt);
 #ifdef BFD_LINUX
 ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 			 uint8_t *ttl, ifindex_t *ifindex,
@@ -207,6 +207,7 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 	struct iphdr *iph;
 	struct bfd_echo_pkt *beph;
 	static char sendbuff[100];
+	struct timeval time_sent;
 
 	if (!bvrf)
 		return;
@@ -258,6 +259,11 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 	beph->ver = BFD_ECHO_VERSION;
 	beph->len = BFD_ECHO_PKT_LEN;
 	beph->my_discr = htonl(bfd->discrs.my_discr);
+
+	/* RTT calculation: add starting time in packet */
+	monotime(&time_sent);
+	beph->time_sent_sec = htobe64(time_sent.tv_sec);
+	beph->time_sent_usec = htobe64(time_sent.tv_usec);
 
 	total_len += sizeof(struct bfd_echo_pkt);
 	uh->len =
@@ -338,10 +344,11 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 {
 	struct bfd_session *bfd;
 	uint32_t my_discr = 0;
+	uint64_t my_rtt = 0;
 	uint8_t ttl = 0;
 
 	/* Receive and parse echo packet. */
-	if (bp_bfd_echo_in(bvrf, s, &ttl, &my_discr) == -1)
+	if (bp_bfd_echo_in(bvrf, s, &ttl, &my_discr, &my_rtt) == -1)
 		return 0;
 
 	/* Your discriminator not zero - use it to find session */
@@ -358,6 +365,16 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 			zlog_debug("echo-packet: echo disabled [%s] (id:%u)",
 				   bs_to_string(bfd), my_discr);
 		return -1;
+	}
+
+	/* RTT Calculation: add current RTT to samples */
+	if (my_rtt != 0) {
+		bfd->rtt[bfd->rtt_index] = my_rtt;
+		bfd->rtt_index++;
+		if (bfd->rtt_index >= BFD_RTT_SAMPLE)
+			bfd->rtt_index = 0;
+		if (bfd->rtt_valid < BFD_RTT_SAMPLE)
+			bfd->rtt_valid++;
 	}
 
 	bfd->stats.rx_echo_pkt++;
@@ -1003,8 +1020,8 @@ void bfd_recv_cb(struct thread *t)
  *
  * Returns -1 on error or loopback or 0 on success.
  */
-int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
-		   uint8_t *ttl, uint32_t *my_discr)
+int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
+		   uint32_t *my_discr, uint64_t *my_rtt)
 {
 	struct bfd_echo_pkt *bep;
 	ssize_t rlen;
@@ -1062,6 +1079,17 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
 		return -1;
 	}
 
+#ifdef BFD_LINUX
+	/* RTT Calculation: determine RTT time of IPv4 echo pkt */
+	if (sd == bvrf->bg_echo) {
+		struct timeval time_sent = {0, 0};
+
+		time_sent.tv_sec = be64toh(bep->time_sent_sec);
+		time_sent.tv_usec = be64toh(bep->time_sent_usec);
+		*my_rtt = monotime_since(&time_sent, NULL);
+	}
+#endif
+
 	return 0;
 }
 
@@ -1074,11 +1102,10 @@ int bp_udp_send_fp(int sd, uint8_t *data, size_t datalen,
 		   struct bfd_session *bfd)
 {
 	ssize_t wlen;
-	struct msghdr msg;
+	struct msghdr msg = {0};
 	struct iovec iov[1];
 	uint8_t msgctl[255];
-	struct sockaddr_ll sadr_ll;
-
+	struct sockaddr_ll sadr_ll = {0};
 
 	sadr_ll.sll_ifindex = bfd->ifp->ifindex;
 	sadr_ll.sll_halen = ETH_ALEN;
@@ -1089,7 +1116,6 @@ int bp_udp_send_fp(int sd, uint8_t *data, size_t datalen,
 	iov[0].iov_base = data;
 	iov[0].iov_len = datalen;
 
-	memset(&msg, 0, sizeof(msg));
 	memset(msgctl, 0, sizeof(msgctl));
 	msg.msg_name = &sadr_ll;
 	msg.msg_namelen = sizeof(sadr_ll);
@@ -1605,7 +1631,7 @@ int bp_echo_socket(const struct vrf *vrf)
 		zlog_fatal("echo-socket: socket: %s", strerror(errno));
 
 	struct sock_fprog pf;
-	struct sockaddr_ll sll;
+	struct sockaddr_ll sll = {0};
 
 	/* adjust filter for socket to only receive ECHO packets */
 	pf.filter = my_filterudp;
@@ -1683,6 +1709,8 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
 		return;
+	if (ifp->flags & IFF_NOARP)
+		return;
 
 	if (peer->sa_sin.sin_family == AF_INET) {
 		/* IPV4 */
@@ -1696,8 +1724,9 @@ void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
 		strlcpy(arpreq_.arp_dev, ifp->name, sizeof(arpreq_.arp_dev));
 
 		if (ioctl(sd, SIOCGARP, &arpreq_) < 0) {
-			zlog_warn("BFD: getting peer's mac failed error %s",
-				  strerror(errno));
+			zlog_warn(
+				"BFD: getting peer's mac on %s failed error %s",
+				ifp->name, strerror(errno));
 			UNSET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
 			memset(bfd->peer_hw_addr, 0, sizeof(bfd->peer_hw_addr));
 

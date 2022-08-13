@@ -2006,10 +2006,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
 					/* Best path selection */
-					if (bgp_best_path_select_defer(
-						    peer->bgp, afi, safi)
-					    < 0)
-						return BGP_Stop;
+					bgp_best_path_select_defer(peer->bgp,
+								   afi, safi);
 				}
 			}
 
@@ -2285,17 +2283,26 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 						peer, orf_type, orf_len);
 				}
 
+				/* ORF prefix-list name */
+				snprintf(name, sizeof(name), "%s.%d.%d",
+					 peer->host, afi, safi);
+
 				/* we're going to read at least 1 byte of common
 				 * ORF header,
 				 * and 7 bytes of ORF Address-filter entry from
 				 * the stream
 				 */
+				if (*p_pnt & ORF_COMMON_PART_REMOVE_ALL) {
+					if (bgp_debug_neighbor_events(peer))
+						zlog_debug(
+							"%pBP rcvd Remove-All pfxlist ORF request",
+							peer);
+					prefix_bgp_orf_remove_all(afi, name);
+					break;
+				}
+
 				if (orf_len < 7)
 					break;
-
-				/* ORF prefix-list name */
-				snprintf(name, sizeof(name), "%s.%d.%d",
-					 peer->host, afi, safi);
 
 				while (p_pnt < p_end) {
 					/* If the ORF entry is malformed, want
@@ -2308,17 +2315,6 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					memset(&orfp, 0, sizeof(orfp));
 					common = *p_pnt++;
 					/* after ++: p_pnt <= p_end */
-					if (common
-					    & ORF_COMMON_PART_REMOVE_ALL) {
-						if (bgp_debug_neighbor_events(
-							    peer))
-							zlog_debug(
-								"%pBP rcvd Remove-All pfxlist ORF request",
-								peer);
-						prefix_bgp_orf_remove_all(afi,
-									  name);
-						break;
-					}
 					ok = ((uint32_t)(p_end - p_pnt)
 					      >= sizeof(uint32_t));
 					if (ok) {

@@ -239,13 +239,14 @@ void zebra_router_terminate(void)
 		zebra_router_free_table(zrt);
 
 	work_queue_free_and_null(&zrouter.ribq);
-	meta_queue_free(zrouter.mq);
+	meta_queue_free(zrouter.mq, NULL);
 
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
 	zebra_neigh_terminate();
 
 	/* Free NHE in ID table only since it has unhashable entries as well */
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_hash_free_zero_id, NULL);
 	hash_clean(zrouter.nhgs_id, zebra_nhg_hash_free);
 	hash_free(zrouter.nhgs_id);
 	hash_clean(zrouter.nhgs, NULL);
