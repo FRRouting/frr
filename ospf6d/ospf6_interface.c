@@ -966,10 +966,6 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 	return "UNKNOWN";
 }
 
-#if CONFDATE > 20220709
-CPP_NOTICE("Time to remove ospf6Enabled from JSON output")
-#endif
-
 /* show specified interface structure */
 static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				json_object *json_obj, bool use_json)
@@ -996,11 +992,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       ospf6_iftype_str(default_iftype));
 		json_object_int_add(json_obj, "interfaceId", ifp->ifindex);
 
-		if (ifp->info == NULL) {
-			json_object_boolean_false_add(json_obj, "ospf6Enabled");
+		if (ifp->info == NULL)
 			return 0;
-		}
-		json_object_boolean_true_add(json_obj, "ospf6Enabled");
 
 		oi = (struct ospf6_interface *)ifp->info;
 
