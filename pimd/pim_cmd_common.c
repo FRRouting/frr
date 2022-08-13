@@ -1027,6 +1027,11 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		    json_object *json)
 {
 	struct channel_oil *c_oil;
+#if PIM_IPV != 4
+	struct ttable *tt = NULL;
+	char *table = NULL;
+#endif
+	char flag[50];
 	json_object *json_group = NULL;
 	json_object *json_ifp_in = NULL;
 	json_object *json_ifp_out = NULL;
@@ -1038,9 +1043,18 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 
 	if (!json) {
 		vty_out(vty,
-			"Codes: J -> Pim Join, I -> " GM " Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
+			"Codes: J -> Pim Join, I -> " GM " Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted\n");
+#if PIM_IPV == 4
 		vty_out(vty,
-			"\nActive Source           Group            RPT  IIF               OIL\n");
+			"Active Source           Group            RPT  IIF               OIL\n");
+#else
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Active|Source|Group|RPT|IIF|OIL");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+#endif
 	}
 
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
@@ -1153,11 +1167,14 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    "wrongInterface",
 						    c_oil->cc.wrong_if);
 			}
-		} else
+		}
+#if PIM_IPV == 4
+		else
 			vty_out(vty, "%-6d %-15pPAs  %-15pPAs  %-3s  %-16s  ",
 				c_oil->installed, oil_origin(c_oil),
 				oil_mcastgrp(c_oil), isRpt ? "y" : "n",
 				in_ifname);
+#endif
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
 		     ++oif_vif_index) {
@@ -1199,72 +1216,72 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 				json_object_object_add(json_ifp_in, out_ifname,
 						       json_ifp_out);
 			} else {
+				flag[0] = '\0';
+				snprintf(flag, sizeof(flag), "(%c%c%c%c%c)",
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_GM)
+						 ? 'I'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_PIM)
+						 ? 'J'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_VXLAN)
+						 ? 'V'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_STAR)
+						 ? '*'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_MUTE)
+						 ? 'M'
+						 : ' ');
+
 				if (first_oif) {
 					first_oif = 0;
-					vty_out(vty, "%s(%c%c%c%c%c)",
-						out_ifname,
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_GM)
-							? 'I'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_MUTE)
-							? 'M'
-							: ' ');
-				} else
-					vty_out(vty, ", %s(%c%c%c%c%c)",
-						out_ifname,
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_GM)
-							? 'I'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_MUTE)
-							? 'M'
-							: ' ');
+#if PIM_IPV == 4
+					vty_out(vty, "%s%s", out_ifname, flag);
+#else
+					ttable_add_row(
+						tt, "%d|%pPAs|%pPAs|%s|%s|%s%s",
+						c_oil->installed,
+						oil_origin(c_oil),
+						oil_mcastgrp(c_oil),
+						isRpt ? "y" : "n", in_ifname,
+						out_ifname, flag);
+#endif
+				} else {
+#if PIM_IPV == 4
+					vty_out(vty, ", %s%s", out_ifname,
+						flag);
+#else
+					ttable_add_row(tt,
+						       "%c|%c|%c|%c|%c|%s%s",
+						       ' ', ' ', ' ', ' ', ' ',
+						       out_ifname, flag);
+#endif
+				}
 			}
 		}
-
+#if PIM_IPV == 4
 		if (!json)
 			vty_out(vty, "\n");
+#endif
 	}
 
-	if (!json)
+	/* Dump the generated table. */
+	if (!json) {
+#if PIM_IPV == 4
 		vty_out(vty, "\n");
+#else
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+#endif
+	}
 }
 
 /* pim statistics - just adding only bsm related now.
