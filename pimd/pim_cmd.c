@@ -5526,12 +5526,13 @@ DEFUN (show_ip_msdp_mesh_group,
 	int idx = 2;
 	struct pim_msdp_mg *mg;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct pim_instance *pim = vrf->info;
+	struct pim_instance *pim;
 	struct json_object *json = NULL;
 
 	if (!vrf)
 		return CMD_WARNING;
 
+	pim = vrf->info;
 	/* Quick case: list is empty. */
 	if (SLIST_EMPTY(&pim->msdp.mglist)) {
 		if (uj)
