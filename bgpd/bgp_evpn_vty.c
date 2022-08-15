@@ -4036,6 +4036,9 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	afi_t afi = 0;
 	safi_t safi = 0;
 
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
 	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
 	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 
