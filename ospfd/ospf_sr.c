@@ -756,13 +756,14 @@ static struct ospf_neighbor *get_neighbor_by_addr(struct ospf *top,
 	for (ALL_LIST_ELEMENTS_RO(top->oiflist, node, oi))
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 			nbr = rn->info;
-			if (nbr)
-				if (IPV4_ADDR_SAME(&nbr->address.u.prefix4,
-						   &addr)
-				    || IPV4_ADDR_SAME(&nbr->router_id, &addr)) {
-					route_unlock_node(rn);
-					return nbr;
-				}
+			if (!nbr)
+				continue;
+
+			if (IPV4_ADDR_SAME(&nbr->address.u.prefix4, &addr) ||
+			    IPV4_ADDR_SAME(&nbr->router_id, &addr)) {
+				route_unlock_node(rn);
+				return nbr;
+			}
 		}
 	return NULL;
 }

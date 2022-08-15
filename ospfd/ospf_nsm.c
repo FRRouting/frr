@@ -382,6 +382,10 @@ static void nsm_clear_adj(struct ospf_neighbor *nbr)
 
 static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 {
+	struct ospf_interface *oi = nbr->oi;
+	struct ospf_neighbor *on;
+	struct route_node *rn;
+
 	/* killing nbr_self is invalid */
 	if (nbr == nbr->oi->nbr_self) {
 		assert(nbr != nbr->oi->nbr_self);
@@ -407,6 +411,35 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 				ospf_get_name(nbr->oi->ospf));
 	}
 
+	/*
+	 * Do we have any neighbors that are also operating
+	 * on this interface?
+	 */
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		on = rn->info;
+
+		if (!on)
+			continue;
+
+		if (on == nbr || on == oi->nbr_self)
+			continue;
+
+		/*
+		 * on is in some state where we might be
+		 * sending packets on this interface
+		 */
+		if (on->state > NSM_Down) {
+			route_unlock_node(rn);
+			return 0;
+		}
+	}
+	/*
+	 * If we get here we know that this interface
+	 * has no neighbors in a state where we could
+	 * be sending packets.  Let's flush anything
+	 * we got.
+	 */
+	ospf_interface_fifo_flush(oi);
 	return 0;
 }
 

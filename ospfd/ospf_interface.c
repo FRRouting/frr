@@ -66,15 +66,16 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		nbr = rn->info;
-		if (nbr) {
-			/* Do not show myself. */
-			if (nbr == oi->nbr_self)
-				continue;
-			/* Down state is not shown. */
-			if (nbr->state == NSM_Down)
-				continue;
-			count++;
-		}
+		if (!nbr)
+			continue;
+
+		/* Do not show myself. */
+		if (nbr == oi->nbr_self)
+			continue;
+		/* Down state is not shown. */
+		if (nbr->state == NSM_Down)
+			continue;
+		count++;
 	}
 
 	return count;
@@ -315,10 +316,11 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	}
 
 	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		if ((nbr = rn->info) != NULL)
 			if (nbr != oi->nbr_self)
 				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
 
 	/* Cleanup Link State Acknowlegdment list. */
 	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))
@@ -492,6 +494,20 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 	return match;
 }
 
+void ospf_interface_fifo_flush(struct ospf_interface *oi)
+{
+	struct ospf *ospf = oi->ospf;
+
+	ospf_fifo_flush(oi->obuf);
+
+	if (oi->on_write_q) {
+		listnode_delete(ospf->oi_write_q, oi);
+		if (list_isempty(ospf->oi_write_q))
+			THREAD_OFF(ospf->t_write);
+		oi->on_write_q = 0;
+	}
+}
+
 static void ospf_if_reset_stats(struct ospf_interface *oi)
 {
 	oi->hello_in = oi->hello_out = 0;
@@ -503,19 +519,10 @@ static void ospf_if_reset_stats(struct ospf_interface *oi)
 
 void ospf_if_stream_unset(struct ospf_interface *oi)
 {
-	struct ospf *ospf = oi->ospf;
-
 	/* flush the interface packet queue */
-	ospf_fifo_flush(oi->obuf);
+	ospf_interface_fifo_flush(oi);
 	/*reset protocol stats */
 	ospf_if_reset_stats(oi);
-
-	if (oi->on_write_q) {
-		listnode_delete(ospf->oi_write_q, oi);
-		if (list_isempty(ospf->oi_write_q))
-			THREAD_OFF(ospf->t_write);
-		oi->on_write_q = 0;
-	}
 }
 
 
