@@ -1791,9 +1791,10 @@ struct ls_edge *ls_msg2edge(struct ls_ted *ted, struct ls_message *msg,
 	case LS_MSG_EVENT_DELETE:
 		edge = ls_find_edge_by_source(ted, attr);
 		if (edge) {
-			if (delete)
+			if (delete) {
 				ls_edge_del_all(ted, edge);
-			else
+				edge = NULL;
+			} else
 				edge->status = DELETE;
 		}
 		break;
