@@ -1672,7 +1672,7 @@ Configuring Peers
 
 .. clicmd:: bgp fast-external-failover
 
-   This command causes bgp to not take down ebgp peers immediately
+   This command causes bgp to take down ebgp peers immediately
    when a link flaps.  `bgp fast-external-failover` is the default
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
