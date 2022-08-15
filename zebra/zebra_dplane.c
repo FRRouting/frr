@@ -3422,7 +3422,7 @@ static enum zebra_dplane_result
 dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	/* Obtain context block */
@@ -3700,7 +3700,7 @@ dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 			struct zebra_dplane_ctx *notif_ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct nhlfe_list_head *head;
 	struct zebra_nhlfe *nhlfe, *new_nhlfe;
@@ -4075,7 +4075,7 @@ static enum zebra_dplane_result
 dplane_intf_update_internal(const struct interface *ifp, enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	/* Obtain context block */
