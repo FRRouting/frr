@@ -1429,7 +1429,7 @@ int main(int argc, char **argv)
 
 			if ((sscanf(optarg, "%ld%1s", &gs.operational_timeout,
 				    garbage) != 1) ||
-			    (gs.max_restart_interval < 0)) {
+			    (gs.operational_timeout < 0)) {
 				fprintf(stderr,
 					"Invalid Operational_timeout argument: %s\n",
 					optarg);
