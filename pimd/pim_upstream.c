@@ -1061,15 +1061,13 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
 	}
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		if (up)
-			zlog_debug("%s(%s): %s, iif %pPA (%s) found: %d: ref_count: %d",
-		   __func__, name,
-		   up->sg_str, &up->rpf.rpf_addr, up->rpf.source_nexthop.interface ?
-                   up->rpf.source_nexthop.interface->name : "Unknown" ,
-		   found, up->ref_count);
-		else
-			zlog_debug("%s(%s): (%pSG) failure to create", __func__,
-				   name, sg);
+		zlog_debug(
+			"%s(%s): %s, iif %pPA (%s) found: %d: ref_count: %d",
+			__func__, name, up->sg_str, &up->rpf.rpf_addr,
+			up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
+								   .interface->name
+							 : "Unknown",
+			found, up->ref_count);
 	}
 
 	return up;
