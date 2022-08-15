@@ -539,10 +539,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 		if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
 			PIM_IF_FLAG_SET_PROTO_IGMP(ch->flags);
 
-		if (ch->upstream)
-			ch->upstream->flags |= up_flags;
-		else if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%pSG No Upstream found", __func__, sg);
+		ch->upstream->flags |= up_flags;
 
 		return ch;
 	}
@@ -637,8 +634,7 @@ static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
 	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
 	pim_forward_stop(ch);
 
-	if (ch->upstream)
-		PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(ch->upstream->flags);
+	PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(ch->upstream->flags);
 
 	PIM_IF_FLAG_UNSET_PROTO_PIM(ch->flags);
 
@@ -696,31 +692,29 @@ static void on_ifjoin_prune_pending_timer(struct thread *t)
 			 *  message on RP path upon prune timer expiry.
 			 */
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE;
-			if (ch->upstream) {
-				struct pim_upstream *parent =
-					ch->upstream->parent;
+			struct pim_upstream *parent =
+				ch->upstream->parent;
 
-				pim_upstream_update_join_desired(pim_ifp->pim,
-								 ch->upstream);
+			pim_upstream_update_join_desired(pim_ifp->pim,
+							 ch->upstream);
 
-				pim_jp_agg_single_upstream_send(&parent->rpf,
-								parent, true);
-				/*
-				 * SGRpt prune pending expiry has to install
-				 * SG entry with empty olist to drop the SG
-				 * traffic incase no other intf exists.
-				 * On that scenario, SG entry wouldn't have
-				 * got installed until Prune pending timer
-				 * expired. So install now.
-				 */
-				pim_channel_del_oif(
-					ch->upstream->channel_oil, ifp,
-					PIM_OIF_FLAG_PROTO_STAR, __func__);
-				if (!ch->upstream->channel_oil->installed)
-					pim_upstream_mroute_add(
-						ch->upstream->channel_oil,
-						__func__);
-			}
+			pim_jp_agg_single_upstream_send(&parent->rpf,
+							parent, true);
+			/*
+			 * SGRpt prune pending expiry has to install
+			 * SG entry with empty olist to drop the SG
+			 * traffic incase no other intf exists.
+			 * On that scenario, SG entry wouldn't have
+			 * got installed until Prune pending timer
+			 * expired. So install now.
+			 */
+			pim_channel_del_oif(
+				ch->upstream->channel_oil, ifp,
+				PIM_OIF_FLAG_PROTO_STAR, __func__);
+			if (!ch->upstream->channel_oil->installed)
+				pim_upstream_mroute_add(
+					ch->upstream->channel_oil,
+					__func__);
 		}
 		/* from here ch may have been deleted */
 	}
