@@ -1515,6 +1515,19 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 					  0);
 	}
 
+	/* Conformant BGP speakers SHOULD NOT send BGP
+	 * UPDATE messages containing AS_SET or AS_CONFED_SET.  Upon receipt of
+	 * such messages, conformant BGP speakers SHOULD use the "Treat-as-
+	 * withdraw" error handling behavior as per [RFC7606].
+	 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
+			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
+			 peer);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
 	/* Set aspath attribute flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
 
@@ -1591,6 +1604,19 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
 			 "Malformed AS4 path from %s, length is %d", peer->host,
 			 length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
+	/* Conformant BGP speakers SHOULD NOT send BGP
+	 * UPDATE messages containing AS_SET or AS_CONFED_SET.  Upon receipt of
+	 * such messages, conformant BGP speakers SHOULD use the "Treat-as-
+	 * withdraw" error handling behavior as per [RFC7606].
+	 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
+			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
+			 peer);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
