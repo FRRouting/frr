@@ -445,3 +445,11 @@ the config was written out.
 .. clicmd:: debug pimv6 zebra
 
    This gathers data about events from zebra that come up through the ZAPI.
+
+.. clicmd:: debug mroute6
+
+   This turns on debugging for PIMv6 interaction with kernel MFC cache.
+
+.. clicmd:: debug mroute6 detail
+
+   This turns on detailed debugging for PIMv6 interaction with kernel MFC cache.
