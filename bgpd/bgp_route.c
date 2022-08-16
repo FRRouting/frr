@@ -12464,8 +12464,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		list = community_list_lookup(bgp_clist, clist_number_or_name, 0,
 					     COMMUNITY_LIST_MASTER);
 		if (list == NULL) {
-			vty_out(vty,
-				"%% %s is not a valid community-list name\n",
+			vty_out(vty, "%% %s community-list not found\n",
 				clist_number_or_name);
 			return CMD_WARNING;
 		}
@@ -12483,8 +12482,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 
 		as_list = as_list_lookup(filter);
 		if (as_list == NULL) {
-			vty_out(vty,
-				"%% %s is not a valid AS-path access-list name\n",
+			vty_out(vty, "%% %s AS-path access-list not found\n",
 				filter);
 			return CMD_WARNING;
 		}
@@ -12499,7 +12497,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 
 		plist = prefix_list_lookup(afi, prefix_list_str);
 		if (plist == NULL) {
-			vty_out(vty, "%% %s is not a valid prefix-list name\n",
+			vty_out(vty, "%% %s prefix-list not found\n",
 				prefix_list_str);
 			return CMD_WARNING;
 		}
@@ -12514,7 +12512,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 
 		alist = access_list_lookup(afi, access_list_str);
 		if (!alist) {
-			vty_out(vty, "%% %s is not a valid access-list name\n",
+			vty_out(vty, "%% %s access-list not found\n",
 				access_list_str);
 			return CMD_WARNING;
 		}
@@ -12529,8 +12527,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 
 		rmap = route_map_lookup_by_name(rmap_str);
 		if (!rmap) {
-			vty_out(vty, "%% %s is not a valid route-map name\n",
-				rmap_str);
+			vty_out(vty, "%% %s route-map not found\n", rmap_str);
 			return CMD_WARNING;
 		}
 
