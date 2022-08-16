@@ -36,6 +36,7 @@ typedef struct in_addr pim_addr;
 #define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
 #define PIM_AF_NAME     "ip"
 #define PIM_AF_DBG	"pim"
+#define PIM_MROUTE_DBG  "mroute"
 #define PIMREG          "pimreg"
 
 #define PIM_ADDR_FUNCNAME(name) ipv4_##name
@@ -61,6 +62,7 @@ typedef struct in6_addr pim_addr;
 #define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
 #define PIM_AF_NAME     "ipv6"
 #define PIM_AF_DBG	"pimv6"
+#define PIM_MROUTE_DBG  "mroute6"
 #define PIMREG          "pim6reg"
 
 #define PIM_ADDR_FUNCNAME(name) ipv6_##name

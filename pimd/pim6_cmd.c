@@ -1516,6 +1516,37 @@ DEFPY (debug_pimv6_zebra,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_mroute6,
+       debug_mroute6_cmd,
+       "[no] debug mroute6",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MROUTE6_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_MROUTE;
+	else
+		PIM_DONT_DEBUG_MROUTE;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_mroute6_detail,
+       debug_mroute6_detail_cmd,
+       "[no] debug mroute6 detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MROUTE6_STR
+       "detailed\n")
+{
+	if (!no)
+		PIM_DO_DEBUG_MROUTE_DETAIL;
+	else
+		PIM_DONT_DEBUG_MROUTE_DETAIL;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (show_debugging_pimv6,
 	    show_debugging_pimv6_cmd,
 	    "show debugging [pimv6]",
@@ -1660,6 +1691,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_pimv6_trace_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_trace_detail_cmd);
 	install_element(ENABLE_NODE, &debug_pimv6_zebra_cmd);
+	install_element(ENABLE_NODE, &debug_mroute6_cmd);
+	install_element(ENABLE_NODE, &debug_mroute6_detail_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
@@ -1671,4 +1704,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_pimv6_trace_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_trace_detail_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_zebra_cmd);
+	install_element(CONFIG_NODE, &debug_mroute6_cmd);
+	install_element(CONFIG_NODE, &debug_mroute6_detail_cmd);
 }
