@@ -78,11 +78,11 @@ int pim_debug_config_write(struct vty *vty)
 
 	/* PIM_DEBUG_MROUTE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_MROUTE) {
-		vty_out(vty, "debug mroute\n");
+		vty_out(vty, "debug " PIM_MROUTE_DBG "\n");
 		++writes;
 	}
 	if (PIM_DEBUG_MROUTE_DETAIL) {
-		vty_out(vty, "debug mroute detail\n");
+		vty_out(vty, "debug " PIM_MROUTE_DBG " detail\n");
 		++writes;
 	}
 
