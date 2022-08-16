@@ -1536,6 +1536,24 @@ next_rta:
 	goto next_rta;
 }
 
+static const char *tcm_nltype2str(int nltype)
+{
+	switch (nltype) {
+	case RTM_NEWQDISC:
+	case RTM_DELQDISC:
+		return "qdisc";
+	case RTM_NEWTCLASS:
+	case RTM_DELTCLASS:
+		return "tclass";
+	case RTM_NEWTFILTER:
+	case RTM_DELTFILTER:
+		return "tfilter";
+	default:
+		/* should never hit */
+		return "unknown";
+	}
+}
+
 static void nlncm_dump(const struct netconfmsg *ncm, size_t msglen)
 {
 	const struct rtattr *rta;
@@ -1595,6 +1613,8 @@ void nl_dump(void *msg, size_t msglen)
 	struct ifinfomsg *ifi;
 	struct tunnel_msg *tnlm;
 	struct fib_rule_hdr *frh;
+	struct tcmsg *tcm;
+
 	char fbuf[128];
 	char ibuf[128];
 
@@ -1728,6 +1748,21 @@ next_header:
 		zlog_debug(" ncm [family=%s (%d)]",
 			   af_type2str(ncm->ncm_family), ncm->ncm_family);
 		nlncm_dump(ncm, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*ncm)));
+		break;
+
+	case RTM_NEWQDISC:
+	case RTM_DELQDISC:
+	case RTM_NEWTCLASS:
+	case RTM_DELTCLASS:
+	case RTM_NEWTFILTER:
+	case RTM_DELTFILTER:
+		tcm = NLMSG_DATA(nlmsg);
+		zlog_debug(
+			" tcm [type=%s family=%s (%d) ifindex=%d handle=%04x:%04x]",
+			tcm_nltype2str(nlmsg->nlmsg_type),
+			af_type2str(tcm->tcm_family), tcm->tcm_family,
+			tcm->tcm_ifindex, tcm->tcm_handle >> 16,
+			tcm->tcm_handle & 0xffff);
 		break;
 
 	default:
