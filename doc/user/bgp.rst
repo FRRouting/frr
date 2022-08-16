@@ -2334,11 +2334,8 @@ setting BGP communities attribute to the updates.
     exit-address-family
    !
    bgp community-list 70 permit 7675:70
-   bgp community-list 70 deny
    bgp community-list 80 permit 7675:80
-   bgp community-list 80 deny
    bgp community-list 90 permit 7675:90
-   bgp community-list 90 deny
    !
    route-map RMAP permit 10
     match community 70
