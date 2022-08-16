@@ -185,7 +185,7 @@ int pim_reg_sock(void)
 	long flags;
 
 	frr_with_privs (&pimd_privs) {
-		fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+		fd = socket(PIM_AF, SOCK_RAW, IPPROTO_RAW);
 	}
 
 	if (fd < 0) {
