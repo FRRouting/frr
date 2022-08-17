@@ -1351,8 +1351,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	struct prefix pfx_un;
 	struct agg_node *rn;
 
-
-	rfapi_time(&rfd->open_time);
+	rfd->open_time = monotime(NULL);
 
 	if (rfg->type == RFAPI_GROUP_CFG_VRF)
 		SET_FLAG(rfd->flags, RFAPI_HD_FLAG_IS_VRF);
@@ -1521,7 +1520,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	}
 
 	rfd->rsp_counter++;		  /* dedup: identify this generation */
-	rfd->rsp_time = rfapi_time(NULL); /* response content dedup */
+	rfd->rsp_time = monotime(NULL);	  /* response content dedup */
 	rfd->ftd_last_allowed_time =
 		monotime(NULL) -
 		bgp->rfapi_cfg->rfp_cfg.ftd_advertisement_interval;
