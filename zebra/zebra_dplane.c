@@ -2775,14 +2775,13 @@ int dplane_ctx_tc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op)
 {
 	int ret = EINVAL;
 
-	struct zebra_vrf *zvrf = NULL;
 	struct zebra_ns *zns = NULL;
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	/* TODO: init traffic control qdisc */
-	zns = zvrf ? zvrf->zns : zebra_ns_lookup(NS_DEFAULT);
+	zns = zebra_ns_lookup(NS_DEFAULT);
 
 	dplane_ctx_ns_init(ctx, zns, true);
 
