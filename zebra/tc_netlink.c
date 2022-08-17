@@ -294,7 +294,7 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	htb_opt.cbuffer = cbuffer;
 
 	tc_calc_rate_table(&htb_opt.rate, rtab, mtu);
-	tc_calc_rate_table(&htb_opt.ceil, rtab, mtu);
+	tc_calc_rate_table(&htb_opt.ceil, ctab, mtu);
 
 	htb_opt.ceil.mpu = htb_opt.rate.mpu = 0;
 	htb_opt.ceil.overhead = htb_opt.rate.overhead = 0;
