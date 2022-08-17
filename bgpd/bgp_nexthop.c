@@ -868,7 +868,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 			vty_out(vty, "  Is not Registered\n");
 	}
-	tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+	tbuf = time(NULL) - (monotime(NULL) - bnc->last_update);
 	vty_out(vty, "  Last update: %s", ctime(&tbuf));
 	vty_out(vty, "\n");
 

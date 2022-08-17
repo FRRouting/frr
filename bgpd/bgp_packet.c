@@ -131,11 +131,11 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 		 * after it'll get confused
 		 */
 		if (!stream_fifo_count_safe(peer->obuf))
-			peer->last_sendq_ok = bgp_clock();
+			peer->last_sendq_ok = monotime(NULL);
 
 		stream_fifo_push(peer->obuf, s);
 
-		delta = bgp_clock() - peer->last_sendq_ok;
+		delta = monotime(NULL) - peer->last_sendq_ok;
 		holdtime = atomic_load_explicit(&peer->holdtime,
 						memory_order_relaxed);
 
@@ -156,12 +156,12 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 				peer->host);
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 		} else if (delta > (intmax_t)holdtime &&
-			   bgp_clock() - peer->last_sendq_warn > 5) {
+			   monotime(NULL) - peer->last_sendq_warn > 5) {
 			flog_warn(
 				EC_BGP_SENDQ_STUCK_WARN,
 				"%s has not made any SendQ progress for 1 holdtime, peer overloaded?",
 				peer->host);
-			peer->last_sendq_warn = bgp_clock();
+			peer->last_sendq_warn = monotime(NULL);
 		}
 	}
 }
@@ -2026,7 +2026,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	   interned in bgp_attr_parse(). */
 	bgp_attr_unintern_sub(&attr);
 
-	peer->update_time = bgp_clock();
+	peer->update_time = monotime(NULL);
 
 	/* Notify BGP Conditional advertisement scanner process */
 	peer->advmap_table_change = true;

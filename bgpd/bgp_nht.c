@@ -436,7 +436,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	int i;
 	bool evpn_resolved = false;
 
-	bnc->last_update = bgp_clock();
+	bnc->last_update = monotime(NULL);
 	bnc->change_flags = 0;
 
 	/* debug print the input */
@@ -609,7 +609,7 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 		if (bnc->ifindex != ifp->ifindex)
 			continue;
 
-		bnc->last_update = bgp_clock();
+		bnc->last_update = monotime(NULL);
 		bnc->change_flags = 0;
 
 		/*

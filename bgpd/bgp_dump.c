@@ -367,7 +367,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 		stream_putw(obuf, path->peer->table_dump_index);
 
 		/* Originated */
-		stream_putl(obuf, time(NULL) - (bgp_clock() - path->uptime));
+		stream_putl(obuf, time(NULL) - (monotime(NULL) - path->uptime));
 
 		/*Path Identifier*/
 		if (addpath_capable) {

@@ -94,7 +94,7 @@ DEFINE_QOBJ_TYPE(rfapi_l2_group_cfg);
  */
 time_t rfapi_time(time_t *t)
 {
-	time_t clock = bgp_clock();
+	time_t clock = monotime(NULL);
 	if (t)
 		*t = clock;
 	return clock;
