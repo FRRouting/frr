@@ -228,8 +228,7 @@ static void zserv_write(struct thread *thread)
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		atomic_store_explicit(&client->last_write_time,
-				      (uint32_t)monotime(NULL),
+		atomic_store_explicit(&client->last_write_time, monotime(NULL),
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return;
@@ -264,8 +263,7 @@ static void zserv_write(struct thread *thread)
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		atomic_store_explicit(&client->last_write_time,
-				      (uint32_t)monotime(NULL),
+		atomic_store_explicit(&client->last_write_time, monotime(NULL),
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return;
@@ -276,8 +274,8 @@ static void zserv_write(struct thread *thread)
 	atomic_store_explicit(&client->last_write_cmd, wcmd,
 			      memory_order_relaxed);
 
-	atomic_store_explicit(&client->last_write_time,
-			      (uint32_t)monotime(NULL), memory_order_relaxed);
+	atomic_store_explicit(&client->last_write_time, monotime(NULL),
+			      memory_order_relaxed);
 
 	return;
 
@@ -748,7 +746,7 @@ static struct zserv *zserv_client_create(int sock)
 	client->wb = buffer_new(0);
 	TAILQ_INIT(&(client->gr_info_queue));
 
-	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
+	atomic_store_explicit(&client->connect_time, monotime(NULL),
 			      memory_order_relaxed);
 
 	/* Initialize flags */
