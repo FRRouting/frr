@@ -511,6 +511,8 @@ int main(int argc, char **argv)
 				 ", bgp@%s:%d", address, bm->port);
 	}
 
+	bgp_if_init();
+
 	frr_config_fork();
 	/* must be called after fork() */
 	bgp_gr_apply_running_config();

@@ -53,6 +53,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_open.h"
@@ -18124,6 +18125,84 @@ static void bgp_config_end(void)
 			 bgp_post_config_delay, &t_bgp_cfg);
 }
 
+static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
+{
+	int write = 0;
+	struct interface *ifp;
+	struct bgp_interface *iifp;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		iifp = ifp->info;
+		if (!iifp)
+			continue;
+
+		if_vty_config_start(vty, ifp);
+
+		if (CHECK_FLAG(iifp->flags,
+			       BGP_INTERFACE_MPLS_BGP_FORWARDING)) {
+			vty_out(vty, " mpls bgp forwarding\n");
+			write++;
+		}
+
+		if_vty_config_end(vty);
+	}
+
+	return write;
+}
+
+/* Configuration write function for bgpd. */
+static int config_write_interface(struct vty *vty)
+{
+	int write = 0;
+	struct vrf *vrf = NULL;
+
+	/* Display all VRF aware OSPF interface configuration */
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		write += config_write_interface_one(vty, vrf);
+	}
+
+	return write;
+}
+
+DEFPY(mpls_bgp_forwarding, mpls_bgp_forwarding_cmd,
+      "[no$no] mpls bgp forwarding",
+      NO_STR MPLS_STR BGP_STR
+      "Enable MPLS forwarding for eBGP directly connected peers\n")
+{
+	bool check;
+	struct bgp_interface *iifp;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	iifp = ifp->info;
+	if (!iifp) {
+		vty_out(vty, "Interface %s not available\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	check = CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING);
+	if (check != !no) {
+		if (no)
+			UNSET_FLAG(iifp->flags,
+				   BGP_INTERFACE_MPLS_BGP_FORWARDING);
+		else
+			SET_FLAG(iifp->flags,
+				 BGP_INTERFACE_MPLS_BGP_FORWARDING);
+		/* trigger a nht update on eBGP sessions */
+		if (if_is_operative(ifp))
+			bgp_nht_ifp_up(ifp);
+	}
+	return CMD_SUCCESS;
+}
+
+/* Initialization of BGP interface. */
+static void bgp_vty_if_init(void)
+{
+	/* Install interface node. */
+	if_cmd_init(config_write_interface);
+
+	/* "mpls bgp forwarding" commands. */
+	install_element(INTERFACE_NODE, &mpls_bgp_forwarding_cmd);
+}
+
 void bgp_vty_init(void)
 {
 	cmd_variable_handler_register(bgp_var_neighbor);
@@ -19581,6 +19660,8 @@ void bgp_vty_init(void)
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
+
+	bgp_vty_if_init();
 }
 
 #include "memory.h"

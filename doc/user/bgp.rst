@@ -2867,6 +2867,13 @@ added for all routes from the CPEs. Routes are validated and prevented from
 being sent back to the same CPE (e.g.: multi-site). This is especially needed
 when using ``as-override`` or ``allowas-in`` to prevent routing loops.
 
+.. clicmd:: mpls bgp forwarding
+
+It is possible to permit BGP install VPN prefixes without transport labels,
+by issuing the following command under the interface configuration context.
+This configuration will install VPN prefixes originated from an e-bgp session,
+and with the next-hop directly connected.
+
 .. _bgp-l3vpn-srv6:
 
 L3VPN SRv6
