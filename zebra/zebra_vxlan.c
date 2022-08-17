@@ -5937,8 +5937,6 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 	struct zebra_vrf *zvrf;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	/* On SG entry deletion remove the reference to its parent XG
 	 * entry
@@ -6008,8 +6006,6 @@ void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
 
 	zebra_vxlan_sg_do_deref(zvrf, local_vtep_ip, mcast_grp);
 }
@@ -6023,8 +6019,7 @@ void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip, struct in_addr mcast_grp)
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (!zvrf)
-		return;
+
 	zebra_vxlan_sg_do_ref(zvrf, local_vtep_ip, mcast_grp);
 }
 
