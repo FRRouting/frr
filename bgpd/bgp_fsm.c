@@ -574,7 +574,7 @@ void bgp_routeadv_timer(struct thread *thread)
 		zlog_debug("%s [FSM] Timer (routeadv timer expire)",
 			   peer->host);
 
-	peer->synctime = bgp_clock();
+	peer->synctime = monotime(NULL);
 
 	thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
 			      &peer->t_generate_updgrp_packets);
@@ -975,7 +975,7 @@ void bgp_start_routeadv(struct bgp *bgp)
  */
 void bgp_adjust_routeadv(struct peer *peer)
 {
-	time_t nowtime = bgp_clock();
+	time_t nowtime = monotime(NULL);
 	double diff;
 	unsigned long remain;
 
@@ -987,7 +987,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 */
 		THREAD_OFF(peer->t_routeadv);
 
-		peer->synctime = bgp_clock();
+		peer->synctime = monotime(NULL);
 		/* If suppress fib pending is enabled, route is advertised to
 		 * peers when the status is received from the FIB. The delay
 		 * is added to update group packet generate which will allow
@@ -1471,7 +1471,7 @@ int bgp_stop(struct peer *peer)
 		}
 
 		/* set last reset time */
-		peer->resettime = peer->uptime = bgp_clock();
+		peer->resettime = peer->uptime = monotime(NULL);
 
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 			zlog_debug("%s remove from all update group",
@@ -2220,7 +2220,7 @@ static int bgp_establish(struct peer *peer)
 	if (!peer->v_holdtime)
 		bgp_keepalives_on(peer);
 
-	peer->uptime = bgp_clock();
+	peer->uptime = monotime(NULL);
 
 	/* Send route-refresh when ORF is enabled.
 	 * Stop Long-lived Graceful Restart timers.

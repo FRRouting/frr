@@ -3672,7 +3672,7 @@ struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
 	new->sub_type = sub_type;
 	new->peer = peer;
 	new->attr = attr;
-	new->uptime = bgp_clock();
+	new->uptime = monotime(NULL);
 	new->net = dest;
 	return new;
 }
@@ -4062,7 +4062,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* If the update is implicit withdraw. */
 	if (pi) {
-		pi->uptime = bgp_clock();
+		pi->uptime = monotime(NULL);
 		same_attr = attrhash_cmp(pi->attr, attr_new);
 
 		hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
@@ -5995,7 +5995,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 #endif
 			bgp_attr_unintern(&pi->attr);
 			pi->attr = attr_new;
-			pi->uptime = bgp_clock();
+			pi->uptime = monotime(NULL);
 #ifdef ENABLE_BGP_VNC
 			if ((afi == AFI_IP || afi == AFI_IP6)
 			    && (safi == SAFI_UNICAST)) {
@@ -6297,7 +6297,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 				bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 			bgp_attr_unintern(&pi->attr);
 			pi->attr = attr_new;
-			pi->uptime = bgp_clock();
+			pi->uptime = monotime(NULL);
 #ifdef ENABLE_BGP_VNC
 			if (pi->extra)
 				label = decode_label(&pi->extra->label[0]);
@@ -8521,7 +8521,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 						bgp, p, bpi, afi, SAFI_UNICAST);
 				bgp_attr_unintern(&bpi->attr);
 				bpi->attr = new_attr;
-				bpi->uptime = bgp_clock();
+				bpi->uptime = monotime(NULL);
 
 				/* Process change. */
 				bgp_aggregate_increment(bgp, p, bpi, afi,
@@ -10808,7 +10808,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Line 9 display Uptime */
-	tbuf = time(NULL) - (bgp_clock() - path->uptime);
+	tbuf = time(NULL) - (monotime(NULL) - path->uptime);
 	if (json_paths) {
 		json_last_update = json_object_new_object();
 		json_object_int_add(json_last_update, "epoch", tbuf);

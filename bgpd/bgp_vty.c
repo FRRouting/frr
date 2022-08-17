@@ -12723,7 +12723,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		if (peer_established(p)) {
 			time_t uptime;
 
-			uptime = bgp_clock();
+			uptime = monotime(NULL);
 			uptime -= p->uptime;
 			epoch_tbuf = time(NULL) - uptime;
 
@@ -12751,7 +12751,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		time_t uptime;
 		struct tm tm;
 
-		uptime = bgp_clock();
+		uptime = monotime(NULL);
 		uptime -= p->readtime;
 		gmtime_r(&uptime, &tm);
 
@@ -12759,7 +12759,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
 					    + (tm.tm_hour * 3600000));
 
-		uptime = bgp_clock();
+		uptime = monotime(NULL);
 		uptime -= p->last_write;
 		gmtime_r(&uptime, &tm);
 
@@ -12767,7 +12767,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
 					    + (tm.tm_hour * 3600000));
 
-		uptime = bgp_clock();
+		uptime = monotime(NULL);
 		uptime -= p->update_time;
 		gmtime_r(&uptime, &tm);
 
@@ -14039,7 +14039,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			time_t uptime;
 			struct tm tm;
 
-			uptime = bgp_clock();
+			uptime = monotime(NULL);
 			uptime -= p->resettime;
 			gmtime_r(&uptime, &tm);
 

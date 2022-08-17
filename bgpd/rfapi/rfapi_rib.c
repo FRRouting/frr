@@ -797,7 +797,7 @@ int rfapiRibPreloadBi(
 	 * Update last sent time for prefix
 	 */
 	trn = agg_node_get(rfd->rsp_times[afi], p); /* locks trn */
-	trn->info = (void *)(uintptr_t)bgp_clock();
+	trn->info = (void *)(uintptr_t)monotime(NULL);
 	if (agg_node_get_lock_count(trn) > 1)
 		agg_unlock_node(trn);
 
@@ -1227,7 +1227,7 @@ callback:
 			 */
 			trn = agg_node_get(rfd->rsp_times[afi],
 					   p); /* locks trn */
-			trn->info = (void *)(uintptr_t)bgp_clock();
+			trn->info = (void *)(uintptr_t)monotime(NULL);
 			if (agg_node_get_lock_count(trn) > 1)
 				agg_unlock_node(trn);
 
@@ -2042,7 +2042,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		 * update this NVE's timestamp for this prefix
 		 */
 		trn = agg_node_get(rfd->rsp_times[afi], &pfx); /* locks trn */
-		trn->info = (void *)(uintptr_t)bgp_clock();
+		trn->info = (void *)(uintptr_t)monotime(NULL);
 		if (agg_node_get_lock_count(trn) > 1)
 			agg_unlock_node(trn);
 

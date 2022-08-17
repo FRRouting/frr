@@ -531,17 +531,6 @@ void bgp_cluster_id_unset(struct bgp *bgp)
 	}
 }
 
-/* time_t value that is monotonicly increasing
- * and uneffected by adjustments to system clock
- */
-time_t bgp_clock(void)
-{
-	struct timeval tv;
-
-	monotime(&tv);
-	return tv.tv_sec;
-}
-
 /* BGP timer configuration.  */
 void bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
 		    uint32_t connect_retry, uint32_t delayopen)
@@ -1760,7 +1749,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	}
 
 	/* Last read and reset time set */
-	peer->readtime = peer->resettime = bgp_clock();
+	peer->readtime = peer->resettime = monotime(NULL);
 
 	/* Default TTL set. */
 	peer->ttl = (peer->sort == BGP_PEER_IBGP) ? MAXTTL : BGP_DEFAULT_TTL;
@@ -7960,7 +7949,7 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 	}
 
 	/* Get current time. */
-	uptime1 = bgp_clock();
+	uptime1 = monotime(NULL);
 	uptime1 -= uptime2;
 	gmtime_r(&uptime1, &tm);
 
@@ -8002,7 +7991,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->port = BGP_PORT_DEFAULT;
 	bm->addresses = addresses;
 	bm->master = master;
-	bm->start_time = bgp_clock();
+	bm->start_time = monotime(NULL);
 	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->v_update_delay = BGP_UPDATE_DELAY_DEF;

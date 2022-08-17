@@ -431,7 +431,7 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
-	now = bgp_clock();
+	now = monotime(NULL);
 	/*
 	 * Update last_update if UPDATEs were written.
 	 * Note: that these are only updated at end,

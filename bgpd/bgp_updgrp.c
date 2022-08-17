@@ -70,14 +70,14 @@
 static void update_group_checkin(struct update_group *updgrp)
 {
 	updgrp->id = ++bm->updgrp_idspace;
-	updgrp->uptime = bgp_clock();
+	updgrp->uptime = monotime(NULL);
 }
 
 static void update_subgroup_checkin(struct update_subgroup *subgrp,
 				    struct update_group *updgrp)
 {
 	subgrp->id = ++bm->subgrp_idspace;
-	subgrp->uptime = bgp_clock();
+	subgrp->uptime = monotime(NULL);
 }
 
 static void sync_init(struct update_subgroup *subgrp,

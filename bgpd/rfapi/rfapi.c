@@ -1006,7 +1006,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
 			bgp_attr_unintern(&bpi->attr);
 			bpi->attr = new_attr;
-			bpi->uptime = bgp_clock();
+			bpi->uptime = monotime(NULL);
 
 
 			if (safi == SAFI_MPLS_VPN) {
@@ -1523,8 +1523,8 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	rfd->rsp_counter++;		  /* dedup: identify this generation */
 	rfd->rsp_time = rfapi_time(NULL); /* response content dedup */
 	rfd->ftd_last_allowed_time =
-		bgp_clock()
-		- bgp->rfapi_cfg->rfp_cfg.ftd_advertisement_interval;
+		monotime(NULL) -
+		bgp->rfapi_cfg->rfp_cfg.ftd_advertisement_interval;
 
 	if (l2o) {
 		if (!memcmp(l2o->macaddr.octet, rfapi_ethaddr0.octet,

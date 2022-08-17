@@ -197,7 +197,7 @@ void bgp_adj_in_set(struct bgp_dest *dest, struct peer *peer, struct attr *attr,
 	adj = XCALLOC(MTYPE_BGP_ADJ_IN, sizeof(struct bgp_adj_in));
 	adj->peer = peer_lock(peer); /* adj_in peer reference */
 	adj->attr = bgp_attr_intern(attr);
-	adj->uptime = bgp_clock();
+	adj->uptime = monotime(NULL);
 	adj->addpath_rx_id = addpath_id;
 	BGP_ADJ_IN_ADD(dest, adj);
 	bgp_dest_lock_node(dest);
