@@ -778,6 +778,11 @@ struct bgp {
 };
 DECLARE_QOBJ_TYPE(bgp);
 
+struct bgp_interface {
+#define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
+	uint32_t flags;
+};
+
 DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),

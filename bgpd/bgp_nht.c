@@ -61,6 +61,42 @@ static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 		    && bnc->nexthop_num > 0));
 }
 
+static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
+					struct bgp_path_info *path)
+{
+	struct interface *ifp = NULL;
+	struct nexthop *nexthop;
+	struct bgp_interface *iifp;
+	struct peer *peer;
+
+	if (!path->extra || !path->extra->peer_orig)
+		return false;
+
+	peer = path->extra->peer_orig;
+
+	/* only connected ebgp peers are valid */
+	if (peer->sort != BGP_PEER_EBGP || peer->ttl != BGP_DEFAULT_TTL ||
+	    CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK) ||
+	    CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		return false;
+
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+		if (nexthop->type == NEXTHOP_TYPE_IFINDEX ||
+		    nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+		    nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+			ifp = if_lookup_by_index(
+				bnc->ifindex ? bnc->ifindex : nexthop->ifindex,
+				bnc->bgp->vrf_id);
+		}
+		if (!ifp)
+			continue;
+		iifp = ifp->info;
+		if (CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING))
+			return true;
+	}
+	return false;
+}
+
 static int bgp_isvalid_nexthop_for_mplsovergre(struct bgp_nexthop_cache *bnc,
 					       struct bgp_path_info *path)
 {
@@ -105,6 +141,7 @@ static int bgp_isvalid_nexthop_for_mpls(struct bgp_nexthop_cache *bnc,
 		(bnc && (bnc->nexthop_num > 0 &&
 			 (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID) ||
 			  bnc->bgp->srv6_enabled ||
+			  bgp_isvalid_nexthop_for_ebgp(bnc, path) ||
 			  bgp_isvalid_nexthop_for_mplsovergre(bnc, path)))));
 }
 

@@ -75,6 +75,8 @@ struct zclient *zclient = NULL;
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 	    (bgp, ifp));
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
+
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 {
@@ -3334,6 +3336,31 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
 };
+
+static int bgp_if_new_hook(struct interface *ifp)
+{
+	struct bgp_interface *iifp;
+
+	if (ifp->info)
+		return 0;
+	iifp = XCALLOC(MTYPE_BGP_IF_INFO, sizeof(struct bgp_interface));
+	ifp->info = iifp;
+
+	return 0;
+}
+
+static int bgp_if_delete_hook(struct interface *ifp)
+{
+	XFREE(MTYPE_BGP_IF_INFO, ifp->info);
+	return 0;
+}
+
+void bgp_if_init(void)
+{
+	/* Initialize Zebra interface data structure. */
+	hook_register_prio(if_add, 0, bgp_if_new_hook);
+	hook_register_prio(if_del, 0, bgp_if_delete_hook);
+}
 
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
