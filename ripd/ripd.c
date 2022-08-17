@@ -996,6 +996,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
 				    struct key *key)
 {
 	size_t doff = 0;
+	static uint32_t seq = 0;
 
 	assert(s && ri && ri->auth_type == RIP_AUTH_MD5);
 
@@ -1028,7 +1029,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
 	/* RFC2080: The value used in the sequence number is
 	   arbitrary, but two suggestions are the time of the
 	   message's creation or a simple message counter. */
-	stream_putl(s, time(NULL));
+	stream_putl(s, ++seq);
 
 	/* Reserved field must be zero. */
 	stream_putl(s, 0);
