@@ -784,7 +784,7 @@ int rfapiRibPreloadBi(
 		skiplist_insert(slRibPt, &ori->rk, ori);
 	}
 
-	ori->last_sent_time = rfapi_time(NULL);
+	ori->last_sent_time = monotime(NULL);
 
 	/*
 	 * poke timer
@@ -1089,7 +1089,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				rfapiFreeBgpTeaOptionChain(ori->tea_options);
 				ori->tea_options =
 					rfapiOptionsDup(ri->tea_options);
-				ori->last_sent_time = rfapi_time(NULL);
+				ori->last_sent_time = monotime(NULL);
 
 				rfapiFreeRfapiVnOptionChain(ori->vn_options);
 				ori->vn_options =
@@ -1115,7 +1115,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				ori->lifetime = ri->lifetime;
 				ori->tea_options =
 					rfapiOptionsDup(ri->tea_options);
-				ori->last_sent_time = rfapi_time(NULL);
+				ori->last_sent_time = monotime(NULL);
 				ori->vn_options =
 					rfapiVnOptionsDup(ri->vn_options);
 				ori->un_options =
@@ -1376,7 +1376,7 @@ callback:
 					rfapiRibStartTimer(rfd, ri, rn, 1);
 					RFAPI_RIB_CHECK_COUNTS(
 						0, delete_list->count);
-					ri->last_sent_time = rfapi_time(NULL);
+					ri->last_sent_time = monotime(NULL);
 #if DEBUG_RIB_SL_RD
 					{
 						char buf_rd[RD_ADDRSTRLEN];
@@ -1400,7 +1400,7 @@ callback:
 					rfapiRibStartTimer(rfd, ri_del, rn, 1);
 					RFAPI_RIB_CHECK_COUNTS(
 						0, delete_list->count);
-					ri->last_sent_time = rfapi_time(NULL);
+					ri->last_sent_time = monotime(NULL);
 				}
 			}
 		} else {
@@ -1849,7 +1849,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	vnc_zlog_debug_verbose("%s: loading response=%p, use_eth_resolution=%d",
 			       __func__, response, use_eth_resolution);
 
-	new_last_sent_time = rfapi_time(NULL);
+	new_last_sent_time = monotime(NULL);
 
 	for (nhp = response; nhp; nhp = nhp_next) {
 
@@ -2019,7 +2019,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		ri->lifetime = nhp->lifetime;
 		ri->vn_options = rfapiVnOptionsDup(nhp->vn_options);
 		ri->rsp_counter = rfd->rsp_counter;
-		ri->last_sent_time = rfapi_time(NULL);
+		ri->last_sent_time = monotime(NULL);
 
 		if (need_insert) {
 			int rc;
@@ -2275,7 +2275,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		rfapiFormatAge(ri->last_sent_time, str_age, BUFSIZ);
 #else
 		{
-			time_t now = rfapi_time(NULL);
+			time_t now = monotime(NULL);
 			time_t expire =
 				ri->last_sent_time + (time_t)ri->lifetime;
 			/* allow for delayed/async removal */

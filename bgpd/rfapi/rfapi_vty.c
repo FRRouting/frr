@@ -109,7 +109,7 @@ char *rfapiFormatAge(time_t age, char *buf, size_t len)
 {
 	time_t now, age_adjusted;
 
-	now = rfapi_time(NULL);
+	now = monotime(NULL);
 	age_adjusted = now - age;
 
 	return rfapiFormatSeconds(age_adjusted, buf, len);

@@ -489,7 +489,7 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 	bgp_path_info_extra_get(new);
 	if (prd) {
 		new->extra->vnc.import.rd = *prd;
-		rfapi_time(&new->extra->vnc.import.create_time);
+		new->extra->vnc.import.create_time = monotime(NULL);
 	}
 	if (label)
 		encode_label(*label, &new->extra->label[0]);
