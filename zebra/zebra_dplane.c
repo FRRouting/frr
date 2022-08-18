@@ -3512,7 +3512,7 @@ dplane_route_update_internal(struct route_node *rn,
 static enum zebra_dplane_result dplane_tc_update_internal(enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	/* Obtain context block */
