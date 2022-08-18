@@ -3889,7 +3889,6 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 
 static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 					      json_object *json,
-					      struct vty *vty,
 					      struct ttable *tt)
 {
 	json_object *json_group = NULL;
@@ -3957,10 +3956,10 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 
 	/* Print PIM and IGMP route counts */
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
-		show_mroute_count_per_channel_oil(c_oil, json, vty, tt);
+		show_mroute_count_per_channel_oil(c_oil, json, tt);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr))
-		show_mroute_count_per_channel_oil(&sr->c_oil, json, vty, tt);
+		show_mroute_count_per_channel_oil(&sr->c_oil, json, tt);
 
 	/* Dump the generated table. */
 	if (!json) {
