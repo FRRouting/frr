@@ -8462,6 +8462,17 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 	switch (nhtype) {
 	case NEXTHOP_TYPE_IFINDEX:
+		switch (p->family) {
+		case AF_INET:
+			attr.nexthop.s_addr = INADDR_ANY;
+			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+			break;
+		case AF_INET6:
+			memset(&attr.mp_nexthop_global, 0,
+			       sizeof(attr.mp_nexthop_global));
+			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+			break;
+		}
 		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
