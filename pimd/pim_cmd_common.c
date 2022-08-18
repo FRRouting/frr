@@ -888,6 +888,8 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 {
 	struct pim_upstream *up;
 	time_t now = pim_time_monotonic_sec();
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
@@ -895,8 +897,15 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 
 	if (!json) {
 		vty_out(vty, "\n");
-		vty_out(vty,
-			"Source          Group           RpfIface         RpfAddress      RibNextHop      Metric Pref\n");
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Source|Group|RpfIface|RpfAddress|RibNextHop|Metric|Pref");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
@@ -944,8 +953,8 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 			json_object_object_add(json_group, src_str, json_row);
 
 		} else {
-			vty_out(vty,
-				"%-15pPAs %-15pPAs %-16s %-15pPA %-15pPAs %6d %4d\n",
+			ttable_add_row(
+				tt, "%pPAs|%pPAs|%s|%pPA|%pPAs|%d|%d",
 				&up->sg.src, &up->sg.grp, rpf_ifname,
 				&rpf->rpf_addr,
 				&rpf->source_nexthop.mrib_nexthop_addr,
@@ -953,14 +962,27 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 				rpf->source_nexthop.mrib_metric_preference);
 		}
 	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 {
 	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
-	vty_out(vty,
-		"Interface        Address         Neighbor        Secondary      \n");
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Interface|Address|Neighbor|Secondary");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -988,12 +1010,16 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 
 			for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list,
 						  prefix_node, p))
-				vty_out(vty,
-					"%-16s %-15pPAs %-15pPAs %-15pFX\n",
-					ifp->name, &ifaddr, &neigh->source_addr,
-					p);
+				ttable_add_row(tt, "%s|%pPAs|%pPAs|%pFX",
+					       ifp->name, &ifaddr,
+					       &neigh->source_addr, p);
 		}
 	}
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
 }
 
 void pim_show_state(struct pim_instance *pim, struct vty *vty,
@@ -1317,15 +1343,24 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		       pim_sgaddr *sg, json_object *json)
 {
 	struct pim_upstream *up;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	time_t now;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (!json)
-		vty_out(vty,
-			"Iif             Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Iif|Source|Group|State|Uptime|JoinTimer|RSTimer|KATimer|RefCnt");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char uptime[10];
@@ -1446,8 +1481,8 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			json_object_int_add(json_row, "sptBit", up->sptbit);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty,
-				"%-16s%-15pPAs %-15pPAs %-11s %-8s %-9s %-9s %-9s %6d\n",
+			ttable_add_row(tt,
+				"%s|%pPAs|%pPAs|%s|%s|%s|%s|%s|%d",
 				up->rpf.source_nexthop.interface
 				? up->rpf.source_nexthop.interface->name
 				: "Unknown",
@@ -1455,12 +1490,20 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 				join_timer, rs_timer, ka_timer, up->ref_count);
 		}
 	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 static void pim_show_join_desired_helper(struct pim_instance *pim,
 					 struct vty *vty,
 					 struct pim_upstream *up,
-					 json_object *json, bool uj)
+					 json_object *json, bool uj,
+					 struct ttable *tt)
 {
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
@@ -1491,45 +1534,68 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 		json_object_object_add(json_group, src_str, json_row);
 
 	} else {
-		vty_out(vty, "%-15pPAs %-15pPAs %-6s\n", &up->sg.src,
-			&up->sg.grp,
-			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
-								    : "no");
+		ttable_add_row(tt, "%pPAs|%pPAs|%s", &up->sg.src, &up->sg.grp,
+			       pim_upstream_evaluate_join_desired(pim, up)
+				       ? "yes"
+				       : "no");
 	}
 }
 
 void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct pim_upstream *up;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
-	else
-		vty_out(vty, "Source          Group           EvalJD\n");
+	else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Source|Group|EvalJD");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* scan all interfaces */
-		pim_show_join_desired_helper(pim, vty, up, json, uj);
+		pim_show_join_desired_helper(pim, vty, up, json, uj, tt);
 	}
 
 	if (uj)
 		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct pim_upstream *up;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
 	if (uj)
 		json = json_object_new_object();
-	else
-		vty_out(vty,
-			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
+	else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt,
+			       "Source|Group|RpfIface|RibNextHop|RpfAddress");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		struct pim_rpf *rpf;
@@ -1571,16 +1637,22 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 						&rpf->rpf_addr);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty,
-				"%-15pPAs %-15pPAs %-16s %-15pPA %-15pPA\n",
-				&up->sg.src, &up->sg.grp, rpf_ifname,
-				&rpf->source_nexthop.mrib_nexthop_addr,
-				&rpf->rpf_addr);
+			ttable_add_row(tt, "%pPAs|%pPAs|%s|%pPA|%pPA",
+				       &up->sg.src, &up->sg.grp, rpf_ifname,
+				       &rpf->source_nexthop.mrib_nexthop_addr,
+				       &rpf->rpf_addr);
 		}
 	}
 
 	if (uj)
 		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
