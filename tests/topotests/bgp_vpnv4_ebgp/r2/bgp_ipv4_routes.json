@@ -27,8 +27,8 @@
                     "network": "10.200.0.0\/24",
                     "nexthops": [
                         {
-                            "ip": "::",
-                            "afi": "ipv6",
+                            "ip": "0.0.0.0",
+                            "afi": "ipv4",
                             "used": true
                         }
                     ]
