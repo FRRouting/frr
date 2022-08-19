@@ -1377,6 +1377,7 @@ struct peer *peer_new(struct bgp *bgp)
 		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
+		peer->soo[afi][safi] = NULL;
 	}
 
 	/* set nexthop-unchanged for l2vpn evpn by default */
@@ -1483,6 +1484,11 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
 		peer_dst->addpath_type[afi][safi] =
 			peer_src->addpath_type[afi][safi];
+		if (peer_src->soo[afi][safi]) {
+			ecommunity_free(&peer_dst->soo[afi][safi]);
+			peer_dst->soo[afi][safi] =
+				ecommunity_dup(peer_src->soo[afi][safi]);
+		}
 	}
 
 	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
@@ -2042,6 +2048,10 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_ALLOWAS_IN))
 		PEER_ATTR_INHERIT(peer, group, allowas_in[afi][safi]);
 
+	/* soo */
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_SOO))
+		PEER_ATTR_INHERIT(peer, group, soo[afi][safi]);
+
 	/* weight */
 	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_WEIGHT))
 		PEER_ATTR_INHERIT(peer, group, weight[afi][safi]);
@@ -2548,6 +2558,7 @@ int peer_delete(struct peer *peer)
 
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
 		XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
+		ecommunity_free(&peer->soo[afi][safi]);
 	}
 
 	FOREACH_AFI_SAFI (afi, safi)
@@ -4278,6 +4289,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE, 1, peer_change_reset_out},
 	{PEER_FLAG_WEIGHT, 0, peer_change_reset_in},
 	{PEER_FLAG_DISABLE_ADDPATH_RX, 0, peer_change_reset},
+	{PEER_FLAG_SOO, 0, peer_change_reset},
 	{0, 0, 0}};
 
 /* Proper action set. */

@@ -2832,6 +2832,19 @@ of the global VPNv4/VPNv6 family. This command defaults to on and is not
 displayed.
 The `no bgp retain route-target all` form of the command is displayed.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> soo EXTCOMMUNITY
+
+Without this command, SoO extended community attribute is configured using
+an inbound route map that sets the SoO value during the update process.
+With the introduction of the new BGP per-neighbor Site-of-Origin (SoO) feature,
+two new commands configured in sub-modes under router configuration mode
+simplify the SoO value configuration.
+
+If we configure SoO per neighbor at PEs, the SoO community is automatically
+added for all routes from the CPEs. Routes are validated and prevented from
+being sent back to the same CPE (e.g.: multi-site). This is especially needed
+when using ``as-override`` or ``allowas-in`` to prevent routing loops.
+
 .. _bgp-l3vpn-srv6:
 
 L3VPN SRv6

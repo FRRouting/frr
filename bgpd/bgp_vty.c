@@ -8228,6 +8228,63 @@ ALIAS_HIDDEN(
 	"Only give warning message when limit is exceeded\n"
 	"Force checking all received routes not only accepted\n")
 
+/* "neighbor soo" */
+DEFPY (neighbor_soo,
+       neighbor_soo_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soo ASN:NN_OR_IP-ADDRESS:NN$soo",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set the Site-of-Origin (SoO) extended community\n"
+       "VPN extended community\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	struct ecommunity *ecomm_soo;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ecomm_soo = ecommunity_str2com(soo, ECOMMUNITY_SITE_ORIGIN, 0);
+	if (!ecomm_soo) {
+		vty_out(vty, "%% Malformed SoO extended community\n");
+		return CMD_WARNING;
+	}
+	ecommunity_str(ecomm_soo);
+
+	if (!ecommunity_match(peer->soo[afi][safi], ecomm_soo)) {
+		ecommunity_free(&peer->soo[afi][safi]);
+		peer->soo[afi][safi] = ecomm_soo;
+		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO);
+	}
+
+	return bgp_vty_return(vty,
+			      peer_af_flag_set(peer, afi, safi, PEER_FLAG_SOO));
+}
+
+DEFPY (no_neighbor_soo,
+       no_neighbor_soo_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor soo [ASN:NN_OR_IP-ADDRESS:NN$soo]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set the Site-of-Origin (SoO) extended community\n"
+       "VPN extended community\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ecommunity_free(&peer->soo[afi][safi]);
+
+	return bgp_vty_return(
+		vty, peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO));
+}
 
 /* "neighbor allowas-in" */
 DEFUN (neighbor_allowas_in,
@@ -17221,6 +17278,15 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	/* soo */
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_SOO)) {
+		char *soo_str = ecommunity_ecom2str(
+			peer->soo[afi][safi], ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+
+		vty_out(vty, "  neighbor %s soo %s\n", addr, soo_str);
+		XFREE(MTYPE_ECOMMUNITY_STR, soo_str);
+	}
+
 	/* weight */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_WEIGHT))
 		vty_out(vty, "  neighbor %s weight %lu\n", addr,
@@ -19304,6 +19370,26 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
+
+	/* "neighbor soo" */
+	install_element(BGP_IPV4_NODE, &neighbor_soo_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_soo_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_soo_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_soo_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_soo_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_soo_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_soo_cmd);
+	install_element(BGP_VPNV4_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_soo_cmd);
+	install_element(BGP_VPNV6_NODE, &no_neighbor_soo_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_soo_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_soo_cmd);
 
 	/* address-family commands. */
 	install_element(BGP_NODE, &address_family_ipv4_safi_cmd);
