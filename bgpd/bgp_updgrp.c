@@ -164,6 +164,12 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
 	dst->local_role = src->local_role;
+
+	if (src->soo[afi][safi]) {
+		ecommunity_free(&dst->soo[afi][safi]);
+		dst->soo[afi][safi] = ecommunity_dup(src->soo[afi][safi]);
+	}
+
 	memcpy(&(dst->nexthop), &(src->nexthop), sizeof(struct bgp_nexthop));
 
 	dst->group = src->group;
@@ -427,6 +433,12 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 * update-group if they have different roles.
 	 */
 	key = jhash_1word(peer->local_role, key);
+
+	if (peer->soo[afi][safi]) {
+		char *soo_str = ecommunity_str(peer->soo[afi][safi]);
+
+		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
+	}
 
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(

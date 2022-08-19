@@ -2316,6 +2316,29 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (aspath_check_as_sets(attr->aspath))
 			return false;
 
+	/* If neighbor sso is configured, then check if the route has
+	 * SoO extended community and validate against the configured
+	 * one. If they match, do not announce, to prevent routing
+	 * loops.
+	 */
+	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) &&
+	    peer->soo[afi][safi]) {
+		struct ecommunity *ecomm_soo = peer->soo[afi][safi];
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+
+		if ((ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS4,
+				       ECOMMUNITY_SITE_ORIGIN)) &&
+		    ecommunity_include(ecomm, ecomm_soo)) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug(
+					"%pBP [Update:SEND] %pFX is filtered by SoO extcommunity '%s'",
+					peer, p, ecommunity_str(ecomm_soo));
+			return false;
+		}
+	}
+
 	/* Codification of AS 0 Processing */
 	if (aspath_check_as_zero(attr->aspath))
 		return false;
@@ -4055,6 +4078,30 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
 		bgp_attr_flush(&new_attr);
 		return -1;
+	}
+
+	/* If neighbor soo is configured, tag all incoming routes with
+	 * this SoO tag and then filter out advertisements in
+	 * subgroup_announce_check() if it matches the configured SoO
+	 * on the other peer.
+	 */
+	if (peer->soo[afi][safi]) {
+		struct ecommunity *old_ecomm =
+			bgp_attr_get_ecommunity(&new_attr);
+		struct ecommunity *ecomm_soo = peer->soo[afi][safi];
+		struct ecommunity *new_ecomm;
+
+		if (old_ecomm) {
+			new_ecomm = ecommunity_merge(ecommunity_dup(old_ecomm),
+						     ecomm_soo);
+
+			if (!old_ecomm->refcnt)
+				ecommunity_free(&old_ecomm);
+		} else {
+			new_ecomm = ecommunity_dup(ecomm_soo);
+		}
+
+		bgp_attr_set_ecommunity(&new_attr, new_ecomm);
 	}
 
 	attr_new = bgp_attr_intern(&new_attr);
