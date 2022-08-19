@@ -178,15 +178,17 @@ struct route_entry {
 /* meta-queue structure:
  * sub-queue 0: nexthop group objects
  * sub-queue 1: EVPN/VxLAN objects
- * sub-queue 2: connected
- * sub-queue 3: kernel
- * sub-queue 4: static
- * sub-queue 5: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
- * sub-queue 6: iBGP, eBGP
- * sub-queue 7: any other origin (if any) typically those that
+ * sub-queue 2: Early Route Processing
+ * sub-queue 3: Early Label Processing
+ * sub-queue 4: connected
+ * sub-queue 5: kernel
+ * sub-queue 6: static
+ * sub-queue 7: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
+ * sub-queue 8: iBGP, eBGP
+ * sub-queue 9: any other origin (if any) typically those that
  *              don't generate routes
  */
-#define MQ_SIZE 8
+#define MQ_SIZE 10
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
@@ -341,6 +343,12 @@ void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      union prefixconstptr src_pp,
 			      const struct route_entry *re);
+
+struct route_entry *
+zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
+			  uint32_t flags, uint32_t nhe_id, uint32_t table_id,
+			  uint32_t metric, uint32_t mtu, uint8_t distance,
+			  route_tag_t tag);
 
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0

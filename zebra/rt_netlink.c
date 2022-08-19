@@ -937,36 +937,31 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		afi = AFI_IP6;
 
 	if (h->nlmsg_type == RTM_NEWROUTE) {
+		struct route_entry *re;
+		struct nexthop_group *ng = NULL;
+
+		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, nhe_id,
+					       table, metric, mtu, distance,
+					       tag);
+		if (!nhe_id)
+			ng = nexthop_group_new();
 
 		if (!tb[RTA_MULTIPATH]) {
-			struct nexthop nh = {0};
+			struct nexthop *nexthop, nh;
 
 			if (!nhe_id) {
 				nh = parse_nexthop_unicast(
 					ns_id, rtm, tb, bh_type, index, prefsrc,
 					gate, afi, vrf_id);
+
+				nexthop = nexthop_new();
+				*nexthop = nh;
+				nexthop_group_add_sorted(ng, nexthop);
 			}
-			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
-				&src_p, &nh, nhe_id, table, metric, mtu,
-				distance, tag, startup);
 		} else {
 			/* This is a multipath route */
-			struct route_entry *re;
-			struct nexthop_group *ng = NULL;
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
-
-			re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-			re->type = proto;
-			re->distance = distance;
-			re->flags = flags;
-			re->metric = metric;
-			re->mtu = mtu;
-			re->vrf_id = vrf_id;
-			re->table = table;
-			re->uptime = monotime(NULL);
-			re->tag = tag;
-			re->nhe_id = nhe_id;
 
 			if (!nhe_id) {
 				uint8_t nhop_num;
@@ -974,7 +969,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				/* Use temporary list of nexthops; parse
 				 * message payload's nexthops.
 				 */
-				ng = nexthop_group_new();
 				nhop_num =
 					parse_multipath_nexthops_unicast(
 						ns_id, ng, rtm, rtnh, tb,
@@ -989,23 +983,22 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					ng = NULL;
 				}
 			}
-
-			if (nhe_id || ng)
-				rib_add_multipath(afi, SAFI_UNICAST, &p,
-						  &src_p, re, ng, startup);
-			else {
-				/*
-				 * I really don't see how this is possible
-				 * but since we are testing for it let's
-				 * let the end user know why the route
-				 * that was just received was swallowed
-				 * up and forgotten
-				 */
-				zlog_err(
-					"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
-					__func__, &p);
-				XFREE(MTYPE_RE, re);
-			}
+		}
+		if (nhe_id || ng)
+			rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p, re, ng,
+					  startup);
+		else {
+			/*
+			 * I really don't see how this is possible
+			 * but since we are testing for it let's
+			 * let the end user know why the route
+			 * that was just received was swallowed
+			 * up and forgotten
+			 */
+			zlog_err(
+				"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
+				__func__, &p);
+			XFREE(MTYPE_RE, re);
 		}
 	} else {
 		if (nhe_id) {
