@@ -2025,8 +2025,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    && (IPV4_ADDR_SAME(&onlypeer->remote_id, &piattr->originator_id))) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
-				"%s [Update:SEND] %pFX originator-id is same as remote router-id",
-				onlypeer->host, p);
+				"%pBP [Update:SEND] %pFX originator-id is same as remote router-id",
+				onlypeer, p);
 		return false;
 	}
 
@@ -2041,8 +2041,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				if (bgp_debug_update(NULL, p,
 						     subgrp->update_group, 0))
 					zlog_debug(
-						"%s [Update:SEND] %pFX is filtered via ORF",
-						peer->host, p);
+						"%pBP [Update:SEND] %pFX is filtered via ORF",
+						peer, p);
 				return false;
 			}
 		}
@@ -2050,8 +2050,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* Output filter check. */
 	if (bgp_output_filter(peer, p, piattr, afi, safi) == FILTER_DENY) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-			zlog_debug("%s [Update:SEND] %pFX is filtered",
-				   peer->host, p);
+			zlog_debug("%pBP [Update:SEND] %pFX is filtered", peer,
+				   p);
 		return false;
 	}
 
@@ -2060,8 +2060,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    && aspath_loop_check(piattr->aspath, onlypeer->as)) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
-				"%s [Update:SEND] suppress announcement to peer AS %u that is part of AS path.",
-				onlypeer->host, onlypeer->as);
+				"%pBP [Update:SEND] suppress announcement to peer AS %u that is part of AS path.",
+				onlypeer, onlypeer->as);
 		return false;
 	}
 
@@ -2070,8 +2070,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (aspath_loop_check(piattr->aspath, bgp->confed_id)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
-					peer->host, bgp->confed_id);
+					"%pBP [Update:SEND] suppress announcement to peer AS %u is AS path.",
+					peer, bgp->confed_id);
 			return false;
 		}
 	}
@@ -2278,9 +2278,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (ret == RMAP_DENYMATCH) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s [Update:SEND] %pFX is filtered by route-map '%s'",
-					peer->host, p,
-					ROUTE_MAP_OUT_NAME(filter));
+					"%pBP [Update:SEND] %pFX is filtered by route-map '%s'",
+					peer, p, ROUTE_MAP_OUT_NAME(filter));
 			bgp_attr_flush(rmap_path.attr);
 			return false;
 		}
