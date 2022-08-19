@@ -662,25 +662,6 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 	}
 }
 
-static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
-{
-	uint32_t i, j;
-
-	if (!e1 || !e2)
-		return false;
-	for (i = 0; i < e1->size; ++i) {
-		for (j = 0; j < e2->size; ++j) {
-			if (!memcmp(e1->val + (i * e1->unit_size),
-				    e2->val + (j * e2->unit_size),
-				    e1->unit_size)) {
-
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
 static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,
 			uint32_t n)
 {
@@ -1502,7 +1483,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	}
 
 	/* Check for intersection of route targets */
-	if (!ecom_intersect(
+	if (!ecommunity_include(
 		    to_bgp->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
 		    bgp_attr_get_ecommunity(path_vpn->attr))) {
 		if (debug)
@@ -1751,9 +1732,10 @@ void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,	   /* from */
 		}
 
 		/* Check for intersection of route targets */
-		if (!ecom_intersect(bgp->vpn_policy[afi]
-					    .rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
-				    bgp_attr_get_ecommunity(path_vpn->attr))) {
+		if (!ecommunity_include(
+			    bgp->vpn_policy[afi]
+				    .rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
+			    bgp_attr_get_ecommunity(path_vpn->attr))) {
 
 			continue;
 		}
@@ -2932,7 +2914,7 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
 		if (ec && eckey->unit_size != ec->unit_size)
 			continue;
 
-		if (ecom_intersect(ec, eckey))
+		if (ecommunity_include(ec, eckey))
 			return bgp->vrf_id;
 	}
 	return VRF_UNKNOWN;
