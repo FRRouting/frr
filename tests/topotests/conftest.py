@@ -363,7 +363,7 @@ def pytest_configure(config):
 
     # Check environment now that we have config
     if not diagnose_env(rundir):
-        pytest.exit("environment has errors, please read the logs")
+        pytest.exit("environment has errors, please read the logs in %s" % rundir)
 
 
 @pytest.fixture(autouse=True, scope="session")

@@ -1293,7 +1293,7 @@ def diagnose_env_linux(rundir):
                     )
                     continue
 
-                logger.warning("could not find {} in {}".format(fname, frrdir))
+                logger.error("could not find {} in {}".format(fname, frrdir))
                 ret = False
             else:
                 if fname != "zebra":
