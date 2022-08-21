@@ -76,6 +76,7 @@ class ExaBGP:
         # pylint: disable=consider-using-with
         def __call__(self):
             self._cmdobj.path = self.prepare_files()
+            self.validate()
             self.run()
 
         def prepare_files(self):
@@ -137,6 +138,25 @@ class ExaBGP:
 
             return tempdir
 
+        def validate(self):
+            router = self.instance.routers[self._rtr.name]
+            path = self._cmdobj.path
+            self._cmdobj.proc_cli = router.popen(
+                [
+                    "exabgp",
+                    "--debug",
+                    "--validate",
+                    os.path.join(path, "conf.ini"),
+                    "--root",
+                    path,
+                    "--env",
+                    os.path.join(path, "exabgp.env"),
+                ],
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            )
+
+            self.is_cli_ok()
+            
         def run(self):
             router = self.instance.routers[self._rtr.name]
             path = self._cmdobj.path
