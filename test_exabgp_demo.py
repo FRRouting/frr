@@ -62,7 +62,7 @@ def testenv(configs):
     return FRRNetworkInstance(configs.topology, configs).prepare()
 
 
-class BGPDefaultOriginate(TestBase):
+class ExaBGPDemo(TestBase):
     instancefn = testenv
 
     @topotatofunc
