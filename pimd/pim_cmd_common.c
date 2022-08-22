@@ -2025,10 +2025,10 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 }
 
-static void pim_show_channel_helper(struct pim_instance *pim, struct vty *vty,
+static void pim_show_channel_helper(struct pim_instance *pim,
 				    struct pim_interface *pim_ifp,
 				    struct pim_ifchannel *ch, json_object *json,
-				    bool uj)
+				    bool uj, struct ttable *tt)
 {
 	struct pim_upstream *up = ch->upstream;
 	json_object *json_group = NULL;
@@ -2071,17 +2071,17 @@ static void pim_show_channel_helper(struct pim_instance *pim, struct vty *vty,
 					&up->sg.src);
 
 	} else {
-		vty_out(vty,
-			"%-16s %-15pPAs %-15pPAs %-10s %-5s %-10s %-11s %-6s\n",
-			ch->interface->name, &up->sg.src, &up->sg.grp,
-			pim_macro_ch_lost_assert(ch) ? "yes" : "no",
-			pim_macro_chisin_joins(ch) ? "yes" : "no",
-			pim_macro_chisin_pim_include(ch) ? "yes" : "no",
-			PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(up->flags)
-				? "yes"
-				: "no",
-			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
-								    : "no");
+		ttable_add_row(tt, "%s|%pPAs|%pPAs|%s|%s|%s|%s|%s",
+			       ch->interface->name, &up->sg.src, &up->sg.grp,
+			       pim_macro_ch_lost_assert(ch) ? "yes" : "no",
+			       pim_macro_chisin_joins(ch) ? "yes" : "no",
+			       pim_macro_chisin_pim_include(ch) ? "yes" : "no",
+			       PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(up->flags)
+				       ? "yes"
+				       : "no",
+			       pim_upstream_evaluate_join_desired(pim, up)
+				       ? "yes"
+				       : "no");
 	}
 }
 
@@ -2090,14 +2090,22 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
-
+	struct ttable *tt = NULL;
 	json_object *json = NULL;
+	char *table = NULL;
 
 	if (uj)
 		json = json_object_new_object();
-	else
-		vty_out(vty,
-			"Interface        Source          Group           LostAssert Joins PimInclude JoinDesired EvalJD\n");
+	else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|Source|Group|LostAssert|Joins|PimInclude|JoinDesired|EvalJD");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	/* scan per-interface (S,G) state */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -2105,16 +2113,21 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 		if (!pim_ifp)
 			continue;
 
-
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			/* scan all interfaces */
-			pim_show_channel_helper(pim, vty, pim_ifp, ch, json,
-						uj);
+			pim_show_channel_helper(pim, pim_ifp, ch, json, uj, tt);
 		}
 	}
 
 	if (uj)
 		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
 }
 
 int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj)
