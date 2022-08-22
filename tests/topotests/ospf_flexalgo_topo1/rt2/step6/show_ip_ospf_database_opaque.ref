@@ -1,0 +1,305 @@
+{
+  "routerId": "2.2.2.2",
+  "areaLocalOpaqueLsa": {
+    "areas": {
+      "0.0.0.0": [
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "4.0.0.0",
+          "advertisingRouter": "1.1.1.1",
+          "length": 236,
+          "opaqueType": "Router Information LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 216,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Router Capabilities TLV",
+              "type": 1,
+              "length": 4,
+              "capabilities": "0x10000000"
+            },
+            {
+              "name": "Flexible Algorithm Defintion TLV",
+              "type": 16,
+              "length": 204,
+              "algorithmId": 128,
+              "priority": 10,
+              "metricType": "igp",
+              "caculationType": "spf",
+              "subTLVs": [
+                {
+                  "name":"Exclude Admin Groups SubTLV",
+                  "type":1,
+                  "length":28,
+                  "adminGroups":[
+                    "red",
+                    "yellow"
+                  ]
+                },
+                {
+                  "name":"Include-Any Admin Groups SubTLV",
+                  "type":2,
+                  "length":128,
+                  "adminGroups":[
+                    "green",
+                    "blue"
+                  ]
+                },
+                {
+                  "name":"Include-All Admin Groups SubTLV",
+                  "type":3,
+                  "length":16,
+                  "adminGroups":[
+                    "green"
+                  ]
+                },
+                {
+                  "name": "Flexible-Algo Flags SubTLV",
+                   "type": 4,
+                   "length": 4,
+                   "flags": [ 2147483648 ]
+                },
+                {
+                  "name":"Exclude SRLGs SubTLV",
+                  "type":5,
+                  "length":4,
+                  "srlgs":[
+                    10
+                  ]
+                } 
+              ]
+            } 
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "4.0.0.0",
+          "advertisingRouter": "2.2.2.2",
+          "length": 28,
+          "opaqueType": "Router Information LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 8,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Router Capabilities TLV",
+              "type": 1,
+              "length": 4,
+              "capabilities": "0x10000000"
+            }
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "4.0.0.0",
+          "advertisingRouter": "3.3.3.3",
+          "length": 28,
+          "opaqueType": "Router Information LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 8,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Router Capabilities TLV",
+              "type": 1,
+              "length": 4,
+              "capabilities": "0x10000000"
+            }
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "4.0.0.0",
+          "advertisingRouter": "4.4.4.4",
+          "length": 212,
+          "opaqueType": "Router Information LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 192,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Router Capabilities TLV",
+              "type": 1,
+              "length": 4,
+              "capabilities": "0x10000000" 
+            },
+            {
+              "name": "Flexible Algorithm Defintion TLV",
+              "type": 16,
+              "length": 180,
+              "algorithmId": 128,
+              "priority": 10,
+              "metricType": "igp",
+              "caculationType": "spf",
+              "subTLVs": [
+                {
+                  "name":"Exclude Admin Groups SubTLV",
+                  "type":1,
+                  "length":4,
+                  "adminGroups":[
+                    "red"
+                  ]
+                },
+                {
+                  "name":"Include-Any Admin Groups SubTLV",
+                  "type":2,
+                  "length":128,
+                  "adminGroups":[
+                    "green",
+                    "blue"
+                  ]
+                },
+                {
+                  "name":"Include-All Admin Groups SubTLV",
+                  "type":3,
+                  "length":16,
+                  "adminGroups":[
+                    "green"
+                  ]
+                },
+                {
+                  "name": "Flexible-Algo Flags SubTLV",
+                   "type": 4,
+                   "length": 4,
+                   "flags": [ 2147483648 ]
+                },
+                {
+                  "name":"Exclude SRLGs SubTLV",
+                  "type":5,
+                  "length":4,
+                  "srlgs":[
+                    10
+                  ]
+                } 
+              ]
+            }
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "7.0.0.1",
+          "advertisingRouter": "1.1.1.1",
+          "length": 44,
+          "opaqueType": "Extended Prefix Opaque LSA",
+          "opaqueId": 1,
+          "opaqueDataLength": 24,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Extended Prefix TLV",
+              "type": 1,
+              "length": 20,
+              "prefixAddress": "1.1.1.1",
+              "prefixLength": 32,
+              "routeType": 1,
+              "addressFamily": 0,
+              "subTLVs": [
+                {
+                  "name": "Flex-Algo Prefix Metric (FAPM) SubTLV",
+                   "type": 3,
+                   "length": 8,
+                   "algotithmId": 128,
+                   "flags": 0,
+                   "metric": 100 
+                } 
+              ]
+            } 
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "7.0.0.1",
+          "advertisingRouter": "4.4.4.4",
+          "length": 44,
+          "opaqueType": "Extended Prefix Opaque LSA",
+          "opaqueId": 1,
+          "opaqueDataLength": 24,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Extended Prefix TLV",
+              "type": 1,
+              "length": 20,
+              "prefixAddress": "4.4.4.4",
+              "prefixLength": 32,
+              "routeType": 1,
+              "addressFamily": 0,
+              "subTLVs": [
+                {
+                  "name": "Flex-Algo Prefix Metric (FAPM) SubTLV",
+                   "type": 3,
+                   "length": 8,
+                   "algotithmId": 128,
+                   "flags": 0,
+                   "metric": 10
+                } 
+              ]
+            } 
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "11.0.0.0",
+          "advertisingRouter": "1.1.1.1",
+          "length": 40,
+          "opaqueType": "Extended Inter-Area ASBR Opaque LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 20,
+          "opaqueDataLengthValid": true,
+          "tlvs": [
+            {
+              "name": "Extended Inter-Area ASBR TLV",
+              "type": 1,
+              "length": 16,
+              "asbrRouterId": "1.1.1.1",
+              "subTLVs": [
+                {
+                  "name": "Flex-Algo ASBR Metric (FAAM) SubTLV",
+                   "type": 1,
+                   "length": 8,
+                   "algorithmId": 128,
+                   "metric": 100 
+                } 
+              ]
+            } 
+          ]
+        },
+        {
+          "options": "*|O|-|-|-|-|E|-",
+          "lsaType": "Area-Local Opaque-LSA",
+          "linkStateId": "11.0.0.0",
+          "advertisingRouter": "4.4.4.4",
+          "length": 40,
+          "opaqueType": "Extended Inter-Area ASBR Opaque LSA",
+          "opaqueId": 0,
+          "opaqueDataLength": 20,
+          "opaqueDataLengthValid": true,
+              "tlvs": [{
+                  "name": "Extended Inter-Area ASBR TLV",
+              "type": 1,
+              "length": 16,
+              "asbrRouterId": "4.4.4.4",
+              "subTLVs": [
+                {
+                  "name": "Flex-Algo ASBR Metric (FAAM) SubTLV",
+                   "type": 1,
+                   "length": 8,
+                   "algorithmId": 128,
+                   "metric": 10 
+                } 
+              ]
+            } 
+          ]
+        }
+      ]
+    }
+  }
+}

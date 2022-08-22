@@ -1,0 +1,15 @@
+--- Flexible-Algorithm parameters ---
+ Flexible-Algorithm: 128
+  Metric-Type: 	igp
+  Calculation-Type: 	spf
+  Priority: 	10
+  Flags:        0x80
+  Advt-Prefix-Metric: 	Y
+    Prefix-Metric: 	100
+  Exclude-Admin-Groups: 
+  	 - red(0)
+  Include-Any-Admin-Groups: 
+  	 - green(100)
+     - blue(1000)
+  Exclude-SRLGs: 
+  	 - 10
