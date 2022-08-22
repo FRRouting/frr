@@ -1827,13 +1827,14 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	}
 }
 
-static void pim_show_jp_agg_helper(struct vty *vty, struct interface *ifp,
+static void pim_show_jp_agg_helper(struct interface *ifp,
 				   struct pim_neighbor *neigh,
-				   struct pim_upstream *up, int is_join)
+				   struct pim_upstream *up, int is_join,
+				   struct ttable *tt)
 {
-	vty_out(vty, "%-16s %-15pPAs %-15pPAs %-15pPAs %5s\n", ifp->name,
-		&neigh->source_addr, &up->sg.src, &up->sg.grp,
-		is_join ? "J" : "P");
+	ttable_add_row(tt, "%s|%pPAs|%pPAs|%pPAs|%s", ifp->name,
+		       &neigh->source_addr, &up->sg.src, &up->sg.grp,
+		       is_join ? "J" : "P");
 }
 
 int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty)
@@ -1869,9 +1870,15 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	struct pim_jp_agg_group *jag;
 	struct listnode *js_node;
 	struct pim_jp_sources *js;
+	struct ttable *tt;
+	char *table;
 
-	vty_out(vty,
-		"Interface        RPF Nbr         Source          Group           State\n");
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Interface|RPF Nbr|Source|Group|State");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -1884,13 +1891,19 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 						  jag_node, jag)) {
 				for (ALL_LIST_ELEMENTS_RO(jag->sources, js_node,
 							  js)) {
-					pim_show_jp_agg_helper(vty, ifp, neigh,
+					pim_show_jp_agg_helper(ifp, neigh,
 							       js->up,
-							       js->is_join);
+							       js->is_join, tt);
 				}
 			}
 		}
 	}
+
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
 }
 
 int pim_show_membership_cmd_helper(const char *vrf, struct vty *vty, bool uj)
