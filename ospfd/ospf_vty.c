@@ -10118,6 +10118,21 @@ static int ospf_print_vty_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 	return HASHWALK_CONTINUE;
 }
 
+static int ospf_print_json_helper_enabled_rtr_walkcb(struct hash_bucket *bucket,
+						     void *arg)
+{
+	struct advRtr *rtr = bucket->data;
+	struct json_object *json_rid_array = arg;
+	struct json_object *json_rid;
+
+	json_rid = json_object_new_object();
+
+	json_object_string_addf(json_rid, "routerId", "%pI4", &rtr->advRtrAddr);
+	json_object_array_add(json_rid_array, json_rid);
+
+	return HASHWALK_CONTINUE;
+}
+
 static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 				       uint8_t use_vrf, json_object *json,
 				       bool uj, bool detail)
@@ -10237,6 +10252,18 @@ CPP_NOTICE("Remove JSON object commands with keys starting with capital")
 		if (ospf->active_restarter_cnt)
 			json_object_int_add(json_vrf, "activeRestarterCnt",
 					    ospf->active_restarter_cnt);
+
+		if (OSPF_HELPER_ENABLE_RTR_COUNT(ospf)) {
+			struct json_object *json_rid_array =
+				json_object_new_array();
+
+			json_object_object_add(json_vrf, "enabledRouterIds",
+					       json_rid_array);
+
+			hash_walk(ospf->enable_rtr_list,
+				  ospf_print_json_helper_enabled_rtr_walkcb,
+				  json_rid_array);
+		}
 	}
 
 
