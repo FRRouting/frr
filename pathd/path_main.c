@@ -23,6 +23,7 @@
 #include "path_errors.h"
 #include "path_ted.h"
 #include "path_flex_algo.h"
+#include "path_triggered.h"
 #include "path_tsrte.h"
 
 char backup_config_file[256];
@@ -146,6 +147,7 @@ int main(int argc, char **argv, char **envp)
 	path_ted_init(master);
 	path_flex_algo_init();
 	path_bsid_init();
+	srte_triggered_init();
 
 	frr_config_fork();
 	frr_run(master);

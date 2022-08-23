@@ -28,6 +28,7 @@
 #include "path_template.h"
 #include "path_tsrte.h"
 #include "path_bsid.h"
+#include "path_zebra.h"
 
 bool path_triggered_enabled = false;
 
@@ -349,4 +350,26 @@ void srte_triggered_clean_zebra(void)
 	RB_FOREACH_SAFE (bgp_policy, srte_triggered_policy_head,
 			 &srte_triggered_policies, safe_bgp_pol)
 		srte_triggered_del(bgp_policy->color, &bgp_policy->endpoint);
+}
+
+static int srte_triggered_candidate_removed(struct srte_candidate *candidate)
+{
+	struct srte_policy *policy = candidate->policy;
+
+	if (!policy)
+		return 0;
+	/* inform BGP that the candidate entry associated has been removed */
+	if (!CHECK_FLAG(policy->flags, F_POLICY_DELETED))
+		return 0;
+	if (!CHECK_FLAG(candidate->flags, F_CANDIDATE_TEMPLATE))
+		return 0;
+	path_zebra_srte_bgp_policy_candidate_changed(candidate->policy,
+						     candidate);
+	return 0;
+}
+
+void srte_triggered_init(void)
+{
+	hook_register(pathd_candidate_removed,
+		      srte_triggered_candidate_removed);
 }

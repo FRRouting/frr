@@ -51,4 +51,6 @@ void srte_triggered_update_candidate_removing(uint32_t color,
 void srte_triggered_update_candidate_changed(uint32_t color);
 void srte_triggered_del(uint32_t color, struct ipaddr *endpoint);
 void srte_triggered_add(uint32_t color, struct ipaddr *endpoint);
+void srte_triggered_init(void);
+
 #endif

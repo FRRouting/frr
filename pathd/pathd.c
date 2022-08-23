@@ -55,7 +55,6 @@ static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
 static void trigger_pathd_candidate_created_timer(struct event *thread);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
 static void trigger_pathd_candidate_updated_timer(struct event *thread);
-static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
 

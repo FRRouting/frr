@@ -479,6 +479,7 @@ void srte_candidate_unset_segment_list(const char *originator, bool force);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 void pathd_shutdown(void);
 void path_policy_show_debugging(struct vty *vty);
+void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 
 /* path_cli.c */
 void path_cli_init(void);

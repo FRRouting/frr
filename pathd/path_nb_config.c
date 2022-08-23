@@ -394,12 +394,25 @@ int pathd_srte_policy_candidate_path_create(struct nb_cb_create_args *args)
 	struct srte_policy *policy;
 	struct srte_candidate *candidate;
 	uint32_t preference;
+	char endpoint_str[ENDPOINT_STR_LENGTH];
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	preference = yang_dnode_get_uint32(args->dnode, "preference");
+	candidate = srte_candidate_find(policy, preference);
+	if (candidate) {
+		if (CHECK_FLAG(candidate->flags, F_CANDIDATE_TEMPLATE)) {
+			ipaddr2str(&policy->endpoint, endpoint_str,
+				   sizeof(endpoint_str));
+			zlog_warn(
+				"Candidate Color %u Endpoint %s Preference %u: conflict, removing template",
+				policy->color, endpoint_str, preference);
+			SET_FLAG(policy->flags, F_POLICY_DELETED);
+			trigger_pathd_candidate_removed(candidate);
+			srte_candidate_del(candidate);
+		}
+	}
 	candidate =
 		srte_candidate_add(policy, preference, SRTE_ORIGIN_LOCAL, NULL);
 	nb_running_set_entry(args->dnode, candidate);
