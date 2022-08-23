@@ -447,7 +447,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
-	struct nexthop nh = {};
+	struct zapi_nexthop *znh;
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
@@ -465,12 +465,16 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	nh.type = NEXTHOP_TYPE_IFINDEX;
-	nh.ifindex = oif;
-	SET_FLAG(nh.flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	nexthop_add_srv6_seg6local(&nh, action, context);
+	znh = &api.nexthops[0];
 
-	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = NEXTHOP_TYPE_IFINDEX;
+	znh->ifindex = oif;
+	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	znh->seg6local_action = action;
+	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
+
 	api.nexthop_num = 1;
 
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
