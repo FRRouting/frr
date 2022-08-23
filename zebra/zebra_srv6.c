@@ -162,6 +162,7 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	}
 
 	listnode_delete(srv6->locators, locator);
+	srv6_locator_free(locator);
 }
 
 struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
