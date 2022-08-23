@@ -312,8 +312,10 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	}
 
 	/* refresh functions */
-	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func))
+	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
 		listnode_delete(bgp->srv6_functions, func);
+		XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+	}
 
 	/* refresh tovpn_sid */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
