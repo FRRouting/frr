@@ -311,6 +311,13 @@ DEFPY (locator_prefix,
 		}
 	}
 
+	if (prefix->prefixlen + func_bit_len + 0 > 128) {
+		vty_out(vty,
+			"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
+			prefix->prefixlen + func_bit_len + 0);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	locator->block_bits_length = block_bit_len;
 	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
