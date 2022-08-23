@@ -3339,6 +3339,7 @@ def verify_rib(
     metric=None,
     fib=None,
     count_only=False,
+    admin_distance=None,
 ):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -3611,6 +3612,30 @@ def verify_rib(
                                     )
                                     return errormsg
 
+                            if admin_distance is not None:
+                                if "distance" not in rib_routes_json[st_rt][0]:
+                                    errormsg = (
+                                        "[DUT: {}]: admin distance is"
+                                        " not present for"
+                                        " route {} in RIB \n".format(dut, st_rt)
+                                    )
+                                    return errormsg
+
+                                if (
+                                    admin_distance
+                                    != rib_routes_json[st_rt][0]["distance"]
+                                ):
+                                    errormsg = (
+                                        "[DUT: {}]: admin distance value "
+                                        "{} is not matched for "
+                                        "route {} in RIB \n".format(
+                                            dut,
+                                            admin_distance,
+                                            st_rt,
+                                        )
+                                    )
+                                    return errormsg
+
                             if metric is not None:
                                 if "metric" not in rib_routes_json[st_rt][0]:
                                     errormsg = (
@@ -3764,7 +3789,7 @@ def verify_rib(
 
 
 @retry(retry_timeout=12)
-def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
+def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
     same prefixes, which were redistributed by either create_static_routes() or
@@ -3821,6 +3846,9 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
 
             found_routes = []
             missing_routes = []
+
+            if protocol:
+                command = "{} {}".format(command, protocol)
 
             if "static_routes" in input_dict[routerInput]:
                 static_routes = input_dict[routerInput]["static_routes"]
@@ -5039,7 +5067,7 @@ def verify_ip_nht(tgen, input_dict):
 
         for nh in nh_list:
             if nh in show_ip_nht:
-                nht = run_frr_cmd(rnode, f"show ip nht {nh}")
+                nht = run_frr_cmd(rnode, "show ip nht {}".format(nh))
                 if "unresolved" in nht:
                     errormsg = "Nexthop {} became unresolved on {}".format(nh, router)
                     return errormsg
