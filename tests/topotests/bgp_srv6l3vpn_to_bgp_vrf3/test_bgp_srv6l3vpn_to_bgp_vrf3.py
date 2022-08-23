@@ -203,6 +203,44 @@ def test_ping():
     check_ping6("ce4", "2001:6::2", True)
 
 
+def test_bgp_sid_vpn_export_disable():
+    check_ping4("ce1", "192.168.2.2", True)
+    check_ping6("ce1", "2001:2::2", True)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf10
+          segment-routing srv6
+           no sid vpn per-vrf export
+        """
+    )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_sid_vpn_export_disabled.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_sid_vpn_export_disabled.json")
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_sid_vpn_export_disabled.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_disabled.json")
+    check_ping4("ce1", "192.168.2.2", False)
+    check_ping6("ce1", "2001:2::2", False)
+
+
+def test_bgp_sid_vpn_export_reenable():
+    check_ping4("ce1", "192.168.2.2", False)
+    check_ping6("ce1", "2001:2::2", False)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf10
+          segment-routing srv6
+           sid vpn per-vrf export auto
+        """
+    )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_sid_vpn_export_reenabled.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_sid_vpn_export_reenabled.json")
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_sid_vpn_export_reenabled.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_reenabled.json")
+    check_ping4("ce1", "192.168.2.2", True)
+    check_ping6("ce1", "2001:2::2", True)
+
+
 def test_locator_delete():
     check_ping4("ce1", "192.168.2.2", True)
     check_ping6("ce1", "2001:2::2", True)
