@@ -88,6 +88,10 @@ extern void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp);
 extern int vpn_leak_label_callback(mpls_label_t label, void *lblid, bool alloc);
 extern void ensure_vrf_tovpn_sid(struct bgp *vpn, struct bgp *vrf, afi_t afi);
+extern void delete_vrf_tovpn_sid(struct bgp *vpn, struct bgp *vrf, afi_t afi);
+extern void delete_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
+					afi_t afi);
+extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
@@ -257,6 +261,13 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 			       .tovpn_zebra_vrf_label_last_sent) {
 			vpn_leak_zebra_vrf_label_update(bgp_vrf, afi);
 		}
+
+		if (bgp_vrf->vpn_policy[afi].tovpn_sid_index == 0 &&
+		    !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
+		    bgp_vrf->tovpn_sid_index == 0 &&
+		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+			delete_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
 
 		if (!bgp_vrf->vpn_policy[afi].tovpn_sid && !bgp_vrf->tovpn_sid)
 			ensure_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);

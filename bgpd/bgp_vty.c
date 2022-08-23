@@ -9068,9 +9068,15 @@ DEFPY (bgp_sid_vpn_export,
 		 BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
 
 	if (no) {
-		/* implement me */
-		vty_out(vty, "It's not implemented\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		/* when per-VRF SID is not set, do nothing */
+		if (bgp->tovpn_sid_index == 0 &&
+		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+			return CMD_SUCCESS;
+
+		sid_idx = 0;
+		sid_auto = false;
+		bgp->tovpn_sid_index = 0;
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
 	}
 
 	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
@@ -9113,7 +9119,7 @@ DEFPY (bgp_sid_vpn_export,
 		if (debug)
 			zlog_debug("%s: auto per-vrf sid alloc.", __func__);
 		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
-	} else {
+	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
 			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
@@ -9137,6 +9143,15 @@ ALIAS (af_label_vpn_export,
        "label value for VRF\n"
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n")
+
+ALIAS (bgp_sid_vpn_export,
+       no_bgp_sid_vpn_export_cmd,
+       "no$no sid vpn per-vrf export",
+       NO_STR
+       "sid value for VRF\n"
+       "Between current vrf and vpn\n"
+       "sid per-VRF (both IPv4 and IPv6 address families)\n"
+       "For routes leaked from current vrf to vpn\n")
 
 DEFPY (af_nexthop_vpn_export,
        af_nexthop_vpn_export_cmd,
@@ -19913,6 +19928,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
+	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
 
 	bgp_vty_if_init();
 }

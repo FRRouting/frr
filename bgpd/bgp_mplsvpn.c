@@ -611,6 +611,18 @@ static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
 	listnode_add(bgp->srv6_functions, func);
 }
 
+static void sid_unregister(struct bgp *bgp, const struct in6_addr *sid)
+{
+	struct listnode *node, *nnode;
+	struct bgp_srv6_function *func;
+
+	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func))
+		if (sid_same(&func->sid, sid)) {
+			listnode_delete(bgp->srv6_functions, func);
+			XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+		}
+}
+
 static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
 {
 	struct listnode *node;
@@ -858,6 +870,69 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 	if (bgp_vrf->tovpn_sid_index != 0 ||
 	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
 		return ensure_vrf_tovpn_sid_per_vrf(bgp_vpn, bgp_vrf);
+}
+
+void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
+				 afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	uint32_t tovpn_sid_index = 0;
+	bool tovpn_sid_auto = false;
+
+	if (debug)
+		zlog_debug("%s: try to remove SID for vrf %s: afi %s", __func__,
+			   bgp_vrf->name_pretty, afi2str(afi));
+
+	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
+	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				    BGP_VPN_POLICY_TOVPN_SID_AUTO);
+
+	/* skip when VPN is configured on vrf-instance */
+	if (tovpn_sid_index != 0 || tovpn_sid_auto)
+		return;
+
+	srv6_locator_chunk_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+		sid_unregister(bgp_vrf, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
+	}
+	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
+}
+
+void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	uint32_t tovpn_sid_index = 0;
+	bool tovpn_sid_auto = false;
+
+	if (debug)
+		zlog_debug("%s: try to remove SID for vrf %s", __func__,
+			   bgp_vrf->name_pretty);
+
+	tovpn_sid_index = bgp_vrf->tovpn_sid_index;
+	tovpn_sid_auto =
+		CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
+
+	/* skip when VPN is configured on vrf-instance */
+	if (tovpn_sid_index != 0 || tovpn_sid_auto)
+		return;
+
+	srv6_locator_chunk_free(bgp_vrf->tovpn_sid_locator);
+	bgp_vrf->tovpn_sid_locator = NULL;
+
+	if (bgp_vrf->tovpn_sid) {
+		sid_unregister(bgp_vrf, bgp_vrf->tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+	}
+	bgp_vrf->tovpn_sid_transpose_label = 0;
+}
+
+void delete_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
+{
+	delete_vrf_tovpn_sid_per_af(bgp_vpn, bgp_vrf, afi);
+	delete_vrf_tovpn_sid_per_vrf(bgp_vpn, bgp_vrf);
 }
 
 /*
