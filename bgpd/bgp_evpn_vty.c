@@ -6014,9 +6014,9 @@ DEFUN (bgp_evpn_vrf_rt,
 	return ret;
 }
 
-DEFUN (bgp_evpn_vrf_rt_auto,
+DEFPY (bgp_evpn_vrf_rt_auto,
        bgp_evpn_vrf_rt_auto_cmd,
-       "route-target <both|import|export> auto",
+       "route-target <both|import|export>$type auto",
        "Route Target\n"
        "import and export\n"
        "import\n"
@@ -6029,11 +6029,11 @@ DEFUN (bgp_evpn_vrf_rt_auto,
 	if (!bgp)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (!strcmp(argv[1]->arg, "import"))
+	if (strmatch(type, "import"))
 		rt_type = RT_TYPE_IMPORT;
-	else if (!strcmp(argv[1]->arg, "export"))
+	else if (strmatch(type, "export"))
 		rt_type = RT_TYPE_EXPORT;
-	else if (!strcmp(argv[1]->arg, "both"))
+	else if (strmatch(type, "both"))
 		rt_type = RT_TYPE_BOTH;
 	else {
 		vty_out(vty, "%% Invalid Route Target type\n");
@@ -6119,9 +6119,9 @@ DEFUN (no_bgp_evpn_vrf_rt,
 	return ret;
 }
 
-DEFUN (no_bgp_evpn_vrf_rt_auto,
+DEFPY (no_bgp_evpn_vrf_rt_auto,
        no_bgp_evpn_vrf_rt_auto_cmd,
-       "no route-target <both|import|export> auto",
+       "no route-target <both|import|export>$type auto",
        NO_STR
        "Route Target\n"
        "import and export\n"
@@ -6135,11 +6135,11 @@ DEFUN (no_bgp_evpn_vrf_rt_auto,
 	if (!bgp)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (!strcmp(argv[2]->arg, "import"))
+	if (strmatch(type, "import"))
 		rt_type = RT_TYPE_IMPORT;
-	else if (!strcmp(argv[2]->arg, "export"))
+	else if (strmatch(type, "export"))
 		rt_type = RT_TYPE_EXPORT;
-	else if (!strcmp(argv[2]->arg, "both"))
+	else if (strmatch(type, "both"))
 		rt_type = RT_TYPE_BOTH;
 	else {
 		vty_out(vty, "%% Invalid Route Target type\n");
