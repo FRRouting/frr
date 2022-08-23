@@ -293,3 +293,25 @@ Arguments:
 1st: A (struct route_node *) to the top of the route table.
 2nd: The (struct route_node *) to walk up from
 end
+
+define mq_walk
+  set $mg = (struct memgroup *)$arg0
+
+  while ($mg)
+     printf "showing active allocations in memory group %s\n", $mg->name
+     set $mt = (struct memtype *)$mg->types
+     while ($mt)
+         printf "memstats: %s:%zu\n", $mt->name, $mt->n_alloc
+         set $mt = $mt->next
+     end
+     set $mg = $mg->next
+  end
+
+document mg_walk
+Walk the memory data structures to show what is holding memory.
+
+Arguments:
+1st: A (struct memgroup *) where to start the walk.  If you are not
+     sure where to start pass it mg_first, which is a global DS for
+     all memory allocated in FRR
+end
