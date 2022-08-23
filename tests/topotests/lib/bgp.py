@@ -491,6 +491,25 @@ def __create_bgp_unicast_neighbor(
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
+        admin_dist_data = addr_data.setdefault("distance", {})
+        if admin_dist_data:
+            if len(admin_dist_data) < 2:
+                logger.debug(
+                    "Router %s: pass the admin distance values for "
+                    "ebgp, ibgp and local routes",
+                    router,
+                )
+            cmd = "distance bgp {} {} {}".format(
+                admin_dist_data["ebgp"],
+                admin_dist_data["ibgp"],
+                admin_dist_data["local"],
+            )
+
+            del_action = admin_dist_data.setdefault("delete", False)
+            if del_action:
+                cmd = "no distance bgp"
+            config_data.append(cmd)
+
         import_vrf_data = addr_data.setdefault("import", {})
         if import_vrf_data:
             cmd = "import vrf {}".format(import_vrf_data["vrf"])
@@ -2662,7 +2681,7 @@ def verify_best_path_as_per_bgp_attribute(
 
 @retry(retry_timeout=10)
 def verify_best_path_as_per_admin_distance(
-    tgen, addr_type, router, input_dict, attribute, expected=True
+    tgen, addr_type, router, input_dict, attribute, expected=True, vrf=None
 ):
     """
     API is to verify best path according to admin distance for given
@@ -2678,6 +2697,7 @@ def verify_best_path_as_per_admin_distance(
     * `input_dict`: defines different routes with different admin distance
                     to calculate for which route best path is selected
     * `expected` : expected results from API, by-default True
+    * `vrf`: Pass vrf name check for perticular vrf.
 
     Usage
     -----
@@ -2710,9 +2730,14 @@ def verify_best_path_as_per_admin_distance(
 
     # Show ip route cmd
     if addr_type == "ipv4":
-        command = "show ip route json"
+        command = "show ip route"
     else:
-        command = "show ipv6 route json"
+        command = "show ipv6 route"
+
+    if vrf:
+        command = "{} vrf {} json".format(command, vrf)
+    else:
+        command = "{} json".format(command)
 
     for routes_from_router in input_dict.keys():
         sh_ip_route_json = router_list[routes_from_router].vtysh_cmd(
