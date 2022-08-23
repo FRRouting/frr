@@ -234,6 +234,8 @@ DEFPY (install_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -376,6 +378,8 @@ DEFPY (install_seg6_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -467,6 +471,8 @@ DEFPY (install_seg6local_routes,
 		sg.r.repeat = 0;
 
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
