@@ -1096,6 +1096,7 @@ DEFPY (sharp_srv6_manager_release_locator_chunk,
 			list_delete_all_node(loc->chunks);
 			list_delete(&loc->chunks);
 			listnode_delete(sg.srv6_locators, loc);
+			XFREE(MTYPE_SRV6_LOCATOR, loc);
 			break;
 		}
 	}
