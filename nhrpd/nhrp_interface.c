@@ -165,8 +165,7 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 
 	switch (cmd) {
 	case NOTIFY_INTERFACE_CHANGED:
-		nhrp_interface_update_mtu(nifp->ifp, AFI_IP);
-		nhrp_interface_update_source(nifp->ifp);
+		nhrp_interface_update_nbma(nifp->ifp, NULL);
 		break;
 	case NOTIFY_INTERFACE_ADDRESS_CHANGED:
 		nifp->nbma = nbmanifp->afi[AFI_IP].addr;
