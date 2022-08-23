@@ -3218,8 +3218,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
 		if (prefix_match((struct prefix *)&loc.prefix,
-				 (struct prefix *)&chunk->prefix))
+				 (struct prefix *)&chunk->prefix)) {
 			listnode_delete(bgp->srv6_locator_chunks, chunk);
+			srv6_locator_chunk_free(chunk);
+		}
 
 	// refresh functions
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {

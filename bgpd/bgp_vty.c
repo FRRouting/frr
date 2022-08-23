@@ -306,8 +306,10 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		return -1;
 
 	/* refresh chunks */
-	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
+	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
 		listnode_delete(bgp->srv6_locator_chunks, chunk);
+		srv6_locator_chunk_free(chunk);
+	}
 
 	/* refresh functions */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func))
