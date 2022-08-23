@@ -924,6 +924,11 @@ DEFPY (import_te,
 	return CMD_SUCCESS;
 }
 
+static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
+{
+	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+}
+
 DEFPY (sharp_srv6_manager_get_locator_chunk,
        sharp_srv6_manager_get_locator_chunk_cmd,
        "sharp srv6-manager get-locator-chunk NAME$locator_name",
@@ -947,6 +952,8 @@ DEFPY (sharp_srv6_manager_get_locator_chunk,
 		loc = XCALLOC(MTYPE_SRV6_LOCATOR,
 			      sizeof(struct sharp_srv6_locator));
 		loc->chunks = list_new();
+		loc->chunks->del =
+			(void (*)(void *))sharp_srv6_locator_chunk_free;
 		snprintf(loc->name, SRV6_LOCNAME_SIZE, "%s", locator_name);
 		listnode_add(sg.srv6_locators, loc);
 	}
