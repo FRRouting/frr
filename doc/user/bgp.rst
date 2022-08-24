@@ -2490,6 +2490,9 @@ Extended Community Lists
    there is no matched entry, deny will be returned. When `extcommunity` is
    empty it matches to any routes.
 
+   A special handling for ``internet`` community is applied. It matches
+   any community.
+
 .. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 
    This command defines a new expanded extcommunity-list. `line` is a string
