@@ -125,7 +125,7 @@ static void bgp_reuse_timer(struct thread *t)
 	thread_add_timer(bm->master, bgp_reuse_timer, bdc, DELTA_REUSE,
 			 &bdc->t_reuse);
 
-	t_now = bgp_clock();
+	t_now = monotime(NULL);
 
 	/* 1.  save a pointer to the current zeroth queue head and zero the
 	   list head entry.  */
@@ -189,7 +189,7 @@ int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 	unsigned int last_penalty = 0;
 	struct bgp_damp_config *bdc = &damp[afi][safi];
 
-	t_now = bgp_clock();
+	t_now = monotime(NULL);
 
 	/* Processing Unreachable Messages.  */
 	if (path->extra)
@@ -273,7 +273,7 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 	if (!path->extra || !((bdi = path->extra->damp_info)))
 		return BGP_DAMP_USED;
 
-	t_now = bgp_clock();
+	t_now = monotime(NULL);
 	bgp_path_info_unset_flag(dest, path, BGP_PATH_HISTORY);
 
 	bdi->lastrecord = BGP_RECORD_UPDATE;
@@ -588,7 +588,7 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path, afi_t afi,
 		return;
 
 	/* Calculate new penalty.  */
-	t_now = bgp_clock();
+	t_now = monotime(NULL);
 	t_diff = t_now - bdi->t_updated;
 	penalty = bgp_damp_decay(t_diff, bdi->penalty, bdc);
 
@@ -642,7 +642,7 @@ const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_path_info *path,
 		return NULL;
 
 	/* Calculate new penalty.  */
-	t_now = bgp_clock();
+	t_now = monotime(NULL);
 	t_diff = t_now - bdi->t_updated;
 	penalty = bgp_damp_decay(t_diff, bdi->penalty, bdc);
 

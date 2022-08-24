@@ -43,7 +43,7 @@ int kernel_route(enum babel_kernel_routes operation, const unsigned char *dest,
 		 unsigned int metric, const unsigned char *newgate,
 		 int newifindex, unsigned int newmetric);
 int if_eui64(int ifindex, unsigned char *eui);
-int gettime(struct timeval *tv);
+void gettime(struct timeval *tv);
 int read_random_bytes(void *buf, size_t len);
 
 #endif /* BABEL_KERNEL_H */

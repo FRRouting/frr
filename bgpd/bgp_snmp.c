@@ -588,7 +588,7 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 		if (peer->uptime == 0)
 			return SNMP_INTEGER(0);
 		else
-			return SNMP_INTEGER(bgp_clock() - peer->uptime);
+			return SNMP_INTEGER(monotime(NULL) - peer->uptime);
 	case BGPPEERCONNECTRETRYINTERVAL:
 		*write_method = write_bgpPeerTable;
 		return SNMP_INTEGER(peer->v_connect);
@@ -615,7 +615,7 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 		if (peer->update_time == 0)
 			return SNMP_INTEGER(0);
 		else
-			return SNMP_INTEGER(bgp_clock() - peer->update_time);
+			return SNMP_INTEGER(monotime(NULL) - peer->update_time);
 	default:
 		return NULL;
 	}

@@ -233,7 +233,7 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
-		pi->uptime = bgp_clock();
+		pi->uptime = monotime(NULL);
 	}
 
 	/* Perform route selection and update zebra, if required. */
@@ -432,7 +432,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_pi->attr);
 			tmp_pi->attr = attr_new;
-			tmp_pi->uptime = bgp_clock();
+			tmp_pi->uptime = monotime(NULL);
 		}
 	}
 

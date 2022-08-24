@@ -216,15 +216,15 @@ struct zserv {
 	 */
 
 	/* monotime of client creation */
-	_Atomic uint32_t connect_time;
+	_Atomic uint64_t connect_time;
 	/* monotime of last message received */
-	_Atomic uint32_t last_read_time;
+	_Atomic uint64_t last_read_time;
 	/* monotime of last message sent */
-	_Atomic uint32_t last_write_time;
+	_Atomic uint64_t last_write_time;
 	/* command code of last message read */
-	_Atomic uint32_t last_read_cmd;
+	_Atomic uint64_t last_read_cmd;
 	/* command code of last message written */
-	_Atomic uint32_t last_write_cmd;
+	_Atomic uint64_t last_write_cmd;
 
 	/*
 	 * Number of instances configured with

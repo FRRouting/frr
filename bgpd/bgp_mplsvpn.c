@@ -925,7 +925,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 			bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
 		bgp_attr_unintern(&bpi->attr);
 		bpi->attr = new_attr;
-		bpi->uptime = bgp_clock();
+		bpi->uptime = monotime(NULL);
 
 		/*
 		 * rewrite labels

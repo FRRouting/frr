@@ -2043,7 +2043,6 @@ extern unsigned int multipath_num;
 /* Prototypes. */
 extern void bgp_terminate(void);
 extern void bgp_reset(void);
-extern time_t bgp_clock(void);
 extern void bgp_zclient_reset(void);
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
@@ -2449,7 +2448,7 @@ static inline int peer_group_af_configured(struct peer_group *group)
 static inline char *timestamp_string(time_t ts)
 {
 	time_t tbuf;
-	tbuf = time(NULL) - (bgp_clock() - ts);
+	tbuf = time(NULL) - (monotime(NULL) - ts);
 	return ctime(&tbuf);
 }
 
