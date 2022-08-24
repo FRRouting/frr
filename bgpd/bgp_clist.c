@@ -674,6 +674,9 @@ bool community_list_match(struct community *com, struct community_list *list)
 			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
+			if (community_include(entry->u.com, COMMUNITY_INTERNET))
+				return entry->direct == COMMUNITY_PERMIT;
+
 			if (community_match(com, entry->u.com))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
