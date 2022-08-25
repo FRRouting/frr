@@ -719,16 +719,14 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 					vty_out(vty, "%-18s         %u\n",
 						"INVALID", lcb->label);
 			else {
-				char buf[PREFIX2STR_BUFFER];
 				p = bgp_dest_get_prefix(dest);
-				prefix2str(p, buf, sizeof(buf));
 				if (uj) {
-					json_object_string_add(json_elem,
-							       "prefix", buf);
+					json_object_string_addf(
+						json_elem, "prefix", "%pFX", p);
 					json_object_int_add(json_elem, "label",
 							    lcb->label);
 				} else
-					vty_out(vty, "%-18s    %u\n", buf,
+					vty_out(vty, "%-18pFX    %u\n", p,
 						lcb->label);
 			}
 			break;
@@ -812,16 +810,14 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 					vty_out(vty, "INVALID         %u\n",
 						label);
 			else {
-				char buf[PREFIX2STR_BUFFER];
 				p = bgp_dest_get_prefix(dest);
-				prefix2str(p, buf, sizeof(buf));
 				if (uj) {
-					json_object_string_add(json_elem,
-							       "prefix", buf);
+					json_object_string_addf(
+						json_elem, "prefix", "%pFX", p);
 					json_object_int_add(json_elem, "label",
 							    label);
 				} else
-					vty_out(vty, "%-18s    %u\n", buf,
+					vty_out(vty, "%-18pFX    %u\n", p,
 						label);
 			}
 			break;
@@ -851,7 +847,6 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 	json_object *json = NULL, *json_elem = NULL;
 	struct bgp_dest *dest;
 	const struct prefix *p;
-	char buf[PREFIX2STR_BUFFER];
 	struct lp_fifo *item, *next;
 	int count;
 
@@ -893,12 +888,11 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 					vty_out(vty, "INVALID\n");
 			} else {
 				p = bgp_dest_get_prefix(dest);
-				prefix2str(p, buf, sizeof(buf));
 				if (uj)
-					json_object_string_add(json_elem,
-							       "prefix", buf);
+					json_object_string_addf(
+						json_elem, "prefix", "%pFX", p);
 				else
-					vty_out(vty, "%-18s\n", buf);
+					vty_out(vty, "%-18pFX\n", p);
 			}
 			break;
 		case LP_TYPE_VRF:

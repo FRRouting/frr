@@ -9573,10 +9573,8 @@ DEFPY (show_bgp_srv6,
 
 	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
 	vty_out(vty, "locator_chunks:\n");
-	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
-		prefix2str(&chunk->prefix, buf, sizeof(buf));
-		vty_out(vty, "- %s\n", buf);
-	}
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk))
+		vty_out(vty, "- %pFX\n", &chunk->prefix);
 
 	vty_out(vty, "functions:\n");
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {

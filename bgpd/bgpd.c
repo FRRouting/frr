@@ -4006,7 +4006,6 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 	struct prefix prefix;
 	struct prefix *listen_range;
 	int dncount;
-	char buf[PREFIX2STR_BUFFER];
 
 	if (!sockunion2hostprefix(su, &prefix))
 		return NULL;
@@ -4023,21 +4022,19 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 	if (!gbgp)
 		return NULL;
 
-	prefix2str(&prefix, buf, sizeof(buf));
-
 	if (bgp_debug_neighbor_events(NULL))
 		zlog_debug(
-			"Dynamic Neighbor %s matches group %s listen range %pFX",
-			buf, group->name, listen_range);
+			"Dynamic Neighbor %pFX matches group %s listen range %pFX",
+			&prefix, group->name, listen_range);
 
 	/* Are we within the listen limit? */
 	dncount = gbgp->dynamic_neighbors_count;
 
 	if (dncount >= gbgp->dynamic_neighbors_limit) {
 		if (bgp_debug_neighbor_events(NULL))
-			zlog_debug("Dynamic Neighbor %s rejected - at limit %d",
-				   inet_sutop(su, buf),
-				   gbgp->dynamic_neighbors_limit);
+			zlog_debug(
+				"Dynamic Neighbor %pFX rejected - at limit %d",
+				&prefix, gbgp->dynamic_neighbors_limit);
 		return NULL;
 	}
 
@@ -4045,8 +4042,8 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 	if (CHECK_FLAG(group->conf->flags, PEER_FLAG_SHUTDOWN)) {
 		if (bgp_debug_neighbor_events(NULL))
 			zlog_debug(
-				"Dynamic Neighbor %s rejected - group %s disabled",
-				buf, group->name);
+				"Dynamic Neighbor %pFX rejected - group %s disabled",
+				&prefix, group->name);
 		return NULL;
 	}
 
@@ -4054,8 +4051,8 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 	if (!peer_group_af_configured(group)) {
 		if (bgp_debug_neighbor_events(NULL))
 			zlog_debug(
-				"Dynamic Neighbor %s rejected - no AF activated for group %s",
-				buf, group->name);
+				"Dynamic Neighbor %pFX rejected - no AF activated for group %s",
+				&prefix, group->name);
 		return NULL;
 	}
 

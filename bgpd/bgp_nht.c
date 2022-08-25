@@ -563,16 +563,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		if (bnc->is_evpn_gwip_nexthop) {
 			evpn_resolved = bgp_evpn_is_gateway_ip_resolved(bnc);
 
-			if (BGP_DEBUG(nht, NHT)) {
-				char buf2[PREFIX2STR_BUFFER];
-
-				prefix2str(&bnc->prefix, buf2, sizeof(buf2));
+			if (BGP_DEBUG(nht, NHT))
 				zlog_debug(
-					"EVPN gateway IP %s recursive MAC/IP lookup %s",
-					buf2,
+					"EVPN gateway IP %pFX recursive MAC/IP lookup %s",
+					&bnc->prefix,
 					(evpn_resolved ? "successful"
 						       : "failed"));
-			}
 
 			if (evpn_resolved) {
 				bnc->flags |= BGP_NEXTHOP_VALID;
