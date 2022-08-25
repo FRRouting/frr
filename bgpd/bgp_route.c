@@ -9986,7 +9986,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			vty_out(vty, " Gateway IP %s", gwip_buf);
 	}
 
-	if (safi == SAFI_EVPN)
+	if (safi == SAFI_EVPN && !json_path)
 		vty_out(vty, "\n");
 
 	/* Line1 display AS-path, Aggregator */
@@ -11467,7 +11467,6 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		label = label_pton(&dest->local_label);
 
 	if (safi == SAFI_EVPN) {
-
 		if (!json) {
 			vty_out(vty, "BGP routing table entry for %s%s%pFX\n",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
