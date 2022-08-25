@@ -440,10 +440,10 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 
 	if (stream_get_endp(op->s) != op->length)
 		/* XXX size_t */
-		flog_warn(
-			EC_OSPF_MD5,
-			"ospf_make_md5_digest: length mismatch stream %lu ospf_packet %u",
-			(unsigned long)stream_get_endp(op->s), op->length);
+		flog_warn(EC_OSPF_MD5,
+			  "%s: length mismatch stream %lu ospf_packet %u",
+			  __func__, (unsigned long)stream_get_endp(op->s),
+			  op->length);
 
 	return OSPF_AUTH_MD5_SIZE;
 }
@@ -596,15 +596,14 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 		if (ret < 0)
 			flog_err(
 				EC_LIB_SOCKET,
-				"*** ospf_write_frags: sendmsg failed to %pI4, id %d, off %d, len %d, mtu %u failed with %s",
-				&iph->ip_dst, iph->ip_id, iph->ip_off,
+				"*** %s: sendmsg failed to %pI4, id %d, off %d, len %d, mtu %u failed with %s",
+				__func__, &iph->ip_dst, iph->ip_id, iph->ip_off,
 				iph->ip_len, mtu, safe_strerror(errno));
 
 		if (IS_DEBUG_OSPF_PACKET(type - 1, SEND)) {
-			zlog_debug(
-				"ospf_write_frags: sent id %d, off %d, len %d to %pI4",
-				iph->ip_id, iph->ip_off, iph->ip_len,
-				&iph->ip_dst);
+			zlog_debug("%s: sent id %d, off %d, len %d to %pI4",
+				   __func__, iph->ip_id, iph->ip_off,
+				   iph->ip_len, &iph->ip_dst);
 		}
 
 		iph->ip_off += offset;
@@ -647,9 +646,8 @@ static void ospf_write(struct thread *thread)
 
 	if (ospf->fd < 0 || ospf->oi_running == 0) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_write failed to send, fd %d, instance %u",
-				ospf->fd, ospf->oi_running);
+			zlog_debug("%s failed to send, fd %d, instance %u",
+				   __func__, ospf->fd, ospf->oi_running);
 		return;
 	}
 
@@ -782,8 +780,8 @@ static void ospf_write(struct thread *thread)
 		sockopt_iphdrincl_swab_systoh(&iph);
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_write to %pI4, id %d, off %d, len %d, interface %s, mtu %u:",
-				&iph.ip_dst, iph.ip_id, iph.ip_off,
+				"%s to %pI4, id %d, off %d, len %d, interface %s, mtu %u:",
+				__func__, &iph.ip_dst, iph.ip_id, iph.ip_off,
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
 
 		/* sendmsg will return EPERM if firewall is blocking sending.
@@ -795,8 +793,8 @@ static void ospf_write(struct thread *thread)
 		if (ret < 0 && errno != EPERM)
 			flog_err(
 				EC_LIB_SOCKET,
-				"*** sendmsg in ospf_write failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
-				&iph.ip_dst, iph.ip_id, iph.ip_off,
+				"*** sendmsg in %s failed to %pI4, id %d, off %d, len %d, interface %s, mtu %u: %s",
+				__func__, &iph.ip_dst, iph.ip_id, iph.ip_off,
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu,
 				safe_strerror(errno));
 
@@ -2318,8 +2316,8 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	if ((unsigned int)ret < sizeof(struct ip)) {
 		flog_warn(
 			EC_OSPF_PACKET,
-			"ospf_recv_packet: discarding runt packet of length %d (ip header size is %u)",
-			ret, (unsigned int)sizeof(iph));
+			"%s: discarding runt packet of length %d (ip header size is %u)",
+			__func__, ret, (unsigned int)sizeof(iph));
 		return NULL;
 	}
 
@@ -2364,8 +2362,8 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	if (ret != ip_len) {
 		flog_warn(
 			EC_OSPF_PACKET,
-			"ospf_recv_packet read length mismatch: ip_len is %d, but recvmsg returned %d",
-			ip_len, ret);
+			"%s read length mismatch: ip_len is %d, but recvmsg returned %d",
+			__func__, ip_len, ret);
 		return NULL;
 	}
 
@@ -2587,8 +2585,8 @@ static int ospf_check_sum(struct ospf_header *ospfh)
 	ret = in_cksum(ospfh, ntohs(ospfh->length));
 
 	if (ret != sum) {
-		zlog_info("ospf_check_sum(): checksum mismatch, my %X, his %X",
-			  ret, sum);
+		zlog_info("%s: checksum mismatch, my %X, his %X", __func__, ret,
+			  sum);
 		return 0;
 	}
 
@@ -3328,7 +3326,7 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 		stream_putw(s, 0); /* hello-interval of 0 for fast-hellos */
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("make_hello: options: %x, int: %s", OPTIONS(oi),
+		zlog_debug("%s: options: %x, int: %s", __func__, OPTIONS(oi),
 			   IF_NAME(oi));
 
 	/* Set Options. */
@@ -3567,7 +3565,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 	int count = 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_make_ls_upd: Start");
+		zlog_debug("%s: Start", __func__);
 
 	pp = stream_get_endp(s);
 	stream_forward_endp(s, OSPF_LS_UPD_MIN_SIZE);
@@ -3617,7 +3615,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 	stream_putl_at(s, pp, count);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_make_ls_upd: Stop");
+		zlog_debug("%s: Stop", __func__);
 	return length;
 }
 
@@ -3965,14 +3963,15 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 		if (!warned) {
 			flog_warn(
 				EC_OSPF_LARGE_LSA,
-				"ospf_ls_upd_packet_new: oversized LSA encountered!will need to fragment. Not optimal. Try divide up your network with areas. Use 'debug ospf packet send' to see details, or look at 'show ip ospf database ..'");
+				"%s: oversized LSA encountered!will need to fragment. Not optimal. Try divide up your network with areas. Use 'debug ospf packet send' to see details, or look at 'show ip ospf database ..'",
+				__func__);
 			warned = 1;
 		}
 
 		if (IS_DEBUG_OSPF_PACKET(0, SEND))
 			zlog_debug(
-				"ospf_ls_upd_packet_new: oversized LSA id:%pI4, %d bytes originated by %pI4, will be fragmented!",
-				&lsa->data->id,
+				"%s: oversized LSA id:%pI4, %d bytes originated by %pI4, will be fragmented!",
+				__func__, &lsa->data->id,
 				ntohs(lsa->data->length),
 				&lsa->data->adv_router);
 
@@ -3988,10 +3987,11 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 		size = oi->ifp->mtu;
 
 	if (size > OSPF_MAX_PACKET_SIZE) {
-		flog_warn(EC_OSPF_LARGE_LSA,
-			  "ospf_ls_upd_packet_new: oversized LSA id:%pI4 too big, %d bytes, packet size %ld, dropping it completely. OSPF routing is broken!",
-			  &lsa->data->id, ntohs(lsa->data->length),
-			  (long int)size);
+		flog_warn(
+			EC_OSPF_LARGE_LSA,
+			"%s: oversized LSA id:%pI4 too big, %d bytes, packet size %ld, dropping it completely. OSPF routing is broken!",
+			__func__, &lsa->data->id, ntohs(lsa->data->length),
+			(long int)size);
 		list_delete_node(update, ln);
 		return NULL;
 	}
@@ -4097,7 +4097,7 @@ static void ospf_ls_upd_send_queue_event(struct thread *thread)
 	oi->t_ls_upd_event = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_ls_upd_send_queue start");
+		zlog_debug("%s start", __func__);
 
 	for (rn = route_top(oi->ls_upd_queue); rn; rn = rnext) {
 		rnext = route_next(rn);
@@ -4120,15 +4120,15 @@ static void ospf_ls_upd_send_queue_event(struct thread *thread)
 	if (again != 0) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_ls_upd_send_queue: update lists not cleared, %d nodes to try again, raising new event",
-				again);
+				"%s: update lists not cleared, %d nodes to try again, raising new event",
+				__func__, again);
 		oi->t_ls_upd_event = NULL;
 		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
 				 &oi->t_ls_upd_event);
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_ls_upd_send_queue stop");
+		zlog_debug("%s stop", __func__);
 }
 
 void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
