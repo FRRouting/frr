@@ -134,8 +134,7 @@ int frr_sigevent_process(void)
 
 #ifdef SIGEVENT_BLOCK_SIGNALS
 	if (sigprocmask(SIG_UNBLOCK, &oldmask, NULL) < 0)
-		;
-	return -1;
+		return -1;
 #endif /* SIGEVENT_BLOCK_SIGNALS */
 
 	return 0;
