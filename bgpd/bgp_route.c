@@ -9456,9 +9456,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 		json_object_boolean_true_add(json_status, ">");
 		json_object_object_add(json_net, "appliedStatusSymbols",
 				       json_status);
-
-		prefix2str(p, buff, PREFIX_STRLEN);
-		json_object_object_add(json_ar, buff, json_net);
+		json_object_object_addf(json_ar, json_net, "%pFX", p);
 	} else
 		vty_out(vty, "\n");
 }
