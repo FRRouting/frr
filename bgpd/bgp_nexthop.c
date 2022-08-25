@@ -64,11 +64,6 @@ int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
 
-const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
-{
-	return prefix2str(&bnc->prefix, buf, size);
-}
-
 void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 {
 	nexthops_free(bnc->nexthop);

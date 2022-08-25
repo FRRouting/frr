@@ -82,13 +82,10 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 {
 	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-			zlog_debug("%s: freeing bnc %s(%d)(%u)(%s)", __func__,
-				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				   bnc->ifindex, bnc->srte_color,
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: freeing bnc %pFX(%d)(%u)(%s)", __func__,
+				   &bnc->prefix, bnc->ifindex, bnc->srte_color,
 				   bnc->bgp->name_pretty);
-		}
 		/* only unregister if this is the last nh for this prefix*/
 		if (!bnc_existing_for_prefix(bnc))
 			unregister_zebra_rnh(bnc);
@@ -261,24 +258,17 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (!bnc) {
 		bnc = bnc_new(tree, &p, srte_color, ifindex);
 		bnc->bgp = bgp_nexthop;
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-
-			zlog_debug("Allocated bnc %s(%d)(%u)(%s) peer %p",
-				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				   bnc->ifindex, bnc->srte_color,
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("Allocated bnc %pFX(%d)(%u)(%s) peer %p",
+				   &bnc->prefix, bnc->ifindex, bnc->srte_color,
 				   bnc->bgp->name_pretty, peer);
-		}
 	} else {
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-
+		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
-				"Found existing bnc %s(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
-				bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				bnc->ifindex, bnc->bgp->name_pretty, bnc->flags,
-				bnc->ifindex, bnc->path_count, bnc->nht_info);
-		}
+				"Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
+				&bnc->prefix, bnc->ifindex,
+				bnc->bgp->name_pretty, bnc->flags, bnc->ifindex,
+				bnc->path_count, bnc->nht_info);
 	}
 
 	if (pi && is_route_parent_evpn(pi))
@@ -1019,14 +1009,12 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	const struct prefix *p;
 
 	if (BGP_DEBUG(nht, NHT)) {
-		char buf[PREFIX2STR_BUFFER];
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
 		char chg_buf[BNC_FLAG_DUMP_SIZE];
 
-		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s(%d)(%u)(%s) - flags %s chgflags %s- evaluate paths",
-			buf, bnc->ifindex, bnc->srte_color,
+			"NH update for %pFX(%d)(%u)(%s) - flags %s chgflags %s- evaluate paths",
+			&bnc->prefix, bnc->ifindex, bnc->srte_color,
 			bnc->bgp->name_pretty,
 			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
 						   sizeof(bnc_buf)),
