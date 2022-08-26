@@ -392,6 +392,7 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	new->lsa_refresh_queue.index = 0;
 	new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
+	new->lsa_refresh_timer = OSPF_LS_REFRESH_TIME;
 	new->t_lsa_refresher = NULL;
 	thread_add_timer(master, ospf_lsa_refresh_walker, new,
 			 new->lsa_refresh_interval, &new->t_lsa_refresher);

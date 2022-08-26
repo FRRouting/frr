@@ -313,6 +313,7 @@ struct ospf {
 	time_t lsa_refresher_started;
 #define OSPF_LSA_REFRESH_INTERVAL_DEFAULT 10
 	uint16_t lsa_refresh_interval;
+	uint16_t lsa_refresh_timer;
 
 	/* Distance parameter. */
 	uint8_t distance_all;
