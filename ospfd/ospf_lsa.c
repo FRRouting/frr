@@ -3020,7 +3020,7 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
-static void ospf_maxage_lsa_remover(struct thread *thread)
+void ospf_maxage_lsa_remover(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct ospf_lsa *lsa, *old;
@@ -3898,8 +3898,9 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	if (lsa->refresh_list < 0) {
 		int delay;
 		int min_delay =
-			OSPF_LS_REFRESH_TIME - (2 * OSPF_LS_REFRESH_JITTER);
-		int max_delay = OSPF_LS_REFRESH_TIME - OSPF_LS_REFRESH_JITTER;
+			ospf->lsa_refresh_timer - (2 * OSPF_LS_REFRESH_JITTER);
+		int max_delay =
+			ospf->lsa_refresh_timer - OSPF_LS_REFRESH_JITTER;
 
 		/* We want to refresh the LSA within OSPF_LS_REFRESH_TIME which
 		 * is

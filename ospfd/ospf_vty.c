@@ -12952,6 +12952,42 @@ DEFUN (clear_ip_ospf_interface,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(ospf_lsa_refresh_timer, ospf_lsa_refresh_timer_cmd,
+	     "[no$no] ospf lsa-refresh [(120-1800)]$value",
+	     NO_STR OSPF_STR
+	     "OSPF lsa refresh timer\n"
+	     "timer value in seconds\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf)
+
+	if (no)
+		ospf->lsa_refresh_timer = OSPF_LS_REFRESH_TIME;
+	else
+		ospf->lsa_refresh_timer = value;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(ospf_maxage_delay_timer, ospf_maxage_delay_timer_cmd,
+	     "[no$no] ospf maxage-delay [(0-60)]$value",
+	     NO_STR OSPF_STR
+	     "OSPF lsa maxage delay timer\n"
+	     "timer value in seconds\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf)
+
+	if (no)
+		ospf->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
+	else
+		ospf->maxage_delay = value;
+
+	THREAD_OFF(ospf->t_maxage);
+	OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
+		      ospf->maxage_delay);
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13108,6 +13144,9 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_ospf_max_multipath_cmd);
 
 	vrf_cmd_init(NULL);
+
+	install_element(OSPF_NODE, &ospf_lsa_refresh_timer_cmd);
+	install_element(OSPF_NODE, &ospf_maxage_delay_timer_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();
