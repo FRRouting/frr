@@ -41,6 +41,7 @@ struct labelpool {
 	struct work_queue	*callback_q;
 	uint32_t		pending_count;	/* requested from zebra */
 	uint32_t reconnect_count;		/* zebra reconnections */
+	uint32_t next_chunksize;		/* request this many labels */
 };
 
 extern void bgp_lp_init(struct thread_master *master, struct labelpool *pool);
