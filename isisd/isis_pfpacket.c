@@ -103,15 +103,15 @@ static int isis_multicast_join(int fd, int registerto, int if_num)
 #ifdef EXTREME_DEBUG
 	if (IS_DEBUG_EVENTS)
 		zlog_debug(
-			"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
-			fd, registerto, if_num, mreq.mr_address[0],
+			"%s: fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
+			__func__, fd, registerto, if_num, mreq.mr_address[0],
 			mreq.mr_address[1], mreq.mr_address[2],
 			mreq.mr_address[3], mreq.mr_address[4],
 			mreq.mr_address[5]);
 #endif /* EXTREME_DEBUG */
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
 		       sizeof(struct packet_mreq))) {
-		zlog_warn("isis_multicast_join(): setsockopt(): %s",
+		zlog_warn("%s: setsockopt(): %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
@@ -131,13 +131,13 @@ static int open_packet_socket(struct isis_circuit *circuit)
 			vrf->name);
 
 	if (fd < 0) {
-		zlog_warn("open_packet_socket(): socket() failed %s",
+		zlog_warn("%s: socket() failed %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))) {
-		zlog_warn("open_packet_socket(): SO_ATTACH_FILTER failed: %s",
+		zlog_warn("%s: SO_ATTACH_FILTER failed: %s", __func__,
 			  safe_strerror(errno));
 	}
 
@@ -151,7 +151,7 @@ static int open_packet_socket(struct isis_circuit *circuit)
 
 	if (bind(fd, (struct sockaddr *)(&s_addr), sizeof(struct sockaddr_ll))
 	    < 0) {
-		zlog_warn("open_packet_socket(): bind() failed: %s",
+		zlog_warn("%s: bind() failed: %s", __func__,
 			  safe_strerror(errno));
 		close(fd);
 		return ISIS_WARNING;
@@ -208,7 +208,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 			circuit->tx = isis_send_pdu_p2p;
 			circuit->rx = isis_recv_pdu_p2p;
 		} else {
-			zlog_warn("isis_sock_init(): unknown circuit type");
+			zlog_warn("%s: unknown circuit type", __func__);
 			retval = ISIS_WARNING;
 			break;
 		}
@@ -243,8 +243,8 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	    || (s_addr.sll_ifindex != (int)circuit->interface->ifindex)) {
 		if (bytesread < 0) {
 			zlog_warn(
-				"isis_recv_packet_bcast(): ifname %s, fd %d, bytesread %d, recvfrom(): %s",
-				circuit->interface->name, circuit->fd,
+				"%s: ifname %s, fd %d, bytesread %d, recvfrom(): %s",
+				__func__, circuit->interface->name, circuit->fd,
 				bytesread, safe_strerror(errno));
 		}
 		if (s_addr.sll_ifindex != (int)circuit->interface->ifindex) {
@@ -261,7 +261,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 				     (socklen_t *)&addr_len);
 
 		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
+			zlog_warn("%s: recvfrom() failed", __func__);
 
 		return ISIS_WARNING;
 	}
@@ -276,7 +276,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 				     (struct sockaddr *)&s_addr,
 				     (socklen_t *)&addr_len);
 		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
+			zlog_warn("%s: recvfrom() failed", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -321,7 +321,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 				     (struct sockaddr *)&s_addr,
 				     (socklen_t *)&addr_len);
 		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_p2p(): recvfrom() failed");
+			zlog_warn("%s: recvfrom() failed", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -329,7 +329,7 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 	 * ISO over GRE we exit with pain :)
 	 */
 	if (ntohs(s_addr.sll_protocol) != 0x00FE) {
-		zlog_warn("isis_recv_pdu_p2p(): protocol mismatch(): %X",
+		zlog_warn("%s: protocol mismatch(): %X", __func__,
 			  ntohs(s_addr.sll_protocol));
 		return ISIS_WARNING;
 	}
