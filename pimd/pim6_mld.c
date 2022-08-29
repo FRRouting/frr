@@ -418,7 +418,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			THREAD_OFF(sg->t_sg_query);
-			sg->n_query = gm_ifp->cur_qrv;
+			sg->n_query = gm_ifp->cur_lmqc;
 			sg->query_sbit = false;
 			gm_trigger_specific(sg);
 		}
@@ -2091,11 +2091,12 @@ static void gm_start(struct interface *ifp)
 	else
 		gm_ifp->cur_version = GM_MLDV2;
 
-	/* hardcoded for dev without CLI */
-	gm_ifp->cur_qrv = 2;
+	gm_ifp->cur_qrv = pim_ifp->gm_default_robustness_variable;
 	gm_ifp->cur_query_intv = pim_ifp->gm_default_query_interval * 1000;
-	gm_ifp->cur_query_intv_trig = gm_ifp->cur_query_intv;
-	gm_ifp->cur_max_resp = 250;
+	gm_ifp->cur_query_intv_trig =
+		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
+	gm_ifp->cur_max_resp = pim_ifp->gm_query_max_response_time_dsec * 100;
+	gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
 
 	gm_ifp->cfg_timing_fuzz.tv_sec = 0;
 	gm_ifp->cfg_timing_fuzz.tv_usec = 10 * 1000;
@@ -2268,9 +2269,25 @@ void gm_ifp_update(struct interface *ifp)
 
 	if (gm_ifp->cur_query_intv != cfg_query_intv) {
 		gm_ifp->cur_query_intv = cfg_query_intv;
-		gm_ifp->cur_query_intv_trig = cfg_query_intv;
 		changed = true;
 	}
+
+	unsigned int cfg_query_intv_trig =
+		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
+
+	if (gm_ifp->cur_query_intv_trig != cfg_query_intv_trig) {
+		gm_ifp->cur_query_intv_trig = cfg_query_intv_trig;
+		changed = true;
+	}
+
+	unsigned int cfg_max_response =
+		pim_ifp->gm_query_max_response_time_dsec * 100;
+
+	if (gm_ifp->cur_max_resp != cfg_max_response)
+		gm_ifp->cur_max_resp = cfg_max_response;
+
+	if (gm_ifp->cur_lmqc != pim_ifp->gm_last_member_query_count)
+		gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
 
 	enum gm_version cfg_version;
 

@@ -378,9 +378,29 @@ static int gm_config_write(struct vty *vty, int writes,
 
 	if (pim_ifp->mld_version != MLD_DEFAULT_VERSION)
 		vty_out(vty, " ipv6 mld version %d\n", pim_ifp->mld_version);
+
+	/* IF ipv6 mld query-max-response-time */
+	if (pim_ifp->gm_query_max_response_time_dsec !=
+	    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld query-max-response-time %d\n",
+			pim_ifp->gm_query_max_response_time_dsec);
+
 	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
 		vty_out(vty, " ipv6 mld query-interval %d\n",
 			pim_ifp->gm_default_query_interval);
+
+	/* IF ipv6 mld last-member_query-count */
+	if (pim_ifp->gm_last_member_query_count !=
+	    IGMP_DEFAULT_ROBUSTNESS_VARIABLE)
+		vty_out(vty, " ipv6 mld last-member-query-count %d\n",
+			pim_ifp->gm_last_member_query_count);
+
+	/* IF ipv6 mld last-member_query-interval */
+	if (pim_ifp->gm_specific_query_max_response_time_dsec !=
+	    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
+			pim_ifp->gm_specific_query_max_response_time_dsec);
+
 	return 0;
 }
 #endif
