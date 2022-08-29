@@ -3209,7 +3209,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
-	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid, *tovpn_sid_locator;
 	struct prefix_ipv6 tmp_prefi;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
@@ -3218,8 +3218,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
 		if (prefix_match((struct prefix *)&loc.prefix,
-				 (struct prefix *)&chunk->prefix))
+				 (struct prefix *)&chunk->prefix)) {
 			listnode_delete(bgp->srv6_locator_chunks, chunk);
+			srv6_locator_chunk_free(chunk);
+		}
 
 	// refresh functions
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
@@ -3227,8 +3229,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tmp_prefi.prefixlen = 128;
 		tmp_prefi.prefix = func->sid;
 		if (prefix_match((struct prefix *)&loc.prefix,
-				 (struct prefix *)&tmp_prefi))
+				 (struct prefix *)&tmp_prefi)) {
 			listnode_delete(bgp->srv6_functions, func);
+			XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+		}
 	}
 
 	// refresh tovpn_sid
@@ -3262,6 +3266,37 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	}
 
 	vpn_leak_postchange_all();
+
+	/* refresh tovpn_sid_locator */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		/* refresh vpnv4 tovpn_sid_locator */
+		tovpn_sid_locator =
+			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
+		if (tovpn_sid_locator) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefi.prefix = *tovpn_sid_locator;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid_locator);
+		}
+
+		/* refresh vpnv6 tovpn_sid_locator */
+		tovpn_sid_locator =
+			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
+		if (tovpn_sid_locator) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefi.prefix = *tovpn_sid_locator;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid_locator);
+		}
+	}
+
 	return 0;
 }
 
