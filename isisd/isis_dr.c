@@ -80,7 +80,8 @@ void isis_run_dr(struct thread *thread)
 	}
 
 	if (circuit->u.bc.run_dr_elect[level - 1])
-		zlog_warn("isis_run_dr(): run_dr_elect already set for l%d", level);
+		zlog_warn("%s: run_dr_elect already set for l%d", __func__,
+			  level);
 
 	circuit->u.bc.t_run_dr[level - 1] = NULL;
 	circuit->u.bc.run_dr_elect[level - 1] = 1;
@@ -126,7 +127,7 @@ int isis_dr_elect(struct isis_circuit *circuit, int level)
 	adjdb = circuit->u.bc.adjdb[level - 1];
 
 	if (!adjdb) {
-		zlog_warn("isis_dr_elect() adjdb == NULL");
+		zlog_warn("%s adjdb == NULL", __func__);
 		list_delete(&list);
 		return ISIS_WARNING;
 	}
@@ -155,7 +156,8 @@ int isis_dr_elect(struct isis_circuit *circuit, int level)
 				}
 				if (cmp_res == 0)
 					zlog_warn(
-						"isis_dr_elect(): multiple adjacencies with same SNPA");
+						"%s: multiple adjacencies with same SNPA",
+						__func__);
 			} else {
 				adj_dr = adj;
 			}
@@ -218,7 +220,7 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("isis_dr_resign l%d", level);
+		zlog_debug("%s l%d", __func__, level);
 
 	circuit->u.bc.is_dr[level - 1] = 0;
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
@@ -266,7 +268,7 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 	uint8_t old_dr[ISIS_SYS_ID_LEN + 2];
 
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("isis_dr_commence l%d", level);
+		zlog_debug("%s l%d", __func__, level);
 
 	/* Lets keep a pause in DR election */
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
