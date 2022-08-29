@@ -616,8 +616,8 @@ static void ldpe_dispatch_main(struct thread *thread)
 			}
 			break;
 		default:
-			log_debug("ldpe_dispatch_main: error handling imsg %d",
-			    imsg.hdr.type);
+			log_debug("%s: error handling imsg %d",
+			    __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -724,7 +724,7 @@ static void ldpe_dispatch_lde(struct thread *thread)
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
-				log_debug("ldpe_dispatch_lde: cannot find neighbor");
+				log_debug("%s: cannot find neighbor", __func__);
 				break;
 			}
 			if (nbr->state != NBR_STA_OPER)
@@ -744,7 +744,7 @@ static void ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_NBR_SHUTDOWN:
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
-				log_debug("ldpe_dispatch_lde: cannot find neighbor");
+				log_debug("%s: cannot find neighbor", __func__);
 				break;
 			}
 			if (nbr->state != NBR_STA_OPER)
@@ -752,8 +752,8 @@ static void ldpe_dispatch_lde(struct thread *thread)
 			session_shutdown(nbr,S_SHUTDOWN,0,0);
 			break;
 		default:
-			log_debug("ldpe_dispatch_lde: error handling imsg %d",
-			    imsg.hdr.type);
+			log_debug("%s: error handling imsg %d",
+			    __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
