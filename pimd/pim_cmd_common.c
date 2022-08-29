@@ -2035,6 +2035,17 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 						  &json_tmp);
 			vty_out(vty, "%9d\n", json_object_get_int(json_tmp));
 		}
+<<<<<<< HEAD
+=======
+		json_object_free(json);
+
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+
+		ttable_del(tt);
+>>>>>>> 4cc5d8096 (pimd, pim6d: deleting the memory malloced for json.)
 	}
 }
 
