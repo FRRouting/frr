@@ -56,18 +56,6 @@
 #define IGMP_V3_GROUP_RECORD_SOURCE_OFFSET     (8)
 #define IGMP_CHECKSUM_OFFSET                   (2)
 
-/* RFC 3376: 8.1. Robustness Variable - Default: 2 */
-#define IGMP_DEFAULT_ROBUSTNESS_VARIABLE           (2)
-
-/* RFC 3376: 8.2. Query Interval - Default: 125 seconds */
-#define IGMP_GENERAL_QUERY_INTERVAL                (125)
-
-/* RFC 3376: 8.3. Query Response Interval - Default: 100 deciseconds */
-#define IGMP_QUERY_MAX_RESPONSE_TIME_DSEC          (100)
-
-/* RFC 3376: 8.8. Last Member Query Interval - Default: 10 deciseconds */
-#define IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC (10)
-
 #define IGMP_DEFAULT_VERSION (3)
 
 #define IGMP_GET_INT16(ptr, output)                                            \

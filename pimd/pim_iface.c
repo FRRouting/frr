@@ -131,13 +131,13 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 	pim_ifp->mld_version = MLD_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
-	pim_ifp->gm_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
+		GM_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->gm_default_query_interval = GM_GENERAL_QUERY_INTERVAL;
 	pim_ifp->gm_query_max_response_time_dsec =
-		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
+		GM_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->gm_specific_query_max_response_time_dsec =
-		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->gm_last_member_query_count = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+		GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	pim_ifp->gm_last_member_query_count = GM_DEFAULT_ROBUSTNESS_VARIABLE;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
