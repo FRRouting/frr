@@ -860,13 +860,13 @@ void isis_adj_build_neigh_list(struct list *adjdb, struct list *list)
 	struct listnode *node;
 
 	if (!list) {
-		zlog_warn("isis_adj_build_neigh_list(): NULL list");
+		zlog_warn("%s: NULL list", __func__);
 		return;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
 		if (!adj) {
-			zlog_warn("isis_adj_build_neigh_list(): NULL adj");
+			zlog_warn("%s: NULL adj", __func__);
 			return;
 		}
 
@@ -883,18 +883,18 @@ void isis_adj_build_up_list(struct list *adjdb, struct list *list)
 	struct listnode *node;
 
 	if (adjdb == NULL) {
-		zlog_warn("isis_adj_build_up_list(): adjacency DB is empty");
+		zlog_warn("%s: adjacency DB is empty", __func__);
 		return;
 	}
 
 	if (!list) {
-		zlog_warn("isis_adj_build_up_list(): NULL list");
+		zlog_warn("%s: NULL list", __func__);
 		return;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
 		if (!adj) {
-			zlog_warn("isis_adj_build_up_list(): NULL adj");
+			zlog_warn("%s: NULL adj", __func__);
 			return;
 		}
 

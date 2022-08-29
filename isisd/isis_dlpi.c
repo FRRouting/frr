@@ -336,9 +336,8 @@ static int open_dlpi_dev(struct isis_circuit *circuit)
 
 		/* Double check the DLPI style */
 		if (dia->dl_provider_style != DL_STYLE2) {
-			zlog_warn(
-				"open_dlpi_dev(): interface %s: %s is not style 2",
-				circuit->interface->name, devpath);
+			zlog_warn("%s: interface %s: %s is not style 2",
+				  __func__, circuit->interface->name, devpath);
 			close(fd);
 			return ISIS_WARNING;
 		}
@@ -355,9 +354,8 @@ static int open_dlpi_dev(struct isis_circuit *circuit)
 	} else {
 		/* Double check the DLPI style */
 		if (dia->dl_provider_style != DL_STYLE1) {
-			zlog_warn(
-				"open_dlpi_dev(): interface %s: %s is not style 1",
-				circuit->interface->name, devpath);
+			zlog_warn("%s: interface %s: %s is not style 1",
+				  __func__, circuit->interface->name, devpath);
 			close(fd);
 			return ISIS_WARNING;
 		}
@@ -404,9 +402,8 @@ static int open_dlpi_dev(struct isis_circuit *circuit)
 	 * so we need to be careful and use DL_PHYS_ADDR_REQ instead.
 	 */
 	if (dlpiaddr(fd, circuit->u.bc.snpa) == -1) {
-		zlog_warn(
-			"open_dlpi_dev(): interface %s: unable to get MAC address",
-			circuit->interface->name);
+		zlog_warn("%s: interface %s: unable to get MAC address",
+			  __func__, circuit->interface->name);
 		close(fd);
 		return ISIS_WARNING;
 	}
@@ -479,7 +476,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 			circuit->tx = isis_send_pdu_bcast;
 			circuit->rx = isis_recv_pdu_bcast;
 		} else {
-			zlog_warn("isis_sock_init(): unknown circuit type");
+			zlog_warn("%s: unknown circuit type", __func__);
 			retval = ISIS_WARNING;
 			break;
 		}
@@ -511,7 +508,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	retv = getmsg(circuit->fd, &ctlbuf, &databuf, &flags);
 
 	if (retv < 0) {
-		zlog_warn("isis_recv_pdu_bcast: getmsg failed: %s",
+		zlog_warn("%s: getmsg failed: %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
@@ -561,8 +558,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN;
 	if ((size_t)buflen > sizeof(sock_buff)) {
 		zlog_warn(
-			"isis_send_pdu_bcast: sock_buff size %zu is less than output pdu size %d on circuit %s",
-			sizeof(sock_buff), buflen, circuit->interface->name);
+			"%s: sock_buff size %zu is less than output pdu size %d on circuit %s",
+			__func__, sizeof(sock_buff), buflen,
+			circuit->interface->name);
 		return ISIS_WARNING;
 	}
 
