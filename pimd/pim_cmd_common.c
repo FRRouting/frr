@@ -2316,6 +2316,7 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 				       address, neighbors, pimdr, firsthpr,
 				       pimifchnl);
 		}
+		json_object_free(json);
 
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
