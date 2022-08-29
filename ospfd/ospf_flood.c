@@ -804,8 +804,7 @@ int ospf_flood_through(struct ospf *ospf, struct ospf_neighbor *inbr,
 		/* Any P-bit was installed with the Type-7. */
 
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_flood_through: LOCAL NSSA FLOOD of Type-7.");
+			zlog_debug("%s: LOCAL NSSA FLOOD of Type-7.", __func__);
 	/* Fallthrough */
 	default:
 		lsa_ack_flag = ospf_flood_through_area(lsa->area, inbr, lsa);
