@@ -2035,6 +2035,7 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 						  &json_tmp);
 			vty_out(vty, "%9d\n", json_object_get_int(json_tmp));
 		}
+		json_object_free(json);
 	}
 }
 
