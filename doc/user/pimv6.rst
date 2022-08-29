@@ -195,7 +195,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the MLD last member query count. The default value is 2. 'no' form of
    this command is used to configure back to the default value.
 
-.. clicmd:: ipv6 MLD last-member-query-interval (1-65535)
+.. clicmd:: ipv6 mld last-member-query-interval (1-65535)
 
    Set the MLD last member query interval in deciseconds. The default value is
    10 deciseconds. 'no' form of this command is used to to configure back to the
