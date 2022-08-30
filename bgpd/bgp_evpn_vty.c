@@ -1012,12 +1012,11 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 
 		/* If there are multiple export RTs we break here and show only
 		 * one */
-		if (!json)
+		if (!json) {
+			vty_out(vty, "%-37s", vrf_id_to_name(bgp->vrf_id));
 			break;
+		}
 	}
-
-	if (!json)
-		vty_out(vty, "%-37s", vrf_id_to_name(bgp->vrf_id));
 
 	if (json) {
 		char vni_str[VNI_STR_LEN];
@@ -1151,12 +1150,12 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 
 		/* If there are multiple export RTs we break here and show only
 		 * one */
-		if (!json)
+		if (!json) {
+			vty_out(vty, "%-37s",
+				vrf_id_to_name(vpn->tenant_vrf_id));
 			break;
+		}
 	}
-
-	if (!json)
-		vty_out(vty, "%-37s", vrf_id_to_name(vpn->tenant_vrf_id));
 
 	if (json) {
 		char vni_str[VNI_STR_LEN];
