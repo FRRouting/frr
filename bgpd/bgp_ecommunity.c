@@ -394,6 +394,44 @@ enum ecommunity_token {
 	ecommunity_token_val6,
 };
 
+static const char *ecommunity_origin_validation_state2str(
+	enum ecommunity_origin_validation_states state)
+{
+	switch (state) {
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_VALID:
+		return "valid";
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTFOUND:
+		return "not-found";
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_INVALID:
+		return "invalid";
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTUSED:
+		return "not-used";
+	}
+
+	return "ERROR";
+}
+
+static void ecommunity_origin_validation_state_str(char *buf, size_t bufsz,
+						   uint8_t *ptr)
+{
+	/* Origin Validation State is encoded in the last octet
+	 *
+	 * 0                   1                   2                   3
+	 * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |       0x43    |      0x00     |             Reserved          |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |                    Reserved                   |validationstate|
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+	uint8_t state = *(ptr + ECOMMUNITY_SIZE - 3);
+
+	snprintf(buf, bufsz, "OVS:%s",
+		 ecommunity_origin_validation_state2str(state));
+
+	(void)ptr; /* consume value */
+}
+
 static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
 				      int trans, as_t as,
 				      struct in_addr *ip,
@@ -1172,6 +1210,13 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						  ecom->disable_ieee_floating);
 			else
 				unk_ecom = 1;
+		} else if (type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_ORIGIN_VALIDATION_STATE)
+				ecommunity_origin_validation_state_str(
+					encbuf, sizeof(encbuf), pnt);
+			else
+				unk_ecom = 1;
 		} else {
 			sub_type = *pnt++;
 			unk_ecom = 1;
@@ -1539,6 +1584,31 @@ void bgp_remove_ecomm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 			ecommunity_free(&ret_ecomm);
 		}
 	}
+}
+
+struct ecommunity *
+ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
+				       struct ecommunity *old)
+{
+	struct ecommunity *new = NULL;
+	struct ecommunity ovs_ecomm = {0};
+	struct ecommunity_val ovs_eval;
+
+	encode_origin_validation_state(rpki_state, &ovs_eval);
+
+	if (old) {
+		new = ecommunity_dup(old);
+		ecommunity_add_val(new, &ovs_eval, true, true);
+		if (!old->refcnt)
+			ecommunity_free(&old);
+	} else {
+		ovs_ecomm.size = 1;
+		ovs_ecomm.unit_size = ECOMMUNITY_SIZE;
+		ovs_ecomm.val = (uint8_t *)&ovs_eval.val;
+		new = ecommunity_dup(&ovs_ecomm);
+	}
+
+	return new;
 }
 
 /*

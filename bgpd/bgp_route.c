@@ -2486,6 +2486,21 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			}
 	}
 
+	/* If this is an iBGP, send Origin Validation State (OVS)
+	 * extended community (rfc8097).
+	 */
+	if (peer->sort == BGP_PEER_IBGP) {
+		enum rpki_states rpki_state = RPKI_NOT_BEING_USED;
+
+		rpki_state = hook_call(bgp_rpki_prefix_status, peer, attr, p);
+
+		if (rpki_state != RPKI_NOT_BEING_USED)
+			bgp_attr_set_ecommunity(
+				attr, ecommunity_add_origin_validation_state(
+					      rpki_state,
+					      bgp_attr_get_ecommunity(attr)));
+	}
+
 	/*
 	 * When the next hop is set to ourselves, if all multipaths have
 	 * link-bandwidth announce the cumulative bandwidth as that makes

@@ -369,6 +369,8 @@ BGP
   :t:`BLACKHOLE Community. T. King, C. Dietzel, J. Snijders, G. Doering, G. Hankins. Oct 2016.`
 - :rfc:`8092`
   :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
+- :rfc:`8097`
+  :t:`BGP Prefix Origin Validation State Extended Community. P. Mohapatra, K. Patel, J. Scudder, D. Ward, R. Bush. March 2017`
 - :rfc:`8195`
   :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
 - :rfc:`8203`
