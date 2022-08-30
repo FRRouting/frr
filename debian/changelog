@@ -1,3 +1,22 @@
+frr (8.3.1-0) unstable; urgency=medium
+
+  * bgpd: Do not announce routes that are conditionally withdrawn (a gap between conditional advertisement interval)
+  * bgpd: Fix crash for 'show bgp l2vpn evpn route rd'
+  * bgpd: Do not overwrite the Link-Local address with another interface for the next-hop cache
+  * bgpd: Call a hook when the as-path filter is replaced
+  * bgpd: Fix memory leak when cleaning up MPLS labels
+  * isisd: Fix memory leak when deleting adjacency
+  * ldpd: Fix crash when hold time is configured to 65535
+  * ospfd: Fix crash when the router is running in GR helper mode and receives a new LSA
+  * pimd: Fix memory leak for 'show ip pim interface'
+  * pimd: Allow the same group/source route to be configured on more than one interface
+  * vtysh: Handle CTRL+Z without exiting the VTY shell
+  * vtysh: Ignore 'end' when parsing frr.conf (This causes BGP sessions to start only after 10 minutes)
+  * zebra: Avoid buffer overflow when parsing nested route attributes for SR-IPv6
+  * zebra: Fix missing VNI transition, e.g.: 'show evpn vni detail'
+
+ -- Donatas Abraitis <donatas@opensourcerouting.org>  Tue, 30 Aug 2022 20:45:00 +0300
+
 frr (8.3-0) unstable; urgency=medium
 
   * New upstream release FRR 8.3
