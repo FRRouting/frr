@@ -3750,7 +3750,7 @@ void rfapiBgpInfoFilteredImportVPN(
 			remote_peer_match = 1;
 		}
 
-		if (!un_match & !remote_peer_match)
+		if (!un_match && !remote_peer_match)
 			continue;
 
 		vnc_zlog_debug_verbose(
