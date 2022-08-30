@@ -4548,6 +4548,11 @@ static void bgp_evpn_nh_del(struct bgp_evpn_nh *n)
 	XFREE(MTYPE_BGP_EVPN_NH, tmp_n);
 }
 
+static void hash_evpn_nh_free(struct bgp_evpn_nh *ben)
+{
+	XFREE(MTYPE_BGP_EVPN_NH, ben);
+}
+
 static unsigned int bgp_evpn_nh_hash_keymake(const void *p)
 {
 	const struct bgp_evpn_nh *n = p;
@@ -4612,6 +4617,7 @@ void bgp_evpn_nh_finish(struct bgp *bgp_vrf)
 		bgp_vrf->evpn_nh_table,
 		(void (*)(struct hash_bucket *, void *))bgp_evpn_nh_flush_cb,
 		NULL);
+	hash_clean(bgp_vrf->evpn_nh_table, (void (*)(void *))hash_evpn_nh_free);
 	hash_free(bgp_vrf->evpn_nh_table);
 	bgp_vrf->evpn_nh_table = NULL;
 }
