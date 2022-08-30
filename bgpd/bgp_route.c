@@ -2025,8 +2025,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    && (IPV4_ADDR_SAME(&onlypeer->remote_id, &piattr->originator_id))) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
-				"%s [Update:SEND] %pFX originator-id is same as remote router-id",
-				onlypeer->host, p);
+				"%pBP [Update:SEND] %pFX originator-id is same as remote router-id",
+				onlypeer, p);
 		return false;
 	}
 
@@ -2041,8 +2041,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				if (bgp_debug_update(NULL, p,
 						     subgrp->update_group, 0))
 					zlog_debug(
-						"%s [Update:SEND] %pFX is filtered via ORF",
-						peer->host, p);
+						"%pBP [Update:SEND] %pFX is filtered via ORF",
+						peer, p);
 				return false;
 			}
 		}
@@ -2050,8 +2050,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* Output filter check. */
 	if (bgp_output_filter(peer, p, piattr, afi, safi) == FILTER_DENY) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-			zlog_debug("%s [Update:SEND] %pFX is filtered",
-				   peer->host, p);
+			zlog_debug("%pBP [Update:SEND] %pFX is filtered", peer,
+				   p);
 		return false;
 	}
 
@@ -2060,8 +2060,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    && aspath_loop_check(piattr->aspath, onlypeer->as)) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
-				"%s [Update:SEND] suppress announcement to peer AS %u that is part of AS path.",
-				onlypeer->host, onlypeer->as);
+				"%pBP [Update:SEND] suppress announcement to peer AS %u that is part of AS path.",
+				onlypeer, onlypeer->as);
 		return false;
 	}
 
@@ -2070,8 +2070,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (aspath_loop_check(piattr->aspath, bgp->confed_id)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
-					peer->host, bgp->confed_id);
+					"%pBP [Update:SEND] suppress announcement to peer AS %u is AS path.",
+					peer, bgp->confed_id);
 			return false;
 		}
 	}
@@ -2278,9 +2278,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (ret == RMAP_DENYMATCH) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s [Update:SEND] %pFX is filtered by route-map '%s'",
-					peer->host, p,
-					ROUTE_MAP_OUT_NAME(filter));
+					"%pBP [Update:SEND] %pFX is filtered by route-map '%s'",
+					peer, p, ROUTE_MAP_OUT_NAME(filter));
 			bgp_attr_flush(rmap_path.attr);
 			return false;
 		}
@@ -2316,6 +2315,29 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (peer->bgp->reject_as_sets)
 		if (aspath_check_as_sets(attr->aspath))
 			return false;
+
+	/* If neighbor sso is configured, then check if the route has
+	 * SoO extended community and validate against the configured
+	 * one. If they match, do not announce, to prevent routing
+	 * loops.
+	 */
+	if ((attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) &&
+	    peer->soo[afi][safi]) {
+		struct ecommunity *ecomm_soo = peer->soo[afi][safi];
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+
+		if ((ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS4,
+				       ECOMMUNITY_SITE_ORIGIN)) &&
+		    ecommunity_include(ecomm, ecomm_soo)) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug(
+					"%pBP [Update:SEND] %pFX is filtered by SoO extcommunity '%s'",
+					peer, p, ecommunity_str(ecomm_soo));
+			return false;
+		}
+	}
 
 	/* Codification of AS 0 Processing */
 	if (aspath_check_as_zero(attr->aspath))
@@ -4056,6 +4078,30 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
 		bgp_attr_flush(&new_attr);
 		return -1;
+	}
+
+	/* If neighbor soo is configured, tag all incoming routes with
+	 * this SoO tag and then filter out advertisements in
+	 * subgroup_announce_check() if it matches the configured SoO
+	 * on the other peer.
+	 */
+	if (peer->soo[afi][safi]) {
+		struct ecommunity *old_ecomm =
+			bgp_attr_get_ecommunity(&new_attr);
+		struct ecommunity *ecomm_soo = peer->soo[afi][safi];
+		struct ecommunity *new_ecomm;
+
+		if (old_ecomm) {
+			new_ecomm = ecommunity_merge(ecommunity_dup(old_ecomm),
+						     ecomm_soo);
+
+			if (!old_ecomm->refcnt)
+				ecommunity_free(&old_ecomm);
+		} else {
+			new_ecomm = ecommunity_dup(ecomm_soo);
+		}
+
+		bgp_attr_set_ecommunity(&new_attr, new_ecomm);
 	}
 
 	attr_new = bgp_attr_intern(&new_attr);

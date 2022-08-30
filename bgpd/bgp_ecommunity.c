@@ -1188,6 +1188,23 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 	return str_buf;
 }
 
+bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2)
+{
+	uint32_t i, j;
+
+	if (!e1 || !e2)
+		return false;
+	for (i = 0; i < e1->size; ++i) {
+		for (j = 0; j < e2->size; ++j) {
+			if (!memcmp(e1->val + (i * e1->unit_size),
+				    e2->val + (j * e2->unit_size),
+				    e1->unit_size))
+				return true;
+		}
+	}
+	return false;
+}
+
 bool ecommunity_match(const struct ecommunity *ecom1,
 		      const struct ecommunity *ecom2)
 {
