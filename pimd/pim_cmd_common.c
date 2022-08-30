@@ -1038,7 +1038,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 
 	if (!json) {
 		vty_out(vty,
-			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
+			"Codes: J -> Pim Join, I -> " GM " Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
 		vty_out(vty,
 			"\nActive Source           Group            RPT  IIF               OIL\n");
 	}
