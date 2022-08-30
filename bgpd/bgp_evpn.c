@@ -191,6 +191,11 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
 }
 
+static void hash_vrf_import_rt_free(struct vrf_irt_node *irt)
+{
+	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
+}
+
 /*
  * Function to lookup Import RT node - used to map a RT to set of
  * VNIs importing routes with that RT.
@@ -278,6 +283,11 @@ static void import_rt_free(struct bgp *bgp, struct irt_node *irt)
 {
 	hash_release(bgp->import_rt_hash, irt);
 	list_delete(&irt->vnis);
+	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
+}
+
+static void hash_import_rt_free(struct irt_node *irt)
+{
 	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
 }
 
@@ -5355,6 +5365,11 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	XFREE(MTYPE_BGP_EVPN, vpn);
 }
 
+static void hash_evpn_free(struct bgpevpn *vpn)
+{
+	XFREE(MTYPE_BGP_EVPN, vpn);
+}
+
 /*
  * Import evpn route from global table to VNI/VRF/ESI.
  */
@@ -5963,12 +5978,16 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		     (void (*)(struct hash_bucket *, void *))free_vni_entry,
 		     bgp);
 
+	hash_clean(bgp->import_rt_hash, (void (*)(void *))hash_import_rt_free);
 	hash_free(bgp->import_rt_hash);
 	bgp->import_rt_hash = NULL;
 
+	hash_clean(bgp->vrf_import_rt_hash,
+		   (void (*)(void *))hash_vrf_import_rt_free);
 	hash_free(bgp->vrf_import_rt_hash);
 	bgp->vrf_import_rt_hash = NULL;
 
+	hash_clean(bgp->vni_svi_hash, (void (*)(void *))hash_evpn_free);
 	hash_free(bgp->vni_svi_hash);
 	bgp->vni_svi_hash = NULL;
 	hash_free(bgp->vnihash);
