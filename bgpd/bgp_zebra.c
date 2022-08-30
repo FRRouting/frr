@@ -456,7 +456,7 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp)
 		return 0;
 
-	if (BGP_DEBUG(zebra, ZEBRA) && ifp)
+	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf VRF change VRF %u IF %s NewVRF %u", vrf_id,
 			   ifp->name, new_vrf_id);
 
