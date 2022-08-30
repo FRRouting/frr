@@ -2868,10 +2868,11 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		 * So, router should be aborted from HELPER role
 		 * if it is detected as TOPO  change.
 		 */
-		if (ospf->active_restarter_cnt
-		    && CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type)
-		    && ospf_lsa_different(old, lsa, true))
-			ospf_helper_handle_topo_chg(ospf, lsa);
+		if (ospf->active_restarter_cnt &&
+		    CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type)) {
+			if (old == NULL || ospf_lsa_different(old, lsa, true))
+				ospf_helper_handle_topo_chg(ospf, lsa);
+		}
 
 		rt_recalc = 1;
 	}
