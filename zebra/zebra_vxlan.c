@@ -4370,7 +4370,8 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	}
 
 	/* Get vxlan's vid for netlink message has no it. */
-	vid = ((struct zebra_if *)ifp->info)->l2info.vxl.access_vlan;
+	vid = ((struct zebra_if *)ifp->info)
+		      ->l2info.vxl.vni_info.vni.access_vlan;
 
 	/* if remote mac delete the local entry */
 	if (!nhg_id || !zebra_evpn_nhg_is_local_es(nhg_id, &es)
