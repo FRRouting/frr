@@ -1354,9 +1354,9 @@ static void do_thread_cancel(struct thread_master *master)
 	struct thread_list_head *list = NULL;
 	struct thread **thread_array = NULL;
 	struct thread *thread;
-
 	struct cancel_req *cr;
 	struct listnode *ln;
+
 	for (ALL_LIST_ELEMENTS_RO(master->cancel_req, ln, cr)) {
 		/*
 		 * If this is an event object cancellation, search
@@ -1378,6 +1378,9 @@ static void do_thread_cancel(struct thread_master *master)
 
 		if (!thread)
 			continue;
+
+		list = NULL;
+		thread_array = NULL;
 
 		/* Determine the appropriate queue to cancel the thread from */
 		switch (thread->type) {
