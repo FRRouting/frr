@@ -135,5 +135,6 @@ struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,
 void flex_algos_free(struct flex_algos *flex_algos);
 void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm);
 bool is_flex_algo(uint8_t algorithm);
+char *flex_algo_metric_type_print(char *type_str, size_t sz, enum flex_algo_metric_type metric_type);
 
 #endif /* _FRR_FLEX_ALGO_H */

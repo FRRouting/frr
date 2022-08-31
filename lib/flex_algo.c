@@ -339,3 +339,19 @@ bool is_flex_algo(uint8_t algorithm)
 {
 	return algorithm >= SR_ALGORITHM_FLEX_MIN;
 }
+
+char *flex_algo_metric_type_print(char *type_str, size_t sz, enum flex_algo_metric_type metric_type)
+{
+	switch (metric_type) {
+	case MT_IGP:
+		snprintf(type_str, sz, "igp");
+		break;
+	case MT_MIN_UNI_LINK_DELAY:
+		snprintf(type_str, sz, "delay");
+		break;
+	case MT_TE_DEFAULT:
+		snprintf(type_str, sz, "te");
+		break;
+	}
+	return type_str;
+}
