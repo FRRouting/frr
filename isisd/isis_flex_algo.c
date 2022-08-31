@@ -117,6 +117,23 @@ struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
 	return elected;
 }
 
+/**
+ * @brief Check the Flex-Algo Definition is supported by the current FRR version
+ * @param flex-algo
+ * @return true if supported else false
+ */
+bool isis_flex_algo_supported(struct flex_algo *fad)
+{
+	if (fad->calc_type != CALC_TYPE_SPF)
+		return false;
+	if (fad->metric_type != MT_IGP)
+		return false;
+	if (fad->m_flag != false)
+		return false;
+
+	return true;
+}
+
 bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 				    struct isis_ext_subtlvs *subtlvs)
 {

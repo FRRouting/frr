@@ -2337,7 +2337,7 @@ static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis,
 	struct listnode *node;
 	struct flex_algo *fa;
 
-	bool fad_identical;
+	bool fad_identical, fad_supported;
 
 	if (!isis->area_list || isis->area_list->count == 0)
 		return;
@@ -2366,17 +2366,23 @@ static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis,
 
 			router_fad = isis_flex_algo_elected(algo, area);
 			vty_out(vty,
-				" Elected Flexible-Algorithm Definition:\n");
+				" Elected and running Flexible-Algorithm Definition:\n");
 			vty_out(vty, "  Source: %s\n",
 				router_fad ? sysid_print(router_fad->sysid)
 					   : "Not found");
 			if (router_fad) {
 				fad_identical = flex_algo_definition_cmp(
 					fa, &router_fad->fad);
+				fad_supported = isis_flex_algo_supported(
+					&router_fad->fad);
 				vty_out(vty, "  Priority: %d\n",
 					router_fad->fad.priority);
 				vty_out(vty, "  Equal to local: %s\n",
 					fad_identical ? "yes" : "no");
+				vty_out(vty, "  Local state: %s\n",
+					fad_supported
+						? "enabled"
+						: "disabled (unsupported definition)");
 				vty_out(vty, "  Calculation type: %d\n",
 					router_fad->fad.calc_type);
 				vty_out(vty, "  Metric type: %s\n",
