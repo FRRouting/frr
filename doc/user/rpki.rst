@@ -178,6 +178,12 @@ Validating BGP Updates
         match rpki valid
         set local-preference 500
 
+.. clicmd:: match rpki-extcommunity notfound|invalid|valid
+
+   Create a clause for a route map to match prefixes with the specified RPKI
+   state, that is derived from the Origin Validation State extended community
+   attribute (OVS). OVS extended community is non-transitive and is exchanged
+   only between iBGP peers.
 
 .. _debugging:
 

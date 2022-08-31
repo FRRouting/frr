@@ -650,6 +650,11 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:rpki"));
+	} else if (IS_MATCH_RPKI_EXTCOMMUNITY(condition)) {
+		vty_out(vty, " match rpki-extcommunity %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-bgp-route-map:rpki-extcommunity"));
 	} else if (IS_MATCH_PROBABILITY(condition)) {
 		vty_out(vty, " match probability %s\n",
 			yang_dnode_get_string(

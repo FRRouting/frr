@@ -3791,6 +3791,73 @@ static const struct route_map_rule_cmd route_set_originator_id_cmd = {
 	route_set_originator_id_free,
 };
 
+static enum route_map_cmd_result_t
+route_match_rpki_extcommunity(void *rule, const struct prefix *prefix,
+			      void *object)
+{
+	struct bgp_path_info *path;
+	struct ecommunity *ecomm;
+	struct ecommunity_val *ecomm_val;
+	enum rpki_states *rpki_status = rule;
+	enum rpki_states ecomm_rpki_status = RPKI_NOT_BEING_USED;
+
+	path = object;
+
+	ecomm = bgp_attr_get_ecommunity(path->attr);
+	if (!ecomm)
+		return RMAP_NOMATCH;
+
+	ecomm_val = ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS,
+				      ECOMMUNITY_ORIGIN_VALIDATION_STATE);
+	if (!ecomm_val)
+		return RMAP_NOMATCH;
+
+	/* The Origin Validation State is encoded in the last octet of
+	 * the extended community.
+	 */
+	switch (ecomm_val->val[7]) {
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_VALID:
+		ecomm_rpki_status = RPKI_VALID;
+		break;
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTFOUND:
+		ecomm_rpki_status = RPKI_NOTFOUND;
+		break;
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_INVALID:
+		ecomm_rpki_status = RPKI_INVALID;
+		break;
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTUSED:
+		break;
+	}
+
+	if (ecomm_rpki_status == *rpki_status)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_extcommunity_compile(const char *arg)
+{
+	int *rpki_status;
+
+	rpki_status = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(int));
+
+	if (strcmp(arg, "valid") == 0)
+		*rpki_status = RPKI_VALID;
+	else if (strcmp(arg, "invalid") == 0)
+		*rpki_status = RPKI_INVALID;
+	else
+		*rpki_status = RPKI_NOTFOUND;
+
+	return rpki_status;
+}
+
+static const struct route_map_rule_cmd route_match_rpki_extcommunity_cmd = {
+	"rpki-extcommunity",
+	route_match_rpki_extcommunity,
+	route_match_extcommunity_compile,
+	route_value_free
+};
+
 /*
  * This is the workhorse routine for processing in/out routemap
  * modifications.
@@ -6792,6 +6859,34 @@ DEFUN_YANG (no_set_originator_id,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (match_rpki_extcommunity,
+       match_rpki_extcommunity_cmd,
+       "[no$no] match rpki-extcommunity <valid|invalid|notfound>",
+       NO_STR
+       MATCH_STR
+       "BGP RPKI (Origin Validation State) extended community attribute\n"
+       "Valid prefix\n"
+       "Invalid prefix\n"
+       "Prefix not found\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki-extcommunity']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (!no) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:rpki-extcommunity",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      argv[2]->arg);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /* Initialization of route map. */
 void bgp_route_map_init(void)
 {
@@ -7030,6 +7125,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ipv6_nexthop_prefer_global_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_local_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_peer_cmd);
+	route_map_install_match(&route_match_rpki_extcommunity_cmd);
 
 	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_address_cmd);
@@ -7047,6 +7143,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
+	install_element(RMAP_NODE, &match_rpki_extcommunity_cmd);
 #ifdef HAVE_SCRIPTING
 	install_element(RMAP_NODE, &match_script_cmd);
 #endif
