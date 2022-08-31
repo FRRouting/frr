@@ -969,7 +969,7 @@ int peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 }
 
 void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
-			  uint32_t flag)
+			  uint64_t flag)
 {
 	bool group_val;
 
@@ -2002,8 +2002,8 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 {
 	int in = FILTER_IN;
 	int out = FILTER_OUT;
-	uint32_t flags_tmp;
-	uint32_t pflags_ovrd;
+	uint64_t flags_tmp;
+	uint64_t pflags_ovrd;
 	uint8_t *pfilter_ovrd;
 	struct peer *conf;
 
@@ -4579,7 +4579,7 @@ int peer_flag_unset(struct peer *peer, uint64_t flag)
 }
 
 static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
-			       uint32_t flag, bool set)
+			       uint64_t flag, bool set)
 {
 	int found;
 	int size;
@@ -4762,12 +4762,12 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	return 0;
 }
 
-int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
+int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi, uint64_t flag)
 {
 	return peer_af_flag_modify(peer, afi, safi, flag, 1);
 }
 
-int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
+int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi, uint64_t flag)
 {
 	return peer_af_flag_modify(peer, afi, safi, flag, 0);
 }

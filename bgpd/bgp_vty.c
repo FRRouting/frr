@@ -16507,7 +16507,7 @@ static bool peergroup_flag_check(struct peer *peer, uint64_t flag)
 }
 
 static bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
-				    uint32_t flag)
+				    uint64_t flag)
 {
 	if (!peer_group_active(peer)) {
 		if (CHECK_FLAG(peer->af_flags_invert[afi][safi], flag))
