@@ -645,9 +645,8 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 			}
 
 			/* Find the forwarding entry */
-			asbr_entry = ospf6_route_lookup_bestmatch(
-				&fwd_addr, ospf6->route_table);
-			if (asbr_entry == NULL) {
+			if (!ospf6_route_lookup_bestmatch(&fwd_addr,
+							  ospf6->route_table)) {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 					zlog_debug(
 						"Fwd address not found: %pFX",
