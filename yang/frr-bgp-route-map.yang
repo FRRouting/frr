@@ -66,6 +66,12 @@ module frr-bgp-route-map {
       "Control rpki specific settings";
   }
 
+  identity rpki-extcommunity {
+    base frr-route-map:rmap-match-type;
+    description
+      "Control rpki specific settings derived from extended community";
+  }
+
   identity probability {
     base frr-route-map:rmap-match-type;
     description
@@ -425,6 +431,29 @@ module frr-bgp-route-map {
             value 2;
             description
               "Valid prefix";
+          }
+        }
+      }
+    }
+
+    case rpki-extcommunity {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:rpki-extcommunity')";
+      leaf rpki-extcommunity {
+        type enumeration {
+          enum "valid" {
+            value 0;
+            description
+              "Valid prefix";
+          }
+          enum "notfound" {
+            value 1;
+            description
+              "Prefix not found";
+          }
+          enum "invalid" {
+            value 2;
+            description
+              "Invalid prefix";
           }
         }
       }
