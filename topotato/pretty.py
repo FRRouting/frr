@@ -433,7 +433,7 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
                     stdin = subprocess.PIPE, stdout = subprocess.PIPE)
             self.toposvg, _ = graphviz.communicate(dot.encode('UTF-8'))
             # sigh.
-            self.toposvg = self.toposvg.replace(b"\"Inconsolata Semi-Condensed\"", b"\"Inconsolata Semi Condensed\"") 
+            self.toposvg = self.toposvg.replace(b"\"Inconsolata Semi-Condensed\"", b"\"Inconsolata Semi Condensed\"")
 
             yield PrettyExtraFile(self, 'dotfilesvg', '.svg', 'image/svg+xml', self.toposvg)
         else:
