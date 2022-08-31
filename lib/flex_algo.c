@@ -131,6 +131,25 @@ char *admin_group_string(char *out, size_t sz, const struct admin_group *ag)
 	return out;
 }
 
+static bool admin_group_cmp(const struct admin_group *ag1,
+		const struct admin_group *ag2)
+{
+	size_t i;
+
+	for (i = 0; i < ag1->bitmap.m || i < ag2->bitmap.m; i++) {
+		if (i >= ag1->bitmap.m) {
+			if (ag2->bitmap.data[i] != 0)
+				return false;
+		} else if (i >= ag2->bitmap.m) {
+			if (ag1->bitmap.data[i] != 0)
+				return false;
+		} else if (memcmp(&ag1->bitmap.data[i], &ag2->bitmap.data[i], sizeof(word_t)) != 0)
+			return false;
+	}
+
+	return true;
+}
+
 void admin_group_copy(struct admin_group *dst, const struct admin_group *src)
 {
 	assert(bf_is_inited(src->bitmap));
@@ -308,6 +327,31 @@ struct flex_algo *flex_algo_lookup(struct flex_algos *flex_algos,
 		if (fa->algorithm == algorithm)
 			return fa;
 	return NULL;
+}
+
+/**
+ * @brief Compare two Flex-Algo Definitions (FAD)
+ * @param Flex algo 1
+ * @param Flex algo 2
+ * @return true if the definition is equal, else false
+ */
+bool flex_algo_definition_cmp(struct flex_algo *fa1, struct flex_algo *fa2)
+{
+	if (fa1->algorithm != fa2->algorithm)
+		return false;
+	if (fa1->calc_type != fa2->calc_type)
+		return false;
+	if (fa1->metric_type != fa2->metric_type)
+		return false;
+
+	if (!admin_group_cmp(&fa1->admin_group_exclude_any, &fa2->admin_group_exclude_any))
+		return false;
+	if (!admin_group_cmp(&fa1->admin_group_include_all, &fa2->admin_group_include_all))
+		return false;
+	if (!admin_group_cmp(&fa1->admin_group_include_any, &fa2->admin_group_include_any))
+		return false;
+
+	return true;
 }
 
 void flex_algo_delete(struct flex_algos *flex_algos, uint8_t algorithm)
