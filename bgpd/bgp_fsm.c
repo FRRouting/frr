@@ -953,7 +953,7 @@ void bgp_start_routeadv(struct bgp *bgp)
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
-	zlog_info("bgp_start_routeadv(), update hold status %d",
+	zlog_info("%s, update hold status %d", __func__,
 		  bgp->main_peers_update_hold);
 
 	if (bgp->main_peers_update_hold)
@@ -1687,9 +1687,8 @@ static void bgp_connect_check(struct thread *thread)
 static int bgp_connect_success(struct peer *peer)
 {
 	if (peer->fd < 0) {
-		flog_err(EC_BGP_CONNECT,
-			 "bgp_connect_success peer's fd is negative value %d",
-			 peer->fd);
+		flog_err(EC_BGP_CONNECT, "%s peer's fd is negative value %d",
+			 __func__, peer->fd);
 		bgp_stop(peer);
 		return -1;
 	}
@@ -1910,7 +1909,7 @@ int bgp_start(struct peer *peer)
 				peer->host, peer->fd);
 		if (peer->fd < 0) {
 			flog_err(EC_BGP_FSM,
-				 "bgp_start peer's fd is negative value %d",
+				 "%s peer's fd is negative value %d", __func__,
 				 peer->fd);
 			return -1;
 		}
