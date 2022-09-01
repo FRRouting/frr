@@ -1372,7 +1372,7 @@ case "${enable_vtysh}" in
   AC_DEFINE([VTYSH], [1], [VTY shell])
 
   prev_libs="$LIBS"
-  AC_CHECK_LIB([readline], [main], [
+  AC_CHECK_LIB([readline], [readline], [
     LIBREADLINE="-lreadline"
   ], [
     dnl readline failed - it might be incorrectly linked and missing its
