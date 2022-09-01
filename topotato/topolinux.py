@@ -10,14 +10,9 @@ import os
 import sys
 import shlex
 import re
-import select
-import signal
 import subprocess
 import tempfile
 import time
-
-import scapy.all  # type: ignore
-import scapy.config  # type: ignore
 
 from typing import Union, Dict, List, Any, Optional
 
@@ -26,8 +21,11 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
+import scapy.all  # type: ignore
+import scapy.config  # type: ignore
+
 from .utils import ClassHooks, exec_find
-from .nswrap import LinuxNamespace, find_child
+from .nswrap import LinuxNamespace
 from .toponom import LAN, LinkIface, Network
 
 
@@ -301,6 +299,7 @@ class NetworkInstance(ClassHooks):
     switch_ns: Optional[SwitchyNS]
     routers: Dict[str, RouterNS]
     bridges: List[str]
+    scapys: Dict[str, scapy.config.conf.L2socket]
 
     def __init__(self, network: Network):
         self.network = network

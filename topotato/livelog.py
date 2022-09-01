@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2022  David Lamparter for NetDEF, Inc.
+"""
+Live-capture log messages from FRR and feed them into topotato.
+"""
+
 import socket
 import struct
 import syslog
@@ -35,7 +42,7 @@ class LogMessage(TimedElement):
         "ec": "I",
         "n_argpos": "I",
     }
-    _LogHdr = namedtuple("LogHdr", _LogHdrFields.keys())
+    _LogHdr = namedtuple("LogHdr", _LogHdrFields.keys())  # type: ignore
 
     def __init__(self, router, daemon, rawmsg):
         super().__init__()

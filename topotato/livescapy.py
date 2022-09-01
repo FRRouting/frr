@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2021  David Lamparter for NetDEF, Inc.
 """
-Utility for running a wireshark in background with piping live
-data into Python.
+Utility for running a live scapy packet capture in the background.
 """
 
 import time
