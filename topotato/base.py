@@ -42,7 +42,7 @@ from .exceptions import (
     TopotatoEarlierFailSkip,
     TopotatoDaemonCrash,
 )
-from .liveshark import LiveScapy
+from .livescapy import LiveScapy
 from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:

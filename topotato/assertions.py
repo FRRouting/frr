@@ -35,7 +35,7 @@ import pytest
 
 from .utils import json_cmp, text_rich_cmp
 from .base import TopotatoItem, TopotatoInstance, skiptrace
-from .liveshark import TimedScapy
+from .livescapy import TimedScapy
 from .livelog import LogMessage
 from .exceptions import (
     TopotatoCLICompareFail,
