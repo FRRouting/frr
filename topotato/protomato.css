@@ -455,6 +455,10 @@ svg {
 	grid-column-start: 8;
 }
 
+.last {
+	grid-column-end: 9;
+}
+
 .p-ospf,
 .p-pim,
 .p-ldp,
@@ -505,6 +509,15 @@ pre {
 dl.pdml-root {
 	padding:0;
 	margin:0;
+}
+dl.pdml-root dt.back-nav {
+	font-size:14pt;
+	text-align:center;
+	padding: 6px;
+	padding-left:1em;
+	font-style:italic;
+	border: none;
+	background-color: #ddd;
 }
 dl.pdml-root dt {
 	padding: 2px;

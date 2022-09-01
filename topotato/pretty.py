@@ -262,6 +262,11 @@ class PrettyInstance(list):
         basename = self._filename_sub.sub('_', nodeid)
         basepath = os.path.join(self.prettysession.outdir, basename)
 
+        data = {
+            'ts_start': topotatoinst.started_ts,
+            'items': [],
+        }
+
         items = []
         prevfunc = None
 
@@ -280,6 +285,12 @@ class PrettyInstance(list):
 
             items.append(prettyitem)
 
+            data['items'].append({
+                'nodeid': itemnodeid,
+                'idx': prettyitem.idx,
+                'ts_end': prettyitem.ts_end,
+            })
+
         del prevfunc
         del funcparent
 
@@ -288,9 +299,7 @@ class PrettyInstance(list):
         toposvg = ElementTree.fromstring(self[0].toposvg)
         toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
 
-        data = {
-            'timed': items[-1]._jsdata, # topotatoinst.netinst.timeline.serialize(),
-        }
+        data['timed'] = items[-1]._jsdata # topotatoinst.netinst.timeline.serialize(),
         if items[-1]._pdml:
             data['pdml'] = items[-1]._pdml
         data_json = json.dumps(data, ensure_ascii=True).encode('ASCII')
