@@ -424,6 +424,14 @@ void isis_spftree_del(struct isis_spftree *spftree)
 	return;
 }
 
+static void isis_spftree_clear(struct isis_spftree *spftree)
+{
+	_isis_spftree_del(spftree);
+	_isis_spftree_init(spftree);
+
+	return;
+}
+
 static void isis_spftree_adj_del(struct isis_spftree *spftree,
 				 struct isis_adjacency *adj)
 {
@@ -1875,6 +1883,27 @@ void isis_run_spf(struct isis_spftree *spftree)
 		exit(1);
 	}
 
+	/* If a node is configured to participate in a particular Flexible-
+	 * Algorithm, but there is no valid Flex-Algorithm definition available
+	 * for it, or the selected Flex-Algorithm definition includes
+	 * calculation-type, metric-type, constraint, flag, or Sub-TLV that is
+	 * not supported by the node, it MUST stop participating in such
+	 * Flexible-Algorithm.
+	 */
+	if (is_flex_algo(spftree->algorithm) &&
+	    !isis_flex_algo_elected_supported(spftree->algorithm,
+					      spftree->area)) {
+		if (!CHECK_FLAG(spftree->flags, F_SPFTREE_DISABLED)) {
+			isis_spftree_clear(spftree);
+			SET_FLAG(spftree->flags, F_SPFTREE_DISABLED);
+		}
+		lsp_regenerate_schedule(spftree->area, spftree->area->is_type,
+					0);
+		goto out;
+	}
+
+	UNSET_FLAG(spftree->flags, F_SPFTREE_DISABLED);
+
 	/*
 	 * C.2.5 Step 0
 	 */
@@ -1895,6 +1924,8 @@ void isis_run_spf(struct isis_spftree *spftree)
 	}
 
 	isis_spf_loop(spftree, spftree->sysid);
+
+out:
 	spftree->runcount++;
 	spftree->last_run_timestamp = time(NULL);
 	spftree->last_run_monotime = monotime(&time_end);
