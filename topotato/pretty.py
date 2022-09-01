@@ -296,17 +296,6 @@ class PrettyInstance(list):
         data_json = json.dumps(data, ensure_ascii=True).encode('ASCII')
         data_bz = base64.b64encode(zlib.compress(data_json, level=6)).decode('ASCII')
 
-        #pdml = ''
-        #if hasattr(topotatoinst, 'liveshark'):
-        #    if not hasattr(topotatoinst.liveshark, 'xml'):
-        #        breakpoint()
-        #    pdml = topotatoinst.liveshark.xml
-        #    if pdml is not None:
-        #    # pdml.attrib['xmlns'] = 'https://xmlns.frrouting.org/topotato/pdml/'
-        #        pdml = ElementTree.tostring(pdml).decode('UTF-8')
-
-        #pdml_json = json.dumps(pdml)
-
         extrafiles = {}
         for item in self:
             extrafiles.update(item.extrafiles)
@@ -417,14 +406,9 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
         super().when_call(call, result)
 
         self.instance.ts_rel = self.item.parent.starting_ts
-        #self.instance.protomato = None
 
         if call.excinfo:
             return
-
-        #self.instance.protomato = ProtomatoDumper(self.instance.network.macmap(),
-        #        self.instance.ts_rel)
-        #self.item.parent.liveshark.subscribe(self.instance.protomato.submit)
 
     def files(self):
         dot = self.instance.network.dot()

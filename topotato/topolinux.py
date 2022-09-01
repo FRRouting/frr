@@ -60,14 +60,9 @@ class NetworkInstance(ClassHooks):
     _exec = LinuxNamespace._exec
     _exec.update(
         {
-            "tshark": None,
             "ip": None,
         }
     )
-
-    _exec_optional = {
-        "tshark": "tshark not available -- packet dumps will be missing",
-    }
 
     _bridge_settings = [
         "forward_delay",
@@ -190,10 +185,6 @@ class NetworkInstance(ClassHooks):
         because that (a) makes things consistent (b) allows us to attach
         tcpdump from the switch NS and (c) allows setting links down on the
         bridge side so the router gets "carrier down"
-
-        also tshark runs inside the switch NS to get a pcap file of all the
-        traffic (it runs in multi-iface mode so you get 1 pcap file with all
-        interfaces.)
         """
 
         def start(self):
@@ -310,18 +301,12 @@ class NetworkInstance(ClassHooks):
     switch_ns: Optional[SwitchyNS]
     routers: Dict[str, RouterNS]
     bridges: List[str]
-    pcapfile: Optional[str]
-    pdmlfile: Optional[str]
-    tshark: Optional[subprocess.Popen]
 
     def __init__(self, network: Network):
         self.network = network
         self.switch_ns = None
         self.routers = {}
         self.bridges = []
-        self.pcapfile = None
-        self.pdmlfile = None
-        self.tshark = None
 
         # pylint: disable=consider-using-with
         self.tempdir = tempfile.TemporaryDirectory()
@@ -341,8 +326,7 @@ class NetworkInstance(ClassHooks):
         """
         kick everything up
 
-        also add the various interfaces to the bridges in the switch-NS, and
-        finally start up tshark for a pcap file.
+        also add the various interfaces to the bridges in the switch-NS.
         """
 
         self.switch_ns.start()
@@ -443,49 +427,7 @@ class NetworkInstance(ClassHooks):
                 self.scapys[br] = scapy.config.conf.L2socket(iface=br)
                 os.set_blocking(self.scapys[br].fileno(), False)
 
-        if self._exec.get("tshark"):
-            self.pcapfile = self.tempfile("dump.pcapng")
-            self.pdmlfile = self.tempfile("dump.pdml")
-
-            with open(self.pdmlfile, 'wb') as pdmlfd:
-                self.tshark = self.switch_ns.popen(
-                    [self._exec["tshark"], "-B", "1", "-q", "-w", self.pcapfile, '-T', 'pdml']
-                    + args,
-                    stdout=pdmlfd,
-                    stderr=subprocess.PIPE,
-                )
-
-            # starting tshark has been shown to take a few seconds on a loaded
-            # CI box... to the point of tests completing before tshark even
-            # started, which in turn caused hangs because tshark then couldn't
-            # be killed :S
-
-            start = time.time()
-            timeout = 15.0
-
-            os.set_blocking(self.tshark.stderr.fileno(), False)
-            out = ""
-
-            while time.time() < start + timeout:
-                r = select.select(
-                    [self.tshark.stderr], [], [], start + timeout - time.time()
-                )
-                if len(r[0]) == 0:
-                    raise TimeoutError("failed to start tshark")
-                out += self.tshark.stderr.read(4096).decode("UTF-8")
-                if out.find("File:") >= 0:
-                    break
-
-            # "File: " is only printed when the file is really open, and packet
-            # sockets are running, so we should be ready to go.  Give it an
-            # extra 250ms anyway...
-            time.sleep(0.25)
-
     def stop(self):
-        tshark_pid = find_child(self.tshark.pid)
-        os.kill(tshark_pid, signal.SIGINT)
-        self.tshark.wait()
-
         for rns in self.routers.values():
             rns.end()
         self.switch_ns.end()

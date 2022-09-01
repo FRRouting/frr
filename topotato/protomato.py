@@ -304,16 +304,7 @@ class ProtomatoDumper(list):
 
     @classmethod
     def load_file(cls, filename):
-        from .liveshark import LiveShark
-
-        tsharkproc = subprocess.Popen(['tshark', '-r', filename, '-T', 'pdml'], stdout=subprocess.PIPE)
-        instance = cls()
-
-        ls = LiveShark(tsharkproc.stdout)
-        ls.subscribe(instance.submit)
-        for pkt in ls.run(expect_eof=True):
-            pass
-        return instance
+        raise NotImplementedError()
 
 if __name__ == '__main__':
     packets = ProtomatoDumper.load_file(sys.argv[1])
