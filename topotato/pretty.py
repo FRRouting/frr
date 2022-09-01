@@ -14,6 +14,7 @@ import os
 import urllib.parse
 import json
 import zlib
+import tempfile
 from xml.etree import ElementTree
 
 import logging
@@ -30,6 +31,7 @@ from .protomato import ProtomatoDumper
 from .utils import ClassHooks, exec_find
 from .scapy import ScapySend
 from .timeline import TimedElement
+from .pcapng import Sink, SectionHeader, IfDesc
 
 
 jenv = jinja2.Environment(
@@ -287,7 +289,7 @@ class PrettyInstance(list):
         toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
 
         data = {
-            'timed': topotatoinst.netinst.timeline.serialize(),
+            'timed': items[-1]._jsdata, # topotatoinst.netinst.timeline.serialize(),
         }
         if items[-1]._pdml:
             data['pdml'] = items[-1]._pdml
@@ -444,24 +446,29 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
     def when_call(self, call, result):
         super().when_call(call, result)
 
-        self._pcap = None
-        if self.instance.pcapfile:
-            try:
-                with open(self.instance.pcapfile, 'rb') as fd:
-                    self._pcap = fd.read()
-            except FileNotFoundError:
-                pass
-
-        self._pdml = None
-        if self.instance.pdmlfile:
-            try:
-                with open(self.instance.pdmlfile, 'r', encoding='UTF-8') as fd:
-                    self._pdml = fd.read()
-            except FileNotFoundError:
-                pass
-
         for idx, prettyitem in enumerate(self.instance.pretty):
             prettyitem.finalize(idx)
+
+        # FIXME: flush scapy sockets / timeline(final=True)!
+
+        # TODO: move this to TopotatoInstance?
+        with tempfile.NamedTemporaryFile(prefix='topotato', suffix='.pcapng') as fd:
+            pcapng = Sink(fd, '=')
+
+            shdr = SectionHeader()
+            pcapng.write(shdr)
+
+            jsdata = self.instance.timeline.serialize(pcapng)
+            pcapng.flush()
+
+            fd.seek(0)
+            self._pcap = fd.read()
+
+            tshark = subprocess.Popen(["tshark", "-q", "-r", fd.name, "-T", "pdml"],
+                    stdout=subprocess.PIPE)
+            pdml, _ = tshark.communicate()
+            self._pdml = pdml.decode('UTF-8')
+            self._jsdata = jsdata
 
         self.instance.pretty.report()
 

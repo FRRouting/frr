@@ -12,14 +12,14 @@ import select
 import time
 import logging
 
-from typing import List, Dict, Tuple, Any, Optional, Callable, Iterable
+from typing import List, Any, Optional, Callable, Iterable
 
-from scapy.packet import Packet  # type: ignore
 from scapy.supersocket import SuperSocket  # type: ignore
 from xml.etree.ElementTree import XMLPullParser
 
 from .timeline import MiniPollee, TimedElement
 from .pdmlpacket import PDMLPacket
+from .pcapng import EnhancedPacket, IfDesc, Context
 
 _logger = logging.getLogger("topotato")
 
@@ -37,12 +37,24 @@ class TimedScapy(TimedElement):
     def pkt(self):
         return self._pkt
 
-    def serialize(self):
-        return {
-            'type': 'packet',
-            'iface': self._pkt.sniffed_on,
-            'dump': self._pkt.show(dump=True),
+    def serialize(self, context: Context):
+        assert self._pkt.sniffed_on in context.ifaces
+
+        frame_num = context.take_frame_num()
+        ts = getattr(self._pkt, "time_ns", int(self._pkt.time * 1e9))
+
+        epb = EnhancedPacket(context.ifaces[self._pkt.sniffed_on], ts, bytes(self._pkt))
+        for match in self.match_for:
+            epb.options.append(epb.OptComment("match_for: %r" % match))
+
+        jsdata = {
+            "type": "packet",
+            "iface": self._pkt.sniffed_on,
+            "dump": self._pkt.show(dump=True),
+            "frame_num": frame_num,
         }
+
+        return (jsdata, epb)
 
 
 class LiveScapy(MiniPollee):
@@ -78,6 +90,20 @@ class LiveScapy(MiniPollee):
     def close(self):
         self._sock.close()
         self._sock = None
+
+    def serialize(self, context: Context):
+        """
+        Plop out Interface Description Block for pcap-ng.
+        """
+        if self._ifname in context.ifaces:
+            return
+
+        context.ifaces[self._ifname] = len(context.ifaces)
+
+        ifd = IfDesc()
+        ifd.options.append(ifd.OptName(self._ifname))
+        ifd.options.append(ifd.OptTSResol(9))
+        yield (None, ifd)
 
 
 class LiveSharkEOFError(EOFError):

@@ -4,8 +4,10 @@ import syslog
 
 from collections import namedtuple
 from .timeline import MiniPollee, TimedElement
+from .pcapng import JournalExport, Context
 
 
+# pylint: disable=too-many-instance-attributes
 class LogMessage(TimedElement):
     _prios = {
         syslog.LOG_EMERG: 'emerg',
@@ -37,9 +39,10 @@ class LogMessage(TimedElement):
 
 
     def __init__(self, router, daemon, rawmsg):
+        super().__init__()
+
         self.router = router
         self.daemon = daemon
-        self.match_for = []
 
         header, rawmsg = rawmsg[:72], rawmsg[72:]
 
@@ -64,24 +67,53 @@ class LogMessage(TimedElement):
     def ts(self):
         return (self._ts, 0)
 
-    def serialize(self):
+    def serialize(self, context: Context):
         data = self.header_fields._asdict()
 
         # don't need these
-        del data['ts_sec']
-        del data['ts_nsec']
-        del data['hdrlen']
+        del data["ts_sec"]
+        del data["ts_nsec"]
+        del data["hdrlen"]
 
-        data.update({
-            'type': 'log',
-            'router': self.router.name,
-            'daemon': self.daemon,
-            'text': self.text,
-            'uid': self.uid,
-            'prio': self.prio_text,
-            'args': self.args,
-        })
-        return data
+        data.update(
+            {
+                "type": "log",
+                "router": self.router.name,
+                "daemon": self.daemon,
+                "text": self.text,
+                "uid": self.uid,
+                "prio": self.prio_text,
+                "args": self.args,
+            }
+        )
+
+        sde = JournalExport(
+            {
+                "__REALTIME_TIMESTAMP": "%d"
+                % (
+                    self.header_fields.ts_sec * 1000000
+                    + self.header_fields.ts_nsec // 1000
+                ),
+                "MESSAGE": self.text,
+                "PRIORITY": self.header_fields.prio,
+                "TID": self.header_fields.tid,
+                "FRR_ID": self.uid,
+                "FRR_EC": self.header_fields.ec,
+                "FRR_DAEMON": self.daemon,
+                "_COMM": self.daemon,
+                "_HOSTNAME": self.router.name,
+                # TBD: CODE_FILE, CODE_LINE, CODE_FUNC
+                # TBD: FRR_INSTANCE
+                # TBD: FRR_ARG[n]
+            }
+        )
+
+        # NB: wireshark currently can't decode comments on systemd journal
+        # items, the pcap-ng block has no options field...
+        for match in self.match_for:
+            sde.options.append(sde.OptComment("match for %r" % match))
+
+        return (data, sde)
 
     @property
     def prio_text(self):

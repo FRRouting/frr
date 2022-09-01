@@ -12,6 +12,7 @@ import select
 
 import typing
 from typing import List, Iterable, Tuple, Callable, Generator, Optional, Dict, Any
+from .pcapng import Context, Block, Sink
 
 if typing.TYPE_CHECKING:
     from .base import TopotatoItem
@@ -42,6 +43,14 @@ class MiniPollee(ABC):
         Can return None if nothing to poll currently.
         """
         raise NotImplementedError()
+
+    def serialize(self, context: Context) -> Generator[Tuple[Optional[Dict[str, Any]], Optional[Block]], None, None]:
+        """
+        Generate possible header blocks for this event source.
+
+        Only pcap-ng is currently handled, dicts for JSON are thrown away.
+        """
+        yield from []
 
 
 class MiniPoller:
@@ -138,9 +147,11 @@ class TimedElement(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self, context: Context) -> Tuple[Optional[Dict[str, Any]], Optional[Block]]:
         """
-        Serialize this item for JSON encoding / HTML report.
+        Serialize this item for report generation.
+
+        Result tuple is a dict for JSON plus a Block for pcap-ng output.
         """
         raise NotImplementedError()
 
@@ -157,6 +168,9 @@ class _Dummy(TimedElement):
     def ts(self):
         return (self._ts, 0)
 
+    def serialize(self, context: Context):
+        return (None, None)
+
 
 class Timeline(MiniPoller, List[TimedElement]):
     """
@@ -169,10 +183,20 @@ class Timeline(MiniPoller, List[TimedElement]):
     def record(self, element: TimedElement):
         bisect.insort(self, element)
 
-    def serialize(self):
+    def serialize(self, sink: Sink):
         ret = []
+
+        for poller in self.pollees:
+            for _, block in poller.serialize(sink):
+                if block:
+                    sink.write(block)
+
         for item in self:
-            ret.append({'ts': item.ts[0], 'data': item.serialize()})
+            jsdata, block = item.serialize(sink)
+            if jsdata:
+                ret.append({'ts': item.ts[0], 'data': jsdata})
+            if block:
+                sink.write(block)
         return ret
 
     def iter_since(self, start: float = float('-inf')) -> Generator[TimedElement, None, None]:
