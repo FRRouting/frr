@@ -10,33 +10,32 @@ from .pcapng import JournalExport, Context
 # pylint: disable=too-many-instance-attributes
 class LogMessage(TimedElement):
     _prios = {
-        syslog.LOG_EMERG: 'emerg',
-        syslog.LOG_ALERT: 'alert',
-        syslog.LOG_CRIT: 'crit',
-        syslog.LOG_ERR: 'error',
-        syslog.LOG_WARNING: 'warn',
-        syslog.LOG_NOTICE: 'notif',
-        syslog.LOG_INFO: 'info',
-        syslog.LOG_DEBUG: 'debug',
+        syslog.LOG_EMERG: "emerg",
+        syslog.LOG_ALERT: "alert",
+        syslog.LOG_CRIT: "crit",
+        syslog.LOG_ERR: "error",
+        syslog.LOG_WARNING: "warn",
+        syslog.LOG_NOTICE: "notif",
+        syslog.LOG_INFO: "info",
+        syslog.LOG_DEBUG: "debug",
     }
 
     _LogHdrFields = {
-        'ts_sec': 'Q',
-        'ts_nsec': 'I',
-        'hdrlen': 'I',
-        'pid': 'q',
-        'tid': 'q',
-        'lost': 'I',
-        'prio': 'I',
-        'flags': 'I',
-        'textlen': 'I',
-        'arghdrlen': 'I',
-        'uid': '12s',
-        'ec': 'I',
-        'n_argpos': 'I',
+        "ts_sec": "Q",
+        "ts_nsec": "I",
+        "hdrlen": "I",
+        "pid": "q",
+        "tid": "q",
+        "lost": "I",
+        "prio": "I",
+        "flags": "I",
+        "textlen": "I",
+        "arghdrlen": "I",
+        "uid": "12s",
+        "ec": "I",
+        "n_argpos": "I",
     }
-    _LogHdr = namedtuple('LogHdr', _LogHdrFields.keys())
-
+    _LogHdr = namedtuple("LogHdr", _LogHdrFields.keys())
 
     def __init__(self, router, daemon, rawmsg):
         super().__init__()
@@ -46,21 +45,21 @@ class LogMessage(TimedElement):
 
         header, rawmsg = rawmsg[:72], rawmsg[72:]
 
-        hdata = struct.unpack(''.join(self._LogHdrFields.values()), header)
+        hdata = struct.unpack("".join(self._LogHdrFields.values()), header)
         self.header_fields = fields = self._LogHdr(*hdata)
 
-        self.uid = fields.uid.rstrip(b'\0').decode('ASCII')
+        self.uid = fields.uid.rstrip(b"\0").decode("ASCII")
         self._prio = fields.prio
 
-        argspec, rawmsg = rawmsg[:fields.n_argpos * 8], rawmsg[fields.n_argpos * 8:]
+        argspec, rawmsg = rawmsg[: fields.n_argpos * 8], rawmsg[fields.n_argpos * 8 :]
         self.args = {}
         for i in range(0, fields.n_argpos):
-            start, end = struct.unpack('II', argspec[i*8:(i+1)*8])
+            start, end = struct.unpack("II", argspec[i * 8 : (i + 1) * 8])
             self.args[i] = (start, end)
 
         self.arghdrlen = fields.arghdrlen
-        self.rawtext = rawmsg[:fields.textlen]
-        self.text = self.rawtext.decode('UTF-8')
+        self.rawtext = rawmsg[: fields.textlen]
+        self.text = self.rawtext.decode("UTF-8")
         self._ts = fields.ts_sec + fields.ts_nsec * 1e-9
 
     @property
@@ -117,21 +116,23 @@ class LogMessage(TimedElement):
 
     @property
     def prio_text(self):
-        return self._prios.get(self._prio & 7, '???')
+        return self._prios.get(self._prio & 7, "???")
 
     def iter_args(self):
         prev_end = self.arghdrlen
         for start, end in self.args.values():
-            yield (self.rawtext[prev_end:start].decode('UTF-8'),
-                    self.rawtext[start:end].decode('UTF-8'))
+            yield (
+                self.rawtext[prev_end:start].decode("UTF-8"),
+                self.rawtext[start:end].decode("UTF-8"),
+            )
             prev_end = end
-        yield (self.rawtext[prev_end:].decode('UTF-8'), None)
+        yield (self.rawtext[prev_end:].decode("UTF-8"), None)
 
     def __str__(self):
         return self.text
 
     def __repr__(self):
-        return '<%s @%.6f %r>' % (self.__class__.__name__, self._ts, self.text)
+        return "<%s @%.6f %r>" % (self.__class__.__name__, self._ts, self.text)
 
 
 class LiveLog(MiniPollee):
@@ -166,7 +167,7 @@ class LiveLog(MiniPollee):
         self._wrfd = wrfd
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, super().__repr__())
+        return "<%s %s>" % (self.__class__.__name__, super().__repr__())
 
     @property
     def wrfd(self):
