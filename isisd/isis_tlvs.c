@@ -686,38 +686,88 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	}
 
 	if (IS_SUBTLV(exts, EXT_ASLA_X)) {
-		char admin_group_buf[260];
+		char asla_buf[260];
+		uint8_t bit = exts->asla_standard_apps;
+		if (json) {
+			struct json_object *ext_asla_json, *std_app_json,
+				*adm_grp_arr_json;
+			bool adm_grp_list[256];
 
-		sbuf_push(buf, indent,
-			  "Application Specific Link Attributes:\n");
-		sbuf_push(buf, indent + 2,
-			  "L flag: %u, SA-Length: %u, UDA-Length: %u\n",
-			  exts->asla_legacy, exts->asla_standard_apps_length,
-			  exts->asla_user_def_apps_length);
-		sbuf_push(buf, indent + 2, "Standard Applications: 0x%02x",
-			  exts->asla_standard_apps);
-		if (exts->asla_standard_apps) {
-			uint8_t bit = exts->asla_standard_apps;
-			if (bit & ISIS_SABM_FLAG_R)
-				sbuf_push(buf, 0, " RSVP-TE");
-			if (bit & ISIS_SABM_FLAG_S)
-				sbuf_push(buf, 0, " SR-Policy");
-			if (bit & ISIS_SABM_FLAG_L)
-				sbuf_push(buf, 0, " Loop-Free-Alternate");
-			if (bit & ISIS_SABM_FLAG_X)
-				sbuf_push(buf, 0, " Flex-Algo");
+			ext_asla_json = json_object_new_object();
+			json_object_object_add(json, "ext-asla", ext_asla_json);
+			json_object_boolean_add(ext_asla_json, "l-flag",
+						exts->asla_legacy);
+			json_object_int_add(ext_asla_json, "sa-length",
+					    exts->asla_standard_apps_length);
+			json_object_int_add(ext_asla_json, "uda-length",
+					    exts->asla_user_def_apps_length);
+
+			std_app_json = json_object_new_object();
+			json_object_object_add(ext_asla_json, "standard_apps",
+					       std_app_json);
+			if (exts->asla_standard_apps) {
+				json_object_boolean_add(std_app_json, "rvsp-te",
+							bit & ISIS_SABM_FLAG_R);
+				json_object_boolean_add(std_app_json,
+							"sr-policy",
+							bit & ISIS_SABM_FLAG_S);
+				json_object_boolean_add(std_app_json, "lfa",
+							bit & ISIS_SABM_FLAG_L);
+				json_object_boolean_add(std_app_json,
+							"flex-algo",
+							bit & ISIS_SABM_FLAG_X);
+			}
+			snprintf(asla_buf, sizeof(asla_buf), "0x%02x",
+				 exts->asla_user_def_apps);
+			json_object_string_add(ext_asla_json, "user-def-apps",
+					       asla_buf);
+
+			adm_grp_arr_json = json_object_new_array();
+			json_object_object_add(ext_asla_json, "ext-admin-group",
+					       adm_grp_arr_json);
+			admin_group_tab(adm_grp_list,
+					&exts->asla_ext_admin_group);
+			for (long unsigned int i = 0; i < sizeof(adm_grp_list);
+			     i++) {
+				if (adm_grp_list[i])
+					json_object_array_add(
+						adm_grp_arr_json,
+						json_object_new_int(i));
+			}
+		} else {
+			sbuf_push(buf, indent,
+				  "Application Specific Link Attributes:\n");
+			sbuf_push(buf, indent + 2,
+				  "L flag: %u, SA-Length: %u, UDA-Length: %u\n",
+				  exts->asla_legacy,
+				  exts->asla_standard_apps_length,
+				  exts->asla_user_def_apps_length);
+			sbuf_push(buf, indent + 2,
+				  "Standard Applications: 0x%02x",
+				  exts->asla_standard_apps);
+			if (exts->asla_standard_apps) {
+				if (bit & ISIS_SABM_FLAG_R)
+					sbuf_push(buf, 0, " RSVP-TE");
+				if (bit & ISIS_SABM_FLAG_S)
+					sbuf_push(buf, 0, " SR-Policy");
+				if (bit & ISIS_SABM_FLAG_L)
+					sbuf_push(buf, 0,
+						  " Loop-Free-Alternate");
+				if (bit & ISIS_SABM_FLAG_X)
+					sbuf_push(buf, 0, " Flex-Algo");
+			}
+			sbuf_push(buf, 0, "\n");
+			sbuf_push(buf, indent + 2,
+				  "User Defined Applications: 0x%02x\n",
+				  exts->asla_user_def_apps);
+
+			if (!admin_group_zero(&exts->asla_ext_admin_group))
+				sbuf_push(buf, indent + 2,
+					  "Ext Admin Group: %s\n",
+					  admin_group_string(
+						  asla_buf, sizeof(asla_buf),
+						  &exts->asla_ext_admin_group));
 		}
-		sbuf_push(buf, 0, "\n");
-		sbuf_push(buf, indent + 2,
-			  "User Defined Applications: 0x%02x\n",
-			  exts->asla_user_def_apps);
-
-		if (!admin_group_zero(&exts->asla_ext_admin_group))
-			sbuf_push(buf, indent + 2, "Ext Admin Group: %s\n",
-				  admin_group_string(
-					  admin_group_buf,
-					  sizeof(admin_group_buf),
-					  &exts->asla_ext_admin_group));
 	}
 }
 
@@ -3664,13 +3714,17 @@ static struct isis_router_cap *copy_tlv_router_cap(
 static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 				  struct json_object *json)
 {
+	struct json_object *cap_json, *fad_arr_json = NULL, *fad_json,
+				      *excl_any_arr_json, *incl_any_arr_json,
+				      *incl_all_arr_json;
+	struct isis_router_cap_fad *fad;
 	char addrbuf[INET_ADDRSTRLEN];
+	bool adm_grp_list[256];
 
 	if (!router_cap)
 		return;
 
 	/* Router ID and Flags */
-	struct json_object *cap_json;
 	cap_json = json_object_new_object();
 	json_object_object_add(json, "router-capability", cap_json);
 	inet_ntop(AF_INET, &router_cap->router_id, addrbuf, sizeof(addrbuf));
@@ -3712,24 +3766,86 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 
 	/* Segment Routing Algorithms as per RFC8667 section #3.2 */
 	if (router_cap->algo[0] != SR_ALGORITHM_UNSET) {
-		char buf[255];
+		char buf[255], buf2[255];
 		struct json_object *alg_json;
 		alg_json = json_object_new_object();
 		json_object_object_add(json, "segment-routing-algorithm",
 				       alg_json);
-		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-			if (router_cap->algo[i] != SR_ALGORITHM_UNSET) {
-				snprintfrr(buf, sizeof(buf), "%d", i);
-				json_object_string_add(alg_json, buf,
-						       router_cap->algo[i] == 0
-							       ? "SPF"
-							       : "Strict SPF");
-			}
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			if (router_cap->algo[i] == SR_ALGORITHM_UNSET)
+				continue;
+			snprintfrr(buf, sizeof(buf), "%d", i);
+			if (is_flex_algo(router_cap->algo[i]))
+				snprintfrr(buf2, sizeof(buf2), "Flex-Algo %d",
+					   router_cap->algo[i]);
+			else
+				snprintfrr(buf2, sizeof(buf2), "%s",
+					   router_cap->algo[i] ==
+							   SR_ALGORITHM_SPF
+						   ? "SPF"
+						   : "Strict SPF");
+			json_object_string_add(alg_json, buf, buf2);
+		}
 	}
 
 	/* Segment Routing Node MSD as per RFC8491 section #2 */
 	if (router_cap->msd != 0)
 		json_object_int_add(json, "msd", router_cap->msd);
+
+	/* Flex-Algo */
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		fad = router_cap->fads[i];
+		if (!fad)
+			continue;
+
+		if (!fad_arr_json) {
+			fad_arr_json = json_object_new_array();
+			json_object_object_add(json, "flex-algo-defs",
+					       fad_arr_json);
+		}
+		fad_json = json_object_new_object();
+		json_object_array_add(fad_arr_json, fad_json);
+
+		json_object_int_add(fad_json, "algorithm", fad->fad.algorithm);
+		json_object_int_add(fad_json, "calc-type", fad->fad.calc_type);
+		json_object_int_add(fad_json, "metric-type",
+				    fad->fad.metric_type);
+		json_object_int_add(fad_json, "priority", fad->fad.priority);
+		json_object_boolean_add(fad_json, "m-flag", fad->fad.m_flag);
+
+		excl_any_arr_json = json_object_new_array();
+		json_object_object_add(fad_json, "exclude-any",
+				       excl_any_arr_json);
+		admin_group_tab(adm_grp_list,
+				&fad->fad.admin_group_exclude_any);
+		for (long unsigned int i = 0; i < sizeof(adm_grp_list); i++) {
+			if (adm_grp_list[i])
+				json_object_array_add(excl_any_arr_json,
+						      json_object_new_int(i));
+		}
+
+		incl_any_arr_json = json_object_new_array();
+		json_object_object_add(fad_json, "include-any",
+				       incl_any_arr_json);
+		admin_group_tab(adm_grp_list,
+				&fad->fad.admin_group_include_any);
+		for (long unsigned int i = 0; i < sizeof(adm_grp_list); i++) {
+			if (adm_grp_list[i])
+				json_object_array_add(incl_any_arr_json,
+						      json_object_new_int(i));
+		}
+
+		incl_all_arr_json = json_object_new_array();
+		json_object_object_add(fad_json, "include-all",
+				       incl_all_arr_json);
+		admin_group_tab(adm_grp_list,
+				&fad->fad.admin_group_include_all);
+		for (long unsigned int i = 0; i < sizeof(adm_grp_list); i++) {
+			if (adm_grp_list[i])
+				json_object_array_add(incl_all_arr_json,
+						      json_object_new_int(i));
+		}
+	}
 }
 
 static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
