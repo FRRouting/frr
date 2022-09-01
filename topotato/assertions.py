@@ -333,6 +333,7 @@ class AssertPacket(TopotatoAssertion):
 
             if self._pkt(*args):
                 self.matched = pkt
+                element.match_for.append(self)
                 break
         else:
             raise TopotatoPacketFail(
