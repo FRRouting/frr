@@ -5148,10 +5148,9 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 			return 0;
 
 		/* Inform BGP, if there is a change of interest. */
-		if (chgflags
-			& (ZEBRA_VXLIF_MASTER_CHANGE |
-			   ZEBRA_VXLIF_LOCAL_IP_CHANGE |
-			   ZEBRA_VXLIF_MCAST_GRP_CHANGE))
+		if (chgflags &
+		    (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_LOCAL_IP_CHANGE |
+		     ZEBRA_VXLIF_MCAST_GRP_CHANGE | ZEBRA_VXLIF_VLAN_CHANGE))
 			zebra_evpn_send_add_to_client(zevpn);
 
 		/* If there is a valid new master or a VLAN mapping change,
