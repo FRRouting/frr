@@ -2423,6 +2423,7 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
 
 	if (js_if) {
+		json_object_string_add(js_if, "name", ifp->name);
 		json_object_string_add(js_if, "state", "up");
 		json_object_string_addf(js_if, "version", "%d",
 					gm_ifp->cur_version);
@@ -2438,6 +2439,14 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 			json_object_string_addf(js_if, "otherQuerierTimer",
 						"%pTH",
 						gm_ifp->t_other_querier);
+		json_object_int_add(js_if, "timerRobustnessValue",
+				    gm_ifp->cur_qrv);
+		json_object_int_add(js_if, "timerQueryIntervalMsec",
+				    gm_ifp->cur_query_intv);
+		json_object_int_add(js_if, "timerQueryResponseTimerMsec",
+				    gm_ifp->cur_max_resp);
+		json_object_int_add(js_if, "timerLastMemberQueryIntervalMsec",
+				    gm_ifp->cur_query_intv_trig);
 	} else {
 		vty_out(vty, "%-16s  %-5s  %d  %-25pPA  %-5s %11pTH  %pTVMs\n",
 			ifp->name, "up", gm_ifp->cur_version, &gm_ifp->querier,
