@@ -39,6 +39,7 @@
 #include "spf_backoff.h"
 #include "srcdest_table.h"
 #include "vrf.h"
+#include "lib/json.h"
 
 #include "isis_errors.h"
 #include "isis_constants.h"
@@ -2273,7 +2274,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 
 static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			     struct isis_route_info *rinfo, bool prefix_sid,
-			     bool no_adjacencies)
+			     bool no_adjacencies, bool json)
 {
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
@@ -2325,7 +2326,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 					continue;
 				}
 
-				if (first) {
+				if (first || json) {
 					ttable_add_row(tt,
 						       "%s|%u|%s|%s|%s|%s|%d",
 						       buf_prefix, rinfo->cost,
@@ -2363,7 +2364,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 					strlcpy(buf_labels, "-",
 						sizeof(buf_labels));
 
-				if (first) {
+				if (first || json) {
 					ttable_add_row(tt, "%s|%u|%s|%s|%s",
 						       buf_prefix, rinfo->cost,
 						       buf_iface, buf_nhop,
@@ -2405,7 +2406,7 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 }
 
 void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
-		       bool prefix_sid, bool backup)
+		       struct json_object **json, bool prefix_sid, bool backup)
 {
 	struct route_table *route_table;
 	struct ttable *tt;
@@ -2431,8 +2432,9 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 		return;
 	}
 
-	vty_out(vty, "IS-IS %s %s routing table:\n\n",
-		circuit_t2string(spftree->level), tree_id_text);
+	if (json == NULL)
+		vty_out(vty, "IS-IS %s %s routing table:\n\n",
+			circuit_t2string(spftree->level), tree_id_text);
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -2459,23 +2461,26 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 		if (!rinfo)
 			continue;
 
-		isis_print_route(tt, &rn->p, rinfo, prefix_sid, no_adjacencies);
+		isis_print_route(tt, &rn->p, rinfo, prefix_sid, no_adjacencies,
+				 json != NULL);
 	}
 
 	/* Dump the generated table. */
-	if (tt->nrows > 1) {
+	if (json == NULL && tt->nrows > 1) {
 		char *table;
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
 		XFREE(MTYPE_TMP, table);
+	} else if (json) {
+		*json = ttable_json(tt, prefix_sid ? "sdssdsdd" : "sdsss");
 	}
 	ttable_del(tt);
 }
 
 static void show_isis_route_common(struct vty *vty, int levels,
 				   struct isis *isis, bool prefix_sid,
-				   bool backup)
+				   bool backup, json_object **json)
 {
 	struct listnode *node;
 	struct isis_area *area;
@@ -2483,31 +2488,73 @@ static void show_isis_route_common(struct vty *vty, int levels,
 	if (!isis->area_list || isis->area_list->count == 0)
 		return;
 
+	if (json)
+		*json = json_object_new_object();
+
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+		if (json) {
+			json_object *jstr = json_object_new_string(
+				area->area_tag ? area->area_tag : "null");
+			json_object_object_add(*json, "area", jstr);
+		} else {
+			vty_out(vty, "Area %s:\n",
+				area->area_tag ? area->area_tag : "null");
+		}
 
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			char key[8];
+			json_object *val;
+			json_object *json_level;
+
 			if ((level & levels) == 0)
 				continue;
 
+			if (json) {
+				json_level = json_object_new_object();
+				json_object *jstr = json_object_new_string(
+					area->area_tag ? area->area_tag
+						       : "null");
+				json_object_object_add(json_level, "area",
+						       jstr);
+			}
+
 			if (area->ip_circuits > 0) {
+				val = NULL;
 				isis_print_routes(
 					vty,
 					area->spftree[SPFTREE_IPV4][level - 1],
-					prefix_sid, backup);
+					json ? &val : NULL, prefix_sid, backup);
+				if (json && val) {
+					json_object_object_add(json_level,
+							       "ipv4", val);
+				}
 			}
 			if (area->ipv6_circuits > 0) {
+				val = NULL;
 				isis_print_routes(
 					vty,
 					area->spftree[SPFTREE_IPV6][level - 1],
-					prefix_sid, backup);
+					json ? &val : NULL, prefix_sid, backup);
+				if (json && val) {
+					json_object_object_add(json_level,
+							       "ipv6", val);
+				}
 			}
 			if (isis_area_ipv6_dstsrc_enabled(area)) {
+				val = NULL;
 				isis_print_routes(vty,
 						  area->spftree[SPFTREE_DSTSRC]
 							       [level - 1],
+						  json ? &val : NULL,
 						  prefix_sid, backup);
+				if (json && val) {
+					json_object_object_add(
+						json_level, "ipv6-dstsrc", val);
+				}
+			}
+			if (json) {
+				snprintf(key, sizeof(key), "level-%d", level);
+				json_object_object_add(*json, key, json_level);
 			}
 		}
 	}
@@ -2519,7 +2566,8 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 #ifndef FABRICD
       " [<level-1|level-2>]"
 #endif
-      " [<prefix-sid|backup>]",
+      " [<prefix-sid|backup>]"
+      " [json$uj]",
       SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
       "IS-IS routing table\n"
 #ifndef FABRICD
@@ -2527,7 +2575,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
       "level-2 routes\n"
 #endif
       "Show Prefix-SID information\n"
-      "Show backup routes\n")
+      "Show backup routes\n" JSON_STR)
 {
 	int levels;
 	struct isis *isis;
@@ -2536,7 +2584,9 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	bool all_vrf = false;
 	bool prefix_sid = false;
 	bool backup = false;
+	bool uj = use_json(argc, argv);
 	int idx = 0;
+	json_object *json = NULL;
 
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
@@ -2556,17 +2606,45 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	if (argv_find(argv, argc, "backup", &idx))
 		backup = true;
 
+	if (uj)
+		json = json_object_new_array();
+
 	if (vrf_name) {
+		json_object *json_vrf = NULL;
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
 				show_isis_route_common(vty, levels, isis,
-						       prefix_sid, backup);
-			return CMD_SUCCESS;
+						       prefix_sid, backup,
+						       uj ? &json_vrf : NULL);
+				if (uj) {
+					json_object_object_add(
+						json_vrf, "vrf_id",
+						json_object_new_int(
+							isis->vrf_id));
+					json_object_array_add(json, json_vrf);
+				}
+			}
+			goto out;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
+		if (isis != NULL) {
 			show_isis_route_common(vty, levels, isis, prefix_sid,
-					       backup);
+					       backup, uj ? &json_vrf : NULL);
+			if (uj) {
+				json_object_object_add(
+					json_vrf, "vrf_id",
+					json_object_new_int(isis->vrf_id));
+				json_object_array_add(json, json_vrf);
+			}
+		}
+	}
+
+out:
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
 	}
 
 	return CMD_SUCCESS;
