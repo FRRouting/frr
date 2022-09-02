@@ -20,6 +20,7 @@
 #include <zebra.h>
 #include <stdio.h>
 
+#include "lib/json.h"
 #include "printfrr.h"
 #include "memory.h"
 #include "termtable.h"
@@ -497,4 +498,48 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 	XFREE(MTYPE_TTABLE, right);
 
 	return buf;
+}
+
+/* Crude conversion from ttable to json array.
+ * Assume that the first row has column headings.
+ *
+ * Formats are:
+ *   d	int32
+ *   f	double
+ *   l	int64
+ *   s	string (default)
+ */
+json_object *ttable_json(struct ttable *tt, const char *const formats)
+{
+	json_object *json = NULL;
+	/* clang-format off */
+	struct ttable_cell *row; // iteration pointers
+	/* clang-format on */
+
+	json = json_object_new_array();
+
+	for (int i = 1; i < tt->nrows; i++) {
+		json_object *jobj;
+		json_object *val;
+
+		row = tt->table[i];
+		jobj = json_object_new_object();
+		json_object_array_add(json, jobj);
+		for (int j = 0; j < tt->ncols; j++) {
+			switch (formats[j]) {
+			case 'd':
+			case 'l':
+				val = json_object_new_int64(atol(row[j].text));
+				break;
+			case 'f':
+				val = json_object_new_double(atof(row[j].text));
+				break;
+			default:
+				val = json_object_new_string(row[j].text);
+			}
+			json_object_object_add(jobj, tt->table[0][j].text, val);
+		}
+	}
+
+	return json;
 }

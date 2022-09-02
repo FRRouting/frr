@@ -21,6 +21,7 @@
 #define _TERMTABLE_H_
 
 #include <zebra.h>
+#include "lib/json.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -289,6 +290,17 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
  * @return table in text form
  */
 char *ttable_dump(struct ttable *tt, const char *newline);
+
+/**
+ * Convert a table to a JSON array of objects.
+ *
+ * Caller must free the returned json_object structure.
+ *
+ * @param tt the table to convert
+ * @param formats an array of characters indicating what JSON type should be
+ * used.
+ */
+json_object *ttable_json(struct ttable *tt, const char *const formats);
 
 #ifdef __cplusplus
 }
