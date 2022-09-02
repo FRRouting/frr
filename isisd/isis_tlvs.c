@@ -2127,9 +2127,14 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 	struct isis_prefix_sid *sid = (struct isis_prefix_sid *)i;
 
 	if (json) {
-		struct json_object *sr_json;
+		struct json_object *sr_json, *array_json;
 		sr_json = json_object_new_object();
-		json_object_object_add(json, "sr", sr_json);
+		json_object_object_get_ex(json, "sr", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "sr", array_json);
+		}
+		json_object_array_add(array_json, sr_json);
 		if (sid->flags & ISIS_PREFIX_SID_VALUE) {
 			json_object_int_add(sr_json, "label", sid->value);
 		} else {
@@ -2929,9 +2934,15 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", r->id);
 	if (json) {
-		struct json_object *old_json;
+		struct json_object *old_json, *array_json;
 		old_json = json_object_new_object();
-		json_object_object_add(json, "old-reach-style", old_json);
+		json_object_object_get_ex(json, "old-reach-style", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "old-reach-style",
+					       array_json);
+		}
+		json_object_array_add(array_json, old_json);
 		json_object_string_add(old_json, "is-reach", sys_id);
 		json_object_int_add(old_json, "metric", r->metric);
 	} else
@@ -3173,9 +3184,14 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 
 	snprintfrr(sys_id, ISO_SYSID_STRLEN, "%pPN", r->id);
 	if (json) {
-		struct json_object *reach_json;
+		struct json_object *reach_json, *array_json;
 		reach_json = json_object_new_object();
-		json_object_object_add(json, "ext-reach", reach_json);
+		json_object_object_get_ex(json, "ext-reach", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "ext-reach", array_json);
+		}
+		json_object_array_add(array_json, reach_json);
 		json_object_string_add(
 			reach_json, "mt-id",
 			(mtid == ISIS_MT_IPV4_UNICAST) ? "Extended" : "MT");
@@ -3314,13 +3330,21 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
-		struct json_object *old_json;
+		struct json_object *old_json, *array_json;
 		old_json = json_object_new_object();
-		json_object_object_add(json, "old-ip-reach-style", old_json);
+		json_object_object_get_ex(json, "old-ip-reach-style",
+					  &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "old-ip-reach-style",
+					       old_json);
+		}
+		json_object_array_add(array_json, old_json);
 		json_object_string_add(old_json, "prefix",
 				       prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)));
 		json_object_int_add(old_json, "metric", r->metric);
-	} else
+		return;
+	}
 	sbuf_push(buf, indent, "IP Reachability: %s (Metric: %hhu)\n",
 		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
 		  r->metric);
@@ -3705,9 +3729,14 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 	struct isis_mt_router_info *info = (struct isis_mt_router_info *)i;
 
 	if (json) {
-		struct json_object *mt_json;
+		struct json_object *mt_json, *array_json;
 		mt_json = json_object_new_object();
-		json_object_object_add(json, "mt", mt_json);
+		json_object_object_get_ex(json, "mt", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "mt", array_json);
+		}
+		json_object_array_add(array_json, mt_json);
 		json_object_int_add(mt_json, "mtid", info->mtid);
 		json_object_string_add(mt_json, "overload", info->overload?"true":"false");
 		json_object_string_add(mt_json, "attached", info->attached?"true":"false");
@@ -3866,12 +3895,17 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 					  struct json_object *json, int indent)
 {
 	struct isis_extended_ip_reach *r = (struct isis_extended_ip_reach *)i;
+	struct json_object *ext_json, *array_json;
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
-		struct json_object *ext_json;
 		ext_json = json_object_new_object();
-		json_object_object_add(json, "ext-ip-reach", ext_json);
+		json_object_object_get_ex(json, "ext-ip-reach", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "ext-ip-reach", array_json);
+		}
+		json_object_array_add(array_json, ext_json);
 		json_object_string_add(
 			json, "mt-id",
 			(mtid == ISIS_MT_IPV4_UNICAST) ? "Extended" : "MT");
@@ -4500,9 +4534,14 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
-		struct json_object *reach_json;
+		struct json_object *reach_json, *array_json;
 		reach_json = json_object_new_object();
-		json_object_object_add(json, "ipv6-reach", reach_json);
+		json_object_object_get_ex(json, "ipv6-reach", &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "ipv6-reach", array_json);
+		}
+		json_object_array_add(array_json, reach_json);
 		json_object_string_add(reach_json, "mt-id",
 				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
 								      : "mt");
