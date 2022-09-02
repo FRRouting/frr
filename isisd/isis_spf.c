@@ -2281,23 +2281,28 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 	char buf_prefix[BUFSIZ];
 
 	(void)prefix2str(prefix, buf_prefix, sizeof(buf_prefix));
-		for (ALL_LIST_ELEMENTS_RO(rinfo->nexthops, node, nexthop)) {
+	for (int alg = 0; alg < SR_ALGORITHM_COUNT; alg++) {
+		for (ALL_LIST_ELEMENTS_RO(rinfo->sr_algo[alg].nexthops, node,
+					  nexthop)) {
 			struct interface *ifp;
 			char buf_iface[BUFSIZ];
 			char buf_nhop[BUFSIZ];
 
 			if (!no_adjacencies) {
-				inet_ntop(nexthop->family, &nexthop->ip, buf_nhop,
-					  sizeof(buf_nhop));
-				ifp = if_lookup_by_index(nexthop->ifindex, VRF_DEFAULT);
+				inet_ntop(nexthop->family, &nexthop->ip,
+					  buf_nhop, sizeof(buf_nhop));
+				ifp = if_lookup_by_index(nexthop->ifindex,
+							 VRF_DEFAULT);
 				if (ifp)
 					strlcpy(buf_iface, ifp->name,
 						sizeof(buf_iface));
 				else
 					snprintf(buf_iface, sizeof(buf_iface),
-						 "ifindex %u", nexthop->ifindex);
+						 "ifindex %u",
+						 nexthop->ifindex);
 			} else {
-				strlcpy(buf_nhop, print_sys_hostname(nexthop->sysid),
+				strlcpy(buf_nhop,
+					print_sys_hostname(nexthop->sysid),
 					sizeof(buf_nhop));
 				strlcpy(buf_iface, "-", sizeof(buf_iface));
 			}
@@ -2306,39 +2311,45 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 				char buf_sid[BUFSIZ] = {};
 				char buf_lblop[BUFSIZ] = {};
 
-				if (nexthop->sr.present) {
+				if (rinfo->sr_algo[alg].present) {
 					snprintf(buf_sid, sizeof(buf_sid), "%u",
-						 nexthop->sr.sid.value);
-					sr_op2str(
-						buf_lblop, sizeof(buf_lblop),
-						rinfo->sr_algo[SR_ALGORITHM_SPF].label,
-						nexthop->sr.label);
-				} else {
+						 rinfo->sr_algo[alg].sid.value);
+					sr_op2str(buf_lblop, sizeof(buf_lblop),
+						  rinfo->sr_algo[alg].label,
+						  nexthop->sr.label);
+				} else if (alg == SR_ALGORITHM_SPF) {
 					strlcpy(buf_sid, "-", sizeof(buf_sid));
-					strlcpy(buf_lblop, "-", sizeof(buf_lblop));
+					strlcpy(buf_lblop, "-",
+						sizeof(buf_lblop));
+				} else {
+					continue;
 				}
 
 				if (first) {
-					ttable_add_row(tt, "%s|%u|%s|%s|%s|%s",
-							   buf_prefix, rinfo->cost,
-							   buf_iface, buf_nhop, buf_sid,
-							   buf_lblop);
+					ttable_add_row(tt,
+						       "%s|%u|%s|%s|%s|%s|%d",
+						       buf_prefix, rinfo->cost,
+						       buf_iface, buf_nhop,
+						       buf_sid, buf_lblop, alg);
 					first = false;
 				} else
-					ttable_add_row(tt, "||%s|%s|%s|%s", buf_iface,
-							   buf_nhop, buf_sid, buf_lblop);
+					ttable_add_row(tt, "||%s|%s|%s|%s|%d",
+						       buf_iface, buf_nhop,
+						       buf_sid, buf_lblop, alg);
 			} else {
 				char buf_labels[BUFSIZ] = {};
 
 				if (nexthop->label_stack) {
 					for (int i = 0;
-						 i < nexthop->label_stack->num_labels;
-						 i++) {
+					     i <
+					     nexthop->label_stack->num_labels;
+					     i++) {
 						char buf_label[BUFSIZ];
 
-						label2str(
-							nexthop->label_stack->label[i],
-							buf_label, sizeof(buf_label));
+						label2str(nexthop->label_stack
+								  ->label[i],
+							  buf_label,
+							  sizeof(buf_label));
 						if (i != 0)
 							strlcat(buf_labels, "/",
 								sizeof(buf_labels));
@@ -2349,18 +2360,23 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 					label2str(nexthop->sr.label, buf_labels,
 						  sizeof(buf_labels));
 				else
-					strlcpy(buf_labels, "-", sizeof(buf_labels));
+					strlcpy(buf_labels, "-",
+						sizeof(buf_labels));
 
 				if (first) {
-					ttable_add_row(tt, "%s|%u|%s|%s|%s", buf_prefix,
-							   rinfo->cost, buf_iface, buf_nhop,
-							   buf_labels);
+					ttable_add_row(tt, "%s|%u|%s|%s|%s",
+						       buf_prefix, rinfo->cost,
+						       buf_iface, buf_nhop,
+						       buf_labels);
 					first = false;
 				} else
-					ttable_add_row(tt, "||%s|%s|%s", buf_iface,
-							   buf_nhop, buf_labels);
+					ttable_add_row(tt, "||%s|%s|%s",
+						       buf_iface, buf_nhop,
+						       buf_labels);
 			}
 		}
+	}
+
 	if (list_isempty(rinfo->nexthops)) {
 		if (prefix_sid) {
 			char buf_sid[BUFSIZ] = {};
@@ -2421,7 +2437,9 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	if (prefix_sid)
-		ttable_add_row(tt, "Prefix|Metric|Interface|Nexthop|SID|Label Op.");
+		ttable_add_row(
+			tt,
+			"Prefix|Metric|Interface|Nexthop|SID|Label Op.|Algo");
 	else
 		ttable_add_row(tt, "Prefix|Metric|Interface|Nexthop|Label(s)");
 	tt->style.cell.rpad = 2;
