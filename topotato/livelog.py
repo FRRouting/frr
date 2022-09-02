@@ -74,6 +74,8 @@ class LogMessage(TimedElement):
         return (self._ts, 0)
 
     def serialize(self, context: Context):
+        _ = context.take_frame_num()
+
         data = self.header_fields._asdict()
 
         # don't need these
