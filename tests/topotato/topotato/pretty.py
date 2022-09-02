@@ -13,6 +13,8 @@ import time
 import os
 import urllib.parse
 import json
+import zlib
+import tempfile
 from xml.etree import ElementTree
 
 import logging
@@ -28,6 +30,8 @@ from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .utils import ClassHooks, exec_find
 from .scapy import ScapySend
+from .timeline import TimedElement
+from .pcapng import Sink, SectionHeader, IfDesc
 
 
 jenv = jinja2.Environment(
@@ -81,7 +85,7 @@ class fmt(html):
         class_ = 'assert-match-item'
 
 
-class PrettyLog(base.TimedElement):
+class PrettyLog(TimedElement):
     log_id_re = re.compile(r'^(?:\[(?P<uid>[A-Z0-9]{5}-[A-Z0-9]{5})\])?(?:\[EC (?P<ec>\d+)\])? ?')
 
     def __init__(self, prettysession, seqno, msg):
@@ -110,7 +114,8 @@ class PrettyLog(base.TimedElement):
 
     def __repr__(self):
         return '<%s @%.6f %r>' % (self.__class__.__name__, self._ts, self._text)
-    
+
+    @property
     def ts(self):
         return (self._ts, self._seqno)
 
@@ -204,6 +209,8 @@ class PrettyInstance(list):
         self.timed = []
 
     def distribute(self):
+        raise NotImplementedError()
+
         for router in self.instance.routers.values():
             for daemonlog in router.livelogs.values():
                 for seqno, msg in enumerate(daemonlog):
@@ -255,6 +262,11 @@ class PrettyInstance(list):
         basename = self._filename_sub.sub('_', nodeid)
         basepath = os.path.join(self.prettysession.outdir, basename)
 
+        data = {
+            'ts_start': topotatoinst.started_ts,
+            'items': [],
+        }
+
         items = []
         prevfunc = None
 
@@ -273,6 +285,12 @@ class PrettyInstance(list):
 
             items.append(prettyitem)
 
+            data['items'].append({
+                'nodeid': itemnodeid,
+                'idx': prettyitem.idx,
+                'ts_end': prettyitem.ts_end,
+            })
+
         del prevfunc
         del funcparent
 
@@ -281,16 +299,11 @@ class PrettyInstance(list):
         toposvg = ElementTree.fromstring(self[0].toposvg)
         toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
 
-        pdml = ''
-        if hasattr(topotatoinst, 'liveshark'):
-            if not hasattr(topotatoinst.liveshark, 'xml'):
-                breakpoint()
-            pdml = topotatoinst.liveshark.xml
-            if pdml is not None:
-            # pdml.attrib['xmlns'] = 'https://xmlns.frrouting.org/topotato/pdml/'
-                pdml = ElementTree.tostring(pdml).decode('UTF-8')
-
-        pdml_json = json.dumps(pdml)
+        data['timed'] = items[-1]._jsdata # topotatoinst.netinst.timeline.serialize(),
+        if items[-1]._pdml:
+            data['pdml'] = items[-1]._pdml
+        data_json = json.dumps(data, ensure_ascii=True).encode('ASCII')
+        data_bz = base64.b64encode(zlib.compress(data_json, level=6)).decode('ASCII')
 
         extrafiles = {}
         for item in self:
@@ -402,14 +415,9 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
         super().when_call(call, result)
 
         self.instance.ts_rel = self.item.parent.starting_ts
-        self.instance.protomato = None
 
         if call.excinfo:
             return
-
-        self.instance.protomato = ProtomatoDumper(self.instance.network.macmap(),
-                self.instance.ts_rel)
-        self.item.parent.liveshark.subscribe(self.instance.protomato.submit)
 
     def files(self):
         dot = self.instance.network.dot()
@@ -420,7 +428,7 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
                     stdin = subprocess.PIPE, stdout = subprocess.PIPE)
             self.toposvg, _ = graphviz.communicate(dot.encode('UTF-8'))
             # sigh.
-            self.toposvg = self.toposvg.replace(b"\"Inconsolata Semi-Condensed\"", b"\"Inconsolata Semi Condensed\"") 
+            self.toposvg = self.toposvg.replace(b"\"Inconsolata Semi-Condensed\"", b"\"Inconsolata Semi Condensed\"")
 
             yield PrettyExtraFile(self, 'dotfilesvg', '.svg', 'image/svg+xml', self.toposvg)
         else:
@@ -431,19 +439,29 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
     def when_call(self, call, result):
         super().when_call(call, result)
 
-        self._pcap = None
-
-        if getattr(self.instance, 'pcapfile', None):
-            try:
-                with open(self.instance.pcapfile, 'rb') as fd:
-                    self._pcap = fd.read()
-            except FileNotFoundError:
-                pass
-
-        self.instance.pretty.distribute()
-
         for idx, prettyitem in enumerate(self.instance.pretty):
             prettyitem.finalize(idx)
+
+        # FIXME: flush scapy sockets / timeline(final=True)!
+
+        # TODO: move this to TopotatoInstance?
+        with tempfile.NamedTemporaryFile(prefix='topotato', suffix='.pcapng') as fd:
+            pcapng = Sink(fd, '=')
+
+            shdr = SectionHeader()
+            pcapng.write(shdr)
+
+            jsdata = self.instance.timeline.serialize(pcapng)
+            pcapng.flush()
+
+            fd.seek(0)
+            self._pcap = fd.read()
+
+            tshark = subprocess.Popen(["tshark", "-q", "-r", fd.name, "-T", "pdml"],
+                    stdout=subprocess.PIPE)
+            pdml, _ = tshark.communicate()
+            self._pdml = pdml.decode('UTF-8')
+            self._jsdata = jsdata
 
         self.instance.pretty.report()
 
@@ -455,7 +473,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
     template = jenv.get_template('item_vtysh.html.j2')
 
-    class Line(base.TimedElement):
+    class Line(TimedElement):
         def __init__(self, ts, router, daemon, cmd, out, rc, result, same):
             super().__init__()
 
@@ -472,8 +490,12 @@ class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
             self._result = result
             self._same = same
 
+        @property
         def ts(self):
             return (self._ts, 0)
+
+        def serialize(self):
+            return {}
 
         def html(self, id_, ts_rel):
             clicmd = fmt.clicmd([

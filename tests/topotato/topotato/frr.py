@@ -21,7 +21,8 @@ from typing import List, ClassVar, Dict, Mapping, Optional, Any, Iterator, Tuple
 
 import jinja2
 
-from .utils import deindent, ClassHooks, MiniPoller
+from .utils import deindent, ClassHooks
+from .timeline import Timeline
 from .livelog import LiveLog
 
 if typing.TYPE_CHECKING:
@@ -292,7 +293,7 @@ class FRRNetworkInstance(NetworkInstance):
         def _getlogfd(self, daemon):
             if daemon not in self.livelogs:
                 self.livelogs[daemon] = LiveLog(self, daemon)
-                self.instance.poller.append(self.livelogs[daemon])
+                self.instance.timeline.install(self.livelogs[daemon])
             return self.livelogs[daemon].wrfd
 
         def start(self):
@@ -366,13 +367,13 @@ class FRRNetworkInstance(NetworkInstance):
                     self.check_call(["kill", "-TERM", str(pid)])
                 except subprocess.CalledProcessError:
                     break
-                self.instance.poller.sleep(0.1)
+                self.instance.timeline.sleep(0.1)
 
             self.start_daemon(daemon)
 
         def stop(self):
             for livelog in self.livelogs.values():
-                self.instance.poller.remove(livelog)
+                self.instance.timeline.uninstall(livelog)
                 livelog.close()
 
             super().end()
@@ -446,4 +447,4 @@ class FRRNetworkInstance(NetworkInstance):
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)
         self.configs = configs
-        self.poller = MiniPoller()
+        self.timeline = Timeline()

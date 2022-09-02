@@ -30,11 +30,12 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
-from scapy.packet import Packet
+from scapy.packet import Packet  # type: ignore
 import pytest
 
 from .utils import json_cmp, text_rich_cmp
 from .base import TopotatoItem, TopotatoInstance, skiptrace
+from .livescapy import TimedScapy
 from .livelog import LogMessage
 from .exceptions import (
     TopotatoCLICompareFail,
@@ -311,9 +312,10 @@ class AssertPacket(TopotatoAssertion):
     def __call__(self):
         netinst = self.getparent(TopotatoInstance).netinst
 
-        for _, pkt in netinst.poller.run_iter(time.time() + self._maxwait):
-            if not isinstance(pkt, Packet):
+        for element in netinst.timeline.run_iter(time.time() + self._maxwait):
+            if not isinstance(element, TimedScapy):
                 continue
+            pkt = element.pkt
             if pkt.sniffed_on != self._link:
                 continue
 
@@ -331,6 +333,7 @@ class AssertPacket(TopotatoAssertion):
 
             if self._pkt(*args):
                 self.matched = pkt
+                element.match_for.append(self)
                 break
         else:
             raise TopotatoPacketFail(
@@ -367,7 +370,7 @@ class AssertLog(TopotatoAssertion):
         # inst = self.getparent(TopotatoInstance)
         deadline = time.time() + self._maxwait
 
-        for _, msg in self.instance.poller.run_iter(deadline):
+        for msg in self.instance.timeline.run_iter(deadline):
             if not isinstance(msg, LogMessage):
                 continue
 
