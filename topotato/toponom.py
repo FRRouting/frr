@@ -478,12 +478,16 @@ class Link(NOMNode):
         """
         if isinstance(self.a.endpoint, LAN):
             a_name = self.a.endpoint.dotname
+            a_id = self.a.endpoint.dotname
         else:
             a_name = '%s":"%s' % (self.a.endpoint.dotname, self.a.ifname)
+            a_id = "%s/%s" % (self.a.endpoint.name, self.a.ifname)
         if isinstance(self.b.endpoint, LAN):
             b_name = self.b.endpoint.dotname
+            b_id = self.a.endpoint.dotname
         else:
             b_name = '%s":"%s' % (self.b.endpoint.dotname, self.b.ifname)
+            b_id = "%s/%s" % (self.b.endpoint.name, self.b.ifname)
 
         cheat_name = "%s_%s_%d" % (
             self.a.endpoint.dotname,
@@ -495,13 +499,13 @@ class Link(NOMNode):
             self.a.endpoint, LAN
         ):
             out.append(
-                '  "%s" [ shape=ellipse, label=<p2p#%d>, style = filled, fillcolor="#eeeecc" ];'
-                % (cheat_name, self.global_num)
+                '  "%s" [ id="%s", shape=ellipse, label=<p2p#%d>, style = filled, fillcolor="#eeeecc" ];'
+                % (cheat_name, cheat_name, self.global_num)
             )
-            out.append('  "%s" -- "%s";' % (a_name, cheat_name))
-            out.append('  "%s" -- "%s";' % (b_name, cheat_name))
+            out.append('  "%s" -- "%s" [ id="%s" ];' % (a_name, cheat_name, a_id))
+            out.append('  "%s" -- "%s" [ id="%s" ];' % (b_name, cheat_name, b_id))
         else:
-            out.append('  "%s" -- "%s";' % (a_name, b_name))
+            out.append('  "%s" -- "%s" [ id="%s" ];' % (a_name, b_name, cheat_name))
 
 
 class Network:
