@@ -52,8 +52,6 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);
 void pim_neighbor_free(struct pim_neighbor *neigh);
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 				       pim_addr source_addr);
-struct pim_neighbor *pim_neighbor_find_prefix(struct interface *ifp,
-					      const struct prefix *src_prefix);
 struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 						    struct prefix *src);
 struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp);
