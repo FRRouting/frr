@@ -237,7 +237,7 @@ int igmp_v2_recv_leave(struct gm_sock *igmp, struct ip *ip_hdr,
 	*/
 	if ((ntohl(ip_hdr->ip_dst.s_addr) != INADDR_ALLRTRS_GROUP)
 	    && (ip_hdr->ip_dst.s_addr != group_addr.s_addr)) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(
 				"IGMPv2 Leave message is ignored since received on address other than ALL-ROUTERS or Group-address");
 		return -1;

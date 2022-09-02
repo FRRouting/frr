@@ -401,7 +401,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		desired = GM_SG_NOINFO;
 
 	if (desired != sg->state && !gm_ifp->stopping) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(log_sg(sg, "%s => %s"), gm_states[sg->state],
 				   gm_states[desired]);
 
@@ -1049,7 +1049,7 @@ static void gm_t_expire(struct thread *t)
 
 		remain_ms = monotime_until(&pend->expiry, &remain);
 		if (remain_ms > 0) {
-			if (PIM_DEBUG_IGMP_EVENTS)
+			if (PIM_DEBUG_GM_EVENTS)
 				zlog_debug(
 					log_ifp("next general expiry in %" PRId64 "ms"),
 					remain_ms / 1000);
@@ -1073,7 +1073,7 @@ static void gm_t_expire(struct thread *t)
 			gm_ifp->n_pending * sizeof(gm_ifp->pending[0]));
 	}
 
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("next general expiry waiting for query"));
 }
 
@@ -1250,7 +1250,7 @@ static void gm_t_grp_expire(struct thread *t)
 	struct gm_if *gm_ifp = pend->iface;
 	struct gm_sg *sg, *sg_start, sg_ref = {};
 
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("*,%pPAs S,G timer expired"), &pend->grp);
 
 	/* gteq lookup - try to find *,G or S,G  (S,G is > *,G)
@@ -1442,7 +1442,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	}
 
 	if (IPV6_ADDR_CMP(&pkt_src->sin6_addr, &gm_ifp->querier) < 0) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(
 				log_pkt_src("replacing elected querier %pPA"),
 				&gm_ifp->querier);
@@ -2137,7 +2137,7 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	gm_ifp = pim_ifp->mld;
 	gm_ifp->stopping = true;
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("MLD stop"));
 
 	THREAD_OFF(gm_ifp->t_query);
