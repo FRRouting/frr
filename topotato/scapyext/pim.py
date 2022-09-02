@@ -11,7 +11,7 @@ Only Bootstrap & Candidate RP messages right now (because I needed those...)
 import socket
 import struct
 from enum import Enum
-from typing import ClassVar
+from typing import ClassVar, Dict
 
 from scapy.packet import bind_layers, Packet  # type: ignore
 from scapy.fields import (  # type: ignore
@@ -28,7 +28,7 @@ from scapy.fields import (  # type: ignore
     StrLenField,
 )
 from scapy.layers.inet import IP, DestIPField  # type: ignore
-from scapy.layers.inet6 import IPv6  # type: ignore
+from scapy.layers.inet6 import IPv6, in6_chksum  # type: ignore
 from scapy.utils import checksum  # type: ignore
 from scapy.volatile import RandShort  # type: ignore
 from scapy.error import Scapy_Exception  # type: ignore
@@ -148,8 +148,6 @@ class PIMEncodedPrefixField(_PIMEncodedAddrField):
 
 # class PIMEncodedSourceField(_PIMEncodedAddrField):
 
-from scapy.layers.inet6 import in6_chksum
-
 
 class PIM_Hdr(Packet):
     name = "PIM Header"
@@ -174,21 +172,23 @@ class PIM_Hdr(Packet):
 class PIM_Hello_Option(Packet):
     name = "Generic PIM Hello Option/TLV"
 
-    fields_desc = [ShortField("type", 0),
-                   FieldLenField("len", None, length_of="data", fmt="H"),
-                   StrLenField("data", b"", length_from=lambda pkt: pkt.len)]
+    fields_desc = [
+        ShortField("type", 0),
+        FieldLenField("len", None, length_of="data", fmt="H"),
+        StrLenField("data", b"", length_from=lambda pkt: pkt.len),
+    ]
 
-    def extract_padding(self, p):
-        return b"", p
+    def extract_padding(self, s):
+        return b"", s
 
-    _reg = {}
+    _reg: ClassVar[Dict[int, "PIM_Hello_Option"]] = {}
 
     @classmethod
     def register_variant(cls):
         cls._reg[cls.type.default] = cls
 
     @classmethod
-    def dispatch_hook(cls, pkt=None, *args, **kargs):
+    def dispatch_hook(cls, *args, pkt=None, **kargs):
         if pkt:
             tmp_type = struct.unpack(pkt[:2], ">H")[0]
             return cls._reg.get(tmp_type, cls)
@@ -197,9 +197,11 @@ class PIM_Hello_Option(Packet):
 
 class PIM_Hello_Option_HoldTime(PIM_Hello_Option):
     name = "PIM Hello Holdtime TLV"
-    fields_desc = [ShortField("type", 1),
-                   ShortField("len", 2),
-                   ShortField("holdtime", 105)]
+    fields_desc = [
+        ShortField("type", 1),
+        ShortField("len", 2),
+        ShortField("holdtime", 105),
+    ]
 
 
 class PIM_Hello(Packet):
@@ -223,6 +225,7 @@ class PIM_Bootstrap_RP(Packet):
         ByteField("reserved", 0),
     ]
 
+
 class PIM_Bootstrap_Group(Packet):
     name = "PIM Bootstrap Group mapping entry"
 
@@ -231,9 +234,11 @@ class PIM_Bootstrap_Group(Packet):
         ByteField("rp_count", 0),
         FieldLenField("frag_count", None, count_of="rps", fmt="B"),
         ShortField("reserved", 0),
-        PacketListField("rps", [], PIM_Bootstrap_RP,
-                        count_from=lambda pkt: pkt.frag_count)
+        PacketListField(
+            "rps", [], PIM_Bootstrap_RP, count_from=lambda pkt: pkt.frag_count
+        ),
     ]
+
 
 class PIM_Bootstrap(Packet):
     name = "PIM Bootstrap"

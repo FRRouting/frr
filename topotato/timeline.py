@@ -5,17 +5,18 @@
 test timeline related utilities
 """
 
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 import bisect
 import time
 import select
 
 import typing
-from typing import List, Iterable, Tuple, Callable, Generator, Optional, Dict, Any
+from typing import List, Tuple, Generator, Optional, Dict, Any
 from .pcapng import Context, Block, Sink
 
 if typing.TYPE_CHECKING:
     from .base import TopotatoItem
+
 
 class MiniPollee(ABC):
     """
@@ -44,7 +45,10 @@ class MiniPollee(ABC):
         """
         raise NotImplementedError()
 
-    def serialize(self, context: Context) -> Generator[Tuple[Optional[Dict[str, Any]], Optional[Block]], None, None]:
+    # pylint: disable=unused-argument, no-self-use
+    def serialize(
+        self, context: Context
+    ) -> Generator[Tuple[Optional[Dict[str, Any]], Optional[Block]], None, None]:
         """
         Generate possible header blocks for this event source.
 
@@ -79,7 +83,9 @@ class MiniPoller:
         for _ in self.run_iter(time.time() + duration, final=final):
             pass
 
-    def run_iter(self, deadline=float("inf"), final=False) -> Generator["TimedElement", None, None]:
+    def run_iter(
+        self, deadline=float("inf"), final=False
+    ) -> Generator["TimedElement", None, None]:
         """
         Process events and yield :py:class:`TimedElement` items as they happen.
 
@@ -135,7 +141,8 @@ class TimedElement(ABC):
         super().__init__()
         self.match_for = []
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def ts(self) -> Tuple[float, int]:
         """
         Timestamp for this item.
@@ -147,7 +154,9 @@ class TimedElement(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def serialize(self, context: Context) -> Tuple[Optional[Dict[str, Any]], Optional[Block]]:
+    def serialize(
+        self, context: Context
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Block]]:
         """
         Serialize this item for report generation.
 
@@ -177,9 +186,6 @@ class Timeline(MiniPoller, List[TimedElement]):
     Sorted list of TimedElement|s
     """
 
-    def __init__(self):
-        super().__init__()
-
     def record(self, element: TimedElement):
         bisect.insort(self, element)
 
@@ -194,20 +200,24 @@ class Timeline(MiniPoller, List[TimedElement]):
         for item in self:
             jsdata, block = item.serialize(sink)
             if jsdata:
-                ret.append({'ts': item.ts[0], 'data': jsdata})
+                ret.append({"ts": item.ts[0], "data": jsdata})
             if block:
                 sink.write(block)
         return ret
 
-    def iter_since(self, start: float = float('-inf')) -> Generator[TimedElement, None, None]:
-        if start == float('-inf'):
+    def iter_since(
+        self, start: float = float("-inf")
+    ) -> Generator[TimedElement, None, None]:
+        if start == float("-inf"):
             startidx = 0
         else:
             startidx = bisect.bisect_left(self, _Dummy(start))
 
         yield from self[startidx:]
 
-    def run_iter(self, deadline=float("inf"), final=False, check_after: Optional[float] = None) -> Generator[TimedElement, None, None]:
+    def run_iter(
+        self, deadline=float("inf"), final=False, check_after: Optional[float] = None
+    ) -> Generator[TimedElement, None, None]:
         if check_after is not None:
             yield from self.iter_since(check_after)
 

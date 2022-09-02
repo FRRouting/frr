@@ -630,7 +630,8 @@ class TopotatoInstance(_pytest.python.Instance):
         for ifname, sock in netinst.scapys.items():
             netinst.timeline.install(LiveScapy(ifname, sock))
 
-    def do_stop(self, stopitem):
+    @staticmethod
+    def do_stop(stopitem):
         netinst = stopitem.instance
 
         netinst.stop()
