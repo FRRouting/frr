@@ -1362,7 +1362,7 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 {
 	group_timer_off(group);
 
-	if (PIM_DEBUG_IGMP_EVENTS) {
+	if (PIM_DEBUG_GM_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));

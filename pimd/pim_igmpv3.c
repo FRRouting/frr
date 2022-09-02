@@ -209,7 +209,7 @@ static void igmp_source_timer_on(struct gm_group *group,
 	source_timer_off(group, source);
 	struct pim_interface *pim_ifp = group->interface->info;
 
-	if (PIM_DEBUG_IGMP_EVENTS) {
+	if (PIM_DEBUG_GM_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
