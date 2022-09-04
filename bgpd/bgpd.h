@@ -47,6 +47,7 @@
 #include "bgp_io.h"
 
 #include "lib/bfd.h"
+#include "lib/orr_msg.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -195,6 +196,40 @@ struct bgp_redist {
 
 	/* BGP redistribute route-map.  */
 	struct bgp_rmap rmap;
+};
+
+struct bgp_orr_igp_metric {
+	struct prefix prefix;
+	uint32_t igp_metric;
+};
+
+struct bgp_orr_group {
+	/* Name of this ORR group */
+	char *name;
+
+	/* Address Family Identifiers */
+	afi_t afi;
+	safi_t safi;
+
+	/* Pointer to BGP */
+	struct bgp *bgp;
+
+	/* Root Routers of the group */
+	struct peer *primary;
+	struct peer *secondary;
+	struct peer *tertiary;
+
+	/* Active Root Router of the group */
+	struct peer *active;
+
+	/* RR clients belong to this group */
+	struct list *rr_client_list;
+
+	/* IGP metric data from active root */
+	struct list *igp_metric_info;
+
+	/* Route table calculated from active root for this group */
+	struct bgp_table *route_table;
 };
 
 enum vpn_policy_direction {
@@ -778,6 +813,10 @@ struct bgp {
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
 
 	bool allow_martian;
+
+	/* BGP optimal route reflection group and Root Router configuration */
+	uint32_t orr_group_count;
+	struct list *orr_group[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS;
 };
@@ -1422,6 +1461,10 @@ struct peer {
 #define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 28)
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 29)
 #define PEER_FLAG_SOO (1ULL << 30)
+#define PEER_FLAG_ORR_GROUP (1ULL << 31) /* Optimal-Route-Reflection */
+
+	/* BGP Optimal Route Reflection Group name */
+	char *orr_group_name[AFI_MAX][SAFI_MAX];
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -2029,7 +2072,10 @@ enum bgp_create_error_code {
 
 	/*BGP Open Policy ERRORS */
 	BGP_ERR_INVALID_ROLE_NAME = -35,
-	BGP_ERR_INVALID_INTERNAL_ROLE = -36
+	BGP_ERR_INVALID_INTERNAL_ROLE = -36,
+
+	/* BGP ORR ERRORS */
+	BGP_ERR_PEER_ORR_CONFIGURED = -37,
 };
 
 /*
@@ -2081,6 +2127,7 @@ extern struct peer_group *peer_group_lookup_dynamic_neighbor(struct bgp *,
 extern struct peer *peer_lookup_dynamic_neighbor(struct bgp *,
 						 union sockunion *);
 
+extern bool peer_orr_rrclient_check(struct peer *peer, afi_t afi, safi_t safi);
 /*
  * Peers are incredibly easy to memory leak
  * due to the various ways that they are actually used
@@ -2331,6 +2378,12 @@ extern void bgp_shutdown_disable(struct bgp *bgp);
 extern void bgp_close(void);
 extern void bgp_free(struct bgp *);
 void bgp_gr_apply_running_config(void);
+extern int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
+				      const char *name, struct peer *primary,
+				      struct peer *secondary,
+				      struct peer *tertiary);
+extern int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
+					const char *name);
 
 /* BGP GR */
 int bgp_global_gr_init(struct bgp *bgp);

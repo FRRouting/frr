@@ -72,6 +72,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_orr.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_rpki.h"
 
@@ -567,6 +568,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     enum bgp_path_selection_reason *reason)
 {
 	const struct prefix *new_p;
+	struct prefix exist_p;
 	struct attr *newattr, *existattr;
 	enum bgp_peer_sort new_sort;
 	enum bgp_peer_sort exist_sort;
@@ -598,6 +600,11 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool new_proxy;
 	bool new_origin, exist_origin;
 	struct bgp_path_info *bpi_ultimate;
+
+	struct bgp_orr_group *orr_group = NULL;
+	struct listnode *node;
+	struct bgp_orr_igp_metric *igp_metric = NULL;
+	struct list *orr_group_igp_metric_info = NULL;
 
 	*paths_eq = 0;
 
@@ -1060,6 +1067,49 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		newm = new->extra->igpmetric;
 	if (exist->extra)
 		existm = exist->extra->igpmetric;
+
+	if (new->peer->orr_group_name[afi][safi]) {
+		ret = str2prefix(new->peer->host, &exist_p);
+		orr_group = bgp_orr_group_lookup_by_name(
+			bgp, afi, safi, new->peer->orr_group_name[afi][safi]);
+		if (orr_group) {
+			orr_group_igp_metric_info = orr_group->igp_metric_info;
+			if (orr_group_igp_metric_info) {
+				for (ALL_LIST_ELEMENTS_RO(
+					     orr_group_igp_metric_info, node,
+					     igp_metric)) {
+					if (ret &&
+					    prefix_cmp(&exist_p,
+						       &igp_metric->prefix) ==
+						    0) {
+						newm = igp_metric->igp_metric;
+						break;
+					}
+				}
+			}
+		}
+	}
+	if (exist->peer->orr_group_name[afi][safi]) {
+		ret = str2prefix(exist->peer->host, &exist_p);
+		orr_group = bgp_orr_group_lookup_by_name(
+			bgp, afi, safi, exist->peer->orr_group_name[afi][safi]);
+		if (orr_group) {
+			orr_group_igp_metric_info = orr_group->igp_metric_info;
+			if (orr_group_igp_metric_info) {
+				for (ALL_LIST_ELEMENTS_RO(
+					     orr_group_igp_metric_info, node,
+					     igp_metric)) {
+					if (ret &&
+					    prefix_cmp(&exist_p,
+						       &igp_metric->prefix) ==
+						    0) {
+						existm = igp_metric->igp_metric;
+						break;
+					}
+				}
+			}
+		}
+	}
 
 	if (newm < existm) {
 		if (debug && peer_sort_ret < 0)
@@ -12406,6 +12456,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           |alias ALIAS_NAME\
           |A.B.C.D/M longer-prefixes\
           |X:X::X:X/M longer-prefixes\
+	  |optimal-route-reflection [WORD$orr_group_name]\
           ] [json$uj [detail$detail] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
@@ -12454,6 +12505,8 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "Display route and more specific routes\n"
       "IPv6 prefix\n"
       "Display route and more specific routes\n"
+      "Display Optimal Route Reflection RR Clients\n"
+      "ORR Group name\n"
       JSON_STR
       "Display detailed version of JSON output\n"
       "Increase table width for longer prefixes\n")
@@ -12470,6 +12523,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	uint16_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
 	struct prefix p;
+	bool orr_group = false;
 
 	if (uj) {
 		argc--;
@@ -12644,12 +12698,18 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		output_arg = &p;
 	}
 
+	if (argv_find(argv, argc, "optimal-route-reflection", &idx))
+		orr_group = true;
+
 	if (!all) {
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
 		if (community)
 			return bgp_show_community(vty, bgp, community,
 						  exact_match, afi, safi,
 						  show_flags);
+		else if (orr_group)
+			return bgp_show_orr(vty, bgp, afi, safi, orr_group_name,
+					    show_flags);
 		else
 			return bgp_show(vty, bgp, afi, safi, sh_type,
 					output_arg, show_flags,
@@ -12695,6 +12755,11 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 							vty, abgp, community,
 							exact_match, afi, safi,
 							show_flags);
+					else if (orr_group)
+						bgp_show_orr(vty, bgp, afi,
+							     safi,
+							     orr_group_name,
+							     show_flags);
 					else
 						bgp_show(vty, abgp, afi, safi,
 							 sh_type, output_arg,
@@ -12734,6 +12799,11 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 							vty, abgp, community,
 							exact_match, afi, safi,
 							show_flags);
+					else if (orr_group)
+						bgp_show_orr(vty, bgp, afi,
+							     safi,
+							     orr_group_name,
+							     show_flags);
 					else
 						bgp_show(vty, abgp, afi, safi,
 							 sh_type, output_arg,
