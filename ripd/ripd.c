@@ -1082,10 +1082,9 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 
 	/* Check packet length. */
 	if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE)) {
-		flog_err(
-			EC_RIP_PACKET,
-			"rip_auth_md5_set(): packet length %ld is less than minimum length.",
-			len);
+		flog_err(EC_RIP_PACKET,
+			 "%s: packet length %ld is less than minimum length.",
+			 __func__, len);
 		return;
 	}
 
@@ -1451,9 +1450,8 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 			inet_ntop(AF_INET, &sin.sin_addr, dst, sizeof(dst));
 		}
 #undef ADDRESS_SIZE
-		zlog_debug("rip_send_packet %pI4 > %s (%s)",
-			   &ifc->address->u.prefix4, dst,
-			   ifc->ifp->name);
+		zlog_debug("%s %pI4 > %s (%s)", __func__,
+			   &ifc->address->u.prefix4, dst, ifc->ifp->name);
 	}
 
 	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)) {
@@ -1772,8 +1770,8 @@ static void rip_read(struct thread *t)
 	/* If this packet come from unknown interface, ignore it. */
 	if (ifp == NULL) {
 		zlog_info(
-			"rip_read: cannot find interface for packet from %pI4 port %d (VRF %s)",
-			&from.sin_addr, ntohs(from.sin_port),
+			"%s: cannot find interface for packet from %pI4 port %d (VRF %s)",
+			__func__, &from.sin_addr, ntohs(from.sin_port),
 			rip->vrf_name);
 		return;
 	}
@@ -1786,8 +1784,8 @@ static void rip_read(struct thread *t)
 
 	if (ifc == NULL) {
 		zlog_info(
-			"rip_read: cannot find connected address for packet from %pI4 port %d on interface %s (VRF %s)",
-			&from.sin_addr, ntohs(from.sin_port),
+			"%s: cannot find connected address for packet from %pI4 port %d on interface %s (VRF %s)",
+			__func__, &from.sin_addr, ntohs(from.sin_port),
 			ifp->name, rip->vrf_name);
 		return;
 	}
