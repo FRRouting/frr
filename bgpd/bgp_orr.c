@@ -27,32 +27,31 @@
 
 DEFINE_MTYPE_STATIC(BGPD, ORR_IGP_INFO, "ORR IGP Metric info");
 
-extern struct zclient *zclient;
-
 static inline bool is_orr_primary_root(struct bgp_orr_group *orr_group,
 				       char *host)
 {
-	return orr_group->primary && !strcmp(orr_group->primary->host, host);
+	return orr_group->primary && strmatch(orr_group->primary->host, host);
 }
 
 static inline bool is_orr_secondary_root(struct bgp_orr_group *orr_group,
 					 char *host)
 {
 	return orr_group->secondary &&
-	       !strcmp(orr_group->secondary->host, host);
+	       strmatch(orr_group->secondary->host, host);
 }
 
 static inline bool is_orr_tertiary_root(struct bgp_orr_group *orr_group,
 					char *host)
 {
-	return orr_group->tertiary && !strcmp(orr_group->tertiary->host, host);
+	return orr_group->tertiary && strmatch(orr_group->tertiary->host, host);
 }
 
 static inline bool is_orr_active_root(struct bgp_orr_group *orr_group,
 				      char *host)
 {
-	return orr_group->active && !strcmp(orr_group->active->host, host);
+	return orr_group->active && strmatch(orr_group->active->host, host);
 }
+
 static inline bool is_orr_root_node(struct bgp_orr_group *orr_group, char *host)
 {
 	return is_orr_primary_root(orr_group, host) ||
@@ -60,33 +59,11 @@ static inline bool is_orr_root_node(struct bgp_orr_group *orr_group, char *host)
 	       is_orr_tertiary_root(orr_group, host);
 }
 
-static inline bool is_orr_primary_reachable(struct bgp_orr_group *orr_group)
-{
-	return orr_group->primary &&
-	       orr_group->primary->afc_nego[orr_group->afi][orr_group->safi] &&
-	       peer_established(orr_group->primary);
-}
-
-static inline bool is_orr_secondary_reachable(struct bgp_orr_group *orr_group)
-{
-	return orr_group->secondary &&
-	       orr_group->secondary
-		       ->afc_nego[orr_group->afi][orr_group->safi] &&
-	       peer_established(orr_group->secondary);
-}
-
-static inline bool is_orr_tertiary_reachable(struct bgp_orr_group *orr_group)
-{
-	return orr_group->tertiary &&
-	       orr_group->tertiary->afc_nego[orr_group->afi][orr_group->safi] &&
-	       peer_established(orr_group->tertiary);
-}
-
 static inline bool is_peer_orr_group_member(struct peer *peer, afi_t afi,
 					    safi_t safi, const char *name)
 {
 	return peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP) &&
-	       !strcmp(peer->orr_group_name[afi][safi], name);
+	       strmatch(peer->orr_group_name[afi][safi], name);
 }
 
 static inline bool is_peer_reachable(struct peer *peer, afi_t afi, safi_t safi)
@@ -97,7 +74,7 @@ static inline bool is_peer_reachable(struct peer *peer, afi_t afi, safi_t safi)
 static inline bool is_peer_active_eligible(struct peer *peer, afi_t afi,
 					   safi_t safi, const char *name)
 {
-	return is_peer_reachable(peer, afi, afi) &&
+	return is_peer_reachable(peer, afi, safi) &&
 	       is_peer_orr_group_member(peer, afi, safi, name);
 }
 
@@ -142,7 +119,7 @@ static struct bgp_orr_group *bgp_orr_group_new(struct bgp *bgp, afi_t afi,
 	if (!bgp->orr_group_count) {
 		ret = zclient_register_opaque(zclient, ORR_IGP_METRIC_UPDATE);
 		if (ret != ZCLIENT_SEND_SUCCESS)
-			zlog_debug(
+			bgp_orr_debug(
 				"%s: zclient_register_opaque failed with ret = %d",
 				__func__, ret);
 	}
@@ -208,7 +185,7 @@ struct bgp_orr_group *bgp_orr_group_lookup_by_name(struct bgp *bgp, afi_t afi,
 		return NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(orr_group_list, node, group))
-		if (strcmp(group->name, name) == 0)
+		if (strmatch(group->name, name))
 			return group;
 
 	bgp_orr_debug("%s: For %s, ORR Group '%s' not found.", __func__,
@@ -229,7 +206,7 @@ static char *bgp_orr_group_rrclient_lookup(struct bgp_orr_group *orr_group,
 		return NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(orr_group_rrclient_list, node, rrclient))
-		if (strcmp(rrclient, rr_client_host) == 0)
+		if (strmatch(rrclient, rr_client_host))
 			return rrclient;
 
 	bgp_orr_debug(
@@ -320,7 +297,7 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* Compare and update Primary Root Address */
 	if (primary) {
 		if (!orr_group->primary ||
-		    strcmp(orr_group->primary->host, primary->host))
+		    !strmatch(orr_group->primary->host, primary->host))
 			orr_group->primary = primary;
 		else
 			bgp_orr_debug("%s: No change in Primary Root",
@@ -336,21 +313,21 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 			orr_group->active = primary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else if (orr_group->primary &&
-			   strcmp(orr_group->active->host,
-				  orr_group->primary->host)) {
+			   !strmatch(orr_group->active->host,
+				     orr_group->primary->host)) {
 			bgp_orr_igp_metric_register(orr_group, false);
 			orr_group->active = primary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else
-			bgp_orr_debug("%s: %pBP", __func__,
+			bgp_orr_debug("%s: %s", __func__,
 				      orr_group->primary
 					      ? "No change in Active Root"
 					      : "Primary Root is NULL");
 	} else {
 		if (orr_group->primary) {
 			if (orr_group->active &&
-			    !strcmp(orr_group->active->host,
-				    orr_group->primary->host)) {
+			    strmatch(orr_group->active->host,
+				     orr_group->primary->host)) {
 				bgp_orr_igp_metric_register(orr_group, false);
 
 				orr_group->active = NULL;
@@ -362,7 +339,7 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* Compare and update Secondary Root Address */
 	if (secondary) {
 		if (!orr_group->secondary ||
-		    strcmp(orr_group->secondary->host, secondary->host))
+		    !strmatch(orr_group->secondary->host, secondary->host))
 			orr_group->secondary = secondary;
 		else
 			bgp_orr_debug("%s: No change in Secondary Root",
@@ -375,14 +352,14 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 			orr_group->active = secondary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else if (!primary_eligible && orr_group->secondary &&
-			   strcmp(orr_group->active->host,
-				  orr_group->secondary->host)) {
+			   !strmatch(orr_group->active->host,
+				     orr_group->secondary->host)) {
 			bgp_orr_igp_metric_register(orr_group, false);
 			orr_group->active = secondary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else
 			bgp_orr_debug(
-				"%s: %pBP", __func__,
+				"%s: %s", __func__,
 				primary_eligible
 					? "Primary is Active Root"
 					: orr_group->secondary
@@ -391,8 +368,8 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	} else {
 		if (orr_group->secondary) {
 			if (orr_group->active &&
-			    !strcmp(orr_group->active->host,
-				    orr_group->secondary->host)) {
+			    strmatch(orr_group->active->host,
+				     orr_group->secondary->host)) {
 				bgp_orr_igp_metric_register(orr_group, false);
 
 				orr_group->active = NULL;
@@ -404,7 +381,7 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* Compare and update Tertiary Root Address */
 	if (tertiary) {
 		if (!orr_group->tertiary ||
-		    strcmp(orr_group->tertiary->host, tertiary->host))
+		    !strmatch(orr_group->tertiary->host, tertiary->host))
 			orr_group->tertiary = tertiary;
 		else
 			bgp_orr_debug("%s: No change in Tertiay Root",
@@ -420,8 +397,8 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else if (!primary_eligible && !secondary_eligible &&
 			   orr_group->tertiary &&
-			   strcmp(orr_group->active->host,
-				  orr_group->tertiary->host)) {
+			   !strmatch(orr_group->active->host,
+				     orr_group->tertiary->host)) {
 			bgp_orr_igp_metric_register(orr_group, false);
 
 			orr_group->active = tertiary;
@@ -439,8 +416,8 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	} else {
 		if (orr_group->tertiary) {
 			if (orr_group->active &&
-			    !strcmp(orr_group->active->host,
-				    orr_group->tertiary->host)) {
+			    strmatch(orr_group->active->host,
+				     orr_group->tertiary->host)) {
 				bgp_orr_igp_metric_register(orr_group, false);
 
 				orr_group->active = NULL;
@@ -508,7 +485,7 @@ static int peer_orr_group_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Skip processing if there is no change in ORR Group */
 	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP)) {
-		if (!strcmp(peer->orr_group_name[afi][safi], orr_group_name)) {
+		if (strmatch(peer->orr_group_name[afi][safi], orr_group_name)) {
 			bgp_orr_debug(
 				"%s: For %s, ORR Group '%s' is already configured on %pBP",
 				__func__, get_afi_safi_str(afi, safi, false),
@@ -545,7 +522,7 @@ static int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 	assert(peer && peer->bgp && orr_group_name);
 
 	if (!peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP) ||
-	    strcmp(peer->orr_group_name[afi][safi], orr_group_name)) {
+	    !strmatch(peer->orr_group_name[afi][safi], orr_group_name)) {
 		bgp_orr_debug(
 			"%s: For %s, ORR Group '%s' is not configured on %pBP",
 			__func__, get_afi_safi_str(afi, safi, false),
@@ -785,11 +762,11 @@ bool peer_orr_rrclient_check(struct peer *peer, afi_t afi, safi_t safi)
 	for (ALL_LIST_ELEMENTS_RO(orr_group_list, node, orr_group)) {
 		/*Check if peer configured as primary/secondary/tertiary root */
 		if ((orr_group->primary &&
-		     !strcmp(peer->host, orr_group->primary->host)) ||
+		     strmatch(peer->host, orr_group->primary->host)) ||
 		    (orr_group->secondary &&
-		     !strcmp(peer->host, orr_group->secondary->host)) ||
+		     strmatch(peer->host, orr_group->secondary->host)) ||
 		    (orr_group->tertiary &&
-		     !strcmp(peer->host, orr_group->tertiary->host)))
+		     strmatch(peer->host, orr_group->tertiary->host)))
 			return true;
 		/*
 		 * Check if peer is mapped to any ORR Group in this
@@ -801,7 +778,7 @@ bool peer_orr_rrclient_check(struct peer *peer, afi_t afi, safi_t safi)
 
 		for (ALL_LIST_ELEMENTS_RO(orr_group_rrclient_list, node,
 					  rrclient))
-			if (!strcmp(rrclient, peer->host))
+			if (strmatch(rrclient, peer->host))
 				return true;
 	}
 	return false;

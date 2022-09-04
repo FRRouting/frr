@@ -940,7 +940,7 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 		str = "External roles can be set only on eBGP session";
 		break;
 	case BGP_ERR_PEER_ORR_CONFIGURED:
-		str = "Deconfigure optimal-route-reflection on this peer first.";
+		str = "Deconfigure optimal-route-reflection on this peer first";
 		break;
 	}
 	if (str) {
