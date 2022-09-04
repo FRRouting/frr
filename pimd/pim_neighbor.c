@@ -441,15 +441,6 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 	return NULL;
 }
 
-struct pim_neighbor *pim_neighbor_find_prefix(struct interface *ifp,
-					      const struct prefix *src_prefix)
-{
-	pim_addr addr;
-
-	addr = pim_addr_from_prefix(src_prefix);
-	return pim_neighbor_find(ifp, addr);
-}
-
 /*
  * Find the *one* interface out
  * this interface.  If more than
