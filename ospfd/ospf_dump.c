@@ -1611,13 +1611,17 @@ DEFPY (debug_ospf_orr,
        OSPF_STR
        "OSPF ORR information\n")
 {
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(orr, ORR);
-
-	if (!no)
-		TERM_DEBUG_ON(orr, ORR);
-	else
-		TERM_DEBUG_OFF(orr, ORR);
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			CONF_DEBUG_OFF(orr, ORR);
+		else
+			CONF_DEBUG_ON(orr, ORR);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(orr, ORR);
+		else
+			TERM_DEBUG_ON(orr, ORR);
+	}
 
 	return CMD_SUCCESS;
 }
