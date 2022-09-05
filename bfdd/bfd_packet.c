@@ -578,8 +578,8 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
 				if (bglobal.debug_network)
-					zlog_debug("ipv4-recv: invalid TTL: %u",
-						   ttlval);
+					zlog_debug("%s: invalid TTL: %u",
+						   __func__, ttlval);
 				return -1;
 			}
 			*ttl = ttlval;
@@ -686,8 +686,8 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
 				if (bglobal.debug_network)
-					zlog_debug("ipv6-recv: invalid TTL: %u",
-						   ttlval);
+					zlog_debug("%s: invalid TTL: %u",
+						   __func__, ttlval);
 				return -1;
 			}
 
@@ -1127,13 +1127,13 @@ int bp_udp_send_fp(int sd, uint8_t *data, size_t datalen,
 
 	if (wlen <= 0) {
 		if (bglobal.debug_network)
-			zlog_debug("udp-send: loopback failure: (%d) %s", errno,
-				   strerror(errno));
+			zlog_debug("%s: loopback failure: (%d) %s", __func__,
+				   errno, strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
 		if (bglobal.debug_network)
-			zlog_debug("udp-send: partial send: %zd expected %zu",
-				   wlen, datalen);
+			zlog_debug("%s: partial send: %zd expected %zu",
+				   __func__, wlen, datalen);
 		return -1;
 	}
 
@@ -1194,13 +1194,13 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 	wlen = sendmsg(sd, &msg, 0);
 	if (wlen <= 0) {
 		if (bglobal.debug_network)
-			zlog_debug("udp-send: loopback failure: (%d) %s", errno,
-				   strerror(errno));
+			zlog_debug("%s: loopback failure: (%d) %s", __func__,
+				   errno, strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
 		if (bglobal.debug_network)
-			zlog_debug("udp-send: partial send: %zd expected %zu",
-				   wlen, datalen);
+			zlog_debug("%s: partial send: %zd expected %zu",
+				   __func__, wlen, datalen);
 		return -1;
 	}
 
@@ -1221,7 +1221,7 @@ int bp_set_ttl(int sd, uint8_t value)
 	int ttl = value;
 
 	if (setsockopt(sd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == -1) {
-		zlog_warn("set-ttl: setsockopt(IP_TTL, %d): %s", value,
+		zlog_warn("%s: setsockopt(IP_TTL, %d): %s", __func__, value,
 			  strerror(errno));
 		return -1;
 	}
@@ -1234,7 +1234,7 @@ int bp_set_tos(int sd, uint8_t value)
 	int tos = value;
 
 	if (setsockopt(sd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) == -1) {
-		zlog_warn("set-tos: setsockopt(IP_TOS, %d): %s", value,
+		zlog_warn("%s: setsockopt(IP_TOS, %d): %s", __func__, value,
 			  strerror(errno));
 		return -1;
 	}
@@ -1247,8 +1247,8 @@ static bool bp_set_reuse_addr(int sd)
 	int one = 1;
 
 	if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1) {
-		zlog_warn("set-reuse-addr: setsockopt(SO_REUSEADDR, %d): %s",
-			  one, strerror(errno));
+		zlog_warn("%s: setsockopt(SO_REUSEADDR, %d): %s", __func__, one,
+			  strerror(errno));
 		return false;
 	}
 	return true;
@@ -1259,8 +1259,8 @@ static bool bp_set_reuse_port(int sd)
 	int one = 1;
 
 	if (setsockopt(sd, SOL_SOCKET, SO_REUSEPORT, &one, sizeof(one)) == -1) {
-		zlog_warn("set-reuse-port: setsockopt(SO_REUSEPORT, %d): %s",
-			  one, strerror(errno));
+		zlog_warn("%s: setsockopt(SO_REUSEPORT, %d): %s", __func__, one,
+			  strerror(errno));
 		return false;
 	}
 	return true;
