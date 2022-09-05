@@ -15,7 +15,7 @@ from .assertions import TopotatoItem
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .fixtures import *
-from .base import TestBase, TopotatoClass, TopotatoInstance, TopotatoWrapped
+from .base import TestBase, TopotatoClass, TopotatoWrapped
 from .interactive import Interactive
 
 logger = logging.getLogger('topotato')

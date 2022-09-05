@@ -299,7 +299,7 @@ class PrettyInstance(list):
         toposvg = ElementTree.fromstring(self[0].toposvg)
         toposvg = ElementTree.tostring(toposvg).decode('UTF-8')
 
-        data['timed'] = items[-1]._jsdata # topotatoinst.netinst.timeline.serialize(),
+        data['timed'] = items[-1]._jsdata
         if items[-1]._pdml:
             data['pdml'] = items[-1]._pdml
         data_json = json.dumps(data, ensure_ascii=True).encode('ASCII')
@@ -363,7 +363,7 @@ class PrettyItem(ClassHooks):
 
     @property
     def nodeid_rel(self):
-        parentid = self.item.getparent(base.TopotatoInstance).nodeid
+        parentid = self.item.getparent(base.TopotatoClass).nodeid
         selfid = self.item.nodeid
         return selfid[len(parentid):]
 
