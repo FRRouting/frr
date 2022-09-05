@@ -24,15 +24,6 @@ logger = logging.getLogger('topotato')
 signal.signal(signal.SIGINT, signal.default_int_handler)
 signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_pycollect_makeitem(collector, name, obj):
-    if hasattr(obj, '_topotato_makeitem'):
-        if inspect.ismethod(obj._topotato_makeitem):
-            logger.debug('_topotato_makeitem(%r, %r, %r)' % (collector, name, obj))
-            return obj._topotato_makeitem(collector, name, obj)
-        else:
-            logger.debug('%r._topotato_makeitem: not a method', obj)
-
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_report_teststatus(report):

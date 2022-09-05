@@ -220,6 +220,21 @@ class TopotatoItem(nodes.Item, ClassHooks):
         self._codeloc = codeloc
         yield self
 
+    @pytest.hookimpl(tryfirst=True)
+    @staticmethod
+    def pytest_pycollect_makeitem(collector, name, obj):
+        """
+        Redirect pytest item creation on objects that have a
+        ``_topotato_makeitem`` method to call that instead.  This is the "core"
+        pytest hook-in that makes all the other topotato objects appear.
+        """
+        if hasattr(obj, "_topotato_makeitem"):
+            if inspect.ismethod(obj._topotato_makeitem):
+                logger.debug("_topotato_makeitem(%r, %r, %r)", collector, name, obj)
+                return obj._topotato_makeitem(collector, name, obj)
+            logger.debug("%r._topotato_makeitem: not a method", obj)
+        return None
+
     def setup(self):
         """
         Called by pytest in the "setup" stage (pytest_runtest_setup)
