@@ -155,6 +155,18 @@ char *admin_group_print(char *out, const struct admin_group *ag)
 	return out;
 }
 
+void admin_group_tab(bool *list, const struct admin_group *ag)
+{
+	size_t i = 0;
+
+	for (i = 0; i < 256; i++) {
+		if (admin_group_get(ag, i))
+			list[i] = true;
+		else
+			list[i] = false;
+	}
+}
+
 static bool admin_group_cmp(const struct admin_group *ag1,
 		const struct admin_group *ag2)
 {

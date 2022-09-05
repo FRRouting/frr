@@ -113,6 +113,7 @@ char *affinity_map_name_get(const struct affinity_maps *maps,
  */
 char *admin_group_string(char *out, size_t sz, const struct admin_group *ag);
 char *admin_group_print(char *out, const struct admin_group *ag);
+void admin_group_tab(bool *list, const struct admin_group *ag);
 void admin_group_copy(struct admin_group *dst, const struct admin_group *src);
 void admin_group_init(struct admin_group *ag);
 void admin_group_term(struct admin_group *ag);
