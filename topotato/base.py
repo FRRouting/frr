@@ -240,7 +240,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
         """
         Called by pytest in the "call" stage (pytest_runtest_call)
         """
-        testinst = self.getparent(TopotatoInstance)
+        testinst = self.getparent(TopotatoClass)
         if testinst.skipall:
             raise TopotatoEarlierFailSkip() from testinst.skipall
 
@@ -255,7 +255,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
         abs_delay = time.time() + (step or float("inf"))
         deadline = min(abs_until, abs_delay)
 
-        tinst = self.getparent(TopotatoInstance)
+        tinst = self.getparent(TopotatoClass)
         tinst.netinst.timeline.sleep(deadline - time.time())
 
     def reportinfo(self):  # -> Tuple[Union[py.path.local, str], int, str]:
@@ -333,8 +333,6 @@ class InstanceStartup(TopotatoItem):
     # pylint: disable=arguments-differ
     @classmethod
     def from_parent(cls, parent):
-        assert isinstance(parent, TopotatoInstance)
-
         self = super().from_parent(parent, name="startup")
         return self
 
@@ -363,8 +361,6 @@ class InstanceShutdown(TopotatoItem):
     # pylint: disable=arguments-differ
     @classmethod
     def from_parent(cls, parent):
-        assert isinstance(parent, TopotatoInstance)
-
         self = super().from_parent(parent, name="shutdown")
         return self
 
@@ -523,14 +519,13 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
     ) -> Union[
         None, nodes.Item, nodes.Collector, List[Union[nodes.Item, nodes.Collector]]
     ]:
-        assert isinstance(self.parent, TopotatoInstance)
-
-        # obj contains unbound methods; get bound instead
-        method = getattr(self.parent.obj, self.name)
-        assert callable(method)
-
         tcls = self.getparent(TopotatoClass)
         assert tcls is not None
+
+        # obj contains unbound methods; get bound instead
+        method = getattr(tcls.newinstance(), self.name)
+        assert callable(method)
+
         topo = tcls.obj.instancefn.net
 
         # pylint: disable=protected-access
@@ -558,21 +553,23 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
 
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
-class TopotatoInstance(_pytest.python.Instance):
+class TopotatoClass(_pytest.python.Class):
     """
-    pytest representation/handle to an instance of a test class.
+    Representation of a test class definition.
 
-    This is created (somewhat implicitly) by pytest to get a handle on an
-    instance of a test-defining class.
+    :py:meth:`TestBase._topotato_makeitem` results in topotato tests getting
+    one of this here rather than the regular :py:class:`_pytest.python.Class`.
+    This allows us to customize behavior.
     """
 
-    obj: TestBase
+    _obj: Type[TestBase]
+    """
+    Test class (the type).
+    """
+
+    _instance: TestBase
     """
     The actual instance of our test class.
-    """
-    parent: "TopotatoClass"
-    """
-    Parent in the pytest sense, in this case the class definition.
     """
 
     skipall: Optional[Exception]
@@ -583,17 +580,24 @@ class TopotatoInstance(_pytest.python.Instance):
 
     # pylint: disable=protected-access
     @classmethod
-    def from_parent(
-        cls: Type["TopotatoInstance"], parent: nodes.Node, *args, **kw
-    ) -> "TopotatoInstance":
-        self = super().from_parent(parent, *args, **kw)
-
+    def from_hook(cls, obj, collector, name):
+        self = super().from_parent(collector, name=name)
+        self._obj = obj
         self.skipall = None
+
+        # TODO: automatically add a bunch of markers for test requirements.
+        for fixture in getattr(self._obj, "use", []):
+            self.add_marker(pytest.mark.usefixtures(fixture))
+
+        self.add_marker(pytest.mark.usefixtures(self._obj.instancefn.__name__))
         return self
 
-    def collect(self):
+    def newinstance(self):
+        return self._instance
+
+    def collect(self) -> Iterable[Union[nodes.Item, nodes.Collector]]:
         """
-        Tell pytest our test items, in this case adding startup/shutdown.
+        Tell pytest our test items, adding startup/shutdown.
 
         Note that the various methods in the class are still collected using
         standard pytest logic.  However, the :py:func:`topotatofunc` decorator
@@ -601,9 +605,27 @@ class TopotatoInstance(_pytest.python.Instance):
         then replaces the :py:class:`_pytest.python.Function` with the
         topotato assertions defined for the test.
         """
-        yield InstanceStartup.from_parent(self)
-        yield from super().collect()
-        yield InstanceShutdown.from_parent(self)
+
+        first = True
+        # only use one instance for topotato test classes
+        self._instance = self.obj()
+
+        # WARNING: pytest 6.x <> 7.x difference - pytest 6.x inserts an
+        # Instance() class here; pytest 7.x does not have that!
+
+        for item in super().collect():
+            if first:
+                # super().collect() calls pytest magic functions like
+                #   ._inject_setup_class_fixture() and
+                #   ._inject_setup_method_fixture() and
+                # let those run first and then inject ourselves after that
+                yield InstanceStartup.from_parent(self)
+                first = False
+
+            yield item
+
+        if not first:
+            yield InstanceShutdown.from_parent(self)
 
     def do_start(self, startitem):
         if self.skipall:
@@ -657,42 +679,3 @@ class TopotatoInstance(_pytest.python.Instance):
                 daemonlog.close_prep()
 
         netinst.timeline.sleep(1, final=True)
-
-
-# false warning on get_closest_marker()
-# pylint: disable=abstract-method
-class TopotatoClass(_pytest.python.Class):
-    """
-    Representation of a test class definition.
-
-    :py:meth:`TestBase._topotato_makeitem` results in topotato tests getting
-    one of this here rather than the regular :py:class:`_pytest.python.Class`.
-    This allows us to customize behavior.
-    """
-
-    _instance: TopotatoInstance
-    _obj: Type[TestBase]
-
-    # pylint: disable=protected-access
-    @classmethod
-    def from_hook(cls, obj, collector, name):
-        self = super().from_parent(collector, name=name)
-        self._obj = obj
-
-        # TODO: automatically add a bunch of markers for test requirements.
-        for fixture in getattr(self._obj, "use", []):
-            self.add_marker(pytest.mark.usefixtures(fixture))
-
-        self.add_marker(pytest.mark.usefixtures(self._obj.instancefn.__name__))
-        return self
-
-    def collect(self) -> Iterable[Union[nodes.Item, nodes.Collector]]:
-        """
-        Tell pytest our test items, in this case making a
-        :py:class:`TopotatoInstance`.
-        """
-        # invoke some pytest fixture magic that we'd lose here otherwise.
-        self._inject_setup_class_fixture()
-        self._inject_setup_method_fixture()
-        self._instance = TopotatoInstance.from_parent(self, name="()")
-        return [self._instance]

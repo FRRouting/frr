@@ -256,14 +256,13 @@ class PrettyInstance(list):
     _filename_sub = re.compile(r'[^a-zA-Z0-9]')
 
     def report(self):
-        topotatoinst = self[0].item.getparent(base.TopotatoInstance)
-        topotatocls = topotatoinst.getparent(base.TopotatoClass)
+        topotatocls = self[0].item.getparent(base.TopotatoClass)
         nodeid = topotatocls.nodeid
         basename = self._filename_sub.sub('_', nodeid)
         basepath = os.path.join(self.prettysession.outdir, basename)
 
         data = {
-            'ts_start': topotatoinst.started_ts,
+            'ts_start': topotatocls.started_ts,
             'items': [],
         }
 
@@ -444,7 +443,7 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 
         # FIXME: flush scapy sockets / timeline(final=True)!
 
-        # TODO: move this to TopotatoInstance?
+        # TODO: move this to TopotatoClass?
         with tempfile.NamedTemporaryFile(prefix='topotato', suffix='.pcapng') as fd:
             pcapng = Sink(fd, '=')
 
