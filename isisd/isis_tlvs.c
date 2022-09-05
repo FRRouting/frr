@@ -3202,7 +3202,7 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 					       isis_mtid2str(mtid));
 
 		if (r->subtlvs)
-			format_item_ext_subtlvs(r->subtlvs, NULL, json,
+			format_item_ext_subtlvs(r->subtlvs, NULL, reach_json,
 						indent + 2, mtid);
 	} else {
 		sbuf_push(buf, indent, "%s Reachability: %s (Metric: %u)",
@@ -3906,21 +3906,22 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 			json_object_object_add(json, "ext-ip-reach", array_json);
 		}
 		json_object_array_add(array_json, ext_json);
-		json_object_string_add(
-			json, "mt-id",
-			(mtid == ISIS_MT_IPV4_UNICAST) ? "Extended" : "MT");
-		json_object_string_add(
-			json, "ip-reach",
-			prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)));
-		json_object_int_add(json, "ip-reach-metric", r->metric);
-		json_object_string_add(json, "down", r->down ? "yes" : "");
+		json_object_string_add(ext_json, "mt-id",
+				       (mtid == ISIS_MT_IPV4_UNICAST)
+					       ? "Extended"
+					       : "MT");
+		json_object_string_add(ext_json, "ip-reach",
+				       prefix2str(&r->prefix, prefixbuf,
+						  sizeof(prefixbuf)));
+		json_object_int_add(ext_json, "ip-reach-metric", r->metric);
+		json_object_string_add(ext_json, "down", r->down ? "yes" : "");
 		if (mtid != ISIS_MT_IPV4_UNICAST)
-			json_object_string_add(json, "mt-name",
+			json_object_string_add(ext_json, "mt-name",
 					       isis_mtid2str(mtid));
 		if (r->subtlvs) {
 			struct json_object *subtlv_json;
 			subtlv_json = json_object_new_object();
-			json_object_object_add(json, "subtlvs", subtlv_json);
+			json_object_object_add(ext_json, "subtlvs", subtlv_json);
 			format_subtlvs(r->subtlvs, NULL, subtlv_json, 0);
 		}
 	} else {
@@ -4559,7 +4560,8 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 		if (r->subtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "subtlvs", subtlvs_json);
+			json_object_object_add(reach_json, "subtlvs",
+					       subtlvs_json);
 			format_subtlvs(r->subtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {
