@@ -3216,6 +3216,12 @@ void route_map_rule_tag_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
+static void hash_route_map_free(struct route_map *rm)
+{
+	XFREE(MTYPE_ROUTE_MAP_NAME, rm->name);
+	XFREE(MTYPE_ROUTE_MAP, rm);
+}
+
 void route_map_finish(void)
 {
 	int i;
@@ -3256,6 +3262,8 @@ void route_map_finish(void)
 		route_map_dep_hash[i] = NULL;
 	}
 
+	hash_clean(route_map_master_hash,
+		   (void (*)(void *))hash_route_map_free);
 	hash_free(route_map_master_hash);
 	route_map_master_hash = NULL;
 }
