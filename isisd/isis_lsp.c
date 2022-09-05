@@ -750,14 +750,11 @@ void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
 	char LSPid[255];
 	char age_out[8];
 	char b[200];
-	json_object *own_json;
 	char buf[256];
 
 	lspid_print(lsp->hdr.lsp_id, LSPid, sizeof(LSPid), dynhost, 1, isis);
-	own_json = json_object_new_object();
-	json_object_object_add(json, "lsp", own_json);
-	json_object_string_add(own_json, "id", LSPid);
-	json_object_string_add(own_json, "own", lsp->own_lsp ? "*" : " ");
+	json_object_string_add(json, "id", LSPid);
+	json_object_boolean_add(json, "own", lsp->own_lsp ? "*" : " ");
 	json_object_int_add(json, "pdu-len", lsp->hdr.pdu_len);
 	snprintfrr(buf, sizeof(buf), "0x%08x", lsp->hdr.seqno);
 	json_object_string_add(json, "seq-number", buf);
