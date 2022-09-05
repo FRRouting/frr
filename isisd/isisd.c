@@ -2676,6 +2676,7 @@ void show_isis_database_lspdb_json(struct json_object *json,
 				   struct lspdb_head *lspdb,
 				   const char *sysid_str, int ui_level)
 {
+	struct json_object *array_json, *lsp_json;
 	struct isis_lsp *lsp;
 	int lsp_count;
 
@@ -2687,11 +2688,20 @@ void show_isis_database_lspdb_json(struct json_object *json,
 		}
 
 		if (lsp) {
+			json_object_object_get_ex(json, "lsps", &array_json);
+			if (!array_json) {
+				array_json = json_object_new_array();
+				json_object_object_add(json, "lsps",
+						       array_json);
+			}
+			lsp_json = json_object_new_object();
+			json_object_array_add(array_json, lsp_json);
+
 			if (ui_level == ISIS_UI_LEVEL_DETAIL)
-				lsp_print_detail(lsp, NULL, json,
+				lsp_print_detail(lsp, NULL, lsp_json,
 						 area->dynhostname, area->isis);
 			else
-				lsp_print_json(lsp, json, area->dynhostname,
+				lsp_print_json(lsp, lsp_json, area->dynhostname,
 					       area->isis);
 		} else if (sysid_str == NULL) {
 			lsp_count =
