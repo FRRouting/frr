@@ -817,7 +817,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 	struct gm_packet_state *pkt;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv2 report (truncated header)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -923,7 +923,7 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	size_t max_entries;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv1 report (truncated)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -989,7 +989,7 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 	struct gm_packet_sg *old_grp;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv1 leave (truncated)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -1063,7 +1063,7 @@ static void gm_t_expire(struct thread *t)
 			if (timercmp(&pkt->received, &pend->query, >=))
 				break;
 
-			if (PIM_DEBUG_IGMP_PACKETS)
+			if (PIM_DEBUG_GM_PACKETS)
 				zlog_debug(log_ifp("expire packet %p"), pkt);
 			gm_packet_drop(pkt, true);
 		}
@@ -1802,7 +1802,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 
 	query.hdr.icmp6_cksum = in_cksumv(iov, iov_len);
 
-	if (PIM_DEBUG_IGMP_PACKETS)
+	if (PIM_DEBUG_GM_PACKETS)
 		zlog_debug(
 			log_ifp("MLD query %pPA -> %pI6 (grp=%pPA, %zu srcs)"),
 			&pim_ifp->ll_lowest, &dstaddr.sin6_addr, &grp, n_srcs);

@@ -62,7 +62,7 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug igmp events\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		vty_out(vty, "debug igmp packets\n");
 		++writes;
 	}
