@@ -1095,6 +1095,33 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 
 }
 
+static void ospf6_nssa_update_timer(struct thread *thread)
+{
+	struct ospf6 *ospf6 = THREAD_ARG(thread);
+	struct ospf6_area *area;
+	struct listnode *lnode, *nnode;
+
+	if (IS_OSPF6_DEBUG_NSSA)
+		zlog_debug("%s: Start", __func__);
+
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, lnode, nnode, area)) {
+		if (IS_AREA_NSSA(area)) {
+			ospf6_check_and_originate_type7_lsa(area);
+		}
+	}
+
+	if (IS_OSPF6_DEBUG_NSSA)
+		zlog_debug("%s: End", __func__);
+}
+
+void ospf6_schedule_nssa_update(struct ospf6 *ospf6)
+{
+	if (!(thread_is_scheduled(ospf6->t_nssa_update))) {
+		thread_add_timer(master, ospf6_nssa_update_timer, ospf6,
+				 OSPF6_ABR_TASK_DELAY, &ospf6->t_nssa_update);
+	}
+}
+
 void ospf6_area_nssa_update(struct ospf6_area *area)
 {
 	if (IS_AREA_NSSA(area)) {
@@ -1258,8 +1285,17 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 		memcpy(p, fwd_addr, sizeof(struct in6_addr));
 		p += sizeof(struct in6_addr);
 		SET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
-	} else
+	} else {
 		UNSET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
+		/* RFC 3101 2.3: If an NSSA requires the P-bit be set and a
+		 * non-zero forwarding address is unavailable, then the
+		 * route's Type-7 LSA is not originated into this NSSA
+		 */
+		if (p_bit) {
+			ospf6_schedule_nssa_update(area->ospf6);
+			return;
+		}
+	}
 
 	/* External Route Tag */
 	if (info

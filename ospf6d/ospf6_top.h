@@ -189,6 +189,7 @@ struct ospf6 {
 	struct thread *t_distribute_update; /* Distirbute update timer. */
 	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
 	struct thread *t_external_aggr; /* OSPF6 aggregation timer */
+	struct thread *t_nssa_update;
 #define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
 	struct thread *t_write;
 

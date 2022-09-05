@@ -70,5 +70,6 @@ int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
 extern void ospf6_abr_check_translate_nssa(struct ospf6_area *area,
 					   struct ospf6_lsa *lsa);
 extern void ospf6_abr_nssa_check_status(struct ospf6 *ospf6);
+void ospf6_schedule_nssa_update(struct ospf6 *ospf6);
 extern void config_write_ospf6_debug_nssa(struct vty *vty);
 #endif /* OSPF6_NSSA_H */
