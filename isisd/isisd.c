@@ -2748,6 +2748,8 @@ static void show_isis_database_json(struct json_object *json, const char *sysid_
 		json_object_object_add(area_json,"area",tag_area_json);
 		json_object_object_add(area_json,"levels",arr_json);
 		for (level = 0; level < ISIS_LEVELS; level++) {
+			if (lspdb_count(&area->lspdb[level]) == 0)
+				continue;
 			lsp_json = json_object_new_object();
 			show_isis_database_lspdb_json(lsp_json, area, level,
 						      &area->lspdb[level],
