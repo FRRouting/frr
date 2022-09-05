@@ -480,6 +480,11 @@ static int zebra_sr_config(struct vty *vty)
 	if (zebra_srv6_is_enable()) {
 		vty_out(vty, "segment-routing\n");
 		vty_out(vty, " srv6\n");
+		if (!IPV6_ADDR_SAME(&srv6->encap_src_addr, &in6addr_any)) {
+			vty_out(vty, "  encapsulation\n");
+			vty_out(vty, "   source-address %pI6\n",
+				&srv6->encap_src_addr);
+		}
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
