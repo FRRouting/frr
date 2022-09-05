@@ -9,12 +9,14 @@ import signal
 from lxml import etree
 from collections import OrderedDict
 
+from . import hooks
 from .utils import deindent, ClassHooks, get_textdiff
 from .assertions import TopotatoItem
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .fixtures import *
 from .base import TestBase, TopotatoClass, TopotatoInstance, TopotatoWrapped
+from .interactive import Interactive
 
 logger = logging.getLogger('topotato')
 
@@ -40,6 +42,11 @@ def pytest_report_teststatus(report):
         res = (res[0], res[1], '%s (%.2f)' % (res[2], report.duration))
     outcome.force_result(res)
 
+
+def pytest_addhooks(pluginmanager):
+    pluginmanager.add_hookspecs(hooks)
+    pluginmanager.register(TopotatoItem)
+    pluginmanager.register(Interactive())
 
 def pytest_addoption(parser):
     parser.addoption("--run-topology", action="store_const", const=True, default=None, help="run a test topology")

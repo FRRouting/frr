@@ -229,6 +229,12 @@ class TopotatoItem(nodes.Item, ClassHooks):
         self._request._fillfixtures()
         self.instance = self.funcargs[self._obj.instancefn.__name__]
 
+    # pylint: disable=unused-argument
+    @pytest.hookimpl()
+    @staticmethod
+    def pytest_topotato_run(item: "TopotatoItem", testfunc: Callable):
+        testfunc()
+
     @skiptrace
     def runtest(self):
         """
@@ -237,8 +243,8 @@ class TopotatoItem(nodes.Item, ClassHooks):
         testinst = self.getparent(TopotatoInstance)
         if testinst.skipall:
             raise TopotatoEarlierFailSkip() from testinst.skipall
-        # pylint: disable=not-callable
-        self()
+
+        self.session.config.hook.pytest_topotato_run(item=self, testfunc=self)
 
     def sleep(self, step=None, until=None):
         obj = self
@@ -257,7 +263,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
         lineno = self._codeloc.lineno
         return fspath, lineno, self.name
 
-    def repr_failure(self, excinfo, style=None):
+    def _repr_failure(self, excinfo, style=None):
         if not hasattr(self, "_codeloc"):
             return super().repr_failure(excinfo)
 
@@ -301,6 +307,16 @@ class TopotatoItem(nodes.Item, ClassHooks):
             tbfilter=False,
             truncate_locals=True,
         )
+
+    def repr_failure(self, excinfo, style=None):
+        res = self._repr_failure(excinfo, style)
+        self.session.config.hook.pytest_topotato_failure(
+            item=self,
+            excinfo=excinfo,
+            excrepr=res,
+            codeloc=getattr(self, "_codeloc", None),
+        )
+        return res
 
 
 # false warning on get_closest_marker()
