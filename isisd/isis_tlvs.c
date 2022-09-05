@@ -3738,6 +3738,8 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 		}
 		json_object_array_add(array_json, mt_json);
 		json_object_int_add(mt_json, "mtid", info->mtid);
+		json_object_string_add(mt_json, "mt-description",
+				       isis_mtid2str_fake(info->mtid));
 		json_object_string_add(mt_json, "overload", info->overload?"true":"false");
 		json_object_string_add(mt_json, "attached", info->attached?"true":"false");
 	} else
