@@ -534,36 +534,36 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						    adj->sid);
 				json_object_int_add(flags_json, "weight",
 						    adj->weight);
-				json_object_string_add(
+				json_object_boolean_add(
 					flags_json, "flag-f",
 					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-b",
 					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-v",
 					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-l",
 					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-s",
 					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-p",
 					adj->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
-						? "1"
-						: "0");
+						? true
+						: false);
 				json_object_array_add(arr_adj_json, flags_json);
 			}
 		} else
@@ -616,36 +616,36 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						    lan->sid);
 				json_object_int_add(flags_json, "weight",
 						    lan->weight);
-				json_object_string_add(
+				json_object_boolean_add(
 					flags_json, "flag-f",
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-b",
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-v",
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-l",
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_LFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-s",
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
-						? "1"
-						: "0");
-				json_object_string_add(
+						? true
+						: false);
+				json_object_boolean_add(
 					flags_json, "flag-p",
 					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
-						? "1"
-						: "0");
+						? true
+						: false);
 				json_object_array_add(arr_adj_json, flags_json);
 			}
 		} else
@@ -1393,27 +1393,27 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 			json_object_int_add(sr_json, "index", sid->value);
 		}
 		json_object_int_add(sr_json, "alg", sid->algorithm);
-		json_object_string_add(
+		json_object_boolean_add(
 			sr_json, "readvertised",
-			((sid->flags & ISIS_PREFIX_SID_READVERTISED) ? "yes"
-								     : ""));
-		json_object_string_add(
+			((sid->flags & ISIS_PREFIX_SID_READVERTISED) ? true
+								     : false));
+		json_object_boolean_add(
 			sr_json, "node",
-			((sid->flags & ISIS_PREFIX_SID_NODE) ? "yes" : ""));
+			((sid->flags & ISIS_PREFIX_SID_NODE) ? true : false));
 		json_object_string_add(sr_json, "php",
 				       ((sid->flags & ISIS_PREFIX_SID_NO_PHP)
 						? "no-php"
 						: "php"));
-		json_object_string_add(
+		json_object_boolean_add(
 			sr_json, "explicit-null",
-			((sid->flags & ISIS_PREFIX_SID_EXPLICIT_NULL) ? "yes"
-								      : ""));
-		json_object_string_add(
+			((sid->flags & ISIS_PREFIX_SID_EXPLICIT_NULL) ? true
+								      : false));
+		json_object_boolean_add(
 			sr_json, "value",
-			((sid->flags & ISIS_PREFIX_SID_VALUE) ? "yes" : ""));
-		json_object_string_add(
+			((sid->flags & ISIS_PREFIX_SID_VALUE) ? true : false));
+		json_object_boolean_add(
 			sr_json, "local",
-			((sid->flags & ISIS_PREFIX_SID_LOCAL) ? "yes" : ""));
+			((sid->flags & ISIS_PREFIX_SID_LOCAL) ? true : false));
 
 	} else {
 		sbuf_push(buf, indent, "SR Prefix-SID ");
@@ -2804,7 +2804,8 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 			ext_json, "ip-reach",
 			prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)));
 		json_object_int_add(ext_json, "ip-reach-metric", r->metric);
-		json_object_string_add(ext_json, "down", r->down ? "yes" : "");
+		json_object_boolean_add(ext_json, "down",
+					r->down ? true : false);
 		if (mtid != ISIS_MT_IPV4_UNICAST)
 			json_object_string_add(ext_json, "mt-name",
 					       isis_mtid2str(mtid));
@@ -3163,12 +3164,12 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
 					? "undefined"
 					: aux_buf);
 		}
-		json_object_string_add(spine_json, "flag-leaf",
-				       spine_leaf->is_leaf ? "yes" : "");
-		json_object_string_add(spine_json, "flag-spine",
-				       spine_leaf->is_spine ? "yes" : "");
-		json_object_string_add(spine_json, "flag-backup",
-				       spine_leaf->is_backup ? "yes" : "");
+		json_object_boolean_add(spine_json, "flag-leaf",
+					spine_leaf->is_leaf ? true : false);
+		json_object_boolean_add(spine_json, "flag-spine",
+					spine_leaf->is_spine ? true : false);
+		json_object_boolean_add(spine_json, "flag-backup",
+					spine_leaf->is_backup ? true : false);
 	} else {
 		sbuf_push(buf, indent, "Spine-Leaf-Extension:\n");
 		if (spine_leaf->has_tier) {
@@ -3441,10 +3442,10 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 			reach_json, "prefix",
 			prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)));
 		json_object_int_add(reach_json, "metric", r->metric);
-		json_object_string_add(reach_json, "down",
-				       r->down ? "yes" : "");
-		json_object_string_add(reach_json, "external",
-				       r->external ? "yes" : "");
+		json_object_boolean_add(reach_json, "down",
+					r->down ? true : false);
+		json_object_boolean_add(reach_json, "external",
+					r->external ? true : false);
 		if (mtid != ISIS_MT_IPV4_UNICAST)
 			json_object_string_add(reach_json, "mt-name",
 					       isis_mtid2str(mtid));
@@ -3674,24 +3675,24 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	json_object_object_add(json, "router-capability", cap_json);
 	inet_ntop(AF_INET, &router_cap->router_id, addrbuf, sizeof(addrbuf));
 	json_object_string_add(cap_json, "id", addrbuf);
-	json_object_string_add(
+	json_object_boolean_add(
 		cap_json, "flag-d",
-		router_cap->flags & ISIS_ROUTER_CAP_FLAG_D ? "1" : "0");
-	json_object_string_add(
+		router_cap->flags & ISIS_ROUTER_CAP_FLAG_D ? true : false);
+	json_object_boolean_add(
 		cap_json, "flag-s",
-		router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? "1" : "0");
+		router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? true : false);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0) {
 		struct json_object *gb_json;
 		gb_json = json_object_new_object();
 		json_object_object_add(json, "segment-routing-gb", gb_json);
-		json_object_string_add(gb_json, "ipv4",
-				       IS_SR_IPV4(&router_cap->srgb) ? "1"
-								     : "0");
-		json_object_string_add(gb_json, "ipv6",
-				       IS_SR_IPV6(&router_cap->srgb) ? "1"
-								     : "0");
+		json_object_boolean_add(gb_json, "ipv4",
+					IS_SR_IPV4(&router_cap->srgb) ? true
+								      : false);
+		json_object_boolean_add(gb_json, "ipv6",
+					IS_SR_IPV6(&router_cap->srgb) ? true
+								      : false);
 		json_object_int_add(gb_json, "global-block-base",
 				    router_cap->srgb.lower_bound);
 		json_object_int_add(gb_json, "global-block-range",
