@@ -5,8 +5,13 @@
 Welcome to 🔝🥔.  Because a potato is better than topotests.
 """
 
-from .frr import FRRNetworkInstance, FRRConfigs
-from .base import TestBase, topotatofunc
-from .fixtures import *
-from .assertions import *
-from .utils import JSONCompareIgnoreContent
+import os
+
+if "TOPOTATO_INNER" not in os.environ:
+    from .frr import FRRNetworkInstance, FRRConfigs
+    from .base import TestBase, topotatofunc
+    from .fixtures import *
+    from .assertions import *
+    from .utils import JSONCompareIgnoreContent
+
+del os

@@ -4,6 +4,7 @@
 Base wrapper around Linux network namespaces
 """
 
+import sys
 import os
 import subprocess
 import time
@@ -11,7 +12,9 @@ import ctypes
 import ctypes.util
 import errno
 
-from typing import List
+from typing import List, ClassVar
+
+from .utils import LockedFile
 
 _libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
 
@@ -96,12 +99,28 @@ class LinuxNamespace:
         "tini": None,
     }
 
+    taskdir: ClassVar[str] = "/tmp/topotato"
+
     def __init__(self, name):
         self.name = name
         self.process = None
 
     def start(self):
         # pylint: disable=consider-using-with
+
+        env = dict(os.environ)
+        env.update(
+            {
+                "TOPOTATO_TASKDIR": self.taskdir,
+                "TOPOTATO_NSNAME": self.name,
+                "TOPOTATO_INNER": "1",
+                "PYTHONPATH": ":".join(
+                    [os.path.abspath(os.path.dirname(os.path.dirname(__file__)))]
+                    + sys.path
+                ),
+            }
+        )
+
         self.process = subprocess.Popen(
             [
                 self._exec.get("unshare", "unshare"),
@@ -113,16 +132,19 @@ class LinuxNamespace:
                 "--mount-proc",
                 self._exec.get("tini", "tini"),
                 "-g",
-                "/bin/sh",
+                sys.executable,
                 "--",
-                "-c",
-                "hostname %s; [ -d /var/tmp/frr ] || mkdir /var/tmp/frr; mount -t tmpfs none /var/tmp/frr; echo IGN; read IGN"
-                % (self.name),
+                "-m",
+                "topotato.nswrap",
+                self.name,
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             shell=False,
+            env=env,
         )
+        # wait for child to tell us it's ready...
+        # (match sys.stdout.write("\n") below)
         self.process.stdout.read(1)
 
         self.pid = find_child(self.process.pid)
@@ -133,6 +155,29 @@ class LinuxNamespace:
         # with open('/proc/%d/cmdline' % self.pid, 'rb') as fd:
         #    cmdline = [i.decode('UTF-8') for i in fd.read().rstrip(b'\0').split(b'\0')]
         # logger.debug("child pid: %d  cmdline: %s" % (self.pid, shlex.join(cmdline)))
+
+    @staticmethod
+    def inner():
+        """
+        Set up inner namespace details and synchronize with parent.
+        """
+        nsname = sys.argv[1]
+        frrtmp = "/var/tmp/frr"
+
+        subprocess.check_call(["hostname", nsname])
+        if not os.path.isdir(frrtmp):
+            os.mkdir(frrtmp)
+        subprocess.check_call(["mount", "-t", "tmpfs", "none", frrtmp])
+
+        taskfilename = os.path.join(os.environ["TOPOTATO_TASKDIR"], "ns-" + nsname)
+
+        with LockedFile(taskfilename):
+            # tell parent we're ready...
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+            # ... and wait for parent to tell us to exit
+            sys.stdin.read()
 
     def end(self):
         """
@@ -224,4 +269,8 @@ def test():
 
 
 if __name__ == "__main__":
+    if "TOPOTATO_INNER" in os.environ:
+        LinuxNamespace.inner()
+        sys.exit(0)
+
     test()
