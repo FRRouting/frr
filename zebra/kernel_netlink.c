@@ -1033,12 +1033,18 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 		return 1;
 	}
 
-	/* Deal with errors that occur because of races in link handling. */
-	if (is_cmd
-	    && ((msg_type == RTM_DELROUTE
-		 && (-errnum == ENODEV || -errnum == ESRCH))
-		|| (msg_type == RTM_NEWROUTE
-		    && (-errnum == ENETDOWN || -errnum == EEXIST)))) {
+	/*
+	 * Deal with errors that occur because of races in link handling
+	 * or types are not supported in kernel.
+	 */
+	if (is_cmd &&
+	    ((msg_type == RTM_DELROUTE &&
+	      (-errnum == ENODEV || -errnum == ESRCH)) ||
+	     (msg_type == RTM_NEWROUTE &&
+	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
+	       msg_type == RTM_GETTUNNEL) &&
+	      (-errnum == EOPNOTSUPP)))) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u",
 				   nl->name, safe_strerror(-errnum),
