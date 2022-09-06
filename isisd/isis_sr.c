@@ -1033,10 +1033,12 @@ char *sr_op2str(char *buf, size_t size, mpls_label_t label_in,
  * @param area	IS-IS area
  * @param level	IS-IS level
  */
-static void show_node(struct vty *vty, struct isis_area *area, int level)
+static void show_node(struct vty *vty, struct isis_area *area, int level,
+		      uint8_t algo)
 {
 	struct isis_lsp *lsp;
 	struct ttable *tt;
+	char buf[128];
 
 	vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
 
@@ -1056,15 +1058,23 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 		cap = lsp->tlvs->router_cap;
 		if (!cap)
 			continue;
+		if (cap->algo[algo] == SR_ALGORITHM_UNSET)
+			continue;
 
-		ttable_add_row(
-			tt, "%s|%u - %u|%u - %u|%s|%u",
-			sysid_print(lsp->hdr.lsp_id), cap->srgb.lower_bound,
-			cap->srgb.lower_bound + cap->srgb.range_size - 1,
-			cap->srlb.lower_bound,
-			cap->srlb.lower_bound + cap->srlb.range_size - 1,
-			cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
-			cap->msd);
+		if (cap->algo[algo] == SR_ALGORITHM_SPF)
+			snprintf(buf, sizeof(buf), "SPF");
+		else if (cap->algo[algo] == SR_ALGORITHM_STRICT_SPF)
+			snprintf(buf, sizeof(buf), "S-SPF");
+		else
+			snprintf(buf, sizeof(buf), "Flex-Algo %d", algo);
+
+		ttable_add_row(tt, "%s|%u - %u|%u - %u|%s|%u",
+			       sysid_print(lsp->hdr.lsp_id),
+			       cap->srgb.lower_bound,
+			       cap->srgb.lower_bound + cap->srgb.range_size - 1,
+			       cap->srlb.lower_bound,
+			       cap->srlb.lower_bound + cap->srlb.range_size - 1,
+			       buf, cap->msd);
 	}
 
 	/* Dump the generated table. */
@@ -1079,14 +1089,21 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 }
 
 DEFUN(show_sr_node, show_sr_node_cmd,
-      "show isis segment-routing node",
+      "show isis segment-routing node [algorithm (128-255)]",
       SHOW_STR PROTO_HELP
       "Segment-Routing\n"
-      "Segment-Routing node\n")
+      "Segment-Routing node\n"
+      "Show Flex-algo nodes\n"
+      "Algorithm number\n")
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
+	uint8_t algorithm = 0;
 	struct isis *isis;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "algorithm", &idx))
+		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
@@ -1098,7 +1115,7 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++)
-				show_node(vty, area, level);
+				show_node(vty, area, level, algorithm);
 		}
 	}
 
