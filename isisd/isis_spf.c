@@ -2536,7 +2536,8 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 
 static void show_isis_route_common(struct vty *vty, int levels,
 				   struct isis *isis, bool prefix_sid,
-				   bool backup, json_object **json)
+				   bool backup, uint8_t algo,
+				   json_object **json)
 {
 	struct listnode *node;
 	struct isis_area *area;
@@ -2548,19 +2549,43 @@ static void show_isis_route_common(struct vty *vty, int levels,
 		*json = json_object_new_object();
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		struct flex_algo *fa;
+		struct isis_flex_algo_data *fa_data;
+
+		/*
+		 * The shapes of the flex algo spftree 2-dimensional array
+		 * and the area spftree 2-dimensional array are not guaranteed
+		 * to be identical.
+		 */
+		fa = NULL;
+		if (algo) {
+
+			fa = flex_algo_lookup(area->flex_algos, algo);
+			if (!fa)
+				continue;
+			fa_data = (struct isis_flex_algo_data *)fa->data;
+		} else {
+			fa_data = NULL;
+		}
+
 		if (json) {
 			json_object *jstr = json_object_new_string(
 				area->area_tag ? area->area_tag : "null");
 			json_object_object_add(*json, "area", jstr);
 		} else {
-			vty_out(vty, "Area %s:\n",
+			vty_out(vty, "Area %s:",
 				area->area_tag ? area->area_tag : "null");
+			if (algo)
+				vty_out(vty, " Algorithm %hhu\n", algo);
+			else
+				vty_out(vty, "\n");
 		}
 
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			char key[8];
 			json_object *val;
 			json_object *json_level;
+			struct isis_spftree *spftree;
 
 			if ((level & levels) == 0)
 				continue;
@@ -2576,10 +2601,15 @@ static void show_isis_route_common(struct vty *vty, int levels,
 
 			if (area->ip_circuits > 0) {
 				val = NULL;
-				isis_print_routes(
-					vty,
-					area->spftree[SPFTREE_IPV4][level - 1],
-					json ? &val : NULL, prefix_sid, backup);
+				spftree =
+					fa_data ? fa_data->spftree[SPFTREE_IPV4]
+								  [level - 1]
+						: area->spftree[SPFTREE_IPV4]
+							       [level - 1];
+
+				isis_print_routes(vty, spftree,
+						  json ? &val : NULL,
+						  prefix_sid, backup);
 				if (json && val) {
 					json_object_object_add(json_level,
 							       "ipv4", val);
@@ -2587,10 +2617,15 @@ static void show_isis_route_common(struct vty *vty, int levels,
 			}
 			if (area->ipv6_circuits > 0) {
 				val = NULL;
-				isis_print_routes(
-					vty,
-					area->spftree[SPFTREE_IPV6][level - 1],
-					json ? &val : NULL, prefix_sid, backup);
+				spftree =
+					fa_data ? fa_data->spftree[SPFTREE_IPV6]
+								  [level - 1]
+						: area->spftree[SPFTREE_IPV6]
+							       [level - 1];
+
+				isis_print_routes(vty, spftree,
+						  json ? &val : NULL,
+						  prefix_sid, backup);
 				if (json && val) {
 					json_object_object_add(json_level,
 							       "ipv6", val);
@@ -2598,9 +2633,14 @@ static void show_isis_route_common(struct vty *vty, int levels,
 			}
 			if (isis_area_ipv6_dstsrc_enabled(area)) {
 				val = NULL;
-				isis_print_routes(vty,
-						  area->spftree[SPFTREE_DSTSRC]
-							       [level - 1],
+				spftree =
+					fa_data ? fa_data->spftree
+							  [SPFTREE_DSTSRC]
+							  [level - 1]
+						: area->spftree[SPFTREE_DSTSRC]
+							       [level - 1];
+
+				isis_print_routes(vty, spftree,
 						  json ? &val : NULL,
 						  prefix_sid, backup);
 				if (json && val) {
@@ -2623,6 +2663,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
       " [<level-1|level-2>]"
 #endif
       " [<prefix-sid|backup>]"
+      " [algorithm (128-255)]"
       " [json$uj]",
       SHOW_STR PROTO_HELP VRF_FULL_CMD_HELP_STR
       "IS-IS routing table\n"
@@ -2631,7 +2672,9 @@ DEFUN(show_isis_route, show_isis_route_cmd,
       "level-2 routes\n"
 #endif
       "Show Prefix-SID information\n"
-      "Show backup routes\n" JSON_STR)
+      "Show backup routes\n"
+      "Show Flex-algo routes\n"
+      "Algorithm number\n" JSON_STR)
 {
 	int levels;
 	struct isis *isis;
@@ -2643,6 +2686,7 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	bool uj = use_json(argc, argv);
 	int idx = 0;
 	json_object *json = NULL;
+	uint8_t algorithm = 0;
 
 	if (argv_find(argv, argc, "level-1", &idx))
 		levels = ISIS_LEVEL1;
@@ -2662,6 +2706,9 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 	if (argv_find(argv, argc, "backup", &idx))
 		backup = true;
 
+	if (argv_find(argv, argc, "algorithm", &idx))
+		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+
 	if (uj)
 		json = json_object_new_array();
 
@@ -2669,9 +2716,9 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		json_object *json_vrf = NULL;
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
-				show_isis_route_common(vty, levels, isis,
-						       prefix_sid, backup,
-						       uj ? &json_vrf : NULL);
+				show_isis_route_common(
+					vty, levels, isis, prefix_sid, backup,
+					algorithm, uj ? &json_vrf : NULL);
 				if (uj) {
 					json_object_object_add(
 						json_vrf, "vrf_id",
@@ -2685,7 +2732,8 @@ DEFUN(show_isis_route, show_isis_route_cmd,
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL) {
 			show_isis_route_common(vty, levels, isis, prefix_sid,
-					       backup, uj ? &json_vrf : NULL);
+					       backup, algorithm,
+					       uj ? &json_vrf : NULL);
 			if (uj) {
 				json_object_object_add(
 					json_vrf, "vrf_id",
