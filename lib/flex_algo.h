@@ -26,6 +26,7 @@
 #include "bitfield.h"
 #include "segment_routing.h"
 
+#define ADMIN_GROUP_PRINT_MAX_SIZE 1170
 #define AFFINITY_NAME_SIZE 256
 #define FLEX_ALGO_PRIO_DEFAULT 128
 
@@ -108,6 +109,7 @@ char *affinity_map_name_get(const struct affinity_maps *maps,
  * Admin Group Utilities
  */
 char *admin_group_string(char *out, size_t sz, const struct admin_group *ag);
+char *admin_group_print(char *out, const struct admin_group *ag);
 void admin_group_copy(struct admin_group *dst, const struct admin_group *src);
 void admin_group_init(struct admin_group *ag);
 void admin_group_term(struct admin_group *ag);
@@ -115,7 +117,7 @@ uint32_t admin_group_get_offset(const struct admin_group *ag,
 				size_t oct_offset);
 void admin_group_set(struct admin_group *ag, size_t pos);
 void admin_group_unset(struct admin_group *ag, size_t pos);
-int admin_group_get(struct admin_group *ag, size_t pos);
+int admin_group_get(const struct admin_group *ag, size_t pos);
 void admin_group_set_offset(struct admin_group *ag, size_t pos,
 			    size_t oct_offset);
 void admin_group_unset_offset(struct admin_group *ag, size_t pos,

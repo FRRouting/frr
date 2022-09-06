@@ -131,6 +131,30 @@ char *admin_group_string(char *out, size_t sz, const struct admin_group *ag)
 	return out;
 }
 
+char *admin_group_print(char *out, const struct admin_group *ag)
+{
+	bool first= true;
+	int i;
+
+	out[0] = '\0';
+
+	if (admin_group_size(ag) == 0) {
+		snprintf(out, ADMIN_GROUP_PRINT_MAX_SIZE, "not-set");
+		return out;
+	}
+
+	for (i = 0; i < 256; i++) {
+		if (!admin_group_get(ag, i))
+			continue;
+		if (!first)
+			snprintf(&out[strlen(out)], ADMIN_GROUP_PRINT_MAX_SIZE - strlen(out), ", ");
+		snprintf(&out[strlen(out)], ADMIN_GROUP_PRINT_MAX_SIZE - strlen(out), "%d", i);
+		first = false;
+	}
+
+	return out;
+}
+
 static bool admin_group_cmp(const struct admin_group *ag1,
 		const struct admin_group *ag2)
 {
@@ -188,7 +212,7 @@ void admin_group_unset(struct admin_group *ag, size_t pos)
 	bf_release_index(ag->bitmap, pos);
 }
 
-int admin_group_get(struct admin_group *ag, size_t pos)
+int admin_group_get(const struct admin_group *ag, size_t pos)
 {
 	size_t admin_group_length = admin_group_size(ag);
 	uint32_t oct_offset;
