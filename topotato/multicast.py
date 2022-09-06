@@ -75,7 +75,7 @@ class MulticastReceiver:
 
     class Action(TopotatoModifier):
         _rtr: str
-        _cmdobj: "MulticastJoin"
+        _cmdobj: "MulticastReceiver"
         _group: Any
         _source: Any
 
