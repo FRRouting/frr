@@ -907,9 +907,14 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				NULL};
 
 			if (area->srdb.enabled)
-				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+					if (is_flex_algo(i) &&
+					    !isis_flex_algo_elected_supported(
+						    i, area))
+						continue;
 					pcfgs[i] = isis_sr_cfg_prefix_find(
 						area, ipv4, i);
+				}
 
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric,
 							true, pcfgs);
@@ -944,9 +949,14 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 				NULL};
 
 			if (area->srdb.enabled)
-				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+					if (is_flex_algo(i) &&
+					    !isis_flex_algo_elected_supported(
+						    i, area))
+						continue;
 					pcfgs[i] = isis_sr_cfg_prefix_find(
 						area, p, i);
+				}
 
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
@@ -1222,12 +1232,17 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					if (area->srdb.enabled)
 						for (int i = 0;
 						     i < SR_ALGORITHM_COUNT;
-						     i++)
+						     i++) {
+							if (is_flex_algo(i) &&
+							    !isis_flex_algo_elected_supported(
+								    i, area))
+								continue;
 							pcfgs[i] =
 								isis_sr_cfg_prefix_find(
 									area,
 									ipv4,
 									i);
+						}
 
 					isis_tlvs_add_extended_ip_reach(
 						lsp->tlvs, ipv4, metric, false,
@@ -1251,10 +1266,15 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 				if (area->srdb.enabled)
 					for (int i = 0; i < SR_ALGORITHM_COUNT;
-					     i++)
+					     i++) {
+						if (is_flex_algo(i) &&
+						    !isis_flex_algo_elected_supported(
+							    i, area))
+							continue;
 						pcfgs[i] =
 							isis_sr_cfg_prefix_find(
 								area, ipv6, i);
+					}
 
 				isis_tlvs_add_ipv6_reach(
 					lsp->tlvs,
