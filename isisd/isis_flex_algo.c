@@ -162,10 +162,9 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	bool ret;
 	struct isis_router_cap_fad *fad;
 
-	fad = isis_flex_algo_elected(spftree->algorithm, spftree->area);
-	if (!fad) {
+	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area);
+	if (!fad)
 		return true;
-	}
 
 	/*
 	 * Exclude Any
