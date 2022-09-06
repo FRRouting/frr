@@ -61,6 +61,7 @@ class FreeBSDJail:
         return subprocess.check_output(self.prefix() + cmdline, *args, **kwargs)
 
 
+# pylint: disable=duplicate-code
 if __name__ == "__main__":
     ns = FreeBSDJail("test")
     ns.start()
