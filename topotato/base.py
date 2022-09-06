@@ -102,6 +102,10 @@ to debug when a test fails.
 """
 
 
+class ItemGroup(list):
+    pass
+
+
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
 class TopotatoItem(nodes.Item, ClassHooks):
@@ -214,6 +218,8 @@ class TopotatoItem(nodes.Item, ClassHooks):
         callers = skiptrace.get_callers()
         assert callers
 
+        # ordering of test items is based on caller here, so we need to go
+        # with the topmost or we end up reordering things in a weird way.
         location = ""
         while callers:
             module = inspect.getmodule(callers[0].frame)
@@ -223,10 +229,9 @@ class TopotatoItem(nodes.Item, ClassHooks):
             location = "#%d%s" % (caller.lineno, location)
         del callers
 
-        # ordering of test items is based on caller here, so we need to go
-        # with the topmost or we end up reordering things in a weird way.
         try:
-            yield from cls._make(location, caller, *args, **kwargs)
+            ig = yield from cls._make(location, caller, *args, **kwargs)
+            return ig
         except TopotatoUnhandledArgs as e:
             # shorten backtrace by re-raising
             raise TopotatoUnhandledArgs(*e.args) from None
@@ -235,12 +240,14 @@ class TopotatoItem(nodes.Item, ClassHooks):
     @classmethod
     def _make(
         cls: Type["TopotatoItem"], namesuffix, codeloc, *args, **kwargs
-    ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], None]:
+    ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], ItemGroup]:
 
         parent, _ = yield None
         self = cls.from_parent(parent, namesuffix, *args, **kwargs)
         self._codeloc = codeloc
         yield self
+
+        return ItemGroup([self])
 
     @pytest.hookimpl(tryfirst=True)
     @staticmethod
