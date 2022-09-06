@@ -614,8 +614,9 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 				vertex->N.ip.sr.present = true;
 
 			if (is_flex_algo(spftree->algorithm)) {
-				if (!isis_flex_algo_elected(spftree->algorithm,
-							    spftree->area)) {
+				if (!isis_flex_algo_elected_supported(
+					    spftree->algorithm,
+					    spftree->area)) {
 					vertex->N.ip.sr.present = false;
 					vertex->N.ip.sr.label =
 						MPLS_INVALID_LABEL;
@@ -1022,7 +1023,7 @@ lspfragloop:
 							    lsp,
 							    spftree->algorithm))
 							continue;
-						if (!isis_flex_algo_elected(
+						if (!isis_flex_algo_elected_supported(
 							    spftree->algorithm,
 							    spftree->area))
 							continue;
@@ -1102,7 +1103,7 @@ lspfragloop:
 							    lsp,
 							    spftree->algorithm))
 							continue;
-						if (!isis_flex_algo_elected(
+						if (!isis_flex_algo_elected_supported(
 							    spftree->algorithm,
 							    spftree->area))
 							continue;
