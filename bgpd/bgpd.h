@@ -1380,38 +1380,38 @@ struct peer {
 	 * specific attributes are being treated the exact same way as global
 	 * peer attributes.
 	 */
-	uint32_t af_flags_override[AFI_MAX][SAFI_MAX];
-	uint32_t af_flags_invert[AFI_MAX][SAFI_MAX];
-	uint32_t af_flags[AFI_MAX][SAFI_MAX];
-#define PEER_FLAG_SEND_COMMUNITY            (1U << 0) /* send-community */
-#define PEER_FLAG_SEND_EXT_COMMUNITY        (1U << 1) /* send-community ext. */
-#define PEER_FLAG_NEXTHOP_SELF              (1U << 2) /* next-hop-self */
-#define PEER_FLAG_REFLECTOR_CLIENT          (1U << 3) /* reflector-client */
-#define PEER_FLAG_RSERVER_CLIENT            (1U << 4) /* route-server-client */
-#define PEER_FLAG_SOFT_RECONFIG             (1U << 5) /* soft-reconfiguration */
-#define PEER_FLAG_AS_PATH_UNCHANGED         (1U << 6) /* transparent-as */
-#define PEER_FLAG_NEXTHOP_UNCHANGED         (1U << 7) /* transparent-next-hop */
-#define PEER_FLAG_MED_UNCHANGED             (1U << 8) /* transparent-next-hop */
-#define PEER_FLAG_DEFAULT_ORIGINATE         (1U << 9) /* default-originate */
-#define PEER_FLAG_REMOVE_PRIVATE_AS         (1U << 10) /* remove-private-as */
-#define PEER_FLAG_ALLOWAS_IN                (1U << 11) /* set allowas-in */
-#define PEER_FLAG_ORF_PREFIX_SM             (1U << 12) /* orf capability send-mode */
-#define PEER_FLAG_ORF_PREFIX_RM             (1U << 13) /* orf capability receive-mode */
-#define PEER_FLAG_MAX_PREFIX                (1U << 14) /* maximum prefix */
-#define PEER_FLAG_MAX_PREFIX_WARNING        (1U << 15) /* maximum prefix warning-only */
-#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED   (1U << 16) /* leave link-local nexthop unchanged */
-#define PEER_FLAG_FORCE_NEXTHOP_SELF        (1U << 17) /* next-hop-self force */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL     (1U << 18) /* remove-private-as all */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1U << 19) /* remove-private-as replace-as */
-#define PEER_FLAG_AS_OVERRIDE               (1U << 20) /* as-override */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1U << 21) /* remove-private-as all replace-as */
-#define PEER_FLAG_WEIGHT                    (1U << 24) /* weight */
-#define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1U << 25) /* allowas-in origin */
-#define PEER_FLAG_SEND_LARGE_COMMUNITY      (1U << 26) /* Send large Communities */
-#define PEER_FLAG_MAX_PREFIX_OUT            (1U << 27) /* outgoing maximum prefix */
-#define PEER_FLAG_MAX_PREFIX_FORCE          (1U << 28) /* maximum-prefix <num> force */
-#define PEER_FLAG_DISABLE_ADDPATH_RX        (1U << 29) /* disable-addpath-rx */
-#define PEER_FLAG_SOO                       (1U << 30) /* soo */
+	uint64_t af_flags_override[AFI_MAX][SAFI_MAX];
+	uint64_t af_flags_invert[AFI_MAX][SAFI_MAX];
+	uint64_t af_flags[AFI_MAX][SAFI_MAX];
+#define PEER_FLAG_SEND_COMMUNITY (1ULL << 0)
+#define PEER_FLAG_SEND_EXT_COMMUNITY (1ULL << 1)
+#define PEER_FLAG_NEXTHOP_SELF (1ULL << 2)
+#define PEER_FLAG_REFLECTOR_CLIENT (1ULL << 3)
+#define PEER_FLAG_RSERVER_CLIENT (1ULL << 4)
+#define PEER_FLAG_SOFT_RECONFIG (1ULL << 5)
+#define PEER_FLAG_AS_PATH_UNCHANGED (1ULL << 6)
+#define PEER_FLAG_NEXTHOP_UNCHANGED (1ULL << 7)
+#define PEER_FLAG_MED_UNCHANGED (1ULL << 8)
+#define PEER_FLAG_DEFAULT_ORIGINATE (1ULL << 9)
+#define PEER_FLAG_REMOVE_PRIVATE_AS (1ULL << 10)
+#define PEER_FLAG_ALLOWAS_IN (1ULL << 11)
+#define PEER_FLAG_ORF_PREFIX_SM (1ULL << 12)
+#define PEER_FLAG_ORF_PREFIX_RM (1ULL << 13)
+#define PEER_FLAG_MAX_PREFIX (1ULL << 14)
+#define PEER_FLAG_MAX_PREFIX_WARNING (1ULL << 15)
+#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED (1ULL << 16)
+#define PEER_FLAG_FORCE_NEXTHOP_SELF (1ULL << 17)
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL (1ULL << 18)
+#define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1ULL << 19)
+#define PEER_FLAG_AS_OVERRIDE (1ULL << 20)
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1ULL << 21)
+#define PEER_FLAG_WEIGHT (1ULL << 24)
+#define PEER_FLAG_ALLOWAS_IN_ORIGIN (1ULL << 25)
+#define PEER_FLAG_SEND_LARGE_COMMUNITY (1ULL << 26)
+#define PEER_FLAG_MAX_PREFIX_OUT (1ULL << 27)
+#define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 28)
+#define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 29)
+#define PEER_FLAG_SOO (1ULL << 30)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -2180,11 +2180,13 @@ extern int peer_flag_set(struct peer *peer, uint64_t flag);
 extern int peer_flag_unset(struct peer *peer, uint64_t flag);
 extern void peer_flag_inherit(struct peer *peer, uint64_t flag);
 
-extern int peer_af_flag_set(struct peer *, afi_t, safi_t, uint32_t);
-extern int peer_af_flag_unset(struct peer *, afi_t, safi_t, uint32_t);
+extern int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi,
+			    uint64_t flag);
+extern int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi,
+			      uint64_t flag);
 extern int peer_af_flag_check(struct peer *, afi_t, safi_t, uint32_t);
 extern void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
-				 uint32_t flag);
+				 uint64_t flag);
 extern void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type);
 
