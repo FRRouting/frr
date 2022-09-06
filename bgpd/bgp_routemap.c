@@ -4143,8 +4143,6 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 
 void bgp_route_map_update_timer(struct thread *thread)
 {
-	bm->t_rmap_update = NULL;
-
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 }
 
