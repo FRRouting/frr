@@ -812,17 +812,13 @@ int route_map_mark_updated(const char *name)
 	return (ret);
 }
 
-static int route_map_clear_updated(struct route_map *map)
+static void route_map_clear_updated(struct route_map *map)
 {
-	int ret = -1;
-
 	if (map) {
 		map->to_be_processed = false;
 		if (map->deleted)
 			route_map_free_map(map);
 	}
-
-	return (ret);
 }
 
 /* Lookup route map.  If there isn't route map create one and return
