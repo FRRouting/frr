@@ -8,30 +8,38 @@ HTML test report prettying
 import base64
 import re
 import subprocess
-import datetime
 import time
 import os
-import urllib.parse
 import json
 import zlib
 import tempfile
+import logging
 from xml.etree import ElementTree
 
-import logging
-logger = logging.getLogger('topotato')
-logger.setLevel(logging.DEBUG)
+import typing
+from typing import Dict, Type
 
 import jinja2
-from py.xml import html
 
-from . import base
-from . import assertions
-from .frr import FRRConfigs
+from . import base, assertions
 from .utils import ClassHooks, exec_find
 from .scapy import ScapySend
 from .timeline import TimedElement
-from .pcapng import Sink, SectionHeader, IfDesc
+from .pcapng import Sink, SectionHeader, Context
 
+if not typing.TYPE_CHECKING:
+    from py.xml import html  # pylint: disable=no-name-in-module,import-error
+else:
+    class html:
+        class div:
+            pass
+        class span:
+            pass
+        class pre:
+            pass
+
+logger = logging.getLogger('topotato')
+logger.setLevel(logging.DEBUG)
 
 jenv = jinja2.Environment(
     loader=jinja2.PackageLoader("topotato.pretty", "html"),
@@ -43,6 +51,8 @@ class fmt(html):
     """custom styling"""
 
     class _cssclass:
+        class_: str
+
         def __init__(self, *args, **kwargs):
             if getattr(self, 'class_', None) is not None:
                 kwargs.setdefault('class_', self.class_)
@@ -84,82 +94,24 @@ class fmt(html):
         class_ = 'assert-match-item'
 
 
-class PrettyLog(TimedElement):
-    log_id_re = re.compile(r'^(?:\[(?P<uid>[A-Z0-9]{5}-[A-Z0-9]{5})\])?(?:\[EC (?P<ec>\d+)\])? ?')
-
-    def __init__(self, prettysession, seqno, msg):
-        super().__init__()
-        self._prettysession = prettysession
-        self._seqno = seqno
-
-        self._msg = msg
-        self._router = msg.router.name
-        self._daemon = msg.daemon
-        self._ts = msg.ts
-        self._prio = msg.prio_text
-
-        self._line = line = msg.text
-
-        m = self.log_id_re.match(line)
-        if m is not None:
-            self._uid = m.group('uid')
-            self._ec = m.group('ec')
-            line = line[m.end():]
-        else:
-            self._uid = None
-            self._ec = None
-
-        self._text = line
-
-    def __repr__(self):
-        return '<%s @%.6f %r>' % (self.__class__.__name__, self._ts, self._text)
-
-    @property
-    def ts(self):
-        return (self._ts, self._seqno)
-
-    def html(self, id_, ts_rel):
-        meta = []
-        if self._uid:
-            xref = FRRConfigs.xrefs['refs'].get(self._uid, [])
-            loc_set = {(loc['file'], loc['line']) for loc in xref}
-            if len(loc_set) == 1:
-                filename, line = loc_set.pop()
-                if self._prettysession.source_url:
-                    path = urllib.parse.urljoin(self._prettysession.source_url, filename)
-                else:
-                    path = os.path.join(FRRConfigs.srcpath, filename)
-                meta.append(html.a(self._uid, href="%s#L%d" % (path, line)))
-            else:
-                meta.append(fmt.uid(self._uid))
-
-
-        logtext = []
-        for text, arg in self._msg.iter_args():
-            logtext.append(text)
-            if arg is not None:
-                logtext.append(fmt.logarg(arg))
-
-        msg = fmt.logmsg([
-            fmt.tstamp('%.3f' % (self._ts - ts_rel)),
-            fmt.rtrname(self._router),
-            fmt.dmnname(self._daemon),
-            fmt.logmeta(meta),
-            fmt.logprio(self._prio or '???'),
-            fmt.logtext(logtext),
-        ])
-        msg.attr.id = id_
-        if self._prio is not None:
-            msg.attr.class_ += ' prio-%s' % self._prio
-
-        if self._msg.match_for:
-            msg.attr.class_ += ' assert-match'
-            for node in self._msg.match_for:
-                msg.append(fmt.assertmatchitem(node.nodeid))
-        return [msg]
+# migrate to javascript
+# import urllib.parse
+# from .frr import FRRConfigs
+#            xref = FRRConfigs.xrefs['refs'].get(self._uid, [])
+#            loc_set = {(loc['file'], loc['line']) for loc in xref}
+#            if len(loc_set) == 1:
+#                filename, line = loc_set.pop()
+#                if self._prettysession.source_url:
+#                    path = urllib.parse.urljoin(self._prettysession.source_url, filename)
+#                else:
+#                    path = os.path.join(FRRConfigs.srcpath, filename)
+#                meta.append(html.a(self._uid, href="%s#L%d" % (path, line)))
+#            else:
+#                meta.append(fmt.uid(self._uid))
 
 
 class PrettyExtraFile:
+    # pylint: disable=too-many-arguments
     def __init__(self, owner, name, ext, mimetype, data):
         self.owner = owner
         self.name = name
@@ -207,50 +159,9 @@ class PrettyInstance(list):
         self.instance = instance
         self.timed = []
 
-    def distribute(self):
-        raise NotImplementedError()
-
-        for router in self.instance.routers.values():
-            for daemonlog in router.livelogs.values():
-                for seqno, msg in enumerate(daemonlog):
-                    self.timed.append(PrettyLog(self.prettysession, seqno, msg))
-
-        packets = []
-
-        timed = self.timed[:]
-        timed.sort()
-
-        prettyitem = None
-
-        with open('/tmp/tdump', 'w') as fd:
-            from pprint import pformat
-            fd.write(pformat({
-                'logs': timed,
-                'packets': packets,
-            }))
-
-        for prettyitem in self:
-            #if isinstance(prettyitem.item, assertions.TopotatoModifier):
-            #    continue
-
-            while packets and packets[0].ts() < (prettyitem.ts_end, 0):
-                prettyitem.timed.append(packets.pop(0))
-
-            while timed and timed[0].ts() < (prettyitem.ts_end, 0):
-                prettyitem.timed.append(timed.pop(0))
-
-            prettyitem.timed.sort()
-
-        prettyitem.timed.extend(packets)
-        prettyitem.timed.extend(timed)
-        prettyitem.timed.sort()
-
-        #def _raw(pi):
-        #    return list([i._msg for i in pi.timed if isinstance(i, PrettyLog)])
-        #breakpoint()
-
     _filename_sub = re.compile(r'[^a-zA-Z0-9]')
 
+    # pylint: disable=too-many-locals,protected-access,possibly-unused-variable
     def report(self):
         topotatocls = self[0].item.getparent(base.TopotatoClass)
         nodeid = topotatocls.nodeid
@@ -311,7 +222,7 @@ class PrettyInstance(list):
 
 
 class PrettyItem(ClassHooks):
-    itemclasses = {}
+    itemclasses: Dict[Type[base.TopotatoItem], Type["PrettyItem"]] = {}
     template = jenv.get_template('item.html.j2')
 
     @classmethod
@@ -343,9 +254,9 @@ class PrettyItem(ClassHooks):
         if handler:
             handler(call, result)
 
+    # pylint: disable=no-self-use
     def files(self):
-        if False:
-            yield PrettyExtraFile(self, '', '', '', '')
+        yield from []
 
     def when_setup(self, call, result):
         pass
@@ -376,6 +287,7 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
         self.timed = []
         self.ts_end = None
         self.instance = None
+        self.html = None
 
     def when_call(self, call, result):
         super().when_call(call, result)
@@ -399,6 +311,8 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
 
 
 class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
+    toposvg: bytes
+
     @classmethod
     def _check_env(cls, *, result, **kwargs):
         cls.exec_dot = exec_find("dot")
@@ -431,6 +345,10 @@ class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
 
 
 class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
+    _pcap: bytes
+    _pdml: str
+    _jsdata = str
+
     def when_call(self, call, result):
         super().when_call(call, result)
 
@@ -452,9 +370,10 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
             fd.seek(0)
             self._pcap = fd.read()
 
-            tshark = subprocess.Popen(["tshark", "-q", "-r", fd.name, "-T", "pdml"],
-                    stdout=subprocess.PIPE)
-            pdml, _ = tshark.communicate()
+            with subprocess.Popen(["tshark", "-q", "-r", fd.name, "-T", "pdml"],
+                                  stdout=subprocess.PIPE) as tshark:
+                pdml, _ = tshark.communicate()
+
             self._pdml = pdml.decode('UTF-8')
             self._jsdata = jsdata
 
@@ -468,7 +387,9 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
 class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
     template = jenv.get_template('item_vtysh.html.j2')
 
+    # pylint: disable=too-many-instance-attributes
     class Line(TimedElement):
+        # pylint: disable=too-many-arguments
         def __init__(self, ts, router, daemon, cmd, out, rc, result, same):
             super().__init__()
 
@@ -489,8 +410,8 @@ class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
         def ts(self):
             return (self._ts, 0)
 
-        def serialize(self):
-            return {}
+        def serialize(self, context: Context):
+            return (None, None)
 
         def html(self, id_, ts_rel):
             clicmd = fmt.clicmd([
@@ -517,8 +438,8 @@ class PrettyVtysh(PrettyTopotato, matches=assertions.AssertVtysh):
             cmds = self.item.commands[rtr, daemon]
             prev_out = None
 
-            for ts, cmd, out, rc, result in cmds:
-                self.timed.append(self.Line(ts, rtr, daemon, cmd, out, rc, result, prev_out == out))
+            for ts, cmd, out, rc, cresult in cmds:
+                self.timed.append(self.Line(ts, rtr, daemon, cmd, out, rc, cresult, prev_out == out))
                 prev_out = out
 
 
