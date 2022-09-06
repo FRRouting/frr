@@ -446,6 +446,15 @@ function pdml_get_attr(item, key, attr = "show", idx = 0) {
 const protocols = {
 	"geninfo": null,
 	"frame": null,
+	"pkt_comment":  function (obj, row, proto, protos) {
+		row.classList.add("assert-match");
+
+		var row2 = document.createElement("div");
+		row2.classList.add("pkt");
+		create(row2, "span", "assert-match-item", pdml_get_attr(proto, "frame.comment"));
+		row.after(row2);
+		return true;
+	},
 
 	"eth": function (obj, row, proto, protos) {
 		var col = create(row, "span", "pktcol p-eth");
