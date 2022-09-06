@@ -19,4 +19,5 @@ noinst_HEADERS += \
 	include/linux/seg6_local.h \
 	include/linux/mroute.h \
 	include/linux/mroute6.h \
+	include/linux/pkt_cls.h \
 	# end
