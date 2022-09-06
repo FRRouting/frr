@@ -100,6 +100,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_routemap_nb_config.c \
 	zebra/zebra_script.c \
 	zebra/zebra_srte.c \
+	zebra/zebra_tc.c \
 	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
@@ -175,6 +176,7 @@ noinst_HEADERS += \
 	zebra/zebra_router.h \
 	zebra/zebra_script.h \
 	zebra/zebra_srte.h \
+	zebra/zebra_tc.h \
 	zebra/zebra_trace.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \

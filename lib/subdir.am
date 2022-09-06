@@ -123,6 +123,7 @@ lib_libfrr_la_SOURCES = \
 	lib/printf/glue.c \
 	lib/routing_nb.c \
 	lib/routing_nb_config.c \
+	lib/tc.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -275,6 +276,7 @@ pkginclude_HEADERS += \
 	lib/zlog_live.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/tc.h \
 	lib/routing_nb.h \
 	\
 	lib/assert/assert.h \

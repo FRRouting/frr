@@ -195,9 +195,14 @@ enum dplane_op_e {
 	DPLANE_OP_INTF_DELETE,
 
 	/* Traffic control */
-	DPLANE_OP_TC_INSTALL,
-	DPLANE_OP_TC_UPDATE,
-	DPLANE_OP_TC_DELETE,
+	DPLANE_OP_TC_QDISC_INSTALL,
+	DPLANE_OP_TC_QDISC_UNINSTALL,
+	DPLANE_OP_TC_CLASS_ADD,
+	DPLANE_OP_TC_CLASS_DELETE,
+	DPLANE_OP_TC_CLASS_UPDATE,
+	DPLANE_OP_TC_FILTER_ADD,
+	DPLANE_OP_TC_FILTER_DELETE,
+	DPLANE_OP_TC_FILTER_UPDATE
 };
 
 /*
@@ -384,14 +389,42 @@ void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for traffic control context */
-uint64_t dplane_ctx_tc_get_rate(const struct zebra_dplane_ctx *ctx);
-uint64_t dplane_ctx_tc_get_ceil(const struct zebra_dplane_ctx *ctx);
-uint32_t dplane_ctx_tc_get_filter_bm(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_qdisc_get_kind_str(const struct zebra_dplane_ctx *ctx);
+
+uint32_t dplane_ctx_tc_class_get_handle(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_tc_class_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_class_get_kind_str(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_class_get_rate(const struct zebra_dplane_ctx *ctx);
+uint64_t dplane_ctx_tc_class_get_ceil(const struct zebra_dplane_ctx *ctx);
+
+int dplane_ctx_tc_filter_get_kind(const struct zebra_dplane_ctx *ctx);
+const char *
+dplane_ctx_tc_filter_get_kind_str(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_priority(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_handle(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_minor(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_eth_proto(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_filter_bm(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
-dplane_ctx_tc_get_src_ip(const struct zebra_dplane_ctx *ctx);
+dplane_ctx_tc_filter_get_src_ip(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_src_port_min(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_src_port_max(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
-dplane_ctx_tc_get_dst_ip(const struct zebra_dplane_ctx *ctx);
-uint8_t dplane_ctx_tc_get_ip_proto(const struct zebra_dplane_ctx *ctx);
+dplane_ctx_tc_filter_get_dst_ip(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_min(const struct zebra_dplane_ctx *ctx);
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_max(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_ip_proto(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_dsfield(const struct zebra_dplane_ctx *ctx);
+uint8_t
+dplane_ctx_tc_filter_get_dsfield_mask(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
@@ -723,11 +756,23 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_delete(const struct interface *ifp);
 
 /*
- * Enqueue interface link changes for the dataplane.
+ * Enqueue tc link changes for the dataplane.
  */
-enum zebra_dplane_result dplane_tc_add(void);
-enum zebra_dplane_result dplane_tc_update(void);
-enum zebra_dplane_result dplane_tc_delete(void);
+
+struct zebra_tc_qdisc;
+struct zebra_tc_class;
+struct zebra_tc_filter;
+enum zebra_dplane_result dplane_tc_qdisc_install(struct zebra_tc_qdisc *qdisc);
+enum zebra_dplane_result
+dplane_tc_qdisc_uninstall(struct zebra_tc_qdisc *qdisc);
+enum zebra_dplane_result dplane_tc_class_add(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_class_delete(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_class_update(struct zebra_tc_class *class);
+enum zebra_dplane_result dplane_tc_filter_add(struct zebra_tc_filter *filter);
+enum zebra_dplane_result
+dplane_tc_filter_delete(struct zebra_tc_filter *filter);
+enum zebra_dplane_result
+dplane_tc_filter_update(struct zebra_tc_filter *filter);
 
 /*
  * Link layer operations for the dataplane.

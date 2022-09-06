@@ -27,6 +27,7 @@
 #include "zebra/rt.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_tc.h"
 
 enum zebra_dplane_result kernel_tc_update(struct zebra_dplane_ctx *ctx)
 {

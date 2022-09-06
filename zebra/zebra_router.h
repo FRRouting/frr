@@ -172,6 +172,10 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
+	struct hash *qdisc_hash;
+	struct hash *class_hash;
+	struct hash *filter_hash;
+
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
 

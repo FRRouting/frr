@@ -42,6 +42,7 @@ unsigned long zebra_debug_nexthop;
 unsigned long zebra_debug_evpn_mh;
 unsigned long zebra_debug_pbr;
 unsigned long zebra_debug_neigh;
+unsigned long zebra_debug_tc;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -371,6 +372,17 @@ DEFPY (debug_zebra_neigh,
 	else
 		SET_FLAG(zebra_debug_neigh, ZEBRA_DEBUG_NEIGH);
 
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_zebra_tc,
+       debug_zebra_tc_cmd,
+       "debug zebra tc",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra tc events\n")
+{
+	SET_FLAG(zebra_debug_tc, ZEBRA_DEBUG_TC);
 	return CMD_SUCCESS;
 }
 
@@ -797,6 +809,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_nexthop_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_pbr_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_neigh_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_tc_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_dpdk_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);

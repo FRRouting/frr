@@ -34,6 +34,7 @@
 #include "zebra_netns_notify.h"
 #include "zebra_netns_id.h"
 #include "zebra_pbr.h"
+#include "zebra_tc.h"
 #include "rib.h"
 #include "table_manager.h"
 #include "zebra_errors.h"
@@ -127,6 +128,7 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	interface_list(zns);
 	route_read(zns);
 	kernel_read_pbr_rules(zns);
+	kernel_read_tc_qdisc(zns);
 
 	return 0;
 }
