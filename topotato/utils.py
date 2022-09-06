@@ -7,19 +7,16 @@ Random utility functions for use in topotato.
 
 # TODO: this needs another round of cleanup, and JSONCompare split off.
 
-from abc import ABC, abstractmethod
 import re
 import json
 import difflib
 import os
 import logging
 import shlex
-import time
-import select
 import fcntl
 import atexit
 
-from typing import Dict, List, Union, Iterable, Tuple, Callable
+from typing import List, Union
 
 from .exceptions import TopotatoCLICompareFail
 
@@ -70,7 +67,7 @@ def get_textdiff(text1: str, text2: str, title1="", title2="", **opts) -> str:
     return diff
 
 
-class json_cmp_result(object):
+class json_cmp_result:
     "json_cmp result class for better assertion messages"
 
     def __init__(self):
@@ -136,6 +133,7 @@ class JSONCompareListKeyedDict(JSONCompareDirective):
     keying: List[Union[int, str]]
 
     def __init__(self, *keying):
+        super().__init__()
         self.keying = keying
 
 
@@ -174,6 +172,7 @@ def _json_diff(d1, d2):
     )
 
 
+# pylint: disable=too-many-locals,too-many-branches
 def _json_list_cmp(list1, list2, parent, result):
     "Handles list type entries."
     if isinstance(list1, JSONCompareIgnoreContent) or isinstance(
@@ -283,20 +282,17 @@ def json_cmp(d1, d2):
     squeue = [(d1, d2, "json")]
     result = json_cmp_result()
 
-    for s in squeue:
-        nd1, nd2, parent = s
+    while squeue:
+        nd1, nd2, parent = squeue.pop(0)
 
         # Handle JSON beginning with lists.
         if isinstance(nd1, type([])) or isinstance(nd2, type([])):
             _json_list_cmp(nd1, nd2, parent, result)
-            if result.has_errors():
-                return result
-            else:
-                return None
+            return result if result.has_errors() else None
 
         # Expect all required fields to exist.
         s1, s2 = set(nd1), set(nd2)
-        s2_req = set([key for key in nd2 if nd2[key] is not None])
+        s2_req = {key for key in nd2 if nd2[key] is not None}
         diff = s2_req - s1
         if diff != set({}):
             result.add_error(
@@ -423,6 +419,7 @@ def exec_find(name, stacklevel=1):
             return pname
 
     logger.warning("executable %s not found in PATH", shlex.quote(name))
+    return None
 
 
 class ClassHooks:
@@ -457,6 +454,7 @@ class ClassHooks:
         result = cls.Result()
         for subcls in cls._hooked_classes:
             for parent in subcls.__mro__[1:]:
+                # pylint: disable=protected-access
                 if (
                     subcls._check_env.__code__
                     is getattr(parent, "_check_env", ClassHooks._check_env).__code__
@@ -552,7 +550,7 @@ class LockedFile:
             # => no intermediate race where the file could be seen by an
             #    external process, but without the lock held/data in it
             #
-            # XXX: renameat2(RENAME_NOREPLACE) would be great here, but python
+            # renameat2(RENAME_NOREPLACE) would be great here, but python
             # does not provide access to it
             os.rename(
                 tmpname,
