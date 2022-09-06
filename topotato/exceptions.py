@@ -88,3 +88,12 @@ class TopotatoEarlierFailSkip(TopotatoSkipped):
     """
     Earlier test failed & caused skip of remaining tests
     """
+
+
+# test coding errors
+
+
+class TopotatoUnhandledArgs(TypeError):
+    """
+    Unexpected arguments in "yield from AssertXyz.make()"
+    """
