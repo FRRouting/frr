@@ -158,6 +158,8 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
 		return false;
 	if (fad->m_flag != false)
 		return false;
+	if (fad->exclude_srlg != false)
+		return false;
 
 	return true;
 }

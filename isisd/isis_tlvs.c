@@ -4183,6 +4183,15 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 						}
 					}
 					break;
+				case ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG:
+					if (subsubtlv_len > 0) {
+						fad->fad.exclude_srlg = true;
+						for (int rem = subsubtlv_len;
+						     rem > 0; --rem) {
+							stream_getc(s);
+						}
+					}
+					break;
 				default:
 					stream_forward_getp(s, subsubtlv_len);
 					break;

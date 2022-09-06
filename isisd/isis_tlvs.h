@@ -478,6 +478,7 @@ enum ext_subsubtlv_types {
 	ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG = 2,
 	ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG = 3,
 	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS = 4,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG = 5,
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */

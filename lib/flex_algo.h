@@ -67,6 +67,9 @@ struct flex_algo {
 	uint8_t calc_type;
 	uint8_t priority;
 	bool m_flag; /* prefix-metric */
+	/* true if exclude SRLG constraint is set in FAD sub-TLV
+	 * The feature is not supported and cannot be set in configuration */
+	bool exclude_srlg;
 
 	bool advertise_definition;
 
