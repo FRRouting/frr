@@ -256,28 +256,6 @@ static inline struct bgp_dest *bgp_node_match(const struct bgp_table *table,
 	return bgp_dest_from_rnode(rn);
 }
 
-/*
- * bgp_node_match_ipv4
- */
-static inline struct bgp_dest *
-bgp_node_match_ipv4(const struct bgp_table *table, struct in_addr *addr)
-{
-	struct route_node *rn = route_node_match_ipv4(table->route_table, addr);
-
-	return bgp_dest_from_rnode(rn);
-}
-
-/*
- * bgp_node_match_ipv6
- */
-static inline struct bgp_dest *
-bgp_node_match_ipv6(const struct bgp_table *table, struct in6_addr *addr)
-{
-	struct route_node *rn = route_node_match_ipv6(table->route_table, addr);
-
-	return bgp_dest_from_rnode(rn);
-}
-
 static inline unsigned long bgp_table_count(const struct bgp_table *const table)
 {
 	return route_table_count(table->route_table);
@@ -290,59 +268,6 @@ static inline struct bgp_dest *bgp_table_get_next(const struct bgp_table *table,
 						  const struct prefix *p)
 {
 	return bgp_dest_from_rnode(route_table_get_next(table->route_table, p));
-}
-
-/*
- * bgp_table_iter_init
- */
-static inline void bgp_table_iter_init(bgp_table_iter_t *iter,
-				       struct bgp_table *table)
-{
-	bgp_table_lock(table);
-	iter->table = table;
-	route_table_iter_init(&iter->rt_iter, table->route_table);
-}
-
-/*
- * bgp_table_iter_next
- */
-static inline struct bgp_dest *bgp_table_iter_next(bgp_table_iter_t *iter)
-{
-	return bgp_dest_from_rnode(route_table_iter_next(&iter->rt_iter));
-}
-
-/*
- * bgp_table_iter_cleanup
- */
-static inline void bgp_table_iter_cleanup(bgp_table_iter_t *iter)
-{
-	route_table_iter_cleanup(&iter->rt_iter);
-	bgp_table_unlock(iter->table);
-	iter->table = NULL;
-}
-
-/*
- * bgp_table_iter_pause
- */
-static inline void bgp_table_iter_pause(bgp_table_iter_t *iter)
-{
-	route_table_iter_pause(&iter->rt_iter);
-}
-
-/*
- * bgp_table_iter_is_done
- */
-static inline int bgp_table_iter_is_done(bgp_table_iter_t *iter)
-{
-	return route_table_iter_is_done(&iter->rt_iter);
-}
-
-/*
- * bgp_table_iter_started
- */
-static inline int bgp_table_iter_started(bgp_table_iter_t *iter)
-{
-	return route_table_iter_started(&iter->rt_iter);
 }
 
 /* This would benefit from a real atomic operation...
