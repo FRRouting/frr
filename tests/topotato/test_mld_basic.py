@@ -61,6 +61,12 @@ def mld_topo1_testenv(mld_topo1_configs):
     return instance
 
 
+def iter_mld_records(report):
+    for record in report.records:
+        while isinstance(record, ICMPv6MLDMultAddrRec):
+            yield record
+            record = record.payload
+
 class MLDBasic(TestBase):
     instancefn = mld_topo1_testenv
 
@@ -75,6 +81,13 @@ class MLDBasic(TestBase):
 
         # wait for query before continuing
         yield from AssertLog.make(dut, 'pim6d', '[MLD default:dut-h1] MLD query', maxwait=3.0)
+
+        # get out of initial reporting (prevents timing issues later)
+        def expect_pkt(ipv6: IPv6, report: ICMPv6MLReport2):
+            for record in iter_mld_records(report):
+                if record.rtype == 2: # IS_EX
+                    return True
+        yield from AssertPacket.make("h1_dut", maxwait=5.0, pkt=expect_pkt)
 
     @topotatofunc
     def test_ssm(self, topo, dut, h1, h2, src):

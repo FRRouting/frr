@@ -4,6 +4,7 @@
 """
 Linux implementation of topotato instances, based on nswrap
 """
+# pylint: disable=duplicate-code
 
 import json
 import os

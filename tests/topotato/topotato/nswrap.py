@@ -255,6 +255,7 @@ class LinuxNamespace:
             setns(nsfd)
 
 
+# pylint: disable=duplicate-code
 def test():
     ns = LinuxNamespace("test")
     ns.start()

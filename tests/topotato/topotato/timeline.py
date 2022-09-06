@@ -9,13 +9,42 @@ from abc import ABC, abstractmethod
 import bisect
 import time
 import select
+from dataclasses import dataclass
 
 import typing
-from typing import List, Tuple, Generator, Optional, Dict, Any
+from typing import List, Tuple, Generator, Optional, Dict, Any, Callable
 from .pcapng import Context, Block, Sink
 
 if typing.TYPE_CHECKING:
     from .base import TopotatoItem
+
+
+@dataclass
+class TimingParams:
+    delay: Optional[float]
+    maxwait: Optional[float]
+
+    _start: Callable[[], float] = time.time
+
+    def anchor(self, anchor: Callable[[], float]):
+        self._start = anchor
+        return self
+
+    def ticks(self):
+        # immediate tick
+        yield float("-inf")
+
+        start = self._start()
+        nexttick = start + self.delay
+        deadline = start + (self.maxwait or 0.0)
+
+        while nexttick < deadline:
+            yield nexttick
+            nexttick += self.delay
+
+    def evaluate(self):
+        start = self._start()
+        return (start, start + (self.maxwait or 0.0))
 
 
 class MiniPollee(ABC):
@@ -83,6 +112,25 @@ class MiniPoller:
         for _ in self.run_iter(time.time() + duration, final=final):
             pass
 
+    def run_tick(self, timing: TimingParams) -> Generator[int, None, None]:
+        """
+        Process events while generating retry "ticks" for an active check.
+
+        Yields the retry iteration count as an integer.
+        """
+
+        for i, deadline in enumerate(timing.ticks()):
+            # do polling pass first, to avoid building up backlog
+            # on first iteration of this loop, nexttick = now, so no delay
+            for _ in self.run_iter(deadline):
+                pass
+
+            yield i
+            # caller will use break when check was sucessful
+
+    def record(self, element: "TimedElement"):
+        pass
+
     def run_iter(
         self, deadline=float("inf"), final=False
     ) -> Generator["TimedElement", None, None]:
@@ -120,7 +168,9 @@ class MiniPoller:
 
             for fd in ready:
                 assert fd in fdmap
-                yield from fdmap[fd].readable()
+                for i in fdmap[fd].readable():
+                    self.record(i)
+                    yield i
 
             first = False
 
@@ -215,15 +265,11 @@ class Timeline(MiniPoller, List[TimedElement]):
 
         yield from self[startidx:]
 
-    def run_iter(
-        self, deadline=float("inf"), final=False, check_after: Optional[float] = None
-    ) -> Generator[TimedElement, None, None]:
-        if check_after is not None:
-            yield from self.iter_since(check_after)
+    def run_timing(self, timing: TimingParams) -> Generator[TimedElement, None, None]:
+        start, end = timing.evaluate()
 
-        for item in super().run_iter(deadline, final):
-            self.record(item)
-            yield item
+        yield from self.iter_since(start)
+        yield from self.run_iter(end)
 
     def install(self, pollee: MiniPollee):
         self.pollees.append(pollee)

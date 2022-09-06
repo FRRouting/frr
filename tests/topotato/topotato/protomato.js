@@ -443,9 +443,27 @@ function pdml_get_attr(item, key, attr = "show", idx = 0) {
 	return result === null ? null : result.getAttribute(attr);
 }
 
+const mld_short_recordtypes = {
+	1: "IN",
+	2: "EX",
+	3: "→IN",
+	4: "→EX",
+	5: "+S",
+	6: "-S",
+};
+
 const protocols = {
 	"geninfo": null,
 	"frame": null,
+	"pkt_comment":  function (obj, row, proto, protos) {
+		row.classList.add("assert-match");
+
+		var row2 = document.createElement("div");
+		row2.classList.add("pkt");
+		create(row2, "span", "assert-match-item", pdml_get_attr(proto, "frame.comment"));
+		row.after(row2);
+		return true;
+	},
 
 	"eth": function (obj, row, proto, protos) {
 		var col = create(row, "span", "pktcol p-eth");
@@ -469,11 +487,26 @@ const protocols = {
 	},
 
 	"icmpv6": function (obj, row, proto, protos) {
-		create(row, "span", "pktcol l-4 p-icmpv6", "ICMPv6");
+		pname = "ICMPv6";
+		type_num = pdml_get_attr(proto, "icmpv6.type", "show");
 
-		type = pdml_get_attr(proto, "icmpv6.type", "showname");
-		type = type.split(": ").slice(1).join(": ");
-		create(row, "span", "pktcol l-5 detail last", type);
+		if (["130", "131", "132", "143"].includes(type_num))
+			pname = "MLD";
+
+		if (type_num == 143) {
+			items = new Array;
+			for (record of proto.querySelectorAll("field[name='icmpv6.mldr.mar']")) {
+				raddr = pdml_get_attr(record, "icmpv6.mldr.mar.multicast_address");
+				rtype = pdml_get_attr(record, "icmpv6.mldr.mar.record_type");
+				items.push(mld_short_recordtypes[rtype] + "(" + raddr + ")");
+			}
+			text = "v2 report: " + items.join(", ");
+		} else {
+			type = pdml_get_attr(proto, "icmpv6.type", "showname");
+			text = type.split(": ").slice(1).join(": ");
+		}
+		create(row, "span", "pktcol l-4 p-icmpv6", pname);
+		create(row, "span", "pktcol l-5 detail last", text);
 		return false;
 	},
 	"udp": function (obj, row, proto, protos) {

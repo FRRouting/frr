@@ -11,6 +11,7 @@ import logging
 from typing import Optional
 
 from scapy.supersocket import SuperSocket  # type: ignore
+from scapy.packet import Raw  # type: ignore
 
 from .timeline import MiniPollee, TimedElement
 from .pcapng import EnhancedPacket, IfDesc, Context
@@ -78,6 +79,16 @@ class LiveScapy(MiniPollee):
                 pkt = self._sock.recv()
             except BlockingIOError:
                 break
+
+            if isinstance(pkt, Raw):
+                # not exactly sure why/when this happens, scapy bug?
+                rawpkt = pkt
+                pkt = self._sock.LL(bytes(rawpkt))
+                if hasattr(rawpkt, "time"):
+                    pkt.time = rawpkt.time
+                if hasattr(rawpkt, "time_ns"):
+                    pkt.time_ns = rawpkt.time_ns
+
             pkt.sniffed_on = self._ifname
             yield TimedScapy(pkt)
 

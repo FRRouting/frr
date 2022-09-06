@@ -38,12 +38,14 @@ from .exceptions import (
     TopotatoFail,
     TopotatoEarlierFailSkip,
     TopotatoDaemonCrash,
+    TopotatoUnhandledArgs,
 )
 from .livescapy import LiveScapy
 from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
-    from topotato.frr import FRRNetworkInstance
+    from .frr import FRRNetworkInstance
+    from .timeline import Timeline
 
 logger = logging.getLogger("topotato")
 logger.setLevel(logging.DEBUG)
@@ -100,6 +102,10 @@ to debug when a test fails.
 """
 
 
+class ItemGroup(list):
+    pass
+
+
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
 class TopotatoItem(nodes.Item, ClassHooks):
@@ -134,6 +140,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
     """
     Running network instance this item belongs to.
     """
+    timeline: "Timeline"
 
     # TBD: replace/rework skipping functionality
     skipall = None
@@ -149,9 +156,24 @@ class TopotatoItem(nodes.Item, ClassHooks):
         Do not call this directly, use :py:meth:`make`.
         """
 
-        if args:
-            raise ValueError("leftover arguments: %r" % args)
-        self: TopotatoItem = cast("TopotatoItem", super().from_parent(parent, **kw))
+        name = kw.pop("name")
+        finalize = []
+
+        for base in cls.__mro__:
+            consumer = base.__dict__.get("consume_kwargs")
+            if not consumer:
+                continue
+            consumer = consumer.__get__(None, cls)
+            finalize.extend(consumer(kw))
+
+        if args or kw:
+            raise TopotatoUnhandledArgs("leftover arguments: %r, %r" % (args, kw))
+        self: TopotatoItem = cast(
+            "TopotatoItem", super().from_parent(parent, name=name)
+        )
+
+        for fin in finalize:
+            fin(self)
 
         tparent = self.getparent(TopotatoClass)
         assert tparent is not None
@@ -196,6 +218,8 @@ class TopotatoItem(nodes.Item, ClassHooks):
         callers = skiptrace.get_callers()
         assert callers
 
+        # ordering of test items is based on caller here, so we need to go
+        # with the topmost or we end up reordering things in a weird way.
         location = ""
         while callers:
             module = inspect.getmodule(callers[0].frame)
@@ -205,20 +229,25 @@ class TopotatoItem(nodes.Item, ClassHooks):
             location = "#%d%s" % (caller.lineno, location)
         del callers
 
-        # ordering of test items is based on caller here, so we need to go
-        # with the topmost or we end up reordering things in a weird way.
-        yield from cls._make(location, caller, *args, **kwargs)
+        try:
+            ig = yield from cls._make(location, caller, *args, **kwargs)
+            return ig
+        except TopotatoUnhandledArgs as e:
+            # shorten backtrace by re-raising
+            raise TopotatoUnhandledArgs(*e.args) from None
 
     @skiptrace
     @classmethod
     def _make(
         cls: Type["TopotatoItem"], namesuffix, codeloc, *args, **kwargs
-    ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], None]:
+    ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], ItemGroup]:
 
         parent, _ = yield None
         self = cls.from_parent(parent, namesuffix, *args, **kwargs)
         self._codeloc = codeloc
         yield self
+
+        return ItemGroup([self])
 
     @pytest.hookimpl(tryfirst=True)
     @staticmethod
@@ -241,8 +270,14 @@ class TopotatoItem(nodes.Item, ClassHooks):
         """
         super().setup()
 
+        fn = self.getparent(TopotatoFunction)
+        if fn and not fn.started_ts:
+            # pylint: disable=attribute-defined-outside-init
+            fn.started_ts = time.time()
+
         self._request._fillfixtures()
         self.instance = self.funcargs[self._obj.instancefn.__name__]
+        self.timeline = self.instance.timeline
 
     # pylint: disable=unused-argument
     @pytest.hookimpl()
@@ -519,6 +554,8 @@ def topotatofunc(fn):
 
 
 class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
+    started_ts: Optional[float] = None
+
     # pylint: disable=protected-access
     @classmethod
     def from_hook(cls, obj, collector, name):
