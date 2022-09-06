@@ -48,7 +48,30 @@ enum {
 };
 
 extern enum netlink_msg_status
-netlink_put_tc_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+netlink_put_tc_qdisc_update_msg(struct nl_batch *bth,
+				struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_tc_class_update_msg(struct nl_batch *bth,
+				struct zebra_dplane_ctx *ctx);
+extern enum netlink_msg_status
+netlink_put_tc_filter_update_msg(struct nl_batch *bth,
+				 struct zebra_dplane_ctx *ctx);
+
+/**
+ * "filter" & "class" in the following become "tfilter" & "tclass" for
+ * the sake of consistency with kernel message types (RTM_NEWTFILTER etc.)
+ */
+
+extern int netlink_qdisc_read(struct zebra_ns *zns);
+extern int netlink_tfilter_read_for_interface(struct zebra_ns *zns,
+					      ifindex_t ifindex);
+
+extern int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id,
+				  int startup);
+extern int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id,
+				 int startup);
+extern int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+
 
 #ifdef __cplusplus
 }

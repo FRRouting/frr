@@ -1594,9 +1594,14 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 			res = kernel_intf_update(ctx);
 			break;
 
-		case DPLANE_OP_TC_INSTALL:
-		case DPLANE_OP_TC_UPDATE:
-		case DPLANE_OP_TC_DELETE:
+		case DPLANE_OP_TC_QDISC_INSTALL:
+		case DPLANE_OP_TC_QDISC_UNINSTALL:
+		case DPLANE_OP_TC_CLASS_ADD:
+		case DPLANE_OP_TC_CLASS_DELETE:
+		case DPLANE_OP_TC_CLASS_UPDATE:
+		case DPLANE_OP_TC_FILTER_ADD:
+		case DPLANE_OP_TC_FILTER_DELETE:
+		case DPLANE_OP_TC_FILTER_UPDATE:
 			res = kernel_tc_update(ctx);
 			break;
 

@@ -1573,9 +1573,14 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 	case DPLANE_OP_GRE_SET:
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break; /* should never hit here */
 	}
 }

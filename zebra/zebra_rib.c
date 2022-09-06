@@ -4710,9 +4710,14 @@ static void rib_process_dplane_results(struct thread *thread)
 				zebra_if_dplane_result(ctx);
 				break;
 
-			case DPLANE_OP_TC_INSTALL:
-			case DPLANE_OP_TC_UPDATE:
-			case DPLANE_OP_TC_DELETE:
+			case DPLANE_OP_TC_QDISC_INSTALL:
+			case DPLANE_OP_TC_QDISC_UNINSTALL:
+			case DPLANE_OP_TC_CLASS_ADD:
+			case DPLANE_OP_TC_CLASS_DELETE:
+			case DPLANE_OP_TC_CLASS_UPDATE:
+			case DPLANE_OP_TC_FILTER_ADD:
+			case DPLANE_OP_TC_FILTER_DELETE:
+			case DPLANE_OP_TC_FILTER_UPDATE:
 				break;
 
 			/* Some op codes not handled here */

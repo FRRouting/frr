@@ -423,6 +423,15 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_nexthop_change(h, ns_id, startup);
 	case RTM_DELNEXTHOP:
 		return netlink_nexthop_change(h, ns_id, startup);
+	case RTM_NEWQDISC:
+	case RTM_DELQDISC:
+		return netlink_qdisc_change(h, ns_id, startup);
+	case RTM_NEWTCLASS:
+	case RTM_DELTCLASS:
+		return netlink_tclass_change(h, ns_id, startup);
+	case RTM_NEWTFILTER:
+	case RTM_DELTFILTER:
+		return netlink_tfilter_change(h, ns_id, startup);
 
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:
@@ -1640,10 +1649,17 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_INTF_DELETE:
 		return netlink_put_intf_update_msg(bth, ctx);
 
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
-		return netlink_put_tc_update_msg(bth, ctx);
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+		return netlink_put_tc_qdisc_update_msg(bth, ctx);
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+		return netlink_put_tc_class_update_msg(bth, ctx);
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
+		return netlink_put_tc_filter_update_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;
@@ -1757,15 +1773,16 @@ void kernel_init(struct zebra_ns *zns)
 	 * RTNLGRP_XXX to a bit position for ourself
 	 */
 	groups = RTMGRP_LINK                   |
-		RTMGRP_IPV4_ROUTE              |
-		RTMGRP_IPV4_IFADDR             |
-		RTMGRP_IPV6_ROUTE              |
-		RTMGRP_IPV6_IFADDR             |
-		RTMGRP_IPV4_MROUTE             |
-		RTMGRP_NEIGH                   |
-		((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
-		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
-		((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1));
+			RTMGRP_IPV4_ROUTE              |
+			RTMGRP_IPV4_IFADDR             |
+			RTMGRP_IPV6_ROUTE              |
+			RTMGRP_IPV6_IFADDR             |
+			RTMGRP_IPV4_MROUTE             |
+			RTMGRP_NEIGH                   |
+			((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
+			((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
+			((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1))   |
+			((uint32_t) 1 << (RTNLGRP_TC - 1));
 
 	dplane_groups = (RTMGRP_LINK            |
 			 RTMGRP_IPV4_IFADDR     |
