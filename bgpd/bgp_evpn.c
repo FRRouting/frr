@@ -3631,8 +3631,10 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 			    pi->type == ZEBRA_ROUTE_BGP
 			    && pi->sub_type == BGP_ROUTE_STATIC)
 				break;
-		if (!pi) /* unexpected */
+		if (!pi) {
+			bgp_dest_unlock_node(dest);
 			return 0;
+		}
 		attr = pi->attr;
 
 		global_dest = bgp_global_evpn_node_get(bgp->rib[afi][safi],
