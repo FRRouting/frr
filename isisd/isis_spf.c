@@ -2266,8 +2266,13 @@ void isis_print_spftree(struct vty *vty, struct isis_spftree *spftree)
 }
 
 static void show_isis_topology_common(struct vty *vty, int levels,
-				      struct isis *isis)
+				      struct isis *isis, uint8_t algo)
 {
+#ifndef FABRICD
+	struct isis_flex_algo_data *fa_data;
+	struct flex_algo *fa;
+#endif /* ifndef FABRICD */
+	struct isis_spftree *spftree;
 	struct listnode *node;
 	struct isis_area *area;
 
@@ -2275,27 +2280,68 @@ static void show_isis_topology_common(struct vty *vty, int levels,
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		vty_out(vty, "Area %s:\n",
-			area->area_tag ? area->area_tag : "null");
+		vty_out(vty,
+			"Area %s:", area->area_tag ? area->area_tag : "null");
+
+#ifndef FABRICD
+		/*
+		 * The shapes of the flex algo spftree 2-dimensional array
+		 * and the area spftree 2-dimensional array are not guaranteed
+		 * to be identical.
+		 */
+		fa = NULL;
+		if (flex_algo_id_valid(algo)) {
+			fa = flex_algo_lookup(area->flex_algos, algo);
+			if (!fa)
+				continue;
+			fa_data = (struct isis_flex_algo_data *)fa->data;
+		} else
+			fa_data = NULL;
+
+		if (algo != SR_ALGORITHM_SPF)
+			vty_out(vty, " Algorithm %hhu\n", algo);
+		else
+#endif /* ifndef FABRICD */
+			vty_out(vty, "\n");
 
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((level & levels) == 0)
 				continue;
 
 			if (area->ip_circuits > 0) {
-				isis_print_spftree(
-					vty,
-					area->spftree[SPFTREE_IPV4][level - 1]);
+#ifndef FABRICD
+				if (fa_data)
+					spftree = fa_data->spftree[SPFTREE_IPV4]
+								  [level - 1];
+				else
+#endif /* ifndef FABRICD */
+					spftree = area->spftree[SPFTREE_IPV4]
+							       [level - 1];
+
+				isis_print_spftree(vty, spftree);
 			}
 			if (area->ipv6_circuits > 0) {
-				isis_print_spftree(
-					vty,
-					area->spftree[SPFTREE_IPV6][level - 1]);
+#ifndef FABRICD
+				if (fa_data)
+					spftree = fa_data->spftree[SPFTREE_IPV6]
+								  [level - 1];
+				else
+#endif /* ifndef FABRICD */
+					spftree = area->spftree[SPFTREE_IPV6]
+							       [level - 1];
+				isis_print_spftree(vty, spftree);
 			}
 			if (isis_area_ipv6_dstsrc_enabled(area)) {
-				isis_print_spftree(vty,
-						   area->spftree[SPFTREE_DSTSRC]
-								[level - 1]);
+#ifndef FABRICD
+				if (fa_data)
+					spftree =
+						fa_data->spftree[SPFTREE_DSTSRC]
+								[level - 1];
+				else
+#endif /* ifndef FABRICD */
+					spftree = area->spftree[SPFTREE_DSTSRC]
+							       [level - 1];
+				isis_print_spftree(vty, spftree);
 			}
 		}
 
@@ -2315,7 +2361,8 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
       " [vrf <NAME|all>] topology"
 #ifndef FABRICD
       " [<level-1|level-2>]"
-#endif
+      " [algorithm (128-255)]"
+#endif /* ifndef FABRICD */
       ,
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
       "All VRFs\n"
@@ -2323,25 +2370,29 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 #ifndef FABRICD
       "Paths to all level-1 routers in the area\n"
       "Paths to all level-2 routers in the domain\n"
-#endif
+      "Show Flex-algo routes\n"
+      "Algorithm number\n"
+#endif /* ifndef FABRICD */
 )
 {
 	int levels = ISIS_LEVELS;
 	struct listnode *node;
 	struct isis *isis = NULL;
-	int idx = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	uint8_t algorithm = SR_ALGORITHM_SPF;
+#ifndef FABRICD
+	int idx = 0;
 
-	if (argv_find(argv, argc, "topology", &idx)) {
-		if (argc < idx + 2)
-			levels = ISIS_LEVEL1 | ISIS_LEVEL2;
-		else if (strmatch(argv[idx + 1]->arg, "level-1"))
-			levels = ISIS_LEVEL1;
-		else
-			levels = ISIS_LEVEL2;
-	}
+	levels = ISIS_LEVEL1 | ISIS_LEVEL2;
+	if (argv_find(argv, argc, "level-1", &idx))
+		levels = ISIS_LEVEL1;
+	if (argv_find(argv, argc, "level-2", &idx))
+		levels = ISIS_LEVEL2;
+	if (argv_find(argv, argc, "algorithm", &idx))
+		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+#endif /* ifndef FABRICD */
 
 	if (!im) {
 		vty_out(vty, "IS-IS Routing Process not enabled\n");
@@ -2352,12 +2403,13 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_topology_common(vty, levels, isis);
+				show_isis_topology_common(vty, levels, isis,
+							  algorithm);
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
-			show_isis_topology_common(vty, levels, isis);
+			show_isis_topology_common(vty, levels, isis, algorithm);
 	}
 
 	return CMD_SUCCESS;
