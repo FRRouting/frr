@@ -2437,6 +2437,10 @@ static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis,
 				vty_out(vty, "  Prefix-metric: %s\n",
 					router_fad->fad.m_flag ? "enabled"
 							       : "disabled");
+				vty_out(vty, "  Exclude SRLG: %s\n",
+					router_fad->fad.exclude_srlg
+						? "enabled"
+						: "disabled");
 				vty_out(vty, "  Exclude-any admin-group: %s\n",
 					admin_group_print(
 						buf,
