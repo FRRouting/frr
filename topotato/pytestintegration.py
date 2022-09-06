@@ -24,7 +24,7 @@ from .toponom import LAN
 from .interactive import Interactive
 from .pretty import PrettySession
 
-logger = logging.getLogger('topotato')
+logger = logging.getLogger("topotato")
 
 # pidns (or tini?) sets these to IGN by default, which isn't quite what we want
 signal.signal(signal.SIGINT, signal.default_int_handler)
@@ -35,8 +35,8 @@ signal.signal(signal.SIGTERM, signal.SIG_DFL)
 def pytest_report_teststatus(report):
     outcome = yield
     res = outcome.get_result()
-    if res[2] == 'PASSED':
-        res = (res[0], res[1], '%s (%.2f)' % (res[2], report.duration))
+    if res[2] == "PASSED":
+        res = (res[0], res[1], "%s (%.2f)" % (res[2], report.duration))
     outcome.force_result(res)
 
 
@@ -45,21 +45,59 @@ def pytest_addhooks(pluginmanager):
     pluginmanager.register(TopotatoItem)
     pluginmanager.register(Interactive())
 
+
 def pytest_addoption(parser):
-    parser.addoption("--run-topology", action="store_const", const=True, default=None, help="run a test topology")
-    parser.addoption("--show-configs", action="store_const", const=True, default=None, help="show configurations")
-    parser.addoption("--show-config", type=str, default=None, help="show specific configuration")
-    parser.addoption("--show-topology", type=str, default=None, help="show specific topology")
-    parser.addoption("--frr-builddir", type=str, default=None, help="override frr_builddir pytest.ini option")
-    parser.addoption("--reportato-dir", type=str, default=None, help="output directory for topotato HTML report")
-    parser.addoption("--source-url", type=str, default=None, help="URL to use as base in HTML report source links")
+    parser.addoption(
+        "--run-topology",
+        action="store_const",
+        const=True,
+        default=None,
+        help="run a test topology",
+    )
+    parser.addoption(
+        "--show-configs",
+        action="store_const",
+        const=True,
+        default=None,
+        help="show configurations",
+    )
+    parser.addoption(
+        "--show-config", type=str, default=None, help="show specific configuration"
+    )
+    parser.addoption(
+        "--show-topology", type=str, default=None, help="show specific topology"
+    )
+    parser.addoption(
+        "--frr-builddir",
+        type=str,
+        default=None,
+        help="override frr_builddir pytest.ini option",
+    )
+    parser.addoption(
+        "--reportato-dir",
+        type=str,
+        default=None,
+        help="output directory for topotato HTML report",
+    )
+    parser.addoption(
+        "--source-url",
+        type=str,
+        default=None,
+        help="URL to use as base in HTML report source links",
+    )
 
-    parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../frr')
-    parser.addini('reportato_dir', 'Default output directory for topotato HTML report')
+    parser.addini(
+        "frr_builddir",
+        "FRR build directory (normally same as source, but out-of-tree is supported)",
+        default="../frr",
+    )
+    parser.addini("reportato_dir", "Default output directory for topotato HTML report")
 
-#@pytest.hookimpl()
-#def pytest_configure(config):
+
+# @pytest.hookimpl()
+# def pytest_configure(config):
 #    pass
+
 
 @pytest.hookimpl()
 def pytest_sessionstart(session):
@@ -79,12 +117,11 @@ def pytest_sessionstart(session):
             val = os.path.abspath(os.path.join(basedir, val))
         return val
 
-
     tw.sep("=", "topotato initialization", bold=True)
 
-    FRRConfigs.frrpath = get_dir('--frr-builddir', 'frr_builddir')
-    reportato_dir = get_dir('--reportato-dir', 'reportato_dir')
-    source_url = session.config.getoption('--source-url')
+    FRRConfigs.frrpath = get_dir("--frr-builddir", "frr_builddir")
+    reportato_dir = get_dir("--reportato-dir", "reportato_dir")
+    source_url = session.config.getoption("--source-url")
 
     envstate = ClassHooks.check_env_all()
 
@@ -94,17 +131,17 @@ def pytest_sessionstart(session):
     for err in envstate.errors:
         if isinstance(err, Exception):
             while err is not None:
-                tw.line('ERROR:   %r' % err, red=True, bold=True)
-                err = getattr(err, '__cause__', None)
+                tw.line("ERROR:   %r" % err, red=True, bold=True)
+                err = getattr(err, "__cause__", None)
         else:
-            tw.line('ERROR:   %s' % err, red=True, bold=True)
+            tw.line("ERROR:   %s" % err, red=True, bold=True)
 
     for warn in envstate.warnings:
-        tw.line('Warning: %s' % warn, yellow=True, bold=True)
+        tw.line("Warning: %s" % warn, yellow=True, bold=True)
 
     if not envstate:
         tw.sep("=", "topotato aborting", bold=True)
-        raise EnvironmentError('\n'.join([str(e) for e in envstate.errors]))
+        raise EnvironmentError("\n".join([str(e) for e in envstate.errors]))
 
     session.pretty = PrettySession(session, reportato_dir, source_url)
 
@@ -119,13 +156,13 @@ def pytest_runtest_makereport(item, call):
     if not isinstance(item, TopotatoItem):
         return
 
-    if getattr(item, 'instance', None) is None:
+    if getattr(item, "instance", None) is None:
         return
 
-    if not hasattr(item.instance, 'reports'):
+    if not hasattr(item.instance, "reports"):
         item.instance.reports = []
 
-    if report.when == 'call':
+    if report.when == "call":
         report.timestamp = time.time()
         item.instance.reports.append(report)
 
@@ -139,12 +176,12 @@ def pytest_collection(session):
         for item in session.items:
             if not isinstance(item, TopotatoItem):
                 continue
-            if item.name != 'startup':
+            if item.name != "startup":
                 continue
             yield item
 
-    if session.config.getoption('--show-configs'):
-        sys.stdout.write('\navailable configs:\n')
+    if session.config.getoption("--show-configs"):
+        sys.stdout.write("\navailable configs:\n")
         for item in topologies():
             name = item.parent.nodeid
 
@@ -154,15 +191,15 @@ def pytest_collection(session):
 
             for rtr, configs in routers.items():
                 for cfg, content in configs.items():
-                    sys.stdout.write('    %s/%s/%s\n' % (name, rtr, cfg))
-            sys.stdout.write('\n')
+                    sys.stdout.write("    %s/%s/%s\n" % (name, rtr, cfg))
+            sys.stdout.write("\n")
 
         session.items = []
         return
 
-    if session.config.getoption('--show-config'):
-        which = session.config.getoption('--show-config')
-        path = which.split('/')
+    if session.config.getoption("--show-config"):
+        which = session.config.getoption("--show-config")
+        path = which.split("/")
 
         for item in topologies():
             name = item.parent.nodeid
@@ -180,14 +217,17 @@ def pytest_collection(session):
                     if len(path) > 2 and path[2] != cfg:
                         continue
 
-                    sys.stdout.write('\033[33;1m--- %s/%s/%s ---\033[m\n%s\n' % (name, rtr, cfg, content))
-            sys.stdout.write('\n')
+                    sys.stdout.write(
+                        "\033[33;1m--- %s/%s/%s ---\033[m\n%s\n"
+                        % (name, rtr, cfg, content)
+                    )
+            sys.stdout.write("\n")
 
         session.items = []
         return
 
-    if session.config.getoption('--show-topology'):
-        which = session.config.getoption('--show-topology')
+    if session.config.getoption("--show-topology"):
+        which = session.config.getoption("--show-topology")
 
         for item in topologies():
             name = item.parent.nodeid
@@ -197,41 +237,63 @@ def pytest_collection(session):
             net = item._obj.instancefn.net
 
             for rtrname, rtr in net.routers.items():
-                sys.stdout.write('\033[32;1m%s\033[m\n' % (('----- ' + rtrname + ' ').ljust(60, '-')))
-                sys.stdout.write('\033[36;1m  %16s   %s\033[m\n' % ('lo', ', '.join([str(i) for i in rtr.lo_ip4 + rtr.lo_ip6])))
+                sys.stdout.write(
+                    "\033[32;1m%s\033[m\n" % (("----- " + rtrname + " ").ljust(60, "-"))
+                )
+                sys.stdout.write(
+                    "\033[36;1m  %16s   %s\033[m\n"
+                    % ("lo", ", ".join([str(i) for i in rtr.lo_ip4 + rtr.lo_ip6]))
+                )
                 for iface in rtr.ifaces:
                     if isinstance(iface.other.endpoint, LAN):
-                        other = '\033[35;1m%-10s\033[34;1m' % iface.other.endpoint.name
+                        other = "\033[35;1m%-10s\033[34;1m" % iface.other.endpoint.name
                     else:
-                        other = '\033[32;1m%-10s\033[34;1m' % iface.other.endpoint.name
-                    sys.stdout.write('\033[34;1m  %16s   %s %s\033[m\n' % (iface.ifname, other, ', '.join([str(i) for i in iface.ip4 + iface.ip6])))
+                        other = "\033[32;1m%-10s\033[34;1m" % iface.other.endpoint.name
+                    sys.stdout.write(
+                        "\033[34;1m  %16s   %s %s\033[m\n"
+                        % (
+                            iface.ifname,
+                            other,
+                            ", ".join([str(i) for i in iface.ip4 + iface.ip6]),
+                        )
+                    )
 
-                sys.stdout.write('\n')
+                sys.stdout.write("\n")
 
             for lanname, lan in net.lans.items():
-                sys.stdout.write('\033[35;1m%s\033[m\n' % (('----- ' + lanname + ' ').ljust(60, '-')))
+                sys.stdout.write(
+                    "\033[35;1m%s\033[m\n" % (("----- " + lanname + " ").ljust(60, "-"))
+                )
                 for iface in lan.ifaces:
-                    other = '\033[32;1m%16s\033[34;1m' % iface.other.endpoint.name
-                    sys.stdout.write('\033[34;1m  %s   %s\033[m\n' % (other, ', '.join([str(i) for i in iface.other.ip4 + iface.other.ip6])))
+                    other = "\033[32;1m%16s\033[34;1m" % iface.other.endpoint.name
+                    sys.stdout.write(
+                        "\033[34;1m  %s   %s\033[m\n"
+                        % (
+                            other,
+                            ", ".join(
+                                [str(i) for i in iface.other.ip4 + iface.other.ip6]
+                            ),
+                        )
+                    )
 
-                sys.stdout.write('\n')
+                sys.stdout.write("\n")
 
         session.items = []
         return
 
-    if session.config.getoption('--run-topology'):
+    if session.config.getoption("--run-topology"):
         starters = []
         for item in session.items:
             if not isinstance(item, TopotatoItem):
                 continue
-            if item.name != 'startup':
+            if item.name != "startup":
                 continue
             starters.append(item)
 
-        sys.stdout.write('\navailable topologies:\n')
+        sys.stdout.write("\navailable topologies:\n")
         for item in starters:
-            sys.stdout.write('    %s\n' % (item.nodeid))
-        sys.stdout.write('\n')
+            sys.stdout.write("    %s\n" % (item.nodeid))
+        sys.stdout.write("\n")
 
         if len(starters) == 1:
             starters[0].parent.setup()
@@ -239,12 +301,16 @@ def pytest_collection(session):
             starters[0].runtest()
 
             instance = starters[0].instance
-            sys.stdout.write('topology running, tempdir: %s, switch ns pid: %d\n' % (
-                instance.tempdir.name, instance.switch_ns.pid))
+            sys.stdout.write(
+                "topology running, tempdir: %s, switch ns pid: %d\n"
+                % (instance.tempdir.name, instance.switch_ns.pid)
+            )
             for n, r in instance.routers.items():
-                sys.stdout.write('    %-20s pid: %d\n' % (n, r.pid))
+                sys.stdout.write("    %-20s pid: %d\n" % (n, r.pid))
 
-            sys.stdout.write('\nTo enter a namespace, use:\n    nsenter -a -t <pid> /bin/bash\n\nPress Ctrl+C (or kill the pytest process) to shut down the topology.\n\n')
+            sys.stdout.write(
+                "\nTo enter a namespace, use:\n    nsenter -a -t <pid> /bin/bash\n\nPress Ctrl+C (or kill the pytest process) to shut down the topology.\n\n"
+            )
             signal.pause()
 
         session.items = []
