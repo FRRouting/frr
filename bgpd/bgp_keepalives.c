@@ -175,6 +175,15 @@ void *bgp_keepalives_start(void *arg)
 	struct timeval next_update = {0, 0};
 	struct timespec next_update_ts = {0, 0};
 
+	/*
+	 * The RCU mechanism for each pthread is initialized in a "locked"
+	 * state. That's ok for pthreads using the frr_pthread,
+	 * thread_fetch event loop, because that event loop unlocks regularly.
+	 * For foreign pthreads, the lock needs to be unlocked so that the
+	 * background rcu pthread can run.
+	 */
+	rcu_read_unlock();
+
 	peerhash_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
 	peerhash_cond = XCALLOC(MTYPE_TMP, sizeof(pthread_cond_t));
 
