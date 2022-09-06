@@ -501,14 +501,14 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 	}
 
 	if (!pim_if_connected_to_source(ifp, from)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug("Recv IGMP query on interface: %s from a non-connected source: %s",
 				   ifp->name, from_str);
 		return 0;
 	}
 
 	if (if_address_is_local(&from, AF_INET, ifp->vrf->vrf_id)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug("Recv IGMP query on interface: %s from ourself %s",
 				   ifp->name, from_str);
 		return 0;
@@ -554,7 +554,7 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 		return 0;
 	}
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group_addr, group_str,
 			       sizeof(group_str));
@@ -750,7 +750,7 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 	pim_inet4_dump("<src?>", ip_hdr->ip_src, from_str, sizeof(from_str));
 	pim_inet4_dump("<dst?>", ip_hdr->ip_dst, to_str, sizeof(to_str));
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		zlog_debug(
 			"Recv IGMP packet from %s to %s on %s: size=%zu ttl=%d msg_type=%d msg_size=%d",
 			from_str, to_str, igmp->interface->name, len, ip_hdr->ip_ttl,
@@ -1362,7 +1362,7 @@ void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 {
 	group_timer_off(group);
 
-	if (PIM_DEBUG_IGMP_EVENTS) {
+	if (PIM_DEBUG_GM_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));

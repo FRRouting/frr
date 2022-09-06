@@ -401,7 +401,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		desired = GM_SG_NOINFO;
 
 	if (desired != sg->state && !gm_ifp->stopping) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(log_sg(sg, "%s => %s"), gm_states[sg->state],
 				   gm_states[desired]);
 
@@ -817,7 +817,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 	struct gm_packet_state *pkt;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv2 report (truncated header)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -923,7 +923,7 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	size_t max_entries;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv1 report (truncated)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -989,7 +989,7 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 	struct gm_packet_sg *old_grp;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv1 leave (truncated)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -1049,7 +1049,7 @@ static void gm_t_expire(struct thread *t)
 
 		remain_ms = monotime_until(&pend->expiry, &remain);
 		if (remain_ms > 0) {
-			if (PIM_DEBUG_IGMP_EVENTS)
+			if (PIM_DEBUG_GM_EVENTS)
 				zlog_debug(
 					log_ifp("next general expiry in %" PRId64 "ms"),
 					remain_ms / 1000);
@@ -1063,7 +1063,7 @@ static void gm_t_expire(struct thread *t)
 			if (timercmp(&pkt->received, &pend->query, >=))
 				break;
 
-			if (PIM_DEBUG_IGMP_PACKETS)
+			if (PIM_DEBUG_GM_PACKETS)
 				zlog_debug(log_ifp("expire packet %p"), pkt);
 			gm_packet_drop(pkt, true);
 		}
@@ -1073,7 +1073,7 @@ static void gm_t_expire(struct thread *t)
 			gm_ifp->n_pending * sizeof(gm_ifp->pending[0]));
 	}
 
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("next general expiry waiting for query"));
 }
 
@@ -1250,7 +1250,7 @@ static void gm_t_grp_expire(struct thread *t)
 	struct gm_if *gm_ifp = pend->iface;
 	struct gm_sg *sg, *sg_start, sg_ref = {};
 
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("*,%pPAs S,G timer expired"), &pend->grp);
 
 	/* gteq lookup - try to find *,G or S,G  (S,G is > *,G)
@@ -1442,7 +1442,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	}
 
 	if (IPV6_ADDR_CMP(&pkt_src->sin6_addr, &gm_ifp->querier) < 0) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(
 				log_pkt_src("replacing elected querier %pPA"),
 				&gm_ifp->querier);
@@ -1802,7 +1802,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 
 	query.hdr.icmp6_cksum = in_cksumv(iov, iov_len);
 
-	if (PIM_DEBUG_IGMP_PACKETS)
+	if (PIM_DEBUG_GM_PACKETS)
 		zlog_debug(
 			log_ifp("MLD query %pPA -> %pI6 (grp=%pPA, %zu srcs)"),
 			&pim_ifp->ll_lowest, &dstaddr.sin6_addr, &grp, n_srcs);
@@ -2137,7 +2137,7 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	gm_ifp = pim_ifp->mld;
 	gm_ifp->stopping = true;
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("MLD stop"));
 
 	THREAD_OFF(gm_ifp->t_query);
