@@ -27,7 +27,6 @@ from py.xml import html
 from . import base
 from . import assertions
 from .frr import FRRConfigs
-from .protomato import ProtomatoDumper
 from .utils import ClassHooks, exec_find
 from .scapy import ScapySend
 from .timeline import TimedElement
@@ -217,9 +216,6 @@ class PrettyInstance(list):
                     self.timed.append(PrettyLog(self.prettysession, seqno, msg))
 
         packets = []
-        if self.instance.protomato is not None:
-            packets.extend(self.instance.protomato)
-        packets.sort()
 
         timed = self.timed[:]
         timed.sort()
