@@ -2720,6 +2720,25 @@ are reached using *core* MPLS labels which are distributed using LDP or BGP
 labeled unicast.  *bgpd* also supports inter-VRF route leaking.
 
 
+L3VPN over GRE interfaces
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In MPLS-VPN or SRv6-VPN, an L3VPN next-hop entry requires that the path
+chosen respectively contains a labelled path or a valid SID IPv6 address.
+Otherwise the L3VPN entry will not be installed. It is possible to ignore
+that check when the path chosen by the next-hop uses a GRE interface, and
+there is a route-map configured at inbound side of ipv4-vpn or ipv6-vpn
+address family with following syntax:
+
+.. clicmd:: set l3vpn next-hop encapsulation gre
+
+The incoming BGP L3VPN entry is accepted, provided that the next hop of the
+L3VPN entry uses a path that takes the GRE tunnel as outgoing interface. The
+remote endpoint should be configured just behind the GRE tunnel; remote
+device configuration may vary depending whether it acts at edge endpoint or
+not: in any case, the expectation is that incoming MPLS traffic received at
+this endpoint should be considered as a valid path for L3VPN.
+
 .. _bgp-vrf-route-leaking:
 
 VRF Route Leaking
@@ -2847,6 +2866,13 @@ If we configure SoO per neighbor at PEs, the SoO community is automatically
 added for all routes from the CPEs. Routes are validated and prevented from
 being sent back to the same CPE (e.g.: multi-site). This is especially needed
 when using ``as-override`` or ``allowas-in`` to prevent routing loops.
+
+.. clicmd:: mpls bgp forwarding
+
+It is possible to permit BGP install VPN prefixes without transport labels,
+by issuing the following command under the interface configuration context.
+This configuration will install VPN prefixes originated from an e-bgp session,
+and with the next-hop directly connected.
 
 .. _bgp-l3vpn-srv6:
 

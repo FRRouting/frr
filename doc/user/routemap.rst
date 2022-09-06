@@ -339,6 +339,9 @@ Route Map Set Command
    Set the color of a SR-TE Policy to be applied to a learned route. The SR-TE
    Policy is uniquely determined by the color and the BGP nexthop.
 
+.. clicmd:: set l3vpn next-hop encapsulation gre
+
+   Accept L3VPN traffic over GRE encapsulation.
 
 .. _route-map-call-command:
 
