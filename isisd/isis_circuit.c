@@ -217,6 +217,11 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	list_delete(&circuit->ipv6_link);
 	list_delete(&circuit->ipv6_non_link);
 
+	if (circuit->ext) {
+		isis_del_ext_subtlvs(circuit->ext);
+		circuit->ext = NULL;
+	}
+
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
 

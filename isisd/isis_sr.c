@@ -1253,6 +1253,9 @@ void isis_sr_area_term(struct isis_area *area)
 	if (area->srdb.enabled)
 		isis_sr_stop(area);
 
+	/* Free Adjacency SID list */
+	list_delete(&srdb->adj_sids);
+
 	/* Clear Prefix-SID configuration. */
 	while (srdb_prefix_cfg_count(&srdb->config.prefix_sids) > 0) {
 		struct sr_prefix_cfg *pcfg;
