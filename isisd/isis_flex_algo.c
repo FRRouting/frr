@@ -134,6 +134,28 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
 	return true;
 }
 
+/**
+ * @brief Look for the elected Flex-Algo Definition and check that it is
+ * supported by the current FRR version
+ * @param algorithm flex-algo algorithm number
+ * @param area area pointer of flex-algo
+ * @return elected flex-algo-definition object if exist and supported, else NULL
+ */
+struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
+						       struct isis_area *area)
+{
+	struct isis_router_cap_fad *elected_fad;
+
+	elected_fad = isis_flex_algo_elected(algorithm, area);
+	if (!elected_fad)
+		return NULL;
+
+	if (isis_flex_algo_supported(&elected_fad->fad))
+		return elected_fad;
+
+	return NULL;
+}
+
 bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 				    struct isis_ext_subtlvs *subtlvs)
 {

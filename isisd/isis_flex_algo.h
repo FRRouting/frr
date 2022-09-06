@@ -40,6 +40,8 @@ void isis_flex_algo_data_free(void *data);
 struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
 						       struct isis_area *area);
 bool isis_flex_algo_supported(struct flex_algo *fad);
+struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
+						       struct isis_area *area);
 bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 				    struct isis_ext_subtlvs *subtlvs);
 struct isis_lsp;
