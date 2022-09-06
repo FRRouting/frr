@@ -34,7 +34,7 @@ from scapy.packet import Packet  # type: ignore
 import pytest
 
 from .utils import json_cmp, text_rich_cmp
-from .base import TopotatoItem, TopotatoInstance, skiptrace
+from .base import TopotatoItem, skiptrace
 from .livescapy import TimedScapy
 from .livelog import LogMessage
 from .exceptions import (
@@ -310,7 +310,7 @@ class AssertPacket(TopotatoAssertion):
         return self
 
     def __call__(self):
-        netinst = self.getparent(TopotatoInstance).netinst
+        netinst = self.instance
 
         for element in netinst.timeline.run_iter(time.time() + self._maxwait):
             if not isinstance(element, TimedScapy):
@@ -367,7 +367,6 @@ class AssertLog(TopotatoAssertion):
 
     @skiptrace
     def __call__(self):
-        # inst = self.getparent(TopotatoInstance)
         deadline = time.time() + self._maxwait
 
         for msg in self.instance.timeline.run_iter(deadline):
@@ -408,7 +407,6 @@ class Delay(TopotatoAssertion):
 
     @skiptrace
     def __call__(self):
-        # inst = self.getparent(TopotatoInstance)
         deadline = time.time() + self._maxwait
 
         for _ in self.instance.poller.run_iter(deadline):

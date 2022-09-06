@@ -15,7 +15,6 @@ from typing import (
 import pytest
 
 from .assertions import TopotatoModifier
-from .base import TopotatoInstance
 
 logger = logging.getLogger("topotato")
 
@@ -73,7 +72,7 @@ class ScapySend(TopotatoModifier):
             sock.send(self._pkt)
 
         if self._repeat:
-            netinst = self.getparent(TopotatoInstance).netinst
+            netinst = self.instance
 
             for _ in range(1, self._repeat):
                 netinst.poller.sleep(self._interval)

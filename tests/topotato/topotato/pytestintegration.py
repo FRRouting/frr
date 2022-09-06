@@ -9,27 +9,20 @@ import signal
 from lxml import etree
 from collections import OrderedDict
 
+from . import hooks
 from .utils import deindent, ClassHooks, get_textdiff
 from .assertions import TopotatoItem
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .fixtures import *
-from .base import TestBase, TopotatoClass, TopotatoInstance, TopotatoWrapped
+from .base import TestBase, TopotatoClass, TopotatoWrapped
+from .interactive import Interactive
 
 logger = logging.getLogger('topotato')
 
 # pidns (or tini?) sets these to IGN by default, which isn't quite what we want
 signal.signal(signal.SIGINT, signal.default_int_handler)
 signal.signal(signal.SIGTERM, signal.SIG_DFL)
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_pycollect_makeitem(collector, name, obj):
-    if hasattr(obj, '_topotato_makeitem'):
-        if inspect.ismethod(obj._topotato_makeitem):
-            logger.debug('_topotato_makeitem(%r, %r, %r)' % (collector, name, obj))
-            return obj._topotato_makeitem(collector, name, obj)
-        else:
-            logger.debug('%r._topotato_makeitem: not a method', obj)
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
@@ -40,6 +33,11 @@ def pytest_report_teststatus(report):
         res = (res[0], res[1], '%s (%.2f)' % (res[2], report.duration))
     outcome.force_result(res)
 
+
+def pytest_addhooks(pluginmanager):
+    pluginmanager.add_hookspecs(hooks)
+    pluginmanager.register(TopotatoItem)
+    pluginmanager.register(Interactive())
 
 def pytest_addoption(parser):
     parser.addoption("--run-topology", action="store_const", const=True, default=None, help="run a test topology")
