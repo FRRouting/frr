@@ -263,6 +263,11 @@ class TopotatoItem(nodes.Item, ClassHooks):
         """
         super().setup()
 
+        fn = self.getparent(TopotatoFunction)
+        if fn and not fn.started_ts:
+            # pylint: disable=attribute-defined-outside-init
+            fn.started_ts = time.time()
+
         self._request._fillfixtures()
         self.instance = self.funcargs[self._obj.instancefn.__name__]
         self.timeline = self.instance.timeline
@@ -542,6 +547,8 @@ def topotatofunc(fn):
 
 
 class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
+    started_ts: Optional[float] = None
+
     # pylint: disable=protected-access
     @classmethod
     def from_hook(cls, obj, collector, name):

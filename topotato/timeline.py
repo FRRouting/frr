@@ -12,7 +12,7 @@ import select
 from dataclasses import dataclass
 
 import typing
-from typing import List, Tuple, Generator, Optional, Dict, Any
+from typing import List, Tuple, Generator, Optional, Dict, Any, Callable
 from .pcapng import Context, Block, Sink
 
 if typing.TYPE_CHECKING:
@@ -24,14 +24,17 @@ class TimingParams:
     delay: Optional[float]
     maxwait: Optional[float]
 
-    def start(self):
-        return time.time()  # TBD: relative timing
+    _start: Callable[[], float] = time.time
+
+    def anchor(self, anchor: Callable[[], float]):
+        self._start = anchor
+        return self
 
     def ticks(self):
         # immediate tick
         yield float("-inf")
 
-        start = self.start()
+        start = self._start()
         nexttick = start + self.delay
         deadline = start + (self.maxwait or 0.0)
 
@@ -40,7 +43,7 @@ class TimingParams:
             nexttick += self.delay
 
     def evaluate(self):
-        start = self.start()
+        start = self._start()
         return (start, start + (self.maxwait or 0.0))
 
 

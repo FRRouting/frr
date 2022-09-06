@@ -34,7 +34,7 @@ from scapy.packet import Packet  # type: ignore
 import pytest
 
 from .utils import json_cmp, text_rich_cmp
-from .base import TopotatoItem, skiptrace
+from .base import TopotatoItem, TopotatoFunction, skiptrace
 from .livescapy import TimedScapy
 from .livelog import LogMessage
 from .timeline import TimingParams
@@ -135,9 +135,14 @@ class TimedMixin:
         timing = TimingParams(delay, maxwait)
 
         def finalize(self):
-            self._timing = timing
+            # pylint: disable=protected-access
+            self._timing = timing.anchor(self.relative_start)
 
         return [finalize]
+
+    def relative_start(self):
+        fn = self.getparent(TopotatoFunction)
+        return fn.started_ts
 
 
 class AssertKernelRoutes(TopotatoAssertion, TimedMixin):
