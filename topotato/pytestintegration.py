@@ -1,22 +1,28 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2021  David Lamparter for NetDEF, Inc.
+"""
+topotato pytest integration / hook module, plumbs everything into pytest.
 
-import sys, re, time, os, socket, select, signal, logging, functools, inspect
-import subprocess
-import html
-import difflib
-import pytest
-import datetime
+This is a dumping ground that is slowly getting cleaned up and reduced piece
+by piece.
+"""
+
+import sys
+import os
+import time
+import logging
 import signal
-from lxml import etree
-from collections import OrderedDict
+
+import pytest
 
 from . import hooks
-from .utils import deindent, ClassHooks, get_textdiff
-from .assertions import TopotatoItem
+from .utils import ClassHooks
+from .base import TopotatoItem
 from .frr import FRRConfigs
-from .protomato import ProtomatoDumper
-from .fixtures import *
-from .base import TestBase, TopotatoClass, TopotatoWrapped
+from .toponom import LAN
 from .interactive import Interactive
+from .pretty import PrettySession
 
 logger = logging.getLogger('topotato')
 
@@ -55,8 +61,6 @@ def pytest_addoption(parser):
 #def pytest_configure(config):
 #    pass
 
-from .pretty import *
-
 @pytest.hookimpl()
 def pytest_sessionstart(session):
     tw = session.config.get_terminal_writer()
@@ -70,7 +74,7 @@ def pytest_sessionstart(session):
             val = session.config.getini(ininame)
 
         if val is None:
-            return
+            return None
         if not os.path.isabs(val):
             val = os.path.abspath(os.path.join(basedir, val))
         return val
@@ -126,9 +130,10 @@ def pytest_runtest_makereport(item, call):
         item.instance.reports.append(report)
 
 
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements,protected-access
 @pytest.hookimpl(hookwrapper=True, trylast=True)
 def pytest_collection(session):
-    outcome = yield
+    _ = yield
 
     def topologies():
         for item in session.items:
@@ -182,8 +187,6 @@ def pytest_collection(session):
         return
 
     if session.config.getoption('--show-topology'):
-        from .toponom import LAN
-
         which = session.config.getoption('--show-topology')
 
         for item in topologies():
