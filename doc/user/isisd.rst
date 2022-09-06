@@ -389,8 +389,7 @@ Traffic Engineering
 
    :ref:`ospf-traffic-engineering`
 
-
-.. _debugging-isis:
+.. _isis-segment-routing:
 
 Segment Routing
 ===============
@@ -435,6 +434,8 @@ Known limitations:
 .. clicmd:: show isis segment-routing node
 
    Show detailed information about all learned Segment Routing Nodes.
+
+.. _debugging-isis:
 
 Debugging ISIS
 ==============
