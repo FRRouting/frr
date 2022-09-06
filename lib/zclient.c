@@ -37,6 +37,7 @@
 #include "mpls.h"
 #include "sockopt.h"
 #include "pbr.h"
+#include "tc.h"
 #include "nexthop_group.h"
 #include "lib_errors.h"
 #include "srte.h"
@@ -1644,6 +1645,96 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 	stream_put(s, zrule->ifname, INTERFACE_NAMSIZ);
 
 	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_tc_qdisc_encode(uint8_t cmd, struct stream *s, struct tc_qdisc *qdisc)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+
+
+	stream_putl(s, 1);
+
+	stream_putl(s, qdisc->ifindex);
+	stream_putl(s, qdisc->kind);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_tc_class_encode(uint8_t cmd, struct stream *s, struct tc_class *class)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+
+	stream_putl(s, 1);
+
+	stream_putl(s, class->ifindex);
+	stream_putl(s, class->handle);
+	stream_putl(s, class->kind);
+
+	switch (class->kind) {
+	case TC_QDISC_HTB:
+		stream_putq(s, class->u.htb.rate);
+		stream_putq(s, class->u.htb.ceil);
+		break;
+	default:
+		/* not implemented */
+		break;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_tc_filter_encode(uint8_t cmd, struct stream *s,
+			  struct tc_filter *filter)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+
+	stream_putl(s, 1);
+
+	stream_putl(s, filter->ifindex);
+	stream_putl(s, filter->handle);
+	stream_putl(s, filter->priority);
+	stream_putl(s, filter->protocol);
+	stream_putl(s, filter->kind);
+
+	switch (filter->kind) {
+	case TC_FILTER_FLOWER:
+		stream_putl(s, filter->u.flower.filter_bm);
+		if (filter->u.flower.filter_bm & TC_FLOWER_IP_PROTOCOL)
+			stream_putc(s, filter->u.flower.ip_proto);
+		if (filter->u.flower.filter_bm & TC_FLOWER_SRC_IP)
+			zapi_encode_prefix(s, &filter->u.flower.src_ip,
+					   filter->u.flower.src_ip.family);
+		if (filter->u.flower.filter_bm & TC_FLOWER_SRC_PORT) {
+			stream_putw(s, filter->u.flower.src_port_min);
+			stream_putw(s, filter->u.flower.src_port_max);
+		}
+		if (filter->u.flower.filter_bm & TC_FLOWER_DST_IP)
+			zapi_encode_prefix(s, &filter->u.flower.dst_ip,
+					   filter->u.flower.dst_ip.family);
+		if (filter->u.flower.filter_bm & TC_FLOWER_DST_PORT) {
+			stream_putw(s, filter->u.flower.dst_port_min);
+			stream_putw(s, filter->u.flower.dst_port_max);
+		}
+		if (filter->u.flower.filter_bm & TC_FLOWER_DSFIELD) {
+			stream_putc(s, filter->u.flower.dsfield);
+			stream_putc(s, filter->u.flower.dsfield_mask);
+		}
+		stream_putl(s, filter->u.flower.classid);
+		break;
+	default:
+		/* not implemented */
+		break;
+	}
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return 0;
