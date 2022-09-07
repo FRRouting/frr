@@ -991,16 +991,14 @@ void zlog_init(const char *progname, const char *protoname,
 	zlog_instance = instance;
 
 	if (instance) {
-		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir),
-			   "/var/tmp/frr/%s-%d.%ld",
-			   progname, instance, (long)getpid());
+		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir), "%s/%s-%d.%ld",
+			   TMPBASEDIR, progname, instance, (long)getpid());
 
 		zlog_prefixsz = snprintfrr(zlog_prefix, sizeof(zlog_prefix),
 					   "%s[%d]: ", protoname, instance);
 	} else {
-		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir),
-			   "/var/tmp/frr/%s.%ld",
-			   progname, (long)getpid());
+		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir), "%s/%s.%ld",
+			   TMPBASEDIR, progname, (long)getpid());
 
 		zlog_prefixsz = snprintfrr(zlog_prefix, sizeof(zlog_prefix),
 					   "%s: ", protoname);
