@@ -3991,17 +3991,15 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		return 0;
 	}
 
-	if (tlvs->router_cap) {
-		sbuf_push(log, indent,
-			  "WARNING: Router Capability TLV present multiple times.\n");
-		stream_forward_getp(s, tlv_len);
-		return 0;
+	if (tlvs->router_cap)
+		/* Multiple Router Capability found */
+		rcap = tlvs->router_cap;
+	else {
+		/* Allocate router cap structure and initialize SR Algorithms */
+		rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			rcap->algo[i] = SR_ALGORITHM_UNSET;
 	}
-
-	/* Allocate router cap structure and initialize SR Algorithms */
-	rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
-	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-		rcap->algo[i] = SR_ALGORITHM_UNSET;
 
 	/* Get Router ID and Flags */
 	rcap->router_id.s_addr = stream_get_ipv4(s);
