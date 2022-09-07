@@ -914,7 +914,7 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	zclient_create_header(
 		s, add ? ZEBRA_REMOTE_MACIP_ADD : ZEBRA_REMOTE_MACIP_DEL,
 		bgp->vrf_id);
-	stream_putl(s, vpn->vni);
+	stream_putl(s, vpn ? vpn->vni : 0);
 
 	if (mac) /* Mac Addr */
 		stream_put(s, &mac->octet, ETH_ALEN);
@@ -960,7 +960,7 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 			snprintf(esi_buf, sizeof(esi_buf), "-");
 		zlog_debug(
 			"Tx %s MACIP, VNI %u MAC %pEA IP %pIA flags 0x%x seq %u remote VTEP %pI4 esi %s",
-			add ? "ADD" : "DEL", vpn->vni,
+			add ? "ADD" : "DEL", (vpn ? vpn->vni : 0),
 			(mac ? mac : &p->prefix.macip_addr.mac),
 			&p->prefix.macip_addr.ip, flags, seq, &remote_vtep_ip,
 			esi_buf);
@@ -1003,14 +1003,14 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	zclient_create_header(
 		s, add ? ZEBRA_REMOTE_VTEP_ADD : ZEBRA_REMOTE_VTEP_DEL,
 		bgp->vrf_id);
-	stream_putl(s, vpn->vni);
+	stream_putl(s, vpn ? vpn->vni : 0);
 	if (is_evpn_prefix_ipaddr_v4(p))
 		stream_put_in_addr(s, &p->prefix.imet_addr.ip.ipaddr_v4);
 	else if (is_evpn_prefix_ipaddr_v6(p)) {
 		flog_err(
 			EC_BGP_VTEP_INVALID,
 			"Bad remote IP when trying to %s remote VTEP for VNI %u",
-			add ? "ADD" : "DEL", vpn->vni);
+			add ? "ADD" : "DEL", (vpn ? vpn->vni : 0));
 		return -1;
 	}
 	stream_putl(s, flood_control);
@@ -1019,7 +1019,7 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %pI4",
-			   add ? "ADD" : "DEL", vpn->vni,
+			   add ? "ADD" : "DEL", (vpn ? vpn->vni : 0),
 			   &p->prefix.imet_addr.ip.ipaddr_v4);
 
 	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
