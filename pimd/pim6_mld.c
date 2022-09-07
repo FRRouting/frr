@@ -2122,15 +2122,47 @@ static void gm_start(struct interface *ifp)
 	}
 }
 
-void gm_ifp_teardown(struct interface *ifp)
+void gm_group_delete(struct gm_if *gm_ifp)
 {
-	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp;
+	struct gm_sg *sg;
 	struct gm_packet_state *pkt;
 	struct gm_grp_pending *pend_grp;
 	struct gm_gsq_pending *pend_gsq;
 	struct gm_subscriber *subscriber;
-	struct gm_sg *sg;
+
+	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
+		gm_packet_drop(pkt, false);
+
+	while ((pend_grp = gm_grp_pends_pop(gm_ifp->grp_pends))) {
+		THREAD_OFF(pend_grp->t_expire);
+		XFREE(MTYPE_GM_GRP_PENDING, pend_grp);
+	}
+
+	while ((pend_gsq = gm_gsq_pends_pop(gm_ifp->gsq_pends))) {
+		THREAD_OFF(pend_gsq->t_send);
+		XFREE(MTYPE_GM_GSQ_PENDING, pend_gsq);
+	}
+
+	while ((sg = gm_sgs_pop(gm_ifp->sgs))) {
+		THREAD_OFF(sg->t_sg_expire);
+		assertf(!gm_packet_sg_subs_count(sg->subs_negative), "%pSG",
+			&sg->sgaddr);
+		assertf(!gm_packet_sg_subs_count(sg->subs_positive), "%pSG",
+			&sg->sgaddr);
+
+		gm_sg_free(sg);
+	}
+	while ((subscriber = gm_subscribers_pop(gm_ifp->subscribers))) {
+		assertf(!gm_packets_count(subscriber->packets), "%pPA",
+			&subscriber->addr);
+		XFREE(MTYPE_GM_SUBSCRIBER, subscriber);
+	}
+}
+
+void gm_ifp_teardown(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp;
 
 	if (!pim_ifp || !pim_ifp->mld)
 		return;
@@ -2161,34 +2193,7 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	gm_vrf_socket_decref(gm_ifp->pim);
 
-	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
-		gm_packet_drop(pkt, false);
-
-	while ((pend_grp = gm_grp_pends_pop(gm_ifp->grp_pends))) {
-		THREAD_OFF(pend_grp->t_expire);
-		XFREE(MTYPE_GM_GRP_PENDING, pend_grp);
-	}
-
-	while ((pend_gsq = gm_gsq_pends_pop(gm_ifp->gsq_pends))) {
-		THREAD_OFF(pend_gsq->t_send);
-		XFREE(MTYPE_GM_GSQ_PENDING, pend_gsq);
-	}
-
-	while ((sg = gm_sgs_pop(gm_ifp->sgs))) {
-		THREAD_OFF(sg->t_sg_expire);
-		assertf(!gm_packet_sg_subs_count(sg->subs_negative), "%pSG",
-			&sg->sgaddr);
-		assertf(!gm_packet_sg_subs_count(sg->subs_positive), "%pSG",
-			&sg->sgaddr);
-
-		gm_sg_free(sg);
-	}
-
-	while ((subscriber = gm_subscribers_pop(gm_ifp->subscribers))) {
-		assertf(!gm_packets_count(subscriber->packets), "%pPA",
-			&subscriber->addr);
-		XFREE(MTYPE_GM_SUBSCRIBER, subscriber);
-	}
+	gm_group_delete(gm_ifp);
 
 	gm_grp_pends_fini(gm_ifp->grp_pends);
 	gm_packet_expires_fini(gm_ifp->expires);
@@ -2305,22 +2310,6 @@ void gm_ifp_update(struct interface *ifp)
 			zlog_debug(log_ifp(
 				"MLD querier config changed, querying"));
 		gm_bump_querier(gm_ifp);
-	}
-}
-
-void gm_group_delete(struct gm_if *gm_ifp)
-{
-	struct gm_sg *sg, *sg_start;
-
-	sg_start = gm_sgs_first(gm_ifp->sgs);
-
-	/* clean up all mld groups */
-	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
-		THREAD_OFF(sg->t_sg_expire);
-		if (sg->oil)
-			pim_channel_oil_del(sg->oil, __func__);
-		gm_sgs_del(gm_ifp->sgs, sg);
-		gm_sg_free(sg);
 	}
 }
 
