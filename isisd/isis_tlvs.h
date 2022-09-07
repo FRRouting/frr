@@ -457,6 +457,7 @@ enum ext_subtlv_size {
 
 	/* draft-ietf-lsr-flex-algo */
 	ISIS_SUBTLV_FAD = 26,
+	ISIS_SUBTLV_FAD_MIN_SIZE = 4,
 
 	ISIS_SUBTLV_HDR_SIZE = 2,
 	ISIS_SUBTLV_DEF_SIZE = 4,

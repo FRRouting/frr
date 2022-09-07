@@ -3794,6 +3794,35 @@ static void free_tlv_router_cap(struct isis_router_cap *router_cap)
 	XFREE(MTYPE_ISIS_TLV, router_cap);
 }
 
+static size_t
+isis_router_cap_fad_sub_tlv_len(const struct isis_router_cap_fad *fad)
+{
+	size_t sz = ISIS_SUBTLV_FAD_MIN_SIZE;
+	uint32_t admin_group_length;
+
+	admin_group_length =
+		admin_group_size(&fad->fad.admin_group_exclude_any);
+	if (admin_group_length)
+		sz += sizeof(uint32_t) * admin_group_length + 2;
+
+	admin_group_length =
+		admin_group_size(&fad->fad.admin_group_include_any);
+	if (admin_group_length)
+		sz += sizeof(uint32_t) * admin_group_length + 2;
+
+	admin_group_length =
+		admin_group_size(&fad->fad.admin_group_include_all);
+	if (admin_group_length)
+		sz += sizeof(uint32_t) * admin_group_length + 2;
+
+	if (fad->fad.m_flag)
+		sz += ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE + 2;
+
+	/* TODO: add exclude SRLG sub-sub-TLV length when supported */
+
+	return sz;
+}
+
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			       struct stream *s)
 {
@@ -3868,7 +3897,6 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 	/* Flex Algo Definitions */
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		struct isis_router_cap_fad *fad;
-		size_t subtlv_len_pos;
 		size_t subtlv_len;
 		struct admin_group *ag;
 		uint32_t admin_group_length;
@@ -3877,9 +3905,26 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		if (!fad)
 			continue;
 
+		subtlv_len = isis_router_cap_fad_sub_tlv_len(fad);
+
+		if ((stream_get_endp(s) - len_pos - 1) > 250) {
+			/* Adjust TLV length which depends on subTLVs presence
+			 */
+			tlv_len = stream_get_endp(s) - len_pos - 1;
+			stream_putc_at(s, len_pos, tlv_len);
+
+			/* Add Router Capability TLV 242 with Router ID and
+			 * Flags */
+			stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
+			/* Real length will be adjusted later */
+			len_pos = stream_get_endp(s);
+			stream_putc(s, 0);
+			stream_put_ipv4(s, router_cap->router_id.s_addr);
+			stream_putc(s, router_cap->flags);
+		}
+
 		stream_putc(s, ISIS_SUBTLV_FAD);
-		subtlv_len_pos = stream_get_endp(s);
-		stream_putc(s, 0); /* length will be filled later */
+		stream_putc(s, subtlv_len); /* length will be filled later */
 
 		stream_putc(s, fad->fad.algorithm);
 		stream_putc(s, fad->fad.metric_type);
@@ -3918,9 +3963,6 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE);
 			stream_putc(s, FAD_FLAG_M);
 		}
-
-		subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
-		stream_putc_at(s, subtlv_len_pos, subtlv_len);
 	}
 
 	/* Adjust TLV length which depends on subTLVs presence */
