@@ -55,6 +55,3 @@ Auxiliary bits
 
 .. autoclass:: _SkipTrace
    :members:
-
-.. autoclass:: TimedElement
-   :members:

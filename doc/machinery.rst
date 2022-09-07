@@ -5,7 +5,7 @@ Core test item structures
 
 .. automodule:: topotato.base
    :members:
-   :exclude-members: _SkipTrace, skiptrace, TopotatoItem, TimedElement,
+   :exclude-members: _SkipTrace, skiptrace, TopotatoItem,
       TopotatoWrapped, TopotatoClass,
       InstanceStartup, InstanceShutdown
    :private-members:
