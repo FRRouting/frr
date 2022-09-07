@@ -595,7 +595,7 @@ int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 				zlog_info(
 					"VRF %u already configured with NETNS %s",
 					vrf->vrf_id, ns->name);
-			return CMD_WARNING_CONFIG_FAILED;
+			return CMD_WARNING;
 		}
 	}
 	ns = ns_lookup_name(pathname);
