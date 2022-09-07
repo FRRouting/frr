@@ -8,14 +8,39 @@ Live-capture log messages from FRR and feed them into topotato.
 import socket
 import struct
 import syslog
-
 from collections import namedtuple
+
+import typing
+from typing import Dict, Generator, Optional, Tuple
+
 from .timeline import MiniPollee, TimedElement
 from .pcapng import JournalExport, Context
+
+if typing.TYPE_CHECKING:
+    from .frr import FRRNetworkInstance
 
 
 # pylint: disable=too-many-instance-attributes
 class LogMessage(TimedElement):
+    """
+    Parse and make accessible a binary log message from FRR.
+
+    topotato uses FRR's live-log-to-vtysh logging backend, which crams all
+    details about the log message into a binary header.  This has several
+    advantages:
+
+    - it's independent of any logging config
+    - log messages are immediately available on startup as this is enabled
+      with the ``--log`` cmdline option
+    - all available details on the log message are included
+    - no parsing regexes
+    - it's a unix socket and messages are received live, no "polling" a file
+
+    The downside is that we need to binary unpack the message header according
+    to the format defined in ``lib/zlog_live.h``.  But that should change
+    rarely if ever.
+    """
+
     _prios = {
         syslog.LOG_EMERG: "emerg",
         syslog.LOG_ALERT: "alert",
@@ -42,11 +67,59 @@ class LogMessage(TimedElement):
         "ec": "I",
         "n_argpos": "I",
     }
-    _LogHdr = namedtuple("LogHdr", _LogHdrFields.keys())  # type: ignore
+    """
+    Ordered description of fields in binary header.  Must match
+    ``struct zlog_live_hdr`` in FRR.
+    """
 
-    def __init__(self, router, daemon, rawmsg):
+    _LogHdr = namedtuple("LogHdr", _LogHdrFields.keys())  # type: ignore
+    """
+    helper structure to make decoding more readable.
+    """
+
+    header_fields: _LogHdr
+    """
+    raw header decoding result
+    """
+
+    arghdrlen: int
+    """
+    Length of the text "header" of the log messages, i.e. the
+    ``[ABCDE-FGHIJ][EC 1234]`` part.  That data is available in :py:attr:`uid`
+    and :py:attr:`header_fields.ec`, so it makes sense to strip it off.
+    """
+
+    args: Dict[int, Tuple[int, int]]
+    """
+    Positions of printf formatting arguments in the log message, start and end.
+    Can be used to split up :py:attr:`rawtext` into subitems.  (Byte offsets,
+    so must be used with undecoded text to be 100% correct.)
+    :py:meth:`iter_args` wraps this.
+    """
+
+    rawtext: bytes
+    text: str
+
+    uid: str
+    """
+    log message unique identifier (xref)
+    """
+
+    _ts: float
+    _prio: int
+
+    router: "FRRNetworkInstance.RouterNS"
+    daemon: str
+
+    # mypy doesn't work with dynamic namedtuple
+    @typing.no_type_check
+    def __init__(
+        self, router: "FRRNetworkInstance.RouterNS", daemon: str, rawmsg: bytes
+    ):
         super().__init__()
 
+        # router name & daemon are not included in the message;  but we know
+        # because the socket is connected to only one daemon
         self.router = router
         self.daemon = daemon
 
@@ -70,10 +143,13 @@ class LogMessage(TimedElement):
         self._ts = fields.ts_sec + fields.ts_nsec * 1e-9
 
     @property
-    def ts(self):
+    def ts(self) -> Tuple[float, int]:
         return (self._ts, 0)
 
     def serialize(self, context: Context):
+        """
+        Output log message to JSON and pcap-ng for test report.
+        """
         _ = context.take_frame_num()
 
         data = self.header_fields._asdict()
@@ -95,18 +171,17 @@ class LogMessage(TimedElement):
             }
         )
 
+        ts_usec = self.header_fields.ts_sec * 1000000  # type: ignore
+        ts_usec += self.header_fields.ts_nsec // 1000  # type: ignore
+
         sde = JournalExport(
             {
-                "__REALTIME_TIMESTAMP": "%d"
-                % (
-                    self.header_fields.ts_sec * 1000000
-                    + self.header_fields.ts_nsec // 1000
-                ),
+                "__REALTIME_TIMESTAMP": "%d" % (ts_usec,),
                 "MESSAGE": self.text,
-                "PRIORITY": self.header_fields.prio,
-                "TID": self.header_fields.tid,
+                "PRIORITY": self.header_fields.prio,  # type: ignore
+                "TID": self.header_fields.tid,  # type: ignore
                 "FRR_ID": self.uid,
-                "FRR_EC": self.header_fields.ec,
+                "FRR_EC": self.header_fields.ec,  # type: ignore
                 "FRR_DAEMON": self.daemon,
                 "_COMM": self.daemon,
                 "_HOSTNAME": self.router.name,
@@ -124,10 +199,19 @@ class LogMessage(TimedElement):
         return (data, sde)
 
     @property
-    def prio_text(self):
+    def prio_text(self) -> str:
+        """
+        Shortened textual representation of log message priority.
+        """
         return self._prios.get(self._prio & 7, "???")
 
-    def iter_args(self):
+    def iter_args(self) -> Generator[Tuple[str, Optional[str]], None, None]:
+        """
+        Divvy up log message into text fragments according to printf arguments.
+
+        Yields tuples of (text-before, format-argument), and the final
+        leftover it is yielded with format-argument = None.
+        """
         prev_end = self.arghdrlen
         for start, end in self.args.values():
             yield (
@@ -145,7 +229,16 @@ class LogMessage(TimedElement):
 
 
 class LiveLog(MiniPollee):
-    def __init__(self, router, daemon):
+    """
+    Receiver for log messages from an FRR daemon.
+
+    Sets up an unix datagram socketpair, one end of which will be given to
+    the FRR daemon to write log messages to.  One LiveLog instance is used for
+    one FRR daemon, so there will be a few of these in a normal run.  Messages
+    are received from the fd through the topotato event loop.
+    """
+
+    def __init__(self, router: "FRRNetworkInstance.RouterNS", daemon: str):
         super().__init__()
 
         self._router = router
@@ -180,14 +273,25 @@ class LiveLog(MiniPollee):
 
     @property
     def wrfd(self):
+        """
+        Write side file descriptor number to hand to FRR.  The FD must be given
+        to the daemon on fork/exec and indicated with ``--log monitor:FD`` on
+        the command line.
+        """
         if not self._wrfd:
             raise ValueError("trying to reuse LiveLog after it was closed")
         return self._wrfd
 
     def fileno(self):
+        """
+        Read side file descriptor to receive messages on.
+        """
         return self._rdfd
 
     def close_prep(self):
+        """
+        Close FRR side file descriptor after fork/exec is done.
+        """
         if self._wrfd is not None:
             self._wrfd.close()
             self._wrfd = None
@@ -199,6 +303,13 @@ class LiveLog(MiniPollee):
             self._rdfd = None
 
     def readable(self):
+        """
+        Called from event loop, receive log messages (max 100 per call).
+
+        If there's more log messages this will be called again since the FD
+        will still be readable, just give other event handlers a chance to run
+        meanwhile.
+        """
         for _ in range(0, 100):
             try:
                 rddata = self._rdfd.recv(16384)

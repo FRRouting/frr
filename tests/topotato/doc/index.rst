@@ -8,5 +8,6 @@ topotato manual
    parse
    assertions
    machinery
+   frrglue
    pytest_lowlevel
    utils

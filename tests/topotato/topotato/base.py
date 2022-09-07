@@ -309,6 +309,12 @@ class TopotatoItem(nodes.Item, ClassHooks):
         tinst.netinst.timeline.sleep(deadline - time.time())
 
     def reportinfo(self):  # -> Tuple[Union[py.path.local, str], int, str]:
+        """
+        Specialize pytest's location information for this test.
+
+        Return the location the test item was yield-generated from, rather
+        than some place deep in the topotato logic.
+        """
         fspath = self._codeloc.filename
         lineno = self._codeloc.lineno
         return fspath, lineno, self.name
@@ -359,6 +365,12 @@ class TopotatoItem(nodes.Item, ClassHooks):
         )
 
     def repr_failure(self, excinfo, style=None):
+        """
+        Customize pytest's failure representation to overwrite location.
+
+        As with reportinfo, give the location this item was yielded from
+        rather than some place deep in topotato logic.
+        """
         res = self._repr_failure(excinfo, style)
         self.session.config.hook.pytest_topotato_failure(
             item=self,
