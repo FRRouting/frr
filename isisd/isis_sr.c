@@ -1041,7 +1041,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 			cap->srgb.lower_bound + cap->srgb.range_size - 1,
 			cap->srlb.lower_bound,
 			cap->srlb.lower_bound + cap->srlb.range_size - 1,
-			cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
+			"SPF",
 			cap->msd);
 	}
 

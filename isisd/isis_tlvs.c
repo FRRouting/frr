@@ -3381,6 +3381,7 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 				  struct json_object *json)
 {
 	char addrbuf[INET_ADDRSTRLEN];
+	int nb_algo;
 
 	if (!router_cap)
 		return;
@@ -3427,19 +3428,21 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	}
 
 	/* Segment Routing Algorithms as per RFC8667 section #3.2 */
-	if (router_cap->algo[0] != SR_ALGORITHM_UNSET) {
+	nb_algo = 0;
+	for (int i= 0; i < SR_ALGORITHM_COUNT; i++)
+		if (router_cap->algo[i])
+			nb_algo++;
+	if (nb_algo > 0) {
 		char buf[255];
 		struct json_object *alg_json;
 		alg_json = json_object_new_object();
 		json_object_object_add(json, "segment-routing-algorithm",
 				       alg_json);
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-			if (router_cap->algo[i] != SR_ALGORITHM_UNSET) {
+			if (router_cap->algo[i]) {
 				snprintfrr(buf, sizeof(buf), "%d", i);
 				json_object_string_add(alg_json, buf,
-						       router_cap->algo[i] == 0
-							       ? "SPF"
-							       : "Strict SPF");
+						       i ? "SPF" : "Strict SPF");
 			}
 	}
 
@@ -3452,6 +3455,7 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 				  struct sbuf *buf, int indent)
 {
 	char addrbuf[INET_ADDRSTRLEN];
+	int nb_algo;
 
 	if (!router_cap)
 		return;
@@ -3480,14 +3484,16 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 			  router_cap->srlb.range_size);
 
 	/* Segment Routing Algorithms as per RFC8667 section #3.2 */
-	if (router_cap->algo[0] != SR_ALGORITHM_UNSET) {
+	nb_algo = 0;
+	for (int i= 0; i < SR_ALGORITHM_COUNT; i++)
+		if (router_cap->algo[i])
+			nb_algo++;
+	if (nb_algo > 0) {
 		sbuf_push(buf, indent, "  SR Algorithm:\n");
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-			if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
+			if (router_cap->algo[i])
 				sbuf_push(buf, indent, "    %u: %s\n", i,
-					  router_cap->algo[i] == 0
-						  ? "SPF"
-						  : "Strict SPF");
+					  i ? "SPF" : "Strict SPF");
 	}
 
 	/* Segment Routing Node MSD as per RFC8491 section #2 */
@@ -3540,9 +3546,10 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		stream_put3(s, router_cap->srgb.lower_bound);
 
 		/* Then SR Algorithm if set as per RFC8667 section #3.2 */
-		for (nb_algo = 0; nb_algo < SR_ALGORITHM_COUNT; nb_algo++)
-			if (router_cap->algo[nb_algo] == SR_ALGORITHM_UNSET)
-				break;
+		nb_algo = 0;
+		for (int i= 0; i < SR_ALGORITHM_COUNT; i++)
+			if (router_cap->algo[i])
+				nb_algo++;
 		if (nb_algo > 0) {
 			stream_putc(s, ISIS_SUBTLV_ALGORITHM);
 			stream_putc(s, nb_algo);
@@ -3607,8 +3614,6 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 
 	/* Allocate router cap structure and initialize SR Algorithms */
 	rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
-	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-		rcap->algo[i] = SR_ALGORITHM_UNSET;
 
 	/* Get Router ID and Flags */
 	rcap->router_id.s_addr = stream_get_ipv4(s);

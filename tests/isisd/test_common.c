@@ -196,8 +196,8 @@ static void lsp_add_router_capability(struct isis_lsp *lsp,
 		cap.srgb.range_size = tnode->srgb.range_size
 					      ? tnode->srgb.range_size
 					      : SRGB_DFTL_RANGE_SIZE;
-		cap.algo[0] = SR_ALGORITHM_SPF;
-		cap.algo[1] = SR_ALGORITHM_UNSET;
+		cap.algo[SR_ALGORITHM_SPF] = true;
+		cap.algo[SR_ALGORITHM_STRICT_SPF] = false;
 	}
 
 	isis_tlvs_set_router_capability(lsp->tlvs, &cap);

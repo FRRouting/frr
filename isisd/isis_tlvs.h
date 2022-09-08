@@ -213,7 +213,7 @@ struct isis_router_cap {
 	/* RFC 8667 section #3 */
 	struct isis_sr_block srgb;
 	struct isis_sr_block srlb;
-	uint8_t algo[SR_ALGORITHM_COUNT];
+	bool algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 	uint8_t msd;
 };

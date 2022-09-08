@@ -1077,8 +1077,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srgb.range_size = range_size;
 			cap.srgb.lower_bound = srdb->config.srgb_lower_bound;
 			/* Then Algorithm */
-			cap.algo[0] = SR_ALGORITHM_SPF;
-			cap.algo[1] = SR_ALGORITHM_UNSET;
+			cap.algo[SR_ALGORITHM_SPF] = true;
+			cap.algo[SR_ALGORITHM_STRICT_SPF] = false;
 			/* SRLB */
 			cap.srlb.flags = 0;
 			range_size = srdb->config.srlb_upper_bound
@@ -1087,12 +1087,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srlb.lower_bound = srdb->config.srlb_lower_bound;
 			/* And finally MSD */
 			cap.msd = srdb->config.msd;
-		} else {
-			/* Disable SR Algorithm */
-			cap.algo[0] = SR_ALGORITHM_UNSET;
-			cap.algo[1] = SR_ALGORITHM_UNSET;
 		}
-
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
 		lsp_debug("ISIS (%s): Adding Router Capabilities information",
 			  area->area_tag);
