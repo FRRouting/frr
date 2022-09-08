@@ -155,9 +155,9 @@ def check_bgp_fib(router, vrf, in_rib):
 
 def check_bgp_ping(router, vrf):
     if vrf == "DONNA":
-        cmd = "ping -c1 10.0.1.1 -I DONNA -I 10.0.0.1"
+        cmd = "ip vrf exec DONNA ping -c1 10.0.1.1 -I 10.0.0.1"
     else:
-        cmd = "ping -c1 10.0.0.1 -I EVA -I 10.0.1.1"
+        cmd = "ip vrf exec EVA ping -c1 10.0.0.1 -I 10.0.1.1"
 
     result = False
     retry = 5
@@ -175,7 +175,7 @@ def check_bgp_ping(router, vrf):
 
 
 def check_bgp_ping_own_ip(router):
-    cmd = "ping -c1 10.0.0.1 -I DONNA -I 10.0.0.1"
+    cmd = "ip vrf exec DONNA ping -c1 10.0.0.1 -I 10.0.0.1"
 
     output = ""
     try:
