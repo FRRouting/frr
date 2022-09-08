@@ -11,7 +11,7 @@ TBD: stop using mcast-tx.py + mcast-rx.py tools, replace with built-in topotato
 features.
 """
 
-from topotato import *
+from topotato.v1 import *
 
 
 @topology_fixture()

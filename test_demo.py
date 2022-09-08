@@ -8,7 +8,7 @@ TBD: check that the other protocols are up & running, to make it fully
 equivalent to topotests "all_startup"
 """
 
-from topotato import *
+from topotato.v1 import *
 
 
 @topology_fixture()

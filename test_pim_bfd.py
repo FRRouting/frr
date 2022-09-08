@@ -7,7 +7,7 @@ IPv4 PIM + BFD test.
 TBD: incomplete, mostly used to test topotato ModifyLinkStatus.
 """
 
-from topotato import *
+from topotato.v1 import *
 
 
 @topology_fixture()

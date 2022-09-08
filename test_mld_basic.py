@@ -5,7 +5,7 @@
 IPv6 Multicast Listener Discovery tests.
 """
 
-from topotato import *
+from topotato.v1 import *
 from topotato.multicast import *
 from topotato.scapy import ScapySend
 from scapy.all import (
