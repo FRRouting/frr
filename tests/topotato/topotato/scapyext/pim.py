@@ -11,7 +11,7 @@ Only Bootstrap & Candidate RP messages right now (because I needed those...)
 import socket
 import struct
 from enum import Enum
-from typing import ClassVar
+from typing import ClassVar, Dict
 
 from scapy.packet import bind_layers, Packet  # type: ignore
 from scapy.fields import (  # type: ignore
@@ -20,12 +20,15 @@ from scapy.fields import (  # type: ignore
     BitEnumField,
     ByteField,
     DestIP6Field,
+    FieldLenField,
     FieldListField,
+    PacketListField,
     ShortField,
     XShortField,
+    StrLenField,
 )
 from scapy.layers.inet import IP, DestIPField  # type: ignore
-from scapy.layers.inet6 import IPv6  # type: ignore
+from scapy.layers.inet6 import IPv6, in6_chksum  # type: ignore
 from scapy.utils import checksum  # type: ignore
 from scapy.volatile import RandShort  # type: ignore
 from scapy.error import Scapy_Exception  # type: ignore
@@ -158,9 +161,83 @@ class PIM_Hdr(Packet):
     def post_build(self, pkt, pay):
         pkt += pay
         if self.chksum is None:
-            ck = checksum(pkt)
+            if isinstance(self.underlayer, IPv6):
+                ck = in6_chksum(IPPROTO_PIM, self.underlayer, pkt)
+            else:
+                ck = checksum(pkt)
             pkt = pkt[:2] + struct.pack("!H", ck) + pkt[4:]
         return pkt
+
+
+class PIM_Hello_Option(Packet):
+    name = "Generic PIM Hello Option/TLV"
+
+    fields_desc = [
+        ShortField("type", 0),
+        FieldLenField("len", None, length_of="data", fmt="H"),
+        StrLenField("data", b"", length_from=lambda pkt: pkt.len),
+    ]
+
+    def extract_padding(self, s):
+        return b"", s
+
+    _reg: ClassVar[Dict[int, "PIM_Hello_Option"]] = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls._reg[cls.type.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, *args, pkt=None, **kargs):
+        if pkt:
+            tmp_type = struct.unpack(pkt[:2], ">H")[0]
+            return cls._reg.get(tmp_type, cls)
+        return cls
+
+
+class PIM_Hello_Option_HoldTime(PIM_Hello_Option):
+    name = "PIM Hello Holdtime TLV"
+    fields_desc = [
+        ShortField("type", 1),
+        ShortField("len", 2),
+        ShortField("holdtime", 105),
+    ]
+
+
+class PIM_Hello(Packet):
+    name = "PIM Hello"
+    fields_desc = [
+        PacketListField("options", [], PIM_Hello_Option),
+    ]
+
+    def post_build(self, pkt, pay):
+        pkt += pay
+        return pkt
+
+
+class PIM_Bootstrap_RP(Packet):
+    name = "PIM Bootstrap Group RP entry"
+
+    fields_desc = [
+        PIMEncodedAddrField("address", "0.0.0.0"),
+        ShortField("holdtime", 0),
+        ByteField("priority", 128),
+        ByteField("reserved", 0),
+    ]
+
+
+class PIM_Bootstrap_Group(Packet):
+    name = "PIM Bootstrap Group mapping entry"
+
+    fields_desc = [
+        PIMEncodedPrefixField("group", "0.0.0.0/0"),
+        ByteField("rp_count", 0),
+        FieldLenField("frag_count", None, count_of="rps", fmt="B"),
+        ShortField("reserved", 0),
+        PacketListField(
+            "rps", [], PIM_Bootstrap_RP, count_from=lambda pkt: pkt.frag_count
+        ),
+    ]
 
 
 class PIM_Bootstrap(Packet):
@@ -170,6 +247,7 @@ class PIM_Bootstrap(Packet):
         ByteField("hashmasklen", 24),
         ByteField("priority", 64),
         PIMEncodedAddrField("address", "0.0.0.0"),
+        PacketListField("groups", [], PIM_Bootstrap_Group),
     ]
 
     def post_build(self, pkt, pay):
@@ -190,7 +268,7 @@ class PIM_CandidateRP(Packet):
             "groups",
             [],
             PIMEncodedPrefixField("group", "224.0.0.0/4"),
-            length_from=lambda pkt: pkt.prefixcount,
+            count_from=lambda pkt: pkt.prefixcount,
         ),
     ]
 
@@ -210,5 +288,6 @@ DestIPField.bind_addr(PIM_Hdr, PIM_IPV4_GROUP)
 bind_layers(IPv6, PIM_Hdr, nh=IPPROTO_PIM)
 DestIP6Field.bind_addr(PIM_Hdr, PIM_IPV6_GROUP)
 
+bind_layers(PIM_Hdr, PIM_Hello, type=PIM_Types.Hello.value)
 bind_layers(PIM_Hdr, PIM_Bootstrap, type=PIM_Types.Bootstrap.value)
 bind_layers(PIM_Hdr, PIM_CandidateRP, type=PIM_Types.CandidateRP.value)

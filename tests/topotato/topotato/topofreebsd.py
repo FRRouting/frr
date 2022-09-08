@@ -4,6 +4,7 @@
 """
 FreeBSD implementation of topotato instances, based on jailwrap
 """
+# pylint: disable=duplicate-code
 
 import os
 import time

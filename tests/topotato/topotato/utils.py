@@ -7,17 +7,16 @@ Random utility functions for use in topotato.
 
 # TODO: this needs another round of cleanup, and JSONCompare split off.
 
-from abc import ABC, abstractmethod
 import re
 import json
 import difflib
 import os
 import logging
 import shlex
-import time
-import select
+import fcntl
+import atexit
 
-from typing import Dict, List, Union, Iterable, Tuple, Callable
+from typing import List, Union
 
 from .exceptions import TopotatoCLICompareFail
 
@@ -68,7 +67,7 @@ def get_textdiff(text1: str, text2: str, title1="", title2="", **opts) -> str:
     return diff
 
 
-class json_cmp_result(object):
+class json_cmp_result:
     "json_cmp result class for better assertion messages"
 
     def __init__(self):
@@ -134,6 +133,7 @@ class JSONCompareListKeyedDict(JSONCompareDirective):
     keying: List[Union[int, str]]
 
     def __init__(self, *keying):
+        super().__init__()
         self.keying = keying
 
 
@@ -172,6 +172,7 @@ def _json_diff(d1, d2):
     )
 
 
+# pylint: disable=too-many-locals,too-many-branches
 def _json_list_cmp(list1, list2, parent, result):
     "Handles list type entries."
     if isinstance(list1, JSONCompareIgnoreContent) or isinstance(
@@ -281,20 +282,17 @@ def json_cmp(d1, d2):
     squeue = [(d1, d2, "json")]
     result = json_cmp_result()
 
-    for s in squeue:
-        nd1, nd2, parent = s
+    while squeue:
+        nd1, nd2, parent = squeue.pop(0)
 
         # Handle JSON beginning with lists.
         if isinstance(nd1, type([])) or isinstance(nd2, type([])):
             _json_list_cmp(nd1, nd2, parent, result)
-            if result.has_errors():
-                return result
-            else:
-                return None
+            return result if result.has_errors() else None
 
         # Expect all required fields to exist.
         s1, s2 = set(nd1), set(nd2)
-        s2_req = set([key for key in nd2 if nd2[key] is not None])
+        s2_req = {key for key in nd2 if nd2[key] is not None}
         diff = s2_req - s1
         if diff != set({}):
             result.add_error(
@@ -421,55 +419,7 @@ def exec_find(name, stacklevel=1):
             return pname
 
     logger.warning("executable %s not found in PATH", shlex.quote(name))
-
-
-class MiniPollee(ABC):
-    @abstractmethod
-    def filenos(self) -> Iterable[Tuple[int, Callable[[int], None]]]:
-        pass
-
-
-class MiniPoller(list):
-    def sleep(self, duration, final=False):
-        for _ in self.run_iter(time.time() + duration, final=final):
-            pass
-
-    def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__, super().__repr__())
-
-    def run_iter(self, deadline=float("inf"), final=False):
-        relist = True
-        first = True
-
-        while True:
-            if relist:
-                fds = []
-                fdmap = {}
-
-                for target in self:
-                    items = list(target.filenos())
-                    fds.extend([i[0] for i in items])
-                    fdmap.update(items)
-
-            if final and not fds:
-                break
-
-            timeout = max(deadline - time.time(), 0)
-            if timeout == 0 and not first:
-                return
-            if timeout == float("inf"):
-                timeout = None
-
-            ready, _, _ = select.select(fds, [], [], timeout)
-            if not ready:
-                break
-
-            for fd in ready:
-                assert fd in fdmap
-                ret = yield from fdmap[fd](fd)
-                if ret:
-                    relist = True
-            first = False
+    return None
 
 
 class ClassHooks:
@@ -504,6 +454,7 @@ class ClassHooks:
         result = cls.Result()
         for subcls in cls._hooked_classes:
             for parent in subcls.__mro__[1:]:
+                # pylint: disable=protected-access
                 if (
                     subcls._check_env.__code__
                     is getattr(parent, "_check_env", ClassHooks._check_env).__code__
@@ -515,3 +466,222 @@ class ClassHooks:
                 except EnvironmentError as e:
                     result.errors.append(e)
         return result
+
+
+_PathLike = Union[os.PathLike, str, bytes]
+
+
+class TmpName:
+    """
+    Create filename for a temporary file in the same directory.
+
+    The filename will be prefixed with ``.`` and suffixed with ``.tmp``.
+    """
+
+    filename: _PathLike
+
+    def __init__(self, filename: _PathLike):
+        self.filename = filename
+
+    def __fspath__(self) -> str:
+        filename = os.fsdecode(self.filename)
+        dirname, basename = os.path.split(filename)
+        return os.path.join(dirname, "." + basename + ".tmp")
+
+
+class LockedFile:
+    """
+    Create a file and hold a POSIX advisory lock on it.
+
+    The purpose of this is that the F_GETLK fcntl can retrieve the PID of the
+    process holding the lock, and it automatically disappears when the process
+    exits (even if it crashes and the file is still there).
+
+    This should be used either as a context manager (``with LockedFile(...):``)
+    or through the :py:func:`lock` method (which deletes the file at exit.)
+
+    Has a "depth" counter to allow nested "lock"/"unlock" operations.
+    """
+
+    filename: _PathLike
+    """
+    Original file name passed when constructing.  Not used further.
+    """
+    _dir_fd: int
+    """
+    Directory file descriptor that this file will reside in.
+    """
+    _basename: _PathLike
+    """
+    File name relative to _dir_fd.
+    """
+
+    def __init__(self, filename: _PathLike, dir_fd=None):
+        self.filename = filename
+        self._depth = 0
+        self._fd = None
+
+        if dir_fd is None:
+            dirname, basename = os.path.split(os.path.abspath(filename))
+            self._basename = basename
+            self._dir_fd = os.open(dirname, os.O_RDONLY | os.O_DIRECTORY)
+        else:
+            self._basename = filename
+            self._dir_fd = os.dup(dir_fd)
+
+    def __del__(self):
+        os.close(self._dir_fd)
+
+    def _open(self):
+        self._depth += 1
+        if self._fd is not None:
+            return
+
+        tmpname = TmpName(self._basename)
+        try:
+
+            def _opener(path, flags):
+                return os.open(path, flags, dir_fd=self._dir_fd)
+
+            # pylint: disable=unspecified-encoding,consider-using-with
+            self._fd = open(tmpname, "w", opener=_opener)
+            fcntl.lockf(self._fd, fcntl.LOCK_EX)
+            # lock file (and write data) first, then put it in place
+            # => no intermediate race where the file could be seen by an
+            #    external process, but without the lock held/data in it
+            #
+            # renameat2(RENAME_NOREPLACE) would be great here, but python
+            # does not provide access to it
+            os.rename(
+                tmpname,
+                self._basename,
+                src_dir_fd=self._dir_fd,
+                dst_dir_fd=self._dir_fd,
+            )
+
+        except:
+            try:
+                os.unlink(tmpname, dir_fd=self._dir_fd)
+            except FileNotFoundError:
+                pass
+            try:
+                os.unlink(self._basename, dir_fd=self._dir_fd)
+            except FileNotFoundError:
+                pass
+            raise
+
+    def _close(self):
+        self._depth -= 1
+        if self._depth:
+            return
+
+        os.unlink(self._basename, dir_fd=self._dir_fd)
+        # delete file before implicit unlock in close()
+        # => avoids the same kind of race as in _open
+        self._fd.close()
+        self._fd = None
+
+    def __enter__(self):
+        self._open()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self._close()
+
+    def lock(self):
+        """
+        Create and lock file.
+
+        Registers with python atexit module to delete the file when the process
+        exits.  Using lock() without any unlock() is normal use for situations
+        where some file should be held for the entire duration of the process.
+        """
+        atexit.register(self._close)
+        self._open()
+
+        return self
+
+    def unlock(self):
+        """
+        Unlock and delete file.
+        """
+        self._close()
+        atexit.unregister(self._close)
+
+
+# pylint: disable=too-many-instance-attributes
+class AtomicPublishFile:
+    """
+    Write a file and move it in place (to "publish") with rename().
+
+    The idea here is that when the file is seen, the contents have already
+    been written into it.
+    """
+
+    filename: _PathLike
+    """
+    Original file name passed when constructing.  Not used further.
+    """
+    _dir_fd: int
+    """
+    Directory file descriptor that this file will reside in.
+    """
+    _basename: _PathLike
+    """
+    File name relative to _dir_fd.
+    """
+    _tmpname: TmpName
+    """
+    Temporary file name, also relative to _dir_fd.
+    """
+
+    def __init__(self, filename, *args, dir_fd=None, **kwargs):
+        self.filename = filename
+        self._args = args
+        self._kwargs = kwargs
+
+        self._fd = None
+        if dir_fd is not None:
+            self._basename = filename
+            self._dir_fd = os.dup(dir_fd)
+        else:
+            dirname, basename = os.path.split(os.path.abspath(filename))
+            self._basename = basename
+            self._dir_fd = os.open(dirname, os.O_RDONLY | os.O_DIRECTORY)
+
+        self._tmpname = TmpName(self._basename)
+
+    def __del__(self):
+        os.close(self._dir_fd)
+
+    def __enter__(self):
+        def _opener(path, flags):
+            return os.open(path, flags, dir_fd=self._dir_fd)
+
+        # pylint: disable=unspecified-encoding
+        self._fd = open(self._tmpname, *self._args, opener=_opener, **self._kwargs)
+        return self._fd
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self._fd.close()
+
+        if exc_type is None:
+            try:
+                os.rename(
+                    self._tmpname,
+                    self.filename,
+                    src_dir_fd=self._dir_fd,
+                    dst_dir_fd=self._dir_fd,
+                )
+            except:
+                try:
+                    os.unlink(self._tmpname, dir_fd=self._dir_fd)
+                except FileNotFoundError:
+                    pass
+                raise
+        else:
+            try:
+                os.unlink(self._tmpname, dir_fd=self._dir_fd)
+            except OSError:
+                # already handling some exception, don't make things confusing
+                pass

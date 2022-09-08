@@ -157,6 +157,9 @@ function anchor_update() {
 
 	opts = {...anchor_defaults};
 	for (arg of args) {
+		if (arg === "")
+			continue;
+
 		s = arg.split("=");
 		key = s.shift();
 		val = s.join("=");
@@ -324,19 +327,24 @@ function pdml_add_proto(htmlparent, proto) {
 	return title;
 }
 
+var pdml_decode;
+
 function onclick_pkt(evt) {
 	const pkt = container_class(evt.target, "pkt");
 	const infopane = document.getElementById("infopane");
-
-	pdml_frame = pkt.attributes["pdml_frame"].value;
-	lookup = pdmltree.evaluate("packet[proto[@name='geninfo']/field[@name='num'][@show='" + pdml_frame + "']]", pdmltree.children[0], null, XPathResult.UNORDERED_NODE_ITERATOR_TYPE);
-
-	packet = lookup.iterateNext();
-
-	console.log("pkt click:", pkt, pdml_frame, packet);
+	const packet = pkt.obj.pdml;
 
 	htmlpacket = document.createElement("dl");
 	htmlpacket.classList.add("pdml-root");
+
+	back_nav = document.createElement("dt");
+	back_nav.classList.add("back-nav");
+	back_nav.textContent = "‹ back to network diagram";
+	back_nav.onclick = function () {
+		pdml_decode.replaceChildren();
+		infopane.children[0].style.display = "";
+	};
+	htmlpacket.appendChild(back_nav);
 
 	var last_htmlproto;
 
@@ -344,22 +352,229 @@ function onclick_pkt(evt) {
 		last_htmlproto = pdml_add_proto(htmlpacket, proto);
 
 	expand_proto(last_htmlproto);
-	infopane.replaceChildren(htmlpacket);
+
+	infopane.children[0].style.display = "none";
+	pdml_decode.replaceChildren(htmlpacket);
+	pdml_decode.style.display = "contents";
+}
+
+function b64_inflate_json(b64data) {
+	var bytearr = Uint8Array.from(atob(b64data), i => i.charCodeAt(0))
+	var text = new TextDecoder().decode(pako.inflate(bytearr));
+	return JSON.parse(text);
+}
+
+/*
+ *
+ */
+
+var jsdata;
+var ts_start;
+
+function create(parent_, tagname, clsname, text = undefined) {
+	var element;
+
+	element = document.createElement(tagname);
+	for (cls of clsname.split(" "))
+		if (cls !== "")
+			element.classList.add(cls);
+	if (text !== undefined)
+		element.appendChild(document.createTextNode(text));
+	parent_.appendChild(element);
+	return element;
+}
+
+function load_log(timetable, obj) {
+	var row, logmeta;
+
+	row = create(timetable, "div", "logmsg");
+	row.classList.add("prio-" + obj.data.prio);
+	row.obj = obj;
+
+	create(row, "span", "tstamp", (obj.ts - ts_start).toFixed(3));
+	create(row, "span", "rtrname", obj.data.router);
+	create(row, "span", "dmnname", obj.data.daemon);
+
+	logmeta = create(row, "span", "logmeta");
+	create(logmeta, "span", "uid", obj.data.uid);
+
+	create(row, "span", "logprio", obj.data.prio);
+	create(row, "span", "logtext", obj.data.text.substr(obj.data.arghdrlen));
+	/* TODO: obj.data.args */
+}
+
+function load_protocols(obj, row, protodefs, protos) {
+	while (protos.length > 0) {
+		var proto = protos.shift();
+		var protoname = proto.getAttribute("name");
+
+		if (!(protoname in protodefs)) {
+			console.warn("packet %s: no HTML display for protocol %s", obj.data.frame_num, protoname);
+			break;
+		}
+		if (protodefs[protoname] === null)
+			continue;
+
+		try {
+			if (protodefs[protoname](obj, row, proto, protos))
+				continue;
+		} catch (exc) {
+			console.warn("packet %s: HTML decode for %s threw exception", obj.data.frame_num, protoname, exc);
+		}
+		break;
+	}
+}
+
+function pdml_get(item, key, idx = 0) {
+	var iter = pdmltree.evaluate("field[@name='"+key+"']", item, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE);
+	var result;
+
+	while (idx >= 0) {
+		result = iter.iterateNext();
+		if (result === null)
+			return null;
+		idx--;
+	}
+	return result;
+}
+
+function pdml_get_attr(item, key, attr = "show", idx = 0) {
+	var result = pdml_get(item, key, idx);
+	return result === null ? null : result.getAttribute(attr);
+}
+
+const mld_short_recordtypes = {
+	1: "IN",
+	2: "EX",
+	3: "→IN",
+	4: "→EX",
+	5: "+S",
+	6: "-S",
+};
+
+const protocols = {
+	"geninfo": null,
+	"frame": null,
+	"pkt_comment":  function (obj, row, proto, protos) {
+		row.classList.add("assert-match");
+
+		var row2 = document.createElement("div");
+		row2.classList.add("pkt");
+		create(row2, "span", "assert-match-item", pdml_get_attr(proto, "frame.comment"));
+		row.after(row2);
+		return true;
+	},
+
+	"eth": function (obj, row, proto, protos) {
+		var col = create(row, "span", "pktcol p-eth");
+
+		create(col, "span", "pktsub p-eth-src", pdml_get_attr(proto, "eth.src"));
+		create(col, "span", "pktsub p-eth-arr", "→");
+		create(col, "span", "pktsub p-eth-dst", pdml_get_attr(proto, "eth.dst"));
+		return true;
+	},
+
+	"ip": function (obj, row, proto, protos) {
+		create(row, "span", "pktcol l-3 p-ipv4", "IPv4");
+		return true;
+	},
+	"ipv6": function (obj, row, proto, protos) {
+		if (pdml_get_attr(proto, "ipv6.src").startsWith("fe80::"))
+			create(row, "span", "pktcol l-3 p-ipv6", "IPv6 LL");
+		else
+			create(row, "span", "pktcol l-3 p-ipv6", "IPv6");
+		return true;
+	},
+
+	"icmpv6": function (obj, row, proto, protos) {
+		pname = "ICMPv6";
+		type_num = pdml_get_attr(proto, "icmpv6.type", "show");
+
+		if (["130", "131", "132", "143"].includes(type_num))
+			pname = "MLD";
+
+		if (type_num == 143) {
+			items = new Array;
+			for (record of proto.querySelectorAll("field[name='icmpv6.mldr.mar']")) {
+				raddr = pdml_get_attr(record, "icmpv6.mldr.mar.multicast_address");
+				rtype = pdml_get_attr(record, "icmpv6.mldr.mar.record_type");
+				items.push(mld_short_recordtypes[rtype] + "(" + raddr + ")");
+			}
+			text = "v2 report: " + items.join(", ");
+		} else {
+			type = pdml_get_attr(proto, "icmpv6.type", "showname");
+			text = type.split(": ").slice(1).join(": ");
+		}
+		create(row, "span", "pktcol l-4 p-icmpv6", pname);
+		create(row, "span", "pktcol l-5 detail last", text);
+		return false;
+	},
+	"udp": function (obj, row, proto, protos) {
+		create(row, "span", "pktcol l-4 p-udp last", `UDP ${pdml_get_attr(proto, "udp.srcport")} → ${pdml_get_attr(proto, "udp.dstport")}`);
+		return false;
+	},
+};
+
+function load_packet(timetable, obj, pdmltree) {
+	var row, pdml;
+
+	pdml = pdmltree.evaluate(
+		"packet[proto[@name='geninfo']/field[@name='num'][@show='" + obj.data.frame_num + "']]",
+		pdmltree.children[0], null, XPathResult.ANY_UNORDERED_NODE_TYPE).singleNodeValue;
+
+	if (!pdml) {
+		console.error("Could not find frame number %s in PDML", obj.data.frame_num);
+		return;
+	}
+	obj.pdml = pdml;
+
+	row = create(timetable, "div", "pkt");
+	row.obj = obj;
+	row.onclick = onclick_pkt;
+
+	create(row, "span", "pktcol tstamp", (obj.ts - ts_start).toFixed(3));
+	create(row, "span", "pktcol ifname", obj.data.iface);
+
+	load_protocols(obj, row, protocols, Array.from(pdml.children));
 }
 
 function init() {
 	document.getElementsByTagName("body")[0].onhashchange = onhashchange;
 
+	const infopane = document.getElementById("infopane");
+	pdml_decode = create(infopane, "div", "pdml_decode");
+	pdml_decode.style.display = "none";
+
 	for (obj of document.getElementsByClassName("p-eth-src")) {
 		obj.onmouseenter = onmouseenter_ethsrc;
 		obj.onmouseleave = onmouseleave_ethsrc;
 	}
-	for (obj of document.getElementsByClassName("pkt")) {
-		obj.onclick = onclick_pkt;
-	}
+
+	jsdata = b64_inflate_json(data);
+	ts_start = jsdata.ts_start;
 
 	var parser = new DOMParser();
-	pdmltree = parser.parseFromString(pdml, "application/xml");
+	pdmltree = parser.parseFromString(jsdata.pdml, "application/xml");
+
+	var timetable;
+	var ts_end = parseFloat('-Infinity');
+	var item_idx = -1;
+
+	for (idx in jsdata.timed) {
+		var obj = jsdata.timed[idx];
+		obj.idx = idx;
+
+		while (obj.ts > ts_end && item_idx < jsdata.items.length) {
+			item_idx++;
+			ts_end = jsdata.items[item_idx].ts_end;
+			timetable = document.getElementById("i" + item_idx + "d").getElementsByClassName("timetable")[0];
+		}
+
+		if (obj.data.type == "packet")
+			load_packet(timetable, obj, pdmltree);
+		else if (obj.data.type == "log")
+			load_log(timetable, obj);
+	}
 
 	anchor_update();
 }

@@ -9,6 +9,7 @@ import logging
 
 from typing import (
     Any,
+    Optional,
 )
 
 import pytest
@@ -37,16 +38,20 @@ class ScapySend(TopotatoModifier):
     _rtr: Any
     _iface: str
     _pkt: Any
+    _repeat: Optional[int]
+    _interval: Optional[float]
 
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
-    def from_parent(cls, parent, name, rtr, iface, pkt):
+    def from_parent(cls, parent, name, rtr, iface, pkt, *, repeat=None, interval=None):
         path = "/".join([l.__name__ for l in pkt.layers()])
         self = super().from_parent(
             parent, name="%s:%s/scapy(%s/%s)" % (name, rtr.name, iface, path)
         )
         self._rtr = rtr
         self._iface = iface
+        self._repeat = repeat
+        self._interval = interval
 
         # this is intentionally here so we don't have a hard dependency on
         # scapy.
@@ -65,3 +70,13 @@ class ScapySend(TopotatoModifier):
         with router:
             sock = NetnsL2Socket(iface=self._iface, promisc=False)
             sock.send(self._pkt)
+
+        if self._repeat:
+            netinst = self.instance
+
+            for _ in range(1, self._repeat):
+                netinst.poller.sleep(self._interval)
+                with router:
+                    sock.send(self._pkt)
+
+        sock.close()

@@ -5,3 +5,4 @@
 /reportato/
 *.pcapng
 *.pcap
+*env

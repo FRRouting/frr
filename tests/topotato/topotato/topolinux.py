@@ -4,14 +4,13 @@
 """
 Linux implementation of topotato instances, based on nswrap
 """
+# pylint: disable=duplicate-code
 
 import json
 import os
 import sys
 import shlex
 import re
-import select
-import signal
 import subprocess
 import tempfile
 import time
@@ -23,8 +22,11 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
+import scapy.all  # type: ignore
+import scapy.config  # type: ignore
+
 from .utils import ClassHooks, exec_find
-from .nswrap import LinuxNamespace, find_child
+from .nswrap import LinuxNamespace
 from .toponom import LAN, LinkIface, Network
 
 
@@ -57,14 +59,9 @@ class NetworkInstance(ClassHooks):
     _exec = LinuxNamespace._exec
     _exec.update(
         {
-            "dumpcap": None,
             "ip": None,
         }
     )
-
-    _exec_optional = {
-        "dumpcap": "dumpcap not available -- packet dumps will be missing and AssertPacket checks will be skipped",
-    }
 
     _bridge_settings = [
         "forward_delay",
@@ -187,10 +184,6 @@ class NetworkInstance(ClassHooks):
         because that (a) makes things consistent (b) allows us to attach
         tcpdump from the switch NS and (c) allows setting links down on the
         bridge side so the router gets "carrier down"
-
-        also dumpcap runs inside the switch NS to get a pcap file of all the
-        traffic (it runs in multi-iface mode so you get 1 pcap file with all
-        interfaces.)
         """
 
         def start(self):
@@ -307,16 +300,13 @@ class NetworkInstance(ClassHooks):
     switch_ns: Optional[SwitchyNS]
     routers: Dict[str, RouterNS]
     bridges: List[str]
-    pcapfile: Optional[str]
-    dumpcap: Optional[subprocess.Popen]
+    scapys: Dict[str, scapy.config.conf.L2socket]
 
     def __init__(self, network: Network):
         self.network = network
         self.switch_ns = None
         self.routers = {}
         self.bridges = []
-        self.pcapfile = None
-        self.dumpcap = None
 
         # pylint: disable=consider-using-with
         self.tempdir = tempfile.TemporaryDirectory()
@@ -336,8 +326,7 @@ class NetworkInstance(ClassHooks):
         """
         kick everything up
 
-        also add the various interfaces to the bridges in the switch-NS, and
-        finally start up dumpcap for a pcap file.
+        also add the various interfaces to the bridges in the switch-NS.
         """
 
         self.switch_ns.start()
@@ -428,44 +417,17 @@ class NetworkInstance(ClassHooks):
                     ]
                 )
 
-        self.pcapfile = self.tempfile("dump.pcapng")
+        self.scapys = {}
         args = []
-        for br in self.bridges:
-            args.extend(["-i", br])
 
-        if self._exec.get("dumpcap"):
-            self.dumpcap = self.switch_ns.popen(
-                [self._exec["dumpcap"], "-B", "1", "-t", "-q", "-w", self.pcapfile]
-                + args,
-                stderr=subprocess.PIPE,
-            )
+        with self.switch_ns:
+            for br in self.bridges:
+                args.extend(["-i", br])
 
-            # starting dumpcap has been shown to take a few seconds on a loaded
-            # CI box... to the point of tests completing before dumpcap even
-            # started, which in turn caused hangs because dumpcap then couldn't
-            # be killed :S
-
-            start = time.time()
-            timeout = 15.0
-
-            os.set_blocking(self.dumpcap.stderr.fileno(), False)
-            out = ""
-
-            while time.time() < start + timeout:
-                r = select.select(
-                    [self.dumpcap.stderr], [], [], start + timeout - time.time()
-                )
-                if len(r[0]) == 0:
-                    raise TimeoutError("failed to start dumpcap")
-                out += self.dumpcap.stderr.read(4096).decode("UTF-8")
-                if out.find("Capturing on") >= 0:
-                    break
+                self.scapys[br] = scapy.config.conf.L2socket(iface=br)
+                os.set_blocking(self.scapys[br].fileno(), False)
 
     def stop(self):
-        dumpcap_pid = find_child(self.dumpcap.pid)
-        os.kill(dumpcap_pid, signal.SIGINT)
-        self.dumpcap.wait()
-
         for rns in self.routers.values():
             rns.end()
         self.switch_ns.end()

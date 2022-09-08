@@ -1,4 +1,11 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+IPv4 PIM + BFD test.
+
+TBD: incomplete, mostly used to test topotato ModifyLinkStatus.
+"""
 
 from topotato import *
 

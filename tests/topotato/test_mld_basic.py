@@ -1,4 +1,9 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+IPv6 Multicast Listener Discovery tests.
+"""
 
 from topotato import *
 from topotato.multicast import *
@@ -56,6 +61,12 @@ def mld_topo1_testenv(mld_topo1_configs):
     return instance
 
 
+def iter_mld_records(report):
+    for record in report.records:
+        while isinstance(record, ICMPv6MLDMultAddrRec):
+            yield record
+            record = record.payload
+
 class MLDBasic(TestBase):
     instancefn = mld_topo1_testenv
 
@@ -70,6 +81,13 @@ class MLDBasic(TestBase):
 
         # wait for query before continuing
         yield from AssertLog.make(dut, 'pim6d', '[MLD default:dut-h1] MLD query', maxwait=3.0)
+
+        # get out of initial reporting (prevents timing issues later)
+        def expect_pkt(ipv6: IPv6, report: ICMPv6MLReport2):
+            for record in iter_mld_records(report):
+                if record.rtype == 2: # IS_EX
+                    return True
+        yield from AssertPacket.make("h1_dut", maxwait=5.0, pkt=expect_pkt)
 
     @topotatofunc
     def test_ssm(self, topo, dut, h1, h2, src):
@@ -91,13 +109,9 @@ class MLDBasic(TestBase):
             pkt = ip/udp,
         )
 
-        def expect_pkt(pkt):
-            if "ipv6" not in pkt or "udp" not in pkt:
-                return False
-            return (
-                pkt["ipv6/.src"].val == srcaddr,
-                pkt["ipv6/.dst"].val == 'ff05::2345',
-            )
+        def expect_pkt(ipv6: IPv6, udp: UDP):
+            return ipv6.src == str(srcaddr) and ipv6.dst == 'ff05::2345' \
+                and udp.dport == 9999
 
         yield from AssertPacket.make("h1_dut", maxwait=2.0, pkt=expect_pkt)
 

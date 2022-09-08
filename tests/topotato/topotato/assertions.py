@@ -13,6 +13,7 @@ import json
 import logging
 import tempfile
 import re
+import inspect
 from collections import OrderedDict
 
 from typing import (
@@ -20,7 +21,7 @@ from typing import (
     ClassVar,
     List,
     Optional,
-    Tuple,
+    Type,
     Union,
 )
 
@@ -29,18 +30,21 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
+from scapy.packet import Packet  # type: ignore
 import pytest
 
 from .utils import json_cmp, text_rich_cmp
-from .base import TopotatoItem, TopotatoInstance, skiptrace
+from .base import TopotatoItem, TopotatoFunction, skiptrace
+from .livescapy import TimedScapy
 from .livelog import LogMessage
-from .pdmlpacket import PDMLPacket
+from .timeline import TimingParams
 from .exceptions import (
     TopotatoCLICompareFail,
     TopotatoCLIUnsuccessfulFail,
     TopotatoLogFail,
     TopotatoPacketFail,
     TopotatoRouteCompareFail,
+    TopotatoUnhandledArgs,
 )
 
 __all__ = [
@@ -50,6 +54,7 @@ __all__ = [
     "AssertPacket",
     "AssertLog",
     "DaemonRestart",
+    "Delay",
     "ModifyLinkStatus",
     "BackgroundCommand",
 ]
@@ -76,11 +81,16 @@ class TopotatoModifier(TopotatoItem):
 
 class TimedMixin:
     """
-    Documentation helper for timing configuration.
+    Helper for (retry-)timing configuration.
 
     :param float delay: interval to retry test at, in seconds.
     :param Optional[float] maxwait: deadline until which to retry.  At least
        one attempt is made even if this deadline has already passed.
+
+    For simplicity, the same mixin is used for active and passive timing.
+    Active timing uses the delay parameter to repeat active attempts whie
+    passive timing listens on received events and therefore does not use the
+    delay parameter.
 
     .. caution::
 
@@ -97,8 +107,42 @@ class TimedMixin:
        the maxwait for the second and only one attempt will be made that.
     """
 
-    _delay: float
-    _maxwait: Optional[float]
+    _timing: TimingParams
+
+    default_delay: ClassVar[Optional[float]] = None
+    """
+    Delay between active attempts.
+
+    Only used for assertions that actively perform checks rather than
+    listening for events.  If None, the delay parameter will not be accepted.
+    """
+    default_maxwait: ClassVar[Optional[float]] = None
+    """
+    Maximum time to wait on this assertions.
+    """
+
+    @classmethod
+    def consume_kwargs(cls, kwargs):
+        if cls.default_delay is None:
+            if "delay" in kwargs:
+                raise TopotatoUnhandledArgs(
+                    "%s does not accept a delay parameter" % cls.__name__
+                )
+
+        delay = kwargs.pop("delay", cls.default_delay)
+        maxwait = kwargs.pop("maxwait", cls.default_maxwait)
+
+        timing = TimingParams(delay, maxwait)
+
+        def finalize(self):
+            # pylint: disable=protected-access
+            self._timing = timing.anchor(self.relative_start)
+
+        return [finalize]
+
+    def relative_start(self):
+        fn = self.getparent(TopotatoFunction)
+        return fn.started_ts
 
 
 class AssertKernelRoutes(TopotatoAssertion, TimedMixin):
@@ -107,6 +151,7 @@ class AssertKernelRoutes(TopotatoAssertion, TimedMixin):
     """
 
     af: ClassVar[Union[Literal[4], Literal[6]]]
+    default_delay = 0.1
 
     # pylint does not understand that from_parent is our __init__
     _rtr: str
@@ -115,33 +160,25 @@ class AssertKernelRoutes(TopotatoAssertion, TimedMixin):
 
     # pylint: disable=arguments-differ,too-many-arguments,protected-access
     @classmethod
-    def from_parent(
-        cls, parent, name, rtr, routes, *, local=False, delay=0.1, maxwait=None
-    ):
+    def from_parent(cls, parent, name, rtr, routes, *, local=False, **kwargs):
         name = "%s:%s/routes-v%d" % (name, rtr, cls.af)
-        self = super().from_parent(parent, name=name)
+        self = super().from_parent(parent, name=name, **kwargs)
 
         self._rtr = rtr
         self._routes = routes
         self._local = local
-        self._delay = delay
-        self._maxwait = maxwait
         return self
 
     def __call__(self):
         router = self.instance.routers[self._rtr]
-        start = time.time()
 
-        while True:
+        for _ in self.timeline.run_tick(self._timing):
             routes = router.routes(self.af, self._local)
             diff = json_cmp(routes, self._routes)
             if diff is None:
                 break
-
-            if self._maxwait is None or time.time() - start > self._maxwait:
-                raise TopotatoRouteCompareFail(diff)
-
-            self.sleep(step=self._delay, until=self._maxwait)
+        else:
+            raise TopotatoRouteCompareFail(str(diff))
 
 
 class AssertKernelRoutesV4(AssertKernelRoutes):
@@ -178,13 +215,15 @@ class AssertKernelRoutesV6(AssertKernelRoutes):
 
 
 class AssertVtysh(TopotatoAssertion, TimedMixin):
-    commands: OrderedDict[Tuple[str, str], List[Tuple[float, str, str, int, Any]]]
+    commands: OrderedDict
 
     # pylint does not understand that from_parent is our __init__
     _rtr: str
     _daemon: str
     _command: str
     _compare: Optional[str]
+
+    default_delay = 0.1
 
     # pylint: disable=arguments-differ,too-many-arguments,protected-access
     @classmethod
@@ -196,9 +235,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
         daemon,
         command,
         compare=None,
-        *,
-        delay=0.1,
-        maxwait=None
+        **kwargs,
     ):
         name = '%s:%s/%s/vtysh "%s"' % (
             name,
@@ -206,22 +243,19 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
             daemon,
             command.replace("\n", "; "),
         )
-        self = super().from_parent(parent, name=name)
+        self = super().from_parent(parent, name=name, **kwargs)
 
         self._rtr = rtr
         self._daemon = daemon
         self._command = command
         self._compare = compare
-        self._delay = delay
-        self._maxwait = maxwait
         self.commands = OrderedDict()
         return self
 
     def __call__(self):
         router = self.instance.routers[self._rtr.name]
-        start = time.time()
 
-        while True:
+        for _ in self.timeline.run_tick(self._timing):
             cmdtime = time.time()
             out, rc = router.vtysh_fast(self._daemon, self._command)
             if rc != 0:
@@ -241,24 +275,16 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
                 elif isinstance(self._compare, dict):
                     diff = json_cmp(json.loads(out), self._compare)
                     if diff is not None:
-                        result = TopotatoCLICompareFail(diff)
+                        result = TopotatoCLICompareFail(str(diff))
 
             self.commands.setdefault((self._rtr.name, self._daemon), []).append(
                 (cmdtime, self._command, out, rc, result)
             )
 
             if result is None:
-                return
-
-            if self._maxwait is None or time.time() - start > self._maxwait:
-                print("# %s" % self._command)
-                print(out)
-                print("-----")
-                raise result
-            self.sleep(
-                step=self._delay - ((time.time() - start) % self._delay),
-                until=self._maxwait,
-            )
+                break
+        else:
+            raise result
 
     @property
     def command(self):
@@ -269,74 +295,96 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
         return self._compare
 
 
-class AssertPacket(TopotatoAssertion):
+class AssertPacket(TopotatoAssertion, TimedMixin):
     # pylint does not understand that from_parent is our __init__
     _link: str
     _pkt: Any
-    _maxwait: Optional[float]
+    _argtypes: List[Type[Packet]]
 
     matched: Optional[Any]
 
     # pylint: disable=arguments-differ,protected-access
     @classmethod
-    def from_parent(cls, parent, name, link, pkt, *, maxwait=None):
+    def from_parent(cls, parent, name, link, pkt, **kwargs):
         name = "%s:%s/packet" % (name, link)
-        self: AssertPacket = super().from_parent(parent, name=name)
+        self: AssertPacket = super().from_parent(parent, name=name, **kwargs)
 
         self._link = link
         self._pkt = pkt
-        self._maxwait = maxwait
         self.matched = None
+
+        self._argtypes = []
+        argspec = inspect.getfullargspec(self._pkt)
+        for arg in argspec.args:
+            if arg not in argspec.annotations:
+                raise TypeError(
+                    "%r needs a type annotation for parameter %r" % (self._pkt, arg)
+                )
+            argtype = argspec.annotations[arg]
+            if not issubclass(argtype, Packet):
+                raise TypeError(
+                    "%r argument %r (%r) is not a scapy.Packet subtype"
+                    % (self._pkt, arg, argtype)
+                )
+            self._argtypes.append(argtype)
+
         return self
 
     def __call__(self):
-        netinst = self.getparent(TopotatoInstance).netinst
+        for element in self.timeline.run_timing(self._timing):
+            if not isinstance(element, TimedScapy):
+                continue
+            pkt = element.pkt
+            if pkt.sniffed_on != self._link:
+                continue
 
-        for _, pkt in netinst.poller.run_iter(time.time() + self._maxwait):
-            if not isinstance(pkt, PDMLPacket):
-                continue
-            if pkt["frame/.interface_id/frame.interface_name"].val != self._link:
-                continue
-            try:
-                if self._pkt(pkt):
-                    self.matched = pkt
-                    pkt.match_for.append(self)
+            args = []
+            cur_layer = pkt
+
+            for argtype in self._argtypes:
+                cur_layer = cur_layer.getlayer(argtype)
+                if cur_layer is None:
                     break
-            except KeyError:
-                pass
+                args.append(cur_layer)
+
+            if cur_layer is None:
+                continue
+
+            if self._pkt(*args):
+                self.matched = pkt
+                element.match_for.append(self)
+                break
         else:
-            raise TopotatoPacketFail("no pkt")
+            raise TopotatoPacketFail(
+                "did not receive a matching packet for:\n%s"
+                % inspect.getsource(self._pkt)
+            )
 
 
-class AssertLog(TopotatoAssertion):
+class AssertLog(TopotatoAssertion, TimedMixin):
     # pylint does not understand that from_parent is our __init__
     _rtr: str
     _daemon: str
     _pkt: Any
-    _maxwait: Optional[float]
     _msg = Union[re.Pattern, str]
 
     matched: Optional[Any]
 
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
-    def from_parent(cls, parent, name, rtr, daemon, msg, *, maxwait=None):
+    def from_parent(cls, parent, name, rtr, daemon, msg, **kwargs):
         name = "%s:%s/%s/log" % (name, rtr.name, daemon)
-        self: AssertLog = super().from_parent(parent, name=name)
+        self: AssertLog = super().from_parent(parent, name=name, **kwargs)
 
         self._rtr = rtr
         self._daemon = daemon
         self._msg = msg
-        self._maxwait = maxwait
         self.matched = None
         return self
 
     @skiptrace
     def __call__(self):
-        # inst = self.getparent(TopotatoInstance)
-        deadline = time.time() + self._maxwait
-
-        for _, msg in self.instance.poller.run_iter(deadline):
+        for msg in self.timeline.run_timing(self._timing):
             if not isinstance(msg, LogMessage):
                 continue
 
@@ -353,7 +401,25 @@ class AssertLog(TopotatoAssertion):
             msg.match_for.append(self)
             break
         else:
-            raise TopotatoLogFail(self._msg)
+            detail = self._msg
+            if isinstance(detail, re.Pattern):
+                detail = detail.pattern
+            raise TopotatoLogFail(detail)
+
+
+class Delay(TopotatoAssertion, TimedMixin):
+    # pylint: disable=arguments-differ,protected-access,too-many-arguments
+    @classmethod
+    def from_parent(cls, parent, name, **kwargs):
+        name = "%s" % (name,)
+        self: AssertLog = super().from_parent(parent, name=name, **kwargs)
+
+        return self
+
+    @skiptrace
+    def __call__(self):
+        for _ in self.timeline.run_timing(self._timing):
+            pass
 
 
 class DaemonRestart(TopotatoModifier):
@@ -363,9 +429,9 @@ class DaemonRestart(TopotatoModifier):
 
     # pylint: disable=arguments-differ,protected-access
     @classmethod
-    def from_parent(cls, parent, name, rtr, daemon):
+    def from_parent(cls, parent, name, rtr, daemon, **kwargs):
         self: DaemonRestart = super().from_parent(
-            parent, name="%s:%s.%s/restart" % (name, rtr.name, daemon)
+            parent, name="%s:%s.%s/restart" % (name, rtr.name, daemon), **kwargs
         )
         self._rtr = rtr
         self._daemon = daemon
@@ -386,7 +452,7 @@ class ModifyLinkStatus(TopotatoModifier):
 
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
-    def from_parent(cls, parent, name, rtr, iface, state):
+    def from_parent(cls, parent, name, rtr, iface, state, **kwargs):
         name = "%s:%s/link %s (%s) -> %s" % (
             name,
             rtr.name,
@@ -394,7 +460,7 @@ class ModifyLinkStatus(TopotatoModifier):
             iface.other.endpoint.name,
             "UP" if state else "DOWN",
         )
-        self = super().from_parent(parent, name=name)
+        self = super().from_parent(parent, name=name, **kwargs)
 
         self._rtr = rtr
         self._iface = iface
@@ -421,14 +487,14 @@ class BackgroundCommand:
 
         # pylint: disable=arguments-differ,protected-access
         @classmethod
-        def from_parent(cls, parent, name, cmdobj):
+        def from_parent(cls, parent, name, cmdobj, **kwargs):
             name = '%s:%s/exec "%s" (%s)' % (
                 name,
                 cmdobj._rtr.name,
                 cmdobj._cmd,
                 cls.__name__,
             )
-            self = super().from_parent(parent, name=name)
+            self = super().from_parent(parent, name=name, **kwargs)
 
             self._rtr = cmdobj._rtr
             self._cmdobj = cmdobj

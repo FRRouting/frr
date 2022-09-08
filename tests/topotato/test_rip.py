@@ -1,4 +1,11 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+Basic IPv4 RIP test.
+
+TBD: incomplete.
+"""
 
 from topotato import *
 

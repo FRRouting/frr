@@ -21,14 +21,14 @@ __all__ = [
 
 # these definitions are sadly missing from socket.* as of python 3.10
 
-SOL_IPV6: int = getattr(socket, 'SOL_IPV6', 41)
+SOL_IPV6: int = getattr(socket, "SOL_IPV6", 41)
 
-MCAST_JOIN_GROUP: int = getattr(socket, 'MCAST_JOIN_GROUP', 42)
-MCAST_BLOCK_SOURCE: int = getattr(socket, 'MCAST_BLOCK_SOURCE', 43)
-MCAST_UNBLOCK_SOURCE: int = getattr(socket, 'MCAST_UNBLOCK_SOURCE', 44)
-MCAST_LEAVE_GROUP: int = getattr(socket, 'MCAST_LEAVE_GROUP', 45)
-MCAST_JOIN_SOURCE_GROUP: int = getattr(socket, 'MCAST_JOIN_SOURCE_GROUP', 46)
-MCAST_LEAVE_SOURCE_GROUP: int = getattr(socket, 'MCAST_LEAVE_SOURCE_GROUP', 47)
+MCAST_JOIN_GROUP: int = getattr(socket, "MCAST_JOIN_GROUP", 42)
+MCAST_BLOCK_SOURCE: int = getattr(socket, "MCAST_BLOCK_SOURCE", 43)
+MCAST_UNBLOCK_SOURCE: int = getattr(socket, "MCAST_UNBLOCK_SOURCE", 44)
+MCAST_LEAVE_GROUP: int = getattr(socket, "MCAST_LEAVE_GROUP", 45)
+MCAST_JOIN_SOURCE_GROUP: int = getattr(socket, "MCAST_JOIN_SOURCE_GROUP", 46)
+MCAST_LEAVE_SOURCE_GROUP: int = getattr(socket, "MCAST_LEAVE_SOURCE_GROUP", 47)
 
 
 class Sockaddr:
@@ -38,19 +38,19 @@ class Sockaddr:
         self._port = port
 
     def bytes(self):
-        data = b''
+        data = b""
 
         if self._addr.version == 4:
-            data += struct.pack('@H', socket.AF_INET)
-            data += struct.pack('>H', self._port)
+            data += struct.pack("@H", socket.AF_INET)
+            data += struct.pack(">H", self._port)
             data += self._addr.packed
         elif self._addr.version == 6:
-            data += struct.pack('@H', socket.AF_INET6)
-            data += struct.pack('>HI', self._port, 0)
+            data += struct.pack("@H", socket.AF_INET6)
+            data += struct.pack(">HI", self._port, 0)
             data += self._addr.packed
-            data += struct.pack('@I', self._ifindex)
+            data += struct.pack("@I", self._ifindex)
 
-        return data.ljust(128, b'\00')
+        return data.ljust(128, b"\00")
 
 
 class MulticastReceiver:
@@ -73,10 +73,9 @@ class MulticastReceiver:
 
         return self._sock, self._ifindex
 
-
     class Action(TopotatoModifier):
         _rtr: str
-        _cmdobj: "MulticastJoin"
+        _cmdobj: "MulticastReceiver"
         _group: Any
         _source: Any
 
@@ -90,12 +89,12 @@ class MulticastReceiver:
             _source = source and ipaddress.ip_address(source)
             assert _source is None or _source.version == _group.version
 
-            name = '%s:%s/%s/multicast-%s(%s,%s)' % (
+            name = "%s:%s/%s/multicast-%s(%s,%s)" % (
                 name,
                 cmdobj._rtr.name,
                 cmdobj._iface.ifname,
                 cls.__name__.lower(),
-                _source or '*',
+                _source or "*",
                 _group,
             )
             self = super().from_parent(parent, name=name)
@@ -115,38 +114,32 @@ class MulticastReceiver:
                 af = socket.AF_INET6
                 sol = SOL_IPV6
             else:
-                raise ValueError('unknown address family in %r' % self._group)
+                raise ValueError("unknown address family in %r" % self._group)
 
             sock, ifindex = self._cmdobj._get_sock_ifindex(router, af)
 
+            # 64-bit architectures have padding between ifindex and sockaddr
+            arg = struct.pack("@I", ifindex).ljust(struct.calcsize("@L"), b"\0")
+            arg += Sockaddr(self._group).bytes()
             if self._source is None:
-                arg = struct.pack('@II', ifindex, 0)
-                arg += Sockaddr(self._group).bytes()
                 sock.setsockopt(sol, self.group_opt, arg)
             else:
-                arg = struct.pack('@II', ifindex, 0)
-                arg += Sockaddr(self._group).bytes()
                 arg += Sockaddr(self._source).bytes()
                 sock.setsockopt(sol, self.source_opt, arg)
-
 
     class Join(Action):
         group_opt = MCAST_JOIN_GROUP
         source_opt = MCAST_JOIN_SOURCE_GROUP
 
-
     class Leave(Action):
         group_opt = MCAST_LEAVE_GROUP
         source_opt = MCAST_LEAVE_SOURCE_GROUP
 
-
     class Block(Action):
         source_opt = MCAST_BLOCK_SOURCE
 
-
     class Unblock(Action):
         source_opt = MCAST_UNBLOCK_SOURCE
-
 
     @skiptrace
     def join(self, group, source=None):

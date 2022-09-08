@@ -1,4 +1,9 @@
-import pytest
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+Basic IPv6 PIM test.
+"""
 
 from topotato import *
 from topotato.multicast import *
@@ -117,12 +122,8 @@ class PIM6Basic(TestBase):
             pkt = ip/udp,
         )
 
-        def expect_pkt(pkt):
-            if "ipv6" not in pkt or "udp" not in pkt:
-                return False
-            return (
-                pkt["ipv6/.src"].val == srcaddr,
-                pkt["ipv6/.dst"].val == 'ff05::2345',
-            )
+        def expect_pkt(ipv6: IPv6, udp: UDP):
+            return ipv6.src == str(srcaddr) and ipv6.dst == 'ff05::2345' \
+                and udp.dport == 9999
 
         yield from AssertPacket.make("r2_h2", maxwait=3.0, pkt=expect_pkt)
