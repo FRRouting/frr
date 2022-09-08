@@ -162,7 +162,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 	(router->debugs & PIM_MASK_PIM_TRACE_DETAIL)
 #define PIM_DEBUG_GM_EVENTS (router->debugs & PIM_MASK_GM_EVENTS)
 #define PIM_DEBUG_GM_PACKETS (router->debugs & PIM_MASK_GM_PACKETS)
-#define PIM_DEBUG_IGMP_TRACE                                                   \
+#define PIM_DEBUG_GM_TRACE                                                     \
 	(router->debugs & (PIM_MASK_GM_TRACE | PIM_MASK_GM_TRACE_DETAIL))
 #define PIM_DEBUG_IGMP_TRACE_DETAIL                                            \
 	(router->debugs & PIM_MASK_GM_TRACE_DETAIL)

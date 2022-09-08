@@ -460,7 +460,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_packet_sg_subs_count(sg->subs_positive),
 			gm_packet_sg_subs_count(sg->subs_negative), grp);
 
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "dropping"));
 
 		gm_sgs_del(gm_ifp->sgs, sg);
@@ -550,7 +550,7 @@ static void gm_packet_drop(struct gm_packet_state *pkt, bool trace)
 		if (!sg)
 			continue;
 
-		if (trace && PIM_DEBUG_IGMP_TRACE)
+		if (trace && PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "general-dropping from %pPA"),
 				   &pkt->subscriber->addr);
 		deleted = gm_packet_sg_drop(&pkt->items[i]);
@@ -586,7 +586,7 @@ static void gm_packet_sg_remove_sources(struct gm_if *gm_ifp,
 
 static void gm_sg_expiry_cancel(struct gm_sg *sg)
 {
-	if (sg->t_sg_expire && PIM_DEBUG_IGMP_TRACE)
+	if (sg->t_sg_expire && PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "alive, cancelling expiry timer"));
 	THREAD_OFF(sg->t_sg_expire);
 	sg->query_sbit = true;
@@ -1121,13 +1121,13 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 	pend->expiry = expiry;
 
 	if (!gm_ifp->n_pending++) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				log_ifp("starting general timer @ 0: %pTVMu"),
 				&pend->expiry);
 		thread_add_timer_tv(router->master, gm_t_expire, gm_ifp,
 				    &timers->expire_wait, &gm_ifp->t_expire);
-	} else if (PIM_DEBUG_IGMP_TRACE)
+	} else if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("appending general timer @ %u: %pTVMu"),
 			   gm_ifp->n_pending, &pend->expiry);
 }
@@ -1208,7 +1208,7 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 	if (gm_sg_check_recent(gm_ifp, sg, now))
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "expiring in %pTVI"), &expire_wait);
 
 	if (sg->t_sg_expire) {
@@ -1305,7 +1305,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 
 	if (pim_addr_is_any(sg->sgaddr.src)) {
 		/* actually found *,G entry here */
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp("*,%pPAs expiry timer starting"),
 				   &grp);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
@@ -1338,7 +1338,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 	thread_add_timer_tv(router->master, gm_t_grp_expire, pend,
 			    &timers->expire_wait, &pend->t_expire);
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("*,%pPAs S,G timer started: %pTHD"), &grp,
 			   pend->t_expire);
 }
@@ -1925,7 +1925,7 @@ static void gm_trigger_specific(struct gm_sg *sg)
 	if (gm_ifp->pim->gm_socket == -1)
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "triggered query"));
 
 	if (pim_addr_is_any(sg->sgaddr.src)) {
@@ -2301,7 +2301,7 @@ void gm_ifp_update(struct interface *ifp)
 	}
 
 	if (changed) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp(
 				"MLD querier config changed, querying"));
 		gm_bump_querier(gm_ifp);
