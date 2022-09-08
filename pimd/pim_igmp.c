@@ -951,7 +951,7 @@ static void sock_close(struct gm_sock *igmp)
 	pim_igmp_other_querier_timer_off(igmp);
 	pim_igmp_general_query_off(igmp);
 
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+	if (PIM_DEBUG_GM_TRACE_DETAIL) {
 		if (igmp->t_igmp_read) {
 			zlog_debug(
 				"Cancelling READ event on IGMP socket %pI4 fd=%d on interface %s",
@@ -969,7 +969,7 @@ static void sock_close(struct gm_sock *igmp)
 			igmp->interface->name, errno, safe_strerror(errno));
 	}
 
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+	if (PIM_DEBUG_GM_TRACE_DETAIL) {
 		zlog_debug("Deleted IGMP socket %pI4 fd=%d on interface %s",
 			   &igmp->ifaddr, igmp->fd,
 			   igmp->interface->name);
@@ -1245,7 +1245,7 @@ done:
 static void igmp_read_on(struct gm_sock *igmp)
 {
 
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+	if (PIM_DEBUG_GM_TRACE_DETAIL) {
 		zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 			   igmp->fd);
 	}

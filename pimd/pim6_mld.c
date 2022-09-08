@@ -1102,7 +1102,7 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 		 * it's "supersetted" within the preexisting query
 		 */
 
-		if (PIM_DEBUG_IGMP_TRACE_DETAIL)
+		if (PIM_DEBUG_GM_TRACE_DETAIL)
 			zlog_debug(
 				log_ifp("zapping supersetted general timer %pTVMu"),
 				&pend->expiry);
@@ -1463,7 +1463,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 
 	gm_expiry_calc(&timers);
 
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL)
+	if (PIM_DEBUG_GM_TRACE_DETAIL)
 		zlog_debug(
 			log_ifp("query timers: QRV=%u max_resp=%ums qqic=%ums expire_wait=%pTVI"),
 			timers.qrv, timers.max_resp_ms, timers.qqic_ms,
