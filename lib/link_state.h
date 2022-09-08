@@ -61,6 +61,8 @@ struct zclient;
 #define MAX_NAME_LENGTH		256
 #define ISO_SYS_ID_LEN		6
 
+#define SR_ALGORITHM_COUNT	2
+
 /* Type of Node */
 enum ls_node_type {
 	NONE = 0,	/* Unknown */
@@ -135,7 +137,7 @@ struct ls_node {
 		uint32_t lower_bound;		/* MPLS label lower bound */
 		uint32_t range_size;		/* MPLS label range size */
 	} srlb;
-	uint8_t algo[2];		/* Segment Routing Algorithms */
+	bool algo[SR_ALGORITHM_COUNT];		/* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
 };
 

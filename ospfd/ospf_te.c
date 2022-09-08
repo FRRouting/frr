@@ -2460,6 +2460,8 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t len = 0, sum = 0;
+	bool algo_enabled;
+	int i, j;
 
 	/* Get vertex / Node from LSA Advertised Router ID */
 	vertex = get_vertex(ted, lsa);
@@ -2481,23 +2483,23 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 		case RI_SR_TLV_SR_ALGORITHM:
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
 
-			for (int i = 0; i < ntohs(algo->header.length); i++) {
-				if (CHECK_FLAG(node->flags, LS_NODE_SR)
-				    && (node->algo[i] == algo->value[i]))
-					continue;
+			for (i = 0; i < SR_ALGORITHM_COUNT; i++) {
+				algo_enabled = false;
+				for (j = 0; j < ntohs(algo->header.length); j++) {
+					algo_enabled = true;
+					break;
+				}
 
-				node->algo[i] = algo->value[i];
-				SET_FLAG(node->flags, LS_NODE_SR);
+				if (node->algo[i] == algo_enabled)
+					continue; /* no change */
+
+				node->algo[i] = algo_enabled;
+
+				if (algo_enabled)
+					SET_FLAG(node->flags, LS_NODE_SR);
+
 				if (vertex->status != NEW)
 					vertex->status = UPDATE;
-			}
-
-			/* Reset other Algorithms */
-			for (int i = ntohs(algo->header.length); i < 2; i++) {
-				if (vertex->status != NEW
-				    && node->algo[i] != SR_ALGORITHM_UNSET)
-					vertex->status = UPDATE;
-				node->algo[i] = SR_ALGORITHM_UNSET;
 			}
 
 			break;
@@ -2598,8 +2600,6 @@ static int ospf_te_delete_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 	node = vertex->node;
 	UNSET_FLAG(node->flags, LS_NODE_SR);
 	memset(&node->srgb, 0, sizeof(struct ls_srgb));
-	node->algo[0] = SR_ALGORITHM_UNSET;
-	node->algo[1] = SR_ALGORITHM_UNSET;
 	UNSET_FLAG(node->flags, LS_NODE_SRLB);
 	memset(&node->srlb, 0, sizeof(struct ls_srlb));
 	UNSET_FLAG(node->flags, LS_NODE_MSD);

@@ -201,7 +201,6 @@ struct isis_lan_adj_sid {
 #define SR_ALGORITHM_COUNT	2
 #define SR_ALGORITHM_SPF	0
 #define SR_ALGORITHM_STRICT_SPF	1
-#define SR_ALGORITHM_UNSET	255
 
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2

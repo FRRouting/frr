@@ -1162,6 +1162,7 @@ int ls_request_sync(struct zclient *zclient)
 static struct ls_node *ls_parse_node(struct stream *s)
 {
 	struct ls_node *node;
+	int nb_algo, algo;
 	size_t len;
 
 	node = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_node));
@@ -1186,7 +1187,11 @@ static struct ls_node *ls_parse_node(struct stream *s)
 		STREAM_GETL(s, node->srgb.lower_bound);
 		STREAM_GETL(s, node->srgb.range_size);
 		STREAM_GETC(s, node->srgb.flag);
-		STREAM_GET(node->algo, s, 2);
+		STREAM_GETC(s, nb_algo);
+		for (int i = 0; i < nb_algo; i++) {
+			STREAM_GETC(s, algo);
+			node->algo[algo] = true;
+		}
 	}
 	if (CHECK_FLAG(node->flags, LS_NODE_SRLB)) {
 		STREAM_GETL(s, node->srlb.lower_bound);
@@ -1390,6 +1395,7 @@ stream_failure:
 static int ls_format_node(struct stream *s, struct ls_node *node)
 {
 	size_t len;
+	int nb_algo;
 
 	/* Push Advertise node information first */
 	stream_put(s, &node->adv, sizeof(struct ls_node_id));
@@ -1416,7 +1422,14 @@ static int ls_format_node(struct stream *s, struct ls_node *node)
 		stream_putl(s, node->srgb.lower_bound);
 		stream_putl(s, node->srgb.range_size);
 		stream_putc(s, node->srgb.flag);
-		stream_put(s, node->algo, 2);
+		nb_algo = 0;
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			if (node->algo[i])
+				nb_algo++;
+		stream_putc(s, nb_algo);
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			if (node->algo[i])
+				stream_putc(s, i);
 	}
 	if (CHECK_FLAG(node->flags, LS_NODE_SRLB)) {
 		stream_putl(s, node->srlb.lower_bound);
@@ -2009,12 +2022,12 @@ static void ls_show_vertex_vty(struct ls_vertex *vertex, struct vty *vty,
 				  lsn->srlb.lower_bound, upper);
 		}
 		sbuf_push(&sbuf, 0, "\tAlgo: ");
-		for (int i = 0; i < 2; i++) {
-			if (lsn->algo[i] == 255)
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			if (lsn->algo[i] == false)
 				continue;
 
 			sbuf_push(&sbuf, 0,
-				  lsn->algo[i] == 0 ? "SPF " : "S-SPF ");
+				  i ? "SPF " : "S-SPF ");
 		}
 		if (CHECK_FLAG(lsn->flags, LS_NODE_MSD))
 			sbuf_push(&sbuf, 0, "\tMSD: %d", lsn->msd);
@@ -2111,13 +2124,13 @@ static void ls_show_vertex_json(struct ls_vertex *vertex,
 		jalgo = json_object_new_array();
 		json_object_object_add(jsr, "algorithms", jalgo);
 		for (int i = 0; i < 2; i++) {
-			if (lsn->algo[i] == 255)
+			if (lsn->algo[i] == false)
 				continue;
 			jobj = json_object_new_object();
 
 			snprintfrr(buf, 2, "%u", i);
 			json_object_string_add(
-				jobj, buf, lsn->algo[i] == 0 ? "SPF" : "S-SPF");
+				jobj, buf, i ? "SPF" : "S-SPF");
 			json_object_array_add(jalgo, jobj);
 		}
 		if (CHECK_FLAG(lsn->flags, LS_NODE_SRLB)) {
