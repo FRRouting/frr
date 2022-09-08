@@ -726,7 +726,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni"',
-    "12 routes and 12",
+    "18 routes and 19",
     "wait",
     "Local and remote routes",
     10,
@@ -748,7 +748,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni"',
-    "12 routes and 15",
+    "18 routes and 22",
     "wait",
     "Local and remote routes",
     10,
@@ -780,7 +780,7 @@ luCommand("r4", 'vtysh -c "show ip route vrf r4-cust2"')
 luCommand(
     "ce3",
     'vtysh -c "show bgp ipv4 uni"',
-    "12 routes and 13",
+    "18 routes and 19",
     "wait",
     "Local and remote routes",
     10,
@@ -802,7 +802,7 @@ bgpribRequireUnicastRoutes(
 luCommand(
     "ce4",
     'vtysh -c "show bgp vrf ce4-cust2 ipv4 uni"',
-    "12 routes and 14",
+    "18 routes and 21",
     "wait",
     "Local and remote routes",
     10,
