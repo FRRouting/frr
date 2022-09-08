@@ -277,7 +277,6 @@ class FRRNetworkInstance(NetworkInstance):
 
         instance: "FRRNetworkInstance"
         logfiles: Dict[str, str]
-        logpos: Dict[str, int]
         rundir: Optional[str]
         rtrcfg: Dict[str, str]
         livelogs: Dict[str, LiveLog]
@@ -285,7 +284,6 @@ class FRRNetworkInstance(NetworkInstance):
         def __init__(self, instance: "FRRNetworkInstance", name: str):
             super().__init__(instance, name)
             self.logfiles = {}
-            self.logpos = {}
             self.livelogs = {}
             self.rundir = None
             self.rtrcfg = {}
@@ -314,7 +312,6 @@ class FRRNetworkInstance(NetworkInstance):
                 if daemon not in self.rtrcfg:
                     continue
                 self.logfiles[daemon] = self.tempfile("%s.log" % daemon)
-                self.logpos[daemon] = 0
                 self.start_daemon(daemon)
 
         def start_daemon(self, daemon: str):
@@ -378,23 +375,6 @@ class FRRNetworkInstance(NetworkInstance):
 
             super().end()
 
-        def iter_logs(self) -> Iterator[Tuple[str, str]]:
-            """
-            Retrieves log messages _added_ since the last call of iter_logs
-
-            (uses & updates self.logpos to the appropriate byte position)
-            """
-
-            for daemon, logfile in self.logfiles.items():
-                try:
-                    with open(logfile, "r", encoding="utf-8") as fd:
-                        data = fd.read()
-                except FileNotFoundError:
-                    continue
-                datanow = data[self.logpos[daemon] :]
-                self.logpos[daemon] = len(data)
-                yield (daemon, datanow)
-
         def vtysh(self, args):
             frrpath = self.instance.configs.frrpath
             execpath = os.path.join(frrpath, "vtysh/vtysh")
@@ -430,19 +410,6 @@ class FRRNetworkInstance(NetworkInstance):
                         break
 
             return (ret.decode("UTF-8").replace("\r\n", "\n"), rc)
-
-    def iter_logs(self) -> Iterator[Tuple[str, str, str]]:
-        """
-        Accumulate the iter_logs from all the routers
-
-        Same as RouterNS.iter_logs, this gets the _new_ log messages since the
-        previous call to iter_logs()
-        """
-        for rns in self.routers.values():
-            assert isinstance(rns, FRRNetworkInstance.RouterNS)
-
-            for log in rns.iter_logs():
-                yield (rns.name,) + log
 
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)
