@@ -183,7 +183,7 @@ class PrettyInstance(list):
         basepath = os.path.join(self.prettysession.outdir, basename)
 
         data = {
-            "ts_start": topotatocls.started_ts,
+            "ts_start": getattr(topotatocls, "started_ts", None),
             "items": [],
         }
 
