@@ -3823,30 +3823,61 @@ isis_router_cap_fad_sub_tlv_len(const struct isis_router_cap_fad *fad)
 	return sz;
 }
 
+static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
+{
+	size_t fad_sz, sz = 2 + ISIS_ROUTER_CAP_SIZE;
+	int nb_algo;
+
+	if ((router_cap->srgb.range_size != 0) &&
+	    (router_cap->srgb.lower_bound != 0)) {
+		sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+		sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
+		if (nb_algo != 0)
+			sz += 2 + nb_algo;
+
+		if ((router_cap->srlb.range_size != 0) &&
+		    (router_cap->srlb.lower_bound != 0)) {
+			sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+			sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+		}
+
+		if (router_cap->msd != 0) {
+			sz += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
+		}
+	}
+
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		if (!router_cap->fads[i])
+			continue;
+		fad_sz = 2 +
+			 isis_router_cap_fad_sub_tlv_len(router_cap->fads[i]);
+		if (((sz + fad_sz) % 256) < (sz % 256))
+			sz += 2 + ISIS_ROUTER_CAP_SIZE + fad_sz;
+		else
+			sz += fad_sz;
+	}
+
+	return sz;
+}
+
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			       struct stream *s)
 {
-	size_t tlv_len = ISIS_ROUTER_CAP_SIZE;
-	size_t len_pos;
+	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
 
 	if (!router_cap)
 		return 0;
 
-	/* Compute Maximum TLV size */
-	tlv_len += ISIS_SUBTLV_SID_LABEL_RANGE_SIZE
-		+ ISIS_SUBTLV_HDR_SIZE
-		+ ISIS_SUBTLV_ALGORITHM_SIZE
-		+ ISIS_SUBTLV_NODE_MSD_SIZE;
-
-	if (STREAM_WRITEABLE(s) < (unsigned int)(2 + tlv_len))
+	if (STREAM_WRITEABLE(s) < isis_router_cap_tlv_size(router_cap))
 		return 1;
 
 	/* Add Router Capability TLV 242 with Router ID and Flags */
 	stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
-	/* Real length will be adjusted later */
 	len_pos = stream_get_endp(s);
-	stream_putc(s, tlv_len);
+	stream_putc(s, 0); /* Real length will be adjusted later */
 	stream_put_ipv4(s, router_cap->router_id.s_addr);
 	stream_putc(s, router_cap->flags);
 
