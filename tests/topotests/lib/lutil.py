@@ -189,8 +189,11 @@ Total %-4d                                                           %-4d %d\n\
             self.log("unable to read: " + tstFile)
             sys.exit(1)
 
-    def command(self, target, command, regexp, op, result, returnJson, startt=None):
+    def command(self, target, command, regexp, op, result, returnJson):
         global net
+        if op != "wait":
+            self.l_line += 1
+
         if op == "jsoncmp_pass" or op == "jsoncmp_fail":
             returnJson = True
 
@@ -291,11 +294,7 @@ Total %-4d                                                           %-4d %d\n\
                     % (group_nl_converted, ret),
                     9,
                 )
-        if startt != None:
-            if js != None or ret is not False:
-                delta = time.time() - startt
-                self.result(target, success, "%s +%4.2f secs" % (result, delta))
-        elif op == "pass" or op == "fail":
+        if op == "pass" or op == "fail":
             self.result(target, success, result)
         if js != None:
             return js
@@ -327,7 +326,7 @@ Total %-4d                                                           %-4d %d\n\
 
         while wait_count > 0:
             n += 1
-            found = self.command(target, command, regexp, op, result, returnJson, startt)
+            found = self.command(target, command, regexp, op, result, returnJson)
             if found is not False:
                 break
 
@@ -337,6 +336,14 @@ Total %-4d                                                           %-4d %d\n\
 
         delta = time.time() - startt
         self.log("Done after %d loops, time=%s, Found=%s" % (n, delta, found))
+        found = self.command(
+            target,
+            command,
+            regexp,
+            "pass",
+            "%s +%4.2f secs" % (result, delta),
+            returnJson,
+        )
         return found
 
 
