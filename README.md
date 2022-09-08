@@ -2,6 +2,34 @@ TOPOTATO TESTING FRAMEWORK (WORK IN PROGRESS)
 ==========================
 
 
+TODOs / Known issues
+====================
+
+- skipping further tests after a TopotatoModifier failure is not implemented.
+  A TopotatoModifier failure should skip everything after it since a failed
+  modifier means the testbed is in an indeterminate state.
+- rework star (`from topotato import *`) import, it breaks things.
+- some style requirements should be automatically enforced, e.g. missing
+  docstrings should cause a failure.
+- `config_fixture` and `env_fixture` are slated to be removed to cut off some
+  unnecessary boilerplaten.
+- ExaBGP support is work in progress.
+- terminal-on-failure (potatool) is work in progress.
+- integrated-config mode for FRR needs to be supported.
+- FreeBSD support has not been tested & updated in ages and is probably just
+  completely broken right now.
+- `pytest-xdist` interop has not been tested & updated in ages, it probably
+  also breaks in funny and hilarious ways.
+- add more self-tests
+- protomato.js needs a bunch more work.
+    - re-add `macmap` functionality
+    - re-add xrefs lookup to source code
+    - short-decode more protocols
+- an `index.html` file should be generated with an overview of a test run.
+- add a bunch of attributes on the JUnit XML with machine parseable exception
+  location.
+
+
 Installation
 ============
 
