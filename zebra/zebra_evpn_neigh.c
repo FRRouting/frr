@@ -550,10 +550,9 @@ static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 	struct zebra_neigh tmp_n;
 	struct zebra_neigh *n = NULL;
 
-	memset(&tmp_n, 0, sizeof(struct zebra_neigh));
+	memset(&tmp_n, 0, sizeof(tmp_n));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(zevpn->neigh_table, &tmp_n, zebra_evpn_neigh_alloc);
-	assert(n);
 
 	n->state = ZEBRA_NEIGH_INACTIVE;
 	n->zevpn = zevpn;
@@ -702,11 +701,6 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 			set_dp_inactive = true;
 			n->flags |= ZEBRA_NEIGH_LOCAL_INACTIVE;
 		}
-
-		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
-			SET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY);
-		else
-			SET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE);
 
 		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT)) {
 			SET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY);
@@ -882,7 +876,7 @@ void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
 	if (!zevpn->neigh_table)
 		return;
 
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
@@ -1654,7 +1648,7 @@ void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn)
 {
 	struct neigh_walk_ctx wctx;
 
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 
 	hash_iterate(zevpn->neigh_table,
@@ -1719,9 +1713,6 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return;
-
 	uptime = monotime(NULL);
 	uptime -= n->uptime;
 

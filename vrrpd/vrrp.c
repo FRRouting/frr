@@ -654,7 +654,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 
 	vrrp_set_advertisement_interval(vr, vd.advertisement_interval);
 
-	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
+	(void)hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
 	return vr;
 }
@@ -985,7 +985,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
  */
 static void vrrp_read(struct thread *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = THREAD_ARG(thread);
 
 	struct vrrp_pkt *pkt;
 	ssize_t pktsize;
@@ -1480,7 +1480,7 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
  */
 static void vrrp_adver_timer_expire(struct thread *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = THREAD_ARG(thread);
 
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1508,7 +1508,7 @@ static void vrrp_adver_timer_expire(struct thread *thread)
  */
 static void vrrp_master_down_timer_expire(struct thread *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = THREAD_ARG(thread);
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		  "Master_Down_Timer expired",

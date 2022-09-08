@@ -1034,7 +1034,7 @@ static uint8_t *eigrpPeerEntry(struct variable *v, oid *name, size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(&nbr_addr, 0, sizeof(struct in_addr));
+	memset(&nbr_addr, 0, sizeof(nbr_addr));
 	ifindex = 0;
 
 	nbr = eigrpNbrLookup(v, name, length, &nbr_addr, &ifindex, exact);

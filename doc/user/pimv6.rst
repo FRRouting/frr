@@ -158,6 +158,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    and would like pim to use a specific source address associated with
    that interface.
 
+.. clicmd:: ipv6 pim passive
+
+   Disable sending and receiving pim control packets on the interface.
+
 .. clicmd:: ipv6 mld
 
    Tell pim to receive MLD reports and Query on this interface. The default
@@ -191,7 +195,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the MLD last member query count. The default value is 2. 'no' form of
    this command is used to configure back to the default value.
 
-.. clicmd:: ipv6 MLD last-member-query-interval (1-65535)
+.. clicmd:: ipv6 mld last-member-query-interval (1-65535)
 
    Set the MLD last member query interval in deciseconds. The default value is
    10 deciseconds. 'no' form of this command is used to to configure back to the
@@ -213,6 +217,9 @@ specified vrf command if information is desired about a specific vrf. If no
 vrf is specified then the default vrf is assumed. Finally the special keyword
 'all' allows you to look at all vrfs for the command. Naming a vrf 'all' will
 cause great confusion.
+
+PIM protocol state
+------------------
 
 .. clicmd:: show ipv6 pim [vrf NAME] group-type [json]
 
@@ -285,6 +292,121 @@ cause great confusion.
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. clicmd:: show ipv6 pim [vrf NAME] interface traffic [WORD] [json]
+
+   Display information about the number of PIM protocol packets sent/received
+   on an interface.
+
+MLD state
+---------
+
+.. clicmd:: show ipv6 mld [vrf NAME] interface [IFNAME] [detail|json]
+
+   Display per-interface MLD state, elected querier and related timers.  Use
+   the ``detail`` or ``json`` options for further information (the JSON output
+   always contains all details.)
+
+.. clicmd:: show ipv6 mld [vrf NAME] statistics [interface IFNAME] [json]
+
+   Display packet and error counters for MLD interfaces.  All counters are
+   packet counters (not bytes) and wrap at 64 bit.  In some rare cases,
+   malformed received MLD reports may be partially processed and counted on
+   multiple counters.
+
+.. clicmd:: show ipv6 mld [vrf NAME] joins [{interface IFNAME|groups X:X::X:X/M|sources X:X::X:X/M|detail}] [json]
+
+   Display joined groups tracked by MLD.  ``interface``, ``groups`` and
+   ``sources`` options may be used to limit output to a subset (note ``sources``
+   refers to the multicast traffic sender, not the host that joined to receive
+   the traffic.)
+
+   The ``detail`` option also reports which hosts have joined (subscribed) to
+   particular ``S,G``.  This information is only available for MLDv2 hosts with
+   a MLDv2 querier.  MLDv1 joins are recorded as "untracked" and shown in the
+   ``NonTrkSeen`` output column.
+
+.. clicmd:: show ipv6 mld [vrf NAME] groups [json]
+
+   Display MLD group information.
+
+General multicast routing state
+-------------------------------
+
+.. clicmd:: show ipv6 multicast
+
+   Display various information about the interfaces used in this pim instance.
+
+.. clicmd:: show ipv6 multicast count [vrf NAME] [json]
+
+   Display multicast data packets count per interface for a vrf.
+
+.. clicmd:: show ipv6 multicast count vrf all [json]
+
+   Display multicast data packets count per interface for all vrf.
+
+.. clicmd:: show ipv6 mroute [vrf NAME] [X:X::X:X [X:X::X:X]] [fill] [json]
+
+   Display information about installed into the kernel S,G mroutes.  If
+   one address is specified we assume it is the Group we are interested
+   in displaying data on.  If the second address is specified then it is
+   Source Group.  The keyword ``fill`` says to fill in all assumed data
+   for test/data gathering purposes.
+
+.. clicmd:: show ipv6 mroute [vrf NAME] count [json]
+
+   Display information about installed into the kernel S,G mroutes and in
+   addition display data about packet flow for the mroutes for a specific
+   vrf.
+
+.. clicmd:: show ipv6 mroute vrf all count [json]
+
+   Display information about installed into the kernel S,G mroutes and in
+   addition display data about packet flow for the mroutes for all vrfs.
+
+.. clicmd:: show ipv6 mroute [vrf NAME] summary [json]
+
+   Display total number of S,G mroutes and number of S,G mroutes installed
+   into the kernel for a specific vrf.
+
+.. clicmd:: show ipv6 mroute vrf all summary [json]
+
+   Display total number of S,G mroutes and number of S,G mroutes
+   installed into the kernel for all vrfs.
+
+PIMv6 Clear Commands
+====================
+
+Clear commands reset various variables.
+
+.. clicmd:: clear ipv6 mroute
+
+   Reset multicast routes.
+
+.. clicmd:: clear ipv6 mroute [vrf NAME] count
+
+   When this command is issued, reset the counts of data shown for
+   packet count, byte count and wrong interface to 0 and start count
+   up from this spot.
+
+.. clicmd:: clear ipv6 pim interfaces
+
+   Reset PIMv6 interfaces.
+
+.. clicmd:: clear ipv6 pim [vrf NAME] interface traffic
+
+   When this command is issued, resets the information about the 
+   number of PIM protocol packets sent/received on an interface.
+
+.. clicmd:: clear ipv6 pim oil
+
+   Rescan PIMv6 OIL (output interface list).
+
+.. clicmd:: clear ipv6 pim [vrf NAME] bsr-data
+
+   This command will clear the BSM scope data struct. This command also
+   removes the next hop tracking for the bsr and resets the upstreams
+   for the dynamically learnt RPs.
+
 PIMv6 Debug Commands
 ====================
 
@@ -294,3 +416,43 @@ configure CLI mode. If you specify debug commands in the configuration cli
 mode, the debug commands can be persistent across restarts of the FRR pim6d if
 the config was written out.
 
+.. clicmd:: debug pimv6 events
+
+   This turns on debugging for PIMv6 system events. Especially timers.
+
+.. clicmd:: debug pimv6 nht
+
+   This turns on debugging for PIMv6 nexthop tracking. It will display
+   information about RPF lookups and information about when a nexthop changes.
+
+.. clicmd:: debug pimv6 nht detail
+
+   This turns on debugging for PIMv6 nexthop in detail. This is not enabled
+   by default.
+
+.. clicmd:: debug pimv6 packet-dump
+
+   This turns on an extraordinary amount of data. Each pim packet sent and
+   received is dumped for debugging purposes. This should be considered a
+   developer only command.
+
+.. clicmd:: debug pimv6 packets
+
+   This turns on information about packet generation for sending and about
+   packet handling from a received packet.
+
+.. clicmd:: debug pimv6 trace
+
+   This traces pim code and how it is running.
+
+.. clicmd:: debug pimv6 zebra
+
+   This gathers data about events from zebra that come up through the ZAPI.
+
+.. clicmd:: debug mroute6
+
+   This turns on debugging for PIMv6 interaction with kernel MFC cache.
+
+.. clicmd:: debug mroute6 detail
+
+   This turns on detailed debugging for PIMv6 interaction with kernel MFC cache.

@@ -263,10 +263,14 @@ route_match_peer(void *rule, const struct prefix *prefix, void *object)
 	peer = ((struct bgp_path_info *)object)->peer;
 
 	if (pc->interface) {
-		if (!peer->conf_if)
+		if (!peer->conf_if || !peer->group)
 			return RMAP_NOMATCH;
 
-		if (strcmp(peer->conf_if, pc->interface) == 0)
+		if (peer->conf_if && strcmp(peer->conf_if, pc->interface) == 0)
+			return RMAP_MATCH;
+
+		if (peer->group &&
+		    strcmp(peer->group->name, pc->interface) == 0)
 			return RMAP_MATCH;
 
 		return RMAP_NOMATCH;
@@ -1964,7 +1968,7 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set local preference value. */
-	if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+	if (path->attr->local_pref)
 		locpref = path->attr->local_pref;
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
@@ -3863,7 +3867,7 @@ static void bgp_route_map_update_peer_group(const char *rmap_name,
  * network statements, etc looking to see if they use this route-map.
  */
 static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
-					 int route_update)
+					 bool route_update)
 {
 	int i;
 	bool matched;
@@ -4076,7 +4080,7 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	struct bgp *bgp;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp_route_map_process_update(bgp, rmap_name, 1);
+		bgp_route_map_process_update(bgp, rmap_name, true);
 
 #ifdef ENABLE_BGP_VNC
 		vnc_routemap_update(bgp, __func__);
@@ -4112,12 +4116,11 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 		/* Signal the groups that a route-map update event has
 		 * started */
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-			update_group_policy_update(bgp,
-						   BGP_POLICY_ROUTE_MAP,
-						   rmap_name, 1, 1);
+			update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP,
+						   rmap_name, true, 1);
 	} else {
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			bgp_route_map_process_update(bgp, rmap_name, 0);
+			bgp_route_map_process_update(bgp, rmap_name, false);
 #ifdef ENABLE_BGP_VNC
 			vnc_routemap_update(bgp, __func__);
 #endif
@@ -4406,8 +4409,8 @@ DEFUN_YANG (set_evpn_gw_ip_ipv4,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (su.sin.sin_addr.s_addr == 0
-	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+	if (su.sin.sin_addr.s_addr == 0 ||
+	    !ipv4_unicast_valid(&su.sin.sin_addr)) {
 		vty_out(vty,
 			"%% Gateway IP cannot be 0.0.0.0, multicast or reserved\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -4444,8 +4447,8 @@ DEFUN_YANG (no_set_evpn_gw_ip_ipv4,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (su.sin.sin_addr.s_addr == 0
-	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+	if (su.sin.sin_addr.s_addr == 0 ||
+	    !ipv4_unicast_valid(&su.sin.sin_addr)) {
 		vty_out(vty,
 			"%% Gateway IP cannot be 0.0.0.0, multicast or reserved\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -4567,7 +4570,7 @@ DEFPY_YANG (match_peer,
        "Match peer address\n"
        "IP address of peer\n"
        "IPv6 address of peer\n"
-       "Interface name of peer\n")
+       "Interface name of peer or peer group name\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:peer']";

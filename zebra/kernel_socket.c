@@ -1112,14 +1112,6 @@ void rtm_read(struct rt_msghdr *rtm)
 	} else
 		return;
 
-	/*
-	 * CHANGE: delete the old prefix, we have no further information
-	 * to specify the route really
-	 */
-	if (rtm->rtm_type == RTM_CHANGE)
-		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, NULL, 0, RT_TABLE_MAIN, 0,
-			   0, true);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
@@ -1156,7 +1148,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		return ZEBRA_ERR_EPERM;
 
 	/* Clear and set rt_msghdr values */
-	memset(&msg, 0, sizeof(struct rt_msghdr));
+	memset(&msg, 0, sizeof(msg));
 	msg.rtm.rtm_version = RTM_VERSION;
 	msg.rtm.rtm_type = message;
 	msg.rtm.rtm_seq = msg_seq++;
@@ -1354,6 +1346,16 @@ static void kernel_read(struct thread *thread)
 
 	if (nbytes < 0) {
 		if (errno == ENOBUFS) {
+#ifdef __FreeBSD__
+			/*
+			 * ENOBUFS indicates a temporary resource
+			 * shortage and is not harmful for consistency of
+			 * reading the routing socket.  Ignore it.
+			 */
+			thread_add_read(zrouter.master, kernel_read, NULL, sock,
+					NULL);
+			return;
+#else
 			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
 				 "routing socket overrun: %s",
 				 safe_strerror(errno));
@@ -1363,6 +1365,7 @@ static void kernel_read(struct thread *thread)
 			 *  recover zebra at this point.
 			 */
 			exit(-1);
+#endif
 		}
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
@@ -1518,7 +1521,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_q handled_list;
-	enum zebra_dplane_result res;
+	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	TAILQ_INIT(&handled_list);
 
@@ -1592,6 +1595,12 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 			res = kernel_intf_update(ctx);
 			break;
 
+		case DPLANE_OP_TC_INSTALL:
+		case DPLANE_OP_TC_UPDATE:
+		case DPLANE_OP_TC_DELETE:
+			res = kernel_tc_update(ctx);
+			break;
+
 		/* Ignore 'notifications' - no-op */
 		case DPLANE_OP_SYS_ROUTE_ADD:
 		case DPLANE_OP_SYS_ROUTE_DELETE:
@@ -1600,9 +1609,27 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 
-		default:
-			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+		case DPLANE_OP_INTF_NETCONFIG:
+			res = kernel_intf_netconf_update(ctx);
 			break;
+
+		case DPLANE_OP_NONE:
+		case DPLANE_OP_BR_PORT_UPDATE:
+		case DPLANE_OP_IPTABLE_ADD:
+		case DPLANE_OP_IPTABLE_DELETE:
+		case DPLANE_OP_IPSET_ADD:
+		case DPLANE_OP_IPSET_DELETE:
+		case DPLANE_OP_IPSET_ENTRY_ADD:
+		case DPLANE_OP_IPSET_ENTRY_DELETE:
+		case DPLANE_OP_NEIGH_IP_INSTALL:
+		case DPLANE_OP_NEIGH_IP_DELETE:
+		case DPLANE_OP_NEIGH_TABLE_UPDATE:
+		case DPLANE_OP_GRE_SET:
+		case DPLANE_OP_INTF_ADDR_ADD:
+		case DPLANE_OP_INTF_ADDR_DEL:
+			zlog_err("Unhandled dplane data for %s",
+				 dplane_op2str(dplane_ctx_get_op(ctx)));
+			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 
 	skip_one:

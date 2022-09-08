@@ -854,15 +854,12 @@ struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit)
 	if (length % AS16_VALUE_SIZE)
 		return NULL;
 
-	memset(&as, 0, sizeof(struct aspath));
+	memset(&as, 0, sizeof(as));
 	if (assegments_parse(s, length, &as.segments, use32bit) < 0)
 		return NULL;
 
 	/* If already same aspath exist then return it. */
 	find = hash_get(ashash, &as, aspath_hash_alloc);
-
-	/* bug! should not happen, let the daemon crash below */
-	assert(find);
 
 	/* if the aspath was already hashed free temporary memory. */
 	if (find->refcnt) {
@@ -1205,28 +1202,6 @@ bool aspath_private_as_check(struct aspath *aspath)
 
 		for (i = 0; i < seg->length; i++) {
 			if (!BGP_AS_IS_PRIVATE(seg->as[i]))
-				return false;
-		}
-		seg = seg->next;
-	}
-	return true;
-}
-
-/* Return True if the entire ASPATH consist of the specified ASN */
-bool aspath_single_asn_check(struct aspath *aspath, as_t asn)
-{
-	struct assegment *seg;
-
-	if (!(aspath && aspath->segments))
-		return false;
-
-	seg = aspath->segments;
-
-	while (seg) {
-		int i;
-
-		for (i = 0; i < seg->length; i++) {
-			if (seg->as[i] != asn)
 				return false;
 		}
 		seg = seg->next;

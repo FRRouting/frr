@@ -58,6 +58,7 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
 	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
 	{CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart"},
+	{CAPABILITY_CODE_ROLE, "Role"},
 	{0}};
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
@@ -77,6 +78,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
 		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
 		[CAPABILITY_CODE_LLGR] = CAPABILITY_CODE_LLGR_LEN,
+		[CAPABILITY_CODE_ROLE] = CAPABILITY_CODE_ROLE_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -100,6 +102,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_ENHANCED_RR] = 1,
 		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
 		[CAPABILITY_CODE_LLGR] = 1,
+		[CAPABILITY_CODE_ROLE] = 1,
 };
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
@@ -517,21 +520,39 @@ static int bgp_capability_restart(struct peer *peer,
 
 	SET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
 	restart_flag_time = stream_getw(s);
-	if (CHECK_FLAG(restart_flag_time, RESTART_R_BIT))
-		SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV);
+
+	/* The most significant bit is defined in [RFC4724] as
+	 * the Restart State ("R") bit.
+	 */
+	if (CHECK_FLAG(restart_flag_time, GRACEFUL_RESTART_R_BIT))
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
 	else
-		UNSET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV);
+		UNSET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV);
+
+	/* The second most significant bit is defined in this
+	 * document as the Graceful Notification ("N") bit.
+	 */
+	if (CHECK_FLAG(restart_flag_time, GRACEFUL_RESTART_N_BIT))
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
+	else
+		UNSET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV);
 
 	UNSET_FLAG(restart_flag_time, 0xF000);
 	peer->v_gr_restart = restart_flag_time;
 
 	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug("%s Peer has%srestarted. Restart Time : %d",
-			   peer->host,
-			   CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)
-				   ? " "
-				   : " not ",
-			   peer->v_gr_restart);
+		zlog_debug(
+			"%s Peer has%srestarted. Restart Time: %d, N-bit set: %s",
+			peer->host,
+			CHECK_FLAG(peer->cap,
+				   PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)
+				? " "
+				: " not ",
+			peer->v_gr_restart,
+			CHECK_FLAG(peer->cap,
+				   PEER_CAP_GRACEFUL_RESTART_N_BIT_RCV)
+				? "yes"
+				: "no");
 	}
 
 	while (stream_get_getp(s) + 4 <= end) {
@@ -567,7 +588,7 @@ static int bgp_capability_restart(struct peer *peer,
 
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_RESTART_AF_RCV);
-			if (CHECK_FLAG(flag, RESTART_F_BIT))
+			if (CHECK_FLAG(flag, GRACEFUL_RESTART_F_BIT))
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_RESTART_AF_PRESERVE_RCV);
 		}
@@ -869,6 +890,20 @@ static int bgp_capability_hostname(struct peer *peer,
 	return 0;
 }
 
+static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
+{
+	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
+	if (hdr->length != CAPABILITY_CODE_ROLE_LEN) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
+			  "Role: Received invalid length %d", hdr->length);
+		return -1;
+	}
+	uint8_t role = stream_getc(BGP_INPUT(peer));
+
+	peer->remote_role = role;
+	return 0;
+}
+
 /**
  * Parse given capability.
  * XXX: This is reading into a stream, but not using stream API
@@ -936,6 +971,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_FQDN:
 		case CAPABILITY_CODE_ENHANCED_RR:
 		case CAPABILITY_CODE_EXT_MESSAGE:
+		case CAPABILITY_CODE_ROLE:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -1033,6 +1069,9 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_FQDN:
 			ret = bgp_capability_hostname(peer, &caphdr);
 			break;
+		case CAPABILITY_CODE_ROLE:
+			ret = bgp_capability_role(peer, &caphdr);
+			break;
 		default:
 			if (caphdr.code > 128) {
 				/* We don't send Notification for unknown vendor
@@ -1094,6 +1133,36 @@ static bool strict_capability_same(struct peer *peer)
 				return false;
 	return true;
 }
+
+
+static bool bgp_role_violation(struct peer *peer)
+{
+	uint8_t local_role = peer->local_role;
+	uint8_t remote_role = peer->remote_role;
+
+	if (local_role != ROLE_UNDEFINED && remote_role != ROLE_UNDEFINED &&
+	    !((local_role == ROLE_PEER && remote_role == ROLE_PEER) ||
+	      (local_role == ROLE_PROVIDER && remote_role == ROLE_CUSTOMER) ||
+	      (local_role == ROLE_CUSTOMER && remote_role == ROLE_PROVIDER) ||
+	      (local_role == ROLE_RS_SERVER && remote_role == ROLE_RS_CLIENT) ||
+	      (local_role == ROLE_RS_CLIENT &&
+	       remote_role == ROLE_RS_SERVER))) {
+		bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+				BGP_NOTIFY_OPEN_ROLE_MISMATCH);
+		return true;
+	}
+	if (remote_role == ROLE_UNDEFINED &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)) {
+		const char *err_msg =
+			"Strict mode. Please set the role on your side.";
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
+					  BGP_NOTIFY_OPEN_ROLE_MISMATCH,
+					  (uint8_t *)err_msg, strlen(err_msg));
+		return true;
+	}
+	return false;
+}
+
 
 /* peek into option, stores ASN to *as4 if the AS4 capability was found.
  * Returns  0 if no as4 found, as4cap value otherwise.
@@ -1279,6 +1348,10 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 			? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
 			: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
+	/* Check that roles are corresponding to each other */
+	if (bgp_role_violation(peer))
+		return -1;
+
 	/* Check there are no common AFI/SAFIs and send Unsupported Capability
 	   error. */
 	if (*mp_capability
@@ -1324,8 +1397,8 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 	unsigned long orfp;
 	unsigned long numberp;
 	int number_of_orfs = 0;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1389,10 +1462,10 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					bool ext_opt_params)
 {
 	int len;
-	iana_afi_t pkt_afi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	afi_t afi;
 	safi_t safi;
-	iana_safi_t pkt_safi;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	uint32_t restart_time;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
@@ -1416,11 +1489,18 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	stream_putc(s, 0);
 	restart_time = peer->bgp->restart_time;
 	if (peer->bgp->t_startup) {
-		SET_FLAG(restart_time, RESTART_R_BIT);
-		SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV);
-
+		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] Sending R-Bit for Peer :%s :",
+			zlog_debug("[BGP_GR] Sending R-Bit for peer: %s",
+				   peer->host);
+	}
+
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GRACEFUL_NOTIFICATION)) {
+		SET_FLAG(restart_time, GRACEFUL_RESTART_N_BIT);
+		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_N_BIT_ADV);
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("[BGP_GR] Sending N-Bit for peer: %s",
 				   peer->host);
 	}
 
@@ -1452,7 +1532,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 			stream_putc(s, pkt_safi);
 			if (CHECK_FLAG(peer->bgp->flags,
 				       BGP_FLAG_GR_PRESERVE_FWD))
-				stream_putc(s, RESTART_F_BIT);
+				stream_putc(s, GRACEFUL_RESTART_F_BIT);
 			else
 				stream_putc(s, 0);
 		}
@@ -1472,10 +1552,10 @@ static void bgp_peer_send_llgr_capability(struct stream *s, struct peer *peer,
 					  bool ext_opt_params)
 {
 	int len;
-	iana_afi_t pkt_afi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	afi_t afi;
 	safi_t safi;
-	iana_safi_t pkt_safi;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
 
@@ -1523,10 +1603,10 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 {
 	uint16_t len;
 	unsigned long cp, capp, rcapp, eopl = 0;
-	iana_afi_t pkt_afi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	afi_t afi;
 	safi_t safi;
-	iana_safi_t pkt_safi;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	as_t local_as;
 	uint8_t afi_safi_count = 0;
 	int adv_addpath_tx = 0;
@@ -1648,6 +1728,16 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 		       : stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN + 2);
 	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE);
 	stream_putc(s, CAPABILITY_CODE_EXT_MESSAGE_LEN);
+
+	/* Role*/
+	if (peer->local_role != ROLE_UNDEFINED) {
+		SET_FLAG(peer->cap, PEER_CAP_ROLE_ADV);
+		stream_putc(s, BGP_OPEN_OPT_CAP);
+		stream_putc(s, CAPABILITY_CODE_ROLE_LEN + 2);
+		stream_putc(s, CAPABILITY_CODE_ROLE);
+		stream_putc(s, CAPABILITY_CODE_ROLE_LEN);
+		stream_putc(s, peer->local_role);
+	}
 
 	/* AddPath */
 	FOREACH_AFI_SAFI (afi, safi) {

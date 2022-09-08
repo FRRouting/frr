@@ -324,7 +324,7 @@ void zebra_evpn_deref_ip2mac(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 }
 
 static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
-					   struct interface **ifpP,
+					   struct interface **p_ifp,
 					   vlanid_t *vid)
 {
 	/* if the mac is associated with an ES we must get the access
@@ -334,7 +334,7 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 		struct zebra_if *zif;
 
 		/* get the access port from the es */
-		*ifpP = mac->es->zif ? mac->es->zif->ifp : NULL;
+		*p_ifp = mac->es->zif ? mac->es->zif->ifp : NULL;
 		/* get the vlan from the EVPN */
 		if (mac->zevpn->vxlan_if) {
 			zif = mac->zevpn->vxlan_if->info;
@@ -347,8 +347,8 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 
 		*vid = mac->fwd_info.local.vid;
 		zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
-		*ifpP = if_lookup_by_index_per_ns(zns,
-						  mac->fwd_info.local.ifindex);
+		*p_ifp = if_lookup_by_index_per_ns(zns,
+						   mac->fwd_info.local.ifindex);
 	}
 }
 
@@ -374,8 +374,9 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 								: "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) ? "DUP " : "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT) ? "FPM " : "",
-		CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE) ? "LOC Active "
-								 : "",
+		CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)
+			? "PEER Active "
+			: "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY " : "",
 		CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)
 			? "LOC Inactive "
@@ -625,9 +626,6 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	char up_str[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return;
-
 	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
@@ -1102,10 +1100,9 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	struct zebra_mac tmp_mac;
 	struct zebra_mac *mac = NULL;
 
-	memset(&tmp_mac, 0, sizeof(struct zebra_mac));
+	memset(&tmp_mac, 0, sizeof(tmp_mac));
 	memcpy(&tmp_mac.macaddr, macaddr, ETH_ALEN);
 	mac = hash_get(zevpn->mac_table, &tmp_mac, zebra_evpn_mac_alloc);
-	assert(mac);
 
 	mac->zevpn = zevpn;
 	mac->dad_mac_auto_recovery_timer = NULL;
@@ -1256,7 +1253,7 @@ void zebra_evpn_mac_del_all(struct zebra_evpn *zevpn, int uninstall,
 	if (!zevpn->mac_table)
 		return;
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 	wctx.uninstall = uninstall;
 	wctx.upd_client = upd_client;
@@ -1931,7 +1928,7 @@ void zebra_evpn_send_mac_list_to_client(struct zebra_evpn *zevpn)
 	if (!zevpn->mac_table)
 		return;
 
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	memset(&wctx, 0, sizeof(wctx));
 	wctx.zevpn = zevpn;
 
 	hash_iterate(zevpn->mac_table, zebra_evpn_send_mac_hash_entry_to_client,

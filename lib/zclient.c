@@ -447,7 +447,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
-	struct nexthop nh = {};
+	struct zapi_nexthop *znh;
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
@@ -465,12 +465,16 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	nh.type = NEXTHOP_TYPE_IFINDEX;
-	nh.ifindex = oif;
-	SET_FLAG(nh.flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	nexthop_add_srv6_seg6local(&nh, action, context);
+	znh = &api.nexthops[0];
 
-	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = NEXTHOP_TYPE_IFINDEX;
+	znh->ifindex = oif;
+	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	znh->seg6local_action = action;
+	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
+
 	api.nexthop_num = 1;
 
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
@@ -1038,7 +1042,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putl(s, api_nh->weight);
 
 	/* Router MAC for EVPN routes. */
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_EVPN))
 		stream_put(s, &(api_nh->rmac),
 			   sizeof(struct ethaddr));
 
@@ -1402,7 +1406,7 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GETL(s, api_nh->weight);
 
 	/* Router MAC for EVPN routes. */
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
 		STREAM_GET(&(api_nh->rmac), s,
 			   sizeof(struct ethaddr));
 
@@ -1829,6 +1833,9 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_EVPN))
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
 
 	if (nh->nh_label && (nh->nh_label->num_labels > 0)) {
 
@@ -3551,7 +3558,7 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_reset(s);
 
 	zclient_create_header(s, command, VRF_DEFAULT);
-	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
 	stream_putl(s, pw->ifindex);
 
 	/* Put type */
@@ -3598,7 +3605,7 @@ int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 	s = zclient->ibuf;
 
 	/* Get data. */
-	stream_get(pw->ifname, s, IF_NAMESIZE);
+	stream_get(pw->ifname, s, INTERFACE_NAMSIZ);
 	STREAM_GETL(s, pw->ifindex);
 	STREAM_GETL(s, pw->status);
 

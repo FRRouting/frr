@@ -25,6 +25,7 @@
 #include "if.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_msg.h"
 #include "pim_jp_agg.h"
 #include "pim_join.h"
@@ -109,7 +110,6 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	struct pim_interface *pim_ifp;
 	struct pim_iface_upstream_switch *pius;
 	struct listnode *node, *nnode;
-	pim_addr rpf_addr;
 
 	if (!ifp)
 		return NULL;
@@ -120,18 +120,16 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	if (!pim_ifp)
 		return NULL;
 
-	rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
-
 	for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode,
 			       pius)) {
-		if (!pim_addr_cmp(pius->address, rpf_addr))
+		if (!pim_addr_cmp(pius->address, rpf->rpf_addr))
 			break;
 	}
 
 	if (!pius) {
 		pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			       sizeof(struct pim_iface_upstream_switch));
-		pius->address = rpf_addr;
+		pius->address = rpf->rpf_addr;
 		pius->us = list_new();
 		listnode_add_sort(pim_ifp->upstream_switch_list, pius);
 	}

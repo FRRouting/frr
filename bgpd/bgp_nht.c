@@ -82,12 +82,10 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 {
 	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-			zlog_debug("%s: freeing bnc %s(%u)(%s)", __func__,
-				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				   bnc->srte_color, bnc->bgp->name_pretty);
-		}
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: freeing bnc %pFX(%d)(%u)(%s)", __func__,
+				   &bnc->prefix, bnc->ifindex, bnc->srte_color,
+				   bnc->bgp->name_pretty);
 		/* only unregister if this is the last nh for this prefix*/
 		if (!bnc_existing_for_prefix(bnc))
 			unregister_zebra_rnh(bnc);
@@ -113,17 +111,32 @@ void bgp_replace_nexthop_by_peer(struct peer *from, struct peer *to)
 	struct prefix pt;
 	struct bgp_nexthop_cache *bncp, *bnct;
 	afi_t afi;
+	ifindex_t ifindex = 0;
 
 	if (!sockunion2hostprefix(&from->su, &pp))
 		return;
 
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	if (from->conf_if && IN6_IS_ADDR_LINKLOCAL(&from->su.sin6.sin6_addr))
+		ifindex = from->su.sin6.sin6_scope_id;
+
 	afi = family2afi(pp.family);
-	bncp = bnc_find(&from->bgp->nexthop_cache_table[afi], &pp, 0);
+	bncp = bnc_find(&from->bgp->nexthop_cache_table[afi], &pp, 0, ifindex);
 
 	if (!sockunion2hostprefix(&to->su, &pt))
 		return;
 
-	bnct = bnc_find(&to->bgp->nexthop_cache_table[afi], &pt, 0);
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	ifindex = 0;
+	if (to->conf_if && IN6_IS_ADDR_LINKLOCAL(&to->su.sin6.sin6_addr))
+		ifindex = to->su.sin6.sin6_scope_id;
+	bnct = bnc_find(&to->bgp->nexthop_cache_table[afi], &pt, 0, ifindex);
 
 	if (bnct != bncp)
 		return;
@@ -137,11 +150,17 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
 	struct prefix p;
 	struct bgp_nexthop_cache *bnc;
 	afi_t afi = family2afi(peer->su.sa.sa_family);
+	ifindex_t ifindex = 0;
 
 	if (!sockunion2hostprefix(&peer->su, &p))
 		return;
-
-	bnc = bnc_find(&peer->bgp->nexthop_cache_table[afi], &p, 0);
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		ifindex = peer->su.sin6.sin6_scope_id;
+	bnc = bnc_find(&peer->bgp->nexthop_cache_table[afi], &p, 0, ifindex);
 	if (!bnc)
 		return;
 
@@ -177,8 +196,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		   to derive
 		   address-family from the next-hop. */
 		if (!is_bgp_static_route)
-			afi = BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr) ? AFI_IP6
-								 : AFI_IP;
+			afi = BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr) ? AFI_IP6
+								    : AFI_IP;
 
 		/* Validation for the ipv4 mapped ipv6 nexthop. */
 		if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
@@ -206,9 +225,18 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * Gather the ifindex for if up/down events to be
 		 * tagged into this fun
 		 */
-		if (afi == AFI_IP6
-		    && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		if (afi == AFI_IP6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr)) {
 			ifindex = peer->su.sin6.sin6_scope_id;
+			if (ifindex == 0) {
+				if (BGP_DEBUG(nht, NHT)) {
+					zlog_debug(
+						"%s: Unable to locate ifindex, waiting till we have one",
+						peer->conf_if);
+				}
+				return 0;
+			}
+		}
 
 		if (!sockunion2hostprefix(&peer->su, &p)) {
 			if (BGP_DEBUG(nht, NHT)) {
@@ -226,29 +254,21 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	else
 		tree = &bgp_nexthop->nexthop_cache_table[afi];
 
-	bnc = bnc_find(tree, &p, srte_color);
+	bnc = bnc_find(tree, &p, srte_color, ifindex);
 	if (!bnc) {
-		bnc = bnc_new(tree, &p, srte_color);
+		bnc = bnc_new(tree, &p, srte_color, ifindex);
 		bnc->bgp = bgp_nexthop;
-		bnc->ifindex = ifindex;
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-
-			zlog_debug("Allocated bnc %s(%u)(%s) peer %p",
-				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				   bnc->srte_color, bnc->bgp->name_pretty,
-				   peer);
-		}
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("Allocated bnc %pFX(%d)(%u)(%s) peer %p",
+				   &bnc->prefix, bnc->ifindex, bnc->srte_color,
+				   bnc->bgp->name_pretty, peer);
 	} else {
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX2STR_BUFFER];
-
+		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
-				"Found existing bnc %s(%s) flags 0x%x ifindex %d #paths %d peer %p",
-				bnc_str(bnc, buf, PREFIX2STR_BUFFER),
+				"Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
+				&bnc->prefix, bnc->ifindex,
 				bnc->bgp->name_pretty, bnc->flags, bnc->ifindex,
 				bnc->path_count, bnc->nht_info);
-		}
 	}
 
 	if (pi && is_route_parent_evpn(pi))
@@ -351,15 +371,21 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 {
 	struct bgp_nexthop_cache *bnc;
 	struct prefix p;
+	ifindex_t ifindex = 0;
 
 	if (!peer)
 		return;
 
 	if (!sockunion2hostprefix(&peer->su, &p))
 		return;
-
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		ifindex = peer->su.sin6.sin6_scope_id;
 	bnc = bnc_find(&peer->bgp->nexthop_cache_table[family2afi(p.family)],
-		       &p, 0);
+		       &p, 0, ifindex);
 	if (!bnc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
@@ -400,7 +426,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	int i;
 	bool evpn_resolved = false;
 
-	bnc->last_update = bgp_clock();
+	bnc->last_update = monotime(NULL);
 	bnc->change_flags = 0;
 
 	/* debug print the input */
@@ -408,9 +434,9 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
 
 		zlog_debug(
-			"%s(%u): Rcvd NH update %pFX(%u) - metric %d/%d #nhops %d/%d flags %s",
+			"%s(%u): Rcvd NH update %pFX(%u)%u) - metric %d/%d #nhops %d/%d flags %s",
 			bnc->bgp->name_pretty, bnc->bgp->vrf_id, &nhr->prefix,
-			bnc->srte_color, nhr->metric, bnc->metric,
+			bnc->ifindex, bnc->srte_color, nhr->metric, bnc->metric,
 			nhr->nexthop_num, bnc->nexthop_num,
 			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
 						   sizeof(bnc_buf)));
@@ -527,16 +553,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		if (bnc->is_evpn_gwip_nexthop) {
 			evpn_resolved = bgp_evpn_is_gateway_ip_resolved(bnc);
 
-			if (BGP_DEBUG(nht, NHT)) {
-				char buf2[PREFIX2STR_BUFFER];
-
-				prefix2str(&bnc->prefix, buf2, sizeof(buf2));
+			if (BGP_DEBUG(nht, NHT))
 				zlog_debug(
-					"EVPN gateway IP %s recursive MAC/IP lookup %s",
-					buf2,
+					"EVPN gateway IP %pFX recursive MAC/IP lookup %s",
+					&bnc->prefix,
 					(evpn_resolved ? "successful"
 						       : "failed"));
-			}
 
 			if (evpn_resolved) {
 				bnc->flags |= BGP_NEXTHOP_VALID;
@@ -573,7 +595,7 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 		if (bnc->ifindex != ifp->ifindex)
 			continue;
 
-		bnc->last_update = bgp_clock();
+		bnc->last_update = monotime(NULL);
 		bnc->change_flags = 0;
 
 		/*
@@ -659,15 +681,22 @@ void bgp_nht_interface_events(struct peer *peer)
 	struct bgp_nexthop_cache_head *table;
 	struct bgp_nexthop_cache *bnc;
 	struct prefix p;
+	ifindex_t ifindex = 0;
 
 	if (!IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
 		return;
 
 	if (!sockunion2hostprefix(&peer->su, &p))
 		return;
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	if (peer->conf_if && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		ifindex = peer->su.sin6.sin6_scope_id;
 
 	table = &bgp->nexthop_cache_table[AFI_IP6];
-	bnc = bnc_find(table, &p, 0);
+	bnc = bnc_find(table, &p, 0, ifindex);
 	if (!bnc)
 		return;
 
@@ -703,7 +732,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	afi = family2afi(match.family);
 	tree = &bgp->nexthop_cache_table[afi];
 
-	bnc_nhc = bnc_find(tree, &match, nhr.srte_color);
+	bnc_nhc = bnc_find(tree, &match, nhr.srte_color, 0);
 	if (!bnc_nhc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
@@ -714,15 +743,14 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 	tree = &bgp->import_check_table[afi];
 
-	bnc_import = bnc_find(tree, &match, nhr.srte_color);
+	bnc_import = bnc_find(tree, &match, nhr.srte_color, 0);
 	if (!bnc_import) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
 				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
-		return;
-	}
-	bgp_process_nexthop_update(bnc_import, &nhr, true);
+	} else
+		bgp_process_nexthop_update(bnc_import, &nhr, true);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -740,9 +768,9 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
-			if (!prefix_same(&bnc_import->prefix, &bnc_iter->prefix)
-			    || bnc_iter->srte_color == 0
-			    || CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
+			if (!prefix_same(&bnc_nhc->prefix, &bnc_iter->prefix) ||
+			    bnc_iter->srte_color == 0 ||
+			    CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
 
 			bgp_process_nexthop_update(bnc_iter, &nhr, false);
@@ -805,7 +833,11 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				p->u.prefix4 = ipv4;
 				p->prefixlen = IPV4_MAX_BITLEN;
 			} else {
-				p->u.prefix4 = pi->attr->nexthop;
+				if (p_orig->family == AF_EVPN)
+					p->u.prefix4 =
+						pi->attr->mp_nexthop_global_in;
+				else
+					p->u.prefix4 = pi->attr->nexthop;
 				p->prefixlen = IPV4_MAX_BITLEN;
 			}
 		}
@@ -977,14 +1009,13 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	const struct prefix *p;
 
 	if (BGP_DEBUG(nht, NHT)) {
-		char buf[PREFIX2STR_BUFFER];
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
 		char chg_buf[BNC_FLAG_DUMP_SIZE];
 
-		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s(%u)(%s) - flags %s chgflags %s- evaluate paths",
-			buf, bnc->srte_color, bnc->bgp->name_pretty,
+			"NH update for %pFX(%d)(%u)(%s) - flags %s chgflags %s- evaluate paths",
+			&bnc->prefix, bnc->ifindex, bnc->srte_color,
+			bnc->bgp->name_pretty,
 			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
 						   sizeof(bnc_buf)),
 			bgp_nexthop_dump_bnc_change_flags(bnc, chg_buf,
@@ -1191,6 +1222,7 @@ void bgp_nht_reg_enhe_cap_intfs(struct peer *peer)
 	struct nexthop *nhop;
 	struct interface *ifp;
 	struct prefix p;
+	ifindex_t ifindex = 0;
 
 	if (peer->ifp)
 		return;
@@ -1204,8 +1236,14 @@ void bgp_nht_reg_enhe_cap_intfs(struct peer *peer)
 
 	if (p.family != AF_INET6)
 		return;
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	if (peer->conf_if && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		ifindex = peer->su.sin6.sin6_scope_id;
 
-	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p, 0);
+	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p, 0, ifindex);
 	if (!bnc)
 		return;
 
@@ -1232,6 +1270,7 @@ void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer)
 	struct nexthop *nhop;
 	struct interface *ifp;
 	struct prefix p;
+	ifindex_t ifindex = 0;
 
 	if (peer->ifp)
 		return;
@@ -1246,8 +1285,14 @@ void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer)
 
 	if (p.family != AF_INET6)
 		return;
+	/*
+	 * Gather the ifindex for if up/down events to be
+	 * tagged into this fun
+	 */
+	if (peer->conf_if && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
+		ifindex = peer->su.sin6.sin6_scope_id;
 
-	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p, 0);
+	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p, 0, ifindex);
 	if (!bnc)
 		return;
 

@@ -140,17 +140,17 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	}
 
 	/* Cancel all timers. */
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
-	OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
-	OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
-	OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
+	THREAD_OFF(nbr->t_inactivity);
+	THREAD_OFF(nbr->t_db_desc);
+	THREAD_OFF(nbr->t_ls_req);
+	THREAD_OFF(nbr->t_ls_upd);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
 	thread_cancel_event(master, nbr);
 
 	bfd_sess_free(&nbr->bfd_session);
 
-	OSPF_NSM_TIMER_OFF(nbr->gr_helper_info.t_grace_timer);
+	THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);
@@ -456,7 +456,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 				nbr->nbr_nbma = nbr_nbma;
 
 				if (nbr_nbma->t_poll)
-					OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
+					THREAD_OFF(nbr_nbma->t_poll);
 
 				nbr->state_change = nbr_nbma->state_change + 1;
 			}

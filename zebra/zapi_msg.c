@@ -659,11 +659,18 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
  * Modified version of zsend_ipv4_nexthop_lookup(): Query unicast rib if
  * nexthop is not found on mrib. Returns both route metric and protocol
  * distance.
+ *
+ * *XXX* this ZAPI call is slated to be removed at some point in the future
+ * since MRIB support in PIM is hopelessly broken in its interactions with NHT.
+ * The plan is to make pimd use NHT to receive URIB and MRIB in parallel and
+ * make the decision there, which will obsolete this ZAPI op.
+ * (Otherwise we would need to implement sending NHT updates for the result of
+ * this "URIB-MRIB-combined" table, but we only decide that here on the fly,
+ * so it'd be rather complex to do NHT for.)
  */
-static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
-					  struct in_addr addr,
-					  struct route_entry *re,
-					  struct zebra_vrf *zvrf)
+static int zsend_nexthop_lookup_mrib(struct zserv *client, struct ipaddr *addr,
+				     struct route_entry *re,
+				     struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	unsigned long nump;
@@ -675,8 +682,8 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	stream_reset(s);
 
 	/* Fill in result. */
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
-	stream_put_in_addr(s, &addr);
+	zclient_create_header(s, ZEBRA_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
+	stream_put_ipaddr(s, addr);
 
 	if (re) {
 		struct nexthop_group *nhg;
@@ -869,9 +876,24 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct stream *s;
 	struct zebra_pbr_iptable ipt;
 	uint16_t cmd = ZEBRA_IPTABLE_NOTIFY_OWNER;
+	struct zebra_pbr_iptable *ipt_hash;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
 	dplane_ctx_get_pbr_iptable(ctx, &ipt);
 
+	ipt_hash = hash_lookup(zrouter.iptable_hash, &ipt);
+	if (ipt_hash) {
+		if (op == DPLANE_OP_IPTABLE_ADD &&
+		    CHECK_FLAG(ipt_hash->internal_flags,
+			       IPTABLE_INSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_INSTALL_QUEUED);
+		else if (op == DPLANE_OP_IPTABLE_DELETE &&
+			 CHECK_FLAG(ipt_hash->internal_flags,
+				    IPTABLE_UNINSTALL_QUEUED))
+			UNSET_FLAG(ipt_hash->internal_flags,
+				   IPTABLE_UNINSTALL_QUEUED);
+	}
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipt.unique, note);
@@ -1033,7 +1055,7 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
-	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_write(s, pw->ifname, INTERFACE_NAMSIZ);
 	stream_putl(s, pw->ifindex);
 	stream_putl(s, pw->status);
 
@@ -1584,13 +1606,14 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		/* Special handling for IPv4 routes sourced from EVPN:
 		 * the nexthop and associated MAC need to be installed.
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+			memset(&vtep_ip, 0, sizeof(vtep_ip));
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
 			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN);
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -1617,13 +1640,14 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		/* Special handling for IPv6 routes sourced from EVPN:
 		 * the nexthop and associated MAC need to be installed.
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+			memset(&vtep_ip, 0, sizeof(vtep_ip));
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
 			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN);
 		}
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -2010,7 +2034,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct nhg_backup_info *bnhg = NULL;
 	int ret;
 	vrf_id_t vrf_id;
-	struct nhg_hash_entry nhe;
+	struct nhg_hash_entry nhe, *n = NULL;
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -2028,17 +2052,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			   (int)api.message, api.flags);
 
 	/* Allocate new route. */
-	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-	re->type = api.type;
-	re->instance = api.instance;
-	re->flags = api.flags;
-	re->uptime = monotime(NULL);
-	re->vrf_id = vrf_id;
-
-	if (api.tableid)
-		re->table = api.tableid;
-	else
-		re->table = zvrf->table_id;
+	re = zebra_rib_route_entry_new(
+		vrf_id, api.type, api.instance, api.flags, api.nhgid,
+		api.tableid ? api.tableid : zvrf->table_id, api.metric, api.mtu,
+		api.distance, api.tag);
 
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
 	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
@@ -2063,9 +2080,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				&api.prefix);
 	}
 
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG))
-		re->nhe_id = api.nhgid;
-
 	if (!re->nhe_id
 	    && (!zapi_read_nexthops(client, &api.prefix, api.nexthops,
 				    api.flags, api.message, api.nexthop_num,
@@ -2080,15 +2094,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		XFREE(MTYPE_RE, re);
 		return;
 	}
-
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		re->distance = api.distance;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		re->metric = api.metric;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
-		re->tag = api.tag;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_MTU))
-		re->mtu = api.mtu;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
 		re->opaque =
@@ -2137,9 +2142,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		zebra_nhe_init(&nhe, afi, ng->nexthop);
 		nhe.nhg.nexthop = ng->nexthop;
 		nhe.backup_info = bnhg;
+		n = zebra_nhe_copy(&nhe, 0);
 	}
-	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
-				    re, &nhe, false);
+	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p, re, n,
+				    false);
 
 	/*
 	 * rib_add_multipath_nhe only fails in a couple spots
@@ -2229,14 +2235,28 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 }
 
 /* MRIB Nexthop lookup for IPv4. */
-static void zread_ipv4_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
+static void zread_nexthop_lookup_mrib(ZAPI_HANDLER_ARGS)
 {
-	struct in_addr addr;
-	struct route_entry *re;
+	struct ipaddr addr;
+	struct route_entry *re = NULL;
 
-	STREAM_GET(&addr.s_addr, msg, IPV4_MAX_BYTELEN);
-	re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr, NULL);
-	zsend_ipv4_nexthop_lookup_mrib(client, addr, re, zvrf);
+	STREAM_GET_IPADDR(msg, &addr);
+
+	switch (addr.ipa_type) {
+	case IPADDR_V4:
+		re = rib_match_ipv4_multicast(zvrf_id(zvrf), addr.ipaddr_v4,
+					      NULL);
+		break;
+	case IPADDR_V6:
+		re = rib_match_ipv6_multicast(zvrf_id(zvrf), addr.ipaddr_v6,
+					      NULL);
+		break;
+	case IPADDR_NONE:
+		/* ??? */
+		goto stream_failure;
+	}
+
+	zsend_nexthop_lookup_mrib(client, &addr, re, zvrf);
 
 stream_failure:
 	return;
@@ -2454,7 +2474,6 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
-	int ret;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2472,12 +2491,7 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 	if (zapi_labels_validate(&zl) < 0)
 		return;
 
-	ret = mpls_zapi_labels_process(true, zvrf, &zl);
-	if (ret < 0) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Error processing zapi request",
-				   __func__);
-	}
+	mpls_zapi_labels_process(true, zvrf, &zl);
 }
 
 /*
@@ -2494,7 +2508,6 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
-	int ret;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2509,12 +2522,7 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 		return;
 
 	if (zl.nexthop_num > 0) {
-		ret = mpls_zapi_labels_process(false /*delete*/, zvrf, &zl);
-		if (ret < 0) {
-			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: Error processing zapi request",
-					   __func__);
-		}
+		mpls_zapi_labels_process(false /*delete*/, zvrf, &zl);
 	} else {
 		mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
 
@@ -2977,7 +2985,7 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -2993,8 +3001,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	/* Get data. */
-	STREAM_GET(ifname, s, IF_NAMESIZE);
-	ifname[IF_NAMESIZE - 1] = '\0';
+	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
+	ifname[INTERFACE_NAMSIZ - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);
@@ -3685,7 +3693,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REDISTRIBUTE_DELETE] = zebra_redistribute_delete,
 	[ZEBRA_REDISTRIBUTE_DEFAULT_ADD] = zebra_redistribute_default_add,
 	[ZEBRA_REDISTRIBUTE_DEFAULT_DELETE] = zebra_redistribute_default_delete,
-	[ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB] = zread_ipv4_nexthop_lookup_mrib,
+	[ZEBRA_NEXTHOP_LOOKUP_MRIB] = zread_nexthop_lookup_mrib,
 	[ZEBRA_HELLO] = zread_hello,
 	[ZEBRA_NEXTHOP_REGISTER] = zread_rnh_register,
 	[ZEBRA_NEXTHOP_UNREGISTER] = zread_rnh_unregister,

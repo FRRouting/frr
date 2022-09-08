@@ -124,7 +124,7 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 
 	/* Prepare socket for asynchronous messages */
 	/* Initialize async address structure */
-	memset(&myaddr_async, 0, sizeof(struct sockaddr_in));
+	memset(&myaddr_async, 0, sizeof(myaddr_async));
 	myaddr_async.sin_family = AF_INET;
 	myaddr_async.sin_addr.s_addr = htonl(INADDR_ANY);
 	myaddr_async.sin_port = htons(syncport + 1);
@@ -219,7 +219,7 @@ struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
 	   want the sync port number on a fixed port number. The reverse
 	   async channel will be at this port+1 */
 
-	memset(&myaddr_sync, 0, sizeof(struct sockaddr_in));
+	memset(&myaddr_sync, 0, sizeof(myaddr_sync));
 	myaddr_sync.sin_family = AF_INET;
 	myaddr_sync.sin_port = htons(syncport);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -439,6 +439,12 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 	struct lsa_header *lsah;
 	uint32_t tmp;
 
+	/* Validate opaque LSA length */
+	if ((size_t)opaquelen > sizeof(buf) - sizeof(struct lsa_header)) {
+		fprintf(stderr, "opaquelen(%d) is larger than buf size %zu\n",
+			opaquelen, sizeof(buf));
+		return OSPF_API_NOMEMORY;
+	}
 
 	/* We can only originate opaque LSAs */
 	if (!IS_OPAQUE_LSA(lsa_type)) {

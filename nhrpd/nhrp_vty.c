@@ -1001,18 +1001,15 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 {
 	struct dmvpn_cfg *ctxt = ctx;
 	struct vty *vty;
-	char buf[2][SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
 
 	if (!ctxt || !ctxt->vty)
 		return;
 	vty = ctxt->vty;
-	sockunion2str(&vc->local.nbma, buf[0], sizeof(buf[0]));
-	sockunion2str(&vc->remote.nbma, buf[1], sizeof(buf[1]));
 	if (ctxt->json) {
 		json = json_object_new_object();
-		json_object_string_add(json, "src", buf[0]);
-		json_object_string_add(json, "dst", buf[1]);
+		json_object_string_addf(json, "src", "%pSU", &vc->local.nbma);
+		json_object_string_addf(json, "dst", "%pSU", &vc->remote.nbma);
 
 		if (notifier_active(&vc->notifier_list))
 			json_object_boolean_true_add(json, "notifierActive");
@@ -1023,9 +1020,10 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 		json_object_string_add(json, "identity", vc->remote.id);
 		json_object_array_add(ctxt->json, json);
 	} else {
-		vty_out(vty, "%-24s %-24s %c      %-4d %-24s\n",
-			buf[0], buf[1], notifier_active(&vc->notifier_list) ?
-			'n' : ' ', vc->ipsec, vc->remote.id);
+		vty_out(vty, "%-24pSU %-24pSU %c      %-4d %-24s\n",
+			&vc->local.nbma, &vc->remote.nbma,
+			notifier_active(&vc->notifier_list) ? 'n' : ' ',
+			vc->ipsec, vc->remote.id);
 	}
 }
 

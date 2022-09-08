@@ -423,7 +423,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	ecmd.cmd = ETHTOOL_GSET; /* ETHTOOL_GLINK */
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
-	/* use ioctl to get IP address of an interface */
+	/* use ioctl to get speed of an interface */
 	frr_with_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
 				interface->vrf->vrf_id, NULL);
@@ -436,7 +436,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 				*error = -1;
 			return 0;
 		}
-	/* Get the current link state for the interface */
+		/* Get the current link state for the interface */
 		rc = vrf_ioctl(interface->vrf->vrf_id, sd, SIOCETHTOOL,
 			       (char *)&ifdata);
 	}
@@ -1175,6 +1175,14 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	/* Get interface information - for bridge interfaces. */
 	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
 					RTEXT_FILTER_BRVLAN);
+	if (ret < 0)
+		return ret;
+	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
+				 true);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_tunneldump_read(zns);
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
@@ -2274,4 +2282,62 @@ uint8_t if_netlink_get_frr_protodown_r_bit(void)
 	return frr_protodown_r_bit;
 }
 
+/**
+ * netlink_request_tunneldump() - Request all tunnels from the linux kernel
+ *
+ * @zns:	Zebra namespace
+ * @family:	AF_* netlink family
+ * @type:	RTM_* (RTM_GETTUNNEL) route type
+ *
+ * Return:	Result status
+ */
+static int netlink_request_tunneldump(struct zebra_ns *zns, int family,
+				      int ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct tunnel_msg tmsg;
+		char buf[256];
+	} req;
+
+	/* Form the request */
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tunnel_msg));
+	req.n.nlmsg_type = RTM_GETTUNNEL;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.tmsg.family = family;
+	req.tmsg.ifindex = ifindex;
+
+	return netlink_request(&zns->netlink_cmd, &req);
+}
+
+/*
+ * Currently we only ask for vxlan l3svd vni information.
+ * In the future this can be expanded.
+ */
+int netlink_tunneldump_read(struct zebra_ns *zns)
+{
+	int ret = 0;
+	struct zebra_dplane_info dp_info;
+	struct route_node *rn;
+	struct interface *tmp_if = NULL;
+	struct zebra_if *zif;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+		tmp_if = (struct interface *)rn->info;
+		if (!tmp_if)
+			continue;
+		zif = tmp_if->info;
+		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+			continue;
+
+		ret = netlink_request_tunneldump(zns, PF_BRIDGE,
+						 tmp_if->ifindex);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
 #endif /* GNU_LINUX */

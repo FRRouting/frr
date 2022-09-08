@@ -759,7 +759,7 @@ struct route_map *route_map_lookup_by_name(const char *name)
 		return NULL;
 
 	// map.deleted is false via memset
-	memset(&tmp_map, 0, sizeof(struct route_map));
+	memset(&tmp_map, 0, sizeof(tmp_map));
 	tmp_map.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
 	map = hash_lookup(route_map_master_hash, &tmp_map);
 	XFREE(MTYPE_ROUTE_MAP_NAME, tmp_map.name);
@@ -797,7 +797,7 @@ int route_map_mark_updated(const char *name)
 	 * with deleted=true
 	 */
 	if (!map) {
-		memset(&tmp_map, 0, sizeof(struct route_map));
+		memset(&tmp_map, 0, sizeof(tmp_map));
 		tmp_map.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
 		tmp_map.deleted = true;
 		map = hash_lookup(route_map_master_hash, &tmp_map);
@@ -2481,7 +2481,7 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
 
-		memset(&pentry_dep, 0, sizeof(struct route_map_pentry_dep));
+		memset(&pentry_dep, 0, sizeof(pentry_dep));
 		pentry_dep.pentry = pentry;
 		pentry_dep.plist_name = affected_name;
 		pentry_dep.event = event;
@@ -2540,7 +2540,8 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 */
 route_map_result_t route_map_apply_ext(struct route_map *map,
 				       const struct prefix *prefix,
-				       void *match_object, void *set_object)
+				       void *match_object, void *set_object,
+				       int *pref)
 {
 	static int recursion = 0;
 	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
@@ -2676,7 +2677,7 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 						ret = route_map_apply_ext(
 							nextrm, prefix,
 							match_object,
-							set_object);
+							set_object, NULL);
 						recursion--;
 					}
 
@@ -2721,6 +2722,13 @@ route_map_apply_end:
 			   (map ? map->name : "null"), prefix,
 			   route_map_result_str(ret));
 
+	if (pref) {
+		if (index != NULL && ret == RMAP_PERMITMATCH)
+			*pref = index->pref;
+		else
+			*pref = 65536;
+	}
+
 	return (ret);
 }
 
@@ -2760,7 +2768,7 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 	struct route_map_dep *dep = bucket->data;
 	struct route_map_dep_data *dep_data = NULL, tmp_dep_data;
 
-	memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+	memset(&tmp_dep_data, 0, sizeof(tmp_dep_data));
 	tmp_dep_data.rname = arg;
 	dep_data = hash_release(dep->dep_rmap_hash, &tmp_dep_data);
 	if (dep_data) {
@@ -2873,7 +2881,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		if (!dep->this_hash)
 			dep->this_hash = dephash;
 
-		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+		memset(&tmp_dep_data, 0, sizeof(tmp_dep_data));
 		tmp_dep_data.rname = rname;
 		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
 		if (!dep_data)
@@ -2897,7 +2905,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 			goto out;
 		}
 
-		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+		memset(&tmp_dep_data, 0, sizeof(tmp_dep_data));
 		tmp_dep_data.rname = rname;
 		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
 		/*
@@ -3270,7 +3278,7 @@ void route_map_counter_decrement(struct route_map *map)
 }
 
 DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
-	     "show route-map WORD prefix-table",
+	     "show route-map RMAP_NAME prefix-table",
 	     SHOW_STR
 	     "route-map\n"
 	     "route-map name\n"

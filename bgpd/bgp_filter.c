@@ -189,7 +189,7 @@ static void as_list_filter_add(struct as_list *aslist,
 		replace = bgp_aslist_seq_check(aslist, asfilter->seq);
 		if (replace) {
 			as_filter_entry_replace(aslist, replace, asfilter);
-			return;
+			goto hook;
 		}
 
 		/* Check insert point. */
@@ -218,6 +218,7 @@ static void as_list_filter_add(struct as_list *aslist,
 		aslist->tail = asfilter;
 	}
 
+hook:
 	/* Run hook function. */
 	if (as_list_master.add_hook)
 		(*as_list_master.add_hook)(aslist->name);
@@ -484,6 +485,7 @@ DEFUN(as_path, bgp_as_path_cmd,
 	if (!config_bgp_aspath_validate(regstr)) {
 		vty_out(vty, "Invalid character in as-path access-list %s\n",
 			regstr);
+		XFREE(MTYPE_TMP, regstr);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

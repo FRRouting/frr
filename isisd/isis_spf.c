@@ -273,7 +273,7 @@ isis_vertex_adj_add(struct isis_spftree *spftree, struct isis_vertex *vertex,
 
 	vadj = XCALLOC(MTYPE_ISIS_VERTEX_ADJ, sizeof(*vadj));
 	vadj->sadj = sadj;
-	if (psid) {
+	if (spftree->area->srdb.enabled && psid) {
 		if (vertex->N.ip.sr.present
 		    && vertex->N.ip.sr.sid.value != psid->value)
 			zlog_warn(
@@ -527,14 +527,14 @@ static void vertex_add_parent_firsthop(struct hash_bucket *bucket, void *arg)
 	struct isis_vertex *vertex = arg;
 	struct isis_vertex *hop = bucket->data;
 
-	hash_get(vertex->firsthops, hop, hash_alloc_intern);
+	(void)hash_get(vertex->firsthops, hop, hash_alloc_intern);
 }
 
 static void vertex_update_firsthops(struct isis_vertex *vertex,
 				    struct isis_vertex *parent)
 {
 	if (vertex->d_N <= 2)
-		hash_get(vertex->firsthops, vertex, hash_alloc_intern);
+		(void)hash_get(vertex->firsthops, vertex, hash_alloc_intern);
 
 	if (vertex->d_N < 2 || !parent)
 		return;
@@ -575,7 +575,7 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	vertex = isis_vertex_new(spftree, id, vtype);
 	vertex->d_N = cost;
 	vertex->depth = depth;
-	if (VTYPE_IP(vtype) && psid) {
+	if (VTYPE_IP(vtype) && spftree->area->srdb.enabled && psid) {
 		struct isis_area *area = spftree->area;
 		struct isis_vertex *vertex_psid;
 
@@ -606,8 +606,8 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 			if (vertex->N.ip.sr.label != MPLS_INVALID_LABEL)
 				vertex->N.ip.sr.present = true;
 
-			hash_get(spftree->prefix_sids, vertex,
-				 hash_alloc_intern);
+			(void)hash_get(spftree->prefix_sids, vertex,
+				       hash_alloc_intern);
 		}
 	}
 
@@ -706,7 +706,7 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	if (vtype >= VTYPE_IPREACH_INTERNAL) {
 		memcpy(&p, id, sizeof(p));
 		apply_mask(&p.dest);
-		apply_mask((struct prefix *)&p.src);
+		apply_mask(&p.src);
 		id = &p;
 	}
 
@@ -844,8 +844,7 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 
 lspfragloop:
 	if (lsp->hdr.seqno == 0) {
-		zlog_warn(
-			"isis_spf_process_lsp(): lsp with 0 seq_num - ignore");
+		zlog_warn("%s: lsp with 0 seq_num - ignore", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -975,9 +974,9 @@ lspfragloop:
 			ip_info.dest.u.prefix4 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
 
-			/* Parse list of Prefix-SID subTLVs */
+			/* Parse list of Prefix-SID subTLVs if SR is enabled */
 			has_valid_psid = false;
-			if (r->subtlvs) {
+			if (spftree->area->srdb.enabled && r->subtlvs) {
 				for (struct isis_item *i =
 					     r->subtlvs->prefix_sids.head;
 				     i; i = i->next) {
@@ -1026,9 +1025,9 @@ lspfragloop:
 			ip_info.dest.u.prefix6 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
 
-			if (r->subtlvs
-			    && r->subtlvs->source_prefix
-			    && r->subtlvs->source_prefix->prefixlen) {
+			if (spftree->area->srdb.enabled && r->subtlvs &&
+			    r->subtlvs->source_prefix &&
+			    r->subtlvs->source_prefix->prefixlen) {
 				if (spftree->tree_id != SPFTREE_DSTSRC) {
 					char buff[VID2STR_BUFFER];
 					zlog_warn("Ignoring dest-src route %s in non dest-src topology",
@@ -1169,8 +1168,8 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 	else
 		vtype = VTYPE_IP6REACH_INTERNAL;
 
-	/* Parse list of Prefix-SID subTLVs */
-	if (subtlvs) {
+	/* Parse list of Prefix-SID subTLVs if SR is enabled */
+	if (spftree->area->srdb.enabled && subtlvs) {
 		for (struct isis_item *i = subtlvs->prefix_sids.head; i;
 		     i = i->next) {
 			struct isis_prefix_sid *psid =
@@ -1400,20 +1399,21 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree,
 		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
-static void spf_adj_list_parse_lsp_frag(struct isis_spftree *spftree,
-					struct list *adj_list,
-					struct isis_lsp *lsp,
-					const uint8_t *pseudo_nodeid,
-					uint32_t pseudo_metric)
+static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
+				   struct list *adj_list, struct isis_lsp *lsp,
+				   const uint8_t *pseudo_nodeid,
+				   uint32_t pseudo_metric)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct isis_lsp *frag;
+	struct listnode *node;
 	struct isis_item *head;
 	struct isis_item_list *te_neighs;
 
 	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
 		return;
 
-	/* Parse main LSP. */
+	/* Parse LSP. */
 	if (lsp->tlvs) {
 		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
 			head = lsp->tlvs->oldstyle_reach.head;
@@ -1444,27 +1444,17 @@ static void spf_adj_list_parse_lsp_frag(struct isis_spftree *spftree,
 			}
 		}
 	}
-}
 
-
-static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
-				   struct list *adj_list, struct isis_lsp *lsp,
-				   const uint8_t *pseudo_nodeid,
-				   uint32_t pseudo_metric)
-{
-	struct isis_lsp *frag;
-	struct listnode *node;
-
-	spf_adj_list_parse_lsp_frag(spftree, adj_list, lsp, pseudo_nodeid,
-				    pseudo_metric);
+	if (LSP_FRAGMENT(lsp->hdr.lsp_id))
+		return;
 
 	/* Parse LSP fragments. */
 	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
 		if (!frag->tlvs)
 			continue;
 
-		spf_adj_list_parse_lsp_frag(spftree, adj_list, frag,
-					    pseudo_nodeid, pseudo_metric);
+		spf_adj_list_parse_lsp(spftree, adj_list, frag, pseudo_nodeid,
+				       pseudo_metric);
 	}
 }
 
@@ -1789,7 +1779,8 @@ void isis_run_spf(struct isis_spftree *spftree)
 		break;
 	case SPFTREE_COUNT:
 		zlog_err(
-			"isis_run_spf should never be called with SPFTREE_COUNT as argument!");
+			"%s should never be called with SPFTREE_COUNT as argument!",
+			__func__);
 		exit(1);
 	}
 
@@ -1947,7 +1938,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			area->area_tag, level, diff, func, file, line);
 	}
 
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_rlfa_rib_update);
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running
 		 * to

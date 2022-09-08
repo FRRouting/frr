@@ -84,6 +84,7 @@ from lib.common_config import (
     run_frr_cmd,
     required_linux_kernel_version,
     topo_daemons,
+    verify_rib,
 )
 
 from lib.pim import (
@@ -94,18 +95,19 @@ from lib.pim import (
     find_rp_from_bsrp_info,
     verify_pim_grp_rp_source,
     verify_pim_bsr,
-    verify_ip_mroutes,
+    verify_mroutes,
     verify_join_state_and_timer,
     verify_pim_state,
     verify_upstream_iif,
     verify_igmp_groups,
-    verify_ip_pim_upstream_rpf,
+    verify_pim_upstream_rpf,
     enable_disable_pim_unicast_bsm,
     enable_disable_pim_bsm,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    clear_mroute,
+    clear_pim_interface_traffic,
     get_pim_interface_traffic,
     McastTesterHelper,
+    verify_pim_neighbors,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -179,6 +181,10 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    # Verify PIM neighbors
+    result = verify_pim_neighbors(tgen, topo)
+    assert result is True, " Verify PIM neighbor: Failed Error: {}".format(result)
 
     # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
     global app_helper
@@ -298,13 +304,22 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
 
         # Add static routes
         input_dict = {
-            fhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop}]},
             rp: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_rp}]},
             lhr: {"static_routes": [{"network": bsr_route, "next_hop": next_hop_lhr}]},
         }
 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying static routes are installed
+        for dut, _nexthop in zip([rp, lhr], [next_hop_rp, next_hop_lhr]):
+            input_routes = {dut: input_dict[dut]}
+            result = verify_rib(
+                tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+            )
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
 
     # RP Mapping
     rp_mapping = topo["routers"][bsr]["bsm"]["bsr_packets"][packet]["rp_mapping"]
@@ -328,11 +343,28 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
+        # Verifying static routes are installed
+        result = verify_rib(
+            tgen, "ipv4", fhr, input_dict, next_hop_fhr, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
         input_dict = {
             lhr: {"static_routes": [{"network": rp_list, "next_hop": next_hop_lhr}]},
         }
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+        # Verifying static routes are installed
+        result = verify_rib(
+            tgen, "ipv4", lhr, input_dict, next_hop_lhr, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
     return True
 
 
@@ -373,11 +405,10 @@ def test_BSR_higher_prefer_ip_p0(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
     step("Configure cisco-1 as BSR1 1.1.2.7")
     result = pre_config_to_bsm(
@@ -443,6 +474,27 @@ def test_BSR_higher_prefer_ip_p0(request):
 
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # Verifying static routes are installed
+    for dut, _nexthop in zip(["i1", "l1"], [next_hop_rp, next_hop_lhr]):
+        input_routes = {dut: input_dict[dut]}
+        result = verify_rib(
+            tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for bsr_add, next_hop in zip([BSR1_ADDR, BSR2_ADDR], [NEXT_HOP1, NEXT_HOP2]):
+        input_routes = {
+            "f1": {"static_routes": [{"network": bsr_add, "next_hop": next_hop}]}
+        }
+        result = verify_rib(
+            tgen, "ipv4", "f1", input_routes, next_hop, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
 
     # Use scapy to send pre-defined packet from senser to receiver
     step("Send BSR packet from b1 to FHR")
@@ -579,11 +631,10 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
-    reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
     step("Configure cisco-1 as BSR1 1.1.2.7")
     result = pre_config_to_bsm(
@@ -628,6 +679,28 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
+    # Verifying static routes are installed
+    for dut, _nexthop in zip(["i1", "l1"], [next_hop_rp, next_hop_lhr]):
+        input_routes = {dut: input_dict[dut]}
+        result = verify_rib(
+            tgen, "ipv4", dut, input_routes, _nexthop, protocol="static"
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    input_routes = {
+        "f1": {"static_routes": [{"network": CRP, "next_hop": next_hop_fhr}]}
+    }
+    result = verify_rib(
+        tgen, "ipv4", "f1", input_routes, protocol="static", expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "Route is still present \n Error {}".format(
+        tc_name, result
+    )
+
     # Use scapy to send pre-defined packet from senser to receiver
 
     group = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet9"]["group"]
@@ -643,6 +716,10 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
 
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # Verifying static routes are installed
+    result = verify_rib(tgen, "ipv4", "f1", input_dict, protocol="static")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
 
     intf_f1_i1 = topo["routers"]["f1"]["links"]["i1"]["interface"]
     step("Verify bsm transit count is not increamented" "show ip pim interface traffic")
@@ -695,6 +772,30 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
 
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
+    # Verifying static routes are installed
+    input_dict = {
+        "f1": {"static_routes": [{"network": BSR1_ADDR, "next_hop": NEXT_HOP1}]}
+    }
+    result = verify_rib(tgen, "ipv4", "f1", input_dict, NEXT_HOP1, protocol="static")
+    assert result is True, "Testcase {} : Failed \n Error {}".format(tc_name, result)
+
+    input_dict = {
+        "f1": {
+            "static_routes": [
+                {"network": [BSR1_ADDR, CRP], "next_hop": "blackhole", "delete": True}
+            ]
+        }
+    }
+    result = verify_rib(
+        tgen, "ipv4", "f1", input_dict, protocol="static", expected=False
+    )
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Routes:[{}, {}] are still present \n Error {}".format(
+            tc_name, BSR1_ADDR, CRP, result
+        )
+    )
 
     step("Sending BSR after removing black-hole address for BSR and candidate RP")
     step("Send BSR packet from b1 to FHR")
@@ -756,11 +857,9 @@ def test_new_router_fwd_p0(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -800,7 +899,7 @@ def test_new_router_fwd_p0(request):
     oil = "l1-r1-eth1"
 
     step("Verify mroute populated on l1")
-    result = verify_ip_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     # Reload i1 and l1
@@ -854,7 +953,7 @@ def test_new_router_fwd_p0(request):
 
     # Verify ip mroute populated again
     step("Verify mroute again on l1 (lhr)")
-    result = verify_ip_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("clear  BSM database before moving to next case")
@@ -897,11 +996,9 @@ def test_int_bsm_config_p1(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -937,7 +1034,7 @@ def test_int_bsm_config_p1(request):
     src_addr = "*"
     oil = "i1-l1-eth1"
 
-    result = verify_ip_mroutes(tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # wait till bsm rp age out
@@ -946,7 +1043,7 @@ def test_int_bsm_config_p1(request):
 
     # check if mroute uninstalled because of rp age out
     step("check if mroute uninstalled because of rp age out in i1")
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
     assert (
@@ -981,7 +1078,7 @@ def test_int_bsm_config_p1(request):
 
     # check if mroute still not installed because of rp not available
     step("check if mroute still not installed because of rp not available")
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
     assert result is not True, (
@@ -1006,7 +1103,7 @@ def test_int_bsm_config_p1(request):
 
     # verify ip mroute populated
     step("Verify ip mroute")
-    result = verify_ip_mroutes(tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, "i1", src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Shut/No shut the bsm rpf interface and check mroute on lhr(l1)
@@ -1018,7 +1115,7 @@ def test_int_bsm_config_p1(request):
     iif = "l1-i1-eth0"
     oil = "l1-r1-eth1"
 
-    result = verify_ip_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     step("clear  BSM database before moving to next case")
@@ -1058,11 +1155,9 @@ def test_static_rp_override_p1(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1111,7 +1206,7 @@ def test_static_rp_override_p1(request):
     iif = "l1-i1-eth0"
     # Verify upstream rpf for 225.1.1.1 is chosen as rp1
     step("Verify upstream rpf for 225.1.1.1 is chosen as bsrp")
-    result = verify_ip_pim_upstream_rpf(tgen, topo, dut, iif, GROUP_ADDRESS, rp[group])
+    result = verify_pim_upstream_rpf(tgen, topo, dut, iif, GROUP_ADDRESS, rp[group])
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Configure a static rp for the group 225.1.1.1/32
@@ -1139,7 +1234,7 @@ def test_static_rp_override_p1(request):
 
     # Verify if upstream also reflects the static rp
     step("Verify upstream rpf for 225.1.1.1 is chosen as static in l1")
-    result = verify_ip_pim_upstream_rpf(tgen, topo, dut, iif, GROUP_ADDRESS, static_rp)
+    result = verify_pim_upstream_rpf(tgen, topo, dut, iif, GROUP_ADDRESS, static_rp)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # delete static rp for the group 225.1.1.1/32
@@ -1167,7 +1262,7 @@ def test_static_rp_override_p1(request):
 
     # Verify upstream rpf for 225.1.1.1 is chosen as bsrp
     step("Verify upstream rpf for 225.1.1.1 is chosen as bsrp in l1")
-    result = verify_ip_pim_upstream_rpf(tgen, topo, dut, iif, GROUP_ADDRESS, rp[group])
+    result = verify_pim_upstream_rpf(tgen, topo, dut, iif, GROUP_ADDRESS, rp[group])
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     step("clear  BSM database before moving to next case")
@@ -1209,11 +1304,9 @@ def test_bsmp_stress_add_del_restart_p2(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1339,7 +1432,7 @@ def test_bsmp_stress_add_del_restart_p2(request):
     iif = "l1-i1-eth0"
     src_addr = "*"
     oil = "l1-r1-eth1"
-    result = verify_ip_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
@@ -1377,9 +1470,9 @@ def test_BSM_timeout_p0(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1415,7 +1508,7 @@ def test_BSM_timeout_p0(request):
     iif = "l1-i1-eth0"
     src_addr = "*"
     oil = "l1-r1-eth1"
-    result = verify_ip_mroutes(tgen, dut, src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, dut, src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify join state and join timer
@@ -1485,7 +1578,7 @@ def test_BSM_timeout_p0(request):
 
     # Verify ip mroute is not installed
     step("Verify mroute not installed in l1")
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
     assert (
@@ -1534,11 +1627,9 @@ def test_iif_join_state_p0(request):
         pytest.skip(tgen.errors)
 
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
-    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1605,7 +1696,7 @@ def test_iif_join_state_p0(request):
     # Verify ip mroute
     src_addr = "*"
     step("Verify ip mroute in l1")
-    result = verify_ip_mroutes(tgen, dut, src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, dut, src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Make RP unreachanble in LHR
@@ -1626,6 +1717,16 @@ def test_iif_join_state_p0(request):
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
+    # Verifying static routes are installed
+    result = verify_rib(
+        tgen, "ipv4", "l1", input_dict, protocol="static", expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n " "Routes:{} are still present \n Error {}".format(
+        tc_name, rp_ip, result
+    )
+
     # Check RP unreachable
     step("Check RP unreachability")
     iif = "Unknown"
@@ -1642,7 +1743,7 @@ def test_iif_join_state_p0(request):
 
     # Verify mroute not installed
     step("Verify mroute not installed")
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, dut, src_addr, GROUP_ADDRESS, iif, oil, expected=False
     )
     assert (
@@ -1666,9 +1767,13 @@ def test_iif_join_state_p0(request):
     result = create_static_routes(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
+    # Verifying static routes are installed
+    result = verify_rib(tgen, "ipv4", "l1", input_dict, next_hop_lhr, protocol="static")
+    assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
+
     # Verify that (*,G) installed in mroute again
     iif = "l1-i1-eth0"
-    result = verify_ip_mroutes(tgen, dut, src_addr, GROUP_ADDRESS, iif, oil)
+    result = verify_mroutes(tgen, dut, src_addr, GROUP_ADDRESS, iif, oil)
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     step("clear  BSM database before moving to next case")

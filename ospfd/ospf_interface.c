@@ -66,15 +66,16 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		nbr = rn->info;
-		if (nbr) {
-			/* Do not show myself. */
-			if (nbr == oi->nbr_self)
-				continue;
-			/* Down state is not shown. */
-			if (nbr->state == NSM_Down)
-				continue;
-			count++;
-		}
+		if (!nbr)
+			continue;
+
+		/* Do not show myself. */
+		if (nbr == oi->nbr_self)
+			continue;
+		/* Down state is not shown. */
+		if (nbr->state == NSM_Down)
+			continue;
+		count++;
 	}
 
 	return count;
@@ -302,7 +303,7 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	/* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
 	/* delete all static neighbors attached to this interface */
 	for (ALL_LIST_ELEMENTS(oi->nbr_nbma, node, nnode, nbr_nbma)) {
-		OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
+		THREAD_OFF(nbr_nbma->t_poll);
 
 		if (nbr_nbma->nbr) {
 			nbr_nbma->nbr->nbr_nbma = NULL;
@@ -315,10 +316,11 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	}
 
 	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		if ((nbr = rn->info) != NULL)
 			if (nbr != oi->nbr_self)
 				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
 
 	/* Cleanup Link State Acknowlegdment list. */
 	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))
@@ -492,6 +494,20 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 	return match;
 }
 
+void ospf_interface_fifo_flush(struct ospf_interface *oi)
+{
+	struct ospf *ospf = oi->ospf;
+
+	ospf_fifo_flush(oi->obuf);
+
+	if (oi->on_write_q) {
+		listnode_delete(ospf->oi_write_q, oi);
+		if (list_isempty(ospf->oi_write_q))
+			THREAD_OFF(ospf->t_write);
+		oi->on_write_q = 0;
+	}
+}
+
 static void ospf_if_reset_stats(struct ospf_interface *oi)
 {
 	oi->hello_in = oi->hello_out = 0;
@@ -503,19 +519,10 @@ static void ospf_if_reset_stats(struct ospf_interface *oi)
 
 void ospf_if_stream_unset(struct ospf_interface *oi)
 {
-	struct ospf *ospf = oi->ospf;
-
 	/* flush the interface packet queue */
-	ospf_fifo_flush(oi->obuf);
+	ospf_interface_fifo_flush(oi);
 	/*reset protocol stats */
 	ospf_if_reset_stats(oi);
-
-	if (oi->on_write_q) {
-		listnode_delete(ospf->oi_write_q, oi);
-		if (list_isempty(ospf->oi_write_q))
-			OSPF_TIMER_OFF(ospf->t_write);
-		oi->on_write_q = 0;
-	}
 }
 
 
@@ -902,18 +909,19 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	struct prefix_ipv4 *p;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new()(%s): Start", ospf_get_name(ospf));
+		zlog_debug("%s: (%s): Start", __func__, ospf_get_name(ospf));
 	if (vlink_count == OSPF_VL_MAX_COUNT) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links");
+				"%s: Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links",
+				__func__);
+
 		return NULL;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
-			ospf->vrf_id);
+		zlog_debug("%s: creating pseudo zebra interface vrf id %u",
+			   __func__, ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
 	vi = if_get_by_name(ifname, ospf->vrf_id, ospf->name);
@@ -937,7 +945,9 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	if (voi == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: OSPF int structure is not created");
+				"%s: Alarm: OSPF int structure is not created",
+				__func__);
+
 		return NULL;
 	}
 	voi->connected = co;
@@ -947,17 +957,15 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 	vlink_count++;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Created name: %s", ifname);
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): set if->name to %s", vi->name);
+		zlog_debug("%s: Created name: %s set if->name to %s", __func__,
+			   ifname, vi->name);
 
 	area_id.s_addr = INADDR_ANY;
 	area = ospf_area_get(ospf, area_id);
 	voi->area = area;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): set associated area to the backbone");
+		zlog_debug("%s: set associated area to the backbone", __func__);
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(voi, voi->ospf->router_id);
@@ -965,7 +973,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	ospf_area_add_if(voi->area, voi);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Stop");
+		zlog_debug("%s: Stop", __func__);
 	return voi;
 }
 
@@ -1160,10 +1168,8 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 	struct ospf_interface *oi;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("ospf_vl_up_check(): Start");
-		zlog_debug("ospf_vl_up_check(): Router ID is %pI4",
-			   &rid);
-		zlog_debug("ospf_vl_up_check(): Area is %pI4",
+		zlog_debug("%s: Start", __func__);
+		zlog_debug("%s: Router ID is %pI4 Area is %pI4", __func__, &rid,
 			   &area->area_id);
 	}
 
@@ -1182,13 +1188,13 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			SET_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED);
 
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_vl_up_check(): this VL matched");
+				zlog_debug("%s: this VL matched", __func__);
 
 			if (oi->state == ISM_Down) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"ospf_vl_up_check(): VL is down, waking it up");
+						"%s: VL is down, waking it up",
+						__func__);
 				SET_FLAG(oi->ifp->flags, IFF_UP);
 				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
 			}
@@ -1196,13 +1202,15 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			if (ospf_vl_set_params(area, vl_data, v)) {
 				if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"ospf_vl_up_check: VL cost change, scheduling router lsa refresh");
+						"%s: VL cost change, scheduling router lsa refresh",
+						__func__);
 				if (ospf->backbone)
 					ospf_router_lsa_update_area(
 						ospf->backbone);
 				else if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"ospf_vl_up_check: VL cost change, no backbone!");
+						"%s: VL cost change, no backbone!",
+						__func__);
 			}
 		}
 	}
@@ -1474,7 +1482,7 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 			ospf_hello_send(oi);
 
 			/* Restart hello timer for this interface */
-			OSPF_ISM_TIMER_OFF(oi->t_hello);
+			THREAD_OFF(oi->t_hello);
 			OSPF_HELLO_TIMER_ON(oi);
 		}
 
@@ -1498,7 +1506,7 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 		ospf_hello_send(oi);
 
 		/* Restart the hello timer. */
-		OSPF_ISM_TIMER_OFF(oi->t_hello);
+		THREAD_OFF(oi->t_hello);
 		OSPF_HELLO_TIMER_ON(oi);
 	}
 }

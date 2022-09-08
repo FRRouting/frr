@@ -408,8 +408,7 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, char *ifname,
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-			if (strncmp(pmi->ifp->name, ifname, INTERFACE_NAMSIZ)
-			    != 0)
+			if (strcmp(pmi->ifp->name, ifname) != 0)
 				continue;
 
 			if (ppmi)

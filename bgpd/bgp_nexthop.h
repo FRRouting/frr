@@ -152,14 +152,15 @@ extern bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			     struct bgp_dest *dest);
 extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 					 struct prefix *prefix,
-					 uint32_t srte_color);
+					 uint32_t srte_color,
+					 ifindex_t ifindex);
 extern bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
 extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 					  struct prefix *prefix,
-					  uint32_t srte_color);
+					  uint32_t srte_color,
+					  ifindex_t ifindex);
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
-extern const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
 extern void bgp_scan_init(struct bgp *bgp);
 extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);

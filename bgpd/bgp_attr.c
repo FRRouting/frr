@@ -76,6 +76,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
 	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
+	{BGP_ATTR_OTC, "OTC"},
 #ifdef ENABLE_BGP_VNC_ATTR
 	{BGP_ATTR_VNC, "VNC"},
 #endif
@@ -700,6 +701,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->rmap_table_id);
 	MIX(attr->nh_type);
 	MIX(attr->bh_type);
+	MIX(attr->otc);
 
 	return key;
 }
@@ -762,7 +764,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn)
 		    && attr1->srte_color == attr2->srte_color
 		    && attr1->nh_type == attr2->nh_type
-		    && attr1->bh_type == attr2->bh_type)
+		    && attr1->bh_type == attr2->bh_type
+		    && attr1->otc == attr2->otc)
 			return true;
 	}
 
@@ -951,7 +954,8 @@ struct attr *bgp_attr_intern(struct attr *attr)
 }
 
 /* Make network statement's attribute. */
-struct attr *bgp_attr_default_set(struct attr *attr, uint8_t origin)
+struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
+				  uint8_t origin)
 {
 	memset(attr, 0, sizeof(struct attr));
 
@@ -965,6 +969,7 @@ struct attr *bgp_attr_default_set(struct attr *attr, uint8_t origin)
 	attr->label = MPLS_INVALID_LABEL;
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 	attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
+	attr->local_pref = bgp->default_local_pref;
 
 	return attr;
 }
@@ -980,7 +985,7 @@ struct attr *bgp_attr_aggregate_intern(
 	struct attr *new;
 	int ret;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 
 	/* Origin attribute. */
 	attr.origin = origin;
@@ -1035,15 +1040,13 @@ struct attr *bgp_attr_aggregate_intern(
 	else
 		attr.aggregator_as = bgp->as;
 	attr.aggregator_addr = bgp->router_id;
-	attr.label_index = BGP_INVALID_LABEL_INDEX;
-	attr.label = MPLS_INVALID_LABEL;
 
 	/* Apply route-map */
 	if (aggregate->rmap.name) {
 		struct attr attr_tmp = attr;
 		struct bgp_path_info rmap_path;
 
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		memset(&rmap_path, 0, sizeof(rmap_path));
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
 
@@ -1298,6 +1301,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_LARGE_COMMUNITIES:
 	case BGP_ATTR_ORIGINATOR_ID:
 	case BGP_ATTR_CLUSTER_LIST:
+	case BGP_ATTR_OTC:
 		return BGP_ATTR_PARSE_WITHDRAW;
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
@@ -1379,6 +1383,7 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_PMSI_TUNNEL] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_LARGE_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	[BGP_ATTR_OTC] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_PREFIX_SID] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
@@ -1510,6 +1515,19 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 					  0);
 	}
 
+	/* Conformant BGP speakers SHOULD NOT send BGP
+	 * UPDATE messages containing AS_SET or AS_CONFED_SET.  Upon receipt of
+	 * such messages, conformant BGP speakers SHOULD use the "Treat-as-
+	 * withdraw" error handling behavior as per [RFC7606].
+	 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
+			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
+			 peer);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
 	/* Set aspath attribute flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
 
@@ -1590,6 +1608,19 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 					  0);
 	}
 
+	/* Conformant BGP speakers SHOULD NOT send BGP
+	 * UPDATE messages containing AS_SET or AS_CONFED_SET.  Upon receipt of
+	 * such messages, conformant BGP speakers SHOULD use the "Treat-as-
+	 * withdraw" error handling behavior as per [RFC7606].
+	 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
+			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
+			 peer);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
 	/* Set aspath attribute flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH);
 
@@ -1602,12 +1633,9 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 					       struct attr *attr)
 {
-	in_addr_t nexthop_h;
+	struct bgp *bgp = peer->bgp;
 
-	nexthop_h = ntohl(attr->nexthop.s_addr);
-	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
-	     || IPV4_CLASS_DE(nexthop_h))
-	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+	if (ipv4_martian(&attr->nexthop) && !bgp->allow_martian) {
 		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
 		char buf[INET_ADDRSTRLEN];
 
@@ -3025,6 +3053,33 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/* OTC attribute. */
+static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	const bgp_size_t length = args->length;
+
+	/* Length check. */
+	if (length != 4) {
+		flog_err(EC_BGP_ATTR_LEN, "OTC attribute length isn't 4 [%u]",
+			 length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	attr->otc = stream_getl(peer->curr);
+	if (!attr->otc) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH, "OTC attribute value is 0");
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  args->total);
+	}
+
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_OTC);
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* BGP unknown attribute treatment. */
 static enum bgp_attr_parse_ret
 bgp_attr_unknown(struct bgp_attr_parser_args *args)
@@ -3373,6 +3428,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_IPV6_EXT_COMMUNITIES:
 			ret = bgp_attr_ipv6_ext_communities(&attr_args);
 			break;
+		case BGP_ATTR_OTC:
+			ret = bgp_attr_otc(&attr_args);
+			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
 			break;
@@ -3596,8 +3654,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			       struct attr *attr)
 {
 	size_t sizep;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	afi_t nh_afi;
 
 	/* Set extended bit always to encode the attribute length as 2 bytes */
@@ -4391,6 +4449,14 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		// Unicast tunnel endpoint IP address
 	}
 
+	/* OTC */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_OTC);
+		stream_putc(s, 4);
+		stream_putl(s, attr->otc);
+	}
+
 	/* Unknown transit attribute. */
 	struct transit *transit = bgp_attr_get_transit(attr);
 
@@ -4404,8 +4470,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi, safi_t safi)
 {
 	unsigned long attrlen_pnt;
-	iana_afi_t pkt_afi;
-	iana_safi_t pkt_safi;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
 	/* Set extended bit always to encode the attribute length as 2 bytes */
 	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN);
@@ -4430,7 +4496,7 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 				 bool addpath_capable, uint32_t addpath_tx_id,
 				 struct attr *attr)
 {
-	uint8_t wlabel[3] = {0x80, 0x00, 0x00};
+	uint8_t wlabel[4] = {0x80, 0x00, 0x00};
 
 	if (safi == SAFI_LABELED_UNICAST) {
 		label = (mpls_label_t *)wlabel;
@@ -4636,6 +4702,14 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 			stream_putw(s, 0); // flags
 			stream_putl(s, attr->label_index);
 		}
+	}
+
+	/* OTC */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_OTC)) {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_OTC);
+		stream_putc(s, 4);
+		stream_putl(s, attr->otc);
 	}
 
 	/* Return total size of attribute. */

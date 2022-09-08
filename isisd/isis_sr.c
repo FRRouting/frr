@@ -1070,7 +1070,10 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			vty_out(vty, "Area %s:\n",
 				area->area_tag ? area->area_tag : "null");
-
+			if (!area->srdb.enabled) {
+				vty_out(vty, " Segment Routing is disabled\n");
+				continue;
+			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++)
 				show_node(vty, area, level);
@@ -1177,7 +1180,7 @@ void isis_sr_stop(struct isis_area *area)
 		 area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	thread_cancel(&srdb->t_start_lm);
+	THREAD_OFF(srdb->t_start_lm);
 
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
@@ -1249,6 +1252,9 @@ void isis_sr_area_term(struct isis_area *area)
 	/* Stop Segment Routing */
 	if (area->srdb.enabled)
 		isis_sr_stop(area);
+
+	/* Free Adjacency SID list */
+	list_delete(&srdb->adj_sids);
 
 	/* Clear Prefix-SID configuration. */
 	while (srdb_prefix_cfg_count(&srdb->config.prefix_sids) > 0) {

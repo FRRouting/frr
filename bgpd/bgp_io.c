@@ -134,7 +134,7 @@ static void bgp_process_writes(struct thread *thread)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_write(peer);
 		reschedule = (stream_fifo_head(peer->obuf) != NULL);
 	}
@@ -188,7 +188,7 @@ static void bgp_process_reads(struct thread *thread)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_read(peer, &code);
 	}
 
@@ -247,7 +247,7 @@ static void bgp_process_reads(struct thread *thread)
 			stream_set_endp(pkt, pktsize);
 
 			frrtrace(2, frr_bgp, packet_read, peer, pkt);
-			frr_with_mutex(&peer->io_mtx) {
+			frr_with_mutex (&peer->io_mtx) {
 				stream_fifo_push(peer->ibuf, pkt);
 			}
 
@@ -298,6 +298,7 @@ static uint16_t bgp_write(struct peer *peer)
 	unsigned int iovsz;
 	unsigned int strmsz;
 	unsigned int total_written;
+	time_t now;
 
 	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 					       memory_order_relaxed);
@@ -430,19 +431,22 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
+	now = monotime(NULL);
 	/*
 	 * Update last_update if UPDATEs were written.
 	 * Note: that these are only updated at end,
 	 *       not per message (i.e., per loop)
 	 */
 	if (uo)
-		atomic_store_explicit(&peer->last_update, bgp_clock(),
+		atomic_store_explicit(&peer->last_update, now,
 				      memory_order_relaxed);
 
 	/* If we TXed any flavor of packet */
-	if (update_last_write)
-		atomic_store_explicit(&peer->last_write, bgp_clock(),
+	if (update_last_write) {
+		atomic_store_explicit(&peer->last_write, now,
 				      memory_order_relaxed);
+		peer->last_sendq_ok = now;
+	}
 }
 
 	return status;

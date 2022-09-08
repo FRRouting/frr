@@ -161,7 +161,7 @@ void isis_delete_adj(void *arg)
 	/* Remove self from snmp list without walking the list*/
 	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
-	thread_cancel(&adj->t_expire);
+	THREAD_OFF(adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
 
@@ -170,7 +170,7 @@ void isis_delete_adj(void *arg)
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ll_ipv6_addrs);
-
+	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->global_ipv6_addrs);
 	adj_mt_finish(adj);
 	list_delete(&adj->adj_sids);
 
@@ -860,13 +860,13 @@ void isis_adj_build_neigh_list(struct list *adjdb, struct list *list)
 	struct listnode *node;
 
 	if (!list) {
-		zlog_warn("isis_adj_build_neigh_list(): NULL list");
+		zlog_warn("%s: NULL list", __func__);
 		return;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
 		if (!adj) {
-			zlog_warn("isis_adj_build_neigh_list(): NULL adj");
+			zlog_warn("%s: NULL adj", __func__);
 			return;
 		}
 
@@ -883,18 +883,18 @@ void isis_adj_build_up_list(struct list *adjdb, struct list *list)
 	struct listnode *node;
 
 	if (adjdb == NULL) {
-		zlog_warn("isis_adj_build_up_list(): adjacency DB is empty");
+		zlog_warn("%s: adjacency DB is empty", __func__);
 		return;
 	}
 
 	if (!list) {
-		zlog_warn("isis_adj_build_up_list(): NULL list");
+		zlog_warn("%s: NULL list", __func__);
 		return;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
 		if (!adj) {
-			zlog_warn("isis_adj_build_up_list(): NULL adj");
+			zlog_warn("%s: NULL adj", __func__);
 			return;
 		}
 

@@ -185,6 +185,10 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 
 	isis_circuit_if_bind(circuit, ifp);
 
+	circuit->ip_addrs = list_new();
+	circuit->ipv6_link = list_new();
+	circuit->ipv6_non_link = list_new();
+
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		isis_circuit_enable(circuit);
 
@@ -208,6 +212,15 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	circuit_mt_finish(circuit);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+
+	list_delete(&circuit->ip_addrs);
+	list_delete(&circuit->ipv6_link);
+	list_delete(&circuit->ipv6_non_link);
+
+	if (circuit->ext) {
+		isis_del_ext_subtlvs(circuit->ext);
+		circuit->ext = NULL;
+	}
 
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
@@ -505,13 +518,9 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("isis_circuit_if_add: unsupported media");
+			zlog_debug("%s: unsupported media", __func__);
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
-
-	circuit->ip_addrs = list_new();
-	circuit->ipv6_link = list_new();
-	circuit->ipv6_non_link = list_new();
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
@@ -528,21 +537,6 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	/* destroy addresses */
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_del_addr(circuit, conn);
-
-	if (circuit->ip_addrs) {
-		assert(listcount(circuit->ip_addrs) == 0);
-		list_delete(&circuit->ip_addrs);
-	}
-
-	if (circuit->ipv6_link) {
-		assert(listcount(circuit->ipv6_link) == 0);
-		list_delete(&circuit->ipv6_link);
-	}
-
-	if (circuit->ipv6_non_link) {
-		assert(listcount(circuit->ipv6_non_link) == 0);
-		list_delete(&circuit->ipv6_non_link);
-	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
 }
@@ -689,10 +683,10 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		}
 #ifdef EXTREME_DEGUG
 		if (IS_DEBUG_EVENTS)
-			zlog_debug(
-				"isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
-				circuit->interface->ifindex, ISO_MTU(circuit),
-				snpa_print(circuit->u.bc.snpa));
+			zlog_debug("%s: if_id %d, isomtu %d snpa %s", __func__,
+				   circuit->interface->ifindex,
+				   ISO_MTU(circuit),
+				   snpa_print(circuit->u.bc.snpa));
 #endif /* EXTREME_DEBUG */
 
 		circuit->u.bc.adjdb[0] = list_new();
@@ -856,12 +850,12 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
-		thread_cancel(&circuit->u.bc.t_send_lan_hello[0]);
-		thread_cancel(&circuit->u.bc.t_send_lan_hello[1]);
-		thread_cancel(&circuit->u.bc.t_run_dr[0]);
-		thread_cancel(&circuit->u.bc.t_run_dr[1]);
-		thread_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[0]);
-		thread_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[1]);
+		THREAD_OFF(circuit->u.bc.t_send_lan_hello[0]);
+		THREAD_OFF(circuit->u.bc.t_send_lan_hello[1]);
+		THREAD_OFF(circuit->u.bc.t_run_dr[0]);
+		THREAD_OFF(circuit->u.bc.t_run_dr[1]);
+		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[0]);
+		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
@@ -871,7 +865,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
 		circuit->u.p2p.neighbor = NULL;
-		thread_cancel(&circuit->u.p2p.t_send_p2p_hello);
+		THREAD_OFF(circuit->u.p2p.t_send_p2p_hello);
 	}
 
 	/*
@@ -884,11 +878,11 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	circuit->snmp_adj_idx_gen = 0;
 
 	/* Cancel all active threads */
-	thread_cancel(&circuit->t_send_csnp[0]);
-	thread_cancel(&circuit->t_send_csnp[1]);
-	thread_cancel(&circuit->t_send_psnp[0]);
-	thread_cancel(&circuit->t_send_psnp[1]);
-	thread_cancel(&circuit->t_read);
+	THREAD_OFF(circuit->t_send_csnp[0]);
+	THREAD_OFF(circuit->t_send_csnp[1]);
+	THREAD_OFF(circuit->t_send_psnp[0]);
+	THREAD_OFF(circuit->t_send_psnp[1]);
+	THREAD_OFF(circuit->t_read);
 
 	if (circuit->tx_queue) {
 		isis_tx_queue_free(circuit->tx_queue);
@@ -1046,7 +1040,7 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 			json_object_array_add(levels_json, level_json);
 		}
 
-		if (circuit->ip_addrs && listcount(circuit->ip_addrs) > 0) {
+		if (listcount(circuit->ip_addrs) > 0) {
 			ipv4_addr_json = json_object_new_object();
 			json_object_object_add(iface_json, "ip-prefix",
 					       ipv4_addr_json);
@@ -1058,7 +1052,7 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 						       buf_prx);
 			}
 		}
-		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {
+		if (listcount(circuit->ipv6_link) > 0) {
 			ipv6_link_json = json_object_new_object();
 			json_object_object_add(iface_json, "ipv6-link-locals",
 					       ipv6_link_json);
@@ -1070,8 +1064,7 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 						       buf_prx);
 			}
 		}
-		if (circuit->ipv6_non_link &&
-		    listcount(circuit->ipv6_non_link) > 0) {
+		if (listcount(circuit->ipv6_non_link) > 0) {
 			ipv6_non_link_json = json_object_new_object();
 			json_object_object_add(iface_json, "ipv6-prefixes",
 					       ipv6_non_link_json);
@@ -1183,20 +1176,19 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, "\n");
 			}
 		}
-		if (circuit->ip_addrs && listcount(circuit->ip_addrs) > 0) {
+		if (listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
 						  ip_addr))
 				vty_out(vty, "      %pFX\n", ip_addr);
 		}
-		if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0) {
+		if (listcount(circuit->ipv6_link) > 0) {
 			vty_out(vty, "    IPv6 Link-Locals:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
 						  ip_addr))
 				vty_out(vty, "      %pFX\n", ip_addr);
 		}
-		if (circuit->ipv6_non_link
-		    && listcount(circuit->ipv6_non_link) > 0) {
+		if (listcount(circuit->ipv6_non_link) > 0) {
 			vty_out(vty, "    IPv6 Prefixes:\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
 						  ip_addr))

@@ -685,15 +685,10 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 		zebra_del_import_table_entry(zvrf, rn, same);
 	}
 
-	newre = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-	newre->type = ZEBRA_ROUTE_TABLE;
-	newre->distance = zebra_import_table_distance[afi][re->table];
-	newre->flags = re->flags;
-	newre->metric = re->metric;
-	newre->mtu = re->mtu;
-	newre->table = zvrf->table_id;
-	newre->uptime = monotime(NULL);
-	newre->instance = re->table;
+	newre = zebra_rib_route_entry_new(
+		0, ZEBRA_ROUTE_TABLE, re->table, re->flags, re->nhe_id,
+		zvrf->table_id, re->metric, re->mtu,
+		zebra_import_table_distance[afi][re->table], re->tag);
 
 	ng = nexthop_group_new();
 	copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);

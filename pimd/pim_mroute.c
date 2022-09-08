@@ -26,6 +26,7 @@
 #include "plist.h"
 #include "sockopt.h"
 #include "lib_errors.h"
+#include "lib/network.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"
@@ -46,6 +47,111 @@
 #include "pim_msg.h"
 
 static void mroute_read_on(struct pim_instance *pim);
+
+int pim_mroute_set(struct pim_instance *pim, int enable)
+{
+	int err;
+	int opt, data;
+	socklen_t data_len = sizeof(data);
+
+	/*
+	 * We need to create the VRF table for the pim mroute_socket
+	 */
+	if (pim->vrf->vrf_id != VRF_DEFAULT) {
+		frr_with_privs (&pimd_privs) {
+
+			data = pim->vrf->data.l.table_id;
+			err = setsockopt(pim->mroute_socket, PIM_IPPROTO,
+					 MRT_TABLE, &data, data_len);
+			if (err) {
+				zlog_warn(
+					"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO, MRT_TABLE=%d): errno=%d: %s",
+					__FILE__, __func__, pim->mroute_socket,
+					data, errno, safe_strerror(errno));
+				return -1;
+			}
+		}
+	}
+
+	frr_with_privs (&pimd_privs) {
+		opt = enable ? MRT_INIT : MRT_DONE;
+		/*
+		 * *BSD *cares* about what value we pass down
+		 * here
+		 */
+		data = 1;
+		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, opt, &data,
+				 data_len);
+		if (err) {
+			zlog_warn(
+				"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO,%s=%d): errno=%d: %s",
+				__FILE__, __func__, pim->mroute_socket,
+				enable ? "MRT_INIT" : "MRT_DONE", data, errno,
+				safe_strerror(errno));
+			return -1;
+		}
+	}
+
+#if defined(HAVE_IP_PKTINFO)
+	if (enable) {
+		/* Linux and Solaris IP_PKTINFO */
+		data = 1;
+		if (setsockopt(pim->mroute_socket, PIM_IPPROTO, IP_PKTINFO,
+			       &data, data_len)) {
+			zlog_warn(
+				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
+				pim->mroute_socket, errno,
+				safe_strerror(errno));
+		}
+	}
+#endif
+
+#if PIM_IPV == 6
+	if (enable) {
+		/* Linux and Solaris IPV6_PKTINFO */
+		data = 1;
+		if (setsockopt(pim->mroute_socket, PIM_IPPROTO,
+			       IPV6_RECVPKTINFO, &data, data_len)) {
+			zlog_warn(
+				"Could not set IPV6_RECVPKTINFO on socket fd=%d: errno=%d: %s",
+				pim->mroute_socket, errno,
+				safe_strerror(errno));
+		}
+	}
+#endif
+	setsockopt_so_recvbuf(pim->mroute_socket, 1024 * 1024 * 8);
+
+	if (set_nonblocking(pim->mroute_socket) < 0) {
+		zlog_warn(
+			"Could not set non blocking on socket fd=%d: errno=%d: %s",
+			pim->mroute_socket, errno, safe_strerror(errno));
+		return -1;
+	}
+
+	if (enable) {
+#if defined linux
+		int upcalls = GMMSG_WRVIFWHOLE;
+		opt = MRT_PIM;
+
+		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, opt, &upcalls,
+				 sizeof(upcalls));
+		if (err) {
+			zlog_warn(
+				"Failure to register for VIFWHOLE and WRONGVIF upcalls %d %s",
+				errno, safe_strerror(errno));
+			return -1;
+		}
+#else
+		zlog_warn(
+			"PIM-SM will not work properly on this platform, until the ability to receive the WRVIFWHOLE upcall");
+#endif
+	}
+
+	return 0;
+}
+
+static const char *const gmmsgtype2str[GMMSG_WRVIFWHOLE + 1] = {
+	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
 
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
@@ -137,7 +243,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	return 0;
 }
 
-int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf)
+int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
+			    size_t len)
 {
 	struct pim_interface *pim_ifp;
 	pim_sgaddr sg;
@@ -229,7 +336,7 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf)
 		}
 
 		pim_register_send((uint8_t *)buf + sizeof(ipv_hdr),
-				  ntohs(IPV_LEN(ip_hdr)) - sizeof(ipv_hdr),
+				  len - sizeof(ipv_hdr),
 				  pim_ifp->primary_address, rpg, 0, up);
 	}
 	return 0;
@@ -336,7 +443,8 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 	return 0;
 }
 
-int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
+int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
+			      size_t len)
 {
 	const ipv_hdr *ip_hdr = (const ipv_hdr *)buf;
 	struct pim_interface *pim_ifp;
@@ -463,7 +571,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
 			pim_upstream_keep_alive_timer_start(
 				up, pim_ifp->pim->keep_alive_time);
 			pim_upstream_inherited_olist(pim_ifp->pim, up);
-			pim_mroute_msg_wholepkt(fd, ifp, buf);
+			pim_mroute_msg_wholepkt(fd, ifp, buf, len);
 		}
 		return 0;
 	}
@@ -490,13 +598,144 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
 
 		// Send the packet to the RP
-		pim_mroute_msg_wholepkt(fd, ifp, buf);
+		pim_mroute_msg_wholepkt(fd, ifp, buf, len);
 	} else {
 		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 				      PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,
 				      __func__, NULL);
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
+	}
+
+	return 0;
+}
+
+#if PIM_IPV == 4
+static int process_igmp_packet(struct pim_instance *pim, const char *buf,
+			       size_t buf_size, ifindex_t ifindex)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	struct in_addr ifaddr;
+	struct gm_sock *igmp;
+	const struct prefix *connected_src;
+	const struct ip *ip_hdr = (const struct ip *)buf;
+
+	/* We have the IP packet but we do not know which interface this
+	 * packet was
+	 * received on. Find the interface that is on the same subnet as
+	 * the source
+	 * of the IP packet.
+	 */
+	ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
+
+	if (!ifp || !ifp->info)
+		return 0;
+
+	connected_src = pim_if_connected_to_source(ifp, ip_hdr->ip_src);
+
+	if (!connected_src) {
+		if (PIM_DEBUG_GM_PACKETS) {
+			zlog_debug(
+				"Recv IGMP packet on interface: %s from a non-connected source: %pI4",
+				ifp->name, &ip_hdr->ip_src);
+		}
+		return 0;
+	}
+
+	pim_ifp = ifp->info;
+	ifaddr = connected_src->u.prefix4;
+	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
+
+	if (PIM_DEBUG_GM_PACKETS) {
+		zlog_debug(
+			"%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4",
+			__func__, pim->vrf->name, ifp->name, igmp,
+			&ip_hdr->ip_src, &ip_hdr->ip_dst);
+	}
+	if (igmp)
+		pim_igmp_packet(igmp, (char *)buf, buf_size);
+	else if (PIM_DEBUG_GM_PACKETS) {
+		zlog_debug(
+			"No IGMP socket on interface: %s with connected source: %pFX",
+			ifp->name, connected_src);
+	}
+	return 0;
+}
+#endif
+
+int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
+		   ifindex_t ifindex)
+{
+	struct interface *ifp;
+	const ipv_hdr *ip_hdr;
+	const kernmsg *msg;
+
+	if (buf_size < (int)sizeof(ipv_hdr))
+		return 0;
+
+	ip_hdr = (const ipv_hdr *)buf;
+
+#if PIM_IPV == 4
+	if (ip_hdr->ip_p == IPPROTO_IGMP) {
+		process_igmp_packet(pim, buf, buf_size, ifindex);
+	} else if (ip_hdr->ip_p) {
+		if (PIM_DEBUG_MROUTE_DETAIL) {
+			zlog_debug(
+				"%s: no kernel upcall proto=%d src: %pI4 dst: %pI4 msg_size=%ld",
+				__func__, ip_hdr->ip_p, &ip_hdr->ip_src,
+				&ip_hdr->ip_dst, (long int)buf_size);
+		}
+
+	} else {
+#else
+
+	if ((ip_hdr->ip6_vfc & 0xf) == 0) {
+#endif
+		msg = (const kernmsg *)buf;
+
+		ifp = pim_if_find_by_vif_index(pim, msg->msg_im_vif);
+
+		if (!ifp)
+			return 0;
+		if (PIM_DEBUG_MROUTE) {
+#if PIM_IPV == 4
+			zlog_debug(
+				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI4,%pI4) on %s vifi=%d  size=%ld",
+				__func__, gmmsgtype2str[msg->msg_im_msgtype],
+				msg->msg_im_msgtype, ip_hdr->ip_p,
+				pim->mroute_socket, &msg->msg_im_src,
+				&msg->msg_im_dst, ifp->name, msg->msg_im_vif,
+				(long int)buf_size);
+#else
+			zlog_debug(
+				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%pI6,%pI6) on %s vifi=%d  size=%ld",
+				__func__, gmmsgtype2str[msg->msg_im_msgtype],
+				msg->msg_im_msgtype, ip_hdr->ip6_nxt,
+				pim->mroute_socket, &msg->msg_im_src,
+				&msg->msg_im_dst, ifp->name, msg->msg_im_vif,
+				(long int)buf_size);
+#endif
+		}
+
+		switch (msg->msg_im_msgtype) {
+		case GMMSG_WRONGVIF:
+			return pim_mroute_msg_wrongvif(pim->mroute_socket, ifp,
+						       msg);
+		case GMMSG_NOCACHE:
+			return pim_mroute_msg_nocache(pim->mroute_socket, ifp,
+						      msg);
+		case GMMSG_WHOLEPKT:
+			return pim_mroute_msg_wholepkt(pim->mroute_socket, ifp,
+						       (const char *)msg,
+						       buf_size);
+		case GMMSG_WRVIFWHOLE:
+			return pim_mroute_msg_wrvifwhole(pim->mroute_socket,
+							 ifp, (const char *)msg,
+							 buf_size);
+		default:
+			break;
+		}
 	}
 
 	return 0;
@@ -570,6 +809,27 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				  safe_strerror(errno));
 			return -2;
 		}
+
+#if PIM_IPV == 6
+		struct icmp6_filter filter[1];
+		int ret;
+
+		/* Unlike IPv4, this socket is not used for MLD, so just drop
+		 * everything with an empty ICMP6 filter.  Otherwise we get
+		 * all kinds of garbage here, possibly even non-multicast
+		 * related ICMPv6 traffic (e.g. ping)
+		 *
+		 * (mroute kernel upcall "packets" are injected directly on the
+		 * socket, this sockopt -or any other- has no effect on them)
+		 */
+		ICMP6_FILTER_SETBLOCKALL(filter);
+		ret = setsockopt(fd, SOL_ICMPV6, ICMP6_FILTER, filter,
+				 sizeof(filter));
+		if (ret)
+			zlog_err(
+				"(VRF %s) failed to set mroute control filter: %m",
+				pim->vrf->name);
+#endif
 
 #ifdef SO_BINDTODEVICE
 		if (pim->vrf->vrf_id != VRF_DEFAULT
@@ -1047,14 +1307,14 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 	memset(&sgreq, 0, sizeof(sgreq));
 
+	pim_zlookup_sg_statistics(c_oil);
+
 #if PIM_IPV == 4
 	sgreq.src = *oil_origin(c_oil);
 	sgreq.grp = *oil_mcastgrp(c_oil);
-	pim_zlookup_sg_statistics(c_oil);
 #else
 	sgreq.src = c_oil->oil.mf6cc_origin;
 	sgreq.grp = c_oil->oil.mf6cc_mcastgrp;
-	/* TODO Zlookup_sg_statistics for V6 to be added */
 #endif
 	if (ioctl(pim->mroute_socket, PIM_SIOCGETSGCNT, &sgreq)) {
 		pim_sgaddr sg;

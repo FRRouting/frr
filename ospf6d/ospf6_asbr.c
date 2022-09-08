@@ -628,7 +628,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	if (CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_F)) {
 		offset = sizeof(*external)
 			 + OSPF6_PREFIX_SPACE(external->prefix.prefix_length);
-		memset(&fwd_addr, 0, sizeof(struct prefix));
+		memset(&fwd_addr, 0, sizeof(fwd_addr));
 		fwd_addr.family = AF_INET6;
 		fwd_addr.prefixlen = IPV6_MAX_BITLEN;
 		memcpy(&fwd_addr.u.prefix6, (caddr_t)external + offset,
@@ -1121,7 +1121,7 @@ void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
 {
 	SET_FLAG(red->flag, OSPF6_IS_RMAP_CHANGED);
 
-	if (ospf6->t_distribute_update)
+	if (thread_is_scheduled(ospf6->t_distribute_update))
 		return;
 
 	if (IS_OSPF6_DEBUG_ASBR)
@@ -1562,7 +1562,7 @@ static void
 ospf6_link_route_to_aggr(struct ospf6_external_aggr_rt *aggr,
 			struct ospf6_route *rt)
 {
-	hash_get(aggr->match_extnl_hash, rt, hash_alloc_intern);
+	(void)hash_get(aggr->match_extnl_hash, rt, hash_alloc_intern);
 	rt->aggr_route = aggr;
 }
 
@@ -1661,7 +1661,7 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 
 DEFPY (ospf6_redistribute,
        ospf6_redistribute_cmd,
-       "redistribute " FRR_REDIST_STR_OSPF6D "[{metric (0-16777214)|metric-type (1-2)$metric_type|route-map WORD$rmap_str}]",
+       "redistribute " FRR_REDIST_STR_OSPF6D "[{metric (0-16777214)|metric-type (1-2)$metric_type|route-map RMAP_NAME$rmap_str}]",
        "Redistribute\n"
        FRR_REDIST_HELP_STR_OSPF6D
        "Metric for redistributed routes\n"
@@ -1715,7 +1715,7 @@ DEFPY (ospf6_redistribute,
 
 DEFUN (no_ospf6_redistribute,
        no_ospf6_redistribute_cmd,
-       "no redistribute " FRR_REDIST_STR_OSPF6D "[{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
+       "no redistribute " FRR_REDIST_STR_OSPF6D "[{metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
        NO_STR
        "Redistribute\n"
        FRR_REDIST_HELP_STR_OSPF6D
@@ -1893,7 +1893,7 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 /* Default Route originate. */
 DEFPY (ospf6_default_route_originate,
        ospf6_default_route_originate_cmd,
-       "default-information originate [{always$always|metric (0-16777214)$mval|metric-type (1-2)$mtype|route-map WORD$rtmap}]",
+       "default-information originate [{always$always|metric (0-16777214)$mval|metric-type (1-2)$mtype|route-map RMAP_NAME$rtmap}]",
        "Control distribution of default route\n"
        "Distribute a default route\n"
        "Always advertise default route\n"
@@ -1951,7 +1951,7 @@ DEFPY (ospf6_default_route_originate,
 
 DEFPY (no_ospf6_default_information_originate,
        no_ospf6_default_information_originate_cmd,
-       "no default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
+       "no default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map RMAP_NAME}]",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
@@ -3360,7 +3360,7 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 {
 	aggr->action = operation;
 
-	if (ospf6->t_external_aggr) {
+	if (thread_is_scheduled(ospf6->t_external_aggr)) {
 		if (ospf6->aggr_action == OSPF6_ROUTE_AGGR_ADD) {
 
 			if (IS_OSPF6_DEBUG_AGGR)

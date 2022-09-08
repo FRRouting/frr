@@ -120,32 +120,32 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	switch (nbr->state) {
 	case NSM_Deleted:
 	case NSM_Down:
-		OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
-		OSPF_NSM_TIMER_OFF(nbr->t_hello_reply);
+		THREAD_OFF(nbr->t_inactivity);
+		THREAD_OFF(nbr->t_hello_reply);
 	/* fallthru */
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:
-		OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
+		THREAD_OFF(nbr->t_db_desc);
+		THREAD_OFF(nbr->t_ls_upd);
+		THREAD_OFF(nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
+		THREAD_OFF(nbr->t_ls_upd);
+		THREAD_OFF(nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
 		OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer,
 				  nbr->v_ls_upd);
 		if (!IS_SET_DD_MS(nbr->dd_flags))
-			OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
+			THREAD_OFF(nbr->t_db_desc);
 		break;
 	case NSM_Loading:
 	case NSM_Full:
 	default:
-		OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
+		THREAD_OFF(nbr->t_db_desc);
 		break;
 	}
 }
@@ -176,13 +176,13 @@ int nsm_should_adj(struct ospf_neighbor *nbr)
 static int nsm_hello_received(struct ospf_neighbor *nbr)
 {
 	/* Start or Restart Inactivity Timer. */
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
+	THREAD_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
 	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
-		OSPF_POLL_TIMER_OFF(nbr->nbr_nbma->t_poll);
+		THREAD_OFF(nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
 	if (nbr->state < NSM_Exchange)
@@ -194,9 +194,9 @@ static int nsm_hello_received(struct ospf_neighbor *nbr)
 static int nsm_start(struct ospf_neighbor *nbr)
 {
 	if (nbr->nbr_nbma)
-		OSPF_POLL_TIMER_OFF(nbr->nbr_nbma->t_poll);
+		THREAD_OFF(nbr->nbr_nbma->t_poll);
 
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
+	THREAD_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
@@ -382,6 +382,10 @@ static void nsm_clear_adj(struct ospf_neighbor *nbr)
 
 static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 {
+	struct ospf_interface *oi = nbr->oi;
+	struct ospf_neighbor *on;
+	struct route_node *rn;
+
 	/* killing nbr_self is invalid */
 	if (nbr == nbr->oi->nbr_self) {
 		assert(nbr != nbr->oi->nbr_self);
@@ -407,6 +411,35 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 				ospf_get_name(nbr->oi->ospf));
 	}
 
+	/*
+	 * Do we have any neighbors that are also operating
+	 * on this interface?
+	 */
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		on = rn->info;
+
+		if (!on)
+			continue;
+
+		if (on == nbr || on == oi->nbr_self)
+			continue;
+
+		/*
+		 * on is in some state where we might be
+		 * sending packets on this interface
+		 */
+		if (on->state > NSM_Down) {
+			route_unlock_node(rn);
+			return 0;
+		}
+	}
+	/*
+	 * If we get here we know that this interface
+	 * has no neighbors in a state where we could
+	 * be sending packets.  Let's flush anything
+	 * we got.
+	 */
+	ospf_interface_fifo_flush(oi);
 	return 0;
 }
 

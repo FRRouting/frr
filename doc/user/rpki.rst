@@ -102,15 +102,25 @@ The following commands are independent of a specific cache server.
 
 .. clicmd:: rpki polling_period (1-3600)
 
-
    Set the number of seconds the router waits until the router asks the cache
    again for updated data.
 
    The default value is 300 seconds.
 
-   The following commands configure one or multiple cache servers.
+.. clicmd:: rpki expire_interval (600-172800)
 
-.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] PREFERENCE
+   Set the number of seconds the router waits until the router expires the cache.
+
+   The default value is 7200 seconds.
+
+.. clicmd:: rpki retry_interval (1-7200)
+
+   Set the number of seconds the router waits until retrying to connect to the
+   cache server.
+
+   The default value is 600 seconds.
+
+.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] preference (1-255)
 
 
    Add a cache server to the socket. By default, the connection between router
@@ -127,14 +137,8 @@ The following commands are independent of a specific cache server.
    SSH_USERNAME
       SSH username to establish an SSH connection to the cache server.
 
-
    SSH_PRIVKEY_PATH
       Local path that includes the private key file of the router.
-
-
-   SSH_PUBKEY_PATH
-      Local path that includes the public key file of the router.
-
 
    KNOWN_HOSTS_PATH
       Local path that includes the known hosts file. The default value depends
@@ -190,25 +194,29 @@ Debugging
 Displaying RPKI
 ---------------
 
-.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
+.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [json]
 
    Display validated prefixes received from the cache servers filtered
    by the specified prefix.
 
-.. clicmd:: show rpki as-number ASN
+.. clicmd:: show rpki as-number ASN [json]
 
    Display validated prefixes received from the cache servers filtered
    by ASN.
 
-.. clicmd:: show rpki prefix-table
+.. clicmd:: show rpki prefix-table [json]
 
    Display all validated prefix to origin AS mappings/records which have been
    received from the cache servers and stored in the router. Based on this data,
    the router validates BGP Updates.
 
-.. clicmd:: show rpki cache-connection
+.. clicmd:: show rpki cache-server [json]
 
    Display all configured cache servers, whether active or not.
+
+.. clicmd:: show rpki cache-connection [json]
+
+   Display all cache connections, and show which is connected or not.
 
 .. clicmd:: show bgp [afi] [safi] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> rpki <valid|invalid|notfound>
 

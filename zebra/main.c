@@ -71,16 +71,14 @@ struct thread_master *master;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-/* Allow non-frr entities to delete frr routes */
-int allow_delete = 0;
-
 int graceful_restart;
 
 bool v6_rr_semantics = false;
 
 /* Receive buffer size for kernel control sockets */
+#define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
-uint32_t rcvbufsize = 4194304;
+uint32_t rcvbufsize = RCVBUFSIZE_MIN;
 #else
 uint32_t rcvbufsize = 128 * 1024;
 #endif
@@ -104,8 +102,12 @@ const struct option longopts[] = {
 #endif /* HAVE_NETLINK */
 	{0}};
 
-zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW,
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN,
+				  ZCAP_NET_RAW,
+#ifdef HAVE_DPDK
+				  ZCAP_IPC_LOCK,  ZCAP_READ_SEARCH,
+				  ZCAP_SYS_RAWIO
+#endif
 };
 
 /* zebra privileges to run with */
@@ -331,7 +333,7 @@ int main(int argc, char **argv)
 			// batch_mode = 1;
 			break;
 		case 'a':
-			allow_delete = 1;
+			zrouter.allow_delete = true;
 			break;
 		case 'e': {
 			unsigned long int parsed_multipath =
@@ -365,6 +367,10 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			rcvbufsize = atoi(optarg);
+			if (rcvbufsize < RCVBUFSIZE_MIN)
+				fprintf(stderr,
+					"Rcvbufsize is smaller than recommended value: %d\n",
+					RCVBUFSIZE_MIN);
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
@@ -403,9 +409,7 @@ int main(int argc, char **argv)
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
-#if defined(HAVE_RTADV)
 	rtadv_cmd_init();
-#endif
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();

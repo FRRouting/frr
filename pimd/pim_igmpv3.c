@@ -24,6 +24,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_iface.h"
 #include "pim_igmp.h"
 #include "pim_igmpv3.h"
@@ -208,7 +209,7 @@ static void igmp_source_timer_on(struct gm_group *group,
 	source_timer_off(group, source);
 	struct pim_interface *pim_ifp = group->interface->info;
 
-	if (PIM_DEBUG_IGMP_EVENTS) {
+	if (PIM_DEBUG_GM_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
@@ -1621,7 +1622,7 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 	checksum = in_cksum(query_buf, msg_size);
 	*(uint16_t *)(query_buf + IGMP_CHECKSUM_OFFSET) = checksum;
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		char dst_str[INET_ADDRSTRLEN];
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
@@ -1834,7 +1835,7 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 
 	/* determine filtering status for group */
 	if (pim_is_group_filtered(pim_ifp, &grp)) {
-		if (PIM_DEBUG_IGMP_PACKETS) {
+		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug(
 				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
 				&grp.s_addr, from_str, ifp->name,
@@ -1851,7 +1852,7 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 	grp_addr.s_addr = ntohl(grp.s_addr);
 
 	if (pim_is_group_224_0_0_0_24(grp_addr)) {
-		if (PIM_DEBUG_IGMP_PACKETS) {
+		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug(
 				"Ignoring IGMPv3 group record %pI4 from %s on %s group range falls in 224.0.0.0/24",
 				&grp.s_addr, from_str, ifp->name);
@@ -1870,7 +1871,7 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 		switch (rec_type) {
 		case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
 		case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
-			if (PIM_DEBUG_IGMP_PACKETS) {
+			if (PIM_DEBUG_GM_PACKETS) {
 				zlog_debug(
 					"Ignoring IGMPv3 group record %pI4 from %s on %s exclude mode in SSM range",
 					&grp.s_addr, from_str, ifp->name);
@@ -1889,6 +1890,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	uint8_t *group_record;
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
 	struct interface *ifp = igmp->interface;
+	struct pim_interface *pim_ifp = ifp->info;
 	int i;
 
 	if (igmp->mtrace_only)
@@ -1912,6 +1914,13 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	/* Collecting IGMP Rx stats */
 	igmp->igmp_stats.report_v3++;
 
+	if (pim_ifp->igmp_version == 2) {
+		zlog_warn(
+			"Received Version 3 packet but interface: %s is configured for version 2",
+			ifp->name);
+		return -1;
+	}
+
 	num_groups = ntohs(
 		*(uint16_t *)(igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET));
 	if (num_groups < 1) {
@@ -1921,7 +1930,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		zlog_debug(
 			"Recv IGMP report v3 from %s on %s: size=%d groups=%d",
 			from_str, ifp->name, igmp_msg_len, num_groups);
@@ -1958,7 +1967,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		       group_record + IGMP_V3_GROUP_RECORD_GROUP_OFFSET,
 		       sizeof(struct in_addr));
 
-		if (PIM_DEBUG_IGMP_PACKETS) {
+		if (PIM_DEBUG_GM_PACKETS) {
 			zlog_debug(
 				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
 				from_str, ifp->name, i, rec_type,
@@ -1979,7 +1988,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 				return -1;
 			}
 
-			if (PIM_DEBUG_IGMP_PACKETS) {
+			if (PIM_DEBUG_GM_PACKETS) {
 				char src_str[200];
 
 				if (!inet_ntop(AF_INET, src, src_str,

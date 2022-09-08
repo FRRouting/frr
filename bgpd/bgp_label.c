@@ -55,7 +55,7 @@ int bgp_parse_fec_update(void)
 
 	s = zclient->ibuf;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = stream_getw(s);
 	p.prefixlen = stream_getc(s);
 	stream_get(p.u.val, s, PSIZE(p.prefixlen));
@@ -85,7 +85,7 @@ int bgp_parse_fec_update(void)
 	if (label == MPLS_INVALID_LABEL)
 		bgp_unset_valid_label(&dest->local_label);
 	else {
-		label_ntop(label, 1, &dest->local_label);
+		dest->local_label = mpls_lse_encode(label, 0, 0, 1);
 		bgp_set_valid_label(&dest->local_label);
 	}
 	SET_FLAG(dest->flags, BGP_NODE_LABEL_CHANGED);
@@ -129,9 +129,16 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	uint16_t flags = 0;
 	size_t flags_pos = 0;
 	mpls_label_t *local_label = &(dest->local_label);
-	bool have_label_to_reg =
-		bgp_is_valid_label(local_label)
-		&& label_pton(local_label) != MPLS_LABEL_IMPLICIT_NULL;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+	bool have_label_to_reg;
+
+	mpls_lse_decode(*local_label, &label, &ttl, &exp, &bos);
+
+	have_label_to_reg = bgp_is_valid_label(local_label) &&
+			    label != MPLS_LABEL_IMPLICIT_NULL;
 
 	p = bgp_dest_get_prefix(dest);
 
@@ -142,7 +149,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: FEC %sregister %pRN label_index=%u label=%u",
 			   __func__, reg ? "" : "un", bgp_dest_to_rnode(dest),
-			   label_index, label_pton(local_label));
+			   label_index, label);
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
@@ -161,7 +168,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 			stream_putl(s, label_index);
 		} else if (have_label_to_reg) {
 			flags |= ZEBRA_FEC_REGISTER_LABEL;
-			stream_putl(s, label_pton(local_label));
+			stream_putl(s, label);
 		}
 		SET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
 	} else
@@ -216,13 +223,13 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 		 */
 		if (CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
 			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
-			label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
-				   &dest->local_label);
+			dest->local_label = mpls_lse_encode(
+				MPLS_LABEL_IMPLICIT_NULL, 0, 0, 1);
 			bgp_set_valid_label(&dest->local_label);
 		}
 	}
 
-	label_ntop(new_label, 1, &dest->local_label);
+	dest->local_label = mpls_lse_encode(new_label, 0, 0, 1);
 	bgp_set_valid_label(&dest->local_label);
 
 	/*
@@ -238,9 +245,16 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 {
 	bool with_label_index = false;
 	const struct prefix *p;
-	bool have_label_to_reg =
-		bgp_is_valid_label(&dest->local_label)
-		&& label_pton(&dest->local_label) != MPLS_LABEL_IMPLICIT_NULL;
+	bool have_label_to_reg;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+	mpls_label_t label = MPLS_INVALID_LABEL;
+
+	mpls_lse_decode(dest->local_label, &label, &ttl, &exp, &bos);
+
+	have_label_to_reg = bgp_is_valid_label(&dest->local_label) &&
+			    label != MPLS_LABEL_IMPLICIT_NULL;
 
 	p = bgp_dest_get_prefix(dest);
 
@@ -283,8 +297,7 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	} else {
 		UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
-		bgp_lp_release(LP_TYPE_BGP_LU, dest,
-			       label_pton(&dest->local_label));
+		bgp_lp_release(LP_TYPE_BGP_LU, dest, label);
 	}
 
 	bgp_send_fec_register_label_msg(
@@ -350,7 +363,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
-		memset(&p, 0, sizeof(struct prefix));
+		memset(&p, 0, sizeof(p));
 
 		if (addpath_capable) {
 

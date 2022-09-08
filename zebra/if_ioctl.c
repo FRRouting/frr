@@ -199,7 +199,7 @@ static int if_getaddrs(void)
 		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
 		if (ifp == NULL) {
 			flog_err(EC_LIB_INTERFACE,
-				 "if_getaddrs(): Can't lookup interface %s\n",
+				 "if_getaddrs(): Can't lookup interface %s",
 				 ifap->ifa_name);
 			continue;
 		}

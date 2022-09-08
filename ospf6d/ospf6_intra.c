@@ -1765,10 +1765,8 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	intra_prefix_lsa =
 		(struct ospf6_intra_prefix_lsa *)OSPF6_LSA_HEADER_END(
 			lsa->header);
-	if (intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_ROUTER))
-		ospf6_linkstate_prefix(intra_prefix_lsa->ref_adv_router,
-				       intra_prefix_lsa->ref_id, &ls_prefix);
-	else if (intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_NETWORK))
+	if (intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_ROUTER) ||
+	    intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_NETWORK))
 		ospf6_linkstate_prefix(intra_prefix_lsa->ref_adv_router,
 				       intra_prefix_lsa->ref_id, &ls_prefix);
 	else {
@@ -2010,7 +2008,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 			break;
 		prefix_num--;
 
-		memset(&prefix, 0, sizeof(struct prefix));
+		memset(&prefix, 0, sizeof(prefix));
 		prefix.family = AF_INET6;
 		prefix.prefixlen = op->prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, intra_prefix_lsa, op);

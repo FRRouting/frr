@@ -20,6 +20,7 @@ vtysh_scan += \
 	zebra/zebra_vty.c \
 	zebra/zserv.c \
 	zebra/zebra_vrf.c \
+	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
@@ -81,6 +82,8 @@ zebra_zebra_SOURCES = \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
 	zebra/table_manager.c \
+	zebra/tc_netlink.c \
+	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
@@ -125,6 +128,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
 	zebra/zebra_evpn_mh.c \
+	zebra/zebra_neigh.c \
 	zebra/zserv.c \
 	# end
 
@@ -138,6 +142,7 @@ clippy_scan += \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
+	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	# end
 
 noinst_HEADERS += \
@@ -160,6 +165,7 @@ noinst_HEADERS += \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/table_manager.h \
+	zebra/tc_netlink.h \
 	zebra/zapi_msg.h \
 	zebra/zebra_dplane.h \
 	zebra/zebra_errors.h \
@@ -197,7 +203,10 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
+	zebra/zebra_neigh.h \
 	zebra/zserv.h \
+	zebra/dpdk/zebra_dplane_dpdk.h \
+	zebra/dpdk/zebra_dplane_dpdk_private.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
@@ -255,3 +264,12 @@ zebra_zebra_SOURCES += \
 	zebra/debug_nl.c \
 	# end
 endif
+
+if DP_DPDK
+module_LTLIBRARIES += zebra/zebra_dplane_dpdk.la
+endif
+
+zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/zebra_dplane_dpdk_vty.c
+zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
+zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
+zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)

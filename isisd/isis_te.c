@@ -64,9 +64,114 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_zebra.h"
 
+DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
+
 /*------------------------------------------------------------------------*
  * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
+
+/**
+ * Create MPLS Traffic Engineering structure which belongs to given area.
+ *
+ * @param area	IS-IS Area
+ */
+void isis_mpls_te_create(struct isis_area *area)
+{
+	struct listnode *node;
+	struct isis_circuit *circuit;
+
+	if (!area)
+		return;
+
+	if (area->mta == NULL) {
+
+		struct mpls_te_area *new;
+
+		zlog_debug("ISIS-TE(%s): Initialize MPLS Traffic Engineering",
+			   area->area_tag);
+
+		new = XCALLOC(MTYPE_ISIS_MPLS_TE, sizeof(struct mpls_te_area));
+
+		/* Initialize MPLS_TE structure */
+		new->status = enable;
+		new->level = 0;
+		new->inter_as = off;
+		new->interas_areaid.s_addr = 0;
+		new->router_id.s_addr = 0;
+		new->ted = ls_ted_new(1, "ISIS", 0);
+		if (!new->ted)
+			zlog_warn("Unable to create Link State Data Base");
+
+		area->mta = new;
+	} else {
+		area->mta->status = enable;
+	}
+
+	/* Initialize Link State Database */
+	if (area->mta->ted)
+		isis_te_init_ted(area);
+
+	/* Update Extended TLVs according to Interface link parameters */
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		isis_link_params_update(circuit, circuit->interface);
+}
+
+/**
+ * Disable MPLS Traffic Engineering structure which belongs to given area.
+ *
+ * @param area	IS-IS Area
+ */
+void isis_mpls_te_disable(struct isis_area *area)
+{
+	struct listnode *node;
+	struct isis_circuit *circuit;
+
+	if (!area->mta)
+		return;
+
+	area->mta->status = disable;
+
+	/* Remove Link State Database */
+	ls_ted_del_all(&area->mta->ted);
+
+	/* Disable Extended SubTLVs on all circuit */
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+		if (!IS_EXT_TE(circuit->ext))
+			continue;
+
+		/* disable MPLS_TE Circuit keeping SR one's */
+		if (IS_SUBTLV(circuit->ext, EXT_ADJ_SID))
+			circuit->ext->status = EXT_ADJ_SID;
+		else if (IS_SUBTLV(circuit->ext, EXT_LAN_ADJ_SID))
+			circuit->ext->status = EXT_LAN_ADJ_SID;
+		else
+			circuit->ext->status = 0;
+	}
+}
+
+void isis_mpls_te_term(struct isis_area *area)
+{
+	struct listnode *node;
+	struct isis_circuit *circuit;
+
+	if (!area->mta)
+		return;
+
+	zlog_info("TE(%s): Terminate MPLS TE", __func__);
+	/* Remove Link State Database */
+	ls_ted_del_all(&area->mta->ted);
+
+	/* Remove Extended SubTLVs */
+	zlog_info(" |- Remove Extended SubTLVS for all circuit");
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+		zlog_info("   |- Call isis_del_ext_subtlvs()");
+		isis_del_ext_subtlvs(circuit->ext);
+		circuit->ext = NULL;
+	}
+
+	zlog_info(" |- Free MTA structure at %p", area->mta);
+	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
+}
 
 /* Main initialization / update function of the MPLS TE Circuit context */
 /* Call when interface TE Link parameters are modified */
@@ -108,8 +213,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_ADM_GRP);
 
 		/* If known, register local IPv4 addr from ip_addr list */
-		if (circuit->ip_addrs != NULL
-		    && listcount(circuit->ip_addrs) != 0) {
+		if (listcount(circuit->ip_addrs) != 0) {
 			addr = (struct prefix_ipv4 *)listgetdata(
 				(struct listnode *)listhead(circuit->ip_addrs));
 			IPV4_ADDR_COPY(&ext->local_addr, &addr->prefix);
@@ -118,8 +222,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_LOCAL_ADDR);
 
 		/* If known, register local IPv6 addr from ip_addr list */
-		if (circuit->ipv6_non_link != NULL
-		    && listcount(circuit->ipv6_non_link) != 0) {
+		if (listcount(circuit->ipv6_non_link) != 0) {
 			addr6 = (struct prefix_ipv6 *)listgetdata(
 				(struct listnode *)listhead(
 					circuit->ipv6_non_link));
@@ -439,7 +542,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 			SET_FLAG(lnode.flags, LS_NODE_ROUTER_ID6);
 		}
 		if (tlvs->hostname) {
-			memcpy(&lnode.name, tlvs->hostname, MAX_NAME_LENGTH);
+			strlcpy(lnode.name, tlvs->hostname, MAX_NAME_LENGTH);
 			SET_FLAG(lnode.flags, LS_NODE_NAME);
 		}
 		if (tlvs->router_cap) {
@@ -909,7 +1012,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 			p.u.prefix6 = std->local6;
 	}
 	if (!std)
-		p = *prefix;
+		prefix_copy(&p, prefix);
 	else
 		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
 			 prefix, &p);

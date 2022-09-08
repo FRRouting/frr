@@ -570,10 +570,7 @@ zebra_evpn_acc_vl_new(vlanid_t vid, struct interface *br_if)
 	acc_bd->mbr_zifs = list_new();
 
 	/* Add to hash */
-	if (!hash_get(zmh_info->evpn_vlan_table, acc_bd, hash_alloc_intern)) {
-		XFREE(MTYPE_ZACC_BD, acc_bd);
-		return NULL;
-	}
+	(void)hash_get(zmh_info->evpn_vlan_table, acc_bd, hash_alloc_intern);
 
 	/* check if an svi exists for the vlan */
 	if (br_if) {
@@ -1091,10 +1088,7 @@ static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
 		nh_id = id | EVPN_NHG_ID_TYPE_BIT;
 		/* Add to NHG hash */
 		es->nhg_id = nh_id;
-		if (!hash_get(zmh_info->nhg_table, es, hash_alloc_intern)) {
-			bf_release_index(zmh_info->nh_id_bitmap, id);
-			return 0;
-		}
+		(void)hash_get(zmh_info->nhg_table, es, hash_alloc_intern);
 	} else {
 		nh_id = id | EVPN_NH_ID_TYPE_BIT;
 	}
@@ -1361,10 +1355,7 @@ static struct zebra_evpn_l2_nh *zebra_evpn_l2_nh_alloc(struct in_addr vtep_ip)
 
 	nh = XCALLOC(MTYPE_L2_NH, sizeof(*nh));
 	nh->vtep_ip = vtep_ip;
-	if (!hash_get(zmh_info->nh_ip_table, nh, hash_alloc_intern)) {
-		XFREE(MTYPE_L2_NH, nh);
-		return NULL;
-	}
+	(void)hash_get(zmh_info->nh_ip_table, nh, hash_alloc_intern);
 
 	nh->nh_id = zebra_evpn_nhid_alloc(NULL);
 	if (!nh->nh_id) {
@@ -2075,11 +2066,6 @@ static void zebra_evpn_mh_dup_addr_detect_off(void)
 		return;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf) {
-		zmh_info->flags |= ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF;
-		return;
-	}
-
 	old_detect = zebra_evpn_do_dup_addr_detect(zvrf);
 	zmh_info->flags |= ZEBRA_EVPN_MH_DUP_ADDR_DETECT_OFF;
 	new_detect = zebra_evpn_do_dup_addr_detect(zvrf);
@@ -2326,7 +2312,6 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi)
 	struct zebra_evpn_es *old_es = zif->es_info.es;
 	struct zebra_evpn_es *es;
 
-	memcpy(&zif->es_info.esi, esi, sizeof(*esi));
 	if (old_es && !memcmp(&old_es->esi, esi, sizeof(*esi)))
 		/* dup - nothing to be done */
 		return 0;
@@ -2338,15 +2323,14 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi)
 	es = zebra_evpn_es_find(esi);
 	if (es) {
 		/* if it exists against another interface flag an error */
-		if (es->zif && es->zif != zif) {
-			memset(&zif->es_info.esi, 0, sizeof(*esi));
+		if (es->zif && es->zif != zif)
 			return -1;
-		}
 	} else {
 		/* create new es */
 		es = zebra_evpn_es_new(esi);
 	}
 
+	memcpy(&zif->es_info.esi, esi, sizeof(*esi));
 	if (es)
 		zebra_evpn_es_local_info_set(es, zif);
 

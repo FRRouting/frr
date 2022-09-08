@@ -54,6 +54,7 @@ import sys
 import time
 import datetime
 import pytest
+from time import sleep
 
 pytestmark = pytest.mark.pimd
 
@@ -84,9 +85,9 @@ from lib.pim import (
     create_pim_config,
     create_igmp_config,
     verify_igmp_groups,
-    verify_ip_mroutes,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    verify_mroutes,
+    clear_mroute,
+    clear_pim_interface_traffic,
     verify_igmp_config,
     verify_pim_config,
     verify_pim_interface,
@@ -95,6 +96,7 @@ from lib.pim import (
     verify_pim_rp_info,
     verify_multicast_flag_state,
     McastTesterHelper,
+    verify_pim_interface_traffic,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -354,6 +356,45 @@ def find_tos_in_tcpdump(tgen, router, message, cap_file):
     return True
 
 
+def verify_pim_stats_increament(stats_before, stats_after):
+    """
+    API to compare pim interface control plane traffic
+
+    Parameters
+    ----------
+    * `stats_before` : Stats dictionary for any particular instance
+    * `stats_after` : Stats dictionary for any particular instance
+    """
+
+    for router, stats_data in stats_before.items():
+        for stats, value in stats_data.items():
+            if stats_before[router][stats] >= stats_after[router][stats]:
+                errormsg = (
+                    "[DUT: %s]: state %s value has not"
+                    " incremented, Initial value: %s, "
+                    "Current value: %s [FAILED!!]"
+                    % (
+                        router,
+                        stats,
+                        stats_before[router][stats],
+                        stats_after[router][stats],
+                    )
+                )
+                return errormsg
+
+            logger.info(
+                "[DUT: %s]: State %s value is "
+                "incremented, Initial value: %s, Current value: %s"
+                " [PASSED!!]",
+                router,
+                stats,
+                stats_before[router][stats],
+                stats_after[router][stats],
+            )
+
+    return True
+
+
 def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     """
     TC_21_1:
@@ -371,9 +412,9 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Enable the PIM on all the interfaces of FRR1, FRR2, FRR3")
@@ -483,7 +524,7 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -562,7 +603,7 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -611,7 +652,7 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_f1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -685,7 +726,7 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -744,9 +785,9 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Removing FRR3 to simulate topo " "FHR(FRR1)---LHR(FRR2)")
@@ -835,7 +876,7 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -873,7 +914,7 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
     ]
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -907,7 +948,7 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_l1_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -937,7 +978,7 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
     ]
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -989,9 +1030,9 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Enable the PIM on all the interfaces of FRR1, R2 and FRR3" " routers")
@@ -1076,7 +1117,7 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1102,7 +1143,7 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     )
 
     intf_f1_r2 = topo["routers"]["f1"]["links"]["r2"]["interface"]
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, "f1", source_i2, IGMP_JOIN_RANGE_1, intf_f1_i2, intf_f1_r2, expected=False
     )
     assert (
@@ -1135,7 +1176,7 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1161,7 +1202,7 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1196,9 +1237,9 @@ def test_shut_noshut_receiver_interface_when_upstream_cleared_from_LHR_p1(reques
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Enable the PIM on all the interfaces of FRR1, R2 and FRR3" " routers")
@@ -1278,7 +1319,7 @@ def test_shut_noshut_receiver_interface_when_upstream_cleared_from_LHR_p1(reques
     ]
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1328,7 +1369,7 @@ def test_shut_noshut_receiver_interface_when_upstream_cleared_from_LHR_p1(reques
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1355,7 +1396,7 @@ def test_shut_noshut_receiver_interface_when_upstream_cleared_from_LHR_p1(reques
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1388,9 +1429,9 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Enable PIM on all routers")
@@ -1474,7 +1515,7 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     ]
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1566,7 +1607,7 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1684,7 +1725,7 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     ]
 
     for data in input_dict_l1_f1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1736,7 +1777,7 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     iif = topo["routers"]["l1"]["links"]["i6"]["interface"]
     oil = topo["routers"]["l1"]["links"]["i1"]["interface"]
     source = source_i6
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, dut, source, IGMP_JOIN_RANGE_1, iif, oil, expected=False
     )
     assert (
@@ -1765,9 +1806,9 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Enable PIM on all routers")
@@ -1851,7 +1892,7 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
     ]
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2063,9 +2104,9 @@ def test_verify_remove_add_pim_commands_when_igmp_configured_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Configure 'ip pim' on receiver interface on FRR1")
@@ -2253,9 +2294,9 @@ def test_pim_dr_priority_p0(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Configure 'ip pim' on receiver interface on FRR1")
@@ -2323,7 +2364,7 @@ def test_pim_dr_priority_p0(request):
     ]
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2360,7 +2401,7 @@ def test_pim_dr_priority_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2397,7 +2438,7 @@ def test_pim_dr_priority_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2492,7 +2533,7 @@ def test_pim_dr_priority_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2526,9 +2567,9 @@ def test_pim_hello_timer_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step("Configure 'ip pim' on receiver interface on FRR1")
@@ -2641,9 +2682,9 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step(
@@ -2740,7 +2781,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2802,7 +2843,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
     ]
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2819,7 +2860,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
         logger.info("Expected Behaviour: {}".format(result))
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2896,7 +2937,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2915,7 +2956,7 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
     source_i2 = topo["routers"]["i6"]["links"]["l1"]["ipv4"].split("/")[0]
 
     for data in input_dict_sg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -2943,9 +2984,9 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step(
@@ -3052,7 +3093,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3133,7 +3174,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroute after Shut the link from LHR to RP from RP node")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3150,7 +3191,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         logger.info("Expected Behaviour: {}".format(result))
 
     for data in input_dict_sg_i1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3206,7 +3247,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroute  after No shut the link from LHR to RP from RP node")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3217,7 +3258,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3228,7 +3269,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3282,7 +3323,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroute after Shut the link from FHR to RP from RP node")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3293,7 +3334,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3355,7 +3396,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroute after Noshut the link from FHR to RP from RP node")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3366,7 +3407,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3377,7 +3418,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3432,7 +3473,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroute after Shut the link from FHR to RP from FHR node")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3443,7 +3484,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3503,7 +3544,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     step("Verify mroute after No Shut the link from FHR to RP from FHR node")
 
     for data in input_dict_starg:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3514,7 +3555,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3525,7 +3566,7 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     for data in input_dict_sg_i1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3579,9 +3620,9 @@ def test_mroute_flags_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step(
@@ -3688,7 +3729,7 @@ def test_mroute_flags_p1(request):
     step("Verify mroutes and iff upstream")
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3740,9 +3781,9 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step(
@@ -3859,7 +3900,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3918,7 +3959,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3944,7 +3985,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     )
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -3988,7 +4029,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4013,7 +4054,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     )
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4063,7 +4104,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_r2_f1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4088,7 +4129,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4130,14 +4171,14 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     iif = topo["routers"]["r2"]["links"]["f1"]["interface"]
     oil = topo["routers"]["r2"]["links"]["i3"]["interface"]
 
-    result = verify_ip_mroutes(tgen, dut, src_address, _IGMP_JOIN_RANGE, iif, oil)
+    result = verify_mroutes(tgen, dut, src_address, _IGMP_JOIN_RANGE, iif, oil)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     src_address = source_i1
     iif = topo["routers"]["r2"]["links"]["l1"]["interface"]
     oil = topo["routers"]["r2"]["links"]["i3"]["interface"]
 
-    result = verify_ip_mroutes(
+    result = verify_mroutes(
         tgen, dut, src_address, _IGMP_JOIN_RANGE, iif, oil, expected=False
     )
     assert (
@@ -4156,7 +4197,7 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     )
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4200,9 +4241,9 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
     step(
@@ -4289,7 +4330,7 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_all:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4333,7 +4374,7 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4360,7 +4401,7 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     )
 
     for data in input_dict_l1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4399,7 +4440,7 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4426,7 +4467,7 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     )
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4471,7 +4512,7 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     ]
 
     for data in input_dict_all_star:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -4486,6 +4527,259 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
             tc_name, result
         )
         logger.info("Expected Behaviour: {}".format(result))
+
+    write_test_footer(tc_name)
+
+
+def test_PIM_passive_p1(request):
+    """
+    TC Verify PIM passive functionality"
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    app_helper.stop_all_hosts()
+    # Creating configuration from JSON
+    clear_mroute(tgen)
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+    reset_config_on_routers(tgen)
+    clear_pim_interface_traffic(tgen, topo)
+
+    step("Enable the PIM on all the interfaces of FRR1, FRR2, FRR3")
+    step(
+        "Enable IGMP of FRR1 interface and send IGMP joins "
+        " from FRR1 node for group range (225.1.1.1-5)"
+    )
+
+    intf_c1_i4 = topo["routers"]["c1"]["links"]["i4"]["interface"]
+
+    step(
+        "configure PIM passive on receiver interface to verify no impact on IGMP join"
+        "and multicast traffic on pim passive interface"
+    )
+
+    raw_config = {
+        "c1": {"raw_config": ["interface {}".format(intf_c1_i4), "ip pim passive"]}
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("configure IGMPv2 and send IGMP joinon on PIM passive interface")
+    input_dict = {
+        "c1": {"igmp": {"interfaces": {intf_c1_i4: {"igmp": {"version": "2"}}}}}
+    }
+    result = create_igmp_config(tgen, topo, input_dict)
+    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+
+    input_join = {"i4": topo["routers"]["i4"]["links"]["c1"]["interface"]}
+    for recvr, recvr_intf in input_join.items():
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
+        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+
+    step("Configure static RP for (225.1.1.1-5) as R2")
+
+    input_dict = {
+        "r2": {
+            "pim": {
+                "rp": [
+                    {
+                        "rp_addr": topo["routers"]["r2"]["links"]["lo"]["ipv4"].split(
+                            "/"
+                        )[0],
+                        "group_addr_range": GROUP_RANGE_1,
+                    }
+                ]
+            }
+        }
+    }
+
+    result = create_pim_config(tgen, topo, input_dict)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("Send Mcast traffic from C2 to all the groups ( 225.1.1.1 to 225.1.1.5)")
+
+    input_src = {"i5": topo["routers"]["i5"]["links"]["c2"]["interface"]}
+    for src, src_intf in input_src.items():
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    source_i5 = topo["routers"]["i5"]["links"]["c2"]["ipv4"].split("/")[0]
+
+    input_dict_starg = [
+        {
+            "dut": "c1",
+            "src_address": "*",
+            "iif": topo["routers"]["c1"]["links"]["l1"]["interface"],
+            "oil": topo["routers"]["c1"]["links"]["i4"]["interface"],
+        }
+    ]
+
+    input_dict_sg = [
+        {
+            "dut": "c1",
+            "src_address": source_i5,
+            "iif": topo["routers"]["c1"]["links"]["c2"]["interface"],
+            "oil": topo["routers"]["c1"]["links"]["i4"]["interface"],
+        }
+    ]
+
+    step("(*,G) and (S,G) created on f1 and node verify using 'show ip mroute'")
+
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_starg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    intf_c1_c2 = topo["routers"]["c1"]["links"]["c2"]["interface"]
+    intf_c2_c1 = topo["routers"]["c2"]["links"]["c1"]["interface"]
+
+    step(
+        "configure PIM passive on upstream interface to verify"
+        "hello tx/rx counts are not incremented"
+    )
+
+    # Changing hello timer to 3sec for checking more number of packets
+
+    raw_config = {
+        "c1": {
+            "raw_config": [
+                "interface {}".format(intf_c1_c2),
+                "ip pim passive",
+                "ip pim hello 3",
+            ]
+        },
+        "c2": {"raw_config": ["interface {}".format(intf_c2_c1), "ip pim hello 3"]},
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("verify PIM hello tx/rx stats on C1")
+    state_dict = {
+        "c1": {
+            intf_c1_c2: ["helloTx", "helloRx"],
+        }
+    }
+
+    logger.info("waiting for 5 sec config to get apply and hello count update")
+    sleep(5)
+
+    c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
+    assert isinstance(
+        c1_state_before, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
+
+    logger.info(
+        "sleeping for 30 sec hello interval timer to verify count are not increamented"
+    )
+    sleep(35)
+
+    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
+    assert isinstance(
+        c1_state_after, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
+
+    step("verify stats not increamented on c1")
+    result = verify_pim_stats_increament(c1_state_before, c1_state_after)
+    assert (
+        result is not True
+    ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
+
+    step("No impact observed on mroutes")
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_sg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    for data in input_dict_starg:
+        result = verify_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN_RANGE_1,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    step("remove PIM passive and verify hello tx/rx is increamented")
+    raw_config = {
+        "c1": {
+            "raw_config": [
+                "interface {}".format(intf_c1_c2),
+                "no ip pim passive",
+                "ip pim hello 3",
+            ]
+        }
+    }
+    result = apply_raw_config(tgen, raw_config)
+    assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    logger.info("waiting for 30 sec for pim hello to receive")
+    sleep(30)
+
+    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
+    assert isinstance(
+        c1_state_after, dict
+    ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
+        tc_name, result
+    )
+
+    step("verify stats increamented on c1 after removing pim passive")
+    result = verify_pim_stats_increament(c1_state_before, c1_state_after)
+    assert result is True, "Testcase{} : Failed Error: {}" "stats incremented".format(
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 

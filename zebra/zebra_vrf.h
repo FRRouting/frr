@@ -26,6 +26,7 @@
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
+#include <zebra/rtadv.h>
 #include <lib/vxlan.h>
 
 #ifdef __cplusplus
@@ -177,9 +178,7 @@ struct zebra_vrf {
 
 	struct table_manager *tbl_mgr;
 
-#if defined(HAVE_RTADV)
 	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
 
 	bool zebra_rnh_ip_default_route;
 	bool zebra_rnh_ipv6_default_route;
@@ -192,14 +191,10 @@ struct zebra_vrf {
 /*
  * special macro to allow us to get the correct zebra_vrf
  */
-#define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
-	struct vrf *A;                                                         \
-	if (vty->node == CONFIG_NODE)                                          \
-		A = vrf_lookup_by_id(VRF_DEFAULT);                             \
-	else                                                                   \
-		A = VTY_GET_CONTEXT(vrf);                                      \
-	VTY_CHECK_CONTEXT(A);                                                  \
-	struct zebra_vrf *B = A->info
+#define ZEBRA_DECLVAR_CONTEXT_VRF(vrfptr, zvrfptr)                             \
+	VTY_DECLVAR_CONTEXT_VRF(vrfptr);                                       \
+	struct zebra_vrf *zvrfptr = vrfptr->info;                              \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {

@@ -122,7 +122,7 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, &tm);
 
 	if (ret == 0) {
-		flog_warn(EC_BGP_DUMP, "bgp_dump_open_file: strftime error");
+		flog_warn(EC_BGP_DUMP, "%s: strftime error", __func__);
 		return NULL;
 	}
 
@@ -134,7 +134,7 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	bgp_dump->fp = fopen(realpath, "w");
 
 	if (bgp_dump->fp == NULL) {
-		flog_warn(EC_BGP_DUMP, "bgp_dump_open_file: %s: %s", realpath,
+		flog_warn(EC_BGP_DUMP, "%s: %s: %s", __func__, realpath,
 			  strerror(errno));
 		umask(oldumask);
 		return NULL;
@@ -367,7 +367,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 		stream_putw(obuf, path->peer->table_dump_index);
 
 		/* Originated */
-		stream_putl(obuf, time(NULL) - (bgp_clock() - path->uptime));
+		stream_putl(obuf, time(NULL) - (monotime(NULL) - path->uptime));
 
 		/*Path Identifier*/
 		if (addpath_capable) {
@@ -702,7 +702,7 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	}
 
 	/* Removing interval event. */
-	thread_cancel(&bgp_dump->t_interval);
+	THREAD_OFF(bgp_dump->t_interval);
 
 	bgp_dump->interval = 0;
 
@@ -851,9 +851,9 @@ static int config_write_bgp_dump(struct vty *vty)
 /* Initialize BGP packet dump functionality. */
 void bgp_dump_init(void)
 {
-	memset(&bgp_dump_all, 0, sizeof(struct bgp_dump));
-	memset(&bgp_dump_updates, 0, sizeof(struct bgp_dump));
-	memset(&bgp_dump_routes, 0, sizeof(struct bgp_dump));
+	memset(&bgp_dump_all, 0, sizeof(bgp_dump_all));
+	memset(&bgp_dump_updates, 0, sizeof(bgp_dump_updates));
+	memset(&bgp_dump_routes, 0, sizeof(bgp_dump_routes));
 
 	bgp_dump_obuf =
 		stream_new((BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE * 2)

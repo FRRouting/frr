@@ -38,6 +38,7 @@
 #include "pim_zebra.h"
 #include "pim_nb.h"
 #include "pim6_cmd.h"
+#include "pim6_mld.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -133,7 +134,6 @@ FRR_DAEMON_INFO(pim6d, PIM6,
 );
 /* clang-format on */
 
-
 int main(int argc, char **argv, char **envp)
 {
 	static struct option longopts[] = {
@@ -161,8 +161,6 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	pim_router_init();
-	/* TODO PIM6: temporary enable all debugs, remove later in PIMv6 work */
-	router->debugs = ~0U;
 
 	access_list_init();
 	prefix_list_init();
@@ -183,6 +181,8 @@ int main(int argc, char **argv, char **envp)
 	 * Initialize zclient "update" and "lookup" sockets
 	 */
 	pim_iface_init();
+
+	gm_cli_init();
 
 	pim_zebra_init();
 #if 0

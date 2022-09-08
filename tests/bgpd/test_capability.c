@@ -44,7 +44,7 @@
 #define OPT_PARAM  2
 
 /* need these to link in libbgp */
-struct zebra_privs_t *bgpd_privs = NULL;
+struct zebra_privs_t bgpd_privs = {};
 struct thread_master *master = NULL;
 
 static int failed = 0;
@@ -648,6 +648,35 @@ static struct test_segment misc_segments[] =
 			{CAPABILITY_CODE_DYNAMIC, 0x0},
 			2,
 			SHOULD_PARSE,
+		},
+		{
+			"Role",
+			"Role capability",
+			{
+				/* hdr */ 0x9, 0x1,
+				0x1,
+			},
+			3,
+			SHOULD_PARSE,
+		},
+		{
+			"Role-long",
+			"Role capability, but too long",
+			{
+				/* hdr */ 0x9, 0x4,
+				0x0, 0x0, 0x0, 0x1,
+			},
+			6,
+			SHOULD_ERR,
+		},
+		{
+			"Role-empty",
+			"Role capability, but empty.",
+			{
+				/* hdr */ 0x9, 0x0,
+			},
+			2,
+			SHOULD_ERR,
 		},
 		{NULL, NULL, {0}, 0, 0}};
 

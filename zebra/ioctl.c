@@ -48,6 +48,7 @@ void ifreq_set_name(struct ifreq *ifreq, struct interface *ifp)
 	strlcpy(ifreq->ifr_name, ifp->name, sizeof(ifreq->ifr_name));
 }
 
+#ifndef HAVE_NETLINK
 /* call ioctl system call */
 int if_ioctl(unsigned long request, caddr_t buffer)
 {
@@ -73,6 +74,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	}
 	return 0;
 }
+#endif
 
 /* call ioctl system call */
 int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
@@ -127,7 +129,6 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	}
 	return 0;
 }
-#endif /* ! HAVE_NETLINK */
 
 /*
  * get interface metric
@@ -159,7 +160,8 @@ void if_get_mtu(struct interface *ifp)
 
 #if defined(SIOCGIFMTU)
 	if (vrf_if_ioctl(SIOCGIFMTU, (caddr_t)&ifreq, ifp->vrf->vrf_id) < 0) {
-		zlog_info("Can't lookup mtu by ioctl(SIOCGIFMTU)");
+		zlog_info("Can't lookup mtu by ioctl(SIOCGIFMTU) for %s(%u)",
+			  ifp->name, ifp->vrf->vrf_id);
 		ifp->mtu6 = ifp->mtu = -1;
 		return;
 	}
@@ -170,10 +172,12 @@ void if_get_mtu(struct interface *ifp)
 	zebra_interface_up_update(ifp);
 
 #else
-	zlog_info("Can't lookup mtu on this system");
+	zlog_info("Can't lookup mtu on this system for %s(%u)", ifp->name,
+		  ifp->vrf->vrf_id);
 	ifp->mtu6 = ifp->mtu = -1;
 #endif
 }
+#endif /* ! HAVE_NETLINK */
 
 /*
  * Handler for interface address programming via the zebra dplane,
@@ -217,13 +221,6 @@ enum zebra_dplane_result kernel_address_update_ctx(
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
-#endif	/* !HAVE_NETLINK */
-
-#ifdef HAVE_NETLINK
-
-/* TODO -- remove; no use of these apis with netlink any longer */
-
-#else /* ! HAVE_NETLINK */
 #ifdef HAVE_STRUCT_IFALIASREQ
 
 /*
@@ -242,7 +239,7 @@ static int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	strlcpy((char *)&addreq.ifra_name, dplane_ctx_get_ifname(ctx),
 		sizeof(addreq.ifra_name));
 
-	memset(&addr, 0, sizeof(struct sockaddr_in));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin_addr = p->prefix;
 	addr.sin_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -252,7 +249,7 @@ static int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 
 	if (dplane_ctx_intf_is_connected(ctx)) {
 		p = (struct prefix_ipv4 *)dplane_ctx_get_intf_dest(ctx);
-		memset(&mask, 0, sizeof(struct sockaddr_in));
+		memset(&mask, 0, sizeof(mask));
 		peer.sin_addr = p->prefix;
 		peer.sin_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -262,7 +259,7 @@ static int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 		       sizeof(struct sockaddr_in));
 	}
 
-	memset(&mask, 0, sizeof(struct sockaddr_in));
+	memset(&mask, 0, sizeof(mask));
 	masklen2ip(p->prefixlen, &mask.sin_addr);
 	mask.sin_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -293,7 +290,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	strlcpy((char *)&addreq.ifra_name, dplane_ctx_get_ifname(ctx),
 		sizeof(addreq.ifra_name));
 
-	memset(&addr, 0, sizeof(struct sockaddr_in));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin_addr = p->prefix;
 	addr.sin_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -303,7 +300,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 
 	if (dplane_ctx_intf_is_connected(ctx)) {
 		p = (struct prefix_ipv4 *)dplane_ctx_get_intf_dest(ctx);
-		memset(&mask, 0, sizeof(struct sockaddr_in));
+		memset(&mask, 0, sizeof(mask));
 		peer.sin_addr = p->prefix;
 		peer.sin_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -313,7 +310,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 		       sizeof(struct sockaddr_in));
 	}
 
-	memset(&mask, 0, sizeof(struct sockaddr_in));
+	memset(&mask, 0, sizeof(mask));
 	masklen2ip(p->prefixlen, &mask.sin_addr);
 	mask.sin_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -394,7 +391,7 @@ int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	strlcpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifreq.ifr_name));
 
-	memset(&addr, 0, sizeof(struct sockaddr_in));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = p->family;
 	memcpy(&ifreq.ifr_addr, &addr, sizeof(struct sockaddr_in));
 	ret = if_ioctl(SIOCSIFADDR, (caddr_t)&ifreq);
@@ -508,7 +505,7 @@ int if_set_flags(struct interface *ifp, uint64_t flags)
 	int ret;
 	struct ifreq ifreq;
 
-	memset(&ifreq, 0, sizeof(struct ifreq));
+	memset(&ifreq, 0, sizeof(ifreq));
 	ifreq_set_name(&ifreq, ifp);
 
 	ifreq.ifr_flags = ifp->flags;
@@ -517,7 +514,8 @@ int if_set_flags(struct interface *ifp, uint64_t flags)
 	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf->vrf_id);
 
 	if (ret < 0) {
-		zlog_info("can't set interface flags");
+		zlog_info("can't set interface %s(%u) flags %" PRIu64,
+			  ifp->name, ifp->vrf->vrf_id, flags);
 		return ret;
 	}
 	return 0;
@@ -529,7 +527,7 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 	int ret;
 	struct ifreq ifreq;
 
-	memset(&ifreq, 0, sizeof(struct ifreq));
+	memset(&ifreq, 0, sizeof(ifreq));
 	ifreq_set_name(&ifreq, ifp);
 
 	ifreq.ifr_flags = ifp->flags;
@@ -538,7 +536,8 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf->vrf_id);
 
 	if (ret < 0) {
-		zlog_info("can't unset interface flags");
+		zlog_warn("can't unset interface %s(%u) flags %" PRIu64,
+			  ifp->name, ifp->vrf->vrf_id, flags);
 		return ret;
 	}
 	return 0;
@@ -568,7 +567,7 @@ static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 	strlcpy((char *)&addreq.ifra_name,
 		dplane_ctx_get_ifname(ctx), sizeof(addreq.ifra_name));
 
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin6_addr = p->prefix;
 	addr.sin6_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -576,7 +575,7 @@ static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 #endif
 	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in6));
 
-	memset(&mask, 0, sizeof(struct sockaddr_in6));
+	memset(&mask, 0, sizeof(mask));
 	masklen2ip6(p->prefixlen, &mask.sin6_addr);
 	mask.sin6_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -615,7 +614,7 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 	strlcpy((char *)&addreq.ifra_name,
 		dplane_ctx_get_ifname(ctx), sizeof(addreq.ifra_name));
 
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin6_addr = p->prefix;
 	addr.sin6_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -623,7 +622,7 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 #endif
 	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in6));
 
-	memset(&mask, 0, sizeof(struct sockaddr_in6));
+	memset(&mask, 0, sizeof(mask));
 	masklen2ip6(p->prefixlen, &mask.sin6_addr);
 	mask.sin6_family = p->family;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN

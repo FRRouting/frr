@@ -141,9 +141,8 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
 	else
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
-#if defined(HAVE_RTADV)
+
 	rtadv_vrf_init(zvrf);
-#endif
 
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
@@ -186,9 +185,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
 
-#if defined(HAVE_RTADV)
 	rtadv_vrf_terminate(zvrf);
-#endif
 
 	/* Inform clients that the VRF is now inactive. This is a
 	 * delete for the clients.
@@ -221,7 +218,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
 	/* clean-up work queues */
-	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
+	meta_queue_free(zrouter.mq, zvrf);
 
 	/* Cleanup (free) routing tables and NHT tables. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -256,7 +253,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	table_manager_disable(zvrf);
 
 	/* clean-up work queues */
-	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
+	meta_queue_free(zrouter.mq, zvrf);
 
 	/* Free Vxlan and MPLS. */
 	zebra_vxlan_close_tables(zvrf);

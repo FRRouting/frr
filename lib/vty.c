@@ -382,7 +382,6 @@ static void vty_auth(struct vty *vty, char *buf)
 	char *passwd = NULL;
 	enum node_type next_node = 0;
 	int fail;
-	char *crypt(const char *, const char *);
 
 	switch (vty->node) {
 	case AUTH_NODE:
@@ -1827,7 +1826,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	int sock;
 	char port_str[BUFSIZ];
 
-	memset(&req, 0, sizeof(struct addrinfo));
+	memset(&req, 0, sizeof(req));
 	req.ai_flags = AI_PASSIVE;
 	req.ai_family = AF_UNSPEC;
 	req.ai_socktype = SOCK_STREAM;
@@ -1912,7 +1911,7 @@ static void vty_serv_un(const char *path)
 	}
 
 	/* Make server socket. */
-	memset(&serv, 0, sizeof(struct sockaddr_un));
+	memset(&serv, 0, sizeof(serv));
 	serv.sun_family = AF_UNIX;
 	strlcpy(serv.sun_path, path, sizeof(serv.sun_path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
@@ -1976,7 +1975,7 @@ static void vtysh_accept(struct thread *thread)
 
 	vty_event_serv(VTYSH_SERV, vtyserv);
 
-	memset(&client, 0, sizeof(struct sockaddr_un));
+	memset(&client, 0, sizeof(client));
 	client_len = sizeof(struct sockaddr_un);
 
 	sock = accept(accept_sock, (struct sockaddr *)&client,

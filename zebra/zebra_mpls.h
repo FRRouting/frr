@@ -260,17 +260,30 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 /*
  * Handle zapi request to install/uninstall LSP and
  * (optionally) FEC-To-NHLFE (FTN) bindings.
+ *
+ * mpls_zapi_labels_process -> Installs for future processing
+ *                             in the meta-q
+ * zebra_mpls_labels_process -> called by the meta-q
  */
-int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
-			     const struct zapi_labels *zl);
+void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+			      const struct zapi_labels *zl);
+void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+				    const struct zapi_labels *zl);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.
+ *
+ * mpls_ftn_uninstall -> Called to enqueue into early label processing
+ *                       via the metaq
+ * zebra_mpls_ftn_uninstall -> Called when we process the meta q
+ *                             for this item
  */
-int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		       struct prefix *prefix, uint8_t route_type,
-		       unsigned short route_instance);
-
+void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			struct prefix *prefix, uint8_t route_type,
+			uint8_t route_instance);
+void zebra_mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			      struct prefix *prefix, uint8_t route_type,
+			      uint8_t route_instance);
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be
  * a new LSP entry or a new NHLFE for an existing in-label or an update of
@@ -393,6 +406,13 @@ void zebra_mpls_close_tables(struct zebra_vrf *zvrf);
  * NOTE: Currently supported only for default VRF.
  */
 void zebra_mpls_init_tables(struct zebra_vrf *zvrf);
+
+/*
+ * If mpls is turned on *after* FRR is brought
+ * up let's actually notice this and turn on
+ * the relevant bits to make it work.
+ */
+void zebra_mpls_turned_on(void);
 
 /*
  * Global MPLS initialization.
@@ -569,7 +589,7 @@ static inline int mpls_should_lsps_be_processed(struct route_node *rn)
 }
 
 /* Global variables. */
-extern int mpls_enabled;
+extern bool mpls_enabled;
 extern bool mpls_pw_reach_strict; /* Strict pseudowire reachability checking */
 
 #ifdef __cplusplus

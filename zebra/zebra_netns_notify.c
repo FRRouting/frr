@@ -221,7 +221,7 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 	if (zebra_ns_notify_self_identify(&default_netns_stat))
 		return false;
 
-	memset(&st, 0, sizeof(struct stat));
+	memset(&st, 0, sizeof(st));
 	snprintf(netnspath, sizeof(netnspath), "%s/%s", NS_RUN_DIR, name);
 	/* compare with local stat */
 	if (stat(netnspath, &st) == 0 &&
@@ -413,7 +413,7 @@ void zebra_ns_notify_close(void)
 		fd = zebra_netns_notify_current->u.fd;
 
 	if (zebra_netns_notify_current->master != NULL)
-		thread_cancel(&zebra_netns_notify_current);
+		THREAD_OFF(zebra_netns_notify_current);
 
 	/* auto-removal of notify items */
 	if (fd > 0)

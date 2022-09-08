@@ -20,6 +20,9 @@
 #ifndef PIM_CMD_COMMON_H
 #define PIM_CMD_COMMON_H
 
+struct pim_upstream;
+struct pim_instance;
+
 const char *pim_cli_get_vrf_name(struct vty *vty);
 int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str);
 int pim_process_no_join_prune_cmd(struct vty *vty);
@@ -46,6 +49,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 
 int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
+int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable);
 int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str);
 int pim_process_no_ip_pim_drprio_cmd(struct vty *vty);
 int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
@@ -76,11 +80,21 @@ bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match);
 void json_object_pim_ifp_add(struct json_object *json, struct interface *ifp);
 void pim_print_ifp_flags(struct vty *vty, struct interface *ifp);
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
+int pim_show_join_cmd_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, const char *json);
+int pim_show_join_vrf_all_cmd_helper(struct vty *vty, const char *json);
 void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		   json_object *json);
+int pim_show_jp_agg_list_cmd_helper(const char *vrf, struct vty *vty);
 void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty);
+int pim_show_membership_cmd_helper(const char *vrf, struct vty *vty, bool uj);
 void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj);
+int pim_show_channel_cmd_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_show_interface_cmd_helper(const char *vrf, struct vty *vty, bool uj,
+				  bool mlag, const char *interface);
+int pim_show_interface_vrf_all_cmd_helper(struct vty *vty, bool uj, bool mlag,
+					  const char *interface);
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 			 json_object *json);
 void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
@@ -88,7 +102,14 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 				json_object *json);
 void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj);
-void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
+int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
+				       pim_addr source, pim_addr group);
+int pim_show_nexthop_cmd_helper(const char *vrf, struct vty *vty, bool uj);
+void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj);
+int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
+				  const char *json, const char *interface);
+int pim_show_neighbors_vrf_all_cmd_helper(struct vty *vty, const char *json,
+					  const char *interface);
 void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json);
 void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
@@ -104,13 +125,73 @@ int gm_process_last_member_query_interval_cmd(struct vty *vty,
 int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 			     const char *src_str);
+void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
+				      struct vty *vty);
+void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
+			       json_object *json);
+void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
+		 bool fill, json_object *json);
+void show_mroute_count(struct pim_instance *pim, struct vty *vty,
+		       json_object *json);
+void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
+			 json_object *json);
+int clear_ip_mroute_count_command(struct vty *vty, const char *name);
+struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
+void clear_mroute(struct pim_instance *pim);
+void clear_pim_statistics(struct pim_instance *pim);
+int clear_pim_interface_traffic(const char *vrf, struct vty *vty);
+int pim_debug_pim_cmd(void);
+int pim_no_debug_pim_cmd(void);
+int pim_debug_pim_packets_cmd(const char *hello, const char *joins,
+			      const char *registers, struct vty *vty);
+int pim_no_debug_pim_packets_cmd(const char *hello, const char *joins,
+				 const char *registers, struct vty *vty);
+int pim_show_rpf_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_rpf_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_rp_helper(const char *vrf, struct vty *vty, const char *group_str,
+		       const struct prefix *group, bool json);
+int pim_show_rp_vrf_all_helper(struct vty *vty, const char *group_str,
+			       const struct prefix *group, bool json);
+int pim_show_secondary_helper(const char *vrf, struct vty *vty);
+int pim_show_statistics_helper(const char *vrf, struct vty *vty,
+			       const char *word, bool uj);
+int pim_show_upstream_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			     pim_addr g, bool json);
+int pim_show_upstream_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_upstream_join_desired_helper(const char *vrf, struct vty *vty,
+					  bool uj);
+int pim_show_upstream_rpf_helper(const char *vrf, struct vty *vty, bool uj);
+int pim_show_state_helper(const char *vrf, struct vty *vty,
+			  const char *s_or_g_str, const char *g_str, bool json);
+int pim_show_state_vrf_all_helper(struct vty *vty, const char *s_or_g_str,
+				  const char *g_str, bool json);
+int pim_show_multicast_helper(const char *vrf, struct vty *vty);
+int pim_show_multicast_vrf_all_helper(struct vty *vty);
+int pim_show_multicast_count_helper(const char *vrf, struct vty *vty,
+				    bool json);
+int pim_show_multicast_count_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
+			   pim_addr g, bool fill, bool json);
+int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool json);
+int pim_show_mroute_count_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_mroute_count_vrf_all_helper(struct vty *vty, bool json);
+int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json);
+int pim_show_mroute_summary_vrf_all_helper(struct vty *vty, bool json);
 
+void pim_show_interface_traffic_single(struct pim_instance *pim,
+				       struct vty *vty, const char *ifname,
+				       bool uj);
+void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
+				bool uj);
+int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
+				      struct vty *vty, bool uj);
+void clear_pim_interfaces(struct pim_instance *pim);
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf
+#define PIM_DECLVAR_CONTEXT_VRF(vrfptr, pimptr)                                \
+	VTY_DECLVAR_CONTEXT_VRF(vrfptr);                                       \
+	struct pim_instance *pimptr = vrfptr->info;                            \
+	MACRO_REQUIRE_SEMICOLON() /* end */
+
 #endif /* PIM_CMD_COMMON_H */

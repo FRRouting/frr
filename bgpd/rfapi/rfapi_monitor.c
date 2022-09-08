@@ -620,7 +620,7 @@ void rfapiMonitorDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		rfapiMonitorDetachImport(m);
 	}
 
-	thread_cancel(&m->timer);
+	THREAD_OFF(m->timer);
 
 	/*
 	 * remove from rfd list
@@ -657,7 +657,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 					rfapiMonitorDetachImport(m);
 				}
 
-				thread_cancel(&m->timer);
+				THREAD_OFF(m->timer);
 
 				XFREE(MTYPE_RFAPI_MONITOR, m);
 				rn->info = NULL;
@@ -691,7 +691,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 #endif
 			}
 
-			thread_cancel(&mon_eth->timer);
+			THREAD_OFF(mon_eth->timer);
 
 			/*
 			 * remove from rfd list
@@ -733,7 +733,7 @@ void rfapiMonitorResponseRemovalOn(struct bgp *bgp)
 
 static void rfapiMonitorTimerExpire(struct thread *t)
 {
-	struct rfapi_monitor_vpn *m = t->arg;
+	struct rfapi_monitor_vpn *m = THREAD_ARG(t);
 
 	/* forget reference to thread, it's gone */
 	m->timer = NULL;
@@ -744,19 +744,17 @@ static void rfapiMonitorTimerExpire(struct thread *t)
 
 static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 {
-	if (m->timer) {
-		unsigned long remain = thread_timer_remain_second(m->timer);
+	unsigned long remain = thread_timer_remain_second(m->timer);
 
-		/* unexpected case, but avoid wraparound problems below */
-		if (remain > m->rfd->response_lifetime)
-			return;
+	/* unexpected case, but avoid wraparound problems below */
+	if (remain > m->rfd->response_lifetime)
+		return;
 
-		/* don't restart if we just restarted recently */
-		if (m->rfd->response_lifetime - remain < 2)
-			return;
+	/* don't restart if we just restarted recently */
+	if (m->rfd->response_lifetime - remain < 2)
+		return;
 
-		thread_cancel(&m->timer);
-	}
+	THREAD_OFF(m->timer);
 
 	{
 		char buf[BUFSIZ];
@@ -766,7 +764,7 @@ static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 			rfapi_ntop(m->p.family, m->p.u.val, buf, BUFSIZ),
 			m->rfd->response_lifetime);
 	}
-	m->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiMonitorTimerExpire, m,
 			 m->rfd->response_lifetime, &m->timer);
 }
@@ -1041,7 +1039,7 @@ void rfapiMonitorMovedUp(struct rfapi_import_table *import_table,
 
 static void rfapiMonitorEthTimerExpire(struct thread *t)
 {
-	struct rfapi_monitor_eth *m = t->arg;
+	struct rfapi_monitor_eth *m = THREAD_ARG(t);
 
 	/* forget reference to thread, it's gone */
 	m->timer = NULL;
@@ -1054,19 +1052,17 @@ static void rfapiMonitorEthTimerExpire(struct thread *t)
 
 static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 {
-	if (m->timer) {
-		unsigned long remain = thread_timer_remain_second(m->timer);
+	unsigned long remain = thread_timer_remain_second(m->timer);
 
-		/* unexpected case, but avoid wraparound problems below */
-		if (remain > m->rfd->response_lifetime)
-			return;
+	/* unexpected case, but avoid wraparound problems below */
+	if (remain > m->rfd->response_lifetime)
+		return;
 
-		/* don't restart if we just restarted recently */
-		if (m->rfd->response_lifetime - remain < 2)
-			return;
+	/* don't restart if we just restarted recently */
+	if (m->rfd->response_lifetime - remain < 2)
+		return;
 
-		thread_cancel(&m->timer);
-	}
+	THREAD_OFF(m->timer);
 
 	{
 		char buf[BUFSIZ];
@@ -1076,7 +1072,7 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 			rfapiEthAddr2Str(&m->macaddr, buf, BUFSIZ),
 			m->rfd->response_lifetime);
 	}
-	m->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiMonitorEthTimerExpire, m,
 			 m->rfd->response_lifetime, &m->timer);
 }
@@ -1404,7 +1400,7 @@ void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		rfapiMonitorEthDetachImport(bgp, val);
 	}
 
-	thread_cancel(&val->timer);
+	THREAD_OFF(val->timer);
 
 	/*
 	 * remove from rfd list

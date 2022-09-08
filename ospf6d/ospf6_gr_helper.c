@@ -154,6 +154,12 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug("%s: undersized (%u B) lsa", __func__,
+				   ntohs(lsah->length));
+		return OSPF6_FAILURE;
+	}
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
@@ -334,7 +340,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	    && !OSPF6_GR_IS_PLANNED_RESTART(restart_reason)) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Router supports only planned restarts but received the GRACE LSA due a unplanned restart",
+				"%s, Router supports only planned restarts but received the GRACE LSA due to an unplanned restart",
 				__func__);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_PLANNED_ONLY_RESTART;
@@ -394,8 +400,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		if (restarter->gr_helper_info.t_grace_timer)
-			THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+		THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;
@@ -831,8 +836,8 @@ static void ospf6_gr_helper_support_set_per_routerid(struct ospf6 *ospf6,
 
 	} else {
 		/* Add the routerid to the enable router hash table */
-		hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
-			 ospf6_enable_rtr_hash_alloc);
+		(void)hash_get(ospf6->ospf6_helper_cfg.enable_rtr_list, &temp,
+			       ospf6_enable_rtr_hash_alloc);
 	}
 }
 
@@ -1245,6 +1250,12 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	int sum = 0;
 
 	lsah = (struct ospf6_lsa_header *)lsa->header;
+	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug("%s: undersized (%u B) lsa", __func__,
+				   ntohs(lsah->length));
+		return OSPF6_FAILURE;
+	}
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 

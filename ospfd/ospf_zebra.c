@@ -1253,7 +1253,7 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 	if (!zclient || zclient->sock < 0 || !ospf)
 		return 1;
 
-	memset(&api, 0, sizeof(struct zapi_cap));
+	memset(&api, 0, sizeof(api));
 	api.cap = command;
 	api.stale_removal_time = stale_time;
 	api.vrf_id = ospf->vrf_id;
@@ -1747,7 +1747,7 @@ static void ospf_filter_update(struct access_list *access)
 }
 
 /* If prefix-list is updated, do some updates. */
-void ospf_prefix_list_update(struct prefix_list *plist)
+static void ospf_prefix_list_update(struct prefix_list *plist)
 {
 	struct ospf *ospf = NULL;
 	int type;

@@ -72,7 +72,7 @@ accept_del(int fd)
 	LIST_FOREACH(av, &accept_queue.queue, entry)
 		if (av->fd == fd) {
 			log_debug("%s: %d removed from queue", __func__, fd);
-			thread_cancel(&av->ev);
+			THREAD_OFF(av->ev);
 			LIST_REMOVE(av, entry);
 			free(av);
 			return;
@@ -92,7 +92,7 @@ accept_unpause(void)
 {
 	if (accept_queue.evt != NULL) {
 		log_debug(__func__);
-		thread_cancel(&accept_queue.evt);
+		THREAD_OFF(accept_queue.evt);
 		accept_arm();
 	}
 }
@@ -111,7 +111,7 @@ accept_unarm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry)
-		thread_cancel(&av->ev);
+		THREAD_OFF(av->ev);
 }
 
 static void accept_cb(struct thread *thread)

@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_util.h"
 #include "pim_sock.h"
 #include "pim_rp.h"

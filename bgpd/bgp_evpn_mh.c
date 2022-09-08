@@ -233,7 +233,7 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
-		pi->uptime = bgp_clock();
+		pi->uptime = monotime(NULL);
 	}
 
 	/* Perform route selection and update zebra, if required. */
@@ -351,7 +351,7 @@ static void bgp_evpn_es_route_del_all(struct bgp *bgp, struct bgp_evpn_es *es)
  */
 int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			     struct bgpevpn *vpn, afi_t afi, safi_t safi,
-			     struct bgp_dest *dest, struct attr *attr, int add,
+			     struct bgp_dest *dest, struct attr *attr,
 			     struct bgp_path_info **ri, int *route_changed)
 {
 	struct bgp_path_info *tmp_pi = NULL;
@@ -389,9 +389,6 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			es ? &es->originator_ip : NULL);
 		return -1;
 	}
-
-	if (!local_pi && !add)
-		return 0;
 
 	/* create or update the entry */
 	if (!local_pi) {
@@ -435,7 +432,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_pi->attr);
 			tmp_pi->attr = attr_new;
-			tmp_pi->uptime = bgp_clock();
+			tmp_pi->uptime = monotime(NULL);
 		}
 	}
 
@@ -602,7 +599,7 @@ static void bgp_evpn_type4_route_extcomm_build(struct bgp_evpn_es *es,
 	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
 
 	/* ES import RT */
-	memset(&mac, 0, sizeof(struct ethaddr));
+	memset(&mac, 0, sizeof(mac));
 	memset(&ecom_es_rt, 0, sizeof(ecom_es_rt));
 	es_get_system_mac(&es->esi, &mac);
 	encode_es_rt_extcomm(&eval_es_rt, &mac);
@@ -636,10 +633,10 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	struct bgp_dest *dest = NULL;
 	struct bgp_path_info *pi = NULL;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = es->originator_ip;
 	attr.mp_nexthop_global_in = es->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -652,7 +649,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 	dest = bgp_node_get(es->route_table, (struct prefix *)p);
 
 	/* Create or update route entry. */
-	ret = bgp_evpn_mh_route_update(bgp, es, NULL, afi, safi, dest, &attr, 1,
+	ret = bgp_evpn_mh_route_update(bgp, es, NULL, afi, safi, dest, &attr,
 				       &pi, &route_changed);
 	if (ret != 0)
 		flog_err(
@@ -681,8 +678,7 @@ static int bgp_evpn_type4_route_update(struct bgp *bgp,
 		dest = bgp_global_evpn_node_get(bgp->rib[afi][safi], afi, safi,
 						p, &es->es_base_frag->prd);
 		bgp_evpn_mh_route_update(bgp, es, NULL, afi, safi, dest,
-					 attr_new, 1, &global_pi,
-					 &route_changed);
+					 attr_new, &global_pi, &route_changed);
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, dest, afi, safi);
@@ -947,10 +943,10 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 	int route_changed = 0;
 	struct prefix_rd *global_rd;
 
-	memset(&attr, 0, sizeof(struct attr));
+	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = es->originator_ip;
 	attr.mp_nexthop_global_in = es->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -968,7 +964,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 		/* Create or update route entry. */
 		ret = bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi, dest,
-					       &attr, 1, &pi, &route_changed);
+					       &attr, &pi, &route_changed);
 		if (ret != 0)
 			flog_err(
 				EC_BGP_ES_INVALID,
@@ -990,11 +986,11 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 		/* Create or update route entry. */
 		ret = bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi, dest,
-					       &attr, 1, &pi, &route_changed);
+					       &attr, &pi, &route_changed);
 		if (ret != 0) {
 			flog_err(
 				EC_BGP_ES_INVALID,
-				"%u ERROR: Failed to updated EAD-EVI route ESI: %s VTEP %pI4",
+				"%u ERROR: Failed to updated EAD-ES route ESI: %s VTEP %pI4",
 				bgp->vrf_id, es->esi_str, &es->originator_ip);
 		}
 		global_rd = &es_frag->prd;
@@ -1022,8 +1018,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		dest = bgp_global_evpn_node_get(bgp->rib[afi][safi], afi, safi,
 						p, global_rd);
 		bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi, dest,
-					 attr_new, 1, &global_pi,
-					 &route_changed);
+					 attr_new, &global_pi, &route_changed);
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, dest, afi, safi);
@@ -4512,7 +4507,7 @@ static struct bgp_evpn_nh *bgp_evpn_nh_add(struct bgp *bgp_vrf,
 	struct bgp_evpn_nh tmp_n;
 	struct bgp_evpn_nh *n = NULL;
 
-	memset(&tmp_n, 0, sizeof(struct bgp_evpn_nh));
+	memset(&tmp_n, 0, sizeof(tmp_n));
 	memcpy(&tmp_n.ip, ip, sizeof(struct ipaddr));
 	n = hash_get(bgp_vrf->evpn_nh_table, &tmp_n, bgp_evpn_nh_alloc);
 	ipaddr2str(ip, n->nh_str, sizeof(n->nh_str));
@@ -4551,6 +4546,11 @@ static void bgp_evpn_nh_del(struct bgp_evpn_nh *n)
 	list_delete(&n->pi_list);
 	tmp_n = hash_release(bgp_vrf->evpn_nh_table, n);
 	XFREE(MTYPE_BGP_EVPN_NH, tmp_n);
+}
+
+static void hash_evpn_nh_free(struct bgp_evpn_nh *ben)
+{
+	XFREE(MTYPE_BGP_EVPN_NH, ben);
 }
 
 static unsigned int bgp_evpn_nh_hash_keymake(const void *p)
@@ -4617,6 +4617,7 @@ void bgp_evpn_nh_finish(struct bgp *bgp_vrf)
 		bgp_vrf->evpn_nh_table,
 		(void (*)(struct hash_bucket *, void *))bgp_evpn_nh_flush_cb,
 		NULL);
+	hash_clean(bgp_vrf->evpn_nh_table, (void (*)(void *))hash_evpn_nh_free);
 	hash_free(bgp_vrf->evpn_nh_table);
 	bgp_vrf->evpn_nh_table = NULL;
 }
@@ -4957,7 +4958,7 @@ void bgp_evpn_mh_finish(void)
 		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
-		thread_cancel(&bgp_mh_info->t_cons_check);
+		THREAD_OFF(bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);

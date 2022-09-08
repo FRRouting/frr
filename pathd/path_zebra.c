@@ -352,3 +352,9 @@ void path_zebra_init(struct thread_master *master)
 	/* Connect to the LM. */
 	path_zebra_label_manager_connect();
 }
+
+void path_zebra_stop(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+}

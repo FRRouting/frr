@@ -268,8 +268,8 @@ static void rfapi_info_free(struct rfapi_info *goner)
 		if (goner->timer) {
 			struct rfapi_rib_tcb *tcb;
 
-			tcb = goner->timer->arg;
-			thread_cancel(&goner->timer);
+			tcb = THREAD_ARG(goner->timer);
+			THREAD_OFF(goner->timer);
 			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 		}
 		XFREE(MTYPE_RFAPI_INFO, goner);
@@ -293,7 +293,7 @@ struct rfapi_rib_tcb {
  */
 static void rfapiRibExpireTimer(struct thread *t)
 {
-	struct rfapi_rib_tcb *tcb = t->arg;
+	struct rfapi_rib_tcb *tcb = THREAD_ARG(t);
 
 	RFAPI_RIB_CHECK_COUNTS(1, 0);
 
@@ -338,8 +338,8 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 	struct rfapi_rib_tcb *tcb = NULL;
 
 	if (ri->timer) {
-		tcb = ri->timer->arg;
-		thread_cancel(&ri->timer);
+		tcb = THREAD_ARG(ri->timer);
+		THREAD_OFF(ri->timer);
 	} else {
 		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
 			      sizeof(struct rfapi_rib_tcb));
@@ -357,10 +357,9 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose("%s: rfd %p pfx %pRN life %u", __func__, rfd, rn,
 			       ri->lifetime);
-	ri->timer = NULL;
+
 	thread_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
 			 &ri->timer);
-	assert(ri->timer);
 }
 
 extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
@@ -785,7 +784,7 @@ int rfapiRibPreloadBi(
 		skiplist_insert(slRibPt, &ori->rk, ori);
 	}
 
-	ori->last_sent_time = rfapi_time(NULL);
+	ori->last_sent_time = monotime(NULL);
 
 	/*
 	 * poke timer
@@ -798,7 +797,7 @@ int rfapiRibPreloadBi(
 	 * Update last sent time for prefix
 	 */
 	trn = agg_node_get(rfd->rsp_times[afi], p); /* locks trn */
-	trn->info = (void *)(uintptr_t)bgp_clock();
+	trn->info = (void *)(uintptr_t)monotime(NULL);
 	if (agg_node_get_lock_count(trn) > 1)
 		agg_unlock_node(trn);
 
@@ -914,8 +913,8 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (ri->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ri->timer->arg;
-					thread_cancel(&ri->timer);
+					tcb = THREAD_ARG(ri->timer);
+					THREAD_OFF(ri->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 
@@ -999,8 +998,8 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (ori->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ori->timer->arg;
-					thread_cancel(&ori->timer);
+					tcb = THREAD_ARG(ori->timer);
+					THREAD_OFF(ori->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 
@@ -1090,7 +1089,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				rfapiFreeBgpTeaOptionChain(ori->tea_options);
 				ori->tea_options =
 					rfapiOptionsDup(ri->tea_options);
-				ori->last_sent_time = rfapi_time(NULL);
+				ori->last_sent_time = monotime(NULL);
 
 				rfapiFreeRfapiVnOptionChain(ori->vn_options);
 				ori->vn_options =
@@ -1116,7 +1115,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				ori->lifetime = ri->lifetime;
 				ori->tea_options =
 					rfapiOptionsDup(ri->tea_options);
-				ori->last_sent_time = rfapi_time(NULL);
+				ori->last_sent_time = monotime(NULL);
 				ori->vn_options =
 					rfapiVnOptionsDup(ri->vn_options);
 				ori->un_options =
@@ -1179,7 +1178,6 @@ callback:
 
 			new = XCALLOC(MTYPE_RFAPI_NEXTHOP,
 				      sizeof(struct rfapi_next_hop_entry));
-			assert(new);
 
 			if (ri->rk.aux_prefix.family) {
 				rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
@@ -1229,7 +1227,7 @@ callback:
 			 */
 			trn = agg_node_get(rfd->rsp_times[afi],
 					   p); /* locks trn */
-			trn->info = (void *)(uintptr_t)bgp_clock();
+			trn->info = (void *)(uintptr_t)monotime(NULL);
 			if (agg_node_get_lock_count(trn) > 1)
 				agg_unlock_node(trn);
 
@@ -1269,7 +1267,6 @@ callback:
 				new = XCALLOC(
 					MTYPE_RFAPI_NEXTHOP,
 					sizeof(struct rfapi_next_hop_entry));
-				assert(new);
 
 				if (ri->rk.aux_prefix.family) {
 					rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
@@ -1345,8 +1342,8 @@ callback:
 				if (ri->timer) {
 					struct rfapi_rib_tcb *tcb;
 
-					tcb = ri->timer->arg;
-					thread_cancel(&ri->timer);
+					tcb = THREAD_ARG(ri->timer);
+					THREAD_OFF(ri->timer);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
@@ -1379,7 +1376,7 @@ callback:
 					rfapiRibStartTimer(rfd, ri, rn, 1);
 					RFAPI_RIB_CHECK_COUNTS(
 						0, delete_list->count);
-					ri->last_sent_time = rfapi_time(NULL);
+					ri->last_sent_time = monotime(NULL);
 #if DEBUG_RIB_SL_RD
 					{
 						char buf_rd[RD_ADDRSTRLEN];
@@ -1403,7 +1400,7 @@ callback:
 					rfapiRibStartTimer(rfd, ri_del, rn, 1);
 					RFAPI_RIB_CHECK_COUNTS(
 						0, delete_list->count);
-					ri->last_sent_time = rfapi_time(NULL);
+					ri->last_sent_time = monotime(NULL);
 				}
 			}
 		} else {
@@ -1718,7 +1715,6 @@ void rfapiRibUpdatePendingNode(
 
 		urq = XCALLOC(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE,
 			      sizeof(struct rfapi_updated_responses_queue));
-		assert(urq);
 		if (!rfd->updated_responses_queue)
 			updated_responses_queue_init(rfd);
 
@@ -1853,7 +1849,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	vnc_zlog_debug_verbose("%s: loading response=%p, use_eth_resolution=%d",
 			       __func__, response, use_eth_resolution);
 
-	new_last_sent_time = rfapi_time(NULL);
+	new_last_sent_time = monotime(NULL);
 
 	for (nhp = response; nhp; nhp = nhp_next) {
 
@@ -2023,7 +2019,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		ri->lifetime = nhp->lifetime;
 		ri->vn_options = rfapiVnOptionsDup(nhp->vn_options);
 		ri->rsp_counter = rfd->rsp_counter;
-		ri->last_sent_time = rfapi_time(NULL);
+		ri->last_sent_time = monotime(NULL);
 
 		if (need_insert) {
 			int rc;
@@ -2046,7 +2042,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		 * update this NVE's timestamp for this prefix
 		 */
 		trn = agg_node_get(rfd->rsp_times[afi], &pfx); /* locks trn */
-		trn->info = (void *)(uintptr_t)bgp_clock();
+		trn->info = (void *)(uintptr_t)monotime(NULL);
 		if (agg_node_get_lock_count(trn) > 1)
 			agg_unlock_node(trn);
 
@@ -2108,10 +2104,9 @@ void rfapiRibPendingDeleteRoute(struct bgp *bgp, struct rfapi_import_table *it,
 				sl);
 
 			for (cursor = NULL,
-			    rc = skiplist_next(sl, NULL, (void **)&m,
-					       (void **)&cursor);
+			    rc = skiplist_next(sl, NULL, (void **)&m, &cursor);
 			     !rc; rc = skiplist_next(sl, NULL, (void **)&m,
-						     (void **)&cursor)) {
+						     &cursor)) {
 
 #if DEBUG_PENDING_DELETE_ROUTE
 				vnc_zlog_debug_verbose("%s: eth monitor rfd=%p",
@@ -2280,7 +2275,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		rfapiFormatAge(ri->last_sent_time, str_age, BUFSIZ);
 #else
 		{
-			time_t now = rfapi_time(NULL);
+			time_t now = monotime(NULL);
 			time_t expire =
 				ri->last_sent_time + (time_t)ri->lifetime;
 			/* allow for delayed/async removal */

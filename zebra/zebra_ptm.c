@@ -114,7 +114,7 @@ void zebra_ptm_init(void)
 {
 	char buf[64];
 
-	memset(&ptm_cb, 0, sizeof(struct zebra_ptm_cb));
+	memset(&ptm_cb, 0, sizeof(ptm_cb));
 
 	ptm_cb.out_data = calloc(1, ZEBRA_PTM_SEND_MAX_SOCKBUF);
 	if (!ptm_cb.out_data) {
@@ -157,9 +157,9 @@ void zebra_ptm_finish(void)
 		free(ptm_cb.in_data);
 
 	/* Cancel events. */
-	thread_cancel(&ptm_cb.t_read);
-	thread_cancel(&ptm_cb.t_write);
-	thread_cancel(&ptm_cb.t_timer);
+	THREAD_OFF(ptm_cb.t_read);
+	THREAD_OFF(ptm_cb.t_write);
+	THREAD_OFF(ptm_cb.t_timer);
 
 	if (ptm_cb.wb)
 		buffer_free(ptm_cb.wb);
@@ -213,7 +213,7 @@ static int zebra_ptm_send_message(char *data, int size)
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
 	case BUFFER_EMPTY:
-		thread_cancel(&ptm_cb.t_write);
+		THREAD_OFF(ptm_cb.t_write);
 		break;
 	case BUFFER_PENDING:
 		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
@@ -389,7 +389,7 @@ static int zebra_ptm_socket_init(void)
 	}
 
 	/* Make server socket. */
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ZEBRA_PTM_SOCK_NAME,
 	       sizeof(ZEBRA_PTM_SOCK_NAME));
@@ -503,7 +503,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 		return -1;
 	}
 
-	memset(&src_prefix, 0, sizeof(struct prefix));
+	memset(&src_prefix, 0, sizeof(src_prefix));
 	if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
 		if (str2prefix(src_str, &src_prefix) == 0) {
 			flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,
@@ -1294,10 +1294,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 
 	/* Create copy for replication. */
 	msgc = stream_dup(msg);
-	if (msgc == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
-		return;
-	}
 
 	/* Send message to all running BFDd daemons. */
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -1308,10 +1304,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 
 		/* Allocate more messages. */
 		msg = stream_dup(msgc);
-		if (msg == NULL) {
-			zlog_debug("%s: not enough memory", __func__);
-			return;
-		}
 	}
 
 	stream_free(msgc);
@@ -1326,10 +1318,6 @@ static void zebra_ptm_send_clients(struct stream *msg)
 
 	/* Create copy for replication. */
 	msgc = stream_dup(msg);
-	if (msgc == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
-		return;
-	}
 
 	/* Send message to all running client daemons. */
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -1340,10 +1328,6 @@ static void zebra_ptm_send_clients(struct stream *msg)
 
 		/* Allocate more messages. */
 		msg = stream_dup(msgc);
-		if (msg == NULL) {
-			zlog_debug("%s: not enough memory", __func__);
-			return;
-		}
 	}
 
 	stream_free(msgc);

@@ -145,8 +145,7 @@ struct stream *stream_dup(const struct stream *s)
 
 	STREAM_VERIFY_SANE(s);
 
-	if ((snew = stream_new(s->endp)) == NULL)
-		return NULL;
+	snew = stream_new(s->endp);
 
 	return (stream_copy(snew, s));
 }
@@ -691,7 +690,7 @@ double stream_getd(struct stream *s)
 	return u.r;
 }
 
-/* Copy to source to stream.
+/* Copy from source to stream.
  *
  * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
  * around. This should be fixed once the stream updates are working.
@@ -1281,7 +1280,7 @@ void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 
 void stream_fifo_push_safe(struct stream_fifo *fifo, struct stream *s)
 {
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		stream_fifo_push(fifo, s);
 	}
 }
@@ -1313,7 +1312,7 @@ struct stream *stream_fifo_pop_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		ret = stream_fifo_pop(fifo);
 	}
 
@@ -1329,7 +1328,7 @@ struct stream *stream_fifo_head_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		ret = stream_fifo_head(fifo);
 	}
 
@@ -1351,7 +1350,7 @@ void stream_fifo_clean(struct stream_fifo *fifo)
 
 void stream_fifo_clean_safe(struct stream_fifo *fifo)
 {
-	frr_with_mutex(&fifo->mtx) {
+	frr_with_mutex (&fifo->mtx) {
 		stream_fifo_clean(fifo);
 	}
 }

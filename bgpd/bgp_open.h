@@ -56,6 +56,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
 #define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
+#define CAPABILITY_CODE_ROLE            9 /* Role Capability */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -70,6 +71,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_LLGR_LEN        0
 #define CAPABILITY_CODE_ORF_LEN         5
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
+#define CAPABILITY_CODE_ROLE_LEN        1
 
 /* Cooperative Route Filtering Capability.  */
 
@@ -87,8 +89,9 @@ struct graceful_restart_af {
 #define CAPABILITY_ACTION_UNSET         1
 
 /* Graceful Restart */
-#define RESTART_R_BIT              0x8000
-#define RESTART_F_BIT              0x80
+#define GRACEFUL_RESTART_R_BIT 0x8000
+#define GRACEFUL_RESTART_N_BIT 0x4000
+#define GRACEFUL_RESTART_F_BIT 0x80
 
 /* Long-lived Graceful Restart */
 #define LLGR_F_BIT 0x80

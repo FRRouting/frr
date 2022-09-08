@@ -137,6 +137,9 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (pbrms->dst && pbrms->family && prefix->family != pbrms->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -169,6 +172,9 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	"v6 Prefix\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (pbrms->src && pbrms->family && prefix->family != pbrms->family) {
 		vty_out(vty, "Cannot mismatch families within match src/dst\n");
@@ -204,6 +210,9 @@ DEFPY(pbr_map_match_ip_proto, pbr_map_match_ip_proto_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	struct protoent *p;
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (!no) {
 		p = getprotobyname(ip_proto);
 		if (!p) {
@@ -228,6 +237,9 @@ DEFPY(pbr_map_match_src_port, pbr_map_match_src_port_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (!no) {
 		if (pbrms->src_prt == port)
 			return CMD_SUCCESS;
@@ -249,6 +261,9 @@ DEFPY(pbr_map_match_dst_port, pbr_map_match_dst_port_cmd,
       "The Destination Port\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!no) {
 		if (pbrms->dst_prt == port)
@@ -273,6 +288,9 @@ DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	char dscpname[100];
 	uint8_t rawDscp;
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Discriminate dscp enums (cs0, cs1 etc.) and numbers */
 	bool isANumber = true;
@@ -333,6 +351,9 @@ DEFPY(pbr_map_match_ecn, pbr_map_match_ecn_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (!no) {
 		if ((pbrms->dsfield & PBR_DSFIELD_ECN) == ecn)
 			return CMD_SUCCESS;
@@ -356,6 +377,9 @@ DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
 	"mark\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 #ifndef GNU_LINUX
 	vty_out(vty, "pbr marks are not supported on this platform\n");
@@ -417,6 +441,9 @@ DEFPY(pbr_map_action_queue_id, pbr_map_action_queue_id_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (!no)
 		pbrms->action_queue_id = queue_id;
 	else if ((uint32_t)queue_id == pbrms->action_queue_id)
@@ -434,6 +461,9 @@ DEFPY(pbr_map_action_pcp, pbr_map_action_pcp_cmd, "[no] set pcp <(0-7)$pcp>",
       "A valid value in range 0..7\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!no)
 		pbrms->action_pcp = pcp;
@@ -454,6 +484,9 @@ DEFPY(pbr_map_action_vlan_id, pbr_map_action_vlan_id_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (!no)
 		pbrms->action_vlan_id = vlan_id;
 	else if (pbrms->action_vlan_id == vlan_id)
@@ -471,6 +504,9 @@ DEFPY(pbr_map_action_strip_vlan, pbr_map_action_strip_vlan_cmd,
       "Strip any inner vlan tag \n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!no)
 		pbrms->action_vlan_flags = PBR_MAP_STRIP_INNER_ANY;
@@ -491,6 +527,9 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	struct nexthop_group_cmd *nhgc;
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	nhgc = nhgc_find(name);
 	if (!nhgc) {
@@ -522,6 +561,9 @@ DEFPY(no_pbr_map_nexthop_group, no_pbr_map_nexthop_group_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	pbrms_clear_set_config(pbrms);
 
 	return CMD_SUCCESS;
@@ -547,6 +589,9 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	struct vrf *vrf;
 	struct nexthop nhop;
 	struct nexthop *nh = NULL;
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (vrf_name)
 		vrf = vrf_lookup_by_name(vrf_name);
@@ -670,6 +715,9 @@ DEFPY(no_pbr_map_nexthop, no_pbr_map_nexthop_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	pbrms_clear_set_config(pbrms);
 
 	return CMD_SUCCESS;
@@ -683,6 +731,9 @@ DEFPY(pbr_map_vrf, pbr_map_vrf_cmd,
       "Use the interface's VRF for lookup\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/*
 	 * If an equivalent set vrf * exists, just return success.
@@ -721,6 +772,9 @@ DEFPY(no_pbr_map_vrf, no_pbr_map_vrf_cmd,
       "Use the interface's VRF for lookup\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	pbrms_clear_set_config(pbrms);
 
@@ -848,9 +902,13 @@ static void vty_show_pbrms(struct vty *vty,
 	}
 
 	if (pbrms->src)
-		vty_out(vty, "        SRC Match: %pFX\n", pbrms->src);
+		vty_out(vty, "        SRC IP Match: %pFX\n", pbrms->src);
 	if (pbrms->dst)
-		vty_out(vty, "        DST Match: %pFX\n", pbrms->dst);
+		vty_out(vty, "        DST IP Match: %pFX\n", pbrms->dst);
+	if (pbrms->src_prt)
+		vty_out(vty, "        SRC Port Match: %u\n", pbrms->src_prt);
+	if (pbrms->dst_prt)
+		vty_out(vty, "        DST Port Match: %u\n", pbrms->dst_prt);
 	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
 		vty_out(vty, "        DSCP Match: %u\n",
 			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);

@@ -255,7 +255,7 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 		return 0;
 	}
 
-	oil_if_set(channel_oil, pim_ifp->mroute_vif_index, false);
+	oil_if_set(channel_oil, pim_ifp->mroute_vif_index, 0);
 	/* clear mute; will be re-evaluated when the OIF becomes valid again */
 	channel_oil->oif_flags[pim_ifp->mroute_vif_index] &= ~PIM_OIF_FLAG_MUTE;
 
@@ -429,6 +429,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	/* Prevent single protocol from subscribing same interface to
 	   channel (S,G) multiple times */
 	if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask) {
+		channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
+
 		if (PIM_DEBUG_MROUTE) {
 			zlog_debug(
 				"%s %s: existing protocol mask %u requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%pPAs,%pPAs)",
@@ -544,27 +546,19 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 int pim_channel_oil_empty(struct channel_oil *c_oil)
 {
-#if PIM_IPV == 4
-	static struct mfcctl null_oil;
-#else
-	static struct mf6cctl null_oil;
-#endif
+	static struct channel_oil null_oil;
 
 	if (!c_oil)
 		return 1;
-
 
 	/* exclude pimreg from the OIL when checking if the inherited_oil is
 	 * non-NULL.
 	 * pimreg device (in all vrfs) uses a vifi of
 	 * 0 (PIM_OIF_PIM_REGISTER_VIF) so we simply mfcc_ttls[0] */
-	if (oil_if_has(c_oil, 0)) {
-#if PIM_IPV == 4
-		null_oil.mfcc_ttls[0] = 1;
-#else
-		IF_SET(0, &null_oil.mf6cc_ifset);
-#endif
-	}
+	if (oil_if_has(c_oil, 0))
+		oil_if_set(&null_oil, 0, 1);
+	else
+		oil_if_set(&null_oil, 0, 0);
 
-	return !oil_if_cmp(&c_oil->oil, &null_oil);
+	return !oil_if_cmp(&c_oil->oil, &null_oil.oil);
 }

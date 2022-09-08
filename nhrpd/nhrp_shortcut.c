@@ -48,23 +48,17 @@ static void nhrp_shortcut_do_expire(struct thread *t)
 static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 				       unsigned long cmd)
 {
-	char buf2[PREFIX_STRLEN];
-
 	struct nhrp_shortcut *s =
 		container_of(n, struct nhrp_shortcut, cache_notifier);
 	struct nhrp_cache *c = s->cache;
 
-	if (c)
-		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
-	else
-		snprintf(buf2, sizeof(buf2), "(unspec)");
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
 			debugf(NHRP_DEBUG_ROUTE,
-			       "Shortcut: route install %pFX nh %s dev %s",
-			       s->p, buf2, c && c->ifp ?
-			       c->ifp->name : "<unk>");
+			       "Shortcut: route install %pFX nh %pSU dev %s",
+			       s->p, &c->remote_addr,
+			       c && c->ifp ? c->ifp->name : "<unk>");
 
 			nhrp_route_announce(1, s->type, s->p, c ? c->ifp : NULL,
 					    c ? &c->remote_addr : NULL, 0);

@@ -37,6 +37,7 @@
 #include "network.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_mroute.h"
 #include "pim_iface.h"
 #include "pim_sock.h"
@@ -69,18 +70,13 @@ int pim_socket_raw(int protocol)
 
 void pim_socket_ip_hdr(int fd)
 {
-	const int on = 1;
-
 	frr_with_privs(&pimd_privs) {
 #if PIM_IPV == 4
+		const int on = 1;
+
 		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
 			zlog_err("%s: Could not turn on IP_HDRINCL option: %m",
 				 __func__);
-#else
-		if (setsockopt(fd, IPPROTO_IPV6, IPV6_HDRINCL, &on, sizeof(on)))
-			zlog_err(
-				"%s: Could not turn on IPV6_HDRINCL option: %m",
-				__func__);
 #endif
 	}
 }
@@ -182,6 +178,46 @@ static inline int pim_setsockopt(int protocol, int fd, struct interface *ifp)
 	return 0;
 }
 #endif
+
+int pim_reg_sock(void)
+{
+	int fd;
+	long flags;
+
+	frr_with_privs (&pimd_privs) {
+		fd = socket(PIM_AF, SOCK_RAW, PIM_PROTO_REG);
+	}
+
+	if (fd < 0) {
+		zlog_warn("Could not create raw socket: errno=%d: %s", errno,
+			  safe_strerror(errno));
+		return PIM_SOCK_ERR_SOCKET;
+	}
+
+	if (sockopt_reuseaddr(fd)) {
+		close(fd);
+		return PIM_SOCK_ERR_REUSE;
+	}
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0) {
+		zlog_warn(
+			"Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
+			fd, errno, safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_NONBLOCK_GETFL;
+	}
+
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
+		zlog_warn(
+			"Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
+			fd, errno, safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_NONBLOCK_SETFL;
+	}
+
+	return fd;
+}
 
 int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 		     uint8_t loop)
@@ -359,7 +395,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			*tolen = sizeof(*to);
 	}
 
-	memset(&msgh, 0, sizeof(struct msghdr));
+	memset(&msgh, 0, sizeof(msgh));
 	iov.iov_base = buf;
 	iov.iov_len = len;
 	msgh.msg_control = cbuf;

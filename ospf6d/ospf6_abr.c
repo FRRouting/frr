@@ -488,7 +488,12 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				zlog_debug(
 					"Suppressed by range %pFX of area %s",
 					&range->prefix, route_area->name);
-			ospf6_abr_delete_route(summary, summary_table, old);
+			/* The existing summary route could be a range, don't
+			 * remove it in this case
+			 */
+			if (summary && summary->type != OSPF6_DEST_TYPE_RANGE)
+				ospf6_abr_delete_route(summary, summary_table,
+						       old);
 			return 0;
 		}
 	}

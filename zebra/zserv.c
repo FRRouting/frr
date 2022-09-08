@@ -228,8 +228,7 @@ static void zserv_write(struct thread *thread)
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		atomic_store_explicit(&client->last_write_time,
-				      (uint32_t)monotime(NULL),
+		atomic_store_explicit(&client->last_write_time, monotime(NULL),
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return;
@@ -239,7 +238,7 @@ static void zserv_write(struct thread *thread)
 
 	cache = stream_fifo_new();
 
-	frr_with_mutex(&client->obuf_mtx) {
+	frr_with_mutex (&client->obuf_mtx) {
 		while (stream_fifo_head(client->obuf_fifo))
 			stream_fifo_push(cache,
 					 stream_fifo_pop(client->obuf_fifo));
@@ -264,8 +263,7 @@ static void zserv_write(struct thread *thread)
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		atomic_store_explicit(&client->last_write_time,
-				      (uint32_t)monotime(NULL),
+		atomic_store_explicit(&client->last_write_time, monotime(NULL),
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return;
@@ -276,8 +274,8 @@ static void zserv_write(struct thread *thread)
 	atomic_store_explicit(&client->last_write_cmd, wcmd,
 			      memory_order_relaxed);
 
-	atomic_store_explicit(&client->last_write_time,
-			      (uint32_t)monotime(NULL), memory_order_relaxed);
+	atomic_store_explicit(&client->last_write_time, monotime(NULL),
+			      memory_order_relaxed);
 
 	return;
 
@@ -432,7 +430,7 @@ static void zserv_read(struct thread *thread)
 				      memory_order_relaxed);
 
 		/* publish read packets on client's input queue */
-		frr_with_mutex(&client->ibuf_mtx) {
+		frr_with_mutex (&client->ibuf_mtx) {
 			while (cache->head)
 				stream_fifo_push(client->ibuf_fifo,
 						 stream_fifo_pop(cache));
@@ -501,7 +499,7 @@ static void zserv_process_messages(struct thread *thread)
 	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
 
-	frr_with_mutex(&client->ibuf_mtx) {
+	frr_with_mutex (&client->ibuf_mtx) {
 		uint32_t i;
 		for (i = 0; i < p2p && stream_fifo_head(client->ibuf_fifo);
 		     ++i) {
@@ -531,7 +529,7 @@ static void zserv_process_messages(struct thread *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
-	frr_with_mutex(&client->obuf_mtx) {
+	frr_with_mutex (&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
 	}
 
@@ -547,7 +545,7 @@ int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 {
 	struct stream *msg;
 
-	frr_with_mutex(&client->obuf_mtx) {
+	frr_with_mutex (&client->obuf_mtx) {
 		msg = stream_fifo_pop(fifo);
 		while (msg) {
 			stream_fifo_push(client->obuf_fifo, msg);
@@ -684,7 +682,7 @@ void zserv_close_client(struct zserv *client)
 	 * Final check in case the client struct is in use in another
 	 * pthread: if not in-use, continue and free the client
 	 */
-	frr_with_mutex(&client_mutex) {
+	frr_with_mutex (&client_mutex) {
 		if (client->busy_count <= 0) {
 			/* remove from client list */
 			listnode_delete(zrouter.client_list, client);
@@ -748,7 +746,7 @@ static struct zserv *zserv_client_create(int sock)
 	client->wb = buffer_new(0);
 	TAILQ_INIT(&(client->gr_info_queue));
 
-	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
+	atomic_store_explicit(&client->connect_time, monotime(NULL),
 			      memory_order_relaxed);
 
 	/* Initialize flags */
@@ -761,7 +759,7 @@ static struct zserv *zserv_client_create(int sock)
 	}
 
 	/* Add this client to linked list. */
-	frr_with_mutex(&client_mutex) {
+	frr_with_mutex (&client_mutex) {
 		listnode_add(zrouter.client_list, client);
 	}
 
@@ -797,7 +795,7 @@ struct zserv *zserv_acquire_client(uint8_t proto, unsigned short instance,
 {
 	struct zserv *client = NULL;
 
-	frr_with_mutex(&client_mutex) {
+	frr_with_mutex (&client_mutex) {
 		client = find_client_internal(proto, instance, session_id);
 		if (client) {
 			/* Don't return a dead/closed client object */
@@ -823,7 +821,7 @@ void zserv_release_client(struct zserv *client)
 	 * for it to be deleted as soon as we release the lock, so we won't
 	 * touch the object again.
 	 */
-	frr_with_mutex(&client_mutex) {
+	frr_with_mutex (&client_mutex) {
 		client->busy_count--;
 
 		if (client->busy_count <= 0) {
@@ -1229,7 +1227,7 @@ struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
 {
 	struct zserv *client;
 
-	frr_with_mutex(&client_mutex) {
+	frr_with_mutex (&client_mutex) {
 		client = find_client_internal(proto, instance, 0);
 	}
 
@@ -1244,7 +1242,7 @@ struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 {
 	struct zserv *client;
 
-	frr_with_mutex(&client_mutex) {
+	frr_with_mutex (&client_mutex) {
 		client = find_client_internal(proto, instance, session_id);
 	}
 

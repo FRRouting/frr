@@ -496,7 +496,7 @@ static inline void zfpm_write_on(void)
  */
 static inline void zfpm_read_off(void)
 {
-	thread_cancel(&zfpm_g->t_read);
+	THREAD_OFF(zfpm_g->t_read);
 }
 
 /*
@@ -504,12 +504,12 @@ static inline void zfpm_read_off(void)
  */
 static inline void zfpm_write_off(void)
 {
-	thread_cancel(&zfpm_g->t_write);
+	THREAD_OFF(zfpm_g->t_write);
 }
 
 static inline void zfpm_connect_off(void)
 {
-	thread_cancel(&zfpm_g->t_connect);
+	THREAD_OFF(zfpm_g->t_connect);
 }
 
 /*
@@ -583,7 +583,7 @@ static void zfpm_connection_up(const char *detail)
 	/*
 	 * Start thread to push existing routes to the FPM.
 	 */
-	thread_cancel(&zfpm_g->t_conn_up);
+	THREAD_OFF(zfpm_g->t_conn_up);
 
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_up_state.iter);
 	zfpm_g->fpm_mac_dump_done = false;
@@ -1573,7 +1573,7 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 	vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
 	svi_if = zl3vni_map_to_svi_if(zl3vni);
 
-	memset(&key, 0, sizeof(struct fpm_mac_info_t));
+	memset(&key, 0, sizeof(key));
 
 	memcpy(&key.macaddr, &rmac->macaddr, ETH_ALEN);
 	key.vni = zl3vni->vni;
@@ -1596,12 +1596,9 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
 			return 0;
 		}
-	} else {
+	} else
 		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
 				   zfpm_mac_info_alloc);
-		if (!fpm_mac)
-			return 0;
-	}
 
 	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;
@@ -1690,7 +1687,7 @@ static void zfpm_stop_stats_timer(void)
 		return;
 
 	zfpm_debug("Stopping existing stats timer");
-	thread_cancel(&zfpm_g->t_stats);
+	THREAD_OFF(zfpm_g->t_stats);
 }
 
 /*

@@ -638,7 +638,7 @@ DEFPY_YANG (ip_protocol,
 	assert(proto);
 	assert(rmap);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -672,7 +672,7 @@ DEFPY_YANG (no_ip_protocol,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -719,7 +719,7 @@ DEFPY_YANG (ipv6_protocol,
 	assert(rmap);
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -753,7 +753,7 @@ DEFPY_YANG (no_ipv6_protocol,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -801,7 +801,7 @@ DEFPY_YANG (ip_protocol_nht_rmap,
 	assert(proto);
 	assert(rmap);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -835,7 +835,7 @@ DEFPY_YANG (no_ip_protocol_nht_rmap,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -883,7 +883,7 @@ DEFPY_YANG (ipv6_protocol_nht_rmap,
 	assert(rmap);
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
@@ -917,7 +917,7 @@ DEFPY_YANG (no_ipv6_protocol_nht_rmap,
 
 	assert(proto);
 
-	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	ZEBRA_DECLVAR_CONTEXT_VRF(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;

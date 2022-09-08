@@ -56,12 +56,12 @@ int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 	if (a->srte_color > b->srte_color)
 		return 1;
 
-	return prefix_cmp(&a->prefix, &b->prefix);
-}
+	if (a->ifindex < b->ifindex)
+		return -1;
+	if (a->ifindex > b->ifindex)
+		return 1;
 
-const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
-{
-	return prefix2str(&bnc->prefix, buf, size);
+	return prefix_cmp(&a->prefix, &b->prefix);
 }
 
 void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
@@ -70,13 +70,15 @@ void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
-				  struct prefix *prefix, uint32_t srte_color)
+				  struct prefix *prefix, uint32_t srte_color,
+				  ifindex_t ifindex)
 {
 	struct bgp_nexthop_cache *bnc;
 
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
 	bnc->prefix = *prefix;
+	bnc->ifindex = ifindex;
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
@@ -106,7 +108,8 @@ void bnc_free(struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
-				   struct prefix *prefix, uint32_t srte_color)
+				   struct prefix *prefix, uint32_t srte_color,
+				   ifindex_t ifindex)
 {
 	struct bgp_nexthop_cache bnc = {};
 
@@ -115,6 +118,7 @@ struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 
 	bnc.prefix = *prefix;
 	bnc.srte_color = srte_color;
+	bnc.ifindex = ifindex;
 	return bgp_nexthop_cache_find(tree, &bnc);
 }
 
@@ -191,9 +195,6 @@ void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 	tmp.addr = *tip;
 
 	addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
-	if (!addr)
-		return;
-
 	addr->refcnt++;
 }
 
@@ -399,8 +400,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		dest = bgp_node_get(bgp->connected_table[AFI_IP],
-				    (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP], &p);
 		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
 			bc->refcnt++;
@@ -433,8 +433,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_add(bgp, ifc, addr);
 
-		dest = bgp_node_get(bgp->connected_table[AFI_IP6],
-				    (struct prefix *)&p);
+		dest = bgp_node_get(bgp->connected_table[AFI_IP6], &p);
 
 		bc = bgp_dest_get_bgp_connected_ref_info(dest);
 		if (bc)
@@ -565,7 +564,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		return true;
 
 	if (new_afi == AF_INET && hashcount(bgp->tip_hash)) {
-		memset(&tmp_tip, 0, sizeof(struct tip_addr));
+		memset(&tmp_tip, 0, sizeof(tmp_tip));
 		tmp_tip.addr = attr->nexthop;
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
@@ -864,7 +863,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 			vty_out(vty, "  Is not Registered\n");
 	}
-	tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+	tbuf = time(NULL) - (monotime(NULL) - bnc->last_update);
 	vty_out(vty, "  Last update: %s", ctime(&tbuf));
 	vty_out(vty, "\n");
 
@@ -920,7 +919,7 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		}
 		tree = import_table ? &bgp->import_check_table
 				    : &bgp->nexthop_cache_table;
-		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop, 0);
+		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop, 0, 0);
 		if (!bnc) {
 			vty_out(vty, "specified nexthop does not have entry\n");
 			return CMD_SUCCESS;

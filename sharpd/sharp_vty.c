@@ -234,6 +234,8 @@ DEFPY (install_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -376,6 +378,8 @@ DEFPY (install_seg6_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -467,6 +471,8 @@ DEFPY (install_seg6local_routes,
 		sg.r.repeat = 0;
 
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -924,6 +930,11 @@ DEFPY (import_te,
 	return CMD_SUCCESS;
 }
 
+static void sharp_srv6_locator_chunk_free(struct prefix_ipv6 *chunk)
+{
+	prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+}
+
 DEFPY (sharp_srv6_manager_get_locator_chunk,
        sharp_srv6_manager_get_locator_chunk_cmd,
        "sharp srv6-manager get-locator-chunk NAME$locator_name",
@@ -947,6 +958,8 @@ DEFPY (sharp_srv6_manager_get_locator_chunk,
 		loc = XCALLOC(MTYPE_SRV6_LOCATOR,
 			      sizeof(struct sharp_srv6_locator));
 		loc->chunks = list_new();
+		loc->chunks->del =
+			(void (*)(void *))sharp_srv6_locator_chunk_free;
 		snprintf(loc->name, SRV6_LOCNAME_SIZE, "%s", locator_name);
 		listnode_add(sg.srv6_locators, loc);
 	}
@@ -1096,6 +1109,7 @@ DEFPY (sharp_srv6_manager_release_locator_chunk,
 			list_delete_all_node(loc->chunks);
 			list_delete(&loc->chunks);
 			listnode_delete(sg.srv6_locators, loc);
+			XFREE(MTYPE_SRV6_LOCATOR, loc);
 			break;
 		}
 	}

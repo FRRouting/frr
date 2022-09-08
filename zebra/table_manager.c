@@ -119,8 +119,6 @@ struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
 	}
 	/* otherwise create a new one */
 	tmc = XCALLOC(MTYPE_TM_CHUNK, sizeof(struct table_manager_chunk));
-	if (!tmc)
-		return NULL;
 
 	if (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end)
 		manual_conf = true;

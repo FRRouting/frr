@@ -73,7 +73,7 @@ int advertise_gw_macip_enabled(struct zebra_evpn *zevpn)
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (zvrf && zvrf->advertise_gw_macip)
+	if (zvrf->advertise_gw_macip)
 		return 1;
 
 	if (zevpn && zevpn->advertise_gw_macip)
@@ -87,7 +87,7 @@ int advertise_svi_macip_enabled(struct zebra_evpn *zevpn)
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (zvrf && zvrf->advertise_svi_macip)
+	if (zvrf->advertise_svi_macip)
 		return 1;
 
 	if (zevpn && zevpn->advertise_svi_macip)
@@ -999,8 +999,7 @@ struct zebra_evpn *zebra_evpn_lookup(vni_t vni)
 	struct zebra_evpn *zevpn = NULL;
 
 	zvrf = zebra_vrf_get_evpn();
-	assert(zvrf);
-	memset(&tmp_vni, 0, sizeof(struct zebra_evpn));
+	memset(&tmp_vni, 0, sizeof(tmp_vni));
 	tmp_vni.vni = vni;
 	zevpn = hash_lookup(zvrf->evpn_table, &tmp_vni);
 
@@ -1018,11 +1017,9 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni)
 	struct zebra_evpn *zevpn = NULL;
 
 	zvrf = zebra_vrf_get_evpn();
-	assert(zvrf);
-	memset(&tmp_zevpn, 0, sizeof(struct zebra_evpn));
+	memset(&tmp_zevpn, 0, sizeof(tmp_zevpn));
 	tmp_zevpn.vni = vni;
 	zevpn = hash_get(zvrf->evpn_table, &tmp_zevpn, zebra_evpn_alloc);
-	assert(zevpn);
 
 	zebra_evpn_es_evi_init(zevpn);
 
@@ -1047,7 +1044,6 @@ int zebra_evpn_del(struct zebra_evpn *zevpn)
 	struct zebra_evpn *tmp_zevpn;
 
 	zvrf = zebra_vrf_get_evpn();
-	assert(zvrf);
 
 	zevpn->svi_if = NULL;
 
@@ -1400,9 +1396,10 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	if (ifp)
 		zif = ifp->info;
 	if (!ifp || !if_is_operative(ifp) || !zif || !zif->brslave_info.br_if) {
-		zlog_warn(
-			"Ignoring remote MACIP ADD VNI %u, invalid interface state or info",
-			vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Ignoring remote MACIP ADD VNI %u, invalid interface state or info",
+				vni);
 		return;
 	}
 
@@ -1455,10 +1452,6 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	}
 
 	zvrf = zebra_vrf_get_evpn();
-	if (!zvrf)
-		return;
-
-
 	if (zebra_evpn_mac_remote_macip_add(zevpn, zvrf, macaddr, ipa_len,
 					    ipaddr, &mac, vtep_ip, flags, seq,
 					    esi)

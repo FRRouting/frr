@@ -62,9 +62,8 @@ int ospf_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 	if (ifp == NULL || if_is_loopback(ifp))
 		return 0;
 
-	ols_debug("ldp_sync: rcvd %s from LDP if %s",
-		  state.sync_start ? "sync-start" : "sync-complete",
-		  ifp->name);
+	ols_debug("%s: rcvd %s from LDP if %s", __func__,
+		  state.sync_start ? "sync-start" : "sync-complete", ifp->name);
 	if (state.sync_start)
 		ospf_ldp_sync_if_start(ifp, false);
 	else
@@ -88,7 +87,7 @@ int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	if (announce.proto != ZEBRA_ROUTE_LDP)
 		return 0;
 
-	ols_debug("ldp_sync: rcvd announce from LDP");
+	ols_debug("%s: rcvd announce from LDP", __func__);
 
 	/* LDP just started up:
 	 *  set cost to LSInfinity
@@ -105,7 +104,7 @@ void ospf_ldp_sync_state_req_msg(struct interface *ifp)
 {
 	struct ldp_igp_sync_if_state_req request;
 
-	ols_debug("ldp_sync: send state request to LDP for %s", ifp->name);
+	ols_debug("%s: send state request to LDP for %s", __func__, ifp->name);
 
 	memset(&request, 0, sizeof(request));
 	strlcpy(request.name, ifp->name, sizeof(ifp->name));
@@ -134,7 +133,7 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 			    LDP_SYNC_FLAG_ENABLE)))
 		return;
 
-	ols_debug("ldp_sync: init if %s",ifp->name);
+	ols_debug("%s: init if %s", __func__, ifp->name);
 	params = IF_DEF_PARAMS(ifp);
 	if (params->ldp_sync_info == NULL)
 		params->ldp_sync_info = ldp_sync_info_create();
@@ -174,8 +173,8 @@ void ospf_ldp_sync_if_start(struct interface *ifp, bool send_state_req)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		ols_debug("ldp_sync: start on if %s state: %s",
-			  ifp->name, "Holding down until Sync");
+		ols_debug("%s: start on if %s state: %s", __func__, ifp->name,
+			  "Holding down until Sync");
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 		ospf_ldp_sync_holddown_timer_add(ifp);
@@ -229,7 +228,7 @@ void ospf_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	zlog_err("ldp_sync: LDP down");
+	zlog_err("%s: LDP down", __func__);
 
 	vrf = vrf_lookup_by_id(ospf->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -275,7 +274,7 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 	if (ldp_sync_if_down(ldp_sync_info) == false)
 		return;
 
-	ols_debug("ldp_sync: down on if %s", ifp->name);
+	ols_debug("%s: down on if %s", __func__, ifp->name);
 
 	/* Interface down:
 	 *  can occur from a link down or changing config
@@ -317,7 +316,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	 *  delete ldp instance on interface
 	 *  restore cost
 	 */
-	ols_debug("ldp_sync: Removed from if %s", ifp->name);
+	ols_debug("%s: Removed from if %s", __func__, ifp->name);
 
 	THREAD_OFF(ldp_sync_info->t_holddown);
 
@@ -326,7 +325,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
 		ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	if (remove) {
-		ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
+		ldp_sync_info_free(&ldp_sync_info);
 		params->ldp_sync_info = NULL;
 	}
 }
@@ -370,8 +369,8 @@ static void ospf_ldp_sync_holddown_timer(struct thread *thread)
 
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
 
-		ols_debug("ldp_sync: holddown timer expired for %s state: %s",
-			  ifp->name, "Sync achieved");
+		ols_debug("%s: holddown timer expired for %s state: %s",
+			  __func__, ifp->name, "Sync achieved");
 
 		ospf_if_recalculate_output_cost(ifp);
 	}
@@ -394,7 +393,7 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 	    ldp_sync_info->holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		return;
 
-	ols_debug("ldp_sync: start holddown timer for %s time %d",
+	ols_debug("%s: start holddown timer for %s time %d", __func__,
 		  ifp->name, ldp_sync_info->holddown);
 
 	thread_add_timer(master, ospf_ldp_sync_holddown_timer,
@@ -459,7 +458,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 
 	ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
 
-	ols_debug("ldp_sync: enable if %s", ifp->name);
+	ols_debug("%s: enable if %s", __func__, ifp->name);
 
 	/* send message to LDP if ptop link */
 	if (params->type == OSPF_IFTYPE_POINTOPOINT ||
@@ -468,7 +467,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 		ospf_ldp_sync_state_req_msg(ifp);
 	} else {
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-		zlog_debug("ldp_sync: Sync only runs on P2P links %s",
+		zlog_debug("%s: Sync only runs on P2P links %s", __func__,
 			   ifp->name);
 	}
 }

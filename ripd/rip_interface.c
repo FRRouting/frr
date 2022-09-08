@@ -428,7 +428,7 @@ static void rip_interface_clean(struct rip_interface *ri)
 	ri->enable_interface = 0;
 	ri->running = 0;
 
-	thread_cancel(&ri->t_wakeup);
+	THREAD_OFF(ri->t_wakeup);
 }
 
 void rip_interfaces_clean(struct rip *rip)
@@ -929,7 +929,7 @@ int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *from)
 	struct prefix_ipv4 p;
 	struct route_node *node;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefix = from->sin_addr;
 	p.prefixlen = IPV4_MAX_BITLEN;

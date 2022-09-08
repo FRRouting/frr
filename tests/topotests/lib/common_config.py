@@ -225,17 +225,9 @@ def run_frr_cmd(rnode, cmd, isjson=False):
     if cmd:
         ret_data = rnode.vtysh_cmd(cmd, isjson=isjson)
 
-        if True:
-            if isjson:
-                print_data = json.dumps(ret_data)
-            else:
-                print_data = ret_data
-            logger.info(
-                "Output for command [%s] on router %s:\n%s",
-                cmd,
-                rnode.name,
-                print_data,
-            )
+        if isjson:
+            rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
+
         return ret_data
 
     else:
@@ -457,6 +449,8 @@ def check_router_status(tgen):
                     daemons.append("zebra")
                 if "pimd" in result:
                     daemons.append("pimd")
+                if "pim6d" in result:
+                    daemons.append("pim6d")
                 if "ospfd" in result:
                     daemons.append("ospfd")
                 if "ospf6d" in result:
@@ -1043,6 +1037,12 @@ def start_topology(tgen, daemon=None):
                 TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(tgen.logdir, rname)
             )
 
+        if daemon and "pim6d" in daemon:
+            # Loading empty pimd.conf file to router, to start the pim6d deamon
+            router.load_config(
+                TopoRouter.RD_PIM6, "{}/{}/pim6d.conf".format(tgen.logdir, rname)
+            )
+
     # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
@@ -1139,6 +1139,8 @@ def topo_daemons(tgen, topo=None):
         for val in topo["routers"][rtr]["links"].values():
             if "pim" in val and "pimd" not in daemon_list:
                 daemon_list.append("pimd")
+            if "pim6" in val and "pim6d" not in daemon_list:
+                daemon_list.append("pim6d")
             if "ospf" in val and "ospfd" not in daemon_list:
                 daemon_list.append("ospfd")
             if "ospf6" in val and "ospf6d" not in daemon_list:
@@ -3242,10 +3244,90 @@ def configure_interface_mac(tgen, input_dict):
     return True
 
 
+def socat_send_igmp_join_traffic(
+    tgen,
+    server,
+    protocol_option,
+    igmp_groups,
+    send_from_intf,
+    send_from_intf_ip=None,
+    port=12345,
+    reuseaddr=True,
+    join=False,
+    traffic=False,
+):
+    """
+    API to send IGMP join using SOCAT tool
+
+    Parameters:
+    -----------
+    * `tgen`  : Topogen object
+    * `server`: iperf server, from where IGMP join would be sent
+    * `protocol_option`: Protocol options, ex: UDP6-RECV
+    * `igmp_groups`: IGMP group for which join has to be sent
+    * `send_from_intf`: Interface from which join would be sent
+    * `send_from_intf_ip`: Interface IP, default is None
+    * `port`: Port to be used, default is 12345
+    * `reuseaddr`: True|False, bydefault True
+    * `join`: If join needs to be sent
+    * `traffic`: If traffic needs to be sent
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    rnode = tgen.routers()[server]
+    socat_cmd = "socat -u "
+
+    # UDP4/TCP4/UDP6/UDP6-RECV
+    if protocol_option:
+        socat_cmd += "{}".format(protocol_option)
+
+    if port:
+        socat_cmd += ":{},".format(port)
+
+    if reuseaddr:
+        socat_cmd += "{},".format("reuseaddr")
+
+    # Group address range to cover
+    if igmp_groups:
+        if not isinstance(igmp_groups, list):
+            igmp_groups = [igmp_groups]
+
+    for igmp_group in igmp_groups:
+        if join:
+            join_traffic_option = "ipv6-join-group"
+        elif traffic:
+            join_traffic_option = "ipv6-join-group-source"
+
+        if send_from_intf and not send_from_intf_ip:
+            socat_cmd += "{}='[{}]:{}'".format(
+                join_traffic_option, igmp_group, send_from_intf
+            )
+        else:
+            socat_cmd += "{}='[{}]:{}:[{}]'".format(
+                join_traffic_option, igmp_group, send_from_intf, send_from_intf_ip
+            )
+
+        socat_cmd += " STDOUT"
+
+        socat_cmd += " &>{}/socat.logs &".format(tgen.logdir)
+
+        # Run socat command to send IGMP join
+        logger.info("[DUT: {}]: Running command: [{}]".format(server, socat_cmd))
+        output = rnode.run("set +m; {} sleep 0.5".format(socat_cmd))
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
 #############################################
 # Verification APIs
 #############################################
-@retry(retry_timeout=12)
+@retry(retry_timeout=40)
 def verify_rib(
     tgen,
     addr_type,
@@ -3257,6 +3339,7 @@ def verify_rib(
     metric=None,
     fib=None,
     count_only=False,
+    admin_distance=None,
 ):
     """
     Data will be read from input_dict or input JSON file, API will generate
@@ -3373,8 +3456,9 @@ def verify_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
+                        st_rt = str(
+                            ipaddress.ip_network(frr_unicode(st_rt), strict=False)
+                        )
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
                             continue
@@ -3383,11 +3467,18 @@ def verify_rib(
                             st_found = True
                             found_routes.append(st_rt)
 
+                            if "queued" in rib_routes_json[st_rt][0]:
+                                errormsg = "Route {} is queued\n".format(st_rt)
+                                return errormsg
+
                             if fib and next_hop:
                                 if type(next_hop) is not list:
                                     next_hop = [next_hop]
 
                                 for mnh in range(0, len(rib_routes_json[st_rt])):
+                                    if not "selected" in rib_routes_json[st_rt][mnh]:
+                                        continue
+
                                     if (
                                         "fib"
                                         in rib_routes_json[st_rt][mnh]["nexthops"][0]
@@ -3437,7 +3528,22 @@ def verify_rib(
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
+                                    if "ip" in rib_r
                                 ]
+
+                                # If somehow key "ip" is not found in nexthops JSON
+                                # then found_hops would be 0, this particular
+                                # situation will be handled here
+                                if not len(found_hops):
+                                    errormsg = (
+                                        "Nexthop {} is Missing for "
+                                        "route {} in RIB of router {}\n".format(
+                                            next_hop,
+                                            st_rt,
+                                            dut,
+                                        )
+                                    )
+                                    return errormsg
 
                                 # Check only the count of nexthops
                                 if count_only:
@@ -3506,6 +3612,30 @@ def verify_rib(
                                     )
                                     return errormsg
 
+                            if admin_distance is not None:
+                                if "distance" not in rib_routes_json[st_rt][0]:
+                                    errormsg = (
+                                        "[DUT: {}]: admin distance is"
+                                        " not present for"
+                                        " route {} in RIB \n".format(dut, st_rt)
+                                    )
+                                    return errormsg
+
+                                if (
+                                    admin_distance
+                                    != rib_routes_json[st_rt][0]["distance"]
+                                ):
+                                    errormsg = (
+                                        "[DUT: {}]: admin distance value "
+                                        "{} is not matched for "
+                                        "route {} in RIB \n".format(
+                                            dut,
+                                            admin_distance,
+                                            st_rt,
+                                        )
+                                    )
+                                    return errormsg
+
                             if metric is not None:
                                 if "metric" not in rib_routes_json[st_rt][0]:
                                     errormsg = (
@@ -3532,8 +3662,8 @@ def verify_rib(
 
                 if nh_found:
                     logger.info(
-                        "[DUT: {}]: Found next_hop {} for all bgp"
-                        " routes in RIB".format(router, next_hop)
+                        "[DUT: {}]: Found next_hop {} for"
+                        " RIB routes: {}".format(router, next_hop, found_routes)
                     )
 
                 if len(missing_routes) > 0:
@@ -3597,7 +3727,7 @@ def verify_rib(
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt), strict=False))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -3606,6 +3736,10 @@ def verify_rib(
                     if st_rt in rib_routes_json:
                         st_found = True
                         found_routes.append(st_rt)
+
+                        if "queued" in rib_routes_json[st_rt][0]:
+                            errormsg = "Route {} is queued\n".format(st_rt)
+                            return errormsg
 
                         if next_hop:
                             if type(next_hop) is not list:
@@ -3655,7 +3789,7 @@ def verify_rib(
 
 
 @retry(retry_timeout=12)
-def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
+def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
     same prefixes, which were redistributed by either create_static_routes() or
@@ -3713,6 +3847,9 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
             found_routes = []
             missing_routes = []
 
+            if protocol:
+                command = "{} {}".format(command, protocol)
+
             if "static_routes" in input_dict[routerInput]:
                 static_routes = input_dict[routerInput]["static_routes"]
 
@@ -3750,8 +3887,9 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
-
+                        st_rt = str(
+                            ipaddress.ip_network(frr_unicode(st_rt), strict=False)
+                        )
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != addr_type:
                             continue
@@ -3855,7 +3993,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
                 nh_found = False
 
                 for st_rt in ip_list:
-                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
+                    st_rt = str(ipaddress.ip_network(frr_unicode(st_rt), strict=False))
 
                     _addr_type = validate_ip_address(st_rt)
                     if _addr_type != addr_type:
@@ -4929,7 +5067,7 @@ def verify_ip_nht(tgen, input_dict):
 
         for nh in nh_list:
             if nh in show_ip_nht:
-                nht = run_frr_cmd(rnode, f"show ip nht {nh}")
+                nht = run_frr_cmd(rnode, "show ip nht {}".format(nh))
                 if "unresolved" in nht:
                     errormsg = "Nexthop {} became unresolved on {}".format(nh, router)
                     return errormsg

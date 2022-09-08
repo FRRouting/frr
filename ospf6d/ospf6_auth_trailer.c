@@ -120,7 +120,13 @@ void ospf6_auth_hdr_dump_recv(struct ospf6_header *ospfh, uint16_t length,
 		ospf6_at_hdr =
 			(struct ospf6_auth_hdr *)((uint8_t *)ospfh + oh_len);
 		at_hdr_len = ntohs(ospf6_at_hdr->length);
-		hash_len = at_hdr_len - OSPF6_AUTH_HDR_MIN_SIZE;
+		hash_len = at_hdr_len - (uint16_t)OSPF6_AUTH_HDR_MIN_SIZE;
+		if (hash_len > KEYCHAIN_MAX_HASH_SIZE) {
+			zlog_debug(
+				"Specified value for hash_len %u is greater than expected %u",
+				hash_len, KEYCHAIN_MAX_HASH_SIZE);
+			return;
+		}
 		memcpy(temp, ospf6_at_hdr->data, hash_len);
 		temp[hash_len] = '\0';
 		zlog_debug("OSPF6 Authentication Trailer");
@@ -144,8 +150,6 @@ unsigned char *ospf6_hash_message_xor(unsigned char *mes1,
 	uint32_t i;
 
 	result = XCALLOC(MTYPE_OSPF6_AUTH_HASH_XOR, len);
-	if (!result)
-		return NULL;
 
 	for (i = 0; i < len; i++)
 		result[i] = mes1[i] ^ mes2[i];
@@ -408,7 +412,7 @@ int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 		return OSPF6_AUTH_VALIDATE_FAILURE;
 	}
 
-	memset(&ospf6_auth_info, 0, sizeof(struct ospf6_auth_hdr));
+	memset(&ospf6_auth_info, 0, sizeof(ospf6_auth_info));
 	if ((*pkt_len - hdr_len - (*lls_block_len)) > sizeof(ospf6_auth_info)) {
 		if (IS_OSPF6_DEBUG_AUTH_RX)
 			zlog_err("RECV[%s] : Wrong auth data in %s packet",

@@ -434,11 +434,9 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ibgp(request):
         pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
-    NEXT_HOP_IP = populate_nh()
 
     step("Configure 8 interfaces / links between R1 and R2,")
     step("Configure IBGP IPv4 peering between R2 and R3 router.")
-    reset_config_on_routers(tgen)
     NEXT_HOP_IP = populate_nh()
     nh_all = {}
     for addr_type in ADDR_TYPES:

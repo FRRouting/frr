@@ -183,7 +183,7 @@ in order to support the route server features.
    that moment, every announcement received by the route server will be also
    considered for the new Loc-RIB.
 
-.. clicmd:: neigbor A.B.C.D|X.X::X.X|peer-group route-map WORD import|export
+.. clicmd:: neigbor A.B.C.D|X.X::X.X|peer-group route-map WORD in|out
 
    This set of commands can be used to specify the route-map that represents
    the Import or Export policy of a peer which is configured as a RS-client
@@ -372,20 +372,20 @@ the policies for client RA):
      address-family ipv6
        neighbor 2001:0DB8::A activate
        neighbor 2001:0DB8::A route-server-client
-       neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT import
-       neighbor 2001:0DB8::A route-map RSCLIENT-A-EXPORT export
+       neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT in
+       neighbor 2001:0DB8::A route-map RSCLIENT-A-EXPORT out
        neighbor 2001:0DB8::A soft-reconfiguration inbound
 
        neighbor 2001:0DB8::B activate
        neighbor 2001:0DB8::B route-server-client
-       neighbor 2001:0DB8::B route-map RSCLIENT-B-IMPORT import
-       neighbor 2001:0DB8::B route-map RSCLIENT-B-EXPORT export
+       neighbor 2001:0DB8::B route-map RSCLIENT-B-IMPORT in
+       neighbor 2001:0DB8::B route-map RSCLIENT-B-EXPORT out
        neighbor 2001:0DB8::B soft-reconfiguration inbound
 
        neighbor 2001:0DB8::C activate
        neighbor 2001:0DB8::C route-server-client
-       neighbor 2001:0DB8::C route-map RSCLIENT-C-IMPORT import
-       neighbor 2001:0DB8::C route-map RSCLIENT-C-EXPORT export
+       neighbor 2001:0DB8::C route-map RSCLIENT-C-IMPORT in
+       neighbor 2001:0DB8::C route-map RSCLIENT-C-EXPORT out
        neighbor 2001:0DB8::C soft-reconfiguration inbound
      exit-address-family
    !
@@ -501,7 +501,7 @@ do it:
 
 .. code-block:: frr
 
-   neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT import
+   neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT in
    ...
    !
    ...

@@ -40,6 +40,7 @@
 #include "pim_bfd.h"
 #include "pim_bsm.h"
 #include "pim_vxlan.h"
+#include "pim6_mld.h"
 
 int pim_debug_config_write(struct vty *vty)
 {
@@ -57,11 +58,11 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug msdp internal\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_EVENTS) {
+	if (PIM_DEBUG_GM_EVENTS) {
 		vty_out(vty, "debug igmp events\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_PACKETS) {
+	if (PIM_DEBUG_GM_PACKETS) {
 		vty_out(vty, "debug igmp packets\n");
 		++writes;
 	}
@@ -77,11 +78,11 @@ int pim_debug_config_write(struct vty *vty)
 
 	/* PIM_DEBUG_MROUTE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_MROUTE) {
-		vty_out(vty, "debug mroute\n");
+		vty_out(vty, "debug " PIM_MROUTE_DBG "\n");
 		++writes;
 	}
 	if (PIM_DEBUG_MROUTE_DETAIL) {
-		vty_out(vty, "debug mroute detail\n");
+		vty_out(vty, "debug " PIM_MROUTE_DBG " detail\n");
 		++writes;
 	}
 
@@ -91,34 +92,34 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_EVENTS) {
-		vty_out(vty, "debug pim events\n");
+		vty_out(vty, "debug " PIM_AF_DBG " events\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_PACKETS) {
-		vty_out(vty, "debug pim packets\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
-		vty_out(vty, "debug pim packet-dump send\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packet-dump send\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-		vty_out(vty, "debug pim packet-dump receive\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packet-dump receive\n");
 		++writes;
 	}
 
 	/* PIM_DEBUG_PIM_TRACE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_PIM_TRACE) {
-		vty_out(vty, "debug pim trace\n");
+		vty_out(vty, "debug " PIM_AF_DBG " trace\n");
 		++writes;
 	}
 	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-		vty_out(vty, "debug pim trace detail\n");
+		vty_out(vty, "debug " PIM_AF_DBG " trace detail\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_ZEBRA) {
-		vty_out(vty, "debug pim zebra\n");
+		vty_out(vty, "debug " PIM_AF_DBG " zebra\n");
 		++writes;
 	}
 
@@ -128,12 +129,12 @@ int pim_debug_config_write(struct vty *vty)
         }
 
 	if (PIM_DEBUG_BSM) {
-		vty_out(vty, "debug pim bsm\n");
+		vty_out(vty, "debug " PIM_AF_DBG " bsm\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_VXLAN) {
-		vty_out(vty, "debug pim vxlan\n");
+		vty_out(vty, "debug " PIM_AF_DBG " vxlan\n");
 		++writes;
 	}
 
@@ -143,17 +144,17 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_HELLO) {
-		vty_out(vty, "debug pim packets hello\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets hello\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_PIM_J_P) {
-		vty_out(vty, "debug pim packets joins\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets joins\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_PIM_REG) {
-		vty_out(vty, "debug pim packets register\n");
+		vty_out(vty, "debug " PIM_AF_DBG " packets register\n");
 		++writes;
 	}
 
@@ -163,7 +164,7 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_NHT) {
-		vty_out(vty, "debug pim nht\n");
+		vty_out(vty, "debug " PIM_AF_DBG " nht\n");
 		++writes;
 	}
 
@@ -173,7 +174,7 @@ int pim_debug_config_write(struct vty *vty)
 	}
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL) {
-		vty_out(vty, "debug pim nht detail\n");
+		vty_out(vty, "debug " PIM_AF_DBG " nht detail\n");
 		++writes;
 	}
 
@@ -259,9 +260,14 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		++writes;
 	}
 
-	if (pim->igmp_watermark_limit != 0) {
-		vty_out(vty, "%sip igmp watermark-warn %u\n", spaces,
-			pim->igmp_watermark_limit);
+	if (pim->gm_watermark_limit != 0) {
+#if PIM_IPV == 4
+		vty_out(vty, "%s" PIM_AF_NAME " igmp watermark-warn %u\n",
+			spaces, pim->gm_watermark_limit);
+#else
+		vty_out(vty, "%s" PIM_AF_NAME " mld watermark-warn %u\n",
+			spaces, pim->gm_watermark_limit);
+#endif
 		++writes;
 	}
 
@@ -291,11 +297,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 }
 
 #if PIM_IPV == 4
-static int pim_igmp_config_write(struct vty *vty, int writes,
-				 struct pim_interface *pim_ifp)
+static int gm_config_write(struct vty *vty, int writes,
+			   struct pim_interface *pim_ifp)
 {
 	/* IF ip igmp */
-	if (pim_ifp->igmp_enable) {
+	if (pim_ifp->gm_enable) {
 		vty_out(vty, " ip igmp\n");
 		++writes;
 	}
@@ -360,6 +366,43 @@ static int pim_igmp_config_write(struct vty *vty, int writes,
 
 	return writes;
 }
+#else
+static int gm_config_write(struct vty *vty, int writes,
+			   struct pim_interface *pim_ifp)
+{
+	/* IF ipv6 mld */
+	if (pim_ifp->gm_enable) {
+		vty_out(vty, " ipv6 mld\n");
+		++writes;
+	}
+
+	if (pim_ifp->mld_version != MLD_DEFAULT_VERSION)
+		vty_out(vty, " ipv6 mld version %d\n", pim_ifp->mld_version);
+
+	/* IF ipv6 mld query-max-response-time */
+	if (pim_ifp->gm_query_max_response_time_dsec !=
+	    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld query-max-response-time %d\n",
+			pim_ifp->gm_query_max_response_time_dsec);
+
+	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
+		vty_out(vty, " ipv6 mld query-interval %d\n",
+			pim_ifp->gm_default_query_interval);
+
+	/* IF ipv6 mld last-member_query-count */
+	if (pim_ifp->gm_last_member_query_count !=
+	    IGMP_DEFAULT_ROBUSTNESS_VARIABLE)
+		vty_out(vty, " ipv6 mld last-member-query-count %d\n",
+			pim_ifp->gm_last_member_query_count);
+
+	/* IF ipv6 mld last-member_query-interval */
+	if (pim_ifp->gm_specific_query_max_response_time_dsec !=
+	    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
+			pim_ifp->gm_specific_query_max_response_time_dsec);
+
+	return 0;
+}
 #endif
 
 int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
@@ -388,9 +431,7 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
-#if PIM_IPV == 4
-	writes += pim_igmp_config_write(vty, writes, pim_ifp);
-#endif
+	writes += gm_config_write(vty, writes, pim_ifp);
 
 	/* update source */
 	if (!pim_addr_is_any(pim_ifp->update_source)) {
@@ -406,6 +447,11 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	if (pim_ifp->boundary_oil_plist) {
 		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
 			pim_ifp->boundary_oil_plist);
+		++writes;
+	}
+
+	if (pim_ifp->pim_passive_enable) {
+		vty_out(vty, " " PIM_AF_NAME " pim passive\n");
 		++writes;
 	}
 

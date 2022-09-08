@@ -64,6 +64,10 @@ buster.)
      +================+===================+=========================================+
      | pkg.frr.rtrlib | pkg.frr.nortrlib  | builds frr-rpki-rtrlib package (or not) |
      +----------------+-------------------+-----------------------------------------+
+     | pkg.frr.lua    | pkg.frr.nolua     | builds lua scripting extension          |
+     +----------------+-------------------+-----------------------------------------+
+     | pkg.frr.pim6d  | pkg.frr.nopim6d   | builds pim6d (work in progress)         |
+     +----------------+-------------------+-----------------------------------------+
 
    * the ``-uc -us`` options to disable signing the packages with your GPG key
 

@@ -69,15 +69,15 @@ from lib.common_config import (
 from lib.pim import (
     create_pim_config,
     create_igmp_config,
-    verify_ip_mroutes,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
+    verify_mroutes,
+    clear_mroute,
+    clear_pim_interface_traffic,
     verify_pim_config,
     verify_upstream_iif,
     verify_multicast_traffic,
     verify_multicast_flag_state,
     verify_igmp_groups,
-    McastTesterHelper
+    McastTesterHelper,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
@@ -646,10 +646,10 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
 
     # Creating configuration from JSON
     app_helper.stop_all_hosts()
-    clear_ip_mroute(tgen)
+    clear_mroute(tgen)
     check_router_status(tgen)
     reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
+    clear_pim_interface_traffic(tgen, topo)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -878,7 +878,7 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
     ]
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -894,36 +894,36 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Delete local join from DR node")
-    input_dict = {
-        "r1": {
-            "igmp": {
-                "interfaces": {
-                    vlan_intf_r1_s1: {
-                        "igmp": {
-                            "version": "2",
-                            "join": IGMP_JOIN_RANGE_3,
-                            "delete_attr": True,
+    for _join in IGMP_JOIN_RANGE_3:
+        input_dict = {
+            "r1": {
+                "igmp": {
+                    "interfaces": {
+                        vlan_intf_r1_s1: {
+                            "igmp": {
+                                "join": [_join],
+                                "delete_attr": True,
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
-    result = create_igmp_config(tgen, topo, input_dict)
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+        result = create_igmp_config(tgen, topo, input_dict)
+        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-    step(
-        "After removing local join 227.1.1.1 group removed from IGMP join "
-        "of R1, R2 node , using 'show ip igmp groups json'"
-    )
-
-    for dut, intf in zip(["r1", "r2"], [intf_r1_s1, intf_r2_s1]):
-        result = verify_igmp_groups(tgen, dut, intf, IGMP_JOIN_RANGE_3, expected=False)
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "IGMP groups are still present \n Error: {}".format(tc_name, result)
+        step(
+            "After removing local join 227.1.1.1 group removed from IGMP join "
+            "of R1, R2 node , using 'show ip igmp groups json'"
         )
+
+        for dut, intf in zip(["r1", "r2"], [intf_r1_s1, intf_r2_s1]):
+            result = verify_igmp_groups(tgen, dut, intf, IGMP_JOIN_RANGE_3, expected=False)
+            assert result is not True, (
+                "Testcase {} : Failed \n "
+                "IGMP groups are still present \n Error: {}".format(tc_name, result)
+            )
 
     step("(*,G) mroute for 227.1.1.1 group removed from R1 node")
     step(
@@ -932,7 +932,7 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
     )
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -942,7 +942,7 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -951,9 +951,10 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
 
     step("Configure local join on R2 for group range (227.1.1.1)")
@@ -1044,7 +1045,7 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
     ]
 
     for data in input_dict_r1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1053,9 +1054,10 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "Mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
 
     step("Remove local join from DR and Non DR node")
@@ -1098,7 +1100,7 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
     )
 
     for data in input_dict_r1:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1107,13 +1109,14 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "Mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
 
     for data in input_dict_r2:
-        result = verify_ip_mroutes(
+        result = verify_mroutes(
             tgen,
             data["dut"],
             data["src_address"],
@@ -1122,9 +1125,10 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "Mroutes are still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n " "mroutes are still present \n Error: {}".format(
+            tc_name, result
         )
 
     write_test_footer(tc_name)

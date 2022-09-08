@@ -14,20 +14,14 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            16010
-          ]
+          "active":true
         },
         {
           "fib":true,
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            16010
-          ]
+          "active":true
         }
       ]
     }
@@ -47,10 +41,7 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            16020
-          ]
+          "active":true
         }
       ]
     }
@@ -70,10 +61,7 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            16030
-          ]
+          "active":true
         }
       ]
     }
@@ -93,10 +81,7 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            16040
-          ]
+          "active":true
         }
       ]
     }
@@ -116,10 +101,7 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            16050
-          ]
+          "active":true
         }
       ]
     }
@@ -296,20 +278,14 @@
           "ip":"10.0.7.4",
           "afi":"ipv4",
           "interfaceName":"eth-rt4",
-          "active":true,
-          "labels":[
-            16100
-          ]
+          "active":true
         },
         {
           "fib":true,
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
-          "active":true,
-          "labels":[
-            16100
-          ]
+          "active":true
         }
       ]
     }

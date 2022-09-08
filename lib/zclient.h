@@ -143,7 +143,7 @@ typedef enum {
 	ZEBRA_BFD_CLIENT_DEREGISTER,
 	ZEBRA_INTERFACE_ENABLE_RADV,
 	ZEBRA_INTERFACE_DISABLE_RADV,
-	ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
+	ZEBRA_NEXTHOP_LOOKUP_MRIB,
 	ZEBRA_INTERFACE_LINK_PARAMS,
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
@@ -452,6 +452,7 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 #define ZAPI_NEXTHOP_FLAG_SEG6		0x10
 #define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
+#define ZAPI_NEXTHOP_FLAG_EVPN		0x40
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -618,7 +619,7 @@ struct zapi_sr_policy {
 };
 
 struct zapi_pw {
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -631,7 +632,7 @@ struct zapi_pw {
 };
 
 struct zapi_pw_status {
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	uint32_t status;
 };

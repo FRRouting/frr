@@ -234,15 +234,23 @@ def test_rule_linux_installation():
 
     logger.info("Checking for installed PBR rules in OS")
 
+    def _get_router_rules(router, expected):
+        actual = topotest.ip_rules(router)
+
+        logger.info(actual)
+        return topotest.json_cmp(actual, expected)
+
     router_list = tgen.routers().values()
     for router in router_list:
         rules_file = "{}/{}/linux-rules.json".format(CWD, router.name)
 
-        actual = topotest.ip_rules(router)
         expected = json.loads(open(rules_file).read())
 
+        test_func = partial(_get_router_rules, router, expected)
+
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
         assertmsg = "Router {} OS rules mismatch".format(router.name)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result is None, assertmsg
 
 
 if __name__ == "__main__":

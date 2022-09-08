@@ -96,6 +96,7 @@ module frr-gmp {
       type uint8 {
         range "1..2";
       }
+      default "2";
       description
         "MLD version.";
     }

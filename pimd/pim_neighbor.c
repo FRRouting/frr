@@ -28,6 +28,7 @@
 #include "lib_errors.h"
 
 #include "pimd.h"
+#include "pim_instance.h"
 #include "pim_neighbor.h"
 #include "pim_time.h"
 #include "pim_str.h"
@@ -262,7 +263,7 @@ static void on_neighbor_jp_timer(struct thread *t)
 			   neigh->upstream_jp_agg->count);
 
 	rpf.source_nexthop.interface = neigh->interface;
-	pim_addr_to_prefix(&rpf.rpf_addr, neigh->source_addr);
+	rpf.rpf_addr = neigh->source_addr;
 	pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
 
 	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
@@ -362,19 +363,16 @@ static void delete_prefix_list(struct pim_neighbor *neigh)
 #ifdef DUMP_PREFIX_LIST
 		struct listnode *p_node;
 		struct prefix *p;
-		char addr_str[10];
 		int list_size = neigh->prefix_list
 					? (int)listcount(neigh->prefix_list)
 					: -1;
 		int i = 0;
 		for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, p_node, p)) {
-			pim_inet4_dump("<addr?>", p->u.prefix4, addr_str,
-				       sizeof(addr_str));
 			zlog_debug(
-				"%s: DUMP_PREFIX_LIST neigh=%x prefix_list=%x prefix=%x addr=%s [%d/%d]",
+				"%s: DUMP_PREFIX_LIST neigh=%x prefix_list=%x prefix=%x addr=%pFXh [%d/%d]",
 				__func__, (unsigned)neigh,
-				(unsigned)neigh->prefix_list, (unsigned)p,
-				addr_str, i, list_size);
+				(unsigned)neigh->prefix_list, (unsigned)p, p, i,
+				list_size);
 			++i;
 		}
 #endif
@@ -441,15 +439,6 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 	}
 
 	return NULL;
-}
-
-struct pim_neighbor *pim_neighbor_find_prefix(struct interface *ifp,
-					      const struct prefix *src_prefix)
-{
-	pim_addr addr;
-
-	addr = pim_addr_from_prefix(src_prefix);
-	return pim_neighbor_find(ifp, addr);
 }
 
 /*
@@ -715,9 +704,8 @@ static void delete_from_neigh_addr(struct interface *ifp,
 		struct listnode *neigh_node;
 		struct pim_neighbor *neigh;
 
-		if (addr->family != AF_INET)
+		if (addr->family != PIM_AF)
 			continue;
-
 		/*
 		  Scan neighbors
 		*/
@@ -727,15 +715,9 @@ static void delete_from_neigh_addr(struct interface *ifp,
 				struct prefix *p = pim_neighbor_find_secondary(
 					neigh, addr);
 				if (p) {
-					char addr_str[INET_ADDRSTRLEN];
-
-					pim_inet4_dump(
-						"<addr?>", addr->u.prefix4,
-						addr_str, sizeof(addr_str));
-
 					zlog_info(
-						"secondary addr %s recvd from neigh %pPA deleted from neigh %pPA on %s",
-						addr_str, &neigh_addr,
+						"secondary addr %pFXh recvd from neigh %pPA deleted from neigh %pPA on %s",
+						addr, &neigh_addr,
 						&neigh->source_addr, ifp->name);
 
 					listnode_delete(neigh->prefix_list, p);

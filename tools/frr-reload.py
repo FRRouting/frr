@@ -1886,6 +1886,7 @@ if __name__ == "__main__":
         "ospfd",
         "pbrd",
         "pimd",
+        "pim6d",
         "ripd",
         "ripngd",
         "sharpd",
@@ -1894,6 +1895,7 @@ if __name__ == "__main__":
         "ldpd",
         "pathd",
         "bfdd",
+        "eigrpd",
     ]:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
         print(msg)

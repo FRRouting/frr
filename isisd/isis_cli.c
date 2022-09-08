@@ -1206,7 +1206,7 @@ void cli_show_isis_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/default-information-originate
  */
 DEFPY_YANG(isis_default_originate, isis_default_originate_cmd,
-      "[no] default-information originate <ipv4|ipv6>$ip <level-1|level-2>$level [always]$always [{metric (0-16777215)$metric|route-map WORD$rmap}]",
+      "[no] default-information originate <ipv4|ipv6>$ip <level-1|level-2>$level [always]$always [{metric (0-16777215)$metric|route-map RMAP_NAME$rmap}]",
       NO_STR
       "Control distribution of default information\n"
       "Distribute a default route\n"
@@ -1286,7 +1286,7 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty,
 DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
       "[no] redistribute <ipv4$ip " PROTO_IP_REDIST_STR "$proto|ipv6$ip "
       PROTO_IP6_REDIST_STR "$proto> <level-1|level-2>$level"
-      "[{metric (0-16777215)|route-map WORD}]",
+      "[{metric (0-16777215)|route-map RMAP_NAME$route_map}]",
       NO_STR REDIST_STR
       "Redistribute IPv4 routes\n"
       PROTO_IP_REDIST_HELP
@@ -1348,26 +1348,30 @@ void cli_show_isis_redistribute_ipv6(struct vty *vty,
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology
  */
-DEFPY_YANG(isis_topology, isis_topology_cmd,
-      "[no] topology <ipv4-unicast|ipv4-mgmt|ipv6-unicast|ipv4-multicast|ipv6-multicast|ipv6-mgmt|ipv6-dstsrc>$topology [overload]$overload",
-      NO_STR
-      "Configure IS-IS topologies\n"
-      "IPv4 unicast topology\n"
-      "IPv4 management topology\n"
-      "IPv6 unicast topology\n"
-      "IPv4 multicast topology\n"
-      "IPv6 multicast topology\n"
-      "IPv6 management topology\n"
-      "IPv6 dst-src topology\n"
-      "Set overload bit for topology\n")
+DEFPY_YANG(
+	isis_topology, isis_topology_cmd,
+	"[no] topology <standard|ipv4-unicast|ipv4-mgmt|ipv6-unicast|ipv4-multicast|ipv6-multicast|ipv6-mgmt|ipv6-dstsrc>$topology [overload]$overload",
+	NO_STR
+	"Configure IS-IS topologies\n"
+	"standard topology\n"
+	"IPv4 unicast topology\n"
+	"IPv4 management topology\n"
+	"IPv6 unicast topology\n"
+	"IPv4 multicast topology\n"
+	"IPv6 multicast topology\n"
+	"IPv6 management topology\n"
+	"IPv6 dst-src topology\n"
+	"Set overload bit for topology\n")
 {
 	char base_xpath[XPATH_MAXLEN];
 
-	/* Since IPv4-unicast is not configurable it is not present in the
+	/* Since standard is not configurable it is not present in the
 	 * YANG model, so we need to validate it here
 	 */
-	if (strmatch(topology, "ipv4-unicast")) {
-		vty_out(vty, "Cannot configure IPv4 unicast topology\n");
+	if (strmatch(topology, "standard") ||
+	    strmatch(topology, "ipv4-unicast")) {
+		vty_out(vty,
+			"Cannot configure IPv4 unicast (Standard) topology\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -1625,8 +1629,10 @@ DEFPY_YANG (isis_sr_prefix_sid,
 
 		if (strmatch(lh_behavior, "no-php-flag"))
 			value = "no-php";
-		else
+		else if (strmatch(lh_behavior, "explicit-null"))
 			value = "explicit-null";
+		else
+			value = "php";
 
 		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
 				      value);
@@ -2333,10 +2339,11 @@ void cli_show_ip_isis_psnp_interval(struct vty *vty,
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/multi-topology
  */
 DEFPY_YANG(circuit_topology, circuit_topology_cmd,
-      "[no] isis topology<ipv4-unicast|ipv4-mgmt|ipv6-unicast|ipv4-multicast|ipv6-multicast|ipv6-mgmt|ipv6-dstsrc>$topology",
+      "[no] isis topology<standard|ipv4-unicast|ipv4-mgmt|ipv6-unicast|ipv4-multicast|ipv6-multicast|ipv6-mgmt|ipv6-dstsrc>$topology",
       NO_STR
       "IS-IS routing protocol\n"
       "Configure interface IS-IS topologies\n"
+      "Standard topology\n"
       "IPv4 unicast topology\n"
       "IPv4 management topology\n"
       "IPv6 unicast topology\n"
@@ -2353,18 +2360,20 @@ DEFPY_YANG(circuit_topology, circuit_topology_cmd,
 	else if (strmatch(topology, "ipv6-mgmt"))
 		return nb_cli_apply_changes(
 			vty, "./frr-isisd:isis/multi-topology/ipv6-management");
+	if (strmatch(topology, "ipv4-unicast"))
+		return nb_cli_apply_changes(
+			vty, "./frr-isisd:isis/multi-topology/standard");
 	else
 		return nb_cli_apply_changes(
 			vty, "./frr-isisd:isis/multi-topology/%s", topology);
 }
 
-void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty,
-				      const struct lyd_node *dnode,
-				      bool show_defaults)
+void cli_show_ip_isis_mt_standard(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
-	vty_out(vty, " isis topology ipv4-unicast\n");
+	vty_out(vty, " isis topology standard\n");
 }
 
 void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty,

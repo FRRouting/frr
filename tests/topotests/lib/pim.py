@@ -36,6 +36,7 @@ from lib.common_config import (
     InvalidCLIError,
     retry,
     run_frr_cmd,
+    validate_ip_address,
 )
 from lib.micronet import get_exec_path
 from lib.topolog import logger
@@ -47,7 +48,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 
 def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True):
     """
-    API to configure pim on router
+    API to configure pim/pimv6 on router
 
     Parameters
     ----------
@@ -67,6 +68,16 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
                     "rp_addr" : "1.0.3.17".
                     "keep-alive-timer": "100"
                     "group_addr_range": ["224.1.1.0/24", "225.1.1.0/24"]
+                    "prefix-list": "pf_list_1"
+                    "delete": True
+                }]
+            },
+            "pim6": {
+                "disable" : ["l1-i1-eth1"],
+                "rp": [{
+                    "rp_addr" : "2001:db8:f::5:17".
+                    "keep-alive-timer": "100"
+                    "group_addr_range": ["FF00::/8"]
                     "prefix-list": "pf_list_1"
                     "delete": True
                 }]
@@ -97,12 +108,8 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
 
     # Now add RP config to all routers
     for router in input_dict.keys():
-        if "pim" not in input_dict[router]:
-            continue
-        if "rp" not in input_dict[router]["pim"]:
-            continue
-        _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict)
-
+        if "pim" in input_dict[router] or "pim6" in input_dict[router]:
+            _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict)
     try:
         result = create_common_configurations(
             tgen, config_data_dict, "pim", build, load_config
@@ -133,81 +140,123 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
     """
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    rp_data = []
 
-    pim_data = input_dict[router]["pim"]
-    rp_data = pim_data["rp"]
+    # PIMv4
+    pim_data = None
+    if "pim" in input_dict[router]:
+        pim_data = input_dict[router]["pim"]
+        if "rp" in input_dict[router]["pim"]:
+            rp_data += pim_data["rp"]
+
+    # PIMv6
+    pim6_data = None
+    if "pim6" in input_dict[router]:
+        pim6_data = input_dict[router]["pim6"]
+        if "rp" in input_dict[router]["pim6"]:
+            rp_data += pim6_data["rp"]
 
     # Configure this RP on every router.
     for dut in tgen.routers():
         # At least one interface must be enabled for PIM on the router
         pim_if_enabled = False
+        pim6_if_enabled = False
         for destLink, data in topo[dut]["links"].items():
             if "pim" in data:
                 pim_if_enabled = True
-        if not pim_if_enabled:
+            if "pim6" in data:
+                pim6_if_enabled = True
+        if not pim_if_enabled and pim_data:
+            continue
+        if not pim6_if_enabled and pim6_data:
             continue
 
         config_data = []
 
-        for rp_dict in deepcopy(rp_data):
-            # ip address of RP
-            if "rp_addr" not in rp_dict and build:
-                logger.error(
-                    "Router %s: 'ip address of RP' not " "present in input_dict/JSON",
-                    router,
-                )
+        if rp_data:
+            for rp_dict in deepcopy(rp_data):
+                # ip address of RP
+                if "rp_addr" not in rp_dict and build:
+                    logger.error(
+                        "Router %s: 'ip address of RP' not "
+                        "present in input_dict/JSON",
+                        router,
+                    )
 
-                return False
-            rp_addr = rp_dict.setdefault("rp_addr", None)
+                    return False
+                rp_addr = rp_dict.setdefault("rp_addr", None)
+                if rp_addr:
+                    addr_type = validate_ip_address(rp_addr)
+                # Keep alive Timer
+                keep_alive_timer = rp_dict.setdefault("keep_alive_timer", None)
 
-            # Keep alive Timer
-            keep_alive_timer = rp_dict.setdefault("keep_alive_timer", None)
+                # Group Address range to cover
+                if "group_addr_range" not in rp_dict and build:
+                    logger.error(
+                        "Router %s:'Group Address range to cover'"
+                        " not present in input_dict/JSON",
+                        router,
+                    )
 
-            # Group Address range to cover
-            if "group_addr_range" not in rp_dict and build:
-                logger.error(
-                    "Router %s:'Group Address range to cover'"
-                    " not present in input_dict/JSON",
-                    router,
-                )
+                    return False
+                group_addr_range = rp_dict.setdefault("group_addr_range", None)
 
-                return False
-            group_addr_range = rp_dict.setdefault("group_addr_range", None)
+                # Group prefix-list filter
+                prefix_list = rp_dict.setdefault("prefix_list", None)
 
-            # Group prefix-list filter
-            prefix_list = rp_dict.setdefault("prefix_list", None)
+                # Delete rp config
+                del_action = rp_dict.setdefault("delete", False)
 
-            # Delete rp config
-            del_action = rp_dict.setdefault("delete", False)
-
-            if keep_alive_timer:
-                cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
-                if del_action:
-                    cmd = "no {}".format(cmd)
-                config_data.append(cmd)
-
-            if rp_addr:
-                if group_addr_range:
-                    if type(group_addr_range) is not list:
-                        group_addr_range = [group_addr_range]
-
-                    for grp_addr in group_addr_range:
-                        cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
+                if keep_alive_timer:
+                    if addr_type == "ipv4":
+                        cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
+                        if del_action:
+                            cmd = "no {}".format(cmd)
+                        config_data.append(cmd)
+                    if addr_type == "ipv6":
+                        cmd = "ipv6 pim rp keep-alive-timer {}".format(keep_alive_timer)
                         if del_action:
                             cmd = "no {}".format(cmd)
                         config_data.append(cmd)
 
-                if prefix_list:
-                    cmd = "ip pim rp {} prefix-list {}".format(rp_addr, prefix_list)
-                    if del_action:
-                        cmd = "no {}".format(cmd)
-                    config_data.append(cmd)
+                if rp_addr:
+                    if group_addr_range:
+                        if type(group_addr_range) is not list:
+                            group_addr_range = [group_addr_range]
 
-            if config_data:
-                if dut not in config_data_dict:
-                    config_data_dict[dut] = config_data
-                else:
-                    config_data_dict[dut].extend(config_data)
+                        for grp_addr in group_addr_range:
+                            if addr_type == "ipv4":
+                                cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
+                                if del_action:
+                                    cmd = "no {}".format(cmd)
+                                config_data.append(cmd)
+                            if addr_type == "ipv6":
+                                cmd = "ipv6 pim rp {} {}".format(rp_addr, grp_addr)
+                                if del_action:
+                                    cmd = "no {}".format(cmd)
+                                config_data.append(cmd)
+
+                    if prefix_list:
+                        if addr_type == "ipv4":
+                            cmd = "ip pim rp {} prefix-list {}".format(
+                                rp_addr, prefix_list
+                            )
+                            if del_action:
+                                cmd = "no {}".format(cmd)
+                            config_data.append(cmd)
+                        if addr_type == "ipv6":
+                            cmd = "ipv6 pim rp {} prefix-list {}".format(
+                                rp_addr, prefix_list
+                            )
+                            if del_action:
+                                cmd = "no {}".format(cmd)
+                            config_data.append(cmd)
+
+                if config_data:
+                    if dut not in config_data_dict:
+                        config_data_dict[dut] = config_data
+                    else:
+                        config_data_dict[dut].extend(config_data)
 
 
 def create_igmp_config(tgen, topo, input_dict=None, build=False):
@@ -273,18 +322,20 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                 config_data.append(cmd)
                 protocol = "igmp"
                 del_action = intf_data[intf_name]["igmp"].setdefault("delete", False)
+                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 cmd = "ip igmp"
                 if del_action:
                     cmd = "no {}".format(cmd)
-                config_data.append(cmd)
+                if not del_attr:
+                    config_data.append(cmd)
 
-                del_attr = intf_data[intf_name]["igmp"].setdefault("delete_attr", False)
                 for attribute, data in intf_data[intf_name]["igmp"].items():
                     if attribute == "version":
                         cmd = "ip {} {} {}".format(protocol, attribute, data)
                         if del_action:
                             cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
+                        if not del_attr:
+                            config_data.append(cmd)
 
                     if attribute == "join":
                         for group in data:
@@ -317,6 +368,121 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
     return result
 
 
+def create_mld_config(tgen, topo, input_dict=None, build=False):
+    """
+    API to configure mld for PIMv6 on router
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+    * `input_dict` : Input dict data, required when configuring from
+                     testcase
+    * `build` : Only for initial setup phase this is set as True.
+
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "mld": {
+                "interfaces": {
+                    "r1-r0-eth0" :{
+                        "mld":{
+                            "version":  "2",
+                            "delete": True
+                            "query": {
+                                "query-interval" : 100,
+                                "query-max-response-time": 200
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Returns
+    -------
+    True or False
+    """
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    result = False
+    if not input_dict:
+        input_dict = deepcopy(topo)
+    else:
+        topo = topo["routers"]
+        input_dict = deepcopy(input_dict)
+    for router in input_dict.keys():
+        if "mld" not in input_dict[router]:
+            logger.debug("Router %s: 'mld' is not present in " "input_dict", router)
+            continue
+
+        mld_data = input_dict[router]["mld"]
+
+        if "interfaces" in mld_data:
+            config_data = []
+            intf_data = mld_data["interfaces"]
+
+            for intf_name in intf_data.keys():
+                cmd = "interface {}".format(intf_name)
+                config_data.append(cmd)
+                protocol = "mld"
+                del_action = intf_data[intf_name]["mld"].setdefault("delete", False)
+                cmd = "ipv6 mld"
+                if del_action:
+                    cmd = "no {}".format(cmd)
+                config_data.append(cmd)
+
+                del_attr = intf_data[intf_name]["mld"].setdefault("delete_attr", False)
+                join = intf_data[intf_name]["mld"].setdefault("join", None)
+                source = intf_data[intf_name]["mld"].setdefault("source", None)
+                version = intf_data[intf_name]["mld"].setdefault("version", False)
+                query = intf_data[intf_name]["mld"].setdefault("query", {})
+
+                if version:
+                    cmd = "ipv6 {} version {}".format(protocol, version)
+                    if del_action:
+                        cmd = "no {}".format(cmd)
+                    config_data.append(cmd)
+
+                if source and join:
+                    for group in join:
+                        cmd = "ipv6 {} join {} {}".format(protocol, group, source)
+
+                        if del_attr:
+                            cmd = "no {}".format(cmd)
+                        config_data.append(cmd)
+
+                elif join:
+                    for group in join:
+                        cmd = "ipv6 {} join {}".format(protocol, group)
+
+                        if del_attr:
+                            cmd = "no {}".format(cmd)
+                        config_data.append(cmd)
+
+                if query:
+                    for _query, value in query.items():
+                        if _query != "delete":
+                            cmd = "ipv6 {} {} {}".format(protocol, _query, value)
+
+                            if "delete" in intf_data[intf_name][protocol]["query"]:
+                                cmd = "no {}".format(cmd)
+
+                        config_data.append(cmd)
+        try:
+            result = create_common_configuration(
+                tgen, router, config_data, "interface_config", build=build
+            )
+        except InvalidCLIError:
+            errormsg = traceback.format_exc()
+            logger.error(errormsg)
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return result
+
+
 def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
     """
     Helper API to enable or disable pim on interfaces
@@ -336,7 +502,7 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
 
     config_data = []
 
-    # Enable pim on interfaces
+    # Enable pim/pim6 on interfaces
     for destRouterLink, data in sorted(topo[router]["links"].items()):
         if "pim" in data and data["pim"] == "enable":
             # Loopback interfaces
@@ -349,6 +515,17 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
             config_data.append(cmd)
             config_data.append("ip pim")
 
+        if "pim6" in data and data["pim6"] == "enable":
+            # Loopback interfaces
+            if "type" in data and data["type"] == "loopback":
+                interface_name = destRouterLink
+            else:
+                interface_name = data["interface"]
+
+            cmd = "interface {}".format(interface_name)
+            config_data.append(cmd)
+            config_data.append("ipv6 pim")
+
     # pim global config
     if "pim" in input_dict[router]:
         pim_data = input_dict[router]["pim"]
@@ -360,6 +537,21 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
         ]:
             if t in pim_data:
                 cmd = "ip pim {} {}".format(t, pim_data[t])
+                if del_action:
+                    cmd = "no {}".format(cmd)
+                config_data.append(cmd)
+
+    # pim6 global config
+    if "pim6" in input_dict[router]:
+        pim6_data = input_dict[router]["pim6"]
+        del_action = pim6_data.setdefault("delete", False)
+        for t in [
+            "join-prune-interval",
+            "keep-alive-timer",
+            "register-suppress-time",
+        ]:
+            if t in pim6_data:
+                cmd = "ipv6 pim {} {}".format(t, pim6_data[t])
                 if del_action:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
@@ -521,6 +713,9 @@ def verify_pim_neighbors(tgen, topo, dut=None, iface=None, nbr_ip=None, expected
                 continue
 
             if "pim" not in data:
+                continue
+
+            if "pim" in data and data["pim"] == "disable":
                 continue
 
             if "pim" in data and data["pim"] == "enable":
@@ -727,15 +922,23 @@ def verify_upstream_iif(
         "[DUT: %s]: Verifying upstream Inbound Interface" " for IGMP groups received:",
         dut,
     )
-    show_ip_pim_upstream_json = run_frr_cmd(
-        rnode, "show ip pim upstream json", isjson=True
-    )
 
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
 
     if type(iif) is not list:
         iif = [iif]
+
+    for grp in group_addresses:
+        addr_type = validate_ip_address(grp)
+
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
+
+    cmd = "show {} pim upstream json".format(ip_cmd)
+    show_ip_pim_upstream_json = run_frr_cmd(rnode, cmd, isjson=True)
 
     for grp_addr in group_addresses:
         # Verify group address
@@ -878,12 +1081,18 @@ def verify_join_state_and_timer(
         "[DUT: %s]: Verifying Join state and Join Timer" " for IGMP groups received:",
         dut,
     )
-    show_ip_pim_upstream_json = run_frr_cmd(
-        rnode, "show ip pim upstream json", isjson=True
-    )
 
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
+
+    for grp in group_addresses:
+        addr_type = validate_ip_address(grp)
+
+    if addr_type == "ipv4":
+        cmd = "show ip pim upstream json"
+    elif addr_type == "ipv6":
+        cmd = "show ipv6 pim upstream json"
+    show_ip_pim_upstream_json = run_frr_cmd(rnode, cmd, isjson=True)
 
     for grp_addr in group_addresses:
         # Verify group address
@@ -960,7 +1169,7 @@ def verify_join_state_and_timer(
 
 
 @retry(retry_timeout=120, diag_pct=0)
-def verify_ip_mroutes(
+def verify_mroutes(
     tgen,
     dut,
     src_address,
@@ -973,7 +1182,7 @@ def verify_ip_mroutes(
 ):
     """
     Verify ip mroutes and make sure (*, G)/(S, G) is present in mroutes
-    by running "show ip pim upstream" cli
+    by running "show ip/ipv6 mroute" cli
 
     Parameters
     ----------
@@ -991,7 +1200,7 @@ def verify_ip_mroutes(
     -----
     dut = "r1"
     group_address = "225.1.1.1"
-    result = verify_ip_mroutes(tgen, dut, src_address, group_address)
+    result = verify_mroutes(tgen, dut, src_address, group_address)
 
     Returns
     -------
@@ -1005,20 +1214,6 @@ def verify_ip_mroutes(
 
     rnode = tgen.routers()[dut]
 
-    if return_uptime:
-        logger.info("Sleeping for %s sec..", mwait)
-        sleep(mwait)
-
-    logger.info("[DUT: %s]: Verifying ip mroutes", dut)
-    show_ip_mroute_json = run_frr_cmd(rnode, "show ip mroute json", isjson=True)
-
-    if return_uptime:
-        uptime_dict = {}
-
-    if bool(show_ip_mroute_json) == False:
-        error_msg = "[DUT %s]: mroutes are not present or flushed out !!" % (dut)
-        return error_msg
-
     if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
@@ -1027,6 +1222,30 @@ def verify_ip_mroutes(
 
     if not isinstance(oil, list) and oil != "none":
         oil = [oil]
+
+    for grp in group_addresses:
+        addr_type = validate_ip_address(grp)
+
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
+
+    if return_uptime:
+        logger.info("Sleeping for %s sec..", mwait)
+        sleep(mwait)
+
+    logger.info("[DUT: %s]: Verifying ip mroutes", dut)
+    show_ip_mroute_json = run_frr_cmd(
+        rnode, "show {} mroute json".format(ip_cmd), isjson=True
+    )
+
+    if return_uptime:
+        uptime_dict = {}
+
+    if bool(show_ip_mroute_json) == False:
+        error_msg = "[DUT %s]: mroutes are not present or flushed out !!" % (dut)
+        return error_msg
 
     for grp_addr in group_addresses:
         if grp_addr not in show_ip_mroute_json:
@@ -1209,14 +1428,19 @@ def verify_pim_rp_info(
 
     rnode = tgen.routers()[dut]
 
-    logger.info("[DUT: %s]: Verifying ip rp info", dut)
-    show_ip_rp_info_json = run_frr_cmd(rnode, "show ip pim rp-info json", isjson=True)
-
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
 
     if type(oif) is not list:
         oif = [oif]
+
+    for grp in group_addresses:
+        addr_type = validate_ip_address(grp)
+
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
 
     for grp_addr in group_addresses:
         if rp is None:
@@ -1227,9 +1451,14 @@ def verify_pim_rp_info(
             else:
                 iamRP = False
         else:
-            show_ip_route_json = run_frr_cmd(
-                rnode, "show ip route connected json", isjson=True
-            )
+            if addr_type == "ipv4":
+                show_ip_route_json = run_frr_cmd(
+                    rnode, "show ip route connected json", isjson=True
+                )
+            elif addr_type == "ipv6":
+                show_ip_route_json = run_frr_cmd(
+                    rnode, "show ipv6 route connected json", isjson=True
+                )
             for _rp in show_ip_route_json.keys():
                 if rp == _rp.split("/")[0]:
                     iamRP = True
@@ -1237,16 +1466,27 @@ def verify_pim_rp_info(
                 else:
                     iamRP = False
 
+        logger.info("[DUT: %s]: Verifying ip rp info", dut)
+        cmd = "show {} pim rp-info json".format(ip_cmd)
+        show_ip_rp_info_json = run_frr_cmd(rnode, cmd, isjson=True)
+
         if rp not in show_ip_rp_info_json:
-            errormsg = "[DUT %s]: Verifying rp-info" "for rp_address %s [FAILED]!! " % (
-                dut,
-                rp,
+            errormsg = (
+                "[DUT %s]: Verifying rp-info "
+                "for rp_address %s [FAILED]!! " % (dut, rp)
             )
             return errormsg
         else:
             group_addr_json = show_ip_rp_info_json[rp]
 
         for rp_json in group_addr_json:
+            if "rpAddress" not in rp_json:
+                errormsg = "[DUT %s]: %s key not " "present in rp-info " % (
+                    dut,
+                    "rpAddress",
+                )
+                return errormsg
+
             if oif is not None:
                 found = False
                 if rp_json["outboundInterface"] not in oif:
@@ -1375,13 +1615,25 @@ def verify_pim_state(
     rnode = tgen.routers()[dut]
 
     logger.info("[DUT: %s]: Verifying pim state", dut)
-    show_pim_state_json = run_frr_cmd(rnode, "show ip pim state json", isjson=True)
-
-    if installed_fl is None:
-        installed_fl = 1
 
     if type(group_addresses) is not list:
         group_addresses = [group_addresses]
+
+    for grp in group_addresses:
+        addr_type = validate_ip_address(grp)
+
+    if addr_type == "ipv4":
+        ip_cmd = "ip"
+    elif addr_type == "ipv6":
+        ip_cmd = "ipv6"
+
+    logger.info("[DUT: %s]: Verifying pim state", dut)
+    show_pim_state_json = run_frr_cmd(
+        rnode, "show {} pim state json".format(ip_cmd), isjson=True
+    )
+
+    if installed_fl is None:
+        installed_fl = 1
 
     for grp_addr in group_addresses:
         if src_address is None:
@@ -1587,6 +1839,13 @@ def verify_pim_interface(
 
                     if pim_interface in show_ip_pim_interface_json:
                         pim_intf_json = show_ip_pim_interface_json[pim_interface]
+                    else:
+                        errormsg = (
+                            "[DUT %s]: PIM interface: %s "
+                            "PIM interface ip: %s, not Found"
+                            % (dut, pim_interface, pim_intf_ip)
+                        )
+                        return errormsg
 
                     # Verifying PIM interface
                     if (
@@ -1621,10 +1880,10 @@ def verify_pim_interface(
     return True
 
 
-def clear_ip_pim_interface_traffic(tgen, topo):
+def clear_pim_interface_traffic(tgen, topo):
     """
-    Clear ip pim interface traffice by running
-    "clear ip pim interface traffic" cli
+    Clear ip/ipv6 pim interface traffice by running
+    "clear ip/ipv6 pim interface traffic" cli
 
     Parameters
     ----------
@@ -1632,7 +1891,7 @@ def clear_ip_pim_interface_traffic(tgen, topo):
     Usage
     -----
 
-    result = clear_ip_pim_interface_traffic(tgen, topo)
+    result = clear_pim_interface_traffic(tgen, topo)
 
     Returns
     -------
@@ -1655,10 +1914,10 @@ def clear_ip_pim_interface_traffic(tgen, topo):
     return True
 
 
-def clear_ip_pim_interfaces(tgen, dut):
+def clear_pim_interfaces(tgen, dut):
     """
-    Clear ip pim interface by running
-    "clear ip pim interfaces" cli
+    Clear ip/ipv6 pim interface by running
+    "clear ip/ipv6 pim interfaces" cli
 
     Parameters
     ----------
@@ -1667,7 +1926,7 @@ def clear_ip_pim_interfaces(tgen, dut):
     Usage
     -----
 
-    result = clear_ip_pim_interfaces(tgen, dut)
+    result = clear_pim_interfaces(tgen, dut)
 
     Returns
     -------
@@ -1746,10 +2005,10 @@ def clear_ip_pim_interfaces(tgen, dut):
     return True
 
 
-def clear_ip_igmp_interfaces(tgen, dut):
+def clear_igmp_interfaces(tgen, dut):
     """
-    Clear ip igmp interfaces by running
-    "clear ip igmp interfaces" cli
+    Clear ip/ipv6 igmp interfaces by running
+    "clear ip/ipv6 igmp interfaces" cli
 
     Parameters
     ----------
@@ -1759,7 +2018,7 @@ def clear_ip_igmp_interfaces(tgen, dut):
     Usage
     -----
     dut = "r1"
-    result = clear_ip_igmp_interfaces(tgen, dut)
+    result = clear_igmp_interfaces(tgen, dut)
     Returns
     -------
     errormsg(str) or True
@@ -1826,9 +2085,9 @@ def clear_ip_igmp_interfaces(tgen, dut):
 
 
 @retry(retry_timeout=20)
-def clear_ip_mroute_verify(tgen, dut, expected=True):
+def clear_mroute_verify(tgen, dut, expected=True):
     """
-    Clear ip mroute by running "clear ip mroute" cli and verify
+    Clear ip/ipv6 mroute by running "clear ip/ipv6 mroute" cli and verify
     mroutes are up again after mroute clear
 
     Parameters
@@ -1840,7 +2099,7 @@ def clear_ip_mroute_verify(tgen, dut, expected=True):
     Usage
     -----
 
-    result = clear_ip_mroute_verify(tgen, dut)
+    result = clear_mroute_verify(tgen, dut)
 
     Returns
     -------
@@ -1926,9 +2185,9 @@ def clear_ip_mroute_verify(tgen, dut, expected=True):
     return True
 
 
-def clear_ip_mroute(tgen, dut=None):
+def clear_mroute(tgen, dut=None):
     """
-    Clear ip mroute by running "clear ip mroute" cli
+    Clear ip/ipv6 mroute by running "clear ip mroute" cli
 
     Parameters
     ----------
@@ -1937,7 +2196,7 @@ def clear_ip_mroute(tgen, dut=None):
 
     Usage
     -----
-    clear_ip_mroute(tgen, dut)
+    clear_mroute(tgen, dut)
     """
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
@@ -2352,12 +2611,12 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
 
 
 @retry(retry_timeout=60, diag_pct=0)
-def verify_ip_pim_upstream_rpf(
+def verify_pim_upstream_rpf(
     tgen, topo, dut, interface, group_addresses, rp=None, expected=True
 ):
     """
-    Verify IP PIM upstream rpf, config is verified
-    using "show ip pim neighbor" cli
+    Verify IP/IPv6 PIM upstream rpf, config is verified
+    using "show ip/ipv6 pim neighbor" cli
 
     Parameters
     ----------
@@ -2372,7 +2631,7 @@ def verify_ip_pim_upstream_rpf(
 
     Usage
     -----
-    result = verify_ip_pim_upstream_rpf(gen, topo, dut, interface,
+    result = verify_pim_upstream_rpf(gen, topo, dut, interface,
                                         group_addresses, rp=None)
 
     Returns
@@ -2552,11 +2811,11 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
 
 
 @retry(retry_timeout=60, diag_pct=0)
-def verify_ip_pim_join(
+def verify_pim_join(
     tgen, topo, dut, interface, group_addresses, src_address=None, expected=True
 ):
     """
-    Verify ip pim join by running "show ip pim join" cli
+    Verify ip/ipv6 pim join by running "show ip/ipv6 pim join" cli
 
     Parameters
     ----------
@@ -2573,7 +2832,7 @@ def verify_ip_pim_join(
     dut = "r1"
     interface = "r1-r0-eth0"
     group_address = "225.1.1.1"
-    result = verify_ip_pim_join(tgen, dut, star, group_address, interface)
+    result = verify_pim_join(tgen, dut, star, group_address, interface)
 
     Returns
     -------
@@ -3549,6 +3808,147 @@ class McastTesterHelper(HostApplicationHelper):
             self.run(host, ["--send=0.7", send_to, bind_intf])
 
         return True
+
+
+@retry(retry_timeout=62)
+def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
+    """
+    Verify local IGMP groups are received from an intended interface
+    by running "show ip igmp join json" command
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface`: interface, from which IGMP groups are configured
+    * `group_addresses`: IGMP group address
+
+    Usage
+    -----
+    dut = "r1"
+    interface = "r1-r0-eth0"
+    group_address = "225.1.1.1"
+    result = verify_local_igmp_groups(tgen, dut, interface, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying local IGMP groups received:", dut)
+    show_ip_local_igmp_json = run_frr_cmd(rnode, "show ip igmp join json", isjson=True)
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    if interface not in show_ip_local_igmp_json:
+
+        errormsg = (
+            "[DUT %s]: Verifying local IGMP group received"
+            " from interface %s [FAILED]!! " % (dut, interface)
+        )
+        return errormsg
+
+    for grp_addr in group_addresses:
+        found = False
+        for index in show_ip_local_igmp_json[interface]["groups"]:
+            if index["group"] == grp_addr:
+                found = True
+                break
+        if not found:
+            errormsg = (
+                "[DUT %s]: Verifying local IGMP group received"
+                " from interface %s [FAILED]!! "
+                " Expected: %s " % (dut, interface, grp_addr)
+            )
+            return errormsg
+
+        logger.info(
+            "[DUT %s]: Verifying local IGMP group %s received "
+            "from interface %s [PASSED]!! ",
+            dut,
+            grp_addr,
+            interface,
+        )
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+def verify_pim_interface_traffic(tgen, input_dict, return_stats=True, addr_type="ipv4"):
+    """
+    Verify ip pim interface traffice by running
+    "show ip pim interface traffic" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict(dict)`: defines DUT, what and from which interfaces
+                          traffic needs to be verified
+    * [optional]`addr_type`: specify address-family, default is ipv4
+
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "r1-r0-eth0": {
+                "helloRx": 0,
+                "helloTx": 1,
+                "joinRx": 0,
+                "joinTx": 0
+            }
+        }
+    }
+
+    result = verify_pim_interface_traffic(tgen, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    output_dict = {}
+    for dut in input_dict.keys():
+        if dut not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[dut]
+
+        logger.info("[DUT: %s]: Verifying pim interface traffic", dut)
+
+        if addr_type == "ipv4":
+            cmd = "show ip pim interface traffic json"
+        elif addr_type == "ipv6":
+            cmd = "show ipv6 pim interface traffic json"
+
+        show_pim_intf_traffic_json = run_frr_cmd(rnode, cmd, isjson=True)
+
+        output_dict[dut] = {}
+        for intf, data in input_dict[dut].items():
+            interface_json = show_pim_intf_traffic_json[intf]
+            for state in data:
+
+                # Verify Tx/Rx
+                if state in interface_json:
+                    output_dict[dut][state] = interface_json[state]
+                else:
+                    errormsg = (
+                        "[DUT %s]: %s is not present"
+                        "for interface %s [FAILED]!! " % (dut, state, intf)
+                    )
+                    return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True if return_stats == False else output_dict
 
     # def cleanup(self):
     #     super(McastTesterHelper, self).cleanup()

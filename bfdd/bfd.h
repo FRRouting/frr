@@ -86,7 +86,8 @@ struct bfd_echo_pkt {
 		};
 	};
 	uint32_t my_discr;
-	uint8_t pad[16];
+	uint64_t time_sent_sec;
+	uint64_t time_sent_usec;
 };
 
 
@@ -168,9 +169,10 @@ enum bfd_session_flags {
 						 * expires
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
 	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
 };
 
 /*
@@ -190,8 +192,8 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
+	char ifname[INTERFACE_NAMSIZ];
+	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 
 struct bfd_session_stats {
@@ -248,6 +250,8 @@ struct bfd_config_timers {
 	uint32_t required_min_echo_rx;
 };
 
+#define BFD_RTT_SAMPLE 8
+
 /*
  * Session state information
  */
@@ -291,6 +295,7 @@ struct bfd_session {
 
 	struct bfd_dplane_ctx *bdc;
 	struct sockaddr_any local_address;
+	uint8_t peer_hw_addr[ETH_ALEN];
 	struct interface *ifp;
 	struct vrf *vrf;
 
@@ -309,6 +314,10 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
+
+	uint8_t rtt_valid;	    /* number of valid samples */
+	uint8_t rtt_index;	    /* last index added */
+	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
 struct peer_label {
@@ -555,6 +564,7 @@ int bp_echov6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
+void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
 
 void bfd_recv_cb(struct thread *t);
 
@@ -632,6 +642,7 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+void bfd_rtt_init(struct bfd_session *bfd);
 
 /**
  * Set the BFD session echo state.
