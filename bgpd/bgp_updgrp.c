@@ -254,6 +254,8 @@ static void conf_release(struct peer *src, afi_t afi, safi_t safi)
 	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->advmap.cname);
 
 	XFREE(MTYPE_BGP_PEER_HOST, src->host);
+
+	ecommunity_free(&src->soo[afi][safi]);
 }
 
 static void peer2_updgrp_copy(struct update_group *updgrp, struct peer_af *paf)
