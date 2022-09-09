@@ -7,7 +7,7 @@ Basic IPv4 RIP test.
 TBD: incomplete.
 """
 
-from topotato import *
+from topotato.v1 import *
 
 
 @topology_fixture()

@@ -5,7 +5,14 @@
 Exceptions for use in topotato pytest integration
 """
 
+import attr
+from typing import Optional
+
 from _pytest.outcomes import Exit, Failed, Skipped
+
+from _pytest._code import ExceptionInfo
+from _pytest._code.code import TerminalRepr
+from _pytest._io import TerminalWriter
 
 
 # actual test failures
@@ -52,6 +59,32 @@ class TopotatoDaemonCrash(TopotatoFail):
     """
     Daemon exited/crashed unexpectedly.
     """
+
+    def __init__(self, daemon: str, router: str, cmdline: Optional[str] = None):
+        self.daemon = daemon
+        self.router = router
+        self.cmdline = cmdline
+        super().__init__()
+
+    def __str__(self):
+        if self.cmdline:
+            return f"{self.router}/{self.daemon}: {self.cmdline}"
+        return f"{self.router}/{self.daemon}"
+
+    @attr.s(eq=False, auto_attribs=True)
+    class TopotatoRepr(TerminalRepr):
+        excinfo: "TopotatoDaemonCrash"
+
+        def toterminal(self, tw: TerminalWriter) -> None:
+            exc = self.excinfo.value
+            tw.line("")
+            tw.sep(" ", f"{exc.daemon} crashed on {exc.router}", red=True, bold=True)
+            if exc.cmdline:
+                tw.line("")
+                tw.line(f"started as: {exc.cmdline}")
+            if exc.__cause__ is not None:
+                tw.line("")
+                tw.line(f"cause: {exc.__cause__!r}")
 
 
 # hard testrun aborts

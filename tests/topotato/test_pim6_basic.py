@@ -5,7 +5,7 @@
 Basic IPv6 PIM test.
 """
 
-from topotato import *
+from topotato.v1 import *
 from topotato.multicast import *
 from topotato.scapy import ScapySend
 from scapy.all import (

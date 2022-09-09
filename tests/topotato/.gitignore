@@ -3,6 +3,7 @@
 /network.png
 /assets/
 /reportato/
+/getlockpid
 *.pcapng
 *.pcap
 *env
