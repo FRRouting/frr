@@ -311,10 +311,24 @@ static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *er
 					int n, union sockunion *addrs)
 {
 	struct pm_session *pm = container_of(q, struct pm_session, dns_resolve);
+	struct interface *if_ctx;
+	struct vrf *vrf;
 	int i, ret = 0;
+	bool if_flag_ppp_run = false;
 
+
+	if (pm->key.vrfname[0])
+		vrf = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (vrf) {
+		if_ctx = if_lookup_by_name(pm->key.ifname, vrf->vrf_id);
+		if (if_ctx)
+			if_flag_ppp_run = if_is_pointopoint(if_ctx) &&
+				if_is_operative(if_ctx);
+	}
 	pm->t_resolve = NULL;
-	if (n < 0) {
+	if ((n < 0) && (!if_flag_ppp_run)) {
 		if (sockunion_family(&pm->key.local) != AF_INET &&
 		    sockunion_family(&pm->key.local) != AF_INET6) {
 			if (pm->afi_resolve == AF_INET6) {
@@ -573,6 +587,9 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 {
 	char errormsg[128];
 	int ret;
+	struct interface *if_ctx;
+	struct vrf *vrf;
+	bool if_flag_ppp_run = false;
 
 	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
 		return;
@@ -592,7 +609,19 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 		return;
 	}
 
-	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID)) {
+	if (pm->key.vrfname[0])
+		vrf = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (vrf) {
+		if_ctx = if_lookup_by_name(pm->key.ifname, vrf->vrf_id);
+		if (if_ctx)
+			if_flag_ppp_run = if_is_pointopoint(if_ctx) &&
+				if_is_operative(if_ctx);
+	}
+
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID)
+	    && (!if_flag_ppp_run)) {
 		if (vty)
 			vty_out(vty, "%% session to %pSU (%s) could not be started:"
 				" peer or gateway not resolved via nht\n",
