@@ -1776,10 +1776,20 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 static void bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct peer *peer, struct attr *attr)
 {
+	struct aspath *aspath;
+
 	if (peer->sort == BGP_PEER_EBGP &&
-	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
-		attr->aspath = aspath_replace_specific_asn(attr->aspath,
-							   peer->as, bgp->as);
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE)) {
+		if (attr->aspath->refcnt)
+			aspath = aspath_dup(attr->aspath);
+		else
+			aspath = attr->aspath;
+
+		attr->aspath = aspath_intern(
+			aspath_replace_specific_asn(aspath, peer->as, bgp->as));
+
+		aspath_free(aspath);
+	}
 }
 
 void bgp_attr_add_llgr_community(struct attr *attr)
