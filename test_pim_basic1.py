@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+# original test:
+# Copyright (c) 2018  Cumulus Networks, Inc., Donald Sharp
 """
 Basic IPv4 PIM test.
 
@@ -16,6 +18,9 @@ from scapy.all import (
     UDP,
 )
 
+__topotests_replaces__ = {
+    'pim_basic/': 'f1f0bd0911c0834d9af9adfd9bf1a5f8f0bb62af',
+}
 
 @topology_fixture()
 def pim_topo1(topo):
@@ -90,31 +95,29 @@ class Configs(FRRConfigs):
 
 
 @config_fixture(Configs)
-def pim_topo1_configs(config, pim_topo1):
+def configs(config, pim_topo1):
     return config
 
 
 @instance_fixture()
-def pim_topo1_testenv(pim_topo1_configs):
-    instance = FRRNetworkInstance(pim_topo1_configs.topology, pim_topo1_configs)
+def testenv(configs):
+    instance = FRRNetworkInstance(configs.topology, configs)
     instance.prepare()
     return instance
 
 
 class PIMTopo1Test(TestBase):
-    instancefn = pim_topo1_testenv
+    instancefn = testenv
 
     @topotatofunc
-    def test(self, topo, rp, r1, r2, r3):
-        r2_addr = str(r2.iface_to("lan2").ip4[0].ip)
-        r3_addr = str(r3.iface_to('lan3').ip4[0].ip)
-
+    def prepare(self, topo, rp, r1, r2, r3):
         # wait for BGP to come up
         js = {
             str(rp.lo_ip4[0]): JSONCompareIgnoreContent(),
         }
         yield from AssertKernelRoutesV4.make(r1.name, js, maxwait=10.0)
 
+        # pim_basic/test_pim.py::test_pim_rp_setup()
         js = {
             str(rp.lo_ip4[0].ip): [
                 {
@@ -128,12 +131,19 @@ class PIMTopo1Test(TestBase):
             r1, "pimd", "show ip pim rp-info json", js, maxwait=15.0
         )
 
+    @topotatofunc
+    def test_state(self, topo, rp, r1, r2, r3):
+        r2_addr = str(r2.iface_to("lan2").ip4[0].ip)
+        r3_addr = str(r3.iface_to('lan3').ip4[0].ip)
+
+        # pim_basic/test_pim.py::test_pim_send_mcast_stream()
         r2_pkt = IP(ttl=255, src=r2_addr, dst='229.1.1.1') / UDP(sport=9999, dport=9999)
         r3_pkt = IP(ttl=255, src=r3_addr, dst='229.1.1.1') / UDP(sport=9999, dport=9999)
 
         for rtr, pkt, iface in [(r2, r2_pkt, "r2-lan2"), (r3, r3_pkt, "r3-lan3")]:
             yield from ScapySend.make(rtr, iface, pkt=pkt, repeat=3, interval=0.5)
 
+        # Let's see that it shows up and we have established some basic state
         js = {
             "229.1.1.1": {
                 r2_addr: {
@@ -146,6 +156,7 @@ class PIMTopo1Test(TestBase):
         }
         yield from AssertVtysh.make(r1, "pimd", "show ip pim upstream json", js)
 
+        # pim_basic/test_pim.py::test_pim_rp_sees_stream()
         js = {
             "229.1.1.1": {
                 r2_addr: {
@@ -169,6 +180,7 @@ class PIMTopo1Test(TestBase):
     def test_join(self, topo, rp, r1, r2, r3):
         r3_addr = str(r3.iface_to('lan3').ip4[0].ip)
 
+        # pim_basic/test_pim.py::test_pim_igmp_report()
         receiver = MulticastReceiver(r2, r2.iface_to('lan2'))
         yield from receiver.join('229.1.1.2')
 
