@@ -187,6 +187,9 @@ class LinuxNamespace:
         PID 1, killing that process will zap the entire namespace
         """
 
+        if self.process is None:
+            return
+
         self.process.stdin.write(b"\n")
         self.process.stdin.close()
         self.process.wait()
