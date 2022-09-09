@@ -117,7 +117,7 @@ def pytest_sessionstart(session):
             val = os.path.abspath(os.path.join(basedir, val))
         return val
 
-    if session.config.getoption('--collect-only'):
+    if session.config.getoption("--collect-only"):
         return
 
     tw.sep("=", "topotato initialization", bold=True)

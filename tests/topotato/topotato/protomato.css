@@ -439,8 +439,7 @@ svg {
 	grid-column-start: 5;
 	text-align: center;
 }
-.p-arp,
-.p-pim {
+.p-arp {
 	grid-column-end: span 2;
 	text-align: left;
 	padding-left: 4pt;
@@ -532,4 +531,17 @@ dl.pdml-root dd {
 }
 dl.pdml-root div {
 	padding-left:1em;
+}
+dl.pdml-root span.pdml-raw {
+	display:inline-block;
+	float:right;
+	padding:0px 3px;
+	color: var(--secondary-2-3);
+}
+dl.pdml-root div.pdml-raw {
+	white-space:pre-wrap;
+	max-height:40em;
+	overflow: scroll;
+	color: var(--secondary-2-9);
+	background-color: var(--secondary-2-4);
 }
