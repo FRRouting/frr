@@ -12,6 +12,7 @@ import os
 import pwd
 import re
 import select
+import shlex
 import socket
 import subprocess
 import sys
@@ -24,6 +25,7 @@ import jinja2
 from .utils import deindent, ClassHooks
 from .timeline import Timeline
 from .livelog import LiveLog
+from .exceptions import TopotatoDaemonCrash
 
 if typing.TYPE_CHECKING:
     from . import toponom
@@ -327,25 +329,28 @@ class FRRNetworkInstance(NetworkInstance):
             logfd = self._getlogfd(daemon)
 
             execpath = os.path.join(frrpath, binmap[daemon])
-            self.check_call(
-                [
-                    execpath,
-                    "-d",
-                    "-f",
-                    cfgpath,
-                    "--log",
-                    "file:%s" % self.logfiles[daemon],
-                    "--log",
-                    "monitor:%d" % logfd.fileno(),
-                    "--log-level",
-                    "debug",
-                    "--vty_socket",
-                    self.rundir,
-                    "-i",
-                    "%s/%s.pid" % (self.rundir, daemon),
-                ],
-                pass_fds=[logfd.fileno()],
-            )
+            cmdline = [
+                execpath,
+                "-d",
+                "-f",
+                cfgpath,
+                "--log",
+                "file:%s" % self.logfiles[daemon],
+                "--log",
+                "monitor:%d" % logfd.fileno(),
+                "--log-level",
+                "debug",
+                "--vty_socket",
+                self.rundir,
+                "-i",
+                "%s/%s.pid" % (self.rundir, daemon),
+            ]
+            try:
+                self.check_call(cmdline, pass_fds=[logfd.fileno()])
+            except subprocess.CalledProcessError as e:
+                raise TopotatoDaemonCrash(
+                    daemon=daemon, router=self.name, cmdline=shlex.join(cmdline)
+                ) from e
 
             # want record-priority & timestamp precision...
             self.vtysh_fast(

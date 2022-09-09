@@ -5,7 +5,7 @@
 Basic OSPF (v2 + v3) test.
 """
 
-from topotato import *
+from topotato.v1 import *
 
 
 @topology_fixture()

@@ -44,6 +44,8 @@ from .livescapy import LiveScapy
 from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
+    from _pytest._code.code import ExceptionInfo
+
     from .frr import FRRNetworkInstance
     from .timeline import Timeline
 
@@ -100,6 +102,8 @@ to debug when a test fails.
    Add a testrun/pytest option that disables this, for bug hunting in topotato
    itself.
 """
+
+endtrace = _SkipTrace()
 
 
 class ItemGroup(list):
@@ -285,6 +289,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
     def pytest_topotato_run(item: "TopotatoItem", testfunc: Callable):
         testfunc()
 
+    @endtrace
     @skiptrace
     def runtest(self):
         """
@@ -319,7 +324,28 @@ class TopotatoItem(nodes.Item, ClassHooks):
         lineno = self._codeloc.lineno
         return fspath, lineno, self.name
 
+    def _prunetraceback(self, excinfo: "ExceptionInfo[BaseException]") -> None:
+        if self.config.getoption("fulltrace", False):
+            return
+
+        tb = excinfo.traceback
+        newtb = []
+        for entry in reversed(tb):
+            if entry._rawentry.tb_frame.f_code in endtrace:
+                break
+            if entry._rawentry.tb_frame.f_code in skiptrace:
+                continue
+            if len(newtb):
+                entry.set_repr_style("short")
+            newtb.insert(0, entry)
+
+        excinfo.traceback = type(excinfo.traceback)(newtb)
+
     def _repr_failure(self, excinfo, style=None):
+        reprcls = getattr(excinfo.value, "TopotatoRepr", None)
+        if reprcls:
+            return reprcls(excinfo)
+
         if not hasattr(self, "_codeloc"):
             return super().repr_failure(excinfo)
 
@@ -402,10 +428,15 @@ class InstanceStartup(TopotatoItem):
         fspath, _, _ = self.getparent(TopotatoClass).reportinfo()
         return fspath, float("-inf"), "startup"
 
+    @endtrace
+    @skiptrace
     def runtest(self):
         try:
             self.parent.do_start(self)
         except TopotatoFail as e:
+            self.parent.skipall = e
+            raise
+        except Exception as e:
             self.parent.skipall = e
             raise
 

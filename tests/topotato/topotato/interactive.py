@@ -125,4 +125,7 @@ class Interactive:
         tw.line("")
         tw.sep("^", "paused on failure", bold=True, purple=True)
 
-        code.interact(local=codeloc.frame.f_locals)
+        if codeloc is None:
+            code.interact()
+        else:
+            code.interact(local=codeloc.frame.f_locals)

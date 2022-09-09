@@ -8,7 +8,6 @@ TODOs / Known issues
 - skipping further tests after a TopotatoModifier failure is not implemented.
   A TopotatoModifier failure should skip everything after it since a failed
   modifier means the testbed is in an indeterminate state.
-- rework star (`from topotato import *`) import, it breaks things.
 - some style requirements should be automatically enforced, e.g. missing
   docstrings should cause a failure.
 - `config_fixture` and `env_fixture` are slated to be removed to cut off some
@@ -112,7 +111,7 @@ Files should have a header consisting of the following things, in order:
 2. `# SPDX-License-Identifier: GPL-2.0-or-later` (other licenses should not be used for topotato)
 3. `# Copyright (C) ...` (the SPDX identifier does NOT replace this)
 4. docstring for the test or module
-5. for tests: `from topotato import *`
+5. for tests: `from topotato.v1 import *`
 6. other imports
 
 TODO (for tests):
@@ -124,7 +123,7 @@ TODO (for tests):
 - maybe `__topotests_gitrev__ = '94cd8f24b8fba3d113951418bc4216540bac5ea2'`?
   (revision of FRR git where topotests matches)
 
-(These would be placed **above** `from topotato import *`)
+(These would be placed **above** `from topotato.v1 import *`)
 
 FRR workflow applies to commit message text, i.e.:
 
