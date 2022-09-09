@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 import typing
-from typing import List, ClassVar, Dict, Mapping, Optional, Any, Iterator, Tuple
+from typing import List, ClassVar, Dict, Mapping, Optional, Any
 
 import jinja2
 
@@ -116,7 +116,7 @@ class FRRConfigs(dict, ClassHooks):
 
     daemons_integrated_only = frozenset("pim6d".split())
 
-    # pylint: disable=too-many-locals,too-many-statements
+    # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     @classmethod
     def _check_env(cls, *, result, **kwargs):
         """

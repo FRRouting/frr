@@ -5,8 +5,8 @@
 Exceptions for use in topotato pytest integration
 """
 
-import attr
 from typing import Optional
+import attr
 
 from _pytest.outcomes import Exit, Failed, Skipped
 
@@ -73,7 +73,7 @@ class TopotatoDaemonCrash(TopotatoFail):
 
     @attr.s(eq=False, auto_attribs=True)
     class TopotatoRepr(TerminalRepr):
-        excinfo: "TopotatoDaemonCrash"
+        excinfo: ExceptionInfo
 
         def toterminal(self, tw: TerminalWriter) -> None:
             exc = self.excinfo.value

@@ -82,7 +82,7 @@ class MulticastReceiver:
         group_opt: Optional[int] = None
         source_opt: Optional[int] = None
 
-        # pylint: disable=arguments-differ,protected-access
+        # pylint: disable=arguments-differ,protected-access,too-many-arguments
         @classmethod
         def from_parent(cls, parent, name, cmdobj, group, source=None):
             _group = ipaddress.ip_address(group)

@@ -44,7 +44,7 @@ from .livescapy import LiveScapy
 from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
-    from _pytest._code.code import ExceptionInfo
+    from _pytest._code.code import ExceptionInfo, TracebackEntry
 
     from .frr import FRRNetworkInstance
     from .timeline import Timeline
@@ -329,13 +329,13 @@ class TopotatoItem(nodes.Item, ClassHooks):
             return
 
         tb = excinfo.traceback
-        newtb = []
+        newtb: List["TracebackEntry"] = []
         for entry in reversed(tb):
             if entry._rawentry.tb_frame.f_code in endtrace:
                 break
             if entry._rawentry.tb_frame.f_code in skiptrace:
                 continue
-            if len(newtb):
+            if newtb:
                 entry.set_repr_style("short")
             newtb.insert(0, entry)
 
@@ -756,7 +756,7 @@ class TopotatoClass(_pytest.python.Class):
 
         if len(failed) > 0:
             netinst.timeline.sleep(0)
-            raise TopotatoDaemonCrash("daemons failed to start: %r" % failed)
+            raise TopotatoDaemonCrash(None, repr(failed))  # FIXME
 
         self.started_ts = time.time()
 
