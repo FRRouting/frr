@@ -53,6 +53,20 @@ class Configs(FRRConfigs):
     pim6d = """
     #% extends "boilerplate.conf"
     #% block main
+    #%   if router.name in ['r1', 'r2']
+    interface lo
+     ipv6 pim
+    ##
+    #%     for iface in router.ifaces
+    !
+    interface {{ iface.ifname }}
+     ipv6 pim
+     ipv6 pim hello 1 5
+     ipv6 mld
+    #%     endfor
+    !
+    ipv6 pim rp {{ routers['r1'].lo_ip6[0].ip }} ff00::/8
+    #%   endif
     #% endblock
     """
 
@@ -77,17 +91,14 @@ class PIM6Basic(TestBase):
         self.receiver = MulticastReceiver(h2, h2.iface_to('r2'))
 
         for rt in [r1, r2]:
-            for iface in rt.ifaces:
-                yield from AssertVtysh.make(rt, "pim6d", "enable\nconfigure\ninterface %s\nipv6 pim" % iface.ifname)
-            yield from AssertVtysh.make(rt, "pim6d", "enable\nconfigure\ninterface lo\nipv6 pim\nexit\nipv6 pim rp %s ff00::/8" % r1.lo_ip6[0].ip)
             yield from AssertVtysh.make(rt, "zebra", "show ipv6 route")
 
         self.receiver = MulticastReceiver(h2, h2.iface_to('r2'))
 
         yield from AssertVtysh.make(r1, "pim6d", "show ipv6 pim rp-info")
         yield from AssertVtysh.make(r2, "pim6d", "show ipv6 pim rp-info", """
-        RP address       group/prefix-list   OIF               I am RP    Source   Group-Type
-        fd00::3          ff00::/8            r2-r1             no        Static   ASM
+        RP address  group/prefix-list  OIF    I am RP  Source  Group-Type
+        fd00::3     ff00::/8           r2-r1  no       Static  ASM
         """, maxwait=5.0)
 
     @topotatofunc
@@ -100,7 +111,6 @@ class PIM6Basic(TestBase):
         yield from self.receiver.join('ff05::2345', srcaddr)
 
         yield from AssertLog.make(r2, 'pim6d', '[MLD default:r2-h2 (%s,ff05::2345)] NOINFO => JOIN' % srcaddr, maxwait=3.0)
-        yield from AssertVtysh.make(r2, "pim6d", "debug show mld interface %s" % (r2.iface_to('h2').ifname))
 
         yield from AssertLog.make(r1, 'pim6d', 'pim_forward_start: (S,G)=(%s,ff05::2345) oif=r1-r2' % srcaddr, maxwait=3.0)
 
@@ -126,4 +136,4 @@ class PIM6Basic(TestBase):
             return ipv6.src == str(srcaddr) and ipv6.dst == 'ff05::2345' \
                 and udp.dport == 9999
 
-        yield from AssertPacket.make("r2_h2", maxwait=3.0, pkt=expect_pkt)
+        yield from AssertPacket.make("r2_h2", maxwait=4.0, pkt=expect_pkt)
