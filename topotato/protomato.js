@@ -234,20 +234,16 @@ function onhashchange(evt) {
 
 var svg_hilight = null;
 
-function onmouseenter_ethsrc(evt) {
+function onmouseenter_eth(evt) {
 	const obj = evt.target;
 
 	if (svg_hilight !== null)
 		svg_hilight.classList.remove("src-hilight");
 	svg_hilight = null;
 
-	data = evt.target.textContent.match("^([^ ]+) \\((.*)\\)$");
-	router = data[1];
-	iface = data[2];
-
-	svg_rtr = document.getElementById("router-" + router);
+	svg_rtr = document.getElementById("router-" + obj.d_router);
 	for (const textobj of svg_rtr.getElementsByTagName("text")) {
-		if (textobj.textContent == iface) {
+		if (textobj.textContent == obj.d_iface) {
 			poly = textobj;
 			while (poly.tagName != "polygon")
 				poly = poly.previousElementSibling;
@@ -258,10 +254,46 @@ function onmouseenter_ethsrc(evt) {
 	}
 }
 
-function onmouseleave_ethsrc(evt) {
+function onmouseleave_eth(evt) {
 	if (svg_hilight !== null)
 		svg_hilight.classList.remove("src-hilight");
 	svg_hilight = null;
+}
+
+const eth_wellknown = {
+	"ff:ff:ff:ff:ff:ff": "bcast",
+	"01:80:c2:00:00:0e": "eth-link",
+};
+
+const mac_name_re = /^(.*) \((.*)\)$/;
+
+function eth_pretty(htmlparent, csscls, macaddr) {
+	var name;
+
+	if (macaddr in jsdata["macmap"]) {
+		name = jsdata["macmap"][macaddr];
+		m = name.match(mac_name_re);
+		if (m) {
+			if (m[2].startsWith(m[1]))
+				name = m[2];
+			elem = create(htmlparent, "span", csscls, name);
+			elem.title = macaddr;
+			elem.d_router = m[1];
+			elem.d_iface = m[2];
+			elem.onmouseenter = onmouseenter_eth;
+			elem.onmouseleave = onmouseleave_eth;
+			return;
+		}
+	} else if (macaddr in eth_wellknown)
+		name = eth_wellknown[macaddr];
+	else if (macaddr.startsWith("01:00:5e:"))
+		name = "v4mcast";
+	else if (macaddr.startsWith("33:33:"))
+		name = "v6mcast";
+	else
+		name = macaddr;
+
+	create(htmlparent, "span", csscls, name);
 }
 
 var pdmltree;
@@ -485,9 +517,9 @@ const protocols = {
 	"eth": function (obj, row, proto, protos) {
 		var col = create(row, "span", "pktcol p-eth");
 
-		create(col, "span", "pktsub p-eth-src", pdml_get_attr(proto, "eth.src"));
+		eth_pretty(col, "pktsub p-eth-src", pdml_get_attr(proto, "eth.src"));
 		create(col, "span", "pktsub p-eth-arr", "→");
-		create(col, "span", "pktsub p-eth-dst", pdml_get_attr(proto, "eth.dst"));
+		eth_pretty(col, "pktsub p-eth-dst", pdml_get_attr(proto, "eth.dst"));
 		return true;
 	},
 
@@ -634,11 +666,6 @@ function init() {
 	const infopane = document.getElementById("infopane");
 	pdml_decode = create(infopane, "div", "pdml_decode");
 	pdml_decode.style.display = "none";
-
-	for (obj of document.getElementsByClassName("p-eth-src")) {
-		obj.onmouseenter = onmouseenter_ethsrc;
-		obj.onmouseleave = onmouseleave_ethsrc;
-	}
 
 	jsdata = b64_inflate_json(data);
 	ts_start = jsdata.ts_start;
