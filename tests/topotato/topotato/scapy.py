@@ -72,10 +72,8 @@ class ScapySend(TopotatoModifier):
             sock.send(self._pkt)
 
         if self._repeat:
-            netinst = self.instance
-
             for _ in range(1, self._repeat):
-                netinst.poller.sleep(self._interval)
+                self.timeline.sleep(self._interval)
                 with router:
                     sock.send(self._pkt)
 

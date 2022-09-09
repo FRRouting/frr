@@ -45,6 +45,14 @@ class Configs(FRRConfigs):
     pim6d = """
     #% extends "boilerplate.conf"
     #% block main
+    #%   if router.name in ['dut']
+    #%     for iface in router.ifaces
+    interface {{ iface.ifname }}
+     ipv6 pim
+     ipv6 mld
+    !
+    #%     endfor
+    #%   endif
     #% endblock
     """
 
@@ -70,13 +78,8 @@ def iter_mld_records(report):
 class MLDBasic(TestBase):
     instancefn = mld_topo1_testenv
 
-    @topotatofunc
+    @topotatofunc(include_startup=True)
     def prepare(self, topo, dut, h1, h2, src):
-        for iface in dut.ifaces:
-            yield from AssertVtysh.make(dut, "pim6d", "enable\nconfigure\ninterface %s\nipv6 pim" % iface.ifname)
-
-        yield from AssertVtysh.make(dut, "pim6d", "debug show mld interface %s" % (dut.iface_to('h1').ifname))
-
         self.receiver = MulticastReceiver(h1, h1.iface_to('dut'))
 
         # wait for query before continuing

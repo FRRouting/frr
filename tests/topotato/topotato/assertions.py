@@ -138,6 +138,10 @@ class TimedMixin:
             # pylint: disable=protected-access
             self._timing = timing.anchor(self.relative_start)
 
+            fn = self.getparent(TopotatoFunction)
+            if fn.include_startup:
+                self._timing.full_history = True
+
         return [finalize]
 
     def relative_start(self):
