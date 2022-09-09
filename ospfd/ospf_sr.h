@@ -242,7 +242,7 @@ struct ospf_sr_db {
 	/* Local SR info announced in Router Info LSA */
 
 	/* Algorithms supported by the node */
-	uint8_t algo[ALGORITHM_COUNT];
+	bool algo[ALGORITHM_COUNT];
 	/*
 	 * Segment Routing Global Block i.e. label range
 	 * Only one range supported in this code
@@ -265,7 +265,7 @@ struct sr_node {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
-	uint8_t algo[ALGORITHM_COUNT]; /* Algorithms supported by the node */
+	bool algo[ALGORITHM_COUNT]; /* Algorithms supported by the node */
 	struct sr_block srgb;          /* Segment Routing Global Block */
 	struct sr_block srlb;          /* Segment Routing Local Block */
 	uint8_t msd;                   /* Maximum SID Depth */

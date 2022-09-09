@@ -137,10 +137,6 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	/* Allocate Segment Routing node memory */
 	new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_node));
 
-	/* Default Algorithm, SRGB and MSD */
-	for (int i = 0; i < ALGORITHM_COUNT; i++)
-		new->algo[i] = SR_ALGORITHM_UNSET;
-
 	new->srgb.range_size = 0;
 	new->srgb.lower_bound = 0;
 	new->msd = 0;
@@ -500,7 +496,7 @@ static int ospf_sr_start(struct ospf *ospf)
 		srn->srgb.lower_bound = OspfSR.srgb.start;
 		srn->srlb.lower_bound = OspfSR.srlb.start;
 		srn->srlb.range_size = OspfSR.srlb.end - OspfSR.srlb.start + 1;
-		srn->algo[0] = OspfSR.algo[0];
+		srn->algo[SR_ALGORITHM_SPF] = OspfSR.algo[SR_ALGORITHM_SPF];
 		srn->msd = OspfSR.msd;
 		OspfSR.self = srn;
 	}
@@ -615,9 +611,7 @@ int ospf_sr_init(void)
 
 	/* Initialize Algorithms, SRGB, SRLB and MSD TLVs */
 	/* Only Algorithm SPF is supported */
-	OspfSR.algo[0] = SR_ALGORITHM_SPF;
-	for (int i = 1; i < ALGORITHM_COUNT; i++)
-		OspfSR.algo[i] = SR_ALGORITHM_UNSET;
+	OspfSR.algo[SR_ALGORITHM_SPF] = true;
 
 	OspfSR.srgb.size = DEFAULT_SRGB_SIZE;
 	OspfSR.srgb.start = DEFAULT_SRGB_LABEL;
@@ -1381,6 +1375,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	struct sr_block srgb;
 	uint16_t length = 0, sum = 0;
 	uint8_t msd = 0;
+	int i;
 
 	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4",
 		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
@@ -1472,14 +1467,14 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	}
 
 	/* Update Algorithm, SRLB and MSD if present */
+	for (i = 0; i < ALGORITHM_COUNT; i++)
+		srn->algo[i] = false;
+
 	if (algo != NULL) {
-		int i;
 		for (i = 0; i < ntohs(algo->header.length); i++)
-			srn->algo[i] = algo->value[0];
-		for (; i < ALGORITHM_COUNT; i++)
-			srn->algo[i] = SR_ALGORITHM_UNSET;
+			srn->algo[algo->value[i]] = true;
 	} else {
-		srn->algo[0] = SR_ALGORITHM_SPF;
+		srn->algo[SR_ALGORITHM_SPF] = true;
 	}
 	srn->msd = msd;
 	if (ri_srlb != NULL) {
@@ -1498,7 +1493,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 
 	osr_debug("  |- Update SR-Node[%pI4], SRGB[%u/%u], SRLB[%u/%u], Algo[%u], MSD[%u]",
 		  &srn->adv_router, srn->srgb.lower_bound, srn->srgb.range_size,
-		  srn->srlb.lower_bound, srn->srlb.range_size, srn->algo[0],
+		  srn->srlb.lower_bound, srn->srlb.range_size, SR_ALGORITHM_SPF,
 		  srn->msd);
 
 	/* ... and NHLFE if it is a neighbor SR node */
@@ -2752,16 +2747,14 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 		json_algo = json_object_new_array();
 		json_object_object_add(json_node, "algorithms", json_algo);
 		for (int i = 0; i < ALGORITHM_COUNT; i++) {
-			if (srn->algo[i] == SR_ALGORITHM_UNSET)
+			if (srn->algo[i] == false)
 				continue;
 			json_obj = json_object_new_object();
 			char tmp[2];
 
 			snprintf(tmp, sizeof(tmp), "%u", i);
 			json_object_string_add(json_obj, tmp,
-					       srn->algo[i] == SR_ALGORITHM_SPF
-						       ? "SPF"
-						       : "S-SPF");
+					       i ? "SPF" : "S-SPF");
 			json_object_array_add(json_algo, json_obj);
 		}
 		if (srn->msd != 0)
@@ -2774,13 +2767,12 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 		upper = srn->srlb.lower_bound + srn->srlb.range_size - 1;
 		sbuf_push(&sbuf, 0, "\tSRLB: [%u/%u]",
 			  srn->srlb.lower_bound, upper);
-		sbuf_push(&sbuf, 0, "\tAlgo.(s): %s",
-			  srn->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
+		sbuf_push(&sbuf, 0, "\tAlgo.(s): SPF");
 		for (int i = 1; i < ALGORITHM_COUNT; i++) {
-			if (srn->algo[i] == SR_ALGORITHM_UNSET)
+			if (srn->algo[i] == false)
 				continue;
 			sbuf_push(&sbuf, 0, "/%s",
-				  srn->algo[i] == SR_ALGORITHM_SPF ? "SPF"
+				  i == SR_ALGORITHM_SPF ? "SPF"
 								   : "S-SPF");
 		}
 		if (srn->msd != 0)
