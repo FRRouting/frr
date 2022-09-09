@@ -6482,6 +6482,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 			/* Label index cannot be changed. */
 			if (bgp_static->label_index != label_index) {
 				vty_out(vty, "%% cannot change label-index\n");
+				bgp_dest_unlock_node(dest);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 
@@ -7266,6 +7267,7 @@ static void bgp_aggregate_install(
 			aggregate, atomic_aggregate, p);
 
 		if (!attr) {
+			bgp_dest_unlock_node(dest);
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
 			if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 				zlog_debug("%s: %pFX null attribute", __func__,
@@ -11159,13 +11161,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			if (type == bgp_show_type_route_map) {
 				struct route_map *rmap = output_arg;
 				struct bgp_path_info path;
-				struct attr dummy_attr;
+				struct bgp_path_info_extra extra;
+				struct attr dummy_attr = {};
 				route_map_result_t ret;
 
 				dummy_attr = *pi->attr;
 
-				path.peer = pi->peer;
-				path.attr = &dummy_attr;
+				prep_for_rmap_apply(&path, &extra, dest, pi,
+						    pi->peer, &dummy_attr);
 
 				ret = route_map_apply(rmap, dest_p, &path);
 				bgp_attr_flush(&dummy_attr);
