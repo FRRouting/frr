@@ -26,7 +26,7 @@ logger.setLevel(logging.DEBUG)
 _wsp_re = re.compile(r"^[ \t]+")
 
 
-def deindent(text: str) -> str:
+def deindent(text: str, trim=False) -> str:
     """
     Determine and strip common indentation from a string.
 
@@ -38,6 +38,7 @@ def deindent(text: str) -> str:
     """
     text = text.lstrip("\n")
     m = _wsp_re.match(text)
+    do_trim = (lambda s: s.rstrip(" \t")) if trim else (lambda s: s)
     if m is not None:
         indent = m.group(0)
         out = []
@@ -46,7 +47,7 @@ def deindent(text: str) -> str:
                 out.append("")
             else:
                 assert line.startswith(indent)
-                out.append(line[len(indent) :])
+                out.append(do_trim(line[len(indent) :]))
         text = "\n".join(out)
     return text
 
