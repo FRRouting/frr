@@ -341,6 +341,30 @@ static void isis_spf_adj_free(void *arg)
 	XFREE(MTYPE_ISIS_SPF_ADJ, sadj);
 }
 
+static void _isis_spftree_init(struct isis_spftree *tree)
+{
+	isis_vertex_queue_init(&tree->tents, "IS-IS SPF tents", true);
+	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
+	tree->route_table = srcdest_table_init();
+	tree->route_table->cleanup = isis_route_node_cleanup;
+	tree->route_table->info = isis_route_table_info_alloc(tree->algorithm);
+	tree->route_table_backup = srcdest_table_init();
+	tree->route_table_backup->info =
+		isis_route_table_info_alloc(tree->algorithm);
+	tree->route_table_backup->cleanup = isis_route_node_cleanup;
+	tree->prefix_sids = hash_create(prefix_sid_key_make, prefix_sid_cmp,
+					"SR Prefix-SID Entries");
+	tree->sadj_list = list_new();
+	tree->sadj_list->del = isis_spf_adj_free;
+	isis_rlfa_list_init(tree);
+	tree->lfa.remote.pc_spftrees = list_new();
+	tree->lfa.remote.pc_spftrees->del = (void (*)(void *))isis_spftree_del;
+	if (tree->type == SPF_TYPE_RLFA || tree->type == SPF_TYPE_TI_LFA) {
+		isis_spf_node_list_init(&tree->lfa.p_space);
+		isis_spf_node_list_init(&tree->lfa.q_space);
+	}
+}
+
 struct isis_spftree *
 isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 		 const uint8_t *sysid, int level, enum spf_tree_id tree_id,
@@ -350,20 +374,8 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 
 	tree = XCALLOC(MTYPE_ISIS_SPFTREE, sizeof(struct isis_spftree));
 
-	isis_vertex_queue_init(&tree->tents, "IS-IS SPF tents", true);
-	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
-	tree->route_table = srcdest_table_init();
-	tree->route_table->cleanup = isis_route_node_cleanup;
-	tree->route_table->info = isis_route_table_info_alloc(algorithm);
-	tree->route_table_backup = srcdest_table_init();
-	tree->route_table_backup->info = isis_route_table_info_alloc(algorithm);
-	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 	tree->area = area;
 	tree->lspdb = lspdb;
-	tree->prefix_sids = hash_create(prefix_sid_key_make, prefix_sid_cmp,
-					"SR Prefix-SID Entries");
-	tree->sadj_list = list_new();
-	tree->sadj_list->del = isis_spf_adj_free;
 	tree->last_run_timestamp = 0;
 	tree->last_run_monotime = 0;
 	tree->last_run_duration = 0;
@@ -374,19 +386,14 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 	tree->tree_id = tree_id;
 	tree->family = (tree->tree_id == SPFTREE_IPV4) ? AF_INET : AF_INET6;
 	tree->flags = flags;
-	isis_rlfa_list_init(tree);
-	tree->lfa.remote.pc_spftrees = list_new();
-	tree->lfa.remote.pc_spftrees->del = (void (*)(void *))isis_spftree_del;
-	if (tree->type == SPF_TYPE_RLFA || tree->type == SPF_TYPE_TI_LFA) {
-		isis_spf_node_list_init(&tree->lfa.p_space);
-		isis_spf_node_list_init(&tree->lfa.q_space);
-	}
 	tree->algorithm = algorithm;
+
+	_isis_spftree_init(tree);
 
 	return tree;
 }
 
-void isis_spftree_del(struct isis_spftree *spftree)
+static void _isis_spftree_del(struct isis_spftree *spftree)
 {
 	hash_clean(spftree->prefix_sids, NULL);
 	hash_free(spftree->prefix_sids);
@@ -403,6 +410,12 @@ void isis_spftree_del(struct isis_spftree *spftree)
 	isis_vertex_queue_free(&spftree->tents);
 	isis_vertex_queue_free(&spftree->paths);
 	isis_route_table_info_free(spftree->route_table->info);
+}
+
+void isis_spftree_del(struct isis_spftree *spftree)
+{
+	_isis_spftree_del(spftree);
+
 	route_table_finish(spftree->route_table);
 	route_table_finish(spftree->route_table_backup);
 	spftree->route_table = NULL;
