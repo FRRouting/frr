@@ -1473,11 +1473,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
 		peer_dst->addpath_type[afi][safi] =
 			peer_src->addpath_type[afi][safi];
-		if (peer_src->soo[afi][safi]) {
-			ecommunity_free(&peer_dst->soo[afi][safi]);
-			peer_dst->soo[afi][safi] =
-				ecommunity_dup(peer_src->soo[afi][safi]);
-		}
 	}
 
 	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
