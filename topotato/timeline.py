@@ -23,6 +23,7 @@ if typing.TYPE_CHECKING:
 class TimingParams:
     delay: Optional[float]
     maxwait: Optional[float]
+    full_history: bool = False
 
     _start: Callable[[], float] = time.time
 
@@ -268,7 +269,10 @@ class Timeline(MiniPoller, List[TimedElement]):
     def run_timing(self, timing: TimingParams) -> Generator[TimedElement, None, None]:
         start, end = timing.evaluate()
 
-        yield from self.iter_since(start)
+        if timing.full_history:
+            yield from self.iter_since()
+        else:
+            yield from self.iter_since(start)
         yield from self.run_iter(end)
 
     def install(self, pollee: MiniPollee):
