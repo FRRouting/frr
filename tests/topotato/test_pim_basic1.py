@@ -6,12 +6,15 @@ Basic IPv4 PIM test.
 
 TBD: Currently uses BGP to set up routes.  Should probably be removed and
 replaced with static routes.
-
-TBD: stop using mcast-tx.py + mcast-rx.py tools, replace with built-in topotato
-features.
 """
 
 from topotato.v1 import *
+from topotato.multicast import MulticastReceiver
+from topotato.scapy import ScapySend
+from scapy.all import (
+    IP,
+    UDP,
+)
 
 
 @topology_fixture()
@@ -103,6 +106,9 @@ class PIMTopo1Test(TestBase):
 
     @topotatofunc
     def test(self, topo, rp, r1, r2, r3):
+        r2_addr = str(r2.iface_to("lan2").ip4[0].ip)
+        r3_addr = str(r3.iface_to('lan3').ip4[0].ip)
+
         # wait for BGP to come up
         js = {
             str(rp.lo_ip4[0]): JSONCompareIgnoreContent(),
@@ -122,19 +128,11 @@ class PIMTopo1Test(TestBase):
             r1, "pimd", "show ip pim rp-info json", js, maxwait=15.0
         )
 
-        r2_tx = BackgroundCommand(
-            r2, "tools/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r2-lan2"
-        )
-        r3_tx = BackgroundCommand(
-            r3, "tools/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r3-lan3"
-        )
+        r2_pkt = IP(ttl=255, src=r2_addr, dst='229.1.1.1') / UDP(sport=9999, dport=9999)
+        r3_pkt = IP(ttl=255, src=r3_addr, dst='229.1.1.1') / UDP(sport=9999, dport=9999)
 
-        yield from r2_tx.start()
-        yield from r3_tx.start()
-        yield from r2_tx.wait()
-        yield from r3_tx.wait()
-
-        r2_addr = str(r2.iface_to("lan2").ip4[0].ip)
+        for rtr, pkt, iface in [(r2, r2_pkt, "r2-lan2"), (r3, r3_pkt, "r3-lan3")]:
+            yield from ScapySend.make(rtr, iface, pkt=pkt, repeat=3, interval=0.5)
 
         js = {
             "229.1.1.1": {
@@ -167,9 +165,12 @@ class PIMTopo1Test(TestBase):
         }
         yield from AssertVtysh.make(rp, "pimd", "show ip pim upstream json", js)
 
-        r2_rx = BackgroundCommand(r2, "tools/mcast-rx.py 229.1.1.2 r2-lan2")
+    @topotatofunc
+    def test_join(self, topo, rp, r1, r2, r3):
+        r3_addr = str(r3.iface_to('lan3').ip4[0].ip)
 
-        yield from r2_rx.start()
+        receiver = MulticastReceiver(r2, r2.iface_to('lan2'))
+        yield from receiver.join('229.1.1.2')
 
         js = {
             "229.1.1.2": {
@@ -185,4 +186,12 @@ class PIMTopo1Test(TestBase):
             r1, "pimd", "show ip pim upstream json", js, maxwait=20.0
         )
 
-        yield from r2_rx.wait()
+        r3_pkt = IP(ttl=255, src=r3_addr, dst='229.1.1.2') / UDP(sport=9999, dport=9999)
+
+        for rtr, pkt, iface in [(r3, r3_pkt, "r3-lan3")]:
+            yield from ScapySend.make(rtr, iface, pkt=pkt, repeat=3, interval=0.5)
+
+        def expect_pkt(ip: IP, udp: UDP):
+            return ip.src == str(r3_addr) and ip.dst == '229.1.1.2' \
+                and udp.dport == 9999
+        yield from AssertPacket.make("lan2", maxwait=1.0, pkt=expect_pkt)

@@ -560,15 +560,18 @@ class TopotatoWrapped:
     up topotato test items for functions annotated this way.
     """
 
-    def __init__(self, wrap, call=None):
+    def __init__(self, wrap, call=None, *, kwds: Optional[Dict[str, Any]] = None):
         assert inspect.isgeneratorfunction(wrap)
 
         self._wrap = wrap
         self._call = call or wrap
         self.__wrapped__ = call or wrap
+        self._kwds = kwds or {}
 
     def __get__(self, obj, objtype=None):
-        return self.__class__(self._wrap, self._call.__get__(obj, objtype))
+        return self.__class__(
+            self._wrap, self._call.__get__(obj, objtype), kwds=self._kwds
+        )
 
     def __call__(self, *args, **kwargs):
         return self._call(*args, **kwargs)
@@ -581,30 +584,50 @@ class TopotatoWrapped:
         Refer to :py:meth:`TestBase._topotato_makeitem`, this is the method
         level equivalent of that.
         """
-        return [TopotatoFunction.from_hook(obj, collector, name)]
+        return [TopotatoFunction.from_hook(obj, collector, name, **self._kwds)]
 
 
-def topotatofunc(fn):
+def topotatofunc(fn: Optional[Callable] = None, *, include_startup=False):
     """
     Decorator to mark methods as item-yielding test generators.
+
+    :param bool include_startup: for event based assertions (logs, packets),
+       include events that happened before the tests in this functions start
+       (i.e. during startup, but possibly also during previous test functions.)
 
     .. todo::
 
        Just decorate with :py:class:`TopotatoWrapped` directly?  A class as
        decorator does look a bit weird though...
     """
-    return TopotatoWrapped(fn)
+
+    # @topotatofunc
+    if fn is not None:
+        return TopotatoWrapped(fn)
+
+    # @topotatofunc(...)
+    def wrap(fn: Callable):
+        return TopotatoWrapped(
+            fn,
+            kwds={
+                "include_startup": include_startup,
+            },
+        )
+
+    return wrap
 
 
 class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
     started_ts: Optional[float] = None
+    include_startup: bool
 
     # pylint: disable=protected-access
     @classmethod
-    def from_hook(cls, obj, collector, name):
+    def from_hook(cls, obj, collector, name, include_startup=False):
         self = super().from_parent(collector, name=name)
         self._obj = obj._call
         self._obj_raw = obj
+        self.include_startup = include_startup
 
         return self
 
