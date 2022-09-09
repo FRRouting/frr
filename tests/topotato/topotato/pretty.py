@@ -185,6 +185,7 @@ class PrettyInstance(list):
         data = {
             "ts_start": getattr(topotatocls, "started_ts", None),
             "items": [],
+            "macmap": self.instance.network.macmap(),
         }
 
         items = []

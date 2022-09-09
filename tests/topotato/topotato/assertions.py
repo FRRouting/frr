@@ -33,7 +33,7 @@ except ImportError:
 from scapy.packet import Packet  # type: ignore
 import pytest
 
-from .utils import json_cmp, text_rich_cmp
+from .utils import json_cmp, text_rich_cmp, deindent
 from .base import TopotatoItem, TopotatoFunction, skiptrace
 from .livescapy import TimedScapy
 from .livelog import LogMessage
@@ -265,6 +265,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
                 if isinstance(self._compare, type(None)):
                     pass
                 elif isinstance(self._compare, str):
+                    out = deindent(out, trim=True)
                     result = text_rich_cmp(
                         self.instance.configs,
                         self._rtr.name,

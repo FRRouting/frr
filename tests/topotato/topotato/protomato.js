@@ -234,20 +234,16 @@ function onhashchange(evt) {
 
 var svg_hilight = null;
 
-function onmouseenter_ethsrc(evt) {
+function onmouseenter_eth(evt) {
 	const obj = evt.target;
 
 	if (svg_hilight !== null)
 		svg_hilight.classList.remove("src-hilight");
 	svg_hilight = null;
 
-	data = evt.target.textContent.match("^([^ ]+) \\((.*)\\)$");
-	router = data[1];
-	iface = data[2];
-
-	svg_rtr = document.getElementById("router-" + router);
+	svg_rtr = document.getElementById("router-" + obj.d_router);
 	for (const textobj of svg_rtr.getElementsByTagName("text")) {
-		if (textobj.textContent == iface) {
+		if (textobj.textContent == obj.d_iface) {
 			poly = textobj;
 			while (poly.tagName != "polygon")
 				poly = poly.previousElementSibling;
@@ -258,10 +254,46 @@ function onmouseenter_ethsrc(evt) {
 	}
 }
 
-function onmouseleave_ethsrc(evt) {
+function onmouseleave_eth(evt) {
 	if (svg_hilight !== null)
 		svg_hilight.classList.remove("src-hilight");
 	svg_hilight = null;
+}
+
+const eth_wellknown = {
+	"ff:ff:ff:ff:ff:ff": "bcast",
+	"01:80:c2:00:00:0e": "eth-link",
+};
+
+const mac_name_re = /^(.*) \((.*)\)$/;
+
+function eth_pretty(htmlparent, csscls, macaddr) {
+	var name;
+
+	if (macaddr in jsdata["macmap"]) {
+		name = jsdata["macmap"][macaddr];
+		m = name.match(mac_name_re);
+		if (m) {
+			if (m[2].startsWith(m[1]))
+				name = m[2];
+			elem = create(htmlparent, "span", csscls, name);
+			elem.title = macaddr;
+			elem.d_router = m[1];
+			elem.d_iface = m[2];
+			elem.onmouseenter = onmouseenter_eth;
+			elem.onmouseleave = onmouseleave_eth;
+			return;
+		}
+	} else if (macaddr in eth_wellknown)
+		name = eth_wellknown[macaddr];
+	else if (macaddr.startsWith("01:00:5e:"))
+		name = "v4mcast";
+	else if (macaddr.startsWith("33:33:"))
+		name = "v6mcast";
+	else
+		name = macaddr;
+
+	create(htmlparent, "span", csscls, name);
 }
 
 var pdmltree;
@@ -320,6 +352,19 @@ function pdml_add_proto(htmlparent, proto) {
 	var fields = document.createElement("dd");
 	fields.style.display = "none";
 	htmlparent.appendChild(fields);
+
+	var pdml_raw_btn = create(title, "span", "pdml-raw", "‹R›");
+	var pdml_raw = create(fields, "div", "pdml-raw", proto.outerHTML);
+
+	pdml_raw.style.display = "none";
+	pdml_raw_btn.onclick = function(evt) {
+		evt.stopPropagation();
+		if (pdml_raw.style.display == "none")
+			pdml_raw.style.display = "block";
+		else
+			pdml_raw.style.display = "none";
+	}
+
 
 	for (const field of proto.children)
 		pdml_add_field(fields, field);
@@ -443,6 +488,10 @@ function pdml_get_attr(item, key, attr = "show", idx = 0) {
 	return result === null ? null : result.getAttribute(attr);
 }
 
+function strip_colon(text) {
+	return text.split(": ").slice(1).join(": ");
+}
+
 const mld_short_recordtypes = {
 	1: "IN",
 	2: "EX",
@@ -468,12 +517,16 @@ const protocols = {
 	"eth": function (obj, row, proto, protos) {
 		var col = create(row, "span", "pktcol p-eth");
 
-		create(col, "span", "pktsub p-eth-src", pdml_get_attr(proto, "eth.src"));
+		eth_pretty(col, "pktsub p-eth-src", pdml_get_attr(proto, "eth.src"));
 		create(col, "span", "pktsub p-eth-arr", "→");
-		create(col, "span", "pktsub p-eth-dst", pdml_get_attr(proto, "eth.dst"));
+		eth_pretty(col, "pktsub p-eth-dst", pdml_get_attr(proto, "eth.dst"));
 		return true;
 	},
 
+	"arp": function (obj, row, proto, protos) {
+		create(row, "span", "pktcol l-3 p-arp last", "ARP");
+		return false;
+	},
 	"ip": function (obj, row, proto, protos) {
 		create(row, "span", "pktcol l-3 p-ipv4", "IPv4");
 		return true;
@@ -488,7 +541,7 @@ const protocols = {
 
 	"icmpv6": function (obj, row, proto, protos) {
 		pname = "ICMPv6";
-		type_num = pdml_get_attr(proto, "icmpv6.type", "show");
+		type_num = pdml_get_attr(proto, "icmpv6.type");
 
 		if (["130", "131", "132", "143"].includes(type_num))
 			pname = "MLD";
@@ -509,8 +562,77 @@ const protocols = {
 		create(row, "span", "pktcol l-5 detail last", text);
 		return false;
 	},
+	"igmp": function (obj, row, proto, protos) {
+		type = pdml_get_attr(proto, "igmp.type", "showname");
+		text = type.split(": ").slice(1).join(": ");
+
+		create(row, "span", "pktcol l-4 p-igmp", `IGMPv${pdml_get_attr(proto, "igmp.version")}`);
+		create(row, "span", "pktcol l-5 detail last", text);
+		return false;
+	},
 	"udp": function (obj, row, proto, protos) {
 		create(row, "span", "pktcol l-4 p-udp last", `UDP ${pdml_get_attr(proto, "udp.srcport")} → ${pdml_get_attr(proto, "udp.dstport")}`);
+		return false;
+	},
+	"tcp": function (obj, row, proto, protos) {
+		if (proto.nextElementSibling)
+			return true;
+
+		elem = create(row, "span", "pktcol l-4 p-tcp last", `TCP ${pdml_get_attr(proto, "tcp.srcport")} → ${pdml_get_attr(proto, "tcp.dstport")}`);
+		return false;
+	},
+
+	"pim": function (obj, row, proto, protos) {
+		type = pdml_get_attr(proto, "pim.type", "showname").split(": ").slice(1).join(": ");
+		type_num = pdml_get_attr(proto, "pim.type", "show");
+
+		if (type_num == 3) {
+			items = new Array;
+			for (group of proto.querySelectorAll("field[name='pim.group_set']")) {
+				grptext = pdml_get_attr(group, "pim.group_ip6") || pdml_get_attr(group, "pim.group");
+				items.push(grptext);
+			}
+			text = "J/P: " + items.join(", ");
+		} else {
+			text = type;
+		}
+		create(row, "span", "pktcol l-4 p-pim", "PIM");
+		create(row, "span", "pktcol l-5 p-pim detail last", text);
+		return false;
+	},
+	"bgp": function (obj, row, proto, protos) {
+		const rex = /^.*: (.*?) Message.*/;
+
+		var items = new Array;
+		var idx = 0;
+
+		while (proto && idx++ < 6) {
+			msgtype = pdml_get_attr(proto, "bgp.type", "showname");
+			m = msgtype.match(rex);
+			if (!m) {
+				items.push(msgtype);
+				proto = proto.nextElementSibling;
+				continue;
+			}
+
+			msgtype = m[1];
+			if (msgtype == "NOTIFICATION") {
+				major = strip_colon(pdml_get_attr(proto, "bgp.notify.major_error", "showname"));
+				minor = strip_colon(proto.lastElementChild.getAttribute("showname"));
+				msgtype = `NOTIFY ${major}/${minor}`;
+			} else if (msgtype == "UPDATE") {
+				subitems = new Array;
+
+				for (nlri of proto.querySelectorAll("field[name='bgp.update.nlri']")) {
+					subitems.push(pdml_get_attr(nlri, ""));
+				}
+				msgtype = "UPDATE [" + subitems.join(", ") + "]";
+			}
+			items.push(msgtype);
+			proto = proto.nextElementSibling;
+		}
+		create(row, "span", "pktcol l-4 p-bgp", "BGP");
+		create(row, "span", "pktcol l-5 p-bgp detail last", items.join(", "));
 		return false;
 	},
 };
@@ -544,11 +666,6 @@ function init() {
 	const infopane = document.getElementById("infopane");
 	pdml_decode = create(infopane, "div", "pdml_decode");
 	pdml_decode.style.display = "none";
-
-	for (obj of document.getElementsByClassName("p-eth-src")) {
-		obj.onmouseenter = onmouseenter_ethsrc;
-		obj.onmouseleave = onmouseleave_ethsrc;
-	}
 
 	jsdata = b64_inflate_json(data);
 	ts_start = jsdata.ts_start;

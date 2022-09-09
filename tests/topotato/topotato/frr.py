@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 import typing
-from typing import List, ClassVar, Dict, Mapping, Optional, Any, Iterator, Tuple
+from typing import List, ClassVar, Dict, Mapping, Optional, Any
 
 import jinja2
 
@@ -112,9 +112,11 @@ class FRRConfigs(dict, ClassHooks):
     daemons = []
     daemons.extend("zebra staticd".split())
     daemons.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld eigrpd".split())
-    daemons.extend("pimd ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
+    daemons.extend("pimd pim6d ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
 
-    # pylint: disable=too-many-locals,too-many-statements
+    daemons_integrated_only = frozenset("pim6d".split())
+
+    # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     @classmethod
     def _check_env(cls, *, result, **kwargs):
         """
@@ -164,7 +166,14 @@ class FRRConfigs(dict, ClassHooks):
                 % cls.confpath
             )
 
+        in_topotato = set(cls.daemons)
         cls.daemons = list(sorted(cls.makevars["vtysh_daemons"].split()))
+        missing = set(cls.daemons) - in_topotato
+        for daemon in missing:
+            logger.warning(
+                "daemon %s missing from FRRConfigs.daemons, please add!", daemon
+            )
+
         # this determines startup order
         cls.daemons.remove("zebra")
         cls.daemons.remove("staticd")
@@ -320,7 +329,12 @@ class FRRNetworkInstance(NetworkInstance):
             frrpath = self.instance.configs.frrpath
             binmap = self.instance.configs.binmap
 
-            cfgpath = self.tempfile(daemon + ".conf")
+            use_integrated = daemon in FRRConfigs.daemons_integrated_only
+
+            if use_integrated:
+                cfgpath = self.tempfile("integrated-" + daemon + ".conf")
+            else:
+                cfgpath = self.tempfile(daemon + ".conf")
             with open(cfgpath, "w", encoding="utf-8") as fd:
                 fd.write(self.rtrcfg[daemon])
 
@@ -329,22 +343,35 @@ class FRRNetworkInstance(NetworkInstance):
             logfd = self._getlogfd(daemon)
 
             execpath = os.path.join(frrpath, binmap[daemon])
-            cmdline = [
-                execpath,
-                "-d",
-                "-f",
-                cfgpath,
-                "--log",
-                "file:%s" % self.logfiles[daemon],
-                "--log",
-                "monitor:%d" % logfd.fileno(),
-                "--log-level",
-                "debug",
-                "--vty_socket",
-                self.rundir,
-                "-i",
-                "%s/%s.pid" % (self.rundir, daemon),
-            ]
+            cmdline = []
+
+            cmdline.extend(
+                [
+                    execpath,
+                    "-d",
+                ]
+            )
+            if not use_integrated:
+                cmdline.extend(
+                    [
+                        "-f",
+                        cfgpath,
+                    ]
+                )
+            cmdline.extend(
+                [
+                    "--log",
+                    "file:%s" % self.logfiles[daemon],
+                    "--log",
+                    "monitor:%d" % logfd.fileno(),
+                    "--log-level",
+                    "debug",
+                    "--vty_socket",
+                    self.rundir,
+                    "-i",
+                    "%s/%s.pid" % (self.rundir, daemon),
+                ]
+            )
             try:
                 self.check_call(cmdline, pass_fds=[logfd.fileno()])
             except subprocess.CalledProcessError as e:
@@ -358,6 +385,8 @@ class FRRNetworkInstance(NetworkInstance):
                 "enable\nconfigure\nlog file %s\nend\nclear log cmdline-targets"
                 % self.logfiles[daemon],
             )
+            if use_integrated:
+                self.vtysh(["-d", daemon, "-f", cfgpath])
 
         def restart(self, daemon: str):
             pidfile = "%s/%s.pid" % (self.rundir, daemon)

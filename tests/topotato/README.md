@@ -21,7 +21,6 @@ TODOs / Known issues
   also breaks in funny and hilarious ways.
 - add more self-tests
 - protomato.js needs a bunch more work.
-    - re-add `macmap` functionality
     - re-add xrefs lookup to source code
     - short-decode more protocols
 - an `index.html` file should be generated with an overview of a test run.
