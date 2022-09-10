@@ -361,13 +361,6 @@ def test_bgp_remove_private_as():
                 return True
         return False
 
-    def _get_pfx_path_from_nh(router, prefix, nh):
-        """Return as-path for a specific route + path."""
-        output = json.loads(tgen.gears[router].vtysh_cmd(f"show ip bgp {prefix} json"))
-        for path in output[prefix]:
-            if path["nexthops"]["ip"] == nh:
-                return path["aspath"]["string"]
-
     def _routers_up(tx_rtrs, rx_rtrs):
         """Ensure all BGP sessions are up and all routes are installed."""
         # all sessions go through tx_routers, so ensure all their peers are up
@@ -408,11 +401,7 @@ def test_bgp_remove_private_as():
                 for pfx in prefixes:
                     good_path = expected_paths[rtr][remove_type][peer][pfx]
                     real_path = adj_rib_in["receivedRoutes"][pfx]["path"]
-                    msg = (
-                        f"{rtr} received incorrect AS-Path from {peer} "
-                        f'({p_ip}) for {pfx}. remove_type: "{remove_type}"'
-                    )
-                    assert real_path == good_path, msg
+                    return real_path == good_path
 
     #######################
     # Begin Test
@@ -424,7 +413,11 @@ def test_bgp_remove_private_as():
     # test each variation of remove-private-AS
     for rmv_type in remove_types:
         _change_remove_type(rmv_type, "add")
-        _validate_paths(rmv_type)
+
+        test_func = partial(_validate_paths, rmv_type)
+        _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+        assert result == True, "Not all routes have correct AS-Path values!"
+
         # each variation sets a separate peer flag in bgpd. we need to clear
         # the old flag after each iteration so we only test the flags we expect.
         _change_remove_type(rmv_type, "del")
