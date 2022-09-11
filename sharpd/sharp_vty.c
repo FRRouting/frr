@@ -32,6 +32,7 @@
 #include "linklist.h"
 #include "link_state.h"
 #include "cspf.h"
+#include "tc.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
@@ -1339,6 +1340,64 @@ DEFPY (no_sharp_interface_protodown,
 	return CMD_SUCCESS;
 }
 
+DEFPY (tc_filter_rate,
+       tc_filter_rate_cmd,
+       "sharp tc dev IFNAME$ifname \
+        source <A.B.C.D/M|X:X::X:X/M>$src \
+        destination <A.B.C.D/M|X:X::X:X/M>$dst \
+        ip-protocol <tcp|udp>$ip_proto \
+        src-port (1-65535)$src_port \
+        dst-port (1-65535)$dst_port \
+        rate RATE$ratestr",
+       SHARP_STR
+       "Traffic control\n"
+       "TC interface (for qdisc, class, filter)\n"
+       "TC interface name\n"
+       "TC filter source\n"
+       "TC filter source IPv4 prefix\n"
+       "TC filter source IPv6 prefix\n"
+       "TC filter destination\n"
+       "TC filter destination IPv4 prefix\n"
+       "TC filter destination IPv6 prefix\n"
+       "TC filter IP protocol\n"
+       "TC filter IP protocol TCP\n"
+       "TC filter IP protocol UDP\n"
+       "TC filter source port\n"
+       "TC filter source port\n"
+       "TC filter destination port\n"
+       "TC filter destination port\n"
+       "TC rate\n"
+       "TC rate number (bits/s) or rate string (suffixed with Bps or bit)\n")
+{
+	struct interface *ifp;
+	struct protoent *p;
+	uint64_t rate;
+
+	ifp = if_lookup_vrf_all(ifname);
+
+	if (!ifp) {
+		vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	p = getprotobyname(ip_proto);
+	if (!p) {
+		vty_out(vty, "Unable to convert %s to proto id\n", ip_proto);
+		return CMD_WARNING;
+	}
+
+	if (tc_getrate(ratestr, &rate) != 0) {
+		vty_out(vty, "Unable to convert %s to rate\n", ratestr);
+		return CMD_WARNING;
+	}
+
+	if (sharp_zebra_send_tc_filter_rate(ifp, src, dst, p->p_proto, src_port,
+					    dst_port, rate) != 0)
+		return CMD_WARNING;
+
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -1373,6 +1432,8 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &sharp_interface_protodown_cmd);
 	install_element(ENABLE_NODE, &no_sharp_interface_protodown_cmd);
+
+	install_element(ENABLE_NODE, &tc_filter_rate_cmd);
 
 	return;
 }
