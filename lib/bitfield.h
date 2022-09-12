@@ -158,6 +158,75 @@ DECLARE_MTYPE(BITFIELD);
 		(b) += (w * WORD_SIZE);                                        \
 	} while (0)
 
+/*
+ * Find a clear bit in v and return it
+ * Start looking in the word containing bit position start_index.
+ * If necessary, wrap around after bit position max_index.
+ */
+static inline unsigned int
+bf_find_next_clear_bit_wrap(bitfield_t *v, word_t start_index, word_t max_index)
+{
+	int start_bit;
+	unsigned long i, offset, scanbits, wordcount_max, index_max;
+
+	if (start_index > max_index)
+		start_index = 0;
+
+	start_bit = start_index & (WORD_SIZE - 1);
+	wordcount_max = bf_index(max_index) + 1;
+
+	scanbits = WORD_SIZE;
+	for (i = bf_index(start_index); i < v->m; ++i) {
+		if (v->data[i] == WORD_MAX) {
+			/* if the whole word is full move to the next */
+			start_bit = 0;
+			continue;
+		}
+		/* scan one word for clear bits */
+		if ((i == v->m - 1) && (v->m >= wordcount_max))
+			/* max index could be only part of word */
+			scanbits = (max_index % WORD_SIZE) + 1;
+		for (offset = start_bit; offset < scanbits; ++offset) {
+			if (!((v->data[i] >> offset) & 1))
+				return ((i * WORD_SIZE) + offset);
+		}
+		/* move to the next word */
+		start_bit = 0;
+	}
+
+	if (v->m < wordcount_max) {
+		/*
+		 * We can expand bitfield, so no need to wrap.
+		 * Return the index of the first bit of the next word.
+		 * Assumption is that caller will call bf_set_bit which
+		 * will allocate additional space.
+		 */
+		v->m += 1;
+		v->data = (word_t *)realloc(v->data, v->m * sizeof(word_t));
+		v->data[v->m - 1] = 0;
+		return v->m * WORD_SIZE;
+	}
+
+	/*
+	 * start looking for a clear bit at the start of the bitfield and
+	 * stop when we reach start_index
+	 */
+	scanbits = WORD_SIZE;
+	index_max = bf_index(start_index - 1);
+	for (i = 0; i <= index_max; ++i) {
+		if (i == index_max)
+			scanbits = ((start_index - 1) % WORD_SIZE) + 1;
+		for (offset = start_bit; offset < scanbits; ++offset) {
+			if (!((v->data[i] >> offset) & 1))
+				return ((i * WORD_SIZE) + offset);
+		}
+		/* move to the next word */
+		start_bit = 0;
+	}
+
+	return WORD_MAX;
+}
+
 static inline unsigned int bf_find_next_set_bit(bitfield_t v,
 		word_t start_index)
 {
