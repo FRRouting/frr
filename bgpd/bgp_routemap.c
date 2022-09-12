@@ -2270,6 +2270,8 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 			aspath_new, replace_asn, own_asn);
 	}
 
+	aspath_free(aspath_new);
+
 	return RMAP_OKAY;
 }
 
