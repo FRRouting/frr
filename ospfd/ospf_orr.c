@@ -47,7 +47,8 @@
 static void ospf_show_orr_root(struct orr_root *root);
 static void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi);
 static struct orr_root *ospf_orr_root_new(struct ospf *ospf, afi_t afi,
-					  safi_t safi, struct prefix *p)
+					  safi_t safi, struct prefix *p,
+					  char *group_name)
 {
 	struct list *orr_root_list = NULL;
 	struct orr_root *root = NULL;
@@ -64,11 +65,13 @@ static struct orr_root *ospf_orr_root_new(struct ospf *ospf, afi_t afi,
 	root->safi = safi;
 	prefix_copy(&root->prefix, p);
 	IPV4_ADDR_COPY(&root->router_id, &p->u.prefix4);
+	strlcpy(root->group_name, group_name, sizeof(root->group_name));
 	root->new_rtrs = NULL;
 	root->new_table = NULL;
 
-	ospf_orr_debug("%s: For %s %s, created ORR Root entry %pFX.", __func__,
-		       afi2str(afi), safi2str(safi), p);
+	ospf_orr_debug(
+		"%s: For %s %s, ORR Group %s, created ORR Root entry %pFX.",
+		__func__, afi2str(afi), safi2str(safi), root->group_name, p);
 
 	return root;
 }
@@ -195,8 +198,9 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 	safi = msg.safi;
 
 	ospf_orr_debug(
-		"%s: Received IGP metric %s message from BGP for location %pFX",
-		__func__, msg.reg ? "Register" : "Unregister", &msg.prefix);
+		"%s: Received IGP metric %s message from BGP for ORR Group %s from location %pFX",
+		__func__, msg.reg ? "Register" : "Unregister", msg.group_name,
+		&msg.prefix);
 
 	/* Get ORR Root entry for the given address-family */
 	root = ospf_orr_root_lookup(ospf, afi, safi, &msg.prefix.u.prefix4);
@@ -207,7 +211,8 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 
 	/* Create ORR Root entry and calculate SPF from root */
 	if (!root) {
-		root = ospf_orr_root_new(ospf, afi, safi, &msg.prefix);
+		root = ospf_orr_root_new(ospf, afi, safi, &msg.prefix,
+					 msg.group_name);
 		if (!root) {
 			ospf_orr_debug(
 				"%s: For %s %s, Failed to create ORR Root entry %pFX.",
@@ -233,7 +238,7 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 		}
 
 		/* Compute SPF for all root nodes */
-		ospf_spf_calculate_schedule(ospf, SPF_FLAG_ORR_ROOT_CHANGE);
+		ospf_orr_spf_calculate_schedule(ospf);
 	}
 	/* Delete ORR Root entry. SPF calculation not required. */
 	else {
@@ -278,6 +283,10 @@ void ospf_orr_igp_metric_send_update(struct orr_root *root,
 		if (or->type != OSPF_DESTINATION_NETWORK)
 			continue;
 
+		if (ospf_route_match_same(root->old_table,
+					  (struct prefix_ipv4 *)&rn->p, or))
+			continue;
+
 		if (count < ORR_MAX_PREFIX) {
 			prefix_copy(&msg.nexthop[count].prefix,
 				    (struct prefix_ipv4 *)&rn->p);
@@ -299,7 +308,7 @@ void ospf_orr_igp_metric_send_update(struct orr_root *root,
 			count++;
 		}
 	}
-	if (count <= ORR_MAX_PREFIX) {
+	if (count > 0 && count <= ORR_MAX_PREFIX) {
 		msg.num_entries = count;
 		ret = zclient_send_opaque(zclient, ORR_IGP_METRIC_UPDATE,
 					  (uint8_t *)&msg, sizeof(msg));
@@ -314,6 +323,9 @@ static void ospf_show_orr_root(struct orr_root *root)
 	if (!root)
 		return;
 
+	ospf_orr_debug("%s: Address Family: %s %s", __func__,
+		       afi2str(root->afi), safi2str(root->safi));
+	ospf_orr_debug("%s: ORR Group: %s", __func__, root->group_name);
 	ospf_orr_debug("%s: Router-Address: %pI4:", __func__, &root->router_id);
 	ospf_orr_debug("%s: Advertising Router: %pI4:", __func__,
 		       &root->adv_router);
@@ -330,8 +342,6 @@ static void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi)
 		if (!orr_root_list)
 			return;
 
-		ospf_orr_debug("%s: For Address Family %s %s:", __func__,
-			       afi2str(afi), safi2str(safi));
 		for (ALL_LIST_ELEMENTS_RO(orr_root_list, node, orr_root))
 			ospf_show_orr_root(orr_root);
 	}
@@ -412,26 +422,24 @@ void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa)
 	FOREACH_AFI_SAFI (afi, safi) {
 		root = ospf_orr_root_lookup_by_adv_rid(
 			lsa->area->ospf, afi, safi, &lsa->data->adv_router);
-		if (!root)
-			continue;
+		if (root) {
+			SET_FLAG(lsa->flags, OSPF_LSA_ORR);
+			ospf_refresher_register_lsa(lsa->area->ospf, lsa);
+			root->router_lsa_rcvd = lsa;
+		}
 
 		ospf_orr_debug("%s: Received LSA[Type%d:%pI4]", __func__,
 			       lsa->data->type, &lsa->data->adv_router);
 
-		root->router_lsa_rcvd = lsa;
 		/* Compute SPF for all root nodes */
-		ospf_spf_calculate_schedule(lsa->area->ospf,
-					    SPF_FLAG_ORR_ROOT_CHANGE);
+		ospf_orr_spf_calculate_schedule(lsa->area->ospf);
 		return;
 	}
 }
 
-/* Install routes to root table. */
+/* Do not Install routes to root table. Just update table ponters */
 void ospf_orr_route_install(struct orr_root *root, struct route_table *rt)
 {
-	struct route_node *rn;
-	struct ospf_route *or;
-
 	/*
 	 * rt contains new routing table, new_table contains an old one.
 	 * updating pointers
@@ -441,21 +449,68 @@ void ospf_orr_route_install(struct orr_root *root, struct route_table *rt)
 
 	root->old_table = root->new_table;
 	root->new_table = rt;
+}
 
-	/* Install new routes. */
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
-		or = rn->info;
-		if (or) {
-			if (or->type == OSPF_DESTINATION_NETWORK) {
-				if (!ospf_route_match_same(
-					    root->old_table,
-					    (struct prefix_ipv4 *)&rn->p, or)) {
-				}
-			} else if (or->type == OSPF_DESTINATION_DISCARD)
-				if (!ospf_route_match_same(
-					    root->old_table,
-					    (struct prefix_ipv4 *)&rn->p, or)) {
-				}
-		}
+void ospf_orr_spf_calculate_schedule(struct ospf *ospf)
+{
+	/* OSPF instance does not exist. */
+	if (ospf == NULL)
+		return;
+
+	/* No roots nodes rgistered for rSPF */
+	if (!ospf->orr_spf_request)
+		return;
+
+	/* ORR SPF calculation timer is already scheduled. */
+	if (ospf->t_orr_calc) {
+		ospf_orr_debug(
+			"SPF: calculation timer is already scheduled: %p",
+			(void *)ospf->t_orr_calc);
+		return;
 	}
+
+	ospf->t_orr_calc = NULL;
+
+	ospf_orr_debug("%s: SPF: calculation timer scheduled", __func__);
+
+	thread_add_timer(master, ospf_orr_spf_calculate_schedule_worker, ospf,
+			 OSPF_ORR_CALC_INTERVAL, &ospf->t_orr_calc);
+}
+
+void ospf_orr_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
+				 struct route_table *new_table,
+				 struct route_table *all_rtrs,
+				 struct route_table *new_rtrs,
+				 struct ospf_lsa *lsa_rcvd)
+{
+	ospf_spf_calculate(area, lsa_rcvd, new_table, all_rtrs, new_rtrs, false,
+			   true);
+}
+
+void ospf_orr_spf_calculate_areas(struct ospf *ospf,
+				  struct route_table *new_table,
+				  struct route_table *all_rtrs,
+				  struct route_table *new_rtrs,
+				  struct ospf_lsa *lsa_rcvd)
+{
+	struct ospf_area *area;
+	struct listnode *node, *nnode;
+
+	/* Calculate SPF for each area. */
+	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		/*
+		 * Do backbone last, so as to first discover intra-area paths
+		 * for any back-bone virtual-links
+		 */
+		if (ospf->backbone && ospf->backbone == area)
+			continue;
+
+		ospf_orr_spf_calculate_area(ospf, area, new_table, all_rtrs,
+					    new_rtrs, lsa_rcvd);
+	}
+
+	/* SPF for backbone, if required */
+	if (ospf->backbone)
+		ospf_orr_spf_calculate_area(ospf, ospf->backbone, new_table,
+					    all_rtrs, new_rtrs, lsa_rcvd);
 }

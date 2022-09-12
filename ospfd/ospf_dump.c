@@ -1605,17 +1605,21 @@ DEFPY (debug_ospf_client_api,
 
 DEFPY (debug_ospf_orr,
        debug_ospf_orr_cmd,
-       "[no$no] debug ospf orr",
+       "[no$no] debug ospf [(1-65535)$instance] orr",
        NO_STR
        DEBUG_STR
        OSPF_STR
+       "Instance ID\n"
        "OSPF ORR information\n")
 {
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
 	if (vty->node == CONFIG_NODE) {
 		if (no)
-			CONF_DEBUG_OFF(orr, ORR);
+			DEBUG_OFF(orr, ORR);
 		else
-			CONF_DEBUG_ON(orr, ORR);
+			DEBUG_ON(orr, ORR);
 	} else {
 		if (no)
 			TERM_DEBUG_OFF(orr, ORR);
