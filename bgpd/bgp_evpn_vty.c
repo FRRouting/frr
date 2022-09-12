@@ -6031,6 +6031,7 @@ DEFUN(no_bgp_evpn_ead_es_rt, no_bgp_evpn_ead_es_rt_cmd,
 
 	if (!bgp_evpn_rt_matches_existing(bgp_mh_info->ead_es_export_rtl,
 					  ecomdel)) {
+		ecommunity_free(&ecomdel);
 		vty_out(vty,
 			"%% RT specified does not match EAD-ES RT configuration\n");
 		return CMD_WARNING;
@@ -6165,6 +6166,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 
 	if (rt_type == RT_TYPE_IMPORT) {
 		if (!bgp_evpn_rt_matches_existing(vpn->import_rtl, ecomdel)) {
+			ecommunity_free(&ecomdel);
 			vty_out(vty,
 				"%% RT specified does not match configuration for this VNI\n");
 			return CMD_WARNING;
@@ -6172,6 +6174,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 		evpn_unconfigure_import_rt(bgp, vpn, ecomdel);
 	} else if (rt_type == RT_TYPE_EXPORT) {
 		if (!bgp_evpn_rt_matches_existing(vpn->export_rtl, ecomdel)) {
+			ecommunity_free(&ecomdel);
 			vty_out(vty,
 				"%% RT specified does not match configuration for this VNI\n");
 			return CMD_WARNING;
@@ -6191,6 +6194,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 		}
 
 		if (!found_ecomdel) {
+			ecommunity_free(&ecomdel);
 			vty_out(vty,
 				"%% RT specified does not match configuration for this VNI\n");
 			return CMD_WARNING;
