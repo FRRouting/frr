@@ -175,8 +175,8 @@ enum node_type {
 	FPM_NODE,		/* Dataplane FPM node. */
 	LINK_PARAMS_NODE,       /* Link-parameters node */
 	BGP_EVPN_VNI_NODE,      /* BGP EVPN VNI */
-	RPKI_NODE,	   /* RPKI node for configuration of RPKI cache server
-				connections.*/
+	/* RPKI node for configuration of RPKI cache server connections.*/
+	RPKI_NODE,
 	BGP_FLOWSPECV4_NODE, /* BGP IPv4 FLOWSPEC Address-Family */
 	BGP_FLOWSPECV6_NODE, /* BGP IPv6 FLOWSPEC Address-Family */
 	BFD_NODE,	    /* BFD protocol mode. */
