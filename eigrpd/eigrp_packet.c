@@ -727,8 +727,8 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 	if ((unsigned int)ret < sizeof(*iph)) /* ret must be > 0 now */
 	{
 		zlog_warn(
-			"eigrp_recv_packet: discarding runt packet of length %d (ip header size is %u)",
-			ret, (unsigned int)sizeof(*iph));
+			"%s: discarding runt packet of length %d (ip header size is %u)",
+			__func__, ret, (unsigned int)sizeof(*iph));
 		return NULL;
 	}
 
@@ -772,8 +772,8 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 
 	if (ret != ip_len) {
 		zlog_warn(
-			"eigrp_recv_packet read length mismatch: ip_len is %d, but recvmsg returned %d",
-			ip_len, ret);
+			"%s read length mismatch: ip_len is %d, but recvmsg returned %d",
+			__func__, ip_len, ret);
 		return NULL;
 	}
 
