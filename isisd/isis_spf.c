@@ -2281,86 +2281,86 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 	char buf_prefix[BUFSIZ];
 
 	(void)prefix2str(prefix, buf_prefix, sizeof(buf_prefix));
-	for (ALL_LIST_ELEMENTS_RO(rinfo->nexthops, node, nexthop)) {
-		struct interface *ifp;
-		char buf_iface[BUFSIZ];
-		char buf_nhop[BUFSIZ];
+		for (ALL_LIST_ELEMENTS_RO(rinfo->nexthops, node, nexthop)) {
+			struct interface *ifp;
+			char buf_iface[BUFSIZ];
+			char buf_nhop[BUFSIZ];
 
-		if (!no_adjacencies) {
-			inet_ntop(nexthop->family, &nexthop->ip, buf_nhop,
-				  sizeof(buf_nhop));
-			ifp = if_lookup_by_index(nexthop->ifindex, VRF_DEFAULT);
-			if (ifp)
-				strlcpy(buf_iface, ifp->name,
-					sizeof(buf_iface));
-			else
-				snprintf(buf_iface, sizeof(buf_iface),
-					 "ifindex %u", nexthop->ifindex);
-		} else {
-			strlcpy(buf_nhop, print_sys_hostname(nexthop->sysid),
-				sizeof(buf_nhop));
-			strlcpy(buf_iface, "-", sizeof(buf_iface));
-		}
-
-		if (prefix_sid) {
-			char buf_sid[BUFSIZ] = {};
-			char buf_lblop[BUFSIZ] = {};
-
-			if (nexthop->sr.present) {
-				snprintf(buf_sid, sizeof(buf_sid), "%u",
-					 nexthop->sr.sid.value);
-				sr_op2str(
-					buf_lblop, sizeof(buf_lblop),
-					rinfo->sr_algo[SR_ALGORITHM_SPF].label,
-					nexthop->sr.label);
+			if (!no_adjacencies) {
+				inet_ntop(nexthop->family, &nexthop->ip, buf_nhop,
+					  sizeof(buf_nhop));
+				ifp = if_lookup_by_index(nexthop->ifindex, VRF_DEFAULT);
+				if (ifp)
+					strlcpy(buf_iface, ifp->name,
+						sizeof(buf_iface));
+				else
+					snprintf(buf_iface, sizeof(buf_iface),
+						 "ifindex %u", nexthop->ifindex);
 			} else {
-				strlcpy(buf_sid, "-", sizeof(buf_sid));
-				strlcpy(buf_lblop, "-", sizeof(buf_lblop));
+				strlcpy(buf_nhop, print_sys_hostname(nexthop->sysid),
+					sizeof(buf_nhop));
+				strlcpy(buf_iface, "-", sizeof(buf_iface));
 			}
 
-			if (first) {
-				ttable_add_row(tt, "%s|%u|%s|%s|%s|%s",
-					       buf_prefix, rinfo->cost,
-					       buf_iface, buf_nhop, buf_sid,
-					       buf_lblop);
-				first = false;
-			} else
-				ttable_add_row(tt, "||%s|%s|%s|%s", buf_iface,
-					       buf_nhop, buf_sid, buf_lblop);
-		} else {
-			char buf_labels[BUFSIZ] = {};
+			if (prefix_sid) {
+				char buf_sid[BUFSIZ] = {};
+				char buf_lblop[BUFSIZ] = {};
 
-			if (nexthop->label_stack) {
-				for (int i = 0;
-				     i < nexthop->label_stack->num_labels;
-				     i++) {
-					char buf_label[BUFSIZ];
-
-					label2str(
-						nexthop->label_stack->label[i],
-						buf_label, sizeof(buf_label));
-					if (i != 0)
-						strlcat(buf_labels, "/",
-							sizeof(buf_labels));
-					strlcat(buf_labels, buf_label,
-						sizeof(buf_labels));
+				if (nexthop->sr.present) {
+					snprintf(buf_sid, sizeof(buf_sid), "%u",
+						 nexthop->sr.sid.value);
+					sr_op2str(
+						buf_lblop, sizeof(buf_lblop),
+						rinfo->sr_algo[SR_ALGORITHM_SPF].label,
+						nexthop->sr.label);
+				} else {
+					strlcpy(buf_sid, "-", sizeof(buf_sid));
+					strlcpy(buf_lblop, "-", sizeof(buf_lblop));
 				}
-			} else if (nexthop->sr.present)
-				label2str(nexthop->sr.label, buf_labels,
-					  sizeof(buf_labels));
-			else
-				strlcpy(buf_labels, "-", sizeof(buf_labels));
 
-			if (first) {
-				ttable_add_row(tt, "%s|%u|%s|%s|%s", buf_prefix,
-					       rinfo->cost, buf_iface, buf_nhop,
-					       buf_labels);
-				first = false;
-			} else
-				ttable_add_row(tt, "||%s|%s|%s", buf_iface,
-					       buf_nhop, buf_labels);
+				if (first) {
+					ttable_add_row(tt, "%s|%u|%s|%s|%s|%s",
+							   buf_prefix, rinfo->cost,
+							   buf_iface, buf_nhop, buf_sid,
+							   buf_lblop);
+					first = false;
+				} else
+					ttable_add_row(tt, "||%s|%s|%s|%s", buf_iface,
+							   buf_nhop, buf_sid, buf_lblop);
+			} else {
+				char buf_labels[BUFSIZ] = {};
+
+				if (nexthop->label_stack) {
+					for (int i = 0;
+						 i < nexthop->label_stack->num_labels;
+						 i++) {
+						char buf_label[BUFSIZ];
+
+						label2str(
+							nexthop->label_stack->label[i],
+							buf_label, sizeof(buf_label));
+						if (i != 0)
+							strlcat(buf_labels, "/",
+								sizeof(buf_labels));
+						strlcat(buf_labels, buf_label,
+							sizeof(buf_labels));
+					}
+				} else if (nexthop->sr.present)
+					label2str(nexthop->sr.label, buf_labels,
+						  sizeof(buf_labels));
+				else
+					strlcpy(buf_labels, "-", sizeof(buf_labels));
+
+				if (first) {
+					ttable_add_row(tt, "%s|%u|%s|%s|%s", buf_prefix,
+							   rinfo->cost, buf_iface, buf_nhop,
+							   buf_labels);
+					first = false;
+				} else
+					ttable_add_row(tt, "||%s|%s|%s", buf_iface,
+							   buf_nhop, buf_labels);
+			}
 		}
-	}
 	if (list_isempty(rinfo->nexthops)) {
 		if (prefix_sid) {
 			char buf_sid[BUFSIZ] = {};
