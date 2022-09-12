@@ -7438,31 +7438,21 @@ void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 static void bgp_aggregate_med_update(struct bgp_aggregate *aggregate,
 				     struct bgp *bgp, const struct prefix *p,
 				     afi_t afi, safi_t safi,
-				     struct bgp_path_info *pi, bool is_adding)
+				     struct bgp_path_info *pi)
 {
 	/* MED matching disabled. */
 	if (!aggregate->match_med)
 		return;
 
-	/* Aggregation with different MED, nothing to do. */
-	if (aggregate->med_mismatched)
-		return;
-
-	/*
-	 * Test the current entry:
-	 *
-	 * is_adding == true: if the new entry doesn't match then we must
-	 * install all suppressed routes.
-	 *
-	 * is_adding == false: if the entry being removed was the last
-	 * unmatching entry then we can suppress all routes.
+	/* Aggregation with different MED, recheck if we have got equal MEDs
+	 * now.
 	 */
-	if (!is_adding) {
-		if (bgp_aggregate_test_all_med(aggregate, bgp, p, afi, safi)
-		    && aggregate->summary_only)
-			bgp_aggregate_toggle_suppressed(aggregate, bgp, p, afi,
-							safi, true);
-	} else
+	if (aggregate->med_mismatched &&
+	    bgp_aggregate_test_all_med(aggregate, bgp, p, afi, safi) &&
+	    aggregate->summary_only)
+		bgp_aggregate_toggle_suppressed(aggregate, bgp, p, afi, safi,
+						true);
+	else
 		bgp_aggregate_med_match(aggregate, bgp, pi);
 
 	/* No mismatches, just quit. */
@@ -7828,7 +7818,7 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 	 */
 	if (aggregate->match_med)
 		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi,
-					 pinew, true);
+					 pinew);
 
 	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
 		aggr_suppress_path(aggregate, pinew);
@@ -7951,8 +7941,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 	 * "unsuppressing" twice.
 	 */
 	if (aggregate->match_med)
-		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi, pi,
-					 true);
+		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi, pi);
 
 	if (aggregate->count > 0)
 		aggregate->count--;
