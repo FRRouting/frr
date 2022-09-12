@@ -2646,8 +2646,6 @@ ospf_router_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
 	else if (ospf->orr_spf_request) {
 		ospf_lsa_unlock(&area->router_lsa_rcvd);
 		area->router_lsa_rcvd = ospf_lsa_lock(new);
-		SET_FLAG(new->flags, OSPF_LSA_ORR);
-		ospf_refresher_register_lsa(ospf, new);
 		ospf_orr_root_update_rcvd_lsa(area->router_lsa_rcvd);
 	}
 
@@ -2662,7 +2660,6 @@ static struct ospf_lsa *ospf_network_lsa_install(struct ospf *ospf,
 						 struct ospf_lsa *new,
 						 int rt_recalc)
 {
-
 	/* RFC 2328 Section 13.2 Router-LSAs and network-LSAs
 	   The entire routing table must be recalculated, starting with
 	   the shortest path calculations for each area (not just the
