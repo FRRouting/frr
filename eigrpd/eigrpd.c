@@ -163,7 +163,8 @@ static struct eigrp *eigrp_new(uint16_t as, vrf_id_t vrf_id)
 	if (eigrp->fd < 0) {
 		flog_err_sys(
 			EC_LIB_SOCKET,
-			"eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
+			"%s: fatal error: eigrp_sock_init was unable to open a socket",
+			__func__);
 		exit(1);
 	}
 
