@@ -77,16 +77,35 @@ void isis_flex_algo_data_free(void *voiddata)
 					data->spftree[tree][level - 1]);
 }
 
+static struct isis_router_cap_fad *isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected,
+		struct isis_router_cap_fad *fa) {
+	if (!elected ||
+			fa->fad.priority > elected->fad.priority ||
+			(fa->fad.priority == elected->fad.priority &&
+					lsp_id_cmp(fa->sysid, elected->sysid) > 0))
+		return fa;
+
+	return elected;
+}
+
 /**
  * @brief Look up the flex-algo definition with the highest priority in the LSP
  * Database (LSDB). If the value of priority is the same, the flex-algo
  * definition with the highest sysid will be selected.
  * @param algorithm flex-algo algorithm number
  * @param area pointer
+ * @param local router capability Flex-Algo Definition (FAD) double pointer.
+ *    - fad is NULL: use the local router capability FAD from LSDB for the
+ *      election.
+ *    - fad is not NULL and *fad is NULL: use no local router capability FAD for
+ *      the election.
+ *    - fad and *fad are not NULL: uses the *fad local definition instead of the
+ *      local definition from LSDB for the election.
  * @return elected flex-algo-definition object if exist, else NULL
  */
-struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
-						       struct isis_area *area)
+static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
+						       struct isis_area *area,
+							   struct isis_router_cap_fad **fad)
 {
 	struct isis_lsp *lsp;
 	struct isis_router_cap_fad *fa, *elected = NULL;
@@ -99,7 +118,11 @@ struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
 		if (!lsp->tlvs || !lsp->tlvs->router_cap)
 			continue;
 
+		if (lsp->own_lsp && fad)
+			continue;
+
 		fa = lsp->tlvs->router_cap->fads[algorithm];
+
 		if (!fa)
 			continue;
 
@@ -107,14 +130,19 @@ struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
 
 		memcpy(fa->sysid, lsp->hdr.lsp_id, ISIS_SYS_ID_LEN + 2);
 
-		if (!elected ||
-				fa->fad.priority > elected->fad.priority ||
-				(fa->fad.priority == elected->fad.priority &&
-						lsp_id_cmp(fa->sysid, elected->sysid) > 0))
-			elected = fa;
+		elected = isis_flex_algo_definition_cmp(elected, fa);
 	}
 
+	if (fad && *fad)
+		elected = isis_flex_algo_definition_cmp(elected, *fad);
+
 	return elected;
+}
+
+struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm,
+						       struct isis_area *area)
+{
+	return _isis_flex_algo_elected(algorithm, area, NULL);
 }
 
 /**
@@ -138,15 +166,17 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
  * @brief Look for the elected Flex-Algo Definition and check that it is
  * supported by the current FRR version
  * @param algorithm flex-algo algorithm number
- * @param area area pointer of flex-algo
+ * @param area pointer
+ * @param local router capability Flex-Algo Definition (FAD) double pointer.
  * @return elected flex-algo-definition object if exist and supported, else NULL
  */
-struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
-						       struct isis_area *area)
+static struct isis_router_cap_fad *_isis_flex_algo_elected_supported(int algorithm,
+						       struct isis_area *area,
+							   struct isis_router_cap_fad **fad)
 {
 	struct isis_router_cap_fad *elected_fad;
 
-	elected_fad = isis_flex_algo_elected(algorithm, area);
+	elected_fad = _isis_flex_algo_elected(algorithm, area, fad);
 	if (!elected_fad)
 		return NULL;
 
@@ -156,13 +186,26 @@ struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
 	return NULL;
 }
 
+struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
+						       struct isis_area *area)
+{
+	return _isis_flex_algo_elected_supported(algorithm, area, NULL);
+}
+
+struct isis_router_cap_fad *isis_flex_algo_elected_supported_local_fad(int algorithm,
+						       struct isis_area *area, struct isis_router_cap_fad **fad)
+{
+	return _isis_flex_algo_elected_supported(algorithm, area, fad);
+}
+
 bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 				    struct isis_ext_subtlvs *subtlvs)
 {
 	bool ret;
 	struct isis_router_cap_fad *fad;
 
-	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area);
+	fad = isis_flex_algo_elected_supported(spftree->algorithm,
+			spftree->area);
 	if (!fad)
 		return true;
 
