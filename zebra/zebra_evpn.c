@@ -113,6 +113,9 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 CPP_NOTICE("Drop `vrf` from JSON output")
 #endif
 		json_object_string_add(json, "vrf", vrf_id_to_name(zevpn->vrf_id));
+		json_object_int_add(json, "vlan", zevpn->vid);
+		json_object_string_add(json, "bridge",
+				       zevpn->bridge_if ? zevpn->bridge_if->name : "");
 		json_object_string_add(json, "tenantVrf", vrf_id_to_name(zevpn->vrf_id));
 	}
 
