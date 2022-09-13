@@ -1443,7 +1443,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_DEBUG_KERNEL) /* remove this line to see initial ifcfg */
 	{
 		char buf[BUFSIZ];
-		zlog_debug("netlink_interface_addr %s %s flags 0x%x:",
+		zlog_debug("%s %s %s flags 0x%x:", __func__,
 			   nl_msg_type_to_str(h->nlmsg_type), ifp->name,
 			   kernel_flags);
 		if (tb[IFA_LOCAL])
@@ -1818,7 +1818,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* assume if not default zns, then new VRF */
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
-		zlog_debug("netlink_link_change: wrong kernel message %s",
+		zlog_debug("%s: wrong kernel message %s", __func__,
 			   nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
