@@ -1001,6 +1001,40 @@ static struct isis_lsp *lsp_next_frag(uint8_t frag_num, struct isis_lsp *lsp0,
 	return lsp;
 }
 
+
+static void
+isis_lsp_set_router_capability_fad(struct isis_area *area,
+				   struct isis_router_cap_fad *rcap_fad,
+				   struct flex_algo *fa)
+{
+	memset(rcap_fad->sysid, 0, ISIS_SYS_ID_LEN + 2);
+	memcpy(rcap_fad->sysid, area->isis->sysid, ISIS_SYS_ID_LEN);
+
+	rcap_fad->fad.algorithm = fa->algorithm;
+	rcap_fad->fad.metric_type = fa->metric_type;
+	rcap_fad->fad.calc_type = fa->calc_type;
+	rcap_fad->fad.priority = fa->priority;
+	rcap_fad->fad.m_flag = fa->m_flag;
+
+	rcap_fad->fad.admin_group_exclude_any.bitmap.data = NULL;
+	rcap_fad->fad.admin_group_exclude_any.bitmap.n = 0;
+	rcap_fad->fad.admin_group_exclude_any.bitmap.m = 0;
+	rcap_fad->fad.admin_group_include_any.bitmap.data = NULL;
+	rcap_fad->fad.admin_group_include_any.bitmap.n = 0;
+	rcap_fad->fad.admin_group_include_any.bitmap.m = 0;
+	rcap_fad->fad.admin_group_include_all.bitmap.data = NULL;
+	rcap_fad->fad.admin_group_include_all.bitmap.n = 0;
+	rcap_fad->fad.admin_group_include_all.bitmap.m = 0;
+
+	admin_group_copy(&rcap_fad->fad.admin_group_exclude_any,
+			 &fa->admin_group_exclude_any);
+	admin_group_copy(&rcap_fad->fad.admin_group_include_any,
+			 &fa->admin_group_include_any);
+	admin_group_copy(&rcap_fad->fad.admin_group_include_all,
+			 &fa->admin_group_include_all);
+}
+
+
 /*
  * Builds the LSP data part. This func creates a new frag whenever
  * area->lsp_frag_threshold is exceeded.
@@ -1078,6 +1112,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	/* Add Router Capability TLV. */
 	if (area->isis->router_id != 0) {
 		struct isis_router_cap cap = {};
+		struct isis_router_cap_fad cap_fad[SR_ALGORITHM_COUNT] = {};
+		struct isis_router_cap_fad *rcap_fad;
 		struct listnode *node;
 		struct flex_algo *fa;
 
@@ -1104,6 +1140,17 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.algo[1] = SR_ALGORITHM_UNSET;
 			for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos,
 						  node, fa)) {
+				if (fa->advertise_definition) {
+					isis_lsp_set_router_capability_fad(
+						area, &cap_fad[fa->algorithm],
+						fa);
+					rcap_fad = &cap_fad[fa->algorithm];
+				} else
+					rcap_fad = NULL;
+
+				if (!isis_flex_algo_elected_supported_local_fad(
+					    fa->algorithm, area, &rcap_fad))
+					continue;
 				lsp_debug("ISIS (%s):   SR Algorithm %u",
 					  area->area_tag, fa->algorithm);
 				cap.algo[fa->algorithm] = fa->algorithm;
@@ -1126,8 +1173,9 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				continue;
 			lsp_debug("ISIS (%s):   Flex-Algo Definition %u",
 				  area->area_tag, fa->algorithm);
-			isis_tlvs_set_router_capability_fad(area, lsp->tlvs,
-							    fa);
+			isis_tlvs_set_router_capability_fad(
+				lsp->tlvs, &cap_fad[fa->algorithm],
+				fa->algorithm);
 		}
 	}
 

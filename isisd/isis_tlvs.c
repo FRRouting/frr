@@ -6153,44 +6153,18 @@ void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
 	*tlvs->router_cap = *cap;
 }
 
-void isis_tlvs_set_router_capability_fad(struct isis_area *area,
-					 struct isis_tlvs *tlvs,
-					 struct flex_algo *fa)
+void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs,
+					 struct isis_router_cap_fad *fad,
+					 int algorithm)
 {
-	struct isis_router_cap_fad *rcap_fad;
-
 	assert(tlvs->router_cap);
 
-	if (tlvs->router_cap->fads[fa->algorithm])
-		rcap_fad = tlvs->router_cap->fads[fa->algorithm];
-	else {
-		rcap_fad = XCALLOC(MTYPE_ISIS_TLV,
-				   sizeof(struct isis_router_cap_fad));
-		tlvs->router_cap->fads[fa->algorithm] = rcap_fad;
-	}
+	if (!tlvs->router_cap->fads[algorithm])
+		tlvs->router_cap->fads[algorithm] = XCALLOC(
+			MTYPE_ISIS_TLV, sizeof(struct isis_router_cap_fad));
 
-	rcap_fad->fad.algorithm = fa->algorithm;
-	rcap_fad->fad.metric_type = fa->metric_type;
-	rcap_fad->fad.calc_type = fa->calc_type;
-	rcap_fad->fad.priority = fa->priority;
-	rcap_fad->fad.m_flag = fa->m_flag;
-
-	rcap_fad->fad.admin_group_exclude_any.bitmap.data = NULL;
-	rcap_fad->fad.admin_group_exclude_any.bitmap.n = 0;
-	rcap_fad->fad.admin_group_exclude_any.bitmap.m = 0;
-	rcap_fad->fad.admin_group_include_any.bitmap.data = NULL;
-	rcap_fad->fad.admin_group_include_any.bitmap.n = 0;
-	rcap_fad->fad.admin_group_include_any.bitmap.m = 0;
-	rcap_fad->fad.admin_group_include_all.bitmap.data = NULL;
-	rcap_fad->fad.admin_group_include_all.bitmap.n = 0;
-	rcap_fad->fad.admin_group_include_all.bitmap.m = 0;
-
-	admin_group_copy(&rcap_fad->fad.admin_group_exclude_any,
-			 &fa->admin_group_exclude_any);
-	admin_group_copy(&rcap_fad->fad.admin_group_include_any,
-			 &fa->admin_group_include_any);
-	admin_group_copy(&rcap_fad->fad.admin_group_include_all,
-			 &fa->admin_group_include_all);
+	memcpy(tlvs->router_cap->fads[algorithm], fad,
+	       sizeof(struct isis_router_cap_fad));
 }
 
 int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap)
