@@ -341,6 +341,8 @@ BGP
   :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
 - :rfc:`5575`
   :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009`
+- :rfc:`5668`
+  :t:`4-Octet AS Specific BGP Extended Community. Y. Rekhter, S. Sangli, D. Tappan October 2009`
 - :rfc:`6286`
   :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan, June 2011.`
 - :rfc:`6608`
@@ -367,6 +369,8 @@ BGP
   :t:`BLACKHOLE Community. T. King, C. Dietzel, J. Snijders, G. Doering, G. Hankins. Oct 2016.`
 - :rfc:`8092`
   :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
+- :rfc:`8097`
+  :t:`BGP Prefix Origin Validation State Extended Community. P. Mohapatra, K. Patel, J. Scudder, D. Ward, R. Bush. March 2017`
 - :rfc:`8195`
   :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
 - :rfc:`8203`
