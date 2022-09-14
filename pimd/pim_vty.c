@@ -66,12 +66,12 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug igmp packets\n");
 		++writes;
 	}
-	/* PIM_DEBUG_IGMP_TRACE catches _DETAIL too */
+	/* PIM_DEBUG_GM_TRACE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_GM_TRACE) {
 		vty_out(vty, "debug igmp trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+	if (PIM_DEBUG_GM_TRACE_DETAIL) {
 		vty_out(vty, "debug igmp trace detail\n");
 		++writes;
 	}
