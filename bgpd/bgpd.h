@@ -1456,6 +1456,7 @@ struct peer {
 #define PEER_STATUS_EORR_RECEIVED (1U << 10) /* EoRR received from peer */
 /* LLGR aware peer */
 #define PEER_STATUS_LLGR_WAIT (1U << 11)
+#define PEER_STATUS_REFRESH_PENDING (1U << 12) /* refresh request from peer */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
