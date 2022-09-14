@@ -55,6 +55,8 @@ int isis_zebra_fae_ready_send(const struct isis_area *const area, bool ready)
 		   area->area_tag, ready ? "true" : "false");
 #endif
 	_mk_igp_discriminator(area, &igp_disc);
+	if (!zclient)
+		return -1;
 	return zapi_fae_ready_send(zclient, ready, &igp_disc);
 }
 
@@ -182,6 +184,19 @@ int isis_zebra_fae_process_client_ready(struct stream *s)
 	isis_fae_process_client_ready(&client_daemon_id);
 	return ret;
 
+}
+
+void isis_zebra_fae_ready(void)
+{
+	struct isis *isis;
+	struct listnode *node, *anode;
+	struct isis_area *area;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area))
+			isis_zebra_fae_ready_send(
+				(const struct isis_area *)area,
+				ZAPI_FAE_IS_READY);
 }
 
 #endif /* !FABRICD */

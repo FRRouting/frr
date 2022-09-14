@@ -36,5 +36,6 @@ int isis_zebra_fae_update_send(
 int isis_zebra_fae_process_register(struct stream *s);
 int isis_zebra_fae_process_unregister(struct stream *s);
 int isis_zebra_fae_process_client_ready(struct stream *s);
+void isis_zebra_fae_ready(void);
 
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

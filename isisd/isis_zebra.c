@@ -748,6 +748,10 @@ static void isis_zebra_connected(struct zclient *zclient)
 	zclient_register_opaque(zclient, FAE_UNREGISTER);
 	zclient_register_opaque(zclient, FAE_CLIENT_READY);
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+
+#ifndef FABRICD
+	isis_zebra_fae_ready();
+#endif /* !FABRICD */
 }
 
 /**
