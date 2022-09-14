@@ -15,7 +15,7 @@ from topotato.v1 import *
 
 
 @topology_fixture()
-def allproto_topo(topo):
+def bgp_comm_list_delete_topo(topo):
     """
     [ r1 ]
       |
@@ -83,7 +83,7 @@ class Configs(FRRConfigs):
 
 
 @config_fixture(Configs)
-def configs(config):
+def configs(config, bgp_comm_list_delete_topo):
     return config
 
 
@@ -97,7 +97,7 @@ class BGPCommListDeleteTest(TestBase):
     instancefn = testenv
 
     @topotatofunc
-    def _bgp_converge_bgpstate(self, r1, r2):
+    def _bgp_converge_bgpstate(self, topo, r1, r2):
 
         expected = {str(r1.ifaces[0].ip4[0].ip): {"bgpState": "Established"}}
         print(r1.__dict__)
@@ -110,7 +110,7 @@ class BGPCommListDeleteTest(TestBase):
         )
 
     @topotatofunc
-    def _bgp_converge_prefixCounter(self, r1, r2):
+    def _bgp_converge_prefixCounter(self, topo, r1, r2):
 
         expected = {
             str(r1.ifaces[0].ip4[0].ip): {
@@ -127,7 +127,7 @@ class BGPCommListDeleteTest(TestBase):
         )
 
     @topotatofunc
-    def _bgp_comm_list_delete(self, r1, r2):
+    def _bgp_comm_list_delete(self, topo, r1, r2):
 
         expected = {
             "paths": [{"community": {"list": ["111:111", "222:222", "444:444"]}}]
