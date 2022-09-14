@@ -54,6 +54,7 @@ from lib.common_config import (
     reset_config_on_routers,
     create_static_routes,
     check_router_status,
+    apply_raw_config,
 )
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
@@ -892,6 +893,12 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
 
     step(" BGP Daemon restart operation")
     routers = ["r1", "r2"]
+
+    # set route-map delay timer to reduce convergence time.
+    apply_raw_config(
+        tgen, {r: {"raw_config": ["bgp route-map delay-timer 1"]} for r in routers}
+    )
+
     for dut in routers:
         step(
             "Restart BGPD process on {}, when all the processes are running use watchfrr ".format(
@@ -909,6 +916,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
             dut="r2",
             routes=DEFAULT_ROUTES,
             expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+            expect_both=False,
             expected=False,
         )
         assert (
@@ -940,7 +948,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
             dut="r2",
             routes=DEFAULT_ROUTES,
             expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R1,
-            expected=False,
+            expected=True,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
