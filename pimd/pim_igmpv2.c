@@ -34,7 +34,7 @@
 static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr from)
 {
-	if (PIM_DEBUG_IGMP_TRACE) {
+	if (PIM_DEBUG_GM_TRACE) {
 		char from_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<from?>", from, from_str, sizeof(from_str));
 		zlog_debug("%s: from %s on %s", label, from_str, ifp->name);
