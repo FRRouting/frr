@@ -7,14 +7,17 @@ Random utility functions for use in topotato.
 
 # TODO: this needs another round of cleanup, and JSONCompare split off.
 
-import re
-import json
-import difflib
+import sys
 import os
+import re
 import logging
+import traceback
+import subprocess
+import atexit
 import shlex
 import fcntl
-import atexit
+import json
+import difflib
 
 from typing import List, Union
 
@@ -686,3 +689,42 @@ class AtomicPublishFile:
             except OSError:
                 # already handling some exception, don't make things confusing
                 pass
+
+
+class Forked:
+    """
+    Context manager to execute some code in a forked child process.
+
+    Use as::
+
+       with Forked('text for exception') as is_child:
+           if is_child:
+               ...
+
+    The parent process will wait for the child code to complete executing.
+    If the exit code is nonzero, subprocess.CalledProcessError will be raised.
+    Any exception in the child is printed and converted into exit code 1.
+
+    Used in topotato to fork+exec some pieces in namespaces where nsenter is
+    not a good fit.
+    """
+    def __init__(self, cmd):
+        self.cmd = cmd
+        self.childpid = None
+
+    def __enter__(self):
+        self.childpid = os.fork()
+        return self.childpid == 0
+
+    def __exit__(self, typ_, value, tb):
+        if self.childpid:
+            _, status = os.waitpid(self.childpid, 0)
+            ec = os.waitstatus_to_exitcode(status)
+            if ec != 0:
+                raise subprocess.CalledProcessError(ec, self.cmd)
+        elif typ_ is None:
+            os._exit(0)
+        else:
+            sys.stderr.write('Exception in forked child:\n')
+            traceback.print_exception(typ_, value, tb)
+            os._exit(1)
