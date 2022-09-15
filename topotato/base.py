@@ -50,7 +50,6 @@ if typing.TYPE_CHECKING:
     from .timeline import Timeline
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 
 class _SkipTrace(set):

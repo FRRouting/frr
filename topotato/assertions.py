@@ -60,7 +60,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 
 class TopotatoAssertion(TopotatoItem):

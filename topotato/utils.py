@@ -24,7 +24,6 @@ from typing import List, Union
 from .exceptions import TopotatoCLICompareFail
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 _wsp_re = re.compile(r"^[ \t]+")
 

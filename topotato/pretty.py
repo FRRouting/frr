@@ -43,7 +43,6 @@ else:
 
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 jenv = jinja2.Environment(
     loader=jinja2.PackageLoader("topotato.pretty", "html"),
