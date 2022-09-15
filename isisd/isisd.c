@@ -3205,6 +3205,15 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 #endif /* ifndef FABRICD */
 }
 
+void isis_area_overload_on_startup_set(struct isis_area *area,
+				       uint32_t startup_time)
+{
+	if (area->overload_on_startup_time != startup_time)
+		area->overload_on_startup_time = startup_time;
+
+	// TODO: Implement overload on startup functionality
+}
+
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit)
 {
 

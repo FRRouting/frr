@@ -181,6 +181,7 @@ struct isis_area {
 	/* are we overloaded? */
 	char overload_bit;
 	uint32_t overload_counter;
+	uint32_t overload_on_startup_time;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -289,6 +290,8 @@ void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
+void isis_area_overload_on_startup_set(struct isis_area *area,
+				       uint32_t startup_time);
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit);
 void isis_area_attached_bit_receive_set(struct isis_area *area,
 					bool attached_bit);
