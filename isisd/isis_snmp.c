@@ -35,6 +35,7 @@
 #include "command.h"
 #include "memory.h"
 #include "smux.h"
+#include "zclient.h"
 #include "libfrr.h"
 #include "lib/version.h"
 #include "lib/zclient.h"
