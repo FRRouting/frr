@@ -526,6 +526,11 @@ DEFUN (neighbor_bfd_check_controlplane_failure,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (!peer->bfd_config) {
+		vty_out(vty, "%% Enable bfd for this neighbor first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		bgp_group_configure_bfd(peer);
 	else
@@ -585,6 +590,11 @@ DEFUN(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!peer->bfd_config) {
+		vty_out(vty, "%% Enable bfd for this neighbor first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		bgp_group_configure_bfd(peer);
