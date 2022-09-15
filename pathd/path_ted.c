@@ -385,7 +385,7 @@ DEFUN (no_path_ted,
        "Disable the TE Database functionality\n")
 /* clang-format on */
 {
-	if (ted_state_g.enabled) {
+	if (!ted_state_g.enabled) {
 		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
 		return CMD_SUCCESS;
 	}
