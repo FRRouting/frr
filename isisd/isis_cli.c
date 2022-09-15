@@ -404,7 +404,7 @@ DEFPY_YANG(set_overload_bit, set_overload_bit_cmd, "[no] set-overload-bit",
       "Reset overload bit to accept transit traffic\n"
       "Set overload bit to avoid any transit traffic\n")
 {
-	nb_cli_enqueue_change(vty, "./overload", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./overload/enabled", NB_OP_MODIFY,
 			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -416,6 +416,42 @@ void cli_show_isis_overload(struct vty *vty, const struct lyd_node *dnode,
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
 	vty_out(vty, " set-overload-bit\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/overload/on-startup
+ */
+DEFPY_YANG(set_overload_bit_on_startup, set_overload_bit_on_startup_cmd,
+	   "set-overload-bit on-startup (0-86400)$val",
+	   "Set overload bit to avoid any transit traffic\n"
+	   "Set overload bit on startup\n"
+	   "Set overload time in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./overload/on-startup", NB_OP_MODIFY,
+			      val_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_set_overload_bit_on_startup, no_set_overload_bit_on_startup_cmd,
+	   "no set-overload-bit on-startup [(0-86400)$val]",
+	   NO_STR
+	   "Reset overload bit to accept transit traffic\n"
+	   "Set overload bit on startup\n"
+	   "Set overload time in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./overload/on-startup", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_overload_on_startup(struct vty *vty,
+				       const struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, " set-overload-bit on-startup %s\n",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -3107,6 +3143,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &dynamic_hostname_cmd);
 
 	install_element(ISIS_NODE, &set_overload_bit_cmd);
+	install_element(ISIS_NODE, &set_overload_bit_on_startup_cmd);
+	install_element(ISIS_NODE, &no_set_overload_bit_on_startup_cmd);
+
 	install_element(ISIS_NODE, &attached_bit_send_cmd);
 	install_element(ISIS_NODE, &attached_bit_receive_ignore_cmd);
 

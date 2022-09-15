@@ -81,11 +81,18 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/overload",
+			.xpath = "/frr-isisd:isis/instance/overload/enabled",
 			.cbs = {
 				.cli_show = cli_show_isis_overload,
-				.modify = isis_instance_overload_modify,
-			},
+				.modify = isis_instance_overload_enabled_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/overload/on-startup",
+			.cbs = {
+				.cli_show = cli_show_isis_overload_on_startup,
+				.modify = isis_instance_overload_on_startup_modify,
+			}
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",

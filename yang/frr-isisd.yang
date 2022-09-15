@@ -1066,11 +1066,25 @@ module frr-isisd {
           "If true, identify as L1/L2 router for inter-area traffic.";
       }
 
-      leaf overload {
-        type boolean;
-        default "false";
+      container overload {
         description
-          "If true, avoid any transit traffic.";
+          "Overload bit configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "If true, avoid any transit traffic.";
+        }
+
+        leaf on-startup {
+          type uint32 {
+            range "0..86400";
+          }
+          units "seconds";
+          default "0";
+          description
+            "The duration the overload bit should be set on startup.";
+        }
       }
 
       leaf metric-style {
