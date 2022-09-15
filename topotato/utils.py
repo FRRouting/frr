@@ -545,7 +545,7 @@ class LockedFile:
         try:
 
             def _opener(path, flags):
-                return os.open(path, flags, dir_fd=self._dir_fd)
+                return os.open(path, flags, mode=0o666, dir_fd=self._dir_fd)
 
             # pylint: disable=unspecified-encoding,consider-using-with
             self._fd = open(tmpname, "w", opener=_opener)
@@ -660,7 +660,7 @@ class AtomicPublishFile:
 
     def __enter__(self):
         def _opener(path, flags):
-            return os.open(path, flags, dir_fd=self._dir_fd)
+            return os.open(path, flags, mode=0o666, dir_fd=self._dir_fd)
 
         # pylint: disable=unspecified-encoding
         self._fd = open(self._tmpname, *self._args, opener=_opener, **self._kwargs)
@@ -708,6 +708,7 @@ class Forked:
     Used in topotato to fork+exec some pieces in namespaces where nsenter is
     not a good fit.
     """
+
     def __init__(self, cmd):
         self.cmd = cmd
         self.childpid = None
@@ -725,6 +726,6 @@ class Forked:
         elif typ_ is None:
             os._exit(0)
         else:
-            sys.stderr.write('Exception in forked child:\n')
+            sys.stderr.write("Exception in forked child:\n")
             traceback.print_exception(typ_, value, tb)
             os._exit(1)
