@@ -13,6 +13,7 @@ from ctypes.util import find_library
 import shlex
 import traceback
 import logging
+import argparse
 import cmd
 import atexit
 import readline
@@ -23,11 +24,11 @@ from typing import (
     Optional,
 )
 
-import pyinotify
+import pyinotify  # type: ignore
 
 from .watch import WatchedSession
 
-_logger = logging.getLogger("potatool" if __name__ == "__main__" else __name__)
+# _logger = logging.getLogger("potatool" if __name__ == "__main__" else __name__)
 
 
 class PotatoolSession(WatchedSession):
@@ -59,10 +60,6 @@ class PotatoolSession(WatchedSession):
                 if cls.sel_rtr.pid is None:
                     # never select dead router
                     cls.sel_rtr = None
-
-        _logger.debug(
-            "selection: %d, %r, %r", len(cls.running), cls.sel_sess, cls.sel_rtr
-        )
 
     @classmethod
     def session_started(cls, inst):
@@ -152,7 +149,9 @@ class PotatoolShell(cmd.Cmd):
 rl_callback_fn = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
 rl_command_fn = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int)
 
-libreadline = ctypes.cdll.LoadLibrary(find_library("readline"))
+rl_name = find_library("readline")
+assert rl_name is not None
+libreadline = ctypes.cdll.LoadLibrary(rl_name)
 libreadline.rl_callback_handler_install.argtypes = [ctypes.c_char_p, rl_callback_fn]
 libreadline.rl_bind_key.argtypes = [ctypes.c_char, rl_command_fn]
 
@@ -161,8 +160,27 @@ def main():
     logging.basicConfig(
         format="%(asctime)s.%(msecs)03d %(levelname)s: %(message)s",
         datefmt="%H:%M:%S",
-        level=logging.INFO,
+        level=logging.WARNING,
     )
+
+    argp = argparse.ArgumentParser(description="🔝🥔 interactive utility")
+    argp.add_argument("-s", "--session", type=str, help="select session by name")
+    argp.add_argument("-r", "--router", type=str, help="select router")
+    argp.add_argument("CMD", nargs="*", help="execute potatool shell command")
+    args = argp.parse_args()
+
+    shell = PotatoolShell()
+
+    PotatoolSession.want_sess = args.session
+    PotatoolSession.want_rtr = args.router
+
+    if args.CMD:
+        # non-interactive mode
+        PotatoolSession.load()
+        shell.onecmd(shlex.join(args.CMD))
+        sys.exit(0)
+
+    logging.getLogger().setLevel(logging.DEBUG)
 
     wm = pyinotify.WatchManager()
     notifier = pyinotify.Notifier(wm)
@@ -258,8 +276,6 @@ def main():
 
     _rl_prompt = rl_prompt()
     libreadline.rl_callback_handler_install(_rl_prompt, rl_cbfn)
-
-    shell = PotatoolShell()
 
     while running:
         ready = poller.poll()
