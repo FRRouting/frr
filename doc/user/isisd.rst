@@ -452,8 +452,7 @@ IS-IS uses by default the `Shortest-Path-First` algorithm that basically
 calculates paths based on the shortest total metric to the destinations.
 Flex-Algo allows new algorithms to run in parallel to compute paths in different
 manners, based on metrics (IGP metric or a new type of metrics such as Traffic
-Engineering (TE) metric and minimum delay...) and constraints. New metric types
-are not yet implemented but constraints are already operational. Constraints can
+Engineering (TE) metric and minimum delay...) and constraints. Constraints can
 restrict paths to links with specific affinities or avoid links with specific
 affinities. Combinations of these are also possible.
 
@@ -468,9 +467,9 @@ have the following characteristics:
 
 - the calculation type (only the `Shortest-Path-First` is currently supported)
 
-- the metric type (only the IGP inherited metric type is currently supported)
+- the metric type
 
-- some additional flags (not supported for the moment).
+- the prefix-metric flag (aka. M-Flag).
 
 A subset of routers advertises the Flex-Algo Definitions (FAD) to the other
 routers within an area. In order to use a common set of FADs, each router runs a
@@ -539,9 +538,22 @@ The following commands configure Flex-Algo at the 'router isis' and
 
    Set the 'metric-type' for the current FAD. 'igp' is
    the default value and refers to the classic 'Shortest-Path-First' algorithm.
-   If the 'te' or the 'delay' metric is selected, the value is advertised but
-   the flex algorithm is disabled locally because these types are not currently
-   supported.
+
+   When a FAD with a 'delay' type of metric is elected, the minimum delay value
+   in the wide format is used as the metric. If there is no valid minimum delay
+   value on a link, the maximum wide metric value (2^24 -1) is used. Note that
+   configuring a delay value without a 'min' and 'max' only sets an average
+   delay value.
+
+   When a FAD with a 'te' type of metric is elected, the TE metric value in the
+   wide format is used as the metric. If there is no TE metric value or the TE
+   metric is in the narrow format, the maximum wide metric value (2^24 -1) is
+   used. The TE metric refers to the 'metric' value of the 'interface'
+   'link-params' section.
+
+.. seealso::
+
+   :ref:`link-parameters-commands`
 
 .. clicmd:: no metric-type
 
