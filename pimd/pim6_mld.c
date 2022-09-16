@@ -1609,7 +1609,7 @@ static void gm_t_recv(struct thread *t)
 	char rxbuf[2048];
 	struct msghdr mh[1] = {};
 	struct iovec iov[1];
-	struct sockaddr_in6 pkt_src[1];
+	struct sockaddr_in6 pkt_src[1] = {};
 	ssize_t nread;
 	size_t pktlen;
 
