@@ -1969,6 +1969,8 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 	enum json_type type;
 	json_object *json = NULL;
 	json_object *json_tmp = NULL;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	json = json_object_new_object();
 
@@ -1985,8 +1987,12 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 	if (uj) {
 		vty_json(vty, json);
 	} else {
-		vty_out(vty,
-			"Interface         Address          Source           Group            Membership\n");
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Address|Source|Group|Membership");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 
 		/*
 		 * Example of the json data we are traversing
@@ -2023,34 +2029,40 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 				type = json_object_get_type(if_field_val);
 
 				if (type == json_type_object) {
-					vty_out(vty, "%-16s  ", key);
+					const char *address, *source,
+						*localMembership;
 
 					json_object_object_get_ex(
 						val, "address", &json_tmp);
-					vty_out(vty, "%-15s  ",
-						json_object_get_string(
-							json_tmp));
+					address = json_object_get_string(
+						json_tmp);
 
 					json_object_object_get_ex(if_field_val,
 								  "source",
 								  &json_tmp);
-					vty_out(vty, "%-15s  ",
-						json_object_get_string(
-							json_tmp));
-
-					/* Group */
-					vty_out(vty, "%-15s  ", if_field_key);
+					source = json_object_get_string(
+						json_tmp);
 
 					json_object_object_get_ex(
 						if_field_val, "localMembership",
 						&json_tmp);
-					vty_out(vty, "%-10s\n",
+					localMembership =
 						json_object_get_string(
-							json_tmp));
+							json_tmp);
+
+					ttable_add_row(tt, "%s|%s|%s|%s|%s",
+						       key, address, source,
+						       if_field_key,
+						       localMembership);
 				}
 			}
 		}
 		json_object_free(json);
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
