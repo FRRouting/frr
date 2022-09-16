@@ -883,7 +883,7 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 		return pim_ifp->update_source;
 
 #if PIM_IPV == 6
-	if (pim_ifp)
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->ll_highest))
 		return pim_ifp->ll_highest;
 
 	pim_addr best_addr = PIMADDR_ANY;
