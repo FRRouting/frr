@@ -1260,6 +1260,13 @@ static struct cmd_node srte_policy_node = {
 	.prompt = "%s(config-sr-te-policy)# ",
 };
 
+static struct cmd_node srte_policy_template_node = {
+	.name = "srte policy template",
+	.node = SR_POLICY_TEMPLATE_NODE,
+	.parent_node = SR_TRAFFIC_ENG_NODE,
+	.prompt = "%s(config-sr-te-policy-template)# ",
+};
+
 static struct cmd_node srte_candidate_dyn_node = {
 	.name = "srte candidate-dyn",
 	.node = SR_CANDIDATE_DYN_NODE,
@@ -2234,6 +2241,16 @@ DEFUNSH(VTYSH_PATHD, srte_segment_list, srte_segment_list_cmd,
 	"Segment List Name\n")
 {
 	vty->node = SR_SEGMENT_LIST_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, srte_policy_template, srte_policy_template_cmd,
+	"policy-template color (0-4294967295)",
+	"Segment Routing Policy Template\n"
+	"SR Policy color\n"
+	"SR Policy color value\n")
+{
+	vty->node = SR_POLICY_TEMPLATE_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -5048,6 +5065,7 @@ void vtysh_init_vty(void)
 	install_node(&sr_traffic_eng_node);
 	install_node(&srte_segment_list_node);
 	install_node(&srte_policy_node);
+	install_node(&srte_policy_template_node);
 	install_node(&srte_candidate_dyn_node);
 
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_exit_pathd_cmd);
@@ -5056,6 +5074,8 @@ void vtysh_init_vty(void)
 	install_element(SR_SEGMENT_LIST_NODE, &vtysh_quit_pathd_cmd);
 	install_element(SR_POLICY_NODE, &vtysh_exit_pathd_cmd);
 	install_element(SR_POLICY_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SR_POLICY_TEMPLATE_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SR_POLICY_TEMPLATE_NODE, &vtysh_quit_pathd_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_exit_pathd_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_quit_pathd_cmd);
 
@@ -5063,11 +5083,13 @@ void vtysh_init_vty(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &vtysh_end_all_cmd);
 	install_element(SR_SEGMENT_LIST_NODE, &vtysh_end_all_cmd);
 	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
+	install_element(SR_POLICY_TEMPLATE_NODE, &vtysh_end_all_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_end_all_cmd);
 
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_template_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
 
 	install_node(&pcep_node);

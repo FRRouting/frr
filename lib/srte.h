@@ -27,6 +27,11 @@ enum srte_protocol_origin {
 	SRTE_ORIGIN_LOCAL = 30,
 };
 
+static inline int sr_policy_template_compare(uint32_t a_color, uint32_t b_color)
+{
+	return a_color - b_color;
+}
+
 static inline int sr_policy_compare(const struct ipaddr *a_endpoint,
 				    const struct ipaddr *b_endpoint,
 				    uint32_t a_color, uint32_t b_color)

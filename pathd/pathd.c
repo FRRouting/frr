@@ -17,6 +17,7 @@
 #include "pathd/path_zebra.h"
 #include "pathd/path_debug.h"
 #include "pathd/path_ted.h"
+#include "pathd/path_template.h"
 #include "pathd/path_flex_algo.h"
 
 #define HOOK_DELAY 3
@@ -530,6 +531,8 @@ void srte_clean_zebra(void)
 {
 	struct srte_policy *policy, *safe_pol;
 
+	srte_template_clean_zebra();
+
 	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol)
 		srte_policy_del(policy);
 
@@ -550,6 +553,8 @@ void srte_apply_changes(void)
 {
 	struct srte_policy *policy, *safe_pol;
 	struct srte_segment_list *segment_list, *safe_sl;
+
+	srte_template_apply_changes();
 
 	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol) {
 		if (CHECK_FLAG(policy->flags, F_POLICY_DELETED)) {

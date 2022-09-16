@@ -21,7 +21,9 @@
 #include "pathd/path_cli_clippy.c"
 #include "pathd/path_ted.h"
 #include "pathd/path_zebra.h"     /* for fae debug commands */
+#include "pathd/path_template.h"
 #include "pathd/path_flex_algo.h" /* for fa_vty_igp_show_all */
+#include "pathd/path_tsrte.h"
 
 #define XPATH_MAXATTRSIZE 64
 #define XPATH_MAXKEYSIZE 42
@@ -1162,6 +1164,7 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	path_policy_show_debugging(vty);
 	path_flex_algo_show_debugging(vty);
 
+	srte_template_show_debugging(vty);
 	return CMD_SUCCESS;
 }
 
@@ -1377,6 +1380,8 @@ int config_write_segment_routing(struct vty *vty)
 			   "/frr-pathd:pathd/srte/segment-list");
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/policy");
+	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
+			   "/frr-pathd:pathd/srte/policy-template");
 
 	hook_call(pathd_srte_config_write, vty);
 
@@ -1468,4 +1473,5 @@ void path_cli_init(void)
 			&srte_candidate_no_objfun_cmd);
 
 	path_flex_algo_cli_init();
+	path_tsrte_cli_init();
 }

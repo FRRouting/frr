@@ -1,0 +1,111 @@
+module frr-pathd-triggered-srte {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/pathd-triggered-srte";
+  prefix frr-pathd-triggered-srte;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  import frr-pathd {
+    prefix frr-pathd;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR pathd srte service.";
+
+  revision 2022-09-16 {
+    description
+      "Initial revision.";
+  }
+
+  grouping triggered-srte-config {
+    description
+      "Configure The templates SRTE policies that will be used to instantiate
+       the SRTE policies that will be requested on demand by an external
+       service like BGP.";
+    list policy-template {
+      key "color";
+      unique "name";
+      leaf color {
+        type uint32;
+        description
+          "Color of the SR Policy Template.";
+      }
+      leaf name {
+        type string {
+          length "1..54";
+        }
+        description
+          "Name of the SR Policy template. When instantiated, a number will be
+           appended to the policy template name. The total length will then be
+           up to 54 bytes.";
+      }
+      list candidate-path {
+        unique "name";
+        description
+          "List of Candidate Paths of the SR Policy.";
+        key "preference";
+        leaf preference {
+          type uint32;
+          description
+            "Administrative preference.";
+        }
+        leaf name {
+          type string {
+            length "1..64";
+          }
+          mandatory true;
+          description
+            "Symbolic Name of the Candidate Path.";
+        }
+        leaf protocol-origin {
+          type frr-pathd:protocol-origin-type;
+          mandatory true;
+          description
+            "Indication for the protocol origin of the Candidate Path.";
+        }
+        leaf originator {
+          type frr-pathd:originator-type;
+          mandatory true;
+          description "Originator of the candidate path";
+        }
+        leaf type {
+          description
+            "Type of the Candidate Path.";
+          mandatory true;
+          type enumeration {
+            enum flex-algo {
+              value 3;
+            }
+          }
+        }
+        leaf flex-algo-number {
+          when "../type = 'flex-algo'";
+	  mandatory true;
+	  type uint8 {
+	    range "128..255";
+	  }
+	  description
+	    "candidate flex-algo number 128-255.";
+	}
+      }
+    }
+  }
+
+  augment "/frr-pathd:pathd/frr-pathd:srte" {
+    description
+      "Triggered SR-TE configuration.";
+    uses triggered-srte-config;
+  }
+}

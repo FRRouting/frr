@@ -22,6 +22,7 @@
 #include "path_errors.h"
 #include "path_ted.h"
 #include "path_flex_algo.h"
+#include "path_tsrte.h"
 
 char backup_config_file[256];
 
@@ -95,6 +96,7 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_pathd_info,
 	&frr_pathd_flexalgo_info,
+	&frr_pathd_triggered_srte_info,
 };
 
 /* clang-format off */

@@ -26,7 +26,52 @@
 #include "stream.h"
 #include "zclient.h"
 
+extern const struct frr_yang_module_info frr_pathd_triggered_srte_info;
+
+/* cli initialisation */
+extern void path_tsrte_cli_init(void);
+
+/* zebra part */
 int path_zebra_handle_tsrte_bgp_ready(struct zclient *zclient,
 				      struct stream *s);
 
+/* triggered srte northbound configuration */
+int pathd_srte_policy_template_create(struct nb_cb_create_args *args);
+int pathd_srte_policy_template_destroy(struct nb_cb_destroy_args *args);
+const void *
+pathd_srte_policy_template_get_next(struct nb_cb_get_next_args *args);
+int pathd_srte_policy_template_get_keys(struct nb_cb_get_keys_args *args);
+const void *
+pathd_srte_policy_template_lookup_entry(struct nb_cb_lookup_entry_args *args);
+int pathd_srte_policy_template_name_modify(struct nb_cb_modify_args *args);
+int pathd_srte_policy_template_name_destroy(struct nb_cb_destroy_args *args);
+int pathd_srte_policy_template_candidate_path_create(
+	struct nb_cb_create_args *args);
+int pathd_srte_policy_template_candidate_path_destroy(
+	struct nb_cb_destroy_args *args);
+int pathd_srte_policy_template_candidate_path_name_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_policy_template_candidate_path_protocol_origin_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_policy_template_candidate_path_originator_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_policy_template_candidate_path_type_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_policy_template_candidate_path_flex_algo_number_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_policy_template_candidate_path_flex_algo_number_destroy(
+	struct nb_cb_destroy_args *args);
+void cli_show_srte_policy_template(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_srte_policy_template_name(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+void cli_show_srte_policy_template_candidate_path(struct vty *vty,
+						  const struct lyd_node *dnode,
+						  bool show_defaults);
+const void *pathd_srte_policy_template_candidate_path_get_next(
+	struct nb_cb_get_next_args *args);
+int pathd_srte_policy_template_candidate_path_get_keys(
+	struct nb_cb_get_keys_args *args);
+const void *pathd_srte_policy_template_candidate_path_lookup_entry(
+	struct nb_cb_lookup_entry_args *args);
 #endif /* _PATHD_PATH_TSRTE_H */

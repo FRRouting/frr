@@ -99,7 +99,11 @@ dist_yangmodels_DATA += yang/frr-ospfd.yang
 endif
 
 if PATHD
-dist_yangmodels_DATA += yang/frr-pathd.yang
+dist_yangmodels_DATA += \
+    yang/frr-pathd.yang \
+	yang/frr-pathd-flexalgo.yang \
+	yang/frr-pathd-triggered-srte.yang \
+	#
 endif
 
 CLEANFILES += \
