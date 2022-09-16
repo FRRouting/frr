@@ -705,14 +705,14 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 
 	if (pim_addr_is_any(up->upstream_addr)) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_debug("%s: RPF not configured for %s", __func__,
+			zlog_debug("%s: RP not configured for %s", __func__,
 				   up->sg_str);
 		return;
 	}
 
 	if (!up->rpf.source_nexthop.interface)  {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_debug("%s: RP not reachable for %s", __func__,
+			zlog_debug("%s: RPF not reachable for %s", __func__,
 				   up->sg_str);
 		return;
 	}
@@ -2017,7 +2017,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	    && (up->channel_oil->cc.lastused / 100 > 30)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
-				"%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+				"%s[%s]: %s old packet count is equal and lastused is greater than 30, (%ld,%ld,%lld)",
 				__func__, up->sg_str, pim->vrf->name,
 				up->channel_oil->cc.oldpktcnt,
 				up->channel_oil->cc.pktcnt,
