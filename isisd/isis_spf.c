@@ -837,7 +837,7 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
 	struct listnode *fragnode = NULL;
-	uint32_t dist;
+	uint32_t dist, metric;
 	enum vertextype vtype;
 	static const uint8_t null_sysid[ISIS_SYS_ID_LEN];
 	struct isis_mt_router_info *mt_router_info = NULL;
@@ -938,21 +938,31 @@ lspfragloop:
 				    && !memcmp(er->id, null_sysid,
 					       ISIS_SYS_ID_LEN))
 					continue;
+
+				metric = er->metric;
+
 #ifndef FABRICD
 
+				/* isis_flex_algo_extended_is_metric() overrides
+				 * the metric variable if successful.
+				 */
 				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!sr_algorithm_participated(
-					     lsp, spftree->algorithm) ||
+				    (!sr_algorithm_participated(lsp,
+								spftree->algorithm) ||
 				     isis_flex_algo_constraint_drop(spftree,
-								    lsp, er)))
+								    lsp, er) ||
+				     !isis_flex_algo_extended_is_metric(spftree,
+									er->metric,
+									er->subtlvs,
+									&metric)))
 					continue;
 #endif /* ifndef FABRICD */
 
-				dist = cost
-				       + (CHECK_FLAG(spftree->flags,
-						     F_SPFTREE_HOPCOUNT_METRIC)
-						  ? 1
-						  : er->metric);
+				dist = cost +
+				       (CHECK_FLAG(spftree->flags,
+						   F_SPFTREE_HOPCOUNT_METRIC)
+						? 1
+						: metric);
 				process_N(spftree,
 					  LSP_PSEUDO_ID(er->id)
 						  ? VTYPE_PSEUDO_TE_IS
@@ -1339,9 +1349,26 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 			continue;
 		}
 
-		metric = CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC)
-				 ? 1
-				 : sadj->metric;
+		if (CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC))
+			metric = 1;
+#ifndef FABRICD
+		else if (flex_algo_id_valid(spftree->algorithm)) {
+			/* isis_flex_algo_extended_is_metric updates the metric
+			 * variable */
+			if (!isis_flex_algo_extended_is_metric(spftree,
+							       sadj->metric,
+							       sadj->subtlvs,
+							       &metric)) {
+				if (IS_DEBUG_SPF_EVENTS)
+					zlog_debug("%s: can't get metric",
+						   __func__);
+				continue;
+			}
+		}
+#endif /* ifndef FABRICD */
+		else
+			metric = sadj->metric;
+
 		if (!LSP_PSEUDO_ID(sadj->id)) {
 			isis_spf_add_local(spftree,
 					   CHECK_FLAG(sadj->flags,
