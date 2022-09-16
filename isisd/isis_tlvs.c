@@ -2261,6 +2261,106 @@ static int unpack_item_prefix_sid(uint16_t mtid, uint8_t len, struct stream *s,
 	return 0;
 }
 
+static struct isis_item *copy_item_flex_algo_prefix_metric(struct isis_item *i)
+{
+	struct isis_flex_algo_prefix_metric *pm =
+		(struct isis_flex_algo_prefix_metric *)i;
+	struct isis_flex_algo_prefix_metric *rv = XCALLOC(MTYPE_ISIS_SUBTLV,
+							  sizeof(*rv));
+
+	rv->algorithm = pm->algorithm;
+	rv->metric = pm->metric;
+	return (struct isis_item *)rv;
+}
+
+static void format_item_flex_algo_prefix_metric(uint16_t mtid,
+						struct isis_item *i,
+						struct sbuf *buf,
+						struct json_object *json,
+						int indent)
+{
+	struct json_object *prefix_metric_json, *array_json;
+	struct isis_flex_algo_prefix_metric *pm =
+		(struct isis_flex_algo_prefix_metric *)i;
+
+	if (json) {
+		prefix_metric_json = json_object_new_object();
+		json_object_object_get_ex(json, "flexAlgoPrefixMetric",
+					  &array_json);
+		if (!array_json) {
+			array_json = json_object_new_array();
+			json_object_object_add(json, "flexAlgoPrefixMetric",
+					       array_json);
+		}
+		json_object_array_add(array_json, prefix_metric_json);
+		json_object_int_add(prefix_metric_json, "algo", pm->algorithm);
+		json_object_int_add(prefix_metric_json, "metric", pm->metric);
+		return;
+	}
+
+	sbuf_push(buf, indent, "Flex Algo Prefix-Metric ");
+	sbuf_push(buf, 0, "Algorithm: %hhu, Metric: %u\n", pm->algorithm,
+		  pm->metric);
+}
+
+static void free_item_flex_algo_prefix_metric(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_SUBTLV, i);
+}
+
+static int pack_item_flex_algo_prefix_metric(struct isis_item *i,
+					     struct stream *s, size_t *min_len)
+{
+	struct isis_flex_algo_prefix_metric *pm =
+		(struct isis_flex_algo_prefix_metric *)i;
+
+	if (STREAM_WRITEABLE(s) < ISIS_SUBTLV_FAPM_SIZE) {
+		*min_len = ISIS_SUBTLV_FAPM_SIZE;
+		return 1;
+	}
+
+	stream_putc(s, pm->algorithm);
+
+	stream_putl(s, pm->metric);
+
+	return 0;
+}
+
+static int unpack_item_flex_algo_prefix_metric(uint16_t mtid, uint8_t len,
+					       struct stream *s,
+					       struct sbuf *log, void *dest,
+					       int indent)
+{
+	struct isis_subtlvs *subtlvs = dest;
+	struct isis_flex_algo_prefix_metric pm = {};
+
+	sbuf_push(log, indent, "Unpacking Flex Algo Prefix-Metric...\n");
+
+	if (len < ISIS_SUBTLV_FAPM_SIZE) {
+		sbuf_push(log, indent,
+			  "Not enough data left. (expected %u or more bytes, got %hhu)\n",
+			  ISIS_SUBTLV_FAPM_SIZE, len);
+		return 1;
+	}
+
+	pm.algorithm = stream_getc(s);
+
+	if (len != ISIS_SUBTLV_FAPM_SIZE) {
+		sbuf_push(log, indent,
+			  "TLV size differs from expected size. (expected %u but got %hhu)\n",
+			  ISIS_SUBTLV_FAPM_SIZE, len);
+		return 1;
+	}
+
+	pm.metric = stream_getl(s);
+
+	format_item_flex_algo_prefix_metric(mtid, (struct isis_item *)&pm, log,
+					    NULL, indent + 2);
+	append_item(&subtlvs->flex_algo_prefix_metrics,
+		    copy_item_flex_algo_prefix_metric((struct isis_item *)&pm));
+	return 0;
+}
+
 /* Functions for Sub-TVL ??? IPv6 Source Prefix */
 
 static struct prefix_ipv6 *copy_subtlv_ipv6_source_prefix(struct prefix_ipv6 *p)
@@ -2568,6 +2668,8 @@ static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
 	init_item_list(&result->prefix_sids);
 	init_item_list(&result->srv6_end_sids);
 
+	init_item_list(&result->flex_algo_prefix_metrics);
+
 	return result;
 }
 
@@ -2582,6 +2684,10 @@ static struct isis_subtlvs *copy_subtlvs(struct isis_subtlvs *subtlvs)
 
 	copy_items(subtlvs->context, ISIS_SUBTLV_PREFIX_SID,
 		   &subtlvs->prefix_sids, &rv->prefix_sids);
+
+	copy_items(subtlvs->context, ISIS_SUBTLV_FAPM,
+		   &subtlvs->flex_algo_prefix_metrics,
+		   &rv->flex_algo_prefix_metrics);
 
 	rv->source_prefix =
 		copy_subtlv_ipv6_source_prefix(subtlvs->source_prefix);
@@ -2598,6 +2704,9 @@ static void format_subtlvs(struct isis_subtlvs *subtlvs, struct sbuf *buf,
 	format_items(subtlvs->context, ISIS_SUBTLV_PREFIX_SID,
 		     &subtlvs->prefix_sids, buf, json, indent);
 
+	format_items(subtlvs->context, ISIS_SUBTLV_FAPM,
+		     &subtlvs->flex_algo_prefix_metrics, buf, json, indent);
+
 	format_subtlv_ipv6_source_prefix(subtlvs->source_prefix, buf, json, indent);
 
 	format_items(subtlvs->context, ISIS_SUBTLV_SRV6_END_SID,
@@ -2611,6 +2720,9 @@ static void isis_free_subtlvs(struct isis_subtlvs *subtlvs)
 
 	free_items(subtlvs->context, ISIS_SUBTLV_PREFIX_SID,
 		   &subtlvs->prefix_sids);
+
+	free_items(subtlvs->context, ISIS_SUBTLV_FAPM,
+		   &subtlvs->flex_algo_prefix_metrics);
 
 	XFREE(MTYPE_ISIS_SUBTLV, subtlvs->source_prefix);
 
@@ -2632,6 +2744,12 @@ static int pack_subtlvs(struct isis_subtlvs *subtlvs, struct stream *s)
 
 	rv = pack_items(subtlvs->context, ISIS_SUBTLV_PREFIX_SID,
 			&subtlvs->prefix_sids, s, NULL, NULL, NULL, NULL);
+	if (rv)
+		return rv;
+
+	rv = pack_items(subtlvs->context, ISIS_SUBTLV_FAPM,
+			&subtlvs->flex_algo_prefix_metrics, s, NULL, NULL, NULL,
+			NULL);
 	if (rv)
 		return rv;
 
@@ -6040,6 +6158,15 @@ top:
 			break;
 		}
 
+		/* Multiple prefix-sids don't go into one TLV, so always break
+		 */
+		if (type == ISIS_SUBTLV_FAPM &&
+		    (context == ISIS_CONTEXT_SUBTLV_IP_REACH ||
+		     context == ISIS_CONTEXT_SUBTLV_IPV6_REACH)) {
+			item = item->next;
+			break;
+		}
+
 		if (len > 255) {
 			if (!last_len) /* strange, not a single item fit */
 				return 1;
@@ -7195,6 +7322,7 @@ ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 TLV_OPS(router_cap, "TLV 242 Router Capability");
 
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
+ITEM_SUBTLV_OPS(flex_algo_prefix_metric, "Sub-TLV 6 Flex-Algo Prefix Metric");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
 ITEM_TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
@@ -7233,10 +7361,12 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {},
 	[ISIS_CONTEXT_SUBTLV_IP_REACH] = {
 		[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
+		[ISIS_SUBTLV_FAPM] = &tlv_flex_algo_prefix_metric_ops,
 	},
 	[ISIS_CONTEXT_SUBTLV_IPV6_REACH] = {
 		[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
 		[ISIS_SUBTLV_IPV6_SOURCE_PREFIX] = &subtlv_ipv6_source_prefix_ops,
+		[ISIS_SUBTLV_FAPM] = &tlv_flex_algo_prefix_metric_ops,
 	},
 	[ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR] = {
 		[ISIS_SUBTLV_SRV6_END_SID] = &tlv_srv6_end_sid_ops,

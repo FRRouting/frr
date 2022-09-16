@@ -157,6 +157,14 @@ struct isis_prefix_sid {
 	uint32_t value;
 };
 
+struct isis_flex_algo_prefix_metric;
+struct isis_flex_algo_prefix_metric {
+	struct isis_flex_algo_prefix_metric *next;
+
+	uint8_t algorithm;
+	uint32_t metric;
+};
+
 /* Adj-SID and LAN-Ajd-SID sub-TLVs flags */
 #define EXT_SUBTLV_LINK_ADJ_SID_FFLG	0x80
 #define EXT_SUBTLV_LINK_ADJ_SID_BFLG	0x40
@@ -437,6 +445,9 @@ struct isis_subtlvs {
 	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
 
+	/* RFC9350 */
+	struct isis_item_list flex_algo_prefix_metrics;
+
 	/* RFC 9352 section #7.2 */
 	struct isis_item_list srv6_end_sids;
 };
@@ -535,6 +546,9 @@ enum isis_tlv_type {
 
 	ISIS_SUBTLV_MAX = 40,
 
+	/* RFC9350 */
+	ISIS_SUBTLV_FAPM = 6,
+
 	/* RFC 9352 section #2 */
 	ISIS_SUBTLV_SRV6_CAPABILITIES = 25,
 	/* RFC 9352 section #4.1 */
@@ -610,6 +624,7 @@ enum ext_subtlv_size {
 
 	/* RFC9350 - Flex-Algorithm */
 	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE = 1,
+	ISIS_SUBTLV_FAPM_SIZE = 5,
 
 	/* RFC 9352 section #2 */
 	ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE = 2,
