@@ -655,6 +655,10 @@ void pim_neighbor_delete_all(struct interface *ifp, const char *delete_message)
 			       neigh_nextnode, neigh)) {
 		pim_neighbor_delete(ifp, neigh, delete_message);
 	}
+
+	/* the neighbor who has no hello interactive(stream-source) */
+	if (listcount(pim_ifp->pim_neighbor_list) == 0)
+		sched_rpf_cache_refresh(pim_ifp->pim);
 }
 
 struct prefix *pim_neighbor_find_secondary(struct pim_neighbor *neigh,
