@@ -936,4 +936,9 @@ void isis_tlvs_add_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
 				     struct isis_srv6_lan_endx_sid_subtlv *lan);
 void isis_tlvs_del_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
 				     struct isis_srv6_lan_endx_sid_subtlv *lan);
+
+#ifndef FABRICD
+bool isis_is_prefix_attr_redist_ext(struct isis_subtlvs *subtlvs, int algo);
+#endif /* ifndef FABRICD */
+
 #endif

@@ -1021,7 +1021,27 @@ lspfragloop:
 					   ipv4_reachs->head
 				 : NULL;
 		     r; r = r->next) {
-			dist = cost + r->metric;
+#ifndef FABRICD
+			if (flex_algo_id_valid(spftree->algorithm) &&
+			    isis_is_prefix_attr_redist_ext(r->subtlvs,
+							   spftree->algorithm)) {
+				bool rc =
+					isis_flex_algo_prefix_metric(r->subtlvs,
+								     r->metric,
+								     spftree->area,
+								     spftree->algorithm,
+								     &metric);
+				if (rc == false) {
+					if (IS_DEBUG_SPF_EVENTS)
+						zlog_debug("%s: can't get metric for prefix %pFX",
+							   __func__, &r->prefix);
+					continue;
+				}
+			} else
+#endif /* ifndef FABRICD */
+				metric = r->metric;
+
+			dist = cost + metric;
 			ip_info.dest.u.prefix4 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
 
@@ -1080,7 +1100,28 @@ lspfragloop:
 				 ? (struct isis_ipv6_reach *)ipv6_reachs->head
 				 : NULL;
 		     r; r = r->next) {
-			dist = cost + r->metric;
+#ifndef FABRICD
+			if (flex_algo_id_valid(spftree->algorithm) &&
+			    (r->external ||
+			     isis_is_prefix_attr_redist_ext(r->subtlvs,
+							    spftree->algorithm))) {
+				bool rc =
+					isis_flex_algo_prefix_metric(r->subtlvs,
+								     r->metric,
+								     spftree->area,
+								     spftree->algorithm,
+								     &metric);
+				if (rc == false) {
+					if (IS_DEBUG_SPF_EVENTS)
+						zlog_debug("%s: can't get metric for prefix %pFX",
+							   __func__, &r->prefix);
+					continue;
+				}
+			} else
+#endif /* ifndef FABRICD */
+				metric = r->metric;
+
+			dist = cost + metric;
 			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL
 					    : VTYPE_IP6REACH_INTERNAL;
 			memset(&ip_info, 0, sizeof(ip_info));
@@ -1327,9 +1368,10 @@ static void isis_spf_preload_tent(struct isis_spftree *spftree,
 	if (!CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC)) {
 		ip_reach_args.spftree = spftree;
 		ip_reach_args.parent = parent;
-		isis_lsp_iterate_ip_reach(
-			root_lsp, spftree->family, spftree->mtid,
-			isis_spf_preload_tent_ip_reach_cb, &ip_reach_args);
+		isis_lsp_iterate_ip_reach(root_lsp, spftree->family,
+					  spftree->mtid, spftree->algorithm,
+					  isis_spf_preload_tent_ip_reach_cb,
+					  &ip_reach_args);
 	}
 
 	/* Iterate over adjacencies. */

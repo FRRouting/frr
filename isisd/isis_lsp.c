@@ -2430,21 +2430,39 @@ static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
 /*
  * Iterate over all IP reachability TLVs in a LSP (all fragments) of the given
  * address-family and MT-ID.
+ *
+ * algorithm parameter: was added to support flex-algo. For non-flex-algo
+ * usage, algorithm should be 0. For flex-algo usage, algorithm should be
+ * in the range 128-255.
  */
 int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
-			      lsp_ip_reach_iter_cb cb, void *arg)
+			      uint8_t algorithm, lsp_ip_reach_iter_cb cb,
+			      void *arg)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
 	struct isis_lsp *frag;
 	struct listnode *node;
+	uint32_t metric;
+
+	assert(algorithm == SR_ALGORITHM_SPF
+#ifndef FABRICD
+	       || flex_algo_id_valid(algorithm)
+#endif /* ifndef FABRICD */
+	);
 
 	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
 		return LSP_ITER_CONTINUE;
 
 	/* Parse LSP */
 	if (lsp->tlvs) {
-		if (!fabricd && !pseudo_lsp && family == AF_INET
-		    && mtid == ISIS_MT_IPV4_UNICAST) {
+		/*
+		 * oldstyle IP reachability TLV does not support
+		 * flex-algo so do not process algorithm that is
+		 * not SR_ALGORITHM_SPF
+		 */
+		if (!fabricd && !pseudo_lsp && family == AF_INET &&
+		    mtid == ISIS_MT_IPV4_UNICAST &&
+		    algorithm == SR_ALGORITHM_SPF) {
 			struct isis_item_list *reachs[] = {
 				&lsp->tlvs->oldstyle_ip_reach,
 				&lsp->tlvs->oldstyle_ip_reach_ext};
@@ -2481,9 +2499,22 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 						       ipv4_reachs->head
 					     : NULL;
 			     r; r = r->next) {
-				if ((*cb)((struct prefix *)&r->prefix,
-					  r->metric, false, r->subtlvs, arg)
-				    == LSP_ITER_STOP)
+#ifndef FABRICD
+				if (flex_algo_id_valid(algorithm) &&
+				    isis_is_prefix_attr_redist_ext(r->subtlvs,
+								   algorithm)) {
+					bool rc = isis_flex_algo_prefix_metric(
+						r->subtlvs, r->metric,
+						lsp->area, algorithm, &metric);
+					if (rc == false)
+						continue;
+				} else
+#endif /* ifndef FABRICD */
+					metric = r->metric;
+
+				if ((*cb)((struct prefix *)&r->prefix, metric,
+					  false, r->subtlvs,
+					  arg) == LSP_ITER_STOP)
 					return LSP_ITER_STOP;
 			}
 		}
@@ -2502,10 +2533,23 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 						       ipv6_reachs->head
 					     : NULL;
 			     r; r = r->next) {
-				if ((*cb)((struct prefix *)&r->prefix,
-					  r->metric, r->external, r->subtlvs,
-					  arg)
-				    == LSP_ITER_STOP)
+#ifndef FABRICD
+				if (flex_algo_id_valid(algorithm) &&
+				    (r->external ||
+				     isis_is_prefix_attr_redist_ext(r->subtlvs,
+								    algorithm))) {
+					bool rc = isis_flex_algo_prefix_metric(
+						r->subtlvs, r->metric,
+						lsp->area, algorithm, &metric);
+					if (rc == false)
+						continue;
+				} else
+#endif /* ifndef FABRICD */
+					metric = r->metric;
+
+				if ((*cb)((struct prefix *)&r->prefix, metric,
+					  r->external, r->subtlvs,
+					  arg) == LSP_ITER_STOP)
 					return LSP_ITER_STOP;
 			}
 		}
@@ -2517,9 +2561,9 @@ int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
 			if (!frag->tlvs)
 				continue;
 
-			if (isis_lsp_iterate_ip_reach(frag, family, mtid, cb,
-						      arg)
-			    == LSP_ITER_STOP)
+			if (isis_lsp_iterate_ip_reach(frag, family, mtid,
+						      algorithm, cb,
+						      arg) == LSP_ITER_STOP)
 				return LSP_ITER_STOP;
 		}
 

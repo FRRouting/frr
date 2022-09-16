@@ -1455,11 +1455,11 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	/* Process all Extended IP (v4 & v6) in LSP (all fragments) */
 	isis_lsp_iterate_ip_reach(lsp, AF_INET, ISIS_MT_IPV4_UNICAST,
-				  lsp_to_subnet_cb, &args);
+				  SR_ALGORITHM_SPF, lsp_to_subnet_cb, &args);
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV6_UNICAST,
-				  lsp_to_subnet_cb, &args);
+				  SR_ALGORITHM_SPF, lsp_to_subnet_cb, &args);
 	isis_lsp_iterate_ip_reach(lsp, AF_INET6, ISIS_MT_IPV4_UNICAST,
-				  lsp_to_subnet_cb, &args);
+				  SR_ALGORITHM_SPF, lsp_to_subnet_cb, &args);
 
 	/* Clean remaining Orphan Edges or Subnets */
 	if (IS_EXPORT_TE(mta))

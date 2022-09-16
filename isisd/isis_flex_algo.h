@@ -50,6 +50,10 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 				    struct isis_lsp *lsp,
 				    struct isis_extended_reach *reach);
 
+bool isis_flex_algo_prefix_metric(struct isis_subtlvs *subtlvs,
+				  uint32_t igp_metric, struct isis_area *area,
+				  uint8_t algo, uint32_t *metric);
+
 bool isis_flex_algo_extended_is_metric(struct isis_spftree *spftree,
 				       uint32_t igp_metric,
 				       struct isis_ext_subtlvs *ies,
