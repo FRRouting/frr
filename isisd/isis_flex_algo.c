@@ -167,7 +167,9 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
 {
 	if (fad->calc_type != CALC_TYPE_SPF)
 		return false;
-	if (fad->metric_type != MT_IGP)
+	if (fad->metric_type != MT_IGP &&
+	    fad->metric_type != MT_MIN_UNI_LINK_DELAY &&
+	    fad->metric_type != MT_TE_DEFAULT)
 		return false;
 	if (fad->flags != 0)
 		return false;
@@ -323,6 +325,85 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 	}
 
 	return false;
+}
+
+/*
+ * Extended IS reachability metric
+ *
+ * Given:
+ *
+ *	- the flex-algo number set in the spftree, and
+ *	- a given extended IS reachability TLV
+ *
+ * look up the algo-specific metric in the extended IS reachability subtlvs.
+ */
+bool isis_flex_algo_extended_is_metric(struct isis_spftree *spftree,
+				       uint32_t igp_metric,
+				       struct isis_ext_subtlvs *ies,
+				       uint32_t *metric)
+{
+	struct isis_router_cap_fad *fad;
+	struct isis_asla_subtlvs *asla;
+	uint32_t min_delay, te_metric;
+	struct listnode *node;
+	bool has_te_metric = false, has_min_delay = false;
+
+	fad = isis_flex_algo_elected_supported(spftree->algorithm,
+					       spftree->area);
+	if (!fad) {
+		zlog_debug("%s: no Flex-Algo Definition for the algorithm %u in area %s",
+			   __func__, spftree->algorithm,
+			   spftree->area->area_tag);
+		return false;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(ies->aslas, node, asla)) {
+		if (!CHECK_FLAG(asla->standard_apps, ISIS_SABM_FLAG_X))
+			continue;
+		if (asla->legacy) {
+			/* When the L-Flag is set, then legacy advertisements
+			 * are to be used, subject to the procedures and
+			 * constraints defined in RFC8919 Section 4.2 and
+			 * Section 6.
+			 */
+			if (ies && IS_SUBTLV(ies, EXT_MM_DELAY)) {
+				min_delay = ies->min_delay;
+				has_min_delay = true;
+			}
+			if (ies && IS_SUBTLV(ies, EXT_TE_METRIC)) {
+				te_metric = ies->te_metric;
+				has_te_metric = true;
+			}
+		} else {
+			/* use ASLA values if set */
+			if (IS_SUBTLV(asla, EXT_MM_DELAY)) {
+				min_delay = asla->min_delay;
+				has_min_delay = true;
+			}
+			if (IS_SUBTLV(asla, EXT_TE_METRIC)) {
+				te_metric = asla->te_metric;
+				has_te_metric = true;
+			}
+		}
+		break;
+	}
+
+	switch (fad->fad.metric_type) {
+	case MT_IGP:
+		*metric = igp_metric;
+		break;
+	case MT_MIN_UNI_LINK_DELAY:
+		if (!has_min_delay)
+			return false;
+		*metric = min_delay;
+		break;
+	case MT_TE_DEFAULT:
+		if (!has_te_metric)
+			return false;
+		*metric = te_metric;
+		break;
+	}
+	return true;
 }
 
 #endif /* ifndef FABRICD */
