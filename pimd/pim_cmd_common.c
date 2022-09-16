@@ -1655,9 +1655,9 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 }
 
-static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
+static void pim_show_join_helper(struct pim_interface *pim_ifp,
 				 struct pim_ifchannel *ch, json_object *json,
-				 time_t now)
+				 time_t now, struct ttable *tt)
 {
 	json_object *json_iface = NULL;
 	json_object *json_row = NULL;
@@ -1724,8 +1724,8 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 			json_object_object_addf(json_grp, json_row, "%pPAs",
 						&ch->sg.src);
 	} else {
-		vty_out(vty,
-			"%-16s %-15pPAs %-15pPAs %-15pPAs %-10s %8s %-6s %5s\n",
+		ttable_add_row(
+			tt, "%s|%pPAs|%pPAs|%pPAs|%s|%s|%s|%s",
 			ch->interface->name, &ifaddr, &ch->sg.src, &ch->sg.grp,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 			uptime, expire, prune);
@@ -1806,12 +1806,21 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
 	time_t now;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (!json)
-		vty_out(vty,
-			"Interface        Address         Source          Group           State      Uptime   Expire Prune\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|Address|Source|Group|State|Uptime|Expire|Prune");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -1822,8 +1831,15 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 			if (!pim_sgaddr_match(ch->sg, *sg))
 				continue;
 
-			pim_show_join_helper(vty, pim_ifp, ch, json, now);
+			pim_show_join_helper(pim_ifp, ch, json, now, tt);
 		} /* scan interface channels */
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
