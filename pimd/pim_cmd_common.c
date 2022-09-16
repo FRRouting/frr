@@ -3195,6 +3195,8 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	time_t now;
 	char uptime[10];
 	char expire[10];
@@ -3205,8 +3207,12 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	now = pim_time_monotonic_sec();
 
 	if (!json) {
-		vty_out(vty,
-			"Interface                Neighbor    Uptime  Holdtime  DR Pri\n");
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Neighbor|Uptime|Holdtime|DR Pri");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -3248,9 +3254,10 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 						       neigh_src_str, json_row);
 
 			} else {
-				vty_out(vty, "%-16s  %15s  %8s  %8s  %6d\n",
-					ifp->name, neigh_src_str, uptime,
-					expire, neigh->dr_priority);
+				ttable_add_row(tt, "%s|%pPAs|%s|%s|%d",
+					       ifp->name, &neigh->source_addr,
+					       uptime, expire,
+					       neigh->dr_priority);
 			}
 		}
 
@@ -3258,6 +3265,13 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			json_object_object_add(json, ifp->name, json_ifp_rows);
 			json_ifp_rows = NULL;
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
