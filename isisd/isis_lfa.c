@@ -397,6 +397,7 @@ static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree,
 
 	args.sid_index = UINT32_MAX;
 	isis_lsp_iterate_ip_reach(lsp, spftree->family, spftree->mtid,
+				  SR_ALGORITHM_SPF,
 				  tilfa_find_pnode_prefix_sid_cb, &args);
 
 	return args.sid_index;

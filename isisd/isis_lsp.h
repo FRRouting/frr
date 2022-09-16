@@ -140,7 +140,8 @@ typedef int (*lsp_is_reach_iter_cb)(const uint8_t *id, uint32_t metric,
 				    void *arg);
 
 int isis_lsp_iterate_ip_reach(struct isis_lsp *lsp, int family, uint16_t mtid,
-			      lsp_ip_reach_iter_cb cb, void *arg);
+			      uint8_t algorithm, lsp_ip_reach_iter_cb cb,
+			      void *arg);
 int isis_lsp_iterate_is_reach(struct isis_lsp *lsp, uint16_t mtid,
 			      lsp_is_reach_iter_cb cb, void *arg);
 

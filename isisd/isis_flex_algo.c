@@ -171,7 +171,7 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
 	    fad->metric_type != MT_MIN_UNI_LINK_DELAY &&
 	    fad->metric_type != MT_TE_DEFAULT)
 		return false;
-	if (fad->flags != 0)
+	if (fad->flags != 0 && fad->flags != FAD_FLAG_M)
 		return false;
 	if (fad->exclude_srlg)
 		return false;
@@ -324,6 +324,74 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
 			return true;
 	}
 
+	return false;
+}
+
+/*
+ * Flex-Algo Prefix Metric
+ *
+ * TBD: MUST not be used for prefixes advertised as SRv6 locators.
+ *      This check has not been implemented yet.
+ *      (requirement is in RFC9350 Section 6.4
+ *      IS-IS Flexible Algorithm Definition Flags Sub-TLV)
+ *
+ * Look up the numbered flex-algo prefix metric associated
+ * with this prefix.
+ *
+ * This kind of flex-algo metric is advertised with various
+ * IP reachability TLVs for external routes.
+ *
+ * RFC9350 Section 8
+ * "IS-IS Flexible Algorithm Prefix Metric Sub-TLV"
+ */
+bool isis_flex_algo_prefix_metric(struct isis_subtlvs *subtlvs,
+				  uint32_t igp_metric, struct isis_area *area,
+				  uint8_t algo, uint32_t *metric)
+{
+	struct isis_flex_algo_prefix_metric *pm;
+	struct isis_router_cap_fad *fad;
+
+	fad = isis_flex_algo_elected_supported(algo, area);
+	if (!fad) {
+		zlog_debug("%s: no Flex-Algo Definition for the algorithm %u in area %s",
+			   __func__, algo, area->area_tag);
+		return false;
+	}
+
+
+	/*
+	 * See extensive discussion in RFC9350
+	 * Section 13.1 Multi-area and Multi-domain Considerations
+	 *
+	 * If we ARE doing flex-algo, then use of the FAPM depends on the
+	 * flex-algo definition (FAD) M-flag.
+	 *
+	 * M-flag set: MUST use flex-algo prefix metric
+	 * M-flag clear: MUST use IGP metric
+	 */
+	if (!CHECK_FLAG(fad->fad.flags, FAD_FLAG_M)) {
+		/*
+		 * M-flag is not set, so use IGP metric
+		 */
+		*metric = igp_metric;
+		return true;
+	}
+
+	/*
+	 * FAD M-flag is set, so we MUST find the algo-specific prefix metric
+	 */
+
+	if (!subtlvs)
+		return false;
+
+	for (pm = (struct isis_flex_algo_prefix_metric *)
+			  subtlvs->flex_algo_prefix_metrics.head;
+	     pm; pm = pm->next) {
+		if (pm->algorithm == algo) {
+			*metric = pm->metric;
+			return true;
+		}
+	}
 	return false;
 }
 
