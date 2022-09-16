@@ -157,6 +157,13 @@ struct isis_prefix_sid {
 	uint32_t value;
 };
 
+struct isis_prefix_attr_flags;
+struct isis_prefix_attr_flags {
+	struct isis_prefix_attr_flags *next;
+
+	uint8_t flags;
+};
+
 struct isis_flex_algo_prefix_metric;
 struct isis_flex_algo_prefix_metric {
 	struct isis_flex_algo_prefix_metric *next;
@@ -445,6 +452,9 @@ struct isis_subtlvs {
 	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
 
+	/* RFC7794 */
+	struct isis_item_list prefix_attr_flags;
+
 	/* RFC9350 */
 	struct isis_item_list flex_algo_prefix_metrics;
 
@@ -537,6 +547,9 @@ enum isis_tlv_type {
 	/* RFC 7308 */
 	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
 
+	/* RFC 7794 */
+	ISIS_SUBTLV_PREFIX_ATTR_FLAGS = 4,
+
 	/* RFC 8919 */
 	ISIS_SUBTLV_ASLA = 16,
 
@@ -599,6 +612,7 @@ enum ext_subtlv_size {
 	ISIS_SUBTLV_ADJ_SID_SIZE = 5,
 	ISIS_SUBTLV_LAN_ADJ_SID_SIZE = 11,
 	ISIS_SUBTLV_PREFIX_SID_SIZE = 5,
+	ISIS_SUBTLV_PREFIX_ATTR_FLAGS_SIZE = 1,
 
 	/* RFC 7810 */
 	ISIS_SUBTLV_MM_DELAY_SIZE = 8,
@@ -790,6 +804,12 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_OL_MASK        0x8000
 #define ISIS_MT_AT_MASK        0x4000
 #endif
+
+/* RFC 7794 */
+#define ISIS_PREFIX_ATTR_FLAG_X 0x80 /* External Prefix Flag */
+#define ISIS_PREFIX_ATTR_FLAG_R 0x40 /* Re-advertisement Flag */
+#define ISIS_PREFIX_ATTR_FLAG_N 0x20 /* Node Flag */
+
 
 /* RFC 8919 */
 #define ISIS_SABM_FLAG_R 0x80 /* RSVP-TE */
