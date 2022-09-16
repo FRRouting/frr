@@ -22,6 +22,7 @@
 #ifndef __ZAPI_TRIGGERED_SRTE_H
 #define __ZAPI_TRIGGERED_SRTE_H
 
+#include "mpls.h"
 #include "zapi_client.h"
 
 struct zapi_tsrte_daemon_id {
@@ -43,5 +44,36 @@ enum zclient_send_status zapi_tsrte_bgp_ready_send(struct zclient *zclient);
 int zapi_tsrte_client_ready_decode(
 	struct stream *s, struct zapi_client_daemon_id *client_daemon_id,
 	enum srte_protocol_origin *protocol_origin);
+
+struct zapi_tsrte_register {
+	uint32_t color;
+	struct ipaddr endpoint;
+};
+
+struct zapi_tsrte_update {
+	struct zapi_tsrte_register reg;
+	mpls_label_t bindingsid;
+	char zapi_candidate_name[64];
+};
+
+extern enum zclient_send_status
+zapi_tsrte_registration_send(struct zclient *zclient, uint32_t color,
+			     struct ipaddr *endpoint, bool registration);
+
+extern int zapi_tsrte_registration_decode(struct stream *s, uint32_t *color,
+					  struct ipaddr *endpoint);
+
+extern enum zclient_send_status
+zapi_tsrte_update_send(struct zclient *zclient, uint32_t color,
+		       struct ipaddr *endpoint, mpls_label_t bsid,
+		       const char *zapi_policy_name,
+		       const char *zapi_segmentlist_name);
+
+extern int zapi_tsrte_update_decode(struct stream *s, uint32_t *srte_color,
+				    struct ipaddr *endpoint, mpls_label_t *bsid,
+				    char *zapi_segmentlist_name,
+				    const int zapi_segmentlist_len_max,
+				    char *zapi_policy_name,
+				    const int zapi_policy_name_len_max);
 
 #endif /* __ZAPI_TRIGGERED_SRTE_H */

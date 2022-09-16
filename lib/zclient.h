@@ -1343,6 +1343,11 @@ enum zapi_opaque_registry {
 	TSRTE_CLIENT_READY = 16,
 	/* Sent by BGP service to SRTE service */
 	TSRTE_BGP_READY = 17,
+	/* BGP SRTE requests */
+	TSRTE_BGP_REGISTER = 18,
+	TSRTE_BGP_UNREGISTER = 19,
+	/* SRTE responses */
+	TSRTE_BGP_UPDATE = 20,
 };
 
 /* Send the hello message.
