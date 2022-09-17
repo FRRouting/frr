@@ -1210,6 +1210,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 			}
 		}
 
+#ifndef PIM_SUPPORT_SG_RPT
 		if (pim->spt.switchover == PIM_SPT_INFINITY) {
 			if (pim->spt.plist) {
 				struct prefix_list *plist = prefix_list_lookup(
@@ -1226,6 +1227,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 				}
 			}
 		} else
+#endif
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}

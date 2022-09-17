@@ -42,6 +42,12 @@
 
 #define PIM_ENFORCE_LOOPFREE_MFC
 
+/* create (s,g,rpt) entry if suitable,
+ * RFC7761 inherited_olist(S,G,rpt),
+ * making both forward(rpt/spt) based on 64bit match(S+G)
+ */
+#define PIM_SUPPORT_SG_RPT
+
 /*
  * PIM MSG Header Format
  *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1

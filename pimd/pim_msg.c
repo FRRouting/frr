@@ -285,6 +285,10 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 				up = source->up;
 		} else {
 			bits = PIM_ENCODE_SPARSE_BIT;
+#ifdef PIM_SUPPORT_SG_RPT
+			if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(source->up->flags))
+				bits |= PIM_ENCODE_RPT_BIT;
+#endif
 			stosend = source->up->sg.src;
 		}
 

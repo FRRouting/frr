@@ -626,6 +626,63 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 	}
 }
 
+/* check whether not-use (s,g,rpt) */
+static bool pim_upstream_notUse_rptSG(struct pim_upstream *up)
+{
+	bool cfgSptSwitch = true;
+	vifi_t iifRpt = MAXVIFS;
+	vifi_t iifSpt = MAXVIFS;
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp;
+
+#ifndef PIM_SUPPORT_SG_RPT
+	return true;
+#endif
+
+	if (up->parent == NULL)
+		return true;
+
+	ifp = up->parent->rpf.source_nexthop.interface;
+	if (ifp) {
+		pim_ifp = (struct pim_interface *)ifp->info;
+		if (pim_ifp)
+			iifRpt = pim_ifp->mroute_vif_index;
+	}
+
+	ifp = up->rpf.source_nexthop.interface;
+	if (ifp) {
+		pim_ifp = (struct pim_interface *)ifp->info;
+		if (pim_ifp)
+			iifSpt = pim_ifp->mroute_vif_index;
+	}
+
+	if (up->pim->spt.switchover == PIM_SPT_INFINITY) {
+		if (up->pim->spt.plist) {
+			struct prefix_list *plist =
+				prefix_list_lookup(AFI_IP, up->pim->spt.plist);
+			struct prefix g;
+
+			pim_addr_to_prefix(&g, up->sg.grp);
+			if (prefix_list_apply(plist, &g) == PREFIX_PERMIT)
+				cfgSptSwitch = false;
+		}
+	}
+
+	if (PIM_DEBUG_PIM_TRACE_DETAIL)
+		zlog_debug(
+			"element, iifRpt(%d), cfgSptSwitch(%d), flags(%#x), iifSpt(%d)",
+			iifRpt, cfgSptSwitch, up->parent->flags, iifSpt);
+
+	if (iifRpt < MAXVIFS) {
+		if (iifSpt >= MAXVIFS ||
+		    (false == cfgSptSwitch &&
+		     PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->parent->flags)))
+			return false;
+	}
+
+	return true;
+}
+
 /* RFC7761, Section 4.2 “Data Packet Forwarding Rules” says we should
  * forward a S -
  * 1. along the SPT if SPTbit is set
@@ -656,15 +713,15 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	 * In all other cases the source will stay along the RPT and
 	 * IIF=RPF_interface(RP).
 	 */
-	if (up->join_state == PIM_UPSTREAM_JOINED ||
-			PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
-			pim_if_connected_to_source(
-				up->rpf.source_nexthop.interface,
-				up->sg.src) ||
-			/* XXX - need to switch this to a more efficient
-			 * lookup API
-			 */
-			I_am_RP(up->pim, up->sg.grp))
+	if ((up->join_state == PIM_UPSTREAM_JOINED ||
+	     PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+	     pim_if_connected_to_source(up->rpf.source_nexthop.interface,
+					up->sg.src) ||
+	     /* XXX - need to switch this to a more efficient
+	      * lookup API
+	      */
+	     I_am_RP(up->pim, up->sg.grp)) &&
+	    pim_upstream_notUse_rptSG(up))
 		/* use SPT */
 		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
 	else
@@ -2138,6 +2195,10 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	struct prefix_list *np;
 	struct prefix g;
 	enum prefix_list_type apply_new;
+
+#ifdef PIM_SUPPORT_SG_RPT
+	return;
+#endif
 
 	np = prefix_list_lookup(PIM_AFI, nlist);
 
