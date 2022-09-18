@@ -17406,7 +17406,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP))
 		vty_out(vty, "  neighbor %s optimal-route-reflection %s\n",
-			peer->host, peer->orr_group_name[afi][safi]);
+			addr, peer->orr_group_name[afi][safi]);
 }
 
 static void bgp_vpn_config_write(struct vty *vty, struct bgp *bgp, afi_t afi,

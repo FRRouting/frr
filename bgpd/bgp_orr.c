@@ -514,8 +514,8 @@ static int peer_orr_group_set(struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* Unset optimal route reflection group from the peer*/
-static int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
-				const char *orr_group_name)
+int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
+			 const char *orr_group_name)
 {
 	struct bgp_orr_group *orr_group = NULL;
 
@@ -537,14 +537,18 @@ static int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 	/* Should not be Null when orr-group is enabled on peer */
 	assert(orr_group);
 
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ORR_GROUP);
-	XFREE(MTYPE_BGP_ORR_GROUP_NAME, peer->orr_group_name[afi][safi]);
+	/* Check if the peer is one of the root nodes of the ORR group */
+	if (is_orr_root_node(orr_group, peer->host))
+		return CMD_WARNING;
 
 	/* Remove the peer from ORR Group's client list */
 	bgp_orr_group_rrclient_update(peer, afi, safi, orr_group_name, false);
 
 	/* Update ORR group active root and unregister with IGP */
 	bgp_peer_update_orr_group_active_root(peer, afi, safi, orr_group);
+
+	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ORR_GROUP);
+	XFREE(MTYPE_BGP_ORR_GROUP_NAME, peer->orr_group_name[afi][safi]);
 
 	return CMD_SUCCESS;
 }
@@ -894,8 +898,33 @@ void bgp_peer_update_orr_active_roots(struct peer *peer)
 		orr_group = bgp_orr_group_lookup_by_name(
 			peer->bgp, afi, safi, peer->orr_group_name[afi][safi]);
 		assert(orr_group);
-		bgp_peer_update_orr_group_active_root(peer, afi, safi,
-						      orr_group);
+
+		/* Free ORR related memory. */
+		if (peer->status != Deleted) {
+			bgp_peer_update_orr_group_active_root(peer, afi, safi,
+							      orr_group);
+			continue;
+		}
+
+		if (!is_orr_root_node(orr_group, peer->host)) {
+			peer_orr_group_unset(peer, afi, safi,
+					     peer->orr_group_name[afi][safi]);
+			continue;
+		}
+
+		if (is_orr_primary_root(orr_group, peer->host)) {
+			orr_group->primary = orr_group->secondary;
+			orr_group->secondary = orr_group->tertiary;
+		} else if (is_orr_secondary_root(orr_group, peer->host))
+			orr_group->secondary = orr_group->tertiary;
+		orr_group->tertiary = NULL;
+
+		bgp_afi_safi_orr_group_set(peer->bgp, afi, safi,
+					   orr_group->name, orr_group->primary,
+					   orr_group->secondary,
+					   orr_group->tertiary);
+		peer_orr_group_unset(peer, afi, safi,
+				     peer->orr_group_name[afi][safi]);
 	}
 }
 
@@ -1048,6 +1077,7 @@ static void bgp_orr_igp_metric_register(struct bgp_orr_group *orr_group,
 	msg.proto = ZEBRA_ROUTE_BGP;
 	msg.safi = orr_group->safi;
 	prefix_copy(&msg.prefix, &p);
+	strlcpy(msg.group_name, orr_group->name, sizeof(msg.group_name));
 
 	bgp_orr_debug(
 		"%s: %s with IGP for metric calculation from location %pFX",
