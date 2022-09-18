@@ -515,6 +515,7 @@ class Network:
     with a bunch of utilities that don't fit on the individual classes
     """
 
+    diagram: Optional[str]
     routers: Dict[str, Router]
     lans: Dict[str, LAN]
     links: Dict[Tuple[NOMLinked, NOMLinked], List[Link]]
@@ -526,6 +527,7 @@ class Network:
     lo_v6 = True
 
     def __init__(self):
+        self.diagram = None
         self.routers = {}
         self.lans = {}
         self.links = {}
@@ -555,6 +557,7 @@ class Network:
         """
         main entry point
         """
+        self.diagram = parse.topo
         for routerp in parse.routers:
             self.router(routerp.name, True)
         for i, router in enumerate(sorted(self.routers.values())):

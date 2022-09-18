@@ -660,6 +660,90 @@ function load_packet(timetable, obj, pdmltree) {
 	load_protocols(obj, row, protocols, Array.from(pdml.children));
 }
 
+function pullup(arr, item) {
+	var pos = arr.indexOf(item);
+	if (pos < 0)
+		return;
+	arr.splice(pos, 1)
+	arr.unshift(item)
+}
+
+var cfg_selected = null;
+var cfg_wrap, cfg_text, cfg_dl;
+
+function cfg_click(evt) {
+	evt.stopPropagation();
+	var item = evt.target;
+
+	if (cfg_selected !== null)
+		cfg_selected.classList.remove("active");
+
+	cfg_selected = item;
+	if (cfg_selected === null || item._config === null) {
+		cfg_selected = null;
+		cfg_wrap.style.display = "none";
+		cfg_text.innerText = "";
+		cfg_dl.href = "data:";
+		return;
+	}
+	cfg_selected.classList.add("active");
+	cfg_wrap.style.display = "block";
+	cfg_text.innerText = item._config;
+	cfg_dl.download = `${item._router}_${item._daemon}.conf`;
+	cfg_dl.href = "data:text/plain;charset=UTF-8," + encodeURIComponent(item._config);
+}
+
+function load_configs(configs) {
+	var linklist = document.querySelector("div#main > ul");
+
+	var cfg_root = document.createElement("dl");
+	cfg_root.classList.add("configs");
+	linklist.after(cfg_root);
+
+	cfg_wrap = document.createElement("div");
+	cfg_wrap.classList.add("config");
+	cfg_wrap.style.display = "none";
+	cfg_root.after(cfg_wrap);
+
+	var cfg_buttons = create(cfg_wrap, "div", "cfg-buttons");
+	cfg_dl = create(cfg_buttons, "a", "cfg-dl", "▽ download");
+
+	var cfg_close = create(cfg_buttons, "span", "cfg-close", "☒ close");
+	cfg_close.clickable = true;
+	cfg_close._config = null;
+	cfg_close.onclick = cfg_click;
+
+	cfg_text = create(cfg_wrap, "code", "config");
+
+	var daemons = new Array();
+
+	for (var rtr of Object.keys(configs))
+		daemons = daemons.concat(Object.keys(configs[rtr]));
+
+	daemons = new Array(...new Set(daemons));
+	daemons.sort();
+	pullup(daemons, 'staticd');
+	pullup(daemons, 'zebra');
+
+	cfg_root.style.gridTemplateColumns = `repeat(${daemons.length + 1}, max-content)`;
+
+	for (var rtr of Object.keys(configs).sort()) {
+		create(cfg_root, "dt", "", rtr);
+
+		for (var daemon of daemons) {
+			if (daemon in configs[rtr]) {
+				var item = create(cfg_root, "dd", "cfg-present", `${daemon}.conf`);
+				item.clickable = true;
+				item._router = rtr;
+				item._daemon = daemon;
+				item._config = configs[rtr][daemon];
+				item.onclick = cfg_click;
+			} else
+				create(cfg_root, "dd", "cfg-absent", ``);
+		}
+	}
+}
+
 function init() {
 	document.getElementsByTagName("body")[0].onhashchange = onhashchange;
 
@@ -669,6 +753,8 @@ function init() {
 
 	jsdata = b64_inflate_json(data);
 	ts_start = jsdata.ts_start;
+
+	load_configs(jsdata.configs);
 
 	var parser = new DOMParser();
 	pdmltree = parser.parseFromString(jsdata.pdml, "application/xml");

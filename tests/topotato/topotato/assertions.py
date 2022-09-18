@@ -60,7 +60,6 @@ __all__ = [
 ]
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 
 class TopotatoAssertion(TopotatoItem):
@@ -241,7 +240,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
         compare=None,
         **kwargs,
     ):
-        name = '%s:%s/%s/vtysh "%s"' % (
+        name = '%s:%s/%s/vtysh[%s]' % (
             name,
             rtr.name,
             daemon,
@@ -436,7 +435,7 @@ class DaemonRestart(TopotatoModifier):
     @classmethod
     def from_parent(cls, parent, name, rtr, daemon, **kwargs):
         self: DaemonRestart = super().from_parent(
-            parent, name="%s:%s.%s/restart" % (name, rtr.name, daemon), **kwargs
+            parent, name="%s:%s/%s/restart" % (name, rtr.name, daemon), **kwargs
         )
         self._rtr = rtr
         self._daemon = daemon
@@ -458,7 +457,7 @@ class ModifyLinkStatus(TopotatoModifier):
     # pylint: disable=arguments-differ,protected-access,too-many-arguments
     @classmethod
     def from_parent(cls, parent, name, rtr, iface, state, **kwargs):
-        name = "%s:%s/link %s (%s) -> %s" % (
+        name = "%s:%s/link[%s (%s) -> %s]" % (
             name,
             rtr.name,
             iface.ifname,
@@ -493,7 +492,7 @@ class BackgroundCommand:
         # pylint: disable=arguments-differ,protected-access
         @classmethod
         def from_parent(cls, parent, name, cmdobj, **kwargs):
-            name = '%s:%s/exec "%s" (%s)' % (
+            name = '%s:%s/exec["%s" (%s)]' % (
                 name,
                 cmdobj._rtr.name,
                 cmdobj._cmd,

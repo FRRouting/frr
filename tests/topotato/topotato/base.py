@@ -50,7 +50,6 @@ if typing.TYPE_CHECKING:
     from .timeline import Timeline
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 
 class _SkipTrace(set):
@@ -134,6 +133,8 @@ class TopotatoItem(nodes.Item, ClassHooks):
     fixturenames: Any
     funcargs: Dict[str, Any]
 
+    nodeid_children_sep: Optional[str] = None
+
     _obj: "TestBase"
     """
     The test source instance which this item has resulted from, i.e. an
@@ -172,8 +173,13 @@ class TopotatoItem(nodes.Item, ClassHooks):
 
         if args or kw:
             raise TopotatoUnhandledArgs("leftover arguments: %r, %r" % (args, kw))
+
+        nodeid = None
+        child_sep = getattr(parent, 'nodeid_children_sep', None)
+        if child_sep:
+            nodeid = parent.nodeid + child_sep + name
         self: TopotatoItem = cast(
-            "TopotatoItem", super().from_parent(parent, name=name)
+            "TopotatoItem", super().from_parent(parent, name=name, nodeid=nodeid)
         )
 
         for fin in finalize:
@@ -620,6 +626,11 @@ def topotatofunc(fn: Optional[Callable] = None, *, include_startup=False):
 class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
     started_ts: Optional[float] = None
     include_startup: bool
+
+    # JUnit XML output splits node IDs by "::", which is the implicit default
+    # for this.  But that make the JUnit report structure weird.  Use ":" for
+    # better cosmetics.
+    nodeid_children_sep = ':'
 
     # pylint: disable=protected-access
     @classmethod
