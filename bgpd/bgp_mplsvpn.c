@@ -42,6 +42,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_vpn.h"
+#include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nexthop.h"
@@ -996,6 +997,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
 
+		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_ACCEPT_OWN))
+			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ACCEPT_OWN);
+
 		if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
 					      source_bpi, bpi, bgp_orig, p,
 					      debug))
@@ -1035,6 +1039,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 
 	if (nexthop_self_flag)
 		bgp_path_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
+
+	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_ACCEPT_OWN))
+		bgp_path_info_set_flag(bn, new, BGP_PATH_ACCEPT_OWN);
 
 	bgp_path_info_extra_get(new);
 
@@ -1217,6 +1224,8 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
+	community_strip_accept_own(&static_attr);
+
 	/* Nexthop */
 	/* if policy nexthop not set, use 0 */
 	if (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
@@ -1362,7 +1371,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	 * because of loop checking.
 	 */
 	if (new_info)
-		vpn_leak_to_vrf_update(from_bgp, new_info);
+		vpn_leak_to_vrf_update(from_bgp, new_info, NULL);
 }
 
 void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
@@ -1518,10 +1527,40 @@ void vpn_leak_from_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 	}
 }
 
-static bool
-vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
-			      struct bgp *from_bgp,	   /* from */
-			      struct bgp_path_info *path_vpn) /* route */
+static struct bgp *bgp_lookup_by_rd(struct bgp_path_info *bpi,
+				    struct prefix_rd *rd, afi_t afi)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (!rd)
+		return NULL;
+
+	/* If ACCEPT_OWN is not enabled for this path - return. */
+	if (!CHECK_FLAG(bpi->flags, BGP_PATH_ACCEPT_OWN))
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				BGP_VPN_POLICY_TOVPN_RD_SET))
+			continue;
+
+		/* Check if we have source VRF by RD value */
+		if (memcmp(&bgp->vpn_policy[afi].tovpn_rd.val, rd->val,
+			   ECOMMUNITY_SIZE) == 0)
+			return bgp;
+	}
+
+	return NULL;
+}
+
+static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
+					  struct bgp *from_bgp, /* from */
+					  struct bgp_path_info *path_vpn,
+					  struct prefix_rd *prd)
 {
 	const struct prefix *p = bgp_dest_get_prefix(path_vpn->net);
 	afi_t afi = family2afi(p->family);
@@ -1558,9 +1597,22 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 		return false;
 	}
 
+	/* A route MUST NOT ever be accepted back into its source VRF, even if
+	 * it carries one or more RTs that match that VRF.
+	 */
+	if (prd && memcmp(&prd->val, &to_bgp->vpn_policy[afi].tovpn_rd.val,
+			  ECOMMUNITY_SIZE) == 0) {
+		if (debug)
+			zlog_debug(
+				"%s: skipping import, match RD (%pRD) of src VRF (%s) and the prefix (%pFX)",
+				__func__, prd, to_bgp->name_pretty, p);
+
+		return false;
+	}
+
 	if (debug)
-		zlog_debug("%s: updating %pFX to vrf %s", __func__, p,
-			   to_bgp->name_pretty);
+		zlog_debug("%s: updating RD %pRD, %pFX to vrf %s", __func__,
+			   prd, p, to_bgp->name_pretty);
 
 	/* shallow copy */
 	static_attr = *path_vpn->attr;
@@ -1584,6 +1636,8 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	}
+
+	community_strip_accept_own(&static_attr);
 
 	/*
 	 * Nexthop: stash and clear
@@ -1711,9 +1765,16 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	/*
 	 * For VRF-2-VRF route-leaking,
 	 * the source will be the originating VRF.
+	 *
+	 * If ACCEPT_OWN mechanism is enabled, then we SHOULD(?)
+	 * get the source VRF (BGP) by looking at the RD.
 	 */
+	struct bgp *src_bgp = bgp_lookup_by_rd(path_vpn, prd, afi);
+
 	if (path_vpn->extra && path_vpn->extra->bgp_orig)
 		src_vrf = path_vpn->extra->bgp_orig;
+	else if (src_bgp)
+		src_vrf = src_bgp;
 	else
 		src_vrf = from_bgp;
 
@@ -1723,8 +1784,9 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	     /* to */
 	return true;
 }
 
-bool vpn_leak_to_vrf_update(struct bgp *from_bgp,	   /* from */
-			    struct bgp_path_info *path_vpn) /* route */
+bool vpn_leak_to_vrf_update(struct bgp *from_bgp,
+			    struct bgp_path_info *path_vpn,
+			    struct prefix_rd *prd)
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
@@ -1741,7 +1803,7 @@ bool vpn_leak_to_vrf_update(struct bgp *from_bgp,	   /* from */
 		if (!path_vpn->extra
 		    || path_vpn->extra->bgp_orig != bgp) { /* no loop */
 			leak_success |= vpn_leak_to_vrf_update_onevrf(
-				bgp, from_bgp, path_vpn);
+				bgp, from_bgp, path_vpn, prd);
 		}
 	}
 	return leak_success;
@@ -1897,7 +1959,7 @@ void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *vpn_from,
 					continue;
 
 				vpn_leak_to_vrf_update_onevrf(to_bgp, vpn_from,
-							      bpi);
+							      bpi, NULL);
 			}
 		}
 	}

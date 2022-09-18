@@ -1670,6 +1670,23 @@ Configuring Peers
    turning on this command will allow BGP to install v4 routes with
    v6 nexthops if you do not have v4 configured on interfaces.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
+
+   Enable handling of self-originated VPN routes containing ``accept-own`` community.
+
+   This feature allows you to handle self-originated VPN routes, which a BGP speaker
+   receives from a route-reflector. A 'self-originated' route is one that was
+   originally advertised by the speaker itself. As per :rfc:`4271`, a BGP speaker rejects
+   advertisements that originated the speaker itself. However, the BGP ACCEPT_OWN
+   mechanism enables a router to accept the prefixes it has advertised, when reflected
+   from a route-reflector that modifies certain attributes of the prefix.
+
+   A special community called ``accept-own`` is attached to the prefix by the
+   route-reflector, which is a signal to the receiving router to bypass the ORIGINATOR_ID
+   and NEXTHOP/MP_REACH_NLRI check.
+
+   Default: disabled.
+
 .. clicmd:: bgp fast-external-failover
 
    This command causes bgp to take down ebgp peers immediately

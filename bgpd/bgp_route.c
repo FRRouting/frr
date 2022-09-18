@@ -103,10 +103,6 @@ DEFINE_HOOK(bgp_rpki_prefix_status,
 	     const struct prefix *prefix),
 	    (peer, attr, prefix));
 
-/* Render dest to prefix_rd based on safi */
-static const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
-						safi_t safi);
-
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -879,6 +875,49 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				pfx_buf, new_buf, exist_buf, new_pref,
 				exist_pref);
 		return 0;
+	}
+
+	/* If a BGP speaker supports ACCEPT_OWN and is configured for the
+	 * extensions defined in this document, the following step is inserted
+	 * after the LOCAL_PREF comparison step in the BGP decision process:
+	 *	When comparing a pair of routes for a BGP destination, the
+	 *	route with the ACCEPT_OWN community attached is preferred over
+	 *	the route that does not have the community.
+	 * This extra step MUST only be invoked during the best path selection
+	 * process of VPN-IP routes.
+	 */
+	if (safi == SAFI_MPLS_VPN &&
+	    (CHECK_FLAG(new->peer->af_flags[afi][safi], PEER_FLAG_ACCEPT_OWN) ||
+	     CHECK_FLAG(exist->peer->af_flags[afi][safi],
+			PEER_FLAG_ACCEPT_OWN))) {
+		bool new_accept_own = false;
+		bool exist_accept_own = false;
+		uint32_t accept_own = COMMUNITY_ACCEPT_OWN;
+
+		if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
+			new_accept_own = community_include(
+				bgp_attr_get_community(newattr), accept_own);
+		if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
+			exist_accept_own = community_include(
+				bgp_attr_get_community(existattr), accept_own);
+
+		if (new_accept_own && !exist_accept_own) {
+			*reason = bgp_path_selection_accept_own;
+			if (debug)
+				zlog_debug(
+					"%s: %s wins over %s due to accept-own",
+					pfx_buf, new_buf, exist_buf);
+			return 1;
+		}
+
+		if (!new_accept_own && exist_accept_own) {
+			*reason = bgp_path_selection_accept_own;
+			if (debug)
+				zlog_debug(
+					"%s: %s loses to %s due to accept-own",
+					pfx_buf, new_buf, exist_buf);
+			return 0;
+		}
 	}
 
 	/* 3. Local route check. We prefer:
@@ -3883,6 +3922,60 @@ static void bgp_attr_add_no_export_community(struct attr *attr)
 	bgp_attr_set_community(attr, new);
 }
 
+static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
+			   struct attr *attr, const struct prefix *prefix,
+			   int *sub_type)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	bool accept_own_found = false;
+
+	if (safi != SAFI_MPLS_VPN)
+		return false;
+
+	/* Processing of the ACCEPT_OWN community is enabled by configuration */
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ACCEPT_OWN))
+		return false;
+
+	/* The route in question carries the ACCEPT_OWN community */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
+		struct community *comm = bgp_attr_get_community(attr);
+
+		if (community_include(comm, COMMUNITY_ACCEPT_OWN))
+			accept_own_found = true;
+	}
+
+	/* The route in question is targeted to one or more destination VRFs
+	 * on the router (as determined by inspecting the Route Target(s)).
+	 */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (accept_own_found &&
+		    ecommunity_include(
+			    bgp->vpn_policy[afi]
+				    .rtlist[BGP_VPN_POLICY_DIR_TOVPN],
+			    bgp_attr_get_ecommunity(attr))) {
+			if (bgp_debug_update(peer, prefix, NULL, 1))
+				zlog_debug(
+					"%pBP prefix %pFX has ORIGINATOR_ID, but it's accepted due to ACCEPT_OWN",
+					peer, prefix);
+
+			/* Treat this route as imported, because it's leaked
+			 * already from another VRF, and we got an updated
+			 * version from route-reflector with ACCEPT_OWN
+			 * community.
+			 */
+			*sub_type = BGP_ROUTE_IMPORTED;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	       struct attr *attr, afi_t afi, safi_t safi, int type,
 	       int sub_type, struct prefix_rd *prd, mpls_label_t *label,
@@ -3996,12 +4089,20 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 	}
 
-	/* Route reflector originator ID check.  */
+	/* Route reflector originator ID check. If ACCEPT_OWN mechanism is
+	 * enabled, then take care of that too.
+	 */
+	bool accept_own = false;
+
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)
 	    && IPV4_ADDR_SAME(&bgp->router_id, &attr->originator_id)) {
-		peer->stat_pfx_originator_loop++;
-		reason = "originator is us;";
-		goto filtered;
+		accept_own =
+			bgp_accept_own(peer, afi, safi, attr, p, &sub_type);
+		if (!accept_own) {
+			peer->stat_pfx_originator_loop++;
+			reason = "originator is us;";
+			goto filtered;
+		}
 	}
 
 	/* Route reflector cluster ID check.  */
@@ -4499,8 +4600,13 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				bgp_path_info_unset_flag(dest, pi,
 							 BGP_PATH_VALID);
 			}
-		} else
+		} else {
+			if (accept_own)
+				bgp_path_info_set_flag(dest, pi,
+						       BGP_PATH_ACCEPT_OWN);
+
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+		}
 
 #ifdef ENABLE_BGP_VNC
 		if (safi == SAFI_MPLS_VPN) {
@@ -4550,8 +4656,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 		if ((SAFI_MPLS_VPN == safi)
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-
-			leak_success = vpn_leak_to_vrf_update(bgp, pi);
+			leak_success = vpn_leak_to_vrf_update(bgp, pi, prd);
 		}
 
 #ifdef ENABLE_BGP_VNC
@@ -4659,8 +4764,12 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
-	} else
+	} else {
+		if (accept_own)
+			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
+
 		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
+	}
 
 	/* Addpath ID */
 	new->addpath_rx_id = addpath_id;
@@ -4706,7 +4815,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 	if ((SAFI_MPLS_VPN == safi)
 	    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-		leak_success = vpn_leak_to_vrf_update(bgp, new);
+		leak_success = vpn_leak_to_vrf_update(bgp, new, prd);
 	}
 #ifdef ENABLE_BGP_VNC
 	if (SAFI_MPLS_VPN == safi) {
@@ -6427,7 +6536,8 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 
 			if (SAFI_MPLS_VPN == safi
 			    && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-				vpn_leak_to_vrf_update(bgp, pi);
+				vpn_leak_to_vrf_update(bgp, pi,
+						       &bgp_static->prd);
 			}
 #ifdef ENABLE_BGP_VNC
 			rfapiProcessUpdate(pi->peer, NULL, p, &bgp_static->prd,
@@ -6467,7 +6577,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 
 	if (SAFI_MPLS_VPN == safi
 	    && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-		vpn_leak_to_vrf_update(bgp, new);
+		vpn_leak_to_vrf_update(bgp, new, &bgp_static->prd);
 	}
 #ifdef ENABLE_BGP_VNC
 	rfapiProcessUpdate(new->peer, NULL, p, &bgp_static->prd, new->attr, afi,
@@ -8826,6 +8936,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Weight";
 	case bgp_path_selection_local_pref:
 		return "Local Pref";
+	case bgp_path_selection_accept_own:
+		return "Accept Own";
 	case bgp_path_selection_local_route:
 		return "Local Route";
 	case bgp_path_selection_confed_as_path:
@@ -11902,8 +12014,8 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 /*
  * Return rd based on safi
  */
-static const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
-						safi_t safi)
+const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
+					 safi_t safi)
 {
 	switch (safi) {
 	case SAFI_MPLS_VPN:
@@ -11912,7 +12024,6 @@ static const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 		return (struct prefix_rd *)(bgp_dest_get_prefix(dest));
 	default:
 		return NULL;
-
 	}
 }
 
