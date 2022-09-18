@@ -258,8 +258,8 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 	return 0;
 }
 
-void ospf_orr_igp_metric_send_update(struct orr_root *root,
-				     unsigned short instance)
+void ospf_orr_igp_metric_send_update_add(struct orr_root *root,
+					 unsigned short instance)
 {
 	int ret;
 	uint8_t count = 0;
@@ -271,8 +271,8 @@ void ospf_orr_igp_metric_send_update(struct orr_root *root,
 	msg.proto = ZEBRA_ROUTE_OSPF;
 	msg.safi = root->safi;
 	msg.instId = instance;
+	msg.add = true;
 	prefix_copy(&msg.root, &root->prefix);
-	msg.num_entries = root->new_table->count;
 
 	/* Update prefix table from ORR Route table */
 	for (rn = route_top(root->new_table); rn; rn = route_next(rn)) {
@@ -280,11 +280,80 @@ void ospf_orr_igp_metric_send_update(struct orr_root *root,
 		if (!or)
 			continue;
 
-		if (or->type != OSPF_DESTINATION_NETWORK)
+		if (or->type != OSPF_DESTINATION_NETWORK &&
+		    or->type != OSPF_DESTINATION_DISCARD)
 			continue;
 
 		if (ospf_route_match_same(root->old_table,
 					  (struct prefix_ipv4 *)&rn->p, or))
+			continue;
+
+		if (count < ORR_MAX_PREFIX) {
+			prefix_copy(&msg.nexthop[count].prefix,
+				    (struct prefix_ipv4 *)&rn->p);
+			msg.nexthop[count].metric = or->cost;
+			count++;
+		} else {
+			msg.num_entries = count;
+			ret = zclient_send_opaque(zclient,
+						  ORR_IGP_METRIC_UPDATE,
+						  (uint8_t *)&msg, sizeof(msg));
+			if (ret != ZCLIENT_SEND_SUCCESS)
+				ospf_orr_debug(
+					"%s: Failed to send message to BGP.",
+					__func__);
+			count = 0;
+			prefix_copy(&msg.nexthop[count].prefix,
+				    (struct prefix_ipv4 *)&rn->p);
+			msg.nexthop[count].metric = or->cost;
+			count++;
+		}
+	}
+	if (count > 0 && count <= ORR_MAX_PREFIX) {
+		msg.num_entries = count;
+		ret = zclient_send_opaque(zclient, ORR_IGP_METRIC_UPDATE,
+					  (uint8_t *)&msg, sizeof(msg));
+		if (ret != ZCLIENT_SEND_SUCCESS)
+			ospf_orr_debug("%s: Failed to send message to BGP.",
+				       __func__);
+	}
+}
+
+void ospf_orr_igp_metric_send_update_delete(struct orr_root *root,
+					    unsigned short instance)
+{
+	int ret;
+	uint8_t count = 0;
+	struct route_node *rn;
+	struct ospf_route *or ;
+	struct orr_igp_metric_info msg;
+
+	if (!root->old_table)
+		return;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.proto = ZEBRA_ROUTE_OSPF;
+	msg.instId = instance;
+	msg.safi = root->safi;
+	msg.add = false;
+	prefix_copy(&msg.root, &root->prefix);
+
+	/* Update prefix table from ORR Route table */
+	for (rn = route_top(root->old_table); rn; rn = route_next(rn)) {
+		or = rn->info;
+		if (!or)
+			continue;
+
+		if (or->path_type != OSPF_PATH_INTRA_AREA &&
+		    or->path_type != OSPF_PATH_INTER_AREA)
+			continue;
+
+		if (or->type != OSPF_DESTINATION_NETWORK &&
+		    or->type != OSPF_DESTINATION_DISCARD)
+			continue;
+
+		if (ospf_route_exist_new_table(root->new_table,
+					       (struct prefix_ipv4 *)&rn->p))
 			continue;
 
 		if (count < ORR_MAX_PREFIX) {
@@ -438,7 +507,8 @@ void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa)
 }
 
 /* Do not Install routes to root table. Just update table ponters */
-void ospf_orr_route_install(struct orr_root *root, struct route_table *rt)
+void ospf_orr_route_install(struct orr_root *root, struct route_table *rt,
+			    unsigned short instance)
 {
 	/*
 	 * rt contains new routing table, new_table contains an old one.
@@ -449,6 +519,14 @@ void ospf_orr_route_install(struct orr_root *root, struct route_table *rt)
 
 	root->old_table = root->new_table;
 	root->new_table = rt;
+
+	/* Send update to BGP to delete old routes. */
+	ospf_orr_igp_metric_send_update_delete(root, instance);
+
+	/* REVISIT: Skipping external route table for now */
+
+	/* Send update to BGP to add new routes. */
+	ospf_orr_igp_metric_send_update_add(root, instance);
 }
 
 void ospf_orr_spf_calculate_schedule(struct ospf *ospf)

@@ -34,12 +34,15 @@
 extern struct zclient *zclient;
 
 extern int ospf_orr_igp_metric_register(struct orr_igp_metric_reg orr_reg);
-extern void ospf_orr_igp_metric_send_update(struct orr_root *root,
-					    unsigned short instance);
+extern void ospf_orr_igp_metric_send_update_add(struct orr_root *root,
+						unsigned short instance);
+extern void ospf_orr_igp_metric_send_update_delete(struct orr_root *root,
+						   unsigned short instance);
 extern void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add);
 extern void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa);
 extern void ospf_orr_route_install(struct orr_root *root,
-				   struct route_table *rt);
+				   struct route_table *rt,
+				   unsigned short instance);
 extern void ospf_orr_spf_calculate_schedule(struct ospf *ospf);
 extern void ospf_orr_spf_calculate_area(struct ospf *ospf,
 					struct ospf_area *area,

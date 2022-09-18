@@ -51,6 +51,9 @@ struct orr_igp_metric_info {
 
 	safi_t safi;
 
+	/* Add or delete routes */
+	bool add;
+
 	/* IGP metric from Active Root. */
 	struct prefix root;
 	uint32_t num_entries;
