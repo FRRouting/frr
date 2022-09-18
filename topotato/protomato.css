@@ -545,3 +545,61 @@ dl.pdml-root div.pdml-raw {
 	color: var(--secondary-2-9);
 	background-color: var(--secondary-2-4);
 }
+
+dl.configs {
+	display: grid;
+	grid-auto-columns: max-content;
+	grid-row-gap: 0;
+	grid-column-gap: 0;
+}
+dl.configs dt {
+	margin:0;
+	padding:3pt 6pt;
+	border:0;
+	border-bottom:1px solid var(--secondary-2-2);
+	grid-column-start: 1;
+	background-color: var(--secondary-2-1);
+}
+dl.configs dd {
+	margin:0;
+	padding:3pt 6pt;
+	border:0;
+	border-left:1px dotted var(--secondary-2-2);
+	border-bottom:1px solid var(--secondary-2-2);
+	grid-column-end: span 1;
+	background-color: var(--secondary-2-9);
+}
+dl.configs dd.cfg-present {
+	cursor: pointer;
+}
+dl.configs dd.cfg-present.active {
+	color: var(--secondary-2-9);
+	background-color: var(--secondary-2-3);
+}
+div.config {
+	margin:0;
+	padding:5pt;
+	border-left:2em solid var(--secondary-2-9);
+}
+div.config .cfg-buttons {
+	margin-bottom:1em;
+}
+div.config .cfg-buttons * {
+	padding:3pt 6pt;
+	border-radius:3pt;
+	cursor:pointer;
+	margin-right:9pt;
+}
+div.config .cfg-buttons .cfg-close {
+	border:1px solid #faa;
+	background-color:#fdd;
+	color:#000;
+}
+div.config .cfg-buttons .cfg-dl {
+	border:1px solid #fca;
+	background-color:#fed;
+	color:#000;
+}
+div.config .cfg-buttons a {
+	text-decoration:none;
+}
