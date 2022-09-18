@@ -43,7 +43,6 @@ else:
 
 
 logger = logging.getLogger("topotato")
-logger.setLevel(logging.DEBUG)
 
 jenv = jinja2.Environment(
     loader=jinja2.PackageLoader("topotato.pretty", "html"),
@@ -186,6 +185,7 @@ class PrettyInstance(list):
             "ts_start": getattr(topotatocls, "started_ts", None),
             "items": [],
             "macmap": self.instance.network.macmap(),
+            "configs": self.instance.configs,
         }
 
         items = []
@@ -399,6 +399,20 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
                 ["tshark", "-q", "-r", fd.name, "-T", "pdml"], stdout=subprocess.PIPE
             ) as tshark:
                 pdml, _ = tshark.communicate()
+
+            ElementTree.register_namespace("", "")
+            pdmltree = ElementTree.fromstring(pdml)
+            # PDML decode for log messages bloats the HTML report, but they
+            # need to be included so the frame numbers are consistent.  remove
+            # them here.
+            i = 0
+            while i < len(pdmltree):
+                elem = pdmltree[i]
+                if elem.find("proto[@name='frame']/field[@name='frame.protocols'][@show='systemd_journal']") is not None:
+                    pdmltree.remove(elem)
+                else:
+                    i += 1
+            pdml = ElementTree.tostring(pdmltree)
 
             self._pdml = pdml.decode("UTF-8")
             self._jsdata = jsdata

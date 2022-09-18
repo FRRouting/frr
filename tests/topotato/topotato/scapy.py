@@ -46,7 +46,7 @@ class ScapySend(TopotatoModifier):
     def from_parent(cls, parent, name, rtr, iface, pkt, *, repeat=None, interval=None):
         path = "/".join([l.__name__ for l in pkt.layers()])
         self = super().from_parent(
-            parent, name="%s:%s/scapy(%s/%s)" % (name, rtr.name, iface, path)
+            parent, name="%s:%s/scapy[%s/%s]" % (name, rtr.name, iface, path)
         )
         self._rtr = rtr
         self._iface = iface

@@ -374,7 +374,7 @@ class EnhancedPacket(Block):
         )
 
 
-class JournalExport(Block, dict[str, Any]):
+class JournalExport(Block, Dict[str, Any]):
     """
     Log message representation in pcap-ng files.
 
