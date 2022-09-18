@@ -89,7 +89,7 @@ class MulticastReceiver:
             _source = source and ipaddress.ip_address(source)
             assert _source is None or _source.version == _group.version
 
-            name = "%s:%s/%s/multicast-%s(%s,%s)" % (
+            name = "%s:%s/%s/multicast-%s[%s,%s]" % (
                 name,
                 cmdobj._rtr.name,
                 cmdobj._iface.ifname,
