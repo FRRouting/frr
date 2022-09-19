@@ -1930,7 +1930,7 @@ static int config_write_debug(struct vty *vty)
 		     & (OSPF_DEBUG_SEND_RECV | OSPF_DEBUG_DETAIL);
 	if (r == (OSPF_DEBUG_SEND_RECV | OSPF_DEBUG_DETAIL)) {
 		vty_out(vty, "debug ospf%s packet all detail\n", str);
-		return 1;
+		write = 1;
 	}
 
 	/* debug ospf packet all. */
@@ -1943,7 +1943,7 @@ static int config_write_debug(struct vty *vty)
 			if (conf_debug_ospf_packet[i] & OSPF_DEBUG_DETAIL)
 				vty_out(vty, "debug ospf%s packet %s detail\n",
 					str, type_str[i]);
-		return 1;
+		write = 1;
 	}
 
 	/* debug ospf packet (hello|dd|ls-request|ls-update|ls-ack)
