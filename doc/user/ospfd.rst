@@ -1060,78 +1060,83 @@ TI-LFA requires a proper Segment Routing configuration.
 Debugging OSPF
 ==============
 
-.. clicmd:: debug ospf bfd
+.. clicmd:: debug ospf [(1-65535)] bfd
 
    Enable or disable debugging for BFD events. This will show BFD integration
    library messages and OSPF BFD integration messages that are mostly state
    transitions and validation problems.
 
-.. clicmd:: debug ospf client-api
+.. clicmd:: debug ospf [(1-65535)] client-api
 
    Show debug information for the OSPF opaque data client API.
 
-.. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
+.. clicmd:: debug ospf [(1-65535)] default-information
+
+   Show debug information of default information
+
+.. clicmd:: debug ospf [(1-65535)] packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
 
    Dump Packet for debugging
 
-.. clicmd:: debug ospf ism
-
-.. clicmd:: debug ospf ism (status|events|timers)
+.. clicmd:: debug ospf [(1-65535)] ism [status|events|timers]
 
 
 
    Show debug information of Interface State Machine
 
-.. clicmd:: debug ospf nsm
-
-.. clicmd:: debug ospf nsm (status|events|timers)
+.. clicmd:: debug ospf [(1-65535)] nsm [status|events|timers]
 
 
 
    Show debug information of Network State Machine
 
-.. clicmd:: debug ospf event
+.. clicmd:: debug ospf [(1-65535)] event
 
 
    Show debug information of OSPF event
 
-.. clicmd:: debug ospf nssa
+.. clicmd:: debug ospf [(1-65535)] nssa
 
 
    Show debug information about Not So Stub Area
 
-.. clicmd:: debug ospf lsa
+.. clicmd:: debug ospf [(1-65535)] ldp-sync
 
-.. clicmd:: debug ospf lsa (generate|flooding|refresh)
+   Show debug information about LDP-Sync
+
+.. clicmd:: debug ospf [(1-65535)] lsa [aggregate|flooding|generate|install|refresh]
 
 
 
    Show debug detail of Link State messages
 
-.. clicmd:: debug ospf te
+.. clicmd:: debug ospf [(1-65535)] sr
+
+   Show debug information about Segment Routing
+
+.. clicmd:: debug ospf [(1-65535)] te
 
 
    Show debug information about Traffic Engineering LSA
 
-.. clicmd:: debug ospf zebra
+.. clicmd:: debug ospf [(1-65535)] ti-lfa
 
-.. clicmd:: debug ospf zebra (interface|redistribute)
+   Show debug information about SR TI-LFA
+
+.. clicmd:: debug ospf [(1-65535)] zebra [interface|redistribute]
 
 
 
    Show debug information of ZEBRA API
 
-.. clicmd:: debug ospf graceful-restart helper
+.. clicmd:: debug ospf [(1-65535)] graceful-restart
 
 
    Enable/disable debug information for OSPF Graceful Restart Helper
 
 .. clicmd:: show debugging ospf
 
-.. clicmd:: debug ospf lsa aggregate
-
-   Debug commnd to enable/disable external route summarisation specific debugs.
 
 
 Sample Configuration
