@@ -631,6 +631,8 @@ static void if_install_connected(struct interface *ifp)
 
 	if (ifp->connected) {
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, next, ifc)) {
+			if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_DOWN))
+				continue;
 			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 				zebra_interface_address_add_update(ifp, ifc);
 
@@ -1067,7 +1069,10 @@ void if_down(struct interface *ifp)
 	zif->down_count++;
 	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
 
-	if_down_nhg_dependents(ifp);
+	/* Uninstall nexthops dependent on this interface, if interface is
+	   administratively down (Linux doesn't uninstall them on linkdown). */
+	if (!if_is_up(ifp))
+		if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
 	 * interfaces
@@ -1097,8 +1102,10 @@ void if_down(struct interface *ifp)
 	/* Notify to the protocol daemons. */
 	zebra_interface_down_update(ifp);
 
-	/* Uninstall connected routes from the kernel. */
-	if_uninstall_connected(ifp);
+	/* Uninstall connected routes from the kernel, if interface is
+	   administratively down (Linux doesn't uninstall them on linkdown). */
+	if (!if_is_up(ifp))
+		if_uninstall_connected(ifp);
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
