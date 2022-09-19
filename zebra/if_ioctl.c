@@ -199,7 +199,7 @@ static int if_getaddrs(void)
 		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
 		if (ifp == NULL) {
 			flog_err(EC_LIB_INTERFACE,
-				 "if_getaddrs(): Can't lookup interface %s",
+				 "%s: Can't lookup interface %s", __func__,
 				 ifap->ifa_name);
 			continue;
 		}
@@ -290,7 +290,7 @@ static void interface_info_ioctl()
 void interface_list(struct zebra_ns *zns)
 {
 
-	zlog_info("interface_list: NS %u", zns->ns_id);
+	zlog_info("%s: NS %u", __func__, zns->ns_id);
 
 /* Linux can do both proc & ioctl, ioctl is the only way to get
    interface aliases in 2.2 series kernels. */
