@@ -628,84 +628,9 @@ void ospf_packet_dump(struct stream *s)
 	stream_set_getp(s, gp);
 }
 
-DEFUN (debug_ospf_packet,
+DEFPY (debug_ospf_packet,
        debug_ospf_packet_cmd,
-       "debug ospf [(1-65535)] packet <hello|dd|ls-request|ls-update|ls-ack|all> [<send [detail]|recv [detail]|detail>]",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Detail Information\n"
-       "Packet received\n"
-       "Detail Information\n"
-       "Detail Information\n")
-{
-	int inst = (argv[2]->type == RANGE_TKN) ? 1 : 0;
-	int detail = strmatch(argv[argc - 1]->text, "detail");
-	int send = strmatch(argv[argc - (1 + detail)]->text, "send");
-	int recv = strmatch(argv[argc - (1 + detail)]->text, "recv");
-	char *packet = argv[3 + inst]->text;
-
-	if (inst) // user passed instance ID
-	{
-		if (inst != ospf_instance)
-			return CMD_NOT_MY_INSTANCE;
-	}
-
-	int type = 0;
-	int flag = 0;
-	int i;
-
-	/* Check packet type. */
-	if (strmatch(packet, "hello"))
-		type = OSPF_DEBUG_HELLO;
-	else if (strmatch(packet, "dd"))
-		type = OSPF_DEBUG_DB_DESC;
-	else if (strmatch(packet, "ls-request"))
-		type = OSPF_DEBUG_LS_REQ;
-	else if (strmatch(packet, "ls-update"))
-		type = OSPF_DEBUG_LS_UPD;
-	else if (strmatch(packet, "ls-ack"))
-		type = OSPF_DEBUG_LS_ACK;
-	else if (strmatch(packet, "all"))
-		type = OSPF_DEBUG_ALL;
-
-	/* Cases:
-	 * (none)      = send + recv
-	 * detail      = send + recv + detail
-	 * recv        = recv
-	 * send        = send
-	 * recv detail = recv + detail
-	 * send detail = send + detail
-	 */
-	if (!send && !recv)
-		send = recv = 1;
-
-	flag |= (send) ? OSPF_DEBUG_SEND : 0;
-	flag |= (recv) ? OSPF_DEBUG_RECV : 0;
-	flag |= (detail) ? OSPF_DEBUG_DETAIL : 0;
-
-	for (i = 0; i < 5; i++)
-		if (type & (0x01 << i)) {
-			if (vty->node == CONFIG_NODE)
-				DEBUG_PACKET_ON(i, flag);
-			else
-				TERM_DEBUG_PACKET_ON(i, flag);
-		}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_packet,
-       no_debug_ospf_packet_cmd,
-       "no debug ospf [(1-65535)] packet <hello|dd|ls-request|ls-update|ls-ack|all> [<send [detail]|recv [detail]|detail>]",
+       "[no$no] debug ospf [(1-65535)$inst] packet <hello|dd|ls-request|ls-update|ls-ack|all>$packet [<send$send [detail$detail]|recv$recv [detail$detail]|detail$detail>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -723,21 +648,12 @@ DEFUN (no_debug_ospf_packet,
        "Detail Information\n"
        "Detail Information\n")
 {
-	int inst = (argv[3]->type == RANGE_TKN) ? 1 : 0;
-	int detail = strmatch(argv[argc - 1]->text, "detail");
-	int send = strmatch(argv[argc - (1 + detail)]->text, "send");
-	int recv = strmatch(argv[argc - (1 + detail)]->text, "recv");
-	char *packet = argv[4 + inst]->text;
-
-	if (inst) // user passed instance ID
-	{
-		if (inst != ospf_instance)
-			return CMD_NOT_MY_INSTANCE;
-	}
-
 	int type = 0;
 	int flag = 0;
 	int i;
+
+	if (inst && inst != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
 
 	/* Check packet type. */
 	if (strmatch(packet, "hello"))
@@ -761,8 +677,10 @@ DEFUN (no_debug_ospf_packet,
 	 * recv detail = recv + detail
 	 * send detail = send + detail
 	 */
-	if (!send && !recv)
-		send = recv = 1;
+	if (!send && !recv) {
+		flag |= OSPF_DEBUG_SEND;
+		flag |= OSPF_DEBUG_RECV;
+	}
 
 	flag |= (send) ? OSPF_DEBUG_SEND : 0;
 	flag |= (recv) ? OSPF_DEBUG_RECV : 0;
@@ -770,10 +688,17 @@ DEFUN (no_debug_ospf_packet,
 
 	for (i = 0; i < 5; i++)
 		if (type & (0x01 << i)) {
-			if (vty->node == CONFIG_NODE)
-				DEBUG_PACKET_OFF(i, flag);
-			else
-				TERM_DEBUG_PACKET_OFF(i, flag);
+			if (vty->node == CONFIG_NODE) {
+				if (no)
+					DEBUG_PACKET_OFF(i, flag);
+				else
+					DEBUG_PACKET_ON(i, flag);
+			} else {
+				if (no)
+					TERM_DEBUG_PACKET_OFF(i, flag);
+				else
+					TERM_DEBUG_PACKET_ON(i, flag);
+			}
 		}
 
 #ifdef DEBUG
@@ -2113,7 +2038,6 @@ void ospf_debug_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_packet_cmd);
 
 	install_element(ENABLE_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_instance_lsa_cmd);
@@ -2128,7 +2052,6 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_ospf_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_packet_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_packet_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ism_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_ism_cmd);
 
