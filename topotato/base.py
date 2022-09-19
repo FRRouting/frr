@@ -175,7 +175,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
             raise TopotatoUnhandledArgs("leftover arguments: %r, %r" % (args, kw))
 
         nodeid = None
-        child_sep = getattr(parent, 'nodeid_children_sep', None)
+        child_sep = getattr(parent, "nodeid_children_sep", None)
         if child_sep:
             nodeid = parent.nodeid + child_sep + name
         self: TopotatoItem = cast(
@@ -630,7 +630,7 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
     # JUnit XML output splits node IDs by "::", which is the implicit default
     # for this.  But that make the JUnit report structure weird.  Use ":" for
     # better cosmetics.
-    nodeid_children_sep = ':'
+    nodeid_children_sep = ":"
 
     # pylint: disable=protected-access
     @classmethod
