@@ -897,6 +897,10 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 					  uint32_t metric)
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
 
 	if (area->oldmetric) {
 		lsp_debug(
@@ -912,16 +916,30 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 		if (area->srdb.enabled)
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
-				if (flex_algo_id_valid(i) &&
-				    !isis_flex_algo_elected_supported(i, area))
-					continue;
+				if (flex_algo_id_valid(i)) {
+					fad = isis_flex_algo_elected_supported(i,
+									       area);
+					if (!fad)
+						continue;
+					if (CHECK_FLAG(fad->fad.flags,
+						       FAD_FLAG_M))
+						fa_prefix_metric[i] = true;
+				}
+
 #endif /* ifndef FABRICD */
 				pcfgs[i] =
 					isis_sr_cfg_prefix_find(area, ipv4, i);
 			}
 
 		isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric, false,
-						pcfgs);
+						pcfgs
+#ifdef FABRICD
+						,
+						NULL);
+#else
+						,
+						fa_prefix_metric);
+#endif /* ifndef FABRICD */
 	}
 }
 
@@ -931,6 +949,10 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 					  uint32_t metric)
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
 
 	lsp_debug("ISIS (%s): Adding IPv6 reachability for %pFX",
 		  area->area_tag, ipv6);
@@ -938,15 +960,26 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 	if (area->srdb.enabled)
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
-			if (flex_algo_id_valid(i) &&
-			    !isis_flex_algo_elected_supported(i, area))
-				continue;
+			if (flex_algo_id_valid(i)) {
+				fad = isis_flex_algo_elected_supported(i, area);
+				if (!fad)
+					continue;
+				if (CHECK_FLAG(fad->fad.flags, FAD_FLAG_M))
+					fa_prefix_metric[i] = true;
+			}
 #endif /* ifndef FABRICD */
 			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
 		}
 
 	isis_tlvs_add_ipv6_reach(lsp->tlvs, isis_area_ipv6_topology(area), ipv6,
-				 metric, false, pcfgs);
+				 metric, false, pcfgs
+#ifdef FABRICD
+				 ,
+				 NULL);
+#else
+				 ,
+				 fa_prefix_metric);
+#endif /* ifndef FABRICD */
 }
 
 
@@ -954,6 +987,11 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				     struct isis_area *area)
 {
 	struct route_table *er_table = get_ext_reach(area, AF_INET, lsp->level);
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
+
 	if (!er_table)
 		return;
 
@@ -981,17 +1019,30 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 			if (area->srdb.enabled)
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
-					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
-						continue;
+					if (flex_algo_id_valid(i)) {
+						fad = isis_flex_algo_elected_supported(
+							i, area);
+						if (!fad)
+							continue;
+						if (CHECK_FLAG(fad->fad.flags,
+							       FAD_FLAG_M))
+							fa_prefix_metric[i] =
+								true;
+					}
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
 						area, ipv4, i);
 				}
 
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric,
-							true, pcfgs);
+							true, pcfgs
+#ifdef FABRICD
+							,
+							NULL);
+#else
+							,
+							fa_prefix_metric);
+#endif /* ifndef FABRICD */
 		}
 	}
 }
@@ -1001,6 +1052,11 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 {
 	struct route_table *er_table =
 		get_ext_reach(area, AF_INET6, lsp->level);
+#ifndef FABRICD
+	bool fa_prefix_metric[SR_ALGORITHM_COUNT] = {};
+	struct isis_router_cap_fad *fad;
+#endif /* ifndef FABRICD */
+
 	if (!er_table)
 		return;
 
@@ -1025,10 +1081,16 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 			if (area->srdb.enabled)
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
-					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
-						continue;
+					if (flex_algo_id_valid(i)) {
+						fad = isis_flex_algo_elected_supported(
+							i, area);
+						if (!fad)
+							continue;
+						if (CHECK_FLAG(fad->fad.flags,
+							       FAD_FLAG_M))
+							fa_prefix_metric[i] =
+								true;
+					}
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
 						area, p, i);
@@ -1036,7 +1098,14 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
-						 p, metric, true, pcfgs);
+						 p, metric, true, pcfgs
+#ifdef FABRICD
+						 ,
+						 NULL);
+#else
+						 ,
+						 fa_prefix_metric);
+#endif /* ifndef FABRICD */
 		} else if (isis_area_ipv6_dstsrc_enabled(area)) {
 			isis_tlvs_add_ipv6_dstsrc_reach(lsp->tlvs,
 							ISIS_MT_IPV6_DSTSRC,
@@ -1276,7 +1345,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		isis_tlvs_add_ipv6_reach(lsp->tlvs,
 					 isis_area_ipv6_topology(area),
-					 &chunk->prefix, 0, false, NULL);
+					 &chunk->prefix, 0, false, NULL, NULL);
 	}
 
 	/* IPv4 address and TE router ID TLVs.
