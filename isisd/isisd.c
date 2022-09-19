@@ -90,6 +90,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_NAME, "ISIS process name");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_AREA, "ISIS area");
 DEFINE_MTYPE(ISISD, ISIS_AREA_ADDR,   "ISIS area address");
 DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
+DEFINE_MTYPE(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 
 DEFINE_QOBJ_TYPE(isis_area);
 
@@ -564,6 +565,11 @@ void isis_area_destroy(struct isis_area *area)
 	free(area->area_tag);
 
 	area_mt_finish(area);
+
+	if (area->rlfa_plist_name[0])
+		XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[0]);
+	if (area->rlfa_plist_name[1])
+		XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[1]);
 
 	XFREE(MTYPE_ISIS_AREA, area);
 

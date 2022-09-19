@@ -54,8 +54,6 @@
 #include "isisd/isis_dr.h"
 #include "isisd/isis_zebra.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
-
 /*
  * XPath: /frr-isisd:isis/instance
  */
