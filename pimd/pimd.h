@@ -261,6 +261,24 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)
 #define PIM_DONT_DEBUG_BSM (router->debugs &= ~PIM_MASK_BSM_PROC)
 
+/* RFC 3376: 8.1. Robustness Variable - Default: 2 for IGMP */
+/* RFC 2710: 7.1. Robustness Variable - Default: 2 for MLD */
+#define GM_DEFAULT_ROBUSTNESS_VARIABLE 2
+
+/* RFC 3376: 8.2. Query Interval - Default: 125 seconds for IGMP */
+/* RFC 2710: 7.2. Query Interval - Default: 125 seconds for MLD */
+#define GM_GENERAL_QUERY_INTERVAL 125
+
+/* RFC 3376: 8.3. Query Response Interval - Default: 100 deciseconds for IGMP */
+/* RFC 2710: 7.3. Query Response Interval - Default: 100 deciseconds for MLD */
+#define GM_QUERY_MAX_RESPONSE_TIME_DSEC 100
+
+/* RFC 3376: 8.8. Last Member Query Interval - Default: 10 deciseconds for IGMP
+ */
+/* RFC 2710: 7.8. Last Listener Query Interval - Default: 10 deciseconds for MLD
+ */
+#define GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC 10
+
 void pim_router_init(void);
 void pim_router_terminate(void);
 
