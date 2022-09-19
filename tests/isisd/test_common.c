@@ -118,11 +118,11 @@ static void lsp_add_ip_reach(struct isis_lsp *lsp,
 	if (prefix.family == AF_INET)
 		isis_tlvs_add_extended_ip_reach(lsp->tlvs,
 						(struct prefix_ipv4 *)&prefix,
-						10, false, pcfg_p);
+						10, false, pcfg_p, NULL);
 	else
 		isis_tlvs_add_ipv6_reach(lsp->tlvs, ISIS_MT_IPV6_UNICAST,
 					 (struct prefix_ipv6 *)&prefix, 10,
-					 false, pcfg_p);
+					 false, pcfg_p, NULL);
 }
 
 static void lsp_add_reach(struct isis_lsp *lsp,
