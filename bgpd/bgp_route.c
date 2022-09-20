@@ -6014,6 +6014,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			/* Unintern original. */
 			aspath_unintern(&attr.aspath);
 			bgp_static_withdraw(bgp, p, afi, safi);
+			bgp_dest_unlock_node(dest);
 			return;
 		}
 
@@ -6340,6 +6341,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 			aspath_unintern(&attr.aspath);
 			bgp_static_withdraw_safi(bgp, p, afi, safi,
 						 &bgp_static->prd);
+			bgp_dest_unlock_node(dest);
 			return;
 		}
 
