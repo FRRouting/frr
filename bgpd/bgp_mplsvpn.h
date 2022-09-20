@@ -41,6 +41,8 @@
 #define V4_HEADER_OVERLAY                                                      \
 	"   Network          Next Hop      EthTag    Overlay Index   RouterMac\n"
 
+#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH 20
+
 extern void bgp_mplsvpn_init(void);
 extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
 extern uint32_t decode_label(mpls_label_t *);
