@@ -25,7 +25,16 @@ docker build \
 	--target=alpine-builder \
 	.
 
-CONTAINER_ID="$(docker create "frr:alpine-builder-$GITREV")"
+# Keep .apk files for debugging purposes, docker image as well.
+docker build \
+	--pull \
+	--file=docker/alpine/Dockerfile \
+	--build-arg="PKGVER=$PKGVER" \
+	--tag="frr:alpine-apk-builder-$GITREV" \
+	--target=alpine-apk-builder \
+	.
+
+CONTAINER_ID="$(docker create "frr:alpine-apk-builder-$GITREV")"
 docker cp "${CONTAINER_ID}:/pkgs/" docker/alpine
 docker rm "${CONTAINER_ID}"
 
@@ -36,3 +45,4 @@ docker build \
 	.
 
 docker rmi "frr:alpine-builder-$GITREV"
+docker rmi "frr:alpine-apk-builder-$GITREV"
