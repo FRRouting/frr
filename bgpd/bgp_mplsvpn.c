@@ -527,34 +527,57 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 			      struct in6_addr *sid_locator,
 			      struct in6_addr *sid)
 {
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	bool alloced = false;
 	int label = 0;
 	uint8_t offset = 0;
-	uint8_t len = 0;
+	uint8_t func_len = 0, shift_len = 0;
+	uint32_t index_max = 0;
 
 	if (!bgp || !sid_locator || !sid)
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		if (chunk->function_bits_length > 
+			BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+			if (debug)
+				zlog_debug(
+					"%s: invalid SRv6 Locator chunk (%pFX): Function Length must be less or equal to %d",
+					__func__, &chunk->prefix,
+					BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH);
+			continue;
+		}
+
+		index_max = (1 << chunk->function_bits_length) - 1;
+
+		if (index > index_max) {
+			if (debug)
+				zlog_debug(
+					"%s: skipped SRv6 Locator chunk (%pFX): Function Length is too short to support specified index (%u)",
+					__func__, &chunk->prefix, index);
+			continue;
+		}
+
 		*sid_locator = chunk->prefix.prefix;
 		*sid = chunk->prefix.prefix;
 		offset = chunk->block_bits_length + chunk->node_bits_length;
-		len = chunk->function_bits_length ?: 16;
+		func_len = chunk->function_bits_length;
+		shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
 
 		if (index != 0) {
-			label = index << 12;
-			transpose_sid(sid, label, offset, len);
+			label = index << shift_len;
+			transpose_sid(sid, label, offset, func_len);
 			if (sid_exist(bgp, sid))
 				return false;
 			alloced = true;
 			break;
 		}
 
-		for (size_t i = 1; i < 255; i++) {
-			label = i << 12;
-			transpose_sid(sid, label, offset, len);
+		for (uint32_t i = 1; i < index_max; i++) {
+			label = i << shift_len;
+			transpose_sid(sid, label, offset, func_len);
 			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
