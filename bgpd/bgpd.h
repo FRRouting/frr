@@ -238,7 +238,7 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
-	struct in6_addr *tovpn_sid_locator;
+	struct srv6_locator_chunk *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };

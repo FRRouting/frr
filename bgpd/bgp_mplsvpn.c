@@ -524,7 +524,7 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
  * else: try to allocate as auto-mode
  */
 static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
-			      struct in6_addr *sid_locator,
+			      struct srv6_locator_chunk *sid_locator_chunk,
 			      struct in6_addr *sid)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
@@ -536,7 +536,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 	uint8_t func_len = 0, shift_len = 0;
 	uint32_t index_max = 0;
 
-	if (!bgp || !sid_locator || !sid)
+	if (!bgp || !sid_locator_chunk || !sid)
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
@@ -560,8 +560,8 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 			continue;
 		}
 
-		*sid_locator = chunk->prefix.prefix;
 		*sid = chunk->prefix.prefix;
+		*sid_locator_chunk = *chunk;
 		offset = chunk->block_bits_length + chunk->node_bits_length;
 		func_len = chunk->function_bits_length;
 		shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
@@ -596,7 +596,8 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	char buf[256];
-	struct in6_addr *tovpn_sid, *tovpn_sid_locator;
+	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct in6_addr *tovpn_sid;
 	uint32_t tovpn_sid_index = 0, tovpn_sid_transpose_label;
 	bool tovpn_sid_auto = false;
 
@@ -630,8 +631,7 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 		return;
 	}
 
-	tovpn_sid_locator =
-		XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	tovpn_sid_locator = srv6_locator_chunk_alloc();
 	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 
 	tovpn_sid_transpose_label = alloc_new_sid(bgp_vpn, tovpn_sid_index,
@@ -640,7 +640,7 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 	if (tovpn_sid_transpose_label == 0) {
 		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
 			   __func__, bgp_vrf->name_pretty, afi2str(afi));
-		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid_locator);
+		srv6_locator_chunk_free(tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
 	}
@@ -1285,19 +1285,29 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
 		static_attr.srv6_l3vpn->loc_block_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->block_bits_length;
 		static_attr.srv6_l3vpn->loc_node_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->node_bits_length;
 		static_attr.srv6_l3vpn->func_len =
-			BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->function_bits_length;
 		static_attr.srv6_l3vpn->arg_len =
-			BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->argument_bits_length;
 		static_attr.srv6_l3vpn->transposition_len =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->function_bits_length;
 		static_attr.srv6_l3vpn->transposition_offset =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->block_bits_length +
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->node_bits_length;
+		;
 		memcpy(&static_attr.srv6_l3vpn->sid,
-		       from_bgp->vpn_policy[afi].tovpn_sid_locator,
+		       &from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->prefix.prefix,
 		       sizeof(struct in6_addr));
 	}
 
