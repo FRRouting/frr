@@ -540,8 +540,8 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
-		if (chunk->function_bits_length > 
-			BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+		if (chunk->function_bits_length >
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
 			if (debug)
 				zlog_debug(
 					"%s: invalid SRv6 Locator chunk (%pFX): Function Length must be less or equal to %d",
@@ -568,15 +568,32 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 
 		if (index != 0) {
 			label = index << shift_len;
+			if (label < MPLS_LABEL_UNRESERVED_MIN) {
+				if (debug)
+					zlog_debug(
+						"%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
+						__func__, &chunk->prefix,
+						label);
+				continue;
+			}
+
 			transpose_sid(sid, label, offset, func_len);
 			if (sid_exist(bgp, sid))
-				return false;
+				continue;
 			alloced = true;
 			break;
 		}
 
 		for (uint32_t i = 1; i < index_max; i++) {
 			label = i << shift_len;
+			if (label < MPLS_LABEL_UNRESERVED_MIN) {
+				if (debug)
+					zlog_debug(
+						"%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
+						__func__, &chunk->prefix,
+						label);
+				continue;
+			}
 			transpose_sid(sid, label, offset, func_len);
 			if (sid_exist(bgp, sid))
 				continue;
