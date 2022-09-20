@@ -559,6 +559,24 @@ The following commands configure Flex-Algo at the 'router isis' and
 
    Reset the 'metric-type' to the default 'igp' metric.
 
+.. clicmd:: prefix-metric
+
+   Set the 'prefix-metric' flag (aka. M-Flag) for the current FAD.
+
+   When a FAD with a 'prefix-metric' flag is elected, the redistributed prefixes
+   (i.e. from another protocol or another IS-IS level) are advertised with an
+   additional specific per algorithm Flex-Algo metric. This metric is used
+   instead of the 'igp' one when computing the paths. If it is available
+   (probably because of an incorrect Flex-Algo implementation on another
+   system), the 'igp' metric will not be used and the prefix will be dropped.
+
+   The Flex-Algo Prefix Metric reflects the actual cost of the redistributing
+   router to the destination whereas the 'igp' metric values are constant.
+
+.. clicmd:: no prefix-metric
+
+   Unset the 'prefix-metric' flag (aka. M-Flag) for the current FAD.
+
 .. clicmd:: affinity exclude-any NAME
 
    Add the specified affinity to the list of exclude-any affinities. The
