@@ -1464,6 +1464,11 @@ int bgp_stop(struct peer *peer)
 
 				/* There is no pending EOR message */
 				if (gr_info->eor_required == 0) {
+					if (gr_info->t_select_deferral) {
+						void *info = THREAD_ARG(
+							gr_info->t_select_deferral);
+						XFREE(MTYPE_TMP, info);
+					}
 					THREAD_OFF(gr_info->t_select_deferral);
 					gr_info->eor_received = 0;
 				}

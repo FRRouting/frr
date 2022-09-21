@@ -3630,7 +3630,12 @@ int bgp_delete(struct bgp *bgp)
 		gr_info = &bgp->gr_info[afi][safi];
 		if (!gr_info)
 			continue;
+		t = gr_info->t_select_deferral;
+		if (t) {
+			void *info = THREAD_ARG(t);
 
+			XFREE(MTYPE_TMP, info);
+		}
 		THREAD_OFF(gr_info->t_select_deferral);
 
 		t = gr_info->t_route_select;
