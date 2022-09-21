@@ -43,10 +43,15 @@ TC21: exist-map routes present in R2's BGP table.
       advertise-map routes present in R2's BGP table are advertised to R3.
 TC22: exist-map routes not present in R2's BGP table
       advertise-map routes present in R2's BGP table are withdrawn from R3.
+TC23: advertise-map with exist-map configuration is removed from a peer
+      send normal BGP update to advertise previously withdrawn routes if any.
+
 TC31: non-exist-map routes not present in R2's BGP table
       advertise-map routes present in R2's BGP table are advertised to R3.
 TC32: non-exist-map routes present in R2's BGP table
       advertise-map routes present in R2's BGP table are withdrawn from R3.
+TC33: advertise-map with non-exist-map configuration is removed from a peer
+      send normal BGP update to advertisepreviously withdrawn routes if any.
 
 TC41: non-exist-map route-map configuration removed in R2.
       advertise-map routes present in R2's BGP table are advertised to R3.
@@ -220,6 +225,17 @@ def all_routes_withdrawn(router):
     }
     return topotest.json_cmp(output, expected)
 
+def default_route_withdrawn(router):
+    output = json.loads(router.vtysh_cmd("show ip route json"))
+    expected = {
+        "0.0.0.0/0": None,
+        "192.0.2.1/32": [{"protocol": "bgp"}],
+        "192.0.2.5/32": [{"protocol": "bgp"}],
+        "10.139.224.0/20": [{"protocol": "bgp"}],
+        "203.0.113.1/32": [{"protocol": "bgp"}],
+        }
+    return topotest.json_cmp(output, expected)
+
 
 # BGP conditional advertisement with route-maps
 # EXIST-MAP, ADV-MAP-1 and RMAP-1
@@ -252,16 +268,7 @@ def non_exist_map_routes_present(router):
 
 
 def non_exist_map_routes_not_present(router):
-    output = json.loads(router.vtysh_cmd("show ip route json"))
-    expected = {
-        "0.0.0.0/0": None,
-        "192.0.2.1/32": [{"protocol": "bgp"}],
-        "192.0.2.5/32": [{"protocol": "bgp"}],
-        "10.139.224.0/20": [{"protocol": "bgp"}],
-        "203.0.113.1/32": [{"protocol": "bgp"}],
-    }
-    return topotest.json_cmp(output, expected)
-
+    return default_route_withdrawn(router);
 
 def exist_map_no_condition_route_map(router):
     return non_exist_map_routes_present(router)
@@ -389,7 +396,7 @@ passed = "PASSED!!!"
 failed = "FAILED!!!"
 
 
-def test_bgp_conditional_advertisement_step1():
+def test_bgp_conditional_advertisement_tc_1_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -409,7 +416,7 @@ def test_bgp_conditional_advertisement_step1():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step2():
+def test_bgp_conditional_advertisement_tc_2_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -438,7 +445,7 @@ def test_bgp_conditional_advertisement_step2():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step3():
+def test_bgp_conditional_advertisement_tc_2_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -466,8 +473,36 @@ def test_bgp_conditional_advertisement_step3():
 
     logger.info(msg + passed)
 
+def test_bgp_conditional_advertisement_tc_2_3():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
-def test_bgp_conditional_advertisement_step4():
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
+
+    # TC23: advertise-map with exist-map configuration is removed from a peer
+    # send normal BGP update to advertise previously withdrawn routes if any.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no neighbor 10.10.20.3 advertise-map ADV-MAP-1 exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(default_route_withdrawn, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = 'TC23: advertise-map with exist-map configuration is removed from peer - '
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+
+def test_bgp_conditional_advertisement_tc_3_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -496,7 +531,7 @@ def test_bgp_conditional_advertisement_step4():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step5():
+def test_bgp_conditional_advertisement_tc_3_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -524,8 +559,35 @@ def test_bgp_conditional_advertisement_step5():
 
     logger.info(msg + passed)
 
+def test_bgp_conditional_advertisement_tc_3_3():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
-def test_bgp_conditional_advertisement_step6():
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+    router3 = tgen.gears["r3"]
+
+    # TC33: advertise-map with non-exist-map configuration is removed from a peer
+    # send normal BGP update to advertisepreviously withdrawn routes if any.
+    router2.vtysh_cmd(
+        """
+          configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             no neighbor 10.10.20.3 advertise-map ADV-MAP-1 non-exist-map EXIST-MAP
+        """
+    )
+
+    test_func = functools.partial(all_routes_advertised, router3)
+    success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
+
+    msg = 'TC33: advertise-map with non-exist-map configuration is removed from a peer - '
+    assert result is None, msg + failed
+
+    logger.info(msg + passed)
+
+def test_bgp_conditional_advertisement_tc_4_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -539,6 +601,9 @@ def test_bgp_conditional_advertisement_step6():
     router2.vtysh_cmd(
         """
           configure terminal
+           router bgp 2
+            address-family ipv4 unicast
+             neighbor 10.10.20.3 advertise-map ADV-MAP-1 non-exist-map EXIST-MAP
            no route-map EXIST-MAP permit 10
         """
     )
@@ -552,7 +617,7 @@ def test_bgp_conditional_advertisement_step6():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step7():
+def test_bgp_conditional_advertisement_tc_4_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -581,7 +646,7 @@ def test_bgp_conditional_advertisement_step7():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step8():
+def test_bgp_conditional_advertisement_tc_5_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -614,7 +679,7 @@ def test_bgp_conditional_advertisement_step8():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step9():
+def test_bgp_conditional_advertisement_tc_5_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -643,7 +708,7 @@ def test_bgp_conditional_advertisement_step9():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step10():
+def test_bgp_conditional_advertisement_tc_5_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -673,7 +738,7 @@ def test_bgp_conditional_advertisement_step10():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step11():
+def test_bgp_conditional_advertisement_tc_5_4():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -702,7 +767,7 @@ def test_bgp_conditional_advertisement_step11():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step12():
+def test_bgp_conditional_advertisement_tc_6_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -740,7 +805,7 @@ def test_bgp_conditional_advertisement_step12():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step13():
+def test_bgp_conditional_advertisement_tc_6_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -769,7 +834,7 @@ def test_bgp_conditional_advertisement_step13():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step14():
+def test_bgp_conditional_advertisement_tc_6_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -799,7 +864,7 @@ def test_bgp_conditional_advertisement_step14():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step15():
+def test_bgp_conditional_advertisement_tc_6_4():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -830,7 +895,7 @@ def test_bgp_conditional_advertisement_step15():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step16():
+def test_bgp_conditional_advertisement_tc_7_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -868,7 +933,7 @@ def test_bgp_conditional_advertisement_step16():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step17():
+def test_bgp_conditional_advertisement_tc_7_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -897,7 +962,7 @@ def test_bgp_conditional_advertisement_step17():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step18():
+def test_bgp_conditional_advertisement_tc_7_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -927,7 +992,7 @@ def test_bgp_conditional_advertisement_step18():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step19():
+def test_bgp_conditional_advertisement_tc_7_4():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -956,7 +1021,7 @@ def test_bgp_conditional_advertisement_step19():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step20():
+def test_bgp_conditional_advertisement_tc_8_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -994,7 +1059,7 @@ def test_bgp_conditional_advertisement_step20():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step21():
+def test_bgp_conditional_advertisement_tc_8_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1023,7 +1088,7 @@ def test_bgp_conditional_advertisement_step21():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step22():
+def test_bgp_conditional_advertisement_tc_8_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1055,7 +1120,7 @@ def test_bgp_conditional_advertisement_step22():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step23():
+def test_bgp_conditional_advertisement_tc_8_4():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1086,7 +1151,7 @@ def test_bgp_conditional_advertisement_step23():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step24():
+def test_bgp_conditional_advertisement_tc_9_1():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1124,7 +1189,7 @@ def test_bgp_conditional_advertisement_step24():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step25():
+def test_bgp_conditional_advertisement_tc_9_2():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1153,7 +1218,7 @@ def test_bgp_conditional_advertisement_step25():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step26():
+def test_bgp_conditional_advertisement_tc_9_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1193,7 +1258,7 @@ def test_bgp_conditional_advertisement_step26():
     logger.info(msg + passed)
 
 
-def test_bgp_conditional_advertisement_step27():
+def test_bgp_conditional_advertisement_tc_9_4():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
