@@ -8272,12 +8272,26 @@ static void isis_tlvs_add_flex_algo_prefix_metric(struct isis_subtlvs *subtlvs,
 }
 #endif /* ifndef FABRICD */
 
+static void isis_tlvs_add_prefix_attr_flags(struct isis_subtlvs *subtlvs,
+					    bool node, bool external)
+{
+	struct isis_prefix_attr_flags *paf;
+
+	paf = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*paf));
+	if (node)
+		SET_FLAG(paf->flags, ISIS_PREFIX_ATTR_FLAG_N);
+	if (external)
+		SET_FLAG(paf->flags, ISIS_PREFIX_ATTR_FLAG_X);
+	append_item(&subtlvs->prefix_attr_flags, (struct isis_item *)paf);
+}
+
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint32_t metric,
 				     bool external, struct sr_prefix_cfg **pcfgs,
 				     bool *fa_prefix_metric)
 {
 	struct isis_extended_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
+	bool node = false;
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
@@ -8299,18 +8313,24 @@ void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 					ISIS_CONTEXT_SUBTLV_IP_REACH);
 			append_item(&r->subtlvs->prefix_sids,
 				    (struct isis_item *)psid);
+
+			if (!node && pcfg->node_sid)
+				node = true;
 		}
 
-#ifndef FABRICD
-		if (external && fa_prefix_metric) {
+		if (node || external) {
 			if (!r->subtlvs)
 				r->subtlvs = isis_alloc_subtlvs(
 					ISIS_CONTEXT_SUBTLV_IP_REACH);
-			isis_tlvs_add_flex_algo_prefix_metric(r->subtlvs,
-							      fa_prefix_metric,
-							      metric);
-		}
+			isis_tlvs_add_prefix_attr_flags(r->subtlvs, node,
+							external);
+#ifndef FABRICD
+			if (external && fa_prefix_metric)
+				isis_tlvs_add_flex_algo_prefix_metric(r->subtlvs,
+								      fa_prefix_metric,
+								      metric);
 #endif /* ifndef FABRICD */
+		}
 	}
 
 	append_item(&tlvs->extended_ip_reach, (struct isis_item *)r);
@@ -8322,6 +8342,7 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 			      bool *fa_prefix_metric)
 {
 	struct isis_ipv6_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
+	bool node = false;
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
@@ -8342,18 +8363,24 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 					ISIS_CONTEXT_SUBTLV_IPV6_REACH);
 			append_item(&r->subtlvs->prefix_sids,
 				    (struct isis_item *)psid);
+
+			if (!node && pcfg->node_sid)
+				node = true;
 		}
 
-#ifndef FABRICD
-		if (external && fa_prefix_metric) {
+		if (node || external) {
 			if (!r->subtlvs)
 				r->subtlvs = isis_alloc_subtlvs(
 					ISIS_CONTEXT_SUBTLV_IPV6_REACH);
-			isis_tlvs_add_flex_algo_prefix_metric(r->subtlvs,
-							      fa_prefix_metric,
-							      metric);
-		}
+			isis_tlvs_add_prefix_attr_flags(r->subtlvs, node,
+							external);
+#ifndef FABRICD
+			if (external && fa_prefix_metric)
+				isis_tlvs_add_flex_algo_prefix_metric(r->subtlvs,
+								      fa_prefix_metric,
+								      metric);
 #endif /* ifndef FABRICD */
+		}
 	}
 
 	struct isis_item_list *l;
