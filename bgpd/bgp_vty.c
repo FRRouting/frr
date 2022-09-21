@@ -8868,7 +8868,7 @@ DEFPY (af_label_vpn_export,
 
 DEFPY (af_sid_vpn_export,
        af_sid_vpn_export_cmd,
-       "[no] sid vpn export <(1-255)$sid_idx|auto$sid_auto>",
+       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto>",
        NO_STR
        "sid value for VRF\n"
        "Between current address-family and vpn\n"
