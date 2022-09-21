@@ -271,7 +271,7 @@ DEFUN (no_srv6_locator,
 
 DEFPY (locator_prefix,
        locator_prefix_cmd,
-       "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len]",
+       "prefix X:X::X:X/M$prefix [func-bits (0-64)$func_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
        "Configure SRv6 locator function length in bits\n"
