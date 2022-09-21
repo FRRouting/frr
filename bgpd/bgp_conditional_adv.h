@@ -33,6 +33,13 @@
 extern "C" {
 #endif
 
+/* Macro to log debug message */
+#define bgp_cond_adv_debug(...)                                                \
+	do {                                                                   \
+		if (BGP_DEBUG(cond_adv, COND_ADV))                             \
+			zlog_debug("" __VA_ARGS__);                            \
+	} while (0)
+
 /* Polling time for monitoring condition-map routes in route table */
 #define DEFAULT_CONDITIONAL_ROUTES_POLL_TIME 60
 

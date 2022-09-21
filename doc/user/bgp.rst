@@ -3497,6 +3497,10 @@ Debugging
    library messages and BGP BFD integration messages that are mostly state
    transitions and validation problems.
 
+.. clicmd:: debug bgp conditional-advertisement
+
+   Enable or disable debugging of BGP conditional advertisement.
+
 .. clicmd:: debug bgp neighbor-events
 
    Enable or disable debugging for neighbor events. This provides general
