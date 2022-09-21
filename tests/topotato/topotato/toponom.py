@@ -13,7 +13,9 @@ from itertools import chain
 import abc
 from typing import (
     Any,
+    Callable,
     Dict,
+    Generator,
     List,
     Optional,
     Sequence,
@@ -258,6 +260,39 @@ class Router(NOMLinked):
     @property
     def dotname(self):
         return "router-%s" % (self.name)
+
+    def neighbors(
+        self,
+        *,
+        rtr_filter: Callable[["Router"], bool] = lambda nbr: True,
+    ) -> Generator[Tuple["LinkIface", "LinkIface", "Router"], None, None]:
+        """
+        Iterate neighbor routers this router can see.
+        """
+        for self_iface in self.ifaces:
+            ep = self_iface.other.endpoint
+            if ep is self:
+                continue
+            if isinstance(ep, LAN):
+                for lanport in ep.ifaces:
+                    nbr = lanport.other.endpoint
+                    if nbr is self:
+                        continue
+                    if not isinstance(nbr, Router):
+                        raise TypeError(
+                            f"topology consistency error, expected router for {nbr!r}"
+                        )
+                    if not rtr_filter(nbr):
+                        continue
+                    yield (self_iface, lanport.other, nbr)
+            elif not isinstance(ep, Router):
+                raise TypeError(
+                    f"topology consistency error, expected router for {nbr!r}"
+                )
+            elif not rtr_filter(ep):
+                continue
+            else:
+                yield (self_iface, self_iface.other, ep)
 
     def dot(self, out: List[str]):
         """

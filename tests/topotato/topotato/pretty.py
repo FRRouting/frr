@@ -408,7 +408,12 @@ class PrettyShutdown(PrettyTopotato, matches=base.InstanceShutdown):
             i = 0
             while i < len(pdmltree):
                 elem = pdmltree[i]
-                if elem.find("proto[@name='frame']/field[@name='frame.protocols'][@show='systemd_journal']") is not None:
+                if (
+                    elem.find(
+                        "proto[@name='frame']/field[@name='frame.protocols'][@show='systemd_journal']"
+                    )
+                    is not None
+                ):
                     pdmltree.remove(elem)
                 else:
                     i += 1

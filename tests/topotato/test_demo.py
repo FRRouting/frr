@@ -74,21 +74,10 @@ class Configs(FRRConfigs):
     """
 
 
-@config_fixture(Configs)
-def configs(config, allproto_topo):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    return FRRNetworkInstance(configs.topology, configs).prepare()
-
-
-class AllStartupTest(TestBase):
+class AllStartupTest(TestBase, AutoFixture, topo=allproto_topo, configs=Configs):
     """
     docstring here
     """
-    instancefn = testenv
 
     @topotatofunc
     def test_running(self, topo, r1):
@@ -145,8 +134,8 @@ class AllStartupTest(TestBase):
             r1, "ripngd", "show ip ripng status", maxwait=5.0, compare=compare
         )
 
-    def test_other(self, configs):
-        print(repr(list(configs["r1"].keys())))
+    def test_other(self, allstartuptest_configs):
+        print(repr(list(allstartuptest_configs["r1"].keys())))
 
 
 if __name__ == "__main__":

@@ -110,14 +110,23 @@ class Interactive:
 
     @pytest.hookimpl()
     def pytest_topotato_run(self, item: "TopotatoItem", testfunc: Callable):
-        state = {
+        state: Dict[str, Any] = {
             "status": "running",
             "nodeid": item.nodeid,
         }
         instance = getattr(item, "instance", None)
         if instance:
+            state["frrpath"] = instance.configs.frrpath
+
             nom = pickle.dumps(instance.network)
             state["nom"] = binascii.b2a_base64(nom, newline=False).decode("ASCII")
+
+            state["rundirs"] = {}
+            for name, rtr in instance.routers.items():
+                rundir = getattr(rtr, "rundir", None)
+                if rundir is None:
+                    continue
+                state["rundirs"][name] = rundir
 
         self._post(state)
 
