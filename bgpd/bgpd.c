@@ -2374,8 +2374,10 @@ void peer_nsf_stop(struct peer *peer)
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
-	FOREACH_AFI_SAFI_NSF (afi, safi)
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		peer->nsf[afi][safi] = 0;
+		THREAD_OFF(peer->t_llgr_stale[afi][safi]);
+	}
 
 	if (peer->t_gr_restart) {
 		THREAD_OFF(peer->t_gr_restart);
