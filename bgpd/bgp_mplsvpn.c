@@ -636,17 +636,27 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 }
 
 /*
- * This function shifts "label" 4 bits to the right and
- * embeds it by length "len", starting at offset "offset"
- * as seen from the MSB (Most Significant Bit) of "sid".
+ * This function embeds upper `len` bits of `label` in `sid`,
+ * starting at offset `offset` as seen from the MSB of `sid`.
  *
- * e.g. if "label" is 0x1000 and "len" is 16, "label" is
- * embedded in "sid" as follows:
+ * e.g. Given that `label` is 0x12345 and `len` is 16,
+ * then `label` will be embedded in `sid` as follows:
  *
  *                 <----   len  ----->
- *         label:  0000 0001 0000 0000 0000
- *         sid:    .... 0000 0001 0000 0000
+ *         label:  0001 0002 0003 0004 0005
+ *         sid:    .... 0001 0002 0003 0004
  *                      <----   len  ----->
+ *                    ^
+ *                    |
+ *                 offset from MSB
+ *
+ * e.g. Given that `label` is 0x12345 and `len` is 8,
+ * `label` will be embedded in `sid` as follows:
+ *
+ *                 <- len ->
+ *         label:  0001 0002 0003 0004 0005
+ *         sid:    .... 0001 0002 0000 0000
+ *                      <- len ->
  *                    ^
  *                    |
  *                 offset from MSB
@@ -657,7 +667,7 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 	for (uint8_t idx = 0; idx < len; idx++) {
 		uint8_t tidx = offset + idx;
 		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
-		if (label >> (len + 3 - idx) & 0x1)
+		if (label >> (19 - idx) & 0x1)
 			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
 	}
 }
