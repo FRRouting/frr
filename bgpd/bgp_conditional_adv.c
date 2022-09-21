@@ -53,18 +53,16 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 
 			if (ret == RMAP_PERMITMATCH) {
 				bgp_dest_unlock_node(dest);
-				if (BGP_DEBUG(update, UPDATE_OUT))
-					zlog_debug(
-						"%s: Condition map routes present in BGP table",
-						__func__);
+				bgp_cond_adv_debug(
+					"%s: Condition map routes present in BGP table",
+					__func__);
 
 				return ret;
 			}
 		}
 	}
 
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: Condition map routes not present in BGP table",
+	bgp_cond_adv_debug("%s: Condition map routes not present in BGP table",
 			   __func__);
 
 	return ret;
@@ -98,8 +96,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 	subgrp->pscount = 0;
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: %s routes to/from %s for %s", __func__,
+	bgp_cond_adv_debug("%s: %s routes to/from %s for %s", __func__,
 			   update_type == UPDATE_TYPE_ADVERTISE ? "Advertise"
 								: "Withdraw",
 			   peer->host, get_afi_safi_str(afi, safi, false));
@@ -224,7 +221,7 @@ static void bgp_conditional_adv_timer(struct thread *t)
 			    && !peer->advmap_table_change)
 				continue;
 
-			if (BGP_DEBUG(update, UPDATE_OUT)) {
+			if (BGP_DEBUG(cond_adv, COND_ADV)) {
 				if (peer->advmap_table_change)
 					zlog_debug(
 						"%s: %s - routes changed in BGP table.",
@@ -269,10 +266,9 @@ static void bgp_conditional_adv_timer(struct thread *t)
 					    .advmap.update_type !=
 				    filter->advmap.update_type)) {
 				/* Handle change to peer advmap */
-				if (BGP_DEBUG(update, UPDATE_OUT))
-					zlog_debug(
-						"%s: advmap.update_type changed for peer %s, adjusting update_group.",
-						__func__, peer->host);
+				bgp_cond_adv_debug(
+					"%s: advmap.update_type changed for peer %s, adjusting update_group.",
+					__func__, peer->host);
 
 				update_group_adjust_peer(paf);
 			}
@@ -283,12 +279,10 @@ static void bgp_conditional_adv_timer(struct thread *t)
 			 */
 			if (peer->advmap_config_change[afi][safi]) {
 
-				if (BGP_DEBUG(update, UPDATE_OUT))
-					zlog_debug(
-						"%s: Configuration is changed on peer %s for %s, send the normal update first.",
-						__func__, peer->host,
-						get_afi_safi_str(afi, safi,
-								 false));
+				bgp_cond_adv_debug(
+					"%s: Configuration is changed on peer %s for %s, send the normal update first.",
+					__func__, peer->host,
+					get_afi_safi_str(afi, safi, false));
 				if (paf) {
 					update_subgroup_split_peer(paf, NULL);
 					subgrp = paf->subgroup;
@@ -325,8 +319,7 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	 * neighbors (AFI/SAFI). So just increment the counter.
 	 */
 	if (++bgp->condition_filter_count > 1) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("%s: condition_filter_count %d", __func__,
+		bgp_cond_adv_debug("%s: condition_filter_count %d", __func__,
 				   bgp->condition_filter_count);
 
 		return;
@@ -349,8 +342,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	 * So there's nothing to do except decrementing the counter.
 	 */
 	if (--bgp->condition_filter_count != 0) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("%s: condition_filter_count %d", __func__,
+		bgp_cond_adv_debug("%s: condition_filter_count %d", __func__,
 				   bgp->condition_filter_count);
 
 		return;
