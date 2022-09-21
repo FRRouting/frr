@@ -41,18 +41,8 @@ class Configs(FRRConfigs):
     staticd = """
     #% extends "boilerplate.conf"
     #% block main
-    ##  TODO: replace this with a topotato general feature for static routes
-    #%   if router.name == 'r1'
-    ipv6 route {{ topo.lans['lan4'].ip6[0] }} {{ routers['r2'].iface_to('r1').ll6 }} {{ router.iface_to('r2').ifname }}
-    #%   elif router.name == 'r2'
-    ipv6 route {{ topo.lans['lan1'].ip6[0] }} {{ routers['r1'].iface_to('r2').ll6 }} {{ router.iface_to('r1').ifname }}
-    ipv6 route {{ topo.lans['lan4'].ip6[0] }} {{ routers['r3'].iface_to('r2').ll6 }} {{ router.iface_to('r3').ifname }}
-    #%   elif router.name == 'r3'
-    ipv6 route {{ topo.lans['lan1'].ip6[0] }} {{ routers['r2'].iface_to('r3').ll6 }} {{ router.iface_to('r2').ifname }}
-    ipv6 route {{ topo.lans['lan4'].ip6[0] }} {{ routers['r4'].iface_to('r3').ll6 }} {{ router.iface_to('r4').ifname }}
-    #%   elif router.name == 'r4'
-    ipv6 route {{ topo.lans['lan1'].ip6[0] }} {{ routers['r3'].iface_to('r4').ll6 }} {{ router.iface_to('r3').ifname }}
-    #%   endif
+    {{ frr.static_route_for(topo.lans['lan1'].ip6[0]) }}
+    {{ frr.static_route_for(topo.lans['lan4'].ip6[0]) }}
     #% endblock
     """
 

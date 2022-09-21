@@ -17,8 +17,22 @@ import socket
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 import typing
-from typing import List, ClassVar, Dict, Mapping, Optional, Any
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 import jinja2
 
@@ -212,6 +226,59 @@ class FRRConfigs(dict, ClassHooks):
         super().__init__()
         self.topology = topology
 
+    @dataclass
+    class TemplateUtils:
+        configs: "FRRConfigs"
+        router: "toponom.Router"
+        daemon: str
+
+        def static_route_for(
+            self,
+            dst: "toponom.AnyNetwork",
+            *,
+            rtr_filter: Callable[["toponom.Router"], bool] = lambda nbr: True,
+        ):
+            """
+            Calculate and output a staticd route for given destination.
+
+            Current router is used as starting point.  Uses a simple
+            breath-first search, only one route will be output (no ECMP.)
+            If the destination is directly connected, output is a comment.
+            """
+            visited: Set["toponom.Router"] = set()
+            queue: List[
+                Tuple[
+                    "toponom.Router",
+                    List[Tuple["toponom.LinkIface", "toponom.LinkIface"]],
+                ]
+            ] = [(self.router, [])]
+
+            assert dst.version in [4, 6]
+            ipv = cast(Union[Literal[4], Literal[6]], dst.version)
+
+            while queue:
+                rtr, path = queue.pop(0)
+                if rtr in visited:
+                    continue
+                visited.add(rtr)
+                for addr in rtr.addrs(ipv):
+                    if dst == addr.network:
+                        if not path:
+                            return f"! {dst!s} is directly connected"
+                        if_self, if_other = path[0]
+                        if dst.version == 6:
+                            return (
+                                f"ipv6 route {dst!s} {if_other.ll6!s} {if_self.ifname}"
+                            )
+                        return (
+                            f"ip route {dst!s} {if_other.ip4[0].ip!s} {if_self.ifname}"
+                        )
+                for iface, nbr_iface, nbr in rtr.neighbors(rtr_filter=rtr_filter):
+                    nbr_path = path + [(iface, nbr_iface)]
+                    queue.append((nbr, nbr_path))
+
+            raise RuntimeError(f"no route for {dst!r} on {self.router!r}")
+
     def generate(self):
         """
         Render and fill in the actual templates.
@@ -235,6 +302,7 @@ class FRRConfigs(dict, ClassHooks):
                         router=router,
                         routers=rtrmap,
                         topo=topo,
+                        frr=self.TemplateUtils(self, router, daemon),
                     )
         return self
 
