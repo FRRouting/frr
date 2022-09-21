@@ -2493,13 +2493,13 @@ static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
 
 DEFPY(gm_show_interface,
       gm_show_interface_cmd,
-      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME] [detail$detail|json$json]",
-      DEBUG_STR
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME | detail$detail] [json$json]",
       SHOW_STR
       IPV6_STR
       MLD_STR
       VRF_FULL_CMD_HELP_STR
       "MLD interface information\n"
+      "Interface name\n"
       "Detailed output\n"
       JSON_STR)
 {
