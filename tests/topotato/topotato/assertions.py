@@ -240,7 +240,7 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
         compare=None,
         **kwargs,
     ):
-        name = '%s:%s/%s/vtysh[%s]' % (
+        name = "%s:%s/%s/vtysh[%s]" % (
             name,
             rtr.name,
             daemon,

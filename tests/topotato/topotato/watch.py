@@ -104,6 +104,7 @@ class WatchedSession:
     routers: Dict[str, "WatchedSession.Router"]
     """currently running virtual routers/namespaces in this session"""
 
+    # pylint: disable=unused-argument
     def __new__(cls, name, *args, **kwargs):
         """
         Singleton-ize WatchedSession by name of the run
@@ -126,7 +127,7 @@ class WatchedSession:
         self.routers = {}
 
         if wm is not None:
-            wm.add_watch(self._dirname, _wm_mask, proc_fun=self._ino_process)
+            wm.add_watch(os.fspath(self._dirname), _wm_mask, proc_fun=self._ino_process)
 
         for filename in os.listdir(self._dirname):
             if filename.endswith(".tmp") or filename.startswith("."):
@@ -135,6 +136,9 @@ class WatchedSession:
                 self._router_setup(filename)
 
         self.update()
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} name={self.name!r} pid={self.pid!r}>"
 
     def _update(self):
         self.state = {}
@@ -186,7 +190,7 @@ class WatchedSession:
 
         keys = ["status", "when", "nodeid", "outcome"]
 
-        _oldpid = None
+        _oldpid = self.pid
         _oldstate = (self.state.get(k) for k in keys)
         self._update()
         _newstate = (self.state.get(k) for k in keys)
@@ -221,13 +225,6 @@ class WatchedSession:
         rtrname = filename[3:]
         if rtrname not in self.routers:
             return
-        if self.pid is not None:
-            _logger.debug(
-                "exited topotato router: pid=%d name=%r ns=%r",
-                self.pid,
-                self.name,
-                rtrname,
-            )
 
         del self.routers[rtrname]
 
@@ -311,7 +308,7 @@ class WatchedSession:
             self.pid = _getlockpid(os.path.join(self.running._dirname, "ns-" + name))
 
         def __repr__(self):
-            return "<%s pid=%d %r>" % (self.__class__.__name__, self.pid, self.name)
+            return f"<{self.__class__.__name__} name={self.name!r} pid={self.pid!r}>"
 
         def run(self, cmd):
             """
@@ -353,9 +350,13 @@ class WatchedSession:
                     setns(nsfd)
                     os.close(nsfd)
 
-                # joining PID namespace needs another fork
-                with Forked(shlex.join(cmd)) as is_child:
-                    if is_child:
-                        # don't have terminal signals wreck the parent
-                        os.setsid()
-                        os.execlp(cmd[0], *cmd)
+                try:
+                    # joining PID namespace needs another fork
+                    with Forked(shlex.join(cmd)) as is_child:
+                        if is_child:
+                            # don't have terminal signals wreck the parent
+                            os.setsid()
+                            os.execlp(cmd[0], *cmd)
+                except subprocess.CalledProcessError as e:
+                    # pylint: disable=protected-access
+                    os._exit(e.returncode)

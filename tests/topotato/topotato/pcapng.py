@@ -23,7 +23,6 @@ import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import (
-    Any,
     BinaryIO,
     ClassVar,
     Dict,
@@ -374,7 +373,7 @@ class EnhancedPacket(Block):
         )
 
 
-class JournalExport(Block, Dict[str, Any]):
+class JournalExport(Block, dict):
     """
     Log message representation in pcap-ng files.
 

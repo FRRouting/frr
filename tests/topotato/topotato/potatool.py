@@ -8,27 +8,53 @@ potatool - externally interact with topotato sessions.
 import os
 import select
 import sys
-import ctypes
-from ctypes.util import find_library
+import inspect
 import shlex
+import re
 import traceback
 import logging
 import argparse
-import cmd
+import subprocess
 import atexit
 import readline
 import termios
+import pickle
+import binascii
 
+import typing
 from typing import (
+    Any,
+    Callable,
     ClassVar,
+    Dict,
+    List,
+    Union,
     Optional,
 )
 
 import pyinotify  # type: ignore
 
 from .watch import WatchedSession
+from .interactive import Interactive
+from .utils import deindent
+from . import rlpoll
 
-# _logger = logging.getLogger("potatool" if __name__ == "__main__" else __name__)
+
+def typing_is_optional(hint):
+    if typing.get_origin(hint) is not Union:
+        return hint, False
+
+    uargs = typing.get_args(hint)
+    optional = type(None) in uargs
+    if optional:
+        uargs = tuple(i for i in uargs if i is not type(None))
+    return Union[uargs], optional
+
+
+class CLIError(Exception):
+    def __init__(self, text):
+        super().__init__(text)
+        self.text = text
 
 
 class PotatoolSession(WatchedSession):
@@ -45,7 +71,7 @@ class PotatoolSession(WatchedSession):
 
     @classmethod
     def reselect(cls):
-        cls.sel_ses, cls.sel_rtr = None, None
+        cls.sel_sess, cls.sel_rtr = None, None
 
         if cls.want_sess is None:
             if len(cls.running) == 1:
@@ -79,31 +105,176 @@ class PotatoolSession(WatchedSession):
         super()._router_teardown(filename)
         self.reselect()
 
+    #
+    # CLI glue
+    #
 
-# pylint: disable=no-self-use
-class PotatoolShell(cmd.Cmd):
-    def do_session(self, arg):
-        args = shlex.split(arg)
+    cli: Dict[str, Callable[..., Any]] = {}
+    remap = {
+        "?": "help",
+        "!": "shell",
+    }
 
-        if len(args) == 0:
+    @staticmethod
+    def cli_cmd(name: Optional[str] = None):
+        def decorate(func):
+            _name = name
+            if _name is None:
+                assert func.__name__.startswith("do_")
+                _name = func.__name__[3:]
+            func.potatool_cli = {
+                "name": _name,
+            }
+            return func
+
+        return decorate
+
+    @classmethod
+    def clisetup(cls):
+        for item in cls.__dict__.values():
+            cliopts = getattr(item, "potatool_cli", None)
+            if cliopts is None:
+                continue
+            cls.cli[cliopts["name"]] = item
+
+    @classmethod
+    def do(cls, command: str):
+        words = shlex.split(command)
+
+        if not words:
+            return None
+        cmdname = words.pop(0)
+        cmdname = cls.remap.get(cmdname, cmdname)
+
+        if cmdname in cls.cli:
+            return cls.apply(cmdname, cls.cli[cmdname], words)
+
+        candidates = [item for item in cls.cli.items() if item[0].startswith(cmdname)]
+        if len(candidates) == 1:
+            cmdname, cmd = candidates[0]
+        elif not candidates:
+            raise CLIError(f"no such command: {cmdname!r}")
+        else:
+            m = "".join([f"\n\t{ item[0] }" for item in candidates])
+            raise CLIError(f"ambiguous command: {cmdname!r}\npossible matches:{m}")
+
+        return cls.apply(cmdname, cmd, words)
+
+    @classmethod
+    def _fillkwargs(cls, cmdname, argspec, hints):
+        kwargs = {}
+        for kwname in argspec.kwonlyargs:
+            hint = hints.get(kwname)
+            hint, optional = typing_is_optional(hint)
+
+            if isinstance(hint, type) and issubclass(hint, cls.Router):
+                if optional and cls.sel_rtr is None:
+                    kwargs[kwname] = None
+                    continue
+                if PotatoolSession.sel_rtr is None:
+                    raise CLIError(f"{cmdname!r} needs a router selected and active.")
+                kwargs[kwname] = cls.sel_rtr
+
+        return kwargs
+
+    @classmethod
+    def _fillargs(cls, cmdname, argspec, hints, args):
+        argv = []
+        todo = argspec.args
+        while todo:
+            arg = todo.pop(0)
+            hint = hints.get(arg)
+            hint, optional = typing_is_optional(hint)
+            origin = typing.get_origin(hint)
+
+            if optional and not args:
+                break
+            if origin in [List, list]:
+                argv.append(args)
+                args = []
+                break
+            if origin in [str, None]:
+                if not args:
+                    raise CLIError(f"missing {arg!r} parameter")
+                argv.append(args.pop(0))
+                continue
+
+            raise CLIError(f"unknown arg type for {arg!r}")
+
+        if args:
+            raise CLIError(f"too many arguments for {cmdname!r}: {args!r}")
+
+        return argv
+
+    @classmethod
+    def apply(cls, cmdname, cmd, args):
+        if isinstance(cmd, (classmethod, staticmethod)):
+            cmd = cmd.__get__(None, cls)
+        elif cls.sel_sess is None:
+            raise CLIError(f"{cmdname} needs a session selected and active.")
+        else:
+            cmd = cmd.__get__(cls.sel_sess, cls)
+
+        argspec = inspect.getfullargspec(cmd)
+        if inspect.ismethod(cmd):
+            argspec.args.pop(0)
+        hints = typing.get_type_hints(cmd)
+
+        kwargs = cls._fillkwargs(cmdname, argspec, hints)
+        argv = cls._fillargs(cmdname, argspec, hints, args)
+
+        return cmd(*argv, **kwargs)
+
+    #
+    # CLI functions
+    #
+
+    @cli_cmd()
+    @classmethod
+    def do_help(cls):
+        """
+        This help text.
+        """
+        sys.stdout.write("available commands:\n\n")
+        for name, cmd in sorted(cls.cli.items()):
+            helptext = cmd.__doc__ or "(no help available)"
+            helptext = deindent(helptext).strip().replace("\n", "\n" + 20 * " ")
+            sys.stdout.write("%-19s %s\n" % (name, helptext))
+        sys.stdout.write("\n")
+
+    @cli_cmd()
+    @classmethod
+    def do_session(cls, name: Optional[str] = None):
+        """
+        Select a topotato session.
+        Not necessary if only one topotato session is running.
+        """
+
+        if name is None:
             print(f"selected session: {PotatoolSession.want_sess}")
             print(f"active session:   {PotatoolSession.sel_sess}")
             print(f"selected router:  {PotatoolSession.want_rtr}")
             print(f"active router:    {PotatoolSession.sel_rtr}")
-        elif len(args) == 1:
-            if args[0] in {"None", ""}:
-                args[0] = None
-            PotatoolSession.want_sess = args[0]
-            PotatoolSession.reselect()
-            if PotatoolSession.sel_sess is None:
-                print(f"session {args[0]} selected, but not currently running")
-        else:
-            print("usage:  session [NAME]")
+            return
 
-    def do_router(self, arg):
-        args = shlex.split(arg)
+        if name in {"None", ""}:
+            name = None
+        PotatoolSession.want_sess = name
+        PotatoolSession.reselect()
 
-        if len(args) == 0:
+        if name is None:
+            return
+        if PotatoolSession.sel_sess is None:
+            print(f"session {name} selected, but not currently running")
+
+    # pylint: disable=no-self-use
+    @cli_cmd()
+    def do_router(self, name: Optional[str] = None):
+        """
+        Select a router in the current session.
+        Most commands require a router be selected.
+        """
+        if name is None:
             print(f"selected session: {PotatoolSession.want_sess}")
             print(f"active session:   {PotatoolSession.sel_sess}")
             print(f"selected router:  {PotatoolSession.want_rtr}")
@@ -112,50 +283,125 @@ class PotatoolShell(cmd.Cmd):
                 print("routers:")
                 for rtr in PotatoolSession.sel_sess.routers.keys():
                     print(f"  - {rtr}")
-
-        elif len(args) == 1:
-            if args[0] in {"None", ""}:
-                args[0] = None
-            PotatoolSession.want_rtr = args[0]
-            PotatoolSession.reselect()
-
-            if PotatoolSession.sel_sess is None:
-                print(f"router {args[0]} selected, but no session running")
-            elif PotatoolSession.sel_rtr is None:
-                print(f"router {args[0]} selected, but not currently running")
-        else:
-            print("usage:  router [NAME]")
-
-    def do_shell(self, arg):
-        args = shlex.split(arg)
-
-        if PotatoolSession.want_rtr is None:
-            print("please select a router first.")
-            return
-        if PotatoolSession.sel_rtr is None:
-            print("selected router {PotatoolSession.want_rtr} not currently running")
             return
 
-        if len(args) == 0:
-            args = [os.environ.get("SHELL", "/bin/sh")]
+        if name in {"None", ""}:
+            name = None
+        PotatoolSession.want_rtr = name
+        PotatoolSession.reselect()
 
-        PotatoolSession.sel_rtr.run(args)
+        if name is None:
+            return
+        if PotatoolSession.sel_sess is None:
+            print(f"router {name} selected, but no session running")
+        elif PotatoolSession.sel_rtr is None:
+            print(f"router {name} selected, but not currently running")
 
+    def _run(self, router, command):
+        try:
+            router.run(command)
+            return 0
+        except subprocess.CalledProcessError as e:
+            sys.stderr.write(
+                f"{shlex.join(command)}: exited with status {e.returncode}\n"
+            )
+            return e.returncode
+
+    @cli_cmd()
+    def do_shell(self, command: List[str], *, router: "PotatoolSession.Router"):
+        """
+        Run a command in currently selected router.
+        If no command is specified, start user's shell (SHELL env var).
+        """
+        if not command:
+            command = [os.environ.get("SHELL", "/bin/sh")]
+
+        return self._run(router, command)
+
+    @cli_cmd()
+    def do_topo(self):
+        """
+        Show currently running topology.
+        """
+        if "nom" not in self.state:
+            raise CLIError("session topology unavailable")
+
+        nom = pickle.loads(binascii.a2b_base64(self.state["nom"]))
+        Interactive.show_diagram(nom, sys.stdout)
+
+    @cli_cmd()
+    def do_addrs(self):
+        """
+        Show interfaces/addresses in currently running topology.
+        """
+        if "nom" not in self.state:
+            raise CLIError("session topology unavailable")
+
+        nom = pickle.loads(binascii.a2b_base64(self.state["nom"]))
+        Interactive.show_network(nom, sys.stdout)
+
+    @cli_cmd()
+    def do_ps(self, *, router: "PotatoolSession.Router"):
+        """
+        Show processes.
+        """
+        self._run(router, ["ps", "uf", "-N", "-C", "ps"])
+
+    @cli_cmd()
+    def do_ip(self, args: List[str], *, router: "PotatoolSession.Router"):
+        """
+        Run `ip` in router.
+        """
+        return self._run(router, ["ip"] + args)
+
+    def _vtysh(self, router, args):
+        frrpath = self.state.get("frrpath")
+        if not frrpath:
+            raise CLIError("session not fully initialized")
+        rundirs = self.state.get("rundirs", {})
+        if router.name not in rundirs:
+            raise CLIError(f"no vtysh directory for router {router.name}")
+
+        return self._run(
+            router,
+            [
+                os.path.join(frrpath, "vtysh/vtysh"),
+                "--vty_socket",
+                rundirs[router.name],
+            ]
+            + args,
+        )
+
+    @cli_cmd()
+    def do_vtysh(self, args: List[str], *, router: "PotatoolSession.Router"):
+        """
+        Run `vtysh` in router.
+        """
+        if args and not args[0].startswith("-"):
+            args = ["-c", shlex.join(args)]
+        return self._vtysh(router, args)
+
+    @cli_cmd()
+    def do_show(self, args: List[str], *, router: "PotatoolSession.Router"):
+        """
+        Pass through "show" command into vtysh.
+        """
+        args = ["-c", shlex.join(["show"] + args)]
+        return self._vtysh(router, args)
+
+    @cli_cmd()
+    @staticmethod
+    def do_exit():
+        sys.exit(0)
+
+
+PotatoolSession.clisetup()
 
 #
 # VERY HACKY CODE / WIP BEYOND THIS POINT!
 #
 
-rl_callback_fn = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
-rl_command_fn = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int)
-
-rl_name = find_library("readline")
-assert rl_name is not None
-libreadline = ctypes.cdll.LoadLibrary(rl_name)
-libreadline.rl_callback_handler_install.argtypes = [ctypes.c_char_p, rl_callback_fn]
-libreadline.rl_bind_key.argtypes = [ctypes.c_char, rl_command_fn]
-
-
+# pylint: disable=too-many-statements,too-many-locals
 def main():
     logging.basicConfig(
         format="%(asctime)s.%(msecs)03d %(levelname)s: %(message)s",
@@ -169,15 +415,13 @@ def main():
     argp.add_argument("CMD", nargs="*", help="execute potatool shell command")
     args = argp.parse_args()
 
-    shell = PotatoolShell()
-
     PotatoolSession.want_sess = args.session
     PotatoolSession.want_rtr = args.router
 
     if args.CMD:
         # non-interactive mode
         PotatoolSession.load()
-        shell.onecmd(shlex.join(args.CMD))
+        PotatoolSession.do(shlex.join(args.CMD))
         sys.exit(0)
 
     logging.getLogger().setLevel(logging.DEBUG)
@@ -197,7 +441,8 @@ def main():
         readline.read_history_file(histfile)
         hist_len = readline.get_current_history_length()
     except FileNotFoundError:
-        open(histfile, "wb").close()
+        with open(histfile, "wb") as fd:
+            pass
         hist_len = 0
 
     save_termios = termios.tcgetattr(0)
@@ -218,7 +463,6 @@ def main():
     # async readline shenanigans
     #
 
-    # libreadline.rl_initialize()
     readline.parse_and_bind("set enable-bracketed-paste off")
 
     running = True
@@ -227,7 +471,7 @@ def main():
     def rl_cb(textb):
         nonlocal running, rl_input
 
-        libreadline.rl_callback_handler_remove()
+        rlpoll.callback_handler_remove()
 
         if textb is None:
             running = False
@@ -235,19 +479,7 @@ def main():
 
         rl_input = textb.decode("UTF-8")
 
-    rl_cbfn = rl_callback_fn(rl_cb)
-
-    def rl_questionmark(a, ch):
-        sys.stdout.write("\n")
-
-        curline = readline.get_line_buffer()
-        sys.stderr.write("autocomplete TBD, sorry :)\n")
-        sys.stdout.flush()
-        libreadline.rl_on_new_line()
-        return 0
-
-    rl_questionmarkfn = rl_command_fn(rl_questionmark)
-    # libreadline.rl_bind_key(ord("?"), rl_questionmarkfn)
+    rl_escape = re.compile(r"(\033\[[0-9;]*m)")
 
     def rl_prompt():
         if PotatoolSession.sel_sess is not None:
@@ -268,52 +500,54 @@ def main():
             state = "\033[1;38;5;208m(?)"
 
         p = "\033[38;5;108mtopotato\033[38;5;148m:%s\033[1;38;5;214m # \033[m" % (state)
-        return p.encode("UTF-8")
+        return rl_escape.sub("\001\\1\002", p)
 
     poller = select.poll()
     poller.register(0, select.POLLIN)
     poller.register(wm.get_fd(), select.POLLIN)
 
     _rl_prompt = rl_prompt()
-    libreadline.rl_callback_handler_install(_rl_prompt, rl_cbfn)
+    rlpoll.callback_handler_install(_rl_prompt, rl_cb)
 
     while running:
         ready = poller.poll()
 
-        sys.stdout.write("\r\033[K")
-        sys.stdout.flush()
         do_rl = False
 
-        for fd, event in ready:
+        for fd, _ in ready:
             if fd == wm.get_fd():
+                rlpoll.clear_visible_line()
                 notifier.read_events()
                 notifier.process_events()
+                rlpoll.forced_update_display()
             if fd == 0:
                 do_rl = True
 
-        libreadline.rl_forced_update_display()
         if do_rl:
-            libreadline.rl_callback_read_char()
+            rlpoll.callback_read_char()
 
         if rl_input is not None:
             if rl_input.strip() != "":
                 readline.add_history(rl_input)
 
+            # pylint: disable=broad-except
             try:
-                shell.onecmd(rl_input)
-            except:
+                PotatoolSession.do(rl_input)
+            except CLIError as e:
+                sys.stderr.write(e.text + "\n")
+            except Exception:
                 sys.stderr.write("while executing %r:\n" % rl_input)
                 traceback.print_exc()
 
             _rl_prompt = rl_prompt()
-            libreadline.rl_callback_handler_install(_rl_prompt, rl_cbfn)
+            rlpoll.callback_handler_install(_rl_prompt, rl_cb)
             rl_input = None
 
         prev_prompt = _rl_prompt
         _rl_prompt = rl_prompt()
         if _rl_prompt != prev_prompt:
-            libreadline.rl_callback_handler_remove()
-            libreadline.rl_callback_handler_install(_rl_prompt, rl_cbfn)
+            rlpoll.set_prompt(_rl_prompt)
+            rlpoll.redisplay()
 
     sys.stdout.write("\n")
     sys.stdout.flush()
