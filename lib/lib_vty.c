@@ -225,12 +225,14 @@ DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
-	   "The End of Configuration\n")
+int cmd_xfrr_end_config(struct vty *vty)
 {
 	time_t readin_time;
 	char readin_time_str[MONOTIME_STRLEN];
 	int ret;
+
+	if (!vty->pending_allowed)
+		return CMD_SUCCESS;
 
 	readin_time = monotime(NULL);
 	readin_time -= callback.readin_time;
@@ -258,6 +260,12 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 		(*callback.end_config)();
 
 	return ret;
+}
+
+DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
+	   "The End of Configuration\n")
+{
+	return cmd_xfrr_end_config(vty);
 }
 
 void cmd_init_config_callbacks(void (*start_config_cb)(void),

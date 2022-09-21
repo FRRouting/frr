@@ -614,9 +614,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	/* Execute configuration file. */
 	ret = vtysh_config_from_file(vty, confp);
 
-	if (!dry_run)
-		vtysh_execute_no_pager("XFRR_end_configuration");
-
+	/* Will execute "XFRR_end_configuration" if necessary. */
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");
 

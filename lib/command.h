@@ -585,6 +585,7 @@ extern int cmd_execute_command_strict(vector, struct vty *,
 extern void cmd_init(int terminal);
 extern void cmd_init_config_callbacks(void (*start_config_cb)(void),
 				      void (*end_config_cb)(void));
+extern int cmd_xfrr_end_config(struct vty *vty);
 extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);

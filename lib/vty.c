@@ -2761,6 +2761,8 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
+	cmd_xfrr_end_config(vty);
+
 	if (vty_mgmt_fe_enabled() && mgmt_candidate_ds_wr_locked &&
 	    vty->mgmt_locked_candidate_ds) {
 		if (vty_mgmt_send_lockds_req(vty, MGMTD_DS_CANDIDATE, false) !=
