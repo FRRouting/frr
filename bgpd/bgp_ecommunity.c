@@ -1383,7 +1383,7 @@ bool ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
 		ecom->val = p;
 	} else
-		ecom->val = NULL;
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
 
 	return true;
 }
