@@ -2054,6 +2054,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 							gr_info->eor_required,
 							"EOR RCV",
 							gr_info->eor_received);
+					if (gr_info->t_select_deferral) {
+						void *info = THREAD_ARG(
+							gr_info->t_select_deferral);
+						XFREE(MTYPE_TMP, info);
+					}
 					THREAD_OFF(gr_info->t_select_deferral);
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
