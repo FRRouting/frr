@@ -251,6 +251,7 @@ DECLARE_QOBJ_TYPE(isis_area);
 
 DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
 DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
+DECLARE_MTYPE(ISIS_PLIST_NAME);
 
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
