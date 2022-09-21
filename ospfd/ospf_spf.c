@@ -48,7 +48,10 @@
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ti_lfa.h"
 #include "ospfd/ospf_errors.h"
+
+#ifdef SUPPORT_OSPF_API
 #include "ospfd/ospf_apiserver.h"
+#endif
 
 /* Variables to ensure a SPF scheduled log message is printed only once */
 
@@ -1895,7 +1898,9 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	/* Update all routers routing table */
 	ospf->oall_rtrs = ospf->all_rtrs;
 	ospf->all_rtrs = all_rtrs;
+#ifdef SUPPORT_OSPF_API
 	ospf_apiserver_notify_reachable(ospf->oall_rtrs, ospf->all_rtrs);
+#endif
 
 	/* Free old ABR/ASBR routing table */
 	if (ospf->old_rtrs)

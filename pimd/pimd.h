@@ -90,10 +90,10 @@
 #define PIM_MASK_PIM_PACKETDUMP_RECV (1 << 4)
 #define PIM_MASK_PIM_TRACE           (1 << 5)
 #define PIM_MASK_PIM_TRACE_DETAIL    (1 << 6)
-#define PIM_MASK_IGMP_EVENTS         (1 << 7)
-#define PIM_MASK_IGMP_PACKETS        (1 << 8)
-#define PIM_MASK_IGMP_TRACE          (1 << 9)
-#define PIM_MASK_IGMP_TRACE_DETAIL   (1 << 10)
+#define PIM_MASK_GM_EVENTS	     (1 << 7)
+#define PIM_MASK_GM_PACKETS	     (1 << 8)
+#define PIM_MASK_GM_TRACE            (1 << 9)
+#define PIM_MASK_GM_TRACE_DETAIL     (1 << 10)
 #define PIM_MASK_ZEBRA               (1 << 11)
 #define PIM_MASK_SSMPINGD            (1 << 12)
 #define PIM_MASK_MROUTE              (1 << 13)
@@ -160,12 +160,11 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 	(router->debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_PIM_TRACE_DETAIL))
 #define PIM_DEBUG_PIM_TRACE_DETAIL                                             \
 	(router->debugs & PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DEBUG_GM_EVENTS (router->debugs & PIM_MASK_IGMP_EVENTS)
-#define PIM_DEBUG_GM_PACKETS (router->debugs & PIM_MASK_IGMP_PACKETS)
-#define PIM_DEBUG_IGMP_TRACE                                                   \
-	(router->debugs & (PIM_MASK_IGMP_TRACE | PIM_MASK_IGMP_TRACE_DETAIL))
-#define PIM_DEBUG_IGMP_TRACE_DETAIL                                            \
-	(router->debugs & PIM_MASK_IGMP_TRACE_DETAIL)
+#define PIM_DEBUG_GM_EVENTS (router->debugs & PIM_MASK_GM_EVENTS)
+#define PIM_DEBUG_GM_PACKETS (router->debugs & PIM_MASK_GM_PACKETS)
+#define PIM_DEBUG_GM_TRACE                                                     \
+	(router->debugs & (PIM_MASK_GM_TRACE | PIM_MASK_GM_TRACE_DETAIL))
+#define PIM_DEBUG_GM_TRACE_DETAIL (router->debugs & PIM_MASK_GM_TRACE_DETAIL)
 #define PIM_DEBUG_ZEBRA (router->debugs & PIM_MASK_ZEBRA)
 #define PIM_DEBUG_MLAG (router->debugs & PIM_MASK_MLAG)
 #define PIM_DEBUG_SSMPINGD (router->debugs & PIM_MASK_SSMPINGD)
@@ -187,15 +186,13 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DEBUG_BSM	(router->debugs & PIM_MASK_BSM_PROC)
 
 #define PIM_DEBUG_EVENTS                                                       \
-	(router->debugs                                                        \
-	 & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS                         \
-	    | PIM_MASK_MSDP_EVENTS | PIM_MASK_BSM_PROC))
+	(router->debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_GM_EVENTS |          \
+			   PIM_MASK_MSDP_EVENTS | PIM_MASK_BSM_PROC))
 #define PIM_DEBUG_PACKETS                                                      \
-	(router->debugs                                                        \
-	 & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS                       \
-	    | PIM_MASK_MSDP_PACKETS))
+	(router->debugs &                                                      \
+	 (PIM_MASK_PIM_PACKETS | PIM_MASK_GM_PACKETS | PIM_MASK_MSDP_PACKETS))
 #define PIM_DEBUG_TRACE                                                        \
-	(router->debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_IGMP_TRACE))
+	(router->debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_GM_TRACE))
 
 #define PIM_DO_DEBUG_PIM_EVENTS (router->debugs |= PIM_MASK_PIM_EVENTS)
 #define PIM_DO_DEBUG_PIM_PACKETS (router->debugs |= PIM_MASK_PIM_PACKETS)
@@ -206,11 +203,11 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DO_DEBUG_PIM_TRACE (router->debugs |= PIM_MASK_PIM_TRACE)
 #define PIM_DO_DEBUG_PIM_TRACE_DETAIL                                          \
 	(router->debugs |= PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DO_DEBUG_IGMP_EVENTS (router->debugs |= PIM_MASK_IGMP_EVENTS)
-#define PIM_DO_DEBUG_IGMP_PACKETS (router->debugs |= PIM_MASK_IGMP_PACKETS)
-#define PIM_DO_DEBUG_IGMP_TRACE (router->debugs |= PIM_MASK_IGMP_TRACE)
-#define PIM_DO_DEBUG_IGMP_TRACE_DETAIL                                         \
-	(router->debugs |= PIM_MASK_IGMP_TRACE_DETAIL)
+#define PIM_DO_DEBUG_GM_EVENTS (router->debugs |= PIM_MASK_GM_EVENTS)
+#define PIM_DO_DEBUG_GM_PACKETS (router->debugs |= PIM_MASK_GM_PACKETS)
+#define PIM_DO_DEBUG_GM_TRACE (router->debugs |= PIM_MASK_GM_TRACE)
+#define PIM_DO_DEBUG_GM_TRACE_DETAIL                                           \
+	(router->debugs |= PIM_MASK_GM_TRACE_DETAIL)
 #define PIM_DO_DEBUG_ZEBRA (router->debugs |= PIM_MASK_ZEBRA)
 #define PIM_DO_DEBUG_MLAG (router->debugs |= PIM_MASK_MLAG)
 #define PIM_DO_DEBUG_SSMPINGD (router->debugs |= PIM_MASK_SSMPINGD)
@@ -239,11 +236,11 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_PIM_TRACE (router->debugs &= ~PIM_MASK_PIM_TRACE)
 #define PIM_DONT_DEBUG_PIM_TRACE_DETAIL                                        \
 	(router->debugs &= ~PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DONT_DEBUG_IGMP_EVENTS (router->debugs &= ~PIM_MASK_IGMP_EVENTS)
-#define PIM_DONT_DEBUG_IGMP_PACKETS (router->debugs &= ~PIM_MASK_IGMP_PACKETS)
-#define PIM_DONT_DEBUG_IGMP_TRACE (router->debugs &= ~PIM_MASK_IGMP_TRACE)
-#define PIM_DONT_DEBUG_IGMP_TRACE_DETAIL                                       \
-	(router->debugs &= ~PIM_MASK_IGMP_TRACE_DETAIL)
+#define PIM_DONT_DEBUG_GM_EVENTS (router->debugs &= ~PIM_MASK_GM_EVENTS)
+#define PIM_DONT_DEBUG_GM_PACKETS (router->debugs &= ~PIM_MASK_GM_PACKETS)
+#define PIM_DONT_DEBUG_GM_TRACE (router->debugs &= ~PIM_MASK_GM_TRACE)
+#define PIM_DONT_DEBUG_GM_TRACE_DETAIL                                         \
+	(router->debugs &= ~PIM_MASK_GM_TRACE_DETAIL)
 #define PIM_DONT_DEBUG_ZEBRA (router->debugs &= ~PIM_MASK_ZEBRA)
 #define PIM_DONT_DEBUG_MLAG (router->debugs &= ~PIM_MASK_MLAG)
 #define PIM_DONT_DEBUG_SSMPINGD (router->debugs &= ~PIM_MASK_SSMPINGD)
@@ -263,6 +260,24 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_MTRACE (router->debugs &= ~PIM_MASK_MTRACE)
 #define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)
 #define PIM_DONT_DEBUG_BSM (router->debugs &= ~PIM_MASK_BSM_PROC)
+
+/* RFC 3376: 8.1. Robustness Variable - Default: 2 for IGMP */
+/* RFC 2710: 7.1. Robustness Variable - Default: 2 for MLD */
+#define GM_DEFAULT_ROBUSTNESS_VARIABLE 2
+
+/* RFC 3376: 8.2. Query Interval - Default: 125 seconds for IGMP */
+/* RFC 2710: 7.2. Query Interval - Default: 125 seconds for MLD */
+#define GM_GENERAL_QUERY_INTERVAL 125
+
+/* RFC 3376: 8.3. Query Response Interval - Default: 100 deciseconds for IGMP */
+/* RFC 2710: 7.3. Query Response Interval - Default: 100 deciseconds for MLD */
+#define GM_QUERY_MAX_RESPONSE_TIME_DSEC 100
+
+/* RFC 3376: 8.8. Last Member Query Interval - Default: 10 deciseconds for IGMP
+ */
+/* RFC 2710: 7.8. Last Listener Query Interval - Default: 10 deciseconds for MLD
+ */
+#define GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC 10
 
 void pim_router_init(void);
 void pim_router_terminate(void);

@@ -255,6 +255,9 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if (e->bgp_orig)
 		bgp_unlock(e->bgp_orig);
 
+	if (e->peer_orig)
+		peer_unlock(e->peer_orig);
+
 	if (e->aggr_suppressors)
 		list_delete(&e->aggr_suppressors);
 
@@ -1773,10 +1776,20 @@ static void bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
 static void bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct peer *peer, struct attr *attr)
 {
+	struct aspath *aspath;
+
 	if (peer->sort == BGP_PEER_EBGP &&
-	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
-		attr->aspath = aspath_replace_specific_asn(attr->aspath,
-							   peer->as, bgp->as);
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE)) {
+		if (attr->aspath->refcnt)
+			aspath = aspath_dup(attr->aspath);
+		else
+			aspath = attr->aspath;
+
+		attr->aspath = aspath_intern(
+			aspath_replace_specific_asn(aspath, peer->as, bgp->as));
+
+		aspath_free(aspath);
+	}
 }
 
 void bgp_attr_add_llgr_community(struct attr *attr)
@@ -2471,6 +2484,21 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			subgroup_announce_reset_nhop(AF_INET6, attr);
 				nh_reset = true;
 			}
+	}
+
+	/* If this is an iBGP, send Origin Validation State (OVS)
+	 * extended community (rfc8097).
+	 */
+	if (peer->sort == BGP_PEER_IBGP) {
+		enum rpki_states rpki_state = RPKI_NOT_BEING_USED;
+
+		rpki_state = hook_call(bgp_rpki_prefix_status, peer, attr, p);
+
+		if (rpki_state != RPKI_NOT_BEING_USED)
+			bgp_attr_set_ecommunity(
+				attr, ecommunity_add_origin_validation_state(
+					      rpki_state,
+					      bgp_attr_get_ecommunity(attr)));
 	}
 
 	/*
@@ -5986,6 +6014,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			/* Unintern original. */
 			aspath_unintern(&attr.aspath);
 			bgp_static_withdraw(bgp, p, afi, safi);
+			bgp_dest_unlock_node(dest);
 			return;
 		}
 
@@ -6312,6 +6341,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 			aspath_unintern(&attr.aspath);
 			bgp_static_withdraw_safi(bgp, p, afi, safi,
 						 &bgp_static->prd);
+			bgp_dest_unlock_node(dest);
 			return;
 		}
 
@@ -6479,6 +6509,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 			/* Label index cannot be changed. */
 			if (bgp_static->label_index != label_index) {
 				vty_out(vty, "%% cannot change label-index\n");
+				bgp_dest_unlock_node(dest);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 
@@ -7263,6 +7294,7 @@ static void bgp_aggregate_install(
 			aggregate, atomic_aggregate, p);
 
 		if (!attr) {
+			bgp_dest_unlock_node(dest);
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
 			if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 				zlog_debug("%s: %pFX null attribute", __func__,
@@ -7423,31 +7455,21 @@ void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 static void bgp_aggregate_med_update(struct bgp_aggregate *aggregate,
 				     struct bgp *bgp, const struct prefix *p,
 				     afi_t afi, safi_t safi,
-				     struct bgp_path_info *pi, bool is_adding)
+				     struct bgp_path_info *pi)
 {
 	/* MED matching disabled. */
 	if (!aggregate->match_med)
 		return;
 
-	/* Aggregation with different MED, nothing to do. */
-	if (aggregate->med_mismatched)
-		return;
-
-	/*
-	 * Test the current entry:
-	 *
-	 * is_adding == true: if the new entry doesn't match then we must
-	 * install all suppressed routes.
-	 *
-	 * is_adding == false: if the entry being removed was the last
-	 * unmatching entry then we can suppress all routes.
+	/* Aggregation with different MED, recheck if we have got equal MEDs
+	 * now.
 	 */
-	if (!is_adding) {
-		if (bgp_aggregate_test_all_med(aggregate, bgp, p, afi, safi)
-		    && aggregate->summary_only)
-			bgp_aggregate_toggle_suppressed(aggregate, bgp, p, afi,
-							safi, true);
-	} else
+	if (aggregate->med_mismatched &&
+	    bgp_aggregate_test_all_med(aggregate, bgp, p, afi, safi) &&
+	    aggregate->summary_only)
+		bgp_aggregate_toggle_suppressed(aggregate, bgp, p, afi, safi,
+						true);
+	else
 		bgp_aggregate_med_match(aggregate, bgp, pi);
 
 	/* No mismatches, just quit. */
@@ -7813,7 +7835,7 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 	 */
 	if (aggregate->match_med)
 		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi,
-					 pinew, true);
+					 pinew);
 
 	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
 		aggr_suppress_path(aggregate, pinew);
@@ -7936,8 +7958,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 	 * "unsuppressing" twice.
 	 */
 	if (aggregate->match_med)
-		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi, pi,
-					 true);
+		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi, pi);
 
 	if (aggregate->count > 0)
 		aggregate->count--;
@@ -8462,6 +8483,17 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 	switch (nhtype) {
 	case NEXTHOP_TYPE_IFINDEX:
+		switch (p->family) {
+		case AF_INET:
+			attr.nexthop.s_addr = INADDR_ANY;
+			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+			break;
+		case AF_INET6:
+			memset(&attr.mp_nexthop_global, 0,
+			       sizeof(attr.mp_nexthop_global));
+			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+			break;
+		}
 		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -11145,13 +11177,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			if (type == bgp_show_type_route_map) {
 				struct route_map *rmap = output_arg;
 				struct bgp_path_info path;
-				struct attr dummy_attr;
+				struct bgp_path_info_extra extra;
+				struct attr dummy_attr = {};
 				route_map_result_t ret;
 
 				dummy_attr = *pi->attr;
 
-				path.peer = pi->peer;
-				path.attr = &dummy_attr;
+				prep_for_rmap_apply(&path, &extra, dest, pi,
+						    pi->peer, &dummy_attr);
 
 				ret = route_map_apply(rmap, dest_p, &path);
 				bgp_attr_flush(&dummy_attr);

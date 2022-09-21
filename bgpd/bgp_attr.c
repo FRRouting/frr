@@ -983,7 +983,7 @@ struct attr *bgp_attr_aggregate_intern(
 {
 	struct attr attr;
 	struct attr *new;
-	int ret;
+	route_map_result_t ret;
 
 	memset(&attr, 0, sizeof(attr));
 

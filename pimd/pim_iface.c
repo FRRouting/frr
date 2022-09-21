@@ -131,13 +131,13 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 	pim_ifp->mld_version = MLD_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
-	pim_ifp->gm_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
+		GM_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->gm_default_query_interval = GM_GENERAL_QUERY_INTERVAL;
 	pim_ifp->gm_query_max_response_time_dsec =
-		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
+		GM_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->gm_specific_query_max_response_time_dsec =
-		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->gm_last_member_query_count = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+		GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	pim_ifp->gm_last_member_query_count = GM_DEFAULT_ROBUSTNESS_VARIABLE;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
@@ -221,6 +221,9 @@ void pim_if_delete(struct interface *ifp)
 	list_delete(&pim_ifp->pim_neighbor_list);
 	list_delete(&pim_ifp->upstream_switch_list);
 	list_delete(&pim_ifp->sec_addr_list);
+
+	if (pim_ifp->bfd_config.profile)
+		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
@@ -880,7 +883,7 @@ pim_addr pim_find_primary_addr(struct interface *ifp)
 		return pim_ifp->update_source;
 
 #if PIM_IPV == 6
-	if (pim_ifp)
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->ll_highest))
 		return pim_ifp->ll_highest;
 
 	pim_addr best_addr = PIMADDR_ANY;

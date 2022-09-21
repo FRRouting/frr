@@ -1027,6 +1027,11 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		    json_object *json)
 {
 	struct channel_oil *c_oil;
+#if PIM_IPV != 4
+	struct ttable *tt = NULL;
+	char *table = NULL;
+#endif
+	char flag[50];
 	json_object *json_group = NULL;
 	json_object *json_ifp_in = NULL;
 	json_object *json_ifp_out = NULL;
@@ -1038,9 +1043,18 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 
 	if (!json) {
 		vty_out(vty,
-			"Codes: J -> Pim Join, I -> " GM " Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
+			"Codes: J -> Pim Join, I -> " GM " Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted\n");
+#if PIM_IPV == 4
 		vty_out(vty,
-			"\nActive Source           Group            RPT  IIF               OIL\n");
+			"Active Source           Group            RPT  IIF               OIL\n");
+#else
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Active|Source|Group|RPT|IIF|OIL");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+#endif
 	}
 
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
@@ -1153,11 +1167,14 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    "wrongInterface",
 						    c_oil->cc.wrong_if);
 			}
-		} else
+		}
+#if PIM_IPV == 4
+		else
 			vty_out(vty, "%-6d %-15pPAs  %-15pPAs  %-3s  %-16s  ",
 				c_oil->installed, oil_origin(c_oil),
 				oil_mcastgrp(c_oil), isRpt ? "y" : "n",
 				in_ifname);
+#endif
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
 		     ++oif_vif_index) {
@@ -1199,72 +1216,72 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 				json_object_object_add(json_ifp_in, out_ifname,
 						       json_ifp_out);
 			} else {
+				flag[0] = '\0';
+				snprintf(flag, sizeof(flag), "(%c%c%c%c%c)",
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_GM)
+						 ? 'I'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_PIM)
+						 ? 'J'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_VXLAN)
+						 ? 'V'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_PROTO_STAR)
+						 ? '*'
+						 : ' ',
+					 (c_oil->oif_flags[oif_vif_index] &
+					  PIM_OIF_FLAG_MUTE)
+						 ? 'M'
+						 : ' ');
+
 				if (first_oif) {
 					first_oif = 0;
-					vty_out(vty, "%s(%c%c%c%c%c)",
-						out_ifname,
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_GM)
-							? 'I'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_MUTE)
-							? 'M'
-							: ' ');
-				} else
-					vty_out(vty, ", %s(%c%c%c%c%c)",
-						out_ifname,
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_GM)
-							? 'I'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ',
-						(c_oil->oif_flags
-							 [oif_vif_index] &
-						 PIM_OIF_FLAG_MUTE)
-							? 'M'
-							: ' ');
+#if PIM_IPV == 4
+					vty_out(vty, "%s%s", out_ifname, flag);
+#else
+					ttable_add_row(
+						tt, "%d|%pPAs|%pPAs|%s|%s|%s%s",
+						c_oil->installed,
+						oil_origin(c_oil),
+						oil_mcastgrp(c_oil),
+						isRpt ? "y" : "n", in_ifname,
+						out_ifname, flag);
+#endif
+				} else {
+#if PIM_IPV == 4
+					vty_out(vty, ", %s%s", out_ifname,
+						flag);
+#else
+					ttable_add_row(tt,
+						       "%c|%c|%c|%c|%c|%s%s",
+						       ' ', ' ', ' ', ' ', ' ',
+						       out_ifname, flag);
+#endif
+				}
 			}
 		}
-
+#if PIM_IPV == 4
 		if (!json)
 			vty_out(vty, "\n");
+#endif
 	}
 
-	if (!json)
+	/* Dump the generated table. */
+	if (!json) {
+#if PIM_IPV == 4
 		vty_out(vty, "\n");
+#else
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+#endif
+	}
 }
 
 /* pim statistics - just adding only bsm related now.
@@ -1655,9 +1672,9 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 }
 
-static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
+static void pim_show_join_helper(struct pim_interface *pim_ifp,
 				 struct pim_ifchannel *ch, json_object *json,
-				 time_t now)
+				 time_t now, struct ttable *tt)
 {
 	json_object *json_iface = NULL;
 	json_object *json_row = NULL;
@@ -1724,8 +1741,8 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 			json_object_object_addf(json_grp, json_row, "%pPAs",
 						&ch->sg.src);
 	} else {
-		vty_out(vty,
-			"%-16s %-15pPAs %-15pPAs %-15pPAs %-10s %8s %-6s %5s\n",
+		ttable_add_row(
+			tt, "%s|%pPAs|%pPAs|%pPAs|%s|%s|%s|%s",
 			ch->interface->name, &ifaddr, &ch->sg.src, &ch->sg.grp,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 			uptime, expire, prune);
@@ -1806,12 +1823,21 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
 	time_t now;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (!json)
-		vty_out(vty,
-			"Interface        Address         Source          Group           State      Uptime   Expire Prune\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"Interface|Address|Source|Group|State|Uptime|Expire|Prune");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -1822,8 +1848,15 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 			if (!pim_sgaddr_match(ch->sg, *sg))
 				continue;
 
-			pim_show_join_helper(vty, pim_ifp, ch, json, now);
+			pim_show_join_helper(pim_ifp, ch, json, now, tt);
 		} /* scan interface channels */
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
@@ -1953,6 +1986,8 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 	enum json_type type;
 	json_object *json = NULL;
 	json_object *json_tmp = NULL;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 
 	json = json_object_new_object();
 
@@ -1969,8 +2004,12 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 	if (uj) {
 		vty_json(vty, json);
 	} else {
-		vty_out(vty,
-			"Interface         Address          Source           Group            Membership\n");
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Address|Source|Group|Membership");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 
 		/*
 		 * Example of the json data we are traversing
@@ -2007,34 +2046,40 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 				type = json_object_get_type(if_field_val);
 
 				if (type == json_type_object) {
-					vty_out(vty, "%-16s  ", key);
+					const char *address, *source,
+						*localMembership;
 
 					json_object_object_get_ex(
 						val, "address", &json_tmp);
-					vty_out(vty, "%-15s  ",
-						json_object_get_string(
-							json_tmp));
+					address = json_object_get_string(
+						json_tmp);
 
 					json_object_object_get_ex(if_field_val,
 								  "source",
 								  &json_tmp);
-					vty_out(vty, "%-15s  ",
-						json_object_get_string(
-							json_tmp));
-
-					/* Group */
-					vty_out(vty, "%-15s  ", if_field_key);
+					source = json_object_get_string(
+						json_tmp);
 
 					json_object_object_get_ex(
 						if_field_val, "localMembership",
 						&json_tmp);
-					vty_out(vty, "%-10s\n",
+					localMembership =
 						json_object_get_string(
-							json_tmp));
+							json_tmp);
+
+					ttable_add_row(tt, "%s|%s|%s|%s|%s",
+						       key, address, source,
+						       if_field_key,
+						       localMembership);
 				}
 			}
 		}
 		json_object_free(json);
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 
@@ -3179,6 +3224,8 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	time_t now;
 	char uptime[10];
 	char expire[10];
@@ -3189,8 +3236,12 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	now = pim_time_monotonic_sec();
 
 	if (!json) {
-		vty_out(vty,
-			"Interface                Neighbor    Uptime  Holdtime  DR Pri\n");
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Neighbor|Uptime|Holdtime|DR Pri");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
 	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -3232,9 +3283,10 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 						       neigh_src_str, json_row);
 
 			} else {
-				vty_out(vty, "%-16s  %15s  %8s  %8s  %6d\n",
-					ifp->name, neigh_src_str, uptime,
-					expire, neigh->dr_priority);
+				ttable_add_row(tt, "%s|%pPAs|%s|%s|%d",
+					       ifp->name, &neigh->source_addr,
+					       uptime, expire,
+					       neigh->dr_priority);
 			}
 		}
 
@@ -3242,6 +3294,13 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			json_object_object_add(json, ifp->name, json_ifp_rows);
 			json_ifp_rows = NULL;
 		}
+	}
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
 	}
 }
 

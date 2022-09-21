@@ -1953,6 +1953,57 @@ static const struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 	route_set_ip_nexthop_free
 };
 
+/* `set l3vpn next-hop encapsulation l3vpn gre' */
+
+/* Set nexthop to object */
+struct rmap_l3vpn_nexthop_encapsulation_set {
+	uint8_t protocol;
+};
+
+static enum route_map_cmd_result_t
+route_set_l3vpn_nexthop_encapsulation(void *rule, const struct prefix *prefix,
+				      void *object)
+{
+	struct rmap_l3vpn_nexthop_encapsulation_set *rins = rule;
+	struct bgp_path_info *path;
+
+	path = object;
+
+	if (rins->protocol != IPPROTO_GRE)
+		return RMAP_OKAY;
+
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
+	return RMAP_OKAY;
+}
+
+/* Route map `l3vpn nexthop encapsulation' compile function. */
+static void *route_set_l3vpn_nexthop_encapsulation_compile(const char *arg)
+{
+	struct rmap_l3vpn_nexthop_encapsulation_set *rins;
+
+	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		       sizeof(struct rmap_l3vpn_nexthop_encapsulation_set));
+
+	/* XXX ALL GRE modes are accepted for now: gre or ip6gre */
+	rins->protocol = IPPROTO_GRE;
+
+	return rins;
+}
+
+/* Free route map's compiled `ip nexthop' value. */
+static void route_set_l3vpn_nexthop_encapsulation_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for l3vpn next-hop encapsulation set. */
+static const struct route_map_rule_cmd
+	route_set_l3vpn_nexthop_encapsulation_cmd = {
+		"l3vpn next-hop encapsulation",
+		route_set_l3vpn_nexthop_encapsulation,
+		route_set_l3vpn_nexthop_encapsulation_compile,
+		route_set_l3vpn_nexthop_encapsulation_free};
+
 /* `set local-preference LOCAL_PREF' */
 
 /* Set local preference. */
@@ -2218,6 +2269,8 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 		path->attr->aspath = aspath_replace_specific_asn(
 			aspath_new, replace_asn, own_asn);
 	}
+
+	aspath_free(aspath_new);
 
 	return RMAP_OKAY;
 }
@@ -3738,6 +3791,73 @@ static const struct route_map_rule_cmd route_set_originator_id_cmd = {
 	route_set_originator_id_free,
 };
 
+static enum route_map_cmd_result_t
+route_match_rpki_extcommunity(void *rule, const struct prefix *prefix,
+			      void *object)
+{
+	struct bgp_path_info *path;
+	struct ecommunity *ecomm;
+	struct ecommunity_val *ecomm_val;
+	enum rpki_states *rpki_status = rule;
+	enum rpki_states ecomm_rpki_status = RPKI_NOT_BEING_USED;
+
+	path = object;
+
+	ecomm = bgp_attr_get_ecommunity(path->attr);
+	if (!ecomm)
+		return RMAP_NOMATCH;
+
+	ecomm_val = ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS,
+				      ECOMMUNITY_ORIGIN_VALIDATION_STATE);
+	if (!ecomm_val)
+		return RMAP_NOMATCH;
+
+	/* The Origin Validation State is encoded in the last octet of
+	 * the extended community.
+	 */
+	switch (ecomm_val->val[7]) {
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_VALID:
+		ecomm_rpki_status = RPKI_VALID;
+		break;
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTFOUND:
+		ecomm_rpki_status = RPKI_NOTFOUND;
+		break;
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_INVALID:
+		ecomm_rpki_status = RPKI_INVALID;
+		break;
+	case ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTUSED:
+		break;
+	}
+
+	if (ecomm_rpki_status == *rpki_status)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_extcommunity_compile(const char *arg)
+{
+	int *rpki_status;
+
+	rpki_status = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(int));
+
+	if (strcmp(arg, "valid") == 0)
+		*rpki_status = RPKI_VALID;
+	else if (strcmp(arg, "invalid") == 0)
+		*rpki_status = RPKI_INVALID;
+	else
+		*rpki_status = RPKI_NOTFOUND;
+
+	return rpki_status;
+}
+
+static const struct route_map_rule_cmd route_match_rpki_extcommunity_cmd = {
+	"rpki-extcommunity",
+	route_match_rpki_extcommunity,
+	route_match_extcommunity_compile,
+	route_value_free
+};
+
 /*
  * This is the workhorse routine for processing in/out routemap
  * modifications.
@@ -4092,8 +4212,6 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 
 void bgp_route_map_update_timer(struct thread *thread)
 {
-	bm->t_rmap_update = NULL;
-
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 }
 
@@ -5287,6 +5405,34 @@ DEFUN_YANG (no_set_distance,
 	const char *xpath = "./set-action[action='frr-bgp-route-map:distance']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
+	   "[no] set l3vpn next-hop encapsulation gre",
+	   NO_STR SET_STR
+	   "L3VPN operations\n"
+	   "Next hop Information\n"
+	   "Encapsulation options (for BGP only)\n"
+	   "Accept L3VPN traffic over GRE encapsulation\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-l3vpn-nexthop-encapsulation']";
+	const char *xpath_value =
+		"./set-action[action='frr-bgp-route-map:set-l3vpn-nexthop-encapsulation']/rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation";
+	enum nb_operation operation;
+
+	if (no)
+		operation = NB_OP_DESTROY;
+	else
+		operation = NB_OP_CREATE;
+
+	nb_cli_enqueue_change(vty, xpath, operation, NULL);
+	if (operation == NB_OP_DESTROY)
+		return nb_cli_apply_changes(vty, NULL);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "gre");
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -6713,6 +6859,34 @@ DEFUN_YANG (no_set_originator_id,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (match_rpki_extcommunity,
+       match_rpki_extcommunity_cmd,
+       "[no$no] match rpki-extcommunity <valid|invalid|notfound>",
+       NO_STR
+       MATCH_STR
+       "BGP RPKI (Origin Validation State) extended community attribute\n"
+       "Valid prefix\n"
+       "Invalid prefix\n"
+       "Prefix not found\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:rpki-extcommunity']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (!no) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-match-condition/frr-bgp-route-map:rpki-extcommunity",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      argv[2]->arg);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /* Initialization of route map. */
 void bgp_route_map_init(void)
 {
@@ -6835,6 +7009,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
+	route_map_install_set(&route_set_l3vpn_nexthop_encapsulation_cmd);
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
@@ -6937,6 +7112,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipx_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &set_originator_id_cmd);
 	install_element(RMAP_NODE, &no_set_originator_id_cmd);
+	install_element(RMAP_NODE, &set_l3vpn_nexthop_encapsulation_cmd);
 
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_cmd);
@@ -6949,6 +7125,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ipv6_nexthop_prefer_global_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_local_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_peer_cmd);
+	route_map_install_match(&route_match_rpki_extcommunity_cmd);
 
 	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_address_cmd);
@@ -6966,6 +7143,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
+	install_element(RMAP_NODE, &match_rpki_extcommunity_cmd);
 #ifdef HAVE_SCRIPTING
 	install_element(RMAP_NODE, &match_script_cmd);
 #endif

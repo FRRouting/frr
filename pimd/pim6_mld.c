@@ -460,7 +460,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_packet_sg_subs_count(sg->subs_positive),
 			gm_packet_sg_subs_count(sg->subs_negative), grp);
 
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "dropping"));
 
 		gm_sgs_del(gm_ifp->sgs, sg);
@@ -550,7 +550,7 @@ static void gm_packet_drop(struct gm_packet_state *pkt, bool trace)
 		if (!sg)
 			continue;
 
-		if (trace && PIM_DEBUG_IGMP_TRACE)
+		if (trace && PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "general-dropping from %pPA"),
 				   &pkt->subscriber->addr);
 		deleted = gm_packet_sg_drop(&pkt->items[i]);
@@ -586,7 +586,7 @@ static void gm_packet_sg_remove_sources(struct gm_if *gm_ifp,
 
 static void gm_sg_expiry_cancel(struct gm_sg *sg)
 {
-	if (sg->t_sg_expire && PIM_DEBUG_IGMP_TRACE)
+	if (sg->t_sg_expire && PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "alive, cancelling expiry timer"));
 	THREAD_OFF(sg->t_sg_expire);
 	sg->query_sbit = true;
@@ -1102,7 +1102,7 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 		 * it's "supersetted" within the preexisting query
 		 */
 
-		if (PIM_DEBUG_IGMP_TRACE_DETAIL)
+		if (PIM_DEBUG_GM_TRACE_DETAIL)
 			zlog_debug(
 				log_ifp("zapping supersetted general timer %pTVMu"),
 				&pend->expiry);
@@ -1121,13 +1121,13 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 	pend->expiry = expiry;
 
 	if (!gm_ifp->n_pending++) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				log_ifp("starting general timer @ 0: %pTVMu"),
 				&pend->expiry);
 		thread_add_timer_tv(router->master, gm_t_expire, gm_ifp,
 				    &timers->expire_wait, &gm_ifp->t_expire);
-	} else if (PIM_DEBUG_IGMP_TRACE)
+	} else if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("appending general timer @ %u: %pTVMu"),
 			   gm_ifp->n_pending, &pend->expiry);
 }
@@ -1208,7 +1208,7 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 	if (gm_sg_check_recent(gm_ifp, sg, now))
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "expiring in %pTVI"), &expire_wait);
 
 	if (sg->t_sg_expire) {
@@ -1305,7 +1305,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 
 	if (pim_addr_is_any(sg->sgaddr.src)) {
 		/* actually found *,G entry here */
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp("*,%pPAs expiry timer starting"),
 				   &grp);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
@@ -1338,7 +1338,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 	thread_add_timer_tv(router->master, gm_t_grp_expire, pend,
 			    &timers->expire_wait, &pend->t_expire);
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("*,%pPAs S,G timer started: %pTHD"), &grp,
 			   pend->t_expire);
 }
@@ -1463,7 +1463,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 
 	gm_expiry_calc(&timers);
 
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL)
+	if (PIM_DEBUG_GM_TRACE_DETAIL)
 		zlog_debug(
 			log_ifp("query timers: QRV=%u max_resp=%ums qqic=%ums expire_wait=%pTVI"),
 			timers.qrv, timers.max_resp_ms, timers.qqic_ms,
@@ -1609,7 +1609,7 @@ static void gm_t_recv(struct thread *t)
 	char rxbuf[2048];
 	struct msghdr mh[1] = {};
 	struct iovec iov[1];
-	struct sockaddr_in6 pkt_src[1];
+	struct sockaddr_in6 pkt_src[1] = {};
 	ssize_t nread;
 	size_t pktlen;
 
@@ -1925,7 +1925,7 @@ static void gm_trigger_specific(struct gm_sg *sg)
 	if (gm_ifp->pim->gm_socket == -1)
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "triggered query"));
 
 	if (pim_addr_is_any(sg->sgaddr.src)) {
@@ -2122,15 +2122,47 @@ static void gm_start(struct interface *ifp)
 	}
 }
 
-void gm_ifp_teardown(struct interface *ifp)
+void gm_group_delete(struct gm_if *gm_ifp)
 {
-	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp;
+	struct gm_sg *sg;
 	struct gm_packet_state *pkt;
 	struct gm_grp_pending *pend_grp;
 	struct gm_gsq_pending *pend_gsq;
 	struct gm_subscriber *subscriber;
-	struct gm_sg *sg;
+
+	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
+		gm_packet_drop(pkt, false);
+
+	while ((pend_grp = gm_grp_pends_pop(gm_ifp->grp_pends))) {
+		THREAD_OFF(pend_grp->t_expire);
+		XFREE(MTYPE_GM_GRP_PENDING, pend_grp);
+	}
+
+	while ((pend_gsq = gm_gsq_pends_pop(gm_ifp->gsq_pends))) {
+		THREAD_OFF(pend_gsq->t_send);
+		XFREE(MTYPE_GM_GSQ_PENDING, pend_gsq);
+	}
+
+	while ((sg = gm_sgs_pop(gm_ifp->sgs))) {
+		THREAD_OFF(sg->t_sg_expire);
+		assertf(!gm_packet_sg_subs_count(sg->subs_negative), "%pSG",
+			&sg->sgaddr);
+		assertf(!gm_packet_sg_subs_count(sg->subs_positive), "%pSG",
+			&sg->sgaddr);
+
+		gm_sg_free(sg);
+	}
+	while ((subscriber = gm_subscribers_pop(gm_ifp->subscribers))) {
+		assertf(!gm_packets_count(subscriber->packets), "%pPA",
+			&subscriber->addr);
+		XFREE(MTYPE_GM_SUBSCRIBER, subscriber);
+	}
+}
+
+void gm_ifp_teardown(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp;
 
 	if (!pim_ifp || !pim_ifp->mld)
 		return;
@@ -2161,34 +2193,7 @@ void gm_ifp_teardown(struct interface *ifp)
 
 	gm_vrf_socket_decref(gm_ifp->pim);
 
-	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
-		gm_packet_drop(pkt, false);
-
-	while ((pend_grp = gm_grp_pends_pop(gm_ifp->grp_pends))) {
-		THREAD_OFF(pend_grp->t_expire);
-		XFREE(MTYPE_GM_GRP_PENDING, pend_grp);
-	}
-
-	while ((pend_gsq = gm_gsq_pends_pop(gm_ifp->gsq_pends))) {
-		THREAD_OFF(pend_gsq->t_send);
-		XFREE(MTYPE_GM_GSQ_PENDING, pend_gsq);
-	}
-
-	while ((sg = gm_sgs_pop(gm_ifp->sgs))) {
-		THREAD_OFF(sg->t_sg_expire);
-		assertf(!gm_packet_sg_subs_count(sg->subs_negative), "%pSG",
-			&sg->sgaddr);
-		assertf(!gm_packet_sg_subs_count(sg->subs_positive), "%pSG",
-			&sg->sgaddr);
-
-		gm_sg_free(sg);
-	}
-
-	while ((subscriber = gm_subscribers_pop(gm_ifp->subscribers))) {
-		assertf(!gm_packets_count(subscriber->packets), "%pPA",
-			&subscriber->addr);
-		XFREE(MTYPE_GM_SUBSCRIBER, subscriber);
-	}
+	gm_group_delete(gm_ifp);
 
 	gm_grp_pends_fini(gm_ifp->grp_pends);
 	gm_packet_expires_fini(gm_ifp->expires);
@@ -2301,26 +2306,10 @@ void gm_ifp_update(struct interface *ifp)
 	}
 
 	if (changed) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp(
 				"MLD querier config changed, querying"));
 		gm_bump_querier(gm_ifp);
-	}
-}
-
-void gm_group_delete(struct gm_if *gm_ifp)
-{
-	struct gm_sg *sg, *sg_start;
-
-	sg_start = gm_sgs_first(gm_ifp->sgs);
-
-	/* clean up all mld groups */
-	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
-		THREAD_OFF(sg->t_sg_expire);
-		if (sg->oil)
-			pim_channel_oil_del(sg->oil, __func__);
-		gm_sgs_del(gm_ifp->sgs, sg);
-		gm_sg_free(sg);
 	}
 }
 
@@ -2423,6 +2412,7 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
 
 	if (js_if) {
+		json_object_string_add(js_if, "name", ifp->name);
 		json_object_string_add(js_if, "state", "up");
 		json_object_string_addf(js_if, "version", "%d",
 					gm_ifp->cur_version);
@@ -2438,6 +2428,14 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 			json_object_string_addf(js_if, "otherQuerierTimer",
 						"%pTH",
 						gm_ifp->t_other_querier);
+		json_object_int_add(js_if, "timerRobustnessValue",
+				    gm_ifp->cur_qrv);
+		json_object_int_add(js_if, "timerQueryIntervalMsec",
+				    gm_ifp->cur_query_intv);
+		json_object_int_add(js_if, "timerQueryResponseTimerMsec",
+				    gm_ifp->cur_max_resp);
+		json_object_int_add(js_if, "timerLastMemberQueryIntervalMsec",
+				    gm_ifp->cur_query_intv_trig);
 	} else {
 		vty_out(vty, "%-16s  %-5s  %d  %-25pPA  %-5s %11pTH  %pTVMs\n",
 			ifp->name, "up", gm_ifp->cur_version, &gm_ifp->querier,
@@ -2495,13 +2493,13 @@ static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
 
 DEFPY(gm_show_interface,
       gm_show_interface_cmd,
-      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME] [detail$detail|json$json]",
-      DEBUG_STR
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME | detail$detail] [json$json]",
       SHOW_STR
       IPV6_STR
       MLD_STR
       VRF_FULL_CMD_HELP_STR
       "MLD interface information\n"
+      "Interface name\n"
       "Detailed output\n"
       JSON_STR)
 {

@@ -61,22 +61,88 @@ static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 		    && bnc->nexthop_num > 0));
 }
 
-static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
+static int bgp_isvalid_nexthop_for_ebgp(struct bgp_nexthop_cache *bnc,
+					struct bgp_path_info *path)
+{
+	struct interface *ifp = NULL;
+	struct nexthop *nexthop;
+	struct bgp_interface *iifp;
+	struct peer *peer;
+
+	if (!path->extra || !path->extra->peer_orig)
+		return false;
+
+	peer = path->extra->peer_orig;
+
+	/* only connected ebgp peers are valid */
+	if (peer->sort != BGP_PEER_EBGP || peer->ttl != BGP_DEFAULT_TTL ||
+	    CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK) ||
+	    CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		return false;
+
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+		if (nexthop->type == NEXTHOP_TYPE_IFINDEX ||
+		    nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+		    nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+			ifp = if_lookup_by_index(
+				bnc->ifindex ? bnc->ifindex : nexthop->ifindex,
+				bnc->bgp->vrf_id);
+		}
+		if (!ifp)
+			continue;
+		iifp = ifp->info;
+		if (CHECK_FLAG(iifp->flags, BGP_INTERFACE_MPLS_BGP_FORWARDING))
+			return true;
+	}
+	return false;
+}
+
+static int bgp_isvalid_nexthop_for_mplsovergre(struct bgp_nexthop_cache *bnc,
+					       struct bgp_path_info *path)
+{
+	struct interface *ifp = NULL;
+	struct nexthop *nexthop;
+
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+		if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+			ifp = if_lookup_by_index(
+				bnc->ifindex ? bnc->ifindex : nexthop->ifindex,
+				bnc->bgp->vrf_id);
+			if (ifp && (ifp->ll_type == ZEBRA_LLT_IPGRE ||
+				    ifp->ll_type == ZEBRA_LLT_IP6GRE))
+				break;
+		}
+	}
+	if (!ifp)
+		return false;
+
+	if (CHECK_FLAG(path->attr->rmap_change_flags,
+		       BATTR_RMAP_L3VPN_ACCEPT_GRE))
+		return true;
+
+	return false;
+}
+
+static int bgp_isvalid_nexthop_for_mpls(struct bgp_nexthop_cache *bnc,
+					struct bgp_path_info *path)
 {
 	/*
-	 * In the case of MPLS-VPN, the label is learned from LDP or other
+	 * - In the case of MPLS-VPN, the label is learned from LDP or other
 	 * protocols, and nexthop tracking is enabled for the label.
 	 * The value is recorded as BGP_NEXTHOP_LABELED_VALID.
-	 * In the case of SRv6-VPN, we need to track the reachability to the
+	 * - In the case of SRv6-VPN, we need to track the reachability to the
 	 * SID (in other words, IPv6 address). As in MPLS, we need to record
 	 * the value as BGP_NEXTHOP_SID_VALID. However, this function is
 	 * currently not implemented, and this function assumes that all
 	 * Transit routes for SRv6-VPN are valid.
+	 * - Otherwise check for mpls-gre acceptance
 	 */
-	return (bgp_zebra_num_connects() == 0
-		|| (bnc && bnc->nexthop_num > 0
-		    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)
-			|| bnc->bgp->srv6_enabled)));
+	return (bgp_zebra_num_connects() == 0 ||
+		(bnc && (bnc->nexthop_num > 0 &&
+			 (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID) ||
+			  bnc->bgp->srv6_enabled ||
+			  bgp_isvalid_nexthop_for_ebgp(bnc, path) ||
+			  bgp_isvalid_nexthop_for_mplsovergre(bnc, path)))));
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
@@ -359,11 +425,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	 */
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return 1;
-	else if (safi == SAFI_UNICAST && pi
-		 && pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra
-		 && pi->extra->num_labels && !bnc->is_evpn_gwip_nexthop) {
-		return bgp_isvalid_labeled_nexthop(bnc);
-	} else
+	else if (safi == SAFI_UNICAST && pi &&
+		 pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra &&
+		 pi->extra->num_labels && !bnc->is_evpn_gwip_nexthop)
+		return bgp_isvalid_nexthop_for_mpls(bnc, pi);
+	else
 		return (bgp_isvalid_nexthop(bnc));
 }
 
@@ -1063,7 +1129,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    && (path->attr->evpn_overlay.type
 			!= OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
-				bgp_isvalid_labeled_nexthop(bnc) ? true : false;
+				bgp_isvalid_nexthop_for_mpls(bnc, path) ? true
+									: false;
 		} else {
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,

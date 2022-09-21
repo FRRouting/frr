@@ -978,6 +978,11 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
 			to_bgp->peer_self, new_attr, bn);
 
+	if (source_bpi->peer) {
+		extra = bgp_path_info_extra_get(new);
+		extra->peer_orig = peer_lock(source_bpi->peer);
+	}
+
 	if (nexthop_self_flag)
 		bgp_path_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
 

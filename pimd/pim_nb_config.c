@@ -395,7 +395,7 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug("%s: Querier %pPAs on %s reconfig query_interval=%d",
 			   __func__, &igmp->ifaddr, ifp->name,
 			   pim_ifp->gm_default_query_interval);
@@ -2844,6 +2844,9 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 			yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->gm_specific_query_max_response_time_dsec =
 			last_member_query_interval;
+#if PIM_IPV == 6
+		gm_ifp_update(ifp);
+#endif
 
 		break;
 	}
@@ -2872,7 +2875,9 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 		last_member_query_count =
 			yang_dnode_get_uint8(args->dnode, NULL);
 		pim_ifp->gm_last_member_query_count = last_member_query_count;
-
+#if PIM_IPV == 6
+		gm_ifp_update(ifp);
+#endif
 		break;
 	}
 

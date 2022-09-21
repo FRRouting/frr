@@ -236,6 +236,12 @@ struct bgp_path_info_extra {
 	struct bgp *bgp_orig;
 
 	/*
+	 * Original bgp session to know if the session is a
+	 * connected EBGP session or not
+	 */
+	struct peer *peer_orig;
+
+	/*
 	 * Nexthop in context of original bgp instance. Needed
 	 * for label resolution of core mpls routes exported to a vrf.
 	 * Set nexthop_orig.family to 0 if not valid.
