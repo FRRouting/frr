@@ -19,10 +19,12 @@ from xml.etree import ElementTree
 import typing
 from typing import Dict, Type
 
+import docutils.core
 import jinja2
+import markupsafe
 
 from . import base, assertions
-from .utils import ClassHooks, exec_find
+from .utils import ClassHooks, exec_find, deindent
 from .scapy import ScapySend
 from .timeline import TimedElement
 from .pcapng import Sink, SectionHeader, Context
@@ -44,10 +46,23 @@ else:
 
 logger = logging.getLogger("topotato")
 
+def _docrender(item):
+    obj = item.obj
+
+    if obj.__doc__ is None:
+        return ""
+    if obj.__doc__.strip() == "":
+        return ""
+
+    docstr = deindent(obj.__doc__)
+    parts = docutils.core.publish_parts(docstr, writer_name="html4")
+    return markupsafe.Markup(f"<div class=\"docstring\">{parts['fragment']}</div>")
+
 jenv = jinja2.Environment(
     loader=jinja2.PackageLoader("topotato.pretty", "html"),
     autoescape=True,
 )
+jenv.filters["docrender"] = _docrender
 
 
 class fmt(html):
@@ -295,8 +310,8 @@ class PrettyTopotatoFunc(PrettyItem, matches=base.TopotatoFunction):
     template = jenv.get_template("item_func.html.j2")
 
     @property
-    def doc(self):
-        return self.item.obj.__doc__
+    def obj(self):
+        return self.item.obj
 
 
 class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):

@@ -67,6 +67,7 @@ class PIM6PrunePropagate(TestBase, AutoFixture, topo=topo1, configs=Configs):
     IPv6 PIM prune propagation test.
 
     This test primarily checks two things:
+
     - prunes must not be delayed unnecessarily
     - MFIB state must be removed in response to prunes
 

@@ -483,6 +483,7 @@ svg {
 	margin-top:5em;
 	padding-top:5pt;
 	padding-bottom:2pt;
+	padding-left:1em;
 	border:0;
 	background:#000;
 	color:#fff;
@@ -493,12 +494,14 @@ svg {
 	font-style:normal;
 }
 
-.func .doc {
-	margin-top:1em;
+.func .docstring {
+	margin-top:0;
 	margin-bottom:2em;
 	padding-left:1em;
 	grid-column-start: 1;
 	grid-column-end:span 7;
+	border-left:1em solid #000;
+	border-bottom:1px solid #000;
 }
 
 pre {
