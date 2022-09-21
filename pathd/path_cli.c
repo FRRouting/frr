@@ -1091,8 +1091,11 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	   "pathd module debugging\n")
 {
 
+	vty_out(vty, "Path debugging status:\n");
+
 	cmd_show_lib_debugs(vty);
 	/* nothing to do here */
+	path_ted_show_debugging(vty);
 	return CMD_SUCCESS;
 }
 
