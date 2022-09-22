@@ -1136,7 +1136,9 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					if (!(h->nlmsg_flags & NLM_F_MULTI))
 						return 0;
 					continue;
-				} else
+				} else if (err == 0)
+					continue;
+				else
 					return err;
 			}
 
