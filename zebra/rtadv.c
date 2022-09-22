@@ -227,8 +227,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 		adata = calloc(1, CMSG_SPACE(sizeof(struct in6_pktinfo)));
 
 		if (adata == NULL) {
-			zlog_debug(
-				"rtadv_send_packet: can't malloc control data");
+			zlog_debug("%s: can't malloc control data", __func__);
 			exit(-1);
 		}
 	}
