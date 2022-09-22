@@ -2445,7 +2445,6 @@ const char *host_config_get(void)
 
 void cmd_show_lib_debugs(struct vty *vty)
 {
-	route_map_show_debug(vty);
 }
 
 void install_default(enum node_type node)
