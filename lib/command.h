@@ -255,10 +255,10 @@ struct cmd_node {
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
 	static const struct cmd_element cmdname = {                            \
 		.string = cmdstr,                                              \
-		.func = funcname,                                              \
 		.doc = helpstr,                                                \
-		.attr = attrs,                                                 \
 		.daemon = dnum,                                                \
+		.attr = attrs,                                                 \
+		.func = funcname,                                              \
 		.name = #cmdname,                                              \
 		.xref = XREF_INIT(XREFT_DEFUN, NULL, #funcname),               \
 	};                                                                     \
