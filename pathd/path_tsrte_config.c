@@ -236,8 +236,10 @@ DEFPY(show_srte_policy_template,
 		    &srte_policies_template) {
 		struct srte_candidate_template *candidate;
 
-		vty_out(vty, "Color: %u\n", policy->color);
-
+		vty_out(vty, "Color %u", policy->color);
+		if (policy->name[0] != '\0')
+			vty_out(vty, " Name %s", policy->name);
+		vty_out(vty, ":\n");
 		RB_FOREACH (candidate, srte_candidate_template_head,
 			    &policy->candidate_paths) {
 			if (candidate->type != SRTE_CANDIDATE_TYPE_FLEX_ALGO)
