@@ -3615,6 +3615,7 @@ int bgp_delete(struct bgp *bgp)
 
 	hook_call(bgp_inst_delete, bgp);
 
+	THREAD_OFF(bgp->t_condition_check);
 	THREAD_OFF(bgp->t_startup);
 	THREAD_OFF(bgp->t_maxmed_onstartup);
 	THREAD_OFF(bgp->t_update_delay);
