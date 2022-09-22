@@ -359,7 +359,7 @@ void static_install_nexthop(struct static_nexthop *nh)
 		char nexthop_str[NEXTHOP_STR];
 
 		static_get_nh_str(nh, nexthop_str, sizeof(nexthop_str));
-		DEBUGD(&static_dbg_route,
+		dbg(STATIC_ROUTE,
 		       "Static Route %pFX not installed for %s vrf %s is unknown",
 		       &rn->p, nexthop_str, nh->nh_vrfname);
 		return;

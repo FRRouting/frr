@@ -154,7 +154,6 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
-	static_debug_init();
 	static_vrf_init();
 
 	static_zebra_init();

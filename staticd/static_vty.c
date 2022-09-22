@@ -1273,48 +1273,13 @@ int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 	return (int)distance1 - (int)distance2;
 }
 
-DEFPY_YANG(debug_staticd, debug_staticd_cmd,
-	   "[no] debug static [{events$events|route$route}]",
-	   NO_STR DEBUG_STR STATICD_STR
-	   "Debug events\n"
-	   "Debug route\n")
-{
-	/* If no specific category, change all */
-	if (strmatch(argv[argc - 1]->text, "static"))
-		static_debug_set(vty->node, !no, true, true);
-	else
-		static_debug_set(vty->node, !no, !!events, !!route);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (show_debugging_static,
-	    show_debugging_static_cmd,
-	    "show debugging [static]",
-	    SHOW_STR
-	    DEBUG_STR
-	    "Static Information\n")
-{
-	vty_out(vty, "Staticd debugging status\n");
-
-	static_debug_status_write(vty);
-
-	cmd_show_lib_debugs(vty);
-
-	return CMD_SUCCESS;
-}
-
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = static_config_write_debug,
-};
+DEFINE_DEBUGFLAG(STATIC_ROUTE, "static route",
+	STATICD_STR
+	"Debug route\n"
+);
 
 void static_vty_init(void)
 {
-	install_node(&debug_node);
-
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
 	install_element(CONFIG_NODE, &ip_route_blackhole_cmd);
@@ -1330,8 +1295,4 @@ void static_vty_init(void)
 	install_element(VRF_NODE, &ipv6_route_address_interface_vrf_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
-
-	install_element(ENABLE_NODE, &show_debugging_static_cmd);
-	install_element(ENABLE_NODE, &debug_staticd_cmd);
-	install_element(CONFIG_NODE, &debug_staticd_cmd);
 }
