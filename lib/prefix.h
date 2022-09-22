@@ -674,6 +674,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
+#pragma FRR printfrr_ext "%pRD"  (struct prefix_rd *)
 
 #pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif

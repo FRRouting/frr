@@ -2091,14 +2091,8 @@ static void rfapiItBiIndexAdd(struct agg_node *rn, /* Import table VPN node */
 	assert(bpi);
 	assert(bpi->extra);
 
-	{
-		char buf[RD_ADDRSTRLEN];
-
-		vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %s", __func__,
-				       bpi, bpi->peer,
-				       prefix_rd2str(&bpi->extra->vnc.import.rd,
-						     buf, sizeof(buf)));
-	}
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX_W_ALLOC(rn);
 	if (!sl) {
@@ -2164,7 +2158,6 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 
 #ifdef DEBUG_BI_SEARCH
 	{
-		char buf[RD_ADDRSTRLEN];
 		char buf_aux_pfx[PREFIX_STRLEN];
 
 		if (aux_prefix) {
@@ -2173,10 +2166,9 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 		} else
 			strlcpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
 
-		vnc_zlog_debug_verbose("%s want prd=%s, peer=%p, aux_prefix=%s",
-				       __func__,
-				       prefix_rd2str(prd, buf, sizeof(buf)),
-				       peer, buf_aux_pfx);
+		vnc_zlog_debug_verbose(
+			"%s want prd=%pRD, peer=%p, aux_prefix=%s", __func__,
+			prd, peer, buf_aux_pfx);
 		rfapiItBiIndexDump(rn);
 	}
 #endif
@@ -2190,16 +2182,10 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 		for (bpi_result = rn->info; bpi_result;
 		     bpi_result = bpi_result->next) {
 #ifdef DEBUG_BI_SEARCH
-			{
-				char buf[RD_ADDRSTRLEN];
-
-				vnc_zlog_debug_verbose(
-					"%s: bpi has prd=%s, peer=%p", __func__,
-					prefix_rd2str(&bpi_result->extra->vnc
-							       .import.rd,
-						      buf, sizeof(buf)),
-					bpi_result->peer);
-			}
+			vnc_zlog_debug_verbose(
+				"%s: bpi has prd=%pRD, peer=%p", __func__,
+				&bpi_result->extra->vnc.import.rd,
+				bpi_result->peer);
 #endif
 			if (peer == bpi_result->peer
 			    && !prefix_cmp((struct prefix *)&bpi_result->extra
@@ -2261,14 +2247,8 @@ static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
 	struct skiplist *sl;
 	int rc;
 
-	{
-		char buf[RD_ADDRSTRLEN];
-
-		vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %s", __func__,
-				       bpi, bpi->peer,
-				       prefix_rd2str(&bpi->extra->vnc.import.rd,
-						     buf, sizeof(buf)));
-	}
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX(rn);
 	assert(sl);
