@@ -173,13 +173,12 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 
 	ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 
-	DEBUGD(&vrrp_dbg_ndisc,
+	dbg(VRRP_NDISC,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 	       "Sending unsolicited Neighbor Advertisement on %s for %s",
 	       r->vr->vrid, family2str(r->family), ifp->name, ipbuf);
 
-	if (DEBUG_MODE_CHECK(&vrrp_dbg_ndisc, DEBUG_MODE_ALL)
-	    && DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
+	if (dbg_check(VRRP_NDISC) && dbg_check(VRRP_PKT))
 		zlog_hexdump(buf, VRRP_NDISC_SIZE);
 
 	len = sendto(ndisc_fd, buf, VRRP_NDISC_SIZE, 0, (struct sockaddr *)&sll,
@@ -218,9 +217,9 @@ void vrrp_ndisc_init(void)
 	}
 
 	if (ndisc_fd > 0) {
-		DEBUGD(&vrrp_dbg_sock,
+		dbg(VRRP_SOCK,
 		       VRRP_LOGPFX "Initialized Neighbor Discovery socket");
-		DEBUGD(&vrrp_dbg_ndisc,
+		dbg(VRRP_NDISC,
 		       VRRP_LOGPFX "Initialized Neighbor Discovery subsystem");
 	} else {
 		zlog_err(VRRP_LOGPFX
@@ -233,7 +232,7 @@ void vrrp_ndisc_fini(void)
 	close(ndisc_fd);
 	ndisc_fd = -1;
 
-	DEBUGD(&vrrp_dbg_ndisc,
+	dbg(VRRP_NDISC,
 	       VRRP_LOGPFX "Deinitialized Neighbor Discovery subsystem");
 }
 

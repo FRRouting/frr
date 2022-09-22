@@ -143,11 +143,11 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 	/* Send garp */
 	inet_ntop(AF_INET, v4, astr, sizeof(astr));
 
-	DEBUGD(&vrrp_dbg_arp,
+	dbg(VRRP_ARP,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 	       "Sending gratuitous ARP on %s for %s",
 	       r->vr->vrid, family2str(r->family), ifp->name, astr);
-	if (DEBUG_MODE_CHECK(&vrrp_dbg_arp, DEBUG_MODE_ALL))
+	if (dbg_check(VRRP_ARP))
 		zlog_hexdump(garpbuf, garpbuf_len);
 
 	sent_len = vrrp_send_garp(ifp, garpbuf, garpbuf_len);
@@ -194,9 +194,9 @@ void vrrp_garp_init(void)
 	}
 
 	if (garp_fd > 0) {
-		DEBUGD(&vrrp_dbg_sock,
+		dbg(VRRP_SOCK,
 		       VRRP_LOGPFX "Initialized gratuitous ARP socket");
-		DEBUGD(&vrrp_dbg_arp,
+		dbg(VRRP_ARP,
 		       VRRP_LOGPFX "Initialized gratuitous ARP subsystem");
 	} else {
 		zlog_err(VRRP_LOGPFX
@@ -209,7 +209,7 @@ void vrrp_garp_fini(void)
 	close(garp_fd);
 	garp_fd = -1;
 
-	DEBUGD(&vrrp_dbg_arp,
+	dbg(VRRP_ARP,
 	       VRRP_LOGPFX "Deinitialized gratuitous ARP subsystem");
 }
 
