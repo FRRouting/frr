@@ -57,6 +57,7 @@ __all__ = [
     "Delay",
     "ModifyLinkStatus",
     "BackgroundCommand",
+    "ReconfigureFRR",
 ]
 
 logger = logging.getLogger("topotato")
@@ -297,6 +298,38 @@ class AssertVtysh(TopotatoAssertion, TimedMixin):
     @property
     def compare(self):
         return self._compare
+
+
+class ReconfigureFRR(AssertVtysh):
+    # pylint: disable=arguments-differ,too-many-arguments,protected-access
+    @classmethod
+    def from_parent(
+        cls,
+        parent,
+        name,
+        rtr,
+        daemon,
+        command,
+        compare="",
+        **kwargs,
+    ):
+        command_with_shell_enabled = "enable\nconfigure\n" + command
+        name = "%s:%s/%s/vtysh[%s]" % (
+            name,
+            rtr.name,
+            daemon,
+            command_with_shell_enabled.replace("\n", "; "),
+        )
+        self = super().from_parent(
+            parent,
+            name,
+            rtr,
+            daemon,
+            command_with_shell_enabled,
+            compare,
+            **kwargs,
+        )
+        return self
 
 
 class AssertPacket(TopotatoAssertion, TimedMixin):
