@@ -743,7 +743,6 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 	safi_t safi;
 	struct bgp_table *table;
 	struct bgp *bgp_path;
-	char buf1[BUFSIZ];
 
 	vty_out(vty, "  Paths:\n");
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
@@ -754,12 +753,13 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		safi = table->safi;
 		bgp_path = table->bgp;
 
-		if (dest->pdest) {
-			prefix_rd2str((struct prefix_rd *)bgp_dest_get_prefix(dest->pdest),
-					buf1, sizeof(buf1));
-			vty_out(vty, "    %d/%d %pBD RD %s %s flags 0x%x\n",
-				afi, safi, dest, buf1, bgp_path->name_pretty, path->flags);
-		} else
+		if (dest->pdest)
+			vty_out(vty, "    %d/%d %pBD RD %pRD %s flags 0x%x\n",
+				afi, safi, dest,
+				(struct prefix_rd *)bgp_dest_get_prefix(
+					dest->pdest),
+				bgp_path->name_pretty, path->flags);
+		else
 			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
 				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}

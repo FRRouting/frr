@@ -93,8 +93,6 @@ extern void rfapiPrintRfapiIpAddr(void *stream, struct rfapi_ip_addr *a);
 
 extern void rfapiPrintRfapiIpPrefix(void *stream, struct rfapi_ip_prefix *p);
 
-void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd);
-
 extern void rfapiPrintAdvertisedInfo(struct vty *vty,
 				     struct rfapi_descriptor *rfd, safi_t safi,
 				     struct prefix *p);
