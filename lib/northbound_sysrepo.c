@@ -22,7 +22,6 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
-#include "debug.h"
 #include "memory.h"
 #include "libfrr.h"
 #include "lib/version.h"
@@ -34,7 +33,11 @@
 
 DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
-static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
+DECLARE_DEBUGFLAG(NB_CLIENT_SYSREPO);
+DEFINE_DEBUGFLAG(NB_CLIENT_SYSREPO, "northbound client sysrepo",
+	"Northbound debugging\n"
+	"Northbound client\n"
+	"Sysrepo\n");
 
 static struct thread_master *master;
 static sr_session_ctx_t *session;
@@ -174,7 +177,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 
 	xpath = sr_data->xpath;
 
-	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: processing change [xpath %s]",
+	dbg(NB_CLIENT_SYSREPO, "sysrepo: processing change [xpath %s]",
 	       xpath);
 
 	/* Non-presence container - nothing to do. */
@@ -547,7 +550,7 @@ static void frr_sr_subscribe_config(struct yang_module *module)
 {
 	int ret;
 
-	DEBUGD(&nb_dbg_client_sysrepo,
+	dbg(NB_CLIENT_SYSREPO,
 	       "sysrepo: subscribing for configuration changes made in the '%s' module",
 	       module->name);
 
@@ -576,7 +579,7 @@ static int frr_sr_subscribe_state(const struct lysc_node *snode, void *arg)
 	if (!nb_node)
 		return YANG_ITER_CONTINUE;
 
-	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing data to '%s'",
+	dbg(NB_CLIENT_SYSREPO, "sysrepo: providing data to '%s'",
 	       nb_node->xpath);
 
 	ret = sr_oper_get_subscribe(session, snode->module->name,
@@ -602,7 +605,7 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	if (!nb_node)
 		return YANG_ITER_CONTINUE;
 
-	DEBUGD(&nb_dbg_client_sysrepo, "sysrepo: providing RPC to '%s'",
+	dbg(NB_CLIENT_SYSREPO, "sysrepo: providing RPC to '%s'",
 	       nb_node->xpath);
 
 	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
@@ -614,50 +617,8 @@ static int frr_sr_subscribe_rpc(const struct lysc_node *snode, void *arg)
 	return YANG_ITER_CONTINUE;
 }
 
-/* CLI commands. */
-DEFUN (debug_nb_sr,
-       debug_nb_sr_cmd,
-       "[no] debug northbound client sysrepo",
-       NO_STR
-       DEBUG_STR
-       "Northbound debugging\n"
-       "Northbound client\n"
-       "Sysrepo\n")
-{
-	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-	bool no = strmatch(argv[0]->text, "no");
-
-	DEBUG_MODE_SET(&nb_dbg_client_sysrepo, mode, !no);
-
-	return CMD_SUCCESS;
-}
-
-static int frr_sr_debug_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_CONF))
-		vty_out(vty, "debug northbound client sysrepo\n");
-
-	return 0;
-}
-
-static int frr_sr_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&nb_dbg_client_sysrepo, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&nb_dbg_client_sysrepo);
-
-	return 0;
-}
-
 static void frr_sr_cli_init(void)
 {
-	hook_register(nb_client_debug_config_write, frr_sr_debug_config_write);
-	hook_register(nb_client_debug_set_all, frr_sr_debug_set_all);
-
-	install_element(ENABLE_NODE, &debug_nb_sr_cmd);
-	install_element(CONFIG_NODE, &debug_nb_sr_cmd);
 }
 
 /* FRR's Sysrepo initialization. */
