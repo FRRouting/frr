@@ -2662,7 +2662,6 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    struct bgp_route_evpn *overlay_index,
 				    char *str, int size)
 {
-	char rd_buf[RD_ADDRSTRLEN];
 	char tag_buf[30];
 	char overlay_index_buf[INET6_ADDRSTRLEN + 14];
 	const struct prefix_evpn *evp;
@@ -2720,8 +2719,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	}
 
 	if (prd)
-		snprintfrr(str, size, "RD %s %pFX%s%s%s %s %s",
-			   prefix_rd2str(prd, rd_buf, sizeof(rd_buf)), pu.p,
+		snprintfrr(str, size, "RD %pRD %pFX%s%s%s %s %s", prd, pu.p,
 			   overlay_index_buf, tag_buf, pathid_buf, afi2str(afi),
 			   safi2str(safi));
 	else if (safi == SAFI_FLOWSPEC) {

@@ -14993,7 +14993,6 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 	struct bgp *bgp;
 	struct listnode *node;
 	char *vname;
-	char buf1[INET6_ADDRSTRLEN];
 	char *ecom_str;
 	enum vpn_policy_direction dir;
 
@@ -15058,9 +15057,9 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 						json_object_new_string(vname));
 			json_object_object_add(json, "exportToVrfs",
 					       json_export_vrfs);
-			json_object_string_add(json, "routeDistinguisher",
-				   prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd,
-						 buf1, RD_ADDRSTRLEN));
+			json_object_string_addf(json, "routeDistinguisher",
+						"%pRD",
+						&bgp->vpn_policy[afi].tovpn_rd);
 
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
 			if (bgp->vpn_policy[afi].rtlist[dir]) {
@@ -15129,9 +15128,8 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 						node, vname))
 				vty_out(vty, "  %s\n", vname);
 
-			vty_out(vty, "RD: %s\n",
-				prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd,
-					      buf1, RD_ADDRSTRLEN));
+			vty_out(vty, "RD: %pRD\n",
+				&bgp->vpn_policy[afi].tovpn_rd);
 
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
 			if (bgp->vpn_policy[afi].rtlist[dir]) {
@@ -16621,13 +16619,10 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 			tovpn_sid_index);
 	}
 
-	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_RD_SET)) {
-		char buf[RD_ADDRSTRLEN];
-		vty_out(vty, "%*srd vpn export %s\n", indent, "",
-			prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd, buf,
-				      sizeof(buf)));
-	}
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET))
+		vty_out(vty, "%*srd vpn export %pRD\n", indent, "",
+			&bgp->vpn_policy[afi].tovpn_rd);
+
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_NEXTHOP_SET)) {
 

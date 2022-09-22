@@ -1104,9 +1104,6 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 					__func__, ri);
 
 			} else {
-
-				char buf_rd[RD_ADDRSTRLEN];
-
 				/* not found: add new route to RIB */
 				ori = rfapi_info_new();
 				ori->rk = ri->rk;
@@ -1129,16 +1126,9 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				}
 				skiplist_insert(slRibPt, &ori->rk, ori);
 
-#if DEBUG_RIB_SL_RD
-				prefix_rd2str(&ori->rk.rd, buf_rd,
-					      sizeof(buf_rd));
-#else
-				buf_rd[0] = 0;
-#endif
-
 				vnc_zlog_debug_verbose(
-					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%s)",
-					__func__, ri, buf_rd);
+					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%pRD)",
+					__func__, ri, &ori->rk.rd);
 			}
 
 			/*
@@ -1378,17 +1368,9 @@ callback:
 						0, delete_list->count);
 					ri->last_sent_time = monotime(NULL);
 #if DEBUG_RIB_SL_RD
-					{
-						char buf_rd[RD_ADDRSTRLEN];
-
-						vnc_zlog_debug_verbose(
-							"%s: move route to recently deleted list, rd=%s",
-							__func__,
-							prefix_rd2str(
-								&ri->rk.rd,
-								buf_rd,
-								sizeof(buf_rd)));
-					}
+					vnc_zlog_debug_verbose(
+						"%s: move route to recently deleted list, rd=%pRD",
+						__func__, &ri->rk.rd);
 #endif
 
 				} else {
@@ -2256,7 +2238,6 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		char str_lifetime[BUFSIZ];
 		char str_age[BUFSIZ];
 		char *p;
-		char str_rd[RD_ADDRSTRLEN];
 
 		++routes_displayed;
 
@@ -2284,14 +2265,9 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		}
 #endif
 
-		str_rd[0] = 0; /* start empty */
-#if DEBUG_RIB_SL_RD
-		prefix_rd2str(&ri->rk.rd, str_rd, sizeof(str_rd));
-#endif
-
-		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %s\n",
+		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %pRD\n",
 		   deleted ? 'r' : ' ', *printedprefix ? "" : str_pfx, str_vn,
-		   str_un, ri->cost, str_lifetime, str_age, str_rd);
+		   str_un, ri->cost, str_lifetime, str_age, &ri->rk.rd);
 
 		if (!*printedprefix)
 			*printedprefix = 1;
