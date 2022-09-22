@@ -33,15 +33,10 @@
 #include "thread.h"
 #include "vty.h"
 
+DEFINE_DEBUGFLAG_STATIC(BACKOFF, "spf-delay-ietf", "SPF Back-off Debugging\n");
+
 DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff");
 DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF_NAME, "SPF backoff name");
-
-static bool debug_spf_backoff = false;
-#define backoff_debug(...)                                                     \
-	do {                                                                   \
-		if (debug_spf_backoff)                                         \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
 
 enum spf_backoff_state {
 	SPF_BACKOFF_QUIET,
@@ -122,7 +117,7 @@ static void spf_backoff_timetolearn_elapsed(struct thread *thread)
 	struct spf_backoff *backoff = THREAD_ARG(thread);
 
 	backoff->state = SPF_BACKOFF_LONG_WAIT;
-	backoff_debug("SPF Back-off(%s) TIMETOLEARN elapsed, move to state %s",
+	dbg(BACKOFF, "SPF Back-off(%s) TIMETOLEARN elapsed, move to state %s",
 		      backoff->name, spf_backoff_state2str(backoff->state));
 }
 
@@ -133,7 +128,7 @@ static void spf_backoff_holddown_elapsed(struct thread *thread)
 	THREAD_OFF(backoff->t_timetolearn);
 	timerclear(&backoff->first_event_time);
 	backoff->state = SPF_BACKOFF_QUIET;
-	backoff_debug("SPF Back-off(%s) HOLDDOWN elapsed, move to state %s",
+	dbg(BACKOFF, "SPF Back-off(%s) HOLDDOWN elapsed, move to state %s",
 		      backoff->name, spf_backoff_state2str(backoff->state));
 }
 
@@ -144,7 +139,7 @@ long spf_backoff_schedule(struct spf_backoff *backoff)
 
 	gettimeofday(&now, NULL);
 
-	backoff_debug("SPF Back-off(%s) schedule called in state %s",
+	dbg(BACKOFF, "SPF Back-off(%s) schedule called in state %s",
 		      backoff->name, spf_backoff_state2str(backoff->state));
 
 	backoff->last_event_time = now;
@@ -174,7 +169,7 @@ long spf_backoff_schedule(struct spf_backoff *backoff)
 		break;
 	}
 
-	backoff_debug(
+	dbg(BACKOFF, 
 		"SPF Back-off(%s) changed state to %s and returned %ld delay",
 		backoff->name, spf_backoff_state2str(backoff->state), rv);
 	return rv;
@@ -244,47 +239,6 @@ void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 		timeval_format(&backoff->first_event_time));
 	vty_out(vty, "%sLast event:        %s\n", prefix,
 		timeval_format(&backoff->last_event_time));
-}
-
-DEFUN(spf_backoff_debug,
-      spf_backoff_debug_cmd,
-      "debug spf-delay-ietf",
-      DEBUG_STR
-      "SPF Back-off Debugging\n")
-{
-	debug_spf_backoff = true;
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_spf_backoff_debug,
-      no_spf_backoff_debug_cmd,
-      "no debug spf-delay-ietf",
-      NO_STR
-      DEBUG_STR
-      "SPF Back-off Debugging\n")
-{
-	debug_spf_backoff = false;
-	return CMD_SUCCESS;
-}
-
-int spf_backoff_write_config(struct vty *vty)
-{
-	int written = 0;
-
-	if (debug_spf_backoff) {
-		vty_out(vty, "debug spf-delay-ietf\n");
-		written++;
-	}
-
-	return written;
-}
-
-void spf_backoff_cmd_init(void)
-{
-	install_element(ENABLE_NODE, &spf_backoff_debug_cmd);
-	install_element(CONFIG_NODE, &spf_backoff_debug_cmd);
-	install_element(ENABLE_NODE, &no_spf_backoff_debug_cmd);
-	install_element(CONFIG_NODE, &no_spf_backoff_debug_cmd);
 }
 
 long spf_backoff_init_delay(struct spf_backoff *backoff)

@@ -1777,7 +1777,6 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " ldp-sync\n");
 		write++;
 	}
-	write += spf_backoff_write_config(vty);
 
 	return write;
 }
@@ -3812,6 +3811,4 @@ void isis_init(void)
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 #endif /* ifdef FABRICD */
-
-	spf_backoff_cmd_init();
 }
