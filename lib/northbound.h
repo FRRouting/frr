@@ -699,14 +699,6 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
 
-/* Northbound debugging records */
-extern struct debug nb_dbg_cbs_config;
-extern struct debug nb_dbg_cbs_state;
-extern struct debug nb_dbg_cbs_rpc;
-extern struct debug nb_dbg_notif;
-extern struct debug nb_dbg_events;
-extern struct debug nb_dbg_libyang;
-
 /* Global running configuration. */
 extern struct nb_config *running_config;
 
