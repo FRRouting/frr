@@ -324,8 +324,12 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			if (!nbr)
 				continue;
 
+#if PIM_IPV == 4
 			return znh->ifindex == src_ifp->ifindex &&
 			       (!pim_addr_cmp(znh->nexthop_addr, src_ip));
+#else
+			return znh->ifindex == src_ifp->ifindex;
+#endif
 		}
 		return false;
 	}
@@ -384,8 +388,12 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		if (!nbr)
 			continue;
 
+#if PIM_IPV == 4
 		return nh->ifindex == src_ifp->ifindex &&
 		       (!pim_addr_cmp(nhaddr, src_ip));
+#else
+		return nh->ifindex == src_ifp->ifindex;
+#endif
 	}
 	return false;
 }

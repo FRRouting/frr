@@ -264,40 +264,37 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 #endif
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		case NEXTHOP_TYPE_IPV6:
 			stream_get(&nh_ip6, s, sizeof(nh_ip6));
 			nh_ifi = stream_getl(s);
 
-#if PIM_IPV == 6
-			nexthop_tab[num_ifindex].nexthop_addr = nh_ip6;
-			nexthop_tab[num_ifindex].ifindex = nh_ifi;
-			++num_ifindex;
-#else
-			/* RFC 5549 v4-over-v6 nexthop handling */
-
-			/*
-			 * If we are sending v6 secondary assume we receive v6
-			 * secondary
-			 */
 			struct interface *ifp = if_lookup_by_index(
-				nexthop_tab[num_ifindex].ifindex,
-				nexthop_vrf_id);
+					nh_ifi, nexthop_vrf_id);
 
 			if (!ifp)
 				break;
 
 			struct pim_neighbor *nbr;
+			struct prefix p;
 
+			p.family = AF_INET6;
+			p.prefixlen = IPV6_MAX_BITLEN;
+			p.u.prefix6 = nh_ip6;
+
+#if PIM_IPV == 4
+			/* RFC 5549 v4-over-v6 nexthop handling */
+			/*
+			 * If we are sending v6 secondary assume we receive v6
+			 * secondary
+			 */
 			if (pim->send_v6_secondary) {
-				struct prefix p;
-
-				p.family = AF_INET6;
-				p.prefixlen = IPV6_MAX_BITLEN;
-				p.u.prefix6 = nh_ip6;
-
 				nbr = pim_neighbor_find_by_secondary(ifp, &p);
 			} else
 				nbr = pim_neighbor_find_if(ifp);
 
+#else
+			nbr = pim_neighbor_find_by_secondary(ifp, &p);
+#endif
 			if (!nbr)
 				break;
 
@@ -305,7 +302,6 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				nbr->source_addr;
 			nexthop_tab[num_ifindex].ifindex = nh_ifi;
 			++num_ifindex;
-#endif
 			break;
 		default:
 			/* do nothing */
