@@ -2590,6 +2590,9 @@ void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 		return;
 	zrmac = zl3vni_rmac_lookup(zl3vni, &nh->emac);
 
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("l3vni %u del nexthop: rmac %pEA%s vtep-ip %pIA", zl3vni->vni,
+			   &nh->emac, (zrmac ? "" : " (not-found)"), vtep_ip);
 	/* delete the next hop entry */
 	zl3vni_remote_nh_del(zl3vni, nh, host_prefix);
 
