@@ -29,6 +29,8 @@
 #include "pim_tlv.h"
 #include "pim_str.h"
 #include "pim_msg.h"
+#include "pim_iface.h"
+#include "pim_addr.h"
 
 #if PIM_IPV == 4
 #define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV4
@@ -226,12 +228,15 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 }
 
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
-				       struct list *ifconnected, int family)
+				       struct interface *ifp, int family)
 {
 	struct listnode *node;
 	uint16_t option_len = 0;
 	uint8_t *curr;
 	size_t uel;
+	struct list *ifconnected = ifp->connected;
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_addr addr;
 
 	node = listhead(ifconnected);
 
@@ -252,7 +257,10 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 		struct prefix *p = ifc->address;
 		int l_encode;
 
-		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+		addr = pim_addr_from_prefix(p);
+		if (!pim_addr_cmp(pim_ifp->primary_address, addr))
+			/* don't add the primary address
+			 * into the secondary address list */
 			continue;
 
 		if ((curr + uel) > buf_pastend)
