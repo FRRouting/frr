@@ -1988,9 +1988,15 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 			bgp->vpn_policy[afi].tovpn_rd = bgp->vrf_prd_auto;
 			prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd, buf,
 				      sizeof(buf));
-			bgp->vpn_policy[afi].rtlist[edir] =
-				ecommunity_str2com(buf,
-						   ECOMMUNITY_ROUTE_TARGET, 0);
+
+			/* free up pre-existing memory if any and allocate
+			 *  the ecommunity attribute with new RD/RT
+			 */
+			if (bgp->vpn_policy[afi].rtlist[edir])
+				ecommunity_free(
+					&bgp->vpn_policy[afi].rtlist[edir]);
+			bgp->vpn_policy[afi].rtlist[edir] = ecommunity_str2com(
+				buf, ECOMMUNITY_ROUTE_TARGET, 0);
 
 			/* Update import_vrf rt_list */
 			ecom = bgp->vpn_policy[afi].rtlist[edir];

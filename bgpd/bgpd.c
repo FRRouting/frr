@@ -3631,7 +3631,12 @@ int bgp_delete(struct bgp *bgp)
 		gr_info = &bgp->gr_info[afi][safi];
 		if (!gr_info)
 			continue;
+		t = gr_info->t_select_deferral;
+		if (t) {
+			void *info = THREAD_ARG(t);
 
+			XFREE(MTYPE_TMP, info);
+		}
 		THREAD_OFF(gr_info->t_select_deferral);
 
 		t = gr_info->t_route_select;
@@ -3712,6 +3717,17 @@ int bgp_delete(struct bgp *bgp)
 				&bgp->vpn_policy[afi]
 				.import_redirect_rtlist);
 		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
+	}
+
+	/* Free any memory allocated to holding routemap references */
+	for (afi = 0; afi < AFI_MAX; ++afi) {
+		for (enum vpn_policy_direction dir = 0;
+		     dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
+			if (bgp->vpn_policy[afi].rmap_name[dir])
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      bgp->vpn_policy[afi].rmap_name[dir]);
+			bgp->vpn_policy[afi].rmap[dir] = NULL;
+		}
 	}
 
 	/* Deregister from Zebra, if needed */
