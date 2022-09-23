@@ -2763,9 +2763,6 @@ void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 	struct zebra_mac *zrmac = NULL;
 	json_object *json = NULL;
 
-	if (use_json)
-		json = json_object_new_object();
-
 	if (!is_evpn_enabled()) {
 		if (use_json)
 			vty_json_empty(vty, json);
@@ -2791,6 +2788,9 @@ void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 				l3vni);
 		return;
 	}
+
+	if (use_json)
+		json = json_object_new_object();
 
 	zl3vni_print_rmac(zrmac, vty, json);
 
