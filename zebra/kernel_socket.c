@@ -534,7 +534,7 @@ int ifm_read(struct if_msghdr *ifm)
 	/* paranoia: sanity check structure */
 	if (ifm->ifm_msglen < sizeof(struct if_msghdr)) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-			 "ifm_read: ifm->ifm_msglen %d too short",
+			 "%s: ifm->ifm_msglen %d too short", __func__,
 			 ifm->ifm_msglen);
 		return -1;
 	}
@@ -1388,9 +1388,8 @@ static void kernel_read(struct thread *thread)
 	 * can assume they have the whole message.
 	 */
 	if (rtm->rtm_msglen != nbytes) {
-		zlog_debug(
-			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d",
-			rtm->rtm_msglen, nbytes, rtm->rtm_type);
+		zlog_debug("%s: rtm->rtm_msglen %d, nbytes %d, type %d",
+			   __func__, rtm->rtm_msglen, nbytes, rtm->rtm_type);
 		return;
 	}
 
