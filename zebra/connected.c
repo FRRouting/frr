@@ -206,9 +206,6 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
 	uint32_t flags = 0;
-	uint32_t count = 0;
-	struct listnode *cnode;
-	struct connected *c;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -271,23 +268,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * It's possible to add the same network and mask
 	 * to an interface over and over.  This would
 	 * result in an equivalent number of connected
-	 * routes.  Just add one connected route in
-	 * for all the addresses on an interface that
-	 * resolve to the same network and mask
+	 * routes.  Just add one connected route for the
+	 * primary address, by skipping all the secondary
+	 * addresses.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		struct prefix cp;
-
-		prefix_copy(&cp, CONNECTED_PREFIX(c));
-		apply_mask(&cp);
-
-		if (prefix_same(&cp, &p) &&
-		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
-			count++;
-
-		if (count >= 2)
-			return;
-	}
+	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+		return;
 
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
@@ -388,9 +374,6 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
-	uint32_t count = 0;
-	struct listnode *cnode;
-	struct connected *c;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -446,23 +429,12 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	/*
 	 * It's possible to have X number of addresses
 	 * on a interface that all resolve to the same
-	 * network and mask.  Find them and just
-	 * allow the deletion when are removing the last
-	 * one.
+	 * network and mask.  Skip the secondary addresses
+	 * and allow the deletion for the primary address
+	 * only.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		struct prefix cp;
-
-		prefix_copy(&cp, CONNECTED_PREFIX(c));
-		apply_mask(&cp);
-
-		if (prefix_same(&p, &cp) &&
-		    !CHECK_FLAG(c->conf, ZEBRA_IFC_DOWN))
-			count++;
-
-		if (count >= 1)
-			return;
-	}
+	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+		return;
 
 	/*
 	 * Same logic as for connected_up(): push the changes into the
