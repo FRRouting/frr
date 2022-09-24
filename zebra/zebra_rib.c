@@ -76,6 +76,8 @@ static struct dplane_ctx_q rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
+DEFINE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
+
 
 /* Meta Q's specific names */
 enum meta_queue_indexes {
@@ -943,6 +945,9 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 
 	if (node->info) {
 		rib_dest_t *dest = node->info;
+
+		/* Remove from update queue of FPM module */
+		hook_call(rib_shutdown, node);
 
 		rnh_list_fini(&dest->nht);
 		XFREE(MTYPE_RIB_DEST, node->info);
