@@ -1478,6 +1478,32 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 }
 
 /*
+ * zfpm_trigger_remove
+ *
+ * The zebra code invokes this function to indicate that we should
+ * send an remove to the FPM about the given route_node.
+ */
+
+static int zfpm_trigger_remove(struct route_node *rn)
+{
+	rib_dest_t *dest;
+
+	if (!zfpm_conn_is_up())
+		return 0;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM))
+		return 0;
+
+	zfpm_debug("%pRN Removing from update queue shutting down", rn);
+
+	UNSET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
+	TAILQ_REMOVE(&zfpm_g->dest_q, dest, fpm_q_entries);
+
+	return 0;
+}
+
+/*
  * Generate Key for FPM MAC info hash entry
  */
 static unsigned int zfpm_mac_info_hash_keymake(const void *p)
@@ -2036,6 +2062,7 @@ static int zfpm_fini(void)
 static int zebra_fpm_module_init(void)
 {
 	hook_register(rib_update, zfpm_trigger_update);
+	hook_register(rib_shutdown, zfpm_trigger_remove);
 	hook_register(zebra_rmac_update, zfpm_trigger_rmac_update);
 	hook_register(frr_late_init, zfpm_init);
 	hook_register(frr_early_fini, zfpm_fini);
