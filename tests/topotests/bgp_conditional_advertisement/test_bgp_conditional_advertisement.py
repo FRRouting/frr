@@ -225,6 +225,7 @@ def all_routes_withdrawn(router):
     }
     return topotest.json_cmp(output, expected)
 
+
 def default_route_withdrawn(router):
     output = json.loads(router.vtysh_cmd("show ip route json"))
     expected = {
@@ -233,7 +234,7 @@ def default_route_withdrawn(router):
         "192.0.2.5/32": [{"protocol": "bgp"}],
         "10.139.224.0/20": [{"protocol": "bgp"}],
         "203.0.113.1/32": [{"protocol": "bgp"}],
-        }
+    }
     return topotest.json_cmp(output, expected)
 
 
@@ -268,7 +269,8 @@ def non_exist_map_routes_present(router):
 
 
 def non_exist_map_routes_not_present(router):
-    return default_route_withdrawn(router);
+    return default_route_withdrawn(router)
+
 
 def exist_map_no_condition_route_map(router):
     return non_exist_map_routes_present(router)
@@ -473,6 +475,7 @@ def test_bgp_conditional_advertisement_tc_2_2():
 
     logger.info(msg + passed)
 
+
 def test_bgp_conditional_advertisement_tc_2_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -496,7 +499,7 @@ def test_bgp_conditional_advertisement_tc_2_3():
     test_func = functools.partial(default_route_withdrawn, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
-    msg = 'TC23: advertise-map with exist-map configuration is removed from peer - '
+    msg = "TC23: advertise-map with exist-map configuration is removed from peer - "
     assert result is None, msg + failed
 
     logger.info(msg + passed)
@@ -559,6 +562,7 @@ def test_bgp_conditional_advertisement_tc_3_2():
 
     logger.info(msg + passed)
 
+
 def test_bgp_conditional_advertisement_tc_3_3():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -582,10 +586,13 @@ def test_bgp_conditional_advertisement_tc_3_3():
     test_func = functools.partial(all_routes_advertised, router3)
     success, result = topotest.run_and_expect(test_func, None, count=90, wait=1)
 
-    msg = 'TC33: advertise-map with non-exist-map configuration is removed from a peer - '
+    msg = (
+        "TC33: advertise-map with non-exist-map configuration is removed from a peer - "
+    )
     assert result is None, msg + failed
 
     logger.info(msg + passed)
+
 
 def test_bgp_conditional_advertisement_tc_4_1():
     tgen = get_topogen()
