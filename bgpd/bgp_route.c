@@ -5620,8 +5620,8 @@ void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						if (bgp_debug_neighbor_events(
 							    peer))
 							zlog_debug(
-								"%s: route-refresh for %s/%s, marking prefix %pFX as stale",
-								peer->host,
+								"%pBP route-refresh for %s/%s, marking prefix %pFX as stale",
+								peer,
 								afi2str(afi),
 								safi2str(safi),
 								bgp_dest_get_prefix(
@@ -5649,9 +5649,8 @@ void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 						   BGP_PATH_UNUSEABLE)) {
 					if (bgp_debug_neighbor_events(peer))
 						zlog_debug(
-							"%s: route-refresh for %s/%s, marking prefix %pFX as stale",
-							peer->host,
-							afi2str(afi),
+							"%pBP route-refresh for %s/%s, marking prefix %pFX as stale",
+							peer, afi2str(afi),
 							safi2str(safi),
 							bgp_dest_get_prefix(
 								dest));
