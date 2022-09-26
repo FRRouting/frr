@@ -2309,7 +2309,11 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	if (esi && bgp_evpn_is_esi_valid(esi)) {
 		memcpy(&attr.esi, esi, sizeof(esi_t));
-		SET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
+		/* ES should not be marked local if ESI is in bypass */
+		if (bgp_evpn_is_esi_local_and_non_bypass(esi))
+			SET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
+		else
+			UNSET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
 	}
 
 	/* PMSI is only needed for type-3 routes */
@@ -2624,8 +2628,16 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_ROUTER);
 	}
 	memcpy(&attr.esi, &local_pi->attr->esi, sizeof(esi_t));
-	bgp_evpn_get_rmac_nexthop(vpn, &evp, &attr,
-				  local_pi->extra->evpn->af_flags);
+	/*
+	 * We are evaluating a change in local/non-local status.
+	 * The es_flags need to align with the local ES status
+	 */
+	if (bgp_evpn_is_esi_local_and_non_bypass(&attr.esi))
+		SET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
+	else
+		UNSET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
+
+	bgp_evpn_get_rmac_nexthop(vpn, &evp, &attr, local_pi->extra->evpn->af_flags);
 	vni2label(vpn->vni, &(attr.label));
 	/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
 	 * using L3 VNI for type-2 routes also.
