@@ -592,7 +592,7 @@ static int bgp_rpki_module_init(void)
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
-	hook_register(frr_early_fini, &bgp_rpki_fini);
+	hook_register(frr_early_fini, bgp_rpki_fini);
 
 	return 0;
 }
