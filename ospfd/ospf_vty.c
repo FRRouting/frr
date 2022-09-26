@@ -9892,49 +9892,6 @@ DEFPY(no_ospf_gr_helper_enable,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20220921
-CPP_NOTICE(
-	"Time to remove the deprecated \"[no] graceful-restart helper-only\" commands")
-#endif
-
-DEFPY_HIDDEN(ospf_gr_helper_only, ospf_gr_helper_only_cmd,
-      "graceful-restart helper-only [A.B.C.D]",
-      "OSPF Graceful Restart\n"
-      "Enable Helper support\n"
-      "Advertising router id\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct in_addr addr;
-	int ret;
-
-	vty_out(vty,
-		"%% This command is deprecated. Please, use `graceful-restart helper enable` instead.\n");
-
-	if (argc == 3) {
-		ret = inet_aton(argv[2]->arg, &addr);
-		if (!ret) {
-			vty_out(vty,
-				"Please specify the valid routerid address.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		ospf_gr_helper_support_set_per_routerid(ospf, &addr, OSPF_GR_TRUE);
-		return CMD_SUCCESS;
-	}
-
-	ospf_gr_helper_support_set(ospf, OSPF_GR_TRUE);
-
-	return CMD_SUCCESS;
-}
-
-ALIAS_HIDDEN(no_ospf_gr_helper_enable,
-      no_ospf_gr_helper_only_cmd,
-      "no graceful-restart helper-only [A.B.C.D]",
-      NO_STR
-      "OSPF Graceful Restart\n"
-      "Disable Helper support\n"
-      "Advertising router id\n")
-
 DEFPY(ospf_gr_helper_enable_lsacheck,
       ospf_gr_helper_enable_lsacheck_cmd,
       "graceful-restart helper strict-lsa-checking",
@@ -12862,8 +12819,6 @@ static void ospf_vty_zebra_init(void)
 	/*Ospf garcefull restart helper configurations */
 	install_element(OSPF_NODE, &ospf_gr_helper_enable_cmd);
 	install_element(OSPF_NODE, &no_ospf_gr_helper_enable_cmd);
-	install_element(OSPF_NODE, &ospf_gr_helper_only_cmd);
-	install_element(OSPF_NODE, &no_ospf_gr_helper_only_cmd);
 	install_element(OSPF_NODE, &ospf_gr_helper_enable_lsacheck_cmd);
 	install_element(OSPF_NODE, &no_ospf_gr_helper_enable_lsacheck_cmd);
 	install_element(OSPF_NODE, &ospf_gr_helper_supported_grace_time_cmd);
