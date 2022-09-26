@@ -585,6 +585,7 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 
 DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	     (rn, reason));
+DECLARE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
 
 /*
  * Access installed/fib nexthops, which may be a subset of the
