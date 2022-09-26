@@ -1613,6 +1613,22 @@ DEFPY (debug_mld_packets,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_mld_trace,
+       debug_mld_trace_cmd,
+       "[no] debug mld trace",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MLD_STR
+       DEBUG_MLD_TRACE_STR)
+{
+	if (!no)
+		PIM_DO_DEBUG_GM_TRACE;
+	else
+		PIM_DONT_DEBUG_GM_TRACE;
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1748,6 +1764,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_mld_cmd);
 	install_element(ENABLE_NODE, &debug_mld_events_cmd);
 	install_element(ENABLE_NODE, &debug_mld_packets_cmd);
+	install_element(ENABLE_NODE, &debug_mld_trace_cmd);
 
 	install_element(CONFIG_NODE, &debug_pimv6_cmd);
 	install_element(CONFIG_NODE, &debug_pimv6_nht_cmd);
@@ -1764,4 +1781,5 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_mld_cmd);
 	install_element(CONFIG_NODE, &debug_mld_events_cmd);
 	install_element(CONFIG_NODE, &debug_mld_packets_cmd);
+	install_element(CONFIG_NODE, &debug_mld_trace_cmd);
 }
