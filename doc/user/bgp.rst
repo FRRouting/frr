@@ -1775,6 +1775,15 @@ Configuring Peers
    default, the DelayOpenTimer is disabled. The timer interval may be set to a
    duration of 1 to 240 seconds.
 
+.. clicmd:: neighbor PEER extended-optional-parameters
+
+   Force the extended optional parameters format for OPEN messages. By default,
+   optional parameters length is 255 octets. With more and more BGP capabilities
+   implemented on top of BGP, this is needed to extend this value.
+
+   This is turned off by default, but it's automatically enabled when this limit
+   is hit. You can force this new encoding to be enabled with this command.
+
 .. clicmd:: bgp minimum-holdtime (1-65535)
 
    This command allows user to prevent session establishment with BGP peers
