@@ -610,10 +610,17 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 				ntohl(igmp->ifaddr.s_addr), from_str,
 				ntohl(from.s_addr));
 		}
-		if (ntohl(from.s_addr) < ntohl(igmp->querier_addr.s_addr))
+		/* Reset the other querier timer only if query is received from
+		 * the previously elected querier or a better new querier
+		 * This will make sure that non-querier elects the new querier
+		 * whose ip address is higher than the old querier
+		 * in case the old querier goes down via other querier present
+		 * timer expiry
+		 */
+		if (ntohl(from.s_addr) <= ntohl(igmp->querier_addr.s_addr)) {
 			igmp->querier_addr.s_addr = from.s_addr;
-
-		pim_igmp_other_querier_timer_on(igmp);
+			pim_igmp_other_querier_timer_on(igmp);
+		}
 	}
 
 	/* IGMP version 3 is the only one where we process the RXed query */
