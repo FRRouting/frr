@@ -3218,8 +3218,6 @@ void isis_area_overload_on_startup_set(struct isis_area *area,
 {
 	if (area->overload_on_startup_time != startup_time)
 		area->overload_on_startup_time = startup_time;
-
-	// TODO: Implement overload on startup functionality
 }
 
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit)
