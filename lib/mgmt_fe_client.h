@@ -183,14 +183,14 @@ extern enum mgmt_result mgmt_fe_create_client_session(uintptr_t lib_hndl,
  * lib_hndl
  *    Client library handler.
  *
- * session_id
- *    Client session ID.
+ * client_id
+ *    Unique identifier of client.
  *
  * Returns:
  *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
  */
-extern enum mgmt_result
-mgmt_fe_destroy_client_session(uintptr_t lib_hndl, uintptr_t session_id);
+extern enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
+						       uint64_t client_id);
 
 /*
  * Send UN/LOCK_DB_REQ to MGMTD for a specific Datastore DB.

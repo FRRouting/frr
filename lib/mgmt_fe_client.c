@@ -519,7 +519,7 @@ mgmt_fe_client_handle_msg(struct mgmt_fe_client_ctx *client_ctx,
 				client_ctx,
 				fe_msg->session_reply->client_conn_id);
 
-			if (fe_msg->session_reply->success) {
+			if (session && fe_msg->session_reply->success) {
 				MGMTD_FE_CLIENT_DBG(
 					"Session Create for client-id %llu successful.",
 					(unsigned long long)fe_msg
@@ -1113,7 +1113,7 @@ enum mgmt_result mgmt_fe_create_client_session(uintptr_t lib_hndl,
  * Delete an existing Session for a Frontend Client connection.
  */
 enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
-						    uintptr_t session_id)
+						uint64_t client_id)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 	struct mgmt_fe_client_session *session;
@@ -1122,14 +1122,15 @@ enum mgmt_result mgmt_fe_destroy_client_session(uintptr_t lib_hndl,
 	if (!client_ctx)
 		return MGMTD_INVALID_PARAM;
 
-	session = (struct mgmt_fe_client_session *)session_id;
+	session = mgmt_fe_find_session_by_client_id(client_ctx, client_id);
 	if (!session || session->client_ctx != client_ctx)
 		return MGMTD_INVALID_PARAM;
 
-	if (mgmt_fe_send_session_req(client_ctx, session, false) != 0)
+	if (session->session_id &&
+	    mgmt_fe_send_session_req(client_ctx, session, false) != 0)
 		MGMTD_FE_CLIENT_ERR(
 			"Failed to send session destroy request for the session-id %lu",
-			(unsigned long)session_id);
+			(unsigned long)session->session_id);
 
 	mgmt_sessions_del(&client_ctx->client_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
@@ -1147,7 +1148,7 @@ static void mgmt_fe_destroy_client_sessions(uintptr_t lib_hndl)
 		return;
 
 	FOREACH_SESSION_IN_LIST (client_ctx, session)
-		mgmt_fe_destroy_client_session(lib_hndl, (uintptr_t)session);
+		mgmt_fe_destroy_client_session(lib_hndl, session->client_id);
 }
 
 /*
