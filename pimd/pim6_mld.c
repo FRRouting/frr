@@ -2430,6 +2430,8 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 						gm_ifp->t_other_querier);
 		json_object_int_add(js_if, "timerRobustnessValue",
 				    gm_ifp->cur_qrv);
+		json_object_int_add(js_if, "lastMemberQueryCount",
+				    gm_ifp->cur_lmqc);
 		json_object_int_add(js_if, "timerQueryIntervalMsec",
 				    gm_ifp->cur_query_intv);
 		json_object_int_add(js_if, "timerQueryResponseTimerMsec",
