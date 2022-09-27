@@ -462,7 +462,7 @@ DEFPY (show_pathd_ted_db,
 	json_object *json = NULL;
 
 	if (!ted_state_g.enabled) {
-		vty_out(vty, "PATHD TED database is not enabled\n");
+		vty_out(vty, "Traffic Engineering database is not enabled\n");
 		return CMD_WARNING;
 	}
 	if (strcmp(ver_json, "json") == 0) {
