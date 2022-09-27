@@ -1,0 +1,128 @@
+{
+    "address_types": ["ipv4", "ipv6"],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 30,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {"ipv4": "10.0.0.0", "v4mask": 30, "ipv6": "fd00::", "v6mask": 64},
+    "lo_prefix": {"ipv4": "1.0.", "v4mask": 32, "ipv6": "2001:db8:f::", "v6mask": 128},
+    "routers": {
+        "r2": {
+            "links": {
+                "lo": {"ipv4": "auto", "ipv6": "auto", "type": "loopback"},
+                "r3": {"ipv4": "auto", "ipv6": "auto","vrf": "RED"}
+            },
+            "vrfs":[{"name": "RED","id": "1"}],
+            "bgp":[
+            {
+                "local_as": "200",
+                "vrf": "RED",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {"dest_link": {"r2": {}}}
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r3": {"dest_link": {"r2": {}}}
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r3": {
+            "links": {
+                "lo": {"ipv4": "auto", "ipv6": "auto", "type": "loopback"},
+                "r2": {"ipv4": "auto", "ipv6": "auto","vrf": "RED"},
+                "r4": {"ipv4": "auto", "ipv6": "auto","vrf": "BLUE"}
+            },
+            "vrfs":[{"name": "RED","id": "1"},
+                {"name": "BLUE","id": "2"}],
+            "bgp":
+            [
+                {
+                    "local_as": "300",
+                    "vrf": "RED",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {"r3": {}}}
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {"r3": {}}}
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "local_as": "300",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {"r3": {}}}
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r4": {
+                                        "dest_link": {"r3": {}}}
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "r4": {
+            "links": {
+                "lo": {"ipv4": "auto", "ipv6": "auto", "type": "loopback"},
+                "r3": {"ipv4": "auto", "ipv6": "auto","vrf": "BLUE"}
+            },
+            "vrfs":[{"name": "BLUE","id": "1"}],
+            "bgp":
+            [
+                {
+                    "local_as": "400",
+                    "vrf": "BLUE",
+                    "address_family": {
+                        "ipv4": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {"r4": {}}}
+                                }
+                            }
+                        },
+                        "ipv6": {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {"r4": {}}}
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
