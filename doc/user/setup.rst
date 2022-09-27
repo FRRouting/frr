@@ -111,7 +111,7 @@ reasons touched on in the VTYSH documentation and should generally be enabled.
 This allows the operator to control the number of open file descriptors
 each daemon is allowed to start with.  The current assumed value on
 most operating systems is 1024.  If the operator plans to run bgp with
-several thousands of peers than this is where we would modify FRR to
+several thousands of peers then this is where we would modify FRR to
 allow this to happen.
 
 ::
