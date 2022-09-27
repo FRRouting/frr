@@ -32,8 +32,6 @@
 #include "pim_memory.h"
 #include "pim_assert.h"
 
-#define PIMD_PROGNAME       "pimd"
-#define PIMD_DEFAULT_CONFIG "pimd.conf"
 #define PIMD_VTY_PORT       2611
 #define PIM6D_VTY_PORT      2622
 
