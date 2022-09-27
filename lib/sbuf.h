@@ -64,6 +64,8 @@ extern "C" {
  * the string returned in parser_log.
  */
 
+#define SBUF_DEFAULT_SIZE 8192
+
 struct sbuf {
 	bool fixed;
 	char *buf;
