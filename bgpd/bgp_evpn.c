@@ -1308,7 +1308,9 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 			seq = mac_mobility_seqnum(pi->attr);
-			/* if local ES notify zebra that this is a sync path */
+			/* If local ES notify zebra that this is a sync path.
+			 * ES is non-local while in LACP Bypass.
+			 */
 			if (bgp_evpn_attr_is_local_es(pi->attr)) {
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH);
 				if (bgp_evpn_attr_is_proxy(pi->attr))
@@ -1319,26 +1321,31 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 			if (!bgp_evpn_attr_is_sync(pi->attr))
 				return 0;
 
-			/* if a local path is being turned around and sent
-			 * to zebra it is because it is a sync path on
-			 * a local ES
+			/* If local ES notify zebra that this is a sync path.
+			 * ES is non-local while in LACP Bypass.
 			 */
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH);
-			/* supply the highest peer seq number to zebra
-			 * for MM seq syncing
-			 */
-			seq = bgp_evpn_attr_get_sync_seq(pi->attr);
-			/* if any of the paths from the peer have the ROUTER
-			 * flag set install the local entry as a router entry
-			 */
-			if (is_evpn_prefix_ipaddr_v6(p) &&
-			    CHECK_FLAG(pi->attr->es_flags, ATTR_ES_PEER_ROUTER))
-				SET_FLAG(flags,
-						ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+			if (bgp_evpn_attr_is_local_es(pi->attr)) {
+				/* if a local path is being turned around and
+				 * sent to zebra it is because it is a sync path
+				 * on a local ES
+				 */
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH);
+				/* supply the highest peer seq number to zebra
+				 * for MM seq syncing
+				 */
+				seq = bgp_evpn_attr_get_sync_seq(pi->attr);
+				/* if any of the paths from the peer have the
+				 * ROUTER flag set install the local entry as a
+				 * router entry
+				 */
+				if (is_evpn_prefix_ipaddr_v6(p) &&
+				    CHECK_FLAG(pi->attr->es_flags, ATTR_ES_PEER_ROUTER))
+					SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
-			if (!CHECK_FLAG(pi->attr->es_flags, ATTR_ES_PEER_ACTIVE))
-				SET_FLAG(flags,
-						ZEBRA_MACIP_TYPE_PROXY_ADVERT);
+				if (!CHECK_FLAG(pi->attr->es_flags, ATTR_ES_PEER_ACTIVE))
+					SET_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT);
+			} else
+				seq = mac_mobility_seqnum(pi->attr);
 		}
 
 		uint8_t nhfamily = NEXTHOP_FAMILY(pi->attr->mp_nexthop_len);
