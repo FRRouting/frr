@@ -2315,7 +2315,7 @@ void vty_close(struct vty *vty)
 
 	if (mgmt_lib_hndl) {
 		mgmt_fe_destroy_client_session(mgmt_lib_hndl,
-						   vty->mgmt_session_id);
+					       vty->mgmt_client_id);
 		vty->mgmt_session_id = 0;
 	}
 
