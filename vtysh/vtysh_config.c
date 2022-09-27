@@ -493,7 +493,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			    strncmp(line, "service cputime-stats",
 				    strlen("service cputime-stats")) == 0 ||
 			    strncmp(line, "no service cputime-stats",
-				    strlen("no service cputime-stats")) == 0)
+				    strlen("no service cputime-stats")) == 0 ||
+			    strncmp(line, "service cputime-warning",
+				    strlen("service cputime-warning")) == 0)
 				config_add_line_uniq(config_top, line);
 			else
 				config_add_line(config_top, line);
