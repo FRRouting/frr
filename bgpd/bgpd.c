@@ -7248,6 +7248,9 @@ static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,
 		if (filter_exists)
 			bgp_conditional_adv_disable(peer, afi, safi);
 
+		/* Process peer route updates. */
+		peer_on_policy_change(peer, afi, safi, 1);
+
 		return;
 	}
 
