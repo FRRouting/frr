@@ -483,6 +483,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    0 ||
 			    strncmp(line, "domainname", strlen("domainname")) ==
 				    0 ||
+			    strncmp(line, "allow-reserved-ranges",
+				    strlen("allow-reserved-ranges")) == 0 ||
 			    strncmp(line, "frr", strlen("frr")) == 0 ||
 			    strncmp(line, "agentx", strlen("agentx")) == 0 ||
 			    strncmp(line, "no log", strlen("no log")) == 0 ||
