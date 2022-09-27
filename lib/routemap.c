@@ -1059,7 +1059,6 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 
 		if (map) {
 			vty_show_route_map_entry(vty, map, json_proto);
-			return CMD_SUCCESS;
 		} else if (!use_json) {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
 				frr_protonameinst, name);
