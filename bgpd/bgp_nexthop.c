@@ -865,7 +865,6 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 	}
 	tbuf = time(NULL) - (monotime(NULL) - bnc->last_update);
 	vty_out(vty, "  Last update: %s", ctime(&tbuf));
-	vty_out(vty, "\n");
 
 	/* show paths dependent on nexthop, if needed. */
 	if (specific)
@@ -912,6 +911,7 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		struct prefix nhop;
 		struct bgp_nexthop_cache_head (*tree)[AFI_MAX];
 		struct bgp_nexthop_cache *bnc;
+		bool found = false;
 
 		if (!str2prefix(nhopip_str, &nhop)) {
 			vty_out(vty, "nexthop address is malformed\n");
@@ -919,12 +919,16 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		}
 		tree = import_table ? &bgp->import_check_table
 				    : &bgp->nexthop_cache_table;
-		bnc = bnc_find(&(*tree)[family2afi(nhop.family)], &nhop, 0, 0);
-		if (!bnc) {
-			vty_out(vty, "specified nexthop does not have entry\n");
-			return CMD_SUCCESS;
+		frr_each (bgp_nexthop_cache, &(*tree)[family2afi(nhop.family)],
+			  bnc) {
+			if (prefix_cmp(&bnc->prefix, &nhop))
+				continue;
+			bgp_show_nexthop(vty, bgp, bnc, true);
+			found = true;
 		}
-		bgp_show_nexthop(vty, bgp, bnc, true);
+		if (!found)
+			vty_out(vty, "nexthop %s does not have entry\n",
+				nhopip_str);
 	} else
 		bgp_show_nexthops(vty, bgp, import_table);
 
