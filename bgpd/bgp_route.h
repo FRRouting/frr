@@ -214,6 +214,9 @@ struct bgp_path_info_extra {
 	/*For EVPN*/
 	struct bgp_path_info_extra_evpn *evpn;
 
+	/* timestamp of the rib installation */
+	time_t bgp_rib_uptime;
+
 #ifdef ENABLE_BGP_VNC
 	union {
 
@@ -289,13 +292,11 @@ struct bgp_path_info {
 	/* Extra information */
 	struct bgp_path_info_extra *extra;
 
+	/* Uptime.  */
+	time_t uptime;
 
 	/* Multipath information */
 	struct bgp_path_info_mpath *mpath;
-
-	/* Uptime.  */
-	time_t uptime;
-	time_t rib_uptime;
 
 	/* reference count */
 	int lock;
@@ -678,8 +679,8 @@ DECLARE_HOOK(bgp_process,
 /* called when a route is updated in the rib */
 DECLARE_HOOK(bgp_route_update,
 	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
-	      struct bgp_path_info *updated_route, bool withdraw),
-	     (bgp, afi, safi, bn, updated_route, withdraw));
+	      struct bgp_path_info *old_route, struct bgp_path_info *new_route),
+	     (bgp, afi, safi, bn, old_route, new_route));
 
 /* BGP show options */
 #define BGP_SHOW_OPT_JSON (1 << 0)
