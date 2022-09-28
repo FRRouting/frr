@@ -213,6 +213,9 @@ static inline char *label2str(mpls_label_t label, enum lsp_types_t type,
 	case MPLS_LABEL_EXTENSION:
 		strlcpy(buf, "Extension", len);
 		return (buf);
+	case MPLS_LABEL_NONE:
+		strlcpy(buf, "None", len);
+		return (buf);
 	default:
 		if (label < 16)
 			snprintf(buf, len, "Reserved (%u)", label);

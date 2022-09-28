@@ -392,7 +392,7 @@ void zebra_sr_policy_show(struct vty *vty, bool uj)
 	struct ttable *tt;
 	struct json_object *json;
 	char endpoint[INET6_ADDRSTRLEN];
-	char *path;
+	char *path, *local_label_str;
 	char *table;
 
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -403,19 +403,22 @@ void zebra_sr_policy_show(struct vty *vty, bool uj)
 	ttable_add_row(tt,
 		       "Endpoint|Color|Name|Status|Local Label|Segment List");
 	path = XMALLOC(MTYPE_TMP, 1024);
+	local_label_str = XMALLOC(MTYPE_TMP, 1024);
 
 	RB_FOREACH (policy, zebra_sr_policy_instance_head,
 		    &zebra_sr_policy_instances) {
 		*path = 0;
 		mpls_label2str(policy->segment_list.label_num,
 			       policy->segment_list.labels, path, 1024, 0, 0);
+		mpls_label2str(1, &policy->segment_list.local_label, local_label_str,
+			       sizeof(local_label_str), 0, 1);
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-		ttable_add_row(tt, "%s|%u|%s|%s|%u|%s", endpoint, policy->color,
+		ttable_add_row(tt, "%s|%u|%s|%s|%s|%s", endpoint, policy->color,
 			       policy->name,
 			       policy->status == ZEBRA_SR_POLICY_UP
 				       ? "Active"
 				       : "Inactive",
-			       policy->segment_list.local_label, path);
+			       local_label_str, path);
 	}
 
 	if (uj) {
