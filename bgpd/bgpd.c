@@ -997,8 +997,14 @@ void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 {
 	struct bgp *bgp;
+	as_t local_as;
 
 	bgp = peer->bgp;
+
+	if (peer->change_local_as)
+		local_as = peer->change_local_as;
+	else
+		local_as = peer->local_as;
 
 	/* Peer-group */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -1010,8 +1016,8 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 
 		else if (peer->as_type == AS_SPECIFIED && peer->as) {
 			assert(bgp);
-			return (bgp->as == peer->as ? BGP_PEER_IBGP
-						    : BGP_PEER_EBGP);
+			return (local_as == peer->as ? BGP_PEER_IBGP
+						     : BGP_PEER_EBGP);
 		}
 
 		else {
@@ -1028,17 +1034,17 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 
 	/* Normal peer */
 	if (bgp && CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
-		if (peer->local_as == 0)
+		if (local_as == 0)
 			return BGP_PEER_INTERNAL;
 
-		if (peer->local_as == peer->as) {
+		if (local_as == peer->as) {
 			if (bgp->as == bgp->confed_id) {
-				if (peer->local_as == bgp->as)
+				if (local_as == bgp->as)
 					return BGP_PEER_IBGP;
 				else
 					return BGP_PEER_EBGP;
 			} else {
-				if (peer->local_as == bgp->confed_id)
+				if (local_as == bgp->confed_id)
 					return BGP_PEER_EBGP;
 				else
 					return BGP_PEER_IBGP;
@@ -1056,8 +1062,7 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 			    && (peer->group->conf->as_type != AS_UNSPECIFIED)) {
 				if (peer->group->conf->as_type
 				    == AS_SPECIFIED) {
-					if (peer->local_as
-					    == peer->group->conf->as)
+					if (local_as == peer->group->conf->as)
 						return BGP_PEER_IBGP;
 					else
 						return BGP_PEER_EBGP;
@@ -1073,9 +1078,8 @@ static inline enum bgp_peer_sort peer_calc_sort(struct peer *peer)
 			return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP
 							     : BGP_PEER_EBGP);
 
-		return (peer->local_as == 0
-				? BGP_PEER_INTERNAL
-				: peer->local_as == peer->as ? BGP_PEER_IBGP
+		return (local_as == 0 ? BGP_PEER_INTERNAL
+				      : local_as == peer->as ? BGP_PEER_IBGP
 							     : BGP_PEER_EBGP);
 	}
 }
@@ -1884,14 +1888,6 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
 			   PEER_FLAG_REFLECTOR_CLIENT);
-	}
-
-	/* local-as reset */
-	if (newtype != BGP_PEER_EBGP) {
-		peer->change_local_as = 0;
-		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
-		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 	}
 }
 
@@ -3018,17 +3014,6 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			/* ebgp-multihop reset */
 			if (gtype == BGP_PEER_IBGP)
 				group->conf->ttl = MAXTTL;
-
-			/* local-as reset */
-			if (gtype != BGP_PEER_EBGP) {
-				group->conf->change_local_as = 0;
-				peer_flag_unset(group->conf,
-						PEER_FLAG_LOCAL_AS);
-				peer_flag_unset(group->conf,
-						PEER_FLAG_LOCAL_AS_NO_PREPEND);
-				peer_flag_unset(group->conf,
-						PEER_FLAG_LOCAL_AS_REPLACE_AS);
-			}
 		}
 
 		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
@@ -6109,16 +6094,9 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
-	enum bgp_peer_sort ptype = peer_sort(peer);
-
-	if (ptype != BGP_PEER_EBGP && ptype != BGP_PEER_INTERNAL)
-		return BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP;
 
 	if (bgp->as == as)
 		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS;
-
-	if (peer->as == as)
-		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS;
 
 	/* Save previous flag states. */
 	old_no_prepend =
@@ -6135,6 +6113,7 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	    && old_replace_as == replace_as)
 		return 0;
 	peer->change_local_as = as;
+	(void)peer_sort(peer);
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
