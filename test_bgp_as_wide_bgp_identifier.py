@@ -1,4 +1,6 @@
-from topotato import *
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2022 Nathan Mangar
+
 
 """
 rfc6286: Autonomous-System-Wide Unique BGP Identifier for BGP-4
@@ -7,9 +9,16 @@ internal peers (autonomous-system-wide). eBGP peers are not
 affected and should work.
 """
 
+__topotests_file__ = "bgp_as_wide_bgp_identifier/test_bgp_as_wide_bgp_identifier.py"
+__topotests_gitrev__ = "4953ca977f3a5de8109ee6353ad07f816ca1774c"
+
+# pylint: disable=wildcard-import, unused-wildcard-import
+
+from topotato import *
+
 
 @topology_fixture()
-def allproto_topo(topo):
+def topology(topo):
     """
     [ r1 ]
       |
@@ -70,32 +79,20 @@ class Configs(FRRConfigs):
   """
 
 
-@config_fixture(Configs)
-def configs(config, allproto_topo):
-    return config
-
-
-@instance_fixture()
-def testenv(configs):
-    return FRRNetworkInstance(configs.topology, configs).prepare()
-
-
-class test_bgp_as_wide_bgp_identifier(TestBase):
-    instancefn = testenv
-
+class TestBGPAsWideBGPIdentifier(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
-    def bgp_converge(self, topo, r1, r2, r3):
+    def bgp_converge(self, _, r1):
         expected = {"192.168.255.1": {"bgpState": "Established"}}
         yield from AssertVtysh.make(
             r1,
             "bgpd",
-            f"show ip bgp neighbor 192.168.255.1 json",
+            "show ip bgp neighbor 192.168.255.1 json",
             maxwait=2.0,
             compare=expected,
         )
 
     @topotatofunc
-    def bgp_failed(self, topo, r1, r2, r3):
+    def bgp_failed(self, _, r3):
         expected = {
             "192.168.255.1": {
                 "lastNotificationReason": "OPEN Message Error/Bad BGP Identifier"
@@ -104,7 +101,7 @@ class test_bgp_as_wide_bgp_identifier(TestBase):
         yield from AssertVtysh.make(
             r3,
             "bgpd",
-            f"show ip bgp neighbor 192.168.255.1 json",
+            "show ip bgp neighbor 192.168.255.1 json",
             maxwait=2.0,
             compare=expected,
         )
