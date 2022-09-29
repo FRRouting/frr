@@ -1928,8 +1928,8 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.0.0], , [
-  AC_MSG_ERROR([libyang (>= 2.0.0) was not found on your system.])
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.0.88], , [
+  AC_MSG_ERROR([libyang (>= 2.0.88) was not found on your system.])
 ])
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"

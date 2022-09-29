@@ -14,7 +14,7 @@ DEB packages are available as CI artifacts `here
 
 .. warning::
 
-   ``libyang`` version 2.0.0 or newer is required to build FRR.
+   ``libyang`` version 2.0.88 or newer is required to build FRR.
 
 .. note::
 
@@ -39,7 +39,7 @@ DEB packages are available as CI artifacts `here
 
    git clone https://github.com/CESNET/libyang.git
    cd libyang
-   git checkout v2.0.0
+   git checkout v2.0.88
    mkdir build; cd build
    cmake -D CMAKE_INSTALL_PREFIX:PATH=/usr \
          -D CMAKE_BUILD_TYPE:String="Release" ..
