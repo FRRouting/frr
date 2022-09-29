@@ -873,9 +873,6 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 	case BGP_ERR_REMOVE_PRIVATE_AS:
 		str = "remove-private-AS cannot be configured for IBGP peers";
 		break;
-	case BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP:
-		str = "Local-AS allowed only for EBGP peers";
-		break;
 	case BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS:
 		str = "Cannot have local-as same as BGP AS number";
 		break;
@@ -935,9 +932,6 @@ int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 		break;
 	case BGP_ERR_AF_UNCONFIGURED:
 		str = "AFI/SAFI specified is not currently configured.";
-		break;
-	case BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS:
-		str = "AS specified for local as is the same as the remote as and this is not allowed.";
 		break;
 	case BGP_ERR_INVALID_AS:
 		str = "Confederation AS specified is the same AS as our AS.";
