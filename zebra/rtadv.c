@@ -713,7 +713,8 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 		monotime(&zif->rtadv.lastadvreachabletime);
 	}
 
-	if ((ntohl(radvert->nd_ra_retransmit) !=
+	if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer) &&
+	    (ntohl(radvert->nd_ra_retransmit) !=
 	     (unsigned int)zif->rtadv.AdvRetransTimer) &&
 	    (monotime_since(&zif->rtadv.lastadvretranstimer, NULL) >
 		     SIXHOUR2USEC ||
