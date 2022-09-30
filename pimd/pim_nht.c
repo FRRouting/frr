@@ -571,10 +571,14 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 		if (ifps[i]) {
 #if PIM_IPV == 4
 			pim_addr nhaddr = nh_node->gate.ipv4;
-#else
-			pim_addr nhaddr = nh_node->gate.ipv6;
-#endif
 			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
+#else
+			struct prefix p;
+
+			pim_addr nhaddr = nh_node->gate.ipv6;
+			pim_addr_to_prefix(&p, nhaddr);
+			nbrs[i] = pim_neighbor_find_by_secondary(ifps[i], &p);
+#endif
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
@@ -642,7 +646,15 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 #if PIM_IPV == 4
 			nexthop->mrib_nexthop_addr = nh_node->gate.ipv4;
 #else
-			nexthop->mrib_nexthop_addr = nh_node->gate.ipv6;
+			struct prefix p;
+
+			p.family = AF_INET6;
+			p.prefixlen = IPV6_MAX_BITLEN;
+			p.u.prefix6 = nh_node->gate.ipv6;
+
+			nbr = pim_neighbor_find_by_secondary(ifp, &p);
+			if (nbr)
+				nexthop->mrib_nexthop_addr = nbr->source_addr;
 #endif
 			nexthop->mrib_metric_preference = pnc->distance;
 			nexthop->mrib_route_metric = pnc->metric;
