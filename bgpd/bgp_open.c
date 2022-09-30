@@ -1185,15 +1185,30 @@ as_t peek_for_as4_capability(struct peer *peer, uint16_t length)
 		uint8_t opt_type;
 		uint16_t opt_length;
 
-		/* Check the length. */
-		if (stream_get_getp(s) + 2 > end)
+		/* Ensure we can read the option type */
+		if (stream_get_getp(s) + 1 > end)
 			goto end;
 
-		/* Fetch option type and length. */
+		/* Fetch the option type */
 		opt_type = stream_getc(s);
-		opt_length = BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)
-				     ? stream_getw(s)
-				     : stream_getc(s);
+
+		/*
+		 * Check the length and fetch the opt_length
+		 * If the peer is BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)
+		 * then we do a getw which is 2 bytes.  So we need to
+		 * ensure that we can read that as well
+		 */
+		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
+			if (stream_get_getp(s) + 2 > end)
+				goto end;
+
+			opt_length = stream_getw(s);
+		} else {
+			if (stream_get_getp(s) + 1 > end)
+				goto end;
+
+			opt_length = stream_getc(s);
+		}
 
 		/* Option length check. */
 		if (stream_get_getp(s) + opt_length > end)
