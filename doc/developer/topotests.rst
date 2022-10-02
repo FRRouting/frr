@@ -22,10 +22,8 @@ Installing Topotest Requirements
 
 .. code:: shell
 
-   apt-get install gdb
-   apt-get install iproute2
-   apt-get install net-tools
-   apt-get install python3-pip
+   apt-get install gdb iproute2 net-tools python3-pip \
+      iputils-ping valgrind
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=6.2.4'
    python3 -m pip install 'pytest-xdist>=2.3.0'
@@ -119,6 +117,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-pim6d \
        --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
