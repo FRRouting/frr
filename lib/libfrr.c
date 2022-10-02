@@ -130,6 +130,7 @@ static const struct optspec os_always = {
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always};
 
+static bool logging_to_stdout = false; /* set when --log stdout specified */
 
 static const struct option lo_cfg[] = {
 	{"config_file", required_argument, NULL, 'f'},
@@ -738,6 +739,11 @@ struct event_loop *frr_init(void)
 	while ((log_arg = log_args_pop(di->early_logging))) {
 		command_setup_early_logging(log_arg->target,
 					    di->early_loglevel);
+		/* this is a bit of a hack,
+		   but need to notice when
+		   the target is stdout */
+		if (strcmp(log_arg->target, "stdout") == 0)
+			logging_to_stdout = true;
 		XFREE(MTYPE_TMP, log_arg);
 	}
 
@@ -1088,9 +1094,15 @@ static void frr_terminal_close(int isexit)
 			     "%s: failed to open /dev/null: %s", __func__,
 			     safe_strerror(errno));
 	} else {
-		dup2(nullfd, 0);
-		dup2(nullfd, 1);
-		dup2(nullfd, 2);
+		int fd;
+		/*
+		 * only redirect stdin, stdout, stderr to null when a tty also
+		 * don't redirect when stdout is set with --log stdout
+		 */
+		for (fd = 2; fd >= 0; fd--)
+			if (isatty(fd) &&
+			    (fd != STDOUT_FILENO || !logging_to_stdout))
+				dup2(nullfd, fd);
 		close(nullfd);
 	}
 }
@@ -1168,9 +1180,16 @@ void frr_run(struct event_loop *master)
 				     "%s: failed to open /dev/null: %s",
 				     __func__, safe_strerror(errno));
 		} else {
-			dup2(nullfd, 0);
-			dup2(nullfd, 1);
-			dup2(nullfd, 2);
+			int fd;
+			/*
+			 * only redirect stdin, stdout, stderr to null when a
+			 * tty also don't redirect when stdout is set with --log
+			 * stdout
+			 */
+			for (fd = 2; fd >= 0; fd--)
+				if (isatty(fd) &&
+				    (fd != STDOUT_FILENO || !logging_to_stdout))
+					dup2(nullfd, fd);
 			close(nullfd);
 		}
 
@@ -1194,7 +1213,7 @@ void frr_fini(void)
 {
 	FILE *fp;
 	char filename[128];
-	int have_leftovers;
+	int have_leftovers = 0;
 
 	hook_call(frr_fini);
 
@@ -1220,16 +1239,15 @@ void frr_fini(void)
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
 
-	if (!debug_memstats_at_exit)
-		return;
-
-	have_leftovers = log_memstats(stderr, di->name);
+	/* also log memstats to stderr when stderr goes to a file*/
+	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
+		have_leftovers = log_memstats(stderr, di->name);
 
 	/* in case we decide at runtime that we want exit-memstats for
-	 * a daemon, but it has no stderr because it's daemonized
+	 * a daemon
 	 * (only do this if we actually have something to print though)
 	 */
-	if (!have_leftovers)
+	if (!debug_memstats_at_exit || !have_leftovers)
 		return;
 
 	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
