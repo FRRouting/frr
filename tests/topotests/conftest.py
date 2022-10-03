@@ -87,6 +87,12 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
+        "--memleaks",
+        action="store_true",
+        help="Report memstat results as errors",
+    )
+
+    parser.addoption(
         "--pause",
         action="store_true",
         help="Pause after each test",
@@ -189,7 +195,7 @@ def pytest_addoption(parser):
     )
 
 
-def check_for_memleaks():
+def check_for_valgrind_memleaks():
     assert topotest.g_pytest_config.option.valgrind_memleaks
 
     leaks = []
@@ -232,10 +238,46 @@ def check_for_memleaks():
         pytest.fail("valgrind memleaks found for daemons: " + " ".join(daemons))
 
 
+def check_for_memleaks():
+    leaks = []
+    tgen = get_topogen()  # pylint: disable=redefined-outer-name
+    latest = []
+    existing = []
+    if tgen is not None:
+        logdir = tgen.logdir
+        if hasattr(tgen, "memstat_existing_files"):
+            existing = tgen.memstat_existing_files
+        latest = glob.glob(os.path.join(logdir, "*/*.err"))
+
+    daemons = []
+    for vfile in latest:
+        if vfile in existing:
+            continue
+        with open(vfile, encoding="ascii") as vf:
+            vfcontent = vf.read()
+            num = vfcontent.count("memstats:")
+            if num:
+                existing.append(vfile)  # have summary don't check again
+                emsg = "{} types in {}".format(num, vfile)
+                leaks.append(emsg)
+                daemon = re.match(r".*test[a-z_A-Z0-9\+]*/(.*)\.err", vfile).group(1)
+                daemons.append("{}({})".format(daemon, num))
+
+    if tgen is not None:
+        tgen.memstat_existing_files = existing
+
+    if leaks:
+        logger.error("memleaks found:\n\t%s", "\n\t".join(leaks))
+        pytest.fail("memleaks found for daemons: " + " ".join(daemons))
+
+
 @pytest.fixture(autouse=True, scope="module")
 def module_check_memtest(request):
     yield
     if request.config.option.valgrind_memleaks:
+        if get_topogen() is not None:
+            check_for_valgrind_memleaks()
+    if request.config.option.memleaks:
         if get_topogen() is not None:
             check_for_memleaks()
 
@@ -264,6 +306,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
 
     # Check for leaks if requested
     if item.config.option.valgrind_memleaks:
+        check_for_valgrind_memleaks()
+    if item.config.option.memleaks:
         check_for_memleaks()
 
 
@@ -370,9 +414,21 @@ def pytest_configure(config):
     if config.option.topology_only and is_xdist:
         pytest.exit("Cannot use --topology-only with distributed test mode")
 
+        pytest.exit("Cannot use --topology-only with distributed test mode")
+
     # Check environment now that we have config
     if not diagnose_env(rundir):
         pytest.exit("environment has errors, please read the logs in %s" % rundir)
+
+    # slave TOPOTESTS_CHECK_MEMLEAK to memleaks flag
+    if config.option.memleaks:
+        if "TOPOTESTS_CHECK_MEMLEAK" not in os.environ:
+            os.environ["TOPOTESTS_CHECK_MEMLEAK"] = "/dev/null"
+    else:
+        if "TOPOTESTS_CHECK_MEMLEAK" in os.environ:
+            del os.environ["TOPOTESTS_CHECK_MEMLEAK"]
+        if "TOPOTESTS_CHECK_STDERR" in os.environ:
+            del os.environ["TOPOTESTS_CHECK_STDERR"]
 
 
 @pytest.fixture(autouse=True, scope="session")
