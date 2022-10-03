@@ -440,16 +440,19 @@ static uint32_t _flex_algo_endpoint_hash(const struct flex_algo_endpoint *f)
 	uint32_t accumulator;
 
 	accumulator = f->algorithm;
-	accumulator += f->igp_instance;
-	accumulator += (f->vrf_id << 8);
-	accumulator += (f->igp_proto << 16);
+	accumulator ^= (f->igp_instance <<8);
+	accumulator ^= (f->vrf_id << 8);
+	accumulator ^= (f->igp_proto << 16);
 
 	switch (ipaddr_family(&f->endpoint)) {
 	case AF_INET:
-		accumulator += f->endpoint.ipaddr_v4.s_addr;
+		accumulator ^= f->endpoint.ipaddr_v4.s_addr;
 		break;
 	case AF_INET6:
-		accumulator += f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[0];
+		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[0];
+		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[1];
+		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[2];
+		accumulator ^= f->endpoint.ipaddr_v6.__in6_u.__u6_addr32[3];
 	default:
 		break;
 	}
@@ -458,7 +461,7 @@ static uint32_t _flex_algo_endpoint_hash(const struct flex_algo_endpoint *f)
 		char *p = (char *)&accumulator;
 
 		for (unsigned int i = 0; i < strlen(f->isis_area); ++i) {
-			*(p + (i % sizeof(accumulator))) = f->isis_area[i];
+			*(p + (i % 4 )) ^= f->isis_area[i];
 		}
 	}
 
