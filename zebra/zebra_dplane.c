@@ -2782,24 +2782,15 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 	return AOK;
 }
 
-/*
- * Initialize a context block for a route update from zebra data structs.
- */
-int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
-			  struct route_node *rn, struct route_entry *re)
+int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
+				enum dplane_op_e op, struct route_entry *re,
+				const struct prefix *p,
+				const struct prefix *src_p, afi_t afi,
+				safi_t safi)
 {
 	int ret = EINVAL;
-	const struct route_table *table = NULL;
-	const struct rib_table_info *info;
-	const struct prefix *p, *src_p;
-	struct zebra_ns *zns;
-	struct zebra_vrf *zvrf;
-	struct nexthop *nexthop;
-	struct zebra_l3vni *zl3vni;
-	const struct interface *ifp;
-	struct dplane_intf_extra *if_extra;
 
-	if (!ctx || !rn || !re)
+	if (!ctx || !re)
 		return ret;
 
 	TAILQ_INIT(&ctx->u.rinfo.intf_extra_q);
@@ -2809,9 +2800,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	ctx->u.rinfo.zd_type = re->type;
 	ctx->u.rinfo.zd_old_type = re->type;
-
-	/* Prefixes: dest, and optional source */
-	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	prefix_copy(&(ctx->u.rinfo.zd_dest), p);
 
@@ -2833,11 +2821,45 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	ctx->u.rinfo.zd_old_tag = re->tag;
 	ctx->u.rinfo.zd_distance = re->distance;
 
+	ctx->u.rinfo.zd_afi = afi;
+	ctx->u.rinfo.zd_safi = safi;
+
+	return AOK;
+}
+
+/*
+ * Initialize a context block for a route update from zebra data structs.
+ */
+int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			  struct route_node *rn, struct route_entry *re)
+{
+	int ret = EINVAL;
+	const struct route_table *table = NULL;
+	const struct rib_table_info *info;
+	const struct prefix *p, *src_p;
+	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf;
+	struct nexthop *nexthop;
+	struct zebra_l3vni *zl3vni;
+	const struct interface *ifp;
+	struct dplane_intf_extra *if_extra;
+
+	if (!ctx || !rn || !re)
+		return ret;
+
+	/*
+	 * Let's grab the data from the route_node
+	 * so that we can call a helper function
+	 */
+
+	/* Prefixes: dest, and optional source */
+	srcdest_rnode_prefixes(rn, &p, &src_p);
 	table = srcdest_rnode_table(rn);
 	info = table->info;
 
-	ctx->u.rinfo.zd_afi = info->afi;
-	ctx->u.rinfo.zd_safi = info->safi;
+	if (dplane_ctx_route_init_basic(ctx, op, re, p, src_p, info->afi,
+					info->safi) != AOK)
+		return ret;
 
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop),
