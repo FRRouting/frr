@@ -372,7 +372,7 @@ DEFPY(srte_policy_template_no_candidate,
 	preference (0-4294967295)$preference\
 	[name WORD\
 	<\
-	  flex-algo\
+	  flex-algo [(128-255)$algorithm]\
 	>]",
       NO_STR
       "Segment Routing Policy Candidate Path\n"
@@ -380,7 +380,8 @@ DEFPY(srte_policy_template_no_candidate,
       "Administrative Preference\n"
       "Segment Routing Policy Candidate Path Name\n"
       "Symbolic Name\n"
-      "Flex-Algo Dynamic Path\n")
+      "Flex-Algo Dynamic Path\n"
+      "Algorithm Number\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
