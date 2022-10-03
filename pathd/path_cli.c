@@ -1027,7 +1027,7 @@ DEFPY(srte_policy_no_candidate,
 	<\
 	  explicit segment-list WORD\
 	  |dynamic\
-	  |flex-algo\
+	  |flex-algo [(128-255)$algorithm]\
 	>]",
       NO_STR
       "Segment Routing Policy Candidate Path\n"
@@ -1039,7 +1039,8 @@ DEFPY(srte_policy_no_candidate,
       "List of SIDs\n"
       "Name of the Segment List\n"
       "Dynamic Path\n"
-      "Flex-Algo Dynamic Path\n")
+      "Flex-Algo Dynamic Path\n"
+      "Algorithm Number\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
