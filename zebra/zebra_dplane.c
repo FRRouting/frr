@@ -6301,6 +6301,17 @@ kernel_dplane_process_ipset_entry(struct zebra_dplane_provider *prov,
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
+void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			      struct prefix_ipv6 *src_p, struct route_entry *re,
+			      struct nexthop_group *ng, int startup,
+			      struct zebra_dplane_ctx *ctx)
+{
+	if (!ctx)
+		rib_add_multipath(afi, safi, p, src_p, re, ng, startup);
+	else {
+	}
+}
+
 /*
  * Kernel provider callback
  */
