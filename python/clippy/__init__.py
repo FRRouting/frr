@@ -17,8 +17,22 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 import os, stat
+
+try:
+    from enum import IntFlag as _IntFlag
+except ImportError:
+    # python <3.6
+    from enum import IntEnum as _IntFlag  # type: ignore
+
 import _clippy
-from _clippy import parse, Graph, GraphNode
+from _clippy import (
+    parse,
+    Graph,
+    GraphNode,
+    CMD_ATTR_YANG,
+    CMD_ATTR_HIDDEN,
+    CMD_ATTR_DEPRECATED,
+)
 
 
 frr_top_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -78,3 +92,9 @@ def wrdiff(filename, buf, reffiles=[]):
     with open(newname, "w") as out:
         out.write(buf)
     os.rename(newname, filename)
+
+
+class CmdAttr(_IntFlag):
+    YANG = CMD_ATTR_YANG
+    HIDDEN = CMD_ATTR_HIDDEN
+    DEPRECATED = CMD_ATTR_DEPRECATED

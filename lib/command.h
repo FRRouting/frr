@@ -358,9 +358,13 @@ struct cmd_node {
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
 			  0)
 
+/* note: DEPRECATED implies HIDDEN, and other than that there is currently no
+ * difference.  It's purely for expressing intent in the source code - a
+ * DEPRECATED command is supposed to go away, a HIDDEN one is likely to stay.
+ */
 #define ALIAS_DEPRECATED(funcname, cmdname, cmdstr, helpstr)                   \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, 0)
+			  CMD_ATTR_DEPRECATED | CMD_ATTR_HIDDEN, 0)
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, 0)
