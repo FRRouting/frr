@@ -14735,7 +14735,7 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 
 
 /* "show [ip] bgp neighbors graceful-restart" commands.  */
-DEFUN (show_ip_bgp_neighbors_gracrful_restart,
+DEFUN (show_ip_bgp_neighbors_graceful_restart,
 	show_ip_bgp_neighbors_graceful_restart_cmd,
 	"show bgp [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]",
 	SHOW_STR
