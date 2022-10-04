@@ -795,6 +795,8 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 * Wed Jul 20 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
+* Tue Oct 04 2022 Donatas Abraitis <donatas@opensourcerouting.org> - 8.4
+
 * Wed Jul 13 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.3
 - General:
 -    Add camelcase json keys in addition to pascalcase (Wrong JSON keys will be depracated)
