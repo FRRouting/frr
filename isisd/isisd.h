@@ -40,6 +40,7 @@
 
 DECLARE_MGROUP(ISISD);
 
+DECLARE_DEBUGFLAG(LDP_SYNC);
 DECLARE_DEBUGFLAG(LSP_GEN);
 DECLARE_DEBUGFLAG(LSP_SCHED);
 DECLARE_DEBUGFLAG(SR);
@@ -346,7 +347,6 @@ extern unsigned long debug_pkt_dump;
 extern unsigned long debug_flooding;
 extern unsigned long debug_bfd;
 extern unsigned long debug_tx_queue;
-extern unsigned long debug_ldp_sync;
 extern unsigned long debug_lfa;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
@@ -359,7 +359,6 @@ extern unsigned long debug_lfa;
 #define DEBUG_FLOODING                   (1<<9)
 #define DEBUG_BFD                        (1<<10)
 #define DEBUG_TX_QUEUE                   (1<<11)
-#define DEBUG_LDP_SYNC                   (1<<13)
 #define DEBUG_LFA                        (1<<14)
 
 /* Debug related macro. */
@@ -373,7 +372,6 @@ extern unsigned long debug_lfa;
 #define IS_DEBUG_FLOODING (debug_flooding & DEBUG_FLOODING)
 #define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
 #define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
-#define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
 #define IS_DEBUG_LFA (debug_lfa & DEBUG_LFA)
 
 #endif /* ISISD_H */

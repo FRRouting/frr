@@ -76,7 +76,6 @@ unsigned long debug_pkt_dump;
 unsigned long debug_flooding;
 unsigned long debug_bfd;
 unsigned long debug_tx_queue;
-unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
 
 DEFINE_MGROUP(ISISD, "isisd");
@@ -91,6 +90,11 @@ DEFINE_MTYPE(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 DEFINE_QOBJ_TYPE(isis_area);
 
 /* clang-format off */
+DEFINE_DEBUGFLAG(LDP_SYNC, PROTO_NAME " ldp-sync",
+		 PROTO_HELP
+		 PROTO_NAME " interaction with LDP-Sync\n"
+);
+
 DEFINE_DEBUGFLAG(LSP_GEN, PROTO_NAME " lsp-gen",
 		 PROTO_HELP
 		 "IS-IS generation of own LSPs\n"
@@ -1656,8 +1660,6 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
 		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
-	if (flags & DEBUG_LDP_SYNC)
-		vty_out(vty, "IS-IS ldp-sync debugging is %s\n", onoffs);
 }
 
 DEFUN_NOSH (show_debugging,
@@ -1689,8 +1691,6 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_FLOODING, 1);
 	if (IS_DEBUG_BFD)
 		print_debug(vty, DEBUG_BFD, 1);
-	if (IS_DEBUG_LDP_SYNC)
-		print_debug(vty, DEBUG_LDP_SYNC, 1);
 	if (IS_DEBUG_LFA)
 		print_debug(vty, DEBUG_LFA, 1);
 
@@ -1754,10 +1754,6 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_DEBUG_BFD) {
 		vty_out(vty, "debug " PROTO_NAME " bfd\n");
-		write++;
-	}
-	if (IS_DEBUG_LDP_SYNC) {
-		vty_out(vty, "debug " PROTO_NAME " ldp-sync\n");
 		write++;
 	}
 
@@ -2059,26 +2055,6 @@ DEFUN (no_debug_isis_bfd,
 	debug_bfd &= ~DEBUG_BFD;
 	bfd_protocol_integration_set_debug(false);
 	print_debug(vty, DEBUG_BFD, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(debug_isis_ldp_sync, debug_isis_ldp_sync_cmd,
-      "debug " PROTO_NAME " ldp-sync",
-      DEBUG_STR PROTO_HELP PROTO_NAME " interaction with LDP-Sync\n")
-{
-	debug_ldp_sync |= DEBUG_LDP_SYNC;
-	print_debug(vty, DEBUG_LDP_SYNC, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_debug_isis_ldp_sync, no_debug_isis_ldp_sync_cmd,
-      "no debug " PROTO_NAME " ldp-sync",
-      NO_STR UNDEBUG_STR PROTO_HELP PROTO_NAME " interaction with LDP-Sync\n")
-{
-	debug_ldp_sync &= ~DEBUG_LDP_SYNC;
-	print_debug(vty, DEBUG_LDP_SYNC, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3627,8 +3603,6 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_packet_dump_cmd);
 	install_element(ENABLE_NODE, &debug_isis_bfd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_bfd_cmd);
-	install_element(ENABLE_NODE, &debug_isis_ldp_sync_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
@@ -3652,8 +3626,6 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_packet_dump_cmd);
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
-	install_element(CONFIG_NODE, &debug_isis_ldp_sync_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_default(ROUTER_NODE);
 

@@ -22,13 +22,6 @@
 
 #include "zclient.h"
 
-/* Macro to log debug message */
-#define ils_debug(...)                                                         \
-	do {                                                                   \
-		if (IS_DEBUG_LDP_SYNC)                                         \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
-
 extern void isis_area_ldp_sync_enable(struct isis_area *area);
 extern void isis_area_ldp_sync_disable(struct isis_area *area);
 extern void isis_area_ldp_sync_set_holddown(struct isis_area *area,
