@@ -1021,9 +1021,10 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 	 */
 	struct flex_algo_endpoint *f_dup;
 
-	f_dup = fae_add(&_faehash, f);
+	f_dup = fae_find(&_faehash, f);
 
 	if (f_dup) {
+		FA_DEBUG(" %s endpoint already existing", __func__);
 		XFREE(MTYPE_ISIS_AREA_TAG, f->isis_area);
 		XFREE(MTYPE_FLEX_ALGO_ENDPOINT, f);
 		f = f_dup;
@@ -1031,6 +1032,7 @@ void fa_candidate_endpoint_add(struct srte_candidate *candidate)
 		/*
 		 * initialize endpoint
 		 */
+		fae_add(&_faehash, f);
 		cand_init(&f->candidates);
 		f->sid_list.type = ZEBRA_LSP_NONE;
 
