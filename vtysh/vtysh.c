@@ -2951,7 +2951,7 @@ DEFUN_HIDDEN (show_config_running,
        show_config_running_cmd,
        "show configuration running\
           [<json|xml> [translate WORD]]\
-          [with-defaults]" DAEMONS_LIST,
+          [with-defaults] " DAEMONS_LIST,
        SHOW_STR
        "Configuration information\n"
        "Running configuration\n"
@@ -2972,7 +2972,7 @@ DEFUN (show_yang_operational_data,
 	   format <json|xml>\
 	   |translate WORD\
 	   |with-config\
-	 }]" DAEMONS_LIST,
+	 }] " DAEMONS_LIST,
        SHOW_STR
        "YANG information\n"
        "Show YANG operational data\n"
