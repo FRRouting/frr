@@ -331,9 +331,6 @@ struct cmd_node {
 	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN,     \
 			  daemon)
 
-#define DEFSH_YANG(daemon, cmdname, cmdstr, helpstr)                           \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, daemon)
-
 /* DEFUN + DEFSH */
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
@@ -349,13 +346,6 @@ struct cmd_node {
 #define DEFUNSH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)             \
 	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
 		     CMD_ATTR_HIDDEN)
-
-#define DEFUNSH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)         \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
-		     CMD_ATTR_DEPRECATED)
-
-#define DEFUNSH_YANG(daemon, funcname, cmdname, cmdstr, helpstr)               \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
@@ -374,17 +364,6 @@ struct cmd_node {
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, 0)
-
-#define ALIAS_SH(daemon, funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)
-
-#define ALIAS_SH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)            \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  daemon)
-
-#define ALIAS_SH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)        \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, daemon)
 
 #endif /* VTYSH_EXTRACT_PL */
 
