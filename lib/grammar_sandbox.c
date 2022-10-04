@@ -76,8 +76,7 @@ DEFUN (grammar_test,
 
 	// parse the command and install it into the command graph
 	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
 	cmd_graph_parse(graph, cmd);

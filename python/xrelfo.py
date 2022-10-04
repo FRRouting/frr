@@ -26,7 +26,7 @@ import argparse
 
 from clippy.uidhash import uidhash
 from clippy.elf import *
-from clippy import frr_top_src
+from clippy import frr_top_src, CmdAttr
 from tiabwarfo import FieldApplicator
 
 try:
@@ -196,8 +196,6 @@ Xref.containers[XREFT_LOGMSG] = XrefLogmsg
 class CmdElement(ELFDissectStruct, XrelfoJson):
     struct = 'cmd_element'
 
-    cmd_attrs = { 0: None, 1: 'deprecated', 2: 'hidden'}
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -207,10 +205,14 @@ class CmdElement(ELFDissectStruct, XrelfoJson):
         jsobj.update({
             'string': self.string,
             'doc': self.doc,
-            'attr': self.cmd_attrs.get(self.attr, self.attr),
         })
-        if jsobj['attr'] is None:
-            del jsobj['attr']
+        if self.attr:
+            jsobj['attr'] = attr = self.attr
+            for attrname in CmdAttr.__members__:
+                val = CmdAttr[attrname]
+                if attr & val:
+                    jsobj.setdefault('attrs', []).append(attrname.lower())
+                    attr &= ~val
 
         jsobj['defun'] = dict([(i, getattr(self.xref, i)) for i in ['file', 'line', 'func']])
 
