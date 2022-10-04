@@ -73,7 +73,6 @@ unsigned long debug_spf_events;
 unsigned long debug_rte_events;
 unsigned long debug_events;
 unsigned long debug_pkt_dump;
-unsigned long debug_lsp_sched;
 unsigned long debug_flooding;
 unsigned long debug_bfd;
 unsigned long debug_tx_queue;
@@ -97,6 +96,11 @@ DEFINE_QOBJ_TYPE(isis_area);
 DEFINE_DEBUGFLAG(LSP_GEN, PROTO_NAME " lsp-gen",
 		 PROTO_HELP
 		 "IS-IS generation of own LSPs\n"
+);
+
+DEFINE_DEBUGFLAG(LSP_SCHED, PROTO_NAME " lsp-sched",
+		 PROTO_HELP
+		 "IS-IS scheduling of LSP generation\n"
 );
 /* clang-format on */
 
@@ -1647,8 +1651,6 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Event debugging is %s\n", onoffs);
 	if (flags & DEBUG_PACKET_DUMP)
 		vty_out(vty, "IS-IS Packet dump debugging is %s\n", onoffs);
-	if (flags & DEBUG_LSP_SCHED)
-		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
 	if (flags & DEBUG_FLOODING)
 		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
@@ -1686,8 +1688,6 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_EVENTS, 1);
 	if (IS_DEBUG_PACKET_DUMP)
 		print_debug(vty, DEBUG_PACKET_DUMP, 1);
-	if (IS_DEBUG_LSP_SCHED)
-		print_debug(vty, DEBUG_LSP_SCHED, 1);
 	if (IS_DEBUG_FLOODING)
 		print_debug(vty, DEBUG_FLOODING, 1);
 	if (IS_DEBUG_BFD)
@@ -1757,10 +1757,6 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_DEBUG_PACKET_DUMP) {
 		vty_out(vty, "debug " PROTO_NAME " packet-dump\n");
-		write++;
-	}
-	if (IS_DEBUG_LSP_SCHED) {
-		vty_out(vty, "debug " PROTO_NAME " lsp-sched\n");
 		write++;
 	}
 	if (IS_DEBUG_FLOODING) {
@@ -2099,33 +2095,6 @@ DEFUN (no_debug_isis_packet_dump,
 {
 	debug_pkt_dump &= ~DEBUG_PACKET_DUMP;
 	print_debug(vty, DEBUG_PACKET_DUMP, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_lsp_sched,
-       debug_isis_lsp_sched_cmd,
-       "debug " PROTO_NAME " lsp-sched",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS scheduling of LSP generation\n")
-{
-	debug_lsp_sched |= DEBUG_LSP_SCHED;
-	print_debug(vty, DEBUG_LSP_SCHED, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_lsp_sched,
-       no_debug_isis_lsp_sched_cmd,
-       "no debug " PROTO_NAME " lsp-sched",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS scheduling of LSP generation\n")
-{
-	debug_lsp_sched &= ~DEBUG_LSP_SCHED;
-	print_debug(vty, DEBUG_LSP_SCHED, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3074,9 +3043,9 @@ static void area_resign_level(struct isis_area *area, int level)
 
 	THREAD_OFF(area->spf_timer[level - 1]);
 
-	sched_debug(
-		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
-		area->area_tag, level);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
+	    area->area_tag, level);
 	THREAD_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
@@ -3725,8 +3694,6 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_events_cmd);
 	install_element(ENABLE_NODE, &debug_isis_packet_dump_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_packet_dump_cmd);
-	install_element(ENABLE_NODE, &debug_isis_lsp_sched_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(ENABLE_NODE, &debug_isis_bfd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_bfd_cmd);
 	install_element(ENABLE_NODE, &debug_isis_ldp_sync_cmd);
@@ -3756,8 +3723,6 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_events_cmd);
 	install_element(CONFIG_NODE, &debug_isis_packet_dump_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_packet_dump_cmd);
-	install_element(CONFIG_NODE, &debug_isis_lsp_sched_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &debug_isis_ldp_sync_cmd);

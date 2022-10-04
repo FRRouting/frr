@@ -483,14 +483,14 @@ static void isis_reset_attach_bit(struct isis_adjacency *adj)
 
 	if (adj->adj_state == ISIS_ADJ_UP
 	    && !(lsp->hdr.lsp_bits & LSPBIT_ATT)) {
-		sched_debug("ISIS (%s): adj going up regenerate lsp-bits",
-			    area->area_tag);
+		dbg(LSP_SCHED, "ISIS (%s): adj going up regenerate lsp-bits",
+		    area->area_tag);
 		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
 	} else if (adj->adj_state == ISIS_ADJ_DOWN
 		   && (lsp->hdr.lsp_bits & LSPBIT_ATT)
 		   && !isis_level2_adj_up(area)) {
-		sched_debug("ISIS (%s): adj going down regenerate lsp-bits",
-			    area->area_tag);
+		dbg(LSP_SCHED, "ISIS (%s): adj going down regenerate lsp-bits",
+		    area->area_tag);
 		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
 	}
 }
@@ -1435,9 +1435,9 @@ int lsp_generate(struct isis_area *area, int level)
 			   newlsp->hdr.checksum, newlsp->hdr.rem_lifetime,
 			   refresh_time);
 	}
-	sched_debug(
-		"ISIS (%s): Built L%d LSP. Set triggered regenerate to non-pending.",
-		area->area_tag, level);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): Built L%d LSP. Set triggered regenerate to non-pending.",
+	    area->area_tag, level);
 
 #ifndef FABRICD
 	/* send northbound notification */
@@ -1516,9 +1516,9 @@ static int lsp_regenerate(struct isis_area *area, int level)
 			lsp->hdr.pdu_len, lsp->hdr.seqno, lsp->hdr.checksum,
 			lsp->hdr.rem_lifetime, refresh_time);
 	}
-	sched_debug(
-		"ISIS (%s): Rebuilt L%d LSP. Set triggered regenerate to non-pending.",
-		area->area_tag, level);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): Rebuilt L%d LSP. Set triggered regenerate to non-pending.",
+	    area->area_tag, level);
 
 	return ISIS_OK;
 }
@@ -1551,16 +1551,17 @@ static void lsp_refresh(struct thread *thread)
 	if (monotime_since(&area->last_lsp_refresh_event[level - 1], NULL)
 		    < 100000L
 	    && !(area->bfd_force_spf_refresh)) {
-		sched_debug("ISIS (%s): Still unstable, postpone LSP L%d refresh",
-			    area->area_tag, level);
+		dbg(LSP_SCHED,
+		    "ISIS (%s): Still unstable, postpone LSP L%d refresh",
+		    area->area_tag, level);
 		_lsp_regenerate_schedule(area, level, 0, false,
 					 __func__, __FILE__, __LINE__);
 		return;
 	}
 
-	sched_debug(
-		"ISIS (%s): LSP L%d refresh timer expired. Refreshing LSP...",
-		area->area_tag, level);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): LSP L%d refresh timer expired. Refreshing LSP...",
+	    area->area_tag, level);
 	lsp_regenerate(area, level);
 }
 
@@ -1580,11 +1581,10 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 	if (area == NULL)
 		return ISIS_ERROR;
 
-	sched_debug(
-		"ISIS (%s): Scheduling regeneration of %s LSPs, %sincluding PSNs Caller: %s %s:%d",
-		area->area_tag, circuit_t2string(level),
-		all_pseudo ? "" : "not ",
-		func, file, line);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): Scheduling regeneration of %s LSPs, %sincluding PSNs Caller: %s %s:%d",
+	    area->area_tag, circuit_t2string(level), all_pseudo ? "" : "not ",
+	    func, file, line);
 
 	memcpy(id, area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(id) = LSP_FRAGMENT(id) = 0;
@@ -1598,9 +1598,9 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			monotime(&area->last_lsp_refresh_event[lvl - 1]);
 		}
 
-		sched_debug(
-			"ISIS (%s): Checking whether L%d needs to be scheduled",
-			area->area_tag, lvl);
+		dbg(LSP_SCHED,
+		    "ISIS (%s): Checking whether L%d needs to be scheduled",
+		    area->area_tag, lvl);
 
 		if (area->lsp_regenerate_pending[lvl - 1]
 		    && !(area->bfd_signalled_down)) {
@@ -1610,45 +1610,45 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			 */
 			struct timeval remain = thread_timer_remain(
 				area->t_lsp_refresh[lvl - 1]);
-			sched_debug(
-				"ISIS (%s): Regeneration is already pending, nothing todo. (Due in %lld.%03lld seconds)",
-				area->area_tag, (long long)remain.tv_sec,
-				(long long)remain.tv_usec / 1000);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Regeneration is already pending, nothing todo. (Due in %lld.%03lld seconds)",
+			    area->area_tag, (long long)remain.tv_sec,
+			    (long long)remain.tv_usec / 1000);
 			continue;
 		}
 
 		lsp = lsp_search(&area->lspdb[lvl - 1], id);
 		if (!lsp) {
-			sched_debug(
-				"ISIS (%s): We do not have any LSPs to regenerate, nothing todo.",
-				area->area_tag);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): We do not have any LSPs to regenerate, nothing todo.",
+			    area->area_tag);
 			continue;
 		}
 
 		/*
 		 * Throttle avoidance
 		 */
-		sched_debug(
-			"ISIS (%s): Will schedule regen timer. Last run was: %lld, Now is: %lld",
-			area->area_tag, (long long)lsp->last_generated,
-			(long long)now);
+		dbg(LSP_SCHED,
+		    "ISIS (%s): Will schedule regen timer. Last run was: %lld, Now is: %lld",
+		    area->area_tag, (long long)lsp->last_generated,
+		    (long long)now);
 		THREAD_OFF(area->t_lsp_refresh[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < area->lsp_gen_interval[lvl - 1]
 		    && !(area->bfd_signalled_down)) {
 			timeout =
 				1000 * (area->lsp_gen_interval[lvl - 1] - diff);
-			sched_debug(
-				"ISIS (%s): Scheduling in %ld ms to match configured lsp_gen_interval",
-				area->area_tag, timeout);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Scheduling in %ld ms to match configured lsp_gen_interval",
+			    area->area_tag, timeout);
 		} else {
 			/*
 			 * Schedule LSP refresh ASAP
 			 */
 			if (area->bfd_signalled_down) {
-				sched_debug(
-					"ISIS (%s): Scheduling immediately due to BFD 'down' message.",
-					area->area_tag);
+				dbg(LSP_SCHED,
+				    "ISIS (%s): Scheduling immediately due to BFD 'down' message.",
+				    area->area_tag);
 				area->bfd_signalled_down = false;
 				area->bfd_force_spf_refresh = true;
 				timeout = 0;
@@ -1660,13 +1660,13 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 						  ? (100000L - time_since_last)/1000
 						  : 0;
 				if (timeout > 0)
-					sched_debug(
-						"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution in %ld ms due to the instability timer.",
-						area->area_tag, timeout);
+					dbg(LSP_SCHED,
+					    "ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution in %ld ms due to the instability timer.",
+					    area->area_tag, timeout);
 				else
-					sched_debug(
-						"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution now.",
-						area->area_tag);
+					dbg(LSP_SCHED,
+					    "ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution now.",
+					    area->area_tag);
 			}
 		}
 
@@ -1961,10 +1961,9 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 	    || circuit->state != C_STATE_UP)
 		return ISIS_OK;
 
-	sched_debug(
-		"ISIS (%s): Scheduling regeneration of %s pseudo LSP for interface %s",
-		area->area_tag, circuit_t2string(level),
-		circuit->interface->name);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): Scheduling regeneration of %s pseudo LSP for interface %s",
+	    area->area_tag, circuit_t2string(level), circuit->interface->name);
 
 	memcpy(lsp_id, area->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
@@ -1972,62 +1971,63 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 	now = time(NULL);
 
 	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++) {
-		sched_debug(
-			"ISIS (%s): Checking whether L%d pseudo LSP needs to be scheduled",
-			area->area_tag, lvl);
+		dbg(LSP_SCHED,
+		    "ISIS (%s): Checking whether L%d pseudo LSP needs to be scheduled",
+		    area->area_tag, lvl);
 
 		if (!((level & lvl) && (circuit->is_type & lvl))) {
-			sched_debug("ISIS (%s): Level is not active on circuit",
-				    area->area_tag);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Level is not active on circuit",
+			    area->area_tag);
 			continue;
 		}
 
 		if (circuit->u.bc.is_dr[lvl - 1] == 0) {
-			sched_debug(
-				"ISIS (%s): This IS is not DR, nothing to do.",
-				area->area_tag);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): This IS is not DR, nothing to do.",
+			    area->area_tag);
 			continue;
 		}
 
 		if (circuit->lsp_regenerate_pending[lvl - 1]) {
 			struct timeval remain = thread_timer_remain(
 				circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
-			sched_debug(
-				"ISIS (%s): Regenerate is already pending, nothing todo. (Due in %lld.%03lld seconds)",
-				area->area_tag, (long long)remain.tv_sec,
-				(long long)remain.tv_usec / 1000);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Regenerate is already pending, nothing todo. (Due in %lld.%03lld seconds)",
+			    area->area_tag, (long long)remain.tv_sec,
+			    (long long)remain.tv_usec / 1000);
 			continue;
 		}
 
 		lsp = lsp_search(&circuit->area->lspdb[lvl - 1], lsp_id);
 		if (!lsp) {
-			sched_debug(
-				"ISIS (%s): Pseudonode LSP does not exist yet, nothing to regenerate.",
-				area->area_tag);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Pseudonode LSP does not exist yet, nothing to regenerate.",
+			    area->area_tag);
 			continue;
 		}
 
 		/*
 		 * Throttle avoidance
 		 */
-		sched_debug(
-			"ISIS (%s): Will schedule PSN regen timer. Last run was: %lld, Now is: %lld",
-			area->area_tag, (long long)lsp->last_generated,
-			(long long)now);
+		dbg(LSP_SCHED,
+		    "ISIS (%s): Will schedule PSN regen timer. Last run was: %lld, Now is: %lld",
+		    area->area_tag, (long long)lsp->last_generated,
+		    (long long)now);
 		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < circuit->area->lsp_gen_interval[lvl - 1]) {
 			timeout =
 				1000 * (circuit->area->lsp_gen_interval[lvl - 1]
 					- diff);
-			sched_debug(
-				"ISIS (%s): Sechduling in %ld ms to match configured lsp_gen_interval",
-				area->area_tag, timeout);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Sechduling in %ld ms to match configured lsp_gen_interval",
+			    area->area_tag, timeout);
 		} else {
 			timeout = 100;
-			sched_debug(
-				"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution in %ld ms.",
-				area->area_tag, timeout);
+			dbg(LSP_SCHED,
+			    "ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution in %ld ms.",
+			    area->area_tag, timeout);
 		}
 
 		circuit->lsp_regenerate_pending[lvl - 1] = 1;
