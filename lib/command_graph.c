@@ -494,9 +494,10 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 	snprintf(nbuf, sizeof(nbuf), "<b>%s</b>",
 		 lookup_msg(tokennames, tok->type, NULL));
 	buffer_putstr(buf, nbuf);
-	if (tok->attr == CMD_ATTR_DEPRECATED)
+	if (tok->attr & CMD_ATTR_DEPRECATED)
 		buffer_putstr(buf, " (d)");
-	else if (tok->attr == CMD_ATTR_HIDDEN)
+	/* DEPRECATED implies HIDDEN, don't print both */
+	else if (tok->attr & CMD_ATTR_HIDDEN)
 		buffer_putstr(buf, " (h)");
 	if (tok->text) {
 		if (tok->type == WORD_TKN)
