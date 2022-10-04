@@ -21,7 +21,16 @@ import os
 import struct
 import re
 import traceback
-import json
+
+json_dump_args = {}
+
+try:
+    import ujson as json
+
+    json_dump_args["escape_forward_slashes"] = False
+except ImportError:
+    import json
+
 import argparse
 
 from clippy.uidhash import uidhash
@@ -418,12 +427,12 @@ def _main(args):
 
     if args.output:
         with open(args.output + '.tmp', 'w') as fd:
-            json.dump(out, fd, indent=2, sort_keys=True)
+            json.dump(out, fd, indent=2, sort_keys=True, **json_dump_args)
         os.rename(args.output + '.tmp', args.output)
 
     if args.out_by_file:
         with open(args.out_by_file + '.tmp', 'w') as fd:
-            json.dump(outbyfile, fd, indent=2, sort_keys=True)
+            json.dump(outbyfile, fd, indent=2, sort_keys=True, **json_dump_args)
         os.rename(args.out_by_file + '.tmp', args.out_by_file)
 
 if __name__ == '__main__':
