@@ -49,9 +49,7 @@
 #include "ospf6d.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_area_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AREA,      "OSPF6 area");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PLISTNAME, "Prefix list name");

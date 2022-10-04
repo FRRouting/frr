@@ -5,7 +5,6 @@
 if LDPD
 noinst_LIBRARIES += ldpd/libldp.a
 sbin_PROGRAMS += ldpd/ldpd
-vtysh_scan += ldpd/ldp_vty_cmds.c
 vtysh_daemons += ldpd
 man8 += $(MANBUILD)/frr-ldpd.8
 endif

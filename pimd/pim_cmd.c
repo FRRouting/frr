@@ -70,9 +70,7 @@
 #include "pim_addr.h"
 #include "pim_cmd_common.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim_cmd_clippy.c"
-#endif
 
 static struct cmd_node debug_node = {
 	.name = "debug",

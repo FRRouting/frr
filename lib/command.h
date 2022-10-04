@@ -251,9 +251,6 @@ struct cmd_node {
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
-/* Turn off these macros when using cpp with extract.pl */
-#ifndef VTYSH_EXTRACT_PL
-
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
 	static const struct cmd_element cmdname = {                            \
@@ -369,8 +366,6 @@ struct cmd_node {
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
 	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
-
-#endif /* VTYSH_EXTRACT_PL */
 
 /* Some macroes */
 
@@ -511,7 +506,6 @@ struct xref_install_element {
 	enum node_type node_type;
 };
 
-#ifndef VTYSH_EXTRACT_PL
 #define install_element(node_type_, cmd_element_) do {                         \
 		static const struct xref_install_element _xref                 \
 				__attribute__((used)) = {                      \
@@ -523,7 +517,6 @@ struct xref_install_element {
 		XREF_LINK(_xref.xref);                                         \
 		_install_element(node_type_, cmd_element_);                    \
 	} while (0)
-#endif
 
 extern void _install_element(enum node_type, const struct cmd_element *);
 

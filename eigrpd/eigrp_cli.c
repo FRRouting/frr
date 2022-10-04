@@ -31,9 +31,7 @@
 #include "eigrp_zebra.h"
 #include "eigrp_cli.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "eigrpd/eigrp_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
 
 /*
  * XPath: /frr-eigrpd:eigrpd/instance

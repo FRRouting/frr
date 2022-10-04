@@ -45,9 +45,7 @@
 #include "pim_zebra.h"
 #include "pim_instance.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
-#endif
 
 static struct cmd_node debug_node = {
 	.name = "debug",

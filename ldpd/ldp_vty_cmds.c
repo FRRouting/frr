@@ -25,9 +25,7 @@
 
 #include "ldpd/ldpd.h"
 #include "ldpd/ldp_vty.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ldpd/ldp_vty_cmds_clippy.c"
-#endif
 
 DEFPY_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,

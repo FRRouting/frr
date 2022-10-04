@@ -40,9 +40,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_routemap_clippy.c"
-#endif
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct thread *zebra_t_rmap_update = NULL;

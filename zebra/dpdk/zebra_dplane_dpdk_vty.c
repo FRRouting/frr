@@ -23,9 +23,7 @@
 #include "lib/json.h"
 #include "zebra/dpdk/zebra_dplane_dpdk.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/dpdk/zebra_dplane_dpdk_vty_clippy.c"
-#endif
 
 #define ZD_STR "Zebra dataplane information\n"
 #define ZD_DPDK_STR "DPDK offload information\n"

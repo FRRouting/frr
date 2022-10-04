@@ -37,9 +37,7 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "isisd/isis_cli_clippy.c"
-#endif
 
 #ifndef FABRICD
 

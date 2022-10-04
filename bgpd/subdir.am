@@ -6,36 +6,9 @@ if BGPD
 noinst_LIBRARIES += bgpd/libbgp.a
 sbin_PROGRAMS += bgpd/bgpd
 noinst_PROGRAMS += bgpd/bgp_btoa
-vtysh_scan += \
-	bgpd/bgp_bfd.c \
-	bgpd/bgp_debug.c \
-	bgpd/bgp_dump.c \
-	bgpd/bgp_evpn_mh.c \
-	bgpd/bgp_evpn_vty.c \
-	bgpd/bgp_filter.c \
-	bgpd/bgp_labelpool.c \
-	bgpd/bgp_mplsvpn.c \
-	bgpd/bgp_nexthop.c \
-	bgpd/bgp_route.c \
-	bgpd/bgp_routemap.c \
-	bgpd/bgp_vty.c \
-	bgpd/bgp_flowspec_vty.c \
-	# end
-
-# can be loaded as DSO - always include for vtysh
-vtysh_scan += bgpd/bgp_rpki.c
-vtysh_scan += bgpd/bgp_bmp.c
 
 vtysh_daemons += bgpd
 
-if ENABLE_BGP_VNC
-vtysh_scan += \
-	bgpd/rfapi/bgp_rfapi_cfg.c \
-	bgpd/rfapi/rfapi.c \
-	bgpd/rfapi/rfapi_vty.c \
-	bgpd/rfapi/vnc_debug.c \
-	# end
-endif
 if SNMP
 module_LTLIBRARIES += bgpd/bgpd_snmp.la
 endif

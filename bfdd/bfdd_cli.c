@@ -26,9 +26,7 @@
 #include "lib/log.h"
 #include "lib/northbound_cli.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bfdd/bfdd_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
 
 #include "bfd.h"
 #include "bfdd_nb.h"

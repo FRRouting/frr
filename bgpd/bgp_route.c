@@ -90,9 +90,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_route_clippy.c"
-#endif
 
 DEFINE_HOOK(bgp_snmp_update_stats,
 	    (struct bgp_node *rn, struct bgp_path_info *pi, bool added),

@@ -65,9 +65,7 @@ FRR_CFG_DEFAULT_BOOL(OSPF6_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = false },
 );
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_top_clippy.c"
-#endif
 
 /* global ospf6d variable */
 static struct ospf6_master ospf6_master;

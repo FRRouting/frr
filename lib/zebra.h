@@ -202,9 +202,9 @@
 #endif /* HAVE_GLIBC_BACKTRACE */
 
 /* Local includes: */
-#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL))
+#if !defined(__GNUC__)
 #define __attribute__(x)
-#endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
+#endif /* !__GNUC__ */
 
 #include <assert.h>
 

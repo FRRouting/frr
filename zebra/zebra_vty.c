@@ -46,9 +46,7 @@
 #include "lib/route_opaque.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vty_clippy.c"
-#endif
 #include "zebra/zserv.h"
 #include "zebra/router-id.h"
 #include "zebra/ipforward.h"

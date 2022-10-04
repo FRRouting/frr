@@ -49,9 +49,7 @@
 #include "ospf6_asbr.h"
 #include "ospf6d.h"
 #include "ospf6_nssa.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_nssa_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 unsigned char config_debug_ospf6_nssa = 0;

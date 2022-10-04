@@ -49,9 +49,7 @@
 #include "ospf6d.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_gr_helper_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_GR_HELPER, "OSPF6 Graceful restart helper");
 

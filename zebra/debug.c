@@ -23,9 +23,7 @@
 #include "command.h"
 #include "debug.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/debug_clippy.c"
-#endif
 
 /* For debug statement. */
 unsigned long zebra_debug_event;

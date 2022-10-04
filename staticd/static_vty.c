@@ -36,9 +36,7 @@
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_debug.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "staticd/static_vty_clippy.c"
-#endif
 #include "static_nb.h"
 
 #define STATICD_STR "Static route daemon\n"

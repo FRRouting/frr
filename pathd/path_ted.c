@@ -29,9 +29,7 @@
 #include "pathd/path_errors.h"
 #include "pathd/path_ted.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_ted_clippy.c"
-#endif
 
 static struct ls_ted *path_ted_create_ted(void);
 static void path_ted_register_vty(void);

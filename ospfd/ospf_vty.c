@@ -185,9 +185,7 @@ static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
 	}
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_vty_clippy.c"
-#endif
 
 DEFUN_NOSH (router_ospf,
        router_ospf_cmd,

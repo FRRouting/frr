@@ -453,9 +453,7 @@ all DEFPY statements**:
    /* GPL header */
    #include ...
    ...
-   #ifndef VTYSH_EXTRACT_PL
    #include "daemon/filename_clippy.c"
-   #endif
 
    DEFPY(...)
    DEFPY(...)

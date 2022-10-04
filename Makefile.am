@@ -144,7 +144,6 @@ pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_yangmodels_DATA =
 man_MANS =
-vtysh_scan =
 vtysh_daemons =
 clippy_scan =
 
@@ -226,6 +225,7 @@ EXTRA_DIST += \
 	python/makefile.py \
 	python/tiabwarfo.py \
 	python/xrelfo.py \
+	python/xref2vtysh.py \
 	python/test_xrelfo.py \
 	python/runtests.py \
 	\

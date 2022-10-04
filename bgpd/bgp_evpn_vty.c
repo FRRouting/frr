@@ -3336,9 +3336,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	}
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_evpn_vty_clippy.c"
-#endif
 
 DEFPY(bgp_evpn_flood_control,
       bgp_evpn_flood_control_cmd,

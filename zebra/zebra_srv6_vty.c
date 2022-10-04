@@ -40,9 +40,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_dplane.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_srv6_vty_clippy.c"
-#endif
 
 static int zebra_sr_config(struct vty *vty);
 

@@ -28,9 +28,7 @@
 
 #include "bfd.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bfdd/bfdd_vty_clippy.c"
-#endif
 
 /*
  * Commands help string definitions.

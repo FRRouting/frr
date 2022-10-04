@@ -44,9 +44,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vrf_clippy.c"
-#endif
 #include "zebra/table_manager.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,

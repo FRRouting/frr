@@ -74,9 +74,7 @@
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_routemap_clippy.c"
-#endif
 
 /* Memo of route-map commands.
 
