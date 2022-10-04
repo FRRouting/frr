@@ -75,6 +75,12 @@ pathd_options="  -A 127.0.0.1"
 # option here. It will only have an effect in /etc/frr/<somename>/daemons, and
 # you need to start FRR with "/usr/lib/frr/frrinit.sh start <somename>".
 #
+# If you notice something similar to these warnings:
+#   restart all child process 3323 still running after 20 seconds, sending signal 15
+#   restart all process 3323 terminated due to signal 15
+# Try increasing restart-timeout (-T, --restart-timeout) in watchfrr_options.
+# This option helps loading huge configuration files instead of being killed
+# in the middle.
 #watchfrr_options=""
 
 

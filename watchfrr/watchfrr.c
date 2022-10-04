@@ -366,7 +366,7 @@ static void restart_kill(struct thread *t_kill)
 
 	time_elapsed(&delay, &restart->time);
 	zlog_warn(
-		"%s %s child process %d still running after %ld seconds, sending signal %d",
+		"%s %s child process %d still running after %ld seconds (hint: -T, --restart-time), sending signal %d",
 		restart->what, restart->name, (int)restart->pid,
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
