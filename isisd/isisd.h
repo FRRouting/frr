@@ -42,6 +42,7 @@ DECLARE_MGROUP(ISISD);
 
 DECLARE_DEBUGFLAG(LSP_GEN);
 DECLARE_DEBUGFLAG(LSP_SCHED);
+DECLARE_DEBUGFLAG(SR);
 
 #ifdef FABRICD
 static const bool fabricd = true;
@@ -344,7 +345,6 @@ extern unsigned long debug_pkt_dump;
 extern unsigned long debug_flooding;
 extern unsigned long debug_bfd;
 extern unsigned long debug_tx_queue;
-extern unsigned long debug_sr;
 extern unsigned long debug_ldp_sync;
 extern unsigned long debug_lfa;
 extern unsigned long debug_te;
@@ -359,7 +359,6 @@ extern unsigned long debug_te;
 #define DEBUG_FLOODING                   (1<<9)
 #define DEBUG_BFD                        (1<<10)
 #define DEBUG_TX_QUEUE                   (1<<11)
-#define DEBUG_SR                         (1<<12)
 #define DEBUG_LDP_SYNC                   (1<<13)
 #define DEBUG_LFA                        (1<<14)
 #define DEBUG_TE                         (1<<15)
@@ -375,16 +374,9 @@ extern unsigned long debug_te;
 #define IS_DEBUG_FLOODING (debug_flooding & DEBUG_FLOODING)
 #define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
 #define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
-#define IS_DEBUG_SR (debug_sr & DEBUG_SR)
 #define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
 #define IS_DEBUG_LFA (debug_lfa & DEBUG_LFA)
 #define IS_DEBUG_TE (debug_te & DEBUG_TE)
-
-#define sr_debug(...)                                                          \
-	do {                                                                   \
-		if (IS_DEBUG_SR)                                               \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
 
 #define te_debug(...)                                                          \
 	do {                                                                   \

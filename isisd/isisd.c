@@ -76,7 +76,6 @@ unsigned long debug_pkt_dump;
 unsigned long debug_flooding;
 unsigned long debug_bfd;
 unsigned long debug_tx_queue;
-unsigned long debug_sr;
 unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
 unsigned long debug_te;
@@ -101,6 +100,11 @@ DEFINE_DEBUGFLAG(LSP_GEN, PROTO_NAME " lsp-gen",
 DEFINE_DEBUGFLAG(LSP_SCHED, PROTO_NAME " lsp-sched",
 		 PROTO_HELP
 		 "IS-IS scheduling of LSP generation\n"
+);
+
+DEFINE_DEBUGFLAG(SR, PROTO_NAME " sr-events",
+		 PROTO_HELP
+		 "IS-IS Segment Routing Events\n"
 );
 /* clang-format on */
 
@@ -1633,9 +1637,6 @@ void print_debug(struct vty *vty, int flags, int onoff)
 			onoffs);
 	if (flags & DEBUG_SPF_EVENTS)
 		vty_out(vty, "IS-IS SPF events debugging is %s\n", onoffs);
-	if (flags & DEBUG_SR)
-		vty_out(vty, "IS-IS Segment Routing events debugging is %s\n",
-			onoffs);
 	if (flags & DEBUG_TE)
 		vty_out(vty,
 			"IS-IS Traffic Engineering events debugging is %s\n",
@@ -1676,8 +1677,6 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_SNP_PACKETS, 1);
 	if (IS_DEBUG_SPF_EVENTS)
 		print_debug(vty, DEBUG_SPF_EVENTS, 1);
-	if (IS_DEBUG_SR)
-		print_debug(vty, DEBUG_SR, 1);
 	if (IS_DEBUG_TE)
 		print_debug(vty, DEBUG_TE, 1);
 	if (IS_DEBUG_UPDATE_PACKETS)
@@ -1729,10 +1728,6 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_DEBUG_SPF_EVENTS) {
 		vty_out(vty, "debug " PROTO_NAME " spf-events\n");
-		write++;
-	}
-	if (IS_DEBUG_SR) {
-		vty_out(vty, "debug " PROTO_NAME " sr-events\n");
 		write++;
 	}
 	if (IS_DEBUG_TE) {
@@ -1933,33 +1928,6 @@ DEFUN (no_debug_isis_spfevents,
 {
 	debug_spf_events &= ~DEBUG_SPF_EVENTS;
 	print_debug(vty, DEBUG_SPF_EVENTS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_srevents,
-       debug_isis_srevents_cmd,
-       "debug " PROTO_NAME " sr-events",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS Segment Routing Events\n")
-{
-	debug_sr |= DEBUG_SR;
-	print_debug(vty, DEBUG_SR, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_srevents,
-       no_debug_isis_srevents_cmd,
-       "no debug " PROTO_NAME " sr-events",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS Segment Routing Events\n")
-{
-	debug_sr &= ~DEBUG_SR;
-	print_debug(vty, DEBUG_SR, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3682,8 +3650,6 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_upd_cmd);
 	install_element(ENABLE_NODE, &debug_isis_spfevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(ENABLE_NODE, &debug_isis_srevents_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_srevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_teevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_teevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_lfa_cmd);
@@ -3711,8 +3677,6 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_upd_cmd);
 	install_element(CONFIG_NODE, &debug_isis_spfevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(CONFIG_NODE, &debug_isis_srevents_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_srevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_teevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_teevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_lfa_cmd);
