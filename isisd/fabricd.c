@@ -254,8 +254,10 @@ static void fabricd_initial_sync_timeout(struct thread *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 
-	zlog_info("OpenFabric: Initial synchronization on %s timed out!",
-		  f->initial_sync_circuit->interface->name);
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug(
+			"OpenFabric: Initial synchronization on %s timed out!",
+			f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_PENDING;
 	f->initial_sync_circuit = NULL;
 }
@@ -282,9 +284,11 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 			 timeout, &f->initial_sync_timeout);
 	f->initial_sync_start = monotime(NULL);
 
-	zlog_info("OpenFabric: Started initial synchronization with %s on %s",
-		  sysid_print(circuit->u.p2p.neighbor->sysid),
-		  circuit->interface->name);
+	if (IS_DEBUG_ADJ_PACKETS)
+		zlog_debug(
+			"OpenFabric: Started initial synchronization with %s on %s",
+			sysid_print(circuit->u.p2p.neighbor->sysid),
+			circuit->interface->name);
 }
 
 bool fabricd_initial_sync_is_in_progress(struct isis_area *area)
