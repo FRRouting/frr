@@ -355,7 +355,8 @@ PyMODINIT_FUNC command_py_init(void)
 
 	if (PyModule_AddIntMacro(pymod, CMD_ATTR_YANG)
 	    || PyModule_AddIntMacro(pymod, CMD_ATTR_HIDDEN)
-	    || PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED))
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED)
+	    || PyModule_AddIntMacro(pymod, CMD_ATTR_NOSH))
 		initret(NULL);
 
 	Py_INCREF(&typeobj_graph_node);

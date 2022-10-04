@@ -77,6 +77,7 @@ enum {
 	CMD_ATTR_YANG = (1 << 0),
 	CMD_ATTR_HIDDEN = (1 << 1),
 	CMD_ATTR_DEPRECATED = (1 << 2),
+	CMD_ATTR_NOSH = (1 << 3),
 };
 
 enum varname_src {
