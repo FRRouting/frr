@@ -1081,6 +1081,16 @@ void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
 
+/*
+ * decision point for sending a routing update through the old
+ * straight to zebra master pthread or through the dplane to
+ * the master pthread for handling
+ */
+void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			      struct prefix_ipv6 *src_p, struct route_entry *re,
+			      struct nexthop_group *ng, int startup,
+			      struct zebra_dplane_ctx *ctx);
+
 #ifdef __cplusplus
 }
 #endif
