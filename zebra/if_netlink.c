@@ -1182,11 +1182,17 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
+	/*
+	 * So netlink_tunneldump_read will initiate a request
+	 * per tunnel to get data.  If we are on a kernel that
+	 * does not support this then we will get X error messages
+	 * (one per tunnel request )back which netlink_parse_info will
+	 * stop after the first one.  So we need to read equivalent
+	 * error messages per tunnel then we can continue.
+	 * if we do not gather all the read failures then
+	 * later requests will not work right.
+	 */
 	ret = netlink_tunneldump_read(zns);
-	if (ret < 0)
-		return ret;
-	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
-				 true);
 	if (ret < 0)
 		return ret;
 
@@ -2322,6 +2328,7 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
 
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
@@ -2337,7 +2344,14 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 						 tmp_if->ifindex);
 		if (ret < 0)
 			return ret;
+
+		ret = netlink_parse_info(netlink_interface, netlink_cmd,
+					 &dp_info, 0, true);
+
+		if (ret < 0)
+			return ret;
 	}
+
 	return 0;
 }
 #endif /* GNU_LINUX */
