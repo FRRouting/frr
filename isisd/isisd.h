@@ -40,6 +40,8 @@
 
 DECLARE_MGROUP(ISISD);
 
+DECLARE_DEBUGFLAG(LSP_GEN);
+
 #ifdef FABRICD
 static const bool fabricd = true;
 #define PROTO_TYPE ZEBRA_ROUTE_OPENFABRIC
@@ -338,7 +340,6 @@ extern unsigned long debug_spf_events;
 extern unsigned long debug_rte_events;
 extern unsigned long debug_events;
 extern unsigned long debug_pkt_dump;
-extern unsigned long debug_lsp_gen;
 extern unsigned long debug_lsp_sched;
 extern unsigned long debug_flooding;
 extern unsigned long debug_bfd;
@@ -355,7 +356,6 @@ extern unsigned long debug_te;
 #define DEBUG_RTE_EVENTS                 (1<<4)
 #define DEBUG_EVENTS                     (1<<5)
 #define DEBUG_PACKET_DUMP                (1<<6)
-#define DEBUG_LSP_GEN                    (1<<7)
 #define DEBUG_LSP_SCHED                  (1<<8)
 #define DEBUG_FLOODING                   (1<<9)
 #define DEBUG_BFD                        (1<<10)
@@ -373,7 +373,6 @@ extern unsigned long debug_te;
 #define IS_DEBUG_RTE_EVENTS (debug_rte_events & DEBUG_RTE_EVENTS)
 #define IS_DEBUG_EVENTS (debug_events & DEBUG_EVENTS)
 #define IS_DEBUG_PACKET_DUMP (debug_pkt_dump & DEBUG_PACKET_DUMP)
-#define IS_DEBUG_LSP_GEN (debug_lsp_gen & DEBUG_LSP_GEN)
 #define IS_DEBUG_LSP_SCHED (debug_lsp_sched & DEBUG_LSP_SCHED)
 #define IS_DEBUG_FLOODING (debug_flooding & DEBUG_FLOODING)
 #define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
@@ -382,12 +381,6 @@ extern unsigned long debug_te;
 #define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
 #define IS_DEBUG_LFA (debug_lfa & DEBUG_LFA)
 #define IS_DEBUG_TE (debug_te & DEBUG_TE)
-
-#define lsp_debug(...)                                                         \
-	do {                                                                   \
-		if (IS_DEBUG_LSP_GEN)                                          \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
 
 #define sched_debug(...)                                                       \
 	do {                                                                   \

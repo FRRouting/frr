@@ -73,7 +73,6 @@ unsigned long debug_spf_events;
 unsigned long debug_rte_events;
 unsigned long debug_events;
 unsigned long debug_pkt_dump;
-unsigned long debug_lsp_gen;
 unsigned long debug_lsp_sched;
 unsigned long debug_flooding;
 unsigned long debug_bfd;
@@ -93,6 +92,13 @@ DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
 DEFINE_MTYPE(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 
 DEFINE_QOBJ_TYPE(isis_area);
+
+/* clang-format off */
+DEFINE_DEBUGFLAG(LSP_GEN, PROTO_NAME " lsp-gen",
+		 PROTO_HELP
+		 "IS-IS generation of own LSPs\n"
+);
+/* clang-format on */
 
 /* ISIS process wide configuration. */
 static struct isis_master isis_master;
@@ -1641,8 +1647,6 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Event debugging is %s\n", onoffs);
 	if (flags & DEBUG_PACKET_DUMP)
 		vty_out(vty, "IS-IS Packet dump debugging is %s\n", onoffs);
-	if (flags & DEBUG_LSP_GEN)
-		vty_out(vty, "IS-IS LSP generation debugging is %s\n", onoffs);
 	if (flags & DEBUG_LSP_SCHED)
 		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
 	if (flags & DEBUG_FLOODING)
@@ -1682,8 +1686,6 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_EVENTS, 1);
 	if (IS_DEBUG_PACKET_DUMP)
 		print_debug(vty, DEBUG_PACKET_DUMP, 1);
-	if (IS_DEBUG_LSP_GEN)
-		print_debug(vty, DEBUG_LSP_GEN, 1);
 	if (IS_DEBUG_LSP_SCHED)
 		print_debug(vty, DEBUG_LSP_SCHED, 1);
 	if (IS_DEBUG_FLOODING)
@@ -1755,10 +1757,6 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_DEBUG_PACKET_DUMP) {
 		vty_out(vty, "debug " PROTO_NAME " packet-dump\n");
-		write++;
-	}
-	if (IS_DEBUG_LSP_GEN) {
-		vty_out(vty, "debug " PROTO_NAME " lsp-gen\n");
 		write++;
 	}
 	if (IS_DEBUG_LSP_SCHED) {
@@ -2101,33 +2099,6 @@ DEFUN (no_debug_isis_packet_dump,
 {
 	debug_pkt_dump &= ~DEBUG_PACKET_DUMP;
 	print_debug(vty, DEBUG_PACKET_DUMP, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_lsp_gen,
-       debug_isis_lsp_gen_cmd,
-       "debug " PROTO_NAME " lsp-gen",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS generation of own LSPs\n")
-{
-	debug_lsp_gen |= DEBUG_LSP_GEN;
-	print_debug(vty, DEBUG_LSP_GEN, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_lsp_gen,
-       no_debug_isis_lsp_gen_cmd,
-       "no debug " PROTO_NAME " lsp-gen",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS generation of own LSPs\n")
-{
-	debug_lsp_gen &= ~DEBUG_LSP_GEN;
-	print_debug(vty, DEBUG_LSP_GEN, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3754,8 +3725,6 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_events_cmd);
 	install_element(ENABLE_NODE, &debug_isis_packet_dump_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_packet_dump_cmd);
-	install_element(ENABLE_NODE, &debug_isis_lsp_gen_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_lsp_gen_cmd);
 	install_element(ENABLE_NODE, &debug_isis_lsp_sched_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(ENABLE_NODE, &debug_isis_bfd_cmd);
@@ -3787,8 +3756,6 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_events_cmd);
 	install_element(CONFIG_NODE, &debug_isis_packet_dump_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_packet_dump_cmd);
-	install_element(CONFIG_NODE, &debug_isis_lsp_gen_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_lsp_gen_cmd);
 	install_element(CONFIG_NODE, &debug_isis_lsp_sched_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
