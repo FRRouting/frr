@@ -290,7 +290,7 @@ struct cmd_node {
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
 
 #define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
 #define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
@@ -299,7 +299,8 @@ struct cmd_node {
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 #define DEFPY_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
-	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
 /* DEFUN variants */
 
@@ -319,10 +320,11 @@ struct cmd_node {
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
 #define DEFUN_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
-	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
 /* DEFSH for vtysh. */
 #define DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, attr)                     \

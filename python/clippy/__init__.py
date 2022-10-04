@@ -32,6 +32,7 @@ from _clippy import (
     CMD_ATTR_YANG,
     CMD_ATTR_HIDDEN,
     CMD_ATTR_DEPRECATED,
+    CMD_ATTR_NOSH,
 )
 
 
@@ -98,3 +99,4 @@ class CmdAttr(_IntFlag):
     YANG = CMD_ATTR_YANG
     HIDDEN = CMD_ATTR_HIDDEN
     DEPRECATED = CMD_ATTR_DEPRECATED
+    NOSH = CMD_ATTR_NOSH
