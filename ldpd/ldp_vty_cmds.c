@@ -246,7 +246,7 @@ DEFPY  (ldp_allow_broken_lsps,
 	"[no] install allow-broken-lsps",
 	NO_STR
 	"install lsps\n"
-	"if no remote-label install with imp-null")
+	"if no remote-label install with imp-null\n")
 {
 	return (ldp_vty_allow_broken_lsp(vty, no));
 }
