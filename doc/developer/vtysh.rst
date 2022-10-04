@@ -43,9 +43,14 @@ simplifying the output. This is discussed in :ref:`vtysh-configuration`.
 Command Extraction
 ------------------
 
-When VTYSH is built, a Perl script named :file:`extract.pl` searches the FRR
-codebase looking for ``DEFUN``'s. It extracts these ``DEFUN``'s, transforms
-them into ``DEFSH``'s and appends them to ``vtysh_cmd.c``. Each ``DEFSH``
+To build ``vtysh``, the :file:`python/xref2vtysh.py` script scans through the
+:file:`frr.xref` file created earlier in the build process.  This file contains
+a list of all ``DEFUN`` and ``install_element`` sites in the code, generated
+directly from the binaries (and therefore matching exactly what is really
+available.)
+
+This list is collated and transformed into ``DEFSH`` (and ``install_element``)
+statements, output to ``vtysh_cmd.c``. Each ``DEFSH``
 contains the name of the command plus ``_vtysh``, as well as a flag that
 indicates which daemons the command was found in. When the command is executed
 in VTYSH, this flag is inspected to determine which daemons to send the command
@@ -54,6 +59,12 @@ avoiding spurious errors from daemons that don't have the command defined.
 
 The extraction script contains lots of hardcoded knowledge about what sources
 to look at and what flags to use for certain commands.
+
+.. note::
+
+   The ``vtysh_scan`` Makefile variable and ``#ifndef VTYSH_EXTRACT_PL``
+   checks in source files are no longer used.  Remove them when rebasing older
+   changes.
 
 .. _vtysh-special-defuns:
 
@@ -69,7 +80,7 @@ several VTYSH-specific ``DEFUN`` variants that each serve different purposes.
    simply forwarded to the daemons indicated in the daemon flag.
 
 ``DEFUN_NOSH``
-   Used by daemons. Has the same expansion as a ``DEFUN``, but ``extract.pl``
+   Used by daemons. Has the same expansion as a ``DEFUN``, but ``xref2vtysh.py``
    will skip these definitions when extracting commands. This is typically used
    when VTYSH must take some special action upon receiving the command, and the
    programmer therefore needs to write VTYSH's copy of the command manually

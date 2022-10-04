@@ -65,9 +65,7 @@ static void ospf6_asbr_redistribute_set(struct ospf6 *ospf6, int type);
 static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
 					  struct ospf6_redist *red, int type);
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_asbr_clippy.c"
-#endif
 
 unsigned char conf_debug_ospf6_asbr = 0;
 

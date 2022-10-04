@@ -37,9 +37,7 @@
 #include "sharpd/sharp_zebra.h"
 #include "sharpd/sharp_nht.h"
 #include "sharpd/sharp_vty.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "sharpd/sharp_vty_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(SHARPD, SRV6_LOCATOR, "SRv6 Locator");
 

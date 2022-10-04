@@ -37,6 +37,7 @@ from clippy.uidhash import uidhash
 from clippy.elf import *
 from clippy import frr_top_src, CmdAttr
 from tiabwarfo import FieldApplicator
+from xref2vtysh import CommandEntry
 
 try:
     with open(os.path.join(frr_top_src, 'python', 'xrefstructs.json'), 'r') as fd:
@@ -366,6 +367,7 @@ def main():
     argp = argparse.ArgumentParser(description = 'FRR xref ELF extractor')
     argp.add_argument('-o', dest='output', type=str, help='write JSON output')
     argp.add_argument('--out-by-file',     type=str, help='write by-file JSON output')
+    argp.add_argument('-c', dest='vtysh_cmds', type=str, help='write vtysh_cmd.c')
     argp.add_argument('-Wlog-format',      action='store_const', const=True)
     argp.add_argument('-Wlog-args',        action='store_const', const=True)
     argp.add_argument('-Werror',           action='store_const', const=True)
@@ -434,6 +436,14 @@ def _main(args):
         with open(args.out_by_file + '.tmp', 'w') as fd:
             json.dump(outbyfile, fd, indent=2, sort_keys=True, **json_dump_args)
         os.rename(args.out_by_file + '.tmp', args.out_by_file)
+
+    if args.vtysh_cmds:
+        with open(args.vtysh_cmds + '.tmp', 'w') as fd:
+            CommandEntry.run(out, fd)
+        os.rename(args.vtysh_cmds + '.tmp', args.vtysh_cmds)
+        if args.Werror and CommandEntry.warn_counter:
+            sys.exit(1)
+
 
 if __name__ == '__main__':
     main()

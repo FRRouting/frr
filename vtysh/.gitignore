@@ -1,4 +1,6 @@
 vtysh
 vtysh_cmd.c
-extract.pl
 vtysh_daemons.h
+
+# does not exist anymore - remove 2023-10-04 or so
+extract.pl

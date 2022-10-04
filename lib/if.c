@@ -35,9 +35,7 @@
 #include "buffer.h"
 #include "log.h"
 #include "northbound_cli.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/if_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
 DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");

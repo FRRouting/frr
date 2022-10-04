@@ -751,9 +751,7 @@ void ospf_ldp_sync_if_write_config(struct vty *vty,
 /*
  * LDP-SYNC commands.
  */
-#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_ldp_sync_clippy.c"
-#endif
 
 DEFPY (ospf_mpls_ldp_sync,
        ospf_mpls_ldp_sync_cmd,

@@ -2603,9 +2603,7 @@ static void interface_update_stats(void)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/interface_clippy.c"
-#endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
       "show interface vrf NAME$vrf_name [brief$brief] [json$uj]",

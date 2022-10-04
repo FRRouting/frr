@@ -52,16 +52,12 @@
 
 #include "lib/network.h"
 #include "lib/thread.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "rtrlib/rtrlib.h"
-#endif
 #include "hook.h"
 #include "libfrr.h"
 #include "lib/version.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_rpki_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");

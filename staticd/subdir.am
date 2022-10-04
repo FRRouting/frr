@@ -5,7 +5,6 @@
 if STATICD
 noinst_LIBRARIES += staticd/libstatic.a
 sbin_PROGRAMS += staticd/staticd
-vtysh_scan += staticd/static_vty.c
 vtysh_daemons += staticd
 man8 += $(MANBUILD)/frr-staticd.8
 endif

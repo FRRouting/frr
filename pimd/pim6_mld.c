@@ -2319,9 +2319,7 @@ void gm_ifp_update(struct interface *ifp)
 
 #include "lib/command.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_mld_clippy.c"
-#endif
 
 static struct vrf *gm_cmd_vrf_lookup(struct vty *vty, const char *vrf_str,
 				     int *err)

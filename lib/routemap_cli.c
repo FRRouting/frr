@@ -26,9 +26,7 @@
 #include "lib/northbound_cli.h"
 #include "lib/routemap.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/routemap_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
 
 #define ROUTE_MAP_CMD_STR \
 	"Create route-map or enter route-map command mode\n" \

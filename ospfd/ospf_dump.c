@@ -42,9 +42,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_dump_clippy.c"
-#endif
 
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};

@@ -1316,9 +1316,7 @@ void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi)
 	bgp_clear(NULL, bgp, afi, safi, clear_all, BGP_CLEAR_SOFT_IN, NULL);
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_vty_clippy.c"
-#endif
 
 DEFUN_HIDDEN (bgp_local_mac,
               bgp_local_mac_cmd,

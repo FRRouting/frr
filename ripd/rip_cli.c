@@ -30,9 +30,7 @@
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ripd/rip_cli_clippy.c"
-#endif
 
 /*
  * XPath: /frr-ripd:ripd/instance

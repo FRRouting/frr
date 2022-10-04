@@ -31,9 +31,7 @@
 
 #include "pathd/pathd.h"
 #include "pathd/path_nb.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_cli_clippy.c"
-#endif
 #include "pathd/path_ted.h"
 
 #define XPATH_MAXATTRSIZE 64
