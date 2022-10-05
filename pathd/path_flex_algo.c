@@ -696,6 +696,7 @@ void fa_vty_endpoint_show_all(struct vty *vty, bool detail)
 		char *sAT;
 
 		if (!printed_header) {
+			printed_header = true;
 			vty_out(vty, "%-15s %3s %-5s %-10s %7s %-32s\n",
 				"endpoint", "alg", "proto", "vrf", "inst",
 				"area");
