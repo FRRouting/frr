@@ -2339,55 +2339,70 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	/* Various fib transitions: changed nexthops; from installed to
 	 * not-installed; or not-installed to installed.
 	 */
-	if (start_count > 0 && end_count > 0) {
-		if (debug_p)
-			zlog_debug(
-				"%s(%u:%u):%pRN applied nexthop changes from dplane notification",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), rn);
+	if (zrouter.asic_notification_nexthop_control) {
+		if (start_count > 0 && end_count > 0) {
+			if (debug_p)
+				zlog_debug(
+					"%s(%u:%u):%pRN applied nexthop changes from dplane notification",
+					VRF_LOGNAME(vrf),
+					dplane_ctx_get_vrf(ctx),
+					dplane_ctx_get_table(ctx), rn);
 
-		/* Changed nexthops - update kernel/others */
-		dplane_route_notif_update(rn, re,
-					  DPLANE_OP_ROUTE_UPDATE, ctx);
+			/* Changed nexthops - update kernel/others */
+			dplane_route_notif_update(rn, re,
+						  DPLANE_OP_ROUTE_UPDATE, ctx);
 
-	} else if (start_count == 0 && end_count > 0) {
-		if (debug_p)
-			zlog_debug(
-				"%s(%u:%u):%pRN installed transition from dplane notification",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), rn);
+		} else if (start_count == 0 && end_count > 0) {
+			if (debug_p)
+				zlog_debug(
+					"%s(%u:%u):%pRN installed transition from dplane notification",
+					VRF_LOGNAME(vrf),
+					dplane_ctx_get_vrf(ctx),
+					dplane_ctx_get_table(ctx), rn);
 
-		/* We expect this to be the selected route, so we want
-		 * to tell others about this transition.
-		 */
-		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			/* We expect this to be the selected route, so we want
+			 * to tell others about this transition.
+			 */
+			SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 
-		/* Changed nexthops - update kernel/others */
-		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_UPDATE, ctx);
+			/* Changed nexthops - update kernel/others */
+			dplane_route_notif_update(rn, re,
+						  DPLANE_OP_ROUTE_UPDATE, ctx);
 
-		/* Redistribute, lsp, and nht update */
-		redistribute_update(rn, re, NULL);
+			/* Redistribute, lsp, and nht update */
+			redistribute_update(rn, re, NULL);
 
-	} else if (start_count > 0 && end_count == 0) {
-		if (debug_p)
-			zlog_debug(
-				"%s(%u:%u):%pRN un-installed transition from dplane notification",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), rn);
+		} else if (start_count > 0 && end_count == 0) {
+			if (debug_p)
+				zlog_debug(
+					"%s(%u:%u):%pRN un-installed transition from dplane notification",
+					VRF_LOGNAME(vrf),
+					dplane_ctx_get_vrf(ctx),
+					dplane_ctx_get_table(ctx), rn);
 
-		/* Transition from _something_ installed to _nothing_
-		 * installed.
-		 */
-		/* We expect this to be the selected route, so we want
-		 * to tell others about this transistion.
-		 */
-		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			/* Transition from _something_ installed to _nothing_
+			 * installed.
+			 */
+			/* We expect this to be the selected route, so we want
+			 * to tell others about this transistion.
+			 */
+			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 
-		/* Changed nexthops - update kernel/others */
-		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_DELETE, ctx);
+			/* Changed nexthops - update kernel/others */
+			dplane_route_notif_update(rn, re,
+						  DPLANE_OP_ROUTE_DELETE, ctx);
 
-		/* Redistribute, lsp, and nht update */
-		redistribute_delete(rn, re, NULL);
+			/* Redistribute, lsp, and nht update */
+			redistribute_delete(rn, re, NULL);
+		}
+	}
+
+	if (!zebra_router_notify_on_ack()) {
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED))
+			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
+			zsend_route_notify_owner_ctx(ctx,
+						     ZAPI_ROUTE_FAIL_INSTALL);
 	}
 
 	/* Make any changes visible for lsp and nexthop-tracking processing */

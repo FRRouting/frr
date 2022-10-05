@@ -4073,6 +4073,15 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.asic_offloaded ? "Used" : "Unavailable");
 
+	/*
+	 * Do not display this unless someone is actually using it
+	 *
+	 * Why this distinction?  I think this is effectively dead code
+	 * and should not be exposed.  Maybe someone proves me wrong.
+	 */
+	if (zrouter.asic_notification_nexthop_control)
+		ttable_add_row(table, "ASIC offload and nexthop control|Used");
+
 	ttable_add_row(table, "RA|%s",
 		       rtadv_compiled_in() ? "Compiled in" : "Not Compiled in");
 	ttable_add_row(table, "RFC 5549|%s",
