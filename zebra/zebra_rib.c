@@ -1523,8 +1523,7 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 	}
 
 done:
-
-	return (result);
+	return result;
 }
 
 static void zebra_rib_fixup_system(struct route_node *rn)
