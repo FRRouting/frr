@@ -1179,6 +1179,28 @@ void fa_handle_update(struct zapi_client_daemon_id *di,
 		return;
 	}
 
+	if (IS_PATH_DEBUG_FA) {
+		zlog_debug(
+			"FAE UPDATE: algo: %u, endpoint %pIA, proto %s, inst %u, vrf %u",
+			query->algorithm, &query->endpoint,
+			zebra_route_string(di->proto), di->instance, d->vrf_id);
+		if (!answer->sid_list.label_num) {
+			zlog_debug("  SID-list: (empty)");
+		} else {
+			zlog_debug("  SID-list:");
+			for (int i = 0; i < answer->sid_list.label_num; ++i) {
+				const char *ls;
+
+				ls = _label_cstr(answer->sid_list.labels[i]);
+				if (ls)
+					zlog_debug("    %s", ls);
+				else
+					zlog_debug("    %u",
+						   answer->sid_list.labels[i]);
+			}
+		}
+	}
+
 	/*
 	 * Find ET entry with matching endpoint
 	 */
