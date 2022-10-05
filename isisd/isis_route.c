@@ -585,7 +585,8 @@ static void isis_route_remove_previous_sid(struct isis_area *area,
 			 * updated information */
 			demoted = isis_fae_demote(area, rn, i);
 			isis_fae_send_update_all(
-				area, demoted ? demoted->info : route_info, i);
+				area, demoted ? demoted->info : route_info, i,
+				false, NULL);
 			if (!route_info->sr_algo[i].present)
 				isis_fae_route_info_reg_deactivate(
 					area, route_info, i);
@@ -660,7 +661,10 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 							      &sr_algo);
 #ifndef FABRICD
 				isis_fae_promote(area, rn, i);
-				isis_fae_send_update_all(area, route_info, i);
+				isis_fae_send_update_all(
+					area,
+					(struct isis_route_info *)rn->info, i,
+					switchover, NULL);
 #endif /* !FABRICD */
 			}
 
@@ -688,7 +692,7 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 				isis_fae_send_update_all(area,
 							 demoted ? demoted->info
 								 : route_info,
-							 i);
+							 i, false, NULL);
 				isis_fae_route_info_reg_deactivate(
 					area, route_info, i);
 #endif /* !FABRICD */
@@ -994,6 +998,9 @@ void isis_route_switchover_nexthop(struct isis_area *area,
 	struct route_node *rnode;
 	vrf_id_t vrf_id;
 	struct prefix *prefix;
+#ifndef FABRICD
+	struct route_node *rnode_main;
+#endif /* !FABRICD */
 
 	if (IS_DEBUG_EVENTS) {
 		if (area && area->isis) {
@@ -1026,6 +1033,23 @@ void isis_route_switchover_nexthop(struct isis_area *area,
 		/* Switchover route. */
 		isis_route_remove_previous_sid(area, prefix, rnode);
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+#ifndef FABRICD
+		if (flex_algo_id_valid(algorithm)) {
+			rnode_main =
+				srcdest_rnode_lookup(table_main, prefix, src_p);
+			if (rnode_main
+			    && CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)
+			    && !CHECK_FLAG(rinfo->flag,
+					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED)
+			    && rinfo->sr_algo[algorithm].present) {
+				isis_fae_promote(area, rnode_main, algorithm);
+				isis_fae_send_update_all(
+					area, rinfo, algorithm, true,
+					(struct isis_route_info *)
+						rnode_main->info);
+			}
+		}
+#endif /* !FABRICD */
 		isis_route_update(area, prefix, src_p, rnode, true);
 
 		isis_route_info_delete(area, rinfo);

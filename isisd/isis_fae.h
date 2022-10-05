@@ -38,7 +38,8 @@ enum { ISIS_FAE_OK = 0,
 
 void isis_fae_send_update_all(const struct isis_area *const area,
 			      const struct isis_route_info *const rinfo,
-			      uint8_t algorithm);
+			      uint8_t algorithm, bool switchover,
+			      const struct isis_route_info *const rinfo_main);
 
 int isis_fae_alloc_db(struct isis_fae_db *);
 

@@ -78,15 +78,29 @@ static void ipaddr2prefix(struct prefix *p, const struct ipaddr *const addr)
  */
 void isis_fae_send_update_all(const struct isis_area *const area,
 			      const struct isis_route_info *const rinfo,
-			      uint8_t algorithm)
+			      uint8_t algorithm, bool switchover,
+			      const struct isis_route_info *const rinfo_main)
 {
 	struct list *list = rinfo->fae_regs[algorithm];
 	struct listnode *node;
 	struct fae_db_node *dbnode;
+	struct list *list_fae = NULL;
 
-	if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_SR_ALGO))
+	/* flex algo route nodes are not looked up, unless we are on switchover
+	 */
+	if (!switchover && CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_SR_ALGO))
 		return;
+	/* if switchover on flex-algo, reuse the fae registration
+	 * from the route_info from spftree table
+	 */
+	if (switchover && flex_algo_id_valid(algorithm) && rinfo_main) {
+		list_fae = rinfo_main->fae_regs[algorithm];
 
+		if (!list || listcount(list) == 0) {
+			if (list_fae && listcount(list_fae))
+				list = list_fae;
+		}
+	}
 	for (ALL_LIST_ELEMENTS_RO(list, node, dbnode)) {
 		for (unsigned i = 0; i < dbnode->num_clients; i++) {
 			struct zapi_client_daemon_id *client = NULL, **pclient;
@@ -94,8 +108,14 @@ void isis_fae_send_update_all(const struct isis_area *const area,
 			pclient = &client;
 			zapi_client_find_client_from_index(dbnode->client[i],
 							   pclient);
-			isis_zebra_fae_update_send(area, &dbnode->endpoint,
-						   rinfo, algorithm, client);
+			if (switchover)
+				isis_zebra_fae_update_send(
+					area, &dbnode->endpoint, rinfo->backup,
+					algorithm, client);
+			else
+				isis_zebra_fae_update_send(
+					area, &dbnode->endpoint, rinfo,
+					algorithm, client);
 		}
 	}
 }

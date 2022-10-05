@@ -3186,7 +3186,8 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 #endif /* ifndef FABRICD */
 
 	isis_spf_switchover_routes(area, area->spftree[tree], family,
-				   nexthop_ip, ifindex, level, NULL);
+				   nexthop_ip, ifindex, level,
+				   area->spftree[tree]);
 }
 
 
