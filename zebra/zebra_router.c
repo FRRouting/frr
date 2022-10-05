@@ -330,6 +330,17 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
 
+	/*
+	 * If you start using asic_notification_nexthop_control
+	 * come talk to the FRR community about what you are doing
+	 * We would like to know.
+	 */
+#if CONFDATE > 20251231
+	CPP_NOTICE(
+		"Remove zrouter.asic_notification_nexthop_control as that it's not being maintained or used");
+#endif
+	zrouter.asic_notification_nexthop_control = false;
+
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();
 #endif
