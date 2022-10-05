@@ -2131,10 +2131,12 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 void isis_spf_switchover_routes(struct isis_area *area,
 				struct isis_spftree **trees, int family,
 				union g_addr *nexthop_ip, ifindex_t ifindex,
-				int level)
+				int level, struct isis_spftree **trees_main)
 {
 	isis_route_switchover_nexthop(area, trees[level - 1]->route_table,
-				      family, nexthop_ip, ifindex);
+				      family, nexthop_ip, ifindex,
+				      trees[level - 1]->algorithm,
+				      trees_main[level - 1]->route_table);
 }
 
 static void isis_run_spf_cb(struct event *thread)

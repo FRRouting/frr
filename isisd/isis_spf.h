@@ -50,7 +50,7 @@ void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees,
 void isis_spf_switchover_routes(struct isis_area *area,
 				struct isis_spftree **trees, int family,
 				union g_addr *nexthop_ip, ifindex_t ifindex,
-				int level);
+				int level, struct isis_spftree **trees_main);
 void isis_spftree_del(struct isis_spftree *spftree);
 void spftree_area_init(struct isis_area *area);
 void spftree_area_del(struct isis_area *area);

@@ -983,7 +983,8 @@ void isis_route_invalidate_table(struct isis_area *area,
 void isis_route_switchover_nexthop(struct isis_area *area,
 				   struct route_table *table, int family,
 				   union g_addr *nexthop_addr,
-				   ifindex_t ifindex)
+				   ifindex_t ifindex, int algorithm,
+				   struct route_table *table_main)
 {
 	const char *ifname = NULL, *vrfname = NULL;
 	struct isis_route_info *rinfo;
@@ -998,9 +999,10 @@ void isis_route_switchover_nexthop(struct isis_area *area,
 			vrfname = vrf_id_to_name(vrf_id);
 			ifname = ifindex2ifname(ifindex, vrf_id);
 		}
-		zlog_debug("%s: initiating fast-reroute %s on VRF %s iface %s",
-			   __func__, family2str(family), vrfname ? vrfname : "",
-			   ifname ? ifname : "");
+		zlog_debug(
+			"%s: initiating fast-reroute %s on VRF %s iface %s algo %u",
+			__func__, family2str(family), vrfname ? vrfname : "",
+			ifname ? ifname : "", algorithm);
 	}
 
 	for (rnode = route_top(table); rnode;

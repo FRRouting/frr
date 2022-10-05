@@ -3162,6 +3162,10 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 				 int level)
 {
 	int tree;
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+#endif /* ifndef FABRICD */
 
 	/* TODO SPFTREE_DSTSRC */
 	if (family == AF_INET)
@@ -3171,8 +3175,18 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 	else
 		return;
 
+#ifndef FABRICD
+	for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa)) {
+		isis_spf_switchover_routes(
+			area,
+			((struct isis_flex_algo_data *)fa->data)->spftree[tree],
+			family, nexthop_ip, ifindex, level,
+			area->spftree[tree]);
+	}
+#endif /* ifndef FABRICD */
+
 	isis_spf_switchover_routes(area, area->spftree[tree], family,
-				   nexthop_ip, ifindex, level);
+				   nexthop_ip, ifindex, level, NULL);
 }
 
 

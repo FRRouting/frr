@@ -86,7 +86,8 @@ void isis_route_node_cleanup(struct route_table *table,
 void isis_route_switchover_nexthop(struct isis_area *area,
 				   struct route_table *table, int family,
 				   union g_addr *nexthop_addr,
-				   ifindex_t ifindex);
+				   ifindex_t ifindex, int algorithm,
+				   struct route_table *table_main);
 
 struct isis_route_table_info *
 isis_route_table_info_alloc(struct isis_area *area, uint8_t algorithm);
