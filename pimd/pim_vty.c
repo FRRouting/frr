@@ -59,20 +59,20 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 	if (PIM_DEBUG_GM_EVENTS) {
-		vty_out(vty, "debug igmp events\n");
+		vty_out(vty, "debug " GM_AF_DBG " events\n");
 		++writes;
 	}
 	if (PIM_DEBUG_GM_PACKETS) {
-		vty_out(vty, "debug igmp packets\n");
+		vty_out(vty, "debug " GM_AF_DBG " packets\n");
 		++writes;
 	}
 	/* PIM_DEBUG_GM_TRACE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_GM_TRACE) {
-		vty_out(vty, "debug igmp trace\n");
+		vty_out(vty, "debug " GM_AF_DBG " trace\n");
 		++writes;
 	}
 	if (PIM_DEBUG_GM_TRACE_DETAIL) {
-		vty_out(vty, "debug igmp trace detail\n");
+		vty_out(vty, "debug " GM_AF_DBG " trace detail\n");
 		++writes;
 	}
 
