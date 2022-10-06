@@ -2576,7 +2576,8 @@ void peer_tcp_mss_unset(struct peer *peer);
 
 extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
 					       safi_t safi);
-
+extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
+				  int outbound);
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)

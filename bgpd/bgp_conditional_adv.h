@@ -47,6 +47,18 @@ extern void bgp_conditional_adv_enable(struct peer *peer, afi_t afi,
 				       safi_t safi);
 extern void bgp_conditional_adv_disable(struct peer *peer, afi_t afi,
 					safi_t safi);
+extern int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
+				  const char *advertise_name,
+				  struct route_map *advertise_map,
+				  const char *condition_name,
+				  struct route_map *condition_map,
+				  bool condition);
+extern int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
+				    const char *advertise_name,
+				    struct route_map *advertise_map,
+				    const char *condition_name,
+				    struct route_map *condition_map,
+				    bool condition);
 #ifdef __cplusplus
 }
 #endif
