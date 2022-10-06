@@ -2204,10 +2204,10 @@ static const struct route_map_rule_cmd ospf6_routemap_rule_set_tag_cmd = {
 /* add "set metric-type" */
 DEFUN_YANG (ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
       "set metric-type <type-1|type-2>",
-      "Set value\n"
-      "Type of metric\n"
-      "OSPF6 external type 1 metric\n"
-      "OSPF6 external type 2 metric\n")
+       SET_STR
+       "Type of metric for destination routing protocol\n"
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n")
 {
 	char *ext = argv[2]->text;
 
@@ -2226,10 +2226,10 @@ DEFUN_YANG (ospf6_routemap_set_metric_type, ospf6_routemap_set_metric_type_cmd,
 DEFUN_YANG (ospf6_routemap_no_set_metric_type, ospf6_routemap_no_set_metric_type_cmd,
       "no set metric-type [<type-1|type-2>]",
       NO_STR
-      "Set value\n"
-      "Type of metric\n"
-      "OSPF6 external type 1 metric\n"
-      "OSPF6 external type 2 metric\n")
+      SET_STR
+      "Type of metric for destination routing protocol\n"
+      "OSPF[6] external type 1 metric\n"
+      "OSPF[6] external type 2 metric\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-ospf-route-map:metric-type']";
