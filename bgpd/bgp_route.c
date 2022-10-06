@@ -10287,11 +10287,17 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Display the IGP cost or 'inaccessible' */
 	if (!CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
-		if (json_paths)
+		bool import = CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
+
+		if (json_paths) {
 			json_object_boolean_false_add(json_nexthop_global,
 						      "accessible");
-		else
-			vty_out(vty, " (inaccessible)");
+			json_object_boolean_add(json_nexthop_global,
+						"importCheckEnabled", import);
+		} else {
+			vty_out(vty, " (inaccessible%s)",
+				import ? ", import-check enabled" : "");
+		}
 	} else {
 		if (path->extra && path->extra->igpmetric) {
 			if (json_paths)
