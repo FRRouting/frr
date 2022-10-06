@@ -9631,11 +9631,7 @@ DEFPY (show_bgp_srv6,
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
-	struct in6_addr *tovpn4_sid;
-	struct in6_addr *tovpn6_sid;
 	char buf[256];
-	char buf_tovpn4_sid[256];
-	char buf_tovpn6_sid[256];
 
 	bgp = bgp_get_default();
 	if (!bgp)
@@ -9658,19 +9654,10 @@ DEFPY (show_bgp_srv6,
 		vty_out(vty, "- name: %s\n",
 			bgp->name ? bgp->name : "default");
 
-		tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
-		tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
-		if (tovpn4_sid)
-			inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
-				  sizeof(buf_tovpn4_sid));
-		if (tovpn6_sid)
-			inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
-				  sizeof(buf_tovpn6_sid));
-
-		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %s\n",
-			tovpn4_sid ? buf_tovpn4_sid : "none");
-		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
-			tovpn6_sid ? buf_tovpn6_sid : "none");
+		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %pI6\n",
+			bgp->vpn_policy[AFI_IP].tovpn_sid);
+		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %pI6\n",
+			bgp->vpn_policy[AFI_IP6].tovpn_sid);
 	}
 
 	return CMD_SUCCESS;
