@@ -88,6 +88,8 @@ int isis_zebra_fae_update_send(
 	struct zapi_fae_igp_discriminator igp_disc;
 	struct zapi_fae_query query;
 	struct zapi_fae_answer answer;
+	int active =
+		rinfo ? CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE) : 0;
 
 	_mk_igp_discriminator(area, &igp_disc);
 	query.endpoint = *endpoint;
@@ -97,7 +99,8 @@ int isis_zebra_fae_update_send(
 	answer.sid_list.type = ZEBRA_LSP_ISIS_SR;
 	answer.sid_list.local_label = sr ? sr->label : 0;
 
-	if (rinfo == NULL || !sr->present || list_isempty(rinfo->nexthops)) {
+	if (rinfo == NULL || !sr->present || list_isempty(rinfo->nexthops)
+	    || !active) {
 		answer.sid_list.label_num = 0;
 		result = zapi_fae_update_send(zclient, client_daemon_id,
 					      &igp_disc, &query, &answer);
