@@ -411,6 +411,11 @@ struct flex_algo_endpoint {
 	 * future we can change it to hold a set of ECMP nexthops
 	 */
 	struct zapi_srte_tunnel sid_list;
+	/*
+	 * if set, this value is used to track if the outgoing
+	 * interface changed
+	 */
+	ifindex_t ifindex;
 };
 
 static int _flex_algo_endpoint_cmp(const struct flex_algo_endpoint *f1,
@@ -694,6 +699,7 @@ void fa_vty_endpoint_show_all(struct vty *vty, bool detail)
 	frr_each (fae, &_faehash, f) {
 		struct vrf *v;
 		char *sAT;
+		struct interface *ifp = NULL;
 
 		if (!printed_header) {
 			printed_header = true;
@@ -748,7 +754,10 @@ void fa_vty_endpoint_show_all(struct vty *vty, bool detail)
 					c->name,
 					(c->policy ? c->policy->name : "?"));
 			}
-
+			vty_out(vty, "  Interface:");
+			if (f->ifindex)
+				ifp = if_lookup_by_index(f->ifindex, f->vrf_id);
+			vty_out(vty, " %s\n", ifp ? ifp->name : "<none>");
 		}
 		/* clang-format on */
 	}
@@ -1271,14 +1280,14 @@ void fa_handle_update(struct zapi_client_daemon_id *di,
 	FA_DEBUG("%s: sid-lists are %s", __func__,
 		 (different ? "different" : "the same"));
 
-	if (different) {
+	if (different || (f->ifindex != answer->ifindex)) {
 		/*
 		 * update our cached copy
 		 * "valid" means "f->sid_list.label_num != 0" AND
 		 * "f->sid_list.type != ZEBRA_LSP_NONE"
 		 */
 		f->sid_list = answer->sid_list;
-
+		f->ifindex = answer->ifindex;
 		/*
 		 * Iterate over corresponding candidates and update
 		 * their sid-lists

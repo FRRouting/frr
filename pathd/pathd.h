@@ -201,6 +201,9 @@ struct srte_segment_list {
 
 	/* Status flags. */
 	uint16_t flags;
+
+	/* FAE : interface index. */
+	uint32_t ifindex;
 #define F_SEGMENT_LIST_NEW 0x0002
 #define F_SEGMENT_LIST_MODIFIED 0x0004
 #define F_SEGMENT_LIST_DELETED 0x0008
