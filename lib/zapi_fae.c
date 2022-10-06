@@ -222,6 +222,7 @@ static int _encode_answer(struct stream *s,
 
 	for (int i = 0; i < zt->label_num; i++)
 		stream_putl(s, zt->labels[i]);
+	stream_putl(s, a->ifindex);
 	return 0;
 }
 
@@ -252,6 +253,7 @@ static int _decode_answer(struct stream *s, struct zapi_fae_answer *a)
 	}
 	for (int i = 0; i < zt->label_num; i++)
 		STREAM_GETL(s, zt->labels[i]);
+	STREAM_GETL(s, a->ifindex);
 
 	return 0;
 

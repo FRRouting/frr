@@ -128,7 +128,7 @@ int isis_zebra_fae_update_send(
 			answer.sid_list.label_num = 1;
 			answer.sid_list.labels[0] = nexthop->sr.label;
 		}
-
+		answer.ifindex = nexthop->ifindex;
 		result = zapi_fae_update_send(zclient, client_daemon_id,
 					      &igp_disc, &query, &answer);
 #ifdef EXTREME_DEBUG

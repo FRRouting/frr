@@ -84,6 +84,7 @@ struct zapi_fae_answer {
 	union {
 		struct zapi_srte_tunnel sid_list; /* format 0 */
 	};
+	ifindex_t ifindex;
 };
 
 extern enum zclient_send_status
