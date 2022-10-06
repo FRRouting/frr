@@ -643,8 +643,9 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		isis_route_remove_previous_sid(area, prefix, rn);
 
 		/* Install route. */
-		isis_zebra_route_add_route(area->isis, prefix, src_p,
-					   route_info);
+		if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_SR_ALGO))
+			isis_zebra_route_add_route(area->isis, prefix, src_p,
+						   route_info);
 
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			struct isis_sr_psid_info sr_algo;
@@ -695,8 +696,9 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 		}
 
 		/* Uninstall route. */
-		isis_zebra_route_del_route(area->isis, prefix, src_p,
-					   route_info);
+		if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_SR_ALGO))
+			isis_zebra_route_del_route(area->isis, prefix, src_p,
+						   route_info);
 		hook_call(isis_route_update_hook, area, prefix, rn, switchover);
 
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
