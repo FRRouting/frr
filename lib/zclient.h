@@ -639,6 +639,7 @@ struct zapi_srte_tunnel {
 	mpls_label_t local_label;
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
+	ifindex_t ifindex;
 };
 
 struct zapi_sr_policy {

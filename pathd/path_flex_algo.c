@@ -967,6 +967,7 @@ static void _fae_seglist_to_candidate(struct flex_algo_endpoint *f,
 			SET_FLAG(segment->segment_list->flags,
 				 F_SEGMENT_LIST_MODIFIED);
 		}
+		segment_list->ifindex = f->ifindex;
 	}
 
 	candidate->lsp->segment_list = segment_list;

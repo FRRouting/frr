@@ -3711,6 +3711,7 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 
 	for (int i = 0; i < zt->label_num; i++)
 		stream_putl(s, zt->labels[i]);
+	stream_putl(s, zt->ifindex);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3741,6 +3742,7 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 	}
 	for (int i = 0; i < zt->label_num; i++)
 		STREAM_GETL(s, zt->labels[i]);
+	STREAM_GETL(s, zt->ifindex);
 
 	return 0;
 

@@ -140,21 +140,27 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 		    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
 			continue;
 
-		if (num == 0) {
-			stream_putc(s, re_type_from_lsp_type(nhlfe->type));
-			stream_putw(s, 0); /* instance - not available */
-			stream_putc(s, nhlfe->distance);
-			stream_putl(s, 0); /* metric - not available */
-			nump = stream_get_endp(s);
-			stream_putc(s, 0);
+		if ((policy->segment_list.ifindex == IFINDEX_INTERNAL)
+		    || ((nhlfe->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
+			 || nhlfe->nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
+			&& nhlfe->nexthop->ifindex
+				   == policy->segment_list.ifindex)) {
+			if (num == 0) {
+				stream_putc(s,
+					    re_type_from_lsp_type(nhlfe->type));
+				stream_putw(s,
+					    0); /* instance - not available */
+				stream_putc(s, nhlfe->distance);
+				stream_putl(s, 0); /* metric - not available */
+				nump = stream_get_endp(s);
+				stream_putc(s, 0);
+			}
+			zapi_nexthop_from_nexthop(&znh, nhlfe->nexthop);
+			ret = zapi_nexthop_encode(s, &znh, 0, message);
+			if (ret < 0)
+				goto failure;
+			num++;
 		}
-
-		zapi_nexthop_from_nexthop(&znh, nhlfe->nexthop);
-		ret = zapi_nexthop_encode(s, &znh, 0, message);
-		if (ret < 0)
-			goto failure;
-
-		num++;
 	}
 	stream_putc_at(s, nump, num);
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -267,6 +273,8 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 {
 	struct zapi_srte_tunnel old_tunnel = policy->segment_list;
 	struct zebra_lsp *lsp;
+	struct zebra_nhlfe *nhlfe;
+	bool lsp_if_found = false;
 
 	if (new_tunnel)
 		policy->segment_list = *new_tunnel;
@@ -278,6 +286,30 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 		if (policy->status == ZEBRA_SR_POLICY_UP)
 			zebra_sr_policy_deactivate(policy);
 		return -1;
+	}
+
+	/* check if the LSP is updated by ISIS with the new nexthop */
+	if (policy->segment_list.ifindex != IFINDEX_INTERNAL) {
+		frr_each_safe (nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+			if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
+			    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
+				continue;
+			if (!nhlfe->nexthop)
+				continue;
+			if ((nhlfe->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
+			     || nhlfe->nexthop->type
+					== NEXTHOP_TYPE_IPV6_IFINDEX)
+			    && nhlfe->nexthop->ifindex
+				       == policy->segment_list.ifindex) {
+				lsp_if_found = true;
+				break;
+			}
+		}
+		if (!lsp_if_found) {
+			if (policy->status == ZEBRA_SR_POLICY_UP)
+				zebra_sr_policy_deactivate(policy);
+			return -1;
+		}
 	}
 
 	/* First label was resolved successfully. */
