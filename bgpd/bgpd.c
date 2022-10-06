@@ -4246,9 +4246,9 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
 	{PEER_FLAG_TIMER_DELAYOPEN, 0, peer_change_none},
 	{PEER_FLAG_PASSWORD, 0, peer_change_none},
-	{PEER_FLAG_LOCAL_AS, 0, peer_change_none},
-	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_none},
-	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_none},
+	{PEER_FLAG_LOCAL_AS, 0, peer_change_reset},
+	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_reset},
+	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_reset},
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{PEER_FLAG_EXTENDED_OPT_PARAMS, 0, peer_change_reset},
@@ -6128,18 +6128,8 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	(void)peer_sort(peer);
 
 	/* Check if handling a regular peer. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		/* Send notification or reset peer depending on state. */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-
-		/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		return 0;
-	}
 
 	/*
 	 * Set flag and configuration on all peer-group members, unless they are
@@ -6168,14 +6158,6 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
 			  replace_as);
 		member->change_local_as = as;
-
-		/* Send notification or stop peer depending on state. */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
-			member->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(member, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			BGP_EVENT_ADD(member, BGP_Stop);
 	}
 
 	return 0;
