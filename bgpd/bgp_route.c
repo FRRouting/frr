@@ -3854,8 +3854,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	int do_loop_check = 1;
 	int has_valid_label = 0;
 	afi_t nh_afi;
-	uint8_t pi_type = 0;
-	uint8_t pi_sub_type = 0;
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
 	bool leak_success = true;
@@ -4059,15 +4057,10 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_attr_add_gshut_community(&new_attr);
 	}
 
-	if (pi) {
-		pi_type = pi->type;
-		pi_sub_type = pi->sub_type;
-	}
-
 	/* next hop check.  */
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)
-	    && bgp_update_martian_nexthop(bgp, afi, safi, pi_type, pi_sub_type,
-					  &new_attr, dest)) {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD) &&
+	    bgp_update_martian_nexthop(bgp, afi, safi, type, sub_type,
+				       &new_attr, dest)) {
 		peer->stat_pfx_nh_invalid++;
 		reason = "martian or self next-hop;";
 		bgp_attr_flush(&new_attr);
