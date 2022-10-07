@@ -1700,6 +1700,8 @@ DEFUN_NOSH (show_debugging,
 	if (IS_DEBUG_LFA)
 		print_debug(vty, DEBUG_LFA, 1);
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

@@ -3174,6 +3174,12 @@ static struct cmd_node rmap_debug_node = {
 	.config_write = rmap_config_write_debug,
 };
 
+void route_map_show_debug(struct vty *vty)
+{
+	if (rmap_debug)
+		vty_out(vty, "debug route-map\n");
+}
+
 /* Configuration write function. */
 static int rmap_config_write_debug(struct vty *vty)
 {

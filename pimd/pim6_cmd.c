@@ -1558,6 +1558,8 @@ DEFUN_NOSH (show_debugging_pimv6,
 
 	pim_debug_config_write(vty);
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

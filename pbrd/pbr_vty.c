@@ -1243,6 +1243,8 @@ DEFUN_NOSH(show_debugging_pbr,
 
 	pbr_debug_config_write_helper(vty, false);
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

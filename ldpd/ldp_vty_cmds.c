@@ -774,7 +774,11 @@ DEFPY_NOSH (ldp_show_debugging_mpls_ldp,
 	    "MPLS information\n"
 	    "Label Distribution Protocol\n")
 {
-	return (ldp_vty_show_debugging(vty));
+	ldp_vty_show_debugging(vty);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
 }
 
 static void
