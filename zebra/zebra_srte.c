@@ -472,6 +472,46 @@ out:
 	ttable_del(tt);
 }
 
+bool zebra_srte_evaluate_rnh(struct zebra_vrf *zvrf, struct prefix *p,
+			     uint32_t srte_color)
+{
+	struct zebra_sr_policy policy = {};
+	struct ipaddr endpoint;
+	struct zebra_sr_policy *policy_ptr;
+	bool ret = false;
+
+	if (!zvrf->vrf || zvrf->vrf->vrf_id != VRF_DEFAULT)
+		return ret;
+
+	switch (p->family) {
+	case AF_INET:
+		if (p->prefixlen != IPV4_MAX_BITLEN)
+			return ret;
+		endpoint.ipa_type = IPADDR_V4;
+		endpoint.ipaddr_v4.s_addr = p->u.prefix4.s_addr;
+		break;
+	case AF_INET6:
+		if (p->prefixlen != IPV6_MAX_BITLEN)
+			return ret;
+		endpoint.ipa_type = IPADDR_V6;
+		memcpy(&endpoint.ipaddr_v6, &p->u.prefix6,
+		       sizeof(endpoint.ipaddr_v6));
+		break;
+	default:
+		return ret;
+	}
+
+	policy.color = srte_color;
+	policy.endpoint = endpoint;
+	policy_ptr = RB_FIND(zebra_sr_policy_instance_head,
+			     &zebra_sr_policy_instances, &policy);
+	if (policy_ptr) {
+		zebra_sr_policy_notify_update(policy_ptr);
+		ret = true;
+	}
+	return ret;
+}
+
 void zebra_srte_init(void)
 {
 	hook_register(zserv_client_close, zebra_srte_client_close_cleanup);

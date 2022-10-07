@@ -1212,6 +1212,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	bool flag_changed = false;
 	uint8_t orig_flags;
 	safi_t safi;
+	uint32_t srte_color;
+	bool ret;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1258,6 +1260,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
+		STREAM_GETL(s, srte_color);
+		l += 4;
 		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
 		if (!rnh)
 			return;
@@ -1280,6 +1284,16 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, &p,
 					   safi);
 
+		if (exist && srte_color) {
+			/* We always need to respond with known information.
+			 * Currently multiple daemons expect this behavior
+			 */
+			ret = zebra_srte_evaluate_rnh(zvrf, &p, srte_color);
+			if (ret)
+				/* zebra_add_rnh_client() not needed */
+				return;
+		}
+
 		zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
 	}
 
@@ -1295,6 +1309,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	struct prefix p;
 	unsigned short l = 0;
 	safi_t safi;
+	uint32_t srte_color __attribute__((unused));
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1345,6 +1360,8 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
+		STREAM_GETL(s, srte_color);
+		l += 4;
 		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);

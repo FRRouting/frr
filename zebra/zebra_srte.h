@@ -53,6 +53,8 @@ void zebra_srte_init(void);
 int zebra_sr_policy_label_update(mpls_label_t label,
 				 enum zebra_sr_policy_update_label_mode mode);
 void zebra_sr_policy_show(struct vty *vty, bool uj);
+bool zebra_srte_evaluate_rnh(struct zebra_vrf *zvrf, struct prefix *p,
+			     uint32_t srte_color);
 #ifdef __cplusplus
 }
 #endif

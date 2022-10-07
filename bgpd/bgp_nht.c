@@ -1142,7 +1142,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 
 	ret = zclient_send_rnh(zclient, command, &bnc->prefix, SAFI_UNICAST,
 			       exact_match, resolve_via_default,
-			       bnc->bgp->vrf_id);
+			       bnc->bgp->vrf_id, bnc->srte_color);
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		flog_warn(EC_BGP_ZEBRA_SEND,
 			  "sendmsg_nexthop: zclient_send_message() failed");

@@ -1113,7 +1113,7 @@ extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 extern enum zclient_send_status
 zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
 		 safi_t safi, bool connected, bool resolve_via_default,
-		 vrf_id_t vrf_id);
+		 vrf_id_t vrf_id, uint32_t srte_color);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);

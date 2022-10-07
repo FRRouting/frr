@@ -773,7 +773,8 @@ static void zclient_connect(struct event *t)
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 					  const struct prefix *p, safi_t safi,
 					  bool connected, bool resolve_via_def,
-					  vrf_id_t vrf_id)
+					  vrf_id_t vrf_id,
+					  uint32_t srte_color)
 {
 	struct stream *s;
 
@@ -795,6 +796,7 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	default:
 		break;
 	}
+	stream_putl(s, srte_color);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
