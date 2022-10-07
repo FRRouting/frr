@@ -10010,6 +10010,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 {
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
+	char tag_buf[30];
 	struct attr *attr = path->attr;
 	time_t tbuf;
 	json_object *json_bestpath = NULL;
@@ -10040,6 +10041,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 	mpls_label_t label = MPLS_INVALID_LABEL;
+	tag_buf[0] = '\0';
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10053,9 +10055,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (path->extra) {
-		char tag_buf[30];
-
-		tag_buf[0] = '\0';
 		if (path->extra && path->extra->num_labels) {
 			bgp_evpn_label2str(path->extra->label,
 					   path->extra->num_labels, tag_buf,
@@ -10072,44 +10071,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					json_object_string_add(json_path, "vni",
 							       tag_buf);
 				}
-			}
-		}
-
-		if (path->extra && path->extra->parent && !json_paths) {
-			struct bgp_path_info *parent_ri;
-			struct bgp_dest *dest, *pdest;
-
-			parent_ri = (struct bgp_path_info *)path->extra->parent;
-			dest = parent_ri->net;
-			if (dest && dest->pdest) {
-				pdest = dest->pdest;
-				if (is_pi_family_evpn(parent_ri)) {
-					vty_out(vty,
-						"  Imported from %pRD:%pFX, VNI %s",
-						(struct prefix_rd *)
-							bgp_dest_get_prefix(
-								pdest),
-						(struct prefix_evpn *)
-							bgp_dest_get_prefix(
-								dest),
-						tag_buf);
-					if (attr->es_flags & ATTR_ES_L3_NHG)
-						vty_out(vty, ", L3NHG %s",
-							(attr->es_flags
-							 & ATTR_ES_L3_NHG_ACTIVE)
-								? "active"
-								: "inactive");
-					vty_out(vty, "\n");
-
-				} else
-					vty_out(vty,
-						"  Imported from %pRD:%pFX\n",
-						(struct prefix_rd *)
-							bgp_dest_get_prefix(
-								pdest),
-						(struct prefix_evpn *)
-							bgp_dest_get_prefix(
-								dest));
 			}
 		}
 	}
@@ -10130,6 +10091,40 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	if (safi == SAFI_EVPN && !json_path)
 		vty_out(vty, "\n");
+
+
+	if (path->extra && path->extra->parent && !json_paths) {
+		struct bgp_path_info *parent_ri;
+		struct bgp_dest *dest, *pdest;
+
+		parent_ri = (struct bgp_path_info *)path->extra->parent;
+		dest = parent_ri->net;
+		if (dest && dest->pdest) {
+			pdest = dest->pdest;
+			if (is_pi_family_evpn(parent_ri)) {
+				vty_out(vty,
+					"  Imported from %pRD:%pFX, VNI %s",
+					(struct prefix_rd *)bgp_dest_get_prefix(
+						pdest),
+					(struct prefix_evpn *)
+						bgp_dest_get_prefix(dest),
+					tag_buf);
+				if (attr->es_flags & ATTR_ES_L3_NHG)
+					vty_out(vty, ", L3NHG %s",
+						(attr->es_flags &
+						 ATTR_ES_L3_NHG_ACTIVE)
+							? "active"
+							: "inactive");
+				vty_out(vty, "\n");
+
+			} else
+				vty_out(vty, "  Imported from %pRD:%pFX\n",
+					(struct prefix_rd *)bgp_dest_get_prefix(
+						pdest),
+					(struct prefix_evpn *)
+						bgp_dest_get_prefix(dest));
+		}
+	}
 
 	/* Line1 display AS-path, Aggregator */
 	if (attr->aspath) {
