@@ -322,6 +322,7 @@ DEFUN_NOSH (show_debugging_eigrp,
 		}
 	}
 
+	cmd_show_lib_debugs(vty);
 	return CMD_SUCCESS;
 }
 

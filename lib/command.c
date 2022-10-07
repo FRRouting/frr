@@ -48,6 +48,7 @@
 #include "lib_errors.h"
 #include "northbound_cli.h"
 #include "network.h"
+#include "routemap.h"
 
 #include "frrscript.h"
 
@@ -2444,6 +2445,11 @@ void host_config_set(const char *filename)
 const char *host_config_get(void)
 {
 	return host.config;
+}
+
+void cmd_show_lib_debugs(struct vty *vty)
+{
+	route_map_show_debug(vty);
 }
 
 void install_default(enum node_type node)

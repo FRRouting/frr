@@ -649,6 +649,12 @@ extern char *cmd_variable_comp2str(vector comps, unsigned short cols);
 
 extern void command_setup_early_logging(const char *dest, const char *level);
 
+/*
+ * Allow a mechanism for `debug XXX` commands that live
+ * under the lib directory to output their debug status
+ */
+extern void cmd_show_lib_debugs(struct vty *vty);
+
 #ifdef __cplusplus
 }
 #endif

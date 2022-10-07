@@ -615,6 +615,8 @@ DEFUN_NOSH (show_debugging_sharpd,
 {
 	vty_out(vty, "Sharp debugging status:\n");
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

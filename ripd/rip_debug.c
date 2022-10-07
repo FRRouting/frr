@@ -55,6 +55,8 @@ DEFUN_NOSH (show_debugging_rip,
 	if (IS_RIP_DEBUG_ZEBRA)
 		vty_out(vty, "  RIP zebra debugging is on\n");
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

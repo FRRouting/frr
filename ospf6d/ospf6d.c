@@ -115,6 +115,8 @@ DEFUN_NOSH (show_debugging_ospf6,
 
 	config_write_ospf6_debug(vty);
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 
