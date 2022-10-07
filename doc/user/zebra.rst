@@ -745,7 +745,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [func-bits 32]
+.. clicmd:: prefix X:X::X:X/M [func-bits (0-64)]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
