@@ -162,6 +162,8 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 			num++;
 		}
 	}
+	if (num == 0)
+		goto failure;
 	stream_putc_at(s, nump, num);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
