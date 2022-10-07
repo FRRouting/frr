@@ -2785,7 +2785,7 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 				enum dplane_op_e op, struct route_entry *re,
 				const struct prefix *p,
-				const struct prefix *src_p, afi_t afi,
+				const struct prefix_ipv6 *src_p, afi_t afi,
 				safi_t safi)
 {
 	int ret = EINVAL;
@@ -2836,7 +2836,8 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	int ret = EINVAL;
 	const struct route_table *table = NULL;
 	const struct rib_table_info *info;
-	const struct prefix *p, *src_p;
+	const struct prefix *p;
+	const struct prefix_ipv6 *src_p;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
@@ -2853,7 +2854,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	 */
 
 	/* Prefixes: dest, and optional source */
-	srcdest_rnode_prefixes(rn, &p, &src_p);
+	srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
 	table = srcdest_rnode_table(rn);
 	info = table->info;
 
@@ -6309,6 +6310,9 @@ void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (!ctx)
 		rib_add_multipath(afi, safi, p, src_p, re, ng, startup);
 	else {
+		dplane_ctx_route_init_basic(ctx, dplane_ctx_get_op(ctx), re, p,
+					    src_p, afi, safi);
+		dplane_provider_enqueue_to_zebra(ctx);
 	}
 }
 

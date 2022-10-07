@@ -2260,10 +2260,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	}
 
 	/* Ensure we clear the QUEUED flag */
-	if (!zrouter.asic_offloaded) {
-		UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
-		UNSET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
-	}
+	UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+	UNSET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
 
 	/* Is this a notification that ... matters? We mostly care about
 	 * the route that is currently selected for installation; we may also
@@ -2306,6 +2304,19 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 						dplane_ctx_get_type(ctx)));
 		}
 		goto done;
+	} else {
+		uint32_t flags = dplane_ctx_get_flags(ctx);
+
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED)) {
+			UNSET_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED);
+			SET_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED);
+		}
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED)) {
+			UNSET_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED);
+			SET_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED);
+		}
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED))
+			SET_FLAG(re->flags, ZEBRA_FLAG_TRAPPED);
 	}
 
 	/* We'll want to determine whether the installation status of the
