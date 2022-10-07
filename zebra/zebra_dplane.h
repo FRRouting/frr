@@ -913,7 +913,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
 				enum dplane_op_e op, struct route_entry *re,
 				const struct prefix *p,
-				const struct prefix *src_p, afi_t afi,
+				const struct prefix_ipv6 *src_p, afi_t afi,
 				safi_t safi);
 
 /* Encode next hop information into data plane context. */

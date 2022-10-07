@@ -51,6 +51,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/debug.h"
+#include "fpm/fpm.h"
 
 #define SOUTHBOUND_DEFAULT_ADDR INADDR_LOOPBACK
 #define SOUTHBOUND_DEFAULT_PORT 2620
@@ -462,7 +463,13 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 static void fpm_read(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	fpm_msg_hdr_t fpm;
 	ssize_t rv;
+	char buf[65535];
+	struct nlmsghdr *hdr;
+	struct zebra_dplane_ctx *ctx;
+	size_t available_bytes;
+	size_t hdr_available_bytes;
 
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
@@ -494,11 +501,122 @@ static void fpm_read(struct thread *t)
 	if (rv == -2)
 		return;
 
-	stream_reset(fnc->ibuf);
 
 	/* Account all bytes read. */
 	atomic_fetch_add_explicit(&fnc->counters.bytes_read, rv,
 				  memory_order_relaxed);
+
+	available_bytes = STREAM_READABLE(fnc->ibuf);
+	while (available_bytes) {
+		if (available_bytes < (ssize_t)FPM_MSG_HDR_LEN) {
+			stream_pulldown(fnc->ibuf);
+			return;
+		}
+
+		fpm.version = stream_getc(fnc->ibuf);
+		fpm.msg_type = stream_getc(fnc->ibuf);
+		fpm.msg_len = stream_getw(fnc->ibuf);
+
+		if (fpm.version != FPM_PROTO_VERSION &&
+		    fpm.msg_type != FPM_MSG_TYPE_NETLINK) {
+			stream_reset(fnc->ibuf);
+			zlog_warn(
+				"%s: Received version/msg_type %u/%u, expected 1/1",
+				__func__, fpm.version, fpm.msg_type);
+
+			FPM_RECONNECT(fnc);
+			return;
+		}
+
+		/*
+		 * If the passed in length doesn't even fill in the header
+		 * something is wrong and reset.
+		 */
+		if (fpm.msg_len < FPM_MSG_HDR_LEN) {
+			zlog_warn(
+				"%s: Received message length: %u that does not even fill the FPM header",
+				__func__, fpm.msg_len);
+			FPM_RECONNECT(fnc);
+			return;
+		}
+
+		/*
+		 * If we have not received the whole payload, reset the stream
+		 * back to the beginning of the header and move it to the
+		 * top.
+		 */
+		if (fpm.msg_len > available_bytes) {
+			stream_rewind_getp(fnc->ibuf, FPM_MSG_HDR_LEN);
+			stream_pulldown(fnc->ibuf);
+			return;
+		}
+
+		available_bytes -= FPM_MSG_HDR_LEN;
+
+		/*
+		 * Place the data from the stream into a buffer
+		 */
+		hdr = (struct nlmsghdr *)buf;
+		stream_get(buf, fnc->ibuf, fpm.msg_len - FPM_MSG_HDR_LEN);
+		hdr_available_bytes = fpm.msg_len - FPM_MSG_HDR_LEN;
+		available_bytes -= hdr_available_bytes;
+
+		/* Sanity check: must be at least header size. */
+		if (hdr->nlmsg_len < sizeof(*hdr)) {
+			zlog_warn(
+				"%s: [seq=%u] invalid message length %u (< %zu)",
+				__func__, hdr->nlmsg_seq, hdr->nlmsg_len,
+				sizeof(*hdr));
+			continue;
+		}
+		if (hdr->nlmsg_len > fpm.msg_len) {
+			zlog_warn(
+				"%s: Received a inner header length of %u that is greater than the fpm total length of %u",
+				__func__, hdr->nlmsg_len, fpm.msg_len);
+			FPM_RECONNECT(fnc);
+		}
+		/* Not enough bytes available. */
+		if (hdr->nlmsg_len > hdr_available_bytes) {
+			zlog_warn(
+				"%s: [seq=%u] invalid message length %u (> %zu)",
+				__func__, hdr->nlmsg_seq, hdr->nlmsg_len,
+				available_bytes);
+			continue;
+		}
+
+		if (!(hdr->nlmsg_flags & NLM_F_REQUEST)) {
+			if (IS_ZEBRA_DEBUG_FPM)
+				zlog_debug(
+					"%s: [seq=%u] not a request, skipping",
+					__func__, hdr->nlmsg_seq);
+
+			/*
+			 * This request is a bust, go to the next one
+			 */
+			continue;
+		}
+
+		switch (hdr->nlmsg_type) {
+		case RTM_NEWROUTE:
+			ctx = dplane_ctx_alloc();
+			dplane_ctx_set_op(ctx, DPLANE_OP_ROUTE_NOTIFY);
+			if (netlink_route_change_read_unicast_internal(
+				    hdr, 0, false, ctx) != 1) {
+				dplane_ctx_fini(&ctx);
+				stream_pulldown(fnc->ibuf);
+				return;
+			}
+			break;
+		default:
+			if (IS_ZEBRA_DEBUG_FPM)
+				zlog_debug(
+					"%s: Received message type %u which is not currently handled",
+					__func__, hdr->nlmsg_type);
+			break;
+		}
+	}
+
+	stream_reset(fnc->ibuf);
 }
 
 static void fpm_write(struct thread *t)
