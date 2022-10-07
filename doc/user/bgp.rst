@@ -4135,6 +4135,10 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    EVPN prefixes can also be filtered by EVPN route type.
 
+.. clicmd:: show bgp vni <all|VNI> [vtep VTEP] [type <ead|1|macip|2|multicast|3>] [<detail|json>]
+
+   Display per-VNI EVPN routing table in bgp. Filter route-type, vtep, or VNI.
+
 .. clicmd:: show bgp [afi] [safi] [all] summary [json]
 
    Show a bgp peer summary for the specified address family, and subsequent
