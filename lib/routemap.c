@@ -941,11 +941,12 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 		json_object_boolean_add(json_rmap, "processedChange",
 					map->to_be_processed);
 		json_object_object_add(json_rmap, "rules", json_rules);
+		json_object_int_add(json_rmap, "cpuTimeMS", map->cputime / 1000);
 	} else {
 		vty_out(vty,
 			"route-map: %s Invoked: %" PRIu64
-			" Optimization: %s Processed Change: %s\n",
-			map->name, map->applied - map->applied_clear,
+			" (%zu milliseconds total) Optimization: %s Processed Change: %s\n",
+			map->name, map->applied - map->applied_clear, map->cputime / 1000,
 			map->optimization_disabled ? "disabled" : "enabled",
 			map->to_be_processed ? "true" : "false");
 	}
@@ -967,6 +968,7 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 			json_object_int_add(json_rule, "invoked",
 					    index->applied
 						    - index->applied_clear);
+			json_object_int_add(json_rule, "cpuTimeMS", index->cputime / 1000);
 
 			/* Description */
 			if (index->description)
@@ -1018,9 +1020,10 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 				json_object_string_add(json_rule, "action",
 						       action);
 		} else {
-			vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
+			vty_out(vty,
+				" %s, sequence %d Invoked %" PRIu64 " (%zu milliseconds total)\n",
 				route_map_type_str(index->type), index->pref,
-				index->applied - index->applied_clear);
+				index->applied - index->applied_clear, index->cputime / 1000);
 
 			/* Description */
 			if (index->description)
@@ -2548,6 +2551,9 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
 	bool skip_match_clause = false;
+	RUSAGE_T mbefore, mafter;
+	RUSAGE_T ibefore, iafter;
+	unsigned long cputime;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		if (map)
@@ -2570,6 +2576,9 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	map->applied++;
 
+	GETRUSAGE(&mbefore);
+	ibefore = mbefore;
+
 	if (prefix->family == AF_EVPN) {
 		index = map->head;
 	} else {
@@ -2580,6 +2589,12 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	if (index) {
 		index->applied++;
+
+		GETRUSAGE(&iafter);
+		event_consumed_time(&iafter, &ibefore, &cputime);
+		index->cputime += cputime;
+		ibefore = iafter;
+
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
 				"Best match route-map: %s, sequence: %d for pfx: %pFX, result: %s",
@@ -2718,6 +2733,10 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 				goto route_map_apply_end;
 			}
 		}
+		GETRUSAGE(&iafter);
+		event_consumed_time(&iafter, &ibefore, &cputime);
+		index->cputime += cputime;
+		ibefore = iafter;
 	}
 
 route_map_apply_end:
@@ -2731,6 +2750,12 @@ route_map_apply_end:
 			*pref = index->pref;
 		else
 			*pref = 65536;
+	}
+
+	if (map) {
+		GETRUSAGE(&mafter);
+		event_consumed_time(&mafter, &mbefore, &cputime);
+		map->cputime += cputime;
 	}
 
 	return (ret);
@@ -3090,8 +3115,11 @@ static void clear_route_map_helper(struct route_map *map)
 	struct route_map_index *index;
 
 	map->applied_clear = map->applied;
-	for (index = map->head; index; index = index->next)
+	map->cputime = 0;
+	for (index = map->head; index; index = index->next) {
 		index->applied_clear = index->applied;
+		index->cputime = 0;
+	}
 }
 
 DEFPY (rmap_clear_counters,
