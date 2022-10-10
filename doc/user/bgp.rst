@@ -1790,6 +1790,13 @@ Configuring Peers
    with lower holdtime less than configured minimum holdtime.
    When this command is not set, minimum holdtime does not work.
 
+.. clicmd:: bgp tcp-keepalive (1-65535) (1-65535) (1-30)
+
+   This command allows user to configure TCP keepalive with new BGP peers.
+   Each parameter respectively stands for TCP keepalive idle timer (seconds),
+   interval (seconds), and maximum probes. By default, TCP keepalive is
+   disabled.
+
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
