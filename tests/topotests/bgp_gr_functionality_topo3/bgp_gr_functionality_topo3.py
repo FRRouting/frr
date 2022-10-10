@@ -248,7 +248,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.16")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.16")
 
     global ADDR_TYPES
 
