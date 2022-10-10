@@ -12044,8 +12044,10 @@ DEFUN (show_ip_bgp_large_community,
 		return CMD_WARNING;
 
 	if (argv_find(argv, argc, "AA:BB:CC", &idx)) {
-		if (argv_find(argv, argc, "exact-match", &idx))
+		if (argv_find(argv, argc, "exact-match", &idx)) {
+			argc--;
 			exact_match = 1;
+		}
 		return bgp_show_lcommunity(vty, bgp, argc, argv,
 					exact_match, afi, safi, uj);
 	} else
