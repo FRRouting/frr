@@ -240,17 +240,18 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
     logger.info("Ensure BGP has processed the cli")
     r2 = tgen.gears["r2"]
     output = r2.vtysh_cmd("show run")
-    verify = re.search(r"fast-convergence", output )
-    assert verify is not None, (
-        "r2 does not have the fast convergence command yet")
+    verify = re.search(r"fast-convergence", output)
+    assert verify is not None, "r2 does not have the fast convergence command yet"
 
     logger.info("Shutdown one link b/w r2 and r3")
     shutdown_bringup_interface(tgen, "r2", intf1, False)
 
     logger.info("Verify bgp neighbors goes down immediately")
     result = verify_bgp_convergence(tgen, topo, dut="r2", expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: BGP should not be converged for {} \n "
+        "Found: {}".format(tc_name, "r2", result)
     )
 
     logger.info("Shutdown second link b/w r2 and r3")
@@ -258,8 +259,10 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
 
     logger.info("Verify bgp neighbors goes down immediately")
     result = verify_bgp_convergence(tgen, topo, dut="r2", expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: BGP should not be converged for {} \n "
+        "Found: {}".format(tc_name, "r2", result)
     )
 
     write_test_footer(tc_name)

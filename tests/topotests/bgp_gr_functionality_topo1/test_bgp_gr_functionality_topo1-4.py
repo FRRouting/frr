@@ -160,7 +160,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.16")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.16")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -1157,7 +1157,8 @@ def test_BGP_GR_TC_48_p1(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r1: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
         dut = "r2"
@@ -1171,16 +1172,17 @@ def test_BGP_GR_TC_48_p1(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r2: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
+
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r2: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     step("Bring up BGP on R1 and remove Peer-level GR config from R1")
@@ -1542,16 +1544,17 @@ def BGP_GR_TC_52_p1(request):
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r1: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
+
         result = verify_rib(
             tgen, addr_type, dut, input_topo, next_hop, protocol, expected=False
         )
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r1: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
 
     step("Bring up BGP on R2 and remove Peer-level GR config from R1")
