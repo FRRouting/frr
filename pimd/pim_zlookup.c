@@ -275,11 +275,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				break;
 
 			struct pim_neighbor *nbr;
-			struct prefix p;
 
-			p.family = AF_INET6;
-			p.prefixlen = IPV6_MAX_BITLEN;
-			p.u.prefix6 = nh_ip6;
 #if PIM_IPV == 4
 			/* RFC 5549 v4-over-v6 nexthop handling */
 			/*
@@ -287,6 +283,12 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			 * secondary
 			 */
 			if (pim->send_v6_secondary) {
+				struct prefix p;
+
+				p.family = AF_INET6;
+				p.prefixlen = IPV6_MAX_BITLEN;
+				p.u.prefix6 = nh_ip6;
+
 				nbr = pim_neighbor_find_by_secondary(ifp, &p);
 			} else
 				nbr = pim_neighbor_find_if(ifp);

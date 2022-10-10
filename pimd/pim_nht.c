@@ -789,19 +789,6 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				continue;
 			}
 
-			if (PIM_DEBUG_PIM_NHT) {
-#if PIM_IPV == 4
-				pim_addr nhaddr = nexthop->gate.ipv4;
-#else
-				pim_addr nhaddr = nexthop->gate.ipv6;
-#endif
-				zlog_debug(
-					"%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
-					__func__, &match, pim->vrf->name, i + 1,
-					&nhaddr, ifp->name, nexthop->type,
-					nhr.distance, nhr.metric);
-			}
-
 			if (!ifp->info) {
 				/*
 				 * Though Multicast is not enabled on this
@@ -822,6 +809,29 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 						nexthop2str(nexthop, buf,
 							    sizeof(buf)));
 				}
+			}
+
+#if PIM_IPV == 6
+			struct pim_neighbor *nbr = NULL;
+
+			nbr = pim_neighbor_find_if(ifp);
+
+			/* Overwrite NH address with link-local addr */
+			if (nbr)
+				nexthop->gate.ipv6 = nbr->source_addr;
+#endif
+
+			if (PIM_DEBUG_PIM_NHT) {
+#if PIM_IPV == 4
+				pim_addr nhaddr = nexthop->gate.ipv4;
+#else
+				pim_addr nhaddr = nexthop->gate.ipv6;
+#endif
+				zlog_debug(
+					"%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
+					__func__, &match, pim->vrf->name, i + 1,
+					&nhaddr, ifp->name, nexthop->type,
+					nhr.distance, nhr.metric);
 			}
 
 			if (nhlist_tail) {
