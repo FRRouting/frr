@@ -62,15 +62,6 @@ debug() {
 	printf '\n' >&2
 }
 
-chownfrr() {
-	[ -n "$FRR_USER" ] && chown "$FRR_USER" "$1"
-	[ -n "$FRR_GROUP" ] && chgrp "$FRR_GROUP" "$1"
-	[ -n "$FRR_CONFIG_MODE" ] && chmod "$FRR_CONFIG_MODE" "$1"
-	if [ -d "$1" ]; then
-		chmod gu+x "$1"
-	fi
-}
-
 vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
 	if [ ! -r "$C_PATH/frr.conf" ]; then
@@ -152,8 +143,7 @@ daemon_prep() {
 
 	cfg="$C_PATH/$daemon${inst:+-$inst}.conf"
 	if [ ! -r "$cfg" ]; then
-		touch "$cfg"
-		chownfrr "$cfg"
+		install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" /dev/null "$cfg"
 	fi
 	return 0
 }
@@ -171,8 +161,8 @@ daemon_start() {
 	[ "$MAX_FDS" != "" ] && ulimit -n "$MAX_FDS" > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
 	if test ! -d "$V_PATH"; then
-		mkdir -p "$V_PATH"
-		chownfrr "$V_PATH"
+		install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" -d /proc "$V_PATH"
+		chmod gu+x "${V_PATH}"
 	fi
 
 	eval wrap="\$${daemon}_wrap"
