@@ -444,11 +444,11 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "Expected: Routes should not be present in {} BGP RIB \n "
-            "Found: {}".format(
-                tc_name, dut, result
-            ))
+            "Found: {}".format(tc_name, dut, result)
+        )
 
         # Verifying RIB routes
         dut = "r4"
@@ -466,11 +466,11 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, ("Testcase {} : Failed \n "
+        assert result is not True, (
+            "Testcase {} : Failed \n "
             "Expected: Routes should not be present in {} FIB \n "
-            "Found: {}".format(
-                tc_name, dut, result
-            ))
+            "Found: {}".format(tc_name, dut, result)
+        )
 
     write_test_footer(tc_name)
 
@@ -664,11 +664,11 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
             result = verify_rib(
                 tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
             )
-            assert result is not True, ("Testcase {} : Failed \n "
+            assert result is not True, (
+                "Testcase {} : Failed \n "
                 "Expected: Routes should not be present in {} FIB \n "
-                "Found: {}".format(
-                    tc_name, dut, result
-                ))
+                "Found: {}".format(tc_name, dut, result)
+            )
         else:
             result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol)
             assert result is True, "Testcase {} : Failed \n Error: {}".format(
