@@ -67,12 +67,12 @@ extern int bgp_afi_safi_orr_group_set_vty(struct vty *vty, afi_t afi,
 					  safi_t safi, const char *name,
 					  const char *primary_str,
 					  const char *secondary_str,
-					  const char *tertiary_str, bool set);
+					  const char *tertiary_str, bool unset);
 extern int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 				const char *orr_group_name);
 extern int peer_orr_group_set_vty(struct vty *vty, const char *ip_str,
 				  afi_t afi, safi_t safi,
-				  const char *orr_group_name, bool set);
+				  const char *orr_group_name, bool unset);
 extern bool peer_orr_rrclient_check(struct peer *peer, afi_t afi, safi_t safi);
 
 extern int bgp_show_orr(struct vty *vty, struct bgp *bgp, afi_t afi,
