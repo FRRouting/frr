@@ -890,7 +890,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         ):
             if ctx_keys[0] in del_nbr_dict:
                 for nbr in del_nbr_dict[ctx_keys[0]]:
-                    re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+                    re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
                     nb_exp = "neighbor %s .*" % nbr
                     if not re_nbr_pg:
                         re_nb = re.search(nb_exp, line)
@@ -997,7 +997,7 @@ def delete_move_lines(lines_to_add, lines_to_del):
             # 'no neighbor peer [interface] peer-group <>' is in lines_to_del
             # copy the neighbor and look for all config removal lines associated
             # to neighbor and delete them from the lines_to_del
-            re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+            re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
             if re_nbr_pg:
                 if ctx_keys[0] not in del_nbr_dict:
                     del_nbr_dict[ctx_keys[0]] = list()
