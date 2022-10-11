@@ -162,6 +162,11 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
 void frrscript_init(const char *scriptdir);
 
 /*
+ * On shutdown clean up memory associated with the scripting subsystem
+ */
+void frrscript_fini(void);
+
+/*
  * This macro is mapped to every (name, value) in frrscript_call,
  * so this in turn maps them onto their encoders
  */
