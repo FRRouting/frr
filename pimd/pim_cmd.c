@@ -963,7 +963,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
 				/* unaligned, again */
-				memcpy(&rp_addr, &bsm_rpinfo->rpaddr,
+				memcpy(&rp_addr, &bsm_rpinfo->rpaddr.addr,
 				       sizeof(rp_addr));
 
 				buf += sizeof(struct bsmmsg_rpinfo);
