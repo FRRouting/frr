@@ -6218,7 +6218,7 @@ DEFPY (optimal_route_reflection,
 	}
 	return bgp_afi_safi_orr_group_set_vty(
 		vty, bgp_node_afi(vty), bgp_node_safi(vty), orr_group,
-		primary_str, secondary_str, tertiary_str, !no);
+		primary_str, secondary_str, tertiary_str, !!no);
 }
 
 /* neighbor optimal-route-reflection group*/
@@ -6232,7 +6232,7 @@ DEFPY (neighbor_optimal_route_reflection,
        "ORR group name\n")
 {
 	return peer_orr_group_set_vty(vty, neighbor, bgp_node_afi(vty),
-				      bgp_node_safi(vty), orr_group, !no);
+				      bgp_node_safi(vty), orr_group, !!no);
 }
 
 /* neighbor route-server-client. */
