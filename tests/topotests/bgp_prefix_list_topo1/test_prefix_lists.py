@@ -346,11 +346,11 @@ def test_ip_prefix_lists_out_permit(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} FIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     write_test_footer(tc_name)
 
@@ -447,11 +447,11 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     write_test_footer(tc_name)
 
@@ -649,11 +649,11 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     write_test_footer(tc_name)
 
@@ -786,11 +786,11 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     write_test_footer(tc_name)
 
@@ -892,11 +892,11 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     # Modify  ip prefix list
     input_dict_1 = {
@@ -1063,11 +1063,11 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     write_test_footer(tc_name)
 
@@ -1171,11 +1171,11 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     # Modify ip prefix list
     input_dict_1 = {
@@ -1340,11 +1340,11 @@ def test_ip_prefix_lists_implicit_deny(request):
     result = verify_rib(
         tgen, "ipv4", dut, input_dict_1, protocol=protocol, expected=False
     )
-    assert result is not True, ("Testcase {} : Failed \n "
+    assert result is not True, (
+        "Testcase {} : Failed \n "
         "Expected: Routes should not be present in {} BGP RIB \n "
-        "Found: {}".format(
-            tc_name, dut, result
-        ))
+        "Found: {}".format(tc_name, dut, result)
+    )
 
     write_test_footer(tc_name)
 
