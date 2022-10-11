@@ -4028,4 +4028,6 @@ void zebra_evpn_mh_terminate(void)
 	hash_free(zmh_info->nhg_table);
 	hash_free(zmh_info->nh_ip_table);
 	bf_free(zmh_info->nh_id_bitmap);
+
+	XFREE(MTYPE_ZMH_INFO, zrouter.mh_info);
 }
