@@ -890,7 +890,7 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
         ):
             if ctx_keys[0] in del_nbr_dict:
                 for nbr in del_nbr_dict[ctx_keys[0]]:
-                    re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+                    re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
                     nb_exp = "neighbor %s .*" % nbr
                     if not re_nbr_pg:
                         re_nb = re.search(nb_exp, line)
@@ -997,7 +997,7 @@ def delete_move_lines(lines_to_add, lines_to_del):
             # 'no neighbor peer [interface] peer-group <>' is in lines_to_del
             # copy the neighbor and look for all config removal lines associated
             # to neighbor and delete them from the lines_to_del
-            re_nbr_pg = re.search('neighbor (\S+) .*peer-group (\S+)', line)
+            re_nbr_pg = re.search("neighbor (\S+) .*peer-group (\S+)", line)
             if re_nbr_pg:
                 if ctx_keys[0] not in del_nbr_dict:
                     del_nbr_dict[ctx_keys[0]] = list()
@@ -1371,6 +1371,37 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             # If prefix-lists or access-lists are being deleted and not added
             # (see comment above), add command with 'no' to lines_to_add and
             # remove from lines_to_del to improve scaling performance.
+            if found is False:
+                add_cmd = ("no " + ctx_keys[0],)
+                lines_to_add.append((add_cmd, None))
+                lines_to_del_to_del.append((ctx_keys, None))
+
+        # bgp community-list, large-community-list, extcommunity-list can be
+        # specified without a seq number. However, the running config always
+        # adds `seq X` (sequence number). So, ignore such lines as well.
+        # Examples:
+        #      bgp community-list standard clist seq 5 permit 222:213
+        #      bgp large-community-list standard llist seq 5 permit 65001:65001:1
+        #      bgp extcommunity-list standard elist seq 5 permit soo 123:123
+        re_bgp_lists = re.search(
+            "^(bgp )(community-list|large-community-list|extcommunity-list)(\s+\S+\s+)(\S+\s+)(seq \d+\s+)(permit|deny)(.*)$",
+            ctx_keys[0],
+        )
+        if re_bgp_lists:
+            found = False
+            tmpline = (
+                re_bgp_lists.group(1)
+                + re_bgp_lists.group(2)
+                + re_bgp_lists.group(3)
+                + re_bgp_lists.group(4)
+                + re_bgp_lists.group(6)
+                + re_bgp_lists.group(7)
+            )
+            for ctx in lines_to_add:
+                if ctx[0][0] == tmpline:
+                    lines_to_del_to_del.append((ctx_keys, None))
+                    lines_to_add_to_del.append(((tmpline,), None))
+                    found = True
             if found is False:
                 add_cmd = ("no " + ctx_keys[0],)
                 lines_to_add.append((add_cmd, None))
