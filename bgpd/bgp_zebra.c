@@ -67,9 +67,12 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_orr.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
+
+static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
@@ -3388,6 +3391,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_OPAQUE_MESSAGE] = bgp_opaque_msg_handler,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)
@@ -3841,4 +3845,35 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
 	return srv6_manager_release_locator_chunk(zclient, name);
+}
+
+/*
+ * ORR messages between processes
+ */
+static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	struct zapi_opaque_msg info;
+	struct orr_igp_metric_info table;
+	int ret = 0;
+
+	s = zclient->ibuf;
+
+	if (zclient_opaque_decode(s, &info) != 0) {
+		bgp_orr_debug("%s: opaque decode failed", __func__);
+		return -1;
+	}
+
+	switch (info.type) {
+	case ORR_IGP_METRIC_UPDATE:
+		STREAM_GET(&table, s, sizeof(table));
+		ret = bgg_orr_message_process(BGP_ORR_IMSG_IGP_METRIC_UPDATE,
+					      (void *)&table);
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+	return ret;
 }

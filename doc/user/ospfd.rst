@@ -831,6 +831,12 @@ Showing Information
    Show the OSPF routing table, as determined by the most recent SPF
    calculation.
 
+.. clicmd:: show ip ospf (1-65535) route orr [NAME]
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] route orr [NAME]
+
+   Show the OSPF routing table, calculated from the active root of all ORR groups or specified ORR group.
+
 .. clicmd:: show ip ospf graceful-restart helper [detail] [json]
 
    Displays the Grcaeful Restart Helper details including helper
@@ -1137,6 +1143,10 @@ Debugging OSPF
 
 .. clicmd:: show debugging ospf
 
+
+.. clicmd:: debug ospf orr
+
+   Enable or disable debugging of BGP Optimal Route Reflection.
 
 
 Sample Configuration

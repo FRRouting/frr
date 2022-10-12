@@ -245,6 +245,7 @@ pkginclude_HEADERS += \
 	lib/ns.h \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
+	lib/orr_msg.h \
 	lib/plist.h \
 	lib/prefix.h \
 	lib/printfrr.h \
