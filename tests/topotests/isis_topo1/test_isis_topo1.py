@@ -368,6 +368,7 @@ def test_isis_database_json():
 
 def test_isis_overload_on_startup():
     "Check that overload on startup behaves as expected"
+
     tgen = get_topogen()
     net = get_topogen().net
     overload_time = 120
@@ -460,6 +461,124 @@ def check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
 
     assertmsg = _check_lsp_overload_bit(
         router, overloaded_router_lsp, att_p_ol_expected
+    )
+    assert assertmsg is True, assertmsg
+
+
+def test_isis_overload_on_startup_cancel_timer():
+    "Check that overload on startup timer is cancelled when overload bit is set/unset"
+
+    tgen = get_topogen()
+    net = get_topogen().net
+    overload_time = 90
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing overload on startup behavior with set overload bit: cancel timer")
+
+    # Configure set-overload-bit on-startup on r3
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        f"""
+          configure
+            router isis 1
+              set-overload-bit on-startup {overload_time}
+              set-overload-bit
+        """
+    )
+    # Restart r3
+    logger.info("Stop router")
+    stop_router(tgen, "r3")
+    logger.info("Start router")
+    start_router(tgen, "r3")
+
+    # Check that the overload bit is set in r3's LSP
+    check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
+
+    # Check that overload timer is running
+    check_overload_timer("r3", True)
+
+    # Unset overload bit while timer is running
+    r3.vtysh_cmd(
+        """
+          configure
+            router isis 1
+              no set-overload-bit
+        """
+    )
+
+    # Check that overload timer is cancelled
+    check_overload_timer("r3", False)
+
+    # Check overload bit is unset
+    check_lsp_overload_bit("r3", "r3.00-00", "0/0/0")
+
+
+def test_isis_overload_on_startup_override_timer():
+    "Check that overload bit remains set after overload timer expires if overload bit is configured"
+
+    tgen = get_topogen()
+    net = get_topogen().net
+    overload_time = 60
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing overload on startup behavior with set overload bit: override timer")
+
+    # Configure set-overload-bit on-startup on r3
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        f"""
+          configure
+            router isis 1
+              set-overload-bit on-startup {overload_time}
+              set-overload-bit
+        """
+    )
+    # Restart r3
+    logger.info("Stop router")
+    stop_router(tgen, "r3")
+    logger.info("Start router")
+    start_router(tgen, "r3")
+
+    # Check that the overload bit is set in r3's LSP
+    check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
+
+    # Check that overload timer is running
+    check_overload_timer("r3", True)
+
+    # Check that overload timer expired
+    check_overload_timer("r3", False)
+
+    # Check overload bit is still set
+    check_lsp_overload_bit("r3", "r3.00-00", "0/0/1")
+
+
+@retry(retry_timeout=200)
+def _check_overload_timer(router, timer_expected):
+    "Verfiy overload bit in router's LSP"
+
+    tgen = get_topogen()
+    router = tgen.gears[router]
+    thread_output = router.vtysh_cmd(
+        "show thread timers"
+    )
+
+    timer_running = "set_overload_on_start_timer" in thread_output
+    if timer_running == timer_expected:
+        return True
+    return "Expected timer running status: {}".format(timer_expected)
+
+
+def check_overload_timer(router, timer_expected):
+    "Verfiy overload bit in router's LSP"
+
+    assertmsg = _check_overload_timer(
+        router, timer_expected
     )
     assert assertmsg is True, assertmsg
 
