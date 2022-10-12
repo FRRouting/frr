@@ -348,6 +348,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-origin"))
 #define IS_SET_ATOMIC_AGGREGATE(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:atomic-aggregate"))
+#define IS_SET_AIGP_METRIC(A) (strmatch(A, "frr-bgp-route-map:aigp-metric"))
 #define IS_SET_ORIGINATOR_ID(A)                                                \
 	(strmatch(A, "frr-bgp-route-map:originator-id"))
 #define IS_SET_COMM_LIST_DEL(A)                                                \

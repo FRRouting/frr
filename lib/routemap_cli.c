@@ -1089,6 +1089,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				"./rmap-set-action/frr-bgp-route-map:origin"));
 	} else if (IS_SET_ATOMIC_AGGREGATE(action)) {
 		vty_out(vty, " set atomic-aggregate\n");
+	} else if (IS_SET_AIGP_METRIC(action)) {
+		vty_out(vty, " set aigp-metric %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:aigp-metric"));
 	} else if (IS_SET_ORIGINATOR_ID(action)) {
 		vty_out(vty, " set originator-id %s\n",
 			yang_dnode_get_string(
