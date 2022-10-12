@@ -87,7 +87,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.14")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >= 4.14")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -305,8 +305,10 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                     ],
                     expected=False,
                 )
-                assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-                    tc_name, result
+                assert result is not True, (
+                    "Testcase {} : Failed \n "
+                    "Expected: Routes are still present in rib of r3 \n "
+                    "Found: {}".format(tc_name, result)
                 )
 
         step("Remove route-map from redistribute static on R1")
