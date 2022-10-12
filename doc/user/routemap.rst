@@ -310,6 +310,11 @@ Route Map Set Command
    trip time or `+rtt`/`-rtt` to add/subtract the round trip time to/from the
    MED.
 
+.. clicmd:: set aigp-metric <igp-metric|(1-4294967295)>
+
+   Set the BGP attribute AIGP to a specific value. If ``igp-metric`` is specified,
+   then the value is taken from the IGP protocol, otherwise an arbitrary value.
+
 .. clicmd:: set as-path prepend AS_PATH
 
    Set the BGP AS path to prepend.
