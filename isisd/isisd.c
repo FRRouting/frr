@@ -3190,9 +3190,15 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 
 	if (new_overload_bit != area->overload_bit) {
 		area->overload_bit = new_overload_bit;
-
-		if (new_overload_bit)
+		if (new_overload_bit) {
 			area->overload_counter++;
+		} else {
+			/* Cancel overload on startup timer if it's running */
+			if (area->t_overload_on_startup_timer) {
+				THREAD_OFF(area->t_overload_on_startup_timer);
+				area->t_overload_on_startup_timer = NULL;
+			}
+		}
 
 #ifndef FABRICD
 		hook_call(isis_hook_db_overload, area);

@@ -181,6 +181,7 @@ struct isis_area {
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */
 	char overload_bit;
+	bool overload_configured;
 	uint32_t overload_counter;
 	uint32_t overload_on_startup_time;
 	/* L1/L2 router identifier for inter-area traffic */

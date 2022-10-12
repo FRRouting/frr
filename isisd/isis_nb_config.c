@@ -350,6 +350,8 @@ int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args)
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	overload = yang_dnode_get_bool(args->dnode, NULL);
+	area->overload_configured = overload;
+
 	isis_area_overload_bit_set(area, overload);
 
 	return NB_OK;

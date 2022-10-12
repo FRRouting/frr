@@ -85,7 +85,7 @@ writing, *isisd* does not support multiple ISIS processes.
 
 .. clicmd:: set-overload-bit on-startup (0-86400)
 
-   Set overload bit on startup for the specified duration, in seconds.
+   Set overload bit on startup for the specified duration, in seconds. Reference: :rfc:`3277`
 
 .. clicmd:: purge-originator
 

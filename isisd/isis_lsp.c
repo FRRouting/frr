@@ -448,7 +448,10 @@ void set_overload_on_start_timer(struct thread *thread)
 	assert(area);
 
 	area->t_overload_on_startup_timer = NULL;
-	isis_area_overload_bit_set(area, false);
+
+	/* Check if set-overload-bit is not currently configured */
+	if (!area->overload_configured)
+		isis_area_overload_bit_set(area, false);
 }
 
 static void isis_reset_attach_bit(struct isis_adjacency *adj)
