@@ -2278,6 +2278,8 @@ DEFUN_NOSH (show_debugging_bgp,
 		vty_out(vty,
 			"  BGP conditional advertisement debugging is on\n");
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 
