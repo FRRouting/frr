@@ -4313,6 +4313,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_WEIGHT, 0, peer_change_reset_in},
 	{PEER_FLAG_DISABLE_ADDPATH_RX, 0, peer_change_reset},
 	{PEER_FLAG_SOO, 0, peer_change_reset},
+	{PEER_FLAG_ACCEPT_OWN, 0, peer_change_reset},
 	{0, 0, 0}};
 
 /* Proper action set. */

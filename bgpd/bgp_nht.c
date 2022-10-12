@@ -139,7 +139,8 @@ static int bgp_isvalid_nexthop_for_mpls(struct bgp_nexthop_cache *bnc,
 	 */
 	return (bgp_zebra_num_connects() == 0 ||
 		(bnc && (bnc->nexthop_num > 0 &&
-			 (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID) ||
+			 (CHECK_FLAG(path->flags, BGP_PATH_ACCEPT_OWN) ||
+			  CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID) ||
 			  bnc->bgp->srv6_enabled ||
 			  bgp_isvalid_nexthop_for_ebgp(bnc, path) ||
 			  bgp_isvalid_nexthop_for_mplsovergre(bnc, path)))));

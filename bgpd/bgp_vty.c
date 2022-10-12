@@ -8327,6 +8327,32 @@ ALIAS_HIDDEN(
 	"Only give warning message when limit is exceeded\n"
 	"Force checking all received routes not only accepted\n")
 
+/* "neighbor accept-own" */
+DEFPY (neighbor_accept_own,
+       neighbor_accept_own_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor accept-own",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enable handling of self-originated VPN routes containing ACCEPT_OWN community\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		ret = peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ACCEPT_OWN);
+	else
+		ret = peer_af_flag_set(peer, afi, safi, PEER_FLAG_ACCEPT_OWN);
+
+	return bgp_vty_return(vty, ret);
+}
+
 /* "neighbor soo" */
 DEFPY (neighbor_soo,
        neighbor_soo_cmd,
@@ -17362,6 +17388,10 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	/* accept-own */
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_ACCEPT_OWN))
+		vty_out(vty, "  neighbor %s accept-own\n", addr);
+
 	/* soo */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_SOO)) {
 		char *soo_str = ecommunity_ecom2str(
@@ -19570,6 +19600,10 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
+
+	/* neighbor accept-own */
+	install_element(BGP_VPNV4_NODE, &neighbor_accept_own_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_accept_own_cmd);
 
 	/* "neighbor soo" */
 	install_element(BGP_IPV4_NODE, &neighbor_soo_cmd);

@@ -1462,6 +1462,7 @@ struct peer {
 #define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 29)
 #define PEER_FLAG_SOO (1ULL << 30)
 #define PEER_FLAG_ORR_GROUP (1ULL << 31) /* Optimal-Route-Reflection */
+#define PEER_FLAG_ACCEPT_OWN (1ULL << 32)
 
 	/* BGP Optimal Route Reflection Group name */
 	char *orr_group_name[AFI_MAX][SAFI_MAX];
