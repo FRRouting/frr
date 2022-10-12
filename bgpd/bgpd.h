@@ -497,44 +497,46 @@ struct bgp {
 
 	/* BGP flags. */
 	uint64_t flags;
-#define BGP_FLAG_ALWAYS_COMPARE_MED       (1 << 0)
-#define BGP_FLAG_DETERMINISTIC_MED        (1 << 1)
-#define BGP_FLAG_MED_MISSING_AS_WORST     (1 << 2)
-#define BGP_FLAG_MED_CONFED               (1 << 3)
-#define BGP_FLAG_NO_CLIENT_TO_CLIENT (1 << 4)
-#define BGP_FLAG_COMPARE_ROUTER_ID (1 << 5)
-#define BGP_FLAG_ASPATH_IGNORE (1 << 6)
-#define BGP_FLAG_IMPORT_CHECK (1 << 7)
-#define BGP_FLAG_NO_FAST_EXT_FAILOVER (1 << 8)
-#define BGP_FLAG_LOG_NEIGHBOR_CHANGES (1 << 9)
+#define BGP_FLAG_ALWAYS_COMPARE_MED (1ULL << 0)
+#define BGP_FLAG_DETERMINISTIC_MED (1ULL << 1)
+#define BGP_FLAG_MED_MISSING_AS_WORST (1ULL << 2)
+#define BGP_FLAG_MED_CONFED (1ULL << 3)
+#define BGP_FLAG_NO_CLIENT_TO_CLIENT (1ULL << 4)
+#define BGP_FLAG_COMPARE_ROUTER_ID (1ULL << 5)
+#define BGP_FLAG_ASPATH_IGNORE (1ULL << 6)
+#define BGP_FLAG_IMPORT_CHECK (1ULL << 7)
+#define BGP_FLAG_NO_FAST_EXT_FAILOVER (1ULL << 8)
+#define BGP_FLAG_LOG_NEIGHBOR_CHANGES (1ULL << 9)
 
 /* This flag is set when we have full BGP Graceful-Restart mode enable */
-#define BGP_FLAG_GRACEFUL_RESTART (1 << 10)
+#define BGP_FLAG_GRACEFUL_RESTART (1ULL << 10)
 
-#define BGP_FLAG_ASPATH_CONFED (1 << 11)
-#define BGP_FLAG_ASPATH_MULTIPATH_RELAX (1 << 12)
-#define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 13)
-#define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 14)
-#define BGP_FLAG_MULTIPATH_RELAX_AS_SET (1 << 15)
-#define BGP_FLAG_FORCE_STATIC_PROCESS (1 << 16)
-#define BGP_FLAG_SHOW_HOSTNAME (1 << 17)
-#define BGP_FLAG_GR_PRESERVE_FWD (1 << 18)
-#define BGP_FLAG_GRACEFUL_SHUTDOWN (1 << 19)
-#define BGP_FLAG_DELETE_IN_PROGRESS (1 << 20)
-#define BGP_FLAG_SELECT_DEFER_DISABLE (1 << 21)
-#define BGP_FLAG_GR_DISABLE_EOR (1 << 22)
-#define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 23)
-#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 24)
+#define BGP_FLAG_ASPATH_CONFED (1ULL << 11)
+#define BGP_FLAG_ASPATH_MULTIPATH_RELAX (1ULL << 12)
+#define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1ULL << 13)
+#define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1ULL << 14)
+#define BGP_FLAG_MULTIPATH_RELAX_AS_SET (1ULL << 15)
+#define BGP_FLAG_FORCE_STATIC_PROCESS (1ULL << 16)
+#define BGP_FLAG_SHOW_HOSTNAME (1ULL << 17)
+#define BGP_FLAG_GR_PRESERVE_FWD (1ULL << 18)
+#define BGP_FLAG_GRACEFUL_SHUTDOWN (1ULL << 19)
+#define BGP_FLAG_DELETE_IN_PROGRESS (1ULL << 20)
+#define BGP_FLAG_SELECT_DEFER_DISABLE (1ULL << 21)
+#define BGP_FLAG_GR_DISABLE_EOR (1ULL << 22)
+#define BGP_FLAG_EBGP_REQUIRES_POLICY (1ULL << 23)
+#define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1ULL << 24)
 
 /* This flag is set if the instance is in administrative shutdown */
-#define BGP_FLAG_SHUTDOWN (1 << 25)
-#define BGP_FLAG_SUPPRESS_FIB_PENDING (1 << 26)
-#define BGP_FLAG_SUPPRESS_DUPLICATES (1 << 27)
-#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1 << 29)
+#define BGP_FLAG_SHUTDOWN (1ULL << 25)
+#define BGP_FLAG_SUPPRESS_FIB_PENDING (1ULL << 26)
+#define BGP_FLAG_SUPPRESS_DUPLICATES (1ULL << 27)
+#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1ULL << 29)
 /* Indicate Graceful Restart support for BGP NOTIFICATION messages */
-#define BGP_FLAG_GRACEFUL_NOTIFICATION (1 << 30)
+#define BGP_FLAG_GRACEFUL_NOTIFICATION (1ULL << 30)
 /* Send Hard Reset CEASE Notification for 'Administrative Reset' */
-#define BGP_FLAG_HARD_ADMIN_RESET (1 << 31)
+#define BGP_FLAG_HARD_ADMIN_RESET (1ULL << 31)
+/* Evaluate the AIGP attribute during the best path selection process */
+#define BGP_FLAG_COMPARE_AIGP (1ULL << 32)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1408,6 +1410,7 @@ struct peer {
 	/* `local-role` configured */
 #define PEER_FLAG_ROLE (1ULL << 32)
 #define PEER_FLAG_PORT (1ULL << 33)
+#define PEER_FLAG_AIGP (1ULL << 34)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1901,6 +1904,7 @@ struct bgp_nlri {
 #define BGP_ATTR_PMSI_TUNNEL                    22
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_IPV6_EXT_COMMUNITIES           25
+#define BGP_ATTR_AIGP                           26
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_OTC                            35
 #define BGP_ATTR_PREFIX_SID                     40
@@ -2028,6 +2032,13 @@ struct bgp_nlri {
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT    100
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_MIN          1
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_MAX      65535
+
+/* BGP AIGP */
+#define BGP_AIGP_TLV_RESERVED 0 /* AIGP Reserved */
+#define BGP_AIGP_TLV_METRIC 1   /* AIGP Metric */
+#define BGP_AIGP_TLV_METRIC_LEN 11
+#define BGP_AIGP_TLV_METRIC_MAX 0xffffffffffffffffULL
+#define BGP_AIGP_TLV_METRIC_DESC "Accumulated IGP Metric"
 
 /* Flag for peer_clear_soft().  */
 enum bgp_clear_type {

@@ -283,6 +283,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:aigp-metric",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_aigp_metric_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_aigp_metric_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:prepend-as-path",
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_prepend_as_path_modify,
