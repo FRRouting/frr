@@ -84,8 +84,6 @@ def test_bgp_route():
 
     r3 = tgen.gears["r3"]
 
-    sleep(5)
-
     json_file = "{}/r3/v4_route.json".format(CWD)
     expected = json.loads(open(json_file).read())
 
@@ -95,7 +93,7 @@ def test_bgp_route():
         "show ip route 40.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=2, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
     assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
 
@@ -112,6 +110,16 @@ def test_bgp_route():
     assertmsg = '"r3" JSON output mismatches'
     assert result is None, assertmsg
 
+    json_file = "{}/r3/v4_route3.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(
+        topotest.router_json_cmp,
+        r3,
+        "show ip route 10.0.0.3 json",
+        expected,
+        )
+    _, result = topotest.run_and_expect(test_func, None, count=3, wait=0.5)
 
 def test_bgp_better_admin_won():
     "A better Admin distance protocol may come along and knock us out"
