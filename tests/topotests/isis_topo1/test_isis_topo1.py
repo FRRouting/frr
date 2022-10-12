@@ -436,35 +436,6 @@ def test_isis_overload_on_startup():
     assert result
 
 
-@retry(retry_timeout=200)
-def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
-    "Verfiy overload bit in router's LSP"
-
-    tgen = get_topogen()
-    router = tgen.gears[router]
-    logger.info(f"check_overload_bit {router}")
-    isis_database_output = router.vtysh_cmd(
-        "show isis database {} json".format(overloaded_router_lsp)
-    )
-
-    database_json = json.loads(isis_database_output)
-    att_p_ol = database_json["areas"][0]["levels"][1]["att-p-ol"]
-    if att_p_ol == att_p_ol_expected:
-        return True
-    return "{} peer with expected att_p_ol {} got {} ".format(
-        router.name, att_p_ol_expected, att_p_ol
-    )
-
-
-def check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
-    "Verfiy overload bit in router's LSP"
-
-    assertmsg = _check_lsp_overload_bit(
-        router, overloaded_router_lsp, att_p_ol_expected
-    )
-    assert assertmsg is True, assertmsg
-
-
 def test_isis_overload_on_startup_cancel_timer():
     "Check that overload on startup timer is cancelled when overload bit is set/unset"
 
@@ -476,7 +447,9 @@ def test_isis_overload_on_startup_cancel_timer():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Testing overload on startup behavior with set overload bit: cancel timer")
+    logger.info(
+        "Testing overload on startup behavior with set overload bit: cancel timer"
+    )
 
     # Configure set-overload-bit on-startup on r3
     r3 = tgen.gears["r3"]
@@ -527,7 +500,9 @@ def test_isis_overload_on_startup_override_timer():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Testing overload on startup behavior with set overload bit: override timer")
+    logger.info(
+        "Testing overload on startup behavior with set overload bit: override timer"
+    )
 
     # Configure set-overload-bit on-startup on r3
     r3 = tgen.gears["r3"]
@@ -559,14 +534,41 @@ def test_isis_overload_on_startup_override_timer():
 
 
 @retry(retry_timeout=200)
+def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
+    "Verfiy overload bit in router's LSP"
+
+    tgen = get_topogen()
+    router = tgen.gears[router]
+    logger.info(f"check_overload_bit {router}")
+    isis_database_output = router.vtysh_cmd(
+        "show isis database {} json".format(overloaded_router_lsp)
+    )
+
+    database_json = json.loads(isis_database_output)
+    att_p_ol = database_json["areas"][0]["levels"][1]["att-p-ol"]
+    if att_p_ol == att_p_ol_expected:
+        return True
+    return "{} peer with expected att_p_ol {} got {} ".format(
+        router.name, att_p_ol_expected, att_p_ol
+    )
+
+
+def check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
+    "Verfiy overload bit in router's LSP"
+
+    assertmsg = _check_lsp_overload_bit(
+        router, overloaded_router_lsp, att_p_ol_expected
+    )
+    assert assertmsg is True, assertmsg
+
+
+@retry(retry_timeout=200)
 def _check_overload_timer(router, timer_expected):
     "Verfiy overload bit in router's LSP"
 
     tgen = get_topogen()
     router = tgen.gears[router]
-    thread_output = router.vtysh_cmd(
-        "show thread timers"
-    )
+    thread_output = router.vtysh_cmd("show thread timers")
 
     timer_running = "set_overload_on_start_timer" in thread_output
     if timer_running == timer_expected:
@@ -577,9 +579,7 @@ def _check_overload_timer(router, timer_expected):
 def check_overload_timer(router, timer_expected):
     "Verfiy overload bit in router's LSP"
 
-    assertmsg = _check_overload_timer(
-        router, timer_expected
-    )
+    assertmsg = _check_overload_timer(router, timer_expected)
     assert assertmsg is True, assertmsg
 
 
