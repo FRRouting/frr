@@ -585,6 +585,28 @@ static void rtadv_process_solicit(struct interface *ifp)
 		zif->rtadv.AdvIntervalTimer = MIN_DELAY_BETWEEN_RAS;
 }
 
+static const char *rtadv_optionalhdr2str(uint8_t opt_type)
+{
+	switch (opt_type) {
+	case ND_OPT_SOURCE_LINKADDR:
+		return "Optional Source Link Address";
+	case ND_OPT_TARGET_LINKADDR:
+		return "Optional Target Link Address";
+	case ND_OPT_PREFIX_INFORMATION:
+		return "Optional Prefix Information";
+	case ND_OPT_REDIRECTED_HEADER:
+		return "Optional Redirected Header";
+	case ND_OPT_MTU:
+		return "Optional MTU";
+	case ND_OPT_RTR_ADV_INTERVAL:
+		return "Optional Advertisement Interval";
+	case ND_OPT_HOME_AGENT_INFO:
+		return "Optional Home Agent Information";
+	}
+
+	return "Unknown Optional Type";
+}
+
 /*
  * This function processes optional attributes off of
  * end of a RA packet received.  At this point in
@@ -609,6 +631,13 @@ static void rtadv_process_optional(uint8_t *optional, unsigned int len,
 							  &addr->sin6_addr, 1);
 			break;
 		default:
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug(
+					"%s:Received Packet with optional Header type %s(%u) that is being ignored",
+					__func__,
+					rtadv_optionalhdr2str(
+						opt_hdr->nd_opt_type),
+					opt_hdr->nd_opt_type);
 			break;
 		}
 
