@@ -1017,6 +1017,8 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni)
 	struct zebra_evpn *zevpn = NULL;
 
 	zvrf = zebra_vrf_get_evpn();
+	if (!zvrf->evpn_table)
+		return NULL;
 	memset(&tmp_zevpn, 0, sizeof(tmp_zevpn));
 	tmp_zevpn.vni = vni;
 	zevpn = hash_get(zvrf->evpn_table, &tmp_zevpn, zebra_evpn_alloc);

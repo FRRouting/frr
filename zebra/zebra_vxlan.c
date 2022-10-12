@@ -2176,6 +2176,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			return 0;
 
 		zevpn = zebra_evpn_add(vni);
+		if (!zevpn)
+			return -1;
 
 		/* Find bridge interface for the VNI */
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
@@ -5913,6 +5915,7 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 		return;
 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
 	hash_free(zvrf->evpn_table);
+	zvrf->evpn_table = NULL;
 	if (zvrf->vxlan_sg_table) {
 		zebra_vxlan_cleanup_sg_table(zvrf);
 		hash_free(zvrf->vxlan_sg_table);
