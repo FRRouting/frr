@@ -319,7 +319,10 @@ void show_isis_database_lspdb_json(struct json_object *json,
 void show_isis_database_lspdb_vty(struct vty *vty, struct isis_area *area,
 				  int level, struct lspdb_head *lspdb,
 				  const char *argv, int ui_level);
-
+char *isis_restart_filepath(void);
+void isis_restart_write_overload_time(struct isis_area *isis_area,
+				      uint32_t overload_time);
+uint32_t isis_restart_read_overload_time(struct isis_area *isis_area);
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"

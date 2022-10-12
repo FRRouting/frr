@@ -3214,8 +3214,104 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 void isis_area_overload_on_startup_set(struct isis_area *area,
 				       uint32_t startup_time)
 {
-	if (area->overload_on_startup_time != startup_time)
+	if (area->overload_on_startup_time != startup_time) {
 		area->overload_on_startup_time = startup_time;
+		isis_restart_write_overload_time(area, startup_time);
+	}
+}
+
+/*
+ * Returns the path of the file (non-volatile memory) that contains restart
+ * information.
+ */
+char *isis_restart_filepath()
+{
+	static char filepath[MAXPATHLEN];
+	snprintf(filepath, sizeof(filepath), ISISD_RESTART, "");
+	return filepath;
+}
+
+/*
+ * Record in non-volatile memory the overload on startup time.
+ */
+void isis_restart_write_overload_time(struct isis_area *isis_area,
+				      uint32_t overload_time)
+{
+	char *filepath;
+	const char *area_name;
+	json_object *json;
+	json_object *json_areas;
+	json_object *json_area;
+
+	filepath = isis_restart_filepath();
+	area_name = isis_area->area_tag;
+
+	json = json_object_from_file(filepath);
+	if (json == NULL)
+		json = json_object_new_object();
+
+	json_object_object_get_ex(json, "areas", &json_areas);
+	if (!json_areas) {
+		json_areas = json_object_new_object();
+		json_object_object_add(json, "areas", json_areas);
+	}
+
+	json_object_object_get_ex(json_areas, area_name, &json_area);
+	if (!json_area) {
+		json_area = json_object_new_object();
+		json_object_object_add(json_areas, area_name, json_area);
+	}
+
+	json_object_int_add(json_area, "overload_time",
+			    isis_area->overload_on_startup_time);
+	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
+	json_object_free(json);
+}
+
+/*
+ * Fetch from non-volatile memory the overload on startup time.
+ */
+uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
+{
+	char *filepath;
+	const char *area_name;
+	json_object *json;
+	json_object *json_areas;
+	json_object *json_area;
+	json_object *json_overload_time;
+	uint32_t overload_time = 0;
+
+	filepath = isis_restart_filepath();
+	area_name = isis_area->area_tag;
+
+	json = json_object_from_file(filepath);
+	if (json == NULL)
+		json = json_object_new_object();
+
+	json_object_object_get_ex(json, "areas", &json_areas);
+	if (!json_areas) {
+		json_areas = json_object_new_object();
+		json_object_object_add(json, "areas", json_areas);
+	}
+
+	json_object_object_get_ex(json_areas, area_name, &json_area);
+	if (!json_area) {
+		json_area = json_object_new_object();
+		json_object_object_add(json_areas, area_name, json_area);
+	}
+
+	json_object_object_get_ex(json_area, "overload_time",
+				  &json_overload_time);
+	if (json_overload_time) {
+		overload_time = json_object_get_int(json_overload_time);
+	}
+
+	json_object_object_del(json_areas, area_name);
+
+	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
+	json_object_free(json);
+
+	return overload_time;
 }
 
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit)
