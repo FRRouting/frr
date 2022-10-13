@@ -2581,10 +2581,17 @@ static int ripng_vrf_new(struct vrf *vrf)
 
 static int ripng_vrf_delete(struct vrf *vrf)
 {
+	struct ripng *ripng;
+
 	if (IS_RIPNG_DEBUG_EVENT)
 		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
 			   vrf->vrf_id);
 
+	ripng = ripng_lookup_by_vrf_name(vrf->name);
+	if (!ripng)
+		return 0;
+
+	ripng_clean(ripng);
 	return 0;
 }
 
