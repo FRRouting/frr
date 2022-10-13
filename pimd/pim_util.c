@@ -166,3 +166,15 @@ int pim_get_all_mcast_group(struct prefix *prefix)
 #endif
 	return 1;
 }
+
+bool pim_addr_is_multicast(pim_addr addr)
+{
+#if PIM_IPV == 4
+	if (IN_MULTICAST(addr.s_addr))
+		return true;
+#else
+	if (IN6_IS_ADDR_MULTICAST(&addr))
+		return true;
+#endif
+	return false;
+}
