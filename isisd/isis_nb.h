@@ -37,7 +37,8 @@ int isis_instance_dynamic_hostname_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_send_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_receive_modify(struct nb_cb_modify_args *args);
 int isis_instance_attached_modify(struct nb_cb_modify_args *args);
-int isis_instance_overload_modify(struct nb_cb_modify_args *args);
+int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args);
+int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
@@ -442,6 +443,9 @@ void cli_show_isis_attached_receive(struct vty *vty,
 				    bool show_defaults);
 void cli_show_isis_overload(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
+void cli_show_isis_overload_on_startup(struct vty *vty,
+				       const struct lyd_node *dnode,
+				       bool show_defaults);
 void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode,
