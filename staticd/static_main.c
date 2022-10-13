@@ -79,6 +79,7 @@ static void sigint(void)
 
 	static_vrf_terminate();
 
+	static_zebra_stop();
 	frr_fini();
 
 	exit(0);
