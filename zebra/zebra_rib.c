@@ -1558,7 +1558,9 @@ static bool rib_compare_routes(const struct route_entry *re1,
 	if (re1->instance != re2->instance)
 		return false;
 
-	if (re1->type == ZEBRA_ROUTE_KERNEL && re1->metric != re2->metric)
+	if ((CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_METRIC) ||
+	     re1->type == ZEBRA_ROUTE_KERNEL) &&
+	    re1->metric != re2->metric)
 		return false;
 
 	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
@@ -2847,7 +2849,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		    ere->re->distance != re->distance)
 			continue;
 
-		if (re->type == ZEBRA_ROUTE_KERNEL &&
+		if ((CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_METRIC) ||
+		     re->type == ZEBRA_ROUTE_KERNEL) &&
 		    re->metric != ere->re->metric)
 			continue;
 		if (re->type == ZEBRA_ROUTE_CONNECT && (rtnh = nh) &&

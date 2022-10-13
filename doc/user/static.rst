@@ -35,21 +35,21 @@ Static Route Commands
 Static routing is a very fundamental feature of routing technology. It defines
 a static prefix and gateway, with several possible forms.
 
-.. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [metric METRIC] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK (Null0|blackhole|reject) [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [DISTANCE] [metric METRIC] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [DISTANCE] [metric METRIC] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
    NETWORK is destination prefix with a valid v4 or v6 network based upon
    initial form of the command.

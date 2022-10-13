@@ -95,6 +95,8 @@ struct static_path {
 	struct static_path_list_item list;
 	/* Administrative distance. */
 	uint8_t distance;
+	/* Metric. */
+	uint32_t metric;
 	/* Tag */
 	route_tag_t tag;
 	/* Table-id */
@@ -192,7 +194,8 @@ extern struct route_node *static_add_route(afi_t afi, safi_t safi,
 extern void static_del_route(struct route_node *rn);
 
 extern struct static_path *static_add_path(struct route_node *rn,
-					   uint32_t table_id, uint8_t distance);
+					   uint32_t table_id, uint8_t distance,
+					   uint32_t metric);
 extern void static_del_path(struct static_path *pn);
 
 extern void static_get_nh_type(enum static_nh_type stype, char *type,

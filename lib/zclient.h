@@ -539,6 +539,12 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
+/*
+ * This flag tells Zebra that it should treat the metric passed
+ * down as an additional discriminator for route selection of the
+ * route entry.  This mainly is used for backup static routes.
+ */
+#define ZEBRA_FLAG_RR_USE_METRIC      0x400
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

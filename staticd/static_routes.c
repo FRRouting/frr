@@ -217,7 +217,7 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
 }
 
 struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
-				    uint8_t distance)
+				    uint8_t distance, uint32_t metric)
 {
 	struct static_path *pn;
 	struct static_route_info *si;
@@ -229,6 +229,7 @@ struct static_path *static_add_path(struct route_node *rn, uint32_t table_id,
 
 	pn->rn = rn;
 	pn->distance = distance;
+	pn->metric = metric;
 	pn->table_id = table_id;
 	static_nexthop_list_init(&(pn->nexthop_list));
 
