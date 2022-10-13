@@ -1219,6 +1219,10 @@ void frr_fini(void)
 	db_close();
 #endif
 	log_ref_fini();
+
+#ifdef HAVE_SCRIPTING
+	frrscript_fini();
+#endif
 	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
