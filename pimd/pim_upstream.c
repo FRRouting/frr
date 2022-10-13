@@ -46,7 +46,6 @@
 #include "pim_oil.h"
 #include "pim_macro.h"
 #include "pim_rp.h"
-#include "pim_br.h"
 #include "pim_register.h"
 #include "pim_msdp.h"
 #include "pim_jp_agg.h"
@@ -1422,8 +1421,8 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 	}
 
 	if (I_am_RP(pim, up->sg.grp)) {
-		pim_br_clear_pmbr(&up->sg);
 		/*
+		 * Handle Border Router
 		 * We need to do more here :)
 		 * But this is the start.
 		 */
