@@ -2997,9 +2997,9 @@ DEFPY(gm_debug_show,
       "debug show mld interface IFNAME",
       DEBUG_STR
       SHOW_STR
-      "MLD"
+      MLD_STR
       INTERFACE_STR
-      "interface name")
+      "interface name\n")
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;

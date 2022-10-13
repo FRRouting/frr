@@ -265,8 +265,7 @@ void install_node(struct cmd_node *node)
 	node->cmdgraph = graph_new();
 	node->cmd_vector = vector_init(VECTOR_MIN_SIZE);
 	// add start node
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 	graph_new_node(node->cmdgraph, token,
 		       (void (*)(void *)) & cmd_token_del);
 
@@ -326,7 +325,7 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 	if (cnode->graph_built || !defer_cli_tree) {
 		struct graph *graph = graph_new();
 		struct cmd_token *token =
-			cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+			cmd_token_new(START_TKN, 0, NULL, NULL);
 		graph_new_node(graph, token,
 			       (void (*)(void *)) & cmd_token_del);
 
@@ -349,8 +348,7 @@ static void cmd_finalize_iter(struct hash_bucket *hb, void *arg)
 	struct cmd_node *cnode = arg;
 	const struct cmd_element *cmd = hb->data;
 	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+	struct cmd_token *token = cmd_token_new(START_TKN, 0, NULL, NULL);
 
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
@@ -405,7 +403,7 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 	if (cnode->graph_built) {
 		struct graph *graph = graph_new();
 		struct cmd_token *token =
-			cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+			cmd_token_new(START_TKN, 0, NULL, NULL);
 		graph_new_node(graph, token,
 			       (void (*)(void *)) & cmd_token_del);
 
@@ -991,7 +989,7 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			 * Perform pending commit (if any) before executing
 			 * non-YANG command.
 			 */
-			if (matched_element->attr != CMD_ATTR_YANG)
+			if (!(matched_element->attr & CMD_ATTR_YANG))
 				(void)nb_cli_pending_commit_check(vty);
 		}
 
@@ -1472,8 +1470,7 @@ static void permute(struct graph_node *start, struct vty *vty)
 	for (unsigned int i = 0; i < vector_active(start->to); i++) {
 		struct graph_node *gn = vector_slot(start->to, i);
 		struct cmd_token *tok = gn->data;
-		if (tok->attr == CMD_ATTR_HIDDEN
-		    || tok->attr == CMD_ATTR_DEPRECATED)
+		if (tok->attr & CMD_ATTR_HIDDEN)
 			continue;
 		else if (tok->type == END_TKN || gn == start) {
 			vty_out(vty, " ");
@@ -1562,9 +1559,8 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 		const struct cmd_element *element = NULL;
 		for (unsigned int i = 0; i < vector_active(node->cmd_vector);
 		     i++)
-			if ((element = vector_slot(node->cmd_vector, i))
-			    && element->attr != CMD_ATTR_DEPRECATED
-			    && element->attr != CMD_ATTR_HIDDEN) {
+			if ((element = vector_slot(node->cmd_vector, i)) &&
+			    !(element->attr & CMD_ATTR_HIDDEN)) {
 				vty_out(vty, "    ");
 				print_cmd(vty, element->string);
 			}

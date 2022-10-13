@@ -5816,7 +5816,7 @@ ALIAS_HIDDEN(neighbor_remove_private_as_all,
 	     "neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS all",
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Remove private ASNs in outbound updates\n"
-	     "Apply to all AS numbers")
+	     "Apply to all AS numbers\n")
 
 DEFUN (neighbor_remove_private_as_replace_as,
        neighbor_remove_private_as_replace_as_cmd,

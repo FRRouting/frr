@@ -5438,7 +5438,7 @@ DEFPY(no_ip_msdp_mesh_group,
       IP_STR
       CFG_MSDP_STR
       "Delete MSDP mesh-group\n"
-      "Mesh group name")
+      "Mesh group name\n")
 {
 	const char *vrfname;
 	char xpath_value[XPATH_MAXLEN];
