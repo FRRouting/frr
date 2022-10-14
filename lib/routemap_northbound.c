@@ -367,6 +367,7 @@ static int
 lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
+	struct route_map *map;
 	int rm_action;
 	int policy;
 
@@ -396,6 +397,7 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		map = rmi->map;
 		policy = yang_dnode_get_enum(args->dnode, NULL);
 
 		switch (policy) {
@@ -409,6 +411,14 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 			rmi->exitpolicy = RMAP_GOTO;
 			break;
 		}
+
+		/* Execute event hook. */
+		if (route_map_master.event_hook) {
+			(*route_map_master.event_hook)(map->name);
+			route_map_notify_dependencies(map->name,
+						      RMAP_EVENT_CALL_ADDED);
+		}
+
 		break;
 	}
 
