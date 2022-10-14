@@ -1,0 +1,19 @@
+{
+    "10.0.0.0/8": [
+        {
+            "prefix": "10.0.0.0/8",
+            "protocol": "static",
+            "selected": true,
+            "destSelected": true,
+            "distance": 1,
+            "metric": 40,
+            "nexthops": [
+                {
+                    "unreachable": true,
+                    "blackhole": true,
+                    "active": true
+                }
+            ]
+        }
+    ]
+}

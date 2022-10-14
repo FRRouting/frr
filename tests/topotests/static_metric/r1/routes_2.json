@@ -1,0 +1,67 @@
+{
+    "10.0.0.0/8": [
+        {
+            "prefix": "10.0.0.0/8",
+            "protocol": "static",
+            "selected": true,
+            "destSelected": true,
+            "distance": 1,
+            "metric": 10,
+            "nexthops": [
+                {
+                    "ip": "192.168.1.3",
+                    "afi": "ipv4",
+                    "interfaceName": "r1-eth0",
+                    "active": true
+                },
+                {
+                    "ip": "192.168.1.4",
+                    "afi": "ipv4",
+                    "interfaceName": "r1-eth0",
+                    "active": true
+                }
+            ]
+        },
+        {
+            "prefix": "10.0.0.0/8",
+            "protocol": "static",
+            "distance": 1,
+            "metric": 20,
+            "nexthops": [
+                {
+                    "ip": "192.168.1.6",
+                    "afi": "ipv4",
+                    "interfaceName": "r1-eth0",
+                    "active": true
+                }
+            ]
+        },
+        {
+            "prefix": "10.0.0.0/8",
+            "protocol": "static",
+            "distance": 1,
+            "metric": 30,
+            "nexthops": [
+                {
+                    "ip": "192.168.1.5",
+                    "afi": "ipv4",
+                    "interfaceName": "r1-eth0",
+                    "active": true
+                }
+            ]
+        },
+        {
+            "prefix": "10.0.0.0/8",
+            "protocol": "static",
+            "distance": 1,
+            "metric": 40,
+            "nexthops": [
+                {
+                    "unreachable": true,
+                    "blackhole": true,
+                    "active": true
+                }
+            ]
+        }
+    ]
+}
