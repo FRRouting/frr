@@ -588,6 +588,8 @@ struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);
+struct if_link_params *if_link_params_enable(struct interface *ifp);
+struct if_link_params *if_link_params_init(struct interface *ifp);
 void if_link_params_free(struct interface *);
 
 /* Northbound. */
