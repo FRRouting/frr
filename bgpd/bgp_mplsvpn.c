@@ -656,8 +656,10 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 						  tovpn_sid_locator, tovpn_sid);
 
 	if (tovpn_sid_transpose_label == 0) {
-		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
-			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+		if (debug)
+			zlog_debug(
+				"%s: not allocated new sid for vrf %s: afi %s",
+				__func__, bgp_vrf->name_pretty, afi2str(afi));
 		srv6_locator_chunk_free(tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
