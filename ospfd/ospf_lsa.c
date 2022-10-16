@@ -188,6 +188,7 @@ struct ospf_lsa *ospf_lsa_new(void)
 	new->refresh_list = -1;
 	new->vrf_id = VRF_DEFAULT;
 	new->to_be_acknowledged = 0;
+	new->opaque_zero_len_delete = 0;
 
 	return new;
 }

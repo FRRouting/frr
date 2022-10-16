@@ -1997,6 +1997,11 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 		goto out;
 	}
 
+	if (IS_DEL_ZERO_LEN_LSA(dmsg)) {
+		/* minimize the size of the withdrawal: */
+		old->opaque_zero_len_delete = 1;
+	}
+
 	/* Schedule flushing of LSA from LSDB */
 	/* NB: Multiple scheduling will produce a warning message, but harmless.
 	 */
