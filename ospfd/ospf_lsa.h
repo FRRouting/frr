@@ -124,6 +124,9 @@ struct ospf_lsa {
 
 	/*For topo chg detection in HELPER role*/
 	bool to_be_acknowledged;
+
+	/* send maxage with no data */
+	bool opaque_zero_len_delete;
 };
 
 /* OSPF LSA Link Type. */

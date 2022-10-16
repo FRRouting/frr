@@ -2050,6 +2050,17 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 		goto out;
 	}
 
+	if (lsa->opaque_zero_len_delete &&
+	    lsa->data->length != htons(sizeof(struct lsa_header))) {
+		/* minimize the size of the withdrawal: */
+		/*     increment the sequence number and make len just header */
+		/*     and update checksum */
+		lsa->data->ls_seqnum = lsa_seqnum_increment(lsa);
+		lsa->data->length = htons(sizeof(struct lsa_header));
+		lsa->data->checksum = 0;
+		lsa->data->checksum = ospf_lsa_checksum(lsa->data);
+	}
+
 	/* Delete this lsa from neighbor retransmit-list. */
 	switch (lsa->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:

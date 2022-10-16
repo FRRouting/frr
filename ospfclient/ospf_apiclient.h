@@ -95,7 +95,8 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
    host byte order */
 int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 			      struct in_addr addr, uint8_t lsa_type,
-			      uint8_t opaque_type, uint32_t opaque_id);
+			      uint8_t opaque_type, uint32_t opaque_id,
+			      uint8_t flags);
 
 /* Fetch async message and handle it  */
 int ospf_apiclient_handle_async(struct ospf_apiclient *oclient);

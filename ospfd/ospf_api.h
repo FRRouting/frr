@@ -185,11 +185,19 @@ struct msg_originate_request {
 	struct lsa_header data;
 };
 
+
+/* OSPF API MSG Delete Flag. */
+#define OSPF_API_DEL_ZERO_LEN_LSA 0x01 /* send withdrawal with no LSA data */
+
+#define IS_DEL_ZERO_LEN_LSA(x) ((x)->flags & OSPF_API_DEL_ZERO_LEN_LSA)
+
 struct msg_delete_request {
-	struct in_addr addr; /* intf IP for link local, area for type 10, "0.0.0.0" for AS-external */
+	struct in_addr addr; /* intf IP for link local, area for type 10,
+				"0.0.0.0" for AS-external */
 	uint8_t lsa_type;
 	uint8_t opaque_type;
-	uint8_t pad[2]; /* padding */
+	uint8_t pad;   /* padding */
+	uint8_t flags; /* delete flags */
 	uint32_t opaque_id;
 };
 
@@ -313,7 +321,7 @@ extern struct msg *new_msg_originate_request(uint32_t seqnum,
 					     struct lsa_header *data);
 extern struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr addr,
 					  uint8_t lsa_type, uint8_t opaque_type,
-					  uint32_t opaque_id);
+					  uint32_t opaque_id, uint8_t flags);
 
 /* Messages sent by OSPF daemon */
 extern struct msg *new_msg_reply(uint32_t seqnum, uint8_t rc);
