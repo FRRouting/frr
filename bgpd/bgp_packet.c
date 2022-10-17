@@ -124,6 +124,7 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 {
 	intmax_t delta;
 	uint32_t holdtime;
+	intmax_t sendholdtime;
 
 	frr_with_mutex (&peer->io_mtx) {
 		/* if the queue is empty, reset the "last OK" timestamp to
@@ -136,8 +137,14 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 		stream_fifo_push(peer->obuf, s);
 
 		delta = monotime(NULL) - peer->last_sendq_ok;
-		holdtime = atomic_load_explicit(&peer->holdtime,
-						memory_order_relaxed);
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+			holdtime = atomic_load_explicit(&peer->holdtime,
+							memory_order_relaxed);
+		else
+			holdtime = peer->bgp->default_holdtime;
+
+		sendholdtime = holdtime * 2;
 
 		/* Note that when we're here, we're adding some packet to the
 		 * OutQ.  That includes keepalives when there is nothing to
@@ -149,18 +156,18 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 		 */
 		if (!holdtime) {
 			/* no holdtime, do nothing. */
-		} else if (delta > 2 * (intmax_t)holdtime) {
+		} else if (delta > sendholdtime) {
 			flog_err(
 				EC_BGP_SENDQ_STUCK_PROPER,
-				"%s has not made any SendQ progress for 2 holdtimes, terminating session",
-				peer->host);
+				"%pBP has not made any SendQ progress for 2 holdtimes (%jds), terminating session",
+				peer, sendholdtime);
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 		} else if (delta > (intmax_t)holdtime &&
 			   monotime(NULL) - peer->last_sendq_warn > 5) {
 			flog_warn(
 				EC_BGP_SENDQ_STUCK_WARN,
-				"%s has not made any SendQ progress for 1 holdtime, peer overloaded?",
-				peer->host);
+				"%pBP has not made any SendQ progress for 1 holdtime (%us), peer overloaded?",
+				peer, holdtime);
 			peer->last_sendq_warn = monotime(NULL);
 		}
 	}
