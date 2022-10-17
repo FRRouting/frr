@@ -133,8 +133,6 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 		stream_putl(s, nexthop->ifindex);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		stream_put(s, &nexthop->gate.ipv6, 16);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put(s, &nexthop->gate.ipv6, 16);
 		stream_putl(s, nexthop->ifindex);

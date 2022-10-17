@@ -126,8 +126,12 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			i++;
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
+#if PIM_IPV == 4
 			nbr = pim_neighbor_find(ifp,
 						nexthop_tab[i].nexthop_addr);
+#else
+			nbr = pim_neighbor_find_if(ifp);
+#endif
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p",
 					   ifp->name, nbr);
