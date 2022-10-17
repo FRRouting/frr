@@ -279,7 +279,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			 * secondary
 			 */
 			struct interface *ifp = if_lookup_by_index(
-				nexthop_tab[num_ifindex].ifindex,
+				nh_ifi,
 				nexthop_vrf_id);
 
 			if (!ifp)
