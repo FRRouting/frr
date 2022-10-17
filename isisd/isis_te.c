@@ -138,7 +138,7 @@ void isis_mpls_te_disable(struct isis_area *area)
 	area->mta->status = disable;
 
 	/* Remove Link State Database */
-	ls_ted_del_all(&area->mta->ted);
+	ls_ted_clean(area->mta->ted);
 
 	/* Disable Extended SubTLVs on all circuit */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
