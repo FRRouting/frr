@@ -2605,8 +2605,10 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 		return;
 
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
-	if (!policy)
+	if (!policy) {
 		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
+		policy->sock = client->sock;
+	}
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;
 

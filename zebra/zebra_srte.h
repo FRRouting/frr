@@ -45,6 +45,7 @@ struct zebra_sr_policy {
 	struct zapi_srte_tunnel segment_list;
 	struct zebra_lsp *lsp;
 	struct zebra_vrf *zvrf;
+	int sock;
 };
 RB_HEAD(zebra_sr_policy_instance_head, zebra_sr_policy);
 RB_PROTOTYPE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
