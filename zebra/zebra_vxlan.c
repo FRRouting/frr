@@ -5430,16 +5430,13 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 {
 	struct zebra_l3vni *zl3vni = NULL;
-	vni_t vni;
 
 	if (zvrf->l3vni)
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
 	if (!zl3vni)
 		return 0;
 
-	vni = zl3vni->vni;
 	zl3vni_del(zl3vni);
-	zebra_vxlan_handle_vni_transition(zvrf, vni, 0);
 
 	return 0;
 }
