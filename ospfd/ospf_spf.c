@@ -1827,26 +1827,26 @@ void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 }
 
 /* Print Reason for SPF calculation */
-static void ospf_spf_calculation_reason2str(char *rbuf)
+static void ospf_spf_calculation_reason2str(char *rbuf, size_t len)
 {
 	rbuf[0] = '\0';
 	if (spf_reason_flags) {
 		if (spf_reason_flags & (1 << SPF_FLAG_ROUTER_LSA_INSTALL))
-			strlcat(rbuf, "R, ", sizeof(rbuf));
+			strlcat(rbuf, "R, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_NETWORK_LSA_INSTALL))
-			strlcat(rbuf, "N, ", sizeof(rbuf));
+			strlcat(rbuf, "N, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_SUMMARY_LSA_INSTALL))
-			strlcat(rbuf, "S, ", sizeof(rbuf));
+			strlcat(rbuf, "S, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL))
-			strlcat(rbuf, "AS, ", sizeof(rbuf));
+			strlcat(rbuf, "AS, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_ABR_STATUS_CHANGE))
-			strlcat(rbuf, "ABR, ", sizeof(rbuf));
+			strlcat(rbuf, "ABR, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_ASBR_STATUS_CHANGE))
-			strlcat(rbuf, "ASBR, ", sizeof(rbuf));
+			strlcat(rbuf, "ASBR, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_MAXAGE))
-			strlcat(rbuf, "M, ", sizeof(rbuf));
+			strlcat(rbuf, "M, ", len);
 		if (spf_reason_flags & (1 << SPF_FLAG_ORR_ROOT_CHANGE))
-			strlcat(rbuf, "ORR, ", sizeof(rbuf));
+			strlcat(rbuf, "ORR, ", len);
 
 		size_t rbuflen = strlen(rbuf);
 		if (rbuflen >= 2)
@@ -1959,7 +1959,7 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	total_spf_time =
 		monotime_since(&spf_start_time, &ospf->ts_spf_duration);
 
-	ospf_spf_calculation_reason2str(rbuf);
+	ospf_spf_calculation_reason2str(rbuf, sizeof(rbuf));
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_info("SPF Processing Time(usecs): %ld", total_spf_time);
@@ -2096,7 +2096,7 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 			total_spf_time = monotime_since(&spf_start_time,
 							&ospf->ts_spf_duration);
 
-			ospf_spf_calculation_reason2str(rbuf);
+			ospf_spf_calculation_reason2str(rbuf, sizeof(rbuf));
 
 			if (IS_DEBUG_OSPF_ORR) {
 				zlog_info("SPF Processing Time(usecs): %ld",
