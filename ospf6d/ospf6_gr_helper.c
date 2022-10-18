@@ -982,6 +982,11 @@ CPP_NOTICE("Remove JSON object commands with keys starting with capital")
 						 .last_exit_reason]);
 		}
 
+		if (ospf6->ospf6_helper_cfg.active_restarter_cnt)
+			json_object_int_add(
+				json, "activeRestarterCnt",
+				ospf6->ospf6_helper_cfg.active_restarter_cnt);
+
 		if (OSPF6_HELPER_ENABLE_RTR_COUNT(ospf6)) {
 			struct json_object *json_rid_array =
 				json_object_new_array();
