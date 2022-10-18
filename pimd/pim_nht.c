@@ -568,7 +568,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 							src)) {
 				nbr = pim_neighbor_find(
 					nexthop->interface,
-					nexthop->mrib_nexthop_addr);
+					nexthop->mrib_nexthop_addr, true);
 				if (!nbr
 				    && !if_is_loopback(nexthop->interface)) {
 					if (PIM_DEBUG_PIM_NHT)
@@ -610,7 +610,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 #else
 			pim_addr nhaddr = nh_node->gate.ipv6;
 #endif
-			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
+			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr, true);
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
@@ -961,7 +961,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 					     pim->vrf->vrf_id);
 		if (ifps[i]) {
 			nbrs[i] = pim_neighbor_find(
-				ifps[i], nexthop_tab[i].nexthop_addr);
+				ifps[i], nexthop_tab[i].nexthop_addr, true);
+
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i], src))
 				num_nbrs++;
 		}
