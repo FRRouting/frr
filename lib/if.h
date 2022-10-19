@@ -143,9 +143,13 @@ struct if_stats {
 #define TE_EXT_MASK             0x0FFFFFFF
 #define TE_EXT_ANORMAL          0x80000000
 #define LOSS_PRECISION          0.000003
+/* TE_MEGA_BIT and TE_BYTE are utilized to convert TE bandwidth */
 #define TE_MEGA_BIT             1000000
 #define TE_BYTE                 8
-#define DEFAULT_BANDWIDTH       10000
+/* Default TE bandwidth when no value in config.
+ * The value is in Mbps (will be multiplied by TE_BYTE)
+ */
+#define DEFAULT_BANDWIDTH 10
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
 
