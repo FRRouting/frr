@@ -217,6 +217,11 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	list_delete(&circuit->ipv6_link);
 	list_delete(&circuit->ipv6_non_link);
 
+	if (circuit->ext) {
+		isis_del_ext_subtlvs(circuit->ext);
+		circuit->ext = NULL;
+	}
+
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
 
@@ -513,7 +518,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("isis_circuit_if_add: unsupported media");
+			zlog_debug("%s: unsupported media", __func__);
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
@@ -678,10 +683,10 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		}
 #ifdef EXTREME_DEGUG
 		if (IS_DEBUG_EVENTS)
-			zlog_debug(
-				"isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
-				circuit->interface->ifindex, ISO_MTU(circuit),
-				snpa_print(circuit->u.bc.snpa));
+			zlog_debug("%s: if_id %d, isomtu %d snpa %s", __func__,
+				   circuit->interface->ifindex,
+				   ISO_MTU(circuit),
+				   snpa_print(circuit->u.bc.snpa));
 #endif /* EXTREME_DEBUG */
 
 		circuit->u.bc.adjdb[0] = list_new();

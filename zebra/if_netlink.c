@@ -423,7 +423,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	ecmd.cmd = ETHTOOL_GSET; /* ETHTOOL_GLINK */
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
-	/* use ioctl to get IP address of an interface */
+	/* use ioctl to get speed of an interface */
 	frr_with_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
 				interface->vrf->vrf_id, NULL);
@@ -436,7 +436,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 				*error = -1;
 			return 0;
 		}
-	/* Get the current link state for the interface */
+		/* Get the current link state for the interface */
 		rc = vrf_ioctl(interface->vrf->vrf_id, sd, SIOCETHTOOL,
 			       (char *)&ifdata);
 	}
@@ -1182,11 +1182,17 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
+	/*
+	 * So netlink_tunneldump_read will initiate a request
+	 * per tunnel to get data.  If we are on a kernel that
+	 * does not support this then we will get X error messages
+	 * (one per tunnel request )back which netlink_parse_info will
+	 * stop after the first one.  So we need to read equivalent
+	 * error messages per tunnel then we can continue.
+	 * if we do not gather all the read failures then
+	 * later requests will not work right.
+	 */
 	ret = netlink_tunneldump_read(zns);
-	if (ret < 0)
-		return ret;
-	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
-				 true);
 	if (ret < 0)
 		return ret;
 
@@ -1443,7 +1449,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_DEBUG_KERNEL) /* remove this line to see initial ifcfg */
 	{
 		char buf[BUFSIZ];
-		zlog_debug("netlink_interface_addr %s %s flags 0x%x:",
+		zlog_debug("%s %s %s flags 0x%x:", __func__,
 			   nl_msg_type_to_str(h->nlmsg_type), ifp->name,
 			   kernel_flags);
 		if (tb[IFA_LOCAL])
@@ -1818,7 +1824,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* assume if not default zns, then new VRF */
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
-		zlog_debug("netlink_link_change: wrong kernel message %s",
+		zlog_debug("%s: wrong kernel message %s", __func__,
 			   nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
@@ -2322,6 +2328,7 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
 
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
@@ -2337,7 +2344,14 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 						 tmp_if->ifindex);
 		if (ret < 0)
 			return ret;
+
+		ret = netlink_parse_info(netlink_interface, netlink_cmd,
+					 &dp_info, 0, true);
+
+		if (ret < 0)
+			return ret;
 	}
+
 	return 0;
 }
 #endif /* GNU_LINUX */

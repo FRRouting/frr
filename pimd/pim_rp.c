@@ -51,6 +51,7 @@
 #include "pim_bsm.h"
 #include "pim_util.h"
 #include "pim_ssm.h"
+#include "termtable.h"
 
 /* Cleanup pim->rpf_hash each node data */
 void pim_rp_list_hash_clean(void *data)
@@ -1166,14 +1167,25 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
+	struct ttable *tt = NULL;
+	char *table = NULL;
 	char source[7];
+	char grp[INET6_ADDRSTRLEN];
 
 	json_object *json_rp_rows = NULL;
 	json_object *json_row = NULL;
 
-	if (!json)
-		vty_out(vty,
-			"RP address       group/prefix-list   OIF               I am RP    Source   Group-Type\n");
+	if (!json) {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(
+			tt,
+			"RP address|group/prefix-list|OIF|I am RP|Source|Group-Type");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
@@ -1243,32 +1255,31 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 
 			json_object_array_add(json_rp_rows, json_row);
 		} else {
-			vty_out(vty, "%-15pPA  ", &rp_info->rp.rpf_addr);
-
-			if (rp_info->plist)
-				vty_out(vty, "%-18s  ", rp_info->plist);
-			else
-				vty_out(vty, "%-18pFX  ", &rp_info->group);
-
-			if (rp_info->rp.source_nexthop.interface)
-				vty_out(vty, "%-16s  ",
-					rp_info->rp.source_nexthop
-						.interface->name);
-			else
-				vty_out(vty, "%-16s  ", "(Unknown)");
-
-			if (rp_info->i_am_rp)
-				vty_out(vty, "yes");
-			else
-				vty_out(vty, "no");
-
-			vty_out(vty, "%14s", source);
-			vty_out(vty, "%6s\n", group_type);
+			prefix2str(&rp_info->group, grp, sizeof(grp));
+			ttable_add_row(tt, "%pPA|%s|%s|%s|%s|%s",
+					  &rp_info->rp.rpf_addr,
+					  rp_info->plist
+					  ? rp_info->plist
+					  : grp,
+					  rp_info->rp.source_nexthop.interface
+					  ? rp_info->rp.source_nexthop
+						.interface->name
+						: "Unknown",
+					  rp_info->i_am_rp
+					  ? "yes"
+					  : "no",
+					  source, group_type);
 		}
 		prev_rp_info = rp_info;
 	}
 
-	if (json) {
+	/* Dump the generated table. */
+	if (!json) {
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	} else {
 		if (prev_rp_info && json_rp_rows)
 			json_object_object_addf(json, json_rp_rows, "%pPA",
 						&prev_rp_info->rp.rpf_addr);

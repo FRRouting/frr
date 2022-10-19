@@ -67,13 +67,18 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_orr.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
+static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+
 /* hook to indicate vrf status change for SNMP */
 DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 	    (bgp, ifp));
+
+DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
 
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
@@ -305,6 +310,11 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct bgp *bgp;
+	struct peer *peer;
+	struct prefix *addr;
+	struct listnode *node, *nnode;
+	afi_t afi;
+	safi_t safi;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
@@ -330,6 +340,48 @@ static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)
 		    && !list_isempty(ifc->ifp->nbr_connected))
 			bgp_start_interface_nbrs(bgp, ifc->ifp);
+		else {
+			addr = ifc->address;
+
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (addr->family == AF_INET)
+					continue;
+
+				/*
+				 * If the Peer's interface name matches the
+				 * interface name for which BGP received the
+				 * update and if the received interface address
+				 * is a globalV6 and if the peer is currently
+				 * using a v4-mapped-v6 addr or a link local
+				 * address, then copy the Rxed global v6 addr
+				 * into peer's v6_global and send updates out
+				 * with new nexthop addr.
+				 */
+				if ((peer->conf_if &&
+				     (strcmp(peer->conf_if, ifc->ifp->name) ==
+				      0)) &&
+				    !IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
+				    ((IS_MAPPED_IPV6(
+					     &peer->nexthop.v6_global)) ||
+				     IN6_IS_ADDR_LINKLOCAL(
+					     &peer->nexthop.v6_global))) {
+
+					if (bgp_debug_zebra(ifc->address)) {
+						zlog_debug(
+							"Update peer %pBP's current intf addr %pI6 and send updates",
+							peer,
+							&peer->nexthop
+								 .v6_global);
+					}
+					memcpy(&peer->nexthop.v6_global,
+					       &addr->u.prefix6,
+					       IPV6_MAX_BYTELEN);
+					FOREACH_AFI_SAFI (afi, safi)
+						bgp_announce_route(peer, afi,
+								   safi, true);
+				}
+			}
+		}
 	}
 
 	return 0;
@@ -456,7 +508,7 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp)
 		return 0;
 
-	if (BGP_DEBUG(zebra, ZEBRA) && ifp)
+	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf VRF change VRF %u IF %s NewVRF %u", vrf_id,
 			   ifp->name, new_vrf_id);
 
@@ -3208,7 +3260,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node, *nnode;
-	struct srv6_locator_chunk *chunk;
+	struct srv6_locator_chunk *chunk, *tovpn_sid_locator;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 	struct in6_addr *tovpn_sid;
@@ -3220,8 +3272,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// refresh chunks
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
 		if (prefix_match((struct prefix *)&loc.prefix,
-				 (struct prefix *)&chunk->prefix))
+				 (struct prefix *)&chunk->prefix)) {
 			listnode_delete(bgp->srv6_locator_chunks, chunk);
+			srv6_locator_chunk_free(chunk);
+		}
 
 	// refresh functions
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
@@ -3229,8 +3283,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tmp_prefi.prefixlen = 128;
 		tmp_prefi.prefix = func->sid;
 		if (prefix_match((struct prefix *)&loc.prefix,
-				 (struct prefix *)&tmp_prefi))
+				 (struct prefix *)&tmp_prefi)) {
 			listnode_delete(bgp->srv6_functions, func);
+			XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+		}
 	}
 
 	// refresh tovpn_sid
@@ -3264,6 +3320,43 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	}
 
 	vpn_leak_postchange_all();
+
+	/* refresh tovpn_sid_locator */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		/* refresh vpnv4 tovpn_sid_locator */
+		tovpn_sid_locator =
+			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
+		if (tovpn_sid_locator) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_chunk_free(tovpn_sid_locator);
+				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
+					NULL;
+			}
+		}
+
+		/* refresh vpnv6 tovpn_sid_locator */
+		tovpn_sid_locator =
+			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
+		if (tovpn_sid_locator) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi)) {
+				srv6_locator_chunk_free(tovpn_sid_locator);
+				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
+					NULL;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -3300,7 +3393,33 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_OPAQUE_MESSAGE] = bgp_opaque_msg_handler,
 };
+
+static int bgp_if_new_hook(struct interface *ifp)
+{
+	struct bgp_interface *iifp;
+
+	if (ifp->info)
+		return 0;
+	iifp = XCALLOC(MTYPE_BGP_IF_INFO, sizeof(struct bgp_interface));
+	ifp->info = iifp;
+
+	return 0;
+}
+
+static int bgp_if_delete_hook(struct interface *ifp)
+{
+	XFREE(MTYPE_BGP_IF_INFO, ifp->info);
+	return 0;
+}
+
+void bgp_if_init(void)
+{
+	/* Initialize Zebra interface data structure. */
+	hook_register_prio(if_add, 0, bgp_if_new_hook);
+	hook_register_prio(if_del, 0, bgp_if_delete_hook);
+}
 
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
@@ -3728,4 +3847,35 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
 	return srv6_manager_release_locator_chunk(zclient, name);
+}
+
+/*
+ * ORR messages between processes
+ */
+static int bgp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s;
+	struct zapi_opaque_msg info;
+	struct orr_igp_metric_info table;
+	int ret = 0;
+
+	s = zclient->ibuf;
+
+	if (zclient_opaque_decode(s, &info) != 0) {
+		bgp_orr_debug("%s: opaque decode failed", __func__);
+		return -1;
+	}
+
+	switch (info.type) {
+	case ORR_IGP_METRIC_UPDATE:
+		STREAM_GET(&table, s, sizeof(table));
+		ret = bgg_orr_message_process(BGP_ORR_IMSG_IGP_METRIC_UPDATE,
+					      (void *)&table);
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+	return ret;
 }

@@ -510,6 +510,7 @@ extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 extern bool ipv4_unicast_valid(const struct in_addr *addr);
+extern int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to);
 
 static inline int ipv6_martian(const struct in6_addr *addr)
 {
@@ -674,6 +675,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
+#pragma FRR printfrr_ext "%pRD"  (struct prefix_rd *)
 
 #pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif

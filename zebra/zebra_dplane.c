@@ -314,6 +314,25 @@ struct dplane_netconf_info {
 };
 
 /*
+ * Traffic control contexts for the dplane
+ */
+struct dplane_tc_info {
+	/* Rate spec (unit: Bytes/s) */
+	uint64_t rate;
+	uint64_t ceil;
+
+	/* TODO: custom burst */
+
+	/* Filter components for "tfilter" */
+	uint32_t filter_bm;
+	struct prefix src_ip;
+	struct prefix dst_ip;
+	uint8_t ip_proto;
+
+	/* TODO: more filter components */
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -362,6 +381,7 @@ struct zebra_dplane_ctx {
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
+		struct dplane_tc_info tc;
 		struct zebra_pbr_iptable iptable;
 		struct zebra_pbr_ipset ipset;
 		struct {
@@ -539,6 +559,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_intfs_in;
 	_Atomic uint32_t dg_intf_errors;
+
+	_Atomic uint32_t dg_tcs_in;
+	_Atomic uint32_t dg_tcs_errors;
 
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
@@ -777,6 +800,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
+	case DPLANE_OP_TC_INSTALL:
+	case DPLANE_OP_TC_UPDATE:
+	case DPLANE_OP_TC_DELETE:
 		break;
 
 	case DPLANE_OP_IPSET_ENTRY_ADD:
@@ -1100,6 +1126,16 @@ const char *dplane_op2str(enum dplane_op_e op)
 	case DPLANE_OP_INTF_DELETE:
 		ret = "INTF_DELETE";
 		break;
+
+	case DPLANE_OP_TC_INSTALL:
+		ret = "TC_INSTALL";
+		break;
+	case DPLANE_OP_TC_UPDATE:
+		ret = "TC_UPDATE";
+		break;
+	case DPLANE_OP_TC_DELETE:
+		ret = "TC_DELETE";
+		break;
 	}
 
 	return ret;
@@ -1417,6 +1453,50 @@ uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_old_distance;
+}
+
+uint64_t dplane_ctx_tc_get_rate(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc.rate;
+}
+
+uint64_t dplane_ctx_tc_get_ceil(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc.ceil;
+}
+
+uint32_t dplane_ctx_tc_get_filter_bm(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc.filter_bm;
+}
+
+const struct prefix *
+dplane_ctx_tc_get_src_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.tc.src_ip);
+}
+
+const struct prefix *
+dplane_ctx_tc_get_dst_ip(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.tc.dst_ip);
+}
+
+uint8_t dplane_ctx_tc_get_ip_proto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc.ip_proto;
 }
 
 /*
@@ -2691,6 +2771,25 @@ done:
 	return ret;
 }
 
+int dplane_ctx_tc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op)
+{
+	int ret = EINVAL;
+
+	struct zebra_ns *zns = NULL;
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* TODO: init traffic control qdisc */
+	zns = zebra_ns_lookup(NS_DEFAULT);
+
+	dplane_ctx_ns_init(ctx, zns, true);
+
+	ret = AOK;
+
+	return ret;
+}
+
 /**
  * dplane_ctx_nexthop_init() - Initialize a context block for a nexthop update
  *
@@ -3410,6 +3509,47 @@ dplane_route_update_internal(struct route_node *rn,
 	return result;
 }
 
+static enum zebra_dplane_result dplane_tc_update_internal(enum dplane_op_e op)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	/* Obtain context block */
+	ctx = dplane_ctx_alloc();
+
+	if (!ctx) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	/* Init context with info from zebra data structs */
+	ret = dplane_ctx_tc_init(ctx, op);
+
+	if (ret == AOK)
+		ret = dplane_update_enqueue(ctx);
+
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_tcs_in, 1,
+				  memory_order_relaxed);
+	if (ret == AOK) {
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	} else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+enum zebra_dplane_result dplane_tc_update(void)
+{
+	return dplane_tc_update_internal(DPLANE_OP_TC_UPDATE);
+}
+
 /**
  * dplane_nexthop_update_internal() - Helper for enqueuing nexthop changes
  *
@@ -3422,7 +3562,7 @@ static enum zebra_dplane_result
 dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	/* Obtain context block */
@@ -3700,7 +3840,7 @@ dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 			struct zebra_dplane_ctx *notif_ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct nhlfe_list_head *head;
 	struct zebra_nhlfe *nhlfe, *new_nhlfe;
@@ -4075,7 +4215,7 @@ static enum zebra_dplane_result
 dplane_intf_update_internal(const struct interface *ifp, enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret = EINVAL;
+	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	/* Obtain context block */
@@ -5591,6 +5731,13 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_intf_is_protodown(ctx));
 		break;
+
+	/* TODO: more detailed log */
+	case DPLANE_OP_TC_INSTALL:
+	case DPLANE_OP_TC_UPDATE:
+	case DPLANE_OP_TC_DELETE:
+		zlog_debug("Dplane tc ifidx %u", dplane_ctx_get_ifindex(ctx));
+		break;
 	}
 }
 
@@ -5731,6 +5878,14 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_DELETE:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors,
+						  1, memory_order_relaxed);
+		break;
+
+	case DPLANE_OP_TC_INSTALL:
+	case DPLANE_OP_TC_UPDATE:
+	case DPLANE_OP_TC_DELETE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors,
 						  1, memory_order_relaxed);
 		break;
 

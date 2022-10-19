@@ -574,7 +574,7 @@ void bgp_routeadv_timer(struct thread *thread)
 		zlog_debug("%s [FSM] Timer (routeadv timer expire)",
 			   peer->host);
 
-	peer->synctime = bgp_clock();
+	peer->synctime = monotime(NULL);
 
 	thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets, peer, 0,
 			      &peer->t_generate_updgrp_packets);
@@ -953,7 +953,7 @@ void bgp_start_routeadv(struct bgp *bgp)
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
-	zlog_info("bgp_start_routeadv(), update hold status %d",
+	zlog_info("%s, update hold status %d", __func__,
 		  bgp->main_peers_update_hold);
 
 	if (bgp->main_peers_update_hold)
@@ -975,7 +975,7 @@ void bgp_start_routeadv(struct bgp *bgp)
  */
 void bgp_adjust_routeadv(struct peer *peer)
 {
-	time_t nowtime = bgp_clock();
+	time_t nowtime = monotime(NULL);
 	double diff;
 	unsigned long remain;
 
@@ -987,7 +987,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 */
 		THREAD_OFF(peer->t_routeadv);
 
-		peer->synctime = bgp_clock();
+		peer->synctime = monotime(NULL);
 		/* If suppress fib pending is enabled, route is advertised to
 		 * peers when the status is received from the FIB. The delay
 		 * is added to update group packet generate which will allow
@@ -1330,6 +1330,9 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	    && bgp_update_delay_applicable(peer->bgp))
 		bgp_update_delay_process_status_change(peer);
 
+	/* BGP ORR : Update Active Root */
+	bgp_peer_update_orr_active_roots(peer);
+
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s went from %s to %s", peer->host,
 			   lookup_msg(bgp_status_msg, peer->ostatus, NULL),
@@ -1464,6 +1467,11 @@ int bgp_stop(struct peer *peer)
 
 				/* There is no pending EOR message */
 				if (gr_info->eor_required == 0) {
+					if (gr_info->t_select_deferral) {
+						void *info = THREAD_ARG(
+							gr_info->t_select_deferral);
+						XFREE(MTYPE_TMP, info);
+					}
 					THREAD_OFF(gr_info->t_select_deferral);
 					gr_info->eor_received = 0;
 				}
@@ -1471,7 +1479,7 @@ int bgp_stop(struct peer *peer)
 		}
 
 		/* set last reset time */
-		peer->resettime = peer->uptime = bgp_clock();
+		peer->resettime = peer->uptime = monotime(NULL);
 
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 			zlog_debug("%s remove from all update group",
@@ -1687,9 +1695,8 @@ static void bgp_connect_check(struct thread *thread)
 static int bgp_connect_success(struct peer *peer)
 {
 	if (peer->fd < 0) {
-		flog_err(EC_BGP_CONNECT,
-			 "bgp_connect_success peer's fd is negative value %d",
-			 peer->fd);
+		flog_err(EC_BGP_CONNECT, "%s peer's fd is negative value %d",
+			 __func__, peer->fd);
 		bgp_stop(peer);
 		return -1;
 	}
@@ -1910,7 +1917,7 @@ int bgp_start(struct peer *peer)
 				peer->host, peer->fd);
 		if (peer->fd < 0) {
 			flog_err(EC_BGP_FSM,
-				 "bgp_start peer's fd is negative value %d",
+				 "%s peer's fd is negative value %d", __func__,
 				 peer->fd);
 			return -1;
 		}
@@ -2220,7 +2227,7 @@ static int bgp_establish(struct peer *peer)
 	if (!peer->v_holdtime)
 		bgp_keepalives_on(peer);
 
-	peer->uptime = bgp_clock();
+	peer->uptime = monotime(NULL);
 
 	/* Send route-refresh when ORF is enabled.
 	 * Stop Long-lived Graceful Restart timers.

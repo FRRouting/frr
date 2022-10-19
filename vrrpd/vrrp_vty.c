@@ -121,7 +121,7 @@ DEFPY_YANG(vrrp_priority,
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
-      "Priority value")
+      "Priority value\n")
 {
 	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, priority_str);
 
@@ -138,7 +138,7 @@ DEFPY_YANG(no_vrrp_priority,
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
-      "Priority value")
+      "Priority value\n")
 {
 	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, NULL);
 
@@ -162,7 +162,7 @@ DEFPY_YANG(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
       "vrrp (1-255)$vrid advertisement-interval (10-40950)",
       VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
-      "Advertisement interval in milliseconds; must be multiple of 10")
+      "Advertisement interval in milliseconds; must be multiple of 10\n")
 {
 	char val[20];
 
@@ -183,7 +183,7 @@ DEFPY_YANG(no_vrrp_advertisement_interval,
       no_vrrp_advertisement_interval_cmd,
       "no vrrp (1-255)$vrid advertisement-interval [(10-40950)]",
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
-      "Advertisement interval in milliseconds; must be multiple of 10")
+      "Advertisement interval in milliseconds; must be multiple of 10\n")
 {
 	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
 			      NULL);
@@ -709,6 +709,8 @@ DEFUN_NOSH (show_debugging_vrrp,
 	vty_out(vty, "VRRP debugging status:\n");
 
 	vrrp_debug_status_write(vty);
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }

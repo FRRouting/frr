@@ -58,31 +58,31 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug msdp internal\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_EVENTS) {
-		vty_out(vty, "debug igmp events\n");
+	if (PIM_DEBUG_GM_EVENTS) {
+		vty_out(vty, "debug " GM_AF_DBG " events\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_PACKETS) {
-		vty_out(vty, "debug igmp packets\n");
+	if (PIM_DEBUG_GM_PACKETS) {
+		vty_out(vty, "debug " GM_AF_DBG " packets\n");
 		++writes;
 	}
-	/* PIM_DEBUG_IGMP_TRACE catches _DETAIL too */
-	if (router->debugs & PIM_MASK_IGMP_TRACE) {
-		vty_out(vty, "debug igmp trace\n");
+	/* PIM_DEBUG_GM_TRACE catches _DETAIL too */
+	if (router->debugs & PIM_MASK_GM_TRACE) {
+		vty_out(vty, "debug " GM_AF_DBG " trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
-		vty_out(vty, "debug igmp trace detail\n");
+	if (PIM_DEBUG_GM_TRACE_DETAIL) {
+		vty_out(vty, "debug " GM_AF_DBG " trace detail\n");
 		++writes;
 	}
 
 	/* PIM_DEBUG_MROUTE catches _DETAIL too */
 	if (router->debugs & PIM_MASK_MROUTE) {
-		vty_out(vty, "debug mroute\n");
+		vty_out(vty, "debug " PIM_MROUTE_DBG "\n");
 		++writes;
 	}
 	if (PIM_DEBUG_MROUTE_DETAIL) {
-		vty_out(vty, "debug mroute detail\n");
+		vty_out(vty, "debug " PIM_MROUTE_DBG " detail\n");
 		++writes;
 	}
 
@@ -314,14 +314,14 @@ static int gm_config_write(struct vty *vty, int writes,
 
 	/* IF ip igmp query-max-response-time */
 	if (pim_ifp->gm_query_max_response_time_dsec !=
-	    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
+	    GM_QUERY_MAX_RESPONSE_TIME_DSEC) {
 		vty_out(vty, " ip igmp query-max-response-time %d\n",
 			pim_ifp->gm_query_max_response_time_dsec);
 		++writes;
 	}
 
 	/* IF ip igmp query-interval */
-	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL) {
+	if (pim_ifp->gm_default_query_interval != GM_GENERAL_QUERY_INTERVAL) {
 		vty_out(vty, " ip igmp query-interval %d\n",
 			pim_ifp->gm_default_query_interval);
 		++writes;
@@ -329,7 +329,7 @@ static int gm_config_write(struct vty *vty, int writes,
 
 	/* IF ip igmp last-member_query-count */
 	if (pim_ifp->gm_last_member_query_count !=
-	    IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
+	    GM_DEFAULT_ROBUSTNESS_VARIABLE) {
 		vty_out(vty, " ip igmp last-member-query-count %d\n",
 			pim_ifp->gm_last_member_query_count);
 		++writes;
@@ -337,7 +337,7 @@ static int gm_config_write(struct vty *vty, int writes,
 
 	/* IF ip igmp last-member_query-interval */
 	if (pim_ifp->gm_specific_query_max_response_time_dsec !=
-	    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
+	    GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
 		vty_out(vty, " ip igmp last-member-query-interval %d\n",
 			pim_ifp->gm_specific_query_max_response_time_dsec);
 		++writes;
@@ -370,11 +370,37 @@ static int gm_config_write(struct vty *vty, int writes,
 static int gm_config_write(struct vty *vty, int writes,
 			   struct pim_interface *pim_ifp)
 {
+	/* IF ipv6 mld */
+	if (pim_ifp->gm_enable) {
+		vty_out(vty, " ipv6 mld\n");
+		++writes;
+	}
+
 	if (pim_ifp->mld_version != MLD_DEFAULT_VERSION)
 		vty_out(vty, " ipv6 mld version %d\n", pim_ifp->mld_version);
-	if (pim_ifp->gm_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
+
+	/* IF ipv6 mld query-max-response-time */
+	if (pim_ifp->gm_query_max_response_time_dsec !=
+	    GM_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld query-max-response-time %d\n",
+			pim_ifp->gm_query_max_response_time_dsec);
+
+	if (pim_ifp->gm_default_query_interval != GM_GENERAL_QUERY_INTERVAL)
 		vty_out(vty, " ipv6 mld query-interval %d\n",
 			pim_ifp->gm_default_query_interval);
+
+	/* IF ipv6 mld last-member_query-count */
+	if (pim_ifp->gm_last_member_query_count !=
+	    GM_DEFAULT_ROBUSTNESS_VARIABLE)
+		vty_out(vty, " ipv6 mld last-member-query-count %d\n",
+			pim_ifp->gm_last_member_query_count);
+
+	/* IF ipv6 mld last-member_query-interval */
+	if (pim_ifp->gm_specific_query_max_response_time_dsec !=
+	    GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC)
+		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
+			pim_ifp->gm_specific_query_max_response_time_dsec);
+
 	return 0;
 }
 #endif

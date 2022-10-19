@@ -125,6 +125,8 @@ DEFUN_NOSH (show_debugging_watchfrr,
             DEBUG_STR
             WATCHFRR_STR)
 {
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

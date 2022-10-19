@@ -122,7 +122,7 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, &tm);
 
 	if (ret == 0) {
-		flog_warn(EC_BGP_DUMP, "bgp_dump_open_file: strftime error");
+		flog_warn(EC_BGP_DUMP, "%s: strftime error", __func__);
 		return NULL;
 	}
 
@@ -134,7 +134,7 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	bgp_dump->fp = fopen(realpath, "w");
 
 	if (bgp_dump->fp == NULL) {
-		flog_warn(EC_BGP_DUMP, "bgp_dump_open_file: %s: %s", realpath,
+		flog_warn(EC_BGP_DUMP, "%s: %s: %s", __func__, realpath,
 			  strerror(errno));
 		umask(oldumask);
 		return NULL;
@@ -367,7 +367,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 		stream_putw(obuf, path->peer->table_dump_index);
 
 		/* Originated */
-		stream_putl(obuf, time(NULL) - (bgp_clock() - path->uptime));
+		stream_putl(obuf, time(NULL) - (monotime(NULL) - path->uptime));
 
 		/*Path Identifier*/
 		if (addpath_capable) {

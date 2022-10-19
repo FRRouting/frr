@@ -70,14 +70,14 @@
 static void update_group_checkin(struct update_group *updgrp)
 {
 	updgrp->id = ++bm->updgrp_idspace;
-	updgrp->uptime = bgp_clock();
+	updgrp->uptime = monotime(NULL);
 }
 
 static void update_subgroup_checkin(struct update_subgroup *subgrp,
 				    struct update_group *updgrp)
 {
 	subgrp->id = ++bm->subgrp_idspace;
-	subgrp->uptime = bgp_clock();
+	subgrp->uptime = monotime(NULL);
 }
 
 static void sync_init(struct update_subgroup *subgrp,
@@ -164,6 +164,12 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
 	dst->local_role = src->local_role;
+
+	if (src->soo[afi][safi]) {
+		ecommunity_free(&dst->soo[afi][safi]);
+		dst->soo[afi][safi] = ecommunity_dup(src->soo[afi][safi]);
+	}
+
 	memcpy(&(dst->nexthop), &(src->nexthop), sizeof(struct bgp_nexthop));
 
 	dst->group = src->group;
@@ -248,6 +254,8 @@ static void conf_release(struct peer *src, afi_t afi, safi_t safi)
 	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->advmap.cname);
 
 	XFREE(MTYPE_BGP_PEER_HOST, src->host);
+
+	ecommunity_free(&src->soo[afi][safi]);
 }
 
 static void peer2_updgrp_copy(struct update_group *updgrp, struct peer_af *paf)
@@ -428,17 +436,24 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 	key = jhash_1word(peer->local_role, key);
 
+	if (peer->soo[afi][safi]) {
+		char *soo_str = ecommunity_str(peer->soo[afi][safi]);
+
+		key = jhash_1word(jhash(soo_str, strlen(soo_str), SEED1), key);
+	}
+
 	if (bgp_debug_neighbor_events(peer)) {
 		zlog_debug(
-			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %u",
+			"%pBP Update Group Hash: sort: %d UpdGrpFlags: %ju UpdGrpAFFlags: %ju",
 			peer, peer->sort,
-			(intmax_t)(peer->flags & PEER_UPDGRP_FLAGS),
-			flags & PEER_UPDGRP_AF_FLAGS);
+			(intmax_t)CHECK_FLAG(peer->flags, PEER_UPDGRP_FLAGS),
+			(intmax_t)CHECK_FLAG(flags, PEER_UPDGRP_AF_FLAGS));
 		zlog_debug(
 			"%pBP Update Group Hash: addpath: %u UpdGrpCapFlag: %u UpdGrpCapAFFlag: %u route_adv: %u change local as: %u",
 			peer, (uint32_t)peer->addpath_type[afi][safi],
-			peer->cap & PEER_UPDGRP_CAP_FLAGS,
-			peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS,
+			CHECK_FLAG(peer->cap, PEER_UPDGRP_CAP_FLAGS),
+			CHECK_FLAG(peer->af_cap[afi][safi],
+				   PEER_UPDGRP_AF_CAP_FLAGS),
 			peer->v_routeadv, peer->change_local_as);
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
@@ -472,14 +487,14 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			peer->shared_network &&
 				peer_afi_active_nego(peer, AFI_IP6));
 		zlog_debug(
-			"%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u ORF old: %u max prefix out: %u",
+			"%pBP Update Group Hash: Lonesoul: %d ORF prefix: %u ORF old: %u max prefix out: %ju",
 			peer, !!CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL),
 			CHECK_FLAG(peer->af_cap[afi][safi],
 				   PEER_CAP_ORF_PREFIX_SM_RCV),
 			CHECK_FLAG(peer->af_cap[afi][safi],
 				   PEER_CAP_ORF_PREFIX_SM_OLD_RCV),
-			CHECK_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_MAX_PREFIX_OUT));
+			(intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
+					     PEER_FLAG_MAX_PREFIX_OUT));
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;

@@ -271,7 +271,7 @@ DEFUN (no_srv6_locator,
 
 DEFPY (locator_prefix,
        locator_prefix_cmd,
-       "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len]",
+       "prefix X:X::X:X/M$prefix [func-bits (0-64)$func_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
        "Configure SRv6 locator function length in bits\n"
@@ -281,7 +281,14 @@ DEFPY (locator_prefix,
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
 
+	if (prefix->prefixlen != 64 && prefix->prefixlen != 48) {
+		vty_out(vty,
+			"%% Invalid argument: Unsupported locator format\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	locator->prefix = *prefix;
+	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
 
 	/*
 	 * TODO(slankdev): please support variable node-bit-length.
@@ -298,7 +305,7 @@ DEFPY (locator_prefix,
 	 *      user should use a pattern of zeros as a filler.
 	 *  (3) The Node Id portion (LSBs) cannot exceed 24 bits.
 	 */
-	if (prefix->prefixlen == 48) {
+  if (prefix->prefixlen == 48) {
 		locator->block_bits_length = prefix->prefixlen - 16;
 		locator->node_bits_length = 16;
 	} else {

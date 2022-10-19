@@ -131,11 +131,11 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 		 * after it'll get confused
 		 */
 		if (!stream_fifo_count_safe(peer->obuf))
-			peer->last_sendq_ok = bgp_clock();
+			peer->last_sendq_ok = monotime(NULL);
 
 		stream_fifo_push(peer->obuf, s);
 
-		delta = bgp_clock() - peer->last_sendq_ok;
+		delta = monotime(NULL) - peer->last_sendq_ok;
 		holdtime = atomic_load_explicit(&peer->holdtime,
 						memory_order_relaxed);
 
@@ -156,12 +156,12 @@ static void bgp_packet_add(struct peer *peer, struct stream *s)
 				peer->host);
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 		} else if (delta > (intmax_t)holdtime &&
-			   bgp_clock() - peer->last_sendq_warn > 5) {
+			   monotime(NULL) - peer->last_sendq_warn > 5) {
 			flog_warn(
 				EC_BGP_SENDQ_STUCK_WARN,
 				"%s has not made any SendQ progress for 1 holdtime, peer overloaded?",
 				peer->host);
-			peer->last_sendq_warn = bgp_clock();
+			peer->last_sendq_warn = monotime(NULL);
 		}
 	}
 }
@@ -358,6 +358,31 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
+}
+
+
+/*
+ * Check if route-refresh request from peer is pending (received before EoR),
+ * and process it now.
+ */
+static void bgp_process_pending_refresh(struct peer *peer, afi_t afi,
+					safi_t safi)
+{
+	if (CHECK_FLAG(peer->af_sflags[afi][safi],
+		       PEER_STATUS_REFRESH_PENDING)) {
+		UNSET_FLAG(peer->af_sflags[afi][safi],
+			   PEER_STATUS_REFRESH_PENDING);
+		bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
+				       BGP_ROUTE_REFRESH_BORR);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug(
+				"%pBP sending route-refresh (BoRR) for %s/%s (for pending REQUEST)",
+				peer, afi2str(afi), safi2str(safi));
+
+		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_SEND);
+		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_SEND);
+		bgp_announce_route(peer, afi, safi, true);
+	}
 }
 
 /*
@@ -558,6 +583,9 @@ void bgp_generate_updgrp_packets(struct thread *thread)
 							BGP_UPDATE_EOR_PKT(
 								peer, afi, safi,
 								s);
+							bgp_process_pending_refresh(
+								peer, afi,
+								safi);
 						}
 					}
 				}
@@ -871,8 +899,9 @@ bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
  * @param data      Data portion
  * @param datalen   length of data portion
  */
-void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
-			       uint8_t sub_code, uint8_t *data, size_t datalen)
+static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
+				     uint8_t sub_code, uint8_t *data,
+				     size_t datalen, bool use_curr)
 {
 	struct stream *s;
 	bool hard_reset = bgp_notify_send_hard_reset(peer, code, sub_code);
@@ -917,8 +946,11 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	 * If possible, store last packet for debugging purposes. This check is
 	 * in place because we are sometimes called with a doppelganger peer,
 	 * who tends to have a plethora of fields nulled out.
+	 *
+	 * Some callers should not attempt this - the io pthread for example
+	 * should not touch internals of the peer struct.
 	 */
-	if (peer->curr) {
+	if (use_curr && peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
 		assert(packetsize <= peer->max_packet_size);
 		memcpy(peer->last_reset_cause, peer->curr->data, packetsize);
@@ -1001,7 +1033,27 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
  */
 void bgp_notify_send(struct peer *peer, uint8_t code, uint8_t sub_code)
 {
-	bgp_notify_send_with_data(peer, code, sub_code, NULL, 0);
+	bgp_notify_send_internal(peer, code, sub_code, NULL, 0, true);
+}
+
+/*
+ * Enqueue notification; called from the main pthread, peer object access is ok.
+ */
+void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
+			       uint8_t sub_code, uint8_t *data, size_t datalen)
+{
+	bgp_notify_send_internal(peer, code, sub_code, data, datalen, true);
+}
+
+/*
+ * For use by the io pthread, queueing a notification but avoiding access to
+ * the peer object.
+ */
+void bgp_notify_io_invalid(struct peer *peer, uint8_t code, uint8_t sub_code,
+			   uint8_t *data, size_t datalen)
+{
+	/* Avoid touching the peer object */
+	bgp_notify_send_internal(peer, code, sub_code, data, datalen, false);
 }
 
 /*
@@ -2002,6 +2054,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 							gr_info->eor_required,
 							"EOR RCV",
 							gr_info->eor_received);
+					if (gr_info->t_select_deferral) {
+						void *info = THREAD_ARG(
+							gr_info->t_select_deferral);
+						XFREE(MTYPE_TMP, info);
+					}
 					THREAD_OFF(gr_info->t_select_deferral);
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
@@ -2026,7 +2083,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	   interned in bgp_attr_parse(). */
 	bgp_attr_unintern_sub(&attr);
 
-	peer->update_time = bgp_clock();
+	peer->update_time = monotime(NULL);
 
 	/* Notify BGP Conditional advertisement scanner process */
 	peer->advmap_table_change = true;
@@ -2540,6 +2597,9 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 						"%pBP rcvd route-refresh (REQUEST) for %s/%s before EoR",
 						peer, afi2str(afi),
 						safi2str(safi));
+				/* Can't send BoRR now, postpone after EoR */
+				SET_FLAG(peer->af_sflags[afi][safi],
+					 PEER_STATUS_REFRESH_PENDING);
 				return BGP_PACKET_NOOP;
 			}
 

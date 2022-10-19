@@ -37,7 +37,7 @@
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
 #include "bgpd/bgp_errors.h"	// for expanded error reference information
 #include "bgpd/bgp_fsm.h"	// for BGP_EVENT_ADD, bgp_event
-#include "bgpd/bgp_packet.h"	// for bgp_notify_send_with_data, bgp_notify...
+#include "bgpd/bgp_packet.h"	// for bgp_notify_io_invalid...
 #include "bgpd/bgp_trace.h"	// for frrtraces
 #include "bgpd/bgpd.h"		// for peer, BGP_MARKER_SIZE, bgp_master, bm
 /* clang-format on */
@@ -431,7 +431,7 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
-	now = bgp_clock();
+	now = monotime(NULL);
 	/*
 	 * Update last_update if UPDATEs were written.
 	 * Note: that these are only updated at end,
@@ -526,8 +526,8 @@ static bool validate_header(struct peer *peer)
 		return false;
 
 	if (memcmp(m_correct, m_rx, BGP_MARKER_SIZE) != 0) {
-		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
-				BGP_NOTIFY_HEADER_NOT_SYNC);
+		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_NOT_SYNC, NULL, 0);
 		return false;
 	}
 
@@ -547,9 +547,8 @@ static bool validate_header(struct peer *peer)
 			zlog_debug("%s unknown message type 0x%02x", peer->host,
 				   type);
 
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
-					  BGP_NOTIFY_HEADER_BAD_MESTYPE, &type,
-					  1);
+		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_BAD_MESTYPE, &type, 1);
 		return false;
 	}
 
@@ -574,9 +573,9 @@ static bool validate_header(struct peer *peer)
 
 		uint16_t nsize = htons(size);
 
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
-					  BGP_NOTIFY_HEADER_BAD_MESLEN,
-					  (unsigned char *)&nsize, 2);
+		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_BAD_MESLEN,
+				      (unsigned char *)&nsize, 2);
 		return false;
 	}
 

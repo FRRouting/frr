@@ -232,6 +232,9 @@ def pytest_configure(config):
     Assert that the environment is correctly configured, and get extra config.
     """
 
+    if config.getoption("--collect-only"):
+        return
+
     if "PYTEST_XDIST_WORKER" not in os.environ:
         os.environ["PYTEST_XDIST_MODE"] = config.getoption("dist", "no")
         os.environ["PYTEST_TOPOTEST_WORKER"] = ""
@@ -363,7 +366,7 @@ def pytest_configure(config):
 
     # Check environment now that we have config
     if not diagnose_env(rundir):
-        pytest.exit("environment has errors, please read the logs")
+        pytest.exit("environment has errors, please read the logs in %s" % rundir)
 
 
 @pytest.fixture(autouse=True, scope="session")

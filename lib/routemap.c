@@ -812,17 +812,13 @@ int route_map_mark_updated(const char *name)
 	return (ret);
 }
 
-static int route_map_clear_updated(struct route_map *map)
+static void route_map_clear_updated(struct route_map *map)
 {
-	int ret = -1;
-
 	if (map) {
 		map->to_be_processed = false;
 		if (map->deleted)
 			route_map_free_map(map);
 	}
-
-	return (ret);
 }
 
 /* Lookup route map.  If there isn't route map create one and return
@@ -1063,7 +1059,6 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 
 		if (map) {
 			vty_show_route_map_entry(vty, map, json_proto);
-			return CMD_SUCCESS;
 		} else if (!use_json) {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
 				frr_protonameinst, name);
@@ -1820,7 +1815,24 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 	struct route_map_index *index = NULL, *best_index = NULL;
 	struct route_map_index *head_index = NULL;
 	struct route_table *table = NULL;
-	unsigned char family = prefix->family;
+	struct prefix conv;
+	unsigned char family;
+
+	/*
+	 * Handling for matching evpn_routes in the prefix table.
+	 *
+	 * We convert type2/5 prefix to ipv4/6 prefix to do longest
+	 * prefix matching on.
+	 */
+	if (prefix->family == AF_EVPN) {
+		if (evpn_prefix2prefix(prefix, &conv) != 0)
+			return NULL;
+
+		prefix = &conv;
+	}
+
+
+	family = prefix->family;
 
 	if (family == AF_INET)
 		table = map->ipv4_prefix_table;
@@ -3178,6 +3190,12 @@ static struct cmd_node rmap_debug_node = {
 	.prompt = "",
 	.config_write = rmap_config_write_debug,
 };
+
+void route_map_show_debug(struct vty *vty)
+{
+	if (rmap_debug)
+		vty_out(vty, "debug route-map\n");
+}
 
 /* Configuration write function. */
 static int rmap_config_write_debug(struct vty *vty)

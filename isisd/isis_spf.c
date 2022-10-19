@@ -844,8 +844,7 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 
 lspfragloop:
 	if (lsp->hdr.seqno == 0) {
-		zlog_warn(
-			"isis_spf_process_lsp(): lsp with 0 seq_num - ignore");
+		zlog_warn("%s: lsp with 0 seq_num - ignore", __func__);
 		return ISIS_WARNING;
 	}
 
@@ -1780,7 +1779,8 @@ void isis_run_spf(struct isis_spftree *spftree)
 		break;
 	case SPFTREE_COUNT:
 		zlog_err(
-			"isis_run_spf should never be called with SPFTREE_COUNT as argument!");
+			"%s should never be called with SPFTREE_COUNT as argument!",
+			__func__);
 		exit(1);
 	}
 

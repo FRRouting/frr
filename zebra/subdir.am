@@ -82,6 +82,8 @@ zebra_zebra_SOURCES = \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
 	zebra/table_manager.c \
+	zebra/tc_netlink.c \
+	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
@@ -163,6 +165,7 @@ noinst_HEADERS += \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/table_manager.h \
+	zebra/tc_netlink.h \
 	zebra/zapi_msg.h \
 	zebra/zebra_dplane.h \
 	zebra/zebra_errors.h \

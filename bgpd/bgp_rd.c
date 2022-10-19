@@ -211,3 +211,17 @@ void form_auto_rd(struct in_addr router_id,
 	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &router_id, rd_id);
 	(void)str2prefix_rd(buf, prd);
 }
+
+printfrr_ext_autoreg_p("RD", printfrr_prd);
+static ssize_t printfrr_prd(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
+{
+	char rd_buf[RD_ADDRSTRLEN];
+
+	if (!ptr)
+		return bputs(buf, "(null)");
+
+	prefix_rd2str(ptr, rd_buf, sizeof(rd_buf));
+
+	return bputs(buf, rd_buf);
+}

@@ -227,8 +227,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 		adata = calloc(1, CMSG_SPACE(sizeof(struct in6_pktinfo)));
 
 		if (adata == NULL) {
-			zlog_debug(
-				"rtadv_send_packet: can't malloc control data");
+			zlog_debug("%s: can't malloc control data", __func__);
 			exit(-1);
 		}
 	}
@@ -665,8 +664,9 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	     zif->rtadv.lastadvcurhoplimit.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
-			"%s(%u): Rx RA - our AdvCurHopLimit doesn't agree with %s",
-			ifp->name, ifp->ifindex, addr_str);
+			"%s(%u): Rx RA - our AdvCurHopLimit (%u) doesn't agree with %s (%u)",
+			ifp->name, ifp->ifindex, zif->rtadv.AdvCurHopLimit,
+			addr_str, radvert->nd_ra_curhoplimit);
 		monotime(&zif->rtadv.lastadvcurhoplimit);
 	}
 
@@ -677,8 +677,11 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	     zif->rtadv.lastadvmanagedflag.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
-			"%s(%u): Rx RA - our AdvManagedFlag doesn't agree with %s",
-			ifp->name, ifp->ifindex, addr_str);
+			"%s(%u): Rx RA - our AdvManagedFlag (%u) doesn't agree with %s (%u)",
+			ifp->name, ifp->ifindex, zif->rtadv.AdvManagedFlag,
+			addr_str,
+			!!CHECK_FLAG(radvert->nd_ra_flags_reserved,
+				     ND_RA_FLAG_MANAGED));
 		monotime(&zif->rtadv.lastadvmanagedflag);
 	}
 
@@ -689,8 +692,11 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	     zif->rtadv.lastadvotherconfigflag.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
-			"%s(%u): Rx RA - our AdvOtherConfigFlag doesn't agree with %s",
-			ifp->name, ifp->ifindex, addr_str);
+			"%s(%u): Rx RA - our AdvOtherConfigFlag (%u) doesn't agree with %s (%u)",
+			ifp->name, ifp->ifindex, zif->rtadv.AdvOtherConfigFlag,
+			addr_str,
+			!!CHECK_FLAG(radvert->nd_ra_flags_reserved,
+				     ND_RA_FLAG_OTHER));
 		monotime(&zif->rtadv.lastadvotherconfigflag);
 	}
 
@@ -701,20 +707,23 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	     zif->rtadv.lastadvreachabletime.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
-			"%s(%u): Rx RA - our AdvReachableTime doesn't agree with %s",
-			ifp->name, ifp->ifindex, addr_str);
+			"%s(%u): Rx RA - our AdvReachableTime (%u) doesn't agree with %s (%u)",
+			ifp->name, ifp->ifindex, zif->rtadv.AdvReachableTime,
+			addr_str, ntohl(radvert->nd_ra_reachable));
 		monotime(&zif->rtadv.lastadvreachabletime);
 	}
 
-	if ((ntohl(radvert->nd_ra_retransmit) !=
+	if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer) &&
+	    (ntohl(radvert->nd_ra_retransmit) !=
 	     (unsigned int)zif->rtadv.AdvRetransTimer) &&
 	    (monotime_since(&zif->rtadv.lastadvretranstimer, NULL) >
 		     SIXHOUR2USEC ||
 	     zif->rtadv.lastadvretranstimer.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
-			"%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
-			ifp->name, ifp->ifindex, addr_str);
+			"%s(%u): Rx RA - our AdvRetransTimer (%u) doesn't agree with %s (%u)",
+			ifp->name, ifp->ifindex, zif->rtadv.AdvRetransTimer,
+			addr_str, ntohl(radvert->nd_ra_retransmit));
 		monotime(&zif->rtadv.lastadvretranstimer);
 	}
 

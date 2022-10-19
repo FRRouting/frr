@@ -47,6 +47,7 @@
 #include "bgp_io.h"
 
 #include "lib/bfd.h"
+#include "lib/orr_msg.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -132,6 +133,7 @@ struct bgp_master {
 
 	/* Various BGP global configuration.  */
 	uint8_t options;
+
 #define BGP_OPT_NO_FIB                   (1 << 0)
 #define BGP_OPT_NO_LISTEN                (1 << 1)
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
@@ -196,6 +198,40 @@ struct bgp_redist {
 	struct bgp_rmap rmap;
 };
 
+struct bgp_orr_igp_metric {
+	struct prefix prefix;
+	uint32_t igp_metric;
+};
+
+struct bgp_orr_group {
+	/* Name of this ORR group */
+	char *name;
+
+	/* Address Family Identifiers */
+	afi_t afi;
+	safi_t safi;
+
+	/* Pointer to BGP */
+	struct bgp *bgp;
+
+	/* Root Routers of the group */
+	struct peer *primary;
+	struct peer *secondary;
+	struct peer *tertiary;
+
+	/* Active Root Router of the group */
+	struct peer *active;
+
+	/* RR clients belong to this group */
+	struct list *rr_client_list;
+
+	/* IGP metric data from active root */
+	struct list *igp_metric_info;
+
+	/* Route table calculated from active root for this group */
+	struct bgp_table *route_table;
+};
+
 enum vpn_policy_direction {
 	BGP_VPN_POLICY_DIR_FROMVPN = 0,
 	BGP_VPN_POLICY_DIR_TOVPN = 1,
@@ -238,7 +274,7 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
-	struct in6_addr *tovpn_sid_locator;
+	struct srv6_locator_chunk *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
@@ -719,8 +755,10 @@ struct bgp {
 #define BGP_VRF_AUTO                        (1 << 0)
 #define BGP_VRF_IMPORT_RT_CFGD              (1 << 1)
 #define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
-#define BGP_VRF_RD_CFGD                     (1 << 3)
-#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
+#define BGP_VRF_IMPORT_AUTO_RT_CFGD         (1 << 3) /* retain auto when cfgd */
+#define BGP_VRF_EXPORT_AUTO_RT_CFGD         (1 << 4) /* retain auto when cfgd */
+#define BGP_VRF_RD_CFGD                     (1 << 5)
+#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 6)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -768,15 +806,28 @@ struct bgp {
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
+	/* TCP keepalive parameters for BGP connection */
+	uint16_t tcp_keepalive_idle;
+	uint16_t tcp_keepalive_intvl;
+	uint16_t tcp_keepalive_probes;
 
 	struct timeval ebgprequirespolicywarning;
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
 
 	bool allow_martian;
 
+	/* BGP optimal route reflection group and Root Router configuration */
+	uint32_t orr_group_count;
+	struct list *orr_group[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
+
+struct bgp_interface {
+#define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
+	uint32_t flags;
+};
 
 DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_inst_config_write,
@@ -1380,37 +1431,43 @@ struct peer {
 	 * specific attributes are being treated the exact same way as global
 	 * peer attributes.
 	 */
-	uint32_t af_flags_override[AFI_MAX][SAFI_MAX];
-	uint32_t af_flags_invert[AFI_MAX][SAFI_MAX];
-	uint32_t af_flags[AFI_MAX][SAFI_MAX];
-#define PEER_FLAG_SEND_COMMUNITY            (1U << 0) /* send-community */
-#define PEER_FLAG_SEND_EXT_COMMUNITY        (1U << 1) /* send-community ext. */
-#define PEER_FLAG_NEXTHOP_SELF              (1U << 2) /* next-hop-self */
-#define PEER_FLAG_REFLECTOR_CLIENT          (1U << 3) /* reflector-client */
-#define PEER_FLAG_RSERVER_CLIENT            (1U << 4) /* route-server-client */
-#define PEER_FLAG_SOFT_RECONFIG             (1U << 5) /* soft-reconfiguration */
-#define PEER_FLAG_AS_PATH_UNCHANGED         (1U << 6) /* transparent-as */
-#define PEER_FLAG_NEXTHOP_UNCHANGED         (1U << 7) /* transparent-next-hop */
-#define PEER_FLAG_MED_UNCHANGED             (1U << 8) /* transparent-next-hop */
-#define PEER_FLAG_DEFAULT_ORIGINATE         (1U << 9) /* default-originate */
-#define PEER_FLAG_REMOVE_PRIVATE_AS         (1U << 10) /* remove-private-as */
-#define PEER_FLAG_ALLOWAS_IN                (1U << 11) /* set allowas-in */
-#define PEER_FLAG_ORF_PREFIX_SM             (1U << 12) /* orf capability send-mode */
-#define PEER_FLAG_ORF_PREFIX_RM             (1U << 13) /* orf capability receive-mode */
-#define PEER_FLAG_MAX_PREFIX                (1U << 14) /* maximum prefix */
-#define PEER_FLAG_MAX_PREFIX_WARNING        (1U << 15) /* maximum prefix warning-only */
-#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED   (1U << 16) /* leave link-local nexthop unchanged */
-#define PEER_FLAG_FORCE_NEXTHOP_SELF        (1U << 17) /* next-hop-self force */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL     (1U << 18) /* remove-private-as all */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1U << 19) /* remove-private-as replace-as */
-#define PEER_FLAG_AS_OVERRIDE               (1U << 20) /* as-override */
-#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1U << 21) /* remove-private-as all replace-as */
-#define PEER_FLAG_WEIGHT                    (1U << 24) /* weight */
-#define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1U << 25) /* allowas-in origin */
-#define PEER_FLAG_SEND_LARGE_COMMUNITY      (1U << 26) /* Send large Communities */
-#define PEER_FLAG_MAX_PREFIX_OUT            (1U << 27) /* outgoing maximum prefix */
-#define PEER_FLAG_MAX_PREFIX_FORCE          (1U << 28) /* maximum-prefix <num> force */
-#define PEER_FLAG_DISABLE_ADDPATH_RX        (1U << 29) /* disable-addpath-rx */
+	uint64_t af_flags_override[AFI_MAX][SAFI_MAX];
+	uint64_t af_flags_invert[AFI_MAX][SAFI_MAX];
+	uint64_t af_flags[AFI_MAX][SAFI_MAX];
+#define PEER_FLAG_SEND_COMMUNITY (1ULL << 0)
+#define PEER_FLAG_SEND_EXT_COMMUNITY (1ULL << 1)
+#define PEER_FLAG_NEXTHOP_SELF (1ULL << 2)
+#define PEER_FLAG_REFLECTOR_CLIENT (1ULL << 3)
+#define PEER_FLAG_RSERVER_CLIENT (1ULL << 4)
+#define PEER_FLAG_SOFT_RECONFIG (1ULL << 5)
+#define PEER_FLAG_AS_PATH_UNCHANGED (1ULL << 6)
+#define PEER_FLAG_NEXTHOP_UNCHANGED (1ULL << 7)
+#define PEER_FLAG_MED_UNCHANGED (1ULL << 8)
+#define PEER_FLAG_DEFAULT_ORIGINATE (1ULL << 9)
+#define PEER_FLAG_REMOVE_PRIVATE_AS (1ULL << 10)
+#define PEER_FLAG_ALLOWAS_IN (1ULL << 11)
+#define PEER_FLAG_ORF_PREFIX_SM (1ULL << 12)
+#define PEER_FLAG_ORF_PREFIX_RM (1ULL << 13)
+#define PEER_FLAG_MAX_PREFIX (1ULL << 14)
+#define PEER_FLAG_MAX_PREFIX_WARNING (1ULL << 15)
+#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED (1ULL << 16)
+#define PEER_FLAG_FORCE_NEXTHOP_SELF (1ULL << 17)
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL (1ULL << 18)
+#define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1ULL << 19)
+#define PEER_FLAG_AS_OVERRIDE (1ULL << 20)
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1ULL << 21)
+#define PEER_FLAG_WEIGHT (1ULL << 24)
+#define PEER_FLAG_ALLOWAS_IN_ORIGIN (1ULL << 25)
+#define PEER_FLAG_SEND_LARGE_COMMUNITY (1ULL << 26)
+#define PEER_FLAG_MAX_PREFIX_OUT (1ULL << 27)
+#define PEER_FLAG_MAX_PREFIX_FORCE (1ULL << 28)
+#define PEER_FLAG_DISABLE_ADDPATH_RX (1ULL << 29)
+#define PEER_FLAG_SOO (1ULL << 30)
+#define PEER_FLAG_ORR_GROUP (1ULL << 31) /* Optimal-Route-Reflection */
+#define PEER_FLAG_ACCEPT_OWN (1ULL << 32)
+
+	/* BGP Optimal Route Reflection Group name */
+	char *orr_group_name[AFI_MAX][SAFI_MAX];
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -1450,6 +1507,7 @@ struct peer {
 #define PEER_STATUS_EORR_RECEIVED (1U << 10) /* EoRR received from peer */
 /* LLGR aware peer */
 #define PEER_STATUS_LLGR_WAIT (1U << 11)
+#define PEER_STATUS_REFRESH_PENDING (1U << 12) /* refresh request from peer */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1619,6 +1677,9 @@ struct peer {
 
 	/* allowas-in. */
 	char allowas_in[AFI_MAX][SAFI_MAX];
+
+	/* soo */
+	struct ecommunity *soo[AFI_MAX][SAFI_MAX];
 
 	/* weight */
 	unsigned long weight[AFI_MAX][SAFI_MAX];
@@ -1994,13 +2055,11 @@ enum bgp_create_error_code {
 	BGP_ERR_AF_UNCONFIGURED = -15,
 	BGP_ERR_SOFT_RECONFIG_UNCONFIGURED = -16,
 	BGP_ERR_INSTANCE_MISMATCH = -17,
-	BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP = -18,
 	BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS = -19,
 	BGP_ERR_TCPSIG_FAILED = -20,
 	BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK = -21,
 	BGP_ERR_NO_IBGP_WITH_TTLHACK = -22,
 	BGP_ERR_NO_INTERFACE_CONFIG = -23,
-	BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS = -24,
 	BGP_ERR_AS_OVERRIDE = -25,
 	BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT = -26,
 	BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS = -27,
@@ -2016,7 +2075,10 @@ enum bgp_create_error_code {
 
 	/*BGP Open Policy ERRORS */
 	BGP_ERR_INVALID_ROLE_NAME = -35,
-	BGP_ERR_INVALID_INTERNAL_ROLE = -36
+	BGP_ERR_INVALID_INTERNAL_ROLE = -36,
+
+	/* BGP ORR ERRORS */
+	BGP_ERR_PEER_ORR_CONFIGURED = -37,
 };
 
 /*
@@ -2043,7 +2105,6 @@ extern unsigned int multipath_num;
 /* Prototypes. */
 extern void bgp_terminate(void);
 extern void bgp_reset(void);
-extern time_t bgp_clock(void);
 extern void bgp_zclient_reset(void);
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
@@ -2070,6 +2131,7 @@ extern struct peer_group *peer_group_lookup_dynamic_neighbor(struct bgp *,
 extern struct peer *peer_lookup_dynamic_neighbor(struct bgp *,
 						 union sockunion *);
 
+extern bool peer_orr_rrclient_check(struct peer *peer, afi_t afi, safi_t safi);
 /*
  * Peers are incredibly easy to memory leak
  * due to the various ways that they are actually used
@@ -2178,11 +2240,13 @@ extern int peer_flag_set(struct peer *peer, uint64_t flag);
 extern int peer_flag_unset(struct peer *peer, uint64_t flag);
 extern void peer_flag_inherit(struct peer *peer, uint64_t flag);
 
-extern int peer_af_flag_set(struct peer *, afi_t, safi_t, uint32_t);
-extern int peer_af_flag_unset(struct peer *, afi_t, safi_t, uint32_t);
+extern int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi,
+			    uint64_t flag);
+extern int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi,
+			      uint64_t flag);
 extern int peer_af_flag_check(struct peer *, afi_t, safi_t, uint32_t);
 extern void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
-				 uint32_t flag);
+				 uint64_t flag);
 extern void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type);
 
@@ -2205,6 +2269,9 @@ extern int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 				      const char *rmap,
 				      struct route_map *route_map);
 extern int peer_default_originate_unset(struct peer *, afi_t, safi_t);
+extern void bgp_tcp_keepalive_set(struct bgp *bgp, uint16_t idle,
+				  uint16_t interval, uint16_t probes);
+extern void bgp_tcp_keepalive_unset(struct bgp *bgp);
 
 extern void peer_port_set(struct peer *, uint16_t);
 extern void peer_port_unset(struct peer *);
@@ -2315,6 +2382,12 @@ extern void bgp_shutdown_disable(struct bgp *bgp);
 extern void bgp_close(void);
 extern void bgp_free(struct bgp *);
 void bgp_gr_apply_running_config(void);
+extern int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
+				      const char *name, struct peer *primary,
+				      struct peer *secondary,
+				      struct peer *tertiary);
+extern int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
+					const char *name);
 
 /* BGP GR */
 int bgp_global_gr_init(struct bgp *bgp);
@@ -2450,7 +2523,7 @@ static inline int peer_group_af_configured(struct peer_group *group)
 static inline char *timestamp_string(time_t ts)
 {
 	time_t tbuf;
-	tbuf = time(NULL) - (bgp_clock() - ts);
+	tbuf = time(NULL) - (monotime(NULL) - ts);
 	return ctime(&tbuf);
 }
 
@@ -2566,7 +2639,8 @@ void peer_tcp_mss_unset(struct peer *peer);
 
 extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
 					       safi_t safi);
-
+extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
+				  int outbound);
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)

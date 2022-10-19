@@ -395,8 +395,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 		for (ALL_LIST_ELEMENTS_RO(current, node, gstack)) {
 			struct cmd_token *token = gstack[0]->data;
 
-			if (token->attr == CMD_ATTR_HIDDEN
-			    || token->attr == CMD_ATTR_DEPRECATED)
+			if (token->attr & CMD_ATTR_HIDDEN)
 				continue;
 
 			enum match_type minmatch = min_match_level(token->type);

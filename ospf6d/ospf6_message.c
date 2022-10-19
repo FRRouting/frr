@@ -2086,7 +2086,6 @@ static void ospf6_write(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_interface *oi;
-	struct ospf6_interface *last_serviced_oi = NULL;
 	struct ospf6_header *oh;
 	struct ospf6_packet *op;
 	struct listnode *node;
@@ -2106,9 +2105,7 @@ static void ospf6_write(struct thread *thread)
 	assert(node);
 	oi = listgetdata(node);
 
-	while ((pkt_count < ospf6->write_oi_count) && oi
-	       && (last_serviced_oi != oi)) {
-
+	while ((pkt_count < ospf6->write_oi_count) && oi) {
 		op = ospf6_fifo_head(oi->obuf);
 		assert(op);
 		assert(op->length >= OSPF6_HEADER_SIZE);
@@ -2221,7 +2218,6 @@ static void ospf6_write(struct thread *thread)
 		list_delete_node(ospf6->oi_write_q, node);
 		if (ospf6_fifo_head(oi->obuf) == NULL) {
 			oi->on_write_q = 0;
-			last_serviced_oi = NULL;
 			oi = NULL;
 		} else {
 			listnode_add(ospf6->oi_write_q, oi);

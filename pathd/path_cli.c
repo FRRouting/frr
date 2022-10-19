@@ -1092,6 +1092,8 @@ DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,
 	   "State of each debugging option\n"
 	   "pathd module debugging\n")
 {
+
+	cmd_show_lib_debugs(vty);
 	/* nothing to do here */
 	return CMD_SUCCESS;
 }

@@ -17,6 +17,7 @@
 #include "memory.h"
 #include "thread.h"
 #include "hash.h"
+#include "network.h"
 
 #include "nhrpd.h"
 #include "nhrp_protocol.h"
@@ -334,7 +335,7 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 			&p->t_fallback);
 	} else {
 		/* Maximum timeout is 1 second */
-		int r_time_ms = rand() % 1000;
+		int r_time_ms = frr_weak_random() % 1000;
 
 		debugf(NHRP_DEBUG_COMMON,
 		       "Initiating IPsec connection request to %pSU after %d ms:",

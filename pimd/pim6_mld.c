@@ -33,12 +33,15 @@
 #include "lib/prefix.h"
 #include "lib/checksum.h"
 #include "lib/thread.h"
+#include "termtable.h"
 
 #include "pimd/pim6_mld.h"
 #include "pimd/pim6_mld_protocol.h"
 #include "pimd/pim_memory.h"
 #include "pimd/pim_instance.h"
 #include "pimd/pim_iface.h"
+#include "pimd/pim6_cmd.h"
+#include "pimd/pim_cmd_common.h"
 #include "pimd/pim_util.h"
 #include "pimd/pim_tib.h"
 #include "pimd/pimd.h"
@@ -398,7 +401,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		desired = GM_SG_NOINFO;
 
 	if (desired != sg->state && !gm_ifp->stopping) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(log_sg(sg, "%s => %s"), gm_states[sg->state],
 				   gm_states[desired]);
 
@@ -415,7 +418,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			THREAD_OFF(sg->t_sg_query);
-			sg->n_query = gm_ifp->cur_qrv;
+			sg->n_query = gm_ifp->cur_lmqc;
 			sg->query_sbit = false;
 			gm_trigger_specific(sg);
 		}
@@ -457,7 +460,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_packet_sg_subs_count(sg->subs_positive),
 			gm_packet_sg_subs_count(sg->subs_negative), grp);
 
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "dropping"));
 
 		gm_sgs_del(gm_ifp->sgs, sg);
@@ -547,7 +550,7 @@ static void gm_packet_drop(struct gm_packet_state *pkt, bool trace)
 		if (!sg)
 			continue;
 
-		if (trace && PIM_DEBUG_IGMP_TRACE)
+		if (trace && PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_sg(sg, "general-dropping from %pPA"),
 				   &pkt->subscriber->addr);
 		deleted = gm_packet_sg_drop(&pkt->items[i]);
@@ -583,7 +586,7 @@ static void gm_packet_sg_remove_sources(struct gm_if *gm_ifp,
 
 static void gm_sg_expiry_cancel(struct gm_sg *sg)
 {
-	if (sg->t_sg_expire && PIM_DEBUG_IGMP_TRACE)
+	if (sg->t_sg_expire && PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "alive, cancelling expiry timer"));
 	THREAD_OFF(sg->t_sg_expire);
 	sg->query_sbit = true;
@@ -814,7 +817,7 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 	struct gm_packet_state *pkt;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv2 report (truncated header)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -920,7 +923,7 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	size_t max_entries;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv1 report (truncated)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -986,7 +989,7 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 	struct gm_packet_sg *old_grp;
 
 	if (len < sizeof(*hdr)) {
-		if (PIM_DEBUG_IGMP_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS)
 			zlog_debug(log_pkt_src(
 				"malformed MLDv1 leave (truncated)"));
 		gm_ifp->stats.rx_drop_malformed++;
@@ -1046,7 +1049,7 @@ static void gm_t_expire(struct thread *t)
 
 		remain_ms = monotime_until(&pend->expiry, &remain);
 		if (remain_ms > 0) {
-			if (PIM_DEBUG_IGMP_EVENTS)
+			if (PIM_DEBUG_GM_EVENTS)
 				zlog_debug(
 					log_ifp("next general expiry in %" PRId64 "ms"),
 					remain_ms / 1000);
@@ -1060,7 +1063,7 @@ static void gm_t_expire(struct thread *t)
 			if (timercmp(&pkt->received, &pend->query, >=))
 				break;
 
-			if (PIM_DEBUG_IGMP_PACKETS)
+			if (PIM_DEBUG_GM_PACKETS)
 				zlog_debug(log_ifp("expire packet %p"), pkt);
 			gm_packet_drop(pkt, true);
 		}
@@ -1070,7 +1073,7 @@ static void gm_t_expire(struct thread *t)
 			gm_ifp->n_pending * sizeof(gm_ifp->pending[0]));
 	}
 
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("next general expiry waiting for query"));
 }
 
@@ -1099,7 +1102,7 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 		 * it's "supersetted" within the preexisting query
 		 */
 
-		if (PIM_DEBUG_IGMP_TRACE_DETAIL)
+		if (PIM_DEBUG_GM_TRACE_DETAIL)
 			zlog_debug(
 				log_ifp("zapping supersetted general timer %pTVMu"),
 				&pend->expiry);
@@ -1118,13 +1121,13 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 	pend->expiry = expiry;
 
 	if (!gm_ifp->n_pending++) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				log_ifp("starting general timer @ 0: %pTVMu"),
 				&pend->expiry);
 		thread_add_timer_tv(router->master, gm_t_expire, gm_ifp,
 				    &timers->expire_wait, &gm_ifp->t_expire);
-	} else if (PIM_DEBUG_IGMP_TRACE)
+	} else if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("appending general timer @ %u: %pTVMu"),
 			   gm_ifp->n_pending, &pend->expiry);
 }
@@ -1205,7 +1208,7 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 	if (gm_sg_check_recent(gm_ifp, sg, now))
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "expiring in %pTVI"), &expire_wait);
 
 	if (sg->t_sg_expire) {
@@ -1247,7 +1250,7 @@ static void gm_t_grp_expire(struct thread *t)
 	struct gm_if *gm_ifp = pend->iface;
 	struct gm_sg *sg, *sg_start, sg_ref = {};
 
-	if (PIM_DEBUG_IGMP_EVENTS)
+	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("*,%pPAs S,G timer expired"), &pend->grp);
 
 	/* gteq lookup - try to find *,G or S,G  (S,G is > *,G)
@@ -1302,7 +1305,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 
 	if (pim_addr_is_any(sg->sgaddr.src)) {
 		/* actually found *,G entry here */
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp("*,%pPAs expiry timer starting"),
 				   &grp);
 		gm_sg_timer_start(gm_ifp, sg, timers->expire_wait);
@@ -1335,7 +1338,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 	thread_add_timer_tv(router->master, gm_t_grp_expire, pend,
 			    &timers->expire_wait, &pend->t_expire);
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_ifp("*,%pPAs S,G timer started: %pTHD"), &grp,
 			   pend->t_expire);
 }
@@ -1439,7 +1442,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	}
 
 	if (IPV6_ADDR_CMP(&pkt_src->sin6_addr, &gm_ifp->querier) < 0) {
-		if (PIM_DEBUG_IGMP_EVENTS)
+		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(
 				log_pkt_src("replacing elected querier %pPA"),
 				&gm_ifp->querier);
@@ -1460,7 +1463,7 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 
 	gm_expiry_calc(&timers);
 
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL)
+	if (PIM_DEBUG_GM_TRACE_DETAIL)
 		zlog_debug(
 			log_ifp("query timers: QRV=%u max_resp=%ums qqic=%ums expire_wait=%pTVI"),
 			timers.qrv, timers.max_resp_ms, timers.qqic_ms,
@@ -1606,7 +1609,7 @@ static void gm_t_recv(struct thread *t)
 	char rxbuf[2048];
 	struct msghdr mh[1] = {};
 	struct iovec iov[1];
-	struct sockaddr_in6 pkt_src[1];
+	struct sockaddr_in6 pkt_src[1] = {};
 	ssize_t nread;
 	size_t pktlen;
 
@@ -1799,7 +1802,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 
 	query.hdr.icmp6_cksum = in_cksumv(iov, iov_len);
 
-	if (PIM_DEBUG_IGMP_PACKETS)
+	if (PIM_DEBUG_GM_PACKETS)
 		zlog_debug(
 			log_ifp("MLD query %pPA -> %pI6 (grp=%pPA, %zu srcs)"),
 			&pim_ifp->ll_lowest, &dstaddr.sin6_addr, &grp, n_srcs);
@@ -1922,7 +1925,7 @@ static void gm_trigger_specific(struct gm_sg *sg)
 	if (gm_ifp->pim->gm_socket == -1)
 		return;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "triggered query"));
 
 	if (pim_addr_is_any(sg->sgaddr.src)) {
@@ -2088,11 +2091,12 @@ static void gm_start(struct interface *ifp)
 	else
 		gm_ifp->cur_version = GM_MLDV2;
 
-	/* hardcoded for dev without CLI */
-	gm_ifp->cur_qrv = 2;
+	gm_ifp->cur_qrv = pim_ifp->gm_default_robustness_variable;
 	gm_ifp->cur_query_intv = pim_ifp->gm_default_query_interval * 1000;
-	gm_ifp->cur_query_intv_trig = gm_ifp->cur_query_intv;
-	gm_ifp->cur_max_resp = 250;
+	gm_ifp->cur_query_intv_trig =
+		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
+	gm_ifp->cur_max_resp = pim_ifp->gm_query_max_response_time_dsec * 100;
+	gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
 
 	gm_ifp->cfg_timing_fuzz.tv_sec = 0;
 	gm_ifp->cfg_timing_fuzz.tv_usec = 10 * 1000;
@@ -2118,44 +2122,13 @@ static void gm_start(struct interface *ifp)
 	}
 }
 
-void gm_ifp_teardown(struct interface *ifp)
+void gm_group_delete(struct gm_if *gm_ifp)
 {
-	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp;
+	struct gm_sg *sg;
 	struct gm_packet_state *pkt;
 	struct gm_grp_pending *pend_grp;
 	struct gm_gsq_pending *pend_gsq;
 	struct gm_subscriber *subscriber;
-	struct gm_sg *sg;
-
-	if (!pim_ifp || !pim_ifp->mld)
-		return;
-
-	gm_ifp = pim_ifp->mld;
-	gm_ifp->stopping = true;
-	if (PIM_DEBUG_IGMP_EVENTS)
-		zlog_debug(log_ifp("MLD stop"));
-
-	THREAD_OFF(gm_ifp->t_query);
-	THREAD_OFF(gm_ifp->t_other_querier);
-	THREAD_OFF(gm_ifp->t_expire);
-
-	frr_with_privs (&pimd_privs) {
-		struct ipv6_mreq mreq;
-		int ret;
-
-		/* all-MLDv2 group */
-		mreq.ipv6mr_multiaddr = gm_all_routers;
-		mreq.ipv6mr_interface = ifp->ifindex;
-		ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6,
-				 IPV6_LEAVE_GROUP, &mreq, sizeof(mreq));
-		if (ret)
-			zlog_err(
-				"(%s) failed to leave ff02::16 (all-MLDv2): %m",
-				ifp->name);
-	}
-
-	gm_vrf_socket_decref(gm_ifp->pim);
 
 	while ((pkt = gm_packet_expires_first(gm_ifp->expires)))
 		gm_packet_drop(pkt, false);
@@ -2179,12 +2152,48 @@ void gm_ifp_teardown(struct interface *ifp)
 
 		gm_sg_free(sg);
 	}
-
 	while ((subscriber = gm_subscribers_pop(gm_ifp->subscribers))) {
 		assertf(!gm_packets_count(subscriber->packets), "%pPA",
 			&subscriber->addr);
 		XFREE(MTYPE_GM_SUBSCRIBER, subscriber);
 	}
+}
+
+void gm_ifp_teardown(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp;
+
+	if (!pim_ifp || !pim_ifp->mld)
+		return;
+
+	gm_ifp = pim_ifp->mld;
+	gm_ifp->stopping = true;
+	if (PIM_DEBUG_GM_EVENTS)
+		zlog_debug(log_ifp("MLD stop"));
+
+	THREAD_OFF(gm_ifp->t_query);
+	THREAD_OFF(gm_ifp->t_other_querier);
+	THREAD_OFF(gm_ifp->t_expire);
+
+	frr_with_privs (&pimd_privs) {
+		struct ipv6_mreq mreq;
+		int ret;
+
+		/* all-MLDv2 group */
+		mreq.ipv6mr_multiaddr = gm_all_routers;
+		mreq.ipv6mr_interface = ifp->ifindex;
+		ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6,
+				 IPV6_LEAVE_GROUP, &mreq, sizeof(mreq));
+		if (ret)
+			zlog_err(
+				"(%s) failed to leave ff02::16 (all-MLDv2): %m",
+				ifp->name);
+	}
+
+	gm_vrf_socket_decref(gm_ifp->pim);
+
+	gm_group_delete(gm_ifp);
 
 	gm_grp_pends_fini(gm_ifp->grp_pends);
 	gm_packet_expires_fini(gm_ifp->expires);
@@ -2246,8 +2255,16 @@ void gm_ifp_update(struct interface *ifp)
 		return;
 	}
 
-	if (!pim_ifp->mld)
+	/*
+	 * If ipv6 mld is not enabled on interface, do not start mld activites.
+	 */
+	if (!pim_ifp->gm_enable)
+		return;
+
+	if (!pim_ifp->mld) {
+		changed = true;
 		gm_start(ifp);
+	}
 
 	gm_ifp = pim_ifp->mld;
 	if (IPV6_ADDR_CMP(&pim_ifp->ll_lowest, &gm_ifp->cur_ll_lowest))
@@ -2257,9 +2274,25 @@ void gm_ifp_update(struct interface *ifp)
 
 	if (gm_ifp->cur_query_intv != cfg_query_intv) {
 		gm_ifp->cur_query_intv = cfg_query_intv;
-		gm_ifp->cur_query_intv_trig = cfg_query_intv;
 		changed = true;
 	}
+
+	unsigned int cfg_query_intv_trig =
+		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
+
+	if (gm_ifp->cur_query_intv_trig != cfg_query_intv_trig) {
+		gm_ifp->cur_query_intv_trig = cfg_query_intv_trig;
+		changed = true;
+	}
+
+	unsigned int cfg_max_response =
+		pim_ifp->gm_query_max_response_time_dsec * 100;
+
+	if (gm_ifp->cur_max_resp != cfg_max_response)
+		gm_ifp->cur_max_resp = cfg_max_response;
+
+	if (gm_ifp->cur_lmqc != pim_ifp->gm_last_member_query_count)
+		gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
 
 	enum gm_version cfg_version;
 
@@ -2273,26 +2306,10 @@ void gm_ifp_update(struct interface *ifp)
 	}
 
 	if (changed) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(log_ifp(
 				"MLD querier config changed, querying"));
 		gm_bump_querier(gm_ifp);
-	}
-}
-
-void gm_group_delete(struct gm_if *gm_ifp)
-{
-	struct gm_sg *sg, *sg_start;
-
-	sg_start = gm_sgs_first(gm_ifp->sgs);
-
-	/* clean up all mld groups */
-	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
-		THREAD_OFF(sg->t_sg_expire);
-		if (sg->oil)
-			pim_channel_oil_del(sg->oil, __func__);
-		gm_sgs_del(gm_ifp->sgs, sg);
-		gm_sg_free(sg);
 	}
 }
 
@@ -2305,8 +2322,6 @@ void gm_group_delete(struct gm_if *gm_ifp)
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_mld_clippy.c"
 #endif
-
-#define MLD_STR "Multicast Listener Discovery\n"
 
 static struct vrf *gm_cmd_vrf_lookup(struct vty *vty, const char *vrf_str,
 				     int *err)
@@ -2397,6 +2412,7 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 	querier = IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest);
 
 	if (js_if) {
+		json_object_string_add(js_if, "name", ifp->name);
 		json_object_string_add(js_if, "state", "up");
 		json_object_string_addf(js_if, "version", "%d",
 					gm_ifp->cur_version);
@@ -2412,6 +2428,16 @@ static void gm_show_if_one(struct vty *vty, struct interface *ifp,
 			json_object_string_addf(js_if, "otherQuerierTimer",
 						"%pTH",
 						gm_ifp->t_other_querier);
+		json_object_int_add(js_if, "timerRobustnessValue",
+				    gm_ifp->cur_qrv);
+		json_object_int_add(js_if, "lastMemberQueryCount",
+				    gm_ifp->cur_lmqc);
+		json_object_int_add(js_if, "timerQueryIntervalMsec",
+				    gm_ifp->cur_query_intv);
+		json_object_int_add(js_if, "timerQueryResponseTimerMsec",
+				    gm_ifp->cur_max_resp);
+		json_object_int_add(js_if, "timerLastMemberQueryIntervalMsec",
+				    gm_ifp->cur_query_intv_trig);
 	} else {
 		vty_out(vty, "%-16s  %-5s  %d  %-25pPA  %-5s %11pTH  %pTVMs\n",
 			ifp->name, "up", gm_ifp->cur_version, &gm_ifp->querier,
@@ -2469,13 +2495,13 @@ static void gm_show_if(struct vty *vty, struct vrf *vrf, const char *ifname,
 
 DEFPY(gm_show_interface,
       gm_show_interface_cmd,
-      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME] [detail$detail|json$json]",
-      DEBUG_STR
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] interface [IFNAME | detail$detail] [json$json]",
       SHOW_STR
       IPV6_STR
       MLD_STR
       VRF_FULL_CMD_HELP_STR
       "MLD interface information\n"
+      "Interface name\n"
       "Detailed output\n"
       JSON_STR)
 {
@@ -2847,14 +2873,133 @@ DEFPY(gm_show_interface_joins,
 	return vty_json(vty, js);
 }
 
+static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
+{
+	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table;
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
+	struct pim_instance *pim = vrf->info;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->gm_watermark_limit);
+	} else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Group|Version|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+
+		vty_out(vty, "Total MLD groups: %u\n", pim->gm_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->gm_watermark_limit ? "Set" : "Not Set",
+			pim->gm_watermark_limit);
+	}
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (vrf, ifp) {
+
+		struct pim_interface *pim_ifp = ifp->info;
+		struct gm_if *gm_ifp;
+		struct gm_sg *sg;
+
+		if (!pim_ifp)
+			continue;
+
+		gm_ifp = pim_ifp->mld;
+		if (!gm_ifp)
+			continue;
+
+		/* scan mld groups */
+		frr_each (gm_sgs, gm_ifp->sgs, sg) {
+
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
+
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_pim_ifp_add(json_iface,
+								ifp);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_groups = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_groups);
+				}
+
+				json_group = json_object_new_object();
+				json_object_string_addf(json_group, "group",
+							"%pPAs",
+							&sg->sgaddr.grp);
+
+				json_object_int_add(json_group, "version",
+						    pim_ifp->mld_version);
+				json_object_string_addf(json_group, "uptime",
+							"%pTVMs", &sg->created);
+				json_object_array_add(json_groups, json_group);
+			} else {
+				ttable_add_row(tt, "%s|%pPAs|%d|%pTVMs",
+					       ifp->name, &sg->sgaddr.grp,
+					       pim_ifp->mld_version,
+					       &sg->created);
+			}
+		} /* scan gm groups */
+	}	 /* scan interfaces */
+
+	if (uj)
+		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
+}
+
+DEFPY(gm_show_mld_groups,
+      gm_show_mld_groups_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] groups [json$json]",
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      MLD_GROUP_STR
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (vrf)
+		gm_show_groups(vty, vrf, !!json);
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_groups(vty, vrf, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(gm_debug_show,
       gm_debug_show_cmd,
       "debug show mld interface IFNAME",
       DEBUG_STR
       SHOW_STR
-      "MLD"
+      MLD_STR
       INTERFACE_STR
-      "interface name")
+      "interface name\n")
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -3021,6 +3166,7 @@ void gm_cli_init(void)
 	install_element(VIEW_NODE, &gm_show_interface_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_stats_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_joins_cmd);
+	install_element(VIEW_NODE, &gm_show_mld_groups_cmd);
 
 	install_element(VIEW_NODE, &gm_debug_show_cmd);
 	install_element(INTERFACE_NODE, &gm_debug_iface_cfg_cmd);

@@ -177,11 +177,7 @@ Writing the configuration can be triggered directly by invoking *vtysh -w*.
 This may be useful for scripting. Note this command should be run as either the
 superuser or the FRR user.
 
-We recommend you do not mix the use of the two types of files. Further, it is
-better not to use the integrated :file:`frr.conf` file, as any syntax error in
-it can lead to /all/ of your daemons being unable to start up. Per daemon files
-are more robust as impact of errors in configuration are limited to the daemon
-in whose file the error is made.
+We recommend you do not mix the use of the two types of files.
 
 .. clicmd:: service integrated-vtysh-config
 

@@ -534,7 +534,7 @@ int ifm_read(struct if_msghdr *ifm)
 	/* paranoia: sanity check structure */
 	if (ifm->ifm_msglen < sizeof(struct if_msghdr)) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-			 "ifm_read: ifm->ifm_msglen %d too short",
+			 "%s: ifm->ifm_msglen %d too short", __func__,
 			 ifm->ifm_msglen);
 		return -1;
 	}
@@ -1112,14 +1112,6 @@ void rtm_read(struct rt_msghdr *rtm)
 	} else
 		return;
 
-	/*
-	 * CHANGE: delete the old prefix, we have no further information
-	 * to specify the route really
-	 */
-	if (rtm->rtm_type == RTM_CHANGE)
-		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, NULL, 0, RT_TABLE_MAIN, 0,
-			   0, true);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
@@ -1396,9 +1388,8 @@ static void kernel_read(struct thread *thread)
 	 * can assume they have the whole message.
 	 */
 	if (rtm->rtm_msglen != nbytes) {
-		zlog_debug(
-			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d",
-			rtm->rtm_msglen, nbytes, rtm->rtm_type);
+		zlog_debug("%s: rtm->rtm_msglen %d, nbytes %d, type %d",
+			   __func__, rtm->rtm_msglen, nbytes, rtm->rtm_type);
 		return;
 	}
 
@@ -1601,6 +1592,12 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 		case DPLANE_OP_INTF_UPDATE:
 		case DPLANE_OP_INTF_DELETE:
 			res = kernel_intf_update(ctx);
+			break;
+
+		case DPLANE_OP_TC_INSTALL:
+		case DPLANE_OP_TC_UPDATE:
+		case DPLANE_OP_TC_DELETE:
+			res = kernel_tc_update(ctx);
 			break;
 
 		/* Ignore 'notifications' - no-op */

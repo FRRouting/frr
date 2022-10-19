@@ -47,6 +47,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/rule_netlink.h"
+#include "zebra/tc_netlink.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 
@@ -114,6 +115,15 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWTUNNEL, "RTM_NEWTUNNEL"},
 					   {RTM_DELTUNNEL, "RTM_DELTUNNEL"},
 					   {RTM_GETTUNNEL, "RTM_GETTUNNEL"},
+					   {RTM_NEWQDISC, "RTM_NEWQDISC"},
+					   {RTM_DELQDISC, "RTM_DELQDISC"},
+					   {RTM_GETQDISC, "RTM_GETQDISC"},
+					   {RTM_NEWTCLASS, "RTM_NEWTCLASS"},
+					   {RTM_DELTCLASS, "RTM_DELTCLASS"},
+					   {RTM_GETTCLASS, "RTM_GETTCLASS"},
+					   {RTM_NEWTFILTER, "RTM_NEWTFILTER"},
+					   {RTM_DELTFILTER, "RTM_DELTFILTER"},
+					   {RTM_GETTFILTER, "RTM_GETTFILTER"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -1023,12 +1033,18 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 		return 1;
 	}
 
-	/* Deal with errors that occur because of races in link handling. */
-	if (is_cmd
-	    && ((msg_type == RTM_DELROUTE
-		 && (-errnum == ENODEV || -errnum == ESRCH))
-		|| (msg_type == RTM_NEWROUTE
-		    && (-errnum == ENETDOWN || -errnum == EEXIST)))) {
+	/*
+	 * Deal with errors that occur because of races in link handling
+	 * or types are not supported in kernel.
+	 */
+	if (is_cmd &&
+	    ((msg_type == RTM_DELROUTE &&
+	      (-errnum == ENODEV || -errnum == ESRCH)) ||
+	     (msg_type == RTM_NEWROUTE &&
+	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
+	       msg_type == RTM_GETTUNNEL) &&
+	      (-errnum == EOPNOTSUPP)))) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u",
 				   nl->name, safe_strerror(-errnum),
@@ -1623,6 +1639,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
 		return netlink_put_intf_update_msg(bth, ctx);
+
+	case DPLANE_OP_TC_INSTALL:
+	case DPLANE_OP_TC_UPDATE:
+	case DPLANE_OP_TC_DELETE:
+		return netlink_put_tc_update_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;

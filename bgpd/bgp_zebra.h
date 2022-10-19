@@ -35,6 +35,7 @@
 
 extern void bgp_zebra_init(struct thread_master *master,
 			   unsigned short instance);
+extern void bgp_if_init(void);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
 extern uint32_t bgp_zebra_tm_get_id(void);
 extern bool bgp_zebra_tm_chunk_obtained(void);

@@ -90,6 +90,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_NAME, "ISIS process name");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_AREA, "ISIS area");
 DEFINE_MTYPE(ISISD, ISIS_AREA_ADDR,   "ISIS area address");
 DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
+DEFINE_MTYPE(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 
 DEFINE_QOBJ_TYPE(isis_area);
 
@@ -224,6 +225,12 @@ struct isis *isis_new(const char *vrf_name)
 
 void isis_finish(struct isis *isis)
 {
+	struct isis_area *area;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(isis->area_list, node, nnode, area))
+		isis_area_destroy(area);
+
 	struct vrf *vrf = NULL;
 
 	listnode_delete(im->isis, isis);
@@ -273,6 +280,13 @@ void isis_area_del_circuit(struct isis_area *area, struct isis_circuit *circuit)
 	isis_csm_state_change(ISIS_DISABLE, circuit, area);
 }
 
+static void delete_area_addr(void *arg)
+{
+	struct area_addr *addr = (struct area_addr *)arg;
+
+	XFREE(MTYPE_ISIS_AREA_ADDR, addr);
+}
+
 struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 {
 	struct isis_area *area;
@@ -318,6 +332,8 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->circuit_list = list_new();
 	area->adjacency_list = list_new();
 	area->area_addrs = list_new();
+	area->area_addrs->del = delete_area_addr;
+
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
 	flags_initialize(&area->flags);
@@ -481,16 +497,11 @@ void isis_area_destroy(struct isis_area *area)
 {
 	struct listnode *node, *nnode;
 	struct isis_circuit *circuit;
-	struct area_addr *addr;
 
 	QOBJ_UNREG(area);
 
 	if (fabricd)
 		fabricd_finish(area->fabricd);
-
-	/* Disable MPLS if necessary before flooding LSP */
-	if (IS_MPLS_TE(area->mta))
-		area->mta->status = disable;
 
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
@@ -499,6 +510,9 @@ void isis_area_destroy(struct isis_area *area)
 
 		list_delete(&area->circuit_list);
 	}
+	if (area->flags.free_idcs)
+		list_delete(&area->flags.free_idcs);
+
 	list_delete(&area->adjacency_list);
 
 	lsp_db_fini(&area->lspdb[0]);
@@ -509,6 +523,8 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_verify_routes(area);
 
 	isis_sr_area_term(area);
+
+	isis_mpls_te_term(area);
 
 	spftree_area_del(area);
 
@@ -525,11 +541,7 @@ void isis_area_destroy(struct isis_area *area)
 	if (!CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		isis_redist_area_finish(area);
 
-	for (ALL_LIST_ELEMENTS(area->area_addrs, node, nnode, addr)) {
-		list_delete_node(area->area_addrs, node);
-		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
-	}
-	area->area_addrs = NULL;
+	list_delete(&area->area_addrs);
 
 	for (int i = SPF_PREFIX_PRIO_CRITICAL; i <= SPF_PREFIX_PRIO_MEDIUM;
 	     i++) {
@@ -554,9 +566,10 @@ void isis_area_destroy(struct isis_area *area)
 
 	area_mt_finish(area);
 
-	if (listcount(area->isis->area_list) == 0) {
-		isis_finish(area->isis);
-	}
+	if (area->rlfa_plist_name[0])
+		XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[0]);
+	if (area->rlfa_plist_name[1])
+		XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[1]);
 
 	XFREE(MTYPE_ISIS_AREA, area);
 
@@ -1686,6 +1699,8 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_LDP_SYNC, 1);
 	if (IS_DEBUG_LFA)
 		print_debug(vty, DEBUG_LFA, 1);
+
+	cmd_show_lib_debugs(vty);
 
 	return CMD_SUCCESS;
 }
@@ -3183,9 +3198,15 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 
 	if (new_overload_bit != area->overload_bit) {
 		area->overload_bit = new_overload_bit;
-
-		if (new_overload_bit)
+		if (new_overload_bit) {
 			area->overload_counter++;
+		} else {
+			/* Cancel overload on startup timer if it's running */
+			if (area->t_overload_on_startup_timer) {
+				THREAD_OFF(area->t_overload_on_startup_timer);
+				area->t_overload_on_startup_timer = NULL;
+			}
+		}
 
 #ifndef FABRICD
 		hook_call(isis_hook_db_overload, area);
@@ -3196,6 +3217,109 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 #ifndef FABRICD
 	isis_notif_db_overload(area, overload_bit);
 #endif /* ifndef FABRICD */
+}
+
+void isis_area_overload_on_startup_set(struct isis_area *area,
+				       uint32_t startup_time)
+{
+	if (area->overload_on_startup_time != startup_time) {
+		area->overload_on_startup_time = startup_time;
+		isis_restart_write_overload_time(area, startup_time);
+	}
+}
+
+/*
+ * Returns the path of the file (non-volatile memory) that contains restart
+ * information.
+ */
+char *isis_restart_filepath()
+{
+	static char filepath[MAXPATHLEN];
+	snprintf(filepath, sizeof(filepath), ISISD_RESTART, "");
+	return filepath;
+}
+
+/*
+ * Record in non-volatile memory the overload on startup time.
+ */
+void isis_restart_write_overload_time(struct isis_area *isis_area,
+				      uint32_t overload_time)
+{
+	char *filepath;
+	const char *area_name;
+	json_object *json;
+	json_object *json_areas;
+	json_object *json_area;
+
+	filepath = isis_restart_filepath();
+	area_name = isis_area->area_tag;
+
+	json = json_object_from_file(filepath);
+	if (json == NULL)
+		json = json_object_new_object();
+
+	json_object_object_get_ex(json, "areas", &json_areas);
+	if (!json_areas) {
+		json_areas = json_object_new_object();
+		json_object_object_add(json, "areas", json_areas);
+	}
+
+	json_object_object_get_ex(json_areas, area_name, &json_area);
+	if (!json_area) {
+		json_area = json_object_new_object();
+		json_object_object_add(json_areas, area_name, json_area);
+	}
+
+	json_object_int_add(json_area, "overload_time",
+			    isis_area->overload_on_startup_time);
+	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
+	json_object_free(json);
+}
+
+/*
+ * Fetch from non-volatile memory the overload on startup time.
+ */
+uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
+{
+	char *filepath;
+	const char *area_name;
+	json_object *json;
+	json_object *json_areas;
+	json_object *json_area;
+	json_object *json_overload_time;
+	uint32_t overload_time = 0;
+
+	filepath = isis_restart_filepath();
+	area_name = isis_area->area_tag;
+
+	json = json_object_from_file(filepath);
+	if (json == NULL)
+		json = json_object_new_object();
+
+	json_object_object_get_ex(json, "areas", &json_areas);
+	if (!json_areas) {
+		json_areas = json_object_new_object();
+		json_object_object_add(json, "areas", json_areas);
+	}
+
+	json_object_object_get_ex(json_areas, area_name, &json_area);
+	if (!json_area) {
+		json_area = json_object_new_object();
+		json_object_object_add(json_areas, area_name, json_area);
+	}
+
+	json_object_object_get_ex(json_area, "overload_time",
+				  &json_overload_time);
+	if (json_overload_time) {
+		overload_time = json_object_get_int(json_overload_time);
+	}
+
+	json_object_object_del(json_areas, area_name);
+
+	json_object_to_file_ext(filepath, json, JSON_C_TO_STRING_PRETTY);
+	json_object_free(json);
+
+	return overload_time;
 }
 
 void isis_area_attached_bit_send_set(struct isis_area *area, bool attached_bit)

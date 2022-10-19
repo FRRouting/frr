@@ -243,16 +243,16 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		}
 		break;
 	case IPADDR_V6:
-		key = (uint64_t)(local->ip._v6_addr.s6_addr32[0] & 0xffffffff)
-		      | ((uint64_t)local->ip._v6_addr.s6_addr32[1] << 32);
+		key = (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[2]) << 32 |
+		      (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[3]);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
-			if ((memcmp(&edge->attributes->standard.remote6,
-				    &remote->ip._v6_addr,
-				    sizeof(remote->ip._v6_addr))
-			     && CHECK_FLAG(edge->attributes->flags,
-					   LS_ATTR_ADJ_SID))) {
-				sid = edge->attributes->adj_sid[0]
+			if ((0 == memcmp(&edge->attributes->standard.remote6,
+					 &remote->ip._v6_addr,
+					 sizeof(remote->ip._v6_addr)) &&
+			     CHECK_FLAG(edge->attributes->flags,
+					LS_ATTR_ADJ_SID6))) {
+				sid = edge->attributes->adj_sid[ADJ_PRI_IPV6]
 					      .sid; /* from primary */
 				break;
 			}
@@ -385,7 +385,7 @@ DEFUN (no_path_ted,
        "Disable the TE Database functionality\n")
 /* clang-format on */
 {
-	if (ted_state_g.enabled) {
+	if (!ted_state_g.enabled) {
 		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
 		return CMD_SUCCESS;
 	}
@@ -462,7 +462,7 @@ DEFPY (show_pathd_ted_db,
 	json_object *json = NULL;
 
 	if (!ted_state_g.enabled) {
-		vty_out(vty, "PATHD TED database is not enabled\n");
+		vty_out(vty, "Traffic Engineering database is not enabled\n");
 		return CMD_WARNING;
 	}
 	if (strcmp(ver_json, "json") == 0) {

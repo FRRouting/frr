@@ -56,6 +56,8 @@ DEFUN_NOSH (show_debugging_ripng,
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		vty_out(vty, "  RIPng zebra debugging is on\n");
 
+	cmd_show_lib_debugs(vty);
+
 	return CMD_SUCCESS;
 }
 

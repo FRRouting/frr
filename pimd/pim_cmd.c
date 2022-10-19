@@ -963,7 +963,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 
 				bsm_rpinfo = (struct bsmmsg_rpinfo *)buf;
 				/* unaligned, again */
-				memcpy(&rp_addr, &bsm_rpinfo->rpaddr,
+				memcpy(&rp_addr, &bsm_rpinfo->rpaddr.addr,
 				       sizeof(rp_addr));
 
 				buf += sizeof(struct bsmmsg_rpinfo);
@@ -1129,11 +1129,11 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	if (uj) {
 		json = json_object_new_object();
-		json_object_int_add(json, "totalGroups", pim->igmp_group_count);
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
 		json_object_int_add(json, "watermarkLimit",
 				    pim->gm_watermark_limit);
 	} else {
-		vty_out(vty, "Total IGMP groups: %u\n", pim->igmp_group_count);
+		vty_out(vty, "Total IGMP groups: %u\n", pim->gm_group_count);
 		vty_out(vty, "Watermark warn limit(%s): %u\n",
 			pim->gm_watermark_limit ? "Set" : "Not Set",
 			pim->gm_watermark_limit);
@@ -4358,9 +4358,9 @@ DEFUN (debug_igmp,
        DEBUG_STR
        DEBUG_IGMP_STR)
 {
-	PIM_DO_DEBUG_IGMP_EVENTS;
-	PIM_DO_DEBUG_IGMP_PACKETS;
-	PIM_DO_DEBUG_IGMP_TRACE;
+	PIM_DO_DEBUG_GM_EVENTS;
+	PIM_DO_DEBUG_GM_PACKETS;
+	PIM_DO_DEBUG_GM_TRACE;
 	return CMD_SUCCESS;
 }
 
@@ -4371,9 +4371,9 @@ DEFUN (no_debug_igmp,
        DEBUG_STR
        DEBUG_IGMP_STR)
 {
-	PIM_DONT_DEBUG_IGMP_EVENTS;
-	PIM_DONT_DEBUG_IGMP_PACKETS;
-	PIM_DONT_DEBUG_IGMP_TRACE;
+	PIM_DONT_DEBUG_GM_EVENTS;
+	PIM_DONT_DEBUG_GM_PACKETS;
+	PIM_DONT_DEBUG_GM_TRACE;
 	return CMD_SUCCESS;
 }
 
@@ -4385,7 +4385,7 @@ DEFUN (debug_igmp_events,
        DEBUG_IGMP_STR
        DEBUG_IGMP_EVENTS_STR)
 {
-	PIM_DO_DEBUG_IGMP_EVENTS;
+	PIM_DO_DEBUG_GM_EVENTS;
 	return CMD_SUCCESS;
 }
 
@@ -4397,7 +4397,7 @@ DEFUN (no_debug_igmp_events,
        DEBUG_IGMP_STR
        DEBUG_IGMP_EVENTS_STR)
 {
-	PIM_DONT_DEBUG_IGMP_EVENTS;
+	PIM_DONT_DEBUG_GM_EVENTS;
 	return CMD_SUCCESS;
 }
 
@@ -4409,7 +4409,7 @@ DEFUN (debug_igmp_packets,
        DEBUG_IGMP_STR
        DEBUG_IGMP_PACKETS_STR)
 {
-	PIM_DO_DEBUG_IGMP_PACKETS;
+	PIM_DO_DEBUG_GM_PACKETS;
 	return CMD_SUCCESS;
 }
 
@@ -4421,7 +4421,7 @@ DEFUN (no_debug_igmp_packets,
        DEBUG_IGMP_STR
        DEBUG_IGMP_PACKETS_STR)
 {
-	PIM_DONT_DEBUG_IGMP_PACKETS;
+	PIM_DONT_DEBUG_GM_PACKETS;
 	return CMD_SUCCESS;
 }
 
@@ -4433,7 +4433,7 @@ DEFUN (debug_igmp_trace,
        DEBUG_IGMP_STR
        DEBUG_IGMP_TRACE_STR)
 {
-	PIM_DO_DEBUG_IGMP_TRACE;
+	PIM_DO_DEBUG_GM_TRACE;
 	return CMD_SUCCESS;
 }
 
@@ -4445,7 +4445,7 @@ DEFUN (no_debug_igmp_trace,
        DEBUG_IGMP_STR
        DEBUG_IGMP_TRACE_STR)
 {
-	PIM_DONT_DEBUG_IGMP_TRACE;
+	PIM_DONT_DEBUG_GM_TRACE;
 	return CMD_SUCCESS;
 }
 
@@ -4458,7 +4458,7 @@ DEFUN (debug_igmp_trace_detail,
        DEBUG_IGMP_TRACE_STR
        "detailed\n")
 {
-	PIM_DO_DEBUG_IGMP_TRACE_DETAIL;
+	PIM_DO_DEBUG_GM_TRACE_DETAIL;
 	return CMD_SUCCESS;
 }
 
@@ -4471,7 +4471,7 @@ DEFUN (no_debug_igmp_trace_detail,
        DEBUG_IGMP_TRACE_STR
        "detailed\n")
 {
-	PIM_DONT_DEBUG_IGMP_TRACE_DETAIL;
+	PIM_DONT_DEBUG_GM_TRACE_DETAIL;
 	return CMD_SUCCESS;
 }
 
@@ -4906,6 +4906,7 @@ DEFUN_NOSH (show_debugging_pim,
 
 	pim_debug_config_write(vty);
 
+	cmd_show_lib_debugs(vty);
 	return CMD_SUCCESS;
 }
 
@@ -5437,7 +5438,7 @@ DEFPY(no_ip_msdp_mesh_group,
       IP_STR
       CFG_MSDP_STR
       "Delete MSDP mesh-group\n"
-      "Mesh group name")
+      "Mesh group name\n")
 {
 	const char *vrfname;
 	char xpath_value[XPATH_MAXLEN];
@@ -5526,12 +5527,13 @@ DEFUN (show_ip_msdp_mesh_group,
 	int idx = 2;
 	struct pim_msdp_mg *mg;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct pim_instance *pim = vrf->info;
+	struct pim_instance *pim;
 	struct json_object *json = NULL;
 
 	if (!vrf)
 		return CMD_WARNING;
 
+	pim = vrf->info;
 	/* Quick case: list is empty. */
 	if (SLIST_EMPTY(&pim->msdp.mglist)) {
 		if (uj)

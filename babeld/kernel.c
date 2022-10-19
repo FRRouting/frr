@@ -227,10 +227,10 @@ if_eui64(int ifindex, unsigned char *eui)
 
 /* Like gettimeofday, but returns monotonic time.  If POSIX clocks are not
    available, falls back to gettimeofday but enforces monotonicity. */
-int
+void
 gettime(struct timeval *tv)
 {
-    return monotime(tv);
+    monotime(tv);
 }
 
 /* If /dev/urandom doesn't exist, this will fail with ENOENT, which the

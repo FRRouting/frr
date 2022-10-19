@@ -35,6 +35,8 @@
 #include "ospf_memory.h"
 #include "ospf_dump_api.h"
 
+#include "orr_msg.h"
+
 #define OSPF_VERSION            2
 
 /* VTY port number. */
@@ -261,6 +263,7 @@ struct ospf {
 	struct thread *t_distribute_update; /* Distirbute list update timer. */
 	struct thread *t_spf_calc;	  /* SPF calculation timer. */
 	struct thread *t_ase_calc;	  /* ASE calculation timer. */
+	struct thread *t_orr_calc;	/* ORR calculation timer. */
 	struct thread
 		*t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
 	struct thread *t_sr_update; /* Segment Routing update timer */
@@ -313,6 +316,7 @@ struct ospf {
 	time_t lsa_refresher_started;
 #define OSPF_LSA_REFRESH_INTERVAL_DEFAULT 10
 	uint16_t lsa_refresh_interval;
+	uint16_t lsa_refresh_timer;
 
 	/* Distance parameter. */
 	uint8_t distance_all;
@@ -404,6 +408,10 @@ struct ospf {
 	/* TI-LFA support for all interfaces. */
 	bool ti_lfa_enabled;
 	enum protection_type ti_lfa_protection_type;
+
+	/* BGP ORR Root node list */
+	uint32_t orr_spf_request;
+	struct list *orr_root[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS;
 };
@@ -590,6 +598,9 @@ struct ospf_area {
 	uint32_t act_ints;  /* Active interfaces. */
 	uint32_t full_nbrs; /* Fully adjacent neighbors. */
 	uint32_t full_vls;  /* Fully adjacent virtual neighbors. */
+
+	/* BGP-ORR Received LSAs */
+	struct ospf_lsa *router_lsa_rcvd;
 };
 
 /* OSPF config network structure. */

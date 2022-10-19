@@ -1670,9 +1670,26 @@ Configuring Peers
    turning on this command will allow BGP to install v4 routes with
    v6 nexthops if you do not have v4 configured on interfaces.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
+
+   Enable handling of self-originated VPN routes containing ``accept-own`` community.
+
+   This feature allows you to handle self-originated VPN routes, which a BGP speaker
+   receives from a route-reflector. A 'self-originated' route is one that was
+   originally advertised by the speaker itself. As per :rfc:`4271`, a BGP speaker rejects
+   advertisements that originated the speaker itself. However, the BGP ACCEPT_OWN
+   mechanism enables a router to accept the prefixes it has advertised, when reflected
+   from a route-reflector that modifies certain attributes of the prefix.
+
+   A special community called ``accept-own`` is attached to the prefix by the
+   route-reflector, which is a signal to the receiving router to bypass the ORIGINATOR_ID
+   and NEXTHOP/MP_REACH_NLRI check.
+
+   Default: disabled.
+
 .. clicmd:: bgp fast-external-failover
 
-   This command causes bgp to not take down ebgp peers immediately
+   This command causes bgp to take down ebgp peers immediately
    when a link flaps.  `bgp fast-external-failover` is the default
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
@@ -1775,11 +1792,27 @@ Configuring Peers
    default, the DelayOpenTimer is disabled. The timer interval may be set to a
    duration of 1 to 240 seconds.
 
+.. clicmd:: neighbor PEER extended-optional-parameters
+
+   Force the extended optional parameters format for OPEN messages. By default,
+   optional parameters length is 255 octets. With more and more BGP capabilities
+   implemented on top of BGP, this is needed to extend this value.
+
+   This is turned off by default, but it's automatically enabled when this limit
+   is hit. You can force this new encoding to be enabled with this command.
+
 .. clicmd:: bgp minimum-holdtime (1-65535)
 
    This command allows user to prevent session establishment with BGP peers
    with lower holdtime less than configured minimum holdtime.
    When this command is not set, minimum holdtime does not work.
+
+.. clicmd:: bgp tcp-keepalive (1-65535) (1-65535) (1-30)
+
+   This command allows user to configure TCP keepalive with new BGP peers.
+   Each parameter respectively stands for TCP keepalive idle timer (seconds),
+   interval (seconds), and maximum probes. By default, TCP keepalive is
+   disabled.
 
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2334,11 +2367,8 @@ setting BGP communities attribute to the updates.
     exit-address-family
    !
    bgp community-list 70 permit 7675:70
-   bgp community-list 70 deny
    bgp community-list 80 permit 7675:80
-   bgp community-list 80 deny
    bgp community-list 90 permit 7675:90
-   bgp community-list 90 deny
    !
    route-map RMAP permit 10
     match community 70
@@ -2492,6 +2522,9 @@ Extended Community Lists
    it return permit or deny based upon the extcommunity-list definition. When
    there is no matched entry, deny will be returned. When `extcommunity` is
    empty it matches to any routes.
+
+   A special handling for ``internet`` community is applied. It matches
+   any community.
 
 .. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 
@@ -2720,6 +2753,25 @@ are reached using *core* MPLS labels which are distributed using LDP or BGP
 labeled unicast.  *bgpd* also supports inter-VRF route leaking.
 
 
+L3VPN over GRE interfaces
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In MPLS-VPN or SRv6-VPN, an L3VPN next-hop entry requires that the path
+chosen respectively contains a labelled path or a valid SID IPv6 address.
+Otherwise the L3VPN entry will not be installed. It is possible to ignore
+that check when the path chosen by the next-hop uses a GRE interface, and
+there is a route-map configured at inbound side of ipv4-vpn or ipv6-vpn
+address family with following syntax:
+
+.. clicmd:: set l3vpn next-hop encapsulation gre
+
+The incoming BGP L3VPN entry is accepted, provided that the next hop of the
+L3VPN entry uses a path that takes the GRE tunnel as outgoing interface. The
+remote endpoint should be configured just behind the GRE tunnel; remote
+device configuration may vary depending whether it acts at edge endpoint or
+not: in any case, the expectation is that incoming MPLS traffic received at
+this endpoint should be considered as a valid path for L3VPN.
+
 .. _bgp-vrf-route-leaking:
 
 VRF Route Leaking
@@ -2835,6 +2887,26 @@ of the global VPNv4/VPNv6 family. This command defaults to on and is not
 displayed.
 The `no bgp retain route-target all` form of the command is displayed.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> soo EXTCOMMUNITY
+
+Without this command, SoO extended community attribute is configured using
+an inbound route map that sets the SoO value during the update process.
+With the introduction of the new BGP per-neighbor Site-of-Origin (SoO) feature,
+two new commands configured in sub-modes under router configuration mode
+simplify the SoO value configuration.
+
+If we configure SoO per neighbor at PEs, the SoO community is automatically
+added for all routes from the CPEs. Routes are validated and prevented from
+being sent back to the same CPE (e.g.: multi-site). This is especially needed
+when using ``as-override`` or ``allowas-in`` to prevent routing loops.
+
+.. clicmd:: mpls bgp forwarding
+
+It is possible to permit BGP install VPN prefixes without transport labels,
+by issuing the following command under the interface configuration context.
+This configuration will install VPN prefixes originated from an e-bgp session,
+and with the next-hop directly connected.
+
 .. _bgp-l3vpn-srv6:
 
 L3VPN SRv6
@@ -2871,6 +2943,20 @@ sysctl configurations:
    net.ipv6.neigh.default.gc_thresh3
 
 For more information, see ``man 7 arp``.
+
+.. _bgp-evpn-l3-route-targets:
+
+EVPN L3 Route-Targets
+^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: route-target <import|export|both> <RTLIST|auto>
+
+Modify the route-target set for EVPN advertised type-2/type-5 routes.
+RTLIST is a list of any of matching
+``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)`` where ``*`` indicates wildcard
+matching for the AS number. It will be set to match any AS number. This is
+useful in datacenter deployments with Downstream VNI. ``auto`` is used to
+retain the autoconfigure that is default behavior for L3 RTs.
 
 .. _bgp-evpn-advertise-pip:
 
@@ -3423,6 +3509,319 @@ When default route is not present in R2'2 BGP table, 10.139.224.0/20 and 192.0.2
    Total number of prefixes 3
    Router2#
 
+.. _bgp-optimal-route-reflection:
+
+BGP Optimal Route Reflection
+----------------------------
+BGP Route Reflectors (RRs) are used to improve network scalability by reducing
+or eliminating the need for a full-mesh of IBGP sessions.
+
+When a BGP RR receives multiple paths for the same IP prefix, it typically
+selects a single best path to send for all its clients.
+If the RR has multiple nearly-equal best paths and the tie-break is determined
+by the next-hop cost, the RR advertises the path based on its view of next-hop
+costs, which leads to a non-optimal routing.
+The advertised route may differ from the path that a client would select
+if it had the visibility of the same set of candidate paths and used
+its own view of next-hop costs.
+
+Non-optimal advertisements by the RR can be a problem in hot-potato routing.
+Hot-potato routing aims to hand off traffic to the next AS using the closest
+possible exit point from the local AS.
+In this context, the closest exit point implies minimum IGP cost to
+reach the BGP next-hop.
+
+The BGP Optimal Route Reflection allows the RR to choose and send a different
+best path to a different or a set of RR clients.
+
+A link-state protocol is required. It can be OSPF or IS-IS.
+Current implementation of BGP ORR is based on the IGP cost to the BGP next hop,
+and not based on some configured policy.
+
+RR runs Shortest Path First (SPF) calculation with the selected
+router as the root of the tree and calculates the cost to every other router.
+
+This special SPF calculation with another router as the root, is referred to as
+a Reverse SPF (rSPF). This can only be done if the RR learns all the BGP paths
+from all the BGP border routers.
+
+There could be as many rSPFs run as there are RR clients.
+This will increase the CPU load somewhat on the RR.
+
+Current implementation allows up to three root nodes for the rSPF calculation.
+There is no need to configure each RR client as a root and run rSPF.
+Current implementation allows to configure three, the primary, the secondary,
+and the tertiary root, per set of RR clients, for redundancy purposes.
+For the BGP ORR feature to apply to any RR client, that RR client must be
+configured to be part of an ORR policy group.
+
+The BGP ORR feature is enabled per address family.
+
+The minimal configuration needed:
+
+1. ORR needs to be enabled for specific groups of BGP neighbors.
+2. For each group of BGP neighbors, at least one root needs to be configured.
+   Optionally, a secondary and tertiary root can be configured.
+3. For OSPF, the root routers(RR clients) need additional configuration
+   to make BGP ORR work.
+   i.e. The MPLS TE configuration on the root router needs to have the minimal
+   configuration for MPLS TE enabled so that OSPF advertises the MPLS TE
+   router ID in an opaque-area LSA (type 10).
+   Once the RR has an opaque-area LSA with the MPLS TE router-ID matching the
+   configured root router address, rSPF can run and BGP on the RR can
+   advertise the optimal route.
+
+.. clicmd:: neighbor A.B.C.D optimal-route-reflection NAME
+
+   This command allows the neighbor to be part of the ORR group.
+
+.. clicmd:: optimal-route-reflection orr-1 A.B.C.D [A.B.C.D] [A.B.C.D]
+
+   This command creates an ORR group with a mandatory primary root
+   and optional secondary and/or tertiary roots.
+   When primary is reachable it will be the active root.
+   when primary goes down, secondary followed by tertiary takes over
+   the active root's role.
+   Always rSPF calculation runs active root as the root.
+   Which means the RR advertises the path based on active root's
+   view of next-hop costs.
+
+Sample Configuration
+^^^^^^^^^^^^^^^^^^^^
+
+Sample configuration on Route Reflector
+
+.. code-block:: frr
+
+   !
+   debug ospf 8 orr
+   debug bgp optimal-route-reflection
+   !
+   interface enp0s8
+    ip address 10.10.68.8/24
+    ip ospf 8 area 0
+   exit
+   !
+   interface lo
+    ip address 10.100.1.8/32
+    ip ospf 8 area 0
+   exit
+   !
+   router bgp 1
+    neighbor 10.100.1.1 remote-as 1
+    neighbor 10.100.1.1 update-source lo
+    neighbor 10.100.1.2 remote-as 1
+    neighbor 10.100.1.2 update-source lo
+    neighbor 10.100.1.3 remote-as 1
+    neighbor 10.100.1.3 update-source lo
+    neighbor 10.100.1.4 remote-as 1
+    neighbor 10.100.1.4 update-source lo
+    !
+    address-family ipv4 unicast
+     neighbor 10.100.1.1 route-reflector-client
+     neighbor 10.100.1.1 optimal-route-reflection orr-1
+     neighbor 10.100.1.2 route-reflector-client
+     neighbor 10.100.1.2 optimal-route-reflection orr-1
+     neighbor 10.100.1.3 route-reflector-client
+     neighbor 10.100.1.3 optimal-route-reflection orr-1
+     neighbor 10.100.1.4 route-reflector-client
+     neighbor 10.100.1.4 optimal-route-reflection orr-1
+     optimal-route-reflection orr-1 10.100.1.4 10.100.1.3 10.100.1.1
+     exit-address-family
+    exit
+   !
+   router ospf 8
+    ospf router-id 8.8.8.8
+    area 0 authentication
+    capability opaque
+   exit
+   !
+   end
+
+Sample configuration on RR clients
+
+.. code-block:: frr
+
+   interface enp0s8
+    ip address 10.10.34.4/24
+    ip ospf 4 area 0
+    link-params
+     enable
+    exit-link-params
+   exit
+   !
+   interface enp0s9
+    ip address 10.10.74.4/24
+    ip ospf 4 area 0
+    link-params
+     enable
+    exit-link-params
+   exit
+   !
+   interface lo
+    ip address 10.100.1.4/32
+    ip ospf 4 area 0
+   exit
+   !
+   router bgp 1
+    neighbor 10.100.1.8 remote-as 1
+    neighbor 10.100.1.8 update-source lo
+    !
+    address-family ipv4 unicast
+     neighbor 10.100.1.8 soft-reconfiguration inbound
+     exit-address-family
+    exit
+   !
+   router ospf 4
+    ospf router-id 4.4.4.4
+    area 0 authentication
+    capability opaque
+    mpls-te on
+    mpls-te router-address 10.100.1.4
+    mpls-te inter-as area 0.0.0.0
+    mpls-te export
+   exit
+   !
+   end
+
+Sample Output
+^^^^^^^^^^^^^
+
+When Optimal Route Reflection is not enabled on RR, it sends 10.100.1.1 as the best path to its clients.
+
+.. code-block:: frr
+
+   Router-RR# show ip bgp neighbors 10.100.1.4
+
+   !--- Output suppressed.
+
+   For address family: IPv4 Unicast
+    Update group 2, subgroup 2
+    Packet Queue length 0
+    Route-Reflector Client
+    Community attribute sent to this neighbor(all)
+    0 accepted prefixes
+
+   !--- Output suppressed.
+
+   Router-RR#
+   Router-RR# show ip bgp
+   BGP table version is 3, local router ID is 10.100.1.8, vrf id 0
+   Default local pref 100, local AS 1
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   * i203.0.113.0/24   10.100.1.2               0    100      0 i
+   *>i                 10.100.1.1               0    100      0 i
+   *=i                 10.100.1.3               0    100      0 i
+
+   Displayed  1 routes and 3 total paths
+   Router-RR#
+
+   Router-PE4# show ip bgp
+   BGP table version is 5, local router ID is 10.100.1.4, vrf id 0
+   Default local pref 100, local AS 1
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   *>i203.0.113.0/24   10.100.1.1               0    100      0 i
+
+   Displayed  1 routes and 1 total paths
+   Router-PE4#
+
+When Optimal Route Reflection is enabled on RR, it sends 10.100.1.3 as the best path to its clients.
+
+.. code-block:: frr
+
+   Router-RR# show ip bgp neighbors 10.100.1.4
+
+   !--- Output suppressed.
+
+   For address family: IPv4 Unicast
+    Update group 1, subgroup 1
+    Packet Queue length 0
+    Route-Reflector Client
+    ORR group (configured) : orr-1
+    Community attribute sent to this neighbor(all)
+    0 accepted prefixes
+
+   !--- Output suppressed.
+
+   Router-RR#
+   Router-RR# show ip bgp
+   BGP table version is 1, local router ID is 10.100.1.8, vrf id 0
+   Default local pref 100, local AS 1
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   * i203.0.113.0/24   10.100.1.2               0    100      0 i
+   *>i                 10.100.1.3               0    100      0 i
+   * i                 10.100.1.1               0    100      0 i
+
+   Displayed  1 routes and 3 total paths
+   Router-RR#
+
+   Router-RR# show ip bgp optimal-route-reflection
+
+   ORR group: orr-1, IPv4 Unicast
+   Configured root: primary: 10.100.1.4(Router-PE4), secondary: 10.100.1.3(Router-PE3), tertiary: 10.100.1.1(Router-PE1)
+   Active Root: 10.100.1.4(Router-PE4)
+
+   RR Clients mapped:
+   10.100.1.1
+   10.100.1.2
+   10.100.1.3
+   10.100.1.4
+
+   Number of mapping entries: 4
+
+   Prefix						Cost
+   10.10.34.0/24						100
+   10.10.61.0/24						300
+   10.10.63.0/24						200
+   10.10.67.0/24						200
+   10.10.68.0/24						300
+   10.10.72.0/24						200
+   10.10.74.0/24						100
+   10.100.1.1/32						300
+   10.100.1.2/32						200
+   10.100.1.3/32						100
+   10.100.1.4/32						0
+   10.100.1.6/32						200
+   10.100.1.7/32						100
+   10.100.1.8/32						300
+
+   Number of mapping entries: 14
+
+   Router-RR#
+
+   Router-PE4# show ip bgp
+   BGP table version is 3, local router ID is 10.100.1.4, vrf id 0
+   Default local pref 100, local AS 1
+   Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+   Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
+
+      Network          Next Hop            Metric LocPrf Weight Path
+   *>i203.0.113.0/24   10.100.1.3               0    100      0 i
+
+   Displayed  1 routes and 1 total paths
+   Router-PE4#
+
 .. _bgp-debugging:
 
 Debugging
@@ -3448,6 +3847,10 @@ Debugging
    Enable or disable debugging for BFD events. This will show BFD integration
    library messages and BGP BFD integration messages that are mostly state
    transitions and validation problems.
+
+.. clicmd:: debug bgp conditional-advertisement
+
+   Enable or disable debugging of BGP conditional advertisement.
 
 .. clicmd:: debug bgp neighbor-events
 
@@ -3483,6 +3886,10 @@ Debugging
 .. clicmd:: debug bgp zebra
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
+
+.. clicmd:: debug bgp optimal-route-reflection
+
+   Enable or disable debugging of BGP Optimal Route Reflection.
 
 Dumping Messages and Routing Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

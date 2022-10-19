@@ -761,8 +761,8 @@ DEFPY (log_immediate_mode,
        log_immediate_mode_cmd,
        "[no] log immediate-mode",
        NO_STR
-       "Logging control"
-       "Output immediately, without buffering")
+       "Logging control\n"
+       "Output immediately, without buffering\n")
 {
 	zlog_set_immediate(!no);
 	return CMD_SUCCESS;

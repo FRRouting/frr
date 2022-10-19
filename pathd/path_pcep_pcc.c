@@ -1326,9 +1326,9 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 		 * possibly disconnect and blacklist */
 		flog_warn(EC_PATH_PCEP_UNSUPPORTED_PCEP_FEATURE,
 			  "Unsupported PCEP protocol feature: %s", err);
-		pcep_free_path(path);
 		send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
 				PCEP_ERRV_LSP_NOT_PCE_INITIATED, path);
+		pcep_free_path(path);
 	}
 }
 

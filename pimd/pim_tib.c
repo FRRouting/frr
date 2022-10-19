@@ -62,7 +62,7 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 			   __func__, &sg, &vif_source, input_iface_vif_index);
 
 	if (input_iface_vif_index < 1) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				"%s %s: could not find input interface for %pSG",
 				__FILE__, __func__, &sg);
@@ -78,7 +78,7 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	if ((input_iface_vif_index == pim_oif->mroute_vif_index) &&
 	    !(PIM_I_am_DR(pim_oif))) {
 		/* ignore request for looped MFC entry */
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				"%s: ignoring request for looped MFC entry (S,G)=%pSG: oif=%s vif_index=%d",
 				__func__, &sg, oif->name,
@@ -96,7 +96,7 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 	struct pim_interface *pim_oif = oif->info;
 
 	if (!pim_oif) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug("%s: multicast not enabled on oif=%s?",
 				   __func__, oif->name);
 		return false;
@@ -119,7 +119,7 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 			return false;
 		}
 	} else {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				"%s: %pSG was received on %s interface but we are not DR for that interface",
 				__func__, &sg, oif->name);
@@ -163,7 +163,7 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {
-		if (PIM_DEBUG_IGMP_TRACE)
+		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
 				"%s: pim_channel_del_oif() failed with return=%d",
 				__func__, result);

@@ -428,14 +428,15 @@ static void bgpd_sync_callback(struct thread *thread)
 		safi_t safi;
 
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (!bgp->rib[afi][safi])
+			struct bgp_table *table = bgp->rib[afi][safi];
+
+			if (!table)
 				continue;
 
 			struct bgp_dest *match;
 			struct bgp_dest *node;
 
-			match = bgp_table_subtree_lookup(bgp->rib[afi][safi],
-							 prefix);
+			match = bgp_table_subtree_lookup(table, prefix);
 			node = match;
 
 			while (node) {
@@ -445,6 +446,9 @@ static void bgpd_sync_callback(struct thread *thread)
 
 				node = bgp_route_next_until(node, match);
 			}
+
+			if (match)
+				bgp_dest_unlock_node(match);
 		}
 	}
 
@@ -588,7 +592,7 @@ static int bgp_rpki_module_init(void)
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
-	hook_register(frr_early_fini, &bgp_rpki_fini);
+	hook_register(frr_early_fini, bgp_rpki_fini);
 
 	return 0;
 }
@@ -1684,7 +1688,7 @@ DEFUN_YANG (no_match_rpki,
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:rpki']";
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

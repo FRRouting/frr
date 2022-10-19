@@ -229,6 +229,7 @@ void zebra_finalize(struct thread *dummy)
 
 	zebra_router_terminate();
 
+	ns_terminate();
 	frr_fini();
 	exit(0);
 }

@@ -109,7 +109,7 @@ char *rfapiFormatAge(time_t age, char *buf, size_t len)
 {
 	time_t now, age_adjusted;
 
-	now = rfapi_time(NULL);
+	now = monotime(NULL);
 	age_adjusted = now - age;
 
 	return rfapiFormatSeconds(age_adjusted, buf, len);
@@ -1537,14 +1537,6 @@ void rfapiPrintRfapiIpPrefix(void *stream, struct rfapi_ip_prefix *p)
 		fp(out, "?/?:?");
 }
 
-void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd)
-{
-	char buf[RD_ADDRSTRLEN];
-
-	prefix_rd2str(prd, buf, sizeof(buf));
-	vty_out(vty, "%s", buf);
-}
-
 void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 			      safi_t safi, struct prefix *p)
 {
@@ -1615,7 +1607,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	vty_out(vty, " ");
 	rfapiPrintRfapiIpAddr(vty, &rfd->vn_addr);
 	vty_out(vty, " %p %p ", rfd->response_cb, rfd->cookie);
-	rfapiPrintRd(vty, &rfd->rd);
+	vty_out(vty, "%pRD", &rfd->rd);
 	vty_out(vty, " %d", rfd->response_lifetime);
 	vty_out(vty, " %s", (rfd->rfg ? rfd->rfg->name : "<orphaned>"));
 	vty_out(vty, "%s", HVTYNL);

@@ -67,6 +67,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:rpki-extcommunity",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:probability",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_probability_modify,
@@ -404,6 +411,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_destroy,
 			}
 		},
 		{

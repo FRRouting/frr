@@ -155,7 +155,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.16")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel requirements are not met, kernel version should be >=4.16")
 
     global ADDR_TYPES
 
@@ -528,10 +528,10 @@ def test_BGP_GR_TC_3_p0(request):
     result = verify_eor(
         tgen, topo, addr_type, input_dict, dut="r2", peer="r1", expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n " "r2: EOR is set to True\n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: EOR should not be set to True in r2\n"
+        "Found: {}".format(tc_name, result)
     )
 
     logger.info(
@@ -675,10 +675,10 @@ def test_BGP_GR_TC_11_p0(request):
         result = verify_eor(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r3", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r1: EOR is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: EOR should not be set to True in r1\n"
+            "Found: {}".format(tc_name, result)
         )
 
     logger.info(
@@ -706,10 +706,10 @@ def test_BGP_GR_TC_11_p0(request):
         result = verify_eor(
             tgen, topo, addr_type, input_dict, dut="r3", peer="r1", expected=False
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n " "r3: EOR is set to True\n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: EOR should not be set to True in r3\n"
+            "Found: {}".format(tc_name, result)
         )
 
     write_test_footer(tc_name)
@@ -1474,38 +1474,33 @@ def test_BGP_GR_18_p1(request):
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r6: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes before shutting down BGPd daemon
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r6: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying BGP RIB routes
         dut = "r2"
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r2: routes are still present in BGP RIB\n Error: {}".format(
-                tc_name, result
-            )
+            "Expected: Routes should not be present in {} BGP RIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
         # Verifying RIB routes before shutting down BGPd daemon
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert result is not True, (
             "Testcase {} : Failed \n "
-            "r6: routes are still present in ZEBRA\n Error: {}".format(tc_name, result)
+            "Expected: Routes should not be present in {} FIB \n "
+            "Found: {}".format(tc_name, dut, result)
         )
-        logger.info(" Expected behavior: {}".format(result))
 
     write_test_footer(tc_name)
 

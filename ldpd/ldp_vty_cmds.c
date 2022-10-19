@@ -246,7 +246,7 @@ DEFPY  (ldp_allow_broken_lsps,
 	"[no] install allow-broken-lsps",
 	NO_STR
 	"install lsps\n"
-	"if no remote-label install with imp-null")
+	"if no remote-label install with imp-null\n")
 {
 	return (ldp_vty_allow_broken_lsp(vty, no));
 }
@@ -774,7 +774,11 @@ DEFPY_NOSH (ldp_show_debugging_mpls_ldp,
 	    "MPLS information\n"
 	    "Label Distribution Protocol\n")
 {
-	return (ldp_vty_show_debugging(vty));
+	ldp_vty_show_debugging(vty);
+
+	cmd_show_lib_debugs(vty);
+
+	return CMD_SUCCESS;
 }
 
 static void

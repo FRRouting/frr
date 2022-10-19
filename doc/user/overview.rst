@@ -310,39 +310,64 @@ BGP
   :t:`Autonomous System Confederations for BGP. P. Traina. June 1996.`
 - :rfc:`1997`
   :t:`BGP Communities Attribute. R. Chandra, P. Traina & T. Li. August 1996.`
+- :rfc:`1998`
+  :t:`An Application of the BGP Community Attribute in Multi-home Routing. E. Chen, T. Bates. August 1996.`
+- :rfc:`2385`
+  :t:`Protection of BGP Sessions via the TCP MD5 Signature Option. A. Heffernan. August 1998.`
 - :rfc:`2439`
   :t:`BGP Route Flap Damping. C. Villamizar, R. Chandra, R. Govindan. November 1998.`
 - :rfc:`2545`
-  :t:`Use of BGP-4 Multiprotocol Extensions for IPv6 Inter-Domain Routing. P.
-  Marques, F. Dupont. March 1999.`
+  :t:`Use of BGP-4 Multiprotocol Extensions for IPv6 Inter-Domain Routing. P. Marques, F. Dupont. March 1999.`
 - :rfc:`2796`
   :t:`BGP Route Reflection An alternative to full mesh IBGP. T. Bates & R. Chandrasekeran. June 1996.`
 - :rfc:`2842`
   :t:`Capabilities Advertisement with BGP-4. R. Chandra, J. Scudder. May 2000.`
 - :rfc:`2858`
-  :t:`Multiprotocol Extensions for BGP-4. T. Bates, Y. Rekhter, R. Chandra, D.`
+  :t:`Multiprotocol Extensions for BGP-4. T. Bates, Y. Rekhter, R. Chandra, D. Katz. June 2000.`
+- :rfc:`2918`
+  :t:`Route Refresh Capability for BGP-4. E. Chen, September 2000.`
 - :rfc:`3107`
   :t:`Carrying Label Information in BGP-4. Y. Rekhter & E. Rosen. May 2001.`
 - :rfc:`3765`
-  :t:`NOPEER Community for Border Gateway Protocol (BGP) Route Scope Control. G.Huston, April 2001.`
+  :t:`NOPEER Community for Border Gateway Protocol (BGP) Route Scope Control. G.Huston. April 2001.`
 - :rfc:`4271`
   :t:`A Border Gateway Protocol 4 (BGP-4). Updates RFC1771. Y. Rekhter, T. Li & S. Hares. January 2006.`
+- :rfc:`4360`
+  :t:`BGP Extended Communities Attribute. S. Sangli, D. Tappan, Y. Rekhter. February 2006.`
 - :rfc:`4364`
-  :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
+  :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. February 2006.`
+- :rfc:`4456`
+  :t:`BGP Route Reflection An alternative to full mesh IBGP. T. Bates, E. Chen, R. Chandra. April 2006.`
 - :rfc:`4486`
   :t:`Subcodes for BGP Cease Notification Message. E. Chen, V. Gillet. April 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
+- :rfc:`4724`
+  :t:`Graceful Restart Mechanism for BGP. S. Sangli, E. Chen, R. Fernando, J. Scudder, Y. Rekhter. January 2007.`
+- :rfc:`4760`
+  :t:`Multiprotocol Extensions for BGP-4. T. Bates, R. Chandra, D. Katz, Y. Rekhter. January 2007.`
 - :rfc:`4893`
   :t:`BGP Support for Four-octet AS Number Space. Q. Vohra, E. Chen May 2007.`
 - :rfc:`5004`
   :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007 (Partial support).`
+- :rfc:`5065`
+  :t:`Autonomous System Confederations for BGP. P. Traina, D. McPherson, J. Scudder. August 2007.`
 - :rfc:`5082`
   :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
+- :rfc:`5291`
+  :t:`Outbound Route Filtering Capability. E. Chen, Y. Rekhter. August 2008.`
+- :rfc:`5292`
+  :t:`Address-Prefix-Based Outbound Route Filter for BGP-4. E. Chen, S. Sangli. August 2008.`
+- :rfc:`5492`
+  :t:`Capabilities Advertisement with BGP-4. J. Scudder, R. Chandra. February 2009.`
 - :rfc:`5575`
-  :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009`
+  :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009.`
+- :rfc:`5668`
+  :t:`4-Octet AS Specific BGP Extended Community. Y. Rekhter, S. Sangli, D. Tappan October 2009.`
 - :rfc:`6286`
-  :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan, June 2011.`
+  :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan. June 2011.`
+- :rfc:`6472`
+  :t:`Recommendation for Not Using AS_SET and AS_CONFED_SET in BGP. W. Kumari, K. Sriram. December 2011.`
 - :rfc:`6608`
   :t:`Subcodes for BGP Finite State Machine Error. J. Dong, M. Chen, Huawei Technologies, A. Suryanarayana, Cisco Systems. May 2012.`
 - :rfc:`6810`
@@ -351,6 +376,8 @@ BGP
   :t:`BGP Prefix Origin Validation. P. Mohapatra, J. Scudder, D. Ward, R. Bush, R. Austein. January 2013.`
 - :rfc:`6938`
   :t:`Deprecation of BGP Path Attributes: DPA, ADVERTISER, and RCID_PATH / CLUSTER_ID. J. Scudder. May 2013.`
+- :rfc:`6996`
+  :t:`Autonomous System (AS) Reservation for Private Use. J. Mitchell. July 2013.`
 - :rfc:`7196`
   :t:`Making Route Flap Damping Usable. C. Pelsser, R. Bush, K. Patel, P. Mohapatra, O. Maennel. May 2014.`
 - :rfc:`7300`
@@ -363,28 +390,40 @@ BGP
   :t:`Codification of AS 0 Processing. W. Kumari, R. Bush, H. Schiller, K. Patel. August 2015.`
 - :rfc:`7611`
   :t:`BGP ACCEPT_OWN Community Attribute. J. Uttaro, P. Mohapatra, D. Smith, R. Raszuk, J. Scudder. August 2015.`
+- :rfc:`7911`
+  :t:`Advertisement of Multiple Paths in BGP. D. Walton, A. Retana, E. Chen, J. Scudder. July 2016.`
+- :rfc:`7947`
+  :t:`Internet Exchange BGP Route Server. E. Jasinska, N. Hilliard, R. Raszuk, N. Bakker. September 2016.`
 - :rfc:`7999`
-  :t:`BLACKHOLE Community. T. King, C. Dietzel, J. Snijders, G. Doering, G. Hankins. Oct 2016.`
+  :t:`BLACKHOLE Community. T. King, C. Dietzel, J. Snijders, G. Doering, G. Hankins. October 2016.`
+- :rfc:`8050`
+  :t:`Multi-Threaded Routing Toolkit (MRT) Routing Information Export Format with BGP Additional Path Extensions. C. Petrie, T. King. May 2017.`
 - :rfc:`8092`
-  :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
+  :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017.`
+- :rfc:`8093`
+  :t:`Deprecation of BGP Path Attribute Values 30, 31, 129, 241, 242, and 243. J. Snijders. February 2017.`
+- :rfc:`8097`
+  :t:`BGP Prefix Origin Validation State Extended Community. P. Mohapatra, K. Patel, J. Scudder, D. Ward, R. Bush. March 2017.`
 - :rfc:`8195`
-  :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
+  :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt. June 2017.`
 - :rfc:`8203`
   :t:`BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder. July 2017.`
 - :rfc:`8212`
-  :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
+  :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017.`
 - :rfc:`8277`
-  :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
+  :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017.`
 - :rfc:`8538`
-  :t:`Notification Message Support for BGP Graceful Restart. K. Patel, R. Fernando, J. Scudder, J. Haas. March 2019`
+  :t:`Notification Message Support for BGP Graceful Restart. K. Patel, R. Fernando, J. Scudder, J. Haas. March 2019.`
 - :rfc:`8654`
-  :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
+  :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward. October 2019.`
 - :rfc:`9003`
-  :t:`Extended BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder, A. Azimov. January 2021`
+  :t:`Extended BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder, A. Azimov. January 2021.`
+- :rfc:`9012`
+  :t:`The BGP Tunnel Encapsulation Attribute. K. Patel, G. Van de Velde, S. Sangli, J. Scudder. April 2021.`
 - :rfc:`9072`
-  :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021`
+  :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021.`
 - :rfc:`9234`
-  :t:`Route Leak Prevention and Detection Using Roles in UPDATE and OPEN Messages. A. Azimov, E. Bogomazov, R. Bush, K. Patel, K. Sriram. May 2022`
+  :t:`Route Leak Prevention and Detection Using Roles in UPDATE and OPEN Messages. A. Azimov, E. Bogomazov, R. Bush, K. Patel, K. Sriram. May 2022.`
 
 OSPF
 ----

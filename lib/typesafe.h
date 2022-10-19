@@ -850,9 +850,12 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	struct thash_item **np = &h->hh.entries[hbits];                        \
 	while (*np && (*np)->hashval < hval)                                   \
 		np = &(*np)->next;                                             \
-	if (*np && cmpfn(container_of(*np, type, field.hi), item) == 0) {      \
-		h->hh.count--;                                                 \
-		return container_of(*np, type, field.hi);                      \
+	while (*np && (*np)->hashval == hval) {                                \
+		if (cmpfn(container_of(*np, type, field.hi), item) == 0) {     \
+			h->hh.count--;                                         \
+			return container_of(*np, type, field.hi);              \
+		}                                                              \
+		np = &(*np)->next;                                             \
 	}                                                                      \
 	item->field.hi.next = *np;                                             \
 	*np = &item->field.hi;                                                 \

@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [8.4-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [8.5-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -1372,7 +1372,7 @@ case "${enable_vtysh}" in
   AC_DEFINE([VTYSH], [1], [VTY shell])
 
   prev_libs="$LIBS"
-  AC_CHECK_LIB([readline], [main], [
+  AC_CHECK_LIB([readline], [readline], [
     LIBREADLINE="-lreadline"
   ], [
     dnl readline failed - it might be incorrectly linked and missing its
@@ -2631,6 +2631,7 @@ AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra ap
 AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
 AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
 AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$frr_statedir/ospf6d-gr.json"], [ospf6d GR state information])
+AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$frr_statedir%s/isid-restart.json"], [isisd restart information])
 AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$frr_statedir/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
 AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])

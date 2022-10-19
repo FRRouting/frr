@@ -195,7 +195,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the MLD last member query count. The default value is 2. 'no' form of
    this command is used to configure back to the default value.
 
-.. clicmd:: ipv6 MLD last-member-query-interval (1-65535)
+.. clicmd:: ipv6 mld last-member-query-interval (1-65535)
 
    Set the MLD last member query interval in deciseconds. The default value is
    10 deciseconds. 'no' form of this command is used to to configure back to the
@@ -325,6 +325,9 @@ MLD state
    a MLDv2 querier.  MLDv1 joins are recorded as "untracked" and shown in the
    ``NonTrkSeen`` output column.
 
+.. clicmd:: show ipv6 mld [vrf NAME] groups [json]
+
+   Display MLD group information.
 
 General multicast routing state
 -------------------------------
@@ -413,6 +416,10 @@ configure CLI mode. If you specify debug commands in the configuration cli
 mode, the debug commands can be persistent across restarts of the FRR pim6d if
 the config was written out.
 
+.. clicmd:: debug mld
+
+   This turns on debugging for MLD protocol activity.
+
 .. clicmd:: debug pimv6 events
 
    This turns on debugging for PIMv6 system events. Especially timers.
@@ -445,3 +452,23 @@ the config was written out.
 .. clicmd:: debug pimv6 zebra
 
    This gathers data about events from zebra that come up through the ZAPI.
+
+.. clicmd:: debug mroute6
+
+   This turns on debugging for PIMv6 interaction with kernel MFC cache.
+
+.. clicmd:: debug mroute6 detail
+
+   This turns on detailed debugging for PIMv6 interaction with kernel MFC cache.
+
+.. clicmd:: debug mld events
+
+   This turns on debugging for MLD system events.
+
+.. clicmd:: debug mld packets
+
+   This turns on information about MLD protocol packets handling.
+
+.. clicmd:: debug mld trace [detail]
+
+   This traces mld code and how it is running. 

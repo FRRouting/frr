@@ -280,16 +280,17 @@ struct cmd_node {
 			    int argc __attribute__((unused)),                  \
 			    struct cmd_token *argv[] __attribute__((unused)))
 
-#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
-	funcdecl_##funcname
-
-#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFPY(funcname, cmdname, cmdstr, helpstr)
+/* DEFPY variants */
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
 	funcdecl_##funcname
+
+#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
+
+#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
 #define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
@@ -298,17 +299,18 @@ struct cmd_node {
 	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 #define DEFPY_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
-	DEFPY_YANG(funcname, cmdname, cmdstr, helpstr)
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
-#define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
-	DEFUN_CMD_FUNC_TEXT(funcname)
+/* DEFUN variants */
 
 #define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
 	DEFUN_CMD_FUNC_TEXT(funcname)
+
+#define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
 
 #define DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
@@ -318,73 +320,55 @@ struct cmd_node {
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN(funcname, cmdname, cmdstr, helpstr)
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_NOSH)
 
 #define DEFUN_YANG_NOSH(funcname, cmdname, cmdstr, helpstr)                    \
-	DEFUN_YANG(funcname, cmdname, cmdstr, helpstr)
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_YANG | CMD_ATTR_NOSH)
 
 /* DEFSH for vtysh. */
+#define DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, attr)                     \
+	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, attr, daemon)
+
 #define DEFSH(daemon, cmdname, cmdstr, helpstr)                                \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, 0, daemon)
+	DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, 0)
 
 #define DEFSH_HIDDEN(daemon, cmdname, cmdstr, helpstr)                         \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN,     \
-			  daemon)
-
-#define DEFSH_YANG(daemon, cmdname, cmdstr, helpstr)                           \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, daemon)
+	DEFSH_ATTR(daemon, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
 
 /* DEFUN + DEFSH */
-#define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)       \
-	DEFUN_CMD_FUNC_TEXT(funcname)
-
-/* DEFUN + DEFSH with attributes */
 #define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon)    \
 	DEFUN_CMD_FUNC_TEXT(funcname)
 
+#define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
+	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, 0)
+
 #define DEFUNSH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)             \
 	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
 		     CMD_ATTR_HIDDEN)
 
-#define DEFUNSH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)         \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
-		     CMD_ATTR_DEPRECATED)
-
-#define DEFUNSH_YANG(daemon, funcname, cmdname, cmdstr, helpstr)               \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
-
 /* ALIAS macro which define existing command's alias. */
-#define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)
-
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
 
-#define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  0)
+#define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, 0)
 
+#define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
+
+/* note: DEPRECATED implies HIDDEN, and other than that there is currently no
+ * difference.  It's purely for expressing intent in the source code - a
+ * DEPRECATED command is supposed to go away, a HIDDEN one is likely to stay.
+ */
 #define ALIAS_DEPRECATED(funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, 0)
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr,                         \
+		   CMD_ATTR_DEPRECATED | CMD_ATTR_HIDDEN)
 
 #define ALIAS_YANG(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG, 0)
-
-#define ALIAS_SH(daemon, funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)
-
-#define ALIAS_SH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)            \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  daemon)
-
-#define ALIAS_SH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)        \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, daemon)
+	ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_YANG)
 
 #endif /* VTYSH_EXTRACT_PL */
 
@@ -417,6 +401,7 @@ struct cmd_node {
 #define BGP_SOFT_IN_STR "Send route-refresh unless using 'soft-reconfiguration inbound'\n"
 #define BGP_SOFT_OUT_STR "Resend all outbound updates\n"
 #define BGP_SOFT_RSCLIENT_RIB_STR "Soft reconfig for rsclient RIB\n"
+#define BGP_ORR_DEBUG "Enable Optimal Route Reflection Debugging logs\n"
 #define OSPF_STR "OSPF information\n"
 #define NEIGHBOR_STR "Specify neighbor router\n"
 #define DEBUG_STR "Debugging functions\n"
@@ -648,6 +633,12 @@ cmd_variable_handler_register(const struct cmd_variable_handler *cvh);
 extern char *cmd_variable_comp2str(vector comps, unsigned short cols);
 
 extern void command_setup_early_logging(const char *dest, const char *level);
+
+/*
+ * Allow a mechanism for `debug XXX` commands that live
+ * under the lib directory to output their debug status
+ */
+extern void cmd_show_lib_debugs(struct vty *vty);
 
 #ifdef __cplusplus
 }

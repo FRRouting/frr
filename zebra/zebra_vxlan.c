@@ -2090,6 +2090,7 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 					     int add)
 {
 	struct zebra_evpn *zevpn = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* There is a possibility that VNI notification was already received
 	 * from kernel and we programmed it as L2-VNI
@@ -2116,6 +2117,10 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		/* Free up all remote VTEPs, if any. */
 		zebra_evpn_vtep_del_all(zevpn, 1);
+
+		zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
+		if (zl3vni)
+			listnode_delete(zl3vni->l2vnis, zevpn);
 
 		/* Delete the hash entry. */
 		if (zebra_evpn_vxlan_del(zevpn)) {
@@ -2172,8 +2177,12 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		/* Find bridge interface for the VNI */
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
-		if (vlan_if)
+		if (vlan_if) {
 			zevpn->vrf_id = vlan_if->vrf->vrf_id;
+			zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
+			if (zl3vni)
+				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
+		}
 
 		zevpn->vxlan_if = ifp;
 		zevpn->local_vtep_ip = vxl->vtep_ip;
@@ -4062,7 +4071,7 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	}
 
 	/* If local MAC on a down local ES translate the network-mac-add
-	 * to a local-inactive-mac-add
+	 * to a local-active-mac-add
 	 */
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 		zlog_debug("dpAdd local-nw-MAC %pEA VID %u", macaddr, vid);
@@ -5139,10 +5148,9 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 			return 0;
 
 		/* Inform BGP, if there is a change of interest. */
-		if (chgflags
-			& (ZEBRA_VXLIF_MASTER_CHANGE |
-			   ZEBRA_VXLIF_LOCAL_IP_CHANGE |
-			   ZEBRA_VXLIF_MCAST_GRP_CHANGE))
+		if (chgflags &
+		    (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_LOCAL_IP_CHANGE |
+		     ZEBRA_VXLIF_MCAST_GRP_CHANGE | ZEBRA_VXLIF_VLAN_CHANGE))
 			zebra_evpn_send_add_to_client(zevpn);
 
 		/* If there is a valid new master or a VLAN mapping change,

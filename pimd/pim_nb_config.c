@@ -348,8 +348,7 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	return false;
 }
 
-#if PIM_IPV == 4
-static int pim_cmd_igmp_start(struct interface *ifp)
+static int pim_cmd_gm_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	uint8_t need_startup = 0;
@@ -377,7 +376,6 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 
 	return NB_OK;
 }
-#endif /* PIM_IPV == 4 */
 
 /*
  * CLI reconfiguration affects the interface level (struct pim_interface).
@@ -397,7 +395,7 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
 
-	if (PIM_DEBUG_IGMP_TRACE)
+	if (PIM_DEBUG_GM_TRACE)
 		zlog_debug("%s: Querier %pPAs on %s reconfig query_interval=%d",
 			   __func__, &igmp->ifaddr, ifp->name,
 			   pim_ifp->gm_default_query_interval);
@@ -456,14 +454,17 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 }
 #endif
 
-#if PIM_IPV == 4
-static void change_query_max_response_time(struct pim_interface *pim_ifp,
-		int query_max_response_time_dsec)
+static void change_query_max_response_time(struct interface *ifp,
+					   int query_max_response_time_dsec)
 {
+#if PIM_IPV == 4
 	struct listnode *sock_node;
 	struct gm_sock *igmp;
 	struct listnode *grp_node;
 	struct gm_group *grp;
+#endif
+
+	struct pim_interface *pim_ifp = ifp->info;
 
 	if (pim_ifp->gm_query_max_response_time_dsec ==
 	    query_max_response_time_dsec)
@@ -471,6 +472,9 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 
 	pim_ifp->gm_query_max_response_time_dsec = query_max_response_time_dsec;
 
+#if PIM_IPV == 6
+	gm_ifp_update(ifp);
+#else
 	/*
 	 * Below we modify socket/group/source timers in order to quickly
 	 * reflect the change. Otherwise, those timers would args->eventually
@@ -503,8 +507,8 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 				igmp_source_reset_gmi(grp, src);
 		}
 	}
+#endif /* PIM_IPV == 4 */
 }
-#endif
 
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
@@ -2584,7 +2588,6 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_gmp_address_family_enable_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	bool gm_enable;
 	struct pim_interface *pim_ifp;
@@ -2600,9 +2603,10 @@ int lib_interface_gmp_address_family_enable_modify(
 		/* Limiting mcast interfaces to number of VIFs */
 		if (mcast_if_count == MAXVIFS) {
 			ifp_name = yang_dnode_get_string(if_dnode, "name");
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
-				 MAXVIFS, ifp_name);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Max multicast interfaces(%d) Reached. Could not enable %s on interface %s",
+				MAXVIFS, GM, ifp_name);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2614,7 +2618,7 @@ int lib_interface_gmp_address_family_enable_modify(
 		gm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		if (gm_enable)
-			return pim_cmd_igmp_start(ifp);
+			return pim_cmd_gm_start(ifp);
 
 		else {
 			pim_ifp = ifp->info;
@@ -2626,15 +2630,16 @@ int lib_interface_gmp_address_family_enable_modify(
 
 			pim_if_membership_clear(ifp);
 
+#if PIM_IPV == 4
 			pim_if_addr_del_all_igmp(ifp);
+#else
+			gm_ifp_teardown(ifp);
+#endif
 
 			if (!pim_ifp->pim_enable)
 				pim_if_delete(ifp);
 		}
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
@@ -2798,7 +2803,6 @@ int lib_interface_gmp_address_family_query_interval_modify(
 int lib_interface_gmp_address_family_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	int query_max_response_time_dsec;
 
@@ -2811,13 +2815,9 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		query_max_response_time_dsec =
 			yang_dnode_get_uint16(args->dnode, NULL);
-		change_query_max_response_time(ifp->info,
-				query_max_response_time_dsec);
+		change_query_max_response_time(ifp,
+					       query_max_response_time_dsec);
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif
-
 
 	return NB_OK;
 }
@@ -2828,7 +2828,6 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 int lib_interface_gmp_address_family_last_member_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	int last_member_query_interval;
@@ -2845,12 +2844,12 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 			yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->gm_specific_query_max_response_time_dsec =
 			last_member_query_interval;
+#if PIM_IPV == 6
+		gm_ifp_update(ifp);
+#endif
 
 		break;
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif
 
 	return NB_OK;
 }
@@ -2861,7 +2860,6 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 int lib_interface_gmp_address_family_robustness_variable_modify(
 	struct nb_cb_modify_args *args)
 {
-#if PIM_IPV == 4
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	int last_member_query_count;
@@ -2877,12 +2875,11 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 		last_member_query_count =
 			yang_dnode_get_uint8(args->dnode, NULL);
 		pim_ifp->gm_last_member_query_count = last_member_query_count;
-
+#if PIM_IPV == 6
+		gm_ifp_update(ifp);
+#endif
 		break;
 	}
-#else
-	/* TBD Depends on MLD data structure changes */
-#endif
 
 	return NB_OK;
 }

@@ -74,15 +74,16 @@ struct vertex;
 /* OSPF LSA. */
 struct ospf_lsa {
 	/* LSA origination flag. */
-	uint8_t flags;
-#define OSPF_LSA_SELF		  0x01
-#define OSPF_LSA_SELF_CHECKED	  0x02
-#define OSPF_LSA_RECEIVED	  0x04
-#define OSPF_LSA_APPROVED	  0x08
-#define OSPF_LSA_DISCARD	  0x10
-#define OSPF_LSA_LOCAL_XLT	  0x20
-#define OSPF_LSA_PREMATURE_AGE	  0x40
-#define OSPF_LSA_IN_MAXAGE	  0x80
+	uint16_t flags;
+#define OSPF_LSA_SELF		0x0001
+#define OSPF_LSA_SELF_CHECKED	0x0002
+#define OSPF_LSA_RECEIVED	0x0004
+#define OSPF_LSA_APPROVED	0x0008
+#define OSPF_LSA_DISCARD	0x0010
+#define OSPF_LSA_LOCAL_XLT	0x0020
+#define OSPF_LSA_PREMATURE_AGE	0x0040
+#define OSPF_LSA_IN_MAXAGE	0x0080
+#define OSPF_LSA_ORR		0x0100
 
 	/* LSA data. and size */
 	struct lsa_header *data;
@@ -222,6 +223,7 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 #define IS_LSA_MAXAGE(L)        (LS_AGE ((L)) == OSPF_LSA_MAXAGE)
 #define IS_LSA_MAX_SEQ(L)                                                      \
 	((L)->data->ls_seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER))
+#define IS_LSA_ORR(L)           (CHECK_FLAG ((L)->flags, OSPF_LSA_ORR))
 
 #define OSPF_LSA_UPDATE_DELAY		2
 
@@ -292,6 +294,12 @@ extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
 					struct in_addr);
 extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
 					      struct in_addr);
+extern struct ospf_lsa *ospf_lsa_lookup_by_adv_rid(struct ospf_area *area,
+						   uint32_t type,
+						   struct in_addr id);
+extern struct ospf_lsa *ospf_lsa_lookup_by_mpls_te_rid(struct ospf_area *area,
+						       uint32_t type,
+						       struct in_addr id);
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
 						  struct lsa_header *);
 extern int ospf_lsa_more_recent(struct ospf_lsa *, struct ospf_lsa *);
@@ -354,4 +362,5 @@ extern void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
 					    struct ospf_lsa *lsa);
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
+extern void ospf_maxage_lsa_remover(struct thread *thread);
 #endif /* _ZEBRA_OSPF_LSA_H */
