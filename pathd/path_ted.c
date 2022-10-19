@@ -215,7 +215,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
-	uint64_t key;
+	struct in6_addr key = {0};
 
 	if (!path_ted_is_initialized())
 		return MPLS_LABEL_NONE;
@@ -227,8 +227,8 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	case IPADDR_V4:
 		/* We have local and remote ip */
 		/* so check all attributes in ted */
-		key = ((uint64_t)ntohl(local->ip._v4_addr.s_addr)) & 0xffffffff;
-		edge = ls_find_edge_by_key(ted_state_g.ted, key);
+		key.s6_addr32[3] = local->ip._v4_addr.s_addr;
+		edge = ls_find_edge_by_key(ted_state_g.ted, &key);
 		if (edge) {
 			if (edge->attributes->standard.remote.s_addr
 				    == remote->ip._v4_addr.s_addr
@@ -241,9 +241,8 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		}
 		break;
 	case IPADDR_V6:
-		key = (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[2]) << 32 |
-		      (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[3]);
-		edge = ls_find_edge_by_key(ted_state_g.ted, key);
+		IPV6_ADDR_COPY(&key, &local->ip._v6_addr);
+		edge = ls_find_edge_by_key(ted_state_g.ted, &key);
 		if (edge) {
 			if ((0 == memcmp(&edge->attributes->standard.remote6,
 					 &remote->ip._v6_addr,

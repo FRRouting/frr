@@ -398,7 +398,7 @@ struct ls_edge {
 	enum ls_type type;		/* Link State Type */
 	enum ls_status status;		/* Status of the Edge in the TED */
 	struct edges_item entry;	/* Entry in RB tree */
-	uint64_t key;			/* Unique Key identifier */
+	struct in6_addr key;		/* Unique Key identifier */
 	struct ls_attributes *attributes;	/* Link State attributes */
 	struct ls_vertex *source;	/* Pointer to the source Vertex */
 	struct ls_vertex *destination;	/* Pointer to the destination Vertex */
@@ -423,10 +423,9 @@ macro_inline int vertex_cmp(const struct ls_vertex *node1,
 }
 DECLARE_RBTREE_UNIQ(vertices, struct ls_vertex, entry, vertex_cmp);
 
-macro_inline int edge_cmp(const struct ls_edge *edge1,
-			  const struct ls_edge *edge2)
+macro_inline int edge_cmp(const struct ls_edge *a, const struct ls_edge *b)
 {
-	return numcmp(edge1->key, edge2->key);
+	return IPV6_ADDR_CMP(&a->key, &b->key);
 }
 DECLARE_RBTREE_UNIQ(edges, struct ls_edge, entry, edge_cmp);
 
@@ -629,7 +628,7 @@ extern void ls_edge_del_all(struct ls_ted *ted, struct ls_edge *edge);
  * @return	Edge if found, NULL otherwise
  */
 extern struct ls_edge *ls_find_edge_by_key(struct ls_ted *ted,
-					   const uint64_t key);
+					   struct in6_addr *key);
 
 /**
  * Find Edge in the Link State Data Base by the source (local IPv4 or IPv6

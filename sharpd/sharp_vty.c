@@ -1000,6 +1000,7 @@ DEFUN (show_sharp_ted,
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	uint64_t key;
+	struct in6_addr edge_key = {0};
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -1050,8 +1051,8 @@ DEFUN (show_sharp_ted,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ip_addr.s_addr) & 0xffffffff;
-			edge = ls_find_edge_by_key(sg.ted, key);
+			edge_key.s6_addr32[3] = ip_addr.s_addr;
+			edge = ls_find_edge_by_key(sg.ted, &edge_key);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);

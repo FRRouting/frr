@@ -665,7 +665,8 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 {
 	struct ls_edge *edge;
 	struct ls_standard *std;
-	uint64_t key = 0;
+	struct in6_addr key = {0};
+	uint64_t local;
 
 	/* Check parameters */
 	if (!ted || !attr)
@@ -674,23 +675,20 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 	std = &attr->standard;
 
 	/* Compute keys in function of local address (IPv4/v6) or identifier */
-	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
-		key = ((uint64_t)ntohl(std->local.s_addr)) & 0xffffffff;
-	else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
-		key = ((uint64_t)ntohl(std->local6.s6_addr32[2]) << 32
-		       | (uint64_t)ntohl(std->local6.s6_addr32[3]));
-	else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
-		key = ((uint64_t)std->remote_id << 32)
-		       | (((uint64_t)std->local_id) & 0xffffffff);
-	else
-		key = 0;
-
-	/* Stop here if we don't got a valid key */
-	if (key == 0)
+	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
+		key.s6_addr32[3] = std->local.s_addr;
+	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)) {
+		IPV6_ADDR_COPY(&key, &std->local6);
+	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID)) {
+		local = (((uint64_t)std->local_id) & 0xffffffff) |
+			((uint64_t)std->remote_id << 32);
+		memcpy(&key.s6_addr32[2], &local, sizeof(local));
+	} else
+		/* Stop here if we don't got a valid key */
 		return NULL;
 
 	/* Get corresponding Edge by key from Link State Data Base */
-	edge = ls_find_edge_by_key(ted, key);
+	edge = ls_find_edge_by_key(ted, &key);
 
 	/* and create new one if not exist */
 	if (!edge) {
@@ -705,18 +703,16 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 	}
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR))
-		te_debug("    |- %s Edge (%" PRIu64
-			 ") from Extended Reach. %pI4",
-			 edge->status == NEW ? "Create" : "Found", edge->key,
+		te_debug("    |- %s Edge (%pI6) from Extended Reach. %pI4",
+			 edge->status == NEW ? "Create" : "Found", &edge->key,
 			 &attr->standard.local);
 	else if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6))
-		te_debug("    |- %s Edge (%" PRIu64
-			 ") from Extended Reach. %pI6",
-			 edge->status == NEW ? "Create" : "Found", edge->key,
+		te_debug("    |- %s Edge (%pI6) from Extended Reach. %pI6",
+			 edge->status == NEW ? "Create" : "Found", &edge->key,
 			 &attr->standard.local6);
 	else
-		te_debug("    |- %s Edge (%" PRIu64 ")",
-			 edge->status == NEW ? "Create" : "Found", edge->key);
+		te_debug("    |- %s Edge (%pI6)",
+			 edge->status == NEW ? "Create" : "Found", &edge->key);
 
 	return edge;
 }
@@ -953,8 +949,8 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	}
 
 	/* Try to update remote Link from remote address or reachability ID */
-	te_debug("    |- Link Edge (%" PRIu64 ") to destination vertex (%s)",
-		 edge->key, print_sys_hostname(id));
+	te_debug("    |- Link Edge (%pI6) to destination vertex (%s)",
+		 &edge->key, print_sys_hostname(id));
 	dst = ls_find_edge_by_destination(args->ted, edge->attributes);
 	if (dst) {
 		/* Attach remote link if not set */
@@ -1730,7 +1726,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 	struct ls_vertex *vertex;
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
-	uint64_t key;
+	struct in6_addr key = {0};
 	bool detail = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -1784,8 +1780,8 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
-			edge = ls_find_edge_by_key(ted, key);
+			key.s6_addr32[3] = ip_addr.s_addr;
+			edge = ls_find_edge_by_key(ted, &key);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI4\n",
 					&ip_addr);
@@ -1799,9 +1795,8 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			/* Get the Edge from the Link State Database */
-			key = (uint64_t)ntohl(ip6_addr.s6_addr32[3])
-			      | ((uint64_t)ntohl(ip6_addr.s6_addr32[2]) << 32);
-			edge = ls_find_edge_by_key(ted, key);
+			IPV6_ADDR_COPY(&key, &ip6_addr.s6_addr32);
+			edge = ls_find_edge_by_key(ted, &key);
 			if (!edge) {
 				vty_out(vty, "No edge found for ID %pI6\n",
 					&ip6_addr);
