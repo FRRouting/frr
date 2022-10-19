@@ -1890,12 +1890,7 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 static int route_map_candidate_list_cmp(struct route_map_index *idx1,
 					struct route_map_index *idx2)
 {
-	if (!idx1)
-		return -1;
-	if (!idx2)
-		return 1;
-
-	return (idx1->pref - idx2->pref);
+	return idx1->pref - idx2->pref;
 }
 
 /*
