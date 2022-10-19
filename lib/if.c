@@ -1135,23 +1135,8 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 struct if_link_params *if_link_params_enable(struct interface *ifp)
 {
 	struct if_link_params *iflp;
-	int i;
 
 	iflp = if_link_params_init(ifp);
-
-	/* Compute default bandwidth based on interface */
-	iflp->default_bw =
-		((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
-		 * TE_MEGA_BIT / TE_BYTE);
-
-	/* Set Max, Reservable and Unreserved Bandwidth */
-	iflp->max_bw = iflp->default_bw;
-	iflp->max_rsv_bw = iflp->default_bw;
-	for (i = 0; i < MAX_CLASS_TYPE; i++)
-		iflp->unrsv_bw[i] = iflp->default_bw;
-
-	/* Update Link parameters status */
-	iflp->lp_status = LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
 
 	/* Set TE metric equal to standard metric only if it is set */
 	if (ifp->metric != 0) {
