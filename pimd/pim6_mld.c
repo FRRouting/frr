@@ -1702,12 +1702,6 @@ static void gm_t_recv(struct thread *t)
 		 */
 		goto out_free;
 
-	if (!IN6_IS_ADDR_LINKLOCAL(&pkt_src->sin6_addr)) {
-		zlog_warn(log_pkt_src("packet from invalid source address"));
-		gm_ifp->stats.rx_drop_srcaddr++;
-		goto out_free;
-	}
-
 	pktlen = nread;
 	if (pktlen < sizeof(struct icmp6_plain_hdr)) {
 		zlog_warn(log_pkt_src("truncated packet"));
