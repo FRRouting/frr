@@ -472,52 +472,70 @@ def _test_opaque_add_del(tgen, apibin):
             [
                 apibin,
                 "-v",
+                "add,9,10.0.1.1,230,1",
                 "add,9,10.0.1.1,230,2,00000202",
-                "add,10,1.2.3.4,231,1,00010101",
                 "wait,1",
-                "add,10,1.2.3.4,231,2",
-                "add,11,232,3,ebadf00d",
+                "add,10,1.2.3.4,231,1",
+                "add,10,1.2.3.4,231,2,0102030405060708",
+                "wait,1",
+                "add,11,232,1",
+                "add,11,232,2,ebadf00d",
                 "wait,20",
-                "del,10,1.2.3.4,231,1",
-                "del,10,1.2.3.4,231,2",
+                "del,9,10.0.1.1,230,2,0",
+                "del,10,1.2.3.4,231,2,1",
+                "del,11,232,1,1",
             ]
         )
-
         add_input_dict = {
             "areas": {
                 "1.2.3.4": {
                     "linkLocalOpaqueLsa": [
                         {
+                            "lsId": "230.0.0.1",
+                            "advertisedRouter": "192.168.0.1",
+                            "sequenceNumber": "80000001",
+                            "checksum": "6d5f",
+                        },
+                        {
                             "lsId": "230.0.0.2",
                             "advertisedRouter": "192.168.0.1",
                             "sequenceNumber": "80000001",
                             "checksum": "8142",
-                        }
+                        },
                     ],
+                    "linkLocalOpaqueLsaCount": 2,
                     "areaLocalOpaqueLsa": [
                         {
                             "lsId": "231.0.0.1",
                             "advertisedRouter": "192.168.0.1",
                             "sequenceNumber": "80000001",
-                            "checksum": "695a",
+                            "checksum": "5278",
                         },
                         {
                             "lsId": "231.0.0.2",
                             "advertisedRouter": "192.168.0.1",
                             "sequenceNumber": "80000001",
-                            "checksum": "4881",
+                            "checksum": "6d30",
                         },
                     ],
-                }
+                    "areaLocalOpaqueLsaCount": 2,
+                },
             },
             "asExternalOpaqueLsa": [
                 {
-                    "lsId": "232.0.0.3",
+                    "lsId": "232.0.0.1",
                     "advertisedRouter": "192.168.0.1",
                     "sequenceNumber": "80000001",
-                    "checksum": "c666",
-                }
+                    "checksum": "5575",
+                },
+                {
+                    "lsId": "232.0.0.2",
+                    "advertisedRouter": "192.168.0.1",
+                    "sequenceNumber": "80000001",
+                    "checksum": "d05d",
+                },
             ],
+            "asExternalOpaqueLsaCount": 2,
         }
 
         step("reachable: check for add LSAs")
@@ -537,6 +555,14 @@ def _test_opaque_add_del(tgen, apibin):
                     "areas": {
                         "1.2.3.4": [
                             {
+                                "linkStateId": "230.0.0.1",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "6d5f",
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                            {
                                 "linkStateId": "230.0.0.2",
                                 "advertisingRouter": "192.168.0.1",
                                 "lsaSeqNumber": "80000001",
@@ -544,7 +570,7 @@ def _test_opaque_add_del(tgen, apibin):
                                 "length": 24,
                                 "opaqueId": 2,
                                 "opaqueDataLength": 4,
-                            }
+                            },
                         ]
                     }
                 }
@@ -557,33 +583,41 @@ def _test_opaque_add_del(tgen, apibin):
                                 "linkStateId": "231.0.0.1",
                                 "advertisingRouter": "192.168.0.1",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "695a",
-                                "length": 24,
-                                "opaqueDataLength": 4,
+                                "checksum": "5278",
+                                "length": 20,
+                                "opaqueDataLength": 0,
                             },
                             {
                                 "linkStateId": "231.0.0.2",
                                 "advertisingRouter": "192.168.0.1",
                                 "lsaSeqNumber": "80000001",
-                                "checksum": "4881",
-                                "length": 20,
-                                "opaqueDataLength": 0,
+                                "checksum": "6d30",
+                                "length": 28,
+                                "opaqueDataLength": 8,
                             },
-                        ]
-                    }
-                }
+                        ],
+                    },
+                },
             },
             {
                 "asExternalOpaqueLsa": [
                     {
-                        "linkStateId": "232.0.0.3",
+                        "linkStateId": "232.0.0.1",
                         "advertisingRouter": "192.168.0.1",
                         "lsaSeqNumber": "80000001",
-                        "checksum": "c666",
+                        "checksum": "5575",
+                        "length": 20,
+                        "opaqueDataLength": 0,
+                    },
+                    {
+                        "linkStateId": "232.0.0.2",
+                        "advertisingRouter": "192.168.0.1",
+                        "lsaSeqNumber": "80000001",
+                        "checksum": "d05d",
                         "length": 24,
                         "opaqueDataLength": 4,
-                    }
-                ]
+                    },
+                ],
             },
         ]
         i = 0
@@ -602,9 +636,16 @@ def _test_opaque_add_del(tgen, apibin):
         # Wait for add notification
         # RECV: LSA update msg for LSA 232.0.0.3 in area 0.0.0.0 seq 0x80000001 len 24 age 9
 
-        step("reachable: check for API add notifications")
-        ls_ids = ["230.0.0.2", "231.0.0.1", "231.0.0.2", "232.0.0.3"]
+        ls_ids = [
+            "230.0.0.1",
+            "230.0.0.2",
+            "231.0.0.1",
+            "231.0.0.2",
+            "232.0.0.1",
+            "232.0.0.2",
+        ]
         for ls_id in ls_ids:
+            step("reachable: check for API add notification: %s" % ls_id)
             waitfor = "RECV:.*update msg.*LSA {}.*age ([0-9]+)".format(ls_id)
             _ = _wait_output(pread, waitfor)
 
@@ -613,38 +654,54 @@ def _test_opaque_add_del(tgen, apibin):
                 "1.2.3.4": {
                     "linkLocalOpaqueLsa": [
                         {
-                            "lsId": "230.0.0.2",
+                            "lsId": "230.0.0.1",
                             "advertisedRouter": "192.168.0.1",
                             "sequenceNumber": "80000001",
+                            "checksum": "6d5f",
+                        },
+                        {
+                            "lsId": "230.0.0.2",
+                            "advertisedRouter": "192.168.0.1",
+                            "lsaAge": 3600,
+                            "sequenceNumber": "80000001",
                             "checksum": "8142",
-                        }
+                        },
                     ],
+                    "linkLocalOpaqueLsaCount": 2,
                     "areaLocalOpaqueLsa": [
                         {
-                            "lsaAge": 3600,
                             "lsId": "231.0.0.1",
                             "advertisedRouter": "192.168.0.1",
                             "sequenceNumber": "80000001",
-                            "checksum": "695a",
+                            "checksum": "5278",
                         },
                         {
-                            "lsaAge": 3600,
                             "lsId": "231.0.0.2",
                             "advertisedRouter": "192.168.0.1",
-                            "sequenceNumber": "80000001",
-                            "checksum": "4881",
+                            "lsaAge": 3600,
+                            "sequenceNumber": "80000002",
+                            "checksum": "4682",
                         },
                     ],
-                }
+                    "areaLocalOpaqueLsaCount": 2,
+                },
             },
             "asExternalOpaqueLsa": [
                 {
-                    "lsId": "232.0.0.3",
+                    "lsId": "232.0.0.1",
+                    "advertisedRouter": "192.168.0.1",
+                    "lsaAge": 3600,
+                    "sequenceNumber": "80000001",
+                    "checksum": "5575",
+                },
+                {
+                    "lsId": "232.0.0.2",
                     "advertisedRouter": "192.168.0.1",
                     "sequenceNumber": "80000001",
-                    "checksum": "c666",
-                }
+                    "checksum": "d05d",
+                },
             ],
+            "asExternalOpaqueLsaCount": 2,
         }
 
         step("reachable: check for explicit withdrawal LSAs")
@@ -652,64 +709,207 @@ def _test_opaque_add_del(tgen, apibin):
         assert verify_ospf_database(tgen, r1, del_input_dict, json_cmd) is None
         assert verify_ospf_database(tgen, r2, del_input_dict, json_cmd) is None
 
+        del_detail_input_dict = [
+            {
+                "linkLocalOpaqueLsa": {
+                    "areas": {
+                        "1.2.3.4": [
+                            {
+                                "linkStateId": "230.0.0.1",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "6d5f",
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                            {
+                                "linkStateId": "230.0.0.2",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaAge": 3600,
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "8142",
+                                "length": 24,
+                                "opaqueId": 2,
+                                "opaqueDataLength": 4,
+                            },
+                        ]
+                    }
+                }
+            },
+            {
+                "areaLocalOpaqueLsa": {
+                    "areas": {
+                        "1.2.3.4": [
+                            {
+                                "linkStateId": "231.0.0.1",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "5278",
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                            {
+                                "lsaAge": 3600,
+                                "linkStateId": "231.0.0.2",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaSeqNumber": "80000002",
+                                "checksum": "4682",
+                                # data removed
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                        ],
+                    },
+                },
+            },
+            {
+                "asExternalOpaqueLsa": [
+                    {
+                        "linkStateId": "232.0.0.1",
+                        "advertisingRouter": "192.168.0.1",
+                        "lsaAge": 3600,
+                        "lsaSeqNumber": "80000001",
+                        "checksum": "5575",
+                        "length": 20,
+                        "opaqueDataLength": 0,
+                    },
+                    {
+                        "linkStateId": "232.0.0.2",
+                        "advertisingRouter": "192.168.0.1",
+                        "lsaSeqNumber": "80000001",
+                        "checksum": "d05d",
+                        "length": 24,
+                        "opaqueDataLength": 4,
+                    },
+                ],
+            },
+        ]
+        i = 0
+        while i < numcs:
+            step("reachable: check for delete LSA details: %s" % json_cmds[i])
+            assert (
+                verify_ospf_database(tgen, r1, del_detail_input_dict[i], json_cmds[i])
+                is None
+            )
+            assert (
+                verify_ospf_database(tgen, r2, del_detail_input_dict[i], json_cmds[i])
+                is None
+            )
+            i += 1
+
         p.terminate()
         if p.wait():
             comm_error(p)
-        del_input_dict = {
-            "areas": {
-                "1.2.3.4": {
-                    "linkLocalOpaqueLsa": [
-                        {
-                            "lsaAge": 3600,
-                            "lsId": "230.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
-                            "sequenceNumber": "80000001",
-                            "checksum": "8142",
-                        }
-                    ],
-                    "areaLocalOpaqueLsa": [
-                        {
-                            "lsaAge": 3600,
-                            "lsId": "231.0.0.1",
-                            "advertisedRouter": "192.168.0.1",
-                            "sequenceNumber": "80000001",
-                            "checksum": "695a",
-                        },
-                        {
-                            "lsaAge": 3600,
-                            "lsId": "231.0.0.2",
-                            "advertisedRouter": "192.168.0.1",
-                            "sequenceNumber": "80000001",
-                            "checksum": "4881",
-                        },
-                    ],
+
+        del_detail_input_dict = [
+            {
+                "linkLocalOpaqueLsa": {
+                    "areas": {
+                        "1.2.3.4": [
+                            {
+                                "linkStateId": "230.0.0.1",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaAge": 3600,
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "6d5f",
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                            {
+                                "linkStateId": "230.0.0.2",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaAge": 3600,
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "8142",
+                                "length": 24,
+                                "opaqueId": 2,
+                                "opaqueDataLength": 4,
+                            },
+                        ]
+                    }
                 }
             },
-            "asExternalOpaqueLsa": [
-                {
-                    "lsaAge": 3600,
-                    "lsId": "232.0.0.3",
-                    "advertisedRouter": "192.168.0.1",
-                    "sequenceNumber": "80000001",
-                    "checksum": "c666",
-                }
-            ],
-        }
-
-        step("reachable: check for implicit withdrawal LSAs")
-        json_cmd = "show ip ospf da json"
-        assert verify_ospf_database(tgen, r1, del_input_dict, json_cmd) is None
-        assert verify_ospf_database(tgen, r2, del_input_dict, json_cmd) is None
+            {
+                "areaLocalOpaqueLsa": {
+                    "areas": {
+                        "1.2.3.4": [
+                            {
+                                "lsaAge": 3600,
+                                "linkStateId": "231.0.0.1",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaSeqNumber": "80000001",
+                                "checksum": "5278",
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                            {
+                                "lsaAge": 3600,
+                                "linkStateId": "231.0.0.2",
+                                "advertisingRouter": "192.168.0.1",
+                                "lsaSeqNumber": "80000002",
+                                "checksum": "4682",
+                                # data removed
+                                "length": 20,
+                                "opaqueDataLength": 0,
+                            },
+                        ],
+                    },
+                },
+            },
+            {
+                "asExternalOpaqueLsa": [
+                    {
+                        "linkStateId": "232.0.0.1",
+                        "advertisingRouter": "192.168.0.1",
+                        "lsaAge": 3600,
+                        "lsaSeqNumber": "80000001",
+                        "checksum": "5575",
+                        "length": 20,
+                        "opaqueDataLength": 0,
+                    },
+                    {
+                        "linkStateId": "232.0.0.2",
+                        "advertisingRouter": "192.168.0.1",
+                        "lsaAge": 3600,
+                        "lsaSeqNumber": "80000001",
+                        "checksum": "d05d",
+                        "length": 24,
+                        "opaqueDataLength": 4,
+                    },
+                ],
+            },
+        ]
+        i = 0
+        while i < numcs:
+            step(
+                "reachable: check for post API shutdown delete LSA details: %s"
+                % json_cmds[i]
+            )
+            assert (
+                verify_ospf_database(tgen, r1, del_detail_input_dict[i], json_cmds[i])
+                is None
+            )
+            assert (
+                verify_ospf_database(tgen, r2, del_detail_input_dict[i], json_cmds[i])
+                is None
+            )
+            i += 1
 
         # step("reachable: check for flush/age out")
         # # Wait for max age notification
         # waitfor = "RECV:.*update msg.*LSA {}.*age 3600".format(ls_id)
         # _wait_output(pread, waitfor)
-
-        step("reachable: check for API delete notifications")
-        ls_ids = ["231.0.0.1", "231.0.0.2", "230.0.0.2", "232.0.0.3"]
+        ls_ids = [
+            "230.0.0.2",
+            "231.0.0.2",
+            "232.0.0.1",
+            "230.0.0.1",
+            "231.0.0.1",
+            "232.0.0.2",
+        ]
         for ls_id in ls_ids:
-            waitfor = "RECV:.*delete msg.*LSA {}.*".format(ls_id)
+            step("reachable: check for API delete notification: %s" % ls_id)
+            waitfor = "RECV:.*delete msg.*LSA {}.*age".format(ls_id)
             _ = _wait_output(pread, waitfor)
     except Exception:
         if p:
