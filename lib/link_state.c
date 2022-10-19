@@ -731,6 +731,11 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 	key = get_edge_key(attributes, false);
 	if (key == 0)
 		return NULL;
+	if(ls_find_edge_by_key(ted,key)){
+		zlog_debug(" %s try to use an already used key",
+			   __func__);
+		return NULL;
+	}
 
 	/* Create Edge and add it to the TED */
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_edge));
