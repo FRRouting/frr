@@ -2618,10 +2618,8 @@ skip_check:
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(
-				"%u:%pRN: Filtering out with NH out %s due to route map",
-				re->vrf_id, rn,
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
+				"%u:%pRN: Filtering out with NH %pNHv due to route map",
+				re->vrf_id, rn, nexthop);
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
