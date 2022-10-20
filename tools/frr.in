@@ -96,10 +96,10 @@ check_daemon()
 		# check for config file
 		if [ -n "$2" ]; then
 			if [ ! -r "$C_PATH/$1-$2.conf" ]; then
-				install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" /dev/null "$C_PATH/$1-$2.conf"
+				su - "${FRR_USER}" -c "install -g \"$FRR_GROUP\" -o \"$FRR_USER\" -m \"$FRR_CONFIG_MODE\" /dev/null \"$C_PATH/$1-$2.conf\""
 			fi
 		elif [ ! -r "$C_PATH/$1.conf" ]; then
-			install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" /dev/null "$C_PATH/$1.conf"
+			su - "${FRR_USER}" -c "install -g \"$FRR_GROUP\" -o \"$FRR_USER\" -m \"$FRR_CONFIG_MODE\" /dev/null \"$C_PATH/$1.conf\""
 		fi
 	fi
 	return 0
@@ -524,7 +524,7 @@ convert_daemon_prios
 
 if [ ! -d $V_PATH ]; then
 	echo "Creating $V_PATH"
-	install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" -d "$V_PATH"
+	su - "${FRR_USER}" -c "install -g \"$FRR_GROUP\" -o \"$FRR_USER\" -m \"$FRR_CONFIG_MODE\" -d \"$V_PATH\""
 	chmod gu+x "${V_PATH}"
 fi
 

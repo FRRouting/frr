@@ -143,7 +143,7 @@ daemon_prep() {
 
 	cfg="$C_PATH/$daemon${inst:+-$inst}.conf"
 	if [ ! -r "$cfg" ]; then
-		install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" /dev/null "$cfg"
+		su - "${FRR_USER}" -c "install -g \"$FRR_GROUP\" -o \"$FRR_USER\" -m \"$FRR_CONFIG_MODE\" /dev/null \"$cfg\""
 	fi
 	return 0
 }
@@ -161,7 +161,7 @@ daemon_start() {
 	[ "$MAX_FDS" != "" ] && ulimit -n "$MAX_FDS" > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
 	if test ! -d "$V_PATH"; then
-		install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" -d "$V_PATH"
+		su - "${FRR_USER}" -c "install -g \"$FRR_GROUP\" -o \"$FRR_USER\" -m \"$FRR_CONFIG_MODE\" -d \"$V_PATH\""
 		chmod gu+x "${V_PATH}"
 	fi
 
