@@ -597,7 +597,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 			}
 			transpose_sid(sid, label, offset, func_len);
 
-      if (sid_exist(bgp, sid))
+			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
 			break;
@@ -1314,13 +1314,14 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				    chunk->locator_name))
 				break;
 
-		encode_label(from_bgp->vpn_policy[afi].tovpn_sid_transpose_label,
-			     &label);
+		encode_label(
+			from_bgp->vpn_policy[afi].tovpn_sid_transpose_label,
+			&label);
 
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
-    static_attr.srv6_l3vpn->endpoint_behavior =
+		static_attr.srv6_l3vpn->endpoint_behavior =
 			afi == AFI_IP
 				? IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT4
 				: (afi == AFI_IP6
@@ -1345,7 +1346,8 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 					.tovpn_sid_locator->node_bits_length;
 			static_attr.srv6_l3vpn->transposition_len =
 				from_bgp->vpn_policy[afi]
-					.tovpn_sid_locator->function_bits_length;
+					.tovpn_sid_locator
+					->function_bits_length;
 			static_attr.srv6_l3vpn->transposition_offset =
 				from_bgp->vpn_policy[afi]
 					.tovpn_sid_locator->block_bits_length +

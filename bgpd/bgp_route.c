@@ -2949,9 +2949,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return;
 
-	if (selected &&
-		selected->attr &&
-		selected->attr->srv6_l3vpn &&
+	if (selected && selected->attr && selected->attr->srv6_l3vpn &&
 	    !srv6_l3vpn_announce_selected(subgrp, selected, dest)) {
 		zlog_debug(
 			"%s (%d): skip srv6 l3vpn announce for p=%pFX, selected=%p",

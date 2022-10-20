@@ -305,7 +305,7 @@ DEFPY (locator_prefix,
 	 *      user should use a pattern of zeros as a filler.
 	 *  (3) The Node Id portion (LSBs) cannot exceed 24 bits.
 	 */
-  if (prefix->prefixlen == 48) {
+	if (prefix->prefixlen == 48) {
 		locator->block_bits_length = prefix->prefixlen - 16;
 		locator->node_bits_length = 16;
 	} else {
