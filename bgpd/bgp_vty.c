@@ -12282,6 +12282,16 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				json_addr,
 				"privateAsNumsRemovedInUpdatesToNbr");
 
+		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN)) {
+			if (CHECK_FLAG(p->af_flags[afi][safi],
+				       PEER_FLAG_ALLOWAS_IN_ORIGIN))
+				json_object_boolean_true_add(json_addr,
+							     "allowAsInOrigin");
+			else
+				json_object_int_add(json_addr, "allowAsInCount",
+						    p->allowas_in[afi][safi]);
+		}
+
 		if (p->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
 			json_object_boolean_true_add(
 				json_addr,
@@ -12597,6 +12607,17 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				    PEER_FLAG_REMOVE_PRIVATE_AS))
 			vty_out(vty,
 				"  Private AS numbers removed in updates to this neighbor\n");
+
+		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN)) {
+			if (CHECK_FLAG(p->af_flags[afi][safi],
+				       PEER_FLAG_ALLOWAS_IN_ORIGIN))
+				vty_out(vty,
+					"  Local AS allowed as path origin\n");
+			else
+				vty_out(vty,
+					"  Local AS allowed in path, %d occurrences\n",
+					p->allowas_in[afi][safi]);
+		}
 
 		if (p->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
 			vty_out(vty, "  %s\n",
