@@ -301,7 +301,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 						"%s: Unable to locate ifindex, waiting till we have one",
 						peer->conf_if);
 				}
-				return 0;
+				// return 0;
 			}
 		}
 
