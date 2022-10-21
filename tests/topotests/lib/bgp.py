@@ -2797,7 +2797,7 @@ def verify_best_path_as_per_admin_distance(
         if route in rib_routes_json:
             st_found = True
             # Verify next_hop in rib_routes_json
-            if rib_routes_json[route][0]["nexthops"][0]["ip"] == _next_hop:
+            if [nh for nh in rib_routes_json[route][0]["nexthops"] if nh['ip'] == _next_hop]:
                 nh_found = True
             else:
                 errormsg = (
