@@ -4220,7 +4220,8 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	op->length = length;
 
 	/* Decide destination address. */
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
+	    oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
 		op->dst.s_addr = htonl(OSPF_ALLSPFROUTERS);
 	else
 		op->dst.s_addr = dst.s_addr;
