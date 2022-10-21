@@ -532,12 +532,12 @@ struct msg *new_msg_originate_request(uint32_t seqnum, struct in_addr ifaddr,
 	return msg_new(MSG_ORIGINATE_REQUEST, omsg, seqnum, omsglen);
 }
 
-struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr area_id,
+struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr addr,
 				   uint8_t lsa_type, uint8_t opaque_type,
 				   uint32_t opaque_id)
 {
 	struct msg_delete_request dmsg;
-	dmsg.area_id = area_id;
+	dmsg.addr = addr;
 	dmsg.lsa_type = lsa_type;
 	dmsg.opaque_type = opaque_type;
 	dmsg.opaque_id = htonl(opaque_id);
