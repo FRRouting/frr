@@ -1924,6 +1924,7 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	struct msg_delete_request *dmsg;
 	struct ospf_lsa *old;
 	struct ospf_area *area = NULL;
+	struct ospf_interface *oi = NULL;
 	struct in_addr id;
 	int lsa_type, opaque_type;
 	int rc = 0;
@@ -1938,11 +1939,20 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	/* Lookup area for link-local and area-local opaque LSAs */
 	switch (dmsg->lsa_type) {
 	case OSPF_OPAQUE_LINK_LSA:
+		oi = ospf_apiserver_if_lookup_by_addr(dmsg->addr);
+		if (!oi) {
+			zlog_warn("%s: unknown interface %pI4", __func__,
+				  &dmsg->addr);
+			rc = OSPF_API_NOSUCHINTERFACE;
+			goto out;
+		}
+		area = oi->area;
+		break;
 	case OSPF_OPAQUE_AREA_LSA:
-		area = ospf_area_lookup_by_area_id(ospf, dmsg->area_id);
+		area = ospf_area_lookup_by_area_id(ospf, dmsg->addr);
 		if (!area) {
 			zlog_warn("%s: unknown area %pI4", __func__,
-				  &dmsg->area_id);
+				  &dmsg->addr);
 			rc = OSPF_API_NOSUCHAREA;
 			goto out;
 		}

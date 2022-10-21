@@ -94,7 +94,7 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 /* Synchronous request to delete opaque LSA. Parameter opaque_id is in
    host byte order */
 int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
-			      struct in_addr area_id, uint8_t lsa_type,
+			      struct in_addr addr, uint8_t lsa_type,
 			      uint8_t opaque_type, uint32_t opaque_id);
 
 /* Fetch async message and handle it  */
