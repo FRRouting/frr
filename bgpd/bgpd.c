@@ -7886,6 +7886,7 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
 	bm->tcp_dscp = IPTOS_PREC_INTERNETCONTROL;
+	bm->inq_limit = BM_DEFAULT_INQ_LIMIT;
 
 	bgp_mac_init();
 	/* init the rd id space.
