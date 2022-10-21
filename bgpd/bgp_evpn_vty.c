@@ -6625,10 +6625,13 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 			if (CHECK_FLAG(l3rt->flags, BGP_VRF_RT_WILD)) {
 				char *vni_str = NULL;
 
-				vni_str = strchr(ecom_str, ':') + 1;
+				vni_str = strchr(ecom_str, ':');
 
 				if (!vni_str)
 					continue; /* This should never happen */
+
+				/* Move pointer to vni */
+				vni_str += 1;
 
 				vty_out(vty, "  route-target import *:%s\n",
 					vni_str);
