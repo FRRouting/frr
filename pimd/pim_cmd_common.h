@@ -62,6 +62,10 @@ int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str);
 int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 				 const char *group_str, const char *src_str);
+int pim_process_bsm_cmd(struct vty *vty);
+int pim_process_no_bsm_cmd(struct vty *vty);
+int pim_process_unicast_bsm_cmd(struct vty *vty);
+int pim_process_no_unicast_bsm_cmd(struct vty *vty);
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
 void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json);
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty);
@@ -114,6 +118,9 @@ void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 			       const char *neighbor, json_object *json);
 void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			json_object *json);
+int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
+					   bool uj);
+int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj);
 int gm_process_query_max_response_time_cmd(struct vty *vty,
 					   const char *qmrt_str);
 int gm_process_no_query_max_response_time_cmd(struct vty *vty);
@@ -186,6 +193,8 @@ void pim_show_interface_traffic(struct pim_instance *pim, struct vty *vty,
 int pim_show_interface_traffic_helper(const char *vrf, const char *if_name,
 				      struct vty *vty, bool uj);
 void clear_pim_interfaces(struct pim_instance *pim);
+void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj);
+int pim_show_bsr_helper(const char *vrf, struct vty *vty, bool uj);
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
