@@ -4481,6 +4481,22 @@ Displaying Update Group Information
 
    Display Information about update-group events in FRR.
 
+Displaying Nexthop Information
+--------------------
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [<A.B.C.D|X:X::X:X>] [detail] [json]
+
+.. clicmd:: show [ip] bgp <view|vrf> all nexthop [json]
+
+   Display information about nexthops to bgp neighbors. If a certain nexthop is
+   specified, also provides information about paths associated with the nexthop.
+   With detail option provides information about gates of each nexthop.
+
+.. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] import-check-table [detail] [json]
+
+   Display information about nexthops from table that is used to check network's
+   existence in the rib for network statements.
+
 Segment-Routing IPv6
 --------------------
 
