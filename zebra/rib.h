@@ -158,6 +158,13 @@ struct route_entry {
  * differs from the rib/normal set of nexthops.
  */
 #define ROUTE_ENTRY_USE_FIB_NHG      0x40
+/*
+ * Route entries that are going to the dplane for a Route Replace
+ * let's note the fact that this is happening.  This will
+ * be useful when zebra is determing if a route can be
+ * used for nexthops
+ */
+#define ROUTE_ENTRY_ROUTE_REPLACING 0x80
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
