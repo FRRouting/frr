@@ -186,7 +186,7 @@ struct msg_originate_request {
 };
 
 struct msg_delete_request {
-	struct in_addr area_id; /* "0.0.0.0" for AS-external opaque LSAs */
+	struct in_addr addr; /* intf IP for link local, area for type 10, "0.0.0.0" for AS-external */
 	uint8_t lsa_type;
 	uint8_t opaque_type;
 	uint8_t pad[2]; /* padding */
@@ -311,8 +311,7 @@ extern struct msg *new_msg_originate_request(uint32_t seqnum,
 					     struct in_addr ifaddr,
 					     struct in_addr area_id,
 					     struct lsa_header *data);
-extern struct msg *new_msg_delete_request(uint32_t seqnum,
-					  struct in_addr area_id,
+extern struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr addr,
 					  uint8_t lsa_type, uint8_t opaque_type,
 					  uint32_t opaque_id);
 
