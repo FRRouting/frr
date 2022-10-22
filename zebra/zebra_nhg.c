@@ -563,6 +563,15 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	if (nhe1->afi != nhe2->afi)
 		return false;
 
+	if (nhe1->nhg.nhgr.buckets != nhe2->nhg.nhgr.buckets)
+		return false;
+
+	if (nhe1->nhg.nhgr.idle_timer != nhe2->nhg.nhgr.idle_timer)
+		return false;
+
+	if (nhe1->nhg.nhgr.unbalanced_timer != nhe2->nhg.nhgr.unbalanced_timer)
+		return false;
+
 	/* Nexthops should be in-order, so we simply compare them in-place */
 	for (nexthop1 = nhe1->nhg.nexthop, nexthop2 = nhe2->nhg.nexthop;
 	     nexthop1 && nexthop2;
@@ -621,7 +630,8 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 
 static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 				 struct nhg_connected_tree_head *depends,
-				 struct nh_grp *grp, uint8_t count)
+				 struct nh_grp *grp, uint8_t count,
+				 struct nhg_resilience *resilience)
 {
 	nhg_connected_tree_init(depends);
 
@@ -651,6 +661,9 @@ static int zebra_nhg_process_grp(struct nexthop_group *nhg,
 
 		copy_nexthops(&nhg->nexthop, depend->nhg.nexthop, NULL);
 	}
+
+	if (resilience)
+		nhg->nhgr = *resilience;
 
 	return 0;
 }
@@ -985,6 +998,11 @@ static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
 	return ctx->u.grp;
 }
 
+static struct nhg_resilience *nhg_ctx_get_resilience(struct nhg_ctx *ctx)
+{
+	return &ctx->resilience;
+}
+
 static struct nhg_ctx *nhg_ctx_new(void)
 {
 	struct nhg_ctx *new;
@@ -1018,7 +1036,8 @@ done:
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 				    struct nh_grp *grp, vrf_id_t vrf_id,
-				    afi_t afi, int type, uint8_t count)
+				    afi_t afi, int type, uint8_t count,
+				    struct nhg_resilience *resilience)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1029,6 +1048,9 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 	ctx->afi = afi;
 	ctx->type = type;
 	ctx->count = count;
+
+	if (resilience)
+		ctx->resilience = *resilience;
 
 	if (count)
 		/* Copy over the array */
@@ -1176,7 +1198,8 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	if (nhg_ctx_get_count(ctx)) {
 		nhg = nexthop_group_new();
 		if (zebra_nhg_process_grp(nhg, &nhg_depends,
-					  nhg_ctx_get_grp(ctx), count)) {
+					  nhg_ctx_get_grp(ctx), count,
+					  nhg_ctx_get_resilience(ctx))) {
 			depends_decrement_free(&nhg_depends);
 			nexthop_group_delete(&nhg);
 			return -ENOENT;
@@ -1306,7 +1329,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 /* Kernel-side, you either get a single new nexthop or a array of ID's */
 int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 			  uint8_t count, vrf_id_t vrf_id, afi_t afi, int type,
-			  int startup)
+			  int startup, struct nhg_resilience *nhgr)
 {
 	struct nhg_ctx *ctx = NULL;
 
@@ -1320,7 +1343,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		 */
 		id_counter = id;
 
-	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count);
+	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count, nhgr);
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_NEW);
 
 	/* Under statup conditions, we need to handle them immediately
@@ -1343,7 +1366,7 @@ int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id)
 {
 	struct nhg_ctx *ctx = NULL;
 
-	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0);
+	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0, NULL);
 
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 

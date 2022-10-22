@@ -28,6 +28,13 @@
 extern "C" {
 #endif
 
+struct nhg_resilience {
+	uint16_t buckets;
+	uint32_t idle_timer;
+	uint32_t unbalanced_timer;
+	uint64_t unbalanced_time;
+};
+
 /*
  * What is a nexthop group?
  *
@@ -38,6 +45,8 @@ extern "C" {
  */
 struct nexthop_group {
 	struct nexthop *nexthop;
+
+	struct nhg_resilience nhgr;
 };
 
 struct nexthop_group *nexthop_group_new(void);
