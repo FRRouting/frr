@@ -2412,7 +2412,8 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 					 uint32_t id,
 					 const struct nh_grp *z_grp,
-					 const uint8_t count)
+					 const uint8_t count, bool resilient,
+					 const struct nhg_resilience *nhgr)
 {
 	struct nexthop_grp grp[count];
 	/* Need space for max group size, "/", and null term */
@@ -2442,6 +2443,24 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 		if (!nl_attr_put(n, req_size, NHA_GROUP, grp,
 				 count * sizeof(*grp)))
 			return false;
+
+		if (resilient) {
+			struct rtattr *nest;
+
+			nest = nl_attr_nest(n, req_size, NHA_RES_GROUP);
+
+			nl_attr_put16(n, req_size, NHA_RES_GROUP_BUCKETS,
+				      nhgr->buckets);
+			nl_attr_put32(n, req_size, NHA_RES_GROUP_IDLE_TIMER,
+				      nhgr->idle_timer * 1000);
+			nl_attr_put32(n, req_size,
+				      NHA_RES_GROUP_UNBALANCED_TIMER,
+				      nhgr->unbalanced_timer * 1000);
+			nl_attr_nest_end(n, nest);
+
+			nl_attr_put16(n, req_size, NHA_GROUP_TYPE,
+				      NEXTHOP_GRP_TYPE_RES);
+		}
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2538,10 +2557,16 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 		 * other ids.
 		 */
 		if (dplane_ctx_get_nhe_nh_grp_count(ctx)) {
+			const struct nexthop_group *nhg;
+			const struct nhg_resilience *nhgr;
+
+			nhg = dplane_ctx_get_nhe_ng(ctx);
+			nhgr = &nhg->nhgr;
 			if (!_netlink_nexthop_build_group(
 				    &req->n, buflen, id,
 				    dplane_ctx_get_nhe_nh_grp(ctx),
-				    dplane_ctx_get_nhe_nh_grp_count(ctx)))
+				    dplane_ctx_get_nhe_nh_grp_count(ctx),
+				    !!nhgr->buckets, nhgr))
 				return 0;
 		} else {
 			const struct nexthop *nh =
@@ -2985,7 +3010,8 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 }
 
 static int netlink_nexthop_process_group(struct rtattr **tb,
-					 struct nh_grp *z_grp, int z_grp_size)
+					 struct nh_grp *z_grp, int z_grp_size,
+					 struct nhg_resilience *nhgr)
 {
 	uint8_t count = 0;
 	/* linux/nexthop.h group struct */
@@ -3004,6 +3030,36 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		z_grp[i].id = n_grp[i].id;
 		z_grp[i].weight = n_grp[i].weight + 1;
 	}
+
+	memset(nhgr, 0, sizeof(*nhgr));
+	if (tb[NHA_RES_GROUP]) {
+		struct rtattr *tbn[NHA_RES_GROUP_MAX + 1];
+		struct rtattr *rta;
+		struct rtattr *res_group = tb[NHA_RES_GROUP];
+
+		netlink_parse_rtattr_nested(tbn, NHA_RES_GROUP_MAX, res_group);
+
+		if (tbn[NHA_RES_GROUP_BUCKETS]) {
+			rta = tbn[NHA_RES_GROUP_BUCKETS];
+			nhgr->buckets = *(uint16_t *)RTA_DATA(rta);
+		}
+
+		if (tbn[NHA_RES_GROUP_IDLE_TIMER]) {
+			rta = tbn[NHA_RES_GROUP_IDLE_TIMER];
+			nhgr->idle_timer = *(uint32_t *)RTA_DATA(rta);
+		}
+
+		if (tbn[NHA_RES_GROUP_UNBALANCED_TIMER]) {
+			rta = tbn[NHA_RES_GROUP_UNBALANCED_TIMER];
+			nhgr->unbalanced_timer = *(uint32_t *)RTA_DATA(rta);
+		}
+
+		if (tbn[NHA_RES_GROUP_UNBALANCED_TIME]) {
+			rta = tbn[NHA_RES_GROUP_UNBALANCED_TIME];
+			nhgr->unbalanced_time = *(uint64_t *)RTA_DATA(rta);
+		}
+	}
+
 	return count;
 }
 
@@ -3087,13 +3143,15 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 
 	if (h->nlmsg_type == RTM_NEWNEXTHOP) {
+		struct nhg_resilience nhgr = {};
+
 		if (tb[NHA_GROUP]) {
 			/**
 			 * If this is a group message its only going to have
 			 * an array of nexthop IDs associated with it
 			 */
 			grp_count = netlink_nexthop_process_group(
-				tb, grp, array_size(grp));
+				tb, grp, array_size(grp), &nhgr);
 		} else {
 			if (tb[NHA_BLACKHOLE]) {
 				/**
@@ -3125,7 +3183,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 
 		if (zebra_nhg_kernel_find(id, &nh, grp, grp_count, vrf_id, afi,
-					  type, startup))
+					  type, startup, &nhgr))
 			return -1;
 
 	} else if (h->nlmsg_type == RTM_DELNEXTHOP)

@@ -1532,6 +1532,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
+	if (nhe->nhg.nhgr.buckets)
+		vty_out(vty,
+			"     Buckets: %u Idle Timer: %u Unbalanced Timer: %u Unbalanced time: %" PRIu64 "\n",
+			nhe->nhg.nhgr.buckets, nhe->nhg.nhgr.idle_timer,
+			nhe->nhg.nhgr.unbalanced_timer,
+			nhe->nhg.nhgr.unbalanced_time);
 }
 
 static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id)
