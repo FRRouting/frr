@@ -1038,12 +1038,11 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni,
 		char flag_buf[MACIP_BUF_SIZE];
 
 		zlog_debug(
-			"Send MACIP %s f %s MAC %pEA IP %pIA seq %u L2-VNI %u ESI %s to %s",
+			"Send MACIP %s f %s state %u MAC %pEA IP %pIA seq %u L2-VNI %u ESI %s to %s",
 			(cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
 			zclient_evpn_dump_macip_flags(flags, flag_buf,
 						      sizeof(flag_buf)),
-			macaddr, ip, seq, vni,
-			es ? es->esi_str : "-",
+			state, macaddr, ip, seq, vni, es ? es->esi_str : "-",
 			zebra_route_string(client->proto));
 	}
 
@@ -2445,7 +2444,7 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 
 	/* Remove MAC from BGP. */
 	zebra_evpn_mac_send_del_to_client(zevpn->vni, &mac->macaddr, mac->flags,
-					  false /* force */);
+					  clear_static /* force */);
 
 	zebra_evpn_es_mac_deref_entry(mac);
 
