@@ -566,6 +566,18 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (pim_addr_is_any(rp_addr) || pim_addr_is_multicast(rp_addr)) {
+		vty_out(vty, "%% Bad RP address specified: %s\n", rp_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+#if PIM_IPV == 6
+	if (IN6_IS_ADDR_LINKLOCAL(&rp_addr)) {
+		vty_out(vty, "%% Bad RP address specified: %s\n", rp_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif
+
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
