@@ -652,18 +652,21 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
  */
 void vtysh_config_write(void)
 {
+	const char *name;
 	char line[512];
 
-	if (cmd_hostname_get()) {
-		snprintf(line, sizeof(line), "hostname %s", cmd_hostname_get());
+	name = cmd_hostname_get();
+	if (name && name[0] != '\0') {
+		snprintf(line, sizeof(line), "hostname %s", name);
 		vtysh_config_parse_line(NULL, line);
 	}
 
-	if (cmd_domainname_get()) {
-		snprintf(line, sizeof(line), "domainname %s",
-			 cmd_domainname_get());
+	name = cmd_domainname_get();
+	if (name && name[0] != '\0') {
+		snprintf(line, sizeof(line), "domainname %s", name);
 		vtysh_config_parse_line(NULL, line);
 	}
+
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
 		vtysh_config_parse_line(NULL,
 					"no service integrated-vtysh-config");
