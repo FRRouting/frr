@@ -1048,6 +1048,12 @@ async def async_main(args):
             for action in args.actions:
                 _s = action.split(",")
                 what = _s.pop(False)
+                if what.casefold() == "wait":
+                    stime = int(_s.pop(False))
+                    logging.info("waiting %s seconds", stime)
+                    await asyncio.sleep(stime)
+                    logging.info("wait complete: %s seconds", stime)
+                    continue
                 ltype = int(_s.pop(False))
                 if ltype == 11:
                     addr = ip(0)
