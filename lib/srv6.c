@@ -57,6 +57,8 @@ const char *seg6local_action2str(uint32_t action)
 		return "End.AS";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
 		return "End.AM";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		return "End.DT46";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	default:
@@ -105,6 +107,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		snprintf(str, size, "table %u", ctx->table);
 		return str;
 
@@ -228,9 +231,19 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	/* set prefix */
 	json_object_string_addf(jo_root, "prefix", "%pFX", &loc->prefix);
 
+	/* set block_bits_length */
+	json_object_int_add(jo_root, "blockBitsLength", loc->block_bits_length);
+
+	/* set node_bits_length */
+	json_object_int_add(jo_root, "nodeBitsLength", loc->node_bits_length);
+
 	/* set function_bits_length */
 	json_object_int_add(jo_root, "functionBitsLength",
 			    loc->function_bits_length);
+
+	/* set argument_bits_length */
+	json_object_int_add(jo_root, "argumentBitsLength",
+			    loc->argument_bits_length);
 
 	/* set status_up */
 	json_object_boolean_add(jo_root, "statusUp",

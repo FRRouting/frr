@@ -187,7 +187,7 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    There are many End Functions defined in SRv6, which have been standardized
    in RFC 8986. The current implementation supports End, End.X, End.T, End.DX4,
-   and End.DT6, which can be configured as follows.
+   End.DT6 and End.DT46, which can be configured as follows.
 
 ::
 
@@ -196,6 +196,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    router# sharp install seg6local-routes 1::3 nexthop-seg6local dum0 End_T 10 1
    router# sharp install seg6local-routes 1::4 nexthop-seg6local dum0 End_DX4 10.0.0.1 1
    router# sharp install seg6local-routes 1::5 nexthop-seg6local dum0 End_DT6 10 1
+   router# sharp install seg6local-routes 1::6 nexthop-seg6local dum0 End_DT46 10 1
 
    router# show ipv6 route
    D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End USP, weight 1, 00:00:05
@@ -203,6 +204,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    D>* 1::3/128 [150/0] is directly connected, dum0, seg6local End.T table 10, weight 1, 00:00:05
    D>* 1::4/128 [150/0] is directly connected, dum0, seg6local End.DX4 nh4 10.0.0.1, weight 1, 00:00:05
    D>* 1::5/128 [150/0] is directly connected, dum0, seg6local End.DT6 table 10, weight 1, 00:00:05
+   D>* 1::6/128 [150/0] is directly connected, dum0, seg6local End.DT46 table 10, weight 1, 00:00:05
 
    bash# ip -6 route
    1::1  encap seg6local action End dev dum0 proto 194 metric 20 pref medium
@@ -210,6 +212,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    1::3  encap seg6local action End.T table 10 dev dum0 proto 194 metric 20 pref medium
    1::4  encap seg6local action End.DX4 nh4 10.0.0.1 dev dum0 proto 194 metric 20 pref medium
    1::5  encap seg6local action End.DT6 table 10 dev dum0 proto 194 metric 20 pref medium
+   1::6  encap seg6local action End.DT46 table 10 dev dum0 proto 194 metric 20 pref medium
 
 .. clicmd:: show sharp segment-routing srv6
 
