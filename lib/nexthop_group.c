@@ -674,6 +674,47 @@ DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(nexthop_group_resilience,
+      nexthop_group_resilience_cmd,
+      "resilient buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)",
+      "A resilient Nexthop Group\n"
+      "Buckets in the Hash for this Group\n"
+      "Number of buckets\n"
+      "The Idle timer for this Resilient Nexthop Group in seconds\n"
+      "Number of seconds of Idle time\n"
+      "The length of time that the Nexthop Group can be unbalanced\n"
+      "Number of seconds of Unbalanced time\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->nhg.nhgr.buckets = buckets;
+	nhgc->nhg.nhgr.idle_timer = idle_timer;
+	nhgc->nhg.nhgr.unbalanced_timer = unbalanced_timer;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_nexthop_group_resilience,
+      no_nexthop_group_resilience_cmd,
+      "no resilient [buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)]",
+      NO_STR
+      "A resilient Nexthop Group\n"
+      "Buckets in the Hash for this Group\n"
+      "Number of buckets\n"
+      "The Idle timer for this Resilient Nexthop Group in seconds\n"
+      "Number of seconds of Idle time\n"
+      "The length of time that the Nexthop Group can be unbalanced\n"
+      "Number of seconds of Unbalanced time\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->nhg.nhgr.buckets = 0;
+	nhgc->nhg.nhgr.idle_timer = 0;
+	nhgc->nhg.nhgr.unbalanced_timer = 0;
+
+	return CMD_SUCCESS;
+}
+
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
@@ -1129,6 +1170,13 @@ static int nexthop_group_write(struct vty *vty)
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
+		if (nhgc->nhg.nhgr.buckets)
+			vty_out(vty,
+				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
+				nhgc->nhg.nhgr.buckets,
+				nhgc->nhg.nhgr.idle_timer,
+				nhgc->nhg.nhgr.unbalanced_timer);
+
 		if (nhgc->backup_list_name[0])
 			vty_out(vty, " backup-group %s\n",
 				nhgc->backup_list_name);
@@ -1317,6 +1365,9 @@ void nexthop_group_init(void (*new)(const char *name),
 	install_element(NH_GROUP_NODE, &nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &ecmp_nexthops_cmd);
+
+	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
+	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 

@@ -261,6 +261,11 @@ static void config_add_line_uniq_end(struct list *config, const char *line)
 		listnode_move_to_tail(config, node);
 }
 
+static void config_add_line_head(struct list *config, const char *line)
+{
+	listnode_add_head(config, XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line));
+}
+
 void vtysh_config_parse_line(void *arg, const char *line)
 {
 	char c;
@@ -324,12 +329,19 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			} else if (!strncmp(line, " ip mroute",
 					    strlen(" ip mroute"))) {
 				config_add_line_uniq_end(config->line, line);
-			} else if (config->index == RMAP_NODE
-				   || config->index == INTERFACE_NODE
-				   || config->index == VTY_NODE
-				   || config->index == NH_GROUP_NODE)
+			} else if (config->index == RMAP_NODE ||
+				   config->index == INTERFACE_NODE ||
+				   config->index == VTY_NODE)
 				config_add_line_uniq(config->line, line);
-			else
+			else if (config->index == NH_GROUP_NODE) {
+				if (strncmp(line, " resilient",
+					    strlen(" resilient")) == 0)
+					config_add_line_head(config->line,
+							     line);
+				else
+					config_add_line_uniq_end(config->line,
+								 line);
+			} else
 				config_add_line(config->line, line);
 		} else
 			config_add_line(config_top, line);
