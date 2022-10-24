@@ -126,6 +126,20 @@ static void sharp_nhgroup_add_cb(const char *name)
 
 static void sharp_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc)
 {
+	struct sharp_nhg lookup;
+	struct sharp_nhg *snhg;
+	struct nexthop_group_cmd *bnhgc = NULL;
+
+	strlcpy(lookup.name, nhgc->name, sizeof(lookup.name));
+	snhg = sharp_nhg_rb_find(&nhg_head, &lookup);
+
+	if (!nhgc->nhg.nexthop)
+		return;
+
+	if (nhgc->backup_list_name[0])
+		bnhgc = nhgc_find(nhgc->backup_list_name);
+
+	nhg_add(snhg->id, &nhgc->nhg, (bnhgc ? &bnhgc->nhg : NULL));
 }
 
 static void sharp_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,

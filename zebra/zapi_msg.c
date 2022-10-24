@@ -1874,6 +1874,10 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 	if (cmd == ZEBRA_NHG_DEL)
 		goto done;
 
+	STREAM_GETW(s, api_nhg->resilience.buckets);
+	STREAM_GETL(s, api_nhg->resilience.idle_timer);
+	STREAM_GETL(s, api_nhg->resilience.unbalanced_timer);
+
 	/* Nexthops */
 	STREAM_GETW(s, api_nhg->nexthop_num);
 
@@ -1997,6 +2001,8 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	/* Take over the list(s) of nexthops */
 	nhe->nhg.nexthop = nhg->nexthop;
 	nhg->nexthop = NULL;
+
+	nhe->nhg.nhgr = api_nhg.resilience;
 
 	if (bnhg) {
 		nhe->backup_info = bnhg;
