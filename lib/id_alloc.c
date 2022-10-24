@@ -368,7 +368,10 @@ void idalloc_drain_pool(struct id_alloc *alloc, struct id_alloc_pool **pool_ptr)
 	while (*pool_ptr) {
 		current = *pool_ptr;
 		next = current->next;
-		idalloc_free(alloc, current->id);
+
+		if (alloc)
+			idalloc_free(alloc, current->id);
+
 		XFREE(MTYPE_IDALLOC_POOL, current);
 		*pool_ptr = next;
 	}
