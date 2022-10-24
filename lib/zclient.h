@@ -35,6 +35,8 @@ struct zclient;
 
 /* For union g_addr */
 #include "nexthop.h"
+/* For resilience */
+#include "nexthop_group.h"
 
 /* For union pw_protocol_fields */
 #include "pw.h"
@@ -462,6 +464,8 @@ struct zapi_nexthop {
 struct zapi_nhg {
 	uint16_t proto;
 	uint32_t id;
+
+	struct nhg_resilience resilience;
 
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
