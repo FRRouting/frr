@@ -1390,14 +1390,21 @@ static uint32_t bgp_l3nhg_start;
 static void bgp_l3nhg_add_cb(const char *name)
 {
 }
+
+static void bgp_l3nhg_modify_cb(const struct nexthop_group_cmd *nhgc)
+{
+}
+
 static void bgp_l3nhg_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				     const struct nexthop *nhop)
 {
 }
+
 static void bgp_l3nhg_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				     const struct nexthop *nhop)
 {
 }
+
 static void bgp_l3nhg_del_cb(const char *name)
 {
 }
@@ -1410,8 +1417,9 @@ static void bgp_l3nhg_zebra_init(void)
 
 	bgp_l3nhg_zebra_inited = true;
 	bgp_l3nhg_start = zclient_get_nhg_start(ZEBRA_ROUTE_BGP);
-	nexthop_group_init(bgp_l3nhg_add_cb, bgp_l3nhg_add_nexthop_cb,
-			   bgp_l3nhg_del_nexthop_cb, bgp_l3nhg_del_cb);
+	nexthop_group_init(bgp_l3nhg_add_cb, bgp_l3nhg_modify_cb,
+			   bgp_l3nhg_add_nexthop_cb, bgp_l3nhg_del_nexthop_cb,
+			   bgp_l3nhg_del_cb);
 }
 
 

@@ -118,9 +118,17 @@ DECLARE_QOBJ_TYPE(nexthop_group_cmd);
  * a nexthop_group is added/deleted/modified, then set the
  * appropriate callback functions to handle it in your
  * code
+ *
+ * create - The creation of the nexthop group
+ * modify - Modification of the nexthop group when not changing a nexthop
+ *          ( resilience as an example )
+ * add_nexthop - A nexthop is added to the NHG
+ * del_nexthop - A nexthop is deleted from the NHG
+ * destroy - The NHG is deleted
  */
 void nexthop_group_init(
 	void (*create)(const char *name),
+	void (*modify)(const struct nexthop_group_cmd *nhgc),
 	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
