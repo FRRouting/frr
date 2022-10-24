@@ -31,6 +31,7 @@ Basics
    kernel
    snmp
    scripting
+   nexthop_groups
 .. modules
 
 #########

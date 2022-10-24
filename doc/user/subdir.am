@@ -22,6 +22,7 @@ user_RSTFILES = \
 	doc/user/ipv6.rst \
 	doc/user/isisd.rst \
 	doc/user/kernel.rst \
+	doc/user/nexthop_groups.rst \
 	doc/user/nhrpd.rst \
 	doc/user/ospf6d.rst \
 	doc/user/ospfd.rst \
