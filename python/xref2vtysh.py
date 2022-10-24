@@ -32,12 +32,6 @@ import argparse
 from collections import defaultdict
 import difflib
 
-import typing
-from typing import (
-    Dict,
-    List,
-)
-
 import json
 
 try:
@@ -100,7 +94,7 @@ class NodeDict(defaultdict):
     CLI node ID (integer) -> dict of commands in that node.
     """
 
-    nodenames: Dict[int, str] = {}
+    nodenames = {}  # Dict[int, str]
 
     def __init__(self):
         super().__init__(dict)
@@ -146,7 +140,7 @@ class CommandEntry:
       correctly.
     """
 
-    all_defs: List["CommandEntry"] = []
+    all_defs = []  # List[CommandEntry]
     warn_counter = 0
 
     def __init__(self, origin, name, spec):
@@ -231,7 +225,7 @@ class CommandEntry:
         return {}
 
     def __repr__(self):
-        return f"<CommandEntry {self.name}: {self.cmd!r}>"
+        return "<CommandEntry %s: %r>" % (self.name, self.cmd)
 
     def register(self):
         """Track DEFUNs so each is only output once."""
@@ -243,17 +237,18 @@ class CommandEntry:
     def merge(self, other, nodename):
         if self._cmd_normalized != other._cmd_normalized:
             self.warn_loc(
-                f"command definition mismatch, first definied as:\n{self.cmd!r}",
+                "command definition mismatch, first definied as:\n%r" % (self.cmd,),
                 nodename=nodename,
             )
-            other.warn_loc(f"later defined as:\n{other.cmd!r}", nodename=nodename)
+            other.warn_loc("later defined as:\n%r" % (other.cmd,), nodename=nodename)
 
         if self._spec["doc"] != other._spec["doc"]:
             self.warn_loc(
-                f"help string mismatch, first defined here (-)", nodename=nodename
+                "help string mismatch, first defined here (-)", nodename=nodename
             )
             other.warn_loc(
-                f"later defined here (+)\nnote: both commands define {self.cmd!r} in same node ({nodename})",
+                "later defined here (+)\nnote: both commands define %r in same node (%s)"
+                % (self.cmd, nodename),
                 nodename=nodename,
             )
 
@@ -269,10 +264,12 @@ class CommandEntry:
 
         if self.hidden != other.hidden:
             self.warn_loc(
-                f"hidden flag mismatch, first {self.hidden!r} here", nodename=nodename
+                "hidden flag mismatch, first %r here" % (self.hidden,),
+                nodename=nodename,
             )
             other.warn_loc(
-                f"later {other.hidden!r} here (+)\nnote: both commands define {self.cmd!r} in same node ({nodename})",
+                "later %r here (+)\nnote: both commands define %r in same node (%s)"
+                % (other.hidden, self.cmd, nodename),
                 nodename=nodename,
             )
 
@@ -290,11 +287,17 @@ class CommandEntry:
             daemons.update(daemon.split("|"))
         daemon_str = "|".join(sorted(daemons))
 
-        return f"""
-{defsh} ({daemon_str}, {self.name}_vtysh,
-\t"{c_escape(self.cmd)}",
-{doc})
-"""
+        return """
+%s (%s, %s_vtysh,
+\t"%s",
+%s)
+""" % (
+            defsh,
+            daemon_str,
+            self.name,
+            c_escape(self.cmd),
+            doc,
+        )
 
     # accept slightly different command definitions that result in the same command
     re_collapse_ws = re.compile(r"\s+")
@@ -351,7 +354,7 @@ class CommandEntry:
 
         for name, items in sorted(nodes.items_named()):
             for item in sorted(items.values(), key=lambda i: i.name):
-                ofd.write(f"\tinstall_element({name}, &{item.name}_vtysh);\n")
+                ofd.write("\tinstall_element(%s, &%s_vtysh);\n" % (name, item.name))
 
         ofd.write("}\n")
 
