@@ -9039,6 +9039,8 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, "I");
 	else if (rpki_state == RPKI_NOTFOUND)
 		vty_out(vty, "N");
+	else
+		vty_out(vty, " ");
 
 	/* Route status display. */
 	if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED))
