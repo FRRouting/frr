@@ -232,11 +232,6 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	if (!ifp->link_params) {
-		stream_free(s);
-		return 0;
-	}
-
 	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf->vrf_id);
 
 	/* Add Interface Index */
