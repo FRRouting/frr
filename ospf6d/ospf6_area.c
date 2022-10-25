@@ -39,6 +39,8 @@
 #include "ospf6_spf.h"
 #include "ospf6_top.h"
 #include "ospf6_area.h"
+#include "ospf6_message.h"
+#include "ospf6_neighbor.h"
 #include "ospf6_interface.h"
 #include "ospf6_intra.h"
 #include "ospf6_abr.h"
@@ -348,8 +350,16 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	 * deleting an area.
 	 * So just detach the interface from the area and
 	 * keep it around. */
-	for (ALL_LIST_ELEMENTS_RO(oa->if_list, n, oi))
+	for (ALL_LIST_ELEMENTS_RO(oa->if_list, n, oi)) {
 		oi->area = NULL;
+
+		struct listnode *node;
+		struct listnode *nnode;
+		struct ospf6_neighbor *on;
+
+		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+			ospf6_neighbor_delete(on);
+	}
 
 	list_delete(&oa->if_list);
 
