@@ -5866,13 +5866,6 @@ static int parse_rtlist(struct bgp *bgp, struct vty *vty, int argc,
 		 * the ecommunity parser.
 		 */
 		if ((argv[i]->arg)[0] == '*') {
-			if (!is_import) {
-				vty_out(vty,
-					"%% Wildcard '*' only applicable for import\n");
-				ret = CMD_WARNING;
-				continue;
-			}
-
 			(argv[i]->arg)[0] = '0';
 			is_wildcard = true;
 		}
@@ -5948,6 +5941,16 @@ DEFUN (bgp_evpn_vrf_rt,
 	if (strmatch(argv[2]->arg, "auto")) {
 		vty_out(vty, "%% `auto` cannot be configured via list\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (rt_type != RT_TYPE_IMPORT) {
+		for (int i = 2; i < argc; i++) {
+			if ((argv[i]->arg)[0] == '*') {
+				vty_out(vty,
+					"%% Wildcard '*' only applicable for import\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
 	}
 
 	/* Add/update the import route-target */
@@ -6053,6 +6056,16 @@ DEFUN (no_bgp_evpn_vrf_rt,
 			vty_out(vty,
 				"%% Import/Export RT is not configured for this VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (rt_type != RT_TYPE_IMPORT) {
+		for (int i = 3; i < argc; i++) {
+			if ((argv[i]->arg)[0] == '*') {
+				vty_out(vty,
+					"%% Wildcard '*' only applicable for import\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 		}
 	}
 
