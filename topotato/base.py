@@ -205,7 +205,8 @@ class TopotatoItem(nodes.Item, ClassHooks):
             _kwargs["_ispytest"] = True
         self._request = _pytest.fixtures.FixtureRequest(self, **_kwargs)  # type: ignore
 
-        self.add_marker(pytest.mark.usefixtures(self._obj.instancefn.__name__))
+        self._ifix_name = tparent._ifix_name
+        self.add_marker(pytest.mark.usefixtures(self._ifix_name))
         return self
 
     @skiptrace
@@ -286,7 +287,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
             fn.started_ts = time.time()
 
         self._request._fillfixtures()
-        self.instance = self.funcargs[self._obj.instancefn.__name__]
+        self.instance = self.funcargs[self._ifix_name]
         self.timeline = self.instance.timeline
 
     # pylint: disable=unused-argument
@@ -718,7 +719,13 @@ class TopotatoClass(_pytest.python.Class):
         for fixture in getattr(self._obj, "use", []):
             self.add_marker(pytest.mark.usefixtures(fixture))
 
-        self.add_marker(pytest.mark.usefixtures(self._obj.instancefn.__name__))
+        self._ifix_name = getattr(self._obj, "instancefixturename", None)
+        if not self._ifix_name:
+            self._ifix_name = self._obj.instancefn.__name__
+        else:
+            self._obj.instancefn = getattr(self._obj, self._ifix_name)
+
+        self.add_marker(pytest.mark.usefixtures(self._ifix_name))
         return self
 
     def newinstance(self):
