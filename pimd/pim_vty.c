@@ -401,7 +401,7 @@ static int gm_config_write(struct vty *vty, int writes,
 		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
 			pim_ifp->gm_specific_query_max_response_time_dsec);
 
-	return 0;
+	return writes;
 }
 #endif
 
