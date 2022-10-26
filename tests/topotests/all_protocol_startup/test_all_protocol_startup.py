@@ -301,7 +301,7 @@ def test_converge_protocols():
     print("******************************************\n")
 
     # Not really implemented yet - just sleep 60 secs for now
-    sleep(60)
+    sleep(5)
 
     # Make sure that all daemons are running
     failures = 0
