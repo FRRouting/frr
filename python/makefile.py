@@ -161,7 +161,12 @@ for clippy_file in clippy_scan:
 # combine daemon .xref files into frr.xref
 out_lines.append("")
 xref_targets = [
-    target for target in xref_targets if target not in ["tools/ssd", "vtysh/vtysh"]
+    target for target in xref_targets if target not in [
+        "bgpd/rfp-example/rfptest/rfptest",
+        "pimd/mtracebis",
+        "tools/ssd",
+        "vtysh/vtysh",
+    ]
 ]
 out_lines.append(
     "xrefs = %s" % (" ".join(["%s.xref" % target for target in xref_targets]))
