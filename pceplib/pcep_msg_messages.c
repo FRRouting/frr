@@ -163,7 +163,7 @@ pcep_msg_create_error_with_objects(uint8_t error_type, uint8_t error_value,
 	return message;
 }
 
-struct pcep_message *pcep_msg_create_keepalive()
+struct pcep_message *pcep_msg_create_keepalive(void)
 {
 	return (pcep_msg_create_common(PCEP_TYPE_KEEPALIVE));
 }
