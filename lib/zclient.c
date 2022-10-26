@@ -2387,15 +2387,13 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	if (changed == NULL)
 		return ifp;
 
-	if (iflp_prev_set && iflp) {
+	if (iflp_prev_set) {
 		if (memcmp(&iflp_prev, iflp, sizeof(iflp_prev)))
 			*changed = true;
 		else
 			*changed = false;
-	} else if (!iflp_prev_set && !iflp)
+	} else
 		*changed = false;
-	else
-		*changed = true;
 
 	return ifp;
 
