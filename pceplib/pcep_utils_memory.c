@@ -75,7 +75,7 @@ bool pceplib_memory_initialize(void *pceplib_infra_mt,
 	return true;
 }
 
-void pceplib_memory_reset()
+void pceplib_memory_reset(void)
 {
 	pceplib_infra_mt.total_bytes_allocated = 0;
 	pceplib_infra_mt.num_allocates = 0;
@@ -88,7 +88,7 @@ void pceplib_memory_reset()
 	pceplib_messages_mt.num_frees = 0;
 }
 
-void pceplib_memory_dump()
+void pceplib_memory_dump(void)
 {
 	if (PCEPLIB_INFRA) {
 		pcep_log(

@@ -348,7 +348,7 @@ struct pcep_message *pcep_decode_message(const uint8_t *msg_buf)
 	return msg;
 }
 
-struct pcep_versioning *create_default_pcep_versioning()
+struct pcep_versioning *create_default_pcep_versioning(void)
 {
 	struct pcep_versioning *versioning =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(struct pcep_versioning));

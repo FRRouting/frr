@@ -197,7 +197,7 @@ void free_all_timers(pcep_timers_context *timers_context)
 }
 
 
-bool teardown_timers()
+bool teardown_timers(void)
 {
 	if (timers_context_ == NULL) {
 		pcep_log(
@@ -252,7 +252,7 @@ bool teardown_timers()
 }
 
 
-int get_next_timer_id()
+int get_next_timer_id(void)
 {
 	if (timer_id_ == INT_MAX) {
 		timer_id_ = 0;

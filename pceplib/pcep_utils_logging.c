@@ -45,7 +45,7 @@ void set_logging_level(int level)
 	logging_level_ = level;
 }
 
-int get_logging_level()
+int get_logging_level(void)
 {
 	return logging_level_;
 }

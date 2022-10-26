@@ -33,7 +33,7 @@
 #include "pcep_utils_memory.h"
 #include "pcep_utils_queue.h"
 
-queue_handle *queue_initialize()
+queue_handle *queue_initialize(void)
 {
 	/* Set the max_entries to 0 to disable it */
 	return queue_initialize_with_size(0);

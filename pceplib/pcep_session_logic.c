@@ -111,7 +111,7 @@ static bool run_session_logic_common(void)
 }
 
 
-bool run_session_logic()
+bool run_session_logic(void)
 {
 	if (!run_session_logic_common()) {
 		return false;
@@ -234,7 +234,7 @@ bool run_session_logic_with_infra(pceplib_infra_config *infra_config)
 	return true;
 }
 
-bool run_session_logic_wait_for_completion()
+bool run_session_logic_wait_for_completion(void)
 {
 	if (!run_session_logic()) {
 		return false;
@@ -247,7 +247,7 @@ bool run_session_logic_wait_for_completion()
 }
 
 
-bool stop_session_logic()
+bool stop_session_logic(void)
 {
 	if (session_logic_handle_ == NULL) {
 		pcep_log(LOG_WARNING, "%s: Session logic already stopped",
