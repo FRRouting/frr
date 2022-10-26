@@ -950,10 +950,12 @@ void pim_rp_setup(struct pim_instance *pim)
 
 		pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
-					     nht_p, &rp_info->group, 1))
+					     nht_p, &rp_info->group, 1)) {
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug(
 					"Unable to lookup nexthop for rp specified");
+			pim_rp_nexthop_del(rp_info);
+		}
 	}
 }
 
