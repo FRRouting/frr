@@ -2418,7 +2418,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (aspath_check_as_sets(attr->aspath))
 			return false;
 
-	/* If neighbor sso is configured, then check if the route has
+	/* If neighbor soo is configured, then check if the route has
 	 * SoO extended community and validate against the configured
 	 * one. If they match, do not announce, to prevent routing
 	 * loops.
@@ -2431,6 +2431,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if ((ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS,
 				       ECOMMUNITY_SITE_ORIGIN) ||
 		     ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS4,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_IP,
 				       ECOMMUNITY_SITE_ORIGIN)) &&
 		    ecommunity_include(ecomm, ecomm_soo)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
