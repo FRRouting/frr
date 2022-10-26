@@ -162,7 +162,7 @@ bool path_ted_is_initialized(void)
  *
  * @return		Ptr to ted or NULL
  */
-struct ls_ted *path_ted_create_ted()
+struct ls_ted *path_ted_create_ted(void)
 {
 	struct ls_ted *ted = ls_ted_new(TED_KEY, TED_NAME, TED_ASN);
 
