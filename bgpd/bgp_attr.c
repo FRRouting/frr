@@ -4507,7 +4507,9 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
-			stream_putw(s, 0xffff); /* endpoint */
+			stream_putw(s,
+				    attr->srv6_l3vpn
+					    ->endpoint_behavior); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
 			stream_putc(
 				s,
