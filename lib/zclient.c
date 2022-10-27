@@ -2370,8 +2370,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 		return NULL;
 	}
 
-	iflp = if_link_params_get(ifp);
-	if (iflp) {
+	if (if_link_params_get(ifp)) {
 		iflp_prev_set = true;
 		memcpy(&iflp_prev, ifp->link_params, sizeof(iflp_prev));
 	} else
@@ -2386,6 +2385,8 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 
 	if (changed == NULL)
 		return ifp;
+
+	iflp = if_link_params_get(ifp);
 
 	if (iflp_prev_set && iflp) {
 		if (memcmp(&iflp_prev, iflp, sizeof(iflp_prev)))
