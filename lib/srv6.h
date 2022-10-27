@@ -92,6 +92,8 @@ struct srv6_locator {
 	bool status_up;
 	struct list *chunks;
 
+	uint8_t flags;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(srv6_locator);
@@ -116,6 +118,8 @@ struct srv6_locator_chunk {
 	uint8_t proto;
 	uint16_t instance;
 	uint32_t session_id;
+
+	uint8_t flags;
 };
 
 struct nexthop_srv6 {
