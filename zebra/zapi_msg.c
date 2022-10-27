@@ -2709,6 +2709,7 @@ int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 	chunk.keep = 0;
 	chunk.proto = client->proto;
 	chunk.instance = client->instance;
+	chunk.flags = loc->flags;
 
 	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
 	zapi_srv6_locator_chunk_encode(s, &chunk);
