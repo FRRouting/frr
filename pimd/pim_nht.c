@@ -495,11 +495,12 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	uint32_t hash_val = 0, mod_val = 0;
 	uint8_t nh_iter = 0, found = 0;
 	uint32_t i, num_nbrs = 0;
-	pim_addr nh_addr = nexthop->mrib_nexthop_addr;
-	pim_addr grp_addr = pim_addr_from_prefix(grp);
 
 	if (!pnc || !pnc->nexthop_num || !nexthop)
 		return 0;
+
+	pim_addr nh_addr = nexthop->mrib_nexthop_addr;
+	pim_addr grp_addr = pim_addr_from_prefix(grp);
 
 	memset(&nbrs, 0, sizeof(nbrs));
 	memset(&ifps, 0, sizeof(ifps));
