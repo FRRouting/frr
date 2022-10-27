@@ -174,6 +174,9 @@ DEFUN (show_srv6_locator_detail,
 		vty_out(vty, "Argument-Bit-Len: %u\n",
 			locator->argument_bits_length);
 
+		if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+			vty_out(vty, "Behavior: uSID\n");
+
 		vty_out(vty, "Chunks:\n");
 		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
 					  chunk)) {

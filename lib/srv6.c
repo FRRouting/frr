@@ -245,6 +245,10 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	json_object_int_add(jo_root, "argumentBitsLength",
 			    loc->argument_bits_length);
 
+	/* set true if the locator is a Micro-segment (uSID) locator */
+	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+		json_object_string_add(jo_root, "behavior", "usid");
+
 	/* set status_up */
 	json_object_boolean_add(jo_root, "statusUp",
 				loc->status_up);
@@ -289,6 +293,10 @@ json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 	/* set argument_bits_length */
 	json_object_int_add(jo_root, "argumentBitsLength",
 			    loc->argument_bits_length);
+
+	/* set true if the locator is a Micro-segment (uSID) locator */
+	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+		json_object_string_add(jo_root, "behavior", "usid");
 
 	/* set algonum */
 	json_object_int_add(jo_root, "algoNum", loc->algonum);
