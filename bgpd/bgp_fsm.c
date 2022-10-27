@@ -601,40 +601,40 @@ void bgp_delayopen_timer(struct thread *thread)
 
 /* BGP Peer Down Cause */
 const char *const peer_down_str[] = {"",
-			       "Router ID changed",
-			       "Remote AS changed",
-			       "Local AS change",
-			       "Cluster ID changed",
-			       "Confederation identifier changed",
-			       "Confederation peer changed",
-			       "RR client config change",
-			       "RS client config change",
-			       "Update source change",
-			       "Address family activated",
-			       "Admin. shutdown",
-			       "User reset",
-			       "BGP Notification received",
-			       "BGP Notification send",
-			       "Peer closed the session",
-			       "Neighbor deleted",
-			       "Peer-group add member",
-			       "Peer-group delete member",
-			       "Capability changed",
-			       "Passive config change",
-			       "Multihop config change",
-			       "NSF peer closed the session",
-			       "Intf peering v6only config change",
-			       "BFD down received",
-			       "Interface down",
-			       "Neighbor address lost",
-			       "Waiting for NHT",
-			       "Waiting for Peer IPv6 LLA",
-			       "Waiting for VRF to be initialized",
-			       "No AFI/SAFI activated for peer",
-			       "AS Set config change",
-			       "Waiting for peer OPEN",
-			       "Reached received prefix count",
-			       "Socket Error"};
+				     "Router ID changed",
+				     "Remote AS changed",
+				     "Local AS change",
+				     "Cluster ID changed",
+				     "Confederation identifier changed",
+				     "Confederation peer changed",
+				     "RR client config change",
+				     "RS client config change",
+				     "Update source change",
+				     "Address family activated",
+				     "Admin. shutdown",
+				     "User reset",
+				     "BGP Notification received",
+				     "BGP Notification send",
+				     "Peer closed the session",
+				     "Neighbor deleted",
+				     "Peer-group add member",
+				     "Peer-group delete member",
+				     "Capability changed",
+				     "Passive config change",
+				     "Multihop config change",
+				     "NSF peer closed the session",
+				     "Intf peering v6only config change",
+				     "BFD down received",
+				     "Interface down",
+				     "Neighbor address lost",
+				     "No path to specified Neighbor",
+				     "Waiting for Peer IPv6 LLA",
+				     "Waiting for VRF to be initialized",
+				     "No AFI/SAFI activated for peer",
+				     "AS Set config change",
+				     "Waiting for peer OPEN",
+				     "Reached received prefix count",
+				     "Socket Error"};
 
 static void bgp_graceful_restart_timer_off(struct peer *peer)
 {
@@ -1880,8 +1880,9 @@ int bgp_start(struct peer *peer)
 	if (!bgp_peer_reg_with_nht(peer)) {
 		if (bgp_zebra_num_connects()) {
 			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%s [FSM] Waiting for NHT",
-					   peer->host);
+				zlog_debug(
+					"%s [FSM] Waiting for NHT, no path to neighbor present",
+					peer->host);
 			peer->last_reset = PEER_DOWN_WAITING_NHT;
 			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
 			return 0;
