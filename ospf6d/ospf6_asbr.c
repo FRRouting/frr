@@ -3169,6 +3169,14 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 		hash_clean(aggr->match_extnl_hash,
 			ospf6_aggr_unlink_external_info);
 
+	if (aggr->route) {
+		if (aggr->route->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
+			      aggr->route->route_option);
+
+		ospf6_route_delete(aggr->route);
+	}
+
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Release the aggregator Address(%pFX)",
 						__func__,
