@@ -1088,6 +1088,7 @@ int zapi_srv6_locator_chunk_encode(struct stream *s,
 	stream_putc(s, c->node_bits_length);
 	stream_putc(s, c->function_bits_length);
 	stream_putc(s, c->argument_bits_length);
+	stream_putc(s, c->flags);
 	return 0;
 }
 
@@ -1109,6 +1110,7 @@ int zapi_srv6_locator_chunk_decode(struct stream *s,
 	STREAM_GETC(s, c->node_bits_length);
 	STREAM_GETC(s, c->function_bits_length);
 	STREAM_GETC(s, c->argument_bits_length);
+	STREAM_GETC(s, c->flags);
 	return 0;
 
 stream_failure:
