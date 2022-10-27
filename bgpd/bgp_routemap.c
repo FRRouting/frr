@@ -426,6 +426,18 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
 			path->attr->local_pref = newattr.local_pref;
 		}
+
+		if (CHECK_FLAG(newattr.flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)))
+			bgp_attr_set_community(path->attr, newattr.community);
+
+		if (CHECK_FLAG(newattr.flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+			bgp_attr_set_ecommunity(path->attr, newattr.ecommunity);
+
+		if (CHECK_FLAG(newattr.flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)))
+			bgp_attr_set_lcommunity(path->attr, newattr.lcommunity);
 		break;
 	case LUA_RM_MATCH:
 		status = RMAP_MATCH;
