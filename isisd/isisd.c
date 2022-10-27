@@ -723,7 +723,7 @@ void isis_vrf_init(void)
 	vrf_cmd_init(NULL);
 }
 
-void isis_terminate()
+void isis_terminate(void)
 {
 	struct isis *isis;
 	struct listnode *node, *nnode;
@@ -2745,7 +2745,6 @@ static void show_isis_database_json(struct json_object *json, const char *sysid_
 	struct isis_area *area;
 	int level;
 	struct json_object *tag_area_json,*area_json, *lsp_json, *area_arr_json, *arr_json;
-	uint8_t area_cnt = 0;
 
 	if (isis->area_list->count == 0)
 		return;
@@ -2770,7 +2769,6 @@ static void show_isis_database_json(struct json_object *json, const char *sysid_
 			json_object_array_add(arr_json, lsp_json);
 		}
 		json_object_array_add(area_arr_json, area_json);
-		area_cnt++;
 	}
 }
 
@@ -3232,7 +3230,7 @@ void isis_area_overload_on_startup_set(struct isis_area *area,
  * Returns the path of the file (non-volatile memory) that contains restart
  * information.
  */
-char *isis_restart_filepath()
+char *isis_restart_filepath(void)
 {
 	static char filepath[MAXPATHLEN];
 	snprintf(filepath, sizeof(filepath), ISISD_RESTART, "");

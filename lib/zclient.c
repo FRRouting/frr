@@ -2299,13 +2299,22 @@ static int zclient_handle_error(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int link_params_set_value(struct stream *s, struct if_link_params *iflp)
+static int link_params_set_value(struct stream *s, struct interface *ifp)
 {
+	uint8_t link_params_enabled;
+	struct if_link_params *iflp;
+	uint32_t bwclassnum;
+
+	iflp = if_link_params_get(ifp);
 
 	if (iflp == NULL)
-		return -1;
+		iflp = if_link_params_init(ifp);
 
-	uint32_t bwclassnum;
+	STREAM_GETC(s, link_params_enabled);
+	if (!link_params_enabled) {
+		if_link_params_free(ifp);
+		return 0;
+	}
 
 	STREAM_GETL(s, iflp->lp_status);
 	STREAM_GETL(s, iflp->te_metric);
@@ -2346,9 +2355,9 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 						   bool *changed)
 {
 	struct if_link_params *iflp;
-	struct if_link_params iflp_copy;
+	struct if_link_params iflp_prev;
 	ifindex_t ifindex;
-	bool params_changed = false;
+	bool iflp_prev_set;
 
 	STREAM_GETL(s, ifindex);
 
@@ -2361,22 +2370,32 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 		return NULL;
 	}
 
-	if (ifp->link_params == NULL)
-		params_changed = true;
+	iflp = if_link_params_get(ifp);
+	if (iflp) {
+		iflp_prev_set = true;
+		memcpy(&iflp_prev, ifp->link_params, sizeof(iflp_prev));
+	} else
+		iflp_prev_set = false;
 
-	if ((iflp = if_link_params_get(ifp)) == NULL)
-		return NULL;
-
-	memcpy(&iflp_copy, iflp, sizeof(iflp_copy));
-
-	if (link_params_set_value(s, iflp) != 0)
+	/* read the link_params from stream
+	 * Free ifp->link_params if the stream has no params
+	 * to means that link-params are not enabled on links.
+	 */
+	if (link_params_set_value(s, ifp) != 0)
 		goto stream_failure;
 
-	if (memcmp(&iflp_copy, iflp, sizeof(iflp_copy)))
-		params_changed = true;
+	if (changed == NULL)
+		return ifp;
 
-	if (changed)
-		*changed = params_changed;
+	if (iflp_prev_set && iflp) {
+		if (memcmp(&iflp_prev, iflp, sizeof(iflp_prev)))
+			*changed = true;
+		else
+			*changed = false;
+	} else if (!iflp_prev_set && !iflp)
+		*changed = false;
+	else
+		*changed = true;
 
 	return ifp;
 
@@ -2415,10 +2434,8 @@ static void zebra_interface_if_set_value(struct stream *s,
 	/* Read Traffic Engineering status */
 	link_params_status = stream_getc(s);
 	/* Then, Traffic Engineering parameters if any */
-	if (link_params_status) {
-		struct if_link_params *iflp = if_link_params_get(ifp);
-		link_params_set_value(s, iflp);
-	}
+	if (link_params_status)
+		link_params_set_value(s, ifp);
 
 	nexthop_group_interface_state_change(ifp, old_ifindex);
 
@@ -2435,11 +2452,19 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	struct if_link_params *iflp;
 	int i;
 
-	if (s == NULL || ifp == NULL || ifp->link_params == NULL)
+	if (s == NULL || ifp == NULL)
 		return 0;
 
 	iflp = ifp->link_params;
 	w = 0;
+
+	/* encode if link_params is enabled */
+	if (iflp) {
+		w += stream_putc(s, true);
+	} else {
+		w += stream_putc(s, false);
+		return w;
+	}
 
 	w += stream_putl(s, iflp->lp_status);
 

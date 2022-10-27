@@ -58,6 +58,7 @@
 #define DEBUG_PIMV6_TRACE_STR "PIMv6 internal daemon activity\n"
 #define DEBUG_PIMV6_ZEBRA_STR "ZEBRA protocol activity\n"
 #define DEBUG_MROUTE6_STR "PIMv6 interaction with kernel MFC cache\n"
+#define DEBUG_PIMV6_BSM_STR "BSR message processing activity\n"
 
 void pim_cmd_init(void);
 

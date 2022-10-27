@@ -648,6 +648,13 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 						     OSPF_SEND_PACKET_DIRECT);
 		}
 	} else
+		/* Optimization: for P2MP interfaces,
+		   don't send back out the incoming interface immediately,
+		   allow time to rx multicast ack to the rx'ed (multicast)
+		   update */
+		if (retx_flag != 1 ||
+		    oi->type != OSPF_IFTYPE_POINTOMULTIPOINT || inbr == NULL ||
+		    oi != inbr->oi)
 		ospf_ls_upd_send_lsa(oi->nbr_self, lsa,
 				     OSPF_SEND_PACKET_INDIRECT);
 

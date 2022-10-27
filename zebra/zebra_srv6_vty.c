@@ -167,8 +167,12 @@ DEFUN (show_srv6_locator_detail,
 		prefix2str(&locator->prefix, str, sizeof(str));
 		vty_out(vty, "Name: %s\n", locator->name);
 		vty_out(vty, "Prefix: %s\n", str);
+		vty_out(vty, "Block-Bit-Len: %u\n", locator->block_bits_length);
+		vty_out(vty, "Node-Bit-Len: %u\n", locator->node_bits_length);
 		vty_out(vty, "Function-Bit-Len: %u\n",
 			locator->function_bits_length);
+		vty_out(vty, "Argument-Bit-Len: %u\n",
+			locator->argument_bits_length);
 
 		vty_out(vty, "Chunks:\n");
 		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
@@ -271,47 +275,64 @@ DEFUN (no_srv6_locator,
 
 DEFPY (locator_prefix,
        locator_prefix_cmd,
-       "prefix X:X::X:X/M$prefix [func-bits (0-64)$func_bit_len]",
+       "prefix X:X::X:X/M$prefix [func-bits (0-64)$func_bit_len] \
+	       [block-len (16-64)$block_bit_len] [node-len (16-64)$node_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
        "Configure SRv6 locator function length in bits\n"
-       "Specify SRv6 locator function length in bits\n")
+       "Specify SRv6 locator function length in bits\n"
+       "Configure SRv6 locator block length in bits\n"
+       "Specify SRv6 locator block length in bits\n"
+       "Configure SRv6 locator node length in bits\n"
+       "Specify SRv6 locator node length in bits\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
 
-	if (prefix->prefixlen != 64 && prefix->prefixlen != 48) {
-		vty_out(vty,
-			"%% Invalid argument: Unsupported locator format\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	locator->prefix = *prefix;
 	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
 
-	/*
-	 * TODO(slankdev): please support variable node-bit-length.
-	 * In draft-ietf-bess-srv6-services-05#section-3.2.1.
-	 * Locator block length and Locator node length are defined.
-	 * Which are defined as "locator-len == block-len + node-len".
-	 * In current implementation, node bits length is hardcoded as 24.
-	 * It should be supported various val.
-	 *
-	 * Cisco IOS-XR support only following pattern.
-	 *  (1) Teh locator length should be 64-bits long.
-	 *  (2) The SID block portion (MSBs) cannot exceed 40 bits.
-	 *      If this value is less than 40 bits,
-	 *      user should use a pattern of zeros as a filler.
-	 *  (3) The Node Id portion (LSBs) cannot exceed 24 bits.
-	 */
-	if (prefix->prefixlen == 48) {
-		locator->block_bits_length = prefix->prefixlen - 16;
-		locator->node_bits_length = 16;
+	/* Resolve optional arguments */
+	if (block_bit_len == 0 && node_bit_len == 0) {
+		block_bit_len =
+			prefix->prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
+		node_bit_len = ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
+	} else if (block_bit_len == 0) {
+		block_bit_len = prefix->prefixlen - node_bit_len;
+	} else if (node_bit_len == 0) {
+		node_bit_len = prefix->prefixlen - block_bit_len;
 	} else {
-		locator->block_bits_length = prefix->prefixlen - 24;
-		locator->node_bits_length = 24;
+		if (block_bit_len + node_bit_len != prefix->prefixlen) {
+			vty_out(vty,
+				"%% block-len + node-len must be equal to the selected prefix length %d\n",
+				prefix->prefixlen);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
+
+	if (prefix->prefixlen + func_bit_len + 0 > 128) {
+		vty_out(vty,
+			"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
+			prefix->prefixlen + func_bit_len + 0);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/*
+	 * Currently, the SID transposition algorithm implemented in bgpd
+	 * handles incorrectly the SRv6 locators with function length greater
+	 * than 20 bits. To prevent issues, we currently limit the function
+	 * length to 20 bits.
+	 * This limit will be removed when the bgpd SID transposition is fixed.
+	 */
+	if (func_bit_len > 20) {
+		vty_out(vty,
+			"%% currently func_bit_len > 20 is not supported\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	locator->block_bits_length = block_bit_len;
+	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
 	locator->argument_bits_length = 0;
 
@@ -368,9 +389,18 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "   locator %s\n", locator->name);
 			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
+			if (locator->block_bits_length)
+				vty_out(vty, " block-len %u",
+					locator->block_bits_length);
+			if (locator->node_bits_length)
+				vty_out(vty, " node-len %u",
+					locator->node_bits_length);
 			if (locator->function_bits_length)
 				vty_out(vty, " func-bits %u",
 					locator->function_bits_length);
+			if (locator->argument_bits_length)
+				vty_out(vty, " arg-len %u",
+					locator->argument_bits_length);
 			vty_out(vty, "\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");

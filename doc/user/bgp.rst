@@ -1792,15 +1792,6 @@ Configuring Peers
    default, the DelayOpenTimer is disabled. The timer interval may be set to a
    duration of 1 to 240 seconds.
 
-.. clicmd:: neighbor PEER extended-optional-parameters
-
-   Force the extended optional parameters format for OPEN messages. By default,
-   optional parameters length is 255 octets. With more and more BGP capabilities
-   implemented on top of BGP, this is needed to extend this value.
-
-   This is turned off by default, but it's automatically enabled when this limit
-   is hit. You can force this new encoding to be enabled with this command.
-
 .. clicmd:: bgp minimum-holdtime (1-65535)
 
    This command allows user to prevent session establishment with BGP peers
@@ -2920,6 +2911,23 @@ L3VPN SRv6
 
    Specify the SRv6 locator to be used for SRv6 L3VPN. The Locator name must
    be set in zebra, but user can set it in any order.
+
+General configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+Configuration of the SRv6 SID used to advertise a L3VPN for both IPv4 and IPv6
+is accomplished via the following command in the context of a VRF:
+
+.. clicmd:: sid vpn per-vrf export (1..255)|auto
+
+   Enables a SRv6 SID to be attached to a route exported from the current
+   unicast VRF to VPN. A single SID is used for both IPv4 and IPv6 address
+   families. If you want to set a SID for only IPv4 address family or IPv6
+   address family, you need to use the command ``sid vpn export (1..255)|auto``
+   in the context of an address-family. If the value specified is ``auto``,
+   the SID value is automatically assigned from a pool maintained by the Zebra
+   daemon. If Zebra is not running, or if this command is not configured, automatic
+   SID assignment will not complete, which will block corresponding route export.
 
 .. _bgp-evpn:
 

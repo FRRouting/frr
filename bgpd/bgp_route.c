@@ -2418,7 +2418,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (aspath_check_as_sets(attr->aspath))
 			return false;
 
-	/* If neighbor sso is configured, then check if the route has
+	/* If neighbor soo is configured, then check if the route has
 	 * SoO extended community and validate against the configured
 	 * one. If they match, do not announce, to prevent routing
 	 * loops.
@@ -2431,6 +2431,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if ((ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS,
 				       ECOMMUNITY_SITE_ORIGIN) ||
 		     ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_AS4,
+				       ECOMMUNITY_SITE_ORIGIN) ||
+		     ecommunity_lookup(ecomm, ECOMMUNITY_ENCODE_IP,
 				       ECOMMUNITY_SITE_ORIGIN)) &&
 		    ecommunity_include(ecomm, ecomm_soo)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
@@ -4053,6 +4055,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	bool force_evpn_import = false;
 	safi_t orig_safi = safi;
 	bool leak_success = true;
+	int allowas_in = 0;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -4098,6 +4101,10 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	    && peer != bgp->peer_self)
 		bgp_adj_in_set(dest, peer, attr, addpath_id);
 
+	/* Update permitted loop count */
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
+		allowas_in = peer->allowas_in[afi][safi];
+
 	/* Check previously received route. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->peer == peer && pi->type == type
@@ -4107,8 +4114,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {
-		if (peer->allowas_in[afi][safi])
-			aspath_loop_count = peer->allowas_in[afi][safi];
+		if (allowas_in)
+			aspath_loop_count = allowas_in;
 		else if (!CHECK_FLAG(peer->flags,
 				     PEER_FLAG_LOCAL_AS_NO_PREPEND))
 			aspath_loop_count = 1;
@@ -4131,11 +4138,10 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* AS path loop check. */
 	if (do_loop_check) {
-		if (aspath_loop_check(attr->aspath, bgp->as)
-			    > peer->allowas_in[afi][safi]
-		    || (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
-			&& aspath_loop_check(attr->aspath, bgp->confed_id)
-				   > peer->allowas_in[afi][safi])) {
+		if (aspath_loop_check(attr->aspath, bgp->as) > allowas_in ||
+		    (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION) &&
+		     (aspath_loop_check(attr->aspath, bgp->confed_id) >
+		      allowas_in))) {
 			peer->stat_pfx_aspath_loop++;
 			reason = "as-path contains our own AS;";
 			goto filtered;
@@ -9089,6 +9095,8 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, "I");
 	else if (rpki_state == RPKI_NOTFOUND)
 		vty_out(vty, "N");
+	else
+		vty_out(vty, " ");
 
 	/* Route status display. */
 	if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED))

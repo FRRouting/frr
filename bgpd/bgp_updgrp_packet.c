@@ -528,7 +528,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			   && !CHECK_FLAG(vec->flags,
 					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
 			   && !peer_af_flag_check(
-				   peer, nhafi, paf->safi,
+				   peer, paf->afi, paf->safi,
 				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
 			 */

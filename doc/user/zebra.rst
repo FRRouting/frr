@@ -745,7 +745,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [func-bits (0-64)]
+.. clicmd:: prefix X:X::X:X/M [func-bits (0-64)] [block-len 40] [node-len 24]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
@@ -764,9 +764,32 @@ and this section also helps that case.
    configure the locator's prefix as ``2001:db8:1:1::/64``, then default SID
    will be ``2001:db8:1:1:1::``)
 
+   This command takes three optional parameters: ``func-bits``, ``block-len``
+   and ``node-len``. These parameters allow users to set the format for the SIDs
+   allocated from the SRv6 Locator. SID Format is defined in RFC 8986.
+
+   According to RFC 8986, an SRv6 SID consists of BLOCK:NODE:FUNCTION:ARGUMENT,
+   where BLOCK is the SRv6 SID block (i.e., the IPv6 prefix allocated for SRv6
+   SIDs by the operator), NODE is the identifier of the parent node instantiating
+   the SID, FUNCTION identifies the local behavior associated to the SID and
+   ARGUMENT encodes additional information used to process the behavior.
+   BLOCK and NODE make up the SRv6 Locator.
+
    The function bits range is 16bits by default.  If operator want to change
    function bits range, they can configure with ``func-bits``
    option.
+
+   The ``block-len`` and ``node-len`` parameters allow the user to configure the
+   length of the SRv6 SID block and SRv6 SID node, respectively. Both the lengths
+   are expressed in bits.
+
+   ``block-len``, ``node-len`` and ``func-bits`` may be any value as long as
+   ``block-len+node-len = locator-len`` and ``block-len+node-len+func-bits <= 128``.
+
+   When both ``block-len`` and ``node-len`` are omitted, the following default
+   values are used: ``block-len = 24``, ``node-len = prefix-len-24``.
+
+   If only one parameter is omitted, the other parameter is derived from the first.
 
 ::
 

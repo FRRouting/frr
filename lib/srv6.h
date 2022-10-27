@@ -60,6 +60,7 @@ enum seg6local_action_t {
 	ZEBRA_SEG6_LOCAL_ACTION_END_AS       = 13,
 	ZEBRA_SEG6_LOCAL_ACTION_END_AM       = 14,
 	ZEBRA_SEG6_LOCAL_ACTION_END_BPF      = 15,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
 };
 
 enum seg6local_endpoint_behavior_t {

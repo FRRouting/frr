@@ -830,22 +830,36 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     global_connect = input_dict.get("connecttimer", 5)
 
     for name, peer_dict in neigh_data.items():
+        remote_as = 0
         for dest_link, peer in peer_dict["dest_link"].items():
+            local_asn = peer.setdefault("local_asn", {})
+            if local_asn:
+                local_as = local_asn.setdefault("local_as", 0)
+                remote_as = local_asn.setdefault("remote_as", 0)
+                no_prepend = local_asn.setdefault("no_prepend", False)
+                replace_as = local_asn.setdefault("replace_as", False)
+                if local_as == remote_as:
+                    assert False is True, (
+                        " Configuration Error : Router must not have "
+                        "same AS-NUMBER as Local AS NUMBER"
+                    )
             nh_details = topo[name]
 
             if "vrfs" in topo[router] or type(nh_details["bgp"]) is list:
                 for vrf_data in nh_details["bgp"]:
                     if "vrf" in nh_details["links"][dest_link] and "vrf" in vrf_data:
                         if nh_details["links"][dest_link]["vrf"] == vrf_data["vrf"]:
-                            remote_as = vrf_data["local_as"]
+                            if not remote_as:
+                                remote_as = vrf_data["local_as"]
                             break
                     else:
                         if "vrf" not in vrf_data:
-                            remote_as = vrf_data["local_as"]
-                            break
-
+                            if not remote_as:
+                                remote_as = vrf_data["local_as"]
+                                break
             else:
-                remote_as = nh_details["bgp"]["local_as"]
+                if not remote_as:
+                    remote_as = nh_details["bgp"]["local_as"]
 
             update_source = None
 
@@ -889,6 +903,14 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                     )
                 elif add_neigh:
                     config_data.append("{} remote-as {}".format(neigh_cxt, remote_as))
+
+                if local_asn and local_as:
+                    cmd = "{} local-as {}".format(neigh_cxt, local_as)
+                    if no_prepend:
+                        cmd = "{} no-prepend".format(cmd)
+                    if replace_as:
+                        cmd = "{} replace-as".format(cmd)
+                    config_data.append("{}".format(cmd))
 
             if addr_type == "ipv6":
                 config_data.append("address-family ipv6 unicast")
