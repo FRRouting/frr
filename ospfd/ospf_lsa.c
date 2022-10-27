@@ -3596,7 +3596,8 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2,
 	    && CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
-	assert(l1->size > OSPF_LSA_HEADER_SIZE);
+	if (l1->size == OSPF_LSA_HEADER_SIZE)
+		return 0; /* nothing to compare */
 
 	p1 = (char *)l1->data;
 	p2 = (char *)l2->data;
