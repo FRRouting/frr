@@ -93,6 +93,7 @@ struct srv6_locator {
 	struct list *chunks;
 
 	uint8_t flags;
+#define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 
 	QOBJ_FIELDS;
 };
