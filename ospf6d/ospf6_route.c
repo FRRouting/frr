@@ -1360,7 +1360,7 @@ static void ospf6_route_show_table_summary(struct vty *vty,
 	struct ospf6_route *route, *prev = NULL;
 	int i, pathtype[OSPF6_PATH_TYPE_MAX];
 	unsigned int number = 0;
-	int nh_count = 0, nhinval = 0, ecmp = 0;
+	int nh_count = 0, ecmp = 0;
 	int alternative = 0, destination = 0;
 	char path_str[30];
 
@@ -1374,9 +1374,7 @@ static void ospf6_route_show_table_summary(struct vty *vty,
 		else
 			alternative++;
 		nh_count = ospf6_num_nexthops(route->nh_list);
-		if (!nh_count)
-			nhinval++;
-		else if (nh_count > 1)
+		if (nh_count > 1)
 			ecmp++;
 		pathtype[route->path.type]++;
 		number++;
