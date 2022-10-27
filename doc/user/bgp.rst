@@ -4018,6 +4018,11 @@ The following command is available in ``config`` mode as well as in the
    the startup configuration, graceful shutdown will remain in effect
    across restarts of *bgpd* and will need to be explicitly disabled.
 
+.. clicmd:: bgp input-queue-limit (1-4294967295)
+
+   Set the BGP Input Queue limit for all peers when messaging parsing. Increase
+   this only if you have the memory to handle large queues of messages at once.
+
 .. _bgp-displaying-bgp-information:
 
 Displaying BGP Information
