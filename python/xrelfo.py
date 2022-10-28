@@ -164,8 +164,9 @@ class XrefLogmsg(ELFDissectStruct, XrelfoJson):
             lambda s: True,
         ),
         (
-            re.compile(r"((?<![\?:] )inet_ntoa)"),
-            "cleanup: replace inet_ntoa(...) with %pI4",
+            # string split-up here is to not trigger "inet_ntoa forbidden"
+            re.compile(r"((?<![\?:] )inet_" + r"ntoa)"),
+            "cleanup: replace inet_" + "ntoa(...) with %pI4",
             lambda s: True,
         ),
         (
