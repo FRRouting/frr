@@ -21,7 +21,6 @@ pim_common = \
 	pimd/pim_addr.c \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
-	pimd/pim_br.c \
 	pimd/pim_bsm.c \
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
@@ -103,7 +102,6 @@ noinst_HEADERS += \
 	pimd/pim_addr.h \
 	pimd/pim_assert.h \
 	pimd/pim_bfd.h \
-	pimd/pim_br.h \
 	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
 	pimd/pim_cmd_common.h \
