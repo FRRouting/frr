@@ -310,10 +310,6 @@ PBR Debugs
 
    Debug pbr in pbrd daemon. You specify what types of debugs to turn on.
 
-.. clicmd:: debug zebra pbr
-
-   Debug pbr in zebra daemon.
-
 .. _pbr-details:
 
 PBR Details
