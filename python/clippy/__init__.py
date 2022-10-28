@@ -36,7 +36,10 @@ from _clippy import (
 )
 
 
-frr_top_src = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+frr_top_src = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+
 
 def graph_iterate(graph):
     """iterator yielding all nodes of a graph
