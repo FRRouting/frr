@@ -1716,6 +1716,12 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 			break;
 		}
 
+		if (length < OSPF_LSA_HEADER_SIZE) {
+			flog_warn(EC_OSPF_PACKET,
+				  "Link State Update: LSA length too small.");
+			break;
+		}
+
 		/* Validate the LSA's LS checksum. */
 		sum = lsah->checksum;
 		if (!ospf_lsa_checksum_valid(lsah)) {
