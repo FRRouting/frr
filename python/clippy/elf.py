@@ -155,6 +155,10 @@ class ELFDissectData(object):
     Common bits for ELFDissectStruct and ELFDissectUnion
     """
 
+    def __init__(self):
+        self._data = None
+        self.elfclass = None
+
     def __len__(self):
         """
         Used for boolean evaluation, e.g. "if struct: ..."
@@ -407,6 +411,8 @@ class ELFDissectUnion(ELFDissectData):
     needed anymore and may be borked now.  Remove this comment when using.
     """
 
+    members = {}
+
     def __init__(self, dataptr, parent=None):
         self._dataptr = dataptr
         self._parent = parent
@@ -440,7 +446,15 @@ class ELFSubset(object):
     def __init__(self):
         super().__init__()
 
+        self.name = None
+        self._obj = None
+        self._elffile = None
+        self.ptrtype = None
+        self.endian = None
         self._pointers = WeakValueDictionary()
+
+    def _wrap_data(self, data, dstsect):
+        raise NotImplementedError()
 
     def __hash__(self):
         return hash(self.name)
