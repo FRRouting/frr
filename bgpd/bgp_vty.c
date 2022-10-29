@@ -297,7 +297,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 {
 	int ret;
 	struct listnode *node, *nnode;
-	struct srv6_locator_chunk *chunk, *tovpn_sid_locator;
+	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 
@@ -310,7 +310,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
 		listnode_delete(bgp->srv6_locator_chunks, chunk);
-		srv6_locator_chunk_free(chunk);
+		srv6_locator_chunk_free(&chunk);
 	}
 
 	/* refresh functions */
@@ -345,23 +345,15 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
-		tovpn_sid_locator =
-			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
-		if (tovpn_sid_locator) {
-			srv6_locator_chunk_free(tovpn_sid_locator);
-			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
-		}
+		srv6_locator_chunk_free(
+			&bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
 
 		/* refresh vpnv6 tovpn_sid_locator */
-		tovpn_sid_locator =
-			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
-		if (tovpn_sid_locator) {
-			srv6_locator_chunk_free(tovpn_sid_locator);
-			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
-		}
+		srv6_locator_chunk_free(
+			&bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
 
 		/* refresh per-vrf tovpn_sid_locator */
-		srv6_locator_chunk_free(bgp_vrf->tovpn_sid_locator);
+		srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
 	}
 
 	/* clear locator name */

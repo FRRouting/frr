@@ -779,7 +779,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 			zlog_debug(
 				"%s: not allocated new sid for vrf %s: afi %s",
 				__func__, bgp_vrf->name_pretty, afi2str(afi));
-		srv6_locator_chunk_free(tovpn_sid_locator);
+		srv6_locator_chunk_free(&tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
 	}
@@ -844,7 +844,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		if (debug)
 			zlog_debug("%s: not allocated new sid for vrf %s",
 				   __func__, bgp_vrf->name_pretty);
-		srv6_locator_chunk_free(tovpn_sid_locator);
+		srv6_locator_chunk_free(&tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
 		return;
 	}
@@ -891,8 +891,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
 		return;
 
-	srv6_locator_chunk_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
-	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+	srv6_locator_chunk_free(&bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
 
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 		sid_unregister(bgp_vrf, bgp_vrf->vpn_policy[afi].tovpn_sid);
@@ -919,8 +918,7 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
 		return;
 
-	srv6_locator_chunk_free(bgp_vrf->tovpn_sid_locator);
-	bgp_vrf->tovpn_sid_locator = NULL;
+	srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
 
 	if (bgp_vrf->tovpn_sid) {
 		sid_unregister(bgp_vrf, bgp_vrf->tovpn_sid);
