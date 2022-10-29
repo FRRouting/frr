@@ -899,7 +899,6 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
 		len = zfpm_netlink_encode_route(cmd, dest, re, in_buf,
 						in_buf_len);
 		assert(fpm_msg_align(len) == len);
-		*msg_type = FPM_MSG_TYPE_NETLINK;
 #endif /* HAVE_NETLINK */
 		break;
 
