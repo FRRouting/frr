@@ -98,9 +98,10 @@ static void lsa_delete(struct thread *t)
 
 	printf("Deleting LSA... ");
 	rc = ospf_apiclient_lsa_delete(oclient, area_id,
-				       atoi(args[2]),  /* lsa type */
-				       atoi(args[3]),  /* opaque type */
-				       atoi(args[4])); /* opaque ID */
+				       atoi(args[2]), /* lsa type */
+				       atoi(args[3]), /* opaque type */
+				       atoi(args[4]), /* opaque ID */
+				       0); /* send data in withdrawals */
 	printf("done, return code is = %d\n", rc);
 }
 
