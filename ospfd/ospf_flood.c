@@ -818,6 +818,11 @@ int ospf_flood_through(struct ospf *ospf, struct ospf_neighbor *inbr,
 		break;
 	}
 
+	/* always need to send ack when incoming intf is PTP or P2MP */
+	if (inbr != NULL && (inbr->oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
+			     inbr->oi->type == OSPF_IFTYPE_POINTOPOINT))
+		lsa_ack_flag = 1;
+
 	return (lsa_ack_flag);
 }
 
