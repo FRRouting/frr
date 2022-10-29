@@ -157,9 +157,9 @@ void srv6_locator_free(struct srv6_locator *locator)
 	}
 }
 
-void srv6_locator_chunk_free(struct srv6_locator_chunk *chunk)
+void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk)
 {
-	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, chunk);
+	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, *chunk);
 }
 
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)

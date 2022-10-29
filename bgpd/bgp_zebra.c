@@ -3219,13 +3219,13 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	if (strcmp(bgp->srv6_locator_name, chunk->locator_name) != 0) {
 		zlog_err("%s: Locator name unmatch %s:%s", __func__,
 			 bgp->srv6_locator_name, chunk->locator_name);
-		srv6_locator_chunk_free(chunk);
+		srv6_locator_chunk_free(&chunk);
 		return 0;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, c)) {
 		if (!prefix_cmp(&c->prefix, &chunk->prefix)) {
-			srv6_locator_chunk_free(chunk);
+			srv6_locator_chunk_free(&chunk);
 			return 0;
 		}
 	}
@@ -3272,7 +3272,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		if (prefix_match((struct prefix *)&loc.prefix,
 				 (struct prefix *)&chunk->prefix)) {
 			listnode_delete(bgp->srv6_locator_chunks, chunk);
-			srv6_locator_chunk_free(chunk);
+			srv6_locator_chunk_free(&chunk);
 		}
 
 	// refresh functions
@@ -3344,7 +3344,9 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi)) {
-				srv6_locator_chunk_free(tovpn_sid_locator);
+				srv6_locator_chunk_free(
+					&bgp_vrf->vpn_policy[AFI_IP]
+						 .tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
 					NULL;
 			}
@@ -3359,7 +3361,9 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi)) {
-				srv6_locator_chunk_free(tovpn_sid_locator);
+				srv6_locator_chunk_free(
+					&bgp_vrf->vpn_policy[AFI_IP6]
+						 .tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
 					NULL;
 			}
@@ -3373,7 +3377,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
-				srv6_locator_chunk_free(tovpn_sid_locator);
+				srv6_locator_chunk_free(
+					&bgp_vrf->tovpn_sid_locator);
 		}
 	}
 
