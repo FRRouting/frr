@@ -3372,8 +3372,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi))
+					 (struct prefix *)&tmp_prefi)) {
 				srv6_locator_chunk_free(tovpn_sid_locator);
+				bgp_vrf->tovpn_sid_locator = NULL;
+			}
 		}
 	}
 
