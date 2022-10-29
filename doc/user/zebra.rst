@@ -1047,7 +1047,7 @@ FPM Commands
 .. clicmd:: fpm connection ip A.B.C.D port (1-65535)
 
    Configure ``zebra`` to connect to a different FPM server than the default of
-   ``127.0.0.1:2060``
+   ``127.0.0.1:2620``
 
 .. clicmd:: show zebra fpm stats
 
