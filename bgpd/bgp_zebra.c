@@ -3343,13 +3343,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi)) {
+					 (struct prefix *)&tmp_prefi))
 				srv6_locator_chunk_free(
 					&bgp_vrf->vpn_policy[AFI_IP]
 						 .tovpn_sid_locator);
-				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
-					NULL;
-			}
 		}
 
 		/* refresh vpnv6 tovpn_sid_locator */
@@ -3360,13 +3357,10 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = tovpn_sid_locator->prefix.prefix;
 			if (prefix_match((struct prefix *)&loc.prefix,
-					 (struct prefix *)&tmp_prefi)) {
+					 (struct prefix *)&tmp_prefi))
 				srv6_locator_chunk_free(
 					&bgp_vrf->vpn_policy[AFI_IP6]
 						 .tovpn_sid_locator);
-				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
-					NULL;
-			}
 		}
 
 		/* refresh per-vrf tovpn_sid_locator */

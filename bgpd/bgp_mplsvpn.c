@@ -892,7 +892,6 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		return;
 
 	srv6_locator_chunk_free(&bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
-	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
 
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 		sid_unregister(bgp_vrf, bgp_vrf->vpn_policy[afi].tovpn_sid);
@@ -920,7 +919,6 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		return;
 
 	srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
-	bgp_vrf->tovpn_sid_locator = NULL;
 
 	if (bgp_vrf->tovpn_sid) {
 		sid_unregister(bgp_vrf, bgp_vrf->tovpn_sid);
