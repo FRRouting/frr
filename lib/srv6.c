@@ -85,8 +85,6 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
 {
-	char b0[128];
-
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
@@ -95,13 +93,11 @@ const char *seg6local_context2str(char *str, size_t size,
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		inet_ntop(AF_INET6, &ctx->nh6, b0, 128);
-		snprintf(str, size, "nh6 %s", b0);
+		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		inet_ntop(AF_INET, &ctx->nh4, b0, 128);
-		snprintf(str, size, "nh4 %s", b0);
+		snprintfrr(str, size, "nh4 %pI4", &ctx->nh4);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
