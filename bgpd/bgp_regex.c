@@ -42,7 +42,7 @@ regex_t *bgp_regcomp(const char *regstr)
 	int len;
 	int magic = 0;
 	char *magic_str;
-	char magic_regexp[] = "(^|[,{}() ]|$)";
+	char magic_regexp[] = "\\(^\\|[,{}() ]\\|$\\)";
 	int ret;
 	regex_t *regex;
 
@@ -51,7 +51,8 @@ regex_t *bgp_regcomp(const char *regstr)
 		if (regstr[i] == '_')
 			magic++;
 
-	magic_str = XMALLOC(MTYPE_TMP, len + (14 * magic) + 1);
+	magic_str =
+		XMALLOC(MTYPE_TMP, len + (18 * magic) + 1);
 
 	for (i = 0, j = 0; i < len; i++) {
 		if (regstr[i] == '_') {
