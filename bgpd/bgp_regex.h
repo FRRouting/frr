@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _QUAGGA_BGP_REGEX_H
-#define _QUAGGA_BGP_REGEX_H
+#ifndef _FRR_BGP_REGEX_H
+#define _FRR_BGP_REGEX_H
 
 #include <zebra.h>
 
@@ -33,4 +33,4 @@ extern void bgp_regex_free(regex_t *regex);
 extern regex_t *bgp_regcomp(const char *str);
 extern int bgp_regexec(regex_t *regex, struct aspath *aspath);
 
-#endif /* _QUAGGA_BGP_REGEX_H */
+#endif /* _FRR_BGP_REGEX_H */
