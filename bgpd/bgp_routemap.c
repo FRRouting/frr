@@ -30,11 +30,16 @@
 #include "log.h"
 #include "frrlua.h"
 #include "frrscript.h"
-#ifdef HAVE_LIBPCREPOSIX
+#ifdef HAVE_LIBPCRE2_POSIX
+#ifndef _FRR_PCRE2_POSIX
+#define _FRR_PCRE2_POSIX
+#include <pcre2posix.h>
+#endif /* _FRR_PCRE2_POSIX */
+#elif defined(HAVE_LIBPCREPOSIX)
 #include <pcreposix.h>
 #else
 #include <regex.h>
-#endif /* HAVE_LIBPCREPOSIX */
+#endif /* HAVE_LIBPCRE2_POSIX */
 #include "buffer.h"
 #include "sockunion.h"
 #include "hash.h"

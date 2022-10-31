@@ -368,6 +368,13 @@ options from the list below.
 
    Turn on the usage of PCRE Posix libs for regex functionality.
 
+.. option:: --enable-pcre2posix
+
+   Turn on the usage of PCRE2 Posix libs for regex functionality.
+
+   PCRE2 versions <= 10.31 work a bit differently. We suggest using at least
+   >= 10.36.
+
 .. option:: --enable-rpath
 
    Set hardcoded rpaths in the executable [default=yes].
