@@ -4281,6 +4281,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_ROLE_STRICT_MODE, 0, peer_change_reset},
 	{PEER_FLAG_ROLE, 0, peer_change_reset},
 	{PEER_FLAG_PORT, 0, peer_change_reset},
+	{PEER_FLAG_AIGP, 0, peer_change_none},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {

@@ -236,6 +236,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Determine the source of the update and determine why the PMSI tunnel attribute length has been set incorrectly"
 	},
 	{
+		.code = EC_BGP_ATTR_AIGP,
+		.title = "BGP AIGP attribute is incorrect",
+		.description = "BGP AIGP attribute is incorrect",
+		.suggestion = "Determine the source of the attribute and determine why the AIGP attribute has been set incorrectly"
+	},
+	{
 		.code = EC_BGP_PEER_GROUP,
 		.title = "BGP peergroup operated on in error",
 		.description = "BGP operating on peer-group instead of peers included",

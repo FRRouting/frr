@@ -436,6 +436,11 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 	key = jhash_1word(peer->local_role, key);
 
+	/* Neighbors configured with the AIGP attribute are put in a separate
+	 * update group from other neighbors.
+	 */
+	key = jhash_1word((peer->flags & PEER_FLAG_AIGP), key);
+
 	if (peer->soo[afi][safi]) {
 		char *soo_str = ecommunity_str(peer->soo[afi][safi]);
 
