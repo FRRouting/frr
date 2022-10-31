@@ -712,6 +712,8 @@ AC_ARG_ENABLE([cpu-time],
   AS_HELP_STRING([--disable-cpu-time], [disable cpu usage data gathering]))
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
+AC_ARG_ENABLE([pcre2posix],
+  AS_HELP_STRING([--enable-pcre2posix], [enable using PCRE2 Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
 AC_ARG_ENABLE([werror],
@@ -1658,6 +1660,16 @@ if test "$enable_pcreposix" = "yes"; then
   ])
 fi
 AC_SUBST([HAVE_LIBPCREPOSIX])
+
+dnl ---------------------------
+dnl check system has PCRE2 regexp
+dnl ---------------------------
+if test "$enable_pcre2posix" = "yes"; then
+  AC_CHECK_LIB([pcre2-posix], [regexec], [], [
+    AC_MSG_ERROR([--enable-pcre2posix given but unable to find libpcre2-posix])
+  ])
+fi
+AC_SUBST([HAVE_LIBPCRE2_POSIX])
 
 dnl ##########################################################################
 dnl test "$enable_clippy_only" != "yes"
