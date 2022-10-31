@@ -47,7 +47,7 @@ build() {
 		--enable-vty-group=frrvty \
 		--enable-user=$_user \
 		--enable-group=$_user
-	make
+	make -j $(nproc)
 }
 
 check() {
