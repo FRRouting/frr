@@ -5264,12 +5264,8 @@ DEFPY(show_bgp_vni_all,
 
 	evpn_show_routes_vni_all_type_all(vty, bgp, addr, json, !!detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5306,12 +5302,8 @@ DEFPY(show_bgp_vni_all_ead,
 	evpn_show_routes_vni_all(vty, bgp, BGP_EVPN_AD_ROUTE, false, addr, json,
 				 !!detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5349,12 +5341,8 @@ DEFPY(show_bgp_vni_all_macip_mac,
 	evpn_show_routes_vni_all(vty, bgp, BGP_EVPN_MAC_IP_ROUTE, true, addr,
 				 json, !!detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5392,12 +5380,8 @@ DEFPY(show_bgp_vni_all_macip_ip,
 	evpn_show_routes_vni_all(vty, bgp, BGP_EVPN_MAC_IP_ROUTE, false, addr,
 				 json, !!detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5434,12 +5418,8 @@ DEFPY(show_bgp_vni_all_imet,
 	evpn_show_routes_vni_all(vty, bgp, BGP_EVPN_IMET_ROUTE, false, addr,
 				 json, !!detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5481,10 +5461,7 @@ DEFPY(show_bgp_vni,
 
 	if (uj) {
 		json_object_object_add(json, "macTable", json_mac);
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -5521,12 +5498,8 @@ DEFPY(show_bgp_vni_ead,
 	evpn_show_routes_vni(vty, bgp, vni, BGP_EVPN_AD_ROUTE, false, addr,
 			     json);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5563,12 +5536,8 @@ DEFPY(show_bgp_vni_macip_mac,
 	evpn_show_routes_vni(vty, bgp, vni, BGP_EVPN_MAC_IP_ROUTE, true, addr,
 			     json);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5605,12 +5574,8 @@ DEFPY(show_bgp_vni_macip_ip,
 	evpn_show_routes_vni(vty, bgp, vni, BGP_EVPN_MAC_IP_ROUTE, false, addr,
 			     json);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5646,12 +5611,8 @@ DEFPY(show_bgp_vni_imet,
 	evpn_show_routes_vni(vty, bgp, vni, BGP_EVPN_IMET_ROUTE, false, addr,
 			     json);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5686,12 +5647,8 @@ DEFPY(show_bgp_vni_macip_mac_addr,
 
 	evpn_show_route_vni_macip(vty, bgp, vni, &mac->eth_addr, NULL, json);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -5728,12 +5685,8 @@ DEFPY(show_bgp_vni_macip_ip_addr, show_bgp_vni_macip_ip_addr_cmd,
 	}
 	evpn_show_route_vni_macip(vty, bgp, vni, NULL, &ip_addr, json);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
