@@ -6639,9 +6639,10 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				char *vni_str = NULL;
 
 				vni_str = strchr(ecom_str, ':');
-
-				if (!vni_str)
-					continue; /* This should never happen */
+				if (!vni_str) {
+					XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+					continue;
+				}
 
 				/* Move pointer to vni */
 				vni_str += 1;
