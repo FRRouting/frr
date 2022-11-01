@@ -6293,7 +6293,7 @@ void zebra_vxlan_set_accept_bgp_seq(bool set)
 	accept_bgp_seq = set;
 }
 
-bool zebra_vxlan_accept_bgp_seq(void)
+bool zebra_vxlan_get_accept_bgp_seq(void)
 {
 	return accept_bgp_seq;
 }

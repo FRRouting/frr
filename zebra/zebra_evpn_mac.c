@@ -1642,7 +1642,7 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 		/* if the mac was never advertised to bgp we must accept
 		 * whatever sequence number bgp sends
 		 */
-		if (!is_local && zebra_vxlan_accept_bgp_seq()) {
+		if (!is_local && zebra_vxlan_get_accept_bgp_seq()) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC ||
 			    IS_ZEBRA_DEBUG_VXLAN) {
 				zlog_debug(

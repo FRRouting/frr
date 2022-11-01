@@ -226,7 +226,7 @@ extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 					  vlanid_t vid);
 
 extern void zebra_vxlan_set_accept_bgp_seq(bool set);
-extern bool zebra_vxlan_accept_bgp_seq(void);
+extern bool zebra_vxlan_get_accept_bgp_seq(void);
 
 #ifdef __cplusplus
 }
