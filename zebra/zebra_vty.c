@@ -3966,7 +3966,7 @@ static int config_write_protocol(struct vty *vty)
 
 	zebra_pbr_config_write(vty);
 
-	if (!zebra_vxlan_accept_bgp_seq())
+	if (!zebra_vxlan_get_accept_bgp_seq())
 		vty_out(vty, "no evpn accept-bgp-seq\n");
 
 	/* Include nexthop-group config */
