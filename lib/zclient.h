@@ -540,6 +540,13 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
 
+/*
+ * This flag lets us know that we think the route entry
+ * received has caused us to be out of sync with the
+ * kernel (NLM_F_APPEND at the very least )
+ */
+#define ZEBRA_FLAG_OUTOFSYNC          0x400
+
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
 
