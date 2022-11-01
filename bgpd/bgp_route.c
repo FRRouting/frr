@@ -10109,10 +10109,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					(struct prefix_evpn *)
 						bgp_dest_get_prefix(dest),
 					tag_buf);
-				if (attr->es_flags & ATTR_ES_L3_NHG)
+				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG))
 					vty_out(vty, ", L3NHG %s",
-						(attr->es_flags &
-						 ATTR_ES_L3_NHG_ACTIVE)
+						CHECK_FLAG(
+							attr->es_flags,
+							ATTR_ES_L3_NHG_ACTIVE)
 							? "active"
 							: "inactive");
 				vty_out(vty, "\n");
