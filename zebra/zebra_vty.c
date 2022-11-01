@@ -222,6 +222,9 @@ static char re_status_output_char(const struct route_entry *re,
 		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
 			return 'o';
 
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OUTOFSYNC))
+			return 'd';
+
 		if (star_p)
 			return '*';
 		else
