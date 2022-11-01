@@ -176,12 +176,27 @@ static void bgp_conditional_adv_timer(struct thread *t)
 	struct listnode *node, *nnode = NULL;
 	struct update_subgroup *subgrp = NULL;
 	route_map_result_t ret;
+	bool advmap_table_changed = false;
 
 	bgp = THREAD_ARG(t);
 	assert(bgp);
 
 	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
 			 bgp->condition_check_period, &bgp->t_condition_check);
+
+	/* loop through each peer and check if we have peers with
+	 * advmap_table_change attribute set, to make sure we send
+	 * conditional advertisements properly below.
+	 * peer->advmap_table_change is added on incoming BGP UPDATES,
+	 * but here it's used for outgoing UPDATES, hence we need to
+	 * check if at least one peer got advmap_table_change.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (peer->advmap_table_change) {
+			advmap_table_changed = true;
+			break;
+		}
+	}
 
 	/* loop through each peer and advertise or withdraw routes if
 	 * advertise-map is configured and prefix(es) in condition-map
@@ -217,8 +232,8 @@ static void bgp_conditional_adv_timer(struct thread *t)
 			    || !filter->advmap.amap || !filter->advmap.cmap)
 				continue;
 
-			if (!peer->advmap_config_change[afi][safi]
-			    && !peer->advmap_table_change)
+			if (!peer->advmap_config_change[afi][safi] &&
+			    !advmap_table_changed)
 				continue;
 
 			if (BGP_DEBUG(cond_adv, COND_ADV)) {
