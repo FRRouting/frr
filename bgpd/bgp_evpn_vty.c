@@ -519,7 +519,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			json, "sviInterface",
 			ifindex2ifname(vpn->svi_ifindex, vpn->tenant_vrf_id));
 	} else {
-		vty_out(vty, "VNI: %d", vpn->vni);
+		vty_out(vty, "VNI: %u", vpn->vni);
 		if (is_vni_live(vpn))
 			vty_out(vty, " (known to the kernel)");
 		vty_out(vty, "\n");
@@ -923,12 +923,12 @@ static void show_vni_routes_hash(struct hash_bucket *bucket, void *arg)
 	json_object *json_vni = NULL;
 	char vni_str[VNI_STR_LEN];
 
-	snprintf(vni_str, sizeof(vni_str), "%d", vpn->vni);
+	snprintf(vni_str, sizeof(vni_str), "%u", vpn->vni);
 	if (json) {
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", vpn->vni);
 	} else {
-		vty_out(vty, "\nVNI: %d\n\n", vpn->vni);
+		vty_out(vty, "\nVNI: %u\n\n", vpn->vni);
 	}
 
 	show_vni_routes(wctx->bgp, vpn, wctx->vty, wctx->type, wctx->mac_table,
@@ -948,12 +948,12 @@ static void show_vni_routes_all_hash(struct hash_bucket *bucket, void *arg)
 	json_object *json_vni_mac = NULL;
 	char vni_str[VNI_STR_LEN];
 
-	snprintf(vni_str, sizeof(vni_str), "%d", vpn->vni);
+	snprintf(vni_str, sizeof(vni_str), "%u", vpn->vni);
 	if (json) {
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", vpn->vni);
 	} else {
-		vty_out(vty, "\nVNI: %d\n\n", vpn->vni);
+		vty_out(vty, "\nVNI: %u\n\n", vpn->vni);
 	}
 
 	show_vni_routes(wctx->bgp, vpn, wctx->vty, 0, false, wctx->vtep_ip,
@@ -965,7 +965,7 @@ static void show_vni_routes_all_hash(struct hash_bucket *bucket, void *arg)
 	if (json)
 		json_vni_mac = json_object_new_object();
 	else
-		vty_out(vty, "\nVNI: %d MAC Table\n\n", vpn->vni);
+		vty_out(vty, "\nVNI: %u MAC Table\n\n", vpn->vni);
 
 	show_vni_routes(wctx->bgp, vpn, wctx->vty, 0, true, wctx->vtep_ip,
 			json_vni_mac, wctx->detail);
@@ -3456,7 +3456,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	struct ecommunity *ecom;
 
 	if (is_vni_configured(vpn)) {
-		vty_out(vty, "  vni %d\n", vpn->vni);
+		vty_out(vty, "  vni %u\n", vpn->vni);
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %pRD\n", &vpn->prd);
 
