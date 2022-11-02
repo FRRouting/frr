@@ -46,7 +46,8 @@ build() {
 		--enable-multipath=64 \
 		--enable-vty-group=frrvty \
 		--enable-user=$_user \
-		--enable-group=$_user
+		--enable-group=$_user \
+		--enable-pcre2posix
 	make -j $(nproc)
 }
 
