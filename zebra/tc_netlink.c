@@ -25,7 +25,7 @@
 
 #ifdef HAVE_NETLINK
 
-#include <linux/if_ether.h>
+#include <netinet/if_ether.h>
 #include <sys/socket.h>
 
 #include "if.h"
