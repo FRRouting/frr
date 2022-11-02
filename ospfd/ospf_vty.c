@@ -3621,6 +3621,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 	struct route_node *rn;
 	uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
 	struct ospf_if_params *params;
+	json_object *json_ois = NULL;
+	json_object *json_oi = NULL;
 
 	/* Is interface up? */
 	if (use_json) {
@@ -3671,15 +3673,23 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		}
 	}
 
+	if (use_json) {
+		json_ois = json_object_new_object();
+		json_object_object_add(json_interface_sub, "interfaceIp",
+				       json_ois);
+	}
+
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		struct ospf_interface *oi = rn->info;
 
 		if (oi == NULL)
 			continue;
 
+		json_oi = json_object_new_object();
+
 		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
 			if (use_json)
-				json_object_boolean_true_add(json_interface_sub,
+				json_object_boolean_true_add(json_oi,
 							     "ifUnnumbered");
 			else
 				vty_out(vty, "  This interface is UNNUMBERED,");
@@ -3690,9 +3700,9 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			/* Show OSPF interface information. */
 			if (use_json) {
 				json_object_string_addf(
-					json_interface_sub, "ipAddress", "%pI4",
+					json_oi, "ipAddress", "%pI4",
 					&oi->address->u.prefix4);
-				json_object_int_add(json_interface_sub,
+				json_object_int_add(json_oi,
 						    "ipAddressPrefixlen",
 						    oi->address->prefixlen);
 			} else
@@ -3717,43 +3727,37 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			}
 
 			if (use_json) {
-				json_object_string_add(
-					json_interface_sub,
-					"ospfIfType", dstr);
+				json_object_string_add(json_oi, "ospfIfType",
+						       dstr);
 				if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-					json_object_string_addf(
-						json_interface_sub, "vlinkPeer",
-						"%pI4", &dest);
+					json_object_string_addf(json_oi,
+								"vlinkPeer",
+								"%pI4", &dest);
 				else
-					json_object_string_addf(
-						json_interface_sub,
-						"localIfUsed", "%pI4", &dest);
+					json_object_string_addf(json_oi,
+								"localIfUsed",
+								"%pI4", &dest);
 			} else
 				vty_out(vty, " %s %pI4,", dstr,
 					&dest);
 		}
 		if (use_json) {
-			json_object_string_add(json_interface_sub, "area",
+			json_object_string_add(json_oi, "area",
 					       ospf_area_desc_string(oi->area));
 			if (OSPF_IF_PARAM(oi, mtu_ignore))
 				json_object_boolean_true_add(
-					json_interface_sub,
-					"mtuMismatchDetect");
-			json_object_string_addf(json_interface_sub, "routerId",
-						"%pI4", &ospf->router_id);
-			json_object_string_add(json_interface_sub,
-					       "networkType",
+					json_oi, "mtuMismatchDetect");
+			json_object_string_addf(json_oi, "routerId", "%pI4",
+						&ospf->router_id);
+			json_object_string_add(json_oi, "networkType",
 					       ospf_network_type_str[oi->type]);
-			json_object_int_add(json_interface_sub, "cost",
-					    oi->output_cost);
-			json_object_int_add(
-				json_interface_sub, "transmitDelaySecs",
-				OSPF_IF_PARAM(oi, transmit_delay));
-			json_object_string_add(json_interface_sub, "state",
+			json_object_int_add(json_oi, "cost", oi->output_cost);
+			json_object_int_add(json_oi, "transmitDelaySecs",
+					    OSPF_IF_PARAM(oi, transmit_delay));
+			json_object_string_add(json_oi, "state",
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
-			json_object_int_add(json_interface_sub, "priority",
-					    PRIORITY(oi));
+			json_object_int_add(json_oi, "priority", PRIORITY(oi));
 		} else {
 			vty_out(vty, " Area %s\n",
 				ospf_area_desc_string(oi->area));
@@ -3810,11 +3814,10 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			} else {
 				if (use_json) {
 					json_object_string_addf(
-						json_interface_sub, "bdrId",
-						"%pI4", &nbr->router_id);
+						json_oi, "bdrId", "%pI4",
+						&nbr->router_id);
 					json_object_string_addf(
-						json_interface_sub,
-						"bdrAddress", "%pI4",
+						json_oi, "bdrAddress", "%pI4",
 						&nbr->address.u.prefix4);
 				} else {
 					vty_out(vty,
@@ -3833,8 +3836,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			       != OSPF_INITIAL_SEQUENCE_NUMBER) {
 			if (use_json)
 				json_object_int_add(
-					json_interface_sub,
-					"networkLsaSequence",
+					json_oi, "networkLsaSequence",
 					ntohl(oi->params->network_lsa_seqnum));
 			else
 				vty_out(vty,
@@ -3847,11 +3849,11 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			    || OI_MEMBER_CHECK(oi, MEMBER_DROUTERS)) {
 				if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
 					json_object_boolean_true_add(
-						json_interface_sub,
+						json_oi,
 						"mcastMemberOspfAllRouters");
 				if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
 					json_object_boolean_true_add(
-						json_interface_sub,
+						json_oi,
 						"mcastMemberOspfDesignatedRouters");
 			}
 		} else {
@@ -3869,21 +3871,19 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 		if (use_json) {
 			if (OSPF_IF_PARAM(oi, fast_hello) == 0)
-				json_object_int_add(
-					json_interface_sub, "timerMsecs",
-					OSPF_IF_PARAM(oi, v_hello) * 1000);
+				json_object_int_add(json_oi, "timerMsecs",
+						    OSPF_IF_PARAM(oi, v_hello) *
+							    1000);
 			else
 				json_object_int_add(
-					json_interface_sub, "timerMsecs",
+					json_oi, "timerMsecs",
 					1000 / OSPF_IF_PARAM(oi, fast_hello));
-			json_object_int_add(json_interface_sub,
-					    "timerDeadSecs",
+			json_object_int_add(json_oi, "timerDeadSecs",
 					    OSPF_IF_PARAM(oi, v_wait));
-			json_object_int_add(json_interface_sub,
-					    "timerWaitSecs",
+			json_object_int_add(json_oi, "timerWaitSecs",
 					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(
-				json_interface_sub, "timerRetransmitSecs",
+				json_oi, "timerRetransmitSecs",
 				OSPF_IF_PARAM(oi, retransmit_interval));
 		} else {
 			vty_out(vty, "  Timer intervals configured,");
@@ -3910,7 +3910,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 							&oi->t_hello->u.sands,
 							NULL)
 						/ 1000LL;
-				json_object_int_add(json_interface_sub,
+				json_object_int_add(json_oi,
 						    "timerHelloInMsecs",
 						    time_store);
 			} else
@@ -3921,25 +3921,22 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		{
 			if (use_json)
 				json_object_boolean_true_add(
-					json_interface_sub,
-					"timerPassiveIface");
+					json_oi, "timerPassiveIface");
 			else
 				vty_out(vty,
 					"    No Hellos (Passive interface)\n");
 		}
 
 		if (use_json) {
-			json_object_int_add(json_interface_sub, "nbrCount",
+			json_object_int_add(json_oi, "nbrCount",
 					    ospf_nbr_count(oi, 0));
-			json_object_int_add(json_interface_sub,
-					    "nbrAdjacentCount",
+			json_object_int_add(json_oi, "nbrAdjacentCount",
 					    ospf_nbr_count(oi, NSM_Full));
 		} else
 			vty_out(vty,
 				"  Neighbor Count is %d, Adjacent neighbor count is %d\n",
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
-
 
 		params = IF_DEF_PARAMS(ifp);
 		if (params &&
@@ -3968,6 +3965,12 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					"  %sDelay reflooding LSAs received on P2MP interface\n",
 					oi->p2mp_delay_reflood ? "" : "Don't ");
 		}
+
+		/* Add ospf_interface object to main json blob using SIP as key
+		 */
+		if (use_json)
+			json_object_object_addf(json_ois, json_oi, "%pI4",
+						&oi->address->u.prefix4);
 	}
 }
 
