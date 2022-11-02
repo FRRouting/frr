@@ -1384,6 +1384,9 @@ int bgp_stop(struct peer *peer)
 	if (peer_established(peer)) {
 		peer->dropped++;
 
+		/* Notify BGP conditional advertisement process */
+		peer->advmap_table_change = true;
+
 		/* bgp log-neighbor-changes of neighbor Down */
 		if (CHECK_FLAG(peer->bgp->flags,
 			       BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
