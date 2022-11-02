@@ -1327,8 +1327,27 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
 		uint8_t opttype;
 
+		if (STREAM_READABLE(peer->curr) < 1) {
+			flog_err(
+				EC_BGP_PKT_OPEN,
+				"%s: stream does not have enough bytes for extended optional parameters",
+				peer->host);
+			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+			return BGP_Stop;
+		}
+
 		opttype = stream_getc(peer->curr);
 		if (opttype == BGP_OPEN_NON_EXT_OPT_TYPE_EXTENDED_LENGTH) {
+			if (STREAM_READABLE(peer->curr) < 2) {
+				flog_err(
+					EC_BGP_PKT_OPEN,
+					"%s: stream does not have enough bytes to read the extended optional parameters optlen",
+					peer->host);
+				bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+				return BGP_Stop;
+			}
 			optlen = stream_getw(peer->curr);
 			SET_FLAG(peer->sflags,
 				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
