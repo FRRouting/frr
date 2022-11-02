@@ -31,6 +31,7 @@
 #include "vty.h"
 #include "srv6.h"
 #include "iana_afi.h"
+#include "asn.h"
 
 /* For union sockunion.  */
 #include "queue.h"
@@ -77,7 +78,6 @@ enum zebra_gr_mode {
 };
 
 /* Typedef BGP specific types.  */
-typedef uint32_t as_t;
 typedef uint16_t as16_t; /* we may still encounter 16 Bit asnums */
 typedef uint16_t bgp_size_t;
 

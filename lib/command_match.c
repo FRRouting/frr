@@ -25,6 +25,7 @@
 
 #include "command_match.h"
 #include "memory.h"
+#include "asn.h"
 
 DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack");
 
@@ -556,6 +557,7 @@ static enum match_type min_match_level(enum cmd_token_type type)
 	case END_TKN:
 	case NEG_ONLY_TKN:
 	case VARIABLE_TKN:
+	case ASNUM_TKN:
 		return exact_match;
 	}
 
@@ -579,6 +581,7 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
+	case ASNUM_TKN:
 	case RANGE_TKN:
 		return 2;
 	case WORD_TKN:
@@ -713,6 +716,8 @@ static enum match_type match_token(struct cmd_token *token, char *input_token)
 		return match_mac(input_token, false);
 	case MAC_PREFIX_TKN:
 		return match_mac(input_token, true);
+	case ASNUM_TKN:
+		return asn_str2asn_match(input_token);
 	case END_TKN:
 	case FORK_TKN:
 	case JOIN_TKN:
@@ -854,7 +859,6 @@ static enum match_type match_ipv4_prefix(const char *str)
 
 	return exact_match;
 }
-
 
 #define IPV6_ADDR_STR   "0123456789abcdefABCDEF:."
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"

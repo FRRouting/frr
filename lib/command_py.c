@@ -214,6 +214,7 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 			item(IPV6_PREFIX_TKN); // IPV6 network prefixes
 			item(MAC_TKN);	       // MAC address
 			item(MAC_PREFIX_TKN);  // MAC address with mask
+			item(ASNUM_TKN);       // ASNUM
 
 			/* plumbing types */
 			item(FORK_TKN);

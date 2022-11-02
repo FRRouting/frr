@@ -1940,6 +1940,8 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 				   unsigned long *asno)
 {
 	const char *p = buf;
+	as_t asval;
+	bool found = false;
 
 	/* Skip separators (space for sequences, ',' for sets). */
 	while (isspace((unsigned char)*p) || *p == ',')
@@ -1976,26 +1978,13 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 		return p;
 	}
 
-	/* Check actual AS value. */
-	if (isdigit((unsigned char)*p)) {
-		as_t asval;
-
-		*token = as_token_asval;
-		asval = (*p - '0');
-		p++;
-
-		while (isdigit((unsigned char)*p)) {
-			asval *= 10;
-			asval += (*p - '0');
-			p++;
-		}
+	asval = 0;
+	p = asn_str2asn_parse(p, &asval, &found);
+	if (found) {
 		*asno = asval;
-		return p;
-	}
-
-	/* There is no match then return unknown token. */
-	*token = as_token_unknown;
-	p++;
+		*token = as_token_asval;
+	} else
+		*token = as_token_unknown;
 	return p;
 }
 

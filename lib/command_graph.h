@@ -58,6 +58,7 @@ enum cmd_token_type {
 	IPV6_PREFIX_TKN, // IPV6 network prefixes
 	MAC_TKN,         // Ethernet address
 	MAC_PREFIX_TKN,  // Ethernet address w/ CIDR mask
+	ASNUM_TKN,       // AS dot format
 
 	/* plumbing types */
 	FORK_TKN,  // marks subgraph beginning

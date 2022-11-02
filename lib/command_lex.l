@@ -54,6 +54,7 @@ VARIABLE        [A-Z][-_A-Z:0-9]+
 WORD            (\-|\+)?[a-zA-Z0-9\*][-+_a-zA-Z0-9\*]*
 NUMBER          (\-|\+)?[0-9]{1,20}
 RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
+ASNUM           ASNUM
 
 /* yytext shall be a pointer */
 %pointer
@@ -73,6 +74,7 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 %}
 
 [ \t]+          LOC_STEP /* ignore whitespace */;
+{ASNUM}         {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return ASNUM;}
 {IPV4}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV4;}
 {IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV4_PREFIX;}
 {IPV6}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6;}

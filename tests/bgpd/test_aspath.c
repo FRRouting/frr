@@ -924,7 +924,9 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 	bytes4 = aspath_put(s, as, 1);
 	as4 = make_aspath(STREAM_DATA(s), bytes4, 1);
 
+	asn_relax_as_zero(true);
 	asstr = aspath_str2aspath(sp->shouldbe);
+	asn_relax_as_zero(false);
 
 	asconfeddel = aspath_delete_confed_seq(aspath_dup(asinout));
 

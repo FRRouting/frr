@@ -104,6 +104,7 @@
 %token <string> RANGE
 %token <string> MAC
 %token <string> MAC_PREFIX
+%token <string> ASNUM
 
 /* special syntax, value is irrelevant */
 %token <string> EXCL_BRACKET
@@ -291,6 +292,11 @@ placeholder_token_real:
 | MAC_PREFIX
 {
   $$ = new_token_node (ctx, MAC_PREFIX_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| ASNUM
+{
+  $$ = new_token_node (ctx, ASNUM_TKN, $1, doc_next(ctx));
   XFREE (MTYPE_LEX, $1);
 }
 

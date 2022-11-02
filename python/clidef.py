@@ -64,6 +64,12 @@ _fail = (_end == argv[_i]->arg) || (*_end != '\\0');"""
     )
 
 
+class AsDotHandler(RenderHandler):
+    argtype = "as_t"
+    decl = Template("as_t $varname = 0;")
+    code = Template("_fail = !asn_str2asn(argv[_i]->arg, &$varname);")
+
+
 # A.B.C.D/M (prefix_ipv4) and
 # X:X::X:X/M (prefix_ipv6) are "compatible" and can merge into a
 # struct prefix:
@@ -165,6 +171,7 @@ handlers = {
     "IPV6_PREFIX_TKN": Prefix6Handler,
     "MAC_TKN": PrefixEthHandler,
     "MAC_PREFIX_TKN": PrefixEthHandler,
+    "ASNUM_TKN": AsDotHandler,
 }
 
 # core template invoked for each occurence of DEFPY.

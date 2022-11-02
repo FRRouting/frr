@@ -3200,6 +3200,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->as = *as;
 	if (as_pretty)
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP, as_pretty);
+	else
+		bgp->as_pretty = XSTRDUP(MTYPE_BGP, asn_asn2asplain(*as));
+
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			zlog_debug("Creating Default VRF, AS %s",
