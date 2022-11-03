@@ -582,7 +582,7 @@ case "$1" in
 		NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
 		[ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
 		echo "Applying only incremental changes to running configuration from frr.conf"
-		"$RELOAD_SCRIPT" --reload $C_PATH/frr.conf
+		"$RELOAD_SCRIPT" --reload --bindir "$D_PATH" --confdir "$C_PATH" --rundir "$V_PATH" "$C_PATH/frr.conf"
 		exit $?
 		;;
 
