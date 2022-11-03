@@ -4961,6 +4961,7 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_BR_PORT_UPDATE:
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
+			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 			case DPLANE_OP_NONE:
 				break;
 			case DPLANE_OP_STARTUP_STAGE:

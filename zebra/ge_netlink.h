@@ -25,6 +25,15 @@ struct genl_request {
 };
 
 extern int genl_resolve_family(const char *family);
+extern ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd,
+						struct zebra_dplane_ctx *ctx,
+						void *buf, size_t buflen);
+extern ssize_t netlink_sr_tunsrc_set_msg_encoder(struct zebra_dplane_ctx *ctx,
+						 void *buf, size_t buflen);
+struct nl_batch;
+extern enum netlink_msg_status
+netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth,
+			      struct zebra_dplane_ctx *ctx);
 extern void ge_netlink_init(struct zebra_ns *zns);
 
 #ifdef __cplusplus
