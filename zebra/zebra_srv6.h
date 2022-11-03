@@ -19,6 +19,9 @@
 /* SRv6 instance structure. */
 struct zebra_srv6 {
 	struct list *locators;
+
+	/* Source address for SRv6 encapsulation */
+	struct in6_addr encap_src_addr;
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
@@ -67,5 +70,8 @@ extern void srv6_manager_release_locator_chunk_call(struct zserv *client,
 						    vrf_id_t vrf_id);
 extern int srv6_manager_client_disconnect_cb(struct zserv *client);
 extern int release_daemon_srv6_locator_chunks(struct zserv *client);
+
+extern void zebra_srv6_encap_src_addr_set(struct in6_addr *src_addr);
+extern void zebra_srv6_encap_src_addr_unset(void);
 
 #endif /* _ZEBRA_SRV6_H */

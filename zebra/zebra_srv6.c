@@ -409,6 +409,23 @@ int release_daemon_srv6_locator_chunks(struct zserv *client)
 	return count;
 }
 
+void zebra_srv6_encap_src_addr_set(struct in6_addr *encap_src_addr)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+	if (!encap_src_addr)
+		return;
+
+	memcpy(&srv6->encap_src_addr, encap_src_addr, sizeof(struct in6_addr));
+}
+
+void zebra_srv6_encap_src_addr_unset(void)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+	memset(&srv6->encap_src_addr, 0, sizeof(struct in6_addr));
+}
+
 void zebra_srv6_terminate(void)
 {
 	struct srv6_locator *locator;
