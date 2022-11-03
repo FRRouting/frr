@@ -998,6 +998,14 @@ and this section also helps that case.
       !
    ...
 
+.. clicmd:: encapsulation
+
+   Configure parameters for SRv6 encapsulation.
+
+.. clicmd:: source-address X:X::X:X
+
+   Configure the source address of the outer encapsulating IPv6 header.
+
 .. _multicast-rib-commands:
 
 Multicast RIB Commands
