@@ -53,9 +53,7 @@
 #include <arpa/telnet.h>
 #include <termios.h>
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/vty_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_SERV, "VTY server");

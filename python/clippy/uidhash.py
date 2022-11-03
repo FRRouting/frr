@@ -19,13 +19,14 @@
 import struct
 from hashlib import sha256
 
-def bititer(data, bits, startbit = True):
-    '''
+
+def bititer(data, bits, startbit=True):
+    """
     just iterate the individual bits out from a bytes object
 
     if startbit is True, an '1' bit is inserted at the very beginning
     goes <bits> at a time, starts at LSB.
-    '''
+    """
     bitavail, v = 0, 0
     if startbit and len(data) > 0:
         v = data.pop(0)
@@ -41,31 +42,33 @@ def bititer(data, bits, startbit = True):
         bitavail -= bits
         v >>= bits
 
+
 def base32c(data):
-    '''
+    """
     Crockford base32 with extra dashes
-    '''
+    """
     chs = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-    o = ''
+    o = ""
     if type(data) == str:
         data = [ord(v) for v in data]
     else:
         data = list(data)
     for i, bits in enumerate(bititer(data, 5)):
         if i == 5:
-            o = o + '-'
+            o = o + "-"
         elif i == 10:
             break
         o = o + chs[bits]
     return o
 
-def uidhash(filename, hashstr, hashu32a, hashu32b):
-    '''
-    xref Unique ID hash used in FRRouting
-    '''
-    filename = '/'.join(filename.rsplit('/')[-2:])
 
-    hdata = filename.encode('UTF-8') + hashstr.encode('UTF-8')
-    hdata += struct.pack('>II', hashu32a, hashu32b)
+def uidhash(filename, hashstr, hashu32a, hashu32b):
+    """
+    xref Unique ID hash used in FRRouting
+    """
+    filename = "/".join(filename.rsplit("/")[-2:])
+
+    hdata = filename.encode("UTF-8") + hashstr.encode("UTF-8")
+    hdata += struct.pack(">II", hashu32a, hashu32b)
     i = sha256(hdata).digest()
     return base32c(i)

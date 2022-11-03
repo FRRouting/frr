@@ -139,27 +139,6 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-module-translator.yang.c \
 	# end
 
-vtysh_scan += \
-	lib/distribute.c \
-	lib/filter.c \
-	lib/filter_cli.c \
-	lib/if.c \
-	lib/if_rmap.c \
-	lib/keychain.c \
-	lib/lib_vty.c \
-	lib/log_vty.c \
-	lib/nexthop_group.c \
-	lib/plist.c \
-	lib/routemap.c \
-	lib/routemap_cli.c \
-	lib/spf_backoff.c \
-	lib/thread.c \
-	lib/vrf.c \
-	lib/vty.c \
-	# end
-# can be loaded as DSO - always include for vtysh
-vtysh_scan += lib/agentx.c
-
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
@@ -347,7 +326,6 @@ lib_libfrrsnmp_la_SOURCES = \
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
 pkginclude_HEADERS += lib/resolver.h
-vtysh_scan += lib/resolver.c
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
@@ -478,12 +456,17 @@ SUFFIXES += .xref
 
 # dependencies added in python/makefile.py
 frr.xref:
-	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ -c vtysh/vtysh_cmd.c $^
 all-am: frr.xref
 
 clean-xref:
 	-rm -rf $(xrefs) frr.xref
 clean-local: clean-xref
+
+CLEANFILES += vtysh/vtysh_cmd.c
+vtysh/vtysh_cmd.c: frr.xref
+	@test -f $@ || rm -f frr.xref || true
+	@test -f $@ || $(MAKE) $(AM_MAKEFLAGS) frr.xref
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:

@@ -2034,9 +2034,7 @@ static const struct cmd_variable_handler bmp_targets_var_handlers[] = {
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_bmp_clippy.c"
-#endif
 
 DEFPY_NOSH(bmp_targets_main,
       bmp_targets_cmd,

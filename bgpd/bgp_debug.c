@@ -1415,9 +1415,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
 	return CMD_SUCCESS;
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_debug_clippy.c"
-#endif
 
 DEFPY (debug_bgp_update_prefix_afi_safi,
        debug_bgp_update_prefix_afi_safi_cmd,

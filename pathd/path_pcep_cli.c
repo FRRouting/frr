@@ -40,9 +40,7 @@
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_pcc.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_pcep_cli_clippy.c"
-#endif
 
 #define DEFAULT_PCE_PRECEDENCE 255
 #define DEFAULT_PCC_MSD 4

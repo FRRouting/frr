@@ -39,9 +39,7 @@
 
 #define BGP_LABELPOOL_ENABLE_TESTS 0
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_labelpool_clippy.c"
-#endif
 
 
 /*

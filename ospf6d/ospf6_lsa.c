@@ -46,9 +46,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_lsa_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");

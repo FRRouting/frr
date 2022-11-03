@@ -51,9 +51,7 @@ static uint32_t interfaces_configured_for_ra_from_bgp;
 
 #if defined(HAVE_RTADV)
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/rtadv_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ADV_IF, "Advertised Interface");
