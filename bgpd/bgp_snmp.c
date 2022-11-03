@@ -858,6 +858,9 @@ static int bgpTrapEstablished(struct peer *peer)
 	struct in_addr addr;
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 
+	if (!smux_enabled())
+		return 0;
+
 	/* Check if this peer just went to Established */
 	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
 		return 0;
@@ -872,6 +875,15 @@ static int bgpTrapEstablished(struct peer *peer)
 		  array_size(bgp_trap_oid), bgp_oid,
 		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
 		  bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
+
+	/*
+	 * Sending a trap involves sending a non-blocking update
+	 * This of course generates a possibility if there are
+	 * a metric ton of traps that we will block on sending
+	 * and snmpd can block sending to us.
+	 */
+	smux_events_update();
+
 	return 0;
 }
 
@@ -880,6 +892,9 @@ static int bgpTrapBackwardTransition(struct peer *peer)
 	int ret;
 	struct in_addr addr;
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
+
+	if (!smux_enabled())
+		return 0;
 
 	ret = inet_aton(peer->host, &addr);
 	if (ret == 0)
@@ -891,6 +906,14 @@ static int bgpTrapBackwardTransition(struct peer *peer)
 		  array_size(bgp_trap_oid), bgp_oid,
 		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
 		  bgpTrapList, array_size(bgpTrapList), BGPBACKWARDTRANSITION);
+
+	/*
+	 * Sending a trap involves sending a non-blocking update
+	 * This of course generates a possibility if there are
+	 * a metric ton of traps that we will block on sending
+	 * and snmpd can block sending to us.
+	 */
+	smux_events_update();
 	return 0;
 }
 
