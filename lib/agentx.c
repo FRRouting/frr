@@ -48,8 +48,6 @@ static void agentx_events_update(void);
 
 static void agentx_timeout(struct thread *t)
 {
-	timeout_thr = NULL;
-
 	snmp_timeout();
 	run_alarms();
 	netsnmp_check_outstanding_agent_requests();
