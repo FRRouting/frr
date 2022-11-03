@@ -492,8 +492,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				    strlen("no ip prefix-list")) == 0 ||
 			    strncmp(line, "no ipv6 prefix-list",
 				    strlen("no ipv6 prefix-list")) == 0 ||
-			    strncmp(line, "service cputime-stats",
-				    strlen("service cputime-stats")) == 0 ||
+			    strncmp(line, "service ", strlen("service ")) ==
+				    0 ||
 			    strncmp(line, "no service cputime-stats",
 				    strlen("no service cputime-stats")) == 0 ||
 			    strncmp(line, "service cputime-warning",
