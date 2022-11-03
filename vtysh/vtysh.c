@@ -1688,10 +1688,14 @@ DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [ASNUM [<view|vrf> VIEWVRFNAME]]",
+	"router bgp [ASNUM [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
-	"View/VRF name\n")
+	"View/VRF name\n"
+	"Force the AS notation output\n"
+	"use 'AA.BB' format for AS 4 byte values\n"
+	"use 'AA.BB' format for all AS values\n"
+	"use plain format for all AS values\n")
 {
 	vty->node = BGP_NODE;
 	return CMD_SUCCESS;

@@ -31,6 +31,13 @@ extern "C" {
 
 #define ASN_STRING_MAX_SIZE	12
 
+enum asnotation_mode {
+	ASNOTATION_PLAIN = 0,
+	ASNOTATION_DOT,
+	ASNOTATION_DOTPLUS,
+	ASNOTATION_UNDEFINED,
+};
+
 typedef uint32_t as_t;
 
 extern bool asn_str2asn(const char *asstring, as_t *asn);
@@ -38,6 +45,9 @@ extern const char *asn_asn2asplain(as_t asn);
 extern const char *asn_str2asn_parse(const char *asstring, as_t *asn,
 				     bool *found_ptr);
 extern enum match_type asn_str2asn_match(const char *str);
+extern bool asn_str2asn_notation(const char *asstring, as_t *asn,
+				 enum asnotation_mode *asnotation);
+extern const char *asn_mode2str(enum asnotation_mode asnotation);
 /* for test */
 extern void asn_relax_as_zero(bool relax);
 

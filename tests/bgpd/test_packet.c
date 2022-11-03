@@ -63,8 +63,8 @@ int main(int argc, char *argv[])
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
-	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT,
-		    NULL) < 0)
+	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT, NULL,
+		    ASNOTATION_PLAIN) < 0)
 		return -1;
 
 	peer = peer_create_accept(bgp);

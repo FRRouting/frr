@@ -399,6 +399,7 @@ struct bgp {
 	uint16_t config;
 #define BGP_CONFIG_CLUSTER_ID             (1 << 0)
 #define BGP_CONFIG_CONFEDERATION          (1 << 1)
+#define BGP_CONFIG_ASNOTATION             (1 << 2)
 
 	/* BGP router identifier.  */
 	struct in_addr router_id;
@@ -797,6 +798,8 @@ struct bgp {
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
 
 	bool allow_martian;
+
+	enum asnotation_mode asnotation;
 
 	QOBJ_FIELDS;
 };
@@ -2163,7 +2166,8 @@ extern void bgp_option_norib_set_runtime(void);
 extern void bgp_option_norib_unset_runtime(void);
 
 extern int bgp_get(struct bgp **bgp, as_t *as, const char *name,
-		   enum bgp_instance_type kind, const char *as_pretty);
+		   enum bgp_instance_type kind, const char *as_pretty,
+		   enum asnotation_mode asnotation);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);

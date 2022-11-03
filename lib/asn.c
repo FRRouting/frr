@@ -23,18 +23,28 @@
 
 static bool relax_as_zero;
 
+static const struct message asnotation_mode_msg[] = {
+	{ASNOTATION_PLAIN, "plain"},
+	{ASNOTATION_DOT, "dot"},
+	{ASNOTATION_DOTPLUS, "dot+"},
+	{ASNOTATION_UNDEFINED, "undefined"},
+	{0}
+};
+
 /* converts a string into an Autonomous system number
  * "1.1" => 65536
  * "65500" => 65500
  */
 static bool asn_str2asn_internal(const char *asstring, as_t *asn,
-				 const char **next, bool *partial)
+				 const char **next, bool *partial,
+				 enum asnotation_mode *mode)
 {
 	uint32_t high = 0, low = 0;
 	uint64_t temp_val;
 	const char *p = asstring;
 	bool ret = false;
 	uint32_t digit;
+	enum asnotation_mode val = ASNOTATION_PLAIN;
 
 	if (!asstring)
 		goto end;
@@ -82,12 +92,13 @@ static bool asn_str2asn_internal(const char *asstring, as_t *asn,
 				*partial = true;
 			goto end;
 		}
-		if (!asn) {
-			ret = true;
-			goto end;
-		}
-		*asn = (high << 16) + low;
+		if (asn)
+			*asn = (high << 16) + low;
 		ret = true;
+		if (high == 0)
+			val = ASNOTATION_DOTPLUS;
+		else
+			val = ASNOTATION_DOT;
 		goto end;
 	}
 	/* AS 0 is forbidden */
@@ -102,12 +113,14 @@ static bool asn_str2asn_internal(const char *asstring, as_t *asn,
  end:
 	if (next)
 		*next = p;
+	if (mode)
+		*mode = val;
 	return ret;
 }
 
 bool asn_str2asn(const char *asstring, as_t *asn)
 {
-	return asn_str2asn_internal(asstring, asn, NULL, NULL);
+	return asn_str2asn_internal(asstring, asn, NULL, NULL, NULL);
 }
 
 const char *asn_asn2asplain(as_t asn)
@@ -124,7 +137,7 @@ const char *asn_str2asn_parse(const char *asstring, as_t *asn, bool *found_ptr)
 	const char **next = &p;
 	bool found;
 
-	found = asn_str2asn_internal(asstring, asn, next, NULL);
+	found = asn_str2asn_internal(asstring, asn, next, NULL, NULL);
 	if (found_ptr)
 		*found_ptr = found;
 	return *next;
@@ -139,7 +152,7 @@ enum match_type asn_str2asn_match(const char *str)
 {
 	bool found, partial = false;
 
-	found = asn_str2asn_internal(str, NULL, NULL, &partial);
+	found = asn_str2asn_internal(str, NULL, NULL, &partial, NULL);
 	if (found && !partial)
 		return exact_match;
 
@@ -147,4 +160,16 @@ enum match_type asn_str2asn_match(const char *str)
 		return partly_match;
 
 	return no_match;
+}
+
+bool asn_str2asn_notation(const char *asstring, as_t *asn,
+			  enum asnotation_mode *asnotation)
+{
+	return asn_str2asn_internal(asstring, asn, NULL, NULL, asnotation);
+}
+
+const char *asn_mode2str(enum asnotation_mode asnotation)
+{
+	return lookup_msg(asnotation_mode_msg, asnotation,
+			  "Unrecognized AS notation mode");
 }

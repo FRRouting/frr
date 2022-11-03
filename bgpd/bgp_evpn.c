@@ -6254,7 +6254,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 				  vrf_id == VRF_DEFAULT
 					  ? BGP_INSTANCE_TYPE_DEFAULT
 					  : BGP_INSTANCE_TYPE_VRF,
-				  NULL);
+				  NULL, ASNOTATION_UNDEFINED);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,

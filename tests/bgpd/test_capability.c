@@ -952,8 +952,8 @@ int main(void)
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));
 
-	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT,
-		    NULL) < 0)
+	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT, NULL,
+		    ASNOTATION_PLAIN) < 0)
 		return -1;
 
 	peer = peer_create_accept(bgp);

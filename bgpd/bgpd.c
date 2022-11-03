@@ -3190,7 +3190,8 @@ static void bgp_vrf_string_name_delete(void *data)
 /* BGP instance creation by `router bgp' commands. */
 static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum bgp_instance_type inst_type,
-			      const char *as_pretty)
+			      const char *as_pretty,
+			      enum asnotation_mode asnotation)
 {
 	struct bgp *bgp;
 	afi_t afi;
@@ -3202,6 +3203,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP, as_pretty);
 	else
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP, asn_asn2asplain(*as));
+
+	if (asnotation != ASNOTATION_UNDEFINED) {
+		bgp->asnotation = asnotation;
+		SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
+	} else
+		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
@@ -3525,7 +3532,8 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 
 /* Called from VTY commands. */
 int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
-	    enum bgp_instance_type inst_type, const char *as_pretty)
+	    enum bgp_instance_type inst_type, const char *as_pretty,
+	    enum asnotation_mode asnotation)
 {
 	struct bgp *bgp;
 	struct vrf *vrf = NULL;
@@ -3535,7 +3543,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	if (ret || *bgp_val)
 		return ret;
 
-	bgp = bgp_create(as, name, inst_type, as_pretty);
+	bgp = bgp_create(as, name, inst_type, as_pretty, asnotation);
 
 	/*
 	 * view instances will never work inside of a vrf

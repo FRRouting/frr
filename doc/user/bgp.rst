@@ -254,8 +254,9 @@ ASN and Router ID
 -----------------
 
 First of all you must configure BGP router with the :clicmd:`router bgp ASN`
-command. The AS number is an identifier for the autonomous system. The BGP
-protocol uses the AS number for detecting whether the BGP connection is
+command. The AS number is an identifier for the autonomous system. The AS
+identifier can either be a number or two numbers separated by a period. The
+BGP protocol uses the AS identifier for detecting whether the BGP connection is
 internal or external.
 
 .. clicmd:: router bgp ASN
@@ -4289,6 +4290,26 @@ Segment-Routing IPv6
      vpn_policy[AFI_IP].tovpn_sid: none
      vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
 
+AS-notation support
+-------------------
+
+By default, the ASN value output follows how the BGP ASN instance is
+expressed in the configuration. Three as-notation outputs are available:
+
+- plain output: both AS4B and AS2B use a single number.
+  ` router bgp 65536`.
+
+- dot output: AS4B values are using two numbers separated by a period.
+  `router bgp 1.1` means that the AS number is 65536.
+
+- dot+ output: AS2B and AS4B values are using two numbers separated by a
+  period. `router bgp 0.5` means that the AS number is 5.
+
+The below option permits forcing the as-notation output:
+
+.. clicmd:: router bgp ASN as-notation dot|dot+|plain
+
+   The chosen as-notation format will override the BGP ASN output.
 
 .. _bgp-route-reflector:
 

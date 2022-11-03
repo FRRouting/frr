@@ -595,9 +595,10 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 }
 
 int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
-		enum bgp_instance_type inst_type, const char *as_pretty)
+		enum bgp_instance_type inst_type, const char *as_pretty,
+		enum asnotation_mode asnotation)
 {
-	int ret = bgp_get(bgp, as, name, inst_type, as_pretty);
+	int ret = bgp_get(bgp, as, name, inst_type, as_pretty, asnotation);
 
 	if (ret == BGP_CREATED) {
 		bgp_timers_set(*bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
@@ -1481,16 +1482,23 @@ DEFUN (no_auto_summary,
 /* "router bgp" commands. */
 DEFUN_NOSH (router_bgp,
        router_bgp_cmd,
-       "router bgp [ASNUM$instasn [<view|vrf> VIEWVRFNAME]]",
+       "router bgp [ASNUM$instasn [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
        ROUTER_STR
        BGP_STR
        AS_STR
-       BGP_INSTANCE_HELP_STR)
+       BGP_INSTANCE_HELP_STR
+       "Force the AS notation output\n"
+       "use 'AA.BB' format for AS 4 byte values\n"
+       "use 'AA.BB' format for all AS values\n"
+       "use plain format for all AS values\n")
 {
 	int idx_asn = 2;
 	int idx_view_vrf = 3;
 	int idx_vrf = 4;
 	int is_new_bgp = 0;
+	int idx_asnotation = 3;
+	int idx_asnotation_kind = 4;
+	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
 	int ret;
 	as_t as;
 	struct bgp *bgp;
@@ -1526,23 +1534,40 @@ DEFUN_NOSH (router_bgp,
 				BGP_PRIVATE_AS_MAX, BGP_AS4_MAX, as);
 
 		inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-		if (argc > 3) {
-			name = argv[idx_vrf]->arg;
 
-			if (!strcmp(argv[idx_view_vrf]->text, "vrf")) {
-				if (strmatch(name, VRF_DEFAULT_NAME))
-					name = NULL;
-				else
-					inst_type = BGP_INSTANCE_TYPE_VRF;
-			} else if (!strcmp(argv[idx_view_vrf]->text, "view"))
-				inst_type = BGP_INSTANCE_TYPE_VIEW;
+		if (argv_find(argv, argc, "VIEWVRFNAME", &idx_vrf)) {
+			idx_view_vrf = idx_vrf - 1;
+			if (argv[idx_view_vrf]->text) {
+				name = argv[idx_vrf]->arg;
+
+				if (!strcmp(argv[idx_view_vrf]->text, "vrf")) {
+					if (strmatch(name, VRF_DEFAULT_NAME))
+						name = NULL;
+					else
+						inst_type =
+							BGP_INSTANCE_TYPE_VRF;
+				} else if (!strcmp(argv[idx_view_vrf]->text,
+						   "view"))
+					inst_type = BGP_INSTANCE_TYPE_VIEW;
+			}
+		}
+		if (argv_find(argv, argc, "as-notation", &idx_asnotation)) {
+			idx_asnotation_kind = idx_asnotation + 1;
+			if (strmatch(argv[idx_asnotation_kind]->text, "dot+"))
+				asnotation = ASNOTATION_DOTPLUS;
+			else if (strmatch(argv[idx_asnotation_kind]->text,
+					  "dot"))
+				asnotation = ASNOTATION_DOT;
+			else if (strmatch(argv[idx_asnotation_kind]->text,
+					  "plain"))
+				asnotation = ASNOTATION_PLAIN;
 		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			is_new_bgp = (bgp_lookup(as, name) == NULL);
 
 		ret = bgp_get_vty(&bgp, &as, name, inst_type,
-				  argv[idx_asn]->arg);
+				  argv[idx_asn]->arg, asnotation);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			vty_out(vty, "BGP is already running; AS is %s\n",
@@ -1569,6 +1594,19 @@ DEFUN_NOSH (router_bgp,
 			bgp_vpn_leak_export(bgp);
 		/* Pending: handle when user tries to change a view to vrf n vv.
 		 */
+		/* for pre-existing bgp instance,
+		 * - update as_pretty
+		 * - update asnotation if explicitly mentioned
+		 */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
+			XFREE(MTYPE_BGP, bgp->as_pretty);
+			bgp->as_pretty = XSTRDUP(MTYPE_BGP, argv[idx_asn]->arg);
+			if (!CHECK_FLAG(bgp->config, BGP_CONFIG_ASNOTATION) &&
+			    asnotation != ASNOTATION_UNDEFINED) {
+				SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
+				bgp->asnotation = asnotation;
+			}
+		}
 	}
 
 	/* unset the auto created flag as the user config is now present */
@@ -1581,12 +1619,16 @@ DEFUN_NOSH (router_bgp,
 /* "no router bgp" commands. */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
-       "no router bgp [ASNUM$instasn [<view|vrf> VIEWVRFNAME]]",
+       "no router bgp [ASNUM$instasn [<view|vrf> VIEWVRFNAME] [as-notation <dot|dot+|plain>]]",
        NO_STR
        ROUTER_STR
        BGP_STR
        AS_STR
-       BGP_INSTANCE_HELP_STR)
+       BGP_INSTANCE_HELP_STR
+       "Force the AS notation output\n"
+       "use 'AA.BB' format for AS 4 byte values\n"
+       "use 'AA.BB' format for all AS values\n"
+       "use plain format for all AS values\n")
 {
 	int idx_asn = 3;
 	int idx_vrf = 5;
@@ -1850,7 +1892,6 @@ DEFPY (bgp_suppress_fib_pending,
 	bgp_suppress_fib_pending_set(bgp, !no);
 	return CMD_SUCCESS;
 }
-
 
 /* BGP Cluster ID.  */
 DEFUN (bgp_cluster_id,
@@ -9529,7 +9570,8 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 
 		/* Auto-create assuming the same AS */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT, NULL);
+				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
+				  ASNOTATION_UNDEFINED);
 
 		if (ret) {
 			vty_out(vty,
@@ -9641,7 +9683,8 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	if (!bgp_default) {
 		/* Auto-create assuming the same AS */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT, NULL);
+				  BGP_INSTANCE_TYPE_DEFAULT, NULL,
+				  ASNOTATION_UNDEFINED);
 
 		if (ret) {
 			vty_out(vty,
@@ -9656,8 +9699,8 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 			vrf_bgp = bgp_default;
 		else
 			/* Auto-create assuming the same AS */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type, NULL);
-
+			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type,
+					  NULL, ASNOTATION_UNDEFINED);
 		if (ret) {
 			vty_out(vty,
 				"VRF %s is not configured as a bgp instance\n",
@@ -17996,6 +18039,10 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " %s %s",
 				(bgp->inst_type  == BGP_INSTANCE_TYPE_VIEW)
 				? "view" : "vrf", bgp->name);
+		if (CHECK_FLAG(bgp->config, BGP_CONFIG_ASNOTATION))
+			vty_out(vty, " as-notation %s",
+				asn_mode2str(bgp->asnotation));
+
 		vty_out(vty, "\n");
 
 		/* BGP fast-external-failover. */
