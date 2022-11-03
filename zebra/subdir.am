@@ -52,6 +52,7 @@ zebra_zebra_SOURCES = \
 	zebra/redistribute.c \
 	zebra/router-id.c \
 	zebra/rt_netlink.c \
+	zebra/ge_netlink.c \
 	zebra/rt_socket.c \
 	zebra/rtadv.c \
 	zebra/rtread_netlink.c \
@@ -144,6 +145,7 @@ noinst_HEADERS += \
 	zebra/router-id.h \
 	zebra/rt.h \
 	zebra/rt_netlink.h \
+	zebra/ge_netlink.h \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/table_manager.h \

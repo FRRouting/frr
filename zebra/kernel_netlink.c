@@ -38,6 +38,7 @@
 #include "zebra/tc_netlink.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/ge_netlink.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -1958,6 +1959,8 @@ void kernel_init(struct zebra_ns *zns)
 		       &zns->t_netlink);
 
 	rt_netlink_init();
+
+	ge_netlink_init();
 }
 
 /* Helper to clean up an nlsock */
