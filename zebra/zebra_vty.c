@@ -34,6 +34,7 @@
 #include "srcdest_table.h"
 #include "vxlan.h"
 #include "termtable.h"
+#include "affinitymap.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
@@ -4495,6 +4496,8 @@ void zebra_vty_init(void)
 
 	/* Route-map */
 	zebra_route_map_init();
+
+	affinity_map_init();
 
 	install_node(&ip_node);
 	install_node(&protocol_node);

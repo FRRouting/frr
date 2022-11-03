@@ -88,6 +88,7 @@ static const char *const frr_native_modules[] = {
 	"frr-interface",
 	"frr-vrf",
 	"frr-routing",
+	"frr-affinity-map",
 	"frr-route-map",
 	"frr-nexthop",
 	"frr-ripd",

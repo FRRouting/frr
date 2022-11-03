@@ -11,6 +11,10 @@ module frr-zebra {
     prefix inet;
   }
 
+  import frr-affinity-map {
+    prefix frr-affinity-map;
+  }
+
   import frr-route-map {
     prefix frr-route-map;
   }

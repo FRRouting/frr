@@ -2216,6 +2216,29 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
 
 #endif /* HAVE_PATHD */
 
+/* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
+DEFUNSH(VTYSH_AFFMAP, affinity_map, vtysh_affinity_map_cmd,
+	"affinity-map NAME bit-position (0-1023)",
+	"Affinity map configuration\n"
+	"Affinity attribute name\n"
+	"Bit position for affinity attribute value\n"
+	"Bit position\n")
+{
+	return CMD_SUCCESS;
+}
+
+/* max value is EXT_ADMIN_GROUP_MAX_POSITIONS - 1 */
+DEFUNSH(VTYSH_AFFMAP, no_affinity_map, vtysh_no_affinity_map_cmd,
+	"no affinity-map NAME$name [bit-position (0-1023)$position]",
+	NO_STR
+	"Affinity map configuration\n"
+	"Affinity attribute name\n"
+	"Bit position for affinity attribute value\n"
+	"Bit position\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
 	"route-map RMAP_NAME <deny|permit> (1-65535)",
 	"Create route-map or enter route-map command mode\n"
@@ -4849,6 +4872,9 @@ void vtysh_init_vty(void)
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
 	install_element(VRF_NODE, &vtysh_quit_vrf_cmd);
+
+	install_element(CONFIG_NODE, &vtysh_affinity_map_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_affinity_map_cmd);
 
 	install_node(&rmap_node);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);

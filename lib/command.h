@@ -90,6 +90,7 @@ struct host {
 };
 
 /* List of CLI nodes. Please remember to update the name array in command.c. */
+/* clang-format off */
 enum node_type {
 	AUTH_NODE,		 /* Authentication mode of vty interface. */
 	VIEW_NODE,		 /* View node. Default mode of vty interface. */
@@ -106,6 +107,7 @@ enum node_type {
 	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
+	AFFMAP_NODE,		 /* Affinity map node. */
 	IP_NODE,		 /* Static ip route node. */
 	VRF_NODE,		 /* VRF mode node. */
 	INTERFACE_NODE,		 /* Interface mode node. */
@@ -186,6 +188,7 @@ enum node_type {
 	BMP_NODE,		/* BMP config under router bgp */
 	NODE_TYPE_MAX, /* maximum */
 };
+/* clang-format on */
 
 extern vector cmdvec;
 extern const struct message tokennames[];
