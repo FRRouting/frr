@@ -32,6 +32,9 @@
 /* SRv6 instance structure. */
 struct zebra_srv6 {
 	struct list *locators;
+
+	/* Source address for SRv6 encapsulation */
+	struct in6_addr encap_src_addr;
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
