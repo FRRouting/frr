@@ -1558,6 +1558,7 @@ struct peer {
 	struct thread *t_process_packet;
 	struct thread *t_process_packet_error;
 	struct thread *t_refresh_stalepath;
+	struct thread *t_down_event;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;

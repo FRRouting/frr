@@ -259,6 +259,14 @@ static int bgp_ifp_up(struct interface *ifp)
 	return 0;
 }
 
+static void bgp_ifp_down_peer_helper(struct thread *thread)
+{
+	struct peer *peer = THREAD_ARG(thread);
+
+	BGP_EVENT_ADD(peer, BGP_Stop);
+	peer->last_reset = PEER_DOWN_IF_DOWN;
+}
+
 static int bgp_ifp_down(struct interface *ifp)
 {
 	struct connected *c;
@@ -293,10 +301,11 @@ static int bgp_ifp_down(struct interface *ifp)
 			    && (peer->gtsm_hops != BGP_GTSM_HOPS_CONNECTED))
 				continue;
 
-			if (ifp == peer->nexthop.ifp) {
-				BGP_EVENT_ADD(peer, BGP_Stop);
-				peer->last_reset = PEER_DOWN_IF_DOWN;
-			}
+			if (ifp != peer->nexthop.ifp)
+				continue;
+
+			thread_add_event(bm->master, bgp_ifp_down_peer_helper,
+					 peer, 0, &peer->t_down_event);
 		}
 	}
 
