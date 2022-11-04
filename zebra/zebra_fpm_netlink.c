@@ -44,6 +44,8 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/interface.h"
 
+#include "zebra/zebra_srv6.h"
+
 /*
  * af_addr_size
  *
@@ -71,6 +73,7 @@ static size_t af_addr_size(uint8_t af)
 enum fpm_nh_encap_type_t {
 	FPM_NH_ENCAP_NONE = 0,
 	FPM_NH_ENCAP_VXLAN = 100,
+	FPM_NH_ENCAP_SRV6_ROUTE = 101,
 	FPM_NH_ENCAP_MAX,
 };
 
@@ -85,6 +88,9 @@ static const char *fpm_nh_encap_type_to_str(enum fpm_nh_encap_type_t encap_type)
 
 	case FPM_NH_ENCAP_VXLAN:
 		return "VxLAN";
+
+	case FPM_NH_ENCAP_SRV6_ROUTE:
+		return "srv6 route";
 
 	case FPM_NH_ENCAP_MAX:
 		return "invalid";
@@ -101,10 +107,27 @@ enum vxlan_encap_info_type_t {
 	VXLAN_VNI = 0,
 };
 
+enum {
+	FPM_SRV6_ROUTE_UNSPEC            = 0,
+	FPM_SRV6_ROUTE_VPN_SID           = 100,
+	FPM_SRV6_ROUTE_ENCAP_SRC_ADDR    = 101,
+	__FPM_SRV6_ROUTE_MAX,
+};
+#define FPM_SRV6_ROUTE_MAX (__FPM_SRV6_ROUTE_MAX - 1)
+
+struct srv6_route_encap_info_t {
+	/* VPN SID for BGP SRv6-L3VPN */
+	struct in6_addr vpn_sid;
+
+	/* Source address for SRv6 encapsulation */
+	struct in6_addr encap_src_addr;
+};
+
 struct fpm_nh_encap_info_t {
 	enum fpm_nh_encap_type_t encap_type;
 	union {
 		struct vxlan_encap_info_t vxlan_encap;
+		struct srv6_route_encap_info_t srv6_route_encap;
 	};
 };
 
@@ -234,6 +257,19 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 		}
 
 		nhi.encap_info.vxlan_encap.vni = vni;
+	} else if (nexthop->nh_srv6) {
+		if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
+			struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+			nhi.encap_info.encap_type = FPM_NH_ENCAP_SRV6_ROUTE;
+
+			memcpy(&nhi.encap_info.srv6_route_encap.vpn_sid,
+			       &nexthop->nh_srv6->seg6_segs,
+			       sizeof(struct in6_addr));
+
+			memcpy(&nhi.encap_info.srv6_route_encap.encap_src_addr,
+			       &srv6->encap_src_addr, sizeof(struct in6_addr));
+		}
 	}
 
 	/*
@@ -461,6 +497,25 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				      vxlan->vni);
 			nl_attr_nest_end(&req->n, nest);
 			break;
+		case FPM_NH_ENCAP_SRV6_ROUTE:
+			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
+				      FPM_NH_ENCAP_SRV6_ROUTE);
+
+			nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
+
+			nl_attr_put(&req->n, in_buf_len,
+				    FPM_SRV6_ROUTE_ENCAP_SRC_ADDR,
+				    &nhi->encap_info.srv6_route_encap
+					     .encap_src_addr,
+				    16);
+
+			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_VPN_SID,
+				    &nhi->encap_info.srv6_route_encap.vpn_sid,
+				    16);
+
+			nl_attr_nest_end(&req->n, nest);
+
+			break;
 		}
 
 		goto done;
@@ -488,6 +543,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		encap = nhi->encap_info.encap_type;
 		switch (encap) {
 		case FPM_NH_ENCAP_NONE:
+		case FPM_NH_ENCAP_SRV6_ROUTE:
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
