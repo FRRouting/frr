@@ -14567,9 +14567,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	if (use_json) {
 		json_object_int_add(json_neigh, "connectRetryTimer",
 				    p->v_connect);
-		if (peer_established(p))
+		if (peer_established(p)) {
 			json_object_int_add(json_neigh, "estimatedRttInMsecs",
 					    p->rtt);
+			if (CHECK_FLAG(p->flags, PEER_FLAG_RTT_SHUTDOWN)) {
+				json_object_int_add(json_neigh,
+						    "shutdownRttInMsecs",
+						    p->rtt_expected);
+				json_object_int_add(json_neigh,
+						    "shutdownRttAfterCount",
+						    p->rtt_keepalive_rcv);
+			}
+		}
 		if (p->t_start)
 			json_object_int_add(
 				json_neigh, "nextStartTimerDueInMsecs",
@@ -14604,9 +14613,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	} else {
 		vty_out(vty, "BGP Connect Retry Timer in Seconds: %d\n",
 			p->v_connect);
-		if (peer_established(p))
+		if (peer_established(p)) {
 			vty_out(vty, "Estimated round trip time: %d ms\n",
 				p->rtt);
+			if (CHECK_FLAG(p->flags, PEER_FLAG_RTT_SHUTDOWN))
+				vty_out(vty,
+					"Shutdown when RTT > %dms, count > %u\n",
+					p->rtt_expected, p->rtt_keepalive_rcv);
+		}
 		if (p->t_start)
 			vty_out(vty, "Next start timer due in %ld seconds\n",
 				thread_timer_remain_second(p->t_start));
