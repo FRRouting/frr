@@ -398,7 +398,8 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
 
 void smux_events_update(void)
 {
-	agentx_events_update();
+	if (agentx_enabled)
+		agentx_events_update();
 }
 
 #endif /* SNMP_AGENTX */
