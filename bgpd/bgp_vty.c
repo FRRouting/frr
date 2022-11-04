@@ -5272,8 +5272,10 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!set && flag == PEER_FLAG_SHUTDOWN)
+	if (!set && flag == PEER_FLAG_SHUTDOWN) {
 		peer_tx_shutdown_message_unset(peer);
+		UNSET_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN);
+	}
 
 	if (set)
 		ret = peer_flag_set(peer, flag);
