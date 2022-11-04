@@ -2074,6 +2074,9 @@ static void bgp_pbr_icmp_action(struct bgp *bgp, struct bgp_path_info *path,
 					bgp, path, bpf);
 		}
 	}
+
+	bpf->src_port = NULL;
+	bpf->dst_port = NULL;
 }
 
 static void bgp_pbr_policyroute_remove_from_zebra_recursive(
