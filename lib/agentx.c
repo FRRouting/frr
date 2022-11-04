@@ -38,7 +38,7 @@ XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
 
-static int agentx_enabled = 0;
+static bool agentx_enabled = false;
 
 static struct thread_master *agentx_tm;
 static struct thread *timeout_thr = NULL;
@@ -226,7 +226,7 @@ DEFUN (agentx_enable,
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
-		agentx_enabled = 1;
+		agentx_enabled = true;
 		hook_call(agentx_enabled);
 	}
 
@@ -245,7 +245,7 @@ DEFUN (no_agentx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-int smux_enabled(void)
+bool smux_enabled(void)
 {
 	return agentx_enabled;
 }
@@ -272,7 +272,7 @@ void smux_agentx_enable(void)
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
-		agentx_enabled = 1;
+		agentx_enabled = true;
 	}
 }
 
