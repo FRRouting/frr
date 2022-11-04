@@ -2653,7 +2653,7 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
 	      const struct prefix *prefix),
 	     (peer, attr, prefix));
-
+DECLARE_HOOK(bgp_snmp_shutdown, (), ());
 void peer_nsf_stop(struct peer *peer);
 
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);

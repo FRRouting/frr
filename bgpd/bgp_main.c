@@ -82,6 +82,8 @@ static const struct option longopts[] = {
 	{"socket_size", required_argument, NULL, 's'},
 	{0}};
 
+DEFINE_HOOK(bgp_snmp_shutdown, (), ());
+
 /* signal definitions */
 void sighup(void);
 void sigint(void);
@@ -194,6 +196,11 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	assert(status == 0);
 
 	frr_early_fini();
+
+	/*
+	 * Let's intentionally just turn snmp off.
+	 */
+	hook_call(bgp_snmp_shutdown);
 
 	bgp_close();
 

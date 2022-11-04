@@ -245,6 +245,11 @@ DEFUN (no_agentx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
+void smux_disable(void)
+{
+	agentx_enabled = false;
+}
+
 bool smux_enabled(void)
 {
 	return agentx_enabled;

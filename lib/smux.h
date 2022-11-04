@@ -103,7 +103,15 @@ struct index_oid {
 
 #define SNMP_IP6ADDRESS(V) (*var_len = sizeof(struct in6_addr), (uint8_t *)&V)
 
+/*
+ * Check to see if snmp is enabled or not
+ */
 extern bool smux_enabled(void);
+
+/*
+ * On shutdown turn off updates to the snmp subsystem
+ */
+extern void smux_disable(void);
 
 extern void smux_init(struct thread_master *tm);
 extern void smux_agentx_enable(void);

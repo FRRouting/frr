@@ -925,11 +925,19 @@ static int bgp_snmp_init(struct thread_master *tm)
 	return 0;
 }
 
+static int bgp_snmp_shutdown(void)
+{
+	smux_disable();
+
+	return 0;
+}
+
 static int bgp_snmp_module_init(void)
 {
 	hook_register(peer_status_changed, bgpTrapEstablished);
 	hook_register(peer_backward_transition, bgpTrapBackwardTransition);
 	hook_register(frr_late_init, bgp_snmp_init);
+	hook_register(bgp_snmp_shutdown, bgp_snmp_shutdown);
 	return 0;
 }
 
