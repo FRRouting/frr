@@ -1304,7 +1304,7 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	peer->rtt_keepalive_rcv = 0;
 
 	/* Fire backward transition hook if that's the case */
-	if (peer->ostatus > peer->status)
+	if (peer->ostatus == Established && peer->status != Established)
 		hook_call(peer_backward_transition, peer);
 
 	/* Save event that caused status change. */
