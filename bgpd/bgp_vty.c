@@ -14565,7 +14565,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	if (use_json) {
 		json_object_int_add(json_neigh, "connectRetryTimer",
 				    p->v_connect);
-		if (peer_established(p) && p->rtt)
+		if (peer_established(p))
 			json_object_int_add(json_neigh, "estimatedRttInMsecs",
 					    p->rtt);
 		if (p->t_start)
@@ -14602,7 +14602,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	} else {
 		vty_out(vty, "BGP Connect Retry Timer in Seconds: %d\n",
 			p->v_connect);
-		if (peer_established(p) && p->rtt)
+		if (peer_established(p))
 			vty_out(vty, "Estimated round trip time: %d ms\n",
 				p->rtt);
 		if (p->t_start)
