@@ -32,6 +32,8 @@
 #include "linklist.h"
 #include "lib/version.h"
 #include "lib_errors.h"
+#include "hook.h"
+#include "libfrr.h"
 #include "xref.h"
 
 XREF_SETUP();
@@ -245,6 +247,13 @@ DEFUN (no_agentx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
+static int smux_disable(void)
+{
+	agentx_enabled = false;
+
+	return 0;
+}
+
 bool smux_enabled(void)
 {
 	return agentx_enabled;
@@ -264,6 +273,8 @@ void smux_init(struct thread_master *tm)
 	install_node(&agentx_node);
 	install_element(CONFIG_NODE, &agentx_enable_cmd);
 	install_element(CONFIG_NODE, &no_agentx_cmd);
+
+	hook_register(frr_early_fini, smux_disable);
 }
 
 void smux_agentx_enable(void)
