@@ -1217,8 +1217,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 				struct prefix g;
 
 				pim_addr_to_prefix(&g, up->sg.grp);
-				if (prefix_list_apply(plist, &g)
-				    == PREFIX_DENY) {
+				if (prefix_list_apply_ext(plist, NULL, &g,
+							  true) ==
+				    PREFIX_DENY) {
 					pim_channel_add_oif(
 						up->channel_oil, pim->regiface,
 						PIM_OIF_FLAG_PROTO_GM,
