@@ -3174,13 +3174,17 @@ DEFUN (debug_rfapi_unregister_vn_un,
        "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> [kill]",
        DEBUG_STR
        DEBUG_RFAPI_STR
-       "rfapi_register\n"
+       "rfapi_unregister\n"
        "indicate vn addr follows\n"
+       "virtual network interface address\n"
        "virtual network interface address\n"
        "indicate xt addr follows\n"
        "underlay network interface address\n"
+       "underlay network interface address\n"
        "prefix to remove\n"
-       "Remove without holddown")
+       "prefix to remove\n"
+       "prefix to remove\n"
+       "Remove without holddown\n")
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
@@ -3194,7 +3198,6 @@ DEFUN (debug_rfapi_unregister_vn_un,
 	 */
 	if ((rc = rfapiCliGetRfapiIpAddr(vty, argv[4]->arg, &vn)))
 		return rc;
-
 
 	/*
 	 * Get UN addr
