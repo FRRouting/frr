@@ -68,6 +68,45 @@ static struct cmd_node srv6_encap_node = {
 	.prompt = "%s(config-srv6-encap)# "
 };
 
+DEFPY (show_srv6_manager,
+       show_srv6_manager_cmd,
+       "show segment-routing srv6 manager [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "Verify SRv6 Manager\n"
+       JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	json_object *json = NULL;
+	json_object *json_parameters = NULL;
+	json_object *json_encapsulation = NULL;
+	json_object *json_source_address = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_parameters = json_object_new_object();
+		json_object_object_add(json, "parameters", json_parameters);
+		json_encapsulation = json_object_new_object();
+		json_object_object_add(json_parameters, "encapsulation",
+				       json_encapsulation);
+		json_source_address = json_object_new_object();
+		json_object_object_add(json_encapsulation, "sourceAddress",
+				       json_source_address);
+		json_object_string_addf(json_source_address, "configured",
+					"%pI6", &srv6->encap_src_addr);
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "Parameters:\n");
+		vty_out(vty, "  Encapsulation:\n");
+		vty_out(vty, "    Source Address:\n");
+		vty_out(vty, "      Configured: %pI6\n", &srv6->encap_src_addr);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_srv6_locator,
        show_srv6_locator_cmd,
        "show segment-routing srv6 locator [json]",
@@ -508,4 +547,5 @@ void zebra_srv6_vty_init(void)
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
 	install_element(VIEW_NODE, &show_srv6_locator_detail_cmd);
+	install_element(VIEW_NODE, &show_srv6_manager_cmd);
 }
