@@ -770,7 +770,8 @@ int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* 6.2.2 8. If this router is the Rendez-vous Point */
-	if (pim_rp_i_am_rp(pim, mtracep->grp_addr)) {
+	if (mtracep->grp_addr.s_addr != INADDR_ANY &&
+	    pim_rp_i_am_rp(pim, mtracep->grp_addr)) {
 		mtrace_rsp_set_fwd_code(rspp, MTRACE_FWD_CODE_REACHED_RP);
 		/* 7.7.1. PIM-SM ...RP has not performed source-specific join */
 		if (rspp->src_mask == MTRACE_SRC_MASK_GROUP)
