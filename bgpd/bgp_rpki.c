@@ -483,18 +483,14 @@ static void revalidate_all_routes(void)
 		struct listnode *peer_listnode;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
+			afi_t afi;
+			safi_t safi;
 
-			for (size_t i = 0; i < 2; i++) {
-				safi_t safi;
-				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (!peer->bgp->rib[afi][safi])
+					continue;
 
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					if (!peer->bgp->rib[afi][safi])
-						continue;
-
-					bgp_soft_reconfig_in(peer, afi, safi);
-				}
+				bgp_soft_reconfig_in(peer, afi, safi);
 			}
 		}
 	}
