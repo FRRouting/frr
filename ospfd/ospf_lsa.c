@@ -2205,7 +2205,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 	   */
 
 	if (ospf->router_id.s_addr == INADDR_ANY) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (ei && IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
 				&ei->p.prefix);
@@ -2214,7 +2214,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	/* Create new AS-external-LSA instance. */
 	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (ei && IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: Could not originate AS-external-LSA",
 				&ei->p.prefix);
