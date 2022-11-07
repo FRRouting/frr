@@ -4638,7 +4638,22 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (aspath_get_last_as(attr->aspath) == bgp->as)
 			do_loop_check = 0;
 
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+	/* When using bgp ipv4 labeled session, the local prefix is
+	 * received by a peer, and finds out that the proposed prefix
+	 * and its next-hop are the same. To avoid a route loop locally,
+	 * no nexthop entry is referenced for that prefix, and the route
+	 * will not be selected.
+	 *
+	 * As it has been done for ipv4-unicast, apply the following fix
+	 * for labeled address families: when the received peer is
+	 * a route reflector, the prefix has to be selected, even if the
+	 * route can not be installed locally.
+	 */
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) ||
+	    (safi == SAFI_UNICAST && !peer->afc[afi][safi] &&
+	     peer->afc[afi][SAFI_LABELED_UNICAST] &&
+	     CHECK_FLAG(peer->af_flags[afi][SAFI_LABELED_UNICAST],
+			PEER_FLAG_REFLECTOR_CLIENT)))
 		bgp_nht_param_prefix = NULL;
 	else
 		bgp_nht_param_prefix = p;
