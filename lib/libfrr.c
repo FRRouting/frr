@@ -39,7 +39,6 @@
 #include "db.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
-#include "debug.h"
 #include "frrcu.h"
 #include "frr_pthread.h"
 #include "defaults.h"
@@ -814,8 +813,6 @@ struct thread_master *frr_init(void)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
-
-	debug_init_cli();
 
 	return master;
 }

@@ -22,7 +22,6 @@
 #endif
 
 #include "lib/libfrr.h"
-#include "lib/debug.h"
 #include "lib/frratomic.h"
 #include "lib/frr_pthread.h"
 #include "lib/memory.h"

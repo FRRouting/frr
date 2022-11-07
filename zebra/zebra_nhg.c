@@ -27,7 +27,6 @@
 #include "lib/routemap.h"
 #include "lib/mpls.h"
 #include "lib/jhash.h"
-#include "lib/debug.h"
 #include "lib/lib_errors.h"
 
 #include "zebra/connected.h"

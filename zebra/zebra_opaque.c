@@ -19,7 +19,6 @@
 
 
 #include <zebra.h>
-#include "lib/debug.h"
 #include "lib/frr_pthread.h"
 #include "lib/stream.h"
 #include "zebra/debug.h"
