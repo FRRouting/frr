@@ -30,6 +30,19 @@
 
 DEFINE_MGROUP(NHRPD, "NHRP");
 
+/* clang-format off */
+DEFINE_DEBUGFLAG(NHRP_KERNEL, "nhrp kernel",
+	"NHRP information\n"
+	"Kernel messages\n"
+);
+
+/* FIXME: enabled by default? */
+DEFINE_DEBUGFLAG(NHRP_COMMON, "nhrp common",
+	"NHRP information\n"
+	"Common messages (default)\n"
+);
+/* clang-format on */
+
 unsigned int debug_flags = 0;
 
 struct thread_master *master;
@@ -84,7 +97,7 @@ static void nhrp_sigusr1(void)
 
 static void nhrp_request_stop(void)
 {
-	debugf(NHRP_DEBUG_COMMON, "Exiting...");
+	dbg(NHRP_COMMON, "Exiting...");
 	frr_early_fini();
 
 	nhrp_shortcut_terminate();
@@ -95,7 +108,7 @@ static void nhrp_request_stop(void)
 	nhrp_vc_terminate();
 	vrf_terminate();
 
-	debugf(NHRP_DEBUG_COMMON, "Done.");
+	dbg(NHRP_COMMON, "Done.");
 	frr_fini();
 
 	exit(0);

@@ -49,10 +49,10 @@ static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 			 sockunion_get_addr(&p->vc->remote.nbma), addrlen,
 			 addrlen == 4 ? ETH_P_IP : ETH_P_IPV6);
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Multicast Packet: %pSU -> %pSU, ret = %d, size = %zu, addrlen = %zu",
-	       &p->vc->local.nbma, &p->vc->remote.nbma, ret, zbuf_used(zb),
-	       addrlen);
+	dbg(NHRP_COMMON,
+	    "Multicast Packet: %pSU -> %pSU, ret = %d, size = %zu, addrlen = %zu",
+	    &p->vc->local.nbma, &p->vc->remote.nbma, ret, zbuf_used(zb),
+	    addrlen);
 }
 
 static void nhrp_multicast_forward_nbma(union sockunion *nbma_addr,
@@ -132,9 +132,8 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!ctx.ifp)
 		return;
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Intercepted multicast packet leaving %s len %zu",
-	       ctx.ifp->name, zbuf_used(ctx.pkt));
+	dbg(NHRP_COMMON, "Intercepted multicast packet leaving %s len %zu",
+	    ctx.ifp->name, zbuf_used(ctx.pkt));
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
 		nhrp_multicast_foreach(ctx.ifp, afi, nhrp_multicast_forward,
@@ -153,9 +152,9 @@ static void netlink_mcast_log_recv(struct thread *t)
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
 		while ((n = znl_nlmsg_pull(&zb, &payload)) != NULL) {
-			debugf(NHRP_DEBUG_COMMON,
-			       "Netlink-mcast-log: Received msg_type %u, msg_flags %u",
-			       n->nlmsg_type, n->nlmsg_flags);
+			dbg(NHRP_COMMON,
+			    "Netlink-mcast-log: Received msg_type %u, msg_flags %u",
+			    n->nlmsg_type, n->nlmsg_flags);
 			switch (n->nlmsg_type) {
 			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
 				netlink_mcast_log_handler(n, &payload);
@@ -197,7 +196,7 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 		THREAD_OFF(netlink_mcast_log_thread);
 		close(netlink_mcast_log_fd);
 		netlink_mcast_log_fd = -1;
-		debugf(NHRP_DEBUG_COMMON, "De-register nflog group");
+		dbg(NHRP_COMMON, "De-register nflog group");
 	}
 	netlink_mcast_nflog_group = nlgroup;
 	if (nlgroup) {
@@ -209,8 +208,8 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 		thread_add_read(master, netlink_mcast_log_recv, 0,
 				netlink_mcast_log_fd,
 				&netlink_mcast_log_thread);
-		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d",
-		       netlink_mcast_nflog_group);
+		dbg(NHRP_COMMON, "Register nflog group: %d",
+		    netlink_mcast_nflog_group);
 	}
 }
 
@@ -242,7 +241,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	};
 	nhrp_mcastlist_add_tail(&nifp->afi[afi].mcastlist_head, mcast);
 
-	debugf(NHRP_DEBUG_COMMON, "Adding multicast entry (%pSU)", nbma_addr);
+	dbg(NHRP_COMMON, "Adding multicast entry (%pSU)", nbma_addr);
 
 	return NHRP_OK;
 }
@@ -257,8 +256,7 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 		if (!sockunion_same(&mcast->nbma_addr, nbma_addr))
 			continue;
 
-		debugf(NHRP_DEBUG_COMMON, "Deleting multicast entry (%pSU)",
-		       nbma_addr);
+		dbg(NHRP_COMMON, "Deleting multicast entry (%pSU)", nbma_addr);
 
 		nhrp_multicast_free(ifp, mcast);
 
@@ -275,8 +273,8 @@ void nhrp_multicast_interface_del(struct interface *ifp)
 	afi_t afi;
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		debugf(NHRP_DEBUG_COMMON, "Cleaning up multicast entries (%zu)",
-		       nhrp_mcastlist_count(&nifp->afi[afi].mcastlist_head));
+		dbg(NHRP_COMMON, "Cleaning up multicast entries (%zu)",
+		    nhrp_mcastlist_count(&nifp->afi[afi].mcastlist_head));
 
 		frr_each_safe (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head,
 			       mcast) {

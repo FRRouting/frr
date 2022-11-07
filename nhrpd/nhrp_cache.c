@@ -69,7 +69,7 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 {
 	struct nhrp_interface *nifp = c->ifp->info;
 
-	debugf(NHRP_DEBUG_COMMON, "Deleting cache entry");
+	dbg(NHRP_COMMON, "Deleting cache entry");
 	nhrp_cache_counts[c->cur.type]--;
 	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
 	assert(!notifier_active(&c->notifier_list));
@@ -161,8 +161,8 @@ void nhrp_cache_interface_del(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
 
-	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted cache entries (%lu)",
-	       nifp->cache_hash ? nifp->cache_hash->count : 0);
+	dbg(NHRP_COMMON, "Cleaning up undeleted cache entries (%lu)",
+	    nifp->cache_hash ? nifp->cache_hash->count : 0);
 
 	if (nifp->cache_hash) {
 		hash_iterate(nifp->cache_hash, do_nhrp_cache_free, NULL);
@@ -230,19 +230,18 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			 * should be updated to this value and not vc's remote
 			 * nbma.
 			 */
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa set): Update binding for %pSU dev %s from (deleted) peer.vc.nbma %pSU to %pSU",
-			       &c->remote_addr, p->ifp->name,
-			       &p->vc->remote.nbma, &c->cur.remote_nbma_natoa);
+			dbg(NHRP_COMMON,
+			    "cache (remote_nbma_natoa set): Update binding for %pSU dev %s from (deleted) peer.vc.nbma %pSU to %pSU",
+			    &c->remote_addr, p->ifp->name, &p->vc->remote.nbma,
+			    &c->cur.remote_nbma_natoa);
 
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &c->cur.remote_nbma_natoa);
 		} else {
 			/* update binding to peer->vc->remote->nbma */
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa unspec): Update binding for %pSU dev %s from (deleted) to peer.vc.nbma %pSU",
-			       &c->remote_addr, p->ifp->name,
-			       &p->vc->remote.nbma);
+			dbg(NHRP_COMMON,
+			    "cache (remote_nbma_natoa unspec): Update binding for %pSU dev %s from (deleted) to peer.vc.nbma %pSU",
+			    &c->remote_addr, p->ifp->name, &p->vc->remote.nbma);
 
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &p->vc->remote.nbma);
@@ -265,13 +264,12 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 		/* debug the reason for peer check fail */
 		if (p) {
 			nifp = p->ifp->info;
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache (peer check failed: online?%d requested?%d ipsec?%d)",
-			       p->online, p->requested,
-			       nifp->ipsec_profile ? 1 : 0);
+			dbg(NHRP_COMMON,
+			    "cache (peer check failed: online?%d requested?%d ipsec?%d)",
+			    p->online, p->requested,
+			    nifp->ipsec_profile ? 1 : 0);
 		} else
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache (peer check failed: no p)");
+			dbg(NHRP_COMMON, "cache (peer check failed: no p)");
 
 		if (c->nhrp_route_installed) {
 			nhrp_route_update_nhrp(&pfx, NULL);
@@ -344,8 +342,8 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
 	char buf[3][SU_ADDRSTRLEN];
 
-	debugf(NHRP_DEBUG_COMMON, "cache: %s %pSU: %s", c->ifp->name,
-	       &c->remote_addr, (const char *)arg);
+	dbg(NHRP_COMMON, "cache: %s %pSU: %s", c->ifp->name, &c->remote_addr,
+	    (const char *)arg);
 
 	nhrp_reqid_free(&nhrp_event_reqid, r);
 
@@ -366,14 +364,15 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 					     nhrp_cache_peer_notifier);
 
 		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache: update binding for %pSU dev %s from (deleted) peer.vc.nbma %s to %pSU",
-			       &c->remote_addr, c->ifp->name,
-			       (c->cur.peer ? sockunion2str(
-					&c->cur.peer->vc->remote.nbma, buf[1],
-					sizeof(buf[1]))
-					    : "(no peer)"),
-			       &c->cur.remote_nbma_natoa);
+			dbg(NHRP_COMMON,
+			    "cache: update binding for %pSU dev %s from (deleted) peer.vc.nbma %s to %pSU",
+			    &c->remote_addr, c->ifp->name,
+			    (c->cur.peer
+				     ? sockunion2str(
+					       &c->cur.peer->vc->remote.nbma,
+					       buf[1], sizeof(buf[1]))
+				     : "(no peer)"),
+			    &c->cur.remote_nbma_natoa);
 
 			if (c->cur.peer)
 				netlink_update_binding(
@@ -452,9 +451,9 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 
 	nhrp_cache_reset_new(c);
 	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
-		       type, buf[0], nbma_oa ? buf[1] : "(NULL)");
+		dbg(NHRP_COMMON,
+		    "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
+		    type, buf[0], nbma_oa ? buf[1] : "(NULL)");
 		if (holding_time > 0)
 			c->cur.expires = monotime(NULL) + holding_time;
 
@@ -472,11 +471,11 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 
 		nhrp_peer_unref(p);
 	} else {
-		debugf(NHRP_DEBUG_COMMON,
-		       "cache: new type %u/%u, or peer %s, or mtu %u/%u, nbma %s --> %s (map %d)",
-		       c->cur.type, type, (c->cur.peer == p) ? "same" : "diff",
-		       c->cur.mtu, mtu, buf[0], nbma_oa ? buf[1] : "(NULL)",
-		       c->map);
+		dbg(NHRP_COMMON,
+		    "cache: new type %u/%u, or peer %s, or mtu %u/%u, nbma %s --> %s (map %d)",
+		    c->cur.type, type, (c->cur.peer == p) ? "same" : "diff",
+		    c->cur.mtu, mtu, buf[0], nbma_oa ? buf[1] : "(NULL)",
+		    c->map);
 		c->new.type = type;
 		c->new.peer = p;
 		c->new.mtu = mtu;

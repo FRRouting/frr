@@ -40,11 +40,11 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 	nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
 
 	if (p->hdr->type != NHRP_PACKET_REGISTRATION_REPLY) {
-		debugf(NHRP_DEBUG_COMMON, "NHS: Registration failed");
+		dbg(NHRP_COMMON, "NHS: Registration failed");
 		return;
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "NHS: Reg.reply received");
+	dbg(NHRP_COMMON, "NHS: Reg.reply received");
 
 	ok = 1;
 	while ((cie = nhrp_cie_pull(&p->payload, p->hdr, &cie_nbma, &cie_proto))
@@ -52,14 +52,14 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 		proto = sockunion_family(&cie_proto) != AF_UNSPEC
 				? &cie_proto
 				: &p->src_proto;
-		debugf(NHRP_DEBUG_COMMON, "NHS: CIE registration: %pSU: %d",
-		       proto, cie->code);
+		dbg(NHRP_COMMON, "NHS: CIE registration: %pSU: %d", proto,
+		    cie->code);
 		if (!((cie->code == NHRP_CODE_SUCCESS)
 		      || (cie->code == NHRP_CODE_ADMINISTRATIVELY_PROHIBITED
 			  && nhs->hub)))
 			ok = 0;
 		mtu = ntohs(cie->mtu);
-		debugf(NHRP_DEBUG_COMMON, "NHS: CIE MTU: %d", mtu);
+		dbg(NHRP_COMMON, "NHS: CIE MTU: %d", mtu);
 	}
 
 	if (!ok)
@@ -76,9 +76,9 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 			    && nhrp_cie_pull(&extpl, p->hdr, &cie_nbma,
 					     &cie_proto)) {
 				nifp->nat_nbma = cie_nbma;
-				debugf(NHRP_DEBUG_IF,
-				       "%s: NAT detected, real NBMA address: %pSU",
-				       ifp->name, &nifp->nbma);
+				dbg(NHRP_IF,
+				    "%s: NAT detected, real NBMA address: %pSU",
+				    ifp->name, &nifp->nbma);
 			}
 			break;
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
@@ -129,9 +129,8 @@ static void nhrp_reg_timeout(struct thread *t)
 		 * can be re-established correctly
 		 */
 		if (r->peer && r->peer->vc && r->peer->vc->ike_uniqueid) {
-			debugf(NHRP_DEBUG_COMMON,
-			       "Terminating IPSec Connection for %d",
-			       r->peer->vc->ike_uniqueid);
+			dbg(NHRP_COMMON, "Terminating IPSec Connection for %d",
+			    r->peer->vc->ike_uniqueid);
 			vici_terminate_vc_by_ike_id(r->peer->vc->ike_uniqueid);
 			r->peer->vc->ike_uniqueid = 0;
 		}
@@ -150,8 +149,8 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 	case NOTIFY_PEER_DOWN:
 	case NOTIFY_PEER_IFCONFIG_CHANGED:
 	case NOTIFY_PEER_MTU_CHANGED:
-		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %pSU",
-		       &r->peer->vc->remote.nbma);
+		dbg(NHRP_COMMON, "NHS: Flush timer for %pSU",
+		    &r->peer->vc->remote.nbma);
 		THREAD_OFF(r->t_register);
 		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
 				      &r->t_register);
@@ -173,8 +172,8 @@ static void nhrp_reg_send_req(struct thread *t)
 	struct nhrp_cie_header *cie;
 
 	if (!nhrp_peer_check(r->peer, 2)) {
-		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
-		       &r->peer->vc->remote.nbma);
+		dbg(NHRP_COMMON, "NHS: Waiting link for %pSU",
+		    &r->peer->vc->remote.nbma);
 		thread_add_timer(master, nhrp_reg_send_req, r, 120,
 				 &r->t_register);
 		return;
@@ -188,8 +187,8 @@ static void nhrp_reg_send_req(struct thread *t)
 	if (sockunion_family(dst_proto) == AF_UNSPEC)
 		dst_proto = &if_ad->addr;
 
-	debugf(NHRP_DEBUG_COMMON, "NHS: Register %pSU -> %pSU (timeout %d)",
-	       &if_ad->addr, dst_proto, r->timeout);
+	dbg(NHRP_COMMON, "NHS: Register %pSU -> %pSU (timeout %d)",
+	    &if_ad->addr, dst_proto, r->timeout);
 
 	/* No protocol address configured for tunnel interface */
 	if (sockunion_family(&if_ad->addr) == AF_UNSPEC)
@@ -401,8 +400,8 @@ void nhrp_nhs_interface_del(struct interface *ifp)
 	afi_t afi;
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		debugf(NHRP_DEBUG_COMMON, "Cleaning up nhs entries (%zu)",
-		       nhrp_nhslist_count(&nifp->afi[afi].nhslist_head));
+		dbg(NHRP_COMMON, "Cleaning up nhs entries (%zu)",
+		    nhrp_nhslist_count(&nifp->afi[afi].nhslist_head));
 
 		frr_each_safe (nhrp_nhslist, &nifp->afi[afi].nhslist_head, nhs)
 			nhrp_nhs_free(nifp, afi, nhs);

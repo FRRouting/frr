@@ -139,8 +139,8 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 	if (sa->vc && vc) {
 		/* Notify old VC of migration */
 		sa->vc->abort_migration = 0;
-		debugf(NHRP_DEBUG_COMMON, "IPsec NBMA change of %pSU to %pSU",
-		       &sa->vc->remote.nbma, &vc->remote.nbma);
+		dbg(NHRP_COMMON, "IPsec NBMA change of %pSU to %pSU",
+		    &sa->vc->remote.nbma, &vc->remote.nbma);
 		nhrp_vc_update(sa->vc, NOTIFY_VC_IPSEC_UPDATE_NBMA);
 		abort_migration = sa->vc->abort_migration;
 	}
