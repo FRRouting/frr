@@ -19,16 +19,24 @@
  */
 #include <zebra.h>
 
+#include "zlog_debug.h"
 #include "vrf.h"
 
+#include "pbr.h"
 #include "pbr_vrf.h"
 #include "pbr_memory.h"
 #include "pbr_map.h"
-#include "pbr_debug.h"
 #include "pbr_nht.h"
 #include "pbr_zebra.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF");
+
+/* clang-format off */
+DEFINE_DEBUGFLAG_STATIC(PBR_EVENT, "pbr events",
+	PBR_STR
+	"Events\n"
+);
+/* clang-format on */
 
 static struct pbr_vrf *pbr_vrf_alloc(void)
 {
@@ -48,7 +56,7 @@ static int pbr_vrf_new(struct vrf *vrf)
 {
 	struct pbr_vrf *pbr_vrf;
 
-	DEBUGD(&pbr_dbg_event, "%u (%s)", vrf->vrf_id, vrf->name);
+	dbg(PBR_EVENT, "%u (%s)", vrf->vrf_id, vrf->name);
 
 	pbr_vrf = pbr_vrf_alloc();
 	vrf->info = pbr_vrf;
@@ -59,7 +67,7 @@ static int pbr_vrf_new(struct vrf *vrf)
 
 static int pbr_vrf_enable(struct vrf *vrf)
 {
-	DEBUGD(&pbr_dbg_event, "%u (%s)", vrf->vrf_id, vrf->name);
+	dbg(PBR_EVENT, "%u (%s)", vrf->vrf_id, vrf->name);
 
 	pbr_nht_vrf_update(vrf->info);
 	pbr_map_vrf_update(vrf->info);
@@ -69,7 +77,7 @@ static int pbr_vrf_enable(struct vrf *vrf)
 
 static int pbr_vrf_disable(struct vrf *vrf)
 {
-	DEBUGD(&pbr_dbg_event, "%u (%s)", vrf->vrf_id, vrf->name);
+	dbg(PBR_EVENT, "%u (%s)", vrf->vrf_id, vrf->name);
 
 	pbr_map_vrf_update(vrf->info);
 
@@ -78,7 +86,7 @@ static int pbr_vrf_disable(struct vrf *vrf)
 
 static int pbr_vrf_delete(struct vrf *vrf)
 {
-	DEBUGD(&pbr_dbg_event, "%u (%s)", vrf->vrf_id, vrf->name);
+	dbg(PBR_EVENT, "%u (%s)", vrf->vrf_id, vrf->name);
 
 	/*
 	 * Make sure vrf is always marked disabled first so we handle
