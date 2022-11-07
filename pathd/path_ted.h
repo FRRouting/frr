@@ -28,7 +28,6 @@ extern "C" {
 
 #include <stdbool.h>
 
-#include <debug.h>
 #include "linklist.h"
 #include "log.h"
 #include "command.h"
@@ -66,28 +65,9 @@ struct ted_state {
 	uint32_t link_state_delay_interval;
 	/* delay interval refresh in seconds */
 	uint32_t segment_list_refresh_interval;
-	struct debug dbg;
 };
 
 DECLARE_DEBUGFLAG(PATH_TED);
-
-/* Debug flags. */
-#define PATH_TED_DEBUG_BASIC   0x01
-#define PATH_TED_ERROR(fmt, ...)                                               \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC)) \
-			DEBUGE(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
-#define PATH_TED_WARN(fmt, ...)                                                \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))  \
-			DEBUGW(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
-#define PATH_TED_INFO(fmt, ...)                                                \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC)) \
-			DEBUGI(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
 
 /* TED management functions */
 bool path_ted_is_initialized(void);

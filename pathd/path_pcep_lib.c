@@ -21,7 +21,6 @@
 #include "memory.h"
 #include "printfrr.h"
 
-#include <debug.h>
 #include "pceplib/pcep_utils_counters.h"
 #include "pceplib/pcep_timers.h"
 #include "pathd/path_errors.h"

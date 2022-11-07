@@ -20,7 +20,6 @@
 #define _PATH_PCEP_H_
 
 #include <stdbool.h>
-#include <debug.h>
 #include <netinet/tcp.h>
 #include "memory.h"
 #include "pceplib/pcep_utils_logging.h"
@@ -40,29 +39,6 @@ DECLARE_DEBUGFLAG(PCEP_LIB);
 #define MAX_PCC 32
 #define MAX_PCE 32
 #define MAX_TAG_SIZE 50
-#define PCEP_DEBUG_MODE_PCEPLIB 0x08
-#define PCEP_DEBUG_PCEPLIB(priority, fmt, ...)                                 \
-	do {                                                                   \
-		switch (priority) {                                            \
-		case LOG_INFO:                                                 \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGI(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
-			break;                                                 \
-		case LOG_NOTICE:                                               \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGN(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
-			break;                                                 \
-		case LOG_WARNING:                                              \
-		case LOG_ERR:                                                  \
-		default:                                                       \
-			zlog(priority, "pcep: " fmt, ##__VA_ARGS__);           \
-			break;                                                 \
-		}                                                              \
-	} while (0)
 
 struct pcep_config_group_opts {
 	char name[64];
@@ -288,7 +264,6 @@ struct path {
 };
 
 struct pcep_glob {
-	struct debug dbg;
 	struct thread_master *master;
 	struct frr_pthread *fpt;
 	uint8_t num_pce_opts_cli;

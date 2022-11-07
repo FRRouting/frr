@@ -98,7 +98,7 @@ uint32_t path_ted_start_importing_igp(const char *daemon_str)
 	}
 
 	if (ls_register(zclient, false /*client*/) != 0) {
-		PATH_TED_ERROR("%s: PATHD-TED: Unable to register Link State",
+		zlog_err("%s: PATHD-TED: Unable to register Link State",
 			       __func__);
 		ted_state_g.import = IMPORT_UNKNOWN;
 		status = 1;
@@ -107,7 +107,7 @@ uint32_t path_ted_start_importing_igp(const char *daemon_str)
 			dbg(PATH_TED, "PATHD-TED: Importing %s data ON",
 			    PATH_TED_IGP_PRINT(ted_state_g.import));
 		} else {
-			PATH_TED_WARN("%s: PATHD-TED: Importing %s data OFF",
+			zlog_warn("%s: PATHD-TED: Importing %s data OFF",
 				      __func__,
 				      PATH_TED_IGP_PRINT(ted_state_g.import));
 			ted_state_g.import = IMPORT_UNKNOWN;
@@ -128,7 +128,7 @@ uint32_t path_ted_stop_importing_igp(void)
 
 	if (ted_state_g.import != IMPORT_UNKNOWN) {
 		if (ls_unregister(zclient, false /*client*/) != 0) {
-			PATH_TED_ERROR(
+			zlog_err(
 				"%s: PATHD-TED: Unable to unregister Link State",
 				__func__);
 			status = 1;
@@ -149,7 +149,7 @@ uint32_t path_ted_stop_importing_igp(void)
 bool path_ted_is_initialized(void)
 {
 	if (ted_state_g.ted == NULL) {
-		PATH_TED_WARN("PATHD TED ls_ted not initialized");
+		zlog_warn("PATHD TED ls_ted not initialized");
 		return false;
 	}
 
@@ -168,10 +168,10 @@ struct ls_ted *path_ted_create_ted(void)
 	struct ls_ted *ted = ls_ted_new(TED_KEY, TED_NAME, TED_ASN);
 
 	if (ted == NULL) {
-		PATH_TED_ERROR("%s Unable to initialize TED Key [%d] ASN [%d] Name [%s]",
+		zlog_err("%s Unable to initialize TED Key [%d] ASN [%d] Name [%s]",
 			 __func__, TED_KEY, TED_ASN, TED_NAME);
 	} else {
-		PATH_TED_INFO("%s Initialize TED Key [%d] ASN [%d] Name [%s]",
+		zlog_info("%s Initialize TED Key [%d] ASN [%d] Name [%s]",
 			 __func__, TED_KEY, TED_ASN, TED_NAME);
 	}
 
@@ -184,7 +184,7 @@ uint32_t path_ted_rcvd_message(struct ls_message *msg)
 		return 1;
 
 	if (msg == NULL) {
-		PATH_TED_ERROR("%s: [rcv ted] TED received NULL message ",
+		zlog_err("%s: [rcv ted] TED received NULL message ",
 			       __func__);
 		return 1;
 	}
@@ -532,7 +532,7 @@ enum zclient_send_status path_ted_link_state_sync(void)
 
 	status = ls_request_sync(zclient);
 	if (status == -1) {
-		PATH_TED_ERROR(
+		zlog_err(
 			"%s: PATHD-TED: Opaque error asking for TED sync ",
 			__func__);
 		return status;
@@ -647,7 +647,7 @@ uint32_t path_ted_get_current_igp(uint32_t igp)
 	case ISIS_L1:
 	case ISIS_L2:
 		if (ted_state_g.import != IMPORT_ISIS) {
-			PATH_TED_ERROR(
+			zlog_err(
 				"%s: [rcv ted] Incorrect igp origin wait (%s) got (%s) ",
 				__func__,
 				PATH_TED_IGP_PRINT(ted_state_g.import),
@@ -657,7 +657,7 @@ uint32_t path_ted_get_current_igp(uint32_t igp)
 		break;
 	case OSPFv2:
 		if (ted_state_g.import != IMPORT_OSPFv2) {
-			PATH_TED_ERROR(
+			zlog_err(
 				"%s: [rcv ted] Incorrect igp origin wait (%s) got (%s) ",
 				__func__,
 				PATH_TED_IGP_PRINT(ted_state_g.import),
