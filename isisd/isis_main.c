@@ -40,6 +40,7 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "affinitymap.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -167,6 +168,7 @@ struct frr_signal_t isisd_signals[] = {
 };
 
 
+/* clang-format off */
 static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -174,8 +176,10 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_isisd_info,
 #endif /* ifndef FABRICD */
 	&frr_route_map_info,
+	&frr_affinity_map_info,
 	&frr_vrf_info,
 };
+/* clang-format on */
 
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
@@ -263,6 +267,8 @@ int main(int argc, char **argv, char **envp)
 	isis_sr_init();
 	lsp_init();
 	mt_init();
+
+	affinity_map_init();
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init(master);
