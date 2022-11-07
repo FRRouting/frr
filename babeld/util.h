@@ -28,8 +28,16 @@ THE SOFTWARE.
 #include "babel_main.h"
 #include "log.h"
 #include "memory.h"
+#include "zlog_debug.h"
 
 DECLARE_MGROUP(BABELD);
+
+DECLARE_DEBUGFLAG(BABEL_COMMON);
+DECLARE_DEBUGFLAG(BABEL_KERNEL);
+DECLARE_DEBUGFLAG(BABEL_FILTER);
+DECLARE_DEBUGFLAG(BABEL_TIMEOUT);
+DECLARE_DEBUGFLAG(BABEL_IF);
+DECLARE_DEBUGFLAG(BABEL_ROUTE);
 
 #if defined(i386) || defined(__mc68020__) || defined(__x86_64__)
 #define DO_NTOHS(_d, _s) do{ _d = ntohs(*(const unsigned short*)(_s)); }while(0)
@@ -120,30 +128,5 @@ void in6addr_to_uchar(unsigned char *dest, const struct in6_addr *src);
 void uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src);
 int daemonise(void);
 extern const unsigned char v4prefix[16];
-
-/* If debugging is disabled, we want to avoid calling format_address
-   for every omitted debugging message.  So debug is a macro.  But
-   vararg macros are not portable. */
-#if defined NO_DEBUG
-
-#define debugf(...) do {} while(0)
-
-#else /* NO_DEBUG */
-
-/* some levels */
-#define BABEL_DEBUG_COMMON      (1 << 0)
-#define BABEL_DEBUG_KERNEL      (1 << 1)
-#define BABEL_DEBUG_FILTER      (1 << 2)
-#define BABEL_DEBUG_TIMEOUT     (1 << 3)
-#define BABEL_DEBUG_IF          (1 << 4)
-#define BABEL_DEBUG_ROUTE       (1 << 5)
-#define BABEL_DEBUG_ALL         (0xFFFF)
-
-#define debugf(level, ...) \
-do { \
-if(UNLIKELY(debug & level)) zlog_debug(__VA_ARGS__);     \
-} while(0)
-
-#endif /* NO_DEBUG */
 
 #endif /* BABEL_UTIL_H */

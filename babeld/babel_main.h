@@ -27,7 +27,6 @@ THE SOFTWARE.
 
 extern struct timeval babel_now;         /* current time             */
 extern struct thread_master *master;     /* quagga's threads handler */
-extern int debug;
 extern int resend_delay;
 
 extern unsigned char myid[8];

@@ -89,9 +89,6 @@ babel_config_write (struct vty *vty)
     int afi;
     int i;
 
-    /* list enabled debug modes */
-    lines += debug_babel_config_write (vty);
-
     if (!babel_routing_process)
         return lines;
     vty_out (vty, "router babel\n");
@@ -217,7 +214,7 @@ static void babel_init_routing_process(struct thread *thread)
     myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
     babel_load_state_file();
-    debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
+    dbg(BABEL_COMMON, "My ID is : %s.", format_eui64(myid));
     babel_initial_noise();
     babel_main_loop(thread);/* this function self-add to the t_update thread */
 }
@@ -339,8 +336,8 @@ static void babel_main_loop(struct thread *thread)
         /* if there is no timeout, we must wait. */
         if(timeval_compare(&tv, &babel_now) > 0) {
             timeval_minus(&tv, &tv, &babel_now);
-            debugf(BABEL_DEBUG_TIMEOUT, "babel main loop : timeout: %lld msecs",
-                   (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000);
+            dbg(BABEL_TIMEOUT, "babel main loop : timeout: %lld msecs",
+                (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000);
             /* it happens often to have less than 1 ms, it's bad. */
             timeval_add_msec(&tv, &tv, 300);
             babel_set_timer(&tv);
@@ -441,7 +438,7 @@ printIfMin(struct timeval *tv, int cmd, const char *tag, const char *ifname)
             }
             break;
         case 2: /* print message */
-            debugf(BABEL_DEBUG_TIMEOUT, "next timeout due to: %s", curr_tag);
+            dbg(BABEL_TIMEOUT, "next timeout due to: %s", curr_tag);
             break;
         default:
             break;
@@ -455,7 +452,7 @@ babel_fill_with_next_timeout(struct timeval *tv)
 #define printIfMin(a,b,c,d)
 #else
 #define printIfMin(a,b,c,d) \
-  if (UNLIKELY(debug & BABEL_DEBUG_TIMEOUT)) {printIfMin(a,b,c,d);}
+  if (dbg_check(BABEL_TIMEOUT)) {printIfMin(a,b,c,d);}
 
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
     struct interface *ifp = NULL;

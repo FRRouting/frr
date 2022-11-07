@@ -59,7 +59,6 @@ struct thread_master *master;     /* quagga's threads handler */
 struct timeval babel_now;         /* current time             */
 
 unsigned char myid[8];            /* unique id (mac address of an interface) */
-int debug = 0;
 
 int resend_delay = -1;
 
@@ -313,9 +312,8 @@ babel_load_state_file(void)
                     flog_err(EC_BABEL_CONFIG, "Couldn't parse babel-state.");
                 } else {
                     struct timeval realnow;
-                    debugf(BABEL_DEBUG_COMMON,
-                           "Got %s %d %ld from babel-state.",
-                           format_eui64(sid), s, t);
+                    dbg(BABEL_COMMON, "Got %s %d %ld from babel-state.",
+                        format_eui64(sid), s, t);
                     gettimeofday(&realnow, NULL);
                     if(memcmp(sid, myid, 8) == 0)
                         myseqno = seqno_plus(s, 1);
@@ -340,18 +338,18 @@ fini:
 static void
 babel_exit_properly(void)
 {
-    debugf(BABEL_DEBUG_COMMON, "Exiting...");
+    dbg(BABEL_COMMON, "Exiting...");
     usleep(roughly(10000));
     gettime(&babel_now);
 
     /* Uninstall and flush all routes. */
-    debugf(BABEL_DEBUG_COMMON, "Uninstall routes.");
+    dbg(BABEL_COMMON, "Uninstall routes.");
     flush_all_routes();
     babel_interface_close_all();
     babel_zebra_close_connexion();
     babel_save_state_file();
-    debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
-    debugf(BABEL_DEBUG_COMMON, "Done.");
+    dbg(BABEL_COMMON, "Remove pid file.");
+    dbg(BABEL_COMMON, "Done.");
     frr_fini();
 
     exit(0);
@@ -363,7 +361,7 @@ babel_save_state_file(void)
     int fd;
     int rc;
 
-    debugf(BABEL_DEBUG_COMMON, "Save state file.");
+    dbg(BABEL_COMMON, "Save state file.");
     fd = open(state_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
     if(fd < 0) {
         flog_err_sys(EC_LIB_SYSTEM_CALL, "creat(babel-state): %s",

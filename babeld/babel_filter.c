@@ -58,17 +58,16 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
     if (babel_ifp != NULL && babel_ifp->list[distribute]) {
         if (access_list_apply (babel_ifp->list[distribute], &p)
             == FILTER_DENY) {
-            debugf(BABEL_DEBUG_FILTER,
-                   "%pFX filtered by distribute %s",
-                   &p, output ? "out" : "in");
+            dbg(BABEL_FILTER, "%pFX filtered by distribute %s", &p,
+                output ? "out" : "in");
             return INFINITY;
 	}
     }
     if (babel_ifp != NULL && babel_ifp->prefix[distribute]) {
         if (prefix_list_apply (babel_ifp->prefix[distribute], &p)
             == PREFIX_DENY) {
-            debugf(BABEL_DEBUG_FILTER, "%pFX filtered by distribute %s",
-                   &p, output ? "out" : "in");
+            dbg(BABEL_FILTER, "%pFX filtered by distribute %s", &p,
+                output ? "out" : "in");
             return INFINITY;
 	}
     }
@@ -83,8 +82,8 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
 
             if (alist) {
                 if (access_list_apply (alist, &p) == FILTER_DENY) {
-                    debugf(BABEL_DEBUG_FILTER,"%pFX filtered by distribute %s",
-                           &p, output ? "out" : "in");
+                    dbg(BABEL_FILTER, "%pFX filtered by distribute %s", &p,
+                        output ? "out" : "in");
                     return INFINITY;
 		}
 	    }
@@ -93,8 +92,8 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
             plist = prefix_list_lookup (p.family, dist->prefix[distribute]);
             if (plist) {
                 if (prefix_list_apply (plist, &p) == PREFIX_DENY) {
-                    debugf(BABEL_DEBUG_FILTER,"%pFX filtered by distribute %s",
-                           &p, output ? "out" : "in");
+                    dbg(BABEL_FILTER, "%pFX filtered by distribute %s", &p,
+                        output ? "out" : "in");
                     return INFINITY;
 		}
 	    }
