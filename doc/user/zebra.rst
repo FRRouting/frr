@@ -296,7 +296,7 @@ the default route.
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
-.. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib]
+.. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib] [json]
 
    Show nexthop tracking status for address resolution.  If vrf is not specified
    then display the default vrf.  If ``all`` is specified show all vrf address
@@ -305,6 +305,7 @@ the default route.
    indicates that the operator wants to see the multicast rib address resolution
    table.  An alternative form of the command is ``show ip import-check`` and this
    form of the command is deprecated at this point in time.
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 PBR dataplane programming
 =========================
