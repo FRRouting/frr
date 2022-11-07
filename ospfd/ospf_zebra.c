@@ -569,6 +569,7 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 	struct zapi_nexthop *znh_backup;
 	struct listnode *node;
 	struct ospf_path *path;
+	struct interface *ifp;
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -580,7 +581,12 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 		/* Set Label for local Prefix */
 		znh = &zl.nexthops[zl.nexthop_num++];
 		znh->type = NEXTHOP_TYPE_IFINDEX;
-		znh->ifindex = srp->nhlfe.ifindex;
+
+		ifp = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
+		if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY))
+			znh->ifindex = ifname2ifindex("lo", VRF_DEFAULT);
+		else
+			znh->ifindex = srp->nhlfe.ifindex;
 		znh->label_num = 1;
 		znh->labels[0] = srp->nhlfe.label_out;
 
