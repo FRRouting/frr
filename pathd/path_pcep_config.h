@@ -20,7 +20,6 @@
 #define _PATH_PCEP_CONFIG_H_
 
 #include <stdbool.h>
-#include <debug.h>
 
 #include "pathd/path_pcep.h"
 

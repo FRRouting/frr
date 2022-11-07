@@ -19,6 +19,7 @@
 #include <zebra.h>
 
 #include "memory.h"
+#include "printfrr.h"
 
 #include <debug.h>
 #include "pceplib/pcep_utils_counters.h"
@@ -109,7 +110,7 @@ struct pcep_lib_pthread_passthrough_data {
 
 int pcep_lib_initialize(struct frr_pthread *fpt)
 {
-	PCEP_DEBUG("Initializing pceplib");
+	dbg(PCEP_BASIC, "Initializing pceplib");
 
 	/* Register pceplib logging callback */
 	register_logger(pceplib_logging_cb);
@@ -143,7 +144,7 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 
 void pcep_lib_finalize(void)
 {
-	PCEP_DEBUG("Finalizing pceplib");
+	dbg(PCEP_BASIC, "Finalizing pceplib");
 	if (!destroy_pcc()) {
 		flog_err(EC_PATH_PCEP_PCC_FINI, "failed to finalize pceplib");
 	}
@@ -591,9 +592,19 @@ pcep_session *pcep_lib_copy_pcep_session(pcep_session *sess)
 
 int pceplib_logging_cb(int priority, const char *fmt, va_list args)
 {
-	char buffer[1024];
-	vsnprintf(buffer, sizeof(buffer), fmt, args);
-	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
+	struct va_format va_fmt = {
+		.fmt = fmt,
+
+		/* '__va_list_tag (*)[1]' from incompatible pointer type
+		 * '__va_list_tag **' (?!?! - cast avoids warning)
+		 */
+		.va = (va_list *)&args,
+	};
+
+	if (priority == LOG_DEBUG)
+		dbg(PCEP_LIB, "pceplib: %pVA", &va_fmt);
+	else
+		zlog(priority, "pceplib: %pVA", &va_fmt);
 	return 0;
 }
 

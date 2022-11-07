@@ -179,7 +179,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 		.stop = pcep_ctrl_halt_cb,
 	};
 
-	PCEP_DEBUG("Initializing pcep module controller");
+	dbg(PCEP_BASIC, "Initializing pcep module controller");
 
 	/* Create and start the FRR pthread */
 	*fpt = frr_pthread_new(&attr, "PCEP thread", "pcep_controller");
@@ -220,7 +220,7 @@ int pcep_ctrl_finalize(struct frr_pthread **fpt)
 
 	int ret = 0;
 
-	PCEP_DEBUG("Finalizing pcep module controller");
+	dbg(PCEP_BASIC, "Finalizing pcep module controller");
 
 	if (*fpt != NULL) {
 		frr_pthread_stop(*fpt, NULL);
@@ -383,8 +383,9 @@ void pcep_thread_remove_candidate_path_segments(struct ctrl_state *ctrl_state,
 		return;
 	/* Will be deleted when the event is handled */
 	char *originator = XSTRDUP(MTYPE_PCEP, pcc_state->originator);
-	PCEP_DEBUG("schedule candidate path segments removal for originator %s",
-		   originator);
+	dbg(PCEP_BASIC,
+	    "schedule candidate path segments removal for originator %s",
+	    originator);
 	send_to_main(ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
 		     PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP, originator);
 }
@@ -405,8 +406,9 @@ void pcep_thread_cancel_timer(struct thread **thread)
 	}
 
 	struct pcep_ctrl_timer_data *data = THREAD_ARG(*thread);
-	PCEP_DEBUG("Timer %s / %s canceled", timer_type_name(data->timer_type),
-		   timeout_type_name(data->timeout_type));
+	dbg(PCEP_BASIC, "Timer %s / %s canceled",
+	    timer_type_name(data->timer_type),
+	    timeout_type_name(data->timeout_type));
 	if (data != NULL) {
 		XFREE(MTYPE_PCEP, data);
 	}
@@ -422,8 +424,8 @@ void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread)
 {
 	uint32_t delay = backoff_delay(MAX_RECONNECT_DELAY, 1, retry_count);
-	PCEP_DEBUG("Schedule RECONNECT_PCC for %us (retry %u)", delay,
-		   retry_count);
+	dbg(PCEP_BASIC, "Schedule RECONNECT_PCC for %us (retry %u)", delay,
+	    retry_count);
 	schedule_thread_timer(ctrl_state, pcc_id, TM_RECONNECT_PCC,
 			      TO_UNDEFINED, delay, NULL, thread);
 }
@@ -435,8 +437,8 @@ void pcep_thread_schedule_timeout(struct ctrl_state *ctrl_state, int pcc_id,
 {
 	assert(timeout_type > TO_UNDEFINED);
 	assert(timeout_type < TO_MAX);
-	PCEP_DEBUG("Schedule timeout %s for %us",
-		   timeout_type_name(timeout_type), delay);
+	dbg(PCEP_BASIC, "Schedule timeout %s for %us",
+	    timeout_type_name(timeout_type), delay);
 	schedule_thread_timer(ctrl_state, pcc_id, TM_TIMEOUT, timeout_type,
 			      delay, param, thread);
 }
@@ -446,7 +448,7 @@ void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 					struct thread **thread,
 					pcep_ctrl_thread_callback timer_cb)
 {
-	PCEP_DEBUG("Schedule PCEPLIB_TIMER for %us", delay);
+	dbg(PCEP_BASIC, "Schedule PCEPLIB_TIMER for %us", delay);
 	schedule_thread_timer_with_cb(ctrl_state, 0, TM_PCEPLIB_TIMER,
 				      TO_UNDEFINED, delay, payload, thread,
 				      timer_cb);
@@ -456,7 +458,7 @@ void pcep_thread_schedule_session_timeout(struct ctrl_state *ctrl_state,
 					  int pcc_id, int delay,
 					  struct thread **thread)
 {
-	PCEP_DEBUG("Schedule session_timeout interval for %us", delay);
+	dbg(PCEP_BASIC, "Schedule session_timeout interval for %us", delay);
 	schedule_thread_timer(ctrl_state, pcc_id, TM_SESSION_TIMEOUT_PCC,
 			      TO_UNDEFINED, delay, NULL, thread);
 }
@@ -1029,11 +1031,11 @@ int set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	if (current_pcc_idx >= 0) {
 		ctrl_state->pcc[current_pcc_idx] = pcc_state;
 		ctrl_state->pcc_count++;
-		PCEP_DEBUG("added pce pcc_id (%d) idx (%d)",
-			   pcep_pcc_get_pcc_id(pcc_state), current_pcc_idx);
+		dbg(PCEP_BASIC, "added pce pcc_id (%d) idx (%d)",
+		    pcep_pcc_get_pcc_id(pcc_state), current_pcc_idx);
 		return 0;
 	} else {
-		PCEP_DEBUG("Max number of pce ");
+		dbg(PCEP_BASIC, "Max number of pce ");
 		return 1;
 	}
 }
@@ -1050,8 +1052,8 @@ void remove_pcc_state(struct ctrl_state *ctrl_state,
 	if (idx != -1) {
 		ctrl_state->pcc[idx] = NULL;
 		ctrl_state->pcc_count--;
-		PCEP_DEBUG("removed pce pcc_id (%d)",
-			   pcep_pcc_get_pcc_id(pcc_state));
+		dbg(PCEP_BASIC, "removed pce pcc_id (%d)",
+		    pcep_pcc_get_pcc_id(pcc_state));
 	}
 }
 

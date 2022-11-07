@@ -36,6 +36,7 @@ extern "C" {
 #include "prefix.h"
 #include "zclient.h"
 #include "link_state.h"
+#include "zlog_debug.h"
 
 extern struct ted_state ted_state_g;
 #define TIMER_RETRY_DELAY 5 /* Timeout in seconds between ls sync request */
@@ -67,14 +68,11 @@ struct ted_state {
 	uint32_t segment_list_refresh_interval;
 	struct debug dbg;
 };
+
+DECLARE_DEBUGFLAG(PATH_TED);
+
 /* Debug flags. */
 #define PATH_TED_DEBUG_BASIC   0x01
-#define PATH_TED_DEBUG(fmt, ...)                                               \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))  \
-			DEBUGD(&ted_state_g.dbg, "mpls-te: " fmt, ##__VA_ARGS__); \
-	} while (0)
-
 #define PATH_TED_ERROR(fmt, ...)                                               \
 	do {                                                                   \
 		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC)) \
