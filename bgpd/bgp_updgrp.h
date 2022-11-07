@@ -304,6 +304,8 @@ struct updwalk_context {
 	updgrp_walkcb cb;
 	void *context;
 	uint8_t flags;
+	bool uj;
+	json_object *json_updategrps;
 
 #define UPDWALK_FLAGS_ADVQUEUE   (1 << 0)
 #define UPDWALK_FLAGS_ADVERTISED (1 << 1)
@@ -365,7 +367,7 @@ extern void update_bgp_group_init(struct bgp *);
 extern void udpate_bgp_group_free(struct bgp *);
 
 extern void update_group_show(struct bgp *bgp, afi_t afi, safi_t safi,
-			      struct vty *vty, uint64_t subgrp_id);
+			      struct vty *vty, uint64_t subgrp_id, bool uj);
 extern void update_group_show_stats(struct bgp *bgp, struct vty *vty);
 extern void update_group_adjust_peer(struct peer_af *paf);
 extern int update_group_adjust_soloness(struct peer *peer, int set);

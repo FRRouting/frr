@@ -15531,28 +15531,30 @@ DEFUN (show_ip_bgp_route_leak,
 }
 
 static void bgp_show_all_instances_updgrps_vty(struct vty *vty, afi_t afi,
-					       safi_t safi)
+					       safi_t safi, bool uj)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		vty_out(vty, "\nInstance %s:\n",
-			(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-				? VRF_DEFAULT_NAME
-				: bgp->name);
-		update_group_show(bgp, afi, safi, vty, 0);
+		if (!uj)
+			vty_out(vty, "\nInstance %s:\n",
+				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+					? VRF_DEFAULT_NAME
+					: bgp->name);
+
+		update_group_show(bgp, afi, safi, vty, 0, uj);
 	}
 }
 
 static int bgp_show_update_groups(struct vty *vty, const char *name, int afi,
-				  int safi, uint64_t subgrp_id)
+				  int safi, uint64_t subgrp_id, bool uj)
 {
 	struct bgp *bgp;
 
 	if (name) {
 		if (strmatch(name, "all")) {
-			bgp_show_all_instances_updgrps_vty(vty, afi, safi);
+			bgp_show_all_instances_updgrps_vty(vty, afi, safi, uj);
 			return CMD_SUCCESS;
 		} else {
 			bgp = bgp_lookup_by_name(name);
@@ -15562,13 +15564,13 @@ static int bgp_show_update_groups(struct vty *vty, const char *name, int afi,
 	}
 
 	if (bgp)
-		update_group_show(bgp, afi, safi, vty, subgrp_id);
+		update_group_show(bgp, afi, safi, vty, subgrp_id, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] update-groups [SUBGROUP-ID] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -15576,7 +15578,8 @@ DEFUN (show_ip_bgp_updgrps,
        BGP_AFI_HELP_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Detailed info about dynamic update groups\n"
-       "Specific subgroup to display detailed info for\n")
+       "Specific subgroup to display detailed info for\n"
+       JSON_STR)
 {
 	char *vrf = NULL;
 	afi_t afi = AFI_IP6;
@@ -15584,6 +15587,8 @@ DEFUN (show_ip_bgp_updgrps,
 	uint64_t subgrp_id = 0;
 
 	int idx = 0;
+
+	bool uj = use_json(argc, argv);
 
 	/* show [ip] bgp */
 	if (argv_find(argv, argc, "ip", &idx))
@@ -15606,19 +15611,22 @@ DEFUN (show_ip_bgp_updgrps,
 	if (argv[idx]->type == VARIABLE_TKN)
 		subgrp_id = strtoull(argv[idx]->arg, NULL, 10);
 
-	return (bgp_show_update_groups(vty, vrf, afi, safi, subgrp_id));
+	return (bgp_show_update_groups(vty, vrf, afi, safi, subgrp_id, uj));
 }
 
 DEFUN (show_bgp_instance_all_ipv6_updgrps,
        show_bgp_instance_all_ipv6_updgrps_cmd,
-       "show [ip] bgp <view|vrf> all update-groups",
+       "show [ip] bgp <view|vrf> all update-groups [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
-       "Detailed info about dynamic update groups\n")
+       "Detailed info about dynamic update groups\n"
+       JSON_STR)
 {
-	bgp_show_all_instances_updgrps_vty(vty, AFI_IP6, SAFI_UNICAST);
+	bool uj = use_json(argc, argv);
+
+	bgp_show_all_instances_updgrps_vty(vty, AFI_IP6, SAFI_UNICAST, uj);
 	return CMD_SUCCESS;
 }
 
@@ -15635,7 +15643,7 @@ DEFUN (show_bgp_l2vpn_evpn_updgrps,
 	char *vrf = NULL;
 	uint64_t subgrp_id = 0;
 
-	bgp_show_update_groups(vty, vrf, AFI_L2VPN, SAFI_EVPN, subgrp_id);
+	bgp_show_update_groups(vty, vrf, AFI_L2VPN, SAFI_EVPN, subgrp_id, 0);
 	return CMD_SUCCESS;
 }
 
