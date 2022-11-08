@@ -1563,14 +1563,6 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 
 	/* Set SID for SRv6 VPN */
 	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) {
-		struct listnode *node;
-		struct srv6_locator_chunk *chunk;
-		for (ALL_LIST_ELEMENTS_RO(to_bgp->srv6_locator_chunks, node,
-					  chunk))
-			if (!strcmp(to_bgp->srv6_locator_name,
-				    chunk->locator_name))
-				break;
-
 		encode_label(
 			from_bgp->vpn_policy[afi].tovpn_sid_transpose_label,
 			&label);
@@ -1579,40 +1571,27 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior =
-			afi == AFI_IP
-				? IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT4
-				: (afi == AFI_IP6
-					   ? IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT6
-					   : 0xffff);
-		if (chunk) {
-			static_attr.srv6_l3vpn->loc_block_len =
-				chunk->block_bits_length;
-			static_attr.srv6_l3vpn->loc_node_len =
-				chunk->node_bits_length;
-			static_attr.srv6_l3vpn->transposition_len =
-				chunk->function_bits_length ?: 16;
-			static_attr.srv6_l3vpn->transposition_offset =
-				chunk->block_bits_length +
-				chunk->node_bits_length;
-		} else {
-			static_attr.srv6_l3vpn->loc_block_len =
-				from_bgp->vpn_policy[afi]
-					.tovpn_sid_locator->block_bits_length;
-			static_attr.srv6_l3vpn->loc_node_len =
-				from_bgp->vpn_policy[afi]
-					.tovpn_sid_locator->node_bits_length;
-			static_attr.srv6_l3vpn->transposition_len =
-				from_bgp->vpn_policy[afi]
-					.tovpn_sid_locator
-					->function_bits_length;
-			static_attr.srv6_l3vpn->transposition_offset =
-				from_bgp->vpn_policy[afi]
-					.tovpn_sid_locator->block_bits_length +
-				from_bgp->vpn_policy[afi]
-					.tovpn_sid_locator->node_bits_length;
-			;
-		}
-
+		afi == AFI_IP
+			? IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT4
+			: (afi == AFI_IP6
+				   ? IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT6
+				   : 0xffff);
+		static_attr.srv6_l3vpn->loc_block_len =
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->block_bits_length;
+		static_attr.srv6_l3vpn->loc_node_len =
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->node_bits_length;
+		static_attr.srv6_l3vpn->transposition_len =
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator
+				->function_bits_length;
+		static_attr.srv6_l3vpn->transposition_offset =
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->block_bits_length +
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->node_bits_length;
+		
 		static_attr.srv6_l3vpn->func_len =
 			from_bgp->vpn_policy[afi]
 				.tovpn_sid_locator->function_bits_length;
