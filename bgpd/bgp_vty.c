@@ -1917,13 +1917,6 @@ DEFUN (bgp_confederation_peers,
 
 	for (i = idx_asn; i < argc; i++) {
 		as = strtoul(argv[i]->arg, NULL, 10);
-
-		if (bgp->as == as) {
-			vty_out(vty,
-				"%% Local member-AS not allowed in confed peer list\n");
-			continue;
-		}
-
 		bgp_confederation_peers_add(bgp, as);
 	}
 	return CMD_SUCCESS;

@@ -2197,7 +2197,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	/* If we're a CONFED we need to loop check the CONFED ID too */
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
-		if (aspath_loop_check(piattr->aspath, bgp->confed_id)) {
+		if (aspath_loop_check_confed(piattr->aspath, bgp->confed_id)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
 					"%pBP [Update:SEND] suppress announcement to peer AS %u is AS path.",
@@ -4113,15 +4113,22 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* AS path loop check. */
 	if (do_loop_check) {
-		if (aspath_loop_check(attr->aspath, bgp->as) > allowas_in ||
-		    (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION) &&
-		     (aspath_loop_check(attr->aspath, bgp->confed_id) >
-		      allowas_in))) {
+		if (aspath_loop_check(attr->aspath, bgp->as) >
+		    peer->allowas_in[afi][safi]) {
 			peer->stat_pfx_aspath_loop++;
 			reason = "as-path contains our own AS;";
 			goto filtered;
 		}
 	}
+
+	/* If we're a CONFED we need to loop check the CONFED ID too */
+	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION) && do_loop_check)
+		if (aspath_loop_check_confed(attr->aspath, bgp->confed_id) >
+		    peer->allowas_in[afi][safi]) {
+			peer->stat_pfx_aspath_loop++;
+			reason = "as-path contains our own confed AS;";
+			goto filtered;
+		}
 
 	/* Route reflector originator ID check. If ACCEPT_OWN mechanism is
 	 * enabled, then take care of that too.
