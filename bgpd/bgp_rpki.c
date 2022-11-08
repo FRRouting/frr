@@ -372,10 +372,9 @@ inline bool is_stopping(void)
 	return rtr_is_stopping;
 }
 
-static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
+static void pfx_record_to_prefix(struct pfx_record *record,
+				 struct prefix *prefix)
 {
-	struct prefix *prefix = prefix_new();
-
 	prefix->prefixlen = record->min_len;
 
 	if (record->prefix.ver == LRTR_IPV4) {
@@ -386,15 +385,13 @@ static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
 		ipv6_addr_to_network_byte_order(record->prefix.u.addr6.addr,
 						prefix->u.prefix6.s6_addr32);
 	}
-
-	return prefix;
 }
 
 static void bgpd_sync_callback(struct thread *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct prefix *prefix;
+	struct prefix prefix;
 	struct pfx_record rec;
 
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
@@ -417,7 +414,7 @@ static void bgpd_sync_callback(struct thread *thread)
 		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
 		return;
 	}
-	prefix = pfx_record_to_prefix(&rec);
+	pfx_record_to_prefix(&rec, &prefix);
 
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
@@ -433,7 +430,7 @@ static void bgpd_sync_callback(struct thread *thread)
 			struct bgp_dest *match;
 			struct bgp_dest *node;
 
-			match = bgp_table_subtree_lookup(table, prefix);
+			match = bgp_table_subtree_lookup(table, &prefix);
 			node = match;
 
 			while (node) {
@@ -448,8 +445,6 @@ static void bgpd_sync_callback(struct thread *thread)
 				bgp_dest_unlock_node(match);
 		}
 	}
-
-	prefix_free(&prefix);
 }
 
 static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
