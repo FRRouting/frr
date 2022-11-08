@@ -461,13 +461,13 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 {
 	struct route_node *rn;
 	struct prefix_ipv4 addr;
-	struct ospf_interface *oi, *match;
+	struct ospf_interface *oi, *match, *unnumbered_match;
 
 	addr.family = AF_INET;
 	addr.prefix = src;
 	addr.prefixlen = IPV4_MAX_BITLEN;
 
-	match = NULL;
+	match = unnumbered_match = NULL;
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		oi = rn->info;
@@ -482,7 +482,7 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 			continue;
 
 		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
-			match = oi;
+			unnumbered_match = oi;
 		else if (prefix_match(CONNECTED_PREFIX(oi->connected),
 				      (struct prefix *)&addr)) {
 			if ((match == NULL) || (match->address->prefixlen
@@ -491,7 +491,10 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 		}
 	}
 
-	return match;
+	if (match)
+		return match;
+
+	return unnumbered_match;
 }
 
 void ospf_interface_fifo_flush(struct ospf_interface *oi)
