@@ -671,7 +671,7 @@ void bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
-	if (bgp->as == as)
+	if (!bgp)
 		return;
 
 	if (bgp_confederation_peers_check(bgp, as))
@@ -687,8 +687,8 @@ void bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as == as) {
-				(void)peer_sort(peer);
 				peer->local_as = bgp->as;
+				(void)peer_sort(peer);
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->status)) {
 					peer->last_reset =
@@ -738,8 +738,8 @@ void bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 	if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as == as) {
-				(void)peer_sort(peer);
 				peer->local_as = bgp->confed_id;
+				(void)peer_sort(peer);
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->status)) {
 					peer->last_reset =

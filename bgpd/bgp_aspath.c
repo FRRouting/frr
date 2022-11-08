@@ -1187,6 +1187,33 @@ int aspath_loop_check(struct aspath *aspath, as_t asno)
 	return count;
 }
 
+/* AS path loop check.  If aspath contains asno
+ * that is a confed id then return >= 1.
+ */
+int aspath_loop_check_confed(struct aspath *aspath, as_t asno)
+{
+	struct assegment *seg;
+	int count = 0;
+
+	if (aspath == NULL || aspath->segments == NULL)
+		return 0;
+
+	seg = aspath->segments;
+
+	while (seg) {
+		unsigned int i;
+
+		for (i = 0; i < seg->length; i++)
+			if (seg->type != AS_CONFED_SEQUENCE &&
+			    seg->type != AS_CONFED_SET && seg->as[i] == asno)
+				count++;
+
+		seg = seg->next;
+	}
+	return count;
+}
+
+
 /* When all of AS path is private AS return 1.  */
 bool aspath_private_as_check(struct aspath *aspath)
 {
