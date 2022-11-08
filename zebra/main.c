@@ -73,6 +73,8 @@ int retain_mode = 0;
 
 int graceful_restart;
 
+bool fib_no_kernel = false;
+
 bool v6_rr_semantics = false;
 
 /* Receive buffer size for kernel control sockets */
@@ -85,6 +87,7 @@ uint32_t rcvbufsize = 128 * 1024;
 
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
+#define OPTION_FIB_NO_KERNEL   2002
 
 /* Command line options. */
 const struct option longopts[] = {
@@ -95,6 +98,7 @@ const struct option longopts[] = {
 	{"retain", no_argument, NULL, 'r'},
 	{"graceful_restart", required_argument, NULL, 'K'},
 	{"asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD},
+	{"fib_no_kernel", no_argument, NULL, OPTION_FIB_NO_KERNEL},
 #ifdef HAVE_NETLINK
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
@@ -312,6 +316,7 @@ int main(int argc, char **argv)
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
 		"  -A, --asic-offload       FRR is interacting with an asic underneath the linux kernel\n"
+		"      --fib_no_kernel      Install routes to FIB but not kernel.\n"
 #ifdef HAVE_NETLINK
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
 		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
@@ -365,6 +370,9 @@ int main(int argc, char **argv)
 			break;
 		case 'K':
 			graceful_restart = atoi(optarg);
+			break;
+		case OPTION_FIB_NO_KERNEL:
+			fib_no_kernel = true;
 			break;
 		case 's':
 			rcvbufsize = atoi(optarg);

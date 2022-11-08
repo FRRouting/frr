@@ -5971,7 +5971,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			TAILQ_INSERT_TAIL(&work_list, ctx, zd_q_entries);
 	}
 
-	kernel_update_multi(&work_list);
+	if (!fib_no_kernel)
+		kernel_update_multi(&work_list);
 
 	TAILQ_FOREACH_SAFE (ctx, &work_list, zd_q_entries, tctx) {
 		kernel_dplane_handle_result(ctx);

@@ -625,6 +625,8 @@ extern pid_t pid;
 
 extern bool v6_rr_semantics;
 
+extern bool fib_no_kernel;
+
 #ifdef __cplusplus
 }
 #endif
