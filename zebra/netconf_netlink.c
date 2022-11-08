@@ -106,9 +106,11 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 * to do a good job of not sending data that is mixed/matched
 	 * across families
 	 */
+#ifdef AF_MPLS
 	if (ncm->ncm_family == AF_MPLS)
 		afi = AFI_IP;
 	else
+#endif /* AF_MPLS */
 		afi = family2afi(ncm->ncm_family);
 
 	netlink_parse_rtattr(tb, NETCONFA_MAX, netconf_rta(ncm), len);
