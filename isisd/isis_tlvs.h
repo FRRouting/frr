@@ -441,6 +441,9 @@ enum ext_subtlv_size {
 	ISIS_SUBTLV_HDR_SIZE = 2,
 	ISIS_SUBTLV_DEF_SIZE = 4,
 
+	/* RFC 7308 */
+	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
+
 	ISIS_SUBTLV_MAX_SIZE = 180
 };
 
@@ -471,6 +474,7 @@ enum ext_subtlv_size {
 #define EXT_RES_BW		0x040000
 #define EXT_AVA_BW		0x080000
 #define EXT_USE_BW		0x100000
+#define EXT_EXTEND_ADM_GRP 0x200000
 
 /*
  * This structure groups all Extended IS Reachability subTLVs.
@@ -491,6 +495,7 @@ struct isis_ext_subtlvs {
 	uint32_t status;
 
 	uint32_t adm_group; /* Resource Class/Color - RFC 5305 */
+	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
 	/* Link Local/Remote Identifiers - RFC 5307 */
 	uint32_t local_llri;
 	uint32_t remote_llri;

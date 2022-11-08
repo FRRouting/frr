@@ -136,6 +136,8 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 	init_item_list(&ext->adj_sid);
 	init_item_list(&ext->lan_sid);
 
+	admin_group_init(&ext->ext_admin_group);
+
 	return ext;
 }
 
@@ -155,6 +157,9 @@ void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext)
 		next_item = item->next;
 		XFREE(MTYPE_ISIS_SUBTLV, item);
 	}
+
+	admin_group_term(&ext->ext_admin_group);
+
 	XFREE(MTYPE_ISIS_SUBTLV, ext);
 }
 
@@ -233,6 +238,9 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 		SET_SUBTLV(rv, EXT_LAN_ADJ_SID);
 	}
 
+	rv->ext_admin_group.bitmap.data = NULL;
+	admin_group_copy(&rv->ext_admin_group, &exts->ext_admin_group);
+
 	return rv;
 }
 
@@ -241,6 +249,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				    struct sbuf *buf, struct json_object *json,
 				    int indent, uint16_t mtid)
 {
+	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
 	char aux_buf[255];
 	char cnt_buf[255];
 
@@ -250,9 +259,37 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			snprintfrr(aux_buf, sizeof(aux_buf), "0x%x",
 				   exts->adm_group);
 			json_object_string_add(json, "adm-group", aux_buf);
-		} else
+		} else {
 			sbuf_push(buf, indent, "Administrative Group: 0x%x\n",
 				  exts->adm_group);
+			sbuf_push(buf, indent + 2, "Bit positions: %s\n",
+				  admin_group_standard_print(
+					  admin_group_buf,
+					  indent + strlen("Admin Group: "),
+					  exts->adm_group));
+		}
+	}
+
+	if (IS_SUBTLV(exts, EXT_EXTEND_ADM_GRP) &&
+	    admin_group_nb_words(&exts->ext_admin_group) != 0) {
+		if (!json) {
+			/* TODO json after fix show database detail json */
+			sbuf_push(buf, indent, "Ext Admin Group: %s\n",
+				  admin_group_string(
+					  admin_group_buf,
+					  ADMIN_GROUP_PRINT_MAX_SIZE,
+					  indent + strlen("Ext Admin Group: "),
+					  &exts->ext_admin_group));
+			admin_group_print(admin_group_buf,
+					  indent + strlen("Ext Admin Group: "),
+					  &exts->ext_admin_group);
+			if (admin_group_buf[0] != '\0' &&
+			    (buf->pos + strlen(admin_group_buf) +
+			     SBUF_DEFAULT_SIZE / 2) < buf->size)
+				sbuf_push(buf, indent + 2,
+					  "Bit positions: %s\n",
+					  admin_group_buf);
+		}
 	}
 	if (IS_SUBTLV(exts, EXT_LLRI)) {
 		if (json) {
@@ -685,6 +722,24 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
 		stream_putl(s, exts->adm_group);
 	}
+	if (IS_SUBTLV(exts, EXT_EXTEND_ADM_GRP) &&
+	    admin_group_nb_words(&exts->ext_admin_group) != 0) {
+		/* Extended Administrative Group */
+		size_t ag_length;
+		size_t ag_length_pos;
+		struct admin_group *ag;
+
+		stream_putc(s, ISIS_SUBTLV_EXT_ADMIN_GRP);
+		ag_length_pos = stream_get_endp(s);
+		stream_putc(s, 0); /* length will be filled later*/
+
+		ag = &exts->ext_admin_group;
+		for (size_t i = 0; i < admin_group_nb_words(ag); i++)
+			stream_putl(s, ag->bitmap.data[i]);
+
+		ag_length = stream_get_endp(s) - ag_length_pos - 1;
+		stream_putc_at(s, ag_length_pos, ag_length);
+	}
 	if (IS_SUBTLV(exts, EXT_LLRI)) {
 		stream_putc(s, ISIS_SUBTLV_LLRI);
 		stream_putc(s, ISIS_SUBTLV_LLRI_SIZE);
@@ -828,6 +883,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 	uint8_t sum = 0;
 	uint8_t subtlv_type;
 	uint8_t subtlv_len;
+	size_t nb_groups;
+	uint32_t val;
 
 	struct isis_extended_reach *rv = dest;
 	struct isis_ext_subtlvs *exts = isis_alloc_ext_subtlvs();
@@ -862,6 +919,15 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				exts->adm_group = stream_getl(s);
 				SET_SUBTLV(exts, EXT_ADM_GRP);
 			}
+			break;
+		case ISIS_SUBTLV_EXT_ADMIN_GRP:
+			nb_groups = subtlv_len / sizeof(uint32_t);
+			for (size_t i = 0; i < nb_groups; i++) {
+				val = stream_getl(s);
+				admin_group_bulk_set(&exts->ext_admin_group,
+						     val, i);
+			}
+			SET_SUBTLV(exts, EXT_EXTEND_ADM_GRP);
 			break;
 		case ISIS_SUBTLV_LLRI:
 			if (subtlv_len != ISIS_SUBTLV_LLRI_SIZE) {
