@@ -5517,11 +5517,11 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 		if (!peer_established(peer))
 			return;
 
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG)) {
-			bgp_soft_reconfig_in(peer, afi, safi);
-		} else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
-			   CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
+		if (bgp_soft_reconfig_in(peer, afi, safi))
+			return;
+
+		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
+		    CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_SM_ADV) &&
 			    (CHECK_FLAG(peer->af_cap[afi][safi],
@@ -7777,10 +7777,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 	    || stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
 		/* If neighbor has soft reconfiguration inbound flag.
 		   Use Adj-RIB-In database. */
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG))
-			bgp_soft_reconfig_in(peer, afi, safi);
-		else {
+		if (!bgp_soft_reconfig_in(peer, afi, safi)) {
 			/* If neighbor has route refresh capability, send route
 			   refresh
 			   message to the peer. */

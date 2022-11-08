@@ -242,19 +242,18 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (!peer_established(peer))
 			continue;
 
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG)) {
-			if (bgp_debug_update(peer, NULL, NULL, 1))
-				zlog_debug("Processing EVPN MAC interface change on peer %s (inbound, soft-reconfig)",
-					   peer->host);
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"Processing EVPN MAC interface change on peer %s %s",
+				peer->host,
+				CHECK_FLAG(peer->af_flags[afi][safi],
+					   PEER_FLAG_SOFT_RECONFIG)
+					? "(inbound, soft-reconfig)"
+					: "");
 
-			bgp_soft_reconfig_in(peer, afi, safi);
-		} else {
+		if (!bgp_soft_reconfig_in(peer, afi, safi)) {
 			struct bgp_table *table = bgp->rib[afi][safi];
 
-			if (bgp_debug_update(peer, NULL, NULL, 1))
-				zlog_debug("Processing EVPN MAC interface change on peer %s",
-					   peer->host);
 			bgp_process_mac_rescan_table(bgp, peer, table, macaddr);
 		}
 	}
