@@ -35,6 +35,7 @@
 #include "buffer.h"
 #include "log.h"
 #include "northbound_cli.h"
+#include "admin_group.h"
 #include "lib/if_clippy.c"
 
 DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
@@ -1106,6 +1107,45 @@ const char *if_link_type_str(enum zebra_link_type llt)
 	return NULL;
 }
 
+bool if_link_params_cmp(struct if_link_params *iflp1,
+			struct if_link_params *iflp2)
+{
+	struct if_link_params iflp1_copy, iflp2_copy;
+
+	/* Extended admin-groups in if_link_params contain pointers.
+	 * They cannot be compared with memcpy.
+	 * Make copies of if_link_params without ext. admin-groups
+	 * and compare separately the ext. admin-groups.
+	 */
+	memcpy(&iflp1_copy, iflp1, sizeof(struct if_link_params));
+	memset(&iflp1_copy.ext_admin_grp, 0, sizeof(struct admin_group));
+
+	memcpy(&iflp2_copy, iflp2, sizeof(struct if_link_params));
+	memset(&iflp2_copy.ext_admin_grp, 0, sizeof(struct admin_group));
+
+	if (memcmp(&iflp1_copy, &iflp2_copy, sizeof(struct if_link_params)))
+		return false;
+
+	if (!admin_group_cmp(&iflp1->ext_admin_grp, &iflp2->ext_admin_grp))
+		return false;
+
+	return true;
+}
+
+void if_link_params_copy(struct if_link_params *dst, struct if_link_params *src)
+{
+	struct admin_group dst_ag;
+
+	/* backup the admin_group structure that contains a pointer */
+	memcpy(&dst_ag, &dst->ext_admin_grp, sizeof(struct admin_group));
+	/* copy the if_link_params structure */
+	memcpy(dst, src, sizeof(struct if_link_params));
+	/* restore the admin_group structure */
+	memcpy(&dst->ext_admin_grp, &dst_ag, sizeof(struct admin_group));
+	/* copy src->ext_admin_grp data to dst->ext_admin_grp data memory */
+	admin_group_copy(&dst->ext_admin_grp, &src->ext_admin_grp);
+}
+
 struct if_link_params *if_link_params_get(struct interface *ifp)
 {
 	return ifp->link_params;
@@ -1153,6 +1193,8 @@ struct if_link_params *if_link_params_init(struct interface *ifp)
 
 	iflp = XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
 
+	admin_group_init(&iflp->ext_admin_grp);
+
 	ifp->link_params = iflp;
 
 	return iflp;
@@ -1160,6 +1202,10 @@ struct if_link_params *if_link_params_init(struct interface *ifp)
 
 void if_link_params_free(struct interface *ifp)
 {
+	if (!ifp->link_params)
+		return;
+
+	admin_group_term(&ifp->link_params->ext_admin_grp);
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
 }
 

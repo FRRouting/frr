@@ -302,6 +302,16 @@ extern void zebra_if_update_all_links(struct zebra_ns *zns);
  */
 extern int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
 					uint32_t new_protodown_rc);
+
+extern void cli_show_legacy_admin_group(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
+extern void cli_show_affinity_mode(struct vty *vty,
+				   const struct lyd_node *dnode,
+				   bool show_defaults);
+extern void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
+			      bool show_defaults);
+
 /**
  * Set protodown with single reason.
  */

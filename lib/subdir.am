@@ -7,6 +7,7 @@ lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_ve
 lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
+	lib/admin_group.c \
 	lib/affinitymap.c \
 	lib/affinitymap_cli.c \
 	lib/affinitymap_northbound.c \
@@ -164,6 +165,7 @@ clippy_scan += \
 	# end
 
 pkginclude_HEADERS += \
+	lib/admin_group.h \
 	lib/affinitymap.h \
 	lib/agg_table.h \
 	lib/atomlist.h \

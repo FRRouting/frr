@@ -18,6 +18,7 @@
  */
 
 #include <zebra.h>
+#include "interface.h"
 #include "northbound.h"
 #include "libfrr.h"
 #include "zebra_nb.h"
@@ -349,6 +350,41 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.modify = lib_interface_zebra_bandwidth_modify,
 				.destroy = lib_interface_zebra_bandwidth_destroy,
 			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/bandwidth",
+			.cbs = {
+				.modify = lib_interface_zebra_bandwidth_modify,
+				.destroy = lib_interface_zebra_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/legacy-admin-group",
+			.cbs = {
+				.modify = lib_interface_zebra_legacy_admin_group_modify,
+				.destroy = lib_interface_zebra_legacy_admin_group_destroy,
+				.cli_show = cli_show_legacy_admin_group,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities",
+			.cbs = {
+				.cli_show = cli_show_affinity,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity",
+			.cbs = {
+				.create = lib_interface_zebra_affinity_create,
+				.destroy = lib_interface_zebra_affinity_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params/affinity-mode",
+			.cbs = {
+				.modify = lib_interface_zebra_affinity_mode_modify,
+				.cli_show = cli_show_affinity_mode,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",

@@ -33,6 +33,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "lib/northbound_cli.h"
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
@@ -3300,6 +3301,8 @@ DEFUN (no_link_params_enable,
        NO_STR
        "Disable link parameters on this interface\n")
 {
+	char xpath[XPATH_MAXLEN];
+	int ret;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
@@ -3307,6 +3310,18 @@ DEFUN (no_link_params_enable,
 			   ifp->name);
 
 	if_link_params_free(ifp);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
+		ifp->name);
+	if (yang_dnode_exists(running_config->dnode, xpath))
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	/* force protocols to update LINK STATE due to parameters change */
 	if (if_is_operative(ifp))
@@ -3473,16 +3488,27 @@ DEFUN (link_params_unrsv_bw,
 	return CMD_SUCCESS;
 }
 
-DEFUN (link_params_admin_grp,
-       link_params_admin_grp_cmd,
-       "admin-grp BITPATTERN",
-       "Administrative group membership\n"
-       "32-bit Hexadecimal value (e.g. 0xa1)\n")
+DEFPY_YANG(link_params_admin_grp, link_params_admin_grp_cmd,
+	   "admin-grp BITPATTERN",
+	   "Administrative group membership\n"
+	   "32-bit Hexadecimal value (e.g. 0xa1)\n")
 {
+	char xpath[XPATH_MAXLEN];
 	int idx_bitpattern = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct if_link_params *iflp = if_link_params_get(ifp);
 	unsigned long value;
+	char value_str[11];
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/affinities",
+		ifp->name);
+	if (yang_dnode_exists(running_config->dnode, xpath)) {
+		vty_out(vty,
+			"cannot use the admin-grp command when affinity is set\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (sscanf(argv[idx_bitpattern]->arg, "0x%lx", &value) != 1) {
 		vty_out(vty, "link_params_admin_grp: fscanf: %s\n",
@@ -3490,27 +3516,29 @@ DEFUN (link_params_admin_grp,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!iflp)
-		iflp = if_link_params_enable(ifp);
+	if (value > 0xFFFFFFFF) {
+		vty_out(vty, "value must be not be superior to 0xFFFFFFFF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	/* Update Administrative Group if needed */
-	link_param_cmd_set_uint32(ifp, &iflp->admin_grp, LP_ADM_GRP, value);
+	snprintf(value_str, sizeof(value_str), "%ld", value);
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(
+		vty, "./frr-zebra:zebra/link-params/legacy-admin-group",
+		NB_OP_MODIFY, value_str);
+
+	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (no_link_params_admin_grp,
-       no_link_params_admin_grp_cmd,
-       "no admin-grp",
-       NO_STR
-       "Disable Administrative group membership on this interface\n")
+DEFPY_YANG(no_link_params_admin_grp, no_link_params_admin_grp_cmd,
+	   "no admin-grp",
+	   NO_STR "Disable Administrative group membership on this interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(
+		vty, "./frr-zebra:zebra/link-params/legacy-admin-group",
+		NB_OP_DESTROY, NULL);
 
-	/* Unset Admin Group */
-	link_param_cmd_unset(ifp, LP_ADM_GRP);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* RFC5392 & RFC5316: INTER-AS */
@@ -3925,6 +3953,118 @@ DEFUN (no_link_params_use_bw,
 	link_param_cmd_unset(ifp, LP_USE_BW);
 
 	return CMD_SUCCESS;
+}
+
+static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
+		     const char *xpath, bool no, int start_idx)
+{
+	for (int i = start_idx; i < argc; i++)
+		nb_cli_enqueue_change(vty, xpath,
+				      no ? NB_OP_DESTROY : NB_OP_CREATE,
+				      argv[i]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity
+ */
+DEFPY_YANG(link_params_affinity, link_params_affinity_cmd,
+	   "[no] affinity NAME...",
+	   NO_STR
+	   "Interface affinities\n"
+	   "Affinity names\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params/legacy-admin-group",
+		ifp->name);
+	if (yang_dnode_exists(running_config->dnode, xpath)) {
+		vty_out(vty,
+			"cannot use the affinity command when admin-grp is set\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return ag_change(vty, argc, argv,
+			 "./frr-zebra:zebra/link-params/affinities/affinity",
+			 no, no ? 2 : 1);
+}
+
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-zebra:zebra/link-params/affinities/affinity-mode
+ */
+DEFPY_YANG(link_params_affinity_mode, link_params_affinity_mode_cmd,
+	   "affinity-mode <standard|extended|both>$affmode",
+	   "Interface affinity mode\n"
+	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
+	   "Extended Admin-Group only RFC7308\n"
+	   "Standard and extended Admin-Group format\n")
+{
+	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, affmode);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_link_params_affinity_mode, no_link_params_affinity_mode_cmd,
+	   "no affinity-mode [<standard|extended|both>]",
+	   NO_STR
+	   "Interface affinity mode\n"
+	   "Standard Admin-Group only RFC3630,5305,5329 (default)\n"
+	   "Extended Admin-Group only RFC7308\n"
+	   "Standard and extended Admin-Group format\n")
+{
+	const char *xpath = "./frr-zebra:zebra/link-params/affinity-mode";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "standard");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = (struct vty *)arg;
+
+	vty_out(vty, " %s", yang_dnode_get_string(dnode, "."));
+	return YANG_ITER_CONTINUE;
+}
+
+void cli_show_legacy_admin_group(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	if (!yang_dnode_exists(dnode, "./legacy-admin-group"))
+		return;
+
+	vty_out(vty, "  admin-group 0x%x\n",
+		yang_dnode_get_uint32(dnode, "./legacy-admin-group"));
+}
+
+void cli_show_affinity_mode(struct vty *vty, const struct lyd_node *dnode,
+			    bool show_defaults)
+{
+	enum affinity_mode affinity_mode = yang_dnode_get_enum(dnode, ".");
+
+	if (affinity_mode == AFFINITY_MODE_STANDARD)
+		vty_out(vty, "  affinity-mode standard\n");
+	else if (affinity_mode == AFFINITY_MODE_BOTH)
+		vty_out(vty, "  affinity-mode both\n");
+}
+
+void cli_show_affinity(struct vty *vty, const struct lyd_node *dnode,
+		       bool show_defaults)
+{
+	if (!yang_dnode_exists(dnode, "./affinity"))
+		return;
+
+	vty_out(vty, "  affinity");
+	yang_dnode_iterate(ag_iter_cb, vty, dnode, "./affinity");
+	vty_out(vty, "\n");
 }
 
 int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
@@ -4523,6 +4663,8 @@ DEFUN (no_ipv6_address,
 
 static int link_params_config_write(struct vty *vty, struct interface *ifp)
 {
+	const struct lyd_node *dnode;
+	char xpath[XPATH_MAXLEN];
 	int i;
 
 	if ((ifp == NULL) || !HAS_LINK_PARAMS(ifp))
@@ -4545,8 +4687,15 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 				vty_out(vty, "  unrsv-bw %d %g\n", i,
 					iflp->unrsv_bw[i]);
 	}
-	if (IS_PARAM_SET(iflp, LP_ADM_GRP))
-		vty_out(vty, "  admin-grp 0x%x\n", iflp->admin_grp);
+
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/link-params",
+		ifp->name);
+	dnode = yang_dnode_get(running_config->dnode, xpath);
+	if (dnode)
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+
 	if (IS_PARAM_SET(iflp, LP_DELAY)) {
 		vty_out(vty, "  delay %u", iflp->av_delay);
 		if (IS_PARAM_SET(iflp, LP_MM_DELAY)) {
@@ -4568,6 +4717,7 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	if (IS_PARAM_SET(iflp, LP_RMT_AS))
 		vty_out(vty, "  neighbor %pI4 as %u\n", &iflp->rmt_ip,
 			iflp->rmt_as);
+
 	vty_out(vty, " exit-link-params\n");
 	return 0;
 }
@@ -4727,6 +4877,9 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &no_link_params_res_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
+	install_element(LINK_PARAMS_NODE, &link_params_affinity_cmd);
+	install_element(LINK_PARAMS_NODE, &link_params_affinity_mode_cmd);
+	install_element(LINK_PARAMS_NODE, &no_link_params_affinity_mode_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 
 	/* setup EVPN MH elements */
