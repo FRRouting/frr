@@ -1554,6 +1554,7 @@ struct peer {
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
 	struct thread *t_llgr_stale[AFI_MAX][SAFI_MAX];
+	struct thread *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct thread *t_generate_updgrp_packets;
 	struct thread *t_process_packet;
 	struct thread *t_process_packet_error;

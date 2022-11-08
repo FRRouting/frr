@@ -62,6 +62,7 @@
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
@@ -473,6 +474,31 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 	}
 }
 
+/*
+ * The act of a soft reconfig in revalidation is really expensive
+ * coupled with the fact that the download of a full rpki state
+ * from a rpki server can be expensive, let's break up the revalidation
+ * to a point in time in the future to allow other bgp events
+ * to take place too.
+ */
+struct rpki_revalidate_peer {
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer;
+};
+
+static void bgp_rpki_revalidate_peer(struct thread *thread)
+{
+	struct rpki_revalidate_peer *rvp = THREAD_ARG(thread);
+
+	/*
+	 * Here's the expensive bit of gnomish deviousness
+	 */
+	bgp_soft_reconfig_in(rvp->peer, rvp->afi, rvp->safi);
+
+	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rvp);
+}
+
 static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
@@ -487,12 +513,24 @@ static void revalidate_all_routes(void)
 			safi_t safi;
 
 			FOREACH_AFI_SAFI (afi, safi) {
+				struct rpki_revalidate_peer *rvp;
+
 				if (!bgp->rib[afi][safi])
 					continue;
 
 				if (!peer_established(peer))
 					continue;
-				bgp_soft_reconfig_in(peer, afi, safi);
+
+				rvp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE,
+					      sizeof(*rvp));
+				rvp->peer = peer;
+				rvp->afi = afi;
+				rvp->safi = safi;
+
+				thread_add_event(
+					bm->master, bgp_rpki_revalidate_peer,
+					rvp, 0,
+					&peer->t_revalidate_all[afi][safi]);
 			}
 		}
 	}
