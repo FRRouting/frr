@@ -4281,10 +4281,8 @@ static int config_write_table(struct vty *vty)
 /* IPForwarding configuration write function. */
 static int config_write_forwarding(struct vty *vty)
 {
-	if (!ipforward())
-		vty_out(vty, "no ip forwarding\n");
-	if (!ipforward_ipv6())
-		vty_out(vty, "no ipv6 forwarding\n");
+	vty_out(vty, "%sip forwarding\n", !ipforward() ? "no " : "");
+	vty_out(vty, "%sipv6 forwarding\n", !ipforward_ipv6() ? "no " : "");
 	vty_out(vty, "!\n");
 	return 0;
 }

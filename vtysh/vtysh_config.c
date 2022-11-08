@@ -442,13 +442,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(KEYCHAIN_NODE, line);
 		else if (strncmp(line, "line", strlen("line")) == 0)
 			config = config_get(VTY_NODE, line);
-		else if ((strncmp(line, "ipv6 forwarding",
-				  strlen("ipv6 forwarding"))
-			  == 0)
-			 || (strncmp(line, "ip forwarding",
-				     strlen("ip forwarding"))
-			     == 0))
-			config = config_get(FORWARDING_NODE, line);
 		else if (strncmp(line, "debug vrf", strlen("debug vrf")) == 0)
 			config = config_get(VRF_DEBUG_NODE, line);
 		else if (strncmp(line, "debug northbound",
@@ -491,6 +484,14 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(RPKI_NODE, line);
 		else {
 			if (strncmp(line, "log", strlen("log")) == 0 ||
+			    strncmp(line, "ip forwarding",
+				    strlen("ip forwarding")) ||
+			    strncmp(line, "no ip forwarding",
+				    strlen("no ip forwarding")) ||
+			    strncmp(line, "ipv6 forwarding",
+				    strlen("ipv6 forwarding")) ||
+			    strncmp(line, "no ipv6 forwarding",
+				    strlen("no ipv6 forwarding")) ||
 			    strncmp(line, "hostname", strlen("hostname")) ==
 				    0 ||
 			    strncmp(line, "domainname", strlen("domainname")) ==
