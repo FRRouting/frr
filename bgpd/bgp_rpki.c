@@ -487,7 +487,7 @@ static void revalidate_all_routes(void)
 			safi_t safi;
 
 			FOREACH_AFI_SAFI (afi, safi) {
-				if (!peer->bgp->rib[afi][safi])
+				if (!bgp->rib[afi][safi])
 					continue;
 
 				if (!peer_established(peer))
