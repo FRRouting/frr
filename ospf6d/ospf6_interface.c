@@ -1116,14 +1116,21 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				    oi->dead_interval);
 		json_object_int_add(json_obj, "timerIntervalsConfigRetransmit",
 				    oi->rxmt_interval);
+		json_object_boolean_add(
+			json_obj, "timerPassiveIface",
+			!!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE));
 	} else {
 		vty_out(vty, "  State %s, Transmit Delay %d sec, Priority %d\n",
 			ospf6_interface_state_str[oi->state], oi->transdelay,
 			oi->priority);
 		vty_out(vty, "  Timer intervals configured:\n");
-		vty_out(vty, "   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
-			oi->hello_interval, oi->thread_send_hello,
-			oi->dead_interval, oi->rxmt_interval);
+		if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE))
+			vty_out(vty,
+				"   Hello %d(%pTHd), Dead %d, Retransmit %d\n",
+				oi->hello_interval, oi->thread_send_hello,
+				oi->dead_interval, oi->rxmt_interval);
+		else
+			vty_out(vty, "   No Hellos (Passive interface)\n");
 	}
 
 	inet_ntop(AF_INET, &oi->drouter, drouter, sizeof(drouter));
