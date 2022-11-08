@@ -9412,7 +9412,7 @@ DEFUN (ospf_default_information_originate,
 	idx = 1;
 	/* Get route-map */
 	if (argv_find(argv, argc, "route-map", &idx))
-		rtmap = argv[idx]->arg + 1;
+		rtmap = argv[idx + 1]->arg;
 
 	/* To check if user is providing same route map */
 	if ((!rtmap && !ROUTEMAP_NAME(red)) ||
