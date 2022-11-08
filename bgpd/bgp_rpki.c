@@ -490,6 +490,8 @@ static void revalidate_all_routes(void)
 				if (!peer->bgp->rib[afi][safi])
 					continue;
 
+				if (!peer_established(peer))
+					continue;
 				bgp_soft_reconfig_in(peer, afi, safi);
 			}
 		}
