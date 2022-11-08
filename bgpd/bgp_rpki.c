@@ -387,6 +387,36 @@ static void pfx_record_to_prefix(struct pfx_record *record,
 	}
 }
 
+struct rpki_revalidate_prefix {
+	struct bgp *bgp;
+	struct prefix prefix;
+	afi_t afi;
+	safi_t safi;
+};
+
+static void rpki_revalidate_prefix(struct thread *thread)
+{
+	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
+	struct bgp_dest *match, *node;
+
+	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
+					 &rrp->prefix);
+	node = match;
+
+	while (node) {
+		if (bgp_dest_has_bgp_path_info_data(node)) {
+			revalidate_bgp_node(node, rrp->afi, rrp->safi);
+		}
+
+		node = bgp_route_next_until(node, match);
+	}
+
+	if (match)
+		bgp_dest_unlock_node(match);
+
+	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
+}
+
 static void bgpd_sync_callback(struct thread *thread)
 {
 	struct bgp *bgp;
@@ -423,26 +453,18 @@ static void bgpd_sync_callback(struct thread *thread)
 
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
 			struct bgp_table *table = bgp->rib[afi][safi];
+			struct rpki_revalidate_prefix *rrp;
 
 			if (!table)
 				continue;
 
-			struct bgp_dest *match;
-			struct bgp_dest *node;
-
-			match = bgp_table_subtree_lookup(table, &prefix);
-			node = match;
-
-			while (node) {
-				if (bgp_dest_has_bgp_path_info_data(node)) {
-					revalidate_bgp_node(node, afi, safi);
-				}
-
-				node = bgp_route_next_until(node, match);
-			}
-
-			if (match)
-				bgp_dest_unlock_node(match);
+			rrp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE, sizeof(*rrp));
+			rrp->bgp = bgp;
+			rrp->prefix = prefix;
+			rrp->afi = afi;
+			rrp->safi = safi;
+			thread_add_event(bm->master, rpki_revalidate_prefix,
+					 rrp, 0, &bgp->t_revalidate[afi][safi]);
 		}
 	}
 }
