@@ -42,6 +42,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_affinitymap.h"
 #include "zebra/zebra_routemap.h"
 #include "lib/json.h"
 #include "lib/route_opaque.h"
@@ -4497,7 +4498,7 @@ void zebra_vty_init(void)
 	/* Route-map */
 	zebra_route_map_init();
 
-	affinity_map_init();
+	zebra_affinity_map_init();
 
 	install_node(&ip_node);
 	install_node(&protocol_node);

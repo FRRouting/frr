@@ -47,7 +47,7 @@ DEFINE_MTYPE_STATIC(LIB, AFFINITY_MAP_INDEX, "Affinity map index");
 DEFINE_QOBJ_TYPE(affinity_maps);
 DEFINE_QOBJ_TYPE(affinity_map);
 
-struct affinity_maps affinity_map_master = {NULL};
+struct affinity_maps affinity_map_master = {NULL, NULL, NULL, NULL};
 
 static void affinity_map_free(struct affinity_map *map)
 {
@@ -119,4 +119,55 @@ char *affinity_map_name_get(int pos)
 		if (map->bit_position == pos)
 			return map->name;
 	return NULL;
+}
+
+bool affinity_map_check_use_hook(const char *affmap_name)
+{
+	if (affinity_map_master.check_use_hook)
+		return (*affinity_map_master.check_use_hook)(affmap_name);
+	return false;
+}
+
+bool affinity_map_check_update_hook(const char *affmap_name, uint16_t new_pos)
+{
+	if (affinity_map_master.check_update_hook)
+		return (*affinity_map_master.check_update_hook)(affmap_name,
+								new_pos);
+	return true;
+}
+
+void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos)
+{
+	struct affinity_map *map;
+
+	if (!affinity_map_master.update_hook)
+		return;
+
+	map = affinity_map_get(affmap_name);
+
+	if (!map)
+		/* Affinity-map creation */
+		return;
+
+	(*affinity_map_master.update_hook)(affmap_name, map->bit_position,
+					   new_pos);
+}
+
+
+void affinity_map_set_check_use_hook(bool (*func)(const char *affmap_name))
+{
+	affinity_map_master.check_use_hook = func;
+}
+
+void affinity_map_set_check_update_hook(bool (*func)(const char *affmap_name,
+						     uint16_t new_pos))
+{
+	affinity_map_master.check_update_hook = func;
+}
+
+void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
+					       uint16_t old_pos,
+					       uint16_t new_pos))
+{
+	affinity_map_master.update_hook = func;
 }

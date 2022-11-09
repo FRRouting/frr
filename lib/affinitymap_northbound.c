@@ -42,14 +42,20 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 {
 	const char *name;
 
+	name = yang_dnode_get_string((const struct lyd_node *)args->dnode,
+				     "./name");
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (!affinity_map_check_use_hook(name))
+			break;
+		snprintf(args->errmsg, args->errmsg_len,
+			 "affinity-map %s is used", name);
+		return NB_ERR_VALIDATION;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		name = yang_dnode_get_string(
-			(const struct lyd_node *)args->dnode, "./name");
 		affinity_map_unset(name);
 		break;
 	}
@@ -74,17 +80,24 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		map_name = affinity_map_name_get(pos);
-		if (!map_name)
-			return NB_OK;
-		if (strncmp(map_name, name, AFFINITY_NAME_SIZE) == 0)
-			return NB_ERR_NO_CHANGES;
-		snprintf(args->errmsg, args->errmsg_len,
-			 "bit-position is used by %s.", map_name);
-		return NB_ERR_VALIDATION;
+		if (map_name &&
+		    strncmp(map_name, name, AFFINITY_NAME_SIZE) != 0) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "bit-position is used by %s.", map_name);
+			return NB_ERR_VALIDATION;
+		}
+		if (!affinity_map_check_update_hook(name, pos)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"affinity-map new bit-position > 31 but is used with standard admin-groups");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		affinity_map_update_hook(name, pos);
 		affinity_map_set(name, pos);
 		break;
 	}

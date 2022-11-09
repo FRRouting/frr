@@ -62,6 +62,7 @@ zebra_zebra_SOURCES = \
 	zebra/tc_netlink.c \
 	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
+	zebra/zebra_affinitymap.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
@@ -145,6 +146,7 @@ noinst_HEADERS += \
 	zebra/table_manager.h \
 	zebra/tc_netlink.h \
 	zebra/zapi_msg.h \
+	zebra/zebra_affinitymap.h \
 	zebra/zebra_dplane.h \
 	zebra/zebra_errors.h \
 	zebra/zebra_evpn.h \
