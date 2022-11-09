@@ -206,7 +206,7 @@ AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
     AC_MSG_CHECKING([whether pkg-config python-${tryver} is available])
     unset PYTHON_CFLAGS
     unset PYTHON_LIBS
-    pkg="python-${tryver}"
+    pkg="python-${tryver}-embed"
     pkg="${pkg%-}"
     _PKG_CONFIG([PYTHON_CFLAGS], [cflags], [${pkg}])
     _PKG_CONFIG([PYTHON_LIBS], [libs], [${pkg}])
