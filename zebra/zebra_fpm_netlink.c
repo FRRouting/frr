@@ -74,6 +74,7 @@ enum fpm_nh_encap_type_t {
 	FPM_NH_ENCAP_NONE = 0,
 	FPM_NH_ENCAP_VXLAN = 100,
 	FPM_NH_ENCAP_SRV6_ROUTE = 101,
+	FPM_NH_ENCAP_SRV6_LOCAL_SID = 102,
 	FPM_NH_ENCAP_MAX,
 };
 
@@ -88,6 +89,9 @@ static const char *fpm_nh_encap_type_to_str(enum fpm_nh_encap_type_t encap_type)
 
 	case FPM_NH_ENCAP_VXLAN:
 		return "VxLAN";
+
+	case FPM_NH_ENCAP_SRV6_LOCAL_SID:
+		return "my local sid";
 
 	case FPM_NH_ENCAP_SRV6_ROUTE:
 		return "srv6 route";
@@ -107,6 +111,58 @@ enum vxlan_encap_info_type_t {
 	VXLAN_VNI = 0,
 };
 
+enum srv6_localsid_action_t {
+	FPM_SRV6_LOCALSID_ACTION_UNSPEC       = 0,
+	FPM_SRV6_LOCALSID_ACTION_END          = 1,
+	FPM_SRV6_LOCALSID_ACTION_END_X        = 2,
+	FPM_SRV6_LOCALSID_ACTION_END_T        = 3,
+	FPM_SRV6_LOCALSID_ACTION_END_DX2      = 4,
+	FPM_SRV6_LOCALSID_ACTION_END_DX6      = 5,
+	FPM_SRV6_LOCALSID_ACTION_END_DX4      = 6,
+	FPM_SRV6_LOCALSID_ACTION_END_DT6      = 7,
+	FPM_SRV6_LOCALSID_ACTION_END_DT4      = 8,
+	FPM_SRV6_LOCALSID_ACTION_END_B6       = 9,
+	FPM_SRV6_LOCALSID_ACTION_END_B6_ENCAP = 10,
+	FPM_SRV6_LOCALSID_ACTION_END_BM       = 11,
+	FPM_SRV6_LOCALSID_ACTION_END_S        = 12,
+	FPM_SRV6_LOCALSID_ACTION_END_AS       = 13,
+	FPM_SRV6_LOCALSID_ACTION_END_AM       = 14,
+	FPM_SRV6_LOCALSID_ACTION_END_BPF      = 15,
+	FPM_SRV6_LOCALSID_ACTION_END_DT46     = 16,
+	FPM_SRV6_LOCALSID_ACTION_UDT4         = 100,
+	FPM_SRV6_LOCALSID_ACTION_UDT6         = 101,
+	FPM_SRV6_LOCALSID_ACTION_UDT46        = 102,
+	FPM_SRV6_LOCALSID_ACTION_MAX,
+};
+
+enum {
+	FPM_SRV6_LOCALSID_UNSPEC         = 0,
+	FPM_SRV6_LOCALSID_ACTION         = 1,
+	FPM_SRV6_LOCALSID_SRH            = 2,
+	FPM_SRV6_LOCALSID_TABLE          = 3,
+	FPM_SRV6_LOCALSID_NH4            = 4,
+	FPM_SRV6_LOCALSID_NH6            = 5,
+	FPM_SRV6_LOCALSID_IIF            = 6,
+	FPM_SRV6_LOCALSID_OIF            = 7,
+	FPM_SRV6_LOCALSID_BPF            = 8,
+	FPM_SRV6_LOCALSID_VRFTABLE       = 9,
+	FPM_SRV6_LOCALSID_COUNTERS       = 10,
+	FPM_SRV6_LOCALSID_VRFNAME        = 100,
+	FPM_SRV6_LOCALSID_FORMAT         = 101,
+	__FPM_SRV6_LOCALSID_MAX,
+};
+#define FPM_SRV6_LOCALSID_MAX (__FPM_SRV6_LOCALSID_MAX - 1)
+
+enum {
+	FPM_SRV6_LOCALSID_FORMAT_UNSPEC         = 0,
+	FPM_SRV6_LOCALSID_FORMAT_BLOCK_LEN      = 1,
+	FPM_SRV6_LOCALSID_FORMAT_NODE_LEN       = 2,
+	FPM_SRV6_LOCALSID_FORMAT_FUNC_LEN       = 3,
+	FPM_SRV6_LOCALSID_FORMAT_ARG_LEN        = 4,
+	__FPM_SRV6_LOCALSID_FORMAT_MAX,
+};
+#define FPM_SRV6_LOCALSID_FORMAT_MAX (__FPM_SRV6_LOCALSID_FORMAT_MAX - 1)
+
 enum {
 	FPM_SRV6_ROUTE_UNSPEC            = 0,
 	FPM_SRV6_ROUTE_VPN_SID           = 100,
@@ -114,6 +170,28 @@ enum {
 	__FPM_SRV6_ROUTE_MAX,
 };
 #define FPM_SRV6_ROUTE_MAX (__FPM_SRV6_ROUTE_MAX - 1)
+
+
+struct srv6_localsid_format {
+	uint8_t block_bits_length;
+	uint8_t node_bits_length;
+	uint8_t function_bits_length;
+	uint8_t argument_bits_length;
+};
+
+struct srv6_localsid_context {
+	struct in_addr nh4;
+	struct in6_addr nh6;
+	char vrf_name[VRF_NAMSIZ + 1];
+};
+
+struct srv6_localsid_encap_info_t {
+	/* SRv6 localsid info for Endpoint-behaviour */
+	enum srv6_localsid_action_t localsid_action;
+	struct srv6_localsid_context localsid_ctx;
+	bool has_localsid_format;
+	struct srv6_localsid_format localsid_format;
+};
 
 struct srv6_route_encap_info_t {
 	/* VPN SID for BGP SRv6-L3VPN */
@@ -128,6 +206,7 @@ struct fpm_nh_encap_info_t {
 	union {
 		struct vxlan_encap_info_t vxlan_encap;
 		struct srv6_route_encap_info_t srv6_route_encap;
+		struct srv6_localsid_encap_info_t srv6_localsid_encap;
 	};
 };
 
@@ -175,6 +254,29 @@ struct netlink_route_info {
 	struct netlink_nh_info nhs[MULTIPATH_NUM];
 	union g_addr *pref_src;
 };
+
+static struct zebra_vrf *vrf_lookup_by_table_id(uint32_t table_id)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		if (zvrf == NULL)
+			continue;
+		/* case vrf with netns : match the netnsid */
+		if (vrf_is_backend_netns()) {
+			return NULL;
+		} else {
+			/* VRF is VRF_BACKEND_VRF_LITE */
+			if (zvrf->table_id != table_id)
+				continue;
+			return zvrf;
+		}
+	}
+
+	return NULL;
+}
 
 /*
  * netlink_route_info_add_nh
@@ -258,7 +360,130 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 		nhi.encap_info.vxlan_encap.vni = vni;
 	} else if (nexthop->nh_srv6) {
-		if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+			struct zebra_vrf *zvrf;
+			bool locator_found = false;
+			struct srv6_locator *locator;
+			struct listnode *node;
+
+			nhi.encap_info.encap_type = FPM_NH_ENCAP_SRV6_LOCAL_SID;
+
+			for (ALL_LIST_ELEMENTS_RO(srv6->locators, node,
+						  locator)) {
+				if (prefix_match(&locator->prefix,
+						 ri->prefix)) {
+					locator_found = true;
+					break;
+				}
+			}
+
+			/* Process Local SID action */
+			switch (nexthop->nh_srv6->seg6local_action) {
+			case ZEBRA_SEG6_LOCAL_ACTION_END:
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_action =
+					FPM_SRV6_LOCALSID_ACTION_END;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_action =
+					FPM_SRV6_LOCALSID_ACTION_END_X;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_action =
+					FPM_SRV6_LOCALSID_ACTION_END_T;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_action =
+					FPM_SRV6_LOCALSID_ACTION_END_DX4;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+				if (locator_found &&
+				    CHECK_FLAG(locator->flags,
+					       SRV6_LOCATOR_USID))
+					nhi.encap_info.srv6_localsid_encap
+						.localsid_action =
+						FPM_SRV6_LOCALSID_ACTION_UDT6;
+				else
+					nhi.encap_info.srv6_localsid_encap
+						.localsid_action =
+						FPM_SRV6_LOCALSID_ACTION_END_DT6;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+				if (locator_found &&
+				    CHECK_FLAG(locator->flags,
+					       SRV6_LOCATOR_USID))
+					nhi.encap_info.srv6_localsid_encap
+						.localsid_action =
+						FPM_SRV6_LOCALSID_ACTION_UDT4;
+				else
+					nhi.encap_info.srv6_localsid_encap
+						.localsid_action =
+						FPM_SRV6_LOCALSID_ACTION_END_DT4;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+				if (locator_found &&
+				    CHECK_FLAG(locator->flags,
+					       SRV6_LOCATOR_USID))
+					nhi.encap_info.srv6_localsid_encap
+						.localsid_action =
+						FPM_SRV6_LOCALSID_ACTION_UDT46;
+				else
+					nhi.encap_info.srv6_localsid_encap
+						.localsid_action =
+						FPM_SRV6_LOCALSID_ACTION_END_DT46;
+				break;
+			default:
+				zlog_err(
+					"%s: unsupport seg6local behaviour action=%u",
+					__func__,
+					nexthop->nh_srv6->seg6local_action);
+				return 0;
+			}
+
+			/* Process Local SID parameters */
+			memcpy(&nhi.encap_info.srv6_localsid_encap.localsid_ctx
+					.nh4,
+			       &nexthop->nh_srv6->seg6local_ctx.nh4,
+			       sizeof(struct in_addr));
+			memcpy(&nhi.encap_info.srv6_localsid_encap.localsid_ctx
+					.nh6,
+			       &nexthop->nh_srv6->seg6local_ctx.nh6,
+			       sizeof(struct in6_addr));
+
+			if (nexthop->nh_srv6->seg6local_ctx.table) {
+				zvrf = vrf_lookup_by_table_id(
+					nexthop->nh_srv6->seg6local_ctx.table);
+				if (zvrf)
+					memcpy(&nhi.encap_info
+							.srv6_localsid_encap
+							.localsid_ctx.vrf_name,
+					       zvrf->vrf->name,
+					       strlen(zvrf->vrf->name));
+			}
+
+			/* Process Local SID format */
+			if (locator_found) {
+				nhi.encap_info.srv6_localsid_encap
+					.has_localsid_format = true;
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_format.block_bits_length =
+					locator->block_bits_length;
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_format.node_bits_length =
+					locator->node_bits_length;
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_format.function_bits_length =
+					locator->function_bits_length;
+				nhi.encap_info.srv6_localsid_encap
+					.localsid_format.argument_bits_length =
+					locator->argument_bits_length;
+			}
+		} else if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
 			struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 
 			nhi.encap_info.encap_type = FPM_NH_ENCAP_SRV6_ROUTE;
@@ -497,6 +722,157 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				      vxlan->vni);
 			nl_attr_nest_end(&req->n, nest);
 			break;
+		case FPM_NH_ENCAP_SRV6_LOCAL_SID: {
+			struct srv6_localsid_encap_info_t *localsid;
+			enum srv6_localsid_action_t localsid_action;
+			const struct srv6_localsid_context *localsid_ctx;
+			const struct srv6_localsid_format *localsid_format;
+			bool has_localsid_format;
+
+			localsid = &nhi->encap_info.srv6_localsid_encap;
+			localsid_action = localsid->localsid_action;
+			localsid_ctx = &localsid->localsid_ctx;
+			has_localsid_format = &localsid->has_localsid_format;
+			localsid_format = &localsid->localsid_format;
+
+			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
+				      FPM_NH_ENCAP_SRV6_LOCAL_SID);
+
+			nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
+
+			if (has_localsid_format) {
+				inner_nest =
+					nl_attr_nest(&req->n, in_buf_len,
+						     FPM_SRV6_LOCALSID_FORMAT);
+
+				if (localsid_format->block_bits_length)
+					nl_attr_put8(
+						&req->n, in_buf_len,
+						FPM_SRV6_LOCALSID_FORMAT_BLOCK_LEN,
+						localsid_format
+							->block_bits_length);
+
+				if (localsid_format->node_bits_length)
+					nl_attr_put8(
+						&req->n, in_buf_len,
+						FPM_SRV6_LOCALSID_FORMAT_NODE_LEN,
+						localsid_format
+							->node_bits_length);
+
+				if (localsid_format->function_bits_length)
+					nl_attr_put8(
+						&req->n, in_buf_len,
+						FPM_SRV6_LOCALSID_FORMAT_FUNC_LEN,
+						localsid_format
+							->function_bits_length);
+
+				if (localsid_format->argument_bits_length)
+					nl_attr_put8(
+						&req->n, in_buf_len,
+						FPM_SRV6_LOCALSID_FORMAT_ARG_LEN,
+						localsid_format
+							->argument_bits_length);
+
+				nl_attr_nest_end(&req->n, inner_nest);
+			}
+
+			switch (localsid_action) {
+			case FPM_SRV6_LOCALSID_ACTION_END:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_END);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_END_X:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_END_X);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_NH6,
+					    &localsid_ctx->nh6,
+					    sizeof(struct in6_addr));
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_END_T:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_END_T);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_END_DX4:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_END_DX4);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_NH4,
+					    &localsid_ctx->nh4,
+					    sizeof(struct in_addr));
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_END_DT6:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_END_DT6);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_END_DT4:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_END_DT4);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_END_DT46:
+				nl_attr_put32(
+					&req->n, in_buf_len,
+					FPM_SRV6_LOCALSID_ACTION,
+					FPM_SRV6_LOCALSID_ACTION_END_DT46);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_UDT6:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_UDT6);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_UDT4:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_UDT4);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_UDT46:
+				nl_attr_put32(&req->n, in_buf_len,
+					      FPM_SRV6_LOCALSID_ACTION,
+					      FPM_SRV6_LOCALSID_ACTION_UDT46);
+				nl_attr_put(&req->n, in_buf_len,
+					    FPM_SRV6_LOCALSID_VRFNAME,
+					    localsid_ctx->vrf_name,
+					    strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			default:
+				zlog_err(
+					"%s: unsupport localsid behaviour action=%u",
+					__func__, localsid_action);
+				return 0;
+			}
+			nl_attr_nest_end(&req->n, nest);
+			break;
+		}
 		case FPM_NH_ENCAP_SRV6_ROUTE:
 			nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
 				      FPM_NH_ENCAP_SRV6_ROUTE);
@@ -544,6 +920,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		switch (encap) {
 		case FPM_NH_ENCAP_NONE:
 		case FPM_NH_ENCAP_SRV6_ROUTE:
+		case FPM_NH_ENCAP_SRV6_LOCAL_SID:
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
