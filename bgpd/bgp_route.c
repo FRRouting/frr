@@ -5342,7 +5342,10 @@ void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 	}
 }
 
-void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
+/*
+ * Returns false if the peer is not configured for soft reconfig in
+ */
+bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
@@ -5350,14 +5353,14 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer *npeer;
 	struct peer_af *paf;
 
-	if (!peer_established(peer))
-		return;
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+		return false;
 
 	if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP)
 	    && (safi != SAFI_EVPN)) {
 		table = peer->bgp->rib[afi][safi];
 		if (!table)
-			return;
+			return true;
 
 		table->soft_reconfig_init = true;
 
@@ -5417,6 +5420,8 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 
 			bgp_soft_reconfig_table(peer, afi, safi, table, &prd);
 		}
+
+	return true;
 }
 
 

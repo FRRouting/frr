@@ -470,6 +470,8 @@ struct bgp {
 	/* BGP update delay on startup */
 	struct thread *t_update_delay;
 	struct thread *t_establish_wait;
+	struct thread *t_revalidate[AFI_MAX][SAFI_MAX];
+
 	uint8_t update_delay_over;
 	uint8_t main_zebra_update_hold;
 	uint8_t main_peers_update_hold;
@@ -1554,6 +1556,7 @@ struct peer {
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
 	struct thread *t_llgr_stale[AFI_MAX][SAFI_MAX];
+	struct thread *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct thread *t_generate_updgrp_packets;
 	struct thread *t_process_packet;
 	struct thread *t_process_packet_error;

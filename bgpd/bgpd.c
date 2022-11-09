@@ -1127,6 +1127,8 @@ static void peer_free(struct peer *peer)
 	bgp_timer_set(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
+	FOREACH_AFI_SAFI (afi, safi)
+		THREAD_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->t_write);
 	assert(!peer->t_read);
 	BGP_EVENT_FLUSH(peer);
@@ -2444,6 +2446,8 @@ int peer_delete(struct peer *peer)
 	bgp_keepalives_off(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
+	FOREACH_AFI_SAFI (afi, safi)
+		THREAD_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON));
@@ -3640,6 +3644,9 @@ int bgp_delete(struct bgp *bgp)
 	bgp_vpn_leak_unimport(bgp);
 
 	hook_call(bgp_inst_delete, bgp);
+
+	FOREACH_AFI_SAFI (afi, safi)
+		THREAD_OFF(bgp->t_revalidate[afi][safi]);
 
 	THREAD_OFF(bgp->t_condition_check);
 	THREAD_OFF(bgp->t_startup);
@@ -5517,11 +5524,11 @@ void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 		if (!peer_established(peer))
 			return;
 
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG)) {
-			bgp_soft_reconfig_in(peer, afi, safi);
-		} else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
-			   CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
+		if (bgp_soft_reconfig_in(peer, afi, safi))
+			return;
+
+		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV) ||
+		    CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_SM_ADV) &&
 			    (CHECK_FLAG(peer->af_cap[afi][safi],
@@ -7777,10 +7784,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 	    || stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
 		/* If neighbor has soft reconfiguration inbound flag.
 		   Use Adj-RIB-In database. */
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG))
-			bgp_soft_reconfig_in(peer, afi, safi);
-		else {
+		if (!bgp_soft_reconfig_in(peer, afi, safi)) {
 			/* If neighbor has route refresh capability, send route
 			   refresh
 			   message to the peer. */
