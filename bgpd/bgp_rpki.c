@@ -446,9 +446,6 @@ static void bgpd_sync_callback(struct thread *thread)
 
 				node = bgp_route_next_until(node, match);
 			}
-
-			if (match)
-				bgp_dest_unlock_node(match);
 		}
 	}
 
