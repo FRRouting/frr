@@ -29,6 +29,7 @@
 #include "routemap.h"
 #include "affinitymap.h"
 
+#include "isisd/isis_affinitymap.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -290,7 +291,9 @@ int main(int argc, char **argv, char **envp)
 	lsp_init();
 	mt_init();
 
-	affinity_map_init();
+#ifndef FABRICD
+	isis_affinity_map_init();
+#endif /* ifndef FABRICD */
 
 	isis_zebra_init(master, instance);
 	isis_bfd_init(master);
