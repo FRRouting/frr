@@ -2076,6 +2076,8 @@ static int netlink_route_nexthop_encap(struct nlmsghdr *n, size_t nlen,
 			return false;
 		nl_attr_nest_end(n, nest);
 		break;
+	default:
+		zlog_err("Unsupported encap type %d", nh->nh_encap_type);
 	}
 
 	return true;
