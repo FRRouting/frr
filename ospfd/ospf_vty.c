@@ -11209,15 +11209,37 @@ DEFUN (show_ip_ospf_instance_reachable_routers,
 
 static int show_ip_ospf_border_routers_common(struct vty *vty,
 					      struct ospf *ospf,
-					      uint8_t use_vrf)
+					      uint8_t use_vrf,
+					      json_object *json)
 {
-	if (ospf->instance)
-		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	json_object *json_vrf = NULL;
+	json_object *json_router = NULL;
 
-	ospf_show_vrf_name(ospf, vty, NULL, use_vrf);
+	if (json) {
+		if (use_vrf)
+			json_vrf = json_object_new_object();
+		else
+			json_vrf = json;
+		json_router = json_object_new_object();
+	}
+
+	if (ospf->instance) {
+		if (!json)
+			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+		else
+			json_object_int_add(json_vrf, "ospfInstance",
+					    ospf->instance);
+	}
+
+	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
 	if (ospf->new_table == NULL) {
-		vty_out(vty, "No OSPF routing information exist\n");
+		if (!json)
+			vty_out(vty, "No OSPF routing information exist\n");
+		else {
+			json_object_free(json_router);
+			json_object_free(json_vrf);
+		}
 		return CMD_SUCCESS;
 	}
 
@@ -11225,22 +11247,35 @@ static int show_ip_ospf_border_routers_common(struct vty *vty,
 	show_ip_ospf_route_network (vty, ospf->new_table);   */
 
 	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, NULL);
+	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_router);
 
-	vty_out(vty, "\n");
+	if (json) {
+		json_object_object_add(json_vrf, "routers", json_router);
+		if (use_vrf) {
+			if (ospf->vrf_id == VRF_DEFAULT)
+				json_object_object_add(json, "default",
+						       json_vrf);
+			else
+				json_object_object_add(json, ospf->name,
+						       json_vrf);
+		}
+	} else {
+		vty_out(vty, "\n");
+	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_ospf_border_routers,
+DEFPY (show_ip_ospf_border_routers,
        show_ip_ospf_border_routers_cmd,
-       "show ip ospf [vrf <NAME|all>] border-routers",
+       "show ip ospf [vrf <NAME|all>] border-routers [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        VRF_CMD_HELP_STR
        "All VRFs\n"
-       "Show all the ABR's and ASBR's\n")
+       "Show all the ABR's and ASBR's\n"
+       JSON_STR)
 {
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
@@ -11250,6 +11285,11 @@ DEFUN (show_ip_ospf_border_routers,
 	int inst = 0;
 	int idx_vrf = 0;
 	uint8_t use_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
@@ -11265,32 +11305,47 @@ DEFUN (show_ip_ospf_border_routers,
 
 				ospf_output = true;
 				ret = show_ip_ospf_border_routers_common(
-					vty, ospf, use_vrf);
+					vty, ospf, use_vrf, json);
 			}
 
-			if (!ospf_output)
+			if (uj)
+				vty_json(vty, json);
+			else if (!ospf_output)
 				vty_out(vty, "%% OSPF is not enabled\n");
+
+			return ret;
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if (ospf == NULL || !ospf->oi_running) {
-				vty_out(vty,
-					"%% OSPF is not enabled in vrf %s\n",
-					vrf_name);
+				if (uj)
+					vty_json(vty, json);
+				else
+					vty_out(vty,
+						"%% OSPF is not enabled in vrf %s\n",
+						vrf_name);
+
 				return CMD_SUCCESS;
 			}
-
-			ret = show_ip_ospf_border_routers_common(vty, ospf,
-								 use_vrf);
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF is not enabled in vrf default\n");
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf default\n");
+
 			return CMD_SUCCESS;
 		}
+	}
 
-		ret = show_ip_ospf_border_routers_common(vty, ospf, use_vrf);
+	if (ospf) {
+		ret = show_ip_ospf_border_routers_common(vty, ospf, use_vrf,
+							 json);
+		if (uj)
+			vty_json(vty, json);
 	}
 
 	return ret;
@@ -11317,7 +11372,7 @@ DEFUN (show_ip_ospf_instance_border_routers,
 	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_border_routers_common(vty, ospf, 0);
+	return show_ip_ospf_border_routers_common(vty, ospf, 0, NULL);
 }
 
 static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
