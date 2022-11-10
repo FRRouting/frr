@@ -463,6 +463,9 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 			      struct prefix_ipv6 *src_p,
 			      struct isis_route_info *route_info)
 {
+	if (area == NULL)
+		return;
+
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
 		if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 			return;
