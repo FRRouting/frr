@@ -1552,7 +1552,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					      label_buf, sizeof(label_buf)))
 		return false;
 
-	if (nexthop->nh_srv6) {
+	if (!fpm && nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 			struct rtattr *nest;
@@ -1669,6 +1669,29 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				return false;
 			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
 					 tun_buf, tun_len))
+				return false;
+			nl_attr_nest_end(nlmsg, nest);
+		}
+	}
+
+	if (fpm && nexthop->nh_srv6) {
+		if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
+			struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+			struct rtattr *nest;
+
+			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
+					   FPM_NH_ENCAP_SRV6_ROUTE))
+				return false;
+			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+			if (!nest)
+				return false;
+			if (!nl_attr_put(
+				    nlmsg, req_size, SRV6_ROUTE_ENCAP_SRC_ADDR,
+				    &srv6->encap_src_addr, IPV6_MAX_BYTELEN))
+				return false;
+			if (!nl_attr_put(nlmsg, req_size, SRV6_ROUTE_VPN_SID,
+					 &nexthop->nh_srv6->seg6_segs,
+					 IPV6_MAX_BYTELEN))
 				return false;
 			nl_attr_nest_end(nlmsg, nest);
 		}

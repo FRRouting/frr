@@ -43,6 +43,13 @@ enum blackhole_type {
 
 enum nh_encap_type {
 	NET_VXLAN = 100, /* value copied from FPM_NH_ENCAP_VXLAN. */
+	FPM_NH_ENCAP_SRV6_ROUTE = 101,
+};
+
+enum {
+	SRV6_ROUTE_UNSPEC            = 0,
+	SRV6_ROUTE_VPN_SID           = 1,
+	SRV6_ROUTE_ENCAP_SRC_ADDR    = 2,
 };
 
 /* Fixed limit on the number of backup nexthops per primary nexthop */
