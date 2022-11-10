@@ -1537,7 +1537,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					    const struct nexthop *nexthop,
 					    struct nlmsghdr *nlmsg,
 					    struct rtmsg *rtmsg,
-					    size_t req_size, int cmd)
+					    size_t req_size, int cmd, bool fpm)
 {
 
 	char label_buf[256];
@@ -1941,7 +1941,7 @@ _netlink_mpls_build_singlepath(const struct prefix *p, const char *routedesc,
 	bytelen = (family == AF_INET ? 4 : 16);
 	return _netlink_route_build_singlepath(p, routedesc, bytelen,
 					       nhlfe->nexthop, nlmsg, rtmsg,
-					       req_size, cmd);
+					       req_size, cmd, false);
 }
 
 
@@ -2328,7 +2328,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 
 				if (!_netlink_route_build_singlepath(
 					    p, routedesc, bytelen, nexthop,
-					    &req->n, &req->r, datalen, cmd))
+					    &req->n, &req->r, datalen, cmd,
+					    fpm))
 					return 0;
 				nexthop_num++;
 				break;
