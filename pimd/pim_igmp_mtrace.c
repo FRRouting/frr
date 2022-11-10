@@ -811,6 +811,9 @@ int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 	uint16_t recv_checksum;
 	uint16_t checksum;
 
+	if (!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
+		return 0;
+
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
 	pim = pim_ifp->pim;
