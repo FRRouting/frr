@@ -469,6 +469,40 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 	return 0;
 }
 
+static int pim_upstream_nh_if_update_helper(struct hash_bucket *bucket,
+					    void *arg)
+{
+	struct pim_nexthop_cache *pnc = bucket->data;
+	struct pnc_hash_walk_data *pwd = arg;
+	struct pim_instance *pim = pwd->pim;
+	struct interface *ifp = pwd->ifp;
+	struct nexthop *nh_node = NULL;
+	ifindex_t first_ifindex;
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		first_ifindex = nh_node->ifindex;
+		if (ifp != if_lookup_by_index(first_ifindex, pim->vrf->vrf_id))
+			continue;
+
+		if (pnc->upstream_hash->count) {
+			pim_update_upstream_nh(pim, pnc);
+			break;
+		}
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp)
+{
+	struct pnc_hash_walk_data pwd;
+
+	pwd.pim = pim;
+	pwd.ifp = ifp;
+
+	hash_walk(pim->rpf_hash, pim_upstream_nh_if_update_helper, &pwd);
+}
+
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 {
 	uint32_t hash_val;
