@@ -529,6 +529,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	uint32_t hash_val = 0, mod_val = 0;
 	uint8_t nh_iter = 0, found = 0;
 	uint32_t i, num_nbrs = 0;
+	struct pim_interface *pim_ifp;
 
 	if (!pnc || !pnc->nexthop_num || !nexthop)
 		return 0;
@@ -645,10 +646,13 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			nh_iter++;
 			continue;
 		}
-		if (!ifp->info) {
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp || !pim_ifp->pim_enable) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
-					"%s: multicast not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
+					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
 					__func__, ifp->name, pim->vrf->name,
 					first_ifindex, &src);
 			if (nh_iter == mod_val)
@@ -916,6 +920,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	uint8_t i = 0;
 	uint32_t hash_val = 0, mod_val = 0;
 	uint32_t num_nbrs = 0;
+	struct pim_interface *pim_ifp;
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
 		zlog_debug("%s: Looking up: %pPA(%s), last lookup time: %lld",
@@ -998,10 +1003,12 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			continue;
 		}
 
-		if (!ifp->info) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp || !pim_ifp->pim_enable) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
-					"%s: multicast not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
+					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
 					__func__, ifp->name, pim->vrf->name,
 					first_ifindex, &src);
 			if (i == mod_val)
