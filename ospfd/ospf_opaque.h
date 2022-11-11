@@ -47,7 +47,8 @@
 #define OPAQUE_TYPE_INTER_AS_LSA                       6
 #define OPAQUE_TYPE_EXTENDED_PREFIX_LSA                7
 #define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
-#define OPAQUE_TYPE_MAX                                8
+#define OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA 11
+#define OPAQUE_TYPE_MAX 11
 
 /* Following types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
@@ -80,14 +81,13 @@ struct tlv_header {
 
 PREDECL_LIST(tlv_list);
 struct tlv {
-	struct tlv_list_item	linkage;
-	struct tlv_header	hdr;
+	struct tlv_list_item linkage;
+	struct tlv_header hdr;
 	/* Body follows */
-	uint8_t			body[0];
+	uint8_t body[0];
 };
 DECLARE_LIST(tlv_list, struct tlv, linkage);
-#define FOREACH_TLV_IN_LIST(list, tlv)                            	\
-	frr_each_safe(tlv_list, list, tlv)
+#define FOREACH_TLV_IN_LIST(list, tlv) frr_each_safe (tlv_list, list, tlv)
 
 #define TLV_HDR_SIZE	(sizeof(struct tlv_header))
 

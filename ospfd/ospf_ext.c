@@ -30,6 +30,7 @@
 #include "sockunion.h" /* for inet_aton() */
 #include "network.h"
 #include "if.h"
+#include "flex_algo.h"
 #include "libospf.h" /* for ospf interface types */
 
 #include "ospfd/ospfd.h"
@@ -49,6 +50,8 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ext.h"
+#include "ospfd/ospf_opaque.h"
+#include "ospfd/ospf_ri.h"
 #include "ospfd/ospf_errors.h"
 
 /* Following structure are internal use only. */
@@ -89,6 +92,15 @@ static int ospf_ext_link_lsa_update(struct ospf_lsa *lsa);
 static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa);
 static void ospf_ext_link_delete_adj_sid(struct ext_itf *exti);
 static void del_ext_info(void *val);
+/* Extended Inter-Area ASBR Opaque LSA related callback functions */
+static void ospf_ext_ia_asbr_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa);
+static int ospf_ext_ia_asbr_lsa_originate(void *arg);
+static struct ospf_lsa *ospf_ext_ia_asbr_lsa_refresh(struct ospf_lsa *lsa);
+static void ospf_ext_ia_asbr_lsa_schedule(struct ospf_area *area,
+					  enum lsa_opcode opcode);
+static int ospf_ext_ia_asbr_lsa_update(struct ospf_lsa *lsa);
 
 /*
  * Extended Link/Prefix initialization
@@ -154,6 +166,30 @@ int ospf_ext_init(void)
 		return rc;
 	}
 
+	zlog_info("EXT (%s): Register Extended Inter-Area ASBR Opaque LSA",
+		  __func__);
+	rc = ospf_register_opaque_functab(
+		OspfEXT.scope, OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA,
+		NULL,				/* new if handle by link */
+		NULL,				/* del if handle by link */
+		NULL,				/* ism change */
+		NULL,				/* nsm change */
+		NULL,				/* Write router config. */
+		NULL,				/* Write interface conf. */
+		NULL,				/* Write debug config. */
+		ospf_ext_ia_asbr_show_info,     /* Show LSA info */
+		ospf_ext_ia_asbr_lsa_originate, /* Originate LSA */
+		ospf_ext_ia_asbr_lsa_refresh,   /* Refresh LSA */
+		ospf_ext_ia_asbr_lsa_update,    /* new_lsa_hook */
+		NULL);				/* del_lsa_hook */
+	if (rc != 0) {
+		flog_warn(
+			EC_OSPF_OPAQUE_REGISTRATION,
+			"EXT (%s): Failed to register Extended Inter-Area ASBR LSA",
+			__func__);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -173,6 +209,9 @@ void ospf_ext_term(void)
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_EXTENDED_LINK_LSA);
+
+	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
+				   OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA);
 
 	list_delete(&OspfEXT.iflist);
 	OspfEXT.scope = 0;
@@ -276,7 +315,64 @@ static struct ext_itf *lookup_ext_by_instance(struct ospf_lsa *lsa)
  * ----------------------------------------------------------------------
  */
 
+static void flush_ext_prfx_fapm_subtlvs(struct ext_itf *exti)
+{
+	struct tlv *subtlv;
+
+	FOREACH_TLV_IN_LIST (&exti->fapm_subtlvs, subtlv) {
+		tlv_list_del(&exti->fapm_subtlvs, subtlv);
+		XFREE(MTYPE_OSPF_EXT_PREFIX_FAPM_SUBTLV, subtlv);
+	}
+}
+
 /* Extended Prefix TLV - RFC7684 section 2.1 */
+static void set_ext_prefix_fapm(struct ext_itf *exti)
+{
+	struct flex_algo *fad;
+	struct listnode *curr, *next;
+	struct tlv *subtlv;
+	struct ext_subtlv_fapm *fapm;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Area: %pI4: Update FAPM SubTLVs for '%s' addr %pI4",
+			__func__, &exti->area->area_id, exti->ifp->name,
+			&exti->prefix.address);
+
+	flush_ext_prfx_fapm_subtlvs(exti);
+
+	if (OspfRI.fad_info.num_fads) {
+		FOREACH_FLEX_ALGO_DEFN (OspfRI.fad_info.fads, curr, next, fad) {
+			if (!FLEX_ALGO_PREFIX_METRIC_SET(fad))
+				continue;
+
+			subtlv =
+				XCALLOC(MTYPE_OSPF_EXT_PREFIX_FAPM_SUBTLV,
+					sizeof(struct tlv) +
+						sizeof(struct ext_subtlv_fapm));
+			assert(subtlv);
+
+			fapm = (struct ext_subtlv_fapm *)&subtlv->hdr;
+			fapm->header.type = htons(EXT_SUBTLV_FAPM);
+			fapm->header.length = htons(EXT_SUBTLV_FAPM_LEN);
+			fapm->algorithm_id = fad->algorithm;
+			fapm->flags = 0;
+			fapm->metric = htonl(fad->prefix_adv_metric);
+			fapm->reserved = 0;
+			tlv_list_add_tail(&exti->fapm_subtlvs, subtlv);
+
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"EXT (%s): Area: %pI4, Itf: '%s' pref: %pI4/%u, add Flex-Algo %u, netric: %u",
+					__func__, &exti->area->area_id,
+					exti->ifp->name, &exti->prefix.address,
+					exti->prefix.pref_length,
+					fapm->algorithm_id,
+					ntohl(fapm->metric));
+		}
+	}
+}
+
 static void set_ext_prefix(struct ext_itf *exti, uint8_t route_type,
 			   uint8_t flags, struct prefix_ipv4 p)
 {
@@ -290,6 +386,14 @@ static void set_ext_prefix(struct ext_itf *exti, uint8_t route_type,
 	exti->prefix.af = 0;
 	exti->prefix.pref_length = p.prefixlen;
 	exti->prefix.address = p.prefix;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Area: %pI4, Itf: '%s', Set EXT_PREFIX_TLV (type: %u, len: %u) for %pI4/%u",
+			__func__, &exti->area->area_id, exti->ifp->name,
+			ntohs(exti->prefix.header.type),
+			ntohs(exti->prefix.header.length),
+			&exti->prefix.address, exti->prefix.pref_length);
 
 	SET_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE);
 }
@@ -454,7 +558,8 @@ static void ospf_extended_lsa_delete(struct ext_itf *exti)
 {
 
 	/* Avoid deleting LSA if Extended is not enable */
-	if (!OspfEXT.enabled)
+	if (!OspfEXT.enabled &&
+	    !(exti->stype == PREF_SID && OspfRI.fad_info.num_fads))
 		return;
 
 	/* Process only Active Extended Prefix/Link LSA */
@@ -481,18 +586,10 @@ static void ospf_extended_lsa_delete(struct ext_itf *exti)
 		ospf_sr_ext_itf_delete(exti);
 }
 
-/*
- * Update Extended prefix SID index for Loopback interface type
- *
- * @param ifname - Loopback interface name
- * @param index - new value for the prefix SID of this interface
- * @param p - prefix for this interface or NULL if Extended Prefix
- * should be remove
- *
- * @return instance number if update is OK, 0 otherwise
- */
-uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
-					struct prefix_ipv4 *p, uint8_t flags)
+static uint32_t ospf_ext_schedule_prefix(struct interface *ifp,
+					 struct prefix_ipv4 *p,
+					 bool set_pref_sid, uint32_t index,
+					 uint8_t sid_flags)
 {
 	int rc = 0;
 	struct ext_itf *exti;
@@ -505,12 +602,25 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 	if (p != NULL) {
 		osr_debug("EXT (%s): Schedule new prefix %pFX with index %u on interface %s", __func__, p, index, ifp->name);
 
-		/* Set first Extended Prefix then the Prefix SID information */
+		/* Set first Extended Prefix TLV details */
 		set_ext_prefix(exti, OSPF_PATH_INTRA_AREA, EXT_TLV_PREF_NFLG,
 			       *p);
-		set_prefix_sid(exti, SR_ALGORITHM_SPF, index, SID_INDEX, flags);
+
+		/*  Then set the Prefix SID information (if any) */
+		if (set_pref_sid)
+			set_prefix_sid(exti, SR_ALGORITHM_SPF, index, SID_INDEX,
+				       sid_flags);
+
+		/* Set the FAPM subTLVs (if any) */
+		set_ext_prefix_fapm(exti);
 
 		/* Try to Schedule LSA */
+
+		if (!OspfEXT.enabled && !tlv_list_count(&exti->fapm_subtlvs)) {
+			ospf_ext_pref_lsa_schedule(exti, FLUSH_THIS_LSA);
+			return 0;
+		}
+
 		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ACTIVE)) {
 			if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED))
 				ospf_ext_pref_lsa_schedule(exti,
@@ -528,6 +638,44 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 	}
 
 	return SET_OPAQUE_LSID(exti->type, exti->instance);
+}
+
+/*
+ * Update Extended prefix SID index for Loopback interface type
+ *
+ * @param ifname - Loopback interface name
+ * @param index - new value for the prefix SID of this interface
+ * @param p - prefix for this interface or NULL if Extended Prefix
+ * should be remove
+ *
+ * @return instance number if update is OK, 0 otherwise
+ */
+uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
+					struct prefix_ipv4 *p, uint8_t flags)
+{
+	return ospf_ext_schedule_prefix(ifp, p, true, index, flags);
+}
+
+void ospf_ext_update_all_prefix_fapms(void)
+{
+	struct listnode *node;
+	struct ospf_interface *oi;
+	struct ospf *top;
+	struct prefix_ipv4 p = {0};
+
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+	if (!top)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(top->oiflist, node, oi)) {
+		p.prefix = oi->address->u.prefix4;
+		p.prefixlen = oi->address->prefixlen;
+		ospf_ext_schedule_prefix(oi->ifp, &p, false, 0, 0);
+	}
+
+	/* Also update the Extended IA-ASBR Opaque LSA */
+	ospf_ext_update_all_ia_asbr_lsas(top);
 }
 
 /**
@@ -659,10 +807,119 @@ void ospf_ext_update_sr(bool enable)
 	} else {
 		/* Start by Removing Extended LSA */
 		for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti))
-			ospf_extended_lsa_delete(exti);
+			if (exti->stype != PREF_SID ||
+			    !OspfRI.fad_info.num_fads)
+				ospf_extended_lsa_delete(exti);
+			else
+				ospf_ext_lsa_schedule(exti,
+						      REORIGINATE_THIS_LSA);
 
 		/* And then disable Extended Link/Prefix */
 		OspfEXT.enabled = false;
+	}
+}
+
+/*
+ * Extended Inter-Area ASBR Opaque LSA
+ * Reference: draft-ietf-lsr-flex-algo section 10.1
+ */
+void flush_ext_ia_asbr_faam_subtlvs(struct ospf_area *area)
+{
+	struct tlv *subtlv;
+
+	FOREACH_TLV_IN_LIST (&area->eia_asbr_info->faam_subtlvs, subtlv) {
+		tlv_list_del(&area->eia_asbr_info->faam_subtlvs, subtlv);
+		XFREE(MTYPE_OSPF_EXT_IAASBR_FAAM_SUBTLV, subtlv);
+	}
+}
+
+static void ospf_ext_update_ia_asbr_lsa(struct ospf_area *area)
+{
+	struct flex_algo *fad;
+	struct listnode *curr, *next;
+	struct tlv *subtlv;
+	struct ext_subtlv_faam *faam;
+	struct ospf *top;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("EXT (%s): Area: %pI4: Update EIA-ASBR LSA",
+			   __func__, &area->area_id);
+
+	flush_ext_ia_asbr_faam_subtlvs(area);
+
+	area->eia_asbr_info->ia_asbr_tlv.header.type = htons(EXT_TLV_IA_ASBR);
+
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	area->eia_asbr_info->ia_asbr_tlv.asbr_rtrid.s_addr =
+		top ? top->router_id.s_addr : 0;
+
+	if (OspfRI.fad_info.num_fads) {
+		FOREACH_FLEX_ALGO_DEFN (OspfRI.fad_info.fads, curr, next, fad) {
+			if (!FLEX_ALGO_PREFIX_METRIC_SET(fad))
+				continue;
+
+			subtlv =
+				XCALLOC(MTYPE_OSPF_EXT_IAASBR_FAAM_SUBTLV,
+					sizeof(struct tlv) +
+						sizeof(struct ext_subtlv_faam));
+			assert(subtlv);
+
+			faam = (struct ext_subtlv_faam *)&subtlv->hdr;
+			faam->header.type = htons(EXT_SUBTLV_FAAM);
+			faam->header.length = htons(EXT_SUBTLV_FAAM_LEN);
+			faam->algorithm_id = fad->algorithm;
+			faam->metric = htonl(fad->prefix_adv_metric);
+			faam->reserved[0] = 0;
+			faam->reserved[1] = 0;
+			faam->reserved[2] = 0;
+			tlv_list_add_tail(&area->eia_asbr_info->faam_subtlvs,
+					  subtlv);
+
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"EXT (%s): Area: %pI4: Added FAAM SubTLV (type: %u, length: %u, id: %u, metric: %u",
+					__func__, &area->area_id,
+					ntohs(faam->header.type),
+					ntohs(faam->header.length),
+					faam->algorithm_id,
+					ntohl(faam->metric));
+		}
+	}
+
+	SET_FLAG(area->eia_asbr_info->flags, EXT_LPFLG_LSA_ACTIVE);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("EXT (%s): Area: %pI4: Added %u FAAM SubTLVs",
+			   __func__, &area->area_id,
+			   (uint)tlv_list_count(
+				   &area->eia_asbr_info->faam_subtlvs));
+
+	/*
+	 * If there are no prefix-advertisement-metrics for this area, let's
+	 * initiate a Flush of the EIA-ASBR LSA.
+	 */
+	if (!tlv_list_count(&area->eia_asbr_info->faam_subtlvs)) {
+		ospf_ext_ia_asbr_lsa_schedule(area, FLUSH_THIS_LSA);
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"EXT (%s): Area: %pI4: Flushing Ext Inter-Area ASBR LSA",
+				__func__, &area->area_id);
+		return;
+	}
+
+	/* Re-originate or refresh the EIA ASBR LSA */
+	if (CHECK_FLAG(area->eia_asbr_info->flags, EXT_LPFLG_LSA_ENGAGED))
+		ospf_ext_ia_asbr_lsa_schedule(area, REFRESH_THIS_LSA);
+	else
+		ospf_ext_ia_asbr_lsa_schedule(area, REORIGINATE_THIS_LSA);
+}
+
+void ospf_ext_update_all_ia_asbr_lsas(struct ospf *top)
+{
+	struct listnode *node, *nnode;
+	struct ospf_area *area;
+
+	for (ALL_LIST_ELEMENTS(top->areas, node, nnode, area)) {
+		ospf_ext_update_ia_asbr_lsa(area);
 	}
 }
 
@@ -688,6 +945,7 @@ static int ospf_ext_link_new_if(struct interface *ifp)
 	/* initialize new information and link back the interface */
 	new->ifp = ifp;
 	new->flags = EXT_LPFLG_LSA_INACTIVE;
+	tlv_list_init(&new->fapm_subtlvs);
 
 	listnode_add(OspfEXT.iflist, new);
 
@@ -705,6 +963,9 @@ static int ospf_ext_link_del_if(struct interface *ifp)
 	if (exti != NULL) {
 		/* Flush LSA and remove Adjacency SID */
 		ospf_extended_lsa_delete(exti);
+
+		flush_ext_prfx_fapm_subtlvs(exti);
+		tlv_list_fini(&exti->fapm_subtlvs);
 
 		/* Dequeue listnode entry from the list. */
 		listnode_delete(OspfEXT.iflist, exti);
@@ -958,7 +1219,7 @@ static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa)
 		return 0;
 
 	/* Check if Extended is enable */
-	if (!OspfEXT.enabled)
+	if (!OspfEXT.enabled && !OspfRI.fad_info.num_fads)
 		return 0;
 
 	/* Call Segment Routing LSA update or deletion */
@@ -994,20 +1255,72 @@ static void build_tlv(struct stream *s, struct tlv_header *tlvh)
 /* Build an Extended Prefix Opaque LSA body for extended prefix TLV */
 static void ospf_ext_pref_lsa_body_set(struct stream *s, struct ext_itf *exti)
 {
+	struct tlv *subtlv;
+	struct ext_subtlv_fapm *fapm_subtlv;
+	uint16_t tlv_size = 0;
+	struct tlv_header *tlvh, *subtlvh;
 
 	/* Sanity check */
-	if ((exti == NULL) || (exti->stype != PREF_SID))
+	if ((exti == NULL) ||
+	    ((exti->stype != PREF_SID) && !tlv_list_count(&exti->fapm_subtlvs)))
 		return;
 
-	/* Adjust Extended Prefix TLV size */
-	TLV_LEN(exti->prefix) = htons(ntohs(TLV_LEN(exti->node_sid))
-				      + EXT_TLV_PREFIX_SIZE + TLV_HDR_SIZE);
+	if (!exti->prefix.header.type && OspfRI.enabled &&
+	    OspfRI.fad_info.num_fads) {
+		/* This could be becoz of a timing issue */
+		ospf_ext_update_all_prefix_fapms();
+	}
+
+	/* Note the tlv header position in the stream buffer */
+	tlvh = (struct tlv_header *)(STREAM_DATA(s) + stream_get_endp(s));
+	tlv_size = EXT_TLV_PREFIX_SIZE;
 
 	/* Build LSA body for an Extended Prefix TLV */
 	build_tlv_header(s, &exti->prefix.header);
 	stream_put(s, TLV_DATA(&exti->prefix.header), EXT_TLV_PREFIX_SIZE);
-	/* Then add Prefix SID SubTLV */
-	build_tlv(s, &exti->node_sid.header);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Adding Ext Prefix TLV (type: %u) for %pI4/%u",
+			__func__, ntohs(tlvh->type), &exti->prefix.address,
+			exti->prefix.pref_length);
+
+	/* Add PREFIX_SID subTLV */
+	if (OspfEXT.enabled && exti->stype == PREF_SID) {
+		subtlvh = (struct tlv_header *)(STREAM_DATA(s) +
+						stream_get_endp(s));
+		tlv_size += ntohs(exti->node_sid.header.length) + TLV_HDR_SIZE;
+		build_tlv(s, &exti->node_sid.header);
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"EXT (%s): Adding Ext Prefix SID SubTLV (type: %u, len: %u) sid: %u",
+				__func__, ntohs(subtlvh->type),
+				ntohs(subtlvh->length),
+				ntohl(exti->node_sid.value));
+	}
+
+	/* Add the FAPM sub-tlvs */
+	FOREACH_TLV_IN_LIST (&exti->fapm_subtlvs, subtlv) {
+		subtlvh = (struct tlv_header *)(STREAM_DATA(s) +
+						stream_get_endp(s));
+		fapm_subtlv = (struct ext_subtlv_fapm *)&subtlv->hdr;
+		tlv_size += ntohs(fapm_subtlv->header.length) + TLV_HDR_SIZE;
+		build_tlv(s, &fapm_subtlv->header);
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"EXT (%s): Adding Ext Prefix FAPM SubTLV (type: %u, len: %u) algo: %u, metric: %u",
+				__func__, ntohs(subtlvh->type),
+				ntohs(subtlvh->length),
+				fapm_subtlv->algorithm_id,
+				ntohl(fapm_subtlv->metric));
+	}
+
+	/* Adjust Extended Prefix TLV size */
+	tlvh->length = htons(tlv_size);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Generated %u bytes Ext-Prefix TLV(type: %u, len: %u)",
+			__func__, tlv_size, ntohs(tlvh->type),
+			ntohs(tlvh->length));
 }
 
 /* Build an Extended Link Opaque LSA body for extended link TLV */
@@ -1292,9 +1605,9 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 	struct ext_itf *exti;
 	int rc = -1;
 
-	if (!OspfEXT.enabled) {
+	if (!OspfEXT.enabled && !OspfRI.fad_info.num_fads) {
 		zlog_info(
-			"EXT (%s): Segment Routing functionality is Disabled now",
+			"EXT (%s): Segment Routing and Flexible-Algorithm functionality is Disabled now",
 			__func__);
 		rc = 0; /* This is not an error case. */
 		return rc;
@@ -1407,14 +1720,14 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 	struct ospf *top;
 	struct ext_itf *exti;
 
-	if (!OspfEXT.enabled) {
+	if (!OspfEXT.enabled && !OspfRI.fad_info.num_fads) {
 		/*
 		 * This LSA must have flushed before due to Extended Prefix
 		 * Opaque LSA status change.
 		 * It seems a slip among routers in the routing domain.
 		 */
 		zlog_info(
-			"EXT (%s): Segment Routing functionality is Disabled",
+			"EXT (%s): Segment Routing and Flexible-Algo functionality is Disabled",
 			__func__);
 		/* Flush it anyway. */
 		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
@@ -1780,7 +2093,7 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 }
 
 static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
-				     size_t buf_size)
+				     size_t buf_size, json_object *json)
 {
 	if (TLV_SIZE(tlvh) > buf_size) {
 		vty_out(vty, "    TLV size %d exceeds buffer size. Abort!",
@@ -1788,8 +2101,11 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 		return buf_size;
 	}
 
-	vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
-		ntohs(tlvh->type), ntohs(tlvh->length));
+	if (json)
+		tlvh_get_json_values(tlvh, json, "Unknown");
+	else
+		vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
+			ntohs(tlvh->type), ntohs(tlvh->length));
 
 	return TLV_SIZE(tlvh);
 }
@@ -1834,7 +2150,8 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 			sum += show_vty_ext_link_rmt_itf_addr(vty, tlvh);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    NULL);
 			break;
 		}
 	}
@@ -1863,7 +2180,8 @@ static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
 			sum += show_vty_link_info(vty, tlvh, length - sum);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    NULL);
 			break;
 		}
 	}
@@ -1871,7 +2189,8 @@ static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
 
 /* Prefix SID SubTLV */
 static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
-					   struct tlv_header *tlvh)
+					   struct tlv_header *tlvh,
+					   json_object *json)
 {
 	struct ext_subtlv_prefix_sid *top =
 		(struct ext_subtlv_prefix_sid *)tlvh;
@@ -1882,53 +2201,106 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 			      : SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE);
 	check_tlv_size(tlv_size, "Prefix SID");
 
-	vty_out(vty,
-		"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
-		ntohs(top->header.length), top->algorithm, top->flags,
-		top->mtid,
-		CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG) ? "Label"
-								   : "Index",
-		CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
-			? GET_LABEL(ntohl(top->value))
-			: ntohl(top->value));
+	if (json) {
+		tlvh_get_json_values(tlvh, json, "Prefix SID SubTLV");
+		json_object_int_add(json, "algotithm", (int64_t)top->algorithm);
+		json_object_int_add(json, "flags", (int64_t)top->flags);
+	} else
+		vty_out(vty,
+			"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
+			ntohs(top->header.length), top->algorithm, top->flags,
+			top->mtid,
+			CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+				? "Label"
+				: "Index",
+			CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+				? GET_LABEL(ntohl(top->value))
+				: ntohl(top->value));
+
+	return TLV_SIZE(tlvh);
+}
+
+/* Prefix SID SubTLV */
+static uint16_t show_vty_ext_pref_fapm(struct vty *vty, struct tlv_header *tlvh,
+				       json_object *json)
+{
+	struct ext_subtlv_fapm *top = (struct ext_subtlv_fapm *)tlvh;
+
+	check_tlv_size(EXT_SUBTLV_FAPM_LEN, "Flex-Algo Prefix-metric");
+
+	if (json) {
+		tlvh_get_json_values(tlvh, json,
+				     "Flex-Algo Prefix Metric (FAPM) SubTLV");
+		json_object_int_add(json, "algotithmId",
+				    (int64_t)top->algorithm_id);
+		json_object_int_add(json, "flags", (int64_t)top->flags);
+		json_object_int_add(json, "metric", ntohl(top->metric));
+	} else
+		vty_out(vty,
+			"  Prefix FAPM Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMetric: %u\n",
+			ntohs(top->header.length), top->algorithm_id,
+			top->flags, ntohl(top->metric));
 
 	return TLV_SIZE(tlvh);
 }
 
 /* Extended Prefix SubTLVs */
 static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
-				   size_t buf_size)
+				   size_t buf_size, json_object *json)
 {
 	struct ext_tlv_prefix *top = (struct ext_tlv_prefix *)ext;
 	struct tlv_header *tlvh;
 	uint16_t length = ntohs(top->header.length);
 	uint16_t sum = 0;
+	json_object *stlvs_json = NULL;
+	json_object *stlv_json = NULL;
 
 	/* Verify that TLV length is valid against remaining buffer size */
 	if (length > buf_size) {
 		vty_out(vty,
-			"  Extended Link TLV size %d exceeds buffer size. Abort!\n",
+			"  Extended Prefix TLV size %d exceeds buffer size. Abort!\n",
 			length);
 		return buf_size;
 	}
 
-	vty_out(vty,
-		"  Extended Prefix TLV: Length %u\n\tRoute Type: %u\n"
-		"\tAddress Family: 0x%x\n\tFlags: 0x%x\n\tAddress: %pI4/%u\n",
-		ntohs(top->header.length), top->route_type, top->af, top->flags,
-		&top->address, top->pref_length);
+	if (json) {
+		tlvh_get_json_values(ext, json, "Extended Prefix TLV");
+		json_object_string_addf(json, "prefixAddress", "%pI4",
+					&top->address);
+		json_object_int_add(json, "prefixLength",
+				    (int64_t)top->pref_length);
+		json_object_int_add(json, "routeType",
+				    (int64_t)top->route_type);
+		json_object_int_add(json, "addressFamily", (int64_t)top->af);
+		stlvs_json = json_object_new_array();
+		json_object_object_add(json, "subTLVs", stlvs_json);
+	} else if (vty)
+		vty_out(vty,
+			"  Extended Prefix TLV: Length %u\n\tRoute Type: %u\n"
+			"\tAddress Family: 0x%x\n\tFlags: 0x%x\n\tAddress: %pI4/%u\n",
+			ntohs(top->header.length), top->route_type, top->af,
+			top->flags, &top->address, top->pref_length);
 
 	/* Skip Extended Prefix TLV and parse sub-TLVs */
 	length -= EXT_TLV_PREFIX_SIZE;
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_PREFIX_SIZE);
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (stlvs_json) {
+			stlv_json = json_object_new_object();
+			json_object_array_add(stlvs_json, stlv_json);
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
-			sum += show_vty_ext_pref_pref_sid(vty, tlvh);
+			sum += show_vty_ext_pref_pref_sid(vty, tlvh, stlv_json);
+			break;
+		case EXT_SUBTLV_FAPM:
+			sum += show_vty_ext_pref_fapm(vty, tlvh, stlv_json);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    stlv_json);
 			break;
 		}
 	}
@@ -1943,22 +2315,597 @@ static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+	json_object *tlvs_json = NULL;
+	json_object *tlv_json = NULL;
 
-	if (json)
-		return;
+	if (json) {
+		tlvs_json = json_object_new_array();
+		json_object_object_add(json, "tlvs", tlvs_json);
+	}
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (tlvs_json) {
+			tlv_json = json_object_new_object();
+			json_object_array_add(tlvs_json, tlv_json);
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case EXT_TLV_PREFIX:
-			sum += show_vty_pref_info(vty, tlvh, length - sum);
+			sum += show_vty_pref_info(vty, tlvh, length - sum,
+						  tlv_json);
 			break;
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length - sum);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    tlv_json);
 			break;
 		}
 	}
+}
+
+/* Prefix SID SubTLV */
+static uint16_t show_vty_ext_ia_asbr_faam(struct vty *vty,
+					  struct tlv_header *tlvh,
+					  json_object *json)
+{
+	struct ext_subtlv_faam *top = (struct ext_subtlv_faam *)tlvh;
+
+	check_tlv_size(EXT_SUBTLV_FAAM_LEN, "FAAM SubTLV");
+
+	if (json) {
+		tlvh_get_json_values(tlvh, json,
+				     "Flex-Algo ASBR Metric (FAAM) SubTLV");
+		json_object_int_add(json, "algorithmId",
+				    (int64_t)top->algorithm_id);
+		json_object_int_add(json, "metric", ntohl(top->metric));
+	} else if (vty) {
+		vty_out(vty,
+			"  Flex-Algo ASBR Metric Sub-TLV: Length %u\n\tAlgorithm: %u\n\tMetric:%u\n",
+			ntohs(top->header.length), top->algorithm_id,
+			ntohl(top->metric));
+	}
+
+	return TLV_SIZE(tlvh);
+}
+
+/* Extended Inter-Area ASBR TLVs and SubTLVs */
+static uint16_t show_vty_eia_asbr_info(struct vty *vty, struct tlv_header *ext,
+				       size_t buf_size, json_object *json)
+{
+	struct ext_tlv_ia_asbr *top = (struct ext_tlv_ia_asbr *)ext;
+	struct tlv_header *tlvh;
+	uint16_t length = ntohs(top->header.length);
+	uint16_t sum = 0;
+	uint8_t *tlv_start = (uint8_t *)ext;
+	json_object *stlvs_json = NULL;
+	json_object *stlv_json = NULL;
+
+	/* Verify that TLV length is valid against remaining buffer size */
+	if (length > buf_size) {
+		vty_out(vty,
+			"  Extended Inter-Area ASBR TLV size %d exceeds buffer size. Abort!\n",
+			length);
+		return buf_size;
+	}
+
+	if (json) {
+		tlvh_get_json_values(ext, json, "Extended Inter-Area ASBR TLV");
+		json_object_string_addf(json, "asbrRouterId", "%pI4",
+					&top->asbr_rtrid);
+		stlvs_json = json_object_new_array();
+		json_object_object_add(json, "subTLVs", stlvs_json);
+	} else if (vty)
+		vty_out(vty,
+			"  Extended Inter-Area ASBR TLV: Length %u\n\tASBR-Router-Id: %pI4\n",
+			ntohs(top->header.length), &top->asbr_rtrid);
+	else
+		zlog_debug(
+			"  Extended Inter-Area ASBR TLV: Length %u, ASBR-Router-Id: %pI4",
+			ntohs(top->header.length), &top->asbr_rtrid);
+
+	/* Skip EIA-ASBR TLV and parse sub-TLVs */
+	sum += EXT_TLV_IA_ASBR_LEN_MIN;
+	tlv_start += TLV_HDR_SIZE + EXT_TLV_IA_ASBR_LEN_MIN;
+	for (tlvh = (struct tlv_header *)tlv_start; sum < length && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (stlvs_json) {
+			stlv_json = json_object_new_object();
+			json_object_array_add(stlvs_json, stlv_json);
+		}
+
+		switch (ntohs(tlvh->type)) {
+		case EXT_SUBTLV_FAAM:
+			sum += show_vty_ext_ia_asbr_faam(vty, tlvh, stlv_json);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    stlv_json);
+			break;
+		}
+	}
+
+	return TLV_SIZE(ext);
+}
+
+/* Extended Inter-Area ASBR LSA TLVs */
+static void ospf_ext_ia_asbr_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa)
+{
+	struct lsa_header *lsah = lsa->data;
+	struct tlv_header *tlvh;
+	uint16_t length = 0, sum = 0;
+	json_object *tlvs_json = NULL;
+	json_object *tlv_json = NULL;
+
+	if (json) {
+		tlvs_json = json_object_new_array();
+		json_object_object_add(json, "tlvs", tlvs_json);
+	}
+
+	/* Initialize TLV browsing */
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
+
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (tlvs_json) {
+			tlv_json = json_object_new_object();
+			json_object_array_add(tlvs_json, tlv_json);
+		}
+
+		switch (ntohs(tlvh->type)) {
+		case EXT_TLV_IA_ASBR:
+			sum += show_vty_eia_asbr_info(vty, tlvh, length - sum,
+						      tlv_json);
+			break;
+		default:
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum,
+						    tlv_json);
+			break;
+		}
+	}
+}
+
+/* Build an Extended IA-ASBR Opaque LSA body for extended IA-ASBR TLV */
+static void ospf_ext_ia_asbr_lsa_body_set(struct stream *s,
+					  struct ospf_area *area)
+{
+	struct tlv *subtlv;
+	struct ext_subtlv_faam *faam_subtlv;
+	uint16_t tlv_size = 0;
+	struct tlv_header *tlvh;
+
+	/* Note the tlv header position in the stream buffer */
+	tlvh = (struct tlv_header *)(STREAM_DATA(s) + stream_get_endp(s));
+	tlv_size = EXT_TLV_IA_ASBR_LEN_MIN;
+
+	/* Build LSA body for an Extended IA-ASBR TLV */
+	build_tlv_header(s, &area->eia_asbr_info->ia_asbr_tlv.header);
+	stream_put(s, TLV_DATA(&area->eia_asbr_info->ia_asbr_tlv.header),
+		   EXT_TLV_IA_ASBR_LEN_MIN);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("EXT (%s): Adding Ext IA-ASBR TLV (type: %u)",
+			   __func__, ntohs(tlvh->type));
+
+	/* Add the FAAM sub-tlvs */
+	FOREACH_TLV_IN_LIST (&area->eia_asbr_info->faam_subtlvs, subtlv) {
+		faam_subtlv = (struct ext_subtlv_faam *)&subtlv->hdr;
+		tlv_size += ntohs(faam_subtlv->header.length) + TLV_HDR_SIZE;
+		build_tlv(s, &faam_subtlv->header);
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"EXT (%s): Added FAAM subTLV (type: %u, length: %u)",
+				__func__, ntohs(faam_subtlv->header.type),
+				ntohs(faam_subtlv->header.length));
+	}
+
+	/* Adjust Extended IA-ASBR TLV size */
+	tlvh->length = htons(tlv_size);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Added Ext IA-ASBR TLV (type: %u, length: %u)",
+			__func__, ntohs(tlvh->type), ntohs(tlvh->length));
+}
+
+/* Create new Extended IA-ASBR opaque-LSA for every extended prefix */
+static struct ospf_lsa *ospf_ext_ia_asbr_lsa_new(struct ospf_area *area)
+{
+	struct stream *s;
+	struct lsa_header *lsah;
+	struct ospf_lsa *new = NULL;
+	uint8_t options, lsa_type;
+	struct in_addr lsa_id;
+	struct in_addr router_id;
+	uint32_t tmp;
+	uint16_t length;
+
+	/* Sanity Check */
+	if (OspfEXT.scope == OSPF_OPAQUE_AS_LSA)
+		return NULL;
+
+	/* Sanity check */
+	if (!area->eia_asbr_info ||
+	    !tlv_list_count(&area->eia_asbr_info->faam_subtlvs)) {
+		zlog_debug(
+			"EXT (%s): No FAAM SubTLVs found for area %pI4, skip adding LSA body",
+			__func__, &area->area_id);
+		return NULL;
+	}
+
+	/* Create a stream for LSA. */
+	s = stream_new(OSPF_MAX_LSA_SIZE);
+
+	/* Prepare LSA Header */
+	lsah = (struct lsa_header *)STREAM_DATA(s);
+
+	lsa_type = OspfEXT.scope;
+
+	/*
+	 * LSA ID is a variable number identifying different instances of
+	 * Extended IA-ASBR Opaque LSA from the same router see RFC 7684
+	 */
+	tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA,
+			      area->ospf->instance);
+	lsa_id.s_addr = htonl(tmp);
+
+	options = OSPF_OPTION_O; /* Don't forget this :-) */
+
+	/* Fix Options and Router ID depending of the flooding scope */
+	options |= LSA_OPTIONS_GET(area); /* Get area default option */
+	options |= LSA_OPTIONS_NSSA_GET(area);
+	router_id = area->ospf->router_id;
+
+	/* Set opaque-LSA header fields. */
+	lsa_header_set(s, options, lsa_type, lsa_id, router_id);
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): LSA[Type%u:%pI4]: Create an Opaque-LSA Extended IA-ASBR Opaque LSA instance",
+			__func__, lsa_type, &lsa_id);
+
+	/* Set opaque-LSA body fields. */
+	ospf_ext_ia_asbr_lsa_body_set(s, area);
+
+	/* Set length. */
+	length = stream_get_endp(s);
+	lsah->length = htons(length);
+
+	/* Now, create an OSPF LSA instance. */
+	new = ospf_lsa_new_and_data(length);
+	new->vrf_id = area->ospf->vrf_id;
+	new->area = area;
+	SET_FLAG(new->flags, OSPF_LSA_SELF);
+	memcpy(new->data, lsah, length);
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): LSA[Type%u:%pI4]: Final length of Opaque-LSA Extended IA-ASBR Opaque LSA: %d/%d",
+			__func__, lsa_type, &lsa_id, length,
+			ntohs(lsah->length));
+	stream_free(s);
+
+	return new;
+}
+
+/*
+ * Process the origination of an Extended Prefix Opaque LSA
+ * for every extended prefix TLV
+ */
+static int ospf_ext_ia_asbr_lsa_originate1(struct ospf_area *area)
+{
+	struct ospf_lsa *new;
+	int rc = -1;
+
+	/* Create new Opaque-LSA/Extended Prefix Opaque LSA instance. */
+	new = ospf_ext_ia_asbr_lsa_new(area);
+	if (new == NULL) {
+		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
+			  "EXT (%s): ospf_ext_ia_asbr_lsa_new() error",
+			  __func__);
+		return rc;
+	}
+
+	/* Install this LSA into LSDB. */
+	if (ospf_lsa_install(area->ospf, NULL /*oi */, new) == NULL) {
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
+			  "EXT (%s): ospf_lsa_install() error", __func__);
+		ospf_lsa_unlock(&new);
+		return rc;
+	}
+
+	/*
+	 * Now this Extended Prefix Opaque LSA info parameter entry has
+	 * associated LSA.
+	 */
+	SET_FLAG(area->eia_asbr_info->flags, EXT_LPFLG_LSA_ENGAGED);
+
+	/* Update new LSA origination count. */
+	area->ospf->lsa_originate_count++;
+
+	/* Flood new LSA through area. */
+	ospf_flood_through_area(area, NULL /*nbr */, new);
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSA Extended IA-ASBR Opaque LSA: Area(%pI4)",
+			__func__, new->data->type, &new->data->id,
+			&area->area_id);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		ospf_lsa_header_dump(new->data);
+
+	rc = 0;
+
+	return rc;
+}
+
+/* Trigger the origination of Extended IA-ASBR Opaque LSAs */
+static int ospf_ext_ia_asbr_lsa_originate(void *arg)
+{
+	struct ospf_area *area = (struct ospf_area *)arg;
+
+	if (!OspfRI.fad_info.num_fads) {
+		zlog_info(
+			"EXT (%s): No Flexible-Algorithms has been configured so far.",
+			__func__);
+		return 0; /* This is not an error case. */
+	}
+
+	ospf_ext_update_ia_asbr_lsa(area);
+	if (!tlv_list_count(&area->eia_asbr_info->faam_subtlvs)) {
+		zlog_info(
+			"EXT (%s): No advertise-prefix-metric configured for any Flexible-Algorithms",
+			__func__);
+		return 0; /* This is not an error case. */
+	}
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Start Originate IA-ASBR LSA for area %pI4",
+			__func__, &area->area_id);
+
+	if (CHECK_FLAG(area->eia_asbr_info->flags, EXT_LPFLG_LSA_ENGAGED)) {
+		if (CHECK_FLAG(area->eia_asbr_info->flags,
+			       EXT_LPFLG_LSA_FORCED_REFRESH)) {
+			flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
+				  "EXT (%s): Refresh instead of Originate",
+				  __func__);
+			UNSET_FLAG(area->eia_asbr_info->flags,
+				   EXT_LPFLG_LSA_FORCED_REFRESH);
+			ospf_ext_ia_asbr_lsa_schedule(area, REFRESH_THIS_LSA);
+		}
+	}
+
+	/* Ok, let's try to originate an LSA */
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): Let's finally re-originate the LSA 11.0.0.%u for area %pI4",
+			__func__, area->ospf->instance, &area->area_id);
+	ospf_ext_ia_asbr_lsa_originate1(area);
+
+	return 0;
+}
+
+/* Refresh an Extended IA-ASBR Opaque LSA */
+static struct ospf_lsa *ospf_ext_ia_asbr_lsa_refresh(struct ospf_lsa *lsa)
+{
+	struct ospf_lsa *new = NULL;
+	struct ospf_area *area = lsa->area;
+	struct ospf *top;
+
+	/* If the lsa's age reached to MaxAge, start flushing procedure. */
+	if (!area) {
+		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
+			  "EXT (%s): No Area found associated: Flush it!",
+			  __func__);
+		/* Flush it anyway. */
+		lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	}
+
+	/* If the lsa's age reached to MaxAge, start flushing procedure. */
+	if (IS_LSA_MAXAGE(lsa)) {
+		if (area)
+			UNSET_FLAG(area->eia_asbr_info->flags,
+				   EXT_LPFLG_LSA_ENGAGED);
+		ospf_opaque_lsa_flush_schedule(lsa);
+		return NULL;
+	}
+
+	/* Create new Opaque-LSA/Extended IA-ASBR Opaque LSA instance. */
+	new = ospf_ext_ia_asbr_lsa_new(area);
+
+	if (new == NULL) {
+		flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
+			  "EXT (%s): ospf_ext_ia_asbr_lsa_new() error",
+			  __func__);
+		return NULL;
+	}
+	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
+
+	/*
+	 * Install this LSA into LSDB
+	 * Given "lsa" will be freed in the next function
+	 * As area could be NULL i.e. when using OPAQUE_LSA_AS, we prefer to use
+	 * ospf_lookup() to get ospf instance
+	 */
+	top = area->ospf;
+
+	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
+			  "EXT (%s): ospf_lsa_install() error", __func__);
+		ospf_lsa_unlock(&new);
+		return NULL;
+	}
+
+	/* Flood updated LSA through the IA-ASBR Area according to the RFC7684
+	 */
+	ospf_flood_through_area(area, NULL /*nbr */, new);
+
+	/* Debug logging. */
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug(
+			"EXT (%s): LSA[Type%u:%pI4] Refresh Extended IA-ASBR LSA",
+			__func__, new->data->type, &new->data->id);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		ospf_lsa_header_dump(new->data);
+
+	return new;
+}
+
+/* Schedule Extended IA-ASBR Opaque LSA origination/refreshment/flushing */
+static void ospf_ext_ia_asbr_lsa_schedule(struct ospf_area *area,
+					  enum lsa_opcode opcode)
+{
+	struct ospf_lsa lsa;
+	struct lsa_header lsah;
+	struct ospf *top;
+	uint32_t tmp;
+
+	memset(&lsa, 0, sizeof(lsa));
+	memset(&lsah, 0, sizeof(lsah));
+
+	/* Sanity Check */
+
+	/* Check if the corresponding LSA is ready to be flooded */
+	if (opcode != FLUSH_THIS_LSA &&
+	    !(CHECK_FLAG(area->eia_asbr_info->flags, EXT_LPFLG_LSA_ACTIVE)))
+		return;
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("EXT (%s): Schedule %s EIA-ASBR LSA for area %pI4",
+			   __func__,
+			   opcode == REORIGINATE_THIS_LSA
+				   ? "Re-Originate"
+				   : opcode == REFRESH_THIS_LSA
+					     ? "Refresh"
+					     : opcode == FLUSH_THIS_LSA
+						       ? "Flush"
+						       : "",
+			   &area->area_id);
+
+	/* Verify Area */
+	if (area == NULL) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"EXT (%s): Area is not yet set. Try to use Backbone Area",
+				__func__);
+
+		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		struct in_addr backbone = {.s_addr = INADDR_ANY};
+		area = ospf_area_lookup_by_area_id(top, backbone);
+		if (area == NULL) {
+			flog_warn(EC_OSPF_EXT_LSA_UNEXPECTED,
+				  "EXT (%s): Unable to set Area", __func__);
+			return;
+		}
+	}
+	/* Set LSA header information */
+	lsa.area = area;
+	lsa.data = &lsah;
+	lsah.type = OSPF_OPAQUE_AREA_LSA;
+	tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA,
+			      area->ospf->instance);
+	lsah.id.s_addr = htonl(tmp);
+
+	switch (opcode) {
+	case REORIGINATE_THIS_LSA:
+		ospf_opaque_lsa_reoriginate_schedule(
+			(void *)area, OSPF_OPAQUE_AREA_LSA,
+			OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA);
+		break;
+	case REFRESH_THIS_LSA:
+		ospf_opaque_lsa_refresh_schedule(&lsa);
+		break;
+	case FLUSH_THIS_LSA:
+		UNSET_FLAG(area->eia_asbr_info->flags, EXT_LPFLG_LSA_ENGAGED);
+		ospf_opaque_lsa_flush_schedule(&lsa);
+		break;
+	}
+}
+
+/* Update info from Extended Inter-Area ASBR LSA */
+static void ospf_ext_update_ia_asbr_info_from_lsa(struct ospf_lsa *lsa)
+{
+	// struct sr_node *srn;
+	struct tlv_header *tlvh;
+	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	// struct sr_prefix *srp;
+
+	int length;
+
+	if (IS_DEBUG_OSPF(lsa, LSA))
+		zlog_debug(
+			"EXT (%s): Process Extended Inter-Area LSA 11.0.0.%u from %pI4",
+			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			&lsah->adv_router);
+
+	/* Initialize TLV browsing */
+	length = lsa->size - OSPF_LSA_HEADER_SIZE;
+	for (tlvh = TLV_HDR_TOP(lsah); length > 0 && tlvh;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (ntohs(tlvh->type) == EXT_TLV_IA_ASBR) {
+			/* Got Extended Inter-Area ASBR information */
+			/*
+			 * TODO: Parse the Extended Inter-Area ASBR TLV
+			 * and it's sub-TLVs and update the DB (once we
+			 * implement it)
+			 */
+		}
+		length -= TLV_SIZE(tlvh);
+	}
+}
+
+/* Delete Segment Routing from Extended Prefix LSA */
+static void ospf_ext_delete_ia_asbr_info_for_lsa(struct ospf_lsa *lsa)
+{
+	// struct listnode *node;
+	// struct sr_prefix *srp;
+	// struct sr_node *srn;
+	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	// uint32_t instance = ntohl(lsah->id.s_addr);
+
+	if (IS_DEBUG_OSPF(lsa, LSA))
+		zlog_debug(
+			"EXT (%s): Remove Extended Inter-Area ASBR LSA 11.0.0.%u from %pI4",
+			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			&lsah->adv_router);
+
+	/*
+	 * TODO: Remove the entry from the DB (once we implement it)
+	 */
+}
+
+/* Callbacks to handle Extended Inter-Area ASBR LSA information */
+static int ospf_ext_ia_asbr_lsa_update(struct ospf_lsa *lsa)
+{
+
+	/* Sanity Check */
+	if (lsa == NULL) {
+		flog_warn(EC_OSPF_LSA_NULL, "EXT (%s): Abort! LSA is NULL",
+			  __func__);
+		return -1;
+	}
+
+	/* Process only Opaque LSA */
+	if (lsa->data->type != OSPF_OPAQUE_AREA_LSA)
+		return 0;
+
+	/* Process only Extended Prefix LSA */
+	if (GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)) !=
+	    OPAQUE_TYPE_EXTENDED_INTER_AREA_ASBR_LSA)
+		return 0;
+
+	/* Check if it is not my LSA */
+	if (IS_LSA_SELF(lsa))
+		return 0;
+
+	/* Call Segment Routing LSA update or deletion */
+	if (!IS_LSA_MAXAGE(lsa))
+		ospf_ext_update_ia_asbr_info_from_lsa(lsa);
+	else
+		ospf_ext_delete_ia_asbr_info_for_lsa(lsa);
+
+	return 0;
 }

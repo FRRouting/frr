@@ -47,6 +47,8 @@
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_apiserver.h"
+#include "ospfd/ospf_sr.h"
+#include "ospfd/ospf_ext.h"
 
 
 DEFINE_QOBJ_TYPE(ospf);
@@ -955,6 +957,10 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 	if (area_id.s_addr == OSPF_AREA_BACKBONE)
 		ospf->backbone = new;
 
+	new->eia_asbr_info = XCALLOC(MTYPE_OSPF_EXT_IAASBR_INFO,
+				     sizeof(struct ospf_ext_ia_asbr));
+	tlv_list_init(&new->eia_asbr_info->faam_subtlvs);
+
 	return new;
 }
 
@@ -984,6 +990,12 @@ void ospf_area_lsdb_discard_delete(struct ospf_area *area)
 
 static void ospf_area_free(struct ospf_area *area)
 {
+	if (area->eia_asbr_info) {
+		flush_ext_ia_asbr_faam_subtlvs(area);
+		XFREE(MTYPE_OSPF_EXT_IAASBR_INFO, area->eia_asbr_info);
+		area->eia_asbr_info = NULL;
+	}
+
 	ospf_opaque_type10_lsa_term(area);
 
 	/* Free LSDBs. */

@@ -43,6 +43,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_sr.h"
+#include "ospfd/ospf_ext.h"
 #include "ospfd/ospf_ri.h"
 #include "ospfd/ospf_errors.h"
 #ifndef VTYSH_EXTRACT_PL
@@ -3348,8 +3349,10 @@ DEFPY(flex_algo_prfx_metric, flex_algo_prfx_metric_cmd,
 	 * Refresh/Re-originate the Router-Info LSA along with
 	 * all the EXT Prefix LSAs if already engaged.
 	 */
-	if (update_lsa)
+	if (update_lsa) {
+		ospf_ext_update_all_prefix_fapms();
 		ospf_router_info_schedule(REFRESH_THIS_LSA);
+	}
 
 	return CMD_SUCCESS;
 }

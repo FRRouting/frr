@@ -106,6 +106,20 @@ struct ext_tlv_prefix {
 	struct in_addr address;
 };
 
+/*
+ * Flexible Algorithm Prefix Metric Sub-TLV.
+ * Reference: draft-ietf-lsr-flex-algo section 9
+ */
+#define EXT_SUBTLV_FAPM 0x3
+#define EXT_SUBTLV_FAPM_LEN 0x8
+struct ext_subtlv_fapm {
+	struct tlv_header header; /* Type = 3; Length = 8 bytes. */
+	uint8_t algorithm_id;     /* Algorithm. 1 byte */
+	uint8_t flags;		  /* Flags. 1 byte */
+	uint16_t reserved;	/* Reserved. 2 bytes */
+	uint32_t metric;	  /* Metric. 4 byte */
+};
+
 /* Extended Link TLV see RFC 7684 section 3.1 */
 #define EXT_TLV_LINK			1
 #define EXT_TLV_LINK_SIZE		12
@@ -123,6 +137,59 @@ struct ext_tlv_link {
 struct ext_subtlv_rmt_itf_addr {
 	struct tlv_header header;
 	struct in_addr value;
+};
+
+/*
+ * OSPF Extended Inter-Area ASBR Opaque LSA
+ *        24       16        8        0
+ * +--------+--------+--------+--------+ ---
+ * |   LS age        |Options |  10    |  A
+ * +--------+--------+--------+--------+  |  Standard (Opaque) LSA header;
+ * |   11   |        Instance          |  |
+ * +--------+--------+--------+--------+  |  LSA Type 10 is used for Extended
+ * |        Advertising router         |  |  Inter-Area ASBR Opaque LSA
+ * +--------+--------+--------+--------+  |
+ * |        LS sequence number         |  |  Opaque Type 11 is used for Extended
+ * +--------+--------+--------+--------+  |  Inter-Area ASBR Opaque LSA
+ * |   LS checksum   |     Length      |  V
+ * +--------+--------+--------+--------+ ---
+ * |      Type       |     Length      |  A
+ * +--------+--------+--------+--------+  |  TLV part for Extended Inter-Area
+ * |                                   |  |  ASBR Opaque LSA;
+ * ~              Values ...           ~  |  Values are structured as a set
+ * |                                   |  V  of sub-TLVs.
+ * +--------+--------+--------+--------+ ---
+ */
+
+/*
+ * OSPFv2 Extended Inter-Area ASBR TLV.
+ */
+#define EXT_TLV_IA_ASBR 0x1
+#define EXT_TLV_IA_ASBR_LEN_MIN 0x4
+struct ext_tlv_ia_asbr {
+	struct tlv_header header;
+	struct in_addr asbr_rtrid;
+};
+
+/*
+ * OSPFv2 Flexible Algorithm ASBR Metric SubTLV.
+ */
+#define EXT_SUBTLV_FAAM 0x1
+#define EXT_SUBTLV_FAAM_LEN 0x8
+struct ext_subtlv_faam {
+	struct tlv_header header;
+	uint8_t algorithm_id; /* Algorithm. 1 byte */
+	uint8_t reserved[3];  /* Reserved. 3 byte */
+	uint32_t metric;      /* Metric. 4 byte */
+};
+
+/* Extended Inter-Area ASBR information */
+struct ospf_ext_ia_asbr {
+	// struct in_addr asbr_rtrid; /* ASBR adverstising router-id */
+	// uint32_t ext_ia_asbr_flags; /* Flags for managing EIA_ASBR LSAs */
+	uint32_t flags; /* Flags to manage this EIA-ASBR Opaque LSA */
+	struct ext_tlv_ia_asbr ia_asbr_tlv; /* EIA-ASBR TLV */
+	struct tlv_list_head faam_subtlvs;  /* FAAM sub-TLVs */
 };
 
 /* Internal structure to manage Extended Link/Prefix Opaque LSA */
@@ -163,6 +230,7 @@ struct ext_itf {
 	/* extended link/prefix TLV information */
 	struct ext_tlv_prefix prefix;
 	struct ext_subtlv_prefix_sid node_sid;
+	struct tlv_list_head fapm_subtlvs;
 	struct ext_tlv_link link;
 	struct ext_subtlv_adj_sid adj_sid[2];
 	struct ext_subtlv_lan_adj_sid lan_sid[2];
@@ -181,4 +249,7 @@ extern uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp,
 					       uint32_t index,
 					       struct prefix_ipv4 *p,
 					       uint8_t flags);
+extern void flush_ext_ia_asbr_faam_subtlvs(struct ospf_area *area);
+extern void ospf_ext_update_all_prefix_fapms(void);
+extern void ospf_ext_update_all_ia_asbr_lsas(struct ospf *top);
 #endif /* _FRR_OSPF_EXT_PREF_H_ */

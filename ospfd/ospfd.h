@@ -501,6 +501,8 @@ struct p_space {
 	struct p_spaces_item p_spaces_item;
 };
 
+struct ospf_ext_ia_asbr;
+
 /* OSPF area structure. */
 struct ospf_area {
 	/* OSPF instance. */
@@ -635,6 +637,9 @@ struct ospf_area {
 	uint32_t full_vls;  /* Fully adjacent virtual neighbors. */
 
 	struct ospf_area_fr_info fr_info; /* Flood reduction info. */
+
+	/* Exntended Inter-Area ASBR Opaque Info */
+	struct ospf_ext_ia_asbr *eia_asbr_info;
 };
 
 /* OSPF config network structure. */
