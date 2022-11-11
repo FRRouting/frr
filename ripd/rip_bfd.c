@@ -43,6 +43,9 @@ static void rip_bfd_session_change(struct bfd_session_params *bsp,
 			zlog_debug("%s: peer %pI4: BFD Down", __func__,
 				   &rp->addr);
 
+		if (rp->rip->log_neighbor_changes)
+			zlog_info("RIP Peer down: %pI4 on %s", &rp->addr, rp->ri->ifp->name);
+
 		rip_peer_delete_routes(rp);
 		rip_peer_list_del(&rp->rip->peer_list, rp);
 		rip_peer_free(rp);

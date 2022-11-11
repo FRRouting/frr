@@ -104,6 +104,9 @@ struct rip {
 	/* Status of the routing instance. */
 	bool enabled;
 
+	/* Log neighbor changes enabled or not. */
+	bool log_neighbor_changes;
+
 	/* RIP socket. */
 	int sock;
 

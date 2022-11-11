@@ -68,6 +68,12 @@ module frr-ripd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-03-31 {
+    description
+      "Added configuration to log RIP peer discovery / time outs.";
+    reference
+      "FRRouting";
+  }
   revision 2019-09-09 {
     description
       "Changed interface references to use
@@ -140,6 +146,12 @@ module frr-ripd {
         default "1";
         description
           "Default metric of redistributed routes.";
+      }
+      leaf log-neighbor-changes {
+        type boolean;
+        default "false";
+        description
+          "Log neighbor discovery and disapperances.";
       }
       container distance {
         description

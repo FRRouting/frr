@@ -132,6 +132,12 @@ const struct frr_yang_module_info frr_ripd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-ripd:ripd/instance/log-neighbor-changes",
+			.cbs = {
+				.modify = ripd_instance_log_neighbor_changes_modify,
+			},
+		},
+		{
 			.xpath = "/frr-ripd:ripd/instance/distribute-list",
 			.cbs = {
 				.create = ripd_instance_distribute_list_create,

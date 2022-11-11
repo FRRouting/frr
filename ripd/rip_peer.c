@@ -59,6 +59,9 @@ static void rip_peer_timeout(struct event *t)
 	struct rip_peer *peer;
 
 	peer = EVENT_ARG(t);
+	if (peer->rip->log_neighbor_changes)
+		zlog_info("RIP Peer down: %pI4 on %s", &peer->addr, peer->ri->ifp->name);
+
 	rip_peer_list_del(&peer->rip->peer_list, peer);
 	rip_peer_free(peer);
 }
@@ -74,6 +77,9 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct rip_interface *ri,
 	if (peer) {
 		event_cancel(&peer->t_timeout);
 	} else {
+		if (rip->log_neighbor_changes)
+			zlog_info("RIP Peer up: %pI4 on %s", addr, ri->ifp->name);
+
 		peer = rip_peer_new();
 		peer->rip = rip;
 		peer->ri = ri;

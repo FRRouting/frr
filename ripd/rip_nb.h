@@ -37,6 +37,7 @@ int ripd_instance_network_create(struct nb_cb_create_args *args);
 int ripd_instance_network_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_interface_create(struct nb_cb_create_args *args);
 int ripd_instance_interface_destroy(struct nb_cb_destroy_args *args);
+int ripd_instance_log_neighbor_changes_modify(struct nb_cb_modify_args *args);
 int ripd_instance_offset_list_create(struct nb_cb_create_args *args);
 int ripd_instance_offset_list_destroy(struct nb_cb_destroy_args *args);
 int ripd_instance_offset_list_access_list_modify(

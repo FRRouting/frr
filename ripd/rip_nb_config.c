@@ -383,6 +383,22 @@ int ripd_instance_interface_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-ripd:ripd/instance/log-neighbor-changes
+ */
+int ripd_instance_log_neighbor_changes_modify(struct nb_cb_modify_args *args)
+{
+	struct rip *rip;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip = nb_running_get_entry(args->dnode, NULL, true);
+	rip->log_neighbor_changes = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-ripd:ripd/instance/offset-list
  */
 int ripd_instance_offset_list_create(struct nb_cb_create_args *args)
