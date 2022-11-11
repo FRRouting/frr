@@ -82,5 +82,5 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 /* RPF(bsr_addr) == src_ip%src_ifp? */
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip);
-
+void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
 #endif
