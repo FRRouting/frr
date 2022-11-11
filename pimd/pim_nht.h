@@ -53,6 +53,11 @@ struct pim_nexthop_cache {
 	uint32_t bsr_count;
 };
 
+struct pnc_hash_walk_data {
+	struct pim_instance *pim;
+	struct interface *ifp;
+};
+
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
 int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
 			      struct pim_upstream *up, struct rp_info *rp,
