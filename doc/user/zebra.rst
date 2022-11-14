@@ -810,6 +810,36 @@ and this section also helps that case.
       !
    ...
 
+.. clicmd:: behavior usid
+
+   Specify the SRv6 locator as a Micro-segment (uSID) locator. When a locator is
+   specified as a uSID locator, all the SRv6 SIDs allocated from the locator by the routing
+   protocols are bound to the SRv6 uSID behaviors. For example, if you configure BGP to use
+   a locator specified as a uSID locator, BGP instantiates and advertises SRv6 uSID behaviors
+   (e.g., ``uDT4`` / ``uDT6`` / ``uDT46``) instead of classic SRv6 behaviors
+   (e.g., ``End.DT4`` / ``End.DT6`` / ``End.DT46``).
+
+::
+
+   router# configure terminal
+   router(config)# segment-routinig
+   router(config-sr)# srv6
+   router(config-srv6)# locators
+   router(config-srv6-locators)# locator loc1
+   router(config-srv6-locator)# prefix fc00:0:1::/48 block-len 32 node-len 16 func-bits 16
+   router(config-srv6-locator)# behavior usid
+
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix fc00:0:1::/48
+       behavior usid
+      !
+   ...
+
 .. _multicast-rib-commands:
 
 Multicast RIB Commands

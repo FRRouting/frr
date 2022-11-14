@@ -92,6 +92,9 @@ struct srv6_locator {
 	bool status_up;
 	struct list *chunks;
 
+	uint8_t flags;
+#define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(srv6_locator);
@@ -116,6 +119,23 @@ struct srv6_locator_chunk {
 	uint8_t proto;
 	uint16_t instance;
 	uint32_t session_id;
+
+	uint8_t flags;
+};
+
+/*
+ * SRv6 Endpoint Behavior codepoints, as defined by IANA in
+ * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml
+ */
+enum srv6_endpoint_behavior_codepoint {
+	SRV6_ENDPOINT_BEHAVIOR_RESERVED       = 0x0000,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT6        = 0x0012,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT4        = 0x0013,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT46       = 0x0014,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID   = 0x003E,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID   = 0x003F,
+	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID  = 0x0040,
+	SRV6_ENDPOINT_BEHAVIOR_OPAQUE         = 0xFFFF,
 };
 
 struct nexthop_srv6 {
