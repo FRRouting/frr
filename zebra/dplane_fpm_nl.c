@@ -1275,7 +1275,7 @@ static void fpm_process_queue(struct thread *t)
 static void fpm_process_event(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
-	int event = THREAD_VAL(t);
+	enum fpm_nl_events event = THREAD_VAL(t);
 
 	switch (event) {
 	case FNE_DISABLE:
@@ -1327,11 +1327,6 @@ static void fpm_process_event(struct thread *t)
 	case FNE_LSP_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: LSP walk finished", __func__);
-		break;
-
-	default:
-		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: unhandled event %d", __func__, event);
 		break;
 	}
 }
