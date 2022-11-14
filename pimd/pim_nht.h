@@ -53,6 +53,11 @@ struct pim_nexthop_cache {
 	uint32_t bsr_count;
 };
 
+struct pnc_hash_walk_data {
+	struct pim_instance *pim;
+	struct interface *ifp;
+};
+
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
 int pim_find_or_track_nexthop(struct pim_instance *pim, pim_addr addr,
 			      struct pim_upstream *up, struct rp_info *rp,
@@ -77,5 +82,5 @@ void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 /* RPF(bsr_addr) == src_ip%src_ifp? */
 bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip);
-
+void pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
 #endif

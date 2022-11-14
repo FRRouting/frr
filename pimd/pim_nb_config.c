@@ -24,6 +24,7 @@
 #include "lib/northbound_cli.h"
 #include "pim_igmpv3.h"
 #include "pim_neighbor.h"
+#include "pim_nht.h"
 #include "pim_pim.h"
 #include "pim_mlag.h"
 #include "pim_bfd.h"
@@ -146,6 +147,7 @@ static int pim_cmd_interface_add(struct interface *ifp)
 		pim_ifp->pim_enable = true;
 
 	pim_if_addr_add_all(ifp);
+	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
@@ -171,6 +173,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 
 	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);
+		pim_upstream_nh_if_update(pim_ifp->pim, ifp);
 		pim_if_delete(ifp);
 	}
 
