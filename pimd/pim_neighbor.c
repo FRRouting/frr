@@ -42,6 +42,7 @@
 #include "pim_jp_agg.h"
 #include "pim_bfd.h"
 #include "pim_register.h"
+#include "pim_oil.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -138,6 +139,7 @@ int pim_if_dr_election(struct interface *ifp)
 
 		if (PIM_I_am_DR(pim_ifp)) {
 			pim_ifp->am_i_dr = true;
+			pim_clear_nocache_state(pim_ifp);
 		} else {
 			if (pim_ifp->am_i_dr == true) {
 				pim_reg_del_on_couldreg_fail(ifp);

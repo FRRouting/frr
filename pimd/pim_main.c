@@ -119,6 +119,7 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	pim_router_init();
+	router->debugs = ~0U;
 
 	/*
 	 * Initializations
