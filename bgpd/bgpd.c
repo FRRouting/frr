@@ -2060,6 +2060,13 @@ const char *bgp_get_name_by_role(uint8_t role)
 	return "unknown";
 }
 
+enum asnotation_mode bgp_get_asnotation(struct bgp *bgp)
+{
+	if (!bgp)
+		return ASNOTATION_PLAIN;
+	return bgp->asnotation;
+}
+
 static void peer_group2peer_config_copy_af(struct peer_group *group,
 					   struct peer *peer, afi_t afi,
 					   safi_t safi)

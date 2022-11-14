@@ -25,6 +25,7 @@
 #include "lib/memory.h"
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
+#include "lib/asn.h"
 
 static int errors;
 
@@ -158,6 +159,7 @@ int main(int argc, char **argv)
 	struct in_addr ip;
 	char *p;
 	char buf[256];
+	as_t asn;
 
 	printcmp("%d %u %d %u", 123, 123, -456, -456);
 	printcmp("%lld %llu %lld %llu", 123LL, 123LL, -456LL, -456LL);
@@ -405,6 +407,13 @@ int main(int argc, char **argv)
 	printchk("-00:09", "%pTSIm", &ts);
 	printchk("--:--", "%pTVImx", &tv);
 	printchk("--:--", "%pTTImx", &tt);
+	/* ASN checks */
+	asn = 65536;
+	printchk("1.0", "%pASD", &asn);
+	asn = 65400;
+	printchk("65400", "%pASP", &asn);
+	printchk("0.65400", "%pASE", &asn);
+	printchk("65400", "%pASD", &asn);
 
 	return !!errors;
 }

@@ -2350,6 +2350,7 @@ extern void peer_tx_shutdown_message_unset(struct peer *);
 
 extern void bgp_route_map_update_timer(struct thread *thread);
 extern const char *bgp_get_name_by_role(uint8_t role);
+extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 
 extern void bgp_route_map_terminate(void);
 

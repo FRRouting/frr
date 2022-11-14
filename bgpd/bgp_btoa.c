@@ -101,7 +101,8 @@ static void attr_parse(struct stream *s, uint16_t len)
 		case BGP_ATTR_AS_PATH: {
 			struct aspath *aspath;
 
-			aspath = aspath_parse(s, length, 1);
+			aspath = aspath_parse(s, length, 1,
+					      bgp_get_asnotation(NULL));
 			printf("ASPATH: %s\n", aspath->str);
 			aspath_free(aspath);
 		} break;

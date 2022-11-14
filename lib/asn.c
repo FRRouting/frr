@@ -118,6 +118,15 @@ static bool asn_str2asn_internal(const char *asstring, as_t *asn,
 	return ret;
 }
 
+static void asn_asn2asdot(as_t asn, char *asstring, size_t len)
+{
+	uint16_t low, high;
+
+	high = (asn >> 16) & 0xffff;
+	low = asn & 0xffff;
+	snprintf(asstring, len, "%hu.%hu", high, low);
+}
+
 bool asn_str2asn(const char *asstring, as_t *asn)
 {
 	return asn_str2asn_internal(asstring, asn, NULL, NULL, NULL);
@@ -172,4 +181,59 @@ const char *asn_mode2str(enum asnotation_mode asnotation)
 {
 	return lookup_msg(asnotation_mode_msg, asnotation,
 			  "Unrecognized AS notation mode");
+}
+
+void asn_asn2json_array(json_object *jseg_list, as_t asn,
+			enum asnotation_mode asnotation)
+{
+	static char as_str[ASN_STRING_MAX_SIZE];
+
+	if ((asnotation == ASNOTATION_PLAIN) ||
+	    ((asnotation == ASNOTATION_DOT) && asn < UINT16_MAX))
+		json_object_array_add(jseg_list,
+				      json_object_new_int64(asn));
+	else {
+		asn_asn2asdot(asn, as_str, sizeof(as_str));
+		json_array_string_add(jseg_list, as_str);
+	}
+}
+
+static ssize_t printfrr_asnotation(struct fbuf *buf, struct printfrr_eargs *ea,
+				   const void *ptr,
+				   enum asnotation_mode asnotation)
+{
+	/* for alignemnt up to 33 chars - %33pASD for instance - */
+	char as_str[ASN_STRING_MAX_SIZE*3];
+	const as_t *asn;
+
+	if (!ptr)
+		return bputs(buf, "(null)");
+	asn = ptr;
+	if ((asnotation == ASNOTATION_PLAIN) ||
+	    ((asnotation == ASNOTATION_DOT) && *asn < UINT16_MAX))
+		snprintf(as_str, sizeof(as_str), "%u", *asn);
+	else
+		asn_asn2asdot(*asn, as_str, sizeof(as_str));
+	return bputs(buf, as_str);
+}
+
+printfrr_ext_autoreg_p("ASP", printfrr_asplain);
+static ssize_t printfrr_asplain(struct fbuf *buf, struct printfrr_eargs *ea,
+				const void *ptr)
+{
+	return printfrr_asnotation(buf, ea, ptr, ASNOTATION_PLAIN);
+}
+
+printfrr_ext_autoreg_p("ASD", printfrr_asdot);
+static ssize_t printfrr_asdot(struct fbuf *buf, struct printfrr_eargs *ea,
+				const void *ptr)
+{
+	return printfrr_asnotation(buf, ea, ptr, ASNOTATION_DOT);
+}
+
+printfrr_ext_autoreg_p("ASE", printfrr_asdotplus);
+static ssize_t printfrr_asdotplus(struct fbuf *buf, struct printfrr_eargs *ea,
+				  const void *ptr)
+{
+	return printfrr_asnotation(buf, ea, ptr, ASNOTATION_DOTPLUS);
 }

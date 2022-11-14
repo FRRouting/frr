@@ -7246,7 +7246,7 @@ static bool aggr_suppress_map_test(struct bgp *bgp,
 		return false;
 
 	/* Call route map matching and return result. */
-	attr.aspath = aspath_empty();
+	attr.aspath = aspath_empty(bgp->asnotation);
 	rmap_path.peer = bgp->peer_self;
 	rmap_path.attr = &attr;
 
@@ -7340,9 +7340,12 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 				    struct lcommunity *lcomm)
 {
 	static struct aspath *ae = NULL;
+	enum asnotation_mode asnotation;
+
+	asnotation = bgp_get_asnotation(NULL);
 
 	if (!ae)
-		ae = aspath_empty();
+		ae = aspath_empty(asnotation);
 
 	if (!pi)
 		return false;

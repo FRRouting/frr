@@ -163,7 +163,8 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 	attr->nh_ifindex = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 	lua_getfield(L, idx, "aspath");
-	attr->aspath = aspath_str2aspath(lua_tostring(L, -1));
+	attr->aspath = aspath_str2aspath(lua_tostring(L, -1),
+					 bgp_get_asnotation(NULL));
 	lua_pop(L, 1);
 	lua_getfield(L, idx, "localpref");
 	attr->local_pref = lua_tointeger(L, -1);

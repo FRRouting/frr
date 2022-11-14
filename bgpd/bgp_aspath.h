@@ -72,6 +72,9 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+
+	/* AS notation used by string expression of AS path */
+	enum asnotation_mode asnotation;
 };
 
 #define ASPATH_STR_DEFAULT_LEN 32
@@ -80,7 +83,9 @@ struct aspath {
 extern void aspath_init(void);
 extern void aspath_finish(void);
 extern struct aspath *aspath_parse(struct stream *s, size_t length,
-				   int use32bit);
+				   int use32bit,
+				   enum asnotation_mode asnotation);
+
 extern struct aspath *aspath_dup(struct aspath *aspath);
 extern struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2);
 extern struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2);
@@ -96,9 +101,10 @@ extern bool aspath_cmp_left(const struct aspath *aspath1,
 extern bool aspath_cmp_left_confed(const struct aspath *as1,
 				   const struct aspath *as2);
 extern struct aspath *aspath_delete_confed_seq(struct aspath *aspath);
-extern struct aspath *aspath_empty(void);
+extern struct aspath *aspath_empty(enum asnotation_mode asnotation);
 extern struct aspath *aspath_empty_get(void);
-extern struct aspath *aspath_str2aspath(const char *str);
+extern struct aspath *aspath_str2aspath(const char *str,
+					enum asnotation_mode asnotation);
 extern void aspath_str_update(struct aspath *as, bool make_json);
 extern void aspath_free(struct aspath *aspath);
 extern struct aspath *aspath_intern(struct aspath *aspath);

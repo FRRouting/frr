@@ -24,6 +24,7 @@
 
 #include "zebra.h"
 #include "command_match.h"
+#include "json.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +49,20 @@ extern enum match_type asn_str2asn_match(const char *str);
 extern bool asn_str2asn_notation(const char *asstring, as_t *asn,
 				 enum asnotation_mode *asnotation);
 extern const char *asn_mode2str(enum asnotation_mode asnotation);
+void asn_asn2json_array(json_object *jseg_list, as_t asn,
+			enum asnotation_mode asnotation);
+/* display AS in appropriate format */
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pASP"  (as_t *)
+#pragma FRR printfrr_ext "%pASD"  (as_t *)
+#pragma FRR printfrr_ext "%pASE"  (as_t *)
+#endif
+
+#define ASN_FORMAT(mode)  \
+	((mode == ASNOTATION_DOT) ? "%pASD" :	    \
+	 ((mode == ASNOTATION_DOTPLUS) ? "%pASE" :	\
+	  "%pASP"))
+
 /* for test */
 extern void asn_relax_as_zero(bool relax);
 

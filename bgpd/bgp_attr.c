@@ -1069,7 +1069,7 @@ struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 
 	attr->origin = origin;
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_ORIGIN);
-	attr->aspath = aspath_empty();
+	attr->aspath = aspath_empty(bgp->asnotation);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
 	attr->weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr->tag = 0;
@@ -1107,7 +1107,7 @@ struct attr *bgp_attr_aggregate_intern(
 	if (aspath)
 		attr.aspath = aspath_intern(aspath);
 	else
-		attr.aspath = aspath_empty();
+		attr.aspath = aspath_empty(bgp->asnotation);
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
 
 	/* Next hop attribute.  */
@@ -1605,15 +1605,19 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	struct peer *const peer = args->peer;
 	const bgp_size_t length = args->length;
+	enum asnotation_mode asnotation;
 
+	asnotation = bgp_get_asnotation(
+		args->peer && args->peer->bgp ? args->peer->bgp : NULL);
 	/*
 	 * peer with AS4 => will get 4Byte ASnums
 	 * otherwise, will get 16 Bit
 	 */
-	attr->aspath = aspath_parse(
-		peer->curr, length,
-		CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)
-			&& CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV));
+	attr->aspath =
+		aspath_parse(peer->curr, length,
+			     CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
+				     CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV),
+			     asnotation);
 
 	/* In case of IBGP, length will be zero. */
 	if (!attr->aspath) {
@@ -1705,8 +1709,11 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
+	enum asnotation_mode asnotation;
 
-	*as4_path = aspath_parse(peer->curr, length, 1);
+	asnotation = bgp_get_asnotation(peer->bgp);
+
+	*as4_path = aspath_parse(peer->curr, length, 1, asnotation);
 
 	/* In case of IBGP, length will be zero. */
 	if (!*as4_path) {

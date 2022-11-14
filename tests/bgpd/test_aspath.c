@@ -880,7 +880,7 @@ static struct aspath *make_aspath(const uint8_t *data, size_t len, int use32bit)
 		s = stream_new(len);
 		stream_put(s, data, len);
 	}
-	as = aspath_parse(s, len, use32bit);
+	as = aspath_parse(s, len, use32bit, ASNOTATION_PLAIN);
 
 	if (s)
 		stream_free(s);
@@ -925,7 +925,7 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 	as4 = make_aspath(STREAM_DATA(s), bytes4, 1);
 
 	asn_relax_as_zero(true);
-	asstr = aspath_str2aspath(sp->shouldbe);
+	asstr = aspath_str2aspath(sp->shouldbe, ASNOTATION_PLAIN);
 	asn_relax_as_zero(false);
 
 	asconfeddel = aspath_delete_confed_seq(aspath_dup(asinout));
@@ -1103,7 +1103,7 @@ static void empty_prepend_test(struct test_segment *t)
 	printf("empty prepend %s: %s\n", t->name, t->desc);
 
 	asp1 = make_aspath(t->asdata, t->len, 0);
-	asp2 = aspath_empty();
+	asp2 = aspath_empty(ASNOTATION_PLAIN);
 
 	ascratch = aspath_dup(asp2);
 	aspath_unintern(&asp2);

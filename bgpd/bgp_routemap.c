@@ -228,7 +228,7 @@ static void *route_aspath_compile(const char *arg)
 {
 	struct aspath *aspath;
 
-	aspath = aspath_str2aspath(arg);
+	aspath = aspath_str2aspath(arg, bgp_get_asnotation(NULL));
 	if (!aspath)
 		return NULL;
 	return aspath;
