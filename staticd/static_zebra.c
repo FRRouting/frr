@@ -338,7 +338,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		nhtd = static_nht_hash_getref(&lookup);
 
 		if (nhtd->refcount > 1)
-			DEBUGD(&static_dbg_route,
+			dbg(STATIC_ROUTE,
 			       "Reusing registered nexthop(%pFX) for %pRN %d",
 			       &lookup.nh, rn, nhtd->nh_num);
 	} else {
@@ -367,7 +367,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			return;
 
 		cmd = ZEBRA_NEXTHOP_REGISTER;
-		DEBUGD(&static_dbg_route, "Registering nexthop(%pFX) for %pRN",
+		dbg(STATIC_ROUTE, "Registering nexthop(%pFX) for %pRN",
 		       &lookup.nh, rn);
 	} else {
 		bool was_zebra_registered;
@@ -382,7 +382,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			return;
 
 		cmd = ZEBRA_NEXTHOP_UNREGISTER;
-		DEBUGD(&static_dbg_route,
+		dbg(STATIC_ROUTE,
 		       "Unregistering nexthop(%pFX) for %pRN", &lookup.nh, rn);
 	}
 

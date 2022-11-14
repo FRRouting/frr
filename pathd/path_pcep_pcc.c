@@ -178,7 +178,7 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	update_tag(pcc_state);
 	update_originator(pcc_state);
 
-	PCEP_DEBUG("%s PCC initialized", pcc_state->tag);
+	dbg(PCEP_BASIC, "%s PCC initialized", pcc_state->tag);
 
 	return pcc_state;
 }
@@ -186,7 +186,7 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 		       struct pcc_state *pcc_state)
 {
-	PCEP_DEBUG("%s PCC finalizing...", pcc_state->tag);
+	dbg(PCEP_BASIC, "%s PCC finalizing...", pcc_state->tag);
 
 	pcep_pcc_disable(ctrl_state, pcc_state);
 
@@ -403,7 +403,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		return 0;
 	}
 
-	PCEP_DEBUG("%s PCC connecting", pcc_state->tag);
+	dbg(PCEP_BASIC, "%s PCC connecting", pcc_state->tag);
 	pcc_state->sess = pcep_lib_connect(
 		&pcc_state->pcc_addr_tr, pcc_state->pcc_opts->port,
 		&pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
@@ -439,7 +439,7 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	case PCEP_PCC_CONNECTING:
 	case PCEP_PCC_SYNCHRONIZING:
 	case PCEP_PCC_OPERATING:
-		PCEP_DEBUG("%s Disconnecting PCC...", pcc_state->tag);
+		dbg(PCEP_BASIC, "%s Disconnecting PCC...", pcc_state->tag);
 		cancel_comp_requests(ctrl_state, pcc_state);
 		pcep_lib_disconnect(pcc_state->sess);
 		/* No need to remove if any PCEs is connected */
@@ -472,8 +472,8 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 	if ((path->type == SRTE_CANDIDATE_TYPE_DYNAMIC)
 	    && (path->first_hop == NULL)
 	    && !has_pending_req_for(pcc_state, path)) {
-		PCEP_DEBUG("%s Scheduling computation request for path %s",
-			   pcc_state->tag, path->name);
+		dbg(PCEP_BASIC, "%s Scheduling computation request for path %s",
+		    pcc_state->tag, path->name);
 		push_new_req(pcc_state, path);
 		return;
 	}
@@ -482,15 +482,15 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 	 * endpoint address familly is supported */
 	if (pcc_state->caps.is_stateful) {
 		if (filter_path(pcc_state, path)) {
-			PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag,
-				   path->name);
+			dbg(PCEP_BASIC, "%s Synchronizing path %s",
+			    pcc_state->tag, path->name);
 			send_report(pcc_state, path);
 		} else {
-			PCEP_DEBUG(
-				"%s Skipping %s candidate path %s synchronization",
-				pcc_state->tag,
-				ipaddr_type_name(&path->nbkey.endpoint),
-				path->name);
+			dbg(PCEP_BASIC,
+			    "%s Skipping %s candidate path %s synchronization",
+			    pcc_state->tag,
+			    ipaddr_type_name(&path->nbkey.endpoint),
+			    path->name);
 		}
 	}
 }
@@ -526,7 +526,7 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 	pcc_state->synchronized = true;
 	pcc_state->status = PCEP_PCC_OPERATING;
 
-	PCEP_DEBUG("%s Synchronization done", pcc_state->tag);
+	dbg(PCEP_BASIC, "%s Synchronization done", pcc_state->tag);
 
 	/* Start the computation request accumulated during synchronization */
 	RB_FOREACH (req, req_entry_head, &pcc_state->requests) {
@@ -544,8 +544,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 		return;
 	}
 
-	PCEP_DEBUG("(%s)%s Send report for candidate path %s", __func__,
-		   pcc_state->tag, path->name);
+	dbg(PCEP_BASIC, "%s Send report for candidate path %s", pcc_state->tag,
+	    path->name);
 
 	/* ODL and Cisco requires the first reported
 	 * LSP to have a DOWN status, the later status changes
@@ -558,8 +558,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	/* If no update is expected and the real status wasn't down, we need to
 	 * send a second report with the real status */
 	if (is_stable && (real_status != PCEP_LSP_OPERATIONAL_DOWN)) {
-		PCEP_DEBUG("(%s)%s Send report for candidate path (!DOWN) %s",
-			   __func__, pcc_state->tag, path->name);
+		dbg(PCEP_BASIC, "%s Send report for candidate path (!DOWN) %s",
+		    pcc_state->tag, path->name);
 		path->status = real_status;
 		send_report(pcc_state, path);
 	}
@@ -573,7 +573,7 @@ void pcep_pcc_send_error(struct ctrl_state *ctrl_state,
 			 bool sub_type)
 {
 
-	PCEP_DEBUG("(%s) Send error after PcInitiated ", __func__);
+	dbg(PCEP_BASIC, "Send error after PcInitiated ");
 
 
 	send_pcep_error(pcc_state, error->error_type, error->error_value,
@@ -604,10 +604,10 @@ void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 		}
 		if (pcc_state->caps.is_stateful) {
 			struct path *path;
-			PCEP_DEBUG(
-				"%s Delegating undefined dynamic path %s to PCE %s",
-				pcc_state->tag, req->path->name,
-				pcc_state->originator);
+			dbg(PCEP_BASIC,
+			    "%s Delegating undefined dynamic path %s to PCE %s",
+			    pcc_state->tag, req->path->name,
+			    pcc_state->originator);
 			path = pcep_copy_path(req->path);
 			path->is_delegated = true;
 			send_report(pcc_state, path);
@@ -635,22 +635,22 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 	/* Skipping candidate path with endpoint that do not match the
 	 * configured or deduced PCC IP version */
 	if (!filter_path(pcc_state, path)) {
-		PCEP_DEBUG("%s Skipping %s candidate path %s event",
-			   pcc_state->tag,
-			   ipaddr_type_name(&path->nbkey.endpoint), path->name);
+		dbg(PCEP_BASIC, "%s Skipping %s candidate path %s event",
+		    pcc_state->tag, ipaddr_type_name(&path->nbkey.endpoint),
+		    path->name);
 		return;
 	}
 
 	switch (type) {
 	case PCEP_PATH_CREATED:
 		if (has_pending_req_for(pcc_state, path)) {
-			PCEP_DEBUG(
-				"%s Candidate path %s created, computation request already sent",
-				pcc_state->tag, path->name);
+			dbg(PCEP_BASIC,
+			    "%s Candidate path %s created, computation request already sent",
+			    pcc_state->tag, path->name);
 			return;
 		}
-		PCEP_DEBUG("%s Candidate path %s created", pcc_state->tag,
-			   path->name);
+		dbg(PCEP_BASIC, "%s Candidate path %s created", pcc_state->tag,
+		    path->name);
 		if ((path->first_hop == NULL)
 		    && (path->type == SRTE_CANDIDATE_TYPE_DYNAMIC)) {
 			req = push_new_req(pcc_state, path);
@@ -659,14 +659,14 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 			send_report(pcc_state, path);
 		return;
 	case PCEP_PATH_UPDATED:
-		PCEP_DEBUG("%s Candidate path %s updated", pcc_state->tag,
-			   path->name);
+		dbg(PCEP_BASIC, "%s Candidate path %s updated", pcc_state->tag,
+		    path->name);
 		if (pcc_state->caps.is_stateful)
 			send_report(pcc_state, path);
 		return;
 	case PCEP_PATH_REMOVED:
-		PCEP_DEBUG("%s Candidate path %s removed", pcc_state->tag,
-			   path->name);
+		dbg(PCEP_BASIC, "%s Candidate path %s removed", pcc_state->tag,
+		    path->name);
 		path->was_removed = true;
 		/* Removed as response to a PcInitiated 'R'emove*/
 		/* RFC 8281 #5.4 LSP Deletion*/
@@ -688,29 +688,30 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 				 struct pcc_state *pcc_state, pcep_event *event)
 {
-	PCEP_DEBUG("%s Received PCEP event: %s", pcc_state->tag,
-		   pcep_event_type_name(event->event_type));
+	dbg(PCEP_BASIC, "%s Received PCEP event: %s", pcc_state->tag,
+	    pcep_event_type_name(event->event_type));
 	switch (event->event_type) {
 	case PCC_CONNECTED_TO_PCE:
 		assert(PCEP_PCC_CONNECTING == pcc_state->status);
-		PCEP_DEBUG("%s Connection established", pcc_state->tag);
+		dbg(PCEP_BASIC, "%s Connection established", pcc_state->tag);
 		pcc_state->status = PCEP_PCC_SYNCHRONIZING;
 		pcc_state->retry_count = 0;
 		pcc_state->synchronized = false;
-		PCEP_DEBUG("%s Starting PCE synchronization", pcc_state->tag);
+		dbg(PCEP_BASIC, "%s Starting PCE synchronization",
+		    pcc_state->tag);
 		cancel_session_timeout(ctrl_state, pcc_state);
 		pcep_pcc_calculate_best_pce(ctrl_state->pcc);
 		pcep_thread_start_sync(ctrl_state, pcc_state->id);
 		break;
 	case PCC_SENT_INVALID_OPEN:
-		PCEP_DEBUG("%s Sent invalid OPEN message", pcc_state->tag);
-		PCEP_DEBUG(
-			"%s Reconciling values: keep alive (%d) dead timer (%d) seconds ",
-			pcc_state->tag,
-			pcc_state->sess->pcc_config
-				.keep_alive_pce_negotiated_timer_seconds,
-			pcc_state->sess->pcc_config
-				.dead_timer_pce_negotiated_seconds);
+		dbg(PCEP_BASIC, "%s Sent invalid OPEN message", pcc_state->tag);
+		dbg(PCEP_BASIC,
+		    "%s Reconciling values: keep alive (%d) dead timer (%d) seconds ",
+		    pcc_state->tag,
+		    pcc_state->sess->pcc_config
+			    .keep_alive_pce_negotiated_timer_seconds,
+		    pcc_state->sess->pcc_config
+			    .dead_timer_pce_negotiated_seconds);
 		pcc_state->pce_opts->config_opts.keep_alive_seconds =
 			pcc_state->sess->pcc_config
 				.keep_alive_pce_negotiated_timer_seconds;
@@ -720,9 +721,10 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		break;
 
 	case PCC_RCVD_INVALID_OPEN:
-		PCEP_DEBUG("%s Received invalid OPEN message", pcc_state->tag);
-		PCEP_DEBUG_PCEP("%s PCEP message: %s", pcc_state->tag,
-				format_pcep_message(event->message));
+		dbg(PCEP_BASIC, "%s Received invalid OPEN message",
+		    pcc_state->tag);
+		dbg(PCEP_MSG, "%s PCEP message: %s", pcc_state->tag,
+		    format_pcep_message(event->message));
 		break;
 	case PCE_DEAD_TIMER_EXPIRED:
 	case PCE_CLOSED_SOCKET:
@@ -736,8 +738,8 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		schedule_session_timeout(ctrl_state, pcc_state);
 		break;
 	case MESSAGE_RECEIVED:
-		PCEP_DEBUG_PCEP("%s Received PCEP message: %s", pcc_state->tag,
-				format_pcep_message(event->message));
+		dbg(PCEP_MSG, "%s Received PCEP message: %s", pcc_state->tag,
+		    format_pcep_message(event->message));
 		if (pcc_state->status == PCEP_PCC_CONNECTING) {
 			if (event->message->msg_header->type == PCEP_TYPE_OPEN)
 				handle_pcep_open(ctrl_state, pcc_state,
@@ -762,23 +764,25 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 /* Internal util function, returns true if sync is necessary, false otherwise */
 bool update_best_pce(struct pcc_state **pcc, int best)
 {
-	PCEP_DEBUG(" recalculating pce precedence ");
+	dbg(PCEP_BASIC, " recalculating pce precedence ");
 	if (best) {
 		struct pcc_state *best_pcc_state =
 			pcep_pcc_get_pcc_by_id(pcc, best);
 		if (best_pcc_state->previous_best != best_pcc_state->is_best) {
-			PCEP_DEBUG(" %s Resynch best (%i) previous best (%i)",
-				   best_pcc_state->tag, best_pcc_state->id,
-				   best_pcc_state->previous_best);
+			dbg(PCEP_BASIC,
+			    " %s Resynch best (%i) previous best (%i)",
+			    best_pcc_state->tag, best_pcc_state->id,
+			    best_pcc_state->previous_best);
 			return true;
 		} else {
-			PCEP_DEBUG(
-				" %s No Resynch best (%i) previous best (%i)",
-				best_pcc_state->tag, best_pcc_state->id,
-				best_pcc_state->previous_best);
+			dbg(PCEP_BASIC,
+			    " %s No Resynch best (%i) previous best (%i)",
+			    best_pcc_state->tag, best_pcc_state->id,
+			    best_pcc_state->previous_best);
 		}
 	} else {
-		PCEP_DEBUG(" No best pce available, all pce seem disconnected");
+		dbg(PCEP_BASIC,
+		    " No best pce available, all pce seem disconnected");
 	}
 
 	return false;
@@ -1153,14 +1157,14 @@ void handle_pcep_open(struct ctrl_state *ctrl_state,
 {
 	assert(msg->msg_header->type == PCEP_TYPE_OPEN);
 	pcep_lib_parse_capabilities(msg, &pcc_state->caps);
-	PCEP_DEBUG("PCE capabilities: %s, %s%s",
-		   pcc_state->caps.is_stateful ? "stateful" : "stateless",
-		   pcc_state->caps.supported_ofs_are_known
-			   ? (pcc_state->caps.supported_ofs == 0
-				      ? "no objective functions supported"
-				      : "supported objective functions are ")
-			   : "supported objective functions are unknown",
-		   format_objfun_set(pcc_state->caps.supported_ofs));
+	dbg(PCEP_BASIC, "PCE capabilities: %s, %s%s",
+	    pcc_state->caps.is_stateful ? "stateful" : "stateless",
+	    pcc_state->caps.supported_ofs_are_known
+		    ? (pcc_state->caps.supported_ofs == 0
+			       ? "no objective functions supported"
+			       : "supported objective functions are ")
+		    : "supported objective functions are unknown",
+	    format_objfun_set(pcc_state->caps.supported_ofs));
 }
 
 void handle_pcep_message(struct ctrl_state *ctrl_state,
@@ -1205,8 +1209,8 @@ void continue_pcep_lsp_update(struct ctrl_state *ctrl_state,
 	char err[MAX_ERROR_MSG_SIZE] = {0};
 
 	specialize_incoming_path(pcc_state, path);
-	PCEP_DEBUG("%s Received LSP update", pcc_state->tag);
-	PCEP_DEBUG_PATH("%s", format_path(path));
+	dbg(PCEP_BASIC, "%s Received LSP update", pcc_state->tag);
+	dbg(PCEP_PATH, "%s", format_path(path));
 
 	if (validate_incoming_path(pcc_state, path, err, sizeof(err)))
 		pcep_thread_update_path(ctrl_state, pcc_state->id, path);
@@ -1316,8 +1320,8 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 
 	specialize_incoming_path(pcc_state, path);
 	/* TODO: Validate the PCC address received from the PCE is valid */
-	PCEP_DEBUG("%s Received LSP initiate", pcc_state->tag);
-	PCEP_DEBUG_PATH("%s", format_path(path));
+	dbg(PCEP_BASIC, "%s Received LSP initiate", pcc_state->tag);
+	dbg(PCEP_PATH, "%s", format_path(path));
 
 	if (validate_incoming_path(pcc_state, path, err, sizeof(err))) {
 		pcep_thread_initiate_path(ctrl_state, pcc_state->id, path);
@@ -1350,10 +1354,10 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 		/* TODO: check the rate of bad computation reply and close
 		 * the connection if more that a given rate.
 		 */
-		PCEP_DEBUG(
-			"%s Received computation reply for unknown request %d",
-			pcc_state->tag, path->req_id);
-		PCEP_DEBUG_PATH("%s", format_path(path));
+		dbg(PCEP_BASIC,
+		    "%s Received computation reply for unknown request %d",
+		    pcc_state->tag, path->req_id);
+		dbg(PCEP_PATH, "%s", format_path(path));
 		send_pcep_error(pcc_state, PCEP_ERRT_UNKNOWN_REQ_REF,
 				PCEP_ERRV_UNASSIGNED, NULL);
 		return;
@@ -1369,14 +1373,14 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 	path->name = XSTRDUP(MTYPE_PCEP, req->path->name);
 	specialize_incoming_path(pcc_state, path);
 
-	PCEP_DEBUG("%s Received computation reply %d (no-path: %s)",
-		   pcc_state->tag, path->req_id,
-		   path->no_path ? "true" : "false");
-	PCEP_DEBUG_PATH("%s", format_path(path));
+	dbg(PCEP_BASIC, "%s Received computation reply %d (no-path: %s)",
+	    pcc_state->tag, path->req_id, path->no_path ? "true" : "false");
+	dbg(PCEP_PATH, "%s", format_path(path));
 
 	if (path->no_path) {
-		PCEP_DEBUG("%s Computation for path %s did not find any result",
-			   pcc_state->tag, path->name);
+		dbg(PCEP_BASIC,
+		    "%s Computation for path %s did not find any result",
+		    pcc_state->tag, path->name);
 		free_req_entry(req);
 		pcep_free_path(path);
 		return;
@@ -1398,9 +1402,9 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 	/* TODO: For now we are using the path from the request, when
 	 * pathd API is thread safe, we could get a new path */
 	if (pcc_state->caps.is_stateful) {
-		PCEP_DEBUG("%s Delegating undefined dynamic path %s to PCE %s",
-			   pcc_state->tag, req->path->name,
-			   pcc_state->originator);
+		dbg(PCEP_BASIC,
+		    "%s Delegating undefined dynamic path %s to PCE %s",
+		    pcc_state->tag, req->path->name, pcc_state->originator);
 		path = pcep_copy_path(req->path);
 		path->is_delegated = true;
 		send_report(pcc_state, path);
@@ -1535,8 +1539,8 @@ void schedule_session_timeout(struct ctrl_state *ctrl_state,
 {
 	/* No need to schedule timeout if multiple PCEs are connected */
 	if (get_pce_count_connected(ctrl_state->pcc)) {
-		PCEP_DEBUG_PCEP(
-			"schedule_session_timeout not setting timer for multi-pce mode");
+		dbg(PCEP_MSG,
+		    "schedule_session_timeout not setting timer for multi-pce mode");
 
 		return;
 	}
@@ -1553,11 +1557,11 @@ void cancel_session_timeout(struct ctrl_state *ctrl_state,
 {
 	/* No need to schedule timeout if multiple PCEs are connected */
 	if (pcc_state->t_session_timeout == NULL) {
-		PCEP_DEBUG_PCEP("cancel_session_timeout timer thread NULL");
+		dbg(PCEP_MSG, "cancel_session_timeout timer thread NULL");
 		return;
 	}
 
-	PCEP_DEBUG_PCEP("Cancel session_timeout timer");
+	dbg(PCEP_MSG, "Cancel session_timeout timer");
 	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
 	pcc_state->t_session_timeout = NULL;
 }
@@ -1565,8 +1569,8 @@ void cancel_session_timeout(struct ctrl_state *ctrl_state,
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
 {
 	if (pcc_state->sess != NULL) {
-		PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
-				format_pcep_message(msg));
+		dbg(PCEP_MSG, "%s Sending PCEP message: %s", pcc_state->tag,
+		    format_pcep_message(msg));
 		send_message(pcc_state->sess, msg, true);
 	}
 }
@@ -1577,9 +1581,9 @@ void send_pcep_error(struct pcc_state *pcc_state,
 		     struct path *trigger_path)
 {
 	struct pcep_message *msg;
-	PCEP_DEBUG("%s Sending PCEP error type %s (%d) value %s (%d)",
-		   pcc_state->tag, pcep_error_type_name(error_type), error_type,
-		   pcep_error_value_name(error_type, error_value), error_value);
+	dbg(PCEP_BASIC, "%s Sending PCEP error type %s (%d) value %s (%d)",
+	    pcc_state->tag, pcep_error_type_name(error_type), error_type,
+	    pcep_error_value_name(error_type, error_value), error_value);
 	msg = pcep_lib_format_error(error_type, error_value, trigger_path);
 	send_pcep_message(pcc_state, msg);
 }
@@ -1590,8 +1594,8 @@ void send_report(struct pcc_state *pcc_state, struct path *path)
 
 	path->req_id = 0;
 	specialize_outgoing_path(pcc_state, path);
-	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
-			format_path(path));
+	dbg(PCEP_PATH, "%s Sending path %s: %s", pcc_state->tag, path->name,
+	    format_path(path));
 	report = pcep_lib_format_report(&pcc_state->caps, path);
 	send_pcep_message(pcc_state, report);
 }
@@ -1695,12 +1699,12 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 
 	specialize_outgoing_path(pcc_state, req->path);
 
-	PCEP_DEBUG(
-		"%s Sending computation request %d for path %s to %pIA (retry %d)",
-		pcc_state->tag, req->path->req_id, req->path->name,
-		&req->path->nbkey.endpoint, req->retry_count);
-	PCEP_DEBUG_PATH("%s Computation request path %s: %s", pcc_state->tag,
-			req->path->name, format_path(req->path));
+	dbg(PCEP_BASIC,
+	    "%s Sending computation request %d for path %s to %pIA (retry %d)",
+	    pcc_state->tag, req->path->req_id, req->path->name,
+	    &req->path->nbkey.endpoint, req->retry_count);
+	dbg(PCEP_PATH, "%s Computation request path %s: %s", pcc_state->tag,
+	    req->path->name, format_path(req->path));
 
 	msg = pcep_lib_format_request(&pcc_state->caps, req->path);
 	send_pcep_message(pcc_state, msg);
@@ -1736,13 +1740,12 @@ void cancel_comp_request(struct ctrl_state *ctrl_state,
 		pcep_thread_cancel_timer(&req->t_retry);
 	}
 
-	PCEP_DEBUG(
-		"%s Canceling computation request %d for path %s to %pIA (retry %d)",
-		pcc_state->tag, req->path->req_id, req->path->name,
-		&req->path->nbkey.endpoint, req->retry_count);
-	PCEP_DEBUG_PATH("%s Canceled computation request path %s: %s",
-			pcc_state->tag, req->path->name,
-			format_path(req->path));
+	dbg(PCEP_BASIC,
+	    "%s Canceling computation request %d for path %s to %pIA (retry %d)",
+	    pcc_state->tag, req->path->req_id, req->path->name,
+	    &req->path->nbkey.endpoint, req->retry_count);
+	dbg(PCEP_PATH, "%s Canceled computation request path %s: %s",
+	    pcc_state->tag, req->path->name, format_path(req->path));
 
 	msg = pcep_lib_format_request_cancelled(req->path->req_id);
 	send_pcep_message(pcc_state, msg);
@@ -1909,20 +1912,18 @@ bool has_pending_req_for(struct pcc_state *pcc_state, struct path *path)
 	struct req_entry *req;
 
 
-	PCEP_DEBUG_PATH("(%s) %s", format_path(path), __func__);
+	dbg(PCEP_PATH, "(%s) %s", format_path(path), __func__);
 	/* Looking for request without result */
 	if (path->no_path || !path->first_hop) {
-		PCEP_DEBUG_PATH("%s Path : no_path|!first_hop", __func__);
+		dbg(PCEP_PATH, "Path : no_path|!first_hop");
 		/* ...and already was handle */
 		req = RB_FIND(req_entry_head, &pcc_state->requests, &key);
 		if (!req) {
 			/* we must purge remaining reqid */
-			PCEP_DEBUG_PATH("%s Purge pending reqid: no_path(%s)",
-					__func__,
-					path->no_path ? "TRUE" : "FALSE");
+			dbg(PCEP_PATH, "Purge pending reqid: no_path(%s)",
+			    path->no_path ? "TRUE" : "FALSE");
 			if (lookup_reqid(pcc_state, path) != 0) {
-				PCEP_DEBUG_PATH("%s Purge pending reqid: DONE ",
-						__func__);
+				dbg(PCEP_PATH, "Purge pending reqid: DONE ");
 				remove_reqid_mapping(pcc_state, path);
 				return true;
 			} else {

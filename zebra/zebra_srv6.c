@@ -338,8 +338,7 @@ static int release_srv6_locator_chunk(uint8_t proto, uint16_t instance,
 		return -1;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Releasing srv6-locator on %s", __func__,
-			   locator_name);
+		zlog_debug("Releasing srv6-locator on %s", locator_name);
 
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
 		if (chunk->proto != proto ||
@@ -395,9 +394,10 @@ int release_daemon_srv6_locator_chunks(struct zserv *client)
 	struct srv6_locator_chunk *chunk;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Releasing chunks for client proto %s, instance %d, session %u",
-			   __func__, zebra_route_string(client->proto),
-			   client->instance, client->session_id);
+		zlog_debug(
+			"Releasing chunks for client proto %s, instance %d, session %u",
+			zebra_route_string(client->proto), client->instance,
+			client->session_id);
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, loc_node, loc)) {
 		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, chunk)) {
@@ -415,8 +415,7 @@ int release_daemon_srv6_locator_chunks(struct zserv *client)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Released %d srv6-locator chunks",
-			   __func__, count);
+		zlog_debug("Released %d srv6-locator chunks", count);
 
 	return count;
 }

@@ -340,8 +340,7 @@ static void sr_local_block_delete(void)
 	if (!srlb->reserved)
 		return;
 
-	osr_debug("SR (%s): Remove SRLB [%u/%u]", __func__, srlb->start,
-		  srlb->end);
+	osr_debug("SR: Remove SRLB [%u/%u]", srlb->start, srlb->end);
 
 	/* First release the label block */
 	ospf_zebra_release_label_range(srlb->start, srlb->end);
@@ -363,7 +362,7 @@ static void sr_global_block_delete(void)
 	if (!srgb->reserved)
 		return;
 
-	osr_debug("SR (%s): Remove SRGB [%u/%u]", __func__, srgb->start,
+	osr_debug("SR: Remove SRGB [%u/%u]", srgb->start,
 		  srgb->start + srgb->size - 1);
 
 	ospf_zebra_release_label_range(srgb->start,
@@ -488,7 +487,7 @@ static int ospf_sr_start(struct ospf *ospf)
 	struct sr_node *srn;
 	int rc = 0;
 
-	osr_debug("SR (%s): Start Segment Routing", __func__);
+	osr_debug("SR: Start Segment Routing");
 
 	/* Initialize self SR Node if not already done */
 	if (OspfSR.self == NULL) {
@@ -539,7 +538,7 @@ static int ospf_sr_start(struct ospf *ospf)
 
 	ospf_ext_update_sr(true);
 
-	osr_debug("SR (%s): Update SR-DB from LSDB", __func__);
+	osr_debug("SR: Update SR-DB from LSDB");
 
 	/* Start by looking to Router Info & Extended LSA in lsdb */
 	if ((ospf != NULL) && (ospf->backbone != NULL)) {
@@ -575,7 +574,7 @@ static void ospf_sr_stop(void)
 	if (OspfSR.status == SR_OFF)
 		return;
 
-	osr_debug("SR (%s): Stop Segment Routing", __func__);
+	osr_debug("SR: Stop Segment Routing");
 
 	/* Disable any re-attempt to connect to Label Manager */
 	THREAD_OFF(OspfSR.t_start_lm);
@@ -606,7 +605,7 @@ int ospf_sr_init(void)
 {
 	int rc = -1;
 
-	osr_debug("SR (%s): Initialize SR Data Base", __func__);
+	osr_debug("SR: Initialize SR Data Base");
 
 	memset(&OspfSR, 0, sizeof(OspfSR));
 	OspfSR.status = SR_OFF;
@@ -1340,8 +1339,8 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 	if (srn == OspfSR.self)
 		return;
 
-	osr_debug("SR (%s): Update Out NHLFE for neighbor SR-Node %pI4",
-		  __func__, &srn->adv_router);
+	osr_debug("SR: Update Out NHLFE for neighbor SR-Node %pI4",
+		  &srn->adv_router);
 
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
 		/* Skip Prefix that has not yet a valid route */
@@ -1382,9 +1381,8 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	uint16_t length = 0, sum = 0;
 	uint8_t msd = 0;
 
-	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4",
-		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-		  &lsah->adv_router);
+	osr_debug("SR: Process Router Information LSA 4.0.0.%u from %pI4",
+		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
 
 	/* Sanity check */
 	if (IS_LSA_SELF(lsa))
@@ -1515,7 +1513,7 @@ void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa)
 	struct sr_node *srn;
 	struct lsa_header *lsah = lsa->data;
 
-	osr_debug("SR (%s): Remove SR node %pI4 from lsa_id 4.0.0.%u", __func__,
+	osr_debug("SR: Remove SR node %pI4 from lsa_id 4.0.0.%u",
 		  &lsah->adv_router, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)));
 
 	/* Sanity check */
@@ -1559,9 +1557,8 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 
 	int length;
 
-	osr_debug("SR (%s): Process Extended Link LSA 8.0.0.%u from %pI4",
-		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-		  &lsah->adv_router);
+	osr_debug("SR: Process Extended Link LSA 8.0.0.%u from %pI4",
+		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
 
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
@@ -1601,9 +1598,8 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	struct lsa_header *lsah = lsa->data;
 	uint32_t instance = ntohl(lsah->id.s_addr);
 
-	osr_debug("SR (%s): Remove Extended Link LSA 8.0.0.%u from %pI4",
-		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-		  &lsah->adv_router);
+	osr_debug("SR: Remove Extended Link LSA 8.0.0.%u from %pI4",
+		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
 
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
@@ -1648,7 +1644,7 @@ void ospf_sr_ext_itf_add(struct ext_itf *exti)
 	struct sr_node *srn = OspfSR.self;
 	struct sr_link *srl;
 
-	osr_debug("SR (%s): Add Extended Link LSA 8.0.0.%u from self", __func__,
+	osr_debug("SR: Add Extended Link LSA 8.0.0.%u from self",
 		  exti->instance);
 
 	/* Sanity check */
@@ -1738,8 +1734,8 @@ void ospf_sr_ext_itf_delete(struct ext_itf *exti)
 	struct sr_link *srl = NULL;
 	uint32_t instance;
 
-	osr_debug("SR (%s): Remove Extended LSA %u.0.0.%u from self",
-		  __func__, exti->stype == PREF_SID ? 7 : 8, exti->instance);
+	osr_debug("SR: Remove Extended LSA %u.0.0.%u from self",
+		  exti->stype == PREF_SID ? 7 : 8, exti->instance);
 
 	/* Sanity check: SR-Node and Extended Prefix/Link list may have been
 	 * removed earlier when stopping OSPF or OSPF-SR */
@@ -1784,9 +1780,8 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 
 	int length;
 
-	osr_debug("SR (%s): Process Extended Prefix LSA 7.0.0.%u from %pI4",
-		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-		  &lsah->adv_router);
+	osr_debug("SR: Process Extended Prefix LSA 7.0.0.%u from %pI4",
+		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
 
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
@@ -1825,9 +1820,8 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	uint32_t instance = ntohl(lsah->id.s_addr);
 
-	osr_debug("SR (%s): Remove Extended Prefix LSA 7.0.0.%u from %pI4",
-		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-		  &lsah->adv_router);
+	osr_debug("SR: Remove Extended Prefix LSA 7.0.0.%u from %pI4",
+		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)), &lsah->adv_router);
 
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
@@ -1984,7 +1978,7 @@ void ospf_sr_update_task(struct ospf *ospf)
 
 	monotime(&start_time);
 
-	osr_debug("SR (%s): Start SPF update", __func__);
+	osr_debug("SR: Start SPF update");
 
 	hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 						 void *))ospf_sr_nhlfe_update,
@@ -1992,9 +1986,9 @@ void ospf_sr_update_task(struct ospf *ospf)
 
 	monotime(&stop_time);
 
-	osr_debug("SR (%s): SPF Processing Time(usecs): %lld", __func__,
-		  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
-			  + (stop_time.tv_usec - start_time.tv_usec));
+	osr_debug("SR: SPF Processing Time(usecs): %lld",
+		  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL +
+			  (stop_time.tv_usec - start_time.tv_usec));
 }
 
 /*
@@ -2467,7 +2461,7 @@ DEFUN (sr_prefix_sid,
 		srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	}
 
-	osr_debug("SR (%s): Add new index %u to Prefix %pFX", __func__, index,
+	osr_debug("SR: Add new index %u to Prefix %pFX", index,
 		  (struct prefix *)&srp->prefv4);
 
 	/* Get Interface and check if it is a Loopback */
@@ -2565,7 +2559,7 @@ DEFUN (no_sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
+	osr_debug("SR: Remove Prefix %pFX with index %u",
 		  (struct prefix *)&srp->prefv4, srp->sid);
 
 	/* Get Interface */

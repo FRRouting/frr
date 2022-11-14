@@ -1485,9 +1485,8 @@ static void zebra_rib_table_rm_update(const char *rmap)
 			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
 				if (IS_ZEBRA_DEBUG_EVENT)
 					zlog_debug(
-						"%s : AFI_IP rmap %s, route type %s",
-						__func__, rmap,
-						zebra_route_string(i));
+						"AFI_IP rmap %s, route type %s",
+						rmap, zebra_route_string(i));
 
 				old = PROTO_RM_MAP(zvrf, AFI_IP, i);
 
@@ -1516,9 +1515,8 @@ static void zebra_rib_table_rm_update(const char *rmap)
 			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
 				if (IS_ZEBRA_DEBUG_EVENT)
 					zlog_debug(
-						"%s : AFI_IP6 rmap %s, route type %s",
-						__func__, rmap,
-						zebra_route_string(i));
+						"AFI_IP6 rmap %s, route type %s",
+						rmap, zebra_route_string(i));
 
 				old = PROTO_RM_MAP(zvrf, AFI_IP6, i);
 
@@ -1565,9 +1563,8 @@ static void zebra_nht_rm_update(const char *rmap)
 			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
 				if (IS_ZEBRA_DEBUG_EVENT)
 					zlog_debug(
-						"%s : AFI_IP rmap %s, route type %s",
-						__func__, rmap,
-						zebra_route_string(i));
+						"AFI_IP rmap %s, route type %s",
+						rmap, zebra_route_string(i));
 
 				old = NHT_RM_MAP(zvrf, AFI_IP, i);
 
@@ -1596,9 +1593,8 @@ static void zebra_nht_rm_update(const char *rmap)
 			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
 				if (IS_ZEBRA_DEBUG_EVENT)
 					zlog_debug(
-						"%s : AFI_IP6 rmap %s, route type %s",
-						__func__, rmap,
-						zebra_route_string(i));
+						"AFI_IP6 rmap %s, route type %s",
+						rmap, zebra_route_string(i));
 
 				old = NHT_RM_MAP(zvrf, AFI_IP6, i);
 

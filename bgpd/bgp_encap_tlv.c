@@ -465,15 +465,14 @@ static int subtlv_decode_encap_l2tpv3_over_ip(
 	struct bgp_tea_subtlv_encap_l2tpv3_over_ip *st)
 {
 	if (subtlv->length < 4) {
-		zlog_debug("%s, subtlv length %d is less than 4", __func__,
-			   subtlv->length);
+		zlog_debug("subtlv length %d is less than 4", subtlv->length);
 		return -1;
 	}
 
 	ptr_get_be32(subtlv->value, &st->sessionid);
 	st->cookie_length = subtlv->length - 4;
 	if (st->cookie_length > sizeof(st->cookie)) {
-		zlog_debug("%s, subtlv length %d is greater than %d", __func__,
+		zlog_debug("subtlv length %d is greater than %d",
 			   st->cookie_length, (int)sizeof(st->cookie));
 		return -1;
 	}
@@ -486,8 +485,7 @@ static int subtlv_decode_encap_gre(struct bgp_attr_encap_subtlv *subtlv,
 				   struct bgp_tea_subtlv_encap_gre_key *st)
 {
 	if (subtlv->length != 4) {
-		zlog_debug("%s, subtlv length %d does not equal 4", __func__,
-			   subtlv->length);
+		zlog_debug("subtlv length %d does not equal 4", subtlv->length);
 		return -1;
 	}
 	ptr_get_be32(subtlv->value, &st->gre_key);
@@ -498,8 +496,8 @@ static int subtlv_decode_encap_pbb(struct bgp_attr_encap_subtlv *subtlv,
 				   struct bgp_tea_subtlv_encap_pbb *st)
 {
 	if (subtlv->length != 1 + 3 + 6 + 2) {
-		zlog_debug("%s, subtlv length %d does not equal %d", __func__,
-			   subtlv->length, 1 + 3 + 6 + 2);
+		zlog_debug("subtlv length %d does not equal %d", subtlv->length,
+			   1 + 3 + 6 + 2);
 		return -1;
 	}
 	if (subtlv->value[0] & 0x80) {
@@ -520,8 +518,7 @@ static int subtlv_decode_proto_type(struct bgp_attr_encap_subtlv *subtlv,
 				    struct bgp_tea_subtlv_proto_type *st)
 {
 	if (subtlv->length != 2) {
-		zlog_debug("%s, subtlv length %d does not equal 2", __func__,
-			   subtlv->length);
+		zlog_debug("subtlv length %d does not equal 2", subtlv->length);
 		return -1;
 	}
 	st->proto = (subtlv->value[0] << 8) | subtlv->value[1];
@@ -533,14 +530,12 @@ static int subtlv_decode_color(struct bgp_attr_encap_subtlv *subtlv,
 			       struct bgp_tea_subtlv_color *st)
 {
 	if (subtlv->length != 8) {
-		zlog_debug("%s, subtlv length %d does not equal 8", __func__,
-			   subtlv->length);
+		zlog_debug("subtlv length %d does not equal 8", subtlv->length);
 		return -1;
 	}
 	if ((subtlv->value[0] != 0x03) || (subtlv->value[1] != 0x0b)
 	    || (subtlv->value[2] != 0) || (subtlv->value[3] != 0)) {
-		zlog_debug("%s, subtlv value 1st 4 bytes are not 0x030b0000",
-			   __func__);
+		zlog_debug("subtlv value 1st 4 bytes are not 0x030b0000");
 		return -1;
 	}
 	ptr_get_be32(subtlv->value + 4, &st->color);
@@ -553,10 +548,8 @@ static int subtlv_decode_ipsec_ta(struct bgp_attr_encap_subtlv *subtlv,
 {
 	st->authenticator_length = subtlv->length - 2;
 	if (st->authenticator_length > sizeof(st->value)) {
-		zlog_debug(
-			"%s, authenticator length %d exceeds storage maximum %d",
-			__func__, st->authenticator_length,
-			(int)sizeof(st->value));
+		zlog_debug("authenticator length %d exceeds storage maximum %d",
+			   st->authenticator_length, (int)sizeof(st->value));
 		return -1;
 	}
 	st->authenticator_type = (subtlv->value[0] << 8) | subtlv->value[1];
@@ -571,8 +564,8 @@ subtlv_decode_remote_endpoint(struct bgp_attr_encap_subtlv *subtlv,
 {
 	int i;
 	if (subtlv->length != 8 && subtlv->length != 20) {
-		zlog_debug("%s, subtlv length %d does not equal 8 or 20",
-			   __func__, subtlv->length);
+		zlog_debug("subtlv length %d does not equal 8 or 20",
+			   subtlv->length);
 		return -1;
 	}
 	if (subtlv->length == 8) {
@@ -625,8 +618,7 @@ int tlv_to_bgp_encap_type_l2tpv3overip(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -665,8 +657,7 @@ int tlv_to_bgp_encap_type_gre(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -700,8 +691,7 @@ int tlv_to_bgp_encap_type_ip_in_ip(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -726,8 +716,7 @@ int tlv_to_bgp_encap_type_transmit_tunnel_endpoint(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -756,8 +745,7 @@ int tlv_to_bgp_encap_type_ipsec_in_tunnel_mode(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -786,8 +774,7 @@ int tlv_to_bgp_encap_type_ip_in_ip_tunnel_with_ipsec_transport_mode(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -816,8 +803,7 @@ int tlv_to_bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -841,8 +827,7 @@ int tlv_to_bgp_encap_type_vxlan(struct bgp_attr_encap_subtlv *stlv,
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -866,8 +851,7 @@ int tlv_to_bgp_encap_type_nvgre(struct bgp_attr_encap_subtlv *stlv,
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -891,8 +875,7 @@ int tlv_to_bgp_encap_type_mpls(struct bgp_attr_encap_subtlv *stlv,
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -916,8 +899,7 @@ int tlv_to_bgp_encap_type_mpls_in_gre(struct bgp_attr_encap_subtlv *stlv,
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -941,8 +923,7 @@ int tlv_to_bgp_encap_type_vxlan_gpe(struct bgp_attr_encap_subtlv *stlv,
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -966,8 +947,7 @@ int tlv_to_bgp_encap_type_mpls_in_udp(struct bgp_attr_encap_subtlv *stlv,
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}
@@ -996,8 +976,7 @@ int tlv_to_bgp_encap_type_pbb(
 			break;
 
 		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
+			zlog_debug("unexpected subtlv type %d", st->type);
 			rc |= -1;
 			break;
 		}

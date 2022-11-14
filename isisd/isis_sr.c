@@ -235,8 +235,8 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 {
 	struct isis_sr_db *srdb = &area->srdb;
 
-	sr_debug("ISIS-Sr (%s): Update SRGB with new range [%u/%u]",
-		 area->area_tag, lower_bound, upper_bound);
+	dbg(SR, "ISIS-Sr (%s): Update SRGB with new range [%u/%u]",
+	    area->area_tag, lower_bound, upper_bound);
 
 	/* Just store new SRGB values if Label Manager is not available.
 	 * SRGB will be configured later when SR start */
@@ -268,9 +268,9 @@ int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 			srdb->srgb_active = true;
 
 
-		sr_debug("  |- Got new SRGB [%u/%u]",
-			 srdb->config.srgb_lower_bound,
-			 srdb->config.srgb_upper_bound);
+		dbg(SR, "  |- Got new SRGB [%u/%u]",
+		    srdb->config.srgb_lower_bound,
+		    srdb->config.srgb_upper_bound);
 
 		lsp_regenerate_schedule(area, area->is_type, 0);
 	} else if (srdb->config.enabled) {
@@ -299,8 +299,8 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
 	struct listnode *node;
 	struct sr_adjacency *sra;
 
-	sr_debug("ISIS-Sr (%s): Update SRLB with new range [%u/%u]",
-		 area->area_tag, lower_bound, upper_bound);
+	dbg(SR, "ISIS-Sr (%s): Update SRLB with new range [%u/%u]",
+	    area->area_tag, lower_bound, upper_bound);
 
 	/* Just store new SRLB values if Label Manager is not available.
 	 * SRLB will be configured later when SR start */
@@ -349,7 +349,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	struct sr_prefix_cfg *pcfg;
 	struct interface *ifp;
 
-	sr_debug("ISIS-Sr (%s): Add local prefix %pFX", area->area_tag, prefix);
+	dbg(SR, "ISIS-Sr (%s): Add local prefix %pFX", area->area_tag, prefix);
 
 	pcfg = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*pcfg));
 	pcfg->prefix = *prefix;
@@ -381,10 +381,10 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 {
 	struct isis_area *area = pcfg->area;
 
-	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID %pFX %s %u",
-		 area->area_tag, &pcfg->prefix,
-		 pcfg->sid_type == SR_SID_VALUE_TYPE_INDEX ? "index" : "label",
-		 pcfg->sid);
+	dbg(SR, "ISIS-Sr (%s): Delete local Prefix-SID %pFX %s %u",
+	    area->area_tag, &pcfg->prefix,
+	    pcfg->sid_type == SR_SID_VALUE_TYPE_INDEX ? "index" : "label",
+	    pcfg->sid);
 
 	srdb_prefix_cfg_del(&area->srdb.config.prefix_sids, pcfg);
 	XFREE(MTYPE_ISIS_SR_INFO, pcfg);
@@ -495,8 +495,8 @@ static int sr_local_block_init(struct isis_area *area)
 		return -1;
 	}
 
-	sr_debug("ISIS-Sr (%s): Got new SRLB [%u/%u]", area->area_tag,
-		 srdb->config.srlb_lower_bound, srdb->config.srlb_upper_bound);
+	dbg(SR, "ISIS-Sr (%s): Got new SRLB [%u/%u]", area->area_tag,
+	    srdb->config.srlb_lower_bound, srdb->config.srlb_upper_bound);
 
 	/* Initialize the SRLB */
 	srlb->start = srdb->config.srlb_lower_bound;
@@ -527,8 +527,8 @@ static void sr_local_block_delete(struct isis_area *area)
 	if (!srlb->active)
 		return;
 
-	sr_debug("ISIS-Sr (%s): Remove SRLB [%u/%u]", area->area_tag,
-		 srlb->start, srlb->end);
+	dbg(SR, "ISIS-Sr (%s): Remove SRLB [%u/%u]", area->area_tag,
+	    srlb->start, srlb->end);
 
 	/* First release the label block */
 	isis_zebra_release_label_range(srdb->config.srlb_lower_bound,
@@ -649,8 +649,8 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 	uint8_t flags;
 	mpls_label_t input_label;
 
-	sr_debug("ISIS-Sr (%s): Add %s Adjacency SID", area->area_tag,
-		 backup ? "Backup" : "Primary");
+	dbg(SR, "ISIS-Sr (%s): Add %s Adjacency SID", area->area_tag,
+	    backup ? "Backup" : "Primary");
 
 	/* Determine nexthop IP address */
 	switch (family) {
@@ -796,7 +796,7 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 	struct isis_circuit *circuit = sra->adj->circuit;
 	struct isis_area *area = circuit->area;
 
-	sr_debug("ISIS-Sr (%s): Delete Adjacency SID", area->area_tag);
+	dbg(SR, "ISIS-Sr (%s): Delete Adjacency SID", area->area_tag);
 
 	isis_zebra_send_adjacency_sid(ZEBRA_MPLS_LABELS_DELETE, sra);
 
@@ -1147,8 +1147,8 @@ int isis_sr_start(struct isis_area *area)
 			srdb->srgb_active = true;
 	}
 
-	sr_debug("ISIS-Sr: Starting Segment Routing for area %s",
-		 area->area_tag);
+	dbg(SR, "ISIS-Sr: Starting Segment Routing for area %s",
+	    area->area_tag);
 
 	/* Create Adjacency-SIDs from existing IS-IS Adjacencies. */
 	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
@@ -1177,8 +1177,8 @@ void isis_sr_stop(struct isis_area *area)
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
 
-	sr_debug("ISIS-Sr: Stopping Segment Routing for area %s",
-		 area->area_tag);
+	dbg(SR, "ISIS-Sr: Stopping Segment Routing for area %s",
+	    area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
 	THREAD_OFF(srdb->t_start_lm);
@@ -1212,8 +1212,8 @@ void isis_sr_area_init(struct isis_area *area)
 {
 	struct isis_sr_db *srdb = &area->srdb;
 
-	sr_debug("ISIS-Sr (%s): Initialize Segment Routing SRDB",
-		 area->area_tag);
+	dbg(SR, "ISIS-Sr (%s): Initialize Segment Routing SRDB",
+	    area->area_tag);
 
 	/* Initialize Segment Routing Data Base */
 	memset(srdb, 0, sizeof(*srdb));

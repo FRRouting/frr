@@ -226,7 +226,7 @@ int skiplist_insert(register struct skiplist *l, register void *key,
 
 	++(l->level_stats[k]);
 #ifdef SKIPLIST_DEBUG
-	zlog_debug("%s: incremented level_stats @%p:%d, now %d", __func__, l, k,
+	zlog_debug("incremented level_stats @%p:%d, now %d", l, k,
 		   l->level_stats[k]);
 #endif
 
@@ -310,8 +310,8 @@ int skiplist_delete(register struct skiplist *l, register void *key,
 			}
 			--(l->level_stats[k - 1]);
 #ifdef SKIPLIST_DEBUG
-			zlog_debug("%s: decremented level_stats @%p:%d, now %d",
-				   __func__, l, k - 1, l->level_stats[k - 1]);
+			zlog_debug("decremented level_stats @%p:%d, now %d", l,
+				   k - 1, l->level_stats[k - 1]);
 #endif
 			if (l->del)
 				(*l->del)(q->value);
@@ -569,8 +569,8 @@ int skiplist_delete_first(register struct skiplist *l)
 
 	--(l->level_stats[nodelevel]);
 #ifdef SKIPLIST_DEBUG
-	zlog_debug("%s: decremented level_stats @%p:%d, now %d", __func__, l,
-		   nodelevel, l->level_stats[nodelevel]);
+	zlog_debug("decremented level_stats @%p:%d, now %d", l, nodelevel,
+		   l->level_stats[nodelevel]);
 #endif
 
 	if (l->del)
@@ -615,17 +615,17 @@ void skiplist_test(struct vty *vty)
 	void *keys[sampleSize];
 	void *v = NULL;
 
-	zlog_debug("%s: entry", __func__);
+	zlog_debug("entry");
 
 	l = skiplist_new(SKIPLIST_FLAG_ALLOW_DUPLICATES, NULL, NULL);
 
-	zlog_debug("%s: skiplist_new returned %p", __func__, l);
+	zlog_debug("skiplist_new returned %p", l);
 
 	for (i = 0; i < 4; i++) {
 
 		for (k = 0; k < sampleSize; k++) {
 			if (!(k % 1000)) {
-				zlog_debug("%s: (%d:%d)", __func__, i, k);
+				zlog_debug("(%d:%d)", i, k);
 			}
 			// keys[k] = (void *)random();
 			keys[k] = scramble(k);
@@ -633,7 +633,7 @@ void skiplist_test(struct vty *vty)
 				zlog_debug("error in insert #%d,#%d", i, k);
 		}
 
-		zlog_debug("%s: inserts done", __func__);
+		zlog_debug("inserts done");
 
 		for (k = 0; k < sampleSize; k++) {
 

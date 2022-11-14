@@ -172,9 +172,8 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 
 	if (PIM_DEBUG_STATIC) {
 		zlog_debug(
-			"%s: Static route added(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
-			__func__, iif_index, oif_index, &group,
-			&source);
+			"Static route added(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
+			iif_index, oif_index, &group, &source);
 	}
 
 	return 0;
@@ -235,9 +234,8 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 
 			if (PIM_DEBUG_STATIC) {
 				zlog_debug(
-					"%s: Static route removed(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
-					__func__, iif_index, oif_index,
-					&group, &source);
+					"Static route removed(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
+					iif_index, oif_index, &group, &source);
 			}
 
 			break;

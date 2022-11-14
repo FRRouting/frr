@@ -519,9 +519,9 @@ static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 {
 	/* Check if MT is enable for this area */
 	if (!area_is_mt(area)) {
-		lsp_debug(
-			"ISIS (%s): Adding %s.%02x as te-style neighbor (MT disable)",
-			area->area_tag, sysid_print(id), LSP_PSEUDO_ID(id));
+		dbg(LSP_GEN,
+		    "ISIS (%s): Adding %s.%02x as te-style neighbor (MT disable)",
+		    area->area_tag, sysid_print(id), LSP_PSEUDO_ID(id));
 		isis_tlvs_add_extended_reach(tlvs, ISIS_MT_DISABLE, id, metric,
 					     ext);
 		return;
@@ -531,15 +531,14 @@ static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 	for (unsigned int i = 0; i < mt_count; i++) {
 		uint16_t mtid = mt_set[i];
 		if (mt_set[i] == ISIS_MT_IPV4_UNICAST) {
-			lsp_debug(
-				"ISIS (%s): Adding %s.%02x as te-style neighbor",
-				area->area_tag, sysid_print(id),
-				LSP_PSEUDO_ID(id));
+			dbg(LSP_GEN,
+			    "ISIS (%s): Adding %s.%02x as te-style neighbor",
+			    area->area_tag, sysid_print(id), LSP_PSEUDO_ID(id));
 		} else {
-			lsp_debug(
-				"ISIS (%s): Adding %s.%02x as mt-style neighbor for %s",
-				area->area_tag, sysid_print(id),
-				LSP_PSEUDO_ID(id), isis_mtid2str(mtid));
+			dbg(LSP_GEN,
+			    "ISIS (%s): Adding %s.%02x as mt-style neighbor for %s",
+			    area->area_tag, sysid_print(id), LSP_PSEUDO_ID(id),
+			    isis_mtid2str(mtid));
 		}
 		isis_tlvs_add_extended_reach(tlvs, mtid, id, metric, ext);
 	}

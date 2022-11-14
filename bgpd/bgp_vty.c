@@ -9064,13 +9064,13 @@ DEFPY (af_sid_vpn_export,
 	if (sid_auto) {
 		/* SID allocation auto-mode */
 		if (debug)
-			zlog_debug("%s: auto sid alloc.", __func__);
+			zlog_debug("auto sid alloc.");
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_SID_AUTO);
 	} else {
 		/* SID allocation index-mode */
 		if (debug)
-			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
+			zlog_debug("idx %ld sid alloc.", sid_idx);
 		bgp->vpn_policy[afi].tovpn_sid_index = sid_idx;
 	}
 
@@ -9147,13 +9147,12 @@ DEFPY (bgp_sid_vpn_export,
 	if (sid_auto) {
 		/* SID allocation auto-mode */
 		if (debug)
-			zlog_debug("%s: auto per-vrf sid alloc.", __func__);
+			zlog_debug("auto per-vrf sid alloc.");
 		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
 	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
-			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
-				   sid_idx);
+			zlog_debug("idx %ld per-vrf sid alloc.", sid_idx);
 		bgp->tovpn_sid_index = sid_idx;
 	}
 

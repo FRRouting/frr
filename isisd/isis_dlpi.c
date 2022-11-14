@@ -115,7 +115,7 @@ static int dlpisend(int fd, const void *cbuf, size_t cbuflen, const void *dbuf,
 		 * For actual PDU transmission - recognizable buf dbuf != NULL,
 		 * the error is passed upwards and should not be printed here.
 		 */
-		zlog_debug("%s: putmsg: %s", __func__, safe_strerror(errno));
+		zlog_debug("putmsg: %s", safe_strerror(errno));
 	}
 	return rv;
 }

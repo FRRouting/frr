@@ -220,7 +220,7 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("%s l%d", __func__, level);
+		zlog_debug("l%d", level);
 
 	circuit->u.bc.is_dr[level - 1] = 0;
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
@@ -268,7 +268,7 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 	uint8_t old_dr[ISIS_SYS_ID_LEN + 2];
 
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("%s l%d", __func__, level);
+		zlog_debug("l%d", level);
 
 	/* Lets keep a pause in DR election */
 	circuit->u.bc.run_dr_elect[level - 1] = 0;

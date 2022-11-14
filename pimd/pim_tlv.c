@@ -276,8 +276,8 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 
 	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		zlog_debug(
-			"%s: number of encoded secondary unicast IPv4 addresses: %zu",
-			__func__, option_len / uel);
+			"number of encoded secondary unicast IPv4 addresses: %zu",
+			option_len / uel);
 	}
 
 	if (option_len < 1) {
@@ -719,8 +719,7 @@ int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
 				pim_inet4_dump("<addr?>", tmp.u.prefix4,
 					       addr_str, sizeof(addr_str));
 				zlog_debug(
-					"%s: PIM hello TLV option: list_old_size=%d IPv4 address %s from %pPAs on %s",
-					__func__,
+					"PIM hello TLV option: list_old_size=%d IPv4 address %s from %pPAs on %s",
 					*hello_option_addr_list
 						? ((int)listcount(
 							  *hello_option_addr_list))
@@ -731,8 +730,7 @@ int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
 				break;
 			default:
 				zlog_debug(
-					"%s: PIM hello TLV option: list_old_size=%d UNKNOWN address family from %pPAs on %s",
-					__func__,
+					"PIM hello TLV option: list_old_size=%d UNKNOWN address family from %pPAs on %s",
 					*hello_option_addr_list
 						? ((int)listcount(
 							  *hello_option_addr_list))

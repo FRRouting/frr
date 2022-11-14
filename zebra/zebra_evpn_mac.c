@@ -411,8 +411,8 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 		char mac_buf[MAC_BUF_SIZE];
 
 		zlog_debug(
-			"%s: duplicate addr mac %pEA flags %slearn count %u host count %u auto recovery expired",
-			__func__, &mac->macaddr,
+			"duplicate addr mac %pEA flags %slearn count %u host count %u auto recovery expired",
+			&mac->macaddr,
 			zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 						       sizeof(mac_buf)),
 			mac->dad_count, listcount(mac->neigh_list));
@@ -483,8 +483,8 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 			char mac_buf[MAC_BUF_SIZE];
 
 			zlog_debug(
-				"%s: duplicate addr MAC %pEA flags %sskip update to client, learn count %u recover time %u",
-				__func__, &mac->macaddr,
+				"duplicate addr MAC %pEA flags %sskip update to client, learn count %u recover time %u",
+				&mac->macaddr,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				mac->dad_count, zvrf->dad_freeze_time);
@@ -520,8 +520,8 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 			char mac_buf[MAC_BUF_SIZE];
 
 			zlog_debug(
-				"%s: duplicate addr MAC %pEA flags %sdetection time passed, reset learn count %u",
-				__func__, &mac->macaddr,
+				"duplicate addr MAC %pEA flags %sdetection time passed, reset learn count %u",
+				&mac->macaddr,
 				zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							       sizeof(mac_buf)),
 				mac->dad_count);
@@ -587,8 +587,8 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 				char mac_buf[MAC_BUF_SIZE];
 
 				zlog_debug(
-					"%s: duplicate addr MAC %pEA flags %sauto recovery time %u start",
-					__func__, &mac->macaddr,
+					"duplicate addr MAC %pEA flags %sauto recovery time %u start",
+					&mac->macaddr,
 					zebra_evpn_zebra_mac_flag_dump(
 						mac, mac_buf, sizeof(mac_buf)),
 					zvrf->dad_freeze_time);
@@ -1114,8 +1114,7 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
-		zlog_debug("%s: MAC %pEA flags %s", __func__,
-			   &mac->macaddr,
+		zlog_debug("MAC %pEA flags %s", &mac->macaddr,
 			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							  sizeof(mac_buf)));
 	}
@@ -1132,8 +1131,7 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
 		char mac_buf[MAC_BUF_SIZE];
 
-		zlog_debug("%s: MAC %pEA flags %s", __func__,
-			   &mac->macaddr,
+		zlog_debug("MAC %pEA flags %s", &mac->macaddr,
 			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 							  sizeof(mac_buf)));
 	}
@@ -1196,11 +1194,9 @@ static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char mac_buf[MAC_BUF_SIZE];
 
-			zlog_debug(
-				"%s: Del MAC %pEA flags %s", __func__,
-				&mac->macaddr,
-				zebra_evpn_zebra_mac_flag_dump(
-					mac, mac_buf, sizeof(mac_buf)));
+			zlog_debug("Del MAC %pEA flags %s", &mac->macaddr,
+				   zebra_evpn_zebra_mac_flag_dump(
+					   mac, mac_buf, sizeof(mac_buf)));
 		}
 		wctx->uninstall = 0;
 

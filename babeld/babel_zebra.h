@@ -29,6 +29,5 @@ extern struct zclient *zclient;
 
 void babelz_zebra_init(void);
 void babel_zebra_close_connexion(void);
-extern int debug_babel_config_write (struct vty *);
 
 #endif

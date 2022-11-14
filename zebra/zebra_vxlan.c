@@ -181,8 +181,7 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 
 		return 0;
 	} else {
-		zlog_debug("%s: Unexpected family type: %d", __func__,
-			   hle1->p.family);
+		zlog_debug("Unexpected family type: %d", hle1->p.family);
 		return 0;
 	}
 }
@@ -3231,8 +3230,8 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct zebra_vrf *zvrf, vni_t vni,
 	}
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: clear neigh %s in dup state, flags 0x%x seq %u",
-			   __func__, buf, nbr->flags, nbr->loc_seq);
+		zlog_debug("clear neigh %s in dup state, flags 0x%x seq %u",
+			   buf, nbr->flags, nbr->loc_seq);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
 	nbr->dad_count = 0;
@@ -3701,8 +3700,8 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	if (!zevpn) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: Del neighbor %pIA EVPN is not present for interface %s",
-				__func__, ip, ifp->name);
+				"Del neighbor %pIA EVPN is not present for interface %s",
+				ip, ifp->name);
 		return 0;
 	}
 
@@ -4230,8 +4229,7 @@ void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS)
 
 	if (!is_evpn_enabled()) {
 		zlog_debug(
-			"%s: EVPN is not enabled yet we have received a VTEP DEL msg",
-			__func__);
+			"EVPN is not enabled yet we have received a VTEP DEL msg");
 		return;
 	}
 
@@ -4282,8 +4280,7 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug("%s: Can't process vtep del: EVPN is not enabled",
-			   __func__);
+		zlog_debug("Can't process vtep del: EVPN is not enabled");
 		return;
 	}
 
@@ -4346,8 +4343,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug("%s: EVPN not enabled: can't process a VTEP ADD",
-			   __func__);
+		zlog_debug("EVPN not enabled: can't process a VTEP ADD");
 		return;
 	}
 
@@ -4425,8 +4421,7 @@ void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 
 	if (!is_evpn_enabled()) {
 		zlog_debug(
-			"%s: EVPN not enabled yet we received a VTEP ADD zapi msg",
-			__func__);
+			"EVPN not enabled yet we received a VTEP ADD zapi msg");
 		return;
 	}
 
@@ -5339,8 +5334,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: l3vni %u svi_if %s mac_vlan_if %s",
-				__func__, vni,
+				"l3vni %u svi_if %s mac_vlan_if %s", vni,
 				zl3vni->svi_if ? zl3vni->svi_if->name : "NIL",
 				zl3vni->mac_vlan_if ? zl3vni->mac_vlan_if->name
 						    : "NIL");

@@ -32,7 +32,8 @@ struct resolver_state {
 };
 
 static struct resolver_state state;
-static bool resolver_debug;
+
+DEFINE_DEBUGFLAG_STATIC(RESOLVER, "resolver", "Debug DNS resolver actions\n");
 
 /* a FD doesn't necessarily map 1:1 to a request;  we could be talking to
  * multiple caches simultaneously, to see which responds fastest.
@@ -82,8 +83,7 @@ static struct resolver_fd *resolver_fd_get(int fd,
 		res->state = newstate;
 		resolver_fds_add(resfds, res);
 
-		if (resolver_debug)
-			zlog_debug("c-ares registered FD %d", fd);
+		dbg(RESOLVER, "c-ares registered FD %d", fd);
 	}
 	return res;
 }
@@ -93,8 +93,7 @@ static void resolver_fd_drop_maybe(struct resolver_fd *resfd)
 	if (resfd->t_read || resfd->t_write)
 		return;
 
-	if (resolver_debug)
-		zlog_debug("c-ares unregistered FD %d", resfd->fd);
+	dbg(RESOLVER, "c-ares unregistered FD %d", resfd->fd);
 
 	resolver_fds_del(resfds, resfd);
 	XFREE(MTYPE_ARES_FD, resfd);
@@ -197,9 +196,8 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	query->callback = NULL;
 
 	if (status != ARES_SUCCESS) {
-		if (resolver_debug)
-			zlog_debug("[%p] Resolving failed (%s)",
-				   query, ares_strerror(status));
+		dbg(RESOLVER, "[%p] Resolving failed (%s)",
+			   query, ares_strerror(status));
 
 		callback(query, ares_strerror(status), -1, NULL);
 		return;
@@ -220,8 +218,7 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 		}
 	}
 
-	if (resolver_debug)
-		zlog_debug("[%p] Resolved with %d results", query, (int)i);
+	dbg(RESOLVER, "[%p] Resolved with %d results", query, (int)i);
 
 	callback(query, NULL, i, &addr[0]);
 }
@@ -261,9 +258,8 @@ void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 
 	ret = str2sockunion(hostname, &query->literal_addr);
 	if (ret == 0) {
-		if (resolver_debug)
-			zlog_debug("[%p] Resolving '%s' (IP literal)",
-				   query, hostname);
+		dbg(RESOLVER, "[%p] Resolving '%s' (IP literal)",
+			   query, hostname);
 
 		/* for consistency with proper name lookup, don't call the
 		 * callback immediately; defer to thread loop
@@ -273,8 +269,7 @@ void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		return;
 	}
 
-	if (resolver_debug)
-		zlog_debug("[%p] Resolving '%s'", query, hostname);
+	dbg(RESOLVER, "[%p] Resolving '%s'", query, hostname);
 
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0) {
@@ -290,33 +285,6 @@ void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 			     vrf_id, safe_strerror(errno));
 	resolver_update_timeouts(&state);
 }
-
-DEFUN(debug_resolver,
-      debug_resolver_cmd,
-      "[no] debug resolver",
-      NO_STR
-      DEBUG_STR
-      "Debug DNS resolver actions\n")
-{
-	resolver_debug = (argc == 2);
-	return CMD_SUCCESS;
-}
-
-static int resolver_config_write_debug(struct vty *vty);
-static struct cmd_node resolver_debug_node = {
-	.name = "resolver debug",
-	.node = RESOLVER_DEBUG_NODE,
-	.prompt = "",
-	.config_write = resolver_config_write_debug,
-};
-
-static int resolver_config_write_debug(struct vty *vty)
-{
-	if (resolver_debug)
-		vty_out(vty, "debug resolver\n");
-	return 1;
-}
-
 
 void resolver_init(struct thread_master *tm)
 {
@@ -334,8 +302,4 @@ void resolver_init(struct thread_master *tm)
 	ares_init_options(&state.channel, &ares_opts,
 			  ARES_OPT_SOCK_STATE_CB | ARES_OPT_TIMEOUT
 				  | ARES_OPT_TRIES);
-
-	install_node(&resolver_debug_node);
-	install_element(CONFIG_NODE, &debug_resolver_cmd);
-	install_element(ENABLE_NODE, &debug_resolver_cmd);
 }

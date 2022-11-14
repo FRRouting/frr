@@ -58,8 +58,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 	if (PIM_DEBUG_PIM_EVENTS) {
 		if (ch->ifassert_state != new_state) {
 			zlog_debug(
-				"%s: (S,G)=%s assert state changed from %s to %s on interface %s",
-				__func__, ch->sg_str,
+				"(S,G)=%s assert state changed from %s to %s on interface %s",
+				ch->sg_str,
 				pim_ifchannel_ifassert_name(ch->ifassert_state),
 				pim_ifchannel_ifassert_name(new_state),
 				ch->interface->name);
@@ -67,9 +67,9 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 
 		if (winner_changed)
 			zlog_debug(
-				"%s: (S,G)=%s assert winner changed from %pPAs to %pPAs on interface %s",
-				__func__, ch->sg_str, &ch->ifassert_winner,
-				&winner, ch->interface->name);
+				"(S,G)=%s assert winner changed from %pPAs to %pPAs on interface %s",
+				ch->sg_str, &ch->ifassert_winner, &winner,
+				ch->interface->name);
 	} /* PIM_DEBUG_PIM_EVENTS */
 
 	ch->ifassert_state = new_state;
@@ -293,10 +293,9 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: from %pPAs on %s: (S,G)=(%pPAs,%pPAs) pref=%u metric=%u rpt_bit=%u",
-			__func__, &src_addr, ifp->name, &msg_source_addr,
-			&sg.grp, msg_metric.metric_preference,
-			msg_metric.route_metric,
+			"from %pPAs on %s: (S,G)=(%pPAs,%pPAs) pref=%u metric=%u rpt_bit=%u",
+			&src_addr, ifp->name, &msg_source_addr, &sg.grp,
+			msg_metric.metric_preference, msg_metric.route_metric,
 			PIM_FORCE_BOOLEAN(msg_metric.rpt_bit_flag));
 
 	msg_metric.ip_address = src_addr;
@@ -428,16 +427,16 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	ifp = ch->interface;
 	if (!ifp) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: channel%s has no associated interface!",
-				   __func__, ch->sg_str);
+			zlog_debug("channel%s has no associated interface!",
+				   ch->sg_str);
 		return -1;
 	}
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
-				"%s: channel %s pim not enabled on interface: %s",
-				__func__, ch->sg_str, ifp->name);
+				"channel %s pim not enabled on interface: %s",
+				ch->sg_str, ifp->name);
 		return -1;
 	}
 
@@ -464,9 +463,9 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	pim_hello_require(ifp);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: to %s: (S,G)=%s pref=%u metric=%u rpt_bit=%u",
-			   __func__, ifp->name, ch->sg_str,
-			   metric.metric_preference, metric.route_metric,
+		zlog_debug("to %s: (S,G)=%s pref=%u metric=%u rpt_bit=%u",
+			   ifp->name, ch->sg_str, metric.metric_preference,
+			   metric.route_metric,
 			   PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
 	}
 	if (!pim_ifp->pim_passive_enable)
@@ -516,8 +515,8 @@ static void on_assert_timer(struct thread *t)
 	ifp = ch->interface;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s timer expired on interface %s",
-			   __func__, ch->sg_str, ifp->name);
+		zlog_debug("(S,G)=%s timer expired on interface %s", ch->sg_str,
+			   ifp->name);
 	}
 
 	ch->t_ifassert_timer = NULL;
@@ -543,9 +542,8 @@ static void assert_timer_off(struct pim_ifchannel *ch)
 {
 	if (PIM_DEBUG_PIM_TRACE) {
 		if (ch->t_ifassert_timer) {
-			zlog_debug(
-				"%s: (S,G)=%s cancelling timer on interface %s",
-				__func__, ch->sg_str, ch->interface->name);
+			zlog_debug("(S,G)=%s cancelling timer on interface %s",
+				   ch->sg_str, ch->interface->name);
 		}
 	}
 	THREAD_OFF(ch->t_ifassert_timer);
@@ -556,8 +554,8 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)
 	assert_timer_off(ch);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s starting %u sec timer on interface %s",
-			   __func__, ch->sg_str, interval, ch->interface->name);
+		zlog_debug("(S,G)=%s starting %u sec timer on interface %s",
+			   ch->sg_str, interval, ch->interface->name);
 	}
 
 	thread_add_timer(router->master, on_assert_timer, ch, interval,

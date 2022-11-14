@@ -24,13 +24,55 @@
 #include "lib_errors.h"
 #include "hash.h"
 #include "command.h"
-#include "debug.h"
 #include "db.h"
 #include "frr_pthread.h"
 #include "northbound.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
 #include "frrstr.h"
+
+/* Northbound debugging records */
+/* clang-format off */
+DECLARE_DEBUGFLAG(NB_CBS_CONFIG);
+DEFINE_DEBUGFLAG(NB_CBS_CONFIG, "northbound callbacks configuration",
+	"Northbound debugging\n"
+	"Callbacks\n"
+	"Configuration\n"
+);
+
+DECLARE_DEBUGFLAG(NB_CBS_STATE);
+DEFINE_DEBUGFLAG(NB_CBS_STATE,	"northbound callbacks state",
+	"Northbound debugging\n"
+	"Callbacks\n"
+	"State\n"
+);
+
+DECLARE_DEBUGFLAG(NB_CBS_RPC);
+DEFINE_DEBUGFLAG(NB_CBS_RPC,	"northbound callbacks rpc",
+	"Northbound debugging\n"
+	"Callbacks\n"
+	"RPC\n"
+);
+
+DECLARE_DEBUGFLAG(NB_NOTIF);
+DEFINE_DEBUGFLAG(NB_NOTIF,	"northbound notifications",
+	"Northbound debugging\n"
+	"Notifications\n"
+);
+
+DECLARE_DEBUGFLAG(NB_EVENTS);
+DEFINE_DEBUGFLAG(NB_EVENTS,	"northbound events",
+	"Northbound debugging\n"
+	"Events\n"
+);
+
+DECLARE_DEBUGFLAG(NB_LIBYANG);
+DEFINE_DEBUGFLAG(NB_LIBYANG,	"northbound libyang",
+	"Northbound debugging\n"
+	"libyang debugging\n",
+	.enable = yang_debugging_set
+);
+/* clang-format on */
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node");
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration");
@@ -551,7 +593,7 @@ static void nb_config_diff(const struct nb_config *config1,
 	char *path;
 
 #if 0 /* Useful (noisy) when debugging diff code, and for improving later */
-	if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
+	if (dbg_check(NB_CBS_CONFIG)) {
 		LY_LIST_FOR(config1->dnode, root) {
 			LYD_TREE_DFS_BEGIN(root, dnode) {
 				nb_config_diff_dnode_log("from", dnode);
@@ -571,12 +613,12 @@ static void nb_config_diff(const struct nb_config *config1,
 				LYD_DIFF_DEFAULTS, &diff);
 	assert(!err);
 
-	if (diff && DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
+	if (diff && dbg_check(NB_CBS_CONFIG)) {
 		char *s;
 
 		if (!lyd_print_mem(&s, diff, LYD_JSON,
 				   LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)) {
-			zlog_debug("%s: %s", __func__, s);
+			zlog_debug("%s", s);
 			free(s);
 		}
 	}
@@ -590,7 +632,7 @@ static void nb_config_diff(const struct nb_config *config1,
 			path = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
 
 #if 0 /* Useful (noisy) when debugging diff code, and for improving later */
-			if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
+			if (dbg_check(NB_CBS_CONFIG)) {
 				char context[80];
 				snprintf(context, sizeof(context),
 					 "iterating diff: oper: %c seq: %u", op, seq);
@@ -998,7 +1040,7 @@ static void nb_log_config_callback(const enum nb_event event,
 	const char *value;
 	char xpath[XPATH_MAXLEN];
 
-	if (!DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL))
+	if (!dbg_check(NB_CBS_CONFIG))
 		return;
 
 	yang_dnode_get_path(dnode, xpath, sizeof(xpath));
@@ -1055,7 +1097,7 @@ static int nb_callback_create(struct nb_context *context,
 		break;
 	}
 	if (unexpected_error)
-		DEBUGD(&nb_dbg_cbs_config,
+		dbg(NB_CBS_CONFIG,
 		       "northbound callback: unexpected return value: %s",
 		       nb_err_name(ret));
 
@@ -1104,7 +1146,7 @@ static int nb_callback_modify(struct nb_context *context,
 		break;
 	}
 	if (unexpected_error)
-		DEBUGD(&nb_dbg_cbs_config,
+		dbg(NB_CBS_CONFIG,
 		       "northbound callback: unexpected return value: %s",
 		       nb_err_name(ret));
 
@@ -1148,7 +1190,7 @@ static int nb_callback_destroy(struct nb_context *context,
 		break;
 	}
 	if (unexpected_error)
-		DEBUGD(&nb_dbg_cbs_config,
+		dbg(NB_CBS_CONFIG,
 		       "northbound callback: unexpected return value: %s",
 		       nb_err_name(ret));
 
@@ -1191,7 +1233,7 @@ static int nb_callback_move(struct nb_context *context,
 		break;
 	}
 	if (unexpected_error)
-		DEBUGD(&nb_dbg_cbs_config,
+		dbg(NB_CBS_CONFIG,
 		       "northbound callback: unexpected return value: %s",
 		       nb_err_name(ret));
 
@@ -1224,7 +1266,7 @@ static int nb_callback_pre_validate(struct nb_context *context,
 		break;
 	}
 	if (unexpected_error)
-		DEBUGD(&nb_dbg_cbs_config,
+		dbg(NB_CBS_CONFIG,
 		       "northbound callback: unexpected return value: %s",
 		       nb_err_name(ret));
 
@@ -1253,7 +1295,7 @@ struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_elem_args args = {};
 
-	DEBUGD(&nb_dbg_cbs_state,
+	dbg(NB_CBS_STATE,
 	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
 	       xpath, list_entry);
 
@@ -1268,7 +1310,7 @@ const void *nb_callback_get_next(const struct nb_node *nb_node,
 {
 	struct nb_cb_get_next_args args = {};
 
-	DEBUGD(&nb_dbg_cbs_state,
+	dbg(NB_CBS_STATE,
 	       "northbound callback (get_next): node [%s] parent_list_entry [%p] list_entry [%p]",
 	       nb_node->xpath, parent_list_entry, list_entry);
 
@@ -1282,7 +1324,7 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 {
 	struct nb_cb_get_keys_args args = {};
 
-	DEBUGD(&nb_dbg_cbs_state,
+	dbg(NB_CBS_STATE,
 	       "northbound callback (get_keys): node [%s] list_entry [%p]",
 	       nb_node->xpath, list_entry);
 
@@ -1297,7 +1339,7 @@ const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 {
 	struct nb_cb_lookup_entry_args args = {};
 
-	DEBUGD(&nb_dbg_cbs_state,
+	dbg(NB_CBS_STATE,
 	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
 	       nb_node->xpath, parent_list_entry);
 
@@ -1312,7 +1354,7 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 {
 	struct nb_cb_rpc_args args = {};
 
-	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
+	dbg(NB_CBS_RPC, "northbound RPC: %s", xpath);
 
 	args.xpath = xpath;
 	args.input = input;
@@ -2146,7 +2188,7 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 {
 	int ret;
 
-	DEBUGD(&nb_dbg_notif, "northbound notification: %s", xpath);
+	dbg(NB_NOTIF, "northbound notification: %s", xpath);
 
 	ret = hook_call(nb_notification_send, xpath, arguments);
 	if (arguments)
@@ -2459,7 +2501,7 @@ void nb_init(struct thread_master *tm,
 
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {
-		DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
+		dbg(NB_EVENTS, "northbound: loading %s.yang",
 		       modules[i]->name);
 		*loadedp++ = yang_module_load(modules[i]->name);
 	}

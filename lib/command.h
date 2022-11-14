@@ -96,6 +96,7 @@ enum node_type {
 	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
 	ENABLE_NODE,		 /* Enable node. */
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
+	LIB_DEBUG_NODE,		 /* libfrr debug node */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
@@ -255,10 +256,10 @@ struct cmd_node {
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
 	static const struct cmd_element cmdname = {                            \
 		.string = cmdstr,                                              \
-		.func = funcname,                                              \
 		.doc = helpstr,                                                \
-		.attr = attrs,                                                 \
 		.daemon = dnum,                                                \
+		.attr = attrs,                                                 \
+		.func = funcname,                                              \
 		.name = #cmdname,                                              \
 		.xref = XREF_INIT(XREFT_DEFUN, NULL, #funcname),               \
 	};                                                                     \

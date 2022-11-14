@@ -59,14 +59,13 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 			pim_ecmp_fib_lookup_if_vif_index(pim, vif_source, &grp);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: NHT %pSG vif_source %pPAs vif_index:%d",
-			   __func__, &sg, &vif_source, input_iface_vif_index);
+		zlog_debug("NHT %pSG vif_source %pPAs vif_index:%d", &sg,
+			   &vif_source, input_iface_vif_index);
 
 	if (input_iface_vif_index < 1) {
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug(
-				"%s %s: could not find input interface for %pSG",
-				__FILE__, __func__, &sg);
+			zlog_debug("could not find input interface for %pSG",
+				   &sg);
 
 		return pim_channel_oil_add(pim, &sg, __func__);
 	}
@@ -81,9 +80,8 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 		/* ignore request for looped MFC entry */
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
-				"%s: ignoring request for looped MFC entry (S,G)=%pSG: oif=%s vif_index=%d",
-				__func__, &sg, oif->name,
-				input_iface_vif_index);
+				"ignoring request for looped MFC entry (S,G)=%pSG: oif=%s vif_index=%d",
+				&sg, oif->name, input_iface_vif_index);
 
 		return NULL;
 	}
@@ -98,8 +96,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 
 	if (!pim_oif) {
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug("%s: multicast not enabled on oif=%s?",
-				   __func__, oif->name);
+			zlog_debug("multicast not enabled on oif=%s?",
+				   oif->name);
 		return false;
 	}
 
@@ -122,8 +120,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 	} else {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
-				"%s: %pSG was received on %s interface but we are not DR for that interface",
-				__func__, &sg, oif->name);
+				"%pSG was received on %s interface but we are not DR for that interface",
+				&sg, oif->name);
 
 		return false;
 	}
@@ -166,8 +164,8 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	if (result) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
-				"%s: pim_channel_del_oif() failed with return=%d",
-				__func__, result);
+				"pim_channel_del_oif() failed with return=%d",
+				result);
 		return;
 	}
 

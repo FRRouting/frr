@@ -44,24 +44,17 @@
 //                 File Local Variables
 // ------------------------------------------------------
 
-/*
- * NOTE: we can't use the FRR debugging infrastructure here since it uses
- * atomics and C++ has a different atomics API. Enable gRPC debugging
- * unconditionally until we figure out a way to solve this problem.
- */
-static bool nb_dbg_client_grpc = 0;
+DECLARE_DEBUGFLAG(NB_CLIENT_GRPC);
+DEFINE_DEBUGFLAG(NB_CLIENT_GRPC, "northbound client grpc",
+	"Northbound debugging\n"
+	"Northbound client\n"
+	"gRPC\n");
 
 static struct thread_master *main_master;
 
 static struct frr_pthread *fpt;
 
 static bool grpc_running;
-
-#define grpc_debug(...)                                                        \
-	do {                                                                   \
-		if (nb_dbg_client_grpc)                                        \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
 
 // ------------------------------------------------------
 //                      New Types
@@ -161,7 +154,7 @@ class RpcStateBase
 		 */
 		this->entered_state = this->state;
 		this->state = PROCESS;
-		grpc_debug("%s RPC: %s -> %s on grpc-io-thread", name,
+		dbg(NB_CLIENT_GRPC, "%s RPC: %s -> %s on grpc-io-thread", name,
 			   call_states[this->entered_state],
 			   call_states[this->state]);
 		/*
@@ -178,7 +171,7 @@ class RpcStateBase
 			pthread_cond_wait(&this->cond, &this->cmux);
 		pthread_mutex_unlock(&this->cmux);
 
-		grpc_debug("%s RPC in %s on grpc-io-thread", name,
+		dbg(NB_CLIENT_GRPC, "%s RPC in %s on grpc-io-thread", name,
 			   call_states[this->state]);
 
 		if (this->state == FINISH) {
@@ -206,12 +199,12 @@ class RpcStateBase
 		pthread_mutex_lock(&_tag->cmux);
 
 		CallState enter_state = _tag->state;
-		grpc_debug("%s RPC: running %s on main thread", _tag->name,
+		dbg(NB_CLIENT_GRPC, "%s RPC: running %s on main thread", _tag->name,
 			   call_states[enter_state]);
 
 		_tag->state = _tag->run_mainthread(thread);
 
-		grpc_debug("%s RPC: %s -> %s [main thread]", _tag->name,
+		dbg(NB_CLIENT_GRPC, "%s RPC: %s -> %s [main thread]", _tag->name,
 			   call_states[enter_state], call_states[_tag->state]);
 
 		pthread_cond_signal(&_tag->cond);
@@ -255,7 +248,7 @@ template <typename Q, typename S> class UnaryRpcState : public RpcStateBase
 			::grpc::ServerCompletionQueue *cq,
 			bool no_copy) override
 	{
-		grpc_debug("%s, posting a request for: %s", __func__, name);
+		dbg(NB_CLIENT_GRPC, "posting a request for: %s", name);
 		auto copy = no_copy ? this
 				    : new UnaryRpcState(cdb, requestf, callback,
 							name);
@@ -307,7 +300,7 @@ class StreamRpcState : public RpcStateBase
 			::grpc::ServerCompletionQueue *cq,
 			bool no_copy) override
 	{
-		grpc_debug("%s, posting a request for: %s", __func__, name);
+		dbg(NB_CLIENT_GRPC, "posting a request for: %s", name);
 		auto copy =
 			no_copy ? this
 				: new StreamRpcState(requestsf, callback, name);
@@ -553,7 +546,7 @@ grpc::Status HandleUnaryGetCapabilities(
 	UnaryRpcState<frr::GetCapabilitiesRequest, frr::GetCapabilitiesResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	// Response: string frr_version = 1;
 	tag->response.set_frr_version(FRR_VERSION);
@@ -588,12 +581,12 @@ typedef std::list<std::string> GetContextType;
 bool HandleStreamingGet(
 	StreamRpcState<frr::GetRequest, frr::GetResponse, GetContextType> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	auto mypathps = &tag->context;
 	if (tag->is_initial_process()) {
 		// Fill our context container first time through
-		grpc_debug("%s: initialize streaming state", __func__);
+		dbg(NB_CLIENT_GRPC, "initialize streaming state");
 		auto paths = tag->request.path();
 		for (const std::string &path : paths) {
 			mypathps->push_back(std::string(path));
@@ -645,7 +638,7 @@ grpc::Status HandleUnaryCreateCandidate(
 	UnaryRpcState<frr::CreateCandidateRequest, frr::CreateCandidateResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	struct candidate *candidate = tag->cdb->create_candidate();
 	if (!candidate)
@@ -659,11 +652,11 @@ grpc::Status HandleUnaryDeleteCandidate(
 	UnaryRpcState<frr::DeleteCandidateRequest, frr::DeleteCandidateResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	uint32_t candidate_id = tag->request.candidate_id();
 
-	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
+	dbg(NB_CLIENT_GRPC, "(candidate_id: %u)", candidate_id);
 
 	if (!tag->cdb->contains(candidate_id))
 		return grpc::Status(grpc::StatusCode::NOT_FOUND,
@@ -676,11 +669,11 @@ grpc::Status HandleUnaryUpdateCandidate(
 	UnaryRpcState<frr::UpdateCandidateRequest, frr::UpdateCandidateResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	uint32_t candidate_id = tag->request.candidate_id();
 
-	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
+	dbg(NB_CLIENT_GRPC, "(candidate_id: %u)", candidate_id);
 
 	struct candidate *candidate = tag->cdb->get_candidate(candidate_id);
 
@@ -702,11 +695,11 @@ grpc::Status HandleUnaryEditCandidate(
 	UnaryRpcState<frr::EditCandidateRequest, frr::EditCandidateResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	uint32_t candidate_id = tag->request.candidate_id();
 
-	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
+	dbg(NB_CLIENT_GRPC, "(candidate_id: %u)", candidate_id);
 
 	struct candidate *candidate = tag->cdb->get_candidate(candidate_id);
 	if (!candidate)
@@ -746,11 +739,11 @@ grpc::Status HandleUnaryLoadToCandidate(
 	UnaryRpcState<frr::LoadToCandidateRequest, frr::LoadToCandidateResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	uint32_t candidate_id = tag->request.candidate_id();
 
-	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
+	dbg(NB_CLIENT_GRPC, "(candidate_id: %u)", candidate_id);
 
 	// Request: LoadType type = 2;
 	int load_type = tag->request.type();
@@ -781,12 +774,12 @@ grpc::Status HandleUnaryLoadToCandidate(
 grpc::Status
 HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	// Request: uint32 candidate_id = 1;
 	uint32_t candidate_id = tag->request.candidate_id();
 
-	grpc_debug("%s(candidate_id: %u)", __func__, candidate_id);
+	dbg(NB_CLIENT_GRPC, "(candidate_id: %u)", candidate_id);
 
 	// Request: Phase phase = 2;
 	int phase = tag->request.phase();
@@ -830,29 +823,29 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 
 	switch (phase) {
 	case frr::CommitRequest::VALIDATE:
-		grpc_debug("`-> Performing VALIDATE");
+		dbg(NB_CLIENT_GRPC, "`-> Performing VALIDATE");
 		ret = nb_candidate_validate(&context, candidate->config, errmsg,
 					    sizeof(errmsg));
 		break;
 	case frr::CommitRequest::PREPARE:
-		grpc_debug("`-> Performing PREPARE");
+		dbg(NB_CLIENT_GRPC, "`-> Performing PREPARE");
 		ret = nb_candidate_commit_prepare(
 			&context, candidate->config, comment.c_str(),
 			&candidate->transaction, errmsg, sizeof(errmsg));
 		break;
 	case frr::CommitRequest::ABORT:
-		grpc_debug("`-> Performing ABORT");
+		dbg(NB_CLIENT_GRPC, "`-> Performing ABORT");
 		nb_candidate_commit_abort(candidate->transaction, errmsg,
 					  sizeof(errmsg));
 		break;
 	case frr::CommitRequest::APPLY:
-		grpc_debug("`-> Performing APPLY");
+		dbg(NB_CLIENT_GRPC, "`-> Performing APPLY");
 		nb_candidate_commit_apply(candidate->transaction, true,
 					  &transaction_id, errmsg,
 					  sizeof(errmsg));
 		break;
 	case frr::CommitRequest::ALL:
-		grpc_debug("`-> Performing ALL");
+		dbg(NB_CLIENT_GRPC, "`-> Performing ALL");
 		ret = nb_candidate_commit(&context, candidate->config, true,
 					  comment.c_str(), &transaction_id,
 					  errmsg, sizeof(errmsg));
@@ -885,7 +878,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 		break;
 	}
 
-	grpc_debug("`-> Result: %s (message: '%s')",
+	dbg(NB_CLIENT_GRPC, "`-> Result: %s (message: '%s')",
 		   nb_err_name((enum nb_error)ret), errmsg);
 
 	if (ret == NB_OK) {
@@ -902,7 +895,7 @@ HandleUnaryCommit(UnaryRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
 grpc::Status HandleUnaryLockConfig(
 	UnaryRpcState<frr::LockConfigRequest, frr::LockConfigResponse> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	if (nb_running_lock(NB_CLIENT_GRPC, NULL))
 		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
@@ -913,7 +906,7 @@ grpc::Status HandleUnaryLockConfig(
 grpc::Status HandleUnaryUnlockConfig(
 	UnaryRpcState<frr::UnlockConfigRequest, frr::UnlockConfigResponse> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	if (nb_running_unlock(NB_CLIENT_GRPC, NULL))
 		return grpc::Status(
@@ -942,11 +935,11 @@ bool HandleStreamingListTransactions(
 		       frr::ListTransactionsResponse,
 		       ListTransactionsContextType> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	auto list = &tag->context;
 	if (tag->is_initial_process()) {
-		grpc_debug("%s: initialize streaming state", __func__);
+		dbg(NB_CLIENT_GRPC, "initialize streaming state");
 		// Fill our context container first time through
 		nb_db_transactions_iterate(list_transactions_cb, list);
 		list->push_back(std::make_tuple(
@@ -994,7 +987,7 @@ grpc::Status HandleUnaryGetTransaction(
 	UnaryRpcState<frr::GetTransactionRequest, frr::GetTransactionResponse>
 		*tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	// Request: uint32 transaction_id = 1;
 	uint32_t transaction_id = tag->request.transaction_id();
@@ -1003,8 +996,8 @@ grpc::Status HandleUnaryGetTransaction(
 	// Request: bool with_defaults = 3;
 	bool with_defaults = tag->request.with_defaults();
 
-	grpc_debug("%s(transaction_id: %u, encoding: %u)", __func__,
-		   transaction_id, encoding);
+	dbg(NB_CLIENT_GRPC, "(transaction_id: %u, encoding: %u)", transaction_id,
+		   encoding);
 
 	struct nb_config *nb_config;
 
@@ -1035,7 +1028,7 @@ grpc::Status HandleUnaryGetTransaction(
 grpc::Status HandleUnaryExecute(
 	UnaryRpcState<frr::ExecuteRequest, frr::ExecuteResponse> *tag)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	struct nb_node *nb_node;
 	struct list *input_list;
@@ -1048,7 +1041,7 @@ grpc::Status HandleUnaryExecute(
 	// Request: string path = 1;
 	xpath = tag->request.path().c_str();
 
-	grpc_debug("%s(path: \"%s\")", __func__, xpath);
+	dbg(NB_CLIENT_GRPC, "(path: \"%s\")", xpath);
 
 	if (tag->request.path().empty())
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
@@ -1182,12 +1175,11 @@ static void *grpc_pthread_start(void *arg)
 	void *tag;
 	while (true) {
 		if (!cq->Next(&tag, &ok)) {
-			grpc_debug("%s: CQ empty exiting", __func__);
+			dbg(NB_CLIENT_GRPC, "CQ empty exiting");
 			break;
 		}
 
-		grpc_debug("%s: got next from CQ tag: %p ok: %d", __func__, tag,
-			   ok);
+		dbg(NB_CLIENT_GRPC, "got next from CQ tag: %p ok: %d", tag, ok);
 
 		if (!ok) {
 			delete static_cast<RpcStateBase *>(tag);
@@ -1198,7 +1190,7 @@ static void *grpc_pthread_start(void *arg)
 		if (rpc->get_state() != FINISH)
 			rpc->run(&service, cq.get());
 		else {
-			grpc_debug("%s RPC FINISH -> [delete]", rpc->name);
+			dbg(NB_CLIENT_GRPC, "%s RPC FINISH -> [delete]", rpc->name);
 			delete rpc;
 		}
 	}
@@ -1207,18 +1199,18 @@ static void *grpc_pthread_start(void *arg)
 	pthread_mutex_lock(&s_server_lock);
 	grpc_running = false;
 	if (s_server) {
-		grpc_debug("%s: shutdown server and CQ", __func__);
+		dbg(NB_CLIENT_GRPC, "shutdown server and CQ");
 		server->Shutdown();
 		s_server = NULL;
 	}
 	pthread_mutex_unlock(&s_server_lock);
 
-	grpc_debug("%s: shutting down CQ", __func__);
+	dbg(NB_CLIENT_GRPC, "shutting down CQ");
 	cq->Shutdown();
 
-	grpc_debug("%s: draining the CQ", __func__);
+	dbg(NB_CLIENT_GRPC, "draining the CQ");
 	while (cq->Next(&tag, &ok)) {
-		grpc_debug("%s: drain tag %p", __func__, tag);
+		dbg(NB_CLIENT_GRPC, "drain tag %p", tag);
 		delete static_cast<RpcStateBase *>(tag);
 	}
 
@@ -1234,7 +1226,7 @@ static int frr_grpc_init(uint port)
 		.stop = NULL,
 	};
 
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	fpt = frr_pthread_new(&attr, "frr-grpc", "frr-grpc");
 	fpt->data = reinterpret_cast<void *>((intptr_t)port);
@@ -1251,7 +1243,7 @@ static int frr_grpc_init(uint port)
 
 static int frr_grpc_finish(void)
 {
-	grpc_debug("%s: entered", __func__);
+	dbg(NB_CLIENT_GRPC, "entered");
 
 	if (!fpt)
 		return 0;
@@ -1263,13 +1255,13 @@ static int frr_grpc_finish(void)
 	pthread_mutex_lock(&s_server_lock);
 	grpc_running = false;
 	if (s_server) {
-		grpc_debug("%s: shutdown server", __func__);
+		dbg(NB_CLIENT_GRPC, "shutdown server");
 		s_server->Shutdown();
 		s_server = NULL;
 	}
 	pthread_mutex_unlock(&s_server_lock);
 
-	grpc_debug("%s: joining and destroy grpc thread", __func__);
+	dbg(NB_CLIENT_GRPC, "joining and destroy grpc thread");
 	pthread_join(fpt->thread, NULL);
 	frr_pthread_destroy(fpt);
 

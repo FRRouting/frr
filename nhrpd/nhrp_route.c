@@ -20,6 +20,13 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
+/* clang-format off */
+DEFINE_DEBUGFLAG(NHRP_ROUTE, "nhrp route",
+	"NHRP information\n"
+	"Route messages\n"
+);
+/* clang-format on */
+
 static struct zclient *zclient;
 static struct route_table *zebra_rib[AFI_MAX];
 
@@ -195,7 +202,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 		api.mtu = mtu;
 	}
 
-	if (unlikely(debug_flags & NHRP_DEBUG_ROUTE)) {
+	if (dbg_check(NHRP_ROUTE)) {
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug(
@@ -250,9 +257,9 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	}
 
 	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
-	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %pFX via %pSU dev %s",
-	       added ? "add" : "del", &api.prefix, &nexthop_addr,
-	       ifp ? ifp->name : "(none)");
+	dbg(NHRP_ROUTE, "if-route-%s: %pFX via %pSU dev %s",
+	    added ? "add" : "del", &api.prefix, &nexthop_addr,
+	    ifp ? ifp->name : "(none)");
 
 	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL);
 	nhrp_shortcut_prefix_change(&api.prefix, !added);
@@ -276,16 +283,16 @@ int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 
 	ri = rn->info;
 	if (ri->nhrp_ifp) {
-		debugf(NHRP_DEBUG_ROUTE, "lookup %pFX: nhrp_if=%s", &lookup,
-		       ri->nhrp_ifp->name);
+		dbg(NHRP_ROUTE, "lookup %pFX: nhrp_if=%s", &lookup,
+		    ri->nhrp_ifp->name);
 
 		if (via)
 			sockunion_family(via) = AF_UNSPEC;
 		if (ifp)
 			*ifp = ri->nhrp_ifp;
 	} else {
-		debugf(NHRP_DEBUG_ROUTE, "lookup %pFX: zebra route dev %s",
-		       &lookup, ri->ifp ? ri->ifp->name : "(none)");
+		dbg(NHRP_ROUTE, "lookup %pFX: zebra route dev %s", &lookup,
+		    ri->ifp ? ri->ifp->name : "(none)");
 
 		if (via)
 			*via = ri->via;
@@ -402,8 +409,7 @@ void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
 	struct stream *s;
 
 	if (!zclient || zclient->sock < 0) {
-		debugf(NHRP_DEBUG_COMMON, "%s() : zclient not ready",
-		       __func__);
+		dbg(NHRP_COMMON, "zclient not ready");
 		return;
 	}
 	s = zclient->obuf;
@@ -512,8 +518,8 @@ int nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 		val = nhrp_gre_info_alloc(&gre_info);
 	}
 	ifp = if_lookup_by_index(gre_info.ifindex, vrf_id);
-	debugf(NHRP_DEBUG_EVENT, "%s: gre interface %d vr %d obtained from system",
-	       ifp ? ifp->name : "<none>", gre_info.ifindex, vrf_id);
+	dbg(NHRP_EVENT, "%s: gre interface %d vr %d obtained from system",
+	    ifp ? ifp->name : "<none>", gre_info.ifindex, vrf_id);
 	if (ifp)
 		nhrp_interface_update_nbma(ifp, val);
 	return 0;

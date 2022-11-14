@@ -44,7 +44,7 @@ DEFINE_MTYPE(PATHD, PCEP, "PCEP module");
 /*
  * Globals.
  */
-static struct pcep_glob pcep_glob_space = {.dbg = {0, "pathd module: pcep"}};
+static struct pcep_glob pcep_glob_space = { };
 struct pcep_glob *pcep_g = &pcep_glob_space;
 
 /* Main Thread Even Handler */

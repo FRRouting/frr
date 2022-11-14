@@ -553,8 +553,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
 			if (IS_DEBUG_OSPF6_GR)
 				zlog_debug(
-					"%s, Received oneway hello from RESTARTER so ignore here.",
-					__PRETTY_FUNCTION__);
+					"Received oneway hello from RESTARTER so ignore here.");
 		} else {
 			/* If the router is DR_OTHER, RESTARTER will not wait
 			 * until it receives the hello from it if it receives
@@ -582,8 +581,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 		 */
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Neighbor is under GR Restart, hence ignoring the ISM Events",
-				__PRETTY_FUNCTION__);
+				"Neighbor is under GR Restart, hence ignoring the ISM Events");
 
 		return;
 	}
@@ -1359,8 +1357,7 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 		if (lsalen < OSPF6_LSA_HEADER_SIZE + GRACE_PERIOD_TLV_SIZE
 				     + GRACE_RESTART_REASON_TLV_SIZE) {
 			if (IS_DEBUG_OSPF6_GR)
-				zlog_debug("%s: Undersized GraceLSA.",
-					   __func__);
+				zlog_debug("Undersized GraceLSA.");
 			return MSG_NG;
 		}
 	}
@@ -1811,8 +1808,8 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN,
 					   RECV_HDR))
-			zlog_debug("%s: Ignore message on passive interface %s",
-				   __func__, oi->interface->name);
+			zlog_debug("Ignore message on passive interface %s",
+				   oi->interface->name);
 		return OSPF6_READ_CONTINUE;
 	}
 
@@ -2764,8 +2761,8 @@ int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
 
 	if (IS_OSPF6_DEBUG_FLOODING
 	    || IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND_HDR))
-		zlog_debug("%s: Send lsupdate with lsa %s (age %u)", __func__,
-			   lsa->name, ntohs(lsa->header->age));
+		zlog_debug("Send lsupdate with lsa %s (age %u)", lsa->name,
+			   ntohs(lsa->header->age));
 
 	ospf6_send_lsupdate(on, NULL, op);
 

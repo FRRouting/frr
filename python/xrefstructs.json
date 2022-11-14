@@ -71,6 +71,18 @@
       }
     ]
   },
+  "xref_logdebug": {
+    "fields": [
+      {
+        "name": "logmsg",
+        "type": "struct xref_logmsg"
+      },
+      {
+        "name": "debugflag",
+        "type": "struct zlog_debugflag *"
+      }
+    ]
+  },
   "xref_logmsg": {
     "fields": [
       {
@@ -134,6 +146,74 @@
         "array": 2,
         "name": "hashu32",
         "type": "uint32_t"
+      }
+    ]
+  },
+  "xrefdata_logdebug": {
+    "fields": [
+      {
+        "name": "logmsg",
+        "type": "struct xrefdata_logmsg"
+      }
+    ]
+  },
+  "xrefdata_logmsg": {
+    "fields": [
+      {
+        "name": "xrefdata",
+        "type": "struct xrefdata"
+      },
+      {
+        "name": "fl_print_bt",
+        "type": "uint8_t"
+      },
+      {
+        "name": "fl_enable",
+        "type": "uint8_t"
+      },
+      {
+        "name": "fl_disable",
+        "type": "uint8_t"
+      }
+    ]
+  },
+  "zlog_debugflag": {
+    "fields": [
+      {
+        "name": "_platform_indep_pad",
+        "type": "void *"
+      },
+      {
+        "name": "code_name",
+        "type": "const char  *"
+      },
+      {
+        "name": "kind",
+        "type": "enum zlog_debugflag_kind"
+      },
+      {
+        "name": "_pad0",
+        "type": "int"
+      }
+    ]
+  },
+  "zlog_debugflag_plain": {
+    "fields": [
+      {
+        "name": "common",
+        "type": "struct zlog_debugflag"
+      },
+      {
+        "name": "cli_name",
+        "type": "const char  *"
+      },
+      {
+        "name": "params",
+        "type": "const char  *"
+      },
+      {
+        "name": "cmd",
+        "type": "const struct cmd_element  *"
       }
     ]
   }

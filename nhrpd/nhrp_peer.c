@@ -44,8 +44,8 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	if (p->ref || notifier_active(&p->notifier_list))
 		return;
 
-	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU",
-	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
+	dbg(NHRP_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU", p->ref,
+	    &p->vc->remote.nbma, &p->vc->local.nbma);
 
 	THREAD_OFF(p->t_fallback);
 	THREAD_OFF(p->t_timer);
@@ -202,8 +202,8 @@ void nhrp_peer_interface_del(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
 
-	debugf(NHRP_DEBUG_COMMON, "Cleaning up undeleted peer entries (%lu)",
-	       nifp->peer_hash ? nifp->peer_hash->count : 0);
+	dbg(NHRP_COMMON, "Cleaning up undeleted peer entries (%lu)",
+	    nifp->peer_hash ? nifp->peer_hash->count : 0);
 
 	if (nifp->peer_hash) {
 		hash_clean(nifp->peer_hash, do_peer_hash_free);
@@ -290,9 +290,8 @@ static void nhrp_peer_defer_vici_request(struct thread *t)
 	THREAD_OFF(p->t_timer);
 
 	if (p->online) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "IPsec connection to %pSU already established",
-		       &vc->remote.nbma);
+		dbg(NHRP_COMMON, "IPsec connection to %pSU already established",
+		    &vc->remote.nbma);
 	} else {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
 				&vc->remote.nbma, p->prio);
@@ -337,9 +336,9 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 		/* Maximum timeout is 1 second */
 		int r_time_ms = frr_weak_random() % 1000;
 
-		debugf(NHRP_DEBUG_COMMON,
-		       "Initiating IPsec connection request to %pSU after %d ms:",
-		       &vc->remote.nbma, r_time_ms);
+		dbg(NHRP_COMMON,
+		    "Initiating IPsec connection request to %pSU after %d ms:",
+		    &vc->remote.nbma, r_time_ms);
 		thread_add_timer_msec(master, nhrp_peer_defer_vici_request,
 				      p, r_time_ms, &p->t_timer);
 	}
@@ -366,8 +365,8 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 	if (!p->online)
 		return;
 
-	debugf(NHRP_DEBUG_KERNEL, "PACKET: Send %pSU -> %pSU",
-	       &p->vc->local.nbma, &p->vc->remote.nbma);
+	dbg(NHRP_KERNEL, "PACKET: Send %pSU -> %pSU", &p->vc->local.nbma,
+	    &p->vc->remote.nbma);
 
 	os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 		   sockunion_get_addr(&p->vc->remote.nbma),
@@ -407,9 +406,9 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 				 * source NBMA address which is not reachable
 				 * since it is behind a NAT device
 				 */
-				debugf(NHRP_DEBUG_COMMON,
-				       "shortcut res_resp: Processing NAT Extension for %pSU",
-				       proto);
+				dbg(NHRP_COMMON,
+				    "shortcut res_resp: Processing NAT Extension for %pSU",
+				    proto);
 				while (nhrp_cie_pull(&payload, pp->hdr,
 						     cie_nbma, &cie_proto)) {
 					if (sockunion_family(&cie_proto)
@@ -417,9 +416,9 @@ static void nhrp_process_nat_extension(struct nhrp_packet_parser *pp,
 						continue;
 
 					if (!sockunion_cmp(proto, &cie_proto)) {
-						debugf(NHRP_DEBUG_COMMON,
-						       "cie_nbma for proto %pSU is %pSU",
-						       proto, cie_nbma);
+						dbg(NHRP_COMMON,
+						    "cie_nbma for proto %pSU is %pSU",
+						    proto, cie_nbma);
 						break;
 					}
 				}
@@ -445,19 +444,18 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	size_t paylen;
 
 	if (!(pp->if_ad->flags & NHRP_IFF_SHORTCUT)) {
-		debugf(NHRP_DEBUG_COMMON, "Shortcuts disabled");
+		dbg(NHRP_COMMON, "Shortcuts disabled");
 		/* FIXME: Send error indication? */
 		return;
 	}
 
 	if (pp->if_ad->network_id && pp->route_type == NHRP_ROUTE_OFF_NBMA
 	    && pp->route_prefix.prefixlen < 8) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "Shortcut to more generic than /8 dropped");
+		dbg(NHRP_COMMON, "Shortcut to more generic than /8 dropped");
 		return;
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Resolution Req");
+	dbg(NHRP_COMMON, "Parsing and replying to Resolution Req");
 
 	if (nhrp_route_address(ifp, &pp->src_proto, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
@@ -466,15 +464,15 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	/* Copy payload CIE */
 	hostprefix_len = 8 * sockunion_get_addrlen(&pp->if_ad->addr);
 	paylen = zbuf_used(&pp->payload);
-	debugf(NHRP_DEBUG_COMMON, "shortcut res_rep: paylen %zu", paylen);
+	dbg(NHRP_COMMON, "shortcut res_rep: paylen %zu", paylen);
 
 	while ((cie = nhrp_cie_pull(&pp->payload, pp->hdr, &cie_nbma,
 				    &cie_proto))
 	       != NULL) {
 		prefix_len = cie->prefix_length;
-		debugf(NHRP_DEBUG_COMMON,
-		       "shortcut res_rep: parsing CIE with prefixlen=%u",
-		       prefix_len);
+		dbg(NHRP_COMMON,
+		    "shortcut res_rep: parsing CIE with prefixlen=%u",
+		    prefix_len);
 		if (prefix_len == 0 || prefix_len >= hostprefix_len)
 			prefix_len = hostprefix_len;
 
@@ -503,18 +501,18 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			 * coming directly from NATTED Spoke and there is not
 			 * NAT Extension present
 			 */
-			debugf(NHRP_DEBUG_COMMON,
-			       "shortcut res_rep: No NAT Extension for %pSU",
-			       proto_addr);
+			dbg(NHRP_COMMON,
+			    "shortcut res_rep: No NAT Extension for %pSU",
+			    proto_addr);
 
 			if (!sockunion_same(&pp->src_nbma,
 					    &pp->peer->vc->remote.nbma)
 			    && !nhrp_nhs_match_ip(&pp->peer->vc->remote.nbma,
 						  nifp)) {
 				cie_nbma_nat = pp->peer->vc->remote.nbma;
-				debugf(NHRP_DEBUG_COMMON,
-				       "shortcut res_rep: NAT detected using %pSU as cie_nbma",
-				       &cie_nbma_nat);
+				dbg(NHRP_COMMON,
+				    "shortcut res_rep: NAT detected using %pSU as cie_nbma",
+				    &cie_nbma_nat);
 			}
 		}
 
@@ -531,23 +529,22 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			claimed_nbma_addr = &pp->src_nbma;
 
 		holdtime = htons(cie->holding_time);
-		debugf(NHRP_DEBUG_COMMON,
-		       "shortcut res_rep: holdtime is %u (if 0, using %u)",
-		       holdtime, pp->if_ad->holdtime);
+		dbg(NHRP_COMMON,
+		    "shortcut res_rep: holdtime is %u (if 0, using %u)",
+		    holdtime, pp->if_ad->holdtime);
 		if (!holdtime)
 			holdtime = pp->if_ad->holdtime;
 
 		c = nhrp_cache_get(ifp, proto_addr, 1);
 		if (!c) {
-			debugf(NHRP_DEBUG_COMMON,
-			       "shortcut res_rep: no cache found");
+			dbg(NHRP_COMMON, "shortcut res_rep: no cache found");
 			cie->code = NHRP_CODE_INSUFFICIENT_RESOURCES;
 			continue;
 		}
 
-		debugf(NHRP_DEBUG_COMMON,
-		       "shortcut res_rep: updating binding for nmba addr %pSU",
-		       nbma_addr);
+		dbg(NHRP_COMMON,
+		    "shortcut res_rep: updating binding for nmba addr %pSU",
+		    nbma_addr);
 		if (!nhrp_cache_update_binding(
 			    c, NHRP_CACHE_DYNAMIC, holdtime,
 			    nhrp_peer_get(pp->ifp, nbma_addr), htons(cie->mtu),
@@ -632,7 +629,7 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 	size_t paylen;
 	void *pay;
 
-	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Registration Req");
+	dbg(NHRP_COMMON, "Parsing and replying to Registration Req");
 	hostprefix_len = 8 * sockunion_get_addrlen(&p->if_ad->addr);
 
 	if (!sockunion_same(&p->src_nbma, &p->peer->vc->remote.nbma))
@@ -802,15 +799,15 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 
 	if_ad = &nifp->afi[family2afi(sockunion_family(&dst))];
 	if (!(if_ad->flags & NHRP_IFF_REDIRECT)) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "Send Traffic Indication to %pSU about packet to %pSU ignored",
-		       &p->vc->remote.nbma, &dst);
+		dbg(NHRP_COMMON,
+		    "Send Traffic Indication to %pSU about packet to %pSU ignored",
+		    &p->vc->remote.nbma, &dst);
 		return;
 	}
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Send Traffic Indication to %pSU (online=%d) about packet to %pSU",
-	       &p->vc->remote.nbma, p->online, &dst);
+	dbg(NHRP_COMMON,
+	    "Send Traffic Indication to %pSU (online=%d) about packet to %pSU",
+	    &p->vc->remote.nbma, p->online, &dst);
 
 	/* Create reply */
 	zb = zbuf_alloc(1500);
@@ -837,9 +834,9 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 	if (!hdr)
 		return;
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Error Indication from %pSU about packet to %pSU ignored",
-	       &pp->src_proto, &dst_proto);
+	dbg(NHRP_COMMON,
+	    "Error Indication from %pSU about packet to %pSU ignored",
+	    &pp->src_proto, &dst_proto);
 
 	reqid = nhrp_reqid_lookup(&nhrp_packet_reqid, htonl(hdr->u.request_id));
 	if (reqid)
@@ -854,11 +851,11 @@ static void nhrp_handle_traffic_ind(struct nhrp_packet_parser *p)
 				&dst))
 		return;
 
-	debugf(NHRP_DEBUG_COMMON,
-	       "Traffic Indication from %pSU about packet to %pSU: %s",
-	       &p->src_proto, &dst,
-	       (p->if_ad->flags & NHRP_IFF_SHORTCUT) ? "trying shortcut"
-						     : "ignored");
+	dbg(NHRP_COMMON,
+	    "Traffic Indication from %pSU about packet to %pSU: %s",
+	    &p->src_proto, &dst,
+	    (p->if_ad->flags & NHRP_IFF_SHORTCUT) ? "trying shortcut"
+						  : "ignored");
 
 	if (p->if_ad->flags & NHRP_IFF_SHORTCUT)
 		nhrp_shortcut_initiate(&dst);
@@ -1003,13 +1000,13 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			if (len == 0) {
 				if (packet_types[hdr->type].type
 				    == PACKET_REQUEST) {
-					debugf(NHRP_DEBUG_COMMON,
-					       "Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the request packet");
+					dbg(NHRP_COMMON,
+					    "Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the request packet");
 					proto = &pp->src_proto;
 				} else if (packet_types[hdr->type].type
 					   == PACKET_REPLY) {
-					debugf(NHRP_DEBUG_COMMON,
-					       "Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the reply packet");
+					dbg(NHRP_COMMON,
+					    "Processing NHRP_EXTENSION_NAT_ADDRESS while forwarding the reply packet");
 					/* For reply packet use protocol
 					 * specified in CIE of mandatory part
 					 * for cache lookup
@@ -1022,15 +1019,14 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			}
 
 			if (proto) {
-				debugf(NHRP_DEBUG_COMMON, "Proto is %pSU",
-				       proto);
+				dbg(NHRP_COMMON, "Proto is %pSU", proto);
 				c = nhrp_cache_get(nifp->ifp, proto, 0);
 			}
 
 			if (c) {
-				debugf(NHRP_DEBUG_COMMON,
-				       "c->cur.remote_nbma_natoa is %pSU",
-				       &c->cur.remote_nbma_natoa);
+				dbg(NHRP_COMMON,
+				    "c->cur.remote_nbma_natoa is %pSU",
+				    &c->cur.remote_nbma_natoa);
 				if (sockunion_family(&c->cur.remote_nbma_natoa)
 				    != AF_UNSPEC) {
 					cie = nhrp_cie_push(
@@ -1043,9 +1039,9 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 				}
 			} else {
 				if (proto)
-					debugf(NHRP_DEBUG_COMMON,
-					       "No cache entry for proto %pSU",
-					       proto);
+					dbg(NHRP_COMMON,
+					    "No cache entry for proto %pSU",
+					    proto);
 				/* Copy existing NAT extension to new packet if
 				 * either it was already not-empty, or we do not
 				 * have valid cache information
@@ -1089,18 +1085,18 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 	struct zbuf zhdr;
 	int reply;
 
-	if (likely(!(debug_flags & NHRP_DEBUG_COMMON)))
+	if (!dbg_check(NHRP_COMMON))
 		return;
 
 	zbuf_init(&zhdr, zb->buf, zb->tail - zb->buf, zb->tail - zb->buf);
 	hdr = nhrp_packet_pull(&zhdr, &src_nbma, &src_proto, &dst_proto);
 
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
-	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %pSU -> %pSU", dir,
-	       (packet_types[hdr->type].name ? packet_types[hdr->type].name
-					     : "Unknown"),
-	       hdr->type, reply ? &dst_proto : &src_proto,
-	       reply ? &src_proto : &dst_proto);
+	dbg(NHRP_COMMON, "%s %s(%d) %pSU -> %pSU", dir,
+	    (packet_types[hdr->type].name ? packet_types[hdr->type].name
+					  : "Unknown"),
+	    hdr->type, reply ? &dst_proto : &src_proto,
+	    reply ? &src_proto : &dst_proto);
 }
 
 static int proto2afi(uint16_t proto)
@@ -1134,8 +1130,8 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	unsigned paylen, extoff, extlen, realsize;
 	afi_t nbma_afi, proto_afi;
 
-	debugf(NHRP_DEBUG_KERNEL, "PACKET: Recv %pSU -> %pSU", &vc->remote.nbma,
-	       &vc->local.nbma);
+	dbg(NHRP_KERNEL, "PACKET: Recv %pSU -> %pSU", &vc->remote.nbma,
+	    &vc->local.nbma);
 
 	if (!p->online) {
 		info = "peer not online";

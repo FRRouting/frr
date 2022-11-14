@@ -155,11 +155,11 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 		nbr->state = new_state;
 
 	if (old_state != nbr->state) {
-		log_debug("%s: event %s resulted in action %s and changing state for lsr-id %pI4 from %s to %s",
-		    __func__, nbr_event_names[event],
-		    nbr_action_names[nbr_fsm_tbl[i].action],
-		    &nbr->id, nbr_state_name(old_state),
-		    nbr_state_name(nbr->state));
+		log_debug(
+			"event %s resulted in action %s and changing state for lsr-id %pI4 from %s to %s",
+			nbr_event_names[event],
+			nbr_action_names[nbr_fsm_tbl[i].action], &nbr->id,
+			nbr_state_name(old_state), nbr_state_name(nbr->state));
 
 		hook_call(ldp_nbr_state_change, nbr, old_state);
 
@@ -228,8 +228,7 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 	struct adj		*adj;
 	struct pending_conn	*pconn;
 
-	log_debug("%s: lsr-id %pI4 transport-address %s", __func__,
-	    &id, log_addr(af, addr));
+	log_debug("lsr-id %pI4 transport-address %s", &id, log_addr(af, addr));
 
 	if ((nbr = calloc(1, sizeof(*nbr))) == NULL)
 		fatal(__func__);
@@ -294,7 +293,7 @@ nbr_del(struct nbr *nbr)
 {
 	struct adj		*adj;
 
-	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
+	log_debug("lsr-id %pI4", &nbr->id);
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 #ifdef __OpenBSD__
@@ -453,7 +452,7 @@ static void nbr_ktimeout(struct thread *thread)
 
 	nbr->keepalive_timeout = NULL;
 
-	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
+	log_debug("lsr-id %pI4", &nbr->id);
 
 	session_shutdown(nbr, S_KEEPALIVE_TMR, 0, 0);
 }
@@ -479,7 +478,7 @@ static void nbr_itimeout(struct thread *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 
-	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
+	log_debug("lsr-id %pI4", &nbr->id);
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 }
@@ -509,7 +508,7 @@ static void nbr_idtimer(struct thread *thread)
 
 	nbr->initdelay_timer = NULL;
 
-	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
+	log_debug("lsr-id %pI4", &nbr->id);
 
 	nbr_establish_connection(nbr);
 }
@@ -577,8 +576,8 @@ static void nbr_connect_cb(struct thread *thread)
 	if (error) {
 		close(nbr->fd);
 		errno = error;
-		log_debug("%s: error while connecting to %s: %s", __func__,
-		    log_addr(nbr->af, &nbr->raddr), strerror(errno));
+		log_debug("error while connecting to %s: %s",
+			  log_addr(nbr->af, &nbr->raddr), strerror(errno));
 		return;
 	}
 
@@ -868,8 +867,8 @@ nbr_clear_ctl(struct ctl_nbr *nctl)
 		    ldp_addrcmp(nctl->af, &nctl->raddr, &nbr->raddr))
 			continue;
 
-		log_debug("%s: neighbor %s manually cleared", __func__,
-		    log_addr(nbr->af, &nbr->raddr));
+		log_debug("neighbor %s manually cleared",
+			  log_addr(nbr->af, &nbr->raddr));
 		session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 	}
 }

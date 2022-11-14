@@ -2649,7 +2649,7 @@ void ls_dump_ted(struct ls_ted *ted)
 	struct ls_subnet *subnet;
 	const struct in_addr inaddr_any = {.s_addr = INADDR_ANY};
 
-	zlog_debug("(%s) Ted init", __func__);
+	zlog_debug("Ted init");
 
 	/* Loop TED, start printing Node, then Attributes and finally Prefix */
 	frr_each (vertices, &ted->vertices, vertex) {
@@ -2693,5 +2693,5 @@ void ls_dump_ted(struct ls_ted *ted)
 			   &subnet->ls_pref->pref,
 			   &subnet->vertex->node->adv.id.ip.addr);
 	}
-	zlog_debug("(%s) Ted end", __func__);
+	zlog_debug("Ted end");
 }

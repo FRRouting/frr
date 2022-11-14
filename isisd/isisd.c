@@ -73,15 +73,10 @@ unsigned long debug_spf_events;
 unsigned long debug_rte_events;
 unsigned long debug_events;
 unsigned long debug_pkt_dump;
-unsigned long debug_lsp_gen;
-unsigned long debug_lsp_sched;
 unsigned long debug_flooding;
 unsigned long debug_bfd;
 unsigned long debug_tx_queue;
-unsigned long debug_sr;
-unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
-unsigned long debug_te;
 
 DEFINE_MGROUP(ISISD, "isisd");
 
@@ -93,6 +88,33 @@ DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
 DEFINE_MTYPE(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
 
 DEFINE_QOBJ_TYPE(isis_area);
+
+/* clang-format off */
+DEFINE_DEBUGFLAG(LDP_SYNC, PROTO_NAME " ldp-sync",
+		 PROTO_HELP
+		 PROTO_NAME " interaction with LDP-Sync\n"
+);
+
+DEFINE_DEBUGFLAG(LSP_GEN, PROTO_NAME " lsp-gen",
+		 PROTO_HELP
+		 "IS-IS generation of own LSPs\n"
+);
+
+DEFINE_DEBUGFLAG(LSP_SCHED, PROTO_NAME " lsp-sched",
+		 PROTO_HELP
+		 "IS-IS scheduling of LSP generation\n"
+);
+
+DEFINE_DEBUGFLAG(SR, PROTO_NAME " sr-events",
+		 PROTO_HELP
+		 "IS-IS Segment Routing Events\n"
+);
+
+DEFINE_DEBUGFLAG(TE, PROTO_NAME " te-events",
+		 PROTO_HELP
+		 "IS-IS Traffic Engineering Events\n"
+);
+/* clang-format on */
 
 /* ISIS process wide configuration. */
 static struct isis_master isis_master;
@@ -204,8 +226,8 @@ struct isis *isis_new(const char *vrf_name)
 
 	if (IS_DEBUG_EVENTS)
 		zlog_debug(
-			"%s: Create new isis instance with vrf_name %s vrf_id %u",
-			__func__, isis->name, isis->vrf_id);
+			"Create new isis instance with vrf_name %s vrf_id %u",
+			isis->name, isis->vrf_id);
 
 	/*
 	 * Default values
@@ -579,8 +601,7 @@ void isis_area_destroy(struct isis_area *area)
 static int isis_vrf_new(struct vrf *vrf)
 {
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("%s: VRF Created: %s(%u)", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
@@ -589,8 +610,7 @@ static int isis_vrf_new(struct vrf *vrf)
 static int isis_vrf_delete(struct vrf *vrf)
 {
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("%s: VRF Deletion: %s(%u)", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
@@ -663,8 +683,7 @@ static int isis_vrf_enable(struct vrf *vrf)
 	vrf_id_t old_vrf_id;
 
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("%s: VRF %s id %u enabled", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF %s id %u enabled", vrf->name, vrf->vrf_id);
 
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis && isis->vrf_id != vrf->vrf_id) {
@@ -673,8 +692,8 @@ static int isis_vrf_enable(struct vrf *vrf)
 		isis_vrf_link(isis, vrf);
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(
-				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
-				__func__, vrf->name, isis->vrf_id, old_vrf_id);
+				"isis linked to vrf %s vrf_id %u (old id %u)",
+				vrf->name, isis->vrf_id, old_vrf_id);
 		/* start zebra redist to us for new vrf */
 		isis_set_redist_vrf_bitmaps(isis, true);
 
@@ -693,8 +712,7 @@ static int isis_vrf_disable(struct vrf *vrf)
 		return 0;
 
 	if (IS_DEBUG_EVENTS)
-		zlog_debug("%s: VRF %s id %d disabled.", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF %s id %d disabled.", vrf->name, vrf->vrf_id);
 	isis = isis_lookup_by_vrfname(vrf->name);
 	if (isis) {
 		old_vrf_id = isis->vrf_id;
@@ -708,8 +726,7 @@ static int isis_vrf_disable(struct vrf *vrf)
 		 */
 		isis_vrf_unlink(isis, vrf);
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: isis old_vrf_id %d unlinked", __func__,
-				   old_vrf_id);
+			zlog_debug("isis old_vrf_id %d unlinked", old_vrf_id);
 	}
 
 	return 0;
@@ -1628,13 +1645,6 @@ void print_debug(struct vty *vty, int flags, int onoff)
 			onoffs);
 	if (flags & DEBUG_SPF_EVENTS)
 		vty_out(vty, "IS-IS SPF events debugging is %s\n", onoffs);
-	if (flags & DEBUG_SR)
-		vty_out(vty, "IS-IS Segment Routing events debugging is %s\n",
-			onoffs);
-	if (flags & DEBUG_TE)
-		vty_out(vty,
-			"IS-IS Traffic Engineering events debugging is %s\n",
-			onoffs);
 	if (flags & DEBUG_LFA)
 		vty_out(vty, "IS-IS LFA events debugging is %s\n", onoffs);
 	if (flags & DEBUG_UPDATE_PACKETS)
@@ -1646,16 +1656,10 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Event debugging is %s\n", onoffs);
 	if (flags & DEBUG_PACKET_DUMP)
 		vty_out(vty, "IS-IS Packet dump debugging is %s\n", onoffs);
-	if (flags & DEBUG_LSP_GEN)
-		vty_out(vty, "IS-IS LSP generation debugging is %s\n", onoffs);
-	if (flags & DEBUG_LSP_SCHED)
-		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
 	if (flags & DEBUG_FLOODING)
 		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
 		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
-	if (flags & DEBUG_LDP_SYNC)
-		vty_out(vty, "IS-IS ldp-sync debugging is %s\n", onoffs);
 }
 
 DEFUN_NOSH (show_debugging,
@@ -1675,10 +1679,6 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_SNP_PACKETS, 1);
 	if (IS_DEBUG_SPF_EVENTS)
 		print_debug(vty, DEBUG_SPF_EVENTS, 1);
-	if (IS_DEBUG_SR)
-		print_debug(vty, DEBUG_SR, 1);
-	if (IS_DEBUG_TE)
-		print_debug(vty, DEBUG_TE, 1);
 	if (IS_DEBUG_UPDATE_PACKETS)
 		print_debug(vty, DEBUG_UPDATE_PACKETS, 1);
 	if (IS_DEBUG_RTE_EVENTS)
@@ -1687,16 +1687,10 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_EVENTS, 1);
 	if (IS_DEBUG_PACKET_DUMP)
 		print_debug(vty, DEBUG_PACKET_DUMP, 1);
-	if (IS_DEBUG_LSP_GEN)
-		print_debug(vty, DEBUG_LSP_GEN, 1);
-	if (IS_DEBUG_LSP_SCHED)
-		print_debug(vty, DEBUG_LSP_SCHED, 1);
 	if (IS_DEBUG_FLOODING)
 		print_debug(vty, DEBUG_FLOODING, 1);
 	if (IS_DEBUG_BFD)
 		print_debug(vty, DEBUG_BFD, 1);
-	if (IS_DEBUG_LDP_SYNC)
-		print_debug(vty, DEBUG_LDP_SYNC, 1);
 	if (IS_DEBUG_LFA)
 		print_debug(vty, DEBUG_LFA, 1);
 
@@ -1734,14 +1728,6 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " spf-events\n");
 		write++;
 	}
-	if (IS_DEBUG_SR) {
-		vty_out(vty, "debug " PROTO_NAME " sr-events\n");
-		write++;
-	}
-	if (IS_DEBUG_TE) {
-		vty_out(vty, "debug " PROTO_NAME " te-events\n");
-		write++;
-	}
 	if (IS_DEBUG_LFA) {
 		vty_out(vty, "debug " PROTO_NAME " lfa\n");
 		write++;
@@ -1762,14 +1748,6 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " packet-dump\n");
 		write++;
 	}
-	if (IS_DEBUG_LSP_GEN) {
-		vty_out(vty, "debug " PROTO_NAME " lsp-gen\n");
-		write++;
-	}
-	if (IS_DEBUG_LSP_SCHED) {
-		vty_out(vty, "debug " PROTO_NAME " lsp-sched\n");
-		write++;
-	}
 	if (IS_DEBUG_FLOODING) {
 		vty_out(vty, "debug " PROTO_NAME " flooding\n");
 		write++;
@@ -1778,11 +1756,6 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " bfd\n");
 		write++;
 	}
-	if (IS_DEBUG_LDP_SYNC) {
-		vty_out(vty, "debug " PROTO_NAME " ldp-sync\n");
-		write++;
-	}
-	write += spf_backoff_write_config(vty);
 
 	return write;
 }
@@ -1949,60 +1922,6 @@ DEFUN (no_debug_isis_spfevents,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_isis_srevents,
-       debug_isis_srevents_cmd,
-       "debug " PROTO_NAME " sr-events",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS Segment Routing Events\n")
-{
-	debug_sr |= DEBUG_SR;
-	print_debug(vty, DEBUG_SR, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_srevents,
-       no_debug_isis_srevents_cmd,
-       "no debug " PROTO_NAME " sr-events",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS Segment Routing Events\n")
-{
-	debug_sr &= ~DEBUG_SR;
-	print_debug(vty, DEBUG_SR, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_teevents,
-       debug_isis_teevents_cmd,
-       "debug " PROTO_NAME " te-events",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS Traffic Engineering Events\n")
-{
-	debug_te |= DEBUG_TE;
-	print_debug(vty, DEBUG_TE, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_teevents,
-       no_debug_isis_teevents_cmd,
-       "no debug " PROTO_NAME " te-events",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS Traffic Engineering Events\n")
-{
-	debug_te &= ~DEBUG_TE;
-	print_debug(vty, DEBUG_TE, 0);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (debug_isis_lfa,
        debug_isis_lfa_cmd,
        "debug " PROTO_NAME " lfa",
@@ -2111,60 +2030,6 @@ DEFUN (no_debug_isis_packet_dump,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_isis_lsp_gen,
-       debug_isis_lsp_gen_cmd,
-       "debug " PROTO_NAME " lsp-gen",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS generation of own LSPs\n")
-{
-	debug_lsp_gen |= DEBUG_LSP_GEN;
-	print_debug(vty, DEBUG_LSP_GEN, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_lsp_gen,
-       no_debug_isis_lsp_gen_cmd,
-       "no debug " PROTO_NAME " lsp-gen",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS generation of own LSPs\n")
-{
-	debug_lsp_gen &= ~DEBUG_LSP_GEN;
-	print_debug(vty, DEBUG_LSP_GEN, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_lsp_sched,
-       debug_isis_lsp_sched_cmd,
-       "debug " PROTO_NAME " lsp-sched",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS scheduling of LSP generation\n")
-{
-	debug_lsp_sched |= DEBUG_LSP_SCHED;
-	print_debug(vty, DEBUG_LSP_SCHED, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_lsp_sched,
-       no_debug_isis_lsp_sched_cmd,
-       "no debug " PROTO_NAME " lsp-sched",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS scheduling of LSP generation\n")
-{
-	debug_lsp_sched &= ~DEBUG_LSP_SCHED;
-	print_debug(vty, DEBUG_LSP_SCHED, 0);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (debug_isis_bfd,
        debug_isis_bfd_cmd,
        "debug " PROTO_NAME " bfd",
@@ -2190,26 +2055,6 @@ DEFUN (no_debug_isis_bfd,
 	debug_bfd &= ~DEBUG_BFD;
 	bfd_protocol_integration_set_debug(false);
 	print_debug(vty, DEBUG_BFD, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(debug_isis_ldp_sync, debug_isis_ldp_sync_cmd,
-      "debug " PROTO_NAME " ldp-sync",
-      DEBUG_STR PROTO_HELP PROTO_NAME " interaction with LDP-Sync\n")
-{
-	debug_ldp_sync |= DEBUG_LDP_SYNC;
-	print_debug(vty, DEBUG_LDP_SYNC, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_debug_isis_ldp_sync, no_debug_isis_ldp_sync_cmd,
-      "no debug " PROTO_NAME " ldp-sync",
-      NO_STR UNDEBUG_STR PROTO_HELP PROTO_NAME " interaction with LDP-Sync\n")
-{
-	debug_ldp_sync &= ~DEBUG_LDP_SYNC;
-	print_debug(vty, DEBUG_LDP_SYNC, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3128,9 +2973,9 @@ static void area_resign_level(struct isis_area *area, int level)
 
 	THREAD_OFF(area->spf_timer[level - 1]);
 
-	sched_debug(
-		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
-		area->area_tag, level);
+	dbg(LSP_SCHED,
+	    "ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
+	    area->area_tag, level);
 	THREAD_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
@@ -3767,10 +3612,6 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_upd_cmd);
 	install_element(ENABLE_NODE, &debug_isis_spfevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(ENABLE_NODE, &debug_isis_srevents_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_srevents_cmd);
-	install_element(ENABLE_NODE, &debug_isis_teevents_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_teevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_lfa_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_isis_rtevents_cmd);
@@ -3779,14 +3620,8 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_events_cmd);
 	install_element(ENABLE_NODE, &debug_isis_packet_dump_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_packet_dump_cmd);
-	install_element(ENABLE_NODE, &debug_isis_lsp_gen_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_lsp_gen_cmd);
-	install_element(ENABLE_NODE, &debug_isis_lsp_sched_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(ENABLE_NODE, &debug_isis_bfd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_bfd_cmd);
-	install_element(ENABLE_NODE, &debug_isis_ldp_sync_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
@@ -3800,10 +3635,6 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_upd_cmd);
 	install_element(CONFIG_NODE, &debug_isis_spfevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(CONFIG_NODE, &debug_isis_srevents_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_srevents_cmd);
-	install_element(CONFIG_NODE, &debug_isis_teevents_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_teevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_lfa_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_isis_rtevents_cmd);
@@ -3812,14 +3643,8 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_events_cmd);
 	install_element(CONFIG_NODE, &debug_isis_packet_dump_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_packet_dump_cmd);
-	install_element(CONFIG_NODE, &debug_isis_lsp_gen_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_lsp_gen_cmd);
-	install_element(CONFIG_NODE, &debug_isis_lsp_sched_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
-	install_element(CONFIG_NODE, &debug_isis_ldp_sync_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_default(ROUTER_NODE);
 
@@ -3836,6 +3661,4 @@ void isis_init(void)
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 #endif /* ifdef FABRICD */
-
-	spf_backoff_cmd_init();
 }

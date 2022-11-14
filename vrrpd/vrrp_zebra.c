@@ -36,7 +36,7 @@ static struct zclient *zclient;
 
 static void vrrp_zebra_debug_if_state(struct interface *ifp, const char *func)
 {
-	DEBUGD(&vrrp_dbg_zebra,
+	dbg(VRRP_ZEBRA,
 	       "%s: %s index %d vrf %s(%u) parent %d mac %02x:%02x:%02x:%02x:%02x:%02x flags %ld metric %d mtu %d operative %d",
 	       func, ifp->name, ifp->ifindex, ifp->vrf->name, ifp->vrf->vrf_id,
 	       ifp->link_ifindex, ifp->hw_addr[0], ifp->hw_addr[1],
@@ -51,12 +51,12 @@ static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
 	struct connected *ifc;
 	struct listnode *node;
 
-	DEBUGD(&vrrp_dbg_zebra, "%s: interface %s addresses:", func, ifp->name);
+	dbg(VRRP_ZEBRA, "%s: interface %s addresses:", func, ifp->name);
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;
 
-		DEBUGD(&vrrp_dbg_zebra, "%s: interface %s address %pFX %s",
+		dbg(VRRP_ZEBRA, "%s: interface %s address %pFX %s",
 		       func, ifp->name, p,
 		       CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ? "secondary"
 								   : "primary");
@@ -170,7 +170,7 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 
 void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 {
-	DEBUGD(&vrrp_dbg_zebra,
+	dbg(VRRP_ZEBRA,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID
 	       "Requesting Zebra to turn router advertisements %s for %s",
 	       r->vr->vrid, enable ? "on" : "off", r->mvl_ifp->name);
@@ -181,7 +181,7 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 
 void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 {
-	DEBUGD(&vrrp_dbg_zebra,
+	dbg(VRRP_ZEBRA,
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
 	       down ? "on" : "off");
 

@@ -981,8 +981,9 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 		if (valid_prefix && afi != family2afi(dst->family)) {
 			if (BGP_DEBUG(pbr, PBR)) {
 				bgp_pbr_print_policy_route(api);
-				zlog_debug("%s: inconsistency: no match for afi src and dst (%u/%u)",
-				     __func__, afi, family2afi(dst->family));
+				zlog_debug(
+					"inconsistency: no match for afi src and dst (%u/%u)",
+					afi, family2afi(dst->family));
 			}
 			return -1;
 		}

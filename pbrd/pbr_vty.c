@@ -28,14 +28,12 @@
 #include "nexthop_group_private.h"
 #include "log.h"
 #include "json.h"
-#include "debug.h"
 #include "pbr.h"
 
 #include "pbrd/pbr_nht.h"
 #include "pbrd/pbr_map.h"
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_vty.h"
-#include "pbrd/pbr_debug.h"
 #include "pbrd/pbr_vty_clippy.c"
 
 DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
@@ -1192,60 +1190,6 @@ DEFPY (show_pbr_interface,
 	return CMD_SUCCESS;
 }
 
-/* PBR debugging CLI ------------------------------------------------------- */
-
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = pbr_debug_config_write,
-};
-
-DEFPY(debug_pbr,
-      debug_pbr_cmd,
-      "[no] debug pbr [{map$map|zebra$zebra|nht$nht|events$events}]",
-      NO_STR
-      DEBUG_STR
-      PBR_STR
-      "Policy maps\n"
-      "PBRD <-> Zebra communications\n"
-      "Nexthop tracking\n"
-      "Events\n")
-{
-	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-
-	if (map)
-		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
-	if (zebra)
-		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
-	if (nht)
-		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
-	if (events)
-		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
-
-	/* no specific debug --> act on all of them */
-	if (strmatch(argv[argc - 1]->text, "pbr"))
-		pbr_debug_set_all(mode, !no);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH(show_debugging_pbr,
-	   show_debugging_pbr_cmd,
-	   "show debugging [pbr]",
-	   SHOW_STR
-	   DEBUG_STR
-	   PBR_STR)
-{
-	vty_out(vty, "PBR debugging status:\n");
-
-	pbr_debug_config_write_helper(vty, false);
-
-	cmd_show_lib_debugs(vty);
-
-	return CMD_SUCCESS;
-}
-
 /* ------------------------------------------------------------------------- */
 
 
@@ -1393,13 +1337,6 @@ void pbr_vty_init(void)
 	if_cmd_init(pbr_interface_config_write);
 
 	install_node(&pbr_map_node);
-
-	/* debug */
-	install_node(&debug_node);
-	install_element(ENABLE_NODE, &debug_pbr_cmd);
-	install_element(CONFIG_NODE, &debug_pbr_cmd);
-	install_element(ENABLE_NODE, &show_debugging_pbr_cmd);
-
 	install_default(PBRMAP_NODE);
 
 	install_element(CONFIG_NODE, &pbr_map_cmd);

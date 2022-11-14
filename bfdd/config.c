@@ -193,9 +193,8 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			sval = json_object_get_string(jo_val);
 			if (strtosa(sval, &bpc->bpc_peer) != 0
 			    || bpc->bpc_peer.sa_sin.sin_family != family_type) {
-				zlog_debug(
-					"%s:%d failed to parse peer-address '%s'",
-					__func__, __LINE__, sval);
+				zlog_debug("failed to parse peer-address '%s'",
+					   sval);
 				error++;
 			}
 			zlog_debug("        peer-address: %s", sval);
@@ -204,9 +203,8 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			if (strtosa(sval, &bpc->bpc_local) != 0
 			    || bpc->bpc_local.sa_sin.sin_family
 				       != family_type) {
-				zlog_debug(
-					"%s:%d failed to parse local-address '%s'",
-					__func__, __LINE__, sval);
+				zlog_debug("failed to parse local-address '%s'",
+					   sval);
 				error++;
 			}
 			zlog_debug("        local-address: %s", sval);
@@ -294,8 +292,7 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 	}
 
 	if (bpc->bpc_peer.sa_sin.sin_family == 0) {
-		zlog_debug("%s:%d no peer address provided", __func__,
-			   __LINE__);
+		zlog_debug("no peer address provided");
 		error++;
 	}
 

@@ -346,8 +346,8 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	struct zapi_labels zl;
 	int count = 0;
 
-	sr_debug("ISIS-Sr (%s): update label %u for prefix %pFX",
-		 area->area_tag, psid->label, prefix);
+	dbg(SR, "ISIS-Sr (%s): update label %u for prefix %pFX", area->area_tag,
+	    psid->label, prefix);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -413,8 +413,8 @@ void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 {
 	struct zapi_labels zl;
 
-	sr_debug("ISIS-Sr (%s): delete label %u for prefix %pFX",
-		 area->area_tag, psid->label, prefix);
+	dbg(SR, "ISIS-Sr (%s): delete label %u for prefix %pFX", area->area_tag,
+	    psid->label, prefix);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -443,9 +443,9 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 		return;
 	}
 
-	sr_debug("  |- %s label %u for interface %s",
-		 cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
-		 sra->input_label, sra->adj->circuit->interface->name);
+	dbg(SR, "  |- %s label %u for interface %s",
+	    cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete", sra->input_label,
+	    sra->adj->circuit->interface->name);
 
 	memset(&zl, 0, sizeof(zl));
 	zl.type = ZEBRA_LSP_ISIS_SR;
@@ -708,7 +708,7 @@ int isis_zebra_label_manager_connect(void)
 		return -1;
 	}
 
-	sr_debug("ISIS-Sr: Successfully connected to the Label Manager");
+	dbg(SR, "ISIS-Sr: Successfully connected to the Label Manager");
 
 	return 0;
 }
@@ -720,8 +720,8 @@ void isis_zebra_vrf_register(struct isis *isis)
 
 	if (isis->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: Register VRF %s id %u", __func__,
-				   isis->name, isis->vrf_id);
+			zlog_debug("Register VRF %s id %u", isis->name,
+				   isis->vrf_id);
 		zclient_send_reg_requests(zclient, isis->vrf_id);
 	}
 }
@@ -733,8 +733,8 @@ void isis_zebra_vrf_deregister(struct isis *isis)
 
 	if (isis->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: Deregister VRF %s id %u", __func__,
-				   isis->name, isis->vrf_id);
+			zlog_debug("Deregister VRF %s id %u", isis->name,
+				   isis->vrf_id);
 		zclient_send_dereg_requests(zclient, isis->vrf_id);
 	}
 }

@@ -10,7 +10,6 @@ man8 += $(MANBUILD)/frr-staticd.8
 endif
 
 staticd_libstatic_a_SOURCES = \
-	staticd/static_debug.c \
 	staticd/static_nht.c \
 	staticd/static_routes.c \
 	staticd/static_zebra.c \

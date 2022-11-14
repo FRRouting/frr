@@ -611,8 +611,8 @@ Examples:
    cases.  We don't currently have a well-defined use case for it.
 
 
-Debug messages and asserts
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Debug messages
+^^^^^^^^^^^^^^
 
 Everything that is only interesting on-demand, or only while developing,
 is a **debug** message.  It might be interesting to the user for a
@@ -622,11 +622,15 @@ average user might not even be able to make sense of.
 Most (or all?) debug messages should be behind a `debug foobar` category
 switch that controls which subset of these messages is currently
 interesting and thus printed.  If a debug message doesn't have such a
-guard, there should be a good explanation as to why.
+guard, there should be a good explanation as to why.  These debug guards
+are provided by the ``DEBUGFLAG`` macros documented below.
 
 Conversely, debug messages are the only thing that should be guarded by
 these switches.  Neither info nor warning or error messages should be
 hidden in this way.
+
+Assertions
+^^^^^^^^^^
 
 **Asserts** should only be used as pretty crashes.  We are expecting that
 asserts remain enabled in production builds, but please try to not use
@@ -649,6 +653,140 @@ Examples:
 * some field that is absolutely needed is :code:`NULL`
 * any other kind of data structure corruption that will cause the daemon
   to crash sooner or later, one way or another
+
+
+Debug flags
+-----------
+
+.. c:macro:: dbg(flag, formatstring, ...)
+
+   This prints the actual debug messages, i.e. contains the flag check and
+   zlog_debug call.
+
+   The name of this macro is intentionally chosen to be as short as possible,
+   since debug log messages tend to have a bunch of parameters which can
+   run into the line length limit and create an indentation mess.  **Please
+   avoid wrapping dbg() into local debug macros**, it defeats the purpose.
+
+   .. warning::
+
+      ``flag`` is not a boolean expression, it must be exactly one flag
+      name with optionally some parameters, i.e. either of:
+
+      - ``SOMEFLAG``
+      - ``SOMEFLAG(param)``
+
+      **Nothing else is valid here**.  In particular, it is not possible to
+      place other conditions here, or combine flags (e.g. ``FOO || BAR``).
+
+.. c:macro:: DECLARE_DEBUGFLAG(name)
+.. c:macro:: DECLARE_DEBUGFLAG_PARAMS(name, params)
+.. c:macro:: DECLARE_DEBUGFLAG_COMBO(name)
+
+   This macro forward-declares a debug flag and should be placed ahead of
+   the corresponding ``DEFINE_DEBUGFLAG``.  It may be placed into a ``.h``
+   header file if the debug flag is used across multiple files, but otherwise
+   should just be placed in the ``.c`` file.  It expands to an
+   ``extern struct zlog_debugflag_...`` statement.
+
+   See below for the different variants.
+
+.. c:macro:: DEFINE_DEBUGFLAG(name, cli_name, cli_help)
+
+   Define a "plain" debug flag without any extra bells and whistles, i.e. just
+   a boolean enable/disable.  ``cli_name`` must be a valid CLI string, it is
+   used to autogenerate a ``[no] debug cli_name`` command.  It may contain
+   spaces to group things per the usual CLI patterns.  ``cli_help`` is the
+   corresponding help text with ``\n`` separators.  Do not include the
+   ``[no] debug`` part in either of these arguments, it is added automatically.
+
+   .. code-block:: c
+      :caption: foo_packet.c
+
+      #include "zlog_debug.h"
+
+      DECLARE_DEBUGFLAG(FOO_PACKET);
+      DEFINE_DEBUGFLAG(FOO_PACKET, "foo packet", "Foo protocol\nPackets\n");
+
+      static void bar(size_t count)
+      {
+              dbg(FOO_PACKET, "%zu packets to debug", count);
+      }
+
+   .. note::
+
+      The debug flag is complete and fully functional with the few lines shown
+      above.  No further initialization, show commands, or other bits need to
+      be added, they are all provided automatically.  This is expressly
+      designed to make adding debug flags quick and easy, and combat excessive
+      bundling of debug statements into using one "large" flag.
+
+.. c:macro:: DEFINE_DEBUGFLAG_PARAMS(name, cli_name, params)
+
+   Define a parametrized debug flag.  This is rarely used but can be immensely
+   useful, the prime example is BGP debug flags taking a prefix parameter to
+   limit debug output to that specific prefix - which may well shrink a log
+   from uselessly gigantic to nicely readable.
+
+   Parametrized debug flags do not receive an automatic CLI command since the
+   debug code has no idea how to pass the parameters through the CLI, you
+   must define your own CLI function.  There is also some extra macro tooling
+   required, summing up to the following:
+
+   .. code-block:: c
+      :caption: foo_route.c
+
+      #include "prefix.h"
+      #include "zlog_debug.h"
+
+      DECLARE_DEBUGFLAG_PARAM(FOO_ROUTE, (const struct prefix *p));
+      /* all PARAM debug flags must have a #define like this after the DECLARE
+       * the ... is literal, not a placeholder - do not fill in parameters.
+       */
+      #define _dbg_FOO_ROUTE(...) _dbg_FOO_ROUTE
+
+
+      /* the string on DEFINE is used in show commands */
+      DEFINE_DEBUGFLAG_PARAM(FOO_ROUTE, "foo route", (const struct prefix *p));
+
+
+      static void bar(struct foo_route *route)
+      {
+              /* the end result is a debug flag with parameters in braces */
+              dbg(FOO_ROUTE(&route->prefix), "handling %pFX", &route->prefix);
+      }
+
+
+      /* this function (_dbg_filter_ + flag name) performs the filtering. */
+      static struct prefix foo_route_debug_filter;
+      bool _dbg_filter_FOO_ROUTE(const struct prefix *p)
+      {
+              return !prefix_cmp(p, &foo_route_debug_filter);
+      }
+
+      /* you must create your own CLI function to process the filter data */
+      DEFPY(debug_foo_route, debug_foo_route_cmd,
+            "[no] debug foo route ![A.B.C.D/M|X:X::X:X/M]$prefix",
+            NO_STR
+            DEBUG_STR
+            FOO_STR
+            "Debug routes\n"
+            "Limit to given route\n")
+      {
+              /* maintain necessary state */
+              if (prefix)
+                      prefix_copy(&foo_route_debug_filter, prefix);
+
+              /* always call zlog_debugflag_cli() for the flag */
+              return zlog_debugflag_cli(_dbg_FOO_ROUTE, vty, argc, argv);
+      }
+
+      /* FIXME: add example config write - missing here! */
+
+.. c:macro:: DEFINE_DEBUGFLAG_COMBO(name, flag1, flag2, ...)
+
+   TBD DOC: this is for debug logs guarded by multiple flags
+
 
 Thread-local buffering
 ----------------------

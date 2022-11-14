@@ -69,9 +69,8 @@ static struct orr_root *ospf_orr_root_new(struct ospf *ospf, afi_t afi,
 	root->new_rtrs = NULL;
 	root->new_table = NULL;
 
-	ospf_orr_debug(
-		"%s: For %s %s, ORR Group %s, created ORR Root entry %pFX.",
-		__func__, afi2str(afi), safi2str(safi), root->group_name, p);
+	ospf_orr_debug("For %s %s, ORR Group %s, created ORR Root entry %pFX.",
+		       afi2str(afi), safi2str(safi), root->group_name, p);
 
 	return root;
 }
@@ -91,8 +90,8 @@ static struct orr_root *ospf_orr_root_lookup(struct ospf *ospf, afi_t afi,
 		if (IPV4_ADDR_SAME(&root->router_id, rid))
 			return root;
 
-	ospf_orr_debug("%s: For %s %s, ORR Root '%pI4' not found.", __func__,
-		       afi2str(afi), safi2str(safi), rid);
+	ospf_orr_debug("For %s %s, ORR Root '%pI4' not found.", afi2str(afi),
+		       safi2str(safi), rid);
 
 	return NULL;
 }
@@ -139,9 +138,8 @@ ospf_orr_lookup_opaque_area_lsa_by_id(struct in_addr rid)
 						     rid);
 		if (!lsa)
 			continue;
-		ospf_orr_debug(
-			"%s: Opaque Area LSA found in area %pI4 for %pI4",
-			__func__, &area->area_id, &rid);
+		ospf_orr_debug("Opaque Area LSA found in area %pI4 for %pI4",
+			       &area->area_id, &rid);
 		return lsa;
 	}
 	return NULL;
@@ -168,8 +166,8 @@ static struct ospf_lsa *ospf_orr_lookup_router_lsa_by_id(struct in_addr rid)
 		lsa = ospf_lsa_lookup_by_adv_rid(area, OSPF_ROUTER_LSA, rid);
 		if (!lsa)
 			continue;
-		ospf_orr_debug("%s: Router LSA found in area %pI4 for %pI4",
-			       __func__, &area->area_id, &rid);
+		ospf_orr_debug("Router LSA found in area %pI4 for %pI4",
+			       &area->area_id, &rid);
 		return lsa;
 	}
 	return NULL;
@@ -198,8 +196,8 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 	safi = msg.safi;
 
 	ospf_orr_debug(
-		"%s: Received IGP metric %s message from BGP for ORR Group %s from location %pFX",
-		__func__, msg.reg ? "Register" : "Unregister", msg.group_name,
+		"Received IGP metric %s message from BGP for ORR Group %s from location %pFX",
+		msg.reg ? "Register" : "Unregister", msg.group_name,
 		&msg.prefix);
 
 	/* Get ORR Root entry for the given address-family */
@@ -215,9 +213,8 @@ int ospf_orr_igp_metric_register(struct orr_igp_metric_reg msg)
 					 msg.group_name);
 		if (!root) {
 			ospf_orr_debug(
-				"%s: For %s %s, Failed to create ORR Root entry %pFX.",
-				__func__, afi2str(afi), safi2str(safi),
-				&msg.prefix);
+				"For %s %s, Failed to create ORR Root entry %pFX.",
+				afi2str(afi), safi2str(safi), &msg.prefix);
 			return -1;
 		}
 		ospf->orr_spf_request++;
@@ -300,8 +297,7 @@ void ospf_orr_igp_metric_send_update_add(struct orr_root *root,
 						  (uint8_t *)&msg, sizeof(msg));
 			if (ret != ZCLIENT_SEND_SUCCESS)
 				ospf_orr_debug(
-					"%s: Failed to send message to BGP.",
-					__func__);
+					"Failed to send message to BGP.");
 			count = 0;
 			prefix_copy(&msg.nexthop[count].prefix,
 				    (struct prefix_ipv4 *)&rn->p);
@@ -314,8 +310,7 @@ void ospf_orr_igp_metric_send_update_add(struct orr_root *root,
 		ret = zclient_send_opaque(zclient, ORR_IGP_METRIC_UPDATE,
 					  (uint8_t *)&msg, sizeof(msg));
 		if (ret != ZCLIENT_SEND_SUCCESS)
-			ospf_orr_debug("%s: Failed to send message to BGP.",
-				       __func__);
+			ospf_orr_debug("Failed to send message to BGP.");
 	}
 }
 
@@ -368,8 +363,7 @@ void ospf_orr_igp_metric_send_update_delete(struct orr_root *root,
 						  (uint8_t *)&msg, sizeof(msg));
 			if (ret != ZCLIENT_SEND_SUCCESS)
 				ospf_orr_debug(
-					"%s: Failed to send message to BGP.",
-					__func__);
+					"Failed to send message to BGP.");
 			count = 0;
 			prefix_copy(&msg.nexthop[count].prefix,
 				    (struct prefix_ipv4 *)&rn->p);
@@ -382,8 +376,7 @@ void ospf_orr_igp_metric_send_update_delete(struct orr_root *root,
 		ret = zclient_send_opaque(zclient, ORR_IGP_METRIC_UPDATE,
 					  (uint8_t *)&msg, sizeof(msg));
 		if (ret != ZCLIENT_SEND_SUCCESS)
-			ospf_orr_debug("%s: Failed to send message to BGP.",
-				       __func__);
+			ospf_orr_debug("Failed to send message to BGP.");
 	}
 }
 
@@ -392,12 +385,11 @@ static void ospf_show_orr_root(struct orr_root *root)
 	if (!root)
 		return;
 
-	ospf_orr_debug("%s: Address Family: %s %s", __func__,
-		       afi2str(root->afi), safi2str(root->safi));
-	ospf_orr_debug("%s: ORR Group: %s", __func__, root->group_name);
-	ospf_orr_debug("%s: Router-Address: %pI4:", __func__, &root->router_id);
-	ospf_orr_debug("%s: Advertising Router: %pI4:", __func__,
-		       &root->adv_router);
+	ospf_orr_debug("Address Family: %s %s", afi2str(root->afi),
+		       safi2str(root->safi));
+	ospf_orr_debug("ORR Group: %s", root->group_name);
+	ospf_orr_debug("Router-Address: %pI4:", &root->router_id);
+	ospf_orr_debug("Advertising Router: %pI4:", &root->adv_router);
 }
 
 static void ospf_show_orr(struct ospf *ospf, afi_t afi, safi_t safi)
@@ -443,19 +435,18 @@ void ospf_orr_root_table_update(struct ospf_lsa *lsa, bool add)
 
 	router_addr = (struct te_tlv_router_addr *)tlvh;
 	if (IS_DEBUG_OSPF_ORR) {
-		zlog_debug("[OSPF-ORR] %s: Opaque-area LSA %s LSDB", __func__,
+		zlog_debug("[OSPF-ORR]: Opaque-area LSA %s LSDB",
 			   add ? "added to" : "deleted from");
-		zlog_debug("[OSPF-ORR] %s: Opaque-Type %u (%s)", __func__,
-			   opaque_type, "Traffic Engineering LSA");
-		zlog_debug("[OSPF-ORR] %s: Opaque-ID   0x%x", __func__,
-			   opaque_id);
-		zlog_debug("[OSPF-ORR] %s: Opaque-Info: %u octets of data%s",
-			   __func__, ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE,
+		zlog_debug("[OSPF-ORR]: Opaque-Type %u (%s)", opaque_type,
+			   "Traffic Engineering LSA");
+		zlog_debug("[OSPF-ORR]: Opaque-ID   0x%x", opaque_id);
+		zlog_debug("[OSPF-ORR]: Opaque-Info: %u octets of data%s",
+			   ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE,
 			   VALID_OPAQUE_INFO_LEN(lsah) ? ""
 						       : "(Invalid length?)");
-		zlog_debug("[OSPF-ORR] %s: Router-Address: %pI4", __func__,
+		zlog_debug("[OSPF-ORR]: Router-Address: %pI4",
 			   &router_addr->value);
-		zlog_debug("[OSPF-ORR] %s: Advertising Router: %pI4", __func__,
+		zlog_debug("[OSPF-ORR]: Advertising Router: %pI4",
 			   &lsa->data->adv_router);
 	}
 	/*
@@ -497,8 +488,8 @@ void ospf_orr_root_update_rcvd_lsa(struct ospf_lsa *lsa)
 			root->router_lsa_rcvd = lsa;
 		}
 
-		ospf_orr_debug("%s: Received LSA[Type%d:%pI4]", __func__,
-			       lsa->data->type, &lsa->data->adv_router);
+		ospf_orr_debug("Received LSA[Type%d:%pI4]", lsa->data->type,
+			       &lsa->data->adv_router);
 
 		/* Compute SPF for all root nodes */
 		ospf_orr_spf_calculate_schedule(lsa->area->ospf);
@@ -549,7 +540,7 @@ void ospf_orr_spf_calculate_schedule(struct ospf *ospf)
 
 	ospf->t_orr_calc = NULL;
 
-	ospf_orr_debug("%s: SPF: calculation timer scheduled", __func__);
+	ospf_orr_debug("SPF: calculation timer scheduled");
 
 	thread_add_timer(master, ospf_orr_spf_calculate_schedule_worker, ospf,
 			 OSPF_ORR_CALC_INTERVAL, &ospf->t_orr_calc);

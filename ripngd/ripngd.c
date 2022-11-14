@@ -2573,8 +2573,7 @@ static void ripng_instance_disable(struct ripng *ripng)
 static int ripng_vrf_new(struct vrf *vrf)
 {
 	if (IS_RIPNG_DEBUG_EVENT)
-		zlog_debug("%s: VRF created: %s(%u)", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
@@ -2584,8 +2583,7 @@ static int ripng_vrf_delete(struct vrf *vrf)
 	struct ripng *ripng;
 
 	if (IS_RIPNG_DEBUG_EVENT)
-		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF deleted: %s(%u)", vrf->name, vrf->vrf_id);
 
 	ripng = ripng_lookup_by_vrf_name(vrf->name);
 	if (!ripng)
@@ -2605,8 +2603,7 @@ static int ripng_vrf_enable(struct vrf *vrf)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_EVENT)
-		zlog_debug("%s: VRF %s(%u) enabled", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF %s(%u) enabled", vrf->name, vrf->vrf_id);
 
 	/* Activate the VRF RIPng instance. */
 	socket = ripng_make_socket(vrf);
@@ -2627,8 +2624,7 @@ static int ripng_vrf_disable(struct vrf *vrf)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_EVENT)
-		zlog_debug("%s: VRF %s(%u) disabled", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF %s(%u) disabled", vrf->name, vrf->vrf_id);
 
 	/* Deactivate the VRF RIPng instance. */
 	if (ripng->enabled)

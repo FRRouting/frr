@@ -40,6 +40,12 @@
 
 DECLARE_MGROUP(ISISD);
 
+DECLARE_DEBUGFLAG(LDP_SYNC);
+DECLARE_DEBUGFLAG(LSP_GEN);
+DECLARE_DEBUGFLAG(LSP_SCHED);
+DECLARE_DEBUGFLAG(SR);
+DECLARE_DEBUGFLAG(TE);
+
 #ifdef FABRICD
 static const bool fabricd = true;
 #define PROTO_TYPE ZEBRA_ROUTE_OPENFABRIC
@@ -341,15 +347,10 @@ extern unsigned long debug_spf_events;
 extern unsigned long debug_rte_events;
 extern unsigned long debug_events;
 extern unsigned long debug_pkt_dump;
-extern unsigned long debug_lsp_gen;
-extern unsigned long debug_lsp_sched;
 extern unsigned long debug_flooding;
 extern unsigned long debug_bfd;
 extern unsigned long debug_tx_queue;
-extern unsigned long debug_sr;
-extern unsigned long debug_ldp_sync;
 extern unsigned long debug_lfa;
-extern unsigned long debug_te;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_SNP_PACKETS                (1<<1)
@@ -358,15 +359,10 @@ extern unsigned long debug_te;
 #define DEBUG_RTE_EVENTS                 (1<<4)
 #define DEBUG_EVENTS                     (1<<5)
 #define DEBUG_PACKET_DUMP                (1<<6)
-#define DEBUG_LSP_GEN                    (1<<7)
-#define DEBUG_LSP_SCHED                  (1<<8)
 #define DEBUG_FLOODING                   (1<<9)
 #define DEBUG_BFD                        (1<<10)
 #define DEBUG_TX_QUEUE                   (1<<11)
-#define DEBUG_SR                         (1<<12)
-#define DEBUG_LDP_SYNC                   (1<<13)
 #define DEBUG_LFA                        (1<<14)
-#define DEBUG_TE                         (1<<15)
 
 /* Debug related macro. */
 #define IS_DEBUG_ADJ_PACKETS (debug_adj_pkt & DEBUG_ADJ_PACKETS)
@@ -376,38 +372,9 @@ extern unsigned long debug_te;
 #define IS_DEBUG_RTE_EVENTS (debug_rte_events & DEBUG_RTE_EVENTS)
 #define IS_DEBUG_EVENTS (debug_events & DEBUG_EVENTS)
 #define IS_DEBUG_PACKET_DUMP (debug_pkt_dump & DEBUG_PACKET_DUMP)
-#define IS_DEBUG_LSP_GEN (debug_lsp_gen & DEBUG_LSP_GEN)
-#define IS_DEBUG_LSP_SCHED (debug_lsp_sched & DEBUG_LSP_SCHED)
 #define IS_DEBUG_FLOODING (debug_flooding & DEBUG_FLOODING)
 #define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
 #define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
-#define IS_DEBUG_SR (debug_sr & DEBUG_SR)
-#define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
 #define IS_DEBUG_LFA (debug_lfa & DEBUG_LFA)
-#define IS_DEBUG_TE (debug_te & DEBUG_TE)
-
-#define lsp_debug(...)                                                         \
-	do {                                                                   \
-		if (IS_DEBUG_LSP_GEN)                                          \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
-
-#define sched_debug(...)                                                       \
-	do {                                                                   \
-		if (IS_DEBUG_LSP_SCHED)                                        \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
-
-#define sr_debug(...)                                                          \
-	do {                                                                   \
-		if (IS_DEBUG_SR)                                               \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
-
-#define te_debug(...)                                                          \
-	do {                                                                   \
-		if (IS_DEBUG_TE)                                               \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
 
 #endif /* ISISD_H */

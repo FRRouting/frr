@@ -2445,7 +2445,6 @@ const char *host_config_get(void)
 
 void cmd_show_lib_debugs(struct vty *vty)
 {
-	route_map_show_debug(vty);
 }
 
 void install_default(enum node_type node)
@@ -2582,7 +2581,7 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_allow_reserved_ranges_cmd);
 
 		log_cmd_init();
-		vrf_install_commands();
+		zlog_debug_init_cmd();
 	}
 
 #ifdef DEV_BUILD

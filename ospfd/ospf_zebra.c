@@ -86,8 +86,8 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	} else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: ospf instance not found for vrf %s id %u router_id %pFX",
-				__func__, ospf_vrf_id_to_name(vrf_id), vrf_id,
+				"ospf instance not found for vrf %s id %u router_id %pFX",
+				ospf_vrf_id_to_name(vrf_id), vrf_id,
 				&router_id);
 	}
 	return 0;
@@ -190,9 +190,9 @@ static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
-			__func__, ifp->name, vrf_id,
-			ospf_vrf_id_to_name(new_vrf_id), new_vrf_id);
+			"Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
+			ifp->name, vrf_id, ospf_vrf_id_to_name(new_vrf_id),
+			new_vrf_id);
 
 	/*if_update(ifp, ifp->name, strlen(ifp->name), new_vrf_id);*/
 	if_update_to_new_vrf(ifp, new_vrf_id);
@@ -622,9 +622,9 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 		znh->label_num = 1;
 		znh->labels[0] = srp->nhlfe.label_out;
 
-		osr_debug("SR (%s): Configure Prefix %pFX with labels %u/%u",
-			  __func__, (struct prefix *)&srp->prefv4,
-			  srp->label_in, srp->nhlfe.label_out);
+		osr_debug("SR: Configure Prefix %pFX with labels %u/%u",
+			  (struct prefix *)&srp->prefv4, srp->label_in,
+			  srp->nhlfe.label_out);
 
 		break;
 
@@ -642,8 +642,8 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 			return;
 		}
 
-		osr_debug("SR (%s): Configure Prefix %pFX with",
-			  __func__, (struct prefix *)&srp->prefv4);
+		osr_debug("SR: Configure Prefix %pFX with",
+			  (struct prefix *)&srp->prefv4);
 
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, node, path)) {
 			if (path->srni.label_out == MPLS_INVALID_LABEL)
@@ -718,8 +718,8 @@ void ospf_zebra_delete_prefix_sid(const struct sr_prefix *srp)
 {
 	struct zapi_labels zl;
 
-	osr_debug("SR (%s): Delete Labels %u for Prefix %pFX", __func__,
-		  srp->label_in, (struct prefix *)&srp->prefv4);
+	osr_debug("SR: Delete Labels %u for Prefix %pFX", srp->label_in,
+		  (struct prefix *)&srp->prefv4);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -746,7 +746,7 @@ void ospf_zebra_send_adjacency_sid(int cmd, struct sr_nhlfe nhlfe)
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
 
-	osr_debug("SR (%s): %s Labels %u/%u for Adjacency via %u", __func__,
+	osr_debug("SR: %s Labels %u/%u for Adjacency via %u",
 		  cmd == ZEBRA_MPLS_LABELS_ADD ? "Add" : "Delete",
 		  nhlfe.label_in, nhlfe.label_out, nhlfe.ifindex);
 
@@ -1318,8 +1318,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %pFX",
-			   __func__, zserv_command_string(cmd),
+		zlog_debug("cmd %s from client %s: vrf_id %d, p %pFX",
+			   zserv_command_string(cmd),
 			   zebra_route_string(api.type), vrf_id, &api.prefix);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
@@ -1373,8 +1373,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 						zlog_debug(
-							"%s: Send Aggreate LSA (%pI4/%d)",
-							__func__,
+							"Send Aggreate LSA (%pI4/%d)",
 							&aggr->p.prefix,
 							aggr->p.prefixlen);
 
@@ -1432,8 +1431,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 							    zebra,
 							    ZEBRA_REDISTRIBUTE))
 							zlog_debug(
-								"%s: %pI4 refreshing LSA",
-								__func__,
+								"%pI4 refreshing LSA",
 								&p.prefix);
 						ospf_external_lsa_refresh(
 							ospf, current, ei,
@@ -1543,9 +1541,8 @@ static void ospf_distribute_list_update_timer(struct thread *thread)
 	zlog_info("Zebra[Redistribute]: distribute-list update timer fired!");
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("%s: ospf distribute-list update vrf %s id %d",
-			   __func__, ospf_vrf_id_to_name(ospf->vrf_id),
-			   ospf->vrf_id);
+		zlog_debug("ospf distribute-list update vrf %s id %d",
+			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id);
 	}
 
 	/* foreach all external info. */
@@ -1591,8 +1588,7 @@ static void ospf_distribute_list_update_timer(struct thread *thread)
 							    lsa,
 							    EXTNL_LSA_AGGR))
 							zlog_debug(
-								"%s: Send Aggregate LSA (%pI4/%d)",
-								__func__,
+								"Send Aggregate LSA (%pI4/%d)",
 								&aggr->p.prefix,
 								aggr->p.prefixlen);
 
@@ -1950,7 +1946,7 @@ void ospf_zebra_vrf_register(struct ospf *ospf)
 
 	if (ospf->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Register VRF %s id %u", __func__,
+			zlog_debug("Register VRF %s id %u",
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);
 		zclient_send_reg_requests(zclient, ospf->vrf_id);
@@ -1964,8 +1960,8 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 
 	if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
-				   __func__, ospf_vrf_id_to_name(ospf->vrf_id),
+			zlog_debug("De-Register VRF %s id %u to Zebra.",
+				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);
 		/* Deregister for router-id, interfaces,
 		 * redistributed routes. */
@@ -2070,8 +2066,7 @@ int ospf_zebra_label_manager_connect(void)
 		return -1;
 	}
 
-	osr_debug("SR (%s): Successfully connected to the Label Manager",
-		  __func__);
+	osr_debug("SR: Successfully connected to the Label Manager");
 
 	return 0;
 }

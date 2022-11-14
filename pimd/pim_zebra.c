@@ -75,8 +75,8 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s updating from %u to %u", __func__, ifp->name,
-			   vrf_id, new_vrf_id);
+		zlog_debug("%s updating from %u to %u", ifp->name, vrf_id,
+			   new_vrf_id);
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
 
@@ -89,8 +89,7 @@ static void dump_if_address(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 
-	zlog_debug("%s %s: interface %s addresses:", __FILE__, __func__,
-		   ifp->name);
+	zlog_debug("interface %s addresses:", ifp->name);
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;
@@ -98,8 +97,8 @@ static void dump_if_address(struct interface *ifp)
 		if (p->family != AF_INET)
 			continue;
 
-		zlog_debug("%s %s: interface %s address %pI4 %s", __FILE__,
-			   __func__, ifp->name, &p->u.prefix4,
+		zlog_debug("interface %s address %pI4 %s", ifp->name,
+			   &p->u.prefix4,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -129,8 +128,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
-			   __func__, c->ifp->name, vrf_id, p, c->flags,
+		zlog_debug("%s(%u) connected IP address %pFX flags %u %s",
+			   c->ifp->name, vrf_id, p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -168,8 +167,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		pim = pim_get_pim_instance(vrf_id);
 		if (!pim) {
 			if (PIM_DEBUG_ZEBRA)
-				zlog_debug("%s: Unable to find pim instance",
-					   __func__);
+				zlog_debug("Unable to find pim instance");
 			return 0;
 		}
 
@@ -214,12 +212,11 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s(%u) disconnected IP address %pFX flags %u %s",
-			__func__, c->ifp->name, vrf_id, p, c->flags,
-			CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-				? "secondary"
-				: "primary");
+		zlog_debug("%s(%u) disconnected IP address %pFX flags %u %s",
+			   c->ifp->name, vrf_id, p, c->flags,
+			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
+				   ? "secondary"
+				   : "primary");
 #ifdef PIM_DEBUG_IFADDR_DUMP
 		dump_if_address(c->ifp);
 #endif
@@ -425,7 +422,7 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 	/* Start refresh timer */
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug("%s: triggering %ld msec timer", __func__,
+		zlog_debug("triggering %ld msec timer",
 			   router->rpf_cache_refresh_delay_msec);
 	}
 
@@ -496,7 +493,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	uint32_t mask = 0;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: (S,G)=%pSG oif=%s (%pPA)", __func__, &ch->sg,
+		zlog_debug("(S,G)=%pSG oif=%s (%pPA)", &ch->sg,
 			   ch->interface->name, &up->upstream_addr);
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
@@ -514,9 +511,8 @@ void pim_forward_stop(struct pim_ifchannel *ch)
 	struct pim_upstream *up = ch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s oif=%s installed: %d",
-			   __func__, ch->sg_str, ch->interface->name,
-			   up->channel_oil->installed);
+		zlog_debug("(S,G)=%s oif=%s installed: %d", ch->sg_str,
+			   ch->interface->name, up->channel_oil->installed);
 	}
 
 	/*

@@ -118,8 +118,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 		RNODE_FOREACH_RE (rn, newre) {
 			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
-					"%s: client %s %pRN(%u:%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
-					__func__,
+					"client %s %pRN(%u:%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					zebra_route_string(client->proto), rn,
 					vrf_id, newre->instance,
 					!!CHECK_FLAG(newre->flags,
@@ -217,8 +216,7 @@ void redistribute_update(const struct route_node *rn,
 		if (zebra_redistribute_check(rn, re, client)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
-					"%s: client %s %pRN(%u:%u), type=%d, distance=%d, metric=%d",
-					__func__,
+					"client %s %pRN(%u:%u), type=%d, distance=%d, metric=%d",
 					zebra_route_string(client->proto), rn,
 					re->vrf_id, re->table, re->type,
 					re->distance, re->metric);
@@ -318,8 +316,8 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: client proto %s afi=%d, wants %s, vrf %s(%u), instance=%d",
-			__func__, zebra_route_string(client->proto), afi,
+			"client proto %s afi=%d, wants %s, vrf %s(%u), instance=%d",
+			zebra_route_string(client->proto), afi,
 			zebra_route_string(type), VRF_LOGNAME(zvrf->vrf),
 			zvrf_id(zvrf), instance);
 
@@ -330,8 +328,7 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 	}
 
 	if (type == 0 || type >= ZEBRA_ROUTE_MAX) {
-		zlog_debug("%s: Specified Route Type %d does not exist",
-			   __func__, type);
+		zlog_debug("Specified Route Type %d does not exist", type);
 		return;
 	}
 
@@ -347,10 +344,9 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 		if (!vrf_bitmap_check(client->redist[afi][type],
 				      zvrf_id(zvrf))) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug(
-					"%s: setting vrf %s(%u) redist bitmap",
-					__func__, VRF_LOGNAME(zvrf->vrf),
-					zvrf_id(zvrf));
+				zlog_debug("setting vrf %s(%u) redist bitmap",
+					   VRF_LOGNAME(zvrf->vrf),
+					   zvrf_id(zvrf));
 			vrf_bitmap_set(client->redist[afi][type],
 				       zvrf_id(zvrf));
 			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
@@ -373,8 +369,8 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: client proto %s afi=%d, no longer wants %s, vrf %s(%u), instance=%d",
-			__func__, zebra_route_string(client->proto), afi,
+			"client proto %s afi=%d, no longer wants %s, vrf %s(%u), instance=%d",
+			zebra_route_string(client->proto), afi,
 			zebra_route_string(type), VRF_LOGNAME(zvrf->vrf),
 			zvrf_id(zvrf), instance);
 
@@ -386,8 +382,7 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	}
 
 	if (type == 0 || type >= ZEBRA_ROUTE_MAX) {
-		zlog_debug("%s: Specified Route Type %d does not exist",
-			   __func__, type);
+		zlog_debug("Specified Route Type %d does not exist", type);
 		return;
 	}
 
@@ -847,8 +842,7 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf,
 						  zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("%s: Table id=%d not found", __func__,
-				   table_id);
+			zlog_debug("Table id=%d not found", table_id);
 		return;
 	}
 

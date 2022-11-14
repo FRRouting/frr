@@ -31,7 +31,6 @@
 #include "lib/command_match.h"
 #include "lib/compiler.h"
 #include "lib/csv.h"
-#include "lib/debug.h"
 #include "lib/distribute.h"
 #include "lib/ferr.h"
 #include "lib/filter.h"

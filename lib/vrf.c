@@ -57,11 +57,8 @@ static int vrf_backend;
 static int vrf_backend_configured;
 static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 
-/*
- * Turn on/off debug code
- * for vrf.
- */
-static int debug_vrf = 0;
+DECLARE_DEBUGFLAG(VRF);
+DEFINE_DEBUGFLAG(VRF, "vrf", "VRF debugging\n");
 
 /* Holding VRF hooks  */
 static struct vrf_master {
@@ -105,8 +102,7 @@ int vrf_switch_to_netns(vrf_id_t vrf_id)
 	if (vrf->data.l.netns_name[0] == '\0')
 		return 2;	/* 2 = no netns */
 	name = ns_netns_pathname(NULL, vrf->data.l.netns_name);
-	if (debug_vrf)
-		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
+	dbg(VRF, "VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
 	return ns_switch_to_netns(name);
 }
 
@@ -114,8 +110,8 @@ int vrf_switchback_to_initial(void)
 {
 	int ret = ns_switchback_to_initial();
 
-	if (ret == 0 && debug_vrf)
-		zlog_debug("VRF_SWITCHBACK");
+	if (ret == 0)
+		dbg(VRF, "VRF_SWITCHBACK");
 	return ret;
 }
 
@@ -156,9 +152,8 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 		QOBJ_REG(vrf, vrf);
 		new = 1;
 
-		if (debug_vrf)
-			zlog_debug("VRF(%u) %s is created.", vrf_id,
-				   (name) ? name : "(NULL)");
+		dbg(VRF, "VRF(%u) %s is created.", vrf_id,
+			   (name) ? name : "(NULL)");
 	}
 
 	/* Set identifier */
@@ -205,11 +200,9 @@ struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
 		vrf = vrf_lookup_by_name(name);
 	if (vrf && new_vrf_id != VRF_UNKNOWN && vrf->vrf_id != VRF_UNKNOWN
 	    && vrf->vrf_id != new_vrf_id) {
-		if (debug_vrf) {
-			zlog_debug(
-				"Vrf Update event: %s old id: %u, new id: %u",
-				name, vrf->vrf_id, new_vrf_id);
-		}
+		dbg(VRF,
+			"Vrf Update event: %s old id: %u, new id: %u",
+			name, vrf->vrf_id, new_vrf_id);
 
 		/*Disable the vrf to simulate implicit delete
 		 * so that all stale routes are deleted
@@ -237,9 +230,8 @@ struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
  */
 void vrf_delete(struct vrf *vrf)
 {
-	if (debug_vrf)
-		zlog_debug("VRF %s(%u) is to be deleted.", vrf->name,
-			   vrf->vrf_id);
+	dbg(VRF, "VRF %s(%u) is to be deleted.", vrf->name,
+		   vrf->vrf_id);
 
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
@@ -291,8 +283,7 @@ int vrf_enable(struct vrf *vrf)
 	if (vrf_is_enabled(vrf))
 		return 1;
 
-	if (debug_vrf)
-		zlog_debug("VRF %s(%u) is enabled.", vrf->name, vrf->vrf_id);
+	dbg(VRF, "VRF %s(%u) is enabled.", vrf->name, vrf->vrf_id);
 
 	SET_FLAG(vrf->status, VRF_ACTIVE);
 
@@ -321,9 +312,8 @@ void vrf_disable(struct vrf *vrf)
 
 	UNSET_FLAG(vrf->status, VRF_ACTIVE);
 
-	if (debug_vrf)
-		zlog_debug("VRF %s(%u) is to be disabled.", vrf->name,
-			   vrf->vrf_id);
+	dbg(VRF, "VRF %s(%u) is to be disabled.", vrf->name,
+		   vrf->vrf_id);
 
 	/* Till now, nothing to be done for the default VRF. */
 	// Pending: see why this statement.
@@ -490,8 +480,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 
 	/* initialise NS, in case VRF backend if NETNS */
 	ns_init();
-	if (debug_vrf)
-		zlog_debug("%s: Initializing VRF subsystem", __func__);
+	dbg(VRF, "Initializing VRF subsystem");
 
 	vrf_master.vrf_new_hook = create;
 	vrf_master.vrf_enable_hook = enable;
@@ -538,8 +527,7 @@ void vrf_terminate(void)
 {
 	struct vrf *vrf, *tmp;
 
-	if (debug_vrf)
-		zlog_debug("%s: Shutting down vrf subsystem", __func__);
+	dbg(VRF, "Shutting down vrf subsystem");
 
 	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, tmp) {
 		if (vrf->vrf_id == VRF_DEFAULT)
@@ -706,58 +694,6 @@ static struct cmd_node vrf_node = {
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-vrf)# ",
 };
-
-/*
- * Debug CLI for vrf's
- */
-DEFUN (vrf_debug,
-      vrf_debug_cmd,
-      "debug vrf",
-      DEBUG_STR
-      "VRF Debugging\n")
-{
-	debug_vrf = 1;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_vrf_debug,
-      no_vrf_debug_cmd,
-      "no debug vrf",
-      NO_STR
-      DEBUG_STR
-      "VRF Debugging\n")
-{
-	debug_vrf = 0;
-
-	return CMD_SUCCESS;
-}
-
-static int vrf_write_host(struct vty *vty)
-{
-	if (debug_vrf)
-		vty_out(vty, "debug vrf\n");
-
-	return 1;
-}
-
-static int vrf_write_host(struct vty *vty);
-static struct cmd_node vrf_debug_node = {
-	.name = "vrf debug",
-	.node = VRF_DEBUG_NODE,
-	.prompt = "",
-	.config_write = vrf_write_host,
-};
-
-void vrf_install_commands(void)
-{
-	install_node(&vrf_debug_node);
-
-	install_element(CONFIG_NODE, &vrf_debug_cmd);
-	install_element(ENABLE_NODE, &vrf_debug_cmd);
-	install_element(CONFIG_NODE, &no_vrf_debug_cmd);
-	install_element(ENABLE_NODE, &no_vrf_debug_cmd);
-}
 
 void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 {

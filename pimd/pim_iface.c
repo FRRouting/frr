@@ -311,9 +311,9 @@ static int detect_primary_address_change(struct interface *ifp,
 	changed = pim_addr_cmp(new_prim_addr, pim_ifp->primary_address);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: old=%pPA new=%pPA on interface %s: %s",
-			   __func__, &pim_ifp->primary_address, &new_prim_addr,
-			   ifp->name, changed ? "changed" : "unchanged");
+		zlog_debug("old=%pPA new=%pPA on interface %s: %s",
+			   &pim_ifp->primary_address, &new_prim_addr, ifp->name,
+			   changed ? "changed" : "unchanged");
 
 	if (changed) {
 		/* Before updating pim_ifp send Hello time with 0 hold time */
@@ -509,8 +509,8 @@ void pim_if_addr_add(struct connected *ifc)
 		return;
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s ifindex=%d connected IP address %pFX %s",
-			   __func__, ifp->name, ifp->ifindex, ifc->address,
+		zlog_debug("%s ifindex=%d connected IP address %pFX %s",
+			   ifp->name, ifp->ifindex, ifc->address,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -726,8 +726,8 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 	assert(ifp);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s ifindex=%d disconnected IP address %pFX %s",
-			   __func__, ifp->name, ifp->ifindex, ifc->address,
+		zlog_debug("%s ifindex=%d disconnected IP address %pFX %s",
+			   ifp->name, ifp->ifindex, ifc->address,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -1194,8 +1194,8 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr)
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: neighbor not found for address %pPA on interface %s",
-			__func__, &addr, ifp->name);
+			"neighbor not found for address %pPA on interface %s",
+			&addr, ifp->name);
 
 	return NULL;
 }
@@ -1356,8 +1356,8 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
 		zlog_debug(
-			"%s: issued static igmp join for channel (S,G)=(%s,%s) on interface %s",
-			__func__, source_str, group_str, ifp->name);
+			"issued static igmp join for channel (S,G)=(%s,%s) on interface %s",
+			source_str, group_str, ifp->name);
 	}
 
 	return ferr_ok();
@@ -1611,8 +1611,8 @@ static int pim_ifp_create(struct interface *ifp)
 	pim = ifp->vrf->info;
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			"%s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			ifp->name, ifp->ifindex, ifp->vrf->name,
 			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
 			ifp->mtu, if_is_operative(ifp));
 	}
@@ -1682,8 +1682,8 @@ static int pim_ifp_up(struct interface *ifp)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			"%s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			ifp->name, ifp->ifindex, ifp->vrf->name,
 			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
 			ifp->mtu, if_is_operative(ifp));
 	}
@@ -1719,8 +1719,8 @@ static int pim_ifp_up(struct interface *ifp)
 
 				if (!master) {
 					zlog_debug(
-						"%s: Unable to find Master interface for %s",
-						__func__, vrf->name);
+						"Unable to find Master interface for %s",
+						vrf->name);
 					return 0;
 				}
 				pim_zebra_interface_set_master(master, ifp);
@@ -1734,8 +1734,8 @@ static int pim_ifp_down(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			"%s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			ifp->name, ifp->ifindex, ifp->vrf->name,
 			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
 			ifp->mtu, if_is_operative(ifp));
 	}
@@ -1770,8 +1770,8 @@ static int pim_ifp_destroy(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			"%s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			ifp->name, ifp->ifindex, ifp->vrf->name,
 			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
 			ifp->mtu, if_is_operative(ifp));
 	}

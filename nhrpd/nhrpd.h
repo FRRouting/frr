@@ -12,11 +12,17 @@
 
 #include "zbuf.h"
 #include "zclient.h"
-#include "debug.h"
+#include "zlog_debug.h"
 #include "memory.h"
 #include "resolver.h"
 
 DECLARE_MGROUP(NHRPD);
+
+DECLARE_DEBUGFLAG(NHRP_COMMON);
+DECLARE_DEBUGFLAG(NHRP_EVENT);
+DECLARE_DEBUGFLAG(NHRP_IF);
+DECLARE_DEBUGFLAG(NHRP_KERNEL);
+DECLARE_DEBUGFLAG(NHRP_ROUTE);
 
 #define NHRPD_DEFAULT_HOLDTIME	7200
 

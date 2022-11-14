@@ -20,67 +20,25 @@
 #define _PATH_PCEP_H_
 
 #include <stdbool.h>
-#include <debug.h>
 #include <netinet/tcp.h>
 #include "memory.h"
 #include "pceplib/pcep_utils_logging.h"
 #include "pceplib/pcep_pcc_api.h"
 #include "mpls.h"
 #include "pathd/pathd.h"
+#include "zlog_debug.h"
 
 DECLARE_MTYPE(PCEP);
+
+DECLARE_DEBUGFLAG(PCEP_BASIC);
+DECLARE_DEBUGFLAG(PCEP_PATH);
+DECLARE_DEBUGFLAG(PCEP_MSG);
+DECLARE_DEBUGFLAG(PCEP_LIB);
 
 #define PCEP_DEFAULT_PORT 4189
 #define MAX_PCC 32
 #define MAX_PCE 32
 #define MAX_TAG_SIZE 50
-#define PCEP_DEBUG_MODE_BASIC 0x01
-#define PCEP_DEBUG_MODE_PATH 0x02
-#define PCEP_DEBUG_MODE_PCEP 0x04
-#define PCEP_DEBUG_MODE_PCEPLIB 0x08
-#define PCEP_DEBUG(fmt, ...)                                                   \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))    \
-			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
-	} while (0)
-#define PCEP_DEBUG_PATH(fmt, ...)                                              \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))     \
-			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
-	} while (0)
-#define PCEP_DEBUG_PCEP(fmt, ...)                                              \
-	do {                                                                   \
-		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))     \
-			DEBUGD(&pcep_g->dbg, "pcep: " fmt, ##__VA_ARGS__);     \
-	} while (0)
-#define PCEP_DEBUG_PCEPLIB(priority, fmt, ...)                                 \
-	do {                                                                   \
-		switch (priority) {                                            \
-		case LOG_DEBUG:                                                \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGD(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
-			break;                                                 \
-		case LOG_INFO:                                                 \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGI(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
-			break;                                                 \
-		case LOG_NOTICE:                                               \
-			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
-					      PCEP_DEBUG_MODE_PCEPLIB))        \
-				DEBUGN(&pcep_g->dbg, "pcep: " fmt,             \
-				       ##__VA_ARGS__);                         \
-			break;                                                 \
-		case LOG_WARNING:                                              \
-		case LOG_ERR:                                                  \
-		default:                                                       \
-			zlog(priority, "pcep: " fmt, ##__VA_ARGS__);           \
-			break;                                                 \
-		}                                                              \
-	} while (0)
 
 struct pcep_config_group_opts {
 	char name[64];
@@ -306,7 +264,6 @@ struct path {
 };
 
 struct pcep_glob {
-	struct debug dbg;
 	struct thread_master *master;
 	struct frr_pthread *fpt;
 	uint8_t num_pce_opts_cli;

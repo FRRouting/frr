@@ -1016,8 +1016,6 @@ extern void route_map_optimization_disabled_show(struct vty *vty,
 						 bool show_defaults);
 extern void route_map_cli_init(void);
 
-extern void route_map_show_debug(struct vty *vty);
-
 #ifdef __cplusplus
 }
 #endif

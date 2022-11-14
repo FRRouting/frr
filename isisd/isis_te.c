@@ -197,14 +197,14 @@ void isis_link_params_update(struct isis_circuit *circuit,
 	if ((ifp == NULL) || (circuit->state != C_STATE_UP))
 		return;
 
-	te_debug("ISIS-TE(%s): Update circuit parameters for interface %s",
-		 circuit->area->area_tag, ifp->name);
+	dbg(TE, "ISIS-TE(%s): Update circuit parameters for interface %s",
+	    circuit->area->area_tag, ifp->name);
 
 	/* Check if MPLS TE Circuit context has not been already created */
 	if (circuit->ext == NULL) {
 		circuit->ext = isis_alloc_ext_subtlvs();
-		te_debug("  |- Allocated new Ext-subTLVs for interface %s",
-			 ifp->name);
+		dbg(TE, "  |- Allocated new Ext-subTLVs for interface %s",
+		    ifp->name);
 	}
 
 	ext = circuit->ext;
@@ -325,11 +325,10 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			UNSET_SUBTLV(ext, EXT_RMT_AS);
 			UNSET_SUBTLV(ext, EXT_RMT_IP);
 		}
-		te_debug("  |- New MPLS-TE link parameters status 0x%x",
-			 ext->status);
+		dbg(TE, "  |- New MPLS-TE link parameters status 0x%x",
+		    ext->status);
 	} else {
-		te_debug("  |- Reset Extended subTLVs status 0x%x",
-			 ext->status);
+		dbg(TE, "  |- Reset Extended subTLVs status 0x%x", ext->status);
 		/* Reset TE subTLVs keeping SR one's */
 		if (IS_SUBTLV(ext, EXT_ADJ_SID))
 			ext->status = EXT_ADJ_SID;
@@ -590,9 +589,9 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 		vertex = ls_vertex_add(ted, old);
 	}
 	old = vertex->node;
-	te_debug("  |- %s Vertex (%" PRIu64 ") for node %s",
-		 vertex->status == NEW ? "Create" : "Found", vertex->key,
-		 print_sys_hostname(old->adv.id.iso.sys_id));
+	dbg(TE, "  |- %s Vertex (%" PRIu64 ") for node %s",
+	    vertex->status == NEW ? "Create" : "Found", vertex->key,
+	    print_sys_hostname(old->adv.id.iso.sys_id));
 
 	/* Fulfill Link State Node information */
 	tlvs = lsp->tlvs;
@@ -638,7 +637,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 
 	/* Update Link State Node information */
 	if (!ls_node_same(old, &lnode)) {
-		te_debug("    |- Update Link State Node information");
+		dbg(TE, "    |- Update Link State Node information");
 		memcpy(old, &lnode, sizeof(struct ls_node));
 		if (vertex->status != NEW)
 			vertex->status = UPDATE;
@@ -705,18 +704,18 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 	}
 
 	if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR))
-		te_debug("    |- %s Edge (%" PRIu64
-			 ") from Extended Reach. %pI4",
-			 edge->status == NEW ? "Create" : "Found", edge->key,
-			 &attr->standard.local);
+		dbg(TE,
+		    "    |- %s Edge (%" PRIu64 ") from Extended Reach. %pI4",
+		    edge->status == NEW ? "Create" : "Found", edge->key,
+		    &attr->standard.local);
 	else if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ADDR6))
-		te_debug("    |- %s Edge (%" PRIu64
-			 ") from Extended Reach. %pI6",
-			 edge->status == NEW ? "Create" : "Found", edge->key,
-			 &attr->standard.local6);
+		dbg(TE,
+		    "    |- %s Edge (%" PRIu64 ") from Extended Reach. %pI6",
+		    edge->status == NEW ? "Create" : "Found", edge->key,
+		    &attr->standard.local6);
 	else
-		te_debug("    |- %s Edge (%" PRIu64 ")",
-			 edge->status == NEW ? "Create" : "Found", edge->key);
+		dbg(TE, "    |- %s Edge (%" PRIu64 ")",
+		    edge->status == NEW ? "Create" : "Found", edge->key);
 
 	return edge;
 }
@@ -906,7 +905,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	struct ls_edge *edge, *dst;
 	struct ls_attributes *attr;
 
-	te_debug("  |- Process Extended IS for %s", sysid_print(id));
+	dbg(TE, "  |- Process Extended IS for %s", sysid_print(id));
 
 	/* Check parameters */
 	if (old_metric || !args || !tlvs)
@@ -941,7 +940,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	/* Update Attribute fields if there are different */
 	if (edge->status != NEW) {
 		if (!ls_attributes_same(edge->attributes, attr)) {
-			te_debug("    |- Update Edge Attributes information");
+			dbg(TE, "    |- Update Edge Attributes information");
 			ls_attributes_del(edge->attributes);
 			edge->attributes = attr;
 			edge->status = UPDATE;
@@ -953,8 +952,8 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 	}
 
 	/* Try to update remote Link from remote address or reachability ID */
-	te_debug("    |- Link Edge (%" PRIu64 ") to destination vertex (%s)",
-		 edge->key, print_sys_hostname(id));
+	dbg(TE, "    |- Link Edge (%" PRIu64 ") to destination vertex (%s)",
+	    edge->key, print_sys_hostname(id));
 	dst = ls_find_edge_by_destination(args->ted, edge->attributes);
 	if (dst) {
 		/* Attach remote link if not set */
@@ -1024,8 +1023,8 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	if (!args || !prefix)
 		return LSP_ITER_CONTINUE;
 
-	te_debug("  |- Process Extended %s Reachability %pFX",
-		 prefix->family == AF_INET ? "IP" : "IPv6", prefix);
+	dbg(TE, "  |- Process Extended %s Reachability %pFX",
+	    prefix->family == AF_INET ? "IP" : "IPv6", prefix);
 
 	vertex = args->vertex;
 
@@ -1079,8 +1078,8 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	if (!std)
 		prefix_copy(&p, prefix);
 	else
-		te_debug("   |- Adjust prefix %pFX with local address to: %pFX",
-			 prefix, &p);
+		dbg(TE, "   |- Adjust prefix %pFX with local address to: %pFX",
+		    prefix, &p);
 
 	/* Search existing Subnet in TED ... */
 	subnet = ls_find_subnet(args->ted, p);
@@ -1093,8 +1092,8 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric,
 	}
 	ls_pref = subnet->ls_pref;
 
-	te_debug("   |- %s Subnet from prefix %pFX",
-		 subnet->status == NEW ? "Create" : "Found", &p);
+	dbg(TE, "   |- %s Subnet from prefix %pFX",
+	    subnet->status == NEW ? "Create" : "Found", &p);
 
 	/* Update Metric */
 	if (!CHECK_FLAG(ls_pref->flags, LS_PREF_METRIC)
@@ -1170,8 +1169,8 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	ted = mta->ted;
 
-	te_debug("ISIS-TE(%s): Parse LSP %s", lsp->area->area_tag,
-		 sysid_print(lsp->hdr.lsp_id));
+	dbg(TE, "ISIS-TE(%s): Parse LSP %s", lsp->area->area_tag,
+	    sysid_print(lsp->hdr.lsp_id));
 
 	/* First parse LSP to obtain the corresponding Vertex */
 	vertex = lsp_to_vertex(ted, lsp);
@@ -1241,8 +1240,8 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
 
-	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %s",
-		 lsp->area->area_tag, sysid_print(lsp->hdr.lsp_id));
+	dbg(TE, "ISIS-TE(%s): Delete Link State TED objects from LSP %s",
+	    lsp->area->area_tag, sysid_print(lsp->hdr.lsp_id));
 
 	/* Compute Link State Node ID from IS-IS sysID ... */
 	if (lsp->level == ISIS_LEVEL1)
@@ -1257,7 +1256,7 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	if (!vertex)
 		return;
 
-	te_debug("  |- Delete Vertex %s", vertex->node->name);
+	dbg(TE, "  |- Delete Vertex %s", vertex->node->name);
 
 	/*
 	 * We can't use the ls_vertex_del_all() function if export TE is set,
@@ -1365,15 +1364,14 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 	struct mpls_te_area *mta;
 	int rc = -1;
 
-	te_debug("ISIS-TE(%s): Received TED synchro from client %d", __func__,
-		 dst.proto);
+	dbg(TE, "ISIS-TE: Received TED synchro from client %d", dst.proto);
 	/*  For each area, send TED if TE distribution is enabled */
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			mta = area->mta;
 			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
-				te_debug("  |- Export TED from area %s",
-					 area->area_tag);
+				dbg(TE, "  |- Export TED from area %s",
+				    area->area_tag);
 				rc = ls_sync_ted(mta->ted, zclient, &dst);
 				if (rc != 0)
 					return rc;

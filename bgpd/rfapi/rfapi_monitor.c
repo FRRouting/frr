@@ -85,9 +85,9 @@ void rfapiMonitorEthSlCheck(struct agg_node *rn, const char *tag1,
 	sl = RFAPI_MONITOR_ETH(rn);
 	if (sl || sl_saved) {
 		vnc_zlog_debug_verbose(
-			"%s[%s%s]: rn=%p, rn->lock=%d, old sl=%p, new sl=%p",
-			__func__, (tag1 ? tag1 : ""), (tag2 ? tag2 : ""), rn,
-			rn->lock, sl_saved, sl);
+			"[%s%s]: rn=%p, rn->lock=%d, old sl=%p, new sl=%p",
+			(tag1 ? tag1 : ""), (tag2 ? tag2 : ""), rn, rn->lock,
+			sl_saved, sl);
 		sl_saved = sl;
 	}
 }
@@ -416,8 +416,7 @@ static struct agg_node *rfapiMonitorAttachImport(struct rfapi_descriptor *rfd,
 
 		m->next = rfd->import_table->vpn0_queries[afi];
 		rfd->import_table->vpn0_queries[afi] = m;
-		vnc_zlog_debug_verbose("%s: attached monitor %p to vpn0 list",
-				       __func__, m);
+		vnc_zlog_debug_verbose("attached monitor %p to vpn0 list", m);
 		return NULL;
 	}
 
@@ -429,8 +428,7 @@ static struct agg_node *rfapiMonitorAttachImport(struct rfapi_descriptor *rfd,
 	m->next = RFAPI_MONITOR_VPN(rn);
 	RFAPI_MONITOR_VPN_W_ALLOC(rn) = m;
 	RFAPI_CHECK_REFCOUNT(rn, SAFI_MPLS_VPN, 0);
-	vnc_zlog_debug_verbose("%s: attached monitor %p to rn %p", __func__, m,
-			       rn);
+	vnc_zlog_debug_verbose("attached monitor %p to rn %p", m, rn);
 	return rn;
 }
 
@@ -643,7 +641,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 	struct bgp *bgp;
 	int count = 0;
 
-	vnc_zlog_debug_verbose("%s: entry rfd=%p", __func__, rfd);
+	vnc_zlog_debug_verbose("entry rfd=%p", rfd);
 
 	bgp = bgp_get_default();
 
@@ -686,8 +684,8 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 			} else {
 #if DEBUG_L2_EXTRA
 				vnc_zlog_debug_verbose(
-					"%s: callbacks disabled, not attempting to detach mon_eth %p",
-					__func__, mon_eth);
+					"callbacks disabled, not attempting to detach mon_eth %p",
+					mon_eth);
 #endif
 			}
 
@@ -699,8 +697,7 @@ int rfapiMonitorDelHd(struct rfapi_descriptor *rfd)
 			rc = skiplist_delete(rfd->mon_eth, mon_eth, mon_eth);
 			assert(!rc);
 
-			vnc_zlog_debug_verbose("%s: freeing mon_eth %p",
-					       __func__, mon_eth);
+			vnc_zlog_debug_verbose("freeing mon_eth %p", mon_eth);
 			XFREE(MTYPE_RFAPI_MONITOR_ETH, mon_eth);
 
 			++count;
@@ -760,7 +757,7 @@ static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 		char buf[BUFSIZ];
 
 		vnc_zlog_debug_verbose(
-			"%s: target %s life %u", __func__,
+			"target %s life %u",
 			rfapi_ntop(m->p.family, m->p.u.val, buf, BUFSIZ),
 			m->rfd->response_lifetime);
 	}
@@ -839,8 +836,8 @@ void rfapiMonitorItNodeChanged(
 	nves_seen = skiplist_new(0, NULL, NULL);
 
 #if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: it=%p, it_node=%p, it_node->prefix=%pFX",
-			       __func__, import_table, it_node, &it_node->p);
+	vnc_zlog_debug_verbose("it=%p, it_node=%p, it_node->prefix=%pFX",
+			       import_table, it_node, &it_node->p);
 #endif
 
 	if (AFI_L2VPN == afi) {
@@ -917,9 +914,8 @@ void rfapiMonitorItNodeChanged(
 								m->rfd, NULL));
 
 					vnc_zlog_debug_verbose(
-						"%s: update rfd %p attached to pfx %pRN (targ=%pFX)",
-						__func__, m->rfd, m->node,
-						&m->p);
+						"update rfd %p attached to pfx %pRN (targ=%pFX)",
+						m->rfd, m->node, &m->p);
 
 					/*
 					 * update its RIB
@@ -943,14 +939,12 @@ void rfapiMonitorItNodeChanged(
 		struct rfapi_monitor_eth *e;
 
 #if DEBUG_L2_EXTRA
-		vnc_zlog_debug_verbose("%s: checking L2 all-routes monitors",
-				       __func__);
+		vnc_zlog_debug_verbose("checking L2 all-routes monitors");
 #endif
 
 		for (e = import_table->eth0_queries; e; e = e->next) {
 #if DEBUG_L2_EXTRA
-			vnc_zlog_debug_verbose("%s: checking eth0 mon=%p",
-					       __func__, e);
+			vnc_zlog_debug_verbose("checking eth0 mon=%p", e);
 #endif
 			if (skiplist_search(nves_seen, e->rfd, NULL)) {
 				/*
@@ -965,8 +959,7 @@ void rfapiMonitorItNodeChanged(
  */
 #if DEBUG_L2_EXTRA
 				vnc_zlog_debug_verbose(
-					"%s: found L2 all-routes monitor %p",
-					__func__, e);
+					"found L2 all-routes monitor %p", e);
 #endif
 				rfapiRibUpdatePendingNode(
 					bgp, e->rfd, import_table, it_node,
@@ -1023,8 +1016,7 @@ void rfapiMonitorMovedUp(struct rfapi_import_table *import_table,
 	 */
 	if (!new_node->parent && !new_node->info) {
 		vnc_zlog_debug_verbose(
-			"%s: new monitor at 0/0 and no routes, no updates",
-			__func__);
+			"new monitor at 0/0 and no routes, no updates");
 		return;
 	}
 
@@ -1068,7 +1060,7 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 		char buf[BUFSIZ];
 
 		vnc_zlog_debug_verbose(
-			"%s: target %s life %u", __func__,
+			"target %s life %u",
 			rfapiEthAddr2Str(&m->macaddr, buf, BUFSIZ),
 			m->rfd->response_lifetime);
 	}
@@ -1109,7 +1101,7 @@ static void rfapiMonitorEthAttachImport(
 	struct skiplist *sl;
 	int rc;
 
-	vnc_zlog_debug_verbose("%s: it=%p", __func__, it);
+	vnc_zlog_debug_verbose("it=%p", it);
 
 	rfapiMonitorCheckAttachAllowed();
 
@@ -1120,15 +1112,14 @@ static void rfapiMonitorEthAttachImport(
 		mon->next = it->eth0_queries;
 		it->eth0_queries = mon;
 #if DEBUG_L2_EXTRA
-		vnc_zlog_debug_verbose("%s: attached monitor %p to eth0 list",
-				       __func__, mon);
+		vnc_zlog_debug_verbose("attached monitor %p to eth0 list", mon);
 #endif
 		return;
 	}
 
 	if (rn == NULL) {
 #if DEBUG_L2_EXTRA
-		vnc_zlog_debug_verbose("%s: rn is null!", __func__);
+		vnc_zlog_debug_verbose("rn is null!");
 #endif
 		return;
 	}
@@ -1145,8 +1136,8 @@ static void rfapiMonitorEthAttachImport(
 
 #if DEBUG_L2_EXTRA
 	vnc_zlog_debug_verbose(
-		"%s: rn=%p, rn->lock=%d, sl=%p, attaching eth mon %p", __func__,
-		rn, rn->lock, sl, mon);
+		"rn=%p, rn->lock=%d, sl=%p, attaching eth mon %p", rn, rn->lock,
+		sl, mon);
 #endif
 
 	rc = skiplist_insert(sl, (void *)mon, (void *)mon);
@@ -1228,9 +1219,8 @@ static void rfapiMonitorEthDetachImport(
 			}
 		}
 #if DEBUG_L2_EXTRA
-		vnc_zlog_debug_verbose(
-			"%s: it=%p, LNI=%d, detached eth0 mon %p", __func__, it,
-			mon->logical_net_id, mon);
+		vnc_zlog_debug_verbose("it=%p, LNI=%d, detached eth0 mon %p",
+				       it, mon->logical_net_id, mon);
 #endif
 		return;
 	}
@@ -1249,8 +1239,8 @@ static void rfapiMonitorEthDetachImport(
 	sl = RFAPI_MONITOR_ETH(rn);
 #if DEBUG_L2_EXTRA
 	vnc_zlog_debug_verbose(
-		"%s: it=%p, rn=%p, rn->lock=%d, sl=%p, pfx=%pFX, LNI=%d, detaching eth mon %p",
-		__func__, it, rn, rn->lock, sl, agg_node_get_prefix(rn),
+		"it=%p, rn=%p, rn->lock=%d, sl=%p, pfx=%pFX, LNI=%d, detaching eth mon %p",
+		it, rn, rn->lock, sl, agg_node_get_prefix(rn),
 		mon->logical_net_id, mon);
 #endif
 	assert(sl);
@@ -1308,9 +1298,9 @@ struct agg_node *rfapiMonitorEthAdd(struct bgp *bgp,
 		char buf[BUFSIZ];
 
 		vnc_zlog_debug_verbose(
-			"%s: LNI=%d: rfd=%p, pfx=%s", __func__, logical_net_id,
-			rfd, rfapi_ntop(pfx_mac_buf.family, pfx_mac_buf.u.val,
-					buf, BUFSIZ));
+			"LNI=%d: rfd=%p, pfx=%s", logical_net_id, rfd,
+			rfapi_ntop(pfx_mac_buf.family, pfx_mac_buf.u.val, buf,
+				   BUFSIZ));
 	}
 
 
@@ -1324,8 +1314,7 @@ struct agg_node *rfapiMonitorEthAdd(struct bgp *bgp,
 		 * restart timer
 		 */
 		vnc_zlog_debug_verbose(
-			"%s: already present in rfd->mon_eth, not adding",
-			__func__);
+			"already present in rfd->mon_eth, not adding");
 		rfapiMonitorEthTimerRestart(val);
 		return rn;
 	}
@@ -1344,8 +1333,8 @@ struct agg_node *rfapiMonitorEthAdd(struct bgp *bgp,
 	rc = skiplist_insert(rfd->mon_eth, val, val);
 
 #if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: inserted rfd=%p mon_eth=%p, rc=%d",
-			       __func__, rfd, val, rc);
+	vnc_zlog_debug_verbose("inserted rfd=%p mon_eth=%p, rc=%d", rfd, val,
+			       rc);
 #else
 	(void)rc;
 #endif
@@ -1361,8 +1350,8 @@ struct agg_node *rfapiMonitorEthAdd(struct bgp *bgp,
  */
 #if DEBUG_L2_EXTRA
 		vnc_zlog_debug_verbose(
-			"%s: callbacks turned off, not attaching mon_eth %p to import table",
-			__func__, val);
+			"callbacks turned off, not attaching mon_eth %p to import table",
+			val);
 #endif
 		return rn;
 	}
@@ -1382,7 +1371,7 @@ void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	struct rfapi_monitor_eth mon_buf;
 	int rc;
 
-	vnc_zlog_debug_verbose("%s: entry rfd=%p", __func__, rfd);
+	vnc_zlog_debug_verbose("entry rfd=%p", rfd);
 
 	assert(rfd->mon_eth);
 
@@ -1409,7 +1398,7 @@ void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	assert(!rc);
 
 #if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: freeing mon_eth %p", __func__, val);
+	vnc_zlog_debug_verbose("freeing mon_eth %p", val);
 #endif
 	XFREE(MTYPE_RFAPI_MONITOR_ETH, val);
 
@@ -1437,7 +1426,7 @@ void rfapiMonitorCallbacksOff(struct bgp *bgp)
 	bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_CALLBACK_DISABLE;
 
 #if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: turned off callbacks", __func__);
+	vnc_zlog_debug_verbose("turned off callbacks");
 #endif
 
 	if (h == NULL)
@@ -1515,8 +1504,7 @@ void rfapiMonitorCallbacksOff(struct bgp *bgp)
 		 */
 		for (e = it->eth0_queries; e; e = enext) {
 #if DEBUG_L2_EXTRA
-			vnc_zlog_debug_verbose("%s: detaching eth0 mon %p",
-					       __func__, e);
+			vnc_zlog_debug_verbose("detaching eth0 mon %p", e);
 #endif
 			enext = e->next;
 			e->next = NULL; /* gratuitous safeness */
@@ -1542,7 +1530,7 @@ void rfapiMonitorCallbacksOn(struct bgp *bgp)
 	}
 	bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_CALLBACK_DISABLE;
 #if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: turned on callbacks", __func__);
+	vnc_zlog_debug_verbose("turned on callbacks");
 #endif
 	if (bgp->rfapi == NULL)
 		return;

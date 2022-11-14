@@ -61,8 +61,8 @@ find_neighbour_nocreate(const unsigned char *address, struct interface *ifp)
 void
 flush_neighbour(struct neighbour *neigh)
 {
-    debugf(BABEL_DEBUG_COMMON,"Flushing neighbour %s (reach 0x%04x)",
-           format_address(neigh->address), neigh->reach);
+    dbg(BABEL_COMMON, "Flushing neighbour %s (reach 0x%04x)",
+        format_address(neigh->address), neigh->reach);
     flush_neighbour_routes(neigh);
     if(unicast_neighbour == neigh)
         flush_unicast(1);
@@ -89,8 +89,8 @@ find_neighbour(const unsigned char *address, struct interface *ifp)
     if(neigh)
         return neigh;
 
-    debugf(BABEL_DEBUG_COMMON,"Creating neighbour %s on %s.",
-           format_address(address), ifp->name);
+    dbg(BABEL_COMMON, "Creating neighbour %s on %s.", format_address(address),
+        ifp->name);
 
     neigh = malloc(sizeof(struct neighbour));
     if(neigh == NULL) {
@@ -240,7 +240,7 @@ check_neighbours(void)
     int changed, rc;
     unsigned msecs = 50000;
 
-    debugf(BABEL_DEBUG_COMMON,"Checking neighbours.");
+    dbg(BABEL_COMMON, "Checking neighbours.");
 
     neigh = neighs;
     while(neigh) {

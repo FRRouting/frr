@@ -22,7 +22,6 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
-#include "debug.h"
 #include "libfrr.h"
 #include "lib/version.h"
 #include "northbound.h"
@@ -34,7 +33,11 @@
 
 DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module");
 
-static struct debug nb_dbg_client_confd = {0, "Northbound client: ConfD"};
+DECLARE_DEBUGFLAG(NB_CLIENT_CONFD);
+DEFINE_DEBUGFLAG(NB_CLIENT_CONFD, "northbound client confd",
+	"Northbound debugging\n"
+	"Northbound client\n"
+	"ConfD\n");
 
 static struct thread_master *master;
 static struct sockaddr confd_addr;
@@ -514,8 +517,7 @@ static int frr_confd_subscribe(const struct lysc_node *snode, void *arg)
 	if (!nb_node)
 		return YANG_ITER_CONTINUE;
 
-	DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'", __func__,
-	       nb_node->xpath);
+	dbg(NB_CLIENT_CONFD, "subscribing to '%s'", nb_node->xpath);
 
 	spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
 	ret = cdb_subscribe2(cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
@@ -1216,8 +1218,7 @@ static int frr_confd_subscribe_state(const struct lysc_node *snode, void *arg)
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
 		return YANG_ITER_CONTINUE;
 
-	DEBUGD(&nb_dbg_client_confd,
-	       "%s: providing data to '%s' (callpoint %s)", __func__,
+	dbg(NB_CLIENT_CONFD, "providing data to '%s' (callpoint %s)",
 	       nb_node->xpath, snode->name);
 
 	strlcpy(data_cbs->callpoint, snode->name, sizeof(data_cbs->callpoint));
@@ -1361,50 +1362,8 @@ static void frr_confd_finish_dp(void)
 
 /* ------------ CLI ------------ */
 
-DEFUN (debug_nb_confd,
-       debug_nb_confd_cmd,
-       "[no] debug northbound client confd",
-       NO_STR
-       DEBUG_STR
-       "Northbound debugging\n"
-       "Client\n"
-       "ConfD\n")
-{
-	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-	bool no = strmatch(argv[0]->text, "no");
-
-	DEBUG_MODE_SET(&nb_dbg_client_confd, mode, !no);
-
-	return CMD_SUCCESS;
-}
-
-static int frr_confd_debug_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&nb_dbg_client_confd, DEBUG_MODE_CONF))
-		vty_out(vty, "debug northbound client confd\n");
-
-	return 0;
-}
-
-static int frr_confd_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&nb_dbg_client_confd, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&nb_dbg_client_confd, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&nb_dbg_client_confd);
-
-	return 0;
-}
-
 static void frr_confd_cli_init(void)
 {
-	hook_register(nb_client_debug_config_write,
-		      frr_confd_debug_config_write);
-	hook_register(nb_client_debug_set_all, frr_confd_debug_set_all);
-
-	install_element(ENABLE_NODE, &debug_nb_confd_cmd);
-	install_element(CONFIG_NODE, &debug_nb_confd_cmd);
 }
 
 /* ------------ Main ------------ */

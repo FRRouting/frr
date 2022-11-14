@@ -149,8 +149,8 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"%s: interface %u is mpls on: %d multicast on: %d linkdown: %d",
-			__func__, ifindex, mpls_on, mcast_on, linkdown_on);
+			"interface %u is mpls on: %d multicast on: %d linkdown: %d",
+			ifindex, mpls_on, mcast_on, linkdown_on);
 
 	/* Create a dplane context and pass it along for processing */
 	netlink_netconf_dplane_update(ns_id, afi, ifindex, mpls_on, mcast_on,
@@ -175,7 +175,7 @@ int netlink_request_netconf(int sockfd)
 	nls = kernel_netlink_nlsock_lookup(sockfd);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: nlsock %s", __func__, nls ? nls->name : "NULL");
+		zlog_debug("nlsock %s", nls ? nls->name : "NULL");
 
 	if (nls == NULL)
 		return -1;

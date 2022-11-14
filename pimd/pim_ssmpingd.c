@@ -282,9 +282,9 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 
 	if (PIM_DEBUG_SSMPINGD) {
 		zlog_debug(
-			"%s: recv ssmping from %pSUp, to %pSUp, on interface %s ifindex=%d fd=%d src=%pPA",
-			__func__, &from, &to, ifp ? ifp->name : "<iface?>",
-			ifindex, ss->sock_fd, &ss->source_addr);
+			"recv ssmping from %pSUp, to %pSUp, on interface %s ifindex=%d fd=%d src=%pPA",
+			&from, &to, ifp ? ifp->name : "<iface?>", ifindex,
+			ss->sock_fd, &ss->source_addr);
 	}
 
 	buf[0] = PIM_SSMPINGD_REPLY;

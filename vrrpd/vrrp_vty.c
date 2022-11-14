@@ -672,55 +672,36 @@ DEFPY_YANG(vrrp_vrid_show_summary,
 }
 
 
-DEFPY_YANG(debug_vrrp,
-      debug_vrrp_cmd,
-      "[no] debug vrrp [{protocol$proto|autoconfigure$ac|packets$pkt|sockets$sock|ndisc$ndisc|arp$arp|zebra$zebra}]",
-      NO_STR
-      DEBUG_STR
-      VRRP_STR
-      "Debug protocol state\n"
-      "Debug autoconfiguration\n"
-      "Debug sent and received packets\n"
-      "Debug socket creation and configuration\n"
-      "Debug Neighbor Discovery\n"
-      "Debug ARP\n"
-      "Debug Zebra events\n")
-{
-	/* If no specific are given on/off them all */
-	if (strmatch(argv[argc - 1]->text, "vrrp"))
-		vrrp_debug_set(NULL, 0, vty->node, !no, true, true, true, true,
-			       true, true, true);
-	else
-		vrrp_debug_set(NULL, 0, vty->node, !no, !!proto, !!ac, !!pkt,
-			       !!sock, !!ndisc, !!arp, !!zebra);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (show_debugging_vrrp,
-	    show_debugging_vrrp_cmd,
-	    "show debugging [vrrp]",
-	    SHOW_STR
-	    DEBUG_STR
-	    "VRRP information\n")
-{
-	vty_out(vty, "VRRP debugging status:\n");
-
-	vrrp_debug_status_write(vty);
-
-	cmd_show_lib_debugs(vty);
-
-	return CMD_SUCCESS;
-}
+DEFINE_DEBUGFLAG(VRRP_ARP, "vrrp arp",
+	VRRP_STR
+	"Debug ARP\n"
+);
+DEFINE_DEBUGFLAG(VRRP_AUTO, "vrrp autoconfigure",
+	VRRP_STR
+	"Debug autoconfiguration\n"
+);
+DEFINE_DEBUGFLAG(VRRP_NDISC, "vrrp ndisc",
+	VRRP_STR
+	"Debug Neighbor Discovery\n"
+);
+DEFINE_DEBUGFLAG(VRRP_PKT, "vrrp packets",
+	VRRP_STR
+	"Debug sent and received packets\n"
+);
+DEFINE_DEBUGFLAG(VRRP_PROTO, "vrrp protocol",
+	VRRP_STR
+	"Debug protocol state\n"
+);
+DEFINE_DEBUGFLAG(VRRP_SOCK, "vrrp sockets",
+	VRRP_STR
+	"Debug socket creation and configuration\n"
+);
+DEFINE_DEBUGFLAG(VRRP_ZEBRA, "vrrp zebra",
+	VRRP_STR
+	"Debug Zebra events\n"
+);
 
 /* clang-format on */
-
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = vrrp_config_write_debug,
-};
 
 static struct cmd_node vrrp_node = {
 	.name = "vrrp",
@@ -731,16 +712,12 @@ static struct cmd_node vrrp_node = {
 
 void vrrp_vty_init(void)
 {
-	install_node(&debug_node);
 	install_node(&vrrp_node);
 	vrf_cmd_init(NULL);
 	if_cmd_init_default();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);
-	install_element(ENABLE_NODE, &show_debugging_vrrp_cmd);
-	install_element(ENABLE_NODE, &debug_vrrp_cmd);
-	install_element(CONFIG_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);
 	install_element(CONFIG_NODE, &vrrp_default_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);

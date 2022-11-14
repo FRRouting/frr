@@ -49,12 +49,6 @@ long spf_backoff_schedule(struct spf_backoff *backoff);
 void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 		      const char *prefix);
 
-/* Writes out global SPF backoff debug config */
-int spf_backoff_write_config(struct vty *vty);
-
-/* Registers global SPF backoff debug commands */
-void spf_backoff_cmd_init(void);
-
 /* Accessor functions for SPF backoff parameters */
 long spf_backoff_init_delay(struct spf_backoff *backoff);
 long spf_backoff_short_delay(struct spf_backoff *backoff);

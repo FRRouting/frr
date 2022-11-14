@@ -19,7 +19,6 @@
 
 
 #include <zebra.h>
-#include "lib/debug.h"
 #include "lib/frr_pthread.h"
 #include "lib/stream.h"
 #include "zebra/debug.h"
@@ -259,8 +258,7 @@ uint32_t zebra_opaque_enqueue_batch(struct stream_fifo *batch)
 	/* Schedule module pthread to process the batch */
 	if (counter > 0) {
 		if (IS_ZEBRA_DEBUG_RECV && IS_ZEBRA_DEBUG_DETAIL)
-			zlog_debug("%s: received %u messages",
-				   __func__, counter);
+			zlog_debug("received %u messages", counter);
 		thread_add_event(zo_info.master, process_messages, NULL, 0,
 				 &zo_info.t_msgs);
 	}
@@ -316,7 +314,7 @@ static void process_messages(struct thread *event)
 	}
 
 	if (IS_ZEBRA_DEBUG_RECV && IS_ZEBRA_DEBUG_DETAIL)
-		zlog_debug("%s: processing %u messages", __func__, i);
+		zlog_debug("processing %u messages", i);
 
 	/*
 	 * Process the messages from the temporary fifo. We send the whole
@@ -380,8 +378,9 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 		reg = opq_reg_lookup(info.type);
 		if (reg == NULL) {
 			if (IS_ZEBRA_DEBUG_RECV && IS_ZEBRA_DEBUG_DETAIL)
-				zlog_debug("%s: no registrations for opaque type %u, flags %#x",
-					   __func__, info.type, info.flags);
+				zlog_debug(
+					"no registrations for opaque type %u, flags %#x",
+					info.type, info.flags);
 			goto drop_it;
 		}
 
@@ -401,11 +400,10 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 
 				if (IS_ZEBRA_DEBUG_RECV &&
 				    IS_ZEBRA_DEBUG_DETAIL)
-					zlog_debug("%s: found matching unicast client %s",
-						   __func__,
-						   opq_client2str(buf,
-								  sizeof(buf),
-								  client));
+					zlog_debug(
+						"found matching unicast client %s",
+						opq_client2str(buf, sizeof(buf),
+							       client));
 
 			} else {
 				/* Copy message if more clients */
@@ -424,8 +422,7 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 			if (zclient) {
 				if (IS_ZEBRA_DEBUG_SEND &&
 				    IS_ZEBRA_DEBUG_DETAIL)
-					zlog_debug("%s: sending %s to client %s",
-						   __func__,
+					zlog_debug("sending %s to client %s",
 						   (dup ? "dup" : "msg"),
 						   opq_client2str(buf,
 								  sizeof(buf),
@@ -446,8 +443,8 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 			} else {
 				if (IS_ZEBRA_DEBUG_RECV &&
 				    IS_ZEBRA_DEBUG_DETAIL)
-					zlog_debug("%s: type %u: no zclient for %s",
-						   __func__, info.type,
+					zlog_debug("type %u: no zclient for %s",
+						   info.type,
 						   opq_client2str(buf,
 								  sizeof(buf),
 								  client));
@@ -505,8 +502,7 @@ static int handle_opq_registration(const struct zmsghdr *hdr,
 		if (client) {
 			/* Oops - duplicate registration? */
 			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: duplicate opq reg for client %s",
-					   __func__,
+				zlog_debug("duplicate opq reg for client %s",
 					   opq_client2str(buf, sizeof(buf),
 							  client));
 			goto done;
@@ -515,8 +511,7 @@ static int handle_opq_registration(const struct zmsghdr *hdr,
 		client = opq_client_alloc(&info);
 
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: client %s registers for %u",
-				   __func__,
+			zlog_debug("client %s registers for %u",
 				   opq_client2str(buf, sizeof(buf), client),
 				   info.type);
 
@@ -534,8 +529,7 @@ static int handle_opq_registration(const struct zmsghdr *hdr,
 		client = opq_client_alloc(&info);
 
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: client %s registers for new reg %u",
-				   __func__,
+			zlog_debug("client %s registers for new reg %u",
 				   opq_client2str(buf, sizeof(buf), client),
 				   info.type);
 
@@ -577,10 +571,10 @@ static int handle_opq_unregistration(const struct zmsghdr *hdr,
 	if (reg == NULL) {
 		/* Weird: unregister for unknown message? */
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: unknown client %s/%u/%u unregisters for unknown type %u",
-				   __func__,
-				   zebra_route_string(info.proto),
-				   info.instance, info.session_id, info.type);
+			zlog_debug(
+				"unknown client %s/%u/%u unregisters for unknown type %u",
+				zebra_route_string(info.proto), info.instance,
+				info.session_id, info.type);
 		goto done;
 	}
 
@@ -594,16 +588,15 @@ static int handle_opq_unregistration(const struct zmsghdr *hdr,
 	if (client == NULL) {
 		/* Oops - unregister for unknown client? */
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: unknown client %s/%u/%u unregisters for %u",
-				   __func__, zebra_route_string(info.proto),
+			zlog_debug("unknown client %s/%u/%u unregisters for %u",
+				   zebra_route_string(info.proto),
 				   info.instance, info.session_id, info.type);
 		goto done;
 	}
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: client %s unregisters for %u",
-			   __func__, opq_client2str(buf, sizeof(buf), client),
-			   info.type);
+		zlog_debug("client %s unregisters for %u",
+			   opq_client2str(buf, sizeof(buf), client), info.type);
 
 	if (client->prev)
 		client->prev->next = client->next;

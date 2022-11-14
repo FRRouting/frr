@@ -27,15 +27,22 @@
 #include <jhash.h>
 #include <vty.h>
 #include <zclient.h>
-#include <debug.h>
+#include <zlog_debug.h>
 
+#include "pbr.h"
 #include "pbrd/pbr_nht.h"
 #include "pbrd/pbr_map.h"
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_memory.h"
-#include "pbrd/pbr_debug.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_NHG, "PBR Nexthop Groups");
+
+/* clang-format off */
+DEFINE_DEBUGFLAG_STATIC(PBR_NHT, "pbr nht",
+	PBR_STR
+	"Nexthop tracking\n"
+);
+/* clang-format on */
 
 struct hash *pbr_nhg_hash;
 static struct hash *pbr_nhrc_hash;
@@ -98,7 +105,7 @@ static void *pbr_nh_alloc(void *p)
 	/* Decremented again in pbr_nh_delete */
 	++nhrc->refcount;
 
-	DEBUGD(&pbr_dbg_nht, "%s: Sending nexthop to Zebra", __func__);
+	dbg(PBR_NHT, "Sending nexthop to Zebra");
 
 	pbr_send_rnh(&new->nexthop, true);
 
@@ -115,8 +122,7 @@ static void pbr_nh_delete(struct pbr_nexthop_cache **pnhc)
 	if (nhrc)
 		--nhrc->refcount;
 	if (!nhrc || nhrc->refcount == 0) {
-		DEBUGD(&pbr_dbg_nht, "%s: Removing nexthop from Zebra",
-		       __func__);
+		dbg(PBR_NHT, "Removing nexthop from Zebra");
 		pbr_send_rnh(&((*pnhc)->nexthop), false);
 	}
 	if (nhrc && nhrc->refcount == 0) {
@@ -197,8 +203,7 @@ static void *pbr_nhgc_alloc(void *p)
 	strlcpy(new->name, pnhgc->name, sizeof(pnhgc->name));
 	pbr_nht_reserve_next_table_id(new);
 
-	DEBUGD(&pbr_dbg_nht, "%s: NHT: %s assigned Table ID: %u", __func__,
-	       new->name, new->table_id);
+	dbg(PBR_NHT, "NHT: %s assigned Table ID: %u", new->name, new->table_id);
 
 	new->nhh = hash_create_size(8, pbr_nh_hash_key, pbr_nh_hash_equal,
 				    "PBR NH Cache Hash");
@@ -214,8 +219,7 @@ void pbr_nhgroup_add_cb(const char *name)
 	nhgc = nhgc_find(name);
 
 	if (!nhgc) {
-		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s",
-		       __func__, name);
+		dbg(PBR_NHT, "Could not find nhgc with name: %s", name);
 		return;
 	}
 
@@ -224,7 +228,7 @@ void pbr_nhgroup_add_cb(const char *name)
 	if (!pnhgc)
 		return;
 
-	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __func__, name);
+	dbg(PBR_NHT, "Added nexthop-group %s", name);
 
 	pbr_map_check_nh_group_change(name);
 }
@@ -236,7 +240,6 @@ void pbr_nhgroup_modify_cb(const struct nexthop_group_cmd *nhgc)
 void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				const struct nexthop *nhop)
 {
-	char debugstr[256];
 	struct pbr_nexthop_group_cache pnhgc_find = {};
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_cache pnhc_find = {};
@@ -266,11 +269,7 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	/* set parent pnhgc */
 	pnhc->parent = pnhgc;
 
-	if (DEBUG_MODE_CHECK(&pbr_dbg_nht, DEBUG_MODE_ALL)) {
-		nexthop2str(nhop, debugstr, sizeof(debugstr));
-		DEBUGD(&pbr_dbg_nht, "%s: Added %s to nexthop-group %s",
-		       __func__, debugstr, nhgc->name);
-	}
+	dbg(PBR_NHT, "Added %pNHs to nexthop-group %s", nhop, nhgc->name);
 
 	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
 	pbr_map_check_nh_group_change(nhgc->name);
@@ -289,7 +288,6 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				const struct nexthop *nhop)
 {
-	char debugstr[256];
 	struct pbr_nexthop_group_cache pnhgc_find = {};
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_cache pnhc_find = {};
@@ -314,11 +312,7 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	/* delete pnhc */
 	pbr_nh_delete(&pnhc);
 
-	if (DEBUG_MODE_CHECK(&pbr_dbg_nht, DEBUG_MODE_ALL)) {
-		nexthop2str(nhop, debugstr, sizeof(debugstr));
-		DEBUGD(&pbr_dbg_nht, "%s: Removed %s from nexthop-group %s",
-		       __func__, debugstr, nhgc->name);
-	}
+	dbg(PBR_NHT, "Removed %pNHs from nexthop-group %s", nhop, nhgc->name);
 
 	if (pnhgc->nhh->count)
 		pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
@@ -330,7 +324,7 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 
 void pbr_nhgroup_delete_cb(const char *name)
 {
-	DEBUGD(&pbr_dbg_nht, "%s: Removed nexthop-group %s", __func__, name);
+	dbg(PBR_NHT, "Removed nexthop-group %s", name);
 
 	/* delete group from all pbrms's */
 	pbr_nht_delete_group(name);
@@ -343,9 +337,8 @@ pbr_nht_find_nhg_from_table_update(struct pbr_nexthop_group_cache *pnhgc,
 				   uint32_t table_id, bool installed)
 {
 	if (pnhgc->table_id == table_id) {
-		DEBUGD(&pbr_dbg_nht, "%s: %s: Table ID (%u) matches %s",
-		       __func__, (installed ? "install" : "remove"), table_id,
-		       pnhgc->name);
+		dbg(PBR_NHT, "%s: Table ID (%u) matches %s",
+		    (installed ? "install" : "remove"), table_id, pnhgc->name);
 
 		pnhgc->installed = installed;
 		pnhgc->valid = installed;
@@ -446,14 +439,12 @@ static afi_t pbr_nht_which_afi(struct nexthop_group nhg,
 		install_afi = AFI_MAX;
 
 	if (!bh && v6 && v4)
-		DEBUGD(&pbr_dbg_nht,
-		       "%s: Saw both V6 and V4 nexthops...using %s", __func__,
-		       afi2str(install_afi));
+		dbg(PBR_NHT, "Saw both V6 and V4 nexthops...using %s",
+		    afi2str(install_afi));
 	if (bh && (v6 || v4))
-		DEBUGD(&pbr_dbg_nht,
-		       "%s: Saw blackhole nexthop(s) with %s%s%s nexthop(s), using AFI_MAX.",
-		       __func__, v4 ? "v4" : "", (v4 && v6) ? " and " : "",
-		       v6 ? "v6" : "");
+		dbg(PBR_NHT,
+		    "Saw blackhole nexthop(s) with %s%s%s nexthop(s), using AFI_MAX.",
+		    v4 ? "v4" : "", (v4 && v6) ? " and " : "", v6 ? "v6" : "");
 
 	return install_afi;
 }
@@ -499,9 +490,8 @@ void pbr_nht_change_group(const char *name)
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	if (!pnhgc) {
-		DEBUGD(&pbr_dbg_nht,
-		       "%s: Could not find nexthop-group cache w/ name '%s'",
-		       __func__, name);
+		dbg(PBR_NHT, "Could not find nexthop-group cache w/ name '%s'",
+		    name);
 		return;
 	}
 
@@ -681,14 +671,13 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	nhgc = nhgc_find(name);
 
 	if (!nhgc) {
-		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s",
-		       __func__, name);
+		dbg(PBR_NHT, "Could not find nhgc with name: %s", name);
 		return NULL;
 	}
 
 	snprintf(lookup.name, sizeof(lookup.name), "%s", name);
 	pnhgc = hash_get(pbr_nhg_hash, &lookup, pbr_nhgc_alloc);
-	DEBUGD(&pbr_dbg_nht, "%s: Retrieved NHGC @ %p", __func__, pnhgc);
+	dbg(PBR_NHT, "Retrieved NHGC @ %p", pnhgc);
 
 	for (ALL_NEXTHOPS(nhgc->nhg, nhop)) {
 		struct pbr_nexthop_cache lookupc;
@@ -744,7 +733,7 @@ void pbr_nht_delete_group(const char *name)
 
 bool pbr_nht_nexthop_valid(struct nexthop_group *nhg)
 {
-	DEBUGD(&pbr_dbg_nht, "%s: %p", __func__, nhg);
+	dbg(PBR_NHT, "%p", nhg);
 	return true;
 }
 
@@ -753,14 +742,13 @@ bool pbr_nht_nexthop_group_valid(const char *name)
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache lookup;
 
-	DEBUGD(&pbr_dbg_nht, "%s: %s", __func__, name);
+	dbg(PBR_NHT, "%s", name);
 
 	snprintf(lookup.name, sizeof(lookup.name), "%s", name);
 	pnhgc = hash_get(pbr_nhg_hash, &lookup, NULL);
 	if (!pnhgc)
 		return false;
-	DEBUGD(&pbr_dbg_nht, "%s:    %d %d", __func__, pnhgc->valid,
-	       pnhgc->installed);
+	dbg(PBR_NHT, "%d %d", pnhgc->valid, pnhgc->installed);
 	if (pnhgc->valid && pnhgc->installed)
 		return true;
 
@@ -922,8 +910,8 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 
 	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
-	DEBUGD(&pbr_dbg_nht, "    Found %pFX: old: %d new: %d",
-	       &pnhi->nhr->prefix, old_valid, pnhc->valid);
+	dbg(PBR_NHT, "    Found %pFX: old: %d new: %d", &pnhi->nhr->prefix,
+	    old_valid, pnhc->valid);
 
 	if (pnhc->valid)
 		pnhi->valid = true;
@@ -1175,8 +1163,8 @@ pbr_nht_individual_nexthop_interface_update_lookup(struct hash_bucket *b,
 
 	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
-	DEBUGD(&pbr_dbg_nht, "    Found %s: old: %d new: %d", pnhi->ifp->name,
-	       old_valid, pnhc->valid);
+	dbg(PBR_NHT, "    Found %s: old: %d new: %d", pnhi->ifp->name,
+	    old_valid, pnhc->valid);
 
 	if (pnhc->valid)
 		pnhi->valid = true;
@@ -1352,9 +1340,8 @@ uint32_t pbr_nht_get_table(const char *name)
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	if (!pnhgc) {
-		DEBUGD(&pbr_dbg_nht,
-		       "%s: Could not find nexthop-group cache w/ name '%s'",
-		       __func__, name);
+		dbg(PBR_NHT, "Could not find nexthop-group cache w/ name '%s'",
+		    name);
 		return 5000;
 	}
 

@@ -378,7 +378,7 @@ void ospf_apiserver_read(struct thread *thread)
 		apiserv->t_sync_read = NULL;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
+			zlog_debug("API: Peer: %pI4/%u",
 				   &apiserv->peer_sync.sin_addr,
 				   ntohs(apiserv->peer_sync.sin_port));
 	}
@@ -388,7 +388,7 @@ void ospf_apiserver_read(struct thread *thread)
 		apiserv->t_async_read = NULL;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
+			zlog_debug("API: Peer: %pI4/%u",
 				   &apiserv->peer_async.sin_addr,
 				   ntohs(apiserv->peer_async.sin_port));
 	}
@@ -442,8 +442,7 @@ void ospf_apiserver_sync_write(struct thread *thread)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: %s: Peer: %pI4/%u", __func__,
-			   &apiserv->peer_sync.sin_addr,
+		zlog_debug("API: Peer: %pI4/%u", &apiserv->peer_sync.sin_addr,
 			   ntohs(apiserv->peer_sync.sin_port));
 
 	/* Check whether there is really a message in the fifo. */
@@ -502,8 +501,7 @@ void ospf_apiserver_async_write(struct thread *thread)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: %s: Peer: %pI4/%u", __func__,
-			   &apiserv->peer_async.sin_addr,
+		zlog_debug("API: Peer: %pI4/%u", &apiserv->peer_async.sin_addr,
 			   ntohs(apiserv->peer_async.sin_port));
 
 	/* Check whether there is really a message in the fifo. */
@@ -622,8 +620,8 @@ void ospf_apiserver_accept(struct thread *thread)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: %s: New peer: %pI4/%u", __func__,
-			   &peer_sync.sin_addr, ntohs(peer_sync.sin_port));
+		zlog_debug("API: New peer: %pI4/%u", &peer_sync.sin_addr,
+			   ntohs(peer_sync.sin_port));
 
 	/* Create new socket for asynchronous messages. */
 	peer_async = peer_sync;
@@ -2612,7 +2610,7 @@ void ospf_apiserver_notify_reachable(struct route_table *ort,
 
 	if (!ort && !nrt) {
 		if (IS_DEBUG_OSPF_CLIENT_API)
-			zlog_debug("%s: no routing tables", __func__);
+			zlog_debug("no routing tables");
 		return;
 	}
 	if (nrt && nrt->count)
@@ -2677,8 +2675,8 @@ void ospf_apiserver_notify_reachable(struct route_table *ort,
 		nremove = nremove - ntohs(areach->nremove);
 
 		if (IS_DEBUG_OSPF_CLIENT_API)
-			zlog_debug("%s: adding %d removing %d", __func__,
-				   ntohs(areach->nadd), ntohs(areach->nremove));
+			zlog_debug("adding %d removing %d", ntohs(areach->nadd),
+				   ntohs(areach->nremove));
 		ospf_apiserver_clients_notify_all(msg);
 		msg_free(msg);
 	}

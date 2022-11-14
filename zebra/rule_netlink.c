@@ -338,8 +338,7 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			ret = dplane_pbr_rule_delete(&rule);
 
 			zlog_debug(
-				"%s: %s leftover rule: family %s IF %s Pref %u Src %pFX Dst %pFX Table %u ip-proto: %u",
-				__func__,
+				"%s leftover rule: family %s IF %s Pref %u Src %pFX Dst %pFX Table %u ip-proto: %u",
 				((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
 					 ? "Failed to remove"
 					 : "Removed"),

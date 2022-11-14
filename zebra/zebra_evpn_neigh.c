@@ -1107,9 +1107,9 @@ static void zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x learn count %u vni %u auto recovery expired",
-			__func__, &nbr->emac, &nbr->ip, nbr->flags,
-			nbr->dad_count, zevpn->vni);
+			"duplicate addr MAC %pEA IP %pIA flags 0x%x learn count %u vni %u auto recovery expired",
+			&nbr->emac, &nbr->ip, nbr->flags, nbr->dad_count,
+			zevpn->vni);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
 	nbr->dad_count = 0;
@@ -1147,10 +1147,9 @@ static void zebra_evpn_dup_addr_detect_for_neigh(
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x skip installing, learn count %u recover time %u",
-				__func__, &nbr->emac, &nbr->ip,
-				nbr->flags, nbr->dad_count,
-				zvrf->dad_freeze_time);
+				"duplicate addr MAC %pEA IP %pIA flags 0x%x skip installing, learn count %u recover time %u",
+				&nbr->emac, &nbr->ip, nbr->flags,
+				nbr->dad_count, zvrf->dad_freeze_time);
 
 		if (zvrf->dad_freeze)
 			*is_dup_detect = true;
@@ -1185,9 +1184,9 @@ static void zebra_evpn_dup_addr_detect_for_neigh(
 	if (reset_params) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x detection time passed, reset learn count %u",
-				__func__, &nbr->emac, &nbr->ip,
-				nbr->flags, nbr->dad_count);
+				"duplicate addr MAC %pEA IP %pIA flags 0x%x detection time passed, reset learn count %u",
+				&nbr->emac, &nbr->ip, nbr->flags,
+				nbr->dad_count);
 		/* Reset learn count but do not start detection
 		 * during REMOTE learn event.
 		 */
@@ -1231,9 +1230,9 @@ static void zebra_evpn_dup_addr_detect_for_neigh(
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%s: duplicate addr MAC %pEA IP %pIA flags 0x%x auto recovery time %u start",
-					__func__, &nbr->emac, &nbr->ip,
-					nbr->flags, zvrf->dad_freeze_time);
+					"duplicate addr MAC %pEA IP %pIA flags 0x%x auto recovery time %u start",
+					&nbr->emac, &nbr->ip, nbr->flags,
+					zvrf->dad_freeze_time);
 
 			thread_add_timer(zrouter.master,
 					 zebra_evpn_dad_ip_auto_recovery_exp,
@@ -1673,8 +1672,8 @@ void zebra_evpn_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		ipaddr2str(&nbr->ip, buf, sizeof(buf));
-		zlog_debug("%s: clear neigh %s dup state, flags 0x%x seq %u",
-			   __func__, buf, nbr->flags, nbr->loc_seq);
+		zlog_debug("clear neigh %s dup state, flags 0x%x seq %u", buf,
+			   nbr->flags, nbr->loc_seq);
 	}
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
@@ -2213,8 +2212,8 @@ void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 		vlan_if = zevpn_map_to_svi(zevpn);
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"%s: IP %pIA (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-				__func__, ipaddr, n->flags,
+				"IP %pIA (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+				ipaddr, n->flags,
 				vlan_if ? vlan_if->name : "Unknown");
 		if (vlan_if)
 			neigh_read_specific_ip(ipaddr, vlan_if);
@@ -2295,8 +2294,7 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 
 	zvrf = zevpn->vxlan_if->vrf->info;
 	if (!zvrf) {
-		zlog_debug("%s: VNI %u vrf lookup failed.", __func__,
-			   zevpn->vni);
+		zlog_debug("VNI %u vrf lookup failed.", zevpn->vni);
 		return -1;
 	}
 
