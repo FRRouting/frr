@@ -601,9 +601,9 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 				iph->ip_len, mtu, safe_strerror(errno));
 
 		if (IS_DEBUG_OSPF_PACKET(type - 1, SEND)) {
-			zlog_debug("%s: sent id %d, off %d, len %d to %pI4",
-				   __func__, iph->ip_id, iph->ip_off,
-				   iph->ip_len, &iph->ip_dst);
+			zlog_debug("sent id %d, off %d, len %d to %pI4",
+				   iph->ip_id, iph->ip_off, iph->ip_len,
+				   &iph->ip_dst);
 		}
 
 		iph->ip_off += offset;
@@ -646,8 +646,8 @@ static void ospf_write(struct thread *thread)
 
 	if (ospf->fd < 0 || ospf->oi_running == 0) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s failed to send, fd %d, instance %u",
-				   __func__, ospf->fd, ospf->oi_running);
+			zlog_debug("failed to send, fd %d, instance %u",
+				   ospf->fd, ospf->oi_running);
 		return;
 	}
 
@@ -780,9 +780,9 @@ static void ospf_write(struct thread *thread)
 		sockopt_iphdrincl_swab_systoh(&iph);
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s to %pI4, id %d, off %d, len %d, interface %s, mtu %u:",
-				__func__, &iph.ip_dst, iph.ip_id, iph.ip_off,
-				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
+				"to %pI4, id %d, off %d, len %d, interface %s, mtu %u:",
+				&iph.ip_dst, iph.ip_id, iph.ip_off, iph.ip_len,
+				oi->ifp->name, oi->ifp->mtu);
 
 		/* sendmsg will return EPERM if firewall is blocking sending.
 		 * This is a normal situation when 'ip nhrp map multicast xxx'
@@ -1075,8 +1075,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		 * after GR. */
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, Neighbor is under GR Restart, hence ignoring the ISM Events",
-				__PRETTY_FUNCTION__);
+				"Neighbor is under GR Restart, hence ignoring the ISM Events");
 	} else {
 		/* If neighbor itself declares DR and no BDR exists,
 		   cause event BackupSeen */
@@ -2374,7 +2373,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	}
 
 	if (IS_DEBUG_OSPF_PACKET(0, RECV))
-		zlog_debug("%s: fd %d(%s) on interface %d(%s)", __func__, fd,
+		zlog_debug("fd %d(%s) on interface %d(%s)", fd,
 			   ospf_get_name(ospf), ifindex,
 			   *ifp ? (*ifp)->name : "Unknown");
 	return ibuf;
@@ -2612,8 +2611,8 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 			OSPF_ROUTER_LSA_LINK_SIZE + 4 * link->m[0].tos_count;
 		if (thislinklen > linkbytes) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
-				zlog_debug("%s: length error in link block #%u",
-					   __func__, counted_links);
+				zlog_debug("length error in link block #%u",
+					   counted_links);
 			return MSG_NG;
 		}
 		link = (struct router_lsa_link *)((caddr_t)link + thislinklen);
@@ -2622,8 +2621,8 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 	}
 	if (counted_links != num_links) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: %u link blocks declared, %u present",
-				   __func__, num_links, counted_links);
+			zlog_debug("%u link blocks declared, %u present",
+				   num_links, counted_links);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -2639,7 +2638,7 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const uint16_t lsalen,
 	if (lsah->type < OSPF_MAX_LSA && ospf_lsa_minlen[lsah->type]
 	    && lsalen < OSPF_LSA_HEADER_SIZE + ospf_lsa_minlen[lsah->type]) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: undersized (%u B) %s", __func__, lsalen,
+			zlog_debug("undersized (%u B) %s", lsalen,
 				   lookup_msg(ospf_lsa_type_msg, lsah->type,
 					      NULL));
 		return MSG_NG;
@@ -2706,12 +2705,11 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const uint16_t lsalen,
 		break;
 	default:
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: unsupported LSA type 0x%02x", __func__,
-				   lsah->type);
+			zlog_debug("unsupported LSA type 0x%02x", lsah->type);
 		return MSG_NG;
 	}
 	if (ret != MSG_OK && IS_DEBUG_OSPF_PACKET(0, RECV))
-		zlog_debug("%s: alignment error in %s", __func__,
+		zlog_debug("alignment error in %s",
 			   lookup_msg(ospf_lsa_type_msg, lsah->type, NULL));
 	return ret;
 }
@@ -2734,8 +2732,8 @@ ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
 		if (length < OSPF_LSA_HEADER_SIZE) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
-					"%s: undersized (%zu B) trailing (#%u) LSA header",
-					__func__, length, counted_lsas);
+					"undersized (%zu B) trailing (#%u) LSA header",
+					length, counted_lsas);
 			return MSG_NG;
 		}
 		/* save on ntohs() calls here and in the LSA validator */
@@ -2743,8 +2741,8 @@ ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
 		if (lsalen < OSPF_LSA_HEADER_SIZE) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
-					"%s: malformed LSA header #%u, declared length is %u B",
-					__func__, counted_lsas, lsalen);
+					"malformed LSA header #%u, declared length is %u B",
+					counted_lsas, lsalen);
 			return MSG_NG;
 		}
 		if (headeronly) {
@@ -2752,8 +2750,8 @@ ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
 			if (MSG_OK != ospf_lsa_examin(lsah, lsalen, 1)) {
 				if (IS_DEBUG_OSPF_PACKET(0, RECV))
 					zlog_debug(
-						"%s: malformed header-only LSA #%u",
-						__func__, counted_lsas);
+						"malformed header-only LSA #%u",
+						counted_lsas);
 				return MSG_NG;
 			}
 			lsah = (struct lsa_header *)((caddr_t)lsah
@@ -2765,15 +2763,14 @@ ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
 			if (lsalen > length) {
 				if (IS_DEBUG_OSPF_PACKET(0, RECV))
 					zlog_debug(
-						"%s: anomaly in LSA #%u: declared length is %u B, buffered length is %zu B",
-						__func__, counted_lsas, lsalen,
-						length);
+						"anomaly in LSA #%u: declared length is %u B, buffered length is %zu B",
+						counted_lsas, lsalen, length);
 				return MSG_NG;
 			}
 			if (MSG_OK != ospf_lsa_examin(lsah, lsalen, 0)) {
 				if (IS_DEBUG_OSPF_PACKET(0, RECV))
-					zlog_debug("%s: malformed LSA #%u",
-						   __func__, counted_lsas);
+					zlog_debug("malformed LSA #%u",
+						   counted_lsas);
 				return MSG_NG;
 			}
 			lsah = (struct lsa_header *)((caddr_t)lsah + lsalen);
@@ -2785,8 +2782,8 @@ ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
 	if (declared_num_lsas && counted_lsas != declared_num_lsas) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
 			zlog_debug(
-				"%s: #LSAs declared (%u) does not match actual (%u)",
-				__func__, declared_num_lsas, counted_lsas);
+				"#LSAs declared (%u) does not match actual (%u)",
+				declared_num_lsas, counted_lsas);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -2803,8 +2800,7 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 	/* Length, 1st approximation. */
 	if (bytesonwire < OSPF_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: undersized (%u B) packet", __func__,
-				   bytesonwire);
+			zlog_debug("undersized (%u B) packet", bytesonwire);
 		return MSG_NG;
 	}
 	/* Now it is safe to access header fields. Performing length check,
@@ -2814,8 +2810,8 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 	 * in the OSPF header "length" field. */
 	if (oh->version != OSPF_VERSION) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: invalid (%u) protocol version",
-				   __func__, oh->version);
+			zlog_debug("invalid (%u) protocol version",
+				   oh->version);
 		return MSG_NG;
 	}
 	bytesdeclared = ntohs(oh->length);
@@ -2825,8 +2821,8 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 		if (oh->u.crypt.auth_data_len != OSPF_AUTH_MD5_SIZE) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
-					"%s: unsupported crypto auth length (%u B)",
-					__func__, oh->u.crypt.auth_data_len);
+					"unsupported crypto auth length (%u B)",
+					oh->u.crypt.auth_data_len);
 			return MSG_NG;
 		}
 		bytesauth = OSPF_AUTH_MD5_SIZE;
@@ -2834,9 +2830,8 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 	if (bytesdeclared + bytesauth > bytesonwire) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
 			zlog_debug(
-				"%s: packet length error (%u real, %u+%u declared)",
-				__func__, bytesonwire, bytesdeclared,
-				bytesauth);
+				"packet length error (%u real, %u+%u declared)",
+				bytesonwire, bytesdeclared, bytesauth);
 		return MSG_NG;
 	}
 	/* Length, 2nd approximation. The type-specific constraint is checked
@@ -2845,8 +2840,7 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 	    && bytesdeclared
 		       < OSPF_HEADER_SIZE + ospf_packet_minlen[oh->type]) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: undersized (%u B) %s packet", __func__,
-				   bytesdeclared,
+			zlog_debug("undersized (%u B) %s packet", bytesdeclared,
 				   lookup_msg(ospf_packet_type_str, oh->type,
 					      NULL));
 		return MSG_NG;
@@ -2907,12 +2901,11 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 		break;
 	default:
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
-			zlog_debug("%s: invalid packet type 0x%02x", __func__,
-				   oh->type);
+			zlog_debug("invalid packet type 0x%02x", oh->type);
 		return MSG_NG;
 	}
 	if (ret != MSG_OK && IS_DEBUG_OSPF_PACKET(0, RECV))
-		zlog_debug("%s: malformed %s packet", __func__,
+		zlog_debug("malformed %s packet",
 			   lookup_msg(ospf_packet_type_str, oh->type, NULL));
 	return ret;
 }
@@ -2992,9 +2985,8 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 		if (ifp == NULL) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
-					"%s: Unable to determine incoming interface from: %pI4(%s)",
-					__func__, &iph->ip_src,
-					ospf_get_name(ospf));
+					"Unable to determine incoming interface from: %pI4(%s)",
+					&iph->ip_src, ospf_get_name(ospf));
 			return OSPF_READ_CONTINUE;
 		}
 	}
@@ -3332,8 +3324,7 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 		stream_putw(s, 0); /* hello-interval of 0 for fast-hellos */
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: options: %x, int: %s", __func__, OPTIONS(oi),
-			   IF_NAME(oi));
+		zlog_debug("options: %x, int: %s", OPTIONS(oi), IF_NAME(oi));
 
 	/* Set Options. */
 	stream_putc(s, OPTIONS(oi));
@@ -3571,7 +3562,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 	int count = 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 
 	pp = stream_get_endp(s);
 	stream_forward_endp(s, OSPF_LS_UPD_MIN_SIZE);
@@ -3588,8 +3579,8 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 		assert(lsa->data);
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: List Iteration %d LSA[%s]", __func__,
-				   count, dump_lsa_key(lsa));
+			zlog_debug("List Iteration %d LSA[%s]", count,
+				   dump_lsa_key(lsa));
 
 		/* Will it fit? Minimum it has to fit at least one */
 		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
@@ -3621,7 +3612,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 	stream_putl_at(s, pp, count);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 	return length;
 }
 
@@ -3685,11 +3676,10 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		if (oi->ospf->vrf_id)
-			zlog_debug(
-				"%s: Hello Tx interface %s ospf vrf %s id %u",
-				__func__, oi->ifp->name,
-				ospf_vrf_id_to_name(oi->ospf->vrf_id),
-				oi->ospf->vrf_id);
+			zlog_debug("Hello Tx interface %s ospf vrf %s id %u",
+				   oi->ifp->name,
+				   ospf_vrf_id_to_name(oi->ospf->vrf_id),
+				   oi->ospf->vrf_id);
 	}
 	/* Add packet to the top of the interface output queue, so that they
 	 * can't get delayed by things like long queues of LS Update packets
@@ -3976,9 +3966,8 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 
 		if (IS_DEBUG_OSPF_PACKET(0, SEND))
 			zlog_debug(
-				"%s: oversized LSA id:%pI4, %d bytes originated by %pI4, will be fragmented!",
-				__func__, &lsa->data->id,
-				ntohs(lsa->data->length),
+				"oversized LSA id:%pI4, %d bytes originated by %pI4, will be fragmented!",
+				&lsa->data->id, ntohs(lsa->data->length),
 				&lsa->data->adv_router);
 
 		/*
@@ -4103,7 +4092,7 @@ static void ospf_ls_upd_send_queue_event(struct thread *thread)
 	oi->t_ls_upd_event = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s start", __func__);
+		zlog_debug("start");
 
 	for (rn = route_top(oi->ls_upd_queue); rn; rn = rnext) {
 		rnext = route_next(rn);
@@ -4126,15 +4115,15 @@ static void ospf_ls_upd_send_queue_event(struct thread *thread)
 	if (again != 0) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: update lists not cleared, %d nodes to try again, raising new event",
-				__func__, again);
+				"update lists not cleared, %d nodes to try again, raising new event",
+				again);
 		oi->t_ls_upd_event = NULL;
 		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
 				 &oi->t_ls_upd_event);
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s stop", __func__);
+		zlog_debug("stop");
 }
 
 void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
@@ -4256,8 +4245,7 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 
 	if (IS_GRACE_LSA(lsa)) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug("%s, Sending GRACE ACK to Restarter.",
-				   __func__);
+			zlog_debug("Sending GRACE ACK to Restarter.");
 	}
 
 	if (listcount(oi->ls_ack_direct.ls_ack) == 0)

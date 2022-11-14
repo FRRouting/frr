@@ -441,9 +441,8 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 	if ((ifp == NULL) || ((ifp->ifindex == IFINDEX_INTERNAL)
 			      && (ifan->ifan_what == IFAN_ARRIVAL))) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"%s: creating interface for ifindex %d, name %s",
-				__func__, ifan->ifan_index, ifan->ifan_name);
+			zlog_debug("creating interface for ifindex %d, name %s",
+				   ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
 		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT,
@@ -461,8 +460,8 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 		if_get_metric(ifp);
 	}
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: interface %s index %d", __func__,
-			   ifan->ifan_name, ifan->ifan_index);
+		zlog_debug("interface %s index %d", ifan->ifan_name,
+			   ifan->ifan_index);
 
 	return 0;
 }
@@ -560,7 +559,7 @@ int ifm_read(struct if_msghdr *ifm)
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: sdl ifname %s addrs {%s}", __func__,
+		zlog_debug("sdl ifname %s addrs {%s}",
 			   (ifnlen ? ifname : "(nil)"),
 			   rtatostr(ifm->ifm_addrs, fbuf, sizeof(fbuf)));
 
@@ -580,8 +579,8 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifnlen && (strncmp(ifp->name, ifname, IFNAMSIZ) != 0)) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"%s: ifp name %s doesn't match sdl name %s",
-					__func__, ifp->name, ifname);
+					"ifp name %s doesn't match sdl name %s",
+					ifp->name, ifname);
 			ifp = NULL;
 		}
 	}
@@ -632,14 +631,13 @@ int ifm_read(struct if_msghdr *ifm)
 			ifp = if_get_by_name(ifname, VRF_DEFAULT,
 					     VRF_DEFAULT_NAME);
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: creating ifp for ifindex %d",
-					   __func__, ifm->ifm_index);
+				zlog_debug("creating ifp for ifindex %d",
+					   ifm->ifm_index);
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"%s: updated/created ifp, ifname %s, ifindex %d",
-				__func__, ifp->name, ifp->ifindex);
+			zlog_debug("updated/created ifp, ifname %s, ifindex %d",
+				   ifp->name, ifp->ifindex);
 		/*
 		 * Fill in newly created interface structure, or larval
 		 * structure with ifindex IFINDEX_INTERNAL.
@@ -699,9 +697,8 @@ int ifm_read(struct if_msghdr *ifm)
 	{
 		if (ifp->ifindex != ifm->ifm_index) {
 			zlog_debug(
-				"%s: index mismatch, ifname %s, ifp index %d, ifm index %d",
-				__func__, ifp->name, ifp->ifindex,
-				ifm->ifm_index);
+				"index mismatch, ifname %s, ifp index %d, ifm index %d",
+				ifp->name, ifp->ifindex, ifm->ifm_index);
 			return -1;
 		}
 
@@ -746,8 +743,8 @@ int ifm_read(struct if_msghdr *ifm)
 		ifp->speed = ifm->ifm_data.ifi_baudrate / 1000000;
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: interface %s index %d", __func__,
-				   ifp->name, ifp->ifindex);
+			zlog_debug("interface %s index %d", ifp->name,
+				   ifp->ifindex);
 	}
 
 	return 0;
@@ -820,19 +817,17 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 					? ip_masklen(mask->sin.sin_addr)
 					: ip6_masklen(mask->sin6.sin6_addr);
 			zlog_debug(
-				"%s: ifindex %d, ifname %s, ifam_addrs {%s}, ifam_flags 0x%x, addr %pSU/%d broad %pSU dst %pSU gateway %pSU",
-				__func__, ifm->ifam_index,
-				(ifnlen ? ifname : "(nil)"),
+				"ifindex %d, ifname %s, ifam_addrs {%s}, ifam_flags 0x%x, addr %pSU/%d broad %pSU dst %pSU gateway %pSU",
+				ifm->ifam_index, (ifnlen ? ifname : "(nil)"),
 				rtatostr(ifm->ifam_addrs, fbuf, sizeof(fbuf)),
 				ifm->ifam_flags, addr, masklen, brd, &dst,
 				&gateway);
 		} break;
 		default:
-			zlog_debug("%s: ifindex %d, ifname %s, ifam_addrs {%s}",
-				   __func__, ifm->ifam_index,
-				   (ifnlen ? ifname : "(nil)"),
-				   rtatostr(ifm->ifam_addrs, fbuf,
-					    sizeof(fbuf)));
+			zlog_debug(
+				"ifindex %d, ifname %s, ifam_addrs {%s}",
+				ifm->ifam_index, (ifnlen ? ifname : "(nil)"),
+				rtatostr(ifm->ifam_addrs, fbuf, sizeof(fbuf)));
 			break;
 		}
 	}
@@ -1028,8 +1023,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (!(flags & RTF_DONE))
 		return;
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: got rtm of type %d (%s) addrs {%s}", __func__,
-			   rtm->rtm_type,
+		zlog_debug("got rtm of type %d (%s) addrs {%s}", rtm->rtm_type,
 			   lookup_msg(rtm_type_str, rtm->rtm_type, NULL),
 			   rtatostr(rtm->rtm_addrs, fbuf, sizeof(fbuf)));
 
@@ -1388,8 +1382,8 @@ static void kernel_read(struct thread *thread)
 	 * can assume they have the whole message.
 	 */
 	if (rtm->rtm_msglen != nbytes) {
-		zlog_debug("%s: rtm->rtm_msglen %d, nbytes %d, type %d",
-			   __func__, rtm->rtm_msglen, nbytes, rtm->rtm_type);
+		zlog_debug("rtm->rtm_msglen %d, nbytes %d, type %d",
+			   rtm->rtm_msglen, nbytes, rtm->rtm_type);
 		return;
 	}
 

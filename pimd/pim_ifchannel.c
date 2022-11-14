@@ -119,14 +119,14 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	pim_ifp = ch->interface->info;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel entry %s(%s) del start", __func__,
-			   ch->sg_str, ch->interface->name);
+		zlog_debug("ifchannel entry %s(%s) del start", ch->sg_str,
+			   ch->interface->name);
 
 	if (PIM_I_am_DualActive(pim_ifp)) {
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
-				"%s: if-chnanel-%s is deleted from a Dual active Interface",
-				__func__, ch->sg_str);
+				"if-chnanel-%s is deleted from a Dual active Interface",
+				ch->sg_str);
 		/* Post Delete only if it is the last Dual-active Interface */
 		if (ch->upstream->dualactive_ifchannel_count == 1) {
 			pim_mlag_up_local_del(pim_ifp->pim, ch->upstream);
@@ -199,9 +199,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	else {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
-				"%s: Avoiding deletion of upstream with ref_count %d from ifchannel(%s): %s",
-				__func__, ch->upstream->ref_count,
-				ch->interface->name, ch->sg_str);
+				"Avoiding deletion of upstream with ref_count %d from ifchannel(%s): %s",
+				ch->upstream->ref_count, ch->interface->name,
+				ch->sg_str);
 	}
 
 	ch->upstream = NULL;
@@ -218,8 +218,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	RB_REMOVE(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel entry %s(%s) is deleted ", __func__,
-			   ch->sg_str, ch->interface->name);
+		zlog_debug("ifchannel entry %s(%s) is deleted ", ch->sg_str,
+			   ch->interface->name);
 
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
 
@@ -270,8 +270,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	if (old_state == new_state) {
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
-				"%s called by %s: non-transition on state %d (%s)",
-				__func__, caller, new_state,
+				"called by %s: non-transition on state %d (%s)",
+				caller, new_state,
 				pim_ifchannel_ifjoin_name(new_state, 0));
 		}
 		return;
@@ -293,8 +293,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
-							"%s %s: Prune(S,G)=%s from %s",
-							__FILE__, __func__,
+							"Prune(S,G)=%s from %s",
 							child->sg_str,
 							up->sg_str);
 					if (!c_oil)
@@ -319,8 +318,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 							  child)) {
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
-							"%s %s: Join(S,G)=%s from %s",
-							__FILE__, __func__,
+							"Join(S,G)=%s from %s",
 							child->sg_str,
 							up->sg_str);
 
@@ -460,8 +458,8 @@ static void ifmembership_set(struct pim_ifchannel *ch,
 		return;
 
 	if (PIM_DEBUG_PIM_EVENTS) {
-		zlog_debug("%s: (S,G)=%s membership now is %s on interface %s",
-			   __func__, ch->sg_str,
+		zlog_debug("(S,G)=%s membership now is %s on interface %s",
+			   ch->sg_str,
 			   membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE"
 								  : "NOINFO",
 			   ch->interface->name);
@@ -611,9 +609,9 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 		}
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
-				"%s: New Dual active if-chnanel is added to upstream:%s count:%d, flags:0x%x",
-				__func__, up->sg_str,
-				up->dualactive_ifchannel_count, up->flags);
+				"New Dual active if-chnanel is added to upstream:%s count:%d, flags:0x%x",
+				up->sg_str, up->dualactive_ifchannel_count,
+				up->flags);
 	}
 
 	if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
@@ -623,8 +621,8 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 		PIM_IF_FLAG_SET_PROTO_IGMP(ch->flags);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s(%s) is created ", __func__,
-			   ch->sg_str, ch->interface->name);
+		zlog_debug("ifchannel %s(%s) is created ", ch->sg_str,
+			   ch->interface->name);
 
 	return ch;
 }
@@ -648,8 +646,7 @@ static void on_ifjoin_expiry_timer(struct thread *t)
 	ch = THREAD_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s expiry timer", __func__,
-			   ch->sg_str);
+		zlog_debug("ifchannel %s expiry timer", ch->sg_str);
 
 	ifjoin_to_noinfo(ch);
 	/* ch may have been deleted */
@@ -665,9 +662,9 @@ static void on_ifjoin_prune_pending_timer(struct thread *t)
 	ch = THREAD_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: IFCHANNEL%pSG %s Prune Pending Timer Popped",
-			   __func__, &ch->sg,
-			   pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
+		zlog_debug(
+			"IFCHANNEL%pSG %s Prune Pending Timer Popped", &ch->sg,
+			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
 
 	if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING) {
 		ifp = ch->interface;
@@ -1012,9 +1009,9 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 	ch = pim_ifchannel_find(ifp, sg);
 	if (!ch && !(source_flags & PIM_ENCODE_RPT_BIT)) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: Received prune with no relevant ifchannel %s%pSG state: %d",
-				   __func__, ifp->name, sg,
-				   source_flags);
+			zlog_debug(
+				"Received prune with no relevant ifchannel %s%pSG state: %d",
+				ifp->name, sg, source_flags);
 		return;
 	}
 
@@ -1144,15 +1141,16 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%pSG Expected pim interface setup for %s",
-				   __func__, sg, ifp->name);
+			zlog_debug("%pSG Expected pim interface setup for %s",
+				   sg, ifp->name);
 		return 0;
 	}
 
 	if (!pim_ifp->pim_enable) {
 		if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%pSG PIM is not configured on this interface %s",
-				   __func__, sg, ifp->name);
+			zlog_debug(
+				"%pSG PIM is not configured on this interface %s",
+				sg, ifp->name);
 		return 0;
 	}
 
@@ -1162,8 +1160,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 	if (pim_addr_is_any(sg->src)) {
 		if (pim_is_grp_ssm(pim, sg->grp)) {
 			if (PIM_DEBUG_PIM_EVENTS)
-				zlog_debug("%s: local membership (S,G)=%pSG ignored as group is SSM",
-					   __func__, sg);
+				zlog_debug(
+					"local membership (S,G)=%pSG ignored as group is SSM",
+					sg);
 			return 1;
 		}
 	}
@@ -1186,9 +1185,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
 			if (PIM_DEBUG_EVENTS)
-				zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-					   __FILE__, __func__, child->sg_str,
-					   ifp->name, up->sg_str);
+				zlog_debug("IGMP (S,G)=%s(%s) from %s",
+					   child->sg_str, ifp->name,
+					   up->sg_str);
 
 			if (!child->rpf.source_nexthop.interface) {
 				/* when iif unknown, do not inherit */
@@ -1265,9 +1264,9 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 			pim_ifp = ifp->info;
 
 			if (PIM_DEBUG_EVENTS)
-				zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
-					   __FILE__, __func__, up->sg_str,
-					   ifp->name, child->sg_str);
+				zlog_debug("Prune(S,G)=%s(%s) from %s",
+					   up->sg_str, ifp->name,
+					   child->sg_str);
 
 			ch = pim_ifchannel_find(ifp, &child->sg);
 			/*
@@ -1309,10 +1308,9 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
 		return;
 
 	if (PIM_DEBUG_PIM_EVENTS)
-		zlog_debug("%s: CouldAssert(%pPAs,%pPAs,%s) changed from %d to %d",
-			   __func__, &ch->sg.src, &ch->sg.grp,
-			   ch->interface->name, old_couldassert,
-			   new_couldassert);
+		zlog_debug("CouldAssert(%pPAs,%pPAs,%s) changed from %d to %d",
+			   &ch->sg.src, &ch->sg.grp, ch->interface->name,
+			   old_couldassert, new_couldassert);
 
 	if (new_couldassert) {
 		/* CouldAssert(S,G,I) switched from false to true */
@@ -1347,8 +1345,8 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
 
 	if (PIM_DEBUG_PIM_EVENTS)
 		zlog_debug(
-			"%s: my_assert_metric(%pPAs,%pPAs,%s) changed from %u,%u,%u,%pPAs to %u,%u,%u,%pPAs",
-			__func__, &ch->sg.src, &ch->sg.grp, ch->interface->name,
+			"my_assert_metric(%pPAs,%pPAs,%s) changed from %u,%u,%u,%pPAs to %u,%u,%u,%pPAs",
+			&ch->sg.src, &ch->sg.grp, ch->interface->name,
 			ch->ifassert_my_metric.rpt_bit_flag,
 			ch->ifassert_my_metric.metric_preference,
 			ch->ifassert_my_metric.route_metric,
@@ -1377,9 +1375,9 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
 
 	if (PIM_DEBUG_PIM_EVENTS)
 		zlog_debug(
-			"%s: AssertTrackingDesired(%pPAs,%pPAs,%s) changed from %d to %d",
-			__func__, &ch->sg.src, &ch->sg.grp, ch->interface->name,
-			old_atd, new_atd);
+			"AssertTrackingDesired(%pPAs,%pPAs,%s) changed from %d to %d",
+			&ch->sg.src, &ch->sg.grp, ch->interface->name, old_atd,
+			new_atd);
 
 	if (new_atd) {
 		/* AssertTrackingDesired(S,G,I) switched from false to true */
@@ -1447,7 +1445,7 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: %s %s eom: %d join %u", __func__,
+			"%s %s eom: %d join %u",
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 			ch->sg_str, eom, join);
 	if (!ch->sources)

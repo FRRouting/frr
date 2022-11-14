@@ -102,9 +102,8 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %s(%u):%pRN removed from tracking on %pRN",
-			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
-			   rnh->node, rn);
+		zlog_debug("%s(%u):%pRN removed from tracking on %pRN",
+			   VRF_LOGNAME(zvrf->vrf), rnh->vrf_id, rnh->node, rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_del(&dest->nht, rnh);
@@ -123,9 +122,8 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %s(%u):%pRN added for tracking on %pRN",
-			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
-			   rnh->node, rn);
+		zlog_debug("%s(%u):%pRN added for tracking on %pRN",
+			   VRF_LOGNAME(zvrf->vrf), rnh->vrf_id, rnh->node, rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_add_tail(&dest->nht, rnh);
@@ -581,9 +579,9 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 */
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: %s(%u):%pRN Possible Match to %pRN",
-				   __func__, VRF_LOGNAME(zvrf->vrf),
-				   rnh->vrf_id, rnh->node, rn);
+			zlog_debug("%s(%u):%pRN Possible Match to %pRN",
+				   VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+				   rnh->node, rn);
 
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
@@ -938,8 +936,7 @@ static struct nexthop *next_valid_primary_nh(struct route_entry *re,
 	while (nh) {
 
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: checking primary NH %pNHv",
-				   __func__, nh);
+			zlog_debug("checking primary NH %pNHv", nh);
 
 		/* If this nexthop is in the fib list, it's installed */
 		nhg = rib_get_fib_nhg(re);
@@ -952,7 +949,7 @@ static struct nexthop *next_valid_primary_nh(struct route_entry *re,
 		if (bnh != NULL) {
 			/* Found the match */
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s:     NH in fib list", __func__);
+				zlog_debug("NH in fib list");
 			break;
 		}
 
@@ -965,8 +962,8 @@ static struct nexthop *next_valid_primary_nh(struct route_entry *re,
 			 * primary, we're done;
 			 */
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s: checking backup %pNHv [%d]",
-					   __func__, bnh, idx);
+				zlog_debug("checking backup %pNHv [%d]", bnh,
+					   idx);
 
 			if (!CHECK_FLAG(bnh->flags, NEXTHOP_FLAG_ACTIVE))
 				continue;
@@ -975,8 +972,9 @@ static struct nexthop *next_valid_primary_nh(struct route_entry *re,
 				/* Found a matching activated backup nh */
 				if (nh->backup_idx[i] == idx) {
 					if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-						zlog_debug("%s: backup %d activated",
-							   __func__, i);
+						zlog_debug(
+							"backup %d activated",
+							i);
 
 					goto done;
 				}
@@ -1021,15 +1019,16 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 			/* Any difference is a no-match */
 			if (nexthop_cmp(nh1, nh2) != 0) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug("%s: nh1: %pNHv, nh2: %pNHv differ",
-						   __func__, nh1, nh2);
+					zlog_debug(
+						"nh1: %pNHv, nh2: %pNHv differ",
+						nh1, nh2);
 				goto done;
 			}
 
 		} else if (nh1 || nh2) {
 			/* One list has more valid nexthops than the other */
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s: nh1 %s, nh2 %s", __func__,
+				zlog_debug("nh1 %s, nh2 %s",
 					   nh1 ? "non-NULL" : "NULL",
 					   nh2 ? "non-NULL" : "NULL");
 			goto done;
@@ -1059,8 +1058,7 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 				&r2->nhe->backup_info->nhe->nhg);
 
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: backup hash1 %#x, hash2 %#x",
-				   __func__, hash1, hash2);
+			zlog_debug("backup hash1 %#x, hash2 %#x", hash1, hash2);
 
 		if (hash1 != hash2)
 			goto done;
@@ -1089,8 +1087,9 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 			/* Any difference is a no-match */
 			if (nexthop_cmp(nh1, nh2) != 0) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-					zlog_debug("%s: backup nh1: %pNHv, nh2: %pNHv differ",
-						   __func__, nh1, nh2);
+					zlog_debug(
+						"backup nh1: %pNHv, nh2: %pNHv differ",
+						nh1, nh2);
 				goto done;
 			}
 
@@ -1099,8 +1098,7 @@ static bool compare_valid_nexthops(struct route_entry *r1,
 		} else if (nh1 || nh2) {
 			/* One list has more valid nexthops than the other */
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug("%s: backup nh1 %s, nh2 %s",
-					   __func__,
+				zlog_debug("backup nh1 %s, nh2 %s",
 					   nh1 ? "non-NULL" : "NULL",
 					   nh2 ? "non-NULL" : "NULL");
 			goto done;
@@ -1116,8 +1114,7 @@ finished:
 done:
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %smatched",
-			   __func__, (matched_p ? "" : "NOT "));
+		zlog_debug("%smatched", (matched_p ? "" : "NOT "));
 
 	return matched_p;
 }

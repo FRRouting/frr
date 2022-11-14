@@ -642,13 +642,13 @@ static void zserv_client_free(struct zserv *client)
 	 */
 	if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s: Deleting client %s", __func__,
+			zlog_debug("Deleting client %s",
 				   zebra_route_string(client->proto));
 		XFREE(MTYPE_TMP, client);
 	} else {
 		/* Handle cases where client has GR instance. */
 		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s: client %s restart enabled", __func__,
+			zlog_debug("client %s restart enabled",
 				   zebra_route_string(client->proto));
 		if (zebra_gr_client_disconnect(client) < 0)
 			zlog_err(

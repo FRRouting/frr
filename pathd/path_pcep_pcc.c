@@ -544,8 +544,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 		return;
 	}
 
-	PCEP_DEBUG("(%s)%s Send report for candidate path %s", __func__,
-		   pcc_state->tag, path->name);
+	PCEP_DEBUG("%s Send report for candidate path %s", pcc_state->tag,
+		   path->name);
 
 	/* ODL and Cisco requires the first reported
 	 * LSP to have a DOWN status, the later status changes
@@ -558,8 +558,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	/* If no update is expected and the real status wasn't down, we need to
 	 * send a second report with the real status */
 	if (is_stable && (real_status != PCEP_LSP_OPERATIONAL_DOWN)) {
-		PCEP_DEBUG("(%s)%s Send report for candidate path (!DOWN) %s",
-			   __func__, pcc_state->tag, path->name);
+		PCEP_DEBUG("%s Send report for candidate path (!DOWN) %s",
+			   pcc_state->tag, path->name);
 		path->status = real_status;
 		send_report(pcc_state, path);
 	}
@@ -573,7 +573,7 @@ void pcep_pcc_send_error(struct ctrl_state *ctrl_state,
 			 bool sub_type)
 {
 
-	PCEP_DEBUG("(%s) Send error after PcInitiated ", __func__);
+	PCEP_DEBUG("Send error after PcInitiated ");
 
 
 	send_pcep_error(pcc_state, error->error_type, error->error_value,
@@ -1912,17 +1912,15 @@ bool has_pending_req_for(struct pcc_state *pcc_state, struct path *path)
 	PCEP_DEBUG_PATH("(%s) %s", format_path(path), __func__);
 	/* Looking for request without result */
 	if (path->no_path || !path->first_hop) {
-		PCEP_DEBUG_PATH("%s Path : no_path|!first_hop", __func__);
+		PCEP_DEBUG_PATH("Path : no_path|!first_hop");
 		/* ...and already was handle */
 		req = RB_FIND(req_entry_head, &pcc_state->requests, &key);
 		if (!req) {
 			/* we must purge remaining reqid */
-			PCEP_DEBUG_PATH("%s Purge pending reqid: no_path(%s)",
-					__func__,
+			PCEP_DEBUG_PATH("Purge pending reqid: no_path(%s)",
 					path->no_path ? "TRUE" : "FALSE");
 			if (lookup_reqid(pcc_state, path) != 0) {
-				PCEP_DEBUG_PATH("%s Purge pending reqid: DONE ",
-						__func__);
+				PCEP_DEBUG_PATH("Purge pending reqid: DONE ");
 				remove_reqid_mapping(pcc_state, path);
 				return true;
 			} else {

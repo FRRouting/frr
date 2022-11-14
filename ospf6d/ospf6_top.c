@@ -151,9 +151,8 @@ static void ospf6_set_redist_vrf_bitmaps(struct ospf6 *ospf6, bool set)
 		if (!red_list)
 			continue;
 		if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-			zlog_debug(
-				"%s: setting redist vrf %d bitmap for type %d",
-				__func__, ospf6->vrf_id, type);
+			zlog_debug("setting redist vrf %d bitmap for type %d",
+				   ospf6->vrf_id, type);
 		if (set)
 			vrf_bitmap_set(zclient->redist[AFI_IP6][type],
 				       ospf6->vrf_id);
@@ -278,8 +277,8 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
 		    || IS_OSPF6_DEBUG_BROUTER)
 			zlog_debug(
-				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
-				__func__, &route->prefix);
+				"Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
+				&route->prefix);
 		return;
 	}
 
@@ -301,8 +300,8 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
 		    || IS_OSPF6_DEBUG_BROUTER)
 			zlog_debug(
-				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
-				__func__, &route->prefix);
+				"Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
+				&route->prefix);
 		return;
 	}
 
@@ -323,9 +322,8 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
-		zlog_debug("%s: brouter %s add with adv router %x nh count %u",
-			   __func__, brouter_name,
-			   route->path.origin.adv_router,
+		zlog_debug("brouter %s add with adv router %x nh count %u",
+			   brouter_name, route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix), route,
@@ -346,8 +344,8 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
-		zlog_debug("%s: brouter %p %s del with adv router %x nh %u",
-			   __func__, (void *)route, brouter_name,
+		zlog_debug("brouter %p %s del with adv router %x nh %u",
+			   (void *)route, brouter_name,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}

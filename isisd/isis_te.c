@@ -1365,8 +1365,7 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 	struct mpls_te_area *mta;
 	int rc = -1;
 
-	te_debug("ISIS-TE(%s): Received TED synchro from client %d", __func__,
-		 dst.proto);
+	te_debug("ISIS-TE: Received TED synchro from client %d", dst.proto);
 	/*  For each area, send TED if TE distribution is enabled */
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {

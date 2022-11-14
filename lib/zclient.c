@@ -245,8 +245,8 @@ int zclient_socket_connect(struct zclient *zclient)
 	ret = connect(sock, (struct sockaddr *)&zclient_addr, zclient_addr_len);
 	if (ret < 0) {
 		if (zclient_debug)
-			zlog_debug("%s connect failure: %d(%s)", __func__,
-				   errno, safe_strerror(errno));
+			zlog_debug("connect failure: %d(%s)", errno,
+				   safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -491,8 +491,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if (zclient_debug)
-		zlog_debug("%s: send register messages for VRF %u", __func__,
-			   vrf_id);
+		zlog_debug("send register messages for VRF %u", vrf_id);
 
 	/* We need router-id information. */
 	zclient_send_router_id_update(zclient, ZEBRA_ROUTER_ID_ADD, AFI_IP,
@@ -559,8 +558,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if (zclient_debug)
-		zlog_debug("%s: send deregister messages for VRF %u", __func__,
-			   vrf_id);
+		zlog_debug("send deregister messages for VRF %u", vrf_id);
 
 	/* We need router-id information. */
 	zclient_send_router_id_update(zclient, ZEBRA_ROUTER_ID_DELETE, AFI_IP,
@@ -1710,7 +1708,7 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u %u %u %s", __func__, seq, prio, uni, ifname);
+		zlog_debug("%u %u %u %s", seq, prio, uni, ifname);
 	*seqno = seq;
 	*priority = prio;
 	*unique = uni;
@@ -1732,7 +1730,7 @@ bool zapi_ipset_notify_decode(struct stream *s, uint32_t *unique,
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u", __func__, uni);
+		zlog_debug("%u", uni);
 	*unique = uni;
 	*note = (enum zapi_ipset_notify_owner)notew;
 	return true;
@@ -1755,7 +1753,7 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 	STREAM_GET(ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u", __func__, uni);
+		zlog_debug("%u", uni);
 	*unique = uni;
 	*note = (enum zapi_ipset_entry_notify_owner)notew;
 
@@ -1777,7 +1775,7 @@ bool zapi_iptable_notify_decode(struct stream *s,
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u", __func__, uni);
+		zlog_debug("%u", uni);
 	*unique = uni;
 	*note = (enum zapi_iptable_notify_owner)notew;
 
@@ -2000,8 +1998,7 @@ bool zapi_error_decode(struct stream *s, enum zebra_error_types *error)
 	STREAM_GET(error, s, sizeof(*error));
 
 	if (zclient_debug)
-		zlog_debug("%s: type: %s", __func__,
-			   zebra_error_type2str(*error));
+		zlog_debug("type: %s", zebra_error_type2str(*error));
 
 	return true;
 stream_failure:
@@ -2754,8 +2751,7 @@ static int zclient_read_sync_response(struct zclient *zclient,
 		ret = zclient_read_header(s, zclient->sock, &size, &marker,
 					  &version, &vrf_id, &cmd);
 		if (zclient_debug)
-			zlog_debug("%s: Response (%d bytes) received", __func__,
-				   size);
+			zlog_debug("Response (%d bytes) received", size);
 	}
 	if (ret != 0) {
 		flog_err(EC_LIB_ZAPI_ENCODE, "%s: Invalid Sync Message Reply",
@@ -2787,7 +2783,7 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 		zlog_debug("Connecting to Label Manager (LM)");
 
 	if (zclient->sock < 0) {
-		zlog_debug("%s: invalid zclient socket", __func__);
+		zlog_debug("invalid zclient socket");
 		return -1;
 	}
 
@@ -3186,7 +3182,7 @@ int tm_table_manager_connect(struct zclient *zclient)
 		return -1;
 
 	if (zclient_debug)
-		zlog_debug("%s: Table manager connect request sent", __func__);
+		zlog_debug("Table manager connect request sent");
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_TABLE_MANAGER_CONNECT)
@@ -3197,9 +3193,8 @@ int tm_table_manager_connect(struct zclient *zclient)
 	s = zclient->ibuf;
 	STREAM_GETC(s, result);
 	if (zclient_debug)
-		zlog_debug(
-			"%s: Table Manager connect response received, result %u",
-			__func__, result);
+		zlog_debug("Table Manager connect response received, result %u",
+			   result);
 
 	return (int)result;
 stream_failure:
@@ -3255,8 +3250,7 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 		return -1;
 	}
 	if (zclient_debug)
-		zlog_debug("%s: Table chunk request (%d bytes) sent", __func__,
-			   ret);
+		zlog_debug("Table chunk request (%d bytes) sent", ret);
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_GET_TABLE_CHUNK) != 0)
@@ -3491,8 +3485,8 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 		case AF_INET:
 			if (zl->route.prefix.prefixlen > IPV4_MAX_BITLEN) {
 				zlog_debug(
-					"%s: Specified prefix length %d is greater than a v4 address can support",
-					__func__, zl->route.prefix.prefixlen);
+					"Specified prefix length %d is greater than a v4 address can support",
+					zl->route.prefix.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&zl->route.prefix.u.prefix4.s_addr, s,
@@ -3501,8 +3495,8 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 		case AF_INET6:
 			if (zl->route.prefix.prefixlen > IPV6_MAX_BITLEN) {
 				zlog_debug(
-					"%s: Specified prefix length %d is greater than a v6 address can support",
-					__func__, zl->route.prefix.prefixlen);
+					"Specified prefix length %d is greater than a v6 address can support",
+					zl->route.prefix.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&zl->route.prefix.u.prefix6, s, psize);

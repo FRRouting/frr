@@ -70,8 +70,8 @@ static void pim_mlag_zebra_fill_header(enum mlag_msg_type msg_type)
 	stream_putw(router->mlag_stream, msg_cnt);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug(":%s: msg_type: %d/%d len %d",
-			   __func__, msg_type, fill_msg_type, data_len);
+		zlog_debug("msg_type: %d/%d len %d", msg_type, fill_msg_type,
+			   data_len);
 }
 
 static void pim_mlag_zebra_flush_buffer(void)
@@ -152,8 +152,8 @@ static void pim_mlag_zthread_handler(struct thread *event)
 	wr_count = stream_fifo_count_safe(router->mlag_fifo);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug(":%s: Processing MLAG write, %d messages in queue",
-			   __func__, wr_count);
+		zlog_debug("Processing MLAG write, %d messages in queue",
+			   wr_count);
 
 	if (wr_count == 0)
 		return;
@@ -165,8 +165,7 @@ static void pim_mlag_zthread_handler(struct thread *event)
 
 		read_s = stream_fifo_pop_safe(router->mlag_fifo);
 		if (!read_s) {
-			zlog_debug(":%s: Got a NULL Messages, some thing wrong",
-				   __func__);
+			zlog_debug("Got a NULL Messages, some thing wrong");
 			break;
 		}
 		STREAM_GETL(read_s, curr_msg_type);
@@ -215,8 +214,7 @@ int pim_mlag_signal_zpthread(void)
 {
 	if (router->master) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug(":%s: Scheduling PIM MLAG write Thread",
-				   __func__);
+			zlog_debug("Scheduling PIM MLAG write Thread");
 		thread_add_event(router->master, pim_mlag_zthread_handler, NULL,
 				 0, &router->zpthread_mlag_write);
 	}

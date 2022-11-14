@@ -240,7 +240,7 @@ struct rfapi_un_option *rfapi_encap_tlv_to_un_option(struct attr *attr)
 		break;
 
 	default:
-		vnc_zlog_debug_verbose("%s: unknown tunnel type %d", __func__,
+		vnc_zlog_debug_verbose("unknown tunnel type %d",
 				       attr->encap_tunneltype);
 		rc = -1;
 		break;

@@ -720,8 +720,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 			node->info = route;
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
 			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-				zlog_debug("%s:  replace old route %s",
-					   __func__, buf);
+				zlog_debug("replace old route %s", buf);
 		}
 
 		if (old->prev)
@@ -914,8 +913,7 @@ void ospf6_route_remove(struct ospf6_route *route,
 			node->info = route->next;
 			SET_FLAG(route->next->flag, OSPF6_ROUTE_BEST);
 			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-				zlog_debug("%s: remove route %s", __func__,
-					   buf);
+				zlog_debug("remove route %s", buf);
 		} else {
 			node->info = NULL;
 			route->rnode = NULL;

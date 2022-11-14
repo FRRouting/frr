@@ -518,7 +518,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: unsupported media", __func__);
+			zlog_debug("unsupported media");
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
@@ -709,7 +709,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		}
 #ifdef EXTREME_DEGUG
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: if_id %d, isomtu %d snpa %s", __func__,
+			zlog_debug("if_id %d, isomtu %d snpa %s",
 				   circuit->interface->ifindex,
 				   ISO_MTU(circuit),
 				   snpa_print(circuit->u.bc.snpa));

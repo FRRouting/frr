@@ -127,8 +127,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: up %s RPF is not present", __func__,
-				   up->sg_str);
+			zlog_debug("up %s RPF is not present", up->sg_str);
 		return false;
 	}
 

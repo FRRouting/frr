@@ -847,9 +847,8 @@ static int try_connect(struct daemon *dmn)
 	if (connect(sock, (struct sockaddr *)&addr, len) < 0) {
 		if ((errno != EINPROGRESS) && (errno != EWOULDBLOCK)) {
 			if (gs.loglevel > LOG_DEBUG)
-				zlog_debug("%s(%s): connect failed: %s",
-					   __func__, addr.sun_path,
-					   safe_strerror(errno));
+				zlog_debug("(%s): connect failed: %s",
+					   addr.sun_path, safe_strerror(errno));
 			close(sock);
 			return -1;
 		}

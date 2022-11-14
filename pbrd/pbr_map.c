@@ -254,8 +254,7 @@ pbr_map_policy_interface_update_common(const struct interface *ifp,
 				       struct pbr_map **pbrm)
 {
 	if (!ifp->info) {
-		DEBUGD(&pbr_dbg_map, "%s: %s has no pbr_interface info",
-		       __func__, ifp->name);
+		DEBUGD(&pbr_dbg_map, "%s has no pbr_interface info", ifp->name);
 		return -1;
 	}
 
@@ -264,8 +263,8 @@ pbr_map_policy_interface_update_common(const struct interface *ifp,
 	*pbrm = pbrm_find((*pbr_ifp)->mapname);
 
 	if (!*pbrm) {
-		DEBUGD(&pbr_dbg_map, "%s: applied PBR-MAP(%s) does not exist?",
-		       __func__, (*pbr_ifp)->mapname);
+		DEBUGD(&pbr_dbg_map, "applied PBR-MAP(%s) does not exist?",
+		       (*pbr_ifp)->mapname);
 		return -1;
 	}
 
@@ -283,9 +282,8 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	if (pbr_map_policy_interface_update_common(ifp, &pbr_ifp, &pbrm))
 		return;
 
-	DEBUGD(&pbr_dbg_map, "%s: %s %s rules on interface %s", __func__,
-	       pbr_ifp->mapname, (state_up ? "installing" : "removing"),
-	       ifp->name);
+	DEBUGD(&pbr_dbg_map, "%s %s rules on interface %s", pbr_ifp->mapname,
+	       (state_up ? "installing" : "removing"), ifp->name);
 
 	/*
 	 * Walk the list and install/remove maps on the interface.
@@ -323,12 +321,12 @@ void pbr_map_vrf_update(const struct pbr_vrf *pbr_vrf)
 
 	bool enabled = pbr_vrf_is_enabled(pbr_vrf);
 
-	DEBUGD(&pbr_dbg_map, "%s: %s (%u) %s, updating pbr maps", __func__,
+	DEBUGD(&pbr_dbg_map, "%s (%u) %s, updating pbr maps",
 	       pbr_vrf_name(pbr_vrf), pbr_vrf_id(pbr_vrf),
 	       enabled ? "enabled" : "disabled");
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
-		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __func__, pbrm->name);
+		DEBUGD(&pbr_dbg_map, "Looking at %s", pbrm->name);
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 			pbrms_vrf_update(pbrms, pbr_vrf);
 	}
@@ -416,8 +414,8 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, char *ifname,
 
 			for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, snode,
 						  pbrms)) {
-				DEBUGD(&pbr_dbg_map, "%s: Comparing %u to %u",
-				       __func__, pbrms->unique, unique);
+				DEBUGD(&pbr_dbg_map, "Comparing %u to %u",
+				       pbrms->unique, unique);
 				if (pbrms->unique == unique)
 					return pbrms;
 			}
@@ -671,8 +669,7 @@ bool pbr_map_check_valid(const char *name)
 
 	pbrm = pbrm_find(name);
 	if (!pbrm) {
-		DEBUGD(&pbr_dbg_map,
-		       "%s: Specified PBR-MAP(%s) does not exist?", __func__,
+		DEBUGD(&pbr_dbg_map, "Specified PBR-MAP(%s) does not exist?",
 		       name);
 		return false;
 	}
@@ -688,7 +685,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group, bool installed)
 	struct listnode *node;
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
-		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __func__, pbrm->name);
+		DEBUGD(&pbr_dbg_map, "Looking at %s", pbrm->name);
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
 			DEBUGD(&pbr_dbg_map, "    NH Grp name: %s",
 			       pbrms->nhgrp_name ?
@@ -719,14 +716,13 @@ void pbr_map_policy_install(const char *name)
 	struct listnode *node, *inode;
 	struct pbr_map_interface *pmi;
 
-	DEBUGD(&pbr_dbg_map, "%s: for %s", __func__, name);
+	DEBUGD(&pbr_dbg_map, "for %s", name);
 	pbrm = pbrm_find(name);
 	if (!pbrm)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
-		DEBUGD(&pbr_dbg_map,
-		       "%s: Looking at what to install %s(%u) %d %d", __func__,
+		DEBUGD(&pbr_dbg_map, "Looking at what to install %s(%u) %d %d",
 		       name, pbrms->seqno, pbrm->valid, pbrms->nhs_installed);
 
 		if (pbrm->valid && pbrms->nhs_installed
@@ -880,22 +876,21 @@ void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed)
 	bool install;
 
 	pbrm = pbrms->parent;
-	DEBUGD(&pbr_dbg_map, "%s: for %s(%u)", __func__, pbrm->name,
-	       pbrms->seqno);
+	DEBUGD(&pbr_dbg_map, "for %s(%u)", pbrm->name, pbrms->seqno);
 	if (pbr_map_check_valid(pbrm->name))
 		DEBUGD(&pbr_dbg_map, "We are totally valid %s",
 		       pbrm->name);
 
 	if (pbrms->reason == PBR_MAP_VALID_SEQUENCE_NUMBER) {
 		install = true;
-		DEBUGD(&pbr_dbg_map, "%s: Installing %s(%u) reason: %" PRIu64,
-		       __func__, pbrm->name, pbrms->seqno, pbrms->reason);
+		DEBUGD(&pbr_dbg_map, "Installing %s(%u) reason: %" PRIu64,
+		       pbrm->name, pbrms->seqno, pbrms->reason);
 		DEBUGD(&pbr_dbg_map,
 		       "    Sending PBR_MAP_POLICY_INSTALL event");
 	} else {
 		install = false;
-		DEBUGD(&pbr_dbg_map, "%s: Removing %s(%u) reason: %" PRIu64,
-		       __func__, pbrm->name, pbrms->seqno, pbrms->reason);
+		DEBUGD(&pbr_dbg_map, "Removing %s(%u) reason: %" PRIu64,
+		       pbrm->name, pbrms->seqno, pbrms->reason);
 	}
 
 	if (install)

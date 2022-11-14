@@ -38,9 +38,8 @@ extern struct zclient *zclient;
 	do {                                                                   \
 		if (PIM_DEBUG_MLAG)                                            \
 			zlog_debug(                                            \
-				"%s: add Dual-active Interface to %s "         \
-				"to oil:%s",                                   \
-				__func__, ch->interface->name, ch->sg_str);    \
+				"add Dual-active Interface to %s to oil:%s",   \
+				ch->interface->name, ch->sg_str);              \
 		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
 	} while (0)
 
@@ -48,9 +47,8 @@ extern struct zclient *zclient;
 	do {                                                                   \
 		if (PIM_DEBUG_MLAG)                                            \
 			zlog_debug(                                            \
-				"%s: del Dual-active Interface to %s "         \
-				"to oil:%s",                                   \
-				__func__, ch->interface->name, ch->sg_str);    \
+				"del Dual-active Interface to %s to oil:%s",   \
+				ch->interface->name, ch->sg_str);              \
 		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
 	} while (0)
 
@@ -70,8 +68,8 @@ static void pim_mlag_calculate_df_for_ifchannels(struct pim_upstream *up,
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Calculating DF for Dual active if-channel%s",
-			   __func__, up->sg_str);
+		zlog_debug("Calculating DF for Dual active if-channel%s",
+			   up->sg_str);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
 		pim_ifp = (ch->interface) ? ch->interface->info : NULL;
@@ -96,8 +94,7 @@ static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
 	struct channel_oil *ch_oil = NULL;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Updating DF for uptream:%s children", __func__,
-			   up->sg_str);
+		zlog_debug("Updating DF for uptream:%s children", up->sg_str);
 
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
@@ -107,8 +104,8 @@ static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, listnode, child)) {
 			if (PIM_DEBUG_MLAG)
-				zlog_debug("%s: Updating DF for child:%s",
-					   __func__, child->sg_str);
+				zlog_debug("Updating DF for child:%s",
+					   child->sg_str);
 			ch_oil = (child) ? child->channel_oil : NULL;
 
 			if (!ch_oil)
@@ -134,8 +131,8 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 	if (is_df == old_is_df) {
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
-				"%s: Ignoring Role update for %s, since no change",
-				__func__, up->sg_str);
+				"Ignoring Role update for %s, since no change",
+				up->sg_str);
 		return false;
 	}
 
@@ -533,8 +530,7 @@ static void pim_mlag_up_local_reeval(bool mlagd_send, const char *reason_code)
 	struct pim_instance *pim;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s re-run DF election because of %s",
-				__func__, reason_code);
+		zlog_debug("re-run DF election because of %s", reason_code);
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
@@ -575,16 +571,14 @@ static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 	char buf[MLAG_ROLE_STRSIZE];
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: msg dump: my_role: %s, peer_state: %s",
-			   __func__,
+		zlog_debug("msg dump: my_role: %s, peer_state: %s",
 			   mlag_role2str(msg.my_role, buf, sizeof(buf)),
 			   (msg.peer_state == MLAG_STATE_RUNNING ? "RUNNING"
 								 : "DOWN"));
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("%s: msg ignored mlagd process state down",
-					__func__);
+			zlog_debug("msg ignored mlagd process state down");
 		return;
 	}
 	++router->mlag_stats.msg.mlag_status_updates;
@@ -666,13 +660,12 @@ static void pim_mlag_process_peer_frr_state_change(struct mlag_frr_status msg)
 {
 	if (PIM_DEBUG_MLAG)
 		zlog_debug(
-			"%s: msg dump: peer_frr_state: %s", __func__,
+			"msg dump: peer_frr_state: %s",
 			(msg.frr_state == MLAG_FRR_STATE_UP ? "UP" : "DOWN"));
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("%s: msg ignored mlagd process state down",
-					__func__);
+			zlog_debug("msg ignored mlagd process state down");
 		return;
 	}
 	++router->mlag_stats.msg.peer_zebra_status_updates;
@@ -707,8 +700,7 @@ static void pim_mlag_process_vxlan_update(struct mlag_vxlan *msg)
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("%s: msg ignored mlagd process state down",
-					__func__);
+			zlog_debug("msg ignored mlagd process state down");
 		return;
 	}
 
@@ -726,8 +718,8 @@ static void pim_mlag_process_vxlan_update(struct mlag_vxlan *msg)
 		inet_ntop(AF_INET, &router->anycast_vtep_ip,
 				addr_buf2, INET_ADDRSTRLEN);
 
-		zlog_debug("%s: msg dump: local-ip:%s, anycast-ip:%s",
-				__func__, addr_buf1, addr_buf2);
+		zlog_debug("msg dump: local-ip:%s, anycast-ip:%s", addr_buf1,
+			   addr_buf2);
 	}
 }
 
@@ -740,9 +732,9 @@ static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 		sg.src.s_addr = ntohl(msg.source_ip);
 
 		zlog_debug(
-			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pSG) cost: %u",
-			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
-			&sg, msg.cost_to_rp);
+			"msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pSG) cost: %u",
+			msg.vrf_name, msg.source_ip, msg.group_ip, &sg,
+			msg.cost_to_rp);
 		zlog_debug(
 			"(%pSG)owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
 			&sg, msg.owner_id, msg.am_i_dr, msg.am_i_dual_active,
@@ -751,8 +743,7 @@ static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("%s: msg ignored mlagd process state down",
-					__func__);
+			zlog_debug("msg ignored mlagd process state down");
 		return;
 	}
 
@@ -769,17 +760,15 @@ static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 		sg.grp.s_addr = ntohl(msg.group_ip);
 		sg.src.s_addr = ntohl(msg.source_ip);
 		zlog_debug(
-			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pSG)",
-			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
-			&sg);
+			"msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pSG)",
+			msg.vrf_name, msg.source_ip, msg.group_ip, &sg);
 		zlog_debug("(%pSG)owner_id: %d, vrf_id: 0x%x intf_name: %s",
 			   &sg, msg.owner_id, msg.vrf_id, msg.intf_name);
 	}
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("%s: msg ignored mlagd process state down",
-					__func__);
+			zlog_debug("msg ignored mlagd process state down");
 		return;
 	}
 
@@ -802,8 +791,7 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 		return (rc);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Received msg type: %s length: %d, bulk_cnt: %d",
-			   __func__,
+		zlog_debug("Received msg type: %s length: %d, bulk_cnt: %d",
 			   mlag_lib_msgid_to_str(mlag_msg.msg_type, buf,
 						 sizeof(buf)),
 			   mlag_msg.data_len, mlag_msg.msg_cnt);
@@ -882,7 +870,7 @@ int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
 int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 {
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Received Process-Up from Mlag", __func__);
+		zlog_debug("Received Process-Up from Mlag");
 
 	/*
 	 * Incase of local MLAG restart, PIM needs to replay all the data
@@ -910,7 +898,7 @@ static void pim_mlag_param_reset(void)
 int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 {
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Received Process-Down from Mlag", __func__);
+		zlog_debug("Received Process-Down from Mlag");
 
 	/* Local CLAG is down, reset peer data and forward the traffic if
 	 * we are DR
@@ -948,8 +936,8 @@ static void pim_mlag_register_handler(struct thread *thread)
 	SET_FLAG(bit_mask, (1 << MLAG_PEER_FRR_STATUS));
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Posting Client Register to MLAG mask: 0x%x",
-			   __func__, bit_mask);
+		zlog_debug("Posting Client Register to MLAG mask: 0x%x",
+			   bit_mask);
 
 	zclient_send_mlag_register(zclient, bit_mask);
 }
@@ -971,8 +959,7 @@ static void pim_mlag_deregister_handler(struct thread *thread)
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Posting Client De-Register to MLAG from PIM",
-			   __func__);
+		zlog_debug("Posting Client De-Register to MLAG from PIM");
 	router->connected_to_mlag = false;
 	zclient_send_mlag_deregister(zclient);
 }
@@ -999,8 +986,8 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Configuring active-active on Interface: %s",
-			   __func__, "NULL");
+		zlog_debug("Configuring active-active on Interface: %s",
+			   "NULL");
 
 	pim_ifp->activeactive = true;
 	if (pim_ifp->pim)
@@ -1009,8 +996,8 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 	router->pim_mlag_intf_cnt++;
 	if (PIM_DEBUG_MLAG)
 		zlog_debug(
-			"%s: Total MLAG configured Interfaces on router: %d, Inst: %d",
-			__func__, router->pim_mlag_intf_cnt,
+			"Total MLAG configured Interfaces on router: %d, Inst: %d",
+			router->pim_mlag_intf_cnt,
 			pim_ifp->pim->inst_mlag_intf_cnt);
 
 	if (router->pim_mlag_intf_cnt == 1) {
@@ -1028,8 +1015,8 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: UnConfiguring active-active on Interface: %s",
-			   __func__, "NULL");
+		zlog_debug("UnConfiguring active-active on Interface: %s",
+			   "NULL");
 
 	pim_ifp->activeactive = false;
 	pim_ifp->pim->inst_mlag_intf_cnt--;
@@ -1037,8 +1024,8 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 	router->pim_mlag_intf_cnt--;
 	if (PIM_DEBUG_MLAG)
 		zlog_debug(
-			"%s: Total MLAG configured Interfaces on router: %d, Inst: %d",
-			__func__, router->pim_mlag_intf_cnt,
+			"Total MLAG configured Interfaces on router: %d, Inst: %d",
+			router->pim_mlag_intf_cnt,
 			pim_ifp->pim->inst_mlag_intf_cnt);
 
 	if (router->pim_mlag_intf_cnt == 0) {

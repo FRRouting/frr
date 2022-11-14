@@ -880,7 +880,7 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 
 	if (!pim) {
 		if (PIM_DEBUG_VXLAN)
-			zlog_debug("%s: Unable to find pim instance", __func__);
+			zlog_debug("Unable to find pim instance");
 		return;
 	}
 
@@ -917,8 +917,8 @@ static void pim_vxlan_set_default_iif(struct pim_instance *pim,
 
 	old_iif = pim->vxlan.default_iif;
 	if (PIM_DEBUG_VXLAN)
-		zlog_debug("%s: vxlan default iif changed from %s to %s",
-			   __func__, old_iif ? old_iif->name : "-",
+		zlog_debug("vxlan default iif changed from %s to %s",
+			   old_iif ? old_iif->name : "-",
 			   ifp ? ifp->name : "-");
 
 	old_iif = pim_vxlan_orig_mr_iif_get(pim);
@@ -928,7 +928,7 @@ static void pim_vxlan_set_default_iif(struct pim_instance *pim,
 		return;
 
 	if (PIM_DEBUG_VXLAN)
-		zlog_debug("%s: vxlan orig iif changed from %s to %s", __func__,
+		zlog_debug("vxlan orig iif changed from %s to %s",
 			   old_iif ? old_iif->name : "-",
 			   ifp ? ifp->name : "-");
 
@@ -1008,8 +1008,8 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 
 	old_iif = pim->vxlan.peerlink_rif;
 	if (PIM_DEBUG_VXLAN)
-		zlog_debug("%s: vxlan peerlink_rif changed from %s to %s",
-			   __func__, old_iif ? old_iif->name : "-",
+		zlog_debug("vxlan peerlink_rif changed from %s to %s",
+			   old_iif ? old_iif->name : "-",
 			   ifp ? ifp->name : "-");
 
 	old_iif = pim_vxlan_orig_mr_iif_get(pim);
@@ -1019,8 +1019,8 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 	new_iif = pim_vxlan_orig_mr_iif_get(pim);
 	if (old_iif != new_iif) {
 		if (PIM_DEBUG_VXLAN)
-			zlog_debug("%s: vxlan orig iif changed from %s to %s",
-				   __func__, old_iif ? old_iif->name : "-",
+			zlog_debug("vxlan orig iif changed from %s to %s",
+				   old_iif ? old_iif->name : "-",
 				   new_iif ? new_iif->name : "-");
 
 		/* add/del upstream entries for the existing vxlan SG when the
@@ -1035,8 +1035,8 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 	new_oif = pim_vxlan_orig_mr_oif_get(pim);
 	if (old_oif != new_oif) {
 		if (PIM_DEBUG_VXLAN)
-			zlog_debug("%s: vxlan orig oif changed from %s to %s",
-				   __func__, old_oif ? old_oif->name : "-",
+			zlog_debug("vxlan orig oif changed from %s to %s",
+				   old_oif ? old_oif->name : "-",
 				   new_oif ? new_oif->name : "-");
 		if (pim->vxlan.sg_hash)
 			hash_iterate(pim->vxlan.sg_hash,

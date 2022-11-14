@@ -348,8 +348,7 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs = bfd_id_lookup(ntohl(state->lid));
 	if (bs == NULL) {
 		if (bglobal.debug_dplane)
-			zlog_debug("%s: failed to find session to update",
-				   __func__);
+			zlog_debug("failed to find session to update");
 		return;
 	}
 
@@ -501,7 +500,7 @@ static void bfd_dplane_handle_message(struct bfddp_message *msg, void *arg)
 		break;
 
 	default:
-		zlog_debug("%s: unhandled message type %d", __func__, bmt);
+		zlog_debug("unhandled message type %d", bmt);
 		break;
 	}
 }
@@ -679,8 +678,7 @@ static void _bfd_session_unregister_dplane(struct hash_bucket *hb, void *arg)
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 {
 	if (bglobal.debug_dplane)
-		zlog_debug("%s: terminating data plane client %d", __func__,
-			   bdc->sock);
+		zlog_debug("terminating data plane client %d", bdc->sock);
 
 	/* Client mode has special treatment. */
 	if (bdc->client) {
@@ -850,7 +848,7 @@ static void bfd_dplane_accept(struct thread *t)
 	TAILQ_INSERT_TAIL(&bglobal.bg_dplaneq, bdc, entry);
 
 	if (bglobal.debug_dplane)
-		zlog_debug("%s: new data plane client connected", __func__);
+		zlog_debug("new data plane client connected");
 
 reschedule_and_return:
 	thread_add_read(master, bfd_dplane_accept, bg, bg->bg_dplane_sock,
@@ -889,8 +887,7 @@ static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc)
 	/* Connection successful. */
 	if (rv == 0) {
 		if (bglobal.debug_dplane)
-			zlog_debug("%s: connected to server: %d", __func__,
-				   bdc->sock);
+			zlog_debug("connected to server: %d", bdc->sock);
 
 		_bfd_dplane_client_bootstrap(bdc);
 		return false;
@@ -946,8 +943,7 @@ static void bfd_dplane_client_connect(struct thread *t)
 	bdc->sock = sock;
 	if (rv == -1) {
 		if (bglobal.debug_dplane)
-			zlog_debug("%s: server connection in progress: %d",
-				   __func__, sock);
+			zlog_debug("server connection in progress: %d", sock);
 
 		/* If we are not connected yet, ask for write notifications. */
 		bdc->connecting = true;
@@ -955,7 +951,7 @@ static void bfd_dplane_client_connect(struct thread *t)
 				 &bdc->outbufev);
 	} else {
 		if (bglobal.debug_dplane)
-			zlog_debug("%s: server connection: %d", __func__, sock);
+			zlog_debug("server connection: %d", sock);
 
 		/* Otherwise just start accepting data. */
 		_bfd_dplane_client_bootstrap(bdc);
@@ -1003,7 +999,7 @@ static int bfd_dplane_finish_late(void)
 	struct bfd_dplane_ctx *bdc;
 
 	if (bglobal.debug_dplane)
-		zlog_debug("%s: terminating distributed BFD", __func__);
+		zlog_debug("terminating distributed BFD");
 
 	/* Free all data plane client contexts. */
 	while ((bdc = TAILQ_FIRST(&bglobal.bg_dplaneq)) != NULL)
@@ -1175,7 +1171,7 @@ int bfd_dplane_update_session_counters(struct bfd_session *bs)
 	/* Make the request. */
 	id = bfd_dplane_request_counters(bs);
 	if (id == 0) {
-		zlog_debug("%s: counters request failed", __func__);
+		zlog_debug("counters request failed");
 		return -1;
 	}
 

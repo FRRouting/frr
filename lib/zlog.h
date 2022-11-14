@@ -96,8 +96,7 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 	va_end(ap);
 }
 
-#define _zlog_ecref(ec_, prio, msg, ...)                                       \
-	do {                                                                   \
+#define _zlog_make_xref(ec_, prio, msg, args_)                                 \
 		static struct xrefdata_logmsg _xrefdata = {                    \
 			.xrefdata =                                            \
 				{                                              \
@@ -114,9 +113,14 @@ static inline void zlog_ref(const struct xref_logmsg *xref,
 			.fmtstring = (msg),                                    \
 			.priority = (prio),                                    \
 			.ec = (ec_),                                           \
-			.args = (#__VA_ARGS__),                                \
+			.args = (args_),                                       \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
+		/* end */
+
+#define _zlog_ecref(ec_, prio, msg, ...)                                       \
+	do {                                                                   \
+		_zlog_make_xref(ec_, prio, msg, (#__VA_ARGS__));               \
 		zlog_ref(&_xref, (msg), ##__VA_ARGS__);                        \
 	} while (0)
 
@@ -138,6 +142,76 @@ extern void zlog_sigsafe(const char *text, size_t len);
 
 /* extra priority value to disable a target without deleting it */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
+
+/* a "block" of debug messages that semantically belong together (and e.g.
+ * could be logged as a single multi-line log message for targets that
+ * support that (e.g. journald).
+ *
+ * These blocks are (currently) always DEBUG level;  if it makes sense for
+ * higher severities that can of course be added.  But note it makes little
+ * sense to have messages of varying severity go into a common block.  (What
+ * would that even mean?)
+ */
+
+struct xref_logblk {
+	/* where we begun this block.  used primarily for function name. */
+	struct xref xref;
+
+	/* nothing else needed here */
+};
+
+struct zlog_blk {
+	const struct xref_logblk *xref;
+
+	/* future: put necessary machinery here to combine/tag/paint green
+	 * these blocks
+	 */
+};
+
+extern void zlog_blk_begin_ref(const struct xref_logblk *xref,
+			       struct zlog_blk *blk);
+extern void zlog_blk_end(struct zlog_blk *blk);
+extern void vzlog_blk_debug_ref(const struct xref_logmsg *xref,
+				struct zlog_blk *blk, const char *fmt,
+				va_list ap);
+
+PRINTFRR(3, 4)
+static inline void zlog_blk_debug_ref(const struct xref_logmsg *xref,
+				      struct zlog_blk *blk, const char *fmt,
+				      ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vzlog_blk_debug_ref(xref, blk, fmt, ap);
+	va_end(ap);
+}
+
+/* xref fill-in macros */
+#define zlog_blk_begin(blk)                                                    \
+	do {                                                                   \
+		static const struct xref_logblk _xref __attribute__((          \
+			used)) = {                                             \
+			.xref = XREF_INIT(XREFT_LOGBLK, NULL, __func__),       \
+		};                                                             \
+		XREF_LINK(_xref.xref);                                         \
+		zlog_blk_begin_ref(&_xref, blk);                               \
+	} while (0)
+
+#define zlog_blk_debug(blk, msg, ...)                                          \
+	do {                                                                   \
+		_zlog_make_xref(0, LOG_DEBUG, msg, (#__VA_ARGS__));            \
+		zlog_blk_debug_ref(&_xref, blk, (msg), ##__VA_ARGS__);         \
+	} while (0)
+
+/* helper for debug log functions that print such blocks */
+#define ZLOG_CALL_LOGBLK(funcname, ...)                                        \
+	do {                                                                   \
+		struct zlog_blk _logblk = {};                                  \
+		zlog_blk_begin(&_logblk);                                      \
+		funcname(&_logblk, ##__VA_ARGS__);                             \
+		zlog_blk_end(&_logblk);                                        \
+	} while (0)
 
 /* zlog_msg encapsulates a particular logging call from somewhere in the code.
  * The same struct is passed around to all zlog_targets.

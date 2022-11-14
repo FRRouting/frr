@@ -59,7 +59,7 @@ void ospf6_zebra_vrf_register(struct ospf6 *ospf6)
 
 	if (ospf6->vrf_id != VRF_UNKNOWN) {
 		if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
-			zlog_debug("%s: Register VRF %s id %u", __func__,
+			zlog_debug("Register VRF %s id %u",
 				   ospf6_vrf_id_to_name(ospf6->vrf_id),
 				   ospf6->vrf_id);
 		}
@@ -74,8 +74,7 @@ void ospf6_zebra_vrf_deregister(struct ospf6 *ospf6)
 
 	if (ospf6->vrf_id != VRF_DEFAULT && ospf6->vrf_id != VRF_UNKNOWN) {
 		if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
-			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
-				   __func__,
+			zlog_debug("De-Register VRF %s id %u to Zebra.",
 				   ospf6_vrf_id_to_name(ospf6->vrf_id),
 				   ospf6->vrf_id);
 		}
@@ -151,7 +150,7 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 		command = ZEBRA_NEXTHOP_REGISTER;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(SEND))
-		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
+		zlog_debug("sending cmd %s for %pFX (vrf %u)",
 			   zserv_command_string(command), &prefix,
 			   ospf6->vrf_id);
 

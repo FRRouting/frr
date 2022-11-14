@@ -103,8 +103,8 @@ static int isis_multicast_join(int fd, int registerto, int if_num)
 #ifdef EXTREME_DEBUG
 	if (IS_DEBUG_EVENTS)
 		zlog_debug(
-			"%s: fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
-			__func__, fd, registerto, if_num, mreq.mr_address[0],
+			"fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
+			fd, registerto, if_num, mreq.mr_address[0],
 			mreq.mr_address[1], mreq.mr_address[2],
 			mreq.mr_address[3], mreq.mr_address[4],
 			mreq.mr_address[5]);

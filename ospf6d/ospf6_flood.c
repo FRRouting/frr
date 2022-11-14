@@ -261,8 +261,7 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	if (old) {
 		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
 			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug("%s : old LSA %s", __func__,
-					   lsa->name);
+				zlog_debug("old LSA %s", lsa->name);
 			lsa->external_lsa_id = old->external_lsa_id;
 		}
 		THREAD_OFF(old->expire);
@@ -302,8 +301,8 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
 	    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
-		zlog_debug("%s Install LSA: %s age %d seqnum %x in LSDB.",
-			   __func__, lsa->name, ntohs(lsa->header->age),
+		zlog_debug("Install LSA: %s age %d seqnum %x in LSDB.",
+			   lsa->name, ntohs(lsa->header->age),
 			   ntohl(lsa->header->seqnum));
 
 	/* actually install */
@@ -332,8 +331,7 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 		if (old == NULL) {
 			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
 			    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
-				zlog_debug("%s: New router LSA %s", __func__,
-					   lsa->name);
+				zlog_debug("New router LSA %s", lsa->name);
 			ospf6_abr_nssa_check_status(area->ospf6);
 		}
 	}
@@ -445,10 +443,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		if ((oi->area->ospf6->inst_shutdown)
 		    || CHECK_FLAG(lsa->flag, OSPF6_LSA_FLUSH)) {
 			if (is_debug)
-				zlog_debug(
-					"%s: Send LSA %s (age %d) update now",
-					__func__, lsa->name,
-					ntohs(lsa->header->age));
+				zlog_debug("Send LSA %s (age %d) update now",
+					   lsa->name, ntohs(lsa->header->age));
 			ospf6_lsupdate_send_neighbor_now(on, lsa);
 			continue;
 		} else {
@@ -1045,8 +1041,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 				if (IS_DEBUG_OSPF6_GR)
 					zlog_debug(
-						"%s, Received a maxage GraceLSA from router %pI4",
-						__func__,
+						"Received a maxage GraceLSA from router %pI4",
 						&new->header->adv_router);
 				if (old) {
 					ospf6_process_maxage_grace_lsa(
@@ -1054,24 +1049,21 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				} else {
 					if (IS_DEBUG_OSPF6_GR)
 						zlog_debug(
-							"%s, GraceLSA doesn't exist in lsdb, so discarding GraceLSA",
-							__func__);
+							"GraceLSA doesn't exist in lsdb, so discarding GraceLSA");
 					return;
 				}
 			} else {
 
 				if (IS_DEBUG_OSPF6_GR)
 					zlog_debug(
-						"%s, Received a GraceLSA from router %pI4",
-						__func__,
+						"Received a GraceLSA from router %pI4",
 						&new->header->adv_router);
 
 				if (ospf6_process_grace_lsa(ospf6, new, from)
 				    == OSPF6_GR_NOT_HELPER) {
 					if (IS_DEBUG_OSPF6_GR)
 						zlog_debug(
-							"%s, Not moving to HELPER role, So dicarding GraceLSA",
-							__func__);
+							"Not moving to HELPER role, So dicarding GraceLSA");
 					return;
 				}
 			}
@@ -1214,8 +1206,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				    != from->ospf6_if->area->ospf6->router_id) {
 					if (is_debug)
 						zlog_debug(
-							"%s: Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
-							__PRETTY_FUNCTION__, old->name);
+							"Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
+							old->name);
 					ospf6_lsa_purge(old);
 					ospf6_flood(from, new);
 					ospf6_install_lsa(new);
@@ -1227,8 +1219,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				 */
 				if (is_debug)
 					zlog_debug(
-						"%s: Current copy of self-originated LSA %s is MAXAGE, but new has recent age, re-sending current one.",
-						__PRETTY_FUNCTION__, old->name);
+						"Current copy of self-originated LSA %s is MAXAGE, but new has recent age, re-sending current one.",
+						old->name);
 			}
 
 			/* MinLSArrival check as per RFC 2328 13 (8) */

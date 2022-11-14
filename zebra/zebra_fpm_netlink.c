@@ -298,7 +298,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 		return 1;
 
 	if (!re) {
-		zfpm_debug("%s: Expected non-NULL re pointer", __func__);
+		zfpm_debug("Expected non-NULL re pointer");
 		return 0;
 	}
 

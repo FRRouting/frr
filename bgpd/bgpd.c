@@ -1220,7 +1220,7 @@ struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
 int bgp_global_gr_init(struct bgp *bgp)
 {
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("%s called ..", __func__);
+		zlog_debug("called ..");
 
 	int local_GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE][BGP_GLOBAL_GR_EVENT_CMD] = {
 		/* GLOBAL_HELPER Mode  */
@@ -1268,7 +1268,7 @@ int bgp_global_gr_init(struct bgp *bgp)
 int bgp_peer_gr_init(struct peer *peer)
 {
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("%s called ..", __func__);
+		zlog_debug("called ..");
 
 	struct bgp_peer_gr local_Peer_GR_FSM[BGP_PEER_GR_MODE]
 					[BGP_PEER_GR_EVENT_CMD] = {
@@ -3510,8 +3510,8 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Registering BGP instance %s to zebra",
-				   __func__, name);
+			zlog_debug("Registering BGP instance %s to zebra",
+				   name);
 		bgp_zebra_instance_register(bgp);
 	}
 
@@ -3764,8 +3764,8 @@ int bgp_delete(struct bgp *bgp)
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"%s: deregistering this bgp %s instance from zebra",
-				__func__, bgp->name);
+				"deregistering this bgp %s instance from zebra",
+				bgp->name);
 		bgp_zebra_instance_deregister(bgp);
 	}
 
@@ -7503,8 +7503,7 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 	struct listnode *node, *nnode;
 	int ret;
 
-	zlog_debug("%s: set gtsm_hops to %d for %s", __func__, gtsm_hops,
-		   peer->host);
+	zlog_debug("set gtsm_hops to %d for %s", gtsm_hops, peer->host);
 
 	/* We cannot configure ttl-security hops when ebgp-multihop is already
 	   set.  For non peer-groups, the check is simple.  For peer-groups,
@@ -7609,7 +7608,7 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 	struct listnode *node, *nnode;
 	int ret = 0;
 
-	zlog_debug("%s: set gtsm_hops to zero for %s", __func__, peer->host);
+	zlog_debug("set gtsm_hops to zero for %s", peer->host);
 
 	/* if a peer-group member, then reset to peer-group default rather than
 	 * 0 */
@@ -8179,7 +8178,7 @@ void bgp_gr_apply_running_config(void)
 	bool gr_router_detected = false;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("[BGP_GR] %s called !", __func__);
+		zlog_debug("[BGP_GR] called !");
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {

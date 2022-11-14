@@ -1294,7 +1294,7 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	addr = dplane_ctx_get_intf_addr(ctx);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s: ifindex %s(%u), addr %pFX", __func__,
+		zlog_debug("%s: ifindex %s(%u), addr %pFX",
 			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name,
 			   ifp->ifindex, addr);
 
@@ -1366,23 +1366,22 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 	down = dplane_ctx_intf_is_protodown(ctx);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s: if %s(%u) ctx-protodown %s ctx-reason %d",
-			   __func__, dplane_op2str(dplane_ctx_get_op(ctx)),
-			   ifp->name, ifp->ifindex, down ? "on" : "off",
-			   pd_reason_val);
+		zlog_debug("%s: if %s(%u) ctx-protodown %s ctx-reason %d",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name,
+			   ifp->ifindex, down ? "on" : "off", pd_reason_val);
 
 	zif = ifp->info;
 	if (!zif) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: if %s(%u) zebra info pointer is NULL",
-				   __func__, ifp->name, ifp->ifindex);
+			zlog_debug("if %s(%u) zebra info pointer is NULL",
+				   ifp->name, ifp->ifindex);
 		return;
 	}
 
 	if (dp_res != ZEBRA_DPLANE_REQUEST_SUCCESS) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: if %s(%u) dplane update failed",
-				   __func__, ifp->name, ifp->ifindex);
+			zlog_debug("if %s(%u) dplane update failed", ifp->name,
+				   ifp->ifindex);
 		goto done;
 	}
 
@@ -1434,8 +1433,8 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 		if (!zif) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"%s: if %s(%u) zebra info pointer is NULL",
-					__func__, ifp->name, ifp->ifindex);
+					"if %s(%u) zebra info pointer is NULL",
+					ifp->name, ifp->ifindex);
 			return;
 		}
 		if (afi == AFI_IP) {
@@ -1468,8 +1467,8 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"%s: afi: %d if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
-			__func__, afi, ifp ? ifp->name : "Global",
+			"afi: %d if %s, ifindex %d, mpls %s mc_forwarding: %s linkdown %s",
+			afi, ifp ? ifp->name : "Global",
 			ifp ? ifp->ifindex : ifindex,
 			(zif ? (zif->mpls ? "ON" : "OFF") : "OFF"),
 			(*mcast_set ? "ON" : "OFF"),
@@ -1499,7 +1498,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	if (zns == NULL) {
 		/* No ns - deleted maybe? */
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: can't find zns id %u", __func__, ns_id);
+			zlog_debug("can't find zns id %u", ns_id);
 
 		return;
 	}
@@ -1509,9 +1508,8 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 		if (op != DPLANE_OP_INTF_NETCONFIG ||
 		    (ifindex != -1 && ifindex != -2)) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug(
-					"%s: can't find ifp at nsid %u index %d",
-					__func__, ns_id, ifindex);
+				zlog_debug("can't find ifp at nsid %u index %d",
+					   ns_id, ifindex);
 
 			return;
 		}

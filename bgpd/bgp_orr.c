@@ -120,8 +120,8 @@ static struct bgp_orr_group *bgp_orr_group_new(struct bgp *bgp, afi_t afi,
 		ret = zclient_register_opaque(zclient, ORR_IGP_METRIC_UPDATE);
 		if (ret != ZCLIENT_SEND_SUCCESS)
 			bgp_orr_debug(
-				"%s: zclient_register_opaque failed with ret = %d",
-				__func__, ret);
+				"zclient_register_opaque failed with ret = %d",
+				ret);
 	}
 
 	bgp->orr_group_count++;
@@ -137,7 +137,7 @@ static void bgp_orr_group_free(struct bgp_orr_group *orr_group)
 
 	assert(orr_group && orr_group->bgp && orr_group->name);
 
-	bgp_orr_debug("%s: Deleting ORR group %s", __func__, orr_group->name);
+	bgp_orr_debug("Deleting ORR group %s", orr_group->name);
 
 	afi = orr_group->afi;
 	safi = orr_group->safi;
@@ -187,7 +187,7 @@ struct bgp_orr_group *bgp_orr_group_lookup_by_name(struct bgp *bgp, afi_t afi,
 		if (strmatch(group->name, name))
 			return group;
 
-	bgp_orr_debug("%s: For %s, ORR Group '%s' not found.", __func__,
+	bgp_orr_debug("For %s, ORR Group '%s' not found.",
 		      get_afi_safi_str(afi, safi, false), name);
 
 	return NULL;
@@ -208,11 +208,9 @@ static char *bgp_orr_group_rrclient_lookup(struct bgp_orr_group *orr_group,
 		if (strmatch(rrclient, rr_client_host))
 			return rrclient;
 
-	bgp_orr_debug(
-		"%s: For %s, %s not found in ORR Group '%s' RR Client list",
-		__func__,
-		get_afi_safi_str(orr_group->afi, orr_group->safi, false),
-		rr_client_host, orr_group->name);
+	bgp_orr_debug("For %s, %s not found in ORR Group '%s' RR Client list",
+		      get_afi_safi_str(orr_group->afi, orr_group->safi, false),
+		      rr_client_host, orr_group->name);
 
 	return NULL;
 }
@@ -231,7 +229,7 @@ static void bgp_orr_group_rrclient_update(struct peer *peer, afi_t afi,
 	orr_group = bgp_orr_group_lookup_by_name(peer->bgp, afi, safi,
 						 orr_group_name);
 	if (!orr_group) {
-		bgp_orr_debug("%s: For %s, ORR Group '%s' not found.", __func__,
+		bgp_orr_debug("For %s, ORR Group '%s' not found.",
 			      get_afi_safi_str(afi, safi, false),
 			      orr_group_name);
 		return;
@@ -254,8 +252,8 @@ static void bgp_orr_group_rrclient_update(struct peer *peer, afi_t afi,
 		listnode_add(rr_client_list, rr_client);
 
 		bgp_orr_debug(
-			"%s: For %s, %pBP is added to ORR Group '%s' RR Client list.",
-			__func__, get_afi_safi_str(afi, safi, false), peer,
+			"For %s, %pBP is added to ORR Group '%s' RR Client list.",
+			get_afi_safi_str(afi, safi, false), peer,
 			orr_group_name);
 	} else {
 		/* Delete BGP ORR RR client entry from the ORR Group */
@@ -265,8 +263,8 @@ static void bgp_orr_group_rrclient_update(struct peer *peer, afi_t afi,
 			list_delete(&orr_group->rr_client_list);
 
 		bgp_orr_debug(
-			"%s: For %s, %pBP is removed from ORR Group '%s' RR Client list.",
-			__func__, get_afi_safi_str(afi, safi, false), peer,
+			"For %s, %pBP is removed from ORR Group '%s' RR Client list.",
+			get_afi_safi_str(afi, safi, false), peer,
 			orr_group_name);
 	}
 }
@@ -282,9 +280,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct bgp_orr_group *orr_group = NULL;
 
 	bgp_orr_debug(
-		"%s: For %s, ORR Group '%s' Primary %pBP Secondary %pBP Tertiary %pBP",
-		__func__, get_afi_safi_str(afi, safi, false), name, primary,
-		secondary, tertiary);
+		"For %s, ORR Group '%s' Primary %pBP Secondary %pBP Tertiary %pBP",
+		get_afi_safi_str(afi, safi, false), name, primary, secondary,
+		tertiary);
 
 	/* Get BGP ORR entry for the given address-family */
 	orr_group = bgp_orr_group_lookup_by_name(bgp, afi, safi, name);
@@ -299,8 +297,7 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		    !strmatch(orr_group->primary->host, primary->host))
 			orr_group->primary = primary;
 		else
-			bgp_orr_debug("%s: No change in Primary Root",
-				      __func__);
+			bgp_orr_debug("No change in Primary Root");
 
 		/*
 		 * Update Active Root if there is a change and primary is
@@ -318,10 +315,9 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 			orr_group->active = primary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else
-			bgp_orr_debug("%s: %s", __func__,
-				      orr_group->primary
-					      ? "No change in Active Root"
-					      : "Primary Root is NULL");
+			bgp_orr_debug("%s", orr_group->primary
+						    ? "No change in Active Root"
+						    : "Primary Root is NULL");
 	} else {
 		if (orr_group->primary) {
 			if (orr_group->active &&
@@ -341,8 +337,7 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		    !strmatch(orr_group->secondary->host, secondary->host))
 			orr_group->secondary = secondary;
 		else
-			bgp_orr_debug("%s: No change in Secondary Root",
-				      __func__);
+			bgp_orr_debug("No change in Secondary Root");
 
 		/* Update Active Root if Primary is not reachable */
 		secondary_eligible =
@@ -357,13 +352,11 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 			orr_group->active = secondary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else
-			bgp_orr_debug(
-				"%s: %s", __func__,
-				primary_eligible
-					? "Primary is Active Root"
-					: orr_group->secondary
-						  ? "No change in Active Root"
-						  : "Secondary Root is NULL");
+			bgp_orr_debug("%s", primary_eligible
+						    ? "Primary is Active Root"
+					    : orr_group->secondary
+						    ? "No change in Active Root"
+						    : "Secondary Root is NULL");
 	} else {
 		if (orr_group->secondary) {
 			if (orr_group->active &&
@@ -383,8 +376,7 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		    !strmatch(orr_group->tertiary->host, tertiary->host))
 			orr_group->tertiary = tertiary;
 		else
-			bgp_orr_debug("%s: No change in Tertiay Root",
-				      __func__);
+			bgp_orr_debug("No change in Tertiay Root");
 
 		/*
 		 * Update Active Root if Primary & Secondary are not reachable
@@ -403,15 +395,14 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 			orr_group->active = tertiary;
 			bgp_orr_igp_metric_register(orr_group, true);
 		} else
-			bgp_orr_debug(
-				"%s: %s", __func__,
-				primary_eligible
-					? "Primary is Active Root"
-					: secondary_eligible
-						  ? "Secondary is Active Root"
-						  : !orr_group->tertiary
-							    ? "Tertiary Root is NULL"
-							    : "No change in Active Root");
+			bgp_orr_debug("%s",
+				      primary_eligible
+					      ? "Primary is Active Root"
+				      : secondary_eligible
+					      ? "Secondary is Active Root"
+				      : !orr_group->tertiary
+					      ? "Tertiary Root is NULL"
+					      : "No change in Active Root");
 	} else {
 		if (orr_group->tertiary) {
 			if (orr_group->active &&
@@ -432,8 +423,8 @@ int bgp_afi_safi_orr_group_set(struct bgp *bgp, afi_t afi, safi_t safi,
 		orr_group->active = NULL;
 	}
 
-	bgp_orr_debug("%s: For %s, ORR Group '%s' Active Root is %pBP",
-		      __func__, get_afi_safi_str(afi, safi, false), name,
+	bgp_orr_debug("For %s, ORR Group '%s' Active Root is %pBP",
+		      get_afi_safi_str(afi, safi, false), name,
 		      orr_group->active);
 
 	return CMD_SUCCESS;
@@ -452,8 +443,7 @@ int bgp_afi_safi_orr_group_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* Check if there are any neighbors configured with this ORR Group */
 	if (orr_group->rr_client_list) {
 		bgp_orr_debug(
-			"%s: For %s, ORR Group '%s' not removed as '%s' is configured on neighbor(s)",
-			__func__,
+			"For %s, ORR Group '%s' not removed as '%s' is configured on neighbor(s)",
 			get_afi_safi_str(orr_group->afi, orr_group->safi,
 					 false),
 			name, name);
@@ -486,8 +476,8 @@ static int peer_orr_group_set(struct peer *peer, afi_t afi, safi_t safi,
 	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP)) {
 		if (strmatch(peer->orr_group_name[afi][safi], orr_group_name)) {
 			bgp_orr_debug(
-				"%s: For %s, ORR Group '%s' is already configured on %pBP",
-				__func__, get_afi_safi_str(afi, safi, false),
+				"For %s, ORR Group '%s' is already configured on %pBP",
+				get_afi_safi_str(afi, safi, false),
 				orr_group_name, peer);
 			return CMD_SUCCESS;
 		}
@@ -523,9 +513,9 @@ int peer_orr_group_unset(struct peer *peer, afi_t afi, safi_t safi,
 	if (!peer_af_flag_check(peer, afi, safi, PEER_FLAG_ORR_GROUP) ||
 	    !strmatch(peer->orr_group_name[afi][safi], orr_group_name)) {
 		bgp_orr_debug(
-			"%s: For %s, ORR Group '%s' is not configured on %pBP",
-			__func__, get_afi_safi_str(afi, safi, false),
-			orr_group_name, peer);
+			"For %s, ORR Group '%s' is not configured on %pBP",
+			get_afi_safi_str(afi, safi, false), orr_group_name,
+			peer);
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -872,7 +862,7 @@ bgp_peer_update_orr_group_active_root(struct peer *peer, afi_t afi, safi_t safi,
 	bgp_orr_igp_metric_register(orr_group, false);
 	orr_group->active = NULL;
 
-	bgp_orr_debug("%s: For %s, ORR Group '%s' has no active root", __func__,
+	bgp_orr_debug("For %s, ORR Group '%s' has no active root",
 		      get_afi_safi_str(afi, safi, false),
 		      peer->orr_group_name[afi][safi]);
 }
@@ -957,36 +947,33 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 
 	if ((proto != ZEBRA_ROUTE_OSPF) && (proto != ZEBRA_ROUTE_OSPF6) &&
 	    (proto != ZEBRA_ROUTE_ISIS)) {
-		bgp_orr_debug("%s: Message received from unsupported protocol",
-			      __func__);
+		bgp_orr_debug("Message received from unsupported protocol");
 		return -1;
 	}
 
 	orr_group_list = bgp->orr_group[afi][safi];
 	if (!orr_group_list) {
-		bgp_orr_debug(
-			"%s: Address family %s has no ORR Groups configured",
-			__func__, get_afi_safi_str(afi, safi, false));
+		bgp_orr_debug("Address family %s has no ORR Groups configured",
+			      get_afi_safi_str(afi, safi, false));
 		return -1;
 	}
 
 	if (BGP_DEBUG(optimal_route_reflection, ORR)) {
 		zlog_debug(
-			"[BGP-ORR] %s: Received metric update from protocol %s instance %d",
-			__func__,
+			"[BGP-ORR]: Received metric update from protocol %s instance %d",
 			proto == ZEBRA_ROUTE_ISIS
 				? "ISIS"
 				: (proto == ZEBRA_ROUTE_OSPF ? "OSPF"
 							     : "OSPF6"),
 			instId);
-		zlog_debug("[BGP-ORR] %s: Address family %s", __func__,
+		zlog_debug("[BGP-ORR]: Address family %s",
 			   get_afi_safi_str(afi, safi, false));
-		zlog_debug("[BGP-ORR] %s: Root %pFX", __func__, &root);
-		zlog_debug("[BGP-ORR] %s: Number of entries to be %s %d",
-			   __func__, add ? "added" : "deleted", numEntries);
-		zlog_debug("[BGP-ORR] %s: Prefix (Cost) :", __func__);
+		zlog_debug("[BGP-ORR]: Root %pFX", &root);
+		zlog_debug("[BGP-ORR]: Number of entries to be %s %d",
+			   add ? "added" : "deleted", numEntries);
+		zlog_debug("[BGP-ORR]: Prefix (Cost) :");
 		for (entry = 0; entry < numEntries; entry++)
-			zlog_debug("[BGP-ORR] %s: %pFX (%d)", __func__,
+			zlog_debug("[BGP-ORR]: %pFX (%d)",
 				   &table->nexthop[entry].prefix,
 				   table->nexthop[entry].metric);
 	}
@@ -995,7 +982,7 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 	 */
 	for (ALL_LIST_ELEMENTS_RO(orr_group_list, node, group)) {
 		if (str2prefix(group->active->host, &pfx) == 0) {
-			bgp_orr_debug("%s: Malformed prefix for %pBP", __func__,
+			bgp_orr_debug("Malformed prefix for %pBP",
 				      group->active);
 			continue;
 		}
@@ -1058,8 +1045,8 @@ static int bgp_orr_igp_metric_update(struct orr_igp_metric_info *table)
 	/* Received IGP for root node thats not found in ORR active roots */
 	if (!root_found) {
 		bgp_orr_debug(
-			"%s: Received IGP SPF information for root %pFX which is not an ORR active root",
-			__func__, &root);
+			"Received IGP SPF information for root %pFX which is not an ORR active root",
+			&root);
 	}
 	assert(root_found);
 	return 0;
@@ -1089,9 +1076,8 @@ static void bgp_orr_igp_metric_register(struct bgp_orr_group *orr_group,
 	rr_client = bgp_orr_group_rrclient_lookup(orr_group,
 						  orr_group->active->host);
 	if (reg && !rr_client) {
-		bgp_orr_debug(
-			"%s: active root %pBP is not part of this ORR group",
-			__func__, orr_group->active);
+		bgp_orr_debug("active root %pBP is not part of this ORR group",
+			      orr_group->active);
 		return;
 	}
 
@@ -1101,9 +1087,8 @@ static void bgp_orr_igp_metric_register(struct bgp_orr_group *orr_group,
 	prefix_copy(&msg.prefix, &p);
 	strlcpy(msg.group_name, orr_group->name, sizeof(msg.group_name));
 
-	bgp_orr_debug(
-		"%s: %s with IGP for metric calculation from location %pFX",
-		__func__, reg ? "Register" : "Unregister", &msg.prefix);
+	bgp_orr_debug("%s with IGP for metric calculation from location %pFX",
+		      reg ? "Register" : "Unregister", &msg.prefix);
 
 	if (zclient_send_opaque(zclient, ORR_IGP_METRIC_REGISTER,
 				(uint8_t *)&msg,

@@ -576,7 +576,7 @@ static void nb_config_diff(const struct nb_config *config1,
 
 		if (!lyd_print_mem(&s, diff, LYD_JSON,
 				   LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)) {
-			zlog_debug("%s: %s", __func__, s);
+			zlog_debug("%s", s);
 			free(s);
 		}
 	}

@@ -173,8 +173,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	int i, err;
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
-		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
-			   pim->vrf->name);
+		zlog_debug("addr=%pPAs(%s)", &addr, pim->vrf->name);
 
 	s = zlookup->ibuf;
 
@@ -213,7 +212,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
-			zlog_debug("%s: socket %d bad nexthop_num=%d", __func__,
+			zlog_debug("socket %d bad nexthop_num=%d",
 				   zlookup->sock, nexthop_num);
 		return -6;
 	}
@@ -328,8 +327,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	struct ipaddr ipaddr;
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
-		zlog_debug("%s: addr=%pPAs(%s)", __func__, &addr,
-			   pim->vrf->name);
+		zlog_debug("addr=%pPAs(%s)", &addr, pim->vrf->name);
 
 	/* Check socket. */
 	if (zlookup->sock < 0) {
@@ -385,7 +383,7 @@ void zclient_lookup_read_pipe(struct thread *thread)
 
 	if (!pim) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
-			zlog_debug("%s: Unable to find pim instance", __func__);
+			zlog_debug("Unable to find pim instance");
 		return;
 	}
 
@@ -415,8 +413,8 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 		if (num_ifindex < 1) {
 			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug(
-					"%s: lookup=%d/%d: could not find nexthop ifindex for address %pPA(%s)",
-					__func__, lookup, max_lookup, &addr,
+					"lookup=%d/%d: could not find nexthop ifindex for address %pPA(%s)",
+					lookup, max_lookup, &addr,
 					pim->vrf->name);
 			return -1;
 		}
@@ -448,8 +446,8 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 				 * lookup */
 				if (PIM_DEBUG_PIM_NHT)
 					zlog_debug(
-						"%s: lookup=%d/%d: found non-recursive ifindex=%d for address %pPA(%s) dist=%d met=%d",
-						__func__, lookup, max_lookup,
+						"lookup=%d/%d: found non-recursive ifindex=%d for address %pPA(%s) dist=%d met=%d",
+						lookup, max_lookup,
 						first_ifindex, &addr,
 						pim->vrf->name,
 						nexthop_tab[0]
@@ -470,9 +468,9 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
-				"%s: lookup=%d/%d: zebra returned recursive nexthop %pPAs for address %pPA(%s) dist=%d met=%d",
-				__func__, lookup, max_lookup, &nexthop_addr,
-				&addr, pim->vrf->name,
+				"lookup=%d/%d: zebra returned recursive nexthop %pPAs for address %pPA(%s) dist=%d met=%d",
+				lookup, max_lookup, &nexthop_addr, &addr,
+				pim->vrf->name,
 				nexthop_tab[0].protocol_distance,
 				nexthop_tab[0].route_metric);
 

@@ -396,8 +396,8 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	pim_ifp = ifp->info;
 
 	if (PIM_DEBUG_GM_TRACE)
-		zlog_debug("%s: Querier %pPAs on %s reconfig query_interval=%d",
-			   __func__, &igmp->ifaddr, ifp->name,
+		zlog_debug("Querier %pPAs on %s reconfig query_interval=%d",
+			   &igmp->ifaddr, ifp->name,
 			   pim_ifp->gm_default_query_interval);
 
 	/*

@@ -265,7 +265,7 @@ int release_daemon_table_chunks(struct zserv *client)
 			}
 		}
 	}
-	zlog_debug("%s: Released %d table chunks", __func__, count);
+	zlog_debug("Released %d table chunks", count);
 
 	return count;
 }

@@ -559,8 +559,8 @@ DEFUN (ospf_network_area,
 			"Please remove all ip ospf area x.x.x.x commands first.\n");
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s ospf vrf %s num of %u ip ospf area x config",
-				__func__, ospf_get_name(ospf), count);
+				"ospf vrf %s num of %u ip ospf area x config",
+				ospf_get_name(ospf), count);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

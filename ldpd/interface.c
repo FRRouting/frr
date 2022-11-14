@@ -86,7 +86,7 @@ if_new(const char *name)
 void
 ldpe_if_init(struct iface *iface)
 {
-	log_debug("%s: interface %s", __func__, iface->name);
+	log_debug("interface %s", iface->name);
 
 	LIST_INIT(&iface->addr_list);
 
@@ -109,7 +109,7 @@ ldpe_if_exit(struct iface *iface)
 {
 	struct if_addr		*if_addr;
 
-	log_debug("%s: interface %s", __func__, iface->name);
+	log_debug("interface %s", iface->name);
 
 	ldp_sync_fsm(iface, LDP_SYNC_EVT_CONFIG_LDP_OFF);
 
@@ -287,8 +287,7 @@ if_start(struct iface *iface, int af)
 	struct iface_af		*ia;
 	struct timeval		 now;
 
-	log_debug("%s: %s address-family %s", __func__, iface->name,
-	    af_name(af));
+	log_debug("%s address-family %s", iface->name, af_name(af));
 
 	ia = iface_af_get(iface, af);
 
@@ -321,8 +320,7 @@ if_reset(struct iface *iface, int af)
 	struct iface_af		*ia;
 	struct adj		*adj;
 
-	log_debug("%s: %s address-family %s", __func__, iface->name,
-	    af_name(af));
+	log_debug("%s address-family %s", iface->name, af_name(af));
 
 	ia = iface_af_get(iface, af);
 	if_stop_hello_timer(ia);
@@ -571,8 +569,7 @@ if_join_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
 	struct in_addr		 if_addr;
 
-	log_debug("%s: interface %s addr %pI4", __func__, iface->name,
-	    addr);
+	log_debug("interface %s addr %pI4", iface->name, addr);
 
 	if_addr.s_addr = if_get_ipv4_addr(iface);
 
@@ -590,8 +587,7 @@ if_leave_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
 	struct in_addr		 if_addr;
 
-	log_debug("%s: interface %s addr %pI4", __func__, iface->name,
-	    addr);
+	log_debug("interface %s addr %pI4", iface->name, addr);
 
 	if_addr.s_addr = if_get_ipv4_addr(iface);
 
@@ -609,8 +605,7 @@ if_join_ipv6_group(struct iface *iface, struct in6_addr *addr)
 {
 	struct ipv6_mreq	 mreq;
 
-	log_debug("%s: interface %s addr %s", __func__, iface->name,
-	    log_in6addr(addr));
+	log_debug("interface %s addr %s", iface->name, log_in6addr(addr));
 
 	mreq.ipv6mr_multiaddr = *addr;
 	mreq.ipv6mr_interface = iface->ifindex;
@@ -630,8 +625,7 @@ if_leave_ipv6_group(struct iface *iface, struct in6_addr *addr)
 {
 	struct ipv6_mreq	 mreq;
 
-	log_debug("%s: interface %s addr %s", __func__, iface->name,
-	    log_in6addr(addr));
+	log_debug("interface %s addr %s", iface->name, log_in6addr(addr));
 
 	mreq.ipv6mr_multiaddr = *addr;
 	mreq.ipv6mr_interface = iface->ifindex;

@@ -208,7 +208,7 @@ void sharp_nhgroup_id_set_installed(uint32_t id, bool installed)
 
 	snhg = sharp_nhgroup_find_id(id);
 	if (!snhg) {
-		zlog_debug("%s: nhg %u not found", __func__, id);
+		zlog_debug("nhg %u not found", id);
 		return;
 	}
 
@@ -221,7 +221,7 @@ bool sharp_nhgroup_id_is_installed(uint32_t id)
 
 	snhg = sharp_nhgroup_find_id(id);
 	if (!snhg) {
-		zlog_debug("%s: nhg %u not found", __func__, id);
+		zlog_debug("nhg %u not found", id);
 		return false;
 	}
 
