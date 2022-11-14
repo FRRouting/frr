@@ -98,6 +98,7 @@ struct fpm_nl_ctx {
 	struct thread *t_read;
 	struct thread *t_write;
 	struct thread *t_event;
+	struct thread *t_nhg;
 	struct thread *t_dequeue;
 
 	/* zebra events. */
@@ -271,7 +272,7 @@ DEFUN(fpm_use_nhg, fpm_use_nhg_cmd,
 		return CMD_SUCCESS;
 
 	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
-			 FNE_TOGGLE_NHG, &gfnc->t_event);
+			 FNE_TOGGLE_NHG, &gfnc->t_nhg);
 
 	return CMD_SUCCESS;
 }
@@ -287,7 +288,7 @@ DEFUN(no_fpm_use_nhg, no_fpm_use_nhg_cmd,
 		return CMD_SUCCESS;
 
 	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
-			 FNE_TOGGLE_NHG, &gfnc->t_event);
+			 FNE_TOGGLE_NHG, &gfnc->t_nhg);
 
 	return CMD_SUCCESS;
 }
@@ -1367,6 +1368,8 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 	THREAD_OFF(fnc->t_ribwalk);
 	THREAD_OFF(fnc->t_rmacreset);
 	THREAD_OFF(fnc->t_rmacwalk);
+	THREAD_OFF(fnc->t_event);
+	THREAD_OFF(fnc->t_nhg);
 	thread_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
 	thread_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
 	thread_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);
