@@ -231,8 +231,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	src = up->upstream_addr; // RP or Src address
 	pim_addr_to_prefix(&grp, up->sg.grp);
 
-	if ((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
-	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+	if (((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
+	     PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) ||
+	    PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
 		neigh_needed = false;
 	pim_find_or_track_nexthop(pim, up->upstream_addr, up, NULL, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, src, &grp,

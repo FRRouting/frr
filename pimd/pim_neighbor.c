@@ -136,9 +136,9 @@ int pim_if_dr_election(struct interface *ifp)
 		pim_if_update_could_assert(ifp);
 		pim_if_update_assert_tracking_desired(ifp);
 
-		if (PIM_I_am_DR(pim_ifp))
+		if (PIM_I_am_DR(pim_ifp)) {
 			pim_ifp->am_i_dr = true;
-		else {
+		} else {
 			if (pim_ifp->am_i_dr == true) {
 				pim_reg_del_on_couldreg_fail(ifp);
 				pim_ifp->am_i_dr = false;

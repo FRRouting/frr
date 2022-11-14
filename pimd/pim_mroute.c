@@ -210,7 +210,15 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 */
 		up = pim_upstream_find_or_add(
 			&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE, __func__);
+		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+		pim_upstream_keep_alive_timer_start(
+			up, pim_ifp->pim->keep_alive_time);
+
 		pim_upstream_mroute_add(up->channel_oil, __func__);
+		if (PIM_DEBUG_MROUTE) {
+			zlog_debug("%s: Adding a Route %s for nonDR", __func__,
+				   up->sg_str);
+		}
 
 		return 0;
 	}
@@ -453,6 +461,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	struct pim_upstream *up;
 	pim_sgaddr star_g;
 	pim_sgaddr sg;
+	bool fhr = false;
 
 	pim_ifp = ifp->info;
 
@@ -471,6 +480,9 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 
 	star_g = sg;
 	star_g.src = PIMADDR_ANY;
+
+	if (pim_if_connected_to_source(ifp, sg.src))
+		fhr = true;
 
 	pim = pim_ifp->pim;
 	/*
@@ -508,11 +520,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_ifp = rpf->source_nexthop.interface->info;
 
 		memset(&source, 0, sizeof(source));
-		/*
-		 * If we are the fhr that means we are getting a callback during
-		 * the pimreg period, so I believe we can ignore this packet
-		 */
-		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+
+		if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
 			/*
 			 * No if channel, but upstream we are at the RP.
 			 *
@@ -530,22 +539,21 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 						       up->upstream_register);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
+		}
 
+		/*
+		 * If we are the fhr that means we are getting a callback during
+		 * the pimreg period, so I believe we can ignore this packet
+		 */
+		if (!fhr) {
 			pim_upstream_inherited_olist(pim_ifp->pim, up);
 			if (!up->channel_oil->installed)
 				pim_upstream_mroute_add(up->channel_oil,
 							__func__);
 		} else {
-			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
-				if (pim_nexthop_lookup(pim_ifp->pim, &source,
-						       up->upstream_register,
-						       0))
-					pim_register_stop_send(
-						source.interface, &sg,
-						pim_ifp->primary_address,
-						up->upstream_register);
-				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
-			} else {
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
+					 __func__);
+			if (!(I_am_RP(pim_ifp->pim, up->sg.grp))) {
 				/*
 				 * At this point pimd is connected to
 				 * the source, it has a parent, we are not
@@ -570,17 +578,32 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 			}
 			pim_upstream_keep_alive_timer_start(
 				up, pim_ifp->pim->keep_alive_time);
-			pim_upstream_inherited_olist(pim_ifp->pim, up);
-			pim_mroute_msg_wholepkt(fd, ifp, buf, len);
+			if (pim_ifp->am_i_dr) {
+				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+				pim_upstream_inherited_olist(pim_ifp->pim, up);
+			} else {
+				PIM_UPSTREAM_FLAG_SET_SRC_NOCACHE(up->flags);
+			}
+			if (!up->channel_oil->installed)
+				pim_upstream_mroute_add(up->channel_oil,
+							__func__);
+			if (pim_ifp->am_i_dr)
+				pim_mroute_msg_wholepkt(fd, ifp, buf, len);
 		}
 		return 0;
 	}
 
 	pim_ifp = ifp->info;
-	if (pim_if_connected_to_source(ifp, sg.src)) {
-		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
-				      PIM_UPSTREAM_FLAG_MASK_FHR, __func__,
-				      NULL);
+	if (fhr) {
+		if (pim_ifp->am_i_dr)
+			up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
+					      PIM_UPSTREAM_FLAG_MASK_FHR,
+					      __func__, NULL);
+		else
+			up = pim_upstream_add(
+				pim_ifp->pim, &sg, ifp,
+				PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE, __func__,
+				NULL);
 		if (!up) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug(
@@ -592,13 +615,20 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;
-		pim_register_join(up);
-		pim_upstream_inherited_olist(pim_ifp->pim, up);
-		if (!up->channel_oil->installed)
-			pim_upstream_mroute_add(up->channel_oil, __func__);
 
-		// Send the packet to the RP
-		pim_mroute_msg_wholepkt(fd, ifp, buf, len);
+		if (pim_ifp->am_i_dr) {
+			pim_register_join(up);
+			pim_upstream_inherited_olist(pim_ifp->pim, up);
+			// Send the packet to the RP
+			pim_mroute_msg_wholepkt(fd, ifp, buf, len);
+		} else {
+			if (!up->channel_oil->installed)
+				pim_upstream_mroute_add(up->channel_oil,
+							__func__);
+			if (PIM_DEBUG_MROUTE)
+				zlog_debug("%s: Adding a Route %s for nonDR",
+					   __func__, up->sg_str);
+		}
 	} else {
 		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 				      PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,

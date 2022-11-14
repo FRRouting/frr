@@ -318,7 +318,8 @@ static void on_join_timer(struct thread *t)
 	/*
 	 * In the case of a HFR we will not ahve anyone to send this to.
 	 */
-	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+	    PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
 		return;
 
 	/*
@@ -1436,6 +1437,10 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 
 	/* if entry was created because of activity we need to deref it */
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+
+		/* clear the nonDR state */
+		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(up->flags);
+
 		pim_upstream_fhr_kat_expiry(pim, up);
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
