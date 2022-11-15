@@ -280,10 +280,11 @@ static void bgp_process_reads(struct thread *thread)
 	case -ENOMEM:
 		ibuf_full = true;
 		if (!ibuf_full_logged) {
-			flog_warn(
-				EC_BGP_UPDATE_RCV,
-				"%s [Warning] Peer Input-Queue is full: limit (%u)",
-				peer->host, bm->inq_limit);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s [Event] Peer Input-Queue is full: limit (%u)",
+					peer->host, bm->inq_limit);
+
 			ibuf_full_logged = true;
 		}
 		break;
