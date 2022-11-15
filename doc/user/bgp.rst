@@ -1704,6 +1704,11 @@ Configuring Peers
 
    Default: disabled.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> graceful-shutdown
+
+   Mark all routes from this neighbor as less preferred by setting ``graceful-shutdown``
+   community, and local-preference to 0.
+
 .. clicmd:: bgp fast-external-failover
 
    This command causes bgp to take down ebgp peers immediately
