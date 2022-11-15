@@ -1909,7 +1909,7 @@ def clear_bgp(tgen, addr_type, router, vrf=None, neighbor=None):
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
 
-def clear_bgp_and_verify(tgen, topo, router):
+def clear_bgp_and_verify(tgen, topo, router, rid=None):
     """
     This API is to clear bgp neighborship and verify bgp neighborship
     is coming up(BGP is converged) usinf "show bgp summary json" command
@@ -1959,7 +1959,11 @@ def clear_bgp_and_verify(tgen, topo, router):
             return errormsg
 
         # To find neighbor ip type
-        bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+        try:
+            bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+        except TypeError:
+            bgp_addr_type = topo["routers"][router]["bgp"][0]["address_family"]
+
         total_peer = 0
         for addr_type in bgp_addr_type.keys():
 
@@ -2019,10 +2023,15 @@ def clear_bgp_and_verify(tgen, topo, router):
     logger.info("Clearing BGP neighborship for router %s..", router)
     for addr_type in bgp_addr_type.keys():
         if addr_type == "ipv4":
-            run_frr_cmd(rnode, "clear ip bgp *")
+            if rid:
+                run_frr_cmd(rnode, "clear bgp ipv4 {}".format(rid))
+            else:
+                run_frr_cmd(rnode, "clear bgp ipv4 *")
         elif addr_type == "ipv6":
-            run_frr_cmd(rnode, "clear bgp ipv6 *")
-
+            if rid:
+                run_frr_cmd(rnode, "clear bgp ipv6 {}".format(rid))
+            else:
+                run_frr_cmd(rnode, "clear bgp ipv6 *")
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
     for retry in range(50):
@@ -2042,7 +2051,11 @@ def clear_bgp_and_verify(tgen, topo, router):
             return errormsg
 
         # To find neighbor ip type
-        bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+        try:
+            bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+        except TypeError:
+            bgp_addr_type = topo["routers"][router]["bgp"][0]["address_family"]
+
         total_peer = 0
         for addr_type in bgp_addr_type.keys():
             if not check_address_types(addr_type):
@@ -2797,7 +2810,11 @@ def verify_best_path_as_per_admin_distance(
         if route in rib_routes_json:
             st_found = True
             # Verify next_hop in rib_routes_json
-            if [nh for nh in rib_routes_json[route][0]["nexthops"] if nh['ip'] == _next_hop]:
+            if [
+                nh
+                for nh in rib_routes_json[route][0]["nexthops"]
+                if nh["ip"] == _next_hop
+            ]:
                 nh_found = True
             else:
                 errormsg = (
