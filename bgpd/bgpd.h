@@ -343,6 +343,7 @@ struct bgp_srv6_function {
 struct bgp {
 	/* AS number of this BGP instance.  */
 	as_t as;
+	char *as_pretty;
 
 	/* Name of this BGP instance.  */
 	char *name;
@@ -2161,7 +2162,8 @@ extern void bgp_option_norib_set_runtime(void);
 /* unset the bgp no-rib option during runtime and reset all peers */
 extern void bgp_option_norib_unset_runtime(void);
 
-extern int bgp_get(struct bgp **, as_t *, const char *, enum bgp_instance_type);
+extern int bgp_get(struct bgp **bgp, as_t *as, const char *name,
+		   enum bgp_instance_type kind, const char *as_pretty);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);

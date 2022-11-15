@@ -6252,13 +6252,14 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 
 		ret = bgp_get_vty(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
 				  vrf_id == VRF_DEFAULT
-				  ? BGP_INSTANCE_TYPE_DEFAULT
-				  : BGP_INSTANCE_TYPE_VRF);
+					  ? BGP_INSTANCE_TYPE_DEFAULT
+					  : BGP_INSTANCE_TYPE_VRF,
+				  NULL);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
-				 "BGP instance is already running; AS is %u",
-				 as);
+				 "BGP instance is already running; AS is %s",
+				 bgp_vrf->as_pretty);
 			return -1;
 		case BGP_ERR_INSTANCE_MISMATCH:
 			flog_err(EC_BGP_EVPN_INSTANCE_MISMATCH,

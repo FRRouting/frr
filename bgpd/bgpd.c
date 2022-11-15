@@ -3189,23 +3189,27 @@ static void bgp_vrf_string_name_delete(void *data)
 
 /* BGP instance creation by `router bgp' commands. */
 static struct bgp *bgp_create(as_t *as, const char *name,
-			      enum bgp_instance_type inst_type)
+			      enum bgp_instance_type inst_type,
+			      const char *as_pretty)
 {
 	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
 
 	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
-
+	bgp->as = *as;
+	if (as_pretty)
+		bgp->as_pretty = XSTRDUP(MTYPE_BGP, as_pretty);
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			zlog_debug("Creating Default VRF, AS %u", *as);
+			zlog_debug("Creating Default VRF, AS %s",
+				   bgp->as_pretty);
 		else
-			zlog_debug("Creating %s %s, AS %u",
+			zlog_debug("Creating %s %s, AS %s",
 				   (inst_type == BGP_INSTANCE_TYPE_VRF)
 					   ? "VRF"
 					   : "VIEW",
-				   name, *as);
+				   name, bgp->as_pretty);
 	}
 
 	/* Default the EVPN VRF to the default one */
@@ -3282,7 +3286,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
-	bgp->as = *as;
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
 
 #ifdef ENABLE_BGP_VNC
@@ -3519,7 +3522,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 
 /* Called from VTY commands. */
 int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
-	    enum bgp_instance_type inst_type)
+	    enum bgp_instance_type inst_type, const char *as_pretty)
 {
 	struct bgp *bgp;
 	struct vrf *vrf = NULL;
@@ -3529,7 +3532,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	if (ret || *bgp_val)
 		return ret;
 
-	bgp = bgp_create(as, name, inst_type);
+	bgp = bgp_create(as, name, inst_type, as_pretty);
 
 	/*
 	 * view instances will never work inside of a vrf
@@ -3925,6 +3928,7 @@ void bgp_free(struct bgp *bgp)
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
 	}
 
+	XFREE(MTYPE_BGP, bgp->as_pretty);
 	XFREE(MTYPE_BGP, bgp->name);
 	XFREE(MTYPE_BGP, bgp->name_pretty);
 	XFREE(MTYPE_BGP, bgp->snmp_stats);

@@ -594,9 +594,9 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 }
 
 int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
-		enum bgp_instance_type inst_type)
+		enum bgp_instance_type inst_type, const char *as_pretty)
 {
-	int ret = bgp_get(bgp, as, name, inst_type);
+	int ret = bgp_get(bgp, as, name, inst_type, as_pretty);
 
 	if (ret == BGP_CREATED) {
 		bgp_timers_set(*bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
@@ -1531,17 +1531,19 @@ DEFUN_NOSH (router_bgp,
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			is_new_bgp = (bgp_lookup(as, name) == NULL);
 
-		ret = bgp_get_vty(&bgp, &as, name, inst_type);
+		ret = bgp_get_vty(&bgp, &as, name, inst_type,
+				  argv[idx_asn]->arg);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
-			vty_out(vty, "BGP is already running; AS is %u\n", as);
+			vty_out(vty, "BGP is already running; AS is %s\n",
+				bgp->as_pretty);
 			return CMD_WARNING_CONFIG_FAILED;
 		case BGP_ERR_INSTANCE_MISMATCH:
 			vty_out(vty,
 				"BGP instance name and AS number mismatch\n");
 			vty_out(vty,
-				"BGP instance is already running; AS is %u\n",
-				as);
+				"BGP instance is already running; AS is %s\n",
+				bgp->as_pretty);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -9486,7 +9488,7 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 
 		/* Auto-create assuming the same AS */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT);
+				  BGP_INSTANCE_TYPE_DEFAULT, NULL);
 
 		if (ret) {
 			vty_out(vty,
@@ -9598,7 +9600,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	if (!bgp_default) {
 		/* Auto-create assuming the same AS */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
-				  BGP_INSTANCE_TYPE_DEFAULT);
+				  BGP_INSTANCE_TYPE_DEFAULT, NULL);
 
 		if (ret) {
 			vty_out(vty,
@@ -9613,7 +9615,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 			vrf_bgp = bgp_default;
 		else
 			/* Auto-create assuming the same AS */
-			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
+			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type, NULL);
 
 		if (ret) {
 			vty_out(vty,
@@ -10293,8 +10295,8 @@ DEFUN (show_bgp_views,
 		/* Skip VRFs. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 			continue;
-		vty_out(vty, "\t%s (AS%u)\n", bgp->name ? bgp->name : "(null)",
-			bgp->as);
+		vty_out(vty, "\t%s (AS%s)\n", bgp->name ? bgp->name : "(null)",
+			bgp->as_pretty);
 	}
 
 	return CMD_SUCCESS;
@@ -11085,8 +11087,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						: bgp->name);
 			} else {
 				vty_out(vty,
-					"BGP router identifier %pI4, local AS number %u vrf-id %d",
-					&bgp->router_id, bgp->as,
+					"BGP router identifier %pI4, local AS number %s vrf-id %d",
+					&bgp->router_id, bgp->as_pretty,
 					bgp->vrf_id == VRF_UNKNOWN
 						? -1
 						: (int)bgp->vrf_id);
@@ -15917,8 +15919,8 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 			json_object_int_add(json_peer_group, "remoteAs",
 					    group->bgp->as);
 		else
-			vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
-				group->name, group->bgp->as);
+			vty_out(vty, "\nBGP peer-group %s, remote AS %s\n",
+				group->name, group->bgp->as_pretty);
 	} else {
 		if (!json)
 			vty_out(vty, "\nBGP peer-group %s\n", group->name);
@@ -17944,7 +17946,7 @@ int bgp_config_write(struct vty *vty)
 			continue;
 
 		/* Router bgp ASN */
-		vty_out(vty, "router bgp %u", bgp->as);
+		vty_out(vty, "router bgp %s", bgp->as_pretty);
 
 		if (bgp->name)
 			vty_out(vty, " %s %s",
