@@ -2759,6 +2759,12 @@ bool zebra_evpn_is_if_es_capable(struct zebra_if *zif)
 	if (zif->zif_type == ZEBRA_IF_BOND)
 		return true;
 
+	/* relax the checks to allow config to be applied in zebra
+	 * before interface is rxed from the kernel
+	 */
+	if (zif->ifp->ifindex == IFINDEX_INTERNAL)
+		return true;
+
 	/* XXX: allow swpX i.e. a regular ethernet port to be an ES link too */
 	return false;
 }
@@ -3252,9 +3258,7 @@ int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)
 	return 0;
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_evpn_mh_clippy.c"
-#endif
 /* CLI for setting an ES in bypass mode */
 DEFPY_HIDDEN(zebra_evpn_es_bypass, zebra_evpn_es_bypass_cmd,
 	     "[no] evpn mh bypass",

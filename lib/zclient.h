@@ -35,6 +35,8 @@ struct zclient;
 
 /* For union g_addr */
 #include "nexthop.h"
+/* For resilience */
+#include "nexthop_group.h"
 
 /* For union pw_protocol_fields */
 #include "pw.h"
@@ -463,6 +465,8 @@ struct zapi_nhg {
 	uint16_t proto;
 	uint32_t id;
 
+	struct nhg_resilience resilience;
+
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 
@@ -539,6 +543,13 @@ struct zapi_route {
  * offload situation.
  */
 #define ZEBRA_FLAG_OFFLOAD_FAILED     0x200
+
+/*
+ * This flag lets us know that we think the route entry
+ * received has caused us to be out of sync with the
+ * kernel (NLM_F_APPEND at the very least )
+ */
+#define ZEBRA_FLAG_OUTOFSYNC          0x400
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;

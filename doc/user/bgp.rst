@@ -148,6 +148,12 @@ bottom until one of the factors can be used.
 
    Prefer higher local preference routes to lower.
 
+   If ``bgp bestpath aigp`` is enabled, and both paths that are compared have
+   AIGP attribute, BGP uses AIGP tie-breaking unless both of the paths have the
+   AIGP metric attribute. This means that the AIGP attribute is not evaluated
+   during the best path selection process between two paths when one path does
+   not have the AIGP attribute.
+
 3. **Local route check**
 
    Prefer local routes (statics, aggregates, redistributed) to received routes.
@@ -400,6 +406,17 @@ Route Selection
    from all peers for multipath computation. If this option is enabled,
    paths learned from any of eBGP, iBGP, or confederation neighbors will
    be multipath if they are otherwise considered equal cost.
+
+.. clicmd:: bgp bestpath aigp
+
+   Use the bgp bestpath aigp command to evaluate the AIGP attribute during
+   the best path selection process between two paths that have the AIGP
+   attribute.
+
+   When bgp bestpath aigp is disabled, BGP does not use AIGP tie-breaking
+   rules unless paths have the AIGP attribute.
+
+   Disabled by default.
 
 .. clicmd:: maximum-paths (1-128)
 
@@ -1035,7 +1052,7 @@ Long-lived Graceful Restart
 Currently, only restarter mode is supported. This capability is advertised only
 if graceful restart capability is negotiated.
 
-.. clicmd:: bgp long-lived-graceful-restart stale-time (1-4294967295)
+.. clicmd:: bgp long-lived-graceful-restart stale-time (1-16777215)
 
    Specifies the maximum time to wait before purging long-lived stale routes for
    helper routers.
@@ -4017,6 +4034,11 @@ The following command is available in ``config`` mode as well as in the
    the usual LOCAL_PREF value. Note that if this option is saved to
    the startup configuration, graceful shutdown will remain in effect
    across restarts of *bgpd* and will need to be explicitly disabled.
+
+.. clicmd:: bgp input-queue-limit (1-4294967295)
+
+   Set the BGP Input Queue limit for all peers when messaging parsing. Increase
+   this only if you have the memory to handle large queues of messages at once.
 
 .. _bgp-displaying-bgp-information:
 

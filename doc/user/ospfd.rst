@@ -195,7 +195,7 @@ To start OSPF process you have to specify the OSPF router.
    This command supersedes the *timers spf* command in previous FRR
    releases.
 
-.. clicmd:: max-metric router-lsa [on-startup|on-shutdown] (5-86400)
+.. clicmd:: max-metric router-lsa [on-startup (5-86400)|on-shutdown (5-100)]
 
 .. clicmd:: max-metric router-lsa administrative
 

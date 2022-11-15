@@ -1088,6 +1088,7 @@ int zapi_srv6_locator_chunk_encode(struct stream *s,
 	stream_putc(s, c->node_bits_length);
 	stream_putc(s, c->function_bits_length);
 	stream_putc(s, c->argument_bits_length);
+	stream_putc(s, c->flags);
 	return 0;
 }
 
@@ -1109,6 +1110,7 @@ int zapi_srv6_locator_chunk_decode(struct stream *s,
 	STREAM_GETC(s, c->node_bits_length);
 	STREAM_GETC(s, c->function_bits_length);
 	STREAM_GETC(s, c->argument_bits_length);
+	STREAM_GETC(s, c->flags);
 	return 0;
 
 stream_failure:
@@ -1165,6 +1167,10 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 
 	stream_putw(s, api_nhg->proto);
 	stream_putl(s, api_nhg->id);
+
+	stream_putw(s, api_nhg->resilience.buckets);
+	stream_putl(s, api_nhg->resilience.idle_timer);
+	stream_putl(s, api_nhg->resilience.unbalanced_timer);
 
 	if (cmd == ZEBRA_NHG_ADD) {
 		/* Nexthops */
@@ -2370,8 +2376,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 		return NULL;
 	}
 
-	iflp = if_link_params_get(ifp);
-	if (iflp) {
+	if (if_link_params_get(ifp)) {
 		iflp_prev_set = true;
 		memcpy(&iflp_prev, ifp->link_params, sizeof(iflp_prev));
 	} else
@@ -2386,6 +2391,8 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 
 	if (changed == NULL)
 		return ifp;
+
+	iflp = if_link_params_get(ifp);
 
 	if (iflp_prev_set && iflp) {
 		if (memcmp(&iflp_prev, iflp, sizeof(iflp_prev)))

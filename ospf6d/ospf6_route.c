@@ -37,9 +37,7 @@
 #include "ospf6_interface.h"
 #include "ospf6d.h"
 #include "ospf6_zebra.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "ospf6d/ospf6_route_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");

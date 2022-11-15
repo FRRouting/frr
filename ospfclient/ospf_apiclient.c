@@ -481,8 +481,9 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 }
 
 int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
-			      struct in_addr area_id, uint8_t lsa_type,
-			      uint8_t opaque_type, uint32_t opaque_id)
+			      struct in_addr addr, uint8_t lsa_type,
+			      uint8_t opaque_type, uint32_t opaque_id,
+			      uint8_t flags)
 {
 	struct msg *msg;
 	int rc;
@@ -496,8 +497,8 @@ int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 
 	/* opaque_id is in host byte order and will be converted
 	 * to network byte order by new_msg_delete_request */
-	msg = new_msg_delete_request(ospf_apiclient_get_seqnr(), area_id,
-				     lsa_type, opaque_type, opaque_id);
+	msg = new_msg_delete_request(ospf_apiclient_get_seqnr(), addr, lsa_type,
+				     opaque_type, opaque_id, flags);
 
 	rc = ospf_apiclient_send_request(oclient, msg);
 	return rc;

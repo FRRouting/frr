@@ -90,9 +90,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_route_clippy.c"
-#endif
 
 DEFINE_HOOK(bgp_snmp_update_stats,
 	    (struct bgp_node *rn, struct bgp_path_info *pi, bool added),
@@ -916,6 +914,36 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				zlog_debug(
 					"%s: %s loses to %s due to accept-own",
 					pfx_buf, new_buf, exist_buf);
+			return 0;
+		}
+	}
+
+	/* Tie-breaker - AIGP (Metric TLV) attribute */
+	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
+	    CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
+	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
+		uint64_t new_aigp = bgp_attr_get_aigp_metric(newattr);
+		uint64_t exist_aigp = bgp_attr_get_aigp_metric(existattr);
+
+		if (new_aigp < exist_aigp) {
+			*reason = bgp_path_selection_aigp;
+			if (debug)
+				zlog_debug(
+					"%s: %s wins over %s due to AIGP %" PRIu64
+					" < %" PRIu64,
+					pfx_buf, new_buf, exist_buf, new_aigp,
+					exist_aigp);
+			return 1;
+		}
+
+		if (new_aigp > exist_aigp) {
+			*reason = bgp_path_selection_aigp;
+			if (debug)
+				zlog_debug(
+					"%s: %s loses to %s due to AIGP %" PRIu64
+					" > %" PRIu64,
+					pfx_buf, new_buf, exist_buf, new_aigp,
+					exist_aigp);
 			return 0;
 		}
 	}
@@ -5368,7 +5396,10 @@ void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 	}
 }
 
-void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
+/*
+ * Returns false if the peer is not configured for soft reconfig in
+ */
+bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
@@ -5376,14 +5407,14 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer *npeer;
 	struct peer_af *paf;
 
-	if (!peer_established(peer))
-		return;
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+		return false;
 
 	if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP)
 	    && (safi != SAFI_EVPN)) {
 		table = peer->bgp->rib[afi][safi];
 		if (!table)
-			return;
+			return true;
 
 		table->soft_reconfig_init = true;
 
@@ -5443,6 +5474,8 @@ void bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi)
 
 			bgp_soft_reconfig_table(peer, afi, safi, table, &prd);
 		}
+
+	return true;
 }
 
 
@@ -6194,6 +6227,9 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	if (afi == AFI_IP)
 		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+
+	if (bgp_static->igpmetric)
+		bgp_attr_set_aigp_metric(&attr, bgp_static->igpmetric);
 
 	if (bgp_static->atomic)
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
@@ -8740,6 +8776,9 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	attr.tag = tag;
 
+	if (metric)
+		bgp_attr_set_aigp_metric(&attr, metric);
+
 	afi = family2afi(p->family);
 
 	red = bgp_redist_lookup(bgp, afi, type, instance);
@@ -8749,8 +8788,10 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 		/* Copy attribute for modification. */
 		attr_new = attr;
 
-		if (red->redist_metric_flag)
+		if (red->redist_metric_flag) {
 			attr_new.med = red->redist_metric;
+			bgp_attr_set_aigp_metric(&attr_new, red->redist_metric);
+		}
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
@@ -9000,6 +9041,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Accept Own";
 	case bgp_path_selection_local_route:
 		return "Local Route";
+	case bgp_path_selection_aigp:
+		return "AIGP";
 	case bgp_path_selection_confed_as_path:
 		return "Confederation based AS Path";
 	case bgp_path_selection_as_path:
@@ -10734,6 +10777,15 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					    attr->local_pref);
 		else
 			vty_out(vty, ", localpref %u", attr->local_pref);
+	}
+
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP)) {
+		if (json_paths)
+			json_object_int_add(json_path, "aigpMetric",
+					    bgp_attr_get_aigp_metric(attr));
+		else
+			vty_out(vty, ", aigp-metric %" PRIu64,
+				bgp_attr_get_aigp_metric(attr));
 	}
 
 	if (attr->weight != 0) {

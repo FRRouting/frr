@@ -329,6 +329,9 @@ struct attr {
 
 	/* OTC value if set */
 	uint32_t otc;
+
+	/* AIGP Metric */
+	uint64_t aigp_metric;
 };
 
 /* rmap_change_flags definition */
@@ -396,15 +399,13 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
-extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
-				       struct stream *s, struct attr *attr,
-				       struct bpacket_attr_vec_arr *vecarr,
-				       struct prefix *p, afi_t afi, safi_t safi,
-				       struct peer *from, struct prefix_rd *prd,
-				       mpls_label_t *label, uint32_t num_labels,
-				       bool addpath_capable,
-				       uint32_t addpath_tx_id);
-extern void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
+extern bgp_size_t bgp_packet_attribute(
+	struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
+	struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi,
+	safi_t safi, struct peer *from, struct prefix_rd *prd,
+	mpls_label_t *label, uint32_t num_labels, bool addpath_capable,
+	uint32_t addpath_tx_id, struct bgp_path_info *bpi);
+extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
 extern unsigned int attrhash_key_make(const void *p);
@@ -583,6 +584,19 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 					struct transit *transit)
 {
 	attr->transit = transit;
+}
+
+static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
+{
+	return attr->aigp_metric;
+}
+
+static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
+{
+	attr->aigp_metric = aigp;
+
+	if (aigp)
+		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AIGP);
 }
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)

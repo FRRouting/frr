@@ -297,7 +297,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 {
 	int ret;
 	struct listnode *node, *nnode;
-	struct srv6_locator_chunk *chunk, *tovpn_sid_locator;
+	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
 
@@ -310,7 +310,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
 		listnode_delete(bgp->srv6_locator_chunks, chunk);
-		srv6_locator_chunk_free(chunk);
+		srv6_locator_chunk_free(&chunk);
 	}
 
 	/* refresh functions */
@@ -345,23 +345,15 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
-		tovpn_sid_locator =
-			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
-		if (tovpn_sid_locator) {
-			srv6_locator_chunk_free(tovpn_sid_locator);
-			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
-		}
+		srv6_locator_chunk_free(
+			&bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
 
 		/* refresh vpnv6 tovpn_sid_locator */
-		tovpn_sid_locator =
-			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
-		if (tovpn_sid_locator) {
-			srv6_locator_chunk_free(tovpn_sid_locator);
-			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
-		}
+		srv6_locator_chunk_free(
+			&bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
 
 		/* refresh per-vrf tovpn_sid_locator */
-		srv6_locator_chunk_free(bgp_vrf->tovpn_sid_locator);
+		srv6_locator_chunk_free(&bgp_vrf->tovpn_sid_locator);
 	}
 
 	/* clear locator name */
@@ -1316,9 +1308,7 @@ void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi)
 	bgp_clear(NULL, bgp, afi, safi, clear_all, BGP_CLEAR_SOFT_IN, NULL);
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_vty_clippy.c"
-#endif
 
 DEFUN_HIDDEN (bgp_local_mac,
               bgp_local_mac_cmd,
@@ -3404,7 +3394,7 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
 }
 
 DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
-      "bgp long-lived-graceful-restart stale-time (1-4294967295)",
+      "bgp long-lived-graceful-restart stale-time (1-16777215)",
       BGP_STR
       "Enable Long-lived Graceful Restart\n"
       "Specifies maximum time to wait before purging long-lived stale routes\n"
@@ -3421,7 +3411,7 @@ DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
 }
 
 DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
-      "no bgp long-lived-graceful-restart stale-time [(1-4294967295)]",
+      "no bgp long-lived-graceful-restart stale-time [(1-16777215)]",
       NO_STR BGP_STR
       "Enable Long-lived Graceful Restart\n"
       "Specifies maximum time to wait before purging long-lived stale routes\n"
@@ -3572,6 +3562,26 @@ DEFUN (no_bgp_fast_external_failover,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	SET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_bestpath_aigp,
+       bgp_bestpath_aigp_cmd,
+       "[no$no] bgp bestpath aigp",
+       NO_STR
+       BGP_STR
+       "Change the default bestpath selection\n"
+       "Evaluate the AIGP attribute during the best path selection process\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP);
+
+	bgp_recalculate_all_bestpaths(bgp);
+
 	return CMD_SUCCESS;
 }
 
@@ -6553,6 +6563,26 @@ DEFUN (no_neighbor_ebgp_multihop,
 {
 	int idx_peer = 2;
 	return peer_ebgp_multihop_unset_vty(vty, argv[idx_peer]->arg);
+}
+
+DEFPY (neighbor_aigp,
+       neighbor_aigp_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor aigp",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enable send and receive of the AIGP attribute per neighbor\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_AIGP);
+	else
+		return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AIGP);
 }
 
 static uint8_t get_role_by_name(const char *role_str)
@@ -17162,6 +17192,10 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	/* aigp */
+	if (peergroup_flag_check(peer, PEER_FLAG_AIGP))
+		vty_out(vty, " neighbor %s aigp\n", addr);
+
 	/* role */
 	if (peergroup_flag_check(peer, PEER_FLAG_ROLE) &&
 	    peer->local_role != ROLE_UNDEFINED)
@@ -17733,6 +17767,10 @@ int bgp_config_write(struct vty *vty)
 	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
 		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
 
+	/* BGP InQ limit */
+	if (bm->inq_limit != BM_DEFAULT_INQ_LIMIT)
+		vty_out(vty, "bgp input-queue-limit %u\n", bm->inq_limit);
+
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 
@@ -17996,6 +18034,8 @@ int bgp_config_write(struct vty *vty)
 		}
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 			vty_out(vty, " bgp bestpath compare-routerid\n");
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP))
+			vty_out(vty, " bgp bestpath aigp\n");
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED)
 		    || CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST)) {
 			vty_out(vty, " bgp bestpath med");
@@ -18445,6 +18485,31 @@ DEFPY(mpls_bgp_forwarding, mpls_bgp_forwarding_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_inq_limit,
+       bgp_inq_limit_cmd,
+       "bgp input-queue-limit (1-4294967295)$limit",
+       BGP_STR
+       "Set the BGP Input Queue limit for all peers when message parsing\n"
+       "Input-Queue limit\n")
+{
+	bm->inq_limit = limit;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_inq_limit,
+       no_bgp_inq_limit_cmd,
+       "no bgp input-queue-limit [(1-4294967295)$limit]",
+       NO_STR
+       BGP_STR
+       "Set the BGP Input Queue limit for all peers when message parsing\n"
+       "Input-Queue limit\n")
+{
+	bm->inq_limit = BM_DEFAULT_INQ_LIMIT;
+
+	return CMD_SUCCESS;
+}
+
 /* Initialization of BGP interface. */
 static void bgp_vty_if_init(void)
 {
@@ -18493,6 +18558,10 @@ void bgp_vty_init(void)
 	install_default(BGP_EVPN_NODE);
 	install_default(BGP_EVPN_VNI_NODE);
 	install_default(BGP_SRV6_NODE);
+
+	/* "global bgp inq-limit command */
+	install_element(CONFIG_NODE, &bgp_inq_limit_cmd);
+	install_element(CONFIG_NODE, &no_bgp_inq_limit_cmd);
 
 	/* "bgp local-mac" hidden commands. */
 	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
@@ -18569,6 +18638,9 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_role_cmd);
 	install_element(BGP_NODE, &neighbor_role_strict_cmd);
 	install_element(BGP_NODE, &no_neighbor_role_cmd);
+
+	/* "neighbor aigp" commands. */
+	install_element(BGP_NODE, &neighbor_aigp_cmd);
 
 	/* bgp disable-ebgp-connected-nh-check */
 	install_element(BGP_NODE, &bgp_disable_connected_route_check_cmd);
@@ -18689,6 +18761,10 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_rib_stale_time_cmd);
 
+	/* "bgp inq-limit command */
+	install_element(BGP_NODE, &bgp_inq_limit_cmd);
+	install_element(BGP_NODE, &no_bgp_inq_limit_cmd);
+
 	/* "bgp graceful-shutdown" commands */
 	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
@@ -18703,6 +18779,9 @@ void bgp_vty_init(void)
 	/* "bgp fast-external-failover" commands */
 	install_element(BGP_NODE, &bgp_fast_external_failover_cmd);
 	install_element(BGP_NODE, &no_bgp_fast_external_failover_cmd);
+
+	/* "bgp bestpath aigp" commands */
+	install_element(BGP_NODE, &bgp_bestpath_aigp_cmd);
 
 	/* "bgp bestpath compare-routerid" commands */
 	install_element(BGP_NODE, &bgp_bestpath_compare_router_id_cmd);

@@ -65,6 +65,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_local_pref,
 	bgp_path_selection_accept_own,
 	bgp_path_selection_local_route,
+	bgp_path_selection_aigp,
 	bgp_path_selection_confed_as_path,
 	bgp_path_selection_as_path,
 	bgp_path_selection_origin,

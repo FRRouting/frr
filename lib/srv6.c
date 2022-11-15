@@ -85,8 +85,6 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
 {
-	char b0[128];
-
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
@@ -95,13 +93,11 @@ const char *seg6local_context2str(char *str, size_t size,
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		inet_ntop(AF_INET6, &ctx->nh6, b0, 128);
-		snprintf(str, size, "nh6 %s", b0);
+		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		inet_ntop(AF_INET, &ctx->nh4, b0, 128);
-		snprintf(str, size, "nh4 %s", b0);
+		snprintfrr(str, size, "nh4 %pI4", &ctx->nh4);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
@@ -157,9 +153,9 @@ void srv6_locator_free(struct srv6_locator *locator)
 	}
 }
 
-void srv6_locator_chunk_free(struct srv6_locator_chunk *chunk)
+void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk)
 {
-	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, chunk);
+	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, *chunk);
 }
 
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
@@ -245,6 +241,10 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	json_object_int_add(jo_root, "argumentBitsLength",
 			    loc->argument_bits_length);
 
+	/* set true if the locator is a Micro-segment (uSID) locator */
+	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+		json_object_string_add(jo_root, "behavior", "usid");
+
 	/* set status_up */
 	json_object_boolean_add(jo_root, "statusUp",
 				loc->status_up);
@@ -289,6 +289,10 @@ json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 	/* set argument_bits_length */
 	json_object_int_add(jo_root, "argumentBitsLength",
 			    loc->argument_bits_length);
+
+	/* set true if the locator is a Micro-segment (uSID) locator */
+	if (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID))
+		json_object_string_add(jo_root, "behavior", "usid");
 
 	/* set algonum */
 	json_object_int_add(jo_root, "algoNum", loc->algonum);

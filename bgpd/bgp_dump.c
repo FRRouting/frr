@@ -376,7 +376,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 
 		/* Dump attribute. */
 		/* Skip prefix & AFI/SAFI for MP_NLRI */
-		bgp_dump_routes_attr(obuf, path->attr, p);
+		bgp_dump_routes_attr(obuf, path, p);
 
 		cur_endp = stream_get_endp(obuf);
 		if (cur_endp > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE

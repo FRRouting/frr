@@ -357,6 +357,7 @@ static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
 }
 
 static const struct message orf_type_str[] = {
+	{ORF_TYPE_RESERVED, "Reserved"},
 	{ORF_TYPE_PREFIX, "Prefixlist"},
 	{ORF_TYPE_PREFIX_OLD, "Prefixlist (old)"},
 	{0}};
@@ -433,6 +434,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		switch (hdr->code) {
 		case CAPABILITY_CODE_ORF:
 			switch (type) {
+			case ORF_TYPE_RESERVED:
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s Addr-family %d/%d has reserved ORF type, ignoring",
+						peer->host, afi, safi);
+				break;
 			case ORF_TYPE_PREFIX:
 				break;
 			default:
@@ -443,6 +450,12 @@ static int bgp_capability_orf_entry(struct peer *peer,
 			break;
 		case CAPABILITY_CODE_ORF_OLD:
 			switch (type) {
+			case ORF_TYPE_RESERVED:
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug(
+						"%s Addr-family %d/%d has reserved ORF type, ignoring",
+						peer->host, afi, safi);
+				break;
 			case ORF_TYPE_PREFIX_OLD:
 				break;
 			default:

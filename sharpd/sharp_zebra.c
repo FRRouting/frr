@@ -550,6 +550,9 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	bool is_valid = true;
 
 	api_nhg.id = id;
+
+	api_nhg.resilience = nhg->nhgr;
+
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
 			zlog_warn(

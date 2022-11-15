@@ -28,9 +28,7 @@
 #include <command.h>
 #include <jhash.h>
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/nexthop_group_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP_GROUP, "Nexthop Group");
 
@@ -49,6 +47,7 @@ struct nexthop_hold {
 
 struct nexthop_group_hooks {
 	void (*new)(const char *name);
+	void (*modify)(const struct nexthop_group_cmd *nhgc);
 	void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
 			    const struct nexthop *nhop);
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
@@ -274,6 +273,7 @@ struct nexthop_group *nexthop_group_new(void)
 void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
+	to->nhgr = from->nhgr;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
@@ -671,6 +671,50 @@ DEFPY(no_nexthop_group_backup, no_nexthop_group_backup_cmd,
 	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
 
 	nhgc->backup_list_name[0] = 0;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(nexthop_group_resilience,
+      nexthop_group_resilience_cmd,
+      "resilient buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)",
+      "A resilient Nexthop Group\n"
+      "Buckets in the Hash for this Group\n"
+      "Number of buckets\n"
+      "The Idle timer for this Resilient Nexthop Group in seconds\n"
+      "Number of seconds of Idle time\n"
+      "The length of time that the Nexthop Group can be unbalanced\n"
+      "Number of seconds of Unbalanced time\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->nhg.nhgr.buckets = buckets;
+	nhgc->nhg.nhgr.idle_timer = idle_timer;
+	nhgc->nhg.nhgr.unbalanced_timer = unbalanced_timer;
+
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_nexthop_group_resilience,
+      no_nexthop_group_resilience_cmd,
+      "no resilient [buckets (1-256) idle-timer (1-4294967295) unbalanced-timer (1-4294967295)]",
+      NO_STR
+      "A resilient Nexthop Group\n"
+      "Buckets in the Hash for this Group\n"
+      "Number of buckets\n"
+      "The Idle timer for this Resilient Nexthop Group in seconds\n"
+      "Number of seconds of Idle time\n"
+      "The length of time that the Nexthop Group can be unbalanced\n"
+      "Number of seconds of Unbalanced time\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	nhgc->nhg.nhgr.buckets = 0;
+	nhgc->nhg.nhgr.idle_timer = 0;
+	nhgc->nhg.nhgr.unbalanced_timer = 0;
 
 	return CMD_SUCCESS;
 }
@@ -1130,6 +1174,13 @@ static int nexthop_group_write(struct vty *vty)
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
+		if (nhgc->nhg.nhgr.buckets)
+			vty_out(vty,
+				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
+				nhgc->nhg.nhgr.buckets,
+				nhgc->nhg.nhgr.idle_timer,
+				nhgc->nhg.nhgr.unbalanced_timer);
+
 		if (nhgc->backup_list_name[0])
 			vty_out(vty, " backup-group %s\n",
 				nhgc->backup_list_name);
@@ -1300,6 +1351,7 @@ static const struct cmd_variable_handler nhg_name_handlers[] = {
 	{.completions = NULL}};
 
 void nexthop_group_init(void (*new)(const char *name),
+			void (*modify)(const struct nexthop_group_cmd *nhgc),
 			void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
 					    const struct nexthop *nhop),
 			void (*del_nexthop)(const struct nexthop_group_cmd *nhg,
@@ -1319,10 +1371,15 @@ void nexthop_group_init(void (*new)(const char *name),
 	install_element(NH_GROUP_NODE, &no_nexthop_group_backup_cmd);
 	install_element(NH_GROUP_NODE, &ecmp_nexthops_cmd);
 
+	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
+	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
+
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 
 	if (new)
 		nhg_hooks.new = new;
+	if (modify)
+		nhg_hooks.modify = modify;
 	if (add_nexthop)
 		nhg_hooks.add_nexthop = add_nexthop;
 	if (del_nexthop)

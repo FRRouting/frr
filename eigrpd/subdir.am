@@ -4,12 +4,6 @@
 
 if EIGRPD
 sbin_PROGRAMS += eigrpd/eigrpd
-vtysh_scan += \
-	eigrpd/eigrp_cli.c \
-	eigrpd/eigrp_dump.c \
-	eigrpd/eigrp_vty.c \
-	# end
-#	eigrpd/eigrp_routemap.c
 vtysh_daemons += eigrpd
 man8 += $(MANBUILD)/frr-eigrpd.8
 endif

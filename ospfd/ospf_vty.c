@@ -185,9 +185,7 @@ static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
 	}
 }
 
-#ifndef VTYSH_EXTRACT_PL
 #include "ospfd/ospf_vty_clippy.c"
-#endif
 
 DEFUN_NOSH (router_ospf,
        router_ospf_cmd,
@@ -9413,7 +9411,7 @@ DEFUN (ospf_default_information_originate,
 	idx = 1;
 	/* Get route-map */
 	if (argv_find(argv, argc, "route-map", &idx))
-		rtmap = argv[idx]->arg + 1;
+		rtmap = argv[idx + 1]->arg;
 
 	/* To check if user is providing same route map */
 	if ((!rtmap && !ROUTEMAP_NAME(red)) ||
@@ -10532,22 +10530,15 @@ DEFUN (no_ospf_route_aggregation_timer,
 
 static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 {
-	struct listnode *ln;
-	struct ospf_area *area;
-
 	if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED)
 		vty_out(vty, " max-metric router-lsa on-startup %u\n",
 			ospf->stub_router_startup_time);
 	if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
 		vty_out(vty, " max-metric router-lsa on-shutdown %u\n",
 			ospf->stub_router_shutdown_time);
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
-		if (CHECK_FLAG(area->stub_router_state,
-			       OSPF_AREA_ADMIN_STUB_ROUTED)) {
-			vty_out(vty, " max-metric router-lsa administrative\n");
-			break;
-		}
-	}
+	if (ospf->stub_router_admin_set == OSPF_STUB_ROUTER_ADMINISTRATIVE_SET)
+		vty_out(vty, " max-metric router-lsa administrative\n");
+
 	return;
 }
 

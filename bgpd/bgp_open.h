@@ -76,6 +76,7 @@ struct graceful_restart_af {
 /* Cooperative Route Filtering Capability.  */
 
 /* ORF Type */
+#define ORF_TYPE_RESERVED               0
 #define ORF_TYPE_PREFIX                64
 #define ORF_TYPE_PREFIX_OLD           128
 

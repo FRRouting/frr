@@ -24,11 +24,16 @@
 #include <lib/version.h>
 #include <sys/types.h>
 #include <sys/types.h>
-#ifdef HAVE_LIBPCREPOSIX
+#ifdef HAVE_LIBPCRE2_POSIX
+#ifndef _FRR_PCRE2_POSIX
+#define _FRR_PCRE2_POSIX
+#include <pcre2posix.h>
+#endif /* _FRR_PCRE2_POSIX */
+#elif defined(HAVE_LIBPCREPOSIX)
 #include <pcreposix.h>
 #else
 #include <regex.h>
-#endif /* HAVE_LIBPCREPOSIX */
+#endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
 
 #include "linklist.h"
@@ -53,9 +58,7 @@
 #include <arpa/telnet.h>
 #include <termios.h>
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/vty_clippy.c"
-#endif
 
 DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_SERV, "VTY server");

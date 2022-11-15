@@ -49,7 +49,8 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	if (up) {
 		memcpy(&nexthop, &up->rpf.source_nexthop,
 		       sizeof(struct pim_nexthop));
-		pim_ecmp_nexthop_lookup(pim, &nexthop, vif_source, &grp, 0);
+		(void)pim_ecmp_nexthop_lookup(pim, &nexthop, vif_source, &grp,
+					      0);
 		if (nexthop.interface)
 			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
 				pim, nexthop.interface->ifindex);

@@ -190,6 +190,7 @@ struct ospf_lsa *ospf_lsa_new(void)
 	new->refresh_list = -1;
 	new->vrf_id = VRF_DEFAULT;
 	new->to_be_acknowledged = 0;
+	new->opaque_zero_len_delete = 0;
 
 	return new;
 }
@@ -2204,7 +2205,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 	   */
 
 	if (ospf->router_id.s_addr == INADDR_ANY) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (ei && IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
 				&ei->p.prefix);
@@ -2213,7 +2214,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	/* Create new AS-external-LSA instance. */
 	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (ei && IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: Could not originate AS-external-LSA",
 				&ei->p.prefix);
@@ -3596,7 +3597,8 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2,
 	    && CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
-	assert(l1->size > OSPF_LSA_HEADER_SIZE);
+	if (l1->size == OSPF_LSA_HEADER_SIZE)
+		return 0; /* nothing to compare */
 
 	p1 = (char *)l1->data;
 	p2 = (char *)l2->data;

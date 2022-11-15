@@ -47,6 +47,9 @@ pytestmark = [
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import (
+    required_linux_kernel_version,
+)
 
 fatal_error = ""
 
@@ -301,7 +304,7 @@ def test_converge_protocols():
     print("******************************************\n")
 
     # Not really implemented yet - just sleep 60 secs for now
-    sleep(60)
+    sleep(5)
 
     # Make sure that all daemons are running
     failures = 0
@@ -1589,6 +1592,24 @@ def test_mpls_interfaces():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
+
+
+def test_resilient_nexthop_group():
+    net = get_topogen().net
+
+    result = required_linux_kernel_version("5.19")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >= 5.19")
+
+    net["r1"].cmd(
+        'vtysh -c "conf" -c "nexthop-group resilience" -c "resilient buckets 64 idle-timer 128 unbalanced-timer 256" -c "nexthop 1.1.1.1 r1-eth1 onlink" -c "nexthop 1.1.1.2 r1-eth2 onlink"'
+    )
+
+    output = net["r1"].cmd('vtysh -c "show nexthop-group rib sharp"')
+    output = re.findall(r"Buckets", output)
+
+    verify_nexthop_group(185483878)
+    assert len(output) == 1, "Resilient NHG not created in zebra"
 
 
 def test_shutdown_check_stderr():

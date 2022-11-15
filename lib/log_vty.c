@@ -29,9 +29,7 @@
 #include "lib/printfrr.h"
 #include "lib/systemd.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "lib/log_vty_clippy.c"
-#endif
 
 #define ZLOG_MAXLVL(a, b) MAX(a, b)
 

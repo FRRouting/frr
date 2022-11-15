@@ -46,9 +46,7 @@
 #include "lib/route_opaque.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_evpn_mh.h"
-#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vty_clippy.c"
-#endif
 #include "zebra/zserv.h"
 #include "zebra/router-id.h"
 #include "zebra/ipforward.h"
@@ -223,6 +221,9 @@ static char re_status_output_char(const struct route_entry *re,
 		if (zrouter.asic_offloaded
 		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
 			return 'o';
+
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OUTOFSYNC))
+			return 'd';
 
 		if (star_p)
 			return '*';
@@ -1534,6 +1535,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
+	if (nhe->nhg.nhgr.buckets)
+		vty_out(vty,
+			"     Buckets: %u Idle Timer: %u Unbalanced Timer: %u Unbalanced time: %" PRIu64 "\n",
+			nhe->nhg.nhgr.buckets, nhe->nhg.nhgr.idle_timer,
+			nhe->nhg.nhgr.unbalanced_timer,
+			nhe->nhg.nhgr.unbalanced_time);
 }
 
 static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id)
