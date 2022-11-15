@@ -1370,7 +1370,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 
 DEFPY (show_ip_nht,
        show_ip_nht_cmd,
-       "show <ip$ipv4|ipv6$ipv6> <nht|import-check>$type [<A.B.C.D|X:X::X:X>$addr|vrf NAME$vrf_name [<A.B.C.D|X:X::X:X>$addr]|vrf all$vrf_all] [mrib$mrib]",
+       "show <ip$ipv4|ipv6$ipv6> <nht|import-check>$type [<A.B.C.D|X:X::X:X>$addr|vrf NAME$vrf_name [<A.B.C.D|X:X::X:X>$addr]|vrf all$vrf_all] [mrib$mrib] [json]",
        SHOW_STR
        IP_STR
        IP6_STR
@@ -1382,23 +1382,48 @@ DEFPY (show_ip_nht,
        "IPv4 Address\n"
        "IPv6 Address\n"
        VRF_ALL_CMD_HELP_STR
-       "Show Multicast (MRIB) NHT state\n")
+       "Show Multicast (MRIB) NHT state\n"
+       JSON_STR)
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct prefix prefix, *p = NULL;
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+	json_object *json_vrf = NULL;
+	json_object *json_nexthop = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	if (vrf_all) {
 		struct vrf *vrf;
 		struct zebra_vrf *zvrf;
 
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((zvrf = vrf->info) != NULL) {
-				vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
+				if (uj) {
+					json_vrf = json_object_new_object();
+					json_nexthop = json_object_new_object();
+					json_object_object_add(json,
+							       zvrf_name(zvrf),
+							       json_vrf);
+					json_object_object_add(json_vrf,
+							       "nexthops",
+							       json_nexthop);
+				} else {
+					vty_out(vty, "\nVRF %s:\n",
+						zvrf_name(zvrf));
+				}
 				zebra_print_rnh_table(zvrf_id(zvrf), afi, safi,
-						      vty, NULL);
+						      vty, NULL, json_nexthop);
 			}
+		}
+
+		if (uj)
+			vty_json(vty, json);
+
 		return CMD_SUCCESS;
 	}
 	if (vrf_name)
@@ -1407,11 +1432,29 @@ DEFPY (show_ip_nht,
 	memset(&prefix, 0, sizeof(prefix));
 	if (addr) {
 		p = sockunion2hostprefix(addr, &prefix);
-		if (!p)
+		if (!p) {
+			if (uj)
+				json_object_free(json);
 			return CMD_WARNING;
+		}
 	}
 
-	zebra_print_rnh_table(vrf_id, afi, safi, vty, p);
+	if (uj) {
+		json_vrf = json_object_new_object();
+		json_nexthop = json_object_new_object();
+		if (vrf_name)
+			json_object_object_add(json, vrf_name, json_vrf);
+		else
+			json_object_object_add(json, "default", json_vrf);
+
+		json_object_object_add(json_vrf, "nexthops", json_nexthop);
+	}
+
+	zebra_print_rnh_table(vrf_id, afi, safi, vty, p, json_nexthop);
+
+	if (uj)
+		vty_json(vty, json);
+
 	return CMD_SUCCESS;
 }
 
