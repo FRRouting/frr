@@ -365,19 +365,9 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	if (ip_hdr->ip_ttl-- <= 1)
 		return -1;
 
-	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
-
-	fd = pim_socket_raw(IPPROTO_RAW);
-
-	if (fd < 0)
-		return -1;
-
-	pim_socket_ip_hdr(fd);
-
 	if (interface == NULL) {
 		memset(&nexthop, 0, sizeof(nexthop));
 		if (!pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0)) {
-			close(fd);
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Dropping mtrace packet, no route to destination");
@@ -388,6 +378,15 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	} else {
 		if_out = interface;
 	}
+
+	ip_hdr->ip_sum = in_cksum(ip_hdr, ip_hdr->ip_hl * 4);
+
+	fd = pim_socket_raw(IPPROTO_RAW);
+
+	if (fd < 0)
+		return -1;
+
+	pim_socket_ip_hdr(fd);
 
 	ret = pim_socket_bind(fd, if_out);
 
