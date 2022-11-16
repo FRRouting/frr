@@ -231,7 +231,7 @@ EXTRA_DIST += \
 	\
 	python/xrefstructs.json \
 	\
-	redhat/frr.logrotate \
+	tools/etc/logrotate.d/frr \
 	redhat/frr.pam \
 	redhat/frr.spec \
 	\
