@@ -316,9 +316,6 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	int sock;
 	int namelen;
 
-	if (nl_family != NETLINK_ROUTE)
-		return -1;
-
 	frr_with_privs(&zserv_privs) {
 		sock = ns_socket(AF_NETLINK, SOCK_RAW, nl_family, ns_id);
 		if (sock < 0) {
@@ -1230,6 +1227,33 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	return netlink_talk_info(filter, n, &dp_info, startup);
 }
 
+/*
+ * Synchronous version of netlink_talk_info. Converts args to suit the
+ * common version, which is suitable for both sync and async use.
+ */
+int ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		    struct nlmsghdr *n, struct zebra_ns *zns, bool startup)
+{
+	struct zebra_dplane_info dp_info;
+
+	if (zns->ge_netlink_cmd.sock < 0)
+		return -1;
+
+	/* Increment sequence number before capturing snapshot of ns socket
+	 * info.
+	 */
+	zns->ge_netlink_cmd.seq = zebra_router_get_next_sequence();
+
+	/* Capture info in intermediate info struct */
+	dp_info.ns_id = zns->ns_id;
+
+	dp_info.is_cmd = true;
+	dp_info.sock = zns->ge_netlink_cmd.sock;
+	dp_info.seq = zns->ge_netlink_cmd.seq;
+
+	return netlink_talk_info(filter, n, &dp_info, startup);
+}
+
 /* Issue request message to kernel via netlink socket. GET messages
  * are issued through this interface.
  */
@@ -1808,6 +1832,19 @@ void kernel_init(struct zebra_ns *zns)
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
 
+	/* Generic Netlink socket. */
+	snprintf(zns->ge_netlink_cmd.name, sizeof(zns->ge_netlink_cmd.name),
+		 "generic-netlink-cmd (NS %u)", zns->ns_id);
+	zns->ge_netlink_cmd.sock = -1;
+	if (netlink_socket(&zns->ge_netlink_cmd, 0, 0, 0, zns->ns_id,
+			   NETLINK_GENERIC) < 0) {
+		zlog_warn("Failure to create %s socket",
+			  zns->ge_netlink_cmd.name);
+	}
+
+	if (zns->ge_netlink_cmd.sock >= 0)
+		kernel_netlink_nlsock_insert(&zns->ge_netlink_cmd);
+
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
@@ -1846,6 +1883,15 @@ void kernel_init(struct zebra_ns *zns)
 		zlog_notice("Registration for extended dp ACK failed : %d %s",
 			    errno, safe_strerror(errno));
 
+	if (zns->ge_netlink_cmd.sock >= 0) {
+		one = 1;
+		ret = setsockopt(zns->ge_netlink_cmd.sock, SOL_NETLINK,
+				 NETLINK_EXT_ACK, &one, sizeof(one));
+		if (ret < 0)
+			zlog_err("Registration for extended generic netlink cmd ACK failed : %d %s",
+				 errno, safe_strerror(errno));
+	}
+
 	/*
 	 * Trim off the payload of the original netlink message in the
 	 * acknowledgment. This option is available since Linux 4.2, so if
@@ -1878,12 +1924,22 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane_in.name, safe_strerror(errno),
 			 errno);
 
+	if (zns->ge_netlink_cmd.sock >= 0) {
+		if (fcntl(zns->ge_netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
+			zlog_err("Can't set %s socket error: %s(%d)",
+				 zns->ge_netlink_cmd.name, safe_strerror(errno),
+				 errno);
+	}
+
 	/* Set receive buffer size if it's set from command line */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
+
+		if (zns->ge_netlink_cmd.sock >= 0)
+			netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
 	}
 
 	/* Set filter for inbound sockets, to exclude events we've generated
@@ -1925,6 +1981,8 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	kernel_nlsock_fini(&zns->netlink_cmd);
 
 	kernel_nlsock_fini(&zns->netlink_dplane_in);
+
+	kernel_nlsock_fini(&zns->ge_netlink_cmd);
 
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
