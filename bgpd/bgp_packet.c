@@ -1011,9 +1011,12 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 	if (code == BGP_NOTIFY_CEASE) {
 		if (sub_code == BGP_NOTIFY_CEASE_ADMIN_RESET)
 			peer->last_reset = PEER_DOWN_USER_RESET;
-		else if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN)
-			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
-		else
+		else if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN) {
+			if (CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN))
+				peer->last_reset = PEER_DOWN_RTT_SHUTDOWN;
+			else
+				peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		} else
 			peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 	} else
 		peer->last_reset = PEER_DOWN_NOTIFY_SEND;
@@ -1749,15 +1752,24 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	/* If the peer's RTT is higher than expected, shutdown
 	 * the peer automatically.
 	 */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_RTT_SHUTDOWN)
-	    && peer->rtt > peer->rtt_expected) {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_RTT_SHUTDOWN))
+		return Receive_KEEPALIVE_message;
 
+	if (peer->rtt > peer->rtt_expected) {
 		peer->rtt_keepalive_rcv++;
 
 		if (peer->rtt_keepalive_rcv > peer->rtt_keepalive_conf) {
-			zlog_warn(
-				"%s shutdown due to high round-trip-time (%dms > %dms)",
-				peer->host, peer->rtt, peer->rtt_expected);
+			char rtt_shutdown_reason[BUFSIZ] = {};
+
+			snprintfrr(
+				rtt_shutdown_reason,
+				sizeof(rtt_shutdown_reason),
+				"shutdown due to high round-trip-time (%dms > %dms, hit %u times)",
+				peer->rtt, peer->rtt_expected,
+				peer->rtt_keepalive_rcv);
+			zlog_warn("%s %s", peer->host, rtt_shutdown_reason);
+			SET_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN);
+			peer_tx_shutdown_message_set(peer, rtt_shutdown_reason);
 			peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 		}
 	} else {

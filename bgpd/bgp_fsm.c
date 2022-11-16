@@ -634,7 +634,8 @@ const char *const peer_down_str[] = {"",
 				     "AS Set config change",
 				     "Waiting for peer OPEN",
 				     "Reached received prefix count",
-				     "Socket Error"};
+				     "Socket Error",
+				     "Admin. shutdown (RTT)"};
 
 static void bgp_graceful_restart_timer_off(struct peer *peer)
 {
@@ -1832,7 +1833,9 @@ int bgp_start(struct peer *peer)
 			flog_err(EC_BGP_FSM,
 				 "%s [FSM] Trying to start suppressed peer - this is never supposed to happen!",
 				 peer->host);
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN))
+			peer->last_reset = PEER_DOWN_RTT_SHUTDOWN;
+		else if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
 		else if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
 			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;

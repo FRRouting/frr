@@ -1524,6 +1524,7 @@ struct peer {
 /* LLGR aware peer */
 #define PEER_STATUS_LLGR_WAIT (1U << 11)
 #define PEER_STATUS_REFRESH_PENDING (1U << 12) /* refresh request from peer */
+#define PEER_STATUS_RTT_SHUTDOWN (1U << 13) /* In shutdown state due to RTT */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1737,6 +1738,7 @@ struct peer {
 #define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
 #define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
+#define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
