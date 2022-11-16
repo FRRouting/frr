@@ -309,15 +309,18 @@ static const char *group2str(uint32_t group)
 /* Make socket for Linux netlink interface. */
 static int netlink_socket(struct nlsock *nl, unsigned long groups,
 			  uint32_t ext_groups[], uint8_t ext_group_size,
-			  ns_id_t ns_id)
+			  ns_id_t ns_id, int nl_family)
 {
 	int ret;
 	struct sockaddr_nl snl;
 	int sock;
 	int namelen;
 
+	if (nl_family != NETLINK_ROUTE)
+		return -1;
+
 	frr_with_privs(&zserv_privs) {
-		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, nl_family, ns_id);
 		if (sock < 0) {
 			zlog_err("Can't open %s socket: %s", nl->name,
 				 safe_strerror(errno));
@@ -1756,8 +1759,8 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
-	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id) <
-	    0) {
+	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink.name);
 		exit(-1);
@@ -1768,7 +1771,8 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
-	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
 		exit(-1);
@@ -1781,7 +1785,8 @@ void kernel_init(struct zebra_ns *zns)
 		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_out.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id,
+			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
 		exit(-1);
@@ -1795,7 +1800,7 @@ void kernel_init(struct zebra_ns *zns)
 		 zns->ns_id);
 	zns->netlink_dplane_in.sock = -1;
 	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups, 0, 0,
-			   zns->ns_id) < 0) {
+			   zns->ns_id, NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
 		exit(-1);
