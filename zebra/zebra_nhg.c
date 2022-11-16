@@ -2771,6 +2771,10 @@ static bool nexthop_list_set_evpn_dvni(struct route_entry *re,
 	re_vrf_vni = get_l3vni_vni(re->vrf_id);
 
 	for (; nexthop; nexthop = nexthop->next) {
+		if (!nexthop->nh_label ||
+		    nexthop->nh_label_type != ZEBRA_LSP_EVPN)
+			continue;
+
 		nh_vni = label2vni(&nexthop->nh_label->label[0]);
 
 		if (nh_vni != re_vrf_vni)
