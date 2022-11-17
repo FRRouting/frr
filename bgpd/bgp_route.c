@@ -4044,6 +4044,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	int vnc_implicit_withdraw = 0;
 #endif
 	int same_attr = 0;
+	const struct prefix *bgp_nht_param_prefix;
 
 	/* Special case for BGP-LU - map LU safi to ordinary unicast safi */
 	if (orig_safi == SAFI_LABELED_UNICAST)
@@ -4110,6 +4111,11 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN))
 		if (aspath_get_last_as(attr->aspath) == bgp->as)
 			do_loop_check = 0;
+
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+		bgp_nht_param_prefix = NULL;
+	else
+		bgp_nht_param_prefix = p;
 
 	/* AS path loop check. */
 	if (do_loop_check) {
@@ -4621,8 +4627,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi,
 						    safi, pi, NULL, connected,
-						    p)
-			    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
+						    bgp_nht_param_prefix) ||
+			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 				bgp_path_info_set_flag(dest, pi,
 						       BGP_PATH_VALID);
 			else {
@@ -4784,8 +4790,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		nh_afi = BGP_ATTR_NH_AFI(afi, new->attr);
 
 		if (bgp_find_or_add_nexthop(bgp, bgp, nh_afi, safi, new, NULL,
-					    connected, p)
-		    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
+					    connected, bgp_nht_param_prefix) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 			bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
