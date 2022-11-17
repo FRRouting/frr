@@ -140,6 +140,7 @@ enum node_type {
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	COMMUNITY_ALIAS_NODE, /* Community alias node. */
+	TRACKERFILE_NODE,    /* Tracker node. */
 	RMAP_NODE,		 /* Route map node. */
 	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
