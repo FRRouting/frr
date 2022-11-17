@@ -29,6 +29,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_affinitymap.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_tracker.h"
 #include "lib/json.h"
 #include "lib/route_opaque.h"
 #include "zebra/zebra_vxlan.h"
@@ -4577,6 +4578,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_ipv6_forwarding_cmd);
 	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_forwarding_cmd);
+
+	zebra_tracker_init();
 
 	/* Route-map */
 	zebra_route_map_init();

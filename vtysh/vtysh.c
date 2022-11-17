@@ -1307,6 +1307,13 @@ static struct cmd_node nh_group_node = {
 	.prompt = "%s(config-nh-group)# ",
 };
 
+static struct cmd_node trackerfile_node = {
+	.name = "tracker",
+	.node = TRACKERFILE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-tracker-file)# ",
+};
+
 static struct cmd_node rmap_node = {
 	.name = "routemap",
 	.node = RMAP_NODE,
@@ -2273,6 +2280,25 @@ DEFUNSH(VTYSH_AFFMAP, no_affinity_map, vtysh_no_affinity_map_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_ZEBRA, tracker_file, vtysh_trackerfile_cmd, "tracker NAME file",
+	"Tracker configuration\n"
+	"Tracker name\n"
+	"Track a file")
+{
+	vty->node = TRACKERFILE_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, no_tracker_file, vtysh_no_trackerfile_cmd,
+	"no tracker NAME [file]",
+	"Tracker configuration\n"
+	"Tracker name\n"
+	"Track a file")
+{
+	vty->node = CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
 	"route-map RMAP_NAME <deny|permit> (1-65535)",
 	"Create route-map or enter route-map command mode\n"
@@ -2518,6 +2544,19 @@ DEFUNSH(VTYSH_RIPNGD, vtysh_quit_ripngd, vtysh_quit_ripngd_cmd, "quit",
 	return vtysh_exit_ripngd(self, vty, argc, argv);
 }
 #endif /* HAVE_RIPNGD */
+
+DEFUNSH(VTYSH_ZEBRA, vtysh_exit_tracker, vtysh_exit_trackerfile_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_ZEBRA, vtysh_quit_tracker, vtysh_quit_trackerfile_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_tracker(self, vty, argc, argv);
+}
+
 
 DEFUNSH(VTYSH_RMAP, vtysh_exit_rmap, vtysh_exit_rmap_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -4971,6 +5010,13 @@ void vtysh_init_vty(void)
 
 	install_element(CONFIG_NODE, &vtysh_affinity_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_affinity_map_cmd);
+
+	install_node(&trackerfile_node);
+	install_element(CONFIG_NODE, &vtysh_trackerfile_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_trackerfile_cmd);
+	install_element(TRACKERFILE_NODE, &vtysh_exit_trackerfile_cmd);
+	install_element(TRACKERFILE_NODE, &vtysh_quit_trackerfile_cmd);
+	install_element(TRACKERFILE_NODE, &vtysh_end_all_cmd);
 
 	install_node(&rmap_node);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);

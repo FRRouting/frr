@@ -101,6 +101,9 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_routemap_nb.c \
 	zebra/zebra_routemap_nb_config.c \
 	zebra/zebra_script.c \
+	zebra/zebra_tracker.c \
+	zebra/zebra_tracker_nb.c \
+	zebra/zebra_tracker_nb_config.c \
 	zebra/zebra_srte.c \
 	zebra/zebra_tc.c \
 	zebra/zebra_trace.c \
@@ -120,6 +123,7 @@ clippy_scan += \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
+	zebra/zebra_tracker.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
@@ -182,6 +186,8 @@ noinst_HEADERS += \
 	zebra/zebra_srte.h \
 	zebra/zebra_tc.h \
 	zebra/zebra_trace.h \
+	zebra/zebra_tracker.h \
+	zebra/zebra_tracker_nb.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \

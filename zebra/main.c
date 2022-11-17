@@ -45,6 +45,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
+#include "zebra/zebra_tracker_nb.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -268,6 +269,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_routing_info,
 	&frr_affinity_map_info,
 	&frr_zebra_route_map_info,
+	&frr_zebra_tracker_info,
 };
 /* clang-format on */
 
