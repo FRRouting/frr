@@ -394,8 +394,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			/* TODO: handle IPv6 nexthops */
 			flog_warn(
 				EC_BGP_INVALID_NEXTHOP_LENGTH,
-				"%s: %s: invalid MP nexthop length (AFI IP): %u",
-				__func__, peer->host, nhlen);
+				"%s (%d): %s: invalid MP nexthop length (AFI IP): %u",
+				__func__, __LINE__, peer->host, nhlen);
 			stream_free(s);
 			return NULL;
 		}
@@ -449,8 +449,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			stream_put_in_addr_at(s, offset_nh, mod_v4nh);
 
 		if (bgp_debug_update(peer, NULL, NULL, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64
+			zlog_debug("%s (%d): u%" PRIu64 ":s%" PRIu64
 				   " %s send UPDATE w/ nexthop %pI4%s",
+				   __func__, __LINE__,
 				   PAF_SUBGRP(paf)->update_group->id,
 				   PAF_SUBGRP(paf)->id, peer->host, mod_v4nh,
 				   (nhlen == BGP_ATTR_NHLEN_VPNV4 ? " and RD"
@@ -496,8 +497,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			/* TODO: handle IPv4 nexthops */
 			flog_warn(
 				EC_BGP_INVALID_NEXTHOP_LENGTH,
-				"%s: %s: invalid MP nexthop length (AFI IP6): %u",
-				__func__, peer->host, nhlen);
+				"%s (%d): %s: invalid MP nexthop length (AFI IP6): %u",
+				__func__, __LINE__, peer->host, nhlen);
 			stream_free(s);
 			return NULL;
 		}
@@ -566,8 +567,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 			    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 				zlog_debug(
-					"u%" PRIu64 ":s%" PRIu64
+					"%s (%d): u%" PRIu64 ":s%" PRIu64
 					" %s send UPDATE w/ mp_nexthops %pI6, %pI6%s",
+					__func__, __LINE__,
 					PAF_SUBGRP(paf)->update_group->id,
 					PAF_SUBGRP(paf)->id, peer->host,
 					mod_v6nhg, mod_v6nhl,
@@ -576,8 +578,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 						 : ""));
 			else
 				zlog_debug(
-					"u%" PRIu64 ":s%" PRIu64
+					"%s (%d): u%" PRIu64 ":s%" PRIu64
 					" %s send UPDATE w/ mp_nexthop %pI6%s",
+					__func__, __LINE__,
 					PAF_SUBGRP(paf)->update_group->id,
 					PAF_SUBGRP(paf)->id, peer->host,
 					mod_v6nhg,
@@ -602,8 +605,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			stream_put_in_addr_at(s, vec->offset + 1, mod_v4nh);
 
 		if (bgp_debug_update(peer, NULL, NULL, 0))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64
+			zlog_debug("%s (%d): u%" PRIu64 ":s%" PRIu64
 				   " %s send UPDATE w/ nexthop %pI4",
+				   __func__, __LINE__,
 				   PAF_SUBGRP(paf)->update_group->id,
 				   PAF_SUBGRP(paf)->id, peer->host, mod_v4nh);
 	}
@@ -823,9 +827,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			char pfx_buf[BGP_PRD_PATH_STRLEN];
 
 			if (!send_attr_printed) {
-				zlog_debug("u%" PRIu64 ":s%" PRIu64" send UPDATE w/ attr: %s",
-					   subgrp->update_group->id, subgrp->id,
-					   send_attr_str);
+				zlog_debug(
+					"%s (%d): u%" PRIu64 ":s%" PRIu64
+					" send UPDATE for prefix %pFX w/ attr: %s",
+					__func__, __LINE__,
+					subgrp->update_group->id, subgrp->id,
+					dest_p, send_attr_str);
 				if (!stream_empty(snlri)) {
 					iana_afi_t pkt_afi;
 					iana_safi_t pkt_safi;
@@ -833,12 +840,15 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					pkt_afi = afi_int2iana(afi);
 					pkt_safi = safi_int2iana(safi);
 					zlog_debug(
-						"u%" PRIu64 ":s%" PRIu64
-						" send MP_REACH for afi/safi %s/%s",
+						"%s (%d): u%" PRIu64
+						":s%" PRIu64
+						" send MP_REACH for afi/safi %s/%s for prefix %pFX",
+						__func__, __LINE__,
 						subgrp->update_group->id,
 						subgrp->id,
 						iana_afi2str(pkt_afi),
-						iana_safi2str(pkt_safi));
+						iana_safi2str(pkt_safi),
+						dest_p);
 				}
 
 				send_attr_printed = 1;
@@ -849,9 +859,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 						addpath_capable, addpath_tx_id,
 						&adv->baa->attr->evpn_overlay,
 						pfx_buf, sizeof(pfx_buf));
-			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
-				   subgrp->update_group->id, subgrp->id,
-				   pfx_buf);
+			zlog_debug("%s (%d): u%" PRIu64 ":s%" PRIu64
+				   " send UPDATE %s",
+				   __func__, __LINE__, subgrp->update_group->id,
+				   subgrp->id, pfx_buf);
 		}
 
 		/* Synchnorize attribute.  */
@@ -881,11 +892,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		bgp_packet_set_size(packet);
 		if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 			zlog_debug(
-				"u%" PRIu64 ":s%" PRIu64
+				"%s (%d): u%" PRIu64 ":s%" PRIu64
 				" send UPDATE len %zd (max message len: %hu) numpfx %d",
-				subgrp->update_group->id, subgrp->id,
-				(stream_get_endp(packet)
-				 - stream_get_getp(packet)),
+				__func__, __LINE__, subgrp->update_group->id,
+				subgrp->id,
+				(stream_get_endp(packet) -
+				 stream_get_getp(packet)),
 				peer->max_packet_size, num_pfx);
 		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
 		stream_reset(s);

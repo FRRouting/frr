@@ -711,6 +711,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 				continue;
 			}
 			transpose_sid(sid, label, offset, func_len);
+
 			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
@@ -1559,6 +1560,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		encode_label(
 			from_bgp->vpn_policy[afi].tovpn_sid_transpose_label,
 			&label);
+
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
@@ -1576,12 +1578,6 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		static_attr.srv6_l3vpn->loc_node_len =
 			from_bgp->vpn_policy[afi]
 				.tovpn_sid_locator->node_bits_length;
-		static_attr.srv6_l3vpn->func_len =
-			from_bgp->vpn_policy[afi]
-				.tovpn_sid_locator->function_bits_length;
-		static_attr.srv6_l3vpn->arg_len =
-			from_bgp->vpn_policy[afi]
-				.tovpn_sid_locator->argument_bits_length;
 		static_attr.srv6_l3vpn->transposition_len =
 			from_bgp->vpn_policy[afi]
 				.tovpn_sid_locator->function_bits_length;
@@ -1590,7 +1586,14 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				.tovpn_sid_locator->block_bits_length +
 			from_bgp->vpn_policy[afi]
 				.tovpn_sid_locator->node_bits_length;
-		;
+
+		static_attr.srv6_l3vpn->func_len =
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->function_bits_length;
+		static_attr.srv6_l3vpn->arg_len =
+			from_bgp->vpn_policy[afi]
+				.tovpn_sid_locator->argument_bits_length;
+
 		memcpy(&static_attr.srv6_l3vpn->sid,
 		       &from_bgp->vpn_policy[afi]
 				.tovpn_sid_locator->prefix.prefix,

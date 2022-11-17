@@ -3844,10 +3844,48 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put_ipv4(s, attr->nexthop.s_addr);
 			break;
 		case SAFI_MPLS_VPN:
-			stream_putc(s, 12);
-			stream_putl(s, 0); /* RD = 0, per RFC */
-			stream_putl(s, 0);
-			stream_put(s, &attr->mp_nexthop_global_in, 4);
+			if (attr->srv6_l3vpn) {
+				struct peer *plk;
+
+				plk = peer_lookup_by_host(NULL, peer->host);
+				stream_putc(s, 24);
+				stream_putl(s, 0); /* RD = 0, per RFC */
+				stream_putl(s, 0);
+				/*
+				 * If peer is RR client and RR AS equal
+				 * peer AS, get nexthop from update
+				 */
+				if (plk && plk->update_source &&
+				    plk->update_source->sin6.sin6_family ==
+					    AF_INET6) {
+					if (CHECK_FLAG(
+						    plk->af_flags[afi][safi],
+						    PEER_FLAG_REFLECTOR_CLIENT) &&
+					    (peer->bgp->as == peer->as ||
+					     (peer->group &&
+					      peer->bgp->as ==
+						      peer->group->conf->as))) {
+						stream_put(
+							s,
+							&attr->mp_nexthop_global,
+							IPV6_MAX_BYTELEN);
+					} else {
+						stream_put(s,
+							   &plk->update_source
+								    ->sin6
+								    .sin6_addr,
+							   IPV6_MAX_BYTELEN);
+					}
+				} else {
+					stream_put(s, &attr->mp_nexthop_global,
+						   IPV6_MAX_BYTELEN);
+				}
+			} else {
+				stream_putc(s, 12);
+				stream_putl(s, 0); /* RD = 0, per RFC */
+				stream_putl(s, 0);
+				stream_put(s, &attr->mp_nexthop_global_in, 4);
+			}
 			break;
 		case SAFI_ENCAP:
 		case SAFI_EVPN:
@@ -3891,8 +3929,47 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				stream_putc(s, 24);
 				stream_putl(s, 0); /* RD = 0, per RFC */
 				stream_putl(s, 0);
-				stream_put(s, &attr->mp_nexthop_global,
-					   IPV6_MAX_BYTELEN);
+				if (attr->srv6_l3vpn) {
+					struct peer *plk;
+
+					plk = peer_lookup_by_host(NULL,
+								  peer->host);
+					if (plk && plk->update_source &&
+					    plk->update_source->sin6
+							    .sin6_family ==
+						    AF_INET6) {
+						if (CHECK_FLAG(
+							    plk->af_flags[afi]
+									 [safi],
+							    PEER_FLAG_REFLECTOR_CLIENT) &&
+						    (peer->bgp->as ==
+							     peer->as ||
+						     (peer->group &&
+						      peer->bgp->as ==
+							      peer->group->conf
+								      ->as))) {
+							stream_put(
+								s,
+								&attr->mp_nexthop_global,
+								IPV6_MAX_BYTELEN);
+						} else {
+							stream_put(
+								s,
+								&plk->update_source
+									 ->sin6
+									 .sin6_addr,
+								IPV6_MAX_BYTELEN);
+						}
+					} else {
+						stream_put(
+							s,
+							&attr->mp_nexthop_global,
+							IPV6_MAX_BYTELEN);
+					}
+				} else {
+					stream_put(s, &attr->mp_nexthop_global,
+						   IPV6_MAX_BYTELEN);
+				}
 			} else if (attr->mp_nexthop_len
 				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				stream_putc(s, 48);

@@ -63,6 +63,14 @@ enum seg6local_action_t {
 	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
 };
 
+enum seg6local_endpoint_behavior_t {
+	IANA_SEG6_ENDPOINT_BEHAVIOR_UNSPEC = 0,
+	IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT6 = 18,
+	IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT4 = 19,
+	IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT6_WITH_NEXT_CSID = 62,
+	IANA_SEG6_ENDPOINT_BEHAVIOR_END_DT4_WITH_NEXT_CSID = 63,
+};
+
 struct seg6_segs {
 	size_t num_segs;
 	struct in6_addr segs[256];
