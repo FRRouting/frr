@@ -214,9 +214,14 @@ struct bgp_path_info_extra {
 	} vnc;
 #endif
 
-	/* For imported routes into a VNI (or VRF), this points to the parent.
+	/*
+	 * For imported routes into a VNI (or VRF)
 	 */
-	void *parent;
+	void *parent;	    /* parent from global table */
+	union {
+		struct ethaddr mac; /* MAC set here for VNI IP table */
+		struct ipaddr ip;   /* IP set here for VNI MAC table */
+	} vni_info;
 
 	/*
 	 * Some tunnelish parameters follow. Maybe consolidate into an
@@ -849,10 +854,11 @@ extern bool bgp_zebra_has_route_changed(struct bgp_path_info *selected);
 
 extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct bgp_dest *dest,
+					const struct prefix *p,
 					const struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
-				 struct bgp_dest *bn,
+				 struct bgp_dest *bn, const struct prefix *p,
 				 struct bgp_path_info *path, afi_t afi,
 				 safi_t safi, enum rpki_states,
 				 json_object *json_paths);

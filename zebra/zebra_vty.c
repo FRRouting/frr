@@ -3747,6 +3747,27 @@ DEFPY (clear_evpn_dup_addr,
 	return ret;
 }
 
+DEFPY_HIDDEN (evpn_accept_bgp_seq,
+              evpn_accept_bgp_seq_cmd,
+              "evpn accept-bgp-seq",
+              "EVPN\n"
+	      "Accept all sequence numbers from BGP\n")
+{
+	zebra_vxlan_set_accept_bgp_seq(true);
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN (no_evpn_accept_bgp_seq,
+              no_evpn_accept_bgp_seq_cmd,
+              "no evpn accept-bgp-seq",
+              NO_STR
+              "EVPN\n"
+	      "Accept all sequence numbers from BGP\n")
+{
+	zebra_vxlan_set_accept_bgp_seq(false);
+	return CMD_SUCCESS;
+}
+
 /* Static ip route configuration write function. */
 static int zebra_ip_config(struct vty *vty)
 {
@@ -3951,6 +3972,9 @@ static int config_write_protocol(struct vty *vty)
 	zebra_evpn_mh_config_write(vty);
 
 	zebra_pbr_config_write(vty);
+
+	if (!zebra_vxlan_get_accept_bgp_seq())
+		vty_out(vty, "no evpn accept-bgp-seq\n");
 
 	/* Include nexthop-group config */
 	if (!zebra_nhg_kernel_nexthops_enabled())
@@ -4589,6 +4613,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
+	install_element(CONFIG_NODE, &evpn_accept_bgp_seq_cmd);
+	install_element(CONFIG_NODE, &no_evpn_accept_bgp_seq_cmd);
 
 	install_element(VIEW_NODE, &show_neigh_cmd);
 

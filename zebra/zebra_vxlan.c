@@ -69,6 +69,9 @@ DEFINE_HOOK(zebra_rmac_update,
 	     const char *reason),
 	    (rmac, zl3vni, delete, reason));
 
+/* config knobs */
+static bool accept_bgp_seq = true;
+
 /* static function declarations */
 static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 					    void **args);
@@ -6282,6 +6285,17 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx)
 {
 	return;
+}
+
+/* Config knob for accepting lower sequence numbers */
+void zebra_vxlan_set_accept_bgp_seq(bool set)
+{
+	accept_bgp_seq = set;
+}
+
+bool zebra_vxlan_get_accept_bgp_seq(void)
+{
+	return accept_bgp_seq;
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */
