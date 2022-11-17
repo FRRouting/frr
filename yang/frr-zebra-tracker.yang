@@ -1,0 +1,84 @@
+module frr-zebra-tracker {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/zebra-tracker";
+  prefix frr-zebra-tracker;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines zebra tracker settings";
+
+  revision 2022-11-17 {
+    description
+      "Initial revision";
+  }
+
+  container trackers {
+    description
+      "Event trackers";
+    list tracker {
+      description
+        "Event trackers";
+      key name;
+      leaf name {
+        type string {
+          length "1..32";
+        }
+        description
+          "Tracker Name";
+      }
+      choice type {
+        description
+          "Tracker Type";
+        case file {
+          description
+            "File tracker";
+          leaf filepath {
+            description
+              "File tracker disk path";
+            type string {
+              length "1..4096";
+              pattern '/.+';
+            }
+          }
+          choice condition {
+            description
+              "Condition for the tracker to be up";
+            case pattern {
+              leaf filepattern {
+                description
+                  "Pattern to match to make the tracker up";
+                type string {
+                  length "1..32";
+                }
+              }
+              leaf filepattern-exact {
+                description
+                  "Pattern must match the exact content";
+                type empty;
+              }
+            }
+            case exists {
+              leaf fileexists {
+                description
+                  "The file must exist for the pattern to be up";
+                type empty;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

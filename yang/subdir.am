@@ -28,6 +28,7 @@ dist_yangmodels_DATA += yang/frr-if-rmap.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-map.yang
 dist_yangmodels_DATA += yang/frr-zebra-route-map.yang
+dist_yangmodels_DATA += yang/frr-zebra-tracker.yang
 dist_yangmodels_DATA += yang/frr-ospf-route-map.yang
 dist_yangmodels_DATA += yang/frr-ospf6-route-map.yang
 dist_yangmodels_DATA += yang/frr-bgp-filter.yang
