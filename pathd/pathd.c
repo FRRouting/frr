@@ -23,6 +23,8 @@
 #include "lib_errors.h"
 #include "network.h"
 #include "libfrr.h"
+#include <debug.h>
+#include <hook.h>
 
 #include "pathd/pathd.h"
 #include "pathd/path_zebra.h"
@@ -43,6 +45,17 @@ DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
 	    (candidate));
 DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate));
+
+struct debug path_policy_debug;
+
+#define PATH_POLICY_DEBUG(fmt, ...)                                            \
+	do {                                                                   \
+		if (DEBUG_FLAGS_CHECK(&path_policy_debug,                      \
+				      PATH_POLICY_DEBUG_BASIC))                \
+			DEBUGD(&path_policy_debug, "policy: " fmt,             \
+			       ##__VA_ARGS__);                                 \
+	} while (0)
+
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
 static void trigger_pathd_candidate_created_timer(struct thread *thread);
@@ -96,6 +109,20 @@ static inline int srte_policy_compare(const struct srte_policy *a,
 RB_GENERATE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
 struct srte_policy_head srte_policies = RB_INITIALIZER(&srte_policies);
+
+static void srte_policy_status_log(struct srte_policy *policy)
+{
+	char endpoint[ENDPOINT_STR_LENGTH];
+
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	if (policy->status == SRTE_POLICY_STATUS_DOWN) {
+		PATH_POLICY_DEBUG("SR-TE(%s, %u): policy is DOWN", endpoint,
+				  policy->color);
+	} else if (policy->status == SRTE_POLICY_STATUS_UP) {
+		PATH_POLICY_DEBUG("SR-TE(%s, %u): policy is UP", endpoint,
+				  policy->color);
+	}
+}
 
 /**
  * Adds a segment list to pathd.
@@ -531,6 +558,10 @@ void srte_apply_changes(void)
 
 	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol) {
 		if (CHECK_FLAG(policy->flags, F_POLICY_DELETED)) {
+			if (policy->status != SRTE_POLICY_STATUS_DOWN) {
+				policy->status = SRTE_POLICY_STATUS_DOWN;
+				srte_policy_status_log(policy);
+			}
 			srte_policy_del(policy);
 			continue;
 		}
@@ -565,7 +596,7 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 	struct srte_candidate *candidate, *safe;
 	struct srte_candidate *old_best_candidate;
 	struct srte_candidate *new_best_candidate;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
 
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
@@ -574,8 +605,7 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 	new_best_candidate = srte_policy_best_candidate(policy);
 
 	if (new_best_candidate != old_best_candidate) {
-		/* TODO: add debug guard. */
-		zlog_debug(
+		PATH_POLICY_DEBUG(
 			"SR-TE(%s, %u): best candidate changed from %s to %s",
 			endpoint, policy->color,
 			old_best_candidate ? old_best_candidate->name : "none",
@@ -617,10 +647,10 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 				   F_SEGMENT_LIST_MODIFIED);
 
 		if (candidate_changed || segment_list_changed) {
-			/* TODO: add debug guard. */
-			zlog_debug("SR-TE(%s, %u): best candidate %s changed",
-				   endpoint, policy->color,
-				   new_best_candidate->name);
+			PATH_POLICY_DEBUG(
+				"SR-TE(%s, %u): best candidate %s changed",
+				endpoint, policy->color,
+				new_best_candidate->name);
 
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->lsp->segment_list);
@@ -722,10 +752,10 @@ void srte_candidate_set_bandwidth(struct srte_candidate *candidate,
 				  float bandwidth, bool required)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
 
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug(
+	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s %sconfig bandwidth set to %f B/s",
 		endpoint, policy->color, candidate->name,
 		required ? "required " : "", bandwidth);
@@ -750,11 +780,13 @@ void srte_lsp_set_bandwidth(struct srte_lsp *lsp, float bandwidth,
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): candidate %s %slsp bandwidth set to %f B/s",
-		   endpoint, policy->color, candidate->name,
-		   required ? "required" : "", bandwidth);
+	PATH_POLICY_DEBUG(
+		"SR-TE(%s, %u): candidate %s %slsp bandwidth set to %f B/s",
+		endpoint, policy->color, candidate->name,
+		required ? "required" : "", bandwidth);
 	SET_FLAG(lsp->flags, F_CANDIDATE_HAS_BANDWIDTH);
 	COND_FLAG(lsp->flags, F_CANDIDATE_REQUIRED_BANDWIDTH, required);
 	lsp->bandwidth = bandwidth;
@@ -770,10 +802,11 @@ void srte_lsp_set_bandwidth(struct srte_lsp *lsp, float bandwidth,
 void srte_candidate_unset_bandwidth(struct srte_candidate *candidate)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): candidate %s config bandwidth unset",
-		   endpoint, policy->color, candidate->name);
+	PATH_POLICY_DEBUG("SR-TE(%s, %u): candidate %s config bandwidth unset",
+			  endpoint, policy->color, candidate->name);
 	UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_BANDWIDTH);
 	UNSET_FLAG(candidate->flags, F_CANDIDATE_REQUIRED_BANDWIDTH);
 	candidate->bandwidth = 0;
@@ -792,10 +825,11 @@ void srte_lsp_unset_bandwidth(struct srte_lsp *lsp)
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): candidate %s lsp bandwidth unset", endpoint,
-		   policy->color, candidate->name);
+	PATH_POLICY_DEBUG("SR-TE(%s, %u): candidate %s lsp bandwidth unset",
+			  endpoint, policy->color, candidate->name);
 	UNSET_FLAG(lsp->flags, F_CANDIDATE_HAS_BANDWIDTH);
 	UNSET_FLAG(lsp->flags, F_CANDIDATE_REQUIRED_BANDWIDTH);
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
@@ -820,9 +854,10 @@ void srte_candidate_set_metric(struct srte_candidate *candidate,
 			       bool is_computed)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug(
+	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s %sconfig metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
 		endpoint, policy->color, candidate->name,
 		required ? "required " : "", srte_candidate_metric_name(type),
@@ -854,9 +889,10 @@ void srte_lsp_set_metric(struct srte_lsp *lsp,
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug(
+	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s %slsp metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
 		endpoint, policy->color, candidate->name,
 		required ? "required " : "", srte_candidate_metric_name(type),
@@ -889,11 +925,13 @@ void srte_candidate_unset_metric(struct srte_candidate *candidate,
 				 enum srte_candidate_metric_type type)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): candidate %s config metric %s (%u) unset",
-		   endpoint, policy->color, candidate->name,
-		   srte_candidate_metric_name(type), type);
+	PATH_POLICY_DEBUG(
+		"SR-TE(%s, %u): candidate %s config metric %s (%u) unset",
+		endpoint, policy->color, candidate->name,
+		srte_candidate_metric_name(type), type);
 	assert((type > 0) && (type <= MAX_METRIC_TYPE));
 	srte_unset_metric(&candidate->metrics[type - 1]);
 	srte_lsp_unset_metric(candidate->lsp, type);
@@ -913,11 +951,13 @@ void srte_lsp_unset_metric(struct srte_lsp *lsp,
 {
 	struct srte_candidate *candidate = lsp->candidate;
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): candidate %s lsp metric %s (%u) unset",
-		   endpoint, policy->color, candidate->name,
-		   srte_candidate_metric_name(type), type);
+	PATH_POLICY_DEBUG(
+		"SR-TE(%s, %u): candidate %s lsp metric %s (%u) unset",
+		endpoint, policy->color, candidate->name,
+		srte_candidate_metric_name(type), type);
 	assert((type > 0) && (type <= MAX_METRIC_TYPE));
 	srte_unset_metric(&lsp->metrics[type - 1]);
 }
@@ -941,16 +981,18 @@ void srte_candidate_set_objfun(struct srte_candidate *candidate, bool required,
 			       enum objfun_type type)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	candidate->objfun = type;
 	SET_FLAG(candidate->flags, F_CANDIDATE_HAS_OBJFUN);
 	COND_FLAG(candidate->flags, F_CANDIDATE_REQUIRED_OBJFUN, required);
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
-	zlog_debug("SR-TE(%s, %u): candidate %s %sobjective function set to %s",
-		   endpoint, policy->color, candidate->name,
-		   required ? "required " : "", objfun_type_name(type));
+	PATH_POLICY_DEBUG(
+		"SR-TE(%s, %u): candidate %s %sobjective function set to %s",
+		endpoint, policy->color, candidate->name,
+		required ? "required " : "", objfun_type_name(type));
 }
 
 /**
@@ -961,14 +1003,15 @@ void srte_candidate_set_objfun(struct srte_candidate *candidate, bool required,
 void srte_candidate_unset_objfun(struct srte_candidate *candidate)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_OBJFUN);
 	UNSET_FLAG(candidate->flags, F_CANDIDATE_REQUIRED_OBJFUN);
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
 	candidate->objfun = OBJFUN_UNDEFINED;
-	zlog_debug(
+	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s objective functions preferences unset",
 		endpoint, policy->color, candidate->name);
 }
@@ -1013,7 +1056,8 @@ void srte_candidate_set_affinity_filter(struct srte_candidate *candidate,
 					uint32_t filter)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	assert(type > AFFINITY_FILTER_UNDEFINED);
@@ -1021,7 +1065,7 @@ void srte_candidate_set_affinity_filter(struct srte_candidate *candidate,
 	SET_FLAG(candidate->flags, filter_type_to_flag(type));
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
 	candidate->affinity_filters[type - 1] = filter;
-	zlog_debug(
+	PATH_POLICY_DEBUG(
 		"SR-TE(%s, %u): candidate %s affinity filter %s set to 0x%08x",
 		endpoint, policy->color, candidate->name,
 		filter_type_name(type), filter);
@@ -1038,7 +1082,8 @@ void srte_candidate_unset_affinity_filter(struct srte_candidate *candidate,
 					  enum affinity_filter_type type)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	assert(type > AFFINITY_FILTER_UNDEFINED);
@@ -1046,9 +1091,10 @@ void srte_candidate_unset_affinity_filter(struct srte_candidate *candidate,
 	UNSET_FLAG(candidate->flags, filter_type_to_flag(type));
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
 	candidate->affinity_filters[type - 1] = 0;
-	zlog_debug("SR-TE(%s, %u): candidate %s affinity filter %s unset",
-		   endpoint, policy->color, candidate->name,
-		   filter_type_name(type));
+	PATH_POLICY_DEBUG(
+		"SR-TE(%s, %u): candidate %s affinity filter %s unset",
+		endpoint, policy->color, candidate->name,
+		filter_type_name(type));
 }
 
 /**
@@ -1093,10 +1139,11 @@ srte_segment_entry_find(struct srte_segment_list *segment_list, uint32_t index)
 void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 {
 	struct srte_policy *policy = candidate->policy;
-	char endpoint[46];
+	char endpoint[ENDPOINT_STR_LENGTH];
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-	zlog_debug("SR-TE(%s, %u): zebra updated status to %d", endpoint,
-		   policy->color, status);
+	PATH_POLICY_DEBUG("SR-TE(%s, %u): zebra updated status to %d", endpoint,
+			  policy->color, status);
 	switch (status) {
 	case ZEBRA_SR_POLICY_DOWN:
 		switch (policy->status) {
@@ -1109,9 +1156,8 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_DOWN:
 			return;
 		default:
-			zlog_debug("SR-TE(%s, %u): policy is DOWN", endpoint,
-				   policy->color);
 			policy->status = SRTE_POLICY_STATUS_DOWN;
+			srte_policy_status_log(policy);
 			break;
 		}
 		break;
@@ -1120,9 +1166,8 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_UP:
 			return;
 		default:
-			zlog_debug("SR-TE(%s, %u): policy is UP", endpoint,
-				   policy->color);
 			policy->status = SRTE_POLICY_STATUS_UP;
+			srte_policy_status_log(policy);
 			break;
 		}
 		break;
@@ -1148,19 +1193,20 @@ void srte_candidate_unset_segment_list(const char *originator, bool force)
 		return;
 	}
 
-	zlog_debug("Unset segment lists for originator %s", originator);
+	PATH_POLICY_DEBUG("Unset segment lists for originator %s", originator);
 
 	/* Iterate the policies, then iterate each policy's candidate path
 	 * to check the candidate path's segment list originator */
 	struct srte_policy *policy;
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
-		zlog_debug("Unset segment lists checking policy %s",
-			   policy->name);
+		PATH_POLICY_DEBUG("Unset segment lists checking policy %s",
+				  policy->name);
 		struct srte_candidate *candidate;
 		RB_FOREACH (candidate, srte_candidate_head,
 			    &policy->candidate_paths) {
-			zlog_debug("Unset segment lists checking candidate %s",
-				   candidate->name);
+			PATH_POLICY_DEBUG(
+				"Unset segment lists checking candidate %s",
+				candidate->name);
 			if (candidate->lsp == NULL) {
 				continue;
 			}
@@ -1190,8 +1236,8 @@ void srte_candidate_unset_segment_list(const char *originator, bool force)
 				    sizeof(segment_list->originator))
 				    == 0
 			    || force) {
-				zlog_debug("Unset segment list %s",
-					   segment_list->name);
+				PATH_POLICY_DEBUG("Unset segment list %s",
+						  segment_list->name);
 				SET_FLAG(segment_list->flags,
 					 F_SEGMENT_LIST_DELETED);
 				SET_FLAG(candidate->flags,
@@ -1220,6 +1266,12 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	default:
 		return "Unknown";
 	}
+}
+
+void path_policy_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&path_policy_debug, PATH_POLICY_DEBUG_BASIC))
+		vty_out(vty, "  Path policy debugging is on\n");
 }
 
 void pathd_shutdown(void)
@@ -1347,8 +1399,9 @@ int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
 		zlog_warn(" %s: PATHD-TED: SL: ERROR query C : ted-sid (%d)",
 			  __func__, ted_sid);
 	} else {
-		zlog_debug("%s: PATHD-TED: SL: Success query C : ted-sid (%d)",
-			   __func__, ted_sid);
+		PATH_TED_DEBUG(
+			"%s: PATHD-TED: SL: Success query C : ted-sid (%d)",
+			__func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
 		      entry->sid_value)) {
@@ -1377,8 +1430,9 @@ int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
 		zlog_warn(" %s: PATHD-TED: SL: ERROR query E : ted-sid (%d)",
 			  __func__, ted_sid);
 	} else {
-		zlog_debug("%s: PATHD-TED: SL: Success query E : ted-sid (%d)",
-			   __func__, ted_sid);
+		PATH_TED_DEBUG(
+			"%s: PATHD-TED: SL: Success query E : ted-sid (%d)",
+			__func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
 		      entry->sid_value)) {
@@ -1406,8 +1460,8 @@ int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 		zlog_warn("%s:SL:  ERROR query F : ted-sid (%d)", __func__,
 			  ted_sid);
 	} else {
-		zlog_debug("%s:SL: Success query F : ted-sid (%d)", __func__,
-			   ted_sid);
+		PATH_TED_DEBUG("%s:SL: Success query F : ted-sid (%d)",
+			       __func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
 		      entry->sid_value)) {

@@ -488,6 +488,12 @@ int path_ted_cli_debug_config_write(struct vty *vty)
 	return 0;
 }
 
+void path_ted_show_debugging(struct vty *vty)
+{
+	if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
+		vty_out(vty, "  Path TED debugging is on\n");
+}
+
 int path_ted_cli_debug_set_all(uint32_t flags, bool set)
 {
 	DEBUG_FLAGS_SET(&ted_state_g.dbg, flags, set);
