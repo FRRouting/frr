@@ -379,10 +379,11 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 
 		route_map_sets_nh =
 			(CHECK_FLAG(vec->flags,
-				    BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED)
-			 || CHECK_FLAG(
-				 vec->flags,
-				 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
+				    BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED) ||
+			 CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED) ||
+			 CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
 		switch (nhlen) {
 		case BGP_ATTR_NHLEN_IPV4:
@@ -468,10 +469,12 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 
 		route_map_sets_nh =
 			(CHECK_FLAG(vec->flags,
-				    BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED)
-			 || CHECK_FLAG(
+				    BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED) ||
+			 CHECK_FLAG(
 				 vec->flags,
-				 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
+				 BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED) ||
+			 CHECK_FLAG(vec->flags,
+				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
 		/*
 		 * The logic here is rather similar to that for IPv4, the
@@ -1275,6 +1278,15 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED);
+
+	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
+			 BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED);
+
+	if (CHECK_FLAG(attr->rmap_change_flags,
+		       BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
+			 BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED);
 
 	if (CHECK_FLAG(attr->rmap_change_flags,
 		       BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
