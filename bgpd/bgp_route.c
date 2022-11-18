@@ -2583,8 +2583,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s: BGP_PATH_ANNC_NH_SELF, family=%s",
-					__func__, family2str(family));
+					"%s: %pFX BGP_PATH_ANNC_NH_SELF, family=%s",
+					__func__, p, family2str(family));
 			subgroup_announce_reset_nhop(family, attr);
 			nh_reset = true;
 		}
