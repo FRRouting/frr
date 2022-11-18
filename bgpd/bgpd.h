@@ -339,6 +339,11 @@ struct bgp_srv6_function {
 	char locator_name[SRV6_LOCNAME_SIZE];
 };
 
+struct as_confed {
+	as_t as;
+	char *as_pretty;
+};
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -411,7 +416,8 @@ struct bgp {
 
 	/* BGP confederation information.  */
 	as_t confed_id;
-	as_t *confed_peers;
+	char *confed_id_pretty;
+	struct as_confed *confed_peers;
 	int confed_peers_cnt;
 
 	struct thread
@@ -2187,11 +2193,13 @@ extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
 extern void bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id);
 extern void bgp_cluster_id_unset(struct bgp *bgp);
 
-extern void bgp_confederation_id_set(struct bgp *bgp, as_t as);
+extern void bgp_confederation_id_set(struct bgp *bgp, as_t as,
+				     const char *as_str);
 extern void bgp_confederation_id_unset(struct bgp *bgp);
 extern bool bgp_confederation_peers_check(struct bgp *, as_t);
 
-extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as);
+extern void bgp_confederation_peers_add(struct bgp *bgp, as_t as,
+					const char *as_str);
 extern void bgp_confederation_peers_remove(struct bgp *bgp, as_t as);
 
 extern void bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,

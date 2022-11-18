@@ -568,7 +568,7 @@ void bgp_tcp_keepalive_unset(struct bgp *bgp)
 }
 
 /* BGP confederation configuration.  */
-void bgp_confederation_id_set(struct bgp *bgp, as_t as)
+void bgp_confederation_id_set(struct bgp *bgp, as_t as, const char *as_str)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -580,6 +580,9 @@ void bgp_confederation_id_set(struct bgp *bgp, as_t as)
 	/* Remember - were we doing confederation before? */
 	already_confed = bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION);
 	bgp->confed_id = as;
+	if (bgp->confed_id_pretty)
+		XFREE(MTYPE_BGP, bgp->confed_id_pretty);
+	bgp->confed_id_pretty = XSTRDUP(MTYPE_BGP, as_str);
 	bgp_config_set(bgp, BGP_CONFIG_CONFEDERATION);
 
 	/* If we were doing confederation already, this is just an external
@@ -632,6 +635,7 @@ void bgp_confederation_id_unset(struct bgp *bgp)
 	struct listnode *node, *nnode;
 
 	bgp->confed_id = 0;
+	XFREE(MTYPE_BGP, bgp->confed_id_pretty);
 	bgp_config_unset(bgp, BGP_CONFIG_CONFEDERATION);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -659,14 +663,14 @@ bool bgp_confederation_peers_check(struct bgp *bgp, as_t as)
 		return false;
 
 	for (i = 0; i < bgp->confed_peers_cnt; i++)
-		if (bgp->confed_peers[i] == as)
+		if (bgp->confed_peers[i].as == as)
 			return true;
 
 	return false;
 }
 
 /* Add an AS to the confederation set.  */
-void bgp_confederation_peers_add(struct bgp *bgp, as_t as)
+void bgp_confederation_peers_add(struct bgp *bgp, as_t as, const char *as_str)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -677,11 +681,13 @@ void bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	if (bgp_confederation_peers_check(bgp, as))
 		return;
 
-	bgp->confed_peers =
-		XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
-			 (bgp->confed_peers_cnt + 1) * sizeof(as_t));
+	bgp->confed_peers = XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
+				     (bgp->confed_peers_cnt + 1) *
+					     sizeof(struct as_confed));
 
-	bgp->confed_peers[bgp->confed_peers_cnt] = as;
+	bgp->confed_peers[bgp->confed_peers_cnt].as = as;
+	bgp->confed_peers[bgp->confed_peers_cnt].as_pretty =
+		XSTRDUP(MTYPE_BGP, as_str);
 	bgp->confed_peers_cnt++;
 
 	if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)) {
@@ -718,9 +724,15 @@ void bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 		return;
 
 	for (i = 0; i < bgp->confed_peers_cnt; i++)
-		if (bgp->confed_peers[i] == as)
-			for (j = i + 1; j < bgp->confed_peers_cnt; j++)
-				bgp->confed_peers[j - 1] = bgp->confed_peers[j];
+		if (bgp->confed_peers[i].as == as) {
+			XFREE(MTYPE_BGP, bgp->confed_peers[i].as_pretty);
+			for (j = i + 1; j < bgp->confed_peers_cnt; j++) {
+				bgp->confed_peers[j - 1].as =
+					bgp->confed_peers[j].as;
+				bgp->confed_peers[j - 1].as_pretty =
+					bgp->confed_peers[j].as_pretty;
+			}
+		}
 
 	bgp->confed_peers_cnt--;
 
@@ -729,9 +741,9 @@ void bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 			XFREE(MTYPE_BGP_CONFED_LIST, bgp->confed_peers);
 		bgp->confed_peers = NULL;
 	} else
-		bgp->confed_peers =
-			XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
-				 bgp->confed_peers_cnt * sizeof(as_t));
+		bgp->confed_peers = XREALLOC(
+			MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
+			bgp->confed_peers_cnt * sizeof(struct as_confed));
 
 	/* Now reset any peer who's remote AS has just been removed from the
 	   CONFED */
@@ -3960,6 +3972,8 @@ void bgp_free(struct bgp *bgp)
 		if (bgp->vpn_policy[afi].rtlist[dir])
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
 	}
+
+	bgp_confederation_id_unset(bgp);
 
 	XFREE(MTYPE_BGP, bgp->as_pretty);
 	XFREE(MTYPE_BGP, bgp->name);

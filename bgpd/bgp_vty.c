@@ -2003,7 +2003,7 @@ DEFUN (bgp_confederation_identifier,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_confederation_id_set(bgp, as);
+	bgp_confederation_id_set(bgp, as, argv[idx_number]->arg);
 
 	return CMD_SUCCESS;
 }
@@ -2043,7 +2043,7 @@ DEFUN (bgp_confederation_peers,
 			continue;
 		}
 
-		bgp_confederation_peers_add(bgp, as);
+		bgp_confederation_peers_add(bgp, as, argv[i]->arg);
 	}
 	return CMD_SUCCESS;
 }
@@ -18163,8 +18163,8 @@ int bgp_config_write(struct vty *vty)
 
 		/* Confederation identifier*/
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
-			vty_out(vty, " bgp confederation identifier %u\n",
-				bgp->confed_id);
+			vty_out(vty, " bgp confederation identifier %s\n",
+				bgp->confed_id_pretty);
 
 		/* Confederation peer */
 		if (bgp->confed_peers_cnt > 0) {
@@ -18173,7 +18173,8 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp confederation peers");
 
 			for (i = 0; i < bgp->confed_peers_cnt; i++)
-				vty_out(vty, " %u", bgp->confed_peers[i]);
+				vty_out(vty, " %s",
+					bgp->confed_peers[i].as_pretty);
 
 			vty_out(vty, "\n");
 		}
