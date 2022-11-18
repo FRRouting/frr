@@ -2433,6 +2433,12 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	afi_t afi;
 	safi_t safi;
 	json_object *json_paths = NULL;
+<<<<<<< HEAD
+=======
+	struct ethaddr empty_mac = {};
+	struct ipaddr empty_ip = {};
+	const struct prefix_evpn *evp;
+>>>>>>> f3a88e727 (bgpd: fix null pointer dereference)
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
@@ -2445,6 +2451,12 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		return;
 	}
 
+<<<<<<< HEAD
+=======
+	build_evpn_type2_prefix(&p, mac ? mac : &empty_mac,
+				ip ? ip : &empty_ip);
+
+>>>>>>> f3a88e727 (bgpd: fix null pointer dereference)
 	/* See if route exists. Look for both non-sticky and sticky. */
 	build_evpn_type2_prefix(&p, mac, ip);
 	dest = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
