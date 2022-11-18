@@ -355,6 +355,16 @@ def run_and_expect(func, what, count=20, wait=3):
     else:
         func_name = func.__name__
 
+    # Just a safety-check to avoid running topotests with very
+    # small wait/count arguments.
+    wait_time = wait * count
+    if wait_time < 5:
+        assert (
+            wait_time >= 5
+        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
+            count, wait
+        )
+
     logger.info(
         "'{}' polling started (interval {} secs, maximum {} tries)".format(
             func_name, wait, count
@@ -401,6 +411,16 @@ def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
         func_name = func.func.__name__
     else:
         func_name = func.__name__
+
+    # Just a safety-check to avoid running topotests with very
+    # small wait/count arguments.
+    wait_time = wait * count
+    if wait_time < 5:
+        assert (
+            wait_time >= 5
+        ), "Waiting time is too small (count={}, wait={}), adjust timer values".format(
+            count, wait
+        )
 
     logger.info(
         "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
