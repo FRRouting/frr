@@ -676,8 +676,8 @@ def test_rib_ipv6_step15():
             rname,
             "show ipv6 route isis json",
             outputs[rname][15]["show_ipv6_route.ref"],
-            count=2,
-            wait=0.05,
+            count=10,
+            wait=0.5,
         )
 
 
@@ -791,8 +791,8 @@ def test_rib_ipv6_step18():
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=2,
-        wait=0.05,
+        count=20,
+        wait=0.5,
     )
 
 
@@ -887,8 +887,8 @@ def test_rib_ipv6_step21():
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=2,
-        wait=0.05,
+        count=20,
+        wait=0.5,
     )
 
 
@@ -985,14 +985,14 @@ def test_rib_ipv6_step24():
         "show bfd peers json",
         expect,
         count=40,
-        wait=0.05,
+        wait=0.5,
     )
 
     router_compare_json_output(
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=4,
+        count=10,
     )
 
 
