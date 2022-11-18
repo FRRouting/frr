@@ -9082,7 +9082,7 @@ DEFPY (af_sid_vpn_export,
 
 DEFPY (bgp_sid_vpn_export,
        bgp_sid_vpn_export_cmd,
-       "[no] sid vpn per-vrf export <(1-255)$sid_idx|auto$sid_auto>",
+       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto>",
        NO_STR
        "sid value for VRF\n"
        "Between current vrf and vpn\n"
