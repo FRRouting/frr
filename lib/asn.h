@@ -64,6 +64,10 @@ void asn_asn2json(json_object *jseg_list, const char *attr,
 	((mode == ASNOTATION_DOT) ? "%pASD" :	    \
 	 ((mode == ASNOTATION_DOTPLUS) ? "%pASE" :	\
 	  "%pASP"))
+#define ASN_FORMAT_SPACE(mode)		    \
+	((mode == ASNOTATION_DOT) ? "%10pASD" :	    \
+	 ((mode == ASNOTATION_DOTPLUS) ? "%10pASE" :	\
+	  "%10pASP"))
 
 /* for test */
 extern void asn_relax_as_zero(bool relax);

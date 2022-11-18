@@ -11409,12 +11409,13 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json_object_string_add(json_peer, "domainname",
 							       peer->domainname);
 
-				json_object_int_add(json_peer, "remoteAs", peer->as);
-				json_object_int_add(
-					json_peer, "localAs",
-					peer->change_local_as
-						? peer->change_local_as
-						: peer->local_as);
+				asn_asn2json(json_peer, "remoteAs", peer->as,
+					     bgp->asnotation);
+				asn_asn2json(json_peer, "localAs",
+					     peer->change_local_as
+						     ? peer->change_local_as
+						     : peer->local_as,
+					     bgp->asnotation);
 				json_object_int_add(json_peer, "version", 4);
 				json_object_int_add(json_peer, "msgRcvd",
 						    PEER_TOTAL_RX(peer));
@@ -11594,14 +11595,19 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					&peer->ibuf->count,
 					memory_order_relaxed);
 
-				if (show_wide)
+				vty_out(vty, "4 ");
+				vty_out(vty, ASN_FORMAT_SPACE(bgp->asnotation),
+					&peer->as);
+				if (show_wide) {
 					vty_out(vty,
-						"4 %10u %10u %9u %9u %8" PRIu64
-						" %4zu %4zu %8s",
-						peer->as,
+						ASN_FORMAT_SPACE(
+							bgp->asnotation),
 						peer->change_local_as
-							? peer->change_local_as
-							: peer->local_as,
+							? &peer->change_local_as
+							: &peer->local_as);
+					vty_out(vty,
+						" %9u %9u %8" PRIu64
+						" %4zu %4zu %8s",
 						PEER_TOTAL_RX(peer),
 						PEER_TOTAL_TX(peer),
 						peer->version[afi][safi],
@@ -11610,10 +11616,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							    timebuf,
 							    BGP_UPTIME_LEN, 0,
 							    NULL));
-				else
-					vty_out(vty, "4 %10u %9u %9u %8" PRIu64
-						     " %4zu %4zu %8s",
-						peer->as, PEER_TOTAL_RX(peer),
+				} else {
+					vty_out(vty,
+						" %9u %9u %8" PRIu64
+						" %4zu %4zu %8s",
+						PEER_TOTAL_RX(peer),
 						PEER_TOTAL_TX(peer),
 						peer->version[afi][safi],
 						inq_count, outq_count,
@@ -11621,7 +11628,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							    timebuf,
 							    BGP_UPTIME_LEN, 0,
 							    NULL));
-
+				}
 				if (peer_established(peer)) {
 					if (peer->afc_recv[afi][safi]) {
 						if (CHECK_FLAG(
@@ -13107,13 +13114,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_string_addf(json_neigh, "bgpNeighborAddr",
 						"%pSU", &p->su);
 
-		json_object_int_add(json_neigh, "remoteAs", p->as);
+		asn_asn2json(json_neigh, "remoteAs", p->as, bgp->asnotation);
 
 		if (p->change_local_as)
-			json_object_int_add(json_neigh, "localAs",
-					    p->change_local_as);
+			asn_asn2json(json_neigh, "localAs", p->change_local_as,
+				     bgp->asnotation);
 		else
-			json_object_int_add(json_neigh, "localAs", p->local_as);
+			asn_asn2json(json_neigh, "localAs", p->local_as,
+				     bgp->asnotation);
 
 		if (CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
 			json_object_boolean_true_add(json_neigh,
@@ -13123,13 +13131,19 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_boolean_true_add(json_neigh,
 						     "localAsReplaceAs");
 	} else {
-		if ((p->as_type == AS_SPECIFIED) || (p->as_type == AS_EXTERNAL)
-		    || (p->as_type == AS_INTERNAL))
-			vty_out(vty, "remote AS %u, ", p->as);
-		else
+		if ((p->as_type == AS_SPECIFIED) ||
+		    (p->as_type == AS_EXTERNAL) ||
+		    (p->as_type == AS_INTERNAL)) {
+			vty_out(vty, "remote AS ");
+			vty_out(vty, ASN_FORMAT(bgp->asnotation), &p->as);
+			vty_out(vty, ", ");
+		} else
 			vty_out(vty, "remote AS Unspecified, ");
-		vty_out(vty, "local AS %u%s%s, ",
-			p->change_local_as ? p->change_local_as : p->local_as,
+		vty_out(vty, "local AS ");
+		vty_out(vty, ASN_FORMAT(bgp->asnotation),
+			p->change_local_as ? &p->change_local_as
+					   : &p->local_as);
+		vty_out(vty, "%s%s, ",
 			CHECK_FLAG(p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
 				? " no-prepend"
 				: "",
@@ -15999,11 +16013,15 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 
 	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
 		if (json)
-			json_object_int_add(json_peer_group, "remoteAs",
-					    conf->as);
-		else
-			vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
-				group->name, conf->as);
+			asn_asn2json(json_peer_group, "remoteAs", conf->as,
+				     bgp_get_asnotation(conf->bgp));
+		else {
+			vty_out(vty, "\nBGP peer-group %s, remote AS ",
+				group->name);
+			vty_out(vty, ASN_FORMAT(bgp_get_asnotation(conf->bgp)),
+				&conf->as);
+			vty_out(vty, "\n");
+		}
 	} else if (conf->as_type == AS_INTERNAL) {
 		if (json)
 			asn_asn2json(json, "remoteAs", group->bgp->as,
