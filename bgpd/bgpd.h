@@ -1124,6 +1124,8 @@ struct peer {
 	/* Peer's remote AS number. */
 	int as_type;
 	as_t as;
+	/* for vty as format */
+	char *as_pretty;
 
 	/* Peer's local AS number. */
 	as_t local_as;
@@ -1132,6 +1134,8 @@ struct peer {
 
 	/* Peer's Change local AS number. */
 	as_t change_local_as;
+	/* for vty as format */
+	char *change_local_as_pretty;
 
 	/* Remote router ID. */
 	struct in_addr remote_id;
@@ -2138,7 +2142,7 @@ extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *su, const char *conf_if,
 				struct bgp *bgp, as_t local_as, as_t remote_as,
 				int as_type, struct peer_group *group,
-				bool config_node);
+				bool config_node, const char *as_str);
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -2208,10 +2212,13 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
-extern void peer_as_change(struct peer *, as_t, int);
-extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
-			  int);
-extern int peer_group_remote_as(struct bgp *, const char *, as_t *, int);
+extern void peer_as_change(struct peer *peer, as_t as, int as_type,
+			   const char *as_str);
+extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
+			  const char *conf_if, as_t *as, int as_type,
+			  const char *as_str);
+extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
+				int as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
 extern void peer_notify_unconfig(struct peer *peer);
 extern int peer_group_delete(struct peer_group *);
@@ -2290,8 +2297,8 @@ extern int peer_distribute_unset(struct peer *, afi_t, safi_t, int);
 extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
-extern int peer_local_as_set(struct peer *, as_t, bool no_prepend,
-			     bool replace_as);
+extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
+			     bool replace_as, const char *as_str);
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,

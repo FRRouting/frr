@@ -4586,11 +4586,12 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 		/* Check if existing interface peer */
 		peer = peer_lookup_by_conf_if(bgp, peer_str);
 
-		ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type);
+		ret = peer_remote_as(bgp, NULL, peer_str, &as, as_type, as_str);
 
 		/* if not interface peer, check peer-group settings */
 		if (ret < 0 && !peer) {
-			ret = peer_group_remote_as(bgp, peer_str, &as, as_type);
+			ret = peer_group_remote_as(bgp, peer_str, &as, as_type,
+						   as_str);
 			if (ret < 0) {
 				vty_out(vty,
 					"%% Create the peer-group or interface first\n");
@@ -4604,7 +4605,7 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 				"%% Can not configure the local system as neighbor\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
+		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, as_str);
 	}
 
 	return bgp_vty_return(vty, ret);
@@ -4763,10 +4764,11 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	peer = peer_lookup_by_conf_if(bgp, conf_if);
 	if (peer) {
 		if (as_str)
-			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type);
+			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type,
+					     as_str);
 	} else {
 		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type,
-				   NULL, true);
+				   NULL, true, as_str);
 
 		if (!peer) {
 			vty_out(vty, "%% BGP failed to create peer\n");
@@ -5071,7 +5073,7 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
 	/* look up for neighbor by interface name config. */
 	peer = peer_lookup_by_conf_if(bgp, argv[idx_word]->arg);
 	if (peer) {
-		peer_as_change(peer, 0, AS_UNSPECIFIED);
+		peer_as_change(peer, 0, AS_UNSPECIFIED, NULL);
 		return CMD_SUCCESS;
 	}
 
@@ -5109,7 +5111,7 @@ DEFUN (neighbor_local_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 0, 0);
+	ret = peer_local_as_set(peer, as, 0, 0, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
@@ -5138,7 +5140,7 @@ DEFUN (neighbor_local_as_no_prepend,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 1, 0);
+	ret = peer_local_as_set(peer, as, 1, 0, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
@@ -5168,7 +5170,7 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_local_as_set(peer, as, 1, 1);
+	ret = peer_local_as_set(peer, as, 1, 1, argv[idx_number]->arg);
 	return bgp_vty_return(vty, ret);
 }
 
@@ -17302,7 +17304,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " peer-group %s", peer->group->name);
 			if_pg_printed = true;
 		} else if (peer->as_type == AS_SPECIFIED) {
-			vty_out(vty, " remote-as %u", peer->as);
+			vty_out(vty, " remote-as %s", peer->as_pretty);
 			if_ras_printed = true;
 		} else if (peer->as_type == AS_INTERNAL) {
 			vty_out(vty, " remote-as internal");
@@ -17322,8 +17324,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 		if (g_peer->as_type == AS_UNSPECIFIED && !if_ras_printed) {
 			if (peer->as_type == AS_SPECIFIED) {
-				vty_out(vty, " neighbor %s remote-as %u\n",
-					addr, peer->as);
+				vty_out(vty, " neighbor %s remote-as %s\n",
+					addr, peer->as_pretty);
 			} else if (peer->as_type == AS_INTERNAL) {
 				vty_out(vty,
 					" neighbor %s remote-as internal\n",
@@ -17351,8 +17353,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 		if (!if_ras_printed) {
 			if (peer->as_type == AS_SPECIFIED) {
-				vty_out(vty, " neighbor %s remote-as %u\n",
-					addr, peer->as);
+				vty_out(vty, " neighbor %s remote-as %s\n",
+					addr, peer->as_pretty);
 			} else if (peer->as_type == AS_INTERNAL) {
 				vty_out(vty,
 					" neighbor %s remote-as internal\n",
@@ -17367,8 +17369,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* local-as */
 	if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS)) {
-		vty_out(vty, " neighbor %s local-as %u", addr,
-			peer->change_local_as);
+		vty_out(vty, " neighbor %s local-as %s", addr,
+			peer->change_local_as_pretty);
 		if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND))
 			vty_out(vty, " no-prepend");
 		if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS))

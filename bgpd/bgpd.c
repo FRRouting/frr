@@ -1185,6 +1185,11 @@ static void peer_free(struct peer *peer)
 	FOREACH_AFI_SAFI (afi, safi)
 		bgp_addpath_set_peer_type(peer, afi, safi, BGP_ADDPATH_NONE);
 
+	if (peer->change_local_as_pretty)
+		XFREE(MTYPE_BGP, peer->change_local_as_pretty);
+	if (peer->as_pretty)
+		XFREE(MTYPE_BGP, peer->as_pretty);
+
 	bgp_unlock(peer->bgp);
 
 	memset(peer, 0, sizeof(struct peer));
@@ -1766,7 +1771,7 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
 			 int as_type, struct peer_group *group,
-			 bool config_node)
+			 bool config_node, const char *as_str)
 {
 	int active;
 	struct peer *peer;
@@ -1791,6 +1796,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	}
 	peer->local_as = local_as;
 	peer->as = remote_as;
+	/* internal and external values do not use as_pretty */
+	if (as_str && asn_str2asn(as_str, NULL))
+		peer->as_pretty = XSTRDUP(MTYPE_BGP, as_str);
 	peer->as_type = as_type;
 	peer->local_id = bgp->router_id;
 	peer->v_holdtime = bgp->default_holdtime;
@@ -1894,7 +1902,8 @@ bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 }
 
 /* Change peer's AS number.  */
-void peer_as_change(struct peer *peer, as_t as, int as_specified)
+void peer_as_change(struct peer *peer, as_t as, int as_specified,
+		    const char *as_str)
 {
 	enum bgp_peer_sort origtype, newtype;
 
@@ -1909,6 +1918,12 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 	}
 	origtype = peer_sort_lookup(peer);
 	peer->as = as;
+	if (as_specified == AS_SPECIFIED && as_str) {
+		if (peer->as_pretty)
+			XFREE(MTYPE_BGP, peer->as_pretty);
+		peer->as_pretty = XSTRDUP(MTYPE_BGP, as_str);
+	} else if (peer->as_type == AS_UNSPECIFIED && peer->as_pretty)
+		XFREE(MTYPE_BGP, peer->as_pretty);
 	peer->as_type = as_specified;
 
 	if (bgp_config_check(peer->bgp, BGP_CONFIG_CONFEDERATION)
@@ -1966,7 +1981,7 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 /* If peer does not exist, create new one.  If peer already exists,
    set AS number to the peer.  */
 int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
-		   as_t *as, int as_type)
+		   as_t *as, int as_type, const char *as_str)
 {
 	struct peer *peer;
 	as_t local_as;
@@ -2020,7 +2035,7 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		/* Existing peer's AS number change. */
 		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as)
 		    || (peer->as_type != as_type))
-			peer_as_change(peer, *as, as_type);
+			peer_as_change(peer, *as, as_type, as_str);
 	} else {
 		if (conf_if)
 			return BGP_ERR_NO_INTERFACE_CONFIG;
@@ -2035,7 +2050,7 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 			local_as = bgp->as;
 
 		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL,
-			    true);
+			    true, as_str);
 	}
 
 	return 0;
@@ -2816,7 +2831,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 
 /* Peer group's remote AS configuration.  */
 int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
-			 int as_type)
+			 int as_type, const char *as_str)
 {
 	struct peer_group *group;
 	struct peer *peer;
@@ -2832,12 +2847,12 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 
 	/* When we setup peer-group AS number all peer group member's AS
 	   number must be updated to same number.  */
-	peer_as_change(group->conf, *as, as_type);
+	peer_as_change(group->conf, *as, as_type, as_str);
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as)
 		    || (peer->as_type != as_type))
-			peer_as_change(peer, *as, as_type);
+			peer_as_change(peer, *as, as_type, as_str);
 	}
 
 	return 0;
@@ -3144,7 +3159,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		}
 
 		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-				   group->conf->as_type, group, true);
+				   group->conf->as_type, group, true, NULL);
 
 		peer = peer_lock(peer); /* group->peer list reference */
 		listnode_add(group->peer, peer);
@@ -4051,7 +4066,7 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 
 	/* Create peer first; we've already checked group config is valid. */
 	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-			   group->conf->as_type, group, true);
+			   group->conf->as_type, group, true, NULL);
 	if (!peer)
 		return NULL;
 
@@ -6234,7 +6249,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
-		      bool replace_as)
+		      bool replace_as, const char *as_str)
 {
 	bool old_no_prepend, old_replace_as;
 	struct bgp *bgp = peer->bgp;
@@ -6259,6 +6274,9 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	    && old_replace_as == replace_as)
 		return 0;
 	peer->change_local_as = as;
+	if (as_str)
+		peer->change_local_as_pretty = XSTRDUP(MTYPE_BGP, as_str);
+
 	(void)peer_sort(peer);
 
 	/* Check if handling a regular peer. */
@@ -6292,6 +6310,9 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
 			  replace_as);
 		member->change_local_as = as;
+		if (as_str)
+			member->change_local_as_pretty =
+				XSTRDUP(MTYPE_BGP, as_str);
 	}
 
 	return 0;
@@ -6317,6 +6338,7 @@ int peer_local_as_unset(struct peer *peer)
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 		peer->change_local_as = 0;
+		XFREE(MTYPE_BGP, peer->change_local_as_pretty);
 	}
 
 	/* Check if handling a regular peer. */
@@ -6347,6 +6369,7 @@ int peer_local_as_unset(struct peer *peer)
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 		member->change_local_as = 0;
+		XFREE(MTYPE_BGP, member->change_local_as_pretty);
 
 		/* Send notification or stop peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
