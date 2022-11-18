@@ -183,6 +183,20 @@ const char *asn_mode2str(enum asnotation_mode asnotation)
 			  "Unrecognized AS notation mode");
 }
 
+void asn_asn2json(json_object *json, const char *attr,
+		  as_t asn, enum asnotation_mode asnotation)
+{
+	static char as_str[ASN_STRING_MAX_SIZE];
+
+	if ((asnotation == ASNOTATION_PLAIN) ||
+	    ((asnotation == ASNOTATION_DOT) && asn < UINT16_MAX))
+		json_object_int_add(json, attr, asn);
+	else {
+		asn_asn2asdot(asn, as_str, sizeof(as_str));
+		json_object_string_add(json, attr, as_str);
+	}
+}
+
 void asn_asn2json_array(json_object *jseg_list, as_t asn,
 			enum asnotation_mode asnotation)
 {

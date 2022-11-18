@@ -8030,7 +8030,7 @@ static void bgp_instasn_autocomplete(vector comps, struct cmd_token *token)
 {
 	struct listnode *next, *next2;
 	struct bgp *bgp, *bgp2;
-	char buf[11];
+	char buf[ASN_STRING_MAX_SIZE];
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 		/* deduplicate */
@@ -8043,7 +8043,7 @@ static void bgp_instasn_autocomplete(vector comps, struct cmd_token *token)
 		if (bgp2 != bgp)
 			continue;
 
-		snprintf(buf, sizeof(buf), "%u", bgp->as);
+		snprintf(buf, sizeof(buf), "%s", bgp->as_pretty);
 		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, buf));
 	}
 }

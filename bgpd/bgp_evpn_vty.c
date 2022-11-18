@@ -1345,9 +1345,9 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 							json,
 							"defaultLocPrf",
 							bgp->default_local_pref);
-						json_object_int_add(
-							json, "localAS",
-							bgp->as);
+						asn_asn2json(json, "localAS",
+							     bgp->as,
+							     bgp->asnotation);
 					} else {
 						if (option == SHOW_DISPLAY_TAGS)
 							vty_out(vty,

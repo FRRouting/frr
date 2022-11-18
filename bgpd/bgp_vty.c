@@ -11161,7 +11161,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				json_object_string_addf(json, "routerId",
 							"%pI4",
 							&bgp->router_id);
-				json_object_int_add(json, "as", bgp->as);
+				asn_asn2json(json, "as", bgp->as,
+					     bgp->asnotation);
 				json_object_int_add(json, "vrfId", vrf_id_ui);
 				json_object_string_add(
 					json, "vrfName",
@@ -16003,8 +16004,8 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 				group->name, conf->as);
 	} else if (conf->as_type == AS_INTERNAL) {
 		if (json)
-			json_object_int_add(json_peer_group, "remoteAs",
-					    group->bgp->as);
+			asn_asn2json(json, "remoteAs", group->bgp->as,
+				     group->bgp->asnotation);
 		else
 			vty_out(vty, "\nBGP peer-group %s, remote AS %s\n",
 				group->name, group->bgp->as_pretty);

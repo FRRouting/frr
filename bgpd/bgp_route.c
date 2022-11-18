@@ -11190,17 +11190,26 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			vty_out(vty, "{\n");
 			*json_header_depth = 2;
 		}
-
 		vty_out(vty,
 			" \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%pI4\",\n \"defaultLocPrf\": %u,\n"
-			" \"localAS\": %u,\n \"routes\": { ",
+			" \"localAS\": ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
 				? VRF_DEFAULT_NAME
 				: bgp->name,
 			table->version, &bgp->router_id,
-			bgp->default_local_pref, bgp->as);
+			bgp->default_local_pref);
+		if ((bgp->asnotation == ASNOTATION_PLAIN) ||
+		    ((bgp->asnotation == ASNOTATION_DOT) &&
+		     (bgp->as < UINT16_MAX)))
+			vty_out(vty, "%u", bgp->as);
+		else {
+			vty_out(vty, "\"");
+			vty_out(vty, ASN_FORMAT(bgp->asnotation), &bgp->as);
+			vty_out(vty, "\"");
+		}
+		vty_out(vty, ",\n \"routes\": { ");
 		if (rd) {
 			vty_out(vty, " \"routeDistinguishers\" : {");
 			++*json_header_depth;
@@ -11474,7 +11483,10 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				vty_out(vty, "\n");
 				vty_out(vty, "Default local pref %u, ",
 					bgp->default_local_pref);
-				vty_out(vty, "local AS %u\n", bgp->as);
+				vty_out(vty, "local AS ");
+				vty_out(vty, ASN_FORMAT(bgp->asnotation),
+					&bgp->as);
+				vty_out(vty, "\n");
 				if (!detail_routes) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_NCODE_HEADER);
