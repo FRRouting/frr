@@ -2935,12 +2935,12 @@ General configuration
 Configuration of the SRv6 SID used to advertise a L3VPN for both IPv4 and IPv6
 is accomplished via the following command in the context of a VRF:
 
-.. clicmd:: sid vpn per-vrf export (1..255)|auto
+.. clicmd:: sid vpn per-vrf export (1..1048575)|auto
 
    Enables a SRv6 SID to be attached to a route exported from the current
    unicast VRF to VPN. A single SID is used for both IPv4 and IPv6 address
    families. If you want to set a SID for only IPv4 address family or IPv6
-   address family, you need to use the command ``sid vpn export (1..255)|auto``
+   address family, you need to use the command ``sid vpn export (1..1048575)|auto``
    in the context of an address-family. If the value specified is ``auto``,
    the SID value is automatically assigned from a pool maintained by the Zebra
    daemon. If Zebra is not running, or if this command is not configured, automatic
