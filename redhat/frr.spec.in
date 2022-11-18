@@ -793,7 +793,18 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Tue Nov 01 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Nov 17 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+
+* Thu Nov 17 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4.1
+- zebra: reuse netinet/if_ether.h to avoid redefinition of struct ethhdr
+- zebra: fix build without AF_MPLS
+- ospfd: get route-map name for default-information originate
+- ospfd: allow unnumbered and numbered addresses to co-exist better
+- ospfd: prevent from crashing when processing external lsa
+- bgpd: fix "storing the address of local variable"
+- bgpd: rpki was decrementing the node lock one time too many
+- bgpd: do not send Deconfig/Shutdown message when restarting
+- pimd: convert zlog_warn to debug
 
 * Tue Nov 01 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.4
 - New BGP command (neighbor PEER soo) to configure SoO to prevent routing loops and suboptimal routing on dual-homed sites.
