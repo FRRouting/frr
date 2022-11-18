@@ -344,6 +344,8 @@ struct attr {
 #define BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED (1 << 6)
 #define BATTR_RMAP_LINK_BW_SET (1 << 7)
 #define BATTR_RMAP_L3VPN_ACCEPT_GRE (1 << 8)
+#define BATTR_RMAP_VPNV4_NHOP_CHANGED (1 << 9)
+#define BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED (1 << 10)
 
 /* Router Reflector related structure. */
 struct cluster_list {
@@ -476,15 +478,18 @@ extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 					uint32_t in_rmap_flags)
 {
-	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)
-		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED)
-		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED)
-		 || CHECK_FLAG(out_rmap_flags,
-			       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED)
-		 || CHECK_FLAG(out_rmap_flags,
-			       BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED)
-		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED)
-		 || CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
+	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags,
+			    BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags,
+			    BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags,
+			    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
+		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
+		 CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
 			? 1
 			: 0);
 }
