@@ -20,11 +20,131 @@
  */
 
 #include <zebra.h>
+/* rib.h is needed because it contains DECLARE_MGROUP(ZEBRA); */
+#include "zebra/rib.h"
 
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
 #include "zebra/zebra_tracker.h"
 #include "zebra/zebra_tracker_clippy.c"
+
+DEFINE_MTYPE_STATIC(ZEBRA, TRACKER_FILE, "Tracker File");
+
+static struct list *zebra_tracker_file_master = NULL;
+
+struct zebra_tracker_file *zebra_tracker_file_get(const char *name)
+{
+	struct zebra_tracker_file *tracker_file;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(zebra_tracker_file_master, node,
+				  tracker_file)) {
+		if (strncmp(name, tracker_file->name,
+			    sizeof(tracker_file->name))
+		    == 0)
+			return tracker_file;
+	}
+
+	return NULL;
+}
+
+struct zebra_tracker_file *zebra_tracker_file_new(const char *name)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+	if (tracker_file)
+		return tracker_file;
+
+	tracker_file =
+		XCALLOC(MTYPE_TRACKER_FILE, sizeof(struct zebra_tracker_file));
+
+	snprintf(tracker_file->name, sizeof(tracker_file->name), "%s", name);
+
+	listnode_add(zebra_tracker_file_master, tracker_file);
+
+	return tracker_file;
+}
+
+void zebra_tracker_file_free(const char *name)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	if (!tracker_file)
+		return;
+
+	listnode_delete(zebra_tracker_file_master, tracker_file);
+
+	zlog_info("Tracker file name %s deleted", tracker_file->name);
+
+	XFREE(MTYPE_TRACKER_FILE, tracker_file);
+}
+
+struct zebra_tracker_file *zebra_tracker_filepath_set(const char *name,
+						      const char *filepath)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	snprintf(tracker_file->path, sizeof(tracker_file->path), "%s",
+		 filepath);
+
+	return tracker_file;
+}
+
+
+void zebra_tracker_filepath_unset(const char *name)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	tracker_file->path[0] = '\0';
+}
+
+struct zebra_tracker_file *
+zebra_tracker_filepattern_set(const char *name, const char *filepattern)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	snprintf(tracker_file->pattern, sizeof(tracker_file->pattern), "%s",
+		 filepattern);
+
+	return tracker_file;
+}
+
+void zebra_tracker_filepattern_unset(const char *name)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	tracker_file->pattern[0] = '\0';
+}
+
+void zebra_tracker_filepattern_exact_set(const char *name, bool exact)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	tracker_file->exact_pattern = exact;
+}
+
+void zebra_tracker_fileexists_set(const char *name, bool condition_file_exists)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	tracker_file->condition_file_exists = condition_file_exists;
+}
+
 
 /* Tracker node structure. */
 static int tracker_config_write(struct vty *vty);
@@ -178,7 +298,7 @@ static int tracker_config_write(struct vty *vty)
 	return written;
 }
 
-void cli_show_tracker(struct vty *vty, struct lyd_node *dnode,
+void cli_show_tracker(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults __attribute__((__unused__)))
 {
 	vty_out(vty, "tracker %s file\n",
@@ -202,6 +322,8 @@ void cli_show_tracker(struct vty *vty, struct lyd_node *dnode,
 /* Initialization of tracker vector. */
 void zebra_tracker_init(void)
 {
+	zebra_tracker_file_master = list_new();
+
 	/* CLI commands. */
 	install_node(&trackerfile_node);
 
