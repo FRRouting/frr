@@ -475,8 +475,8 @@ extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 extern enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 						      struct attr *attr);
 
-static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
-					uint32_t in_rmap_flags)
+static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
+					 uint32_t in_rmap_flags)
 {
 	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS) ||
 		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
@@ -490,8 +490,8 @@ static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 			    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
 		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
 		 CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
-			? 1
-			: 0);
+			? true
+			: false);
 }
 
 static inline uint32_t mac_mobility_seqnum(struct attr *attr)
