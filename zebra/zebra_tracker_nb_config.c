@@ -21,6 +21,7 @@
 #include "lib/command.h"
 #include "lib/log.h"
 #include "lib/northbound.h"
+#include "zebra/zebra_tracker.h"
 #include "zebra/zebra_tracker_nb.h"
 
 
@@ -37,6 +38,20 @@ int zebra_tracker_create(struct nb_cb_create_args *args)
  */
 int zebra_tracker_destroy(struct nb_cb_destroy_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "./name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_file_free(name);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -46,11 +61,42 @@ int zebra_tracker_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_tracker_filepath_modify(struct nb_cb_modify_args *args)
 {
+	const char *filepath, *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+	filepath = yang_dnode_get_string(args->dnode, ".");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_file_new(name);
+		zebra_tracker_filepath_set(name, filepath);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int zebra_tracker_filepath_destroy(struct nb_cb_destroy_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		if (zebra_tracker_file_get(name))
+			zebra_tracker_filepath_unset(name);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -60,11 +106,42 @@ int zebra_tracker_filepath_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_tracker_filepattern_modify(struct nb_cb_modify_args *args)
 {
+	const char *filepattern, *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+	filepattern = yang_dnode_get_string(args->dnode, ".");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_file_new(name);
+		zebra_tracker_filepattern_set(name, filepattern);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int zebra_tracker_filepattern_destroy(struct nb_cb_destroy_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		if (zebra_tracker_file_get(name))
+			zebra_tracker_filepattern_unset(name);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -74,11 +151,40 @@ int zebra_tracker_filepattern_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_tracker_filepattern_exact_create(struct nb_cb_create_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_file_new(name);
+		zebra_tracker_filepattern_exact_set(name, true);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int zebra_tracker_filepattern_exact_destroy(struct nb_cb_destroy_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_filepattern_exact_set(name, false);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -88,10 +194,39 @@ int zebra_tracker_filepattern_exact_destroy(struct nb_cb_destroy_args *args)
  */
 int zebra_tracker_fileexists_create(struct nb_cb_create_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_file_new(name);
+		zebra_tracker_fileexists_set(name, true);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int zebra_tracker_fileexists_destroy(struct nb_cb_destroy_args *args)
 {
+	const char *name;
+
+	name = yang_dnode_get_string(args->dnode, "../name");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		zebra_tracker_fileexists_set(name, false);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
