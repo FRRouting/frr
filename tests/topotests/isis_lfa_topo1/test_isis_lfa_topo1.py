@@ -676,8 +676,8 @@ def test_rib_ipv6_step15():
             rname,
             "show ipv6 route isis json",
             outputs[rname][15]["show_ipv6_route.ref"],
-            count=2,
-            wait=0.05,
+            count=10,
+            wait=0.5,
         )
 
 
@@ -852,8 +852,8 @@ def test_rib_ipv6_step18():
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=2,
-        wait=0.05,
+        count=10,
+        wait=0.5,
     )
 
 
@@ -948,8 +948,8 @@ def test_rib_ipv6_step21():
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=2,
-        wait=0.05,
+        count=10,
+        wait=0.5,
     )
 
 
@@ -1047,14 +1047,14 @@ def test_rib_ipv6_step24():
     rname = "rt1"
     router = tgen.gears[rname]
     test_func = partial(_bfd_down, router)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.05)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.3)
     assert result is None, 'BFD session is still up on "{}"'.format(router)
 
     router_compare_json_output(
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=4,
+        count=5,
     )
 
 

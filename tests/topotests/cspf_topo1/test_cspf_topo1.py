@@ -177,7 +177,7 @@ def compare_cspf_output(tgen, rname, fileref, src, dst, cost, bw=""):
     test_func = partial(
         topotest.router_output_cmp, tgen.gears[rname], command, expected
     )
-    result, diff = topotest.run_and_expect(test_func, "", count=2, wait=2)
+    result, diff = topotest.run_and_expect(test_func, "", count=5, wait=2)
     assert result, "CSPF output mismatches the expected result on {}:\n{}".format(
         rname, diff
     )
