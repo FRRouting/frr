@@ -18,8 +18,8 @@ ie for `ospf6d` (OSPFv3):
     systemctl enable snap.frr.ospf6d.service
 
 The daemons are: `ripd`, `ripngd`, `ospfd`, `ospf6d`, `isisd`, `bgpd`, 
-`pimd`, `ldpd`, `eigrpd`, `babeld`, `nhrpd`, `bfdd`, `vrrpd`, `pbrd`,
-`pathd`, `fabricd`, `staticd`, `zebra`
+`pimd`, `pim6d`, `ldpd`, `eigrpd`, `babeld`, `nhrpd`, `bfdd`, `vrrpd`,
+`pbrd`, `pathd`, `fabricd`, `staticd`, `zebra`
 
 Commands defined by this snap
 -----------------------------
@@ -53,6 +53,8 @@ depend on them). These are mainly intended to debug the Snap
 	Starts bgpd daemon in foreground
 - `frr.pimd-debug`:
 	Starts pimd daemon in foreground
+- `frr.pim6d-debug`:
+        Starts pim6d daemon in foreground
 - `frr.ldpd-debug`:
         Starts ldpd daemon in foreground
 - `frr.nhrpd-debug`:
