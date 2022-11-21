@@ -3413,6 +3413,30 @@ int vtysh_write_config_integrated(void)
 	return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN(start_config, start_config_cmd, "XFRR_start_configuration",
+	     "The Beginning of Configuration\n")
+{
+	unsigned int i;
+	char line[] = "XFRR_start_configuration";
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		vtysh_client_execute(&vtysh_client[i], line);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN(end_config, end_config_cmd, "XFRR_end_configuration",
+	     "The End of Configuration\n")
+{
+	unsigned int i;
+	char line[] = "XFRR_end_configuration";
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		vtysh_client_execute(&vtysh_client[i], line);
+
+	return CMD_SUCCESS;
+}
+
 static bool want_config_integrated(void)
 {
 	struct stat s;
@@ -4869,6 +4893,9 @@ void vtysh_init_vty(void)
 
 	/* "write memory" command. */
 	install_element(ENABLE_NODE, &vtysh_write_memory_cmd);
+
+	install_element(CONFIG_NODE, &start_config_cmd);
+	install_element(CONFIG_NODE, &end_config_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_paginate_cmd);
