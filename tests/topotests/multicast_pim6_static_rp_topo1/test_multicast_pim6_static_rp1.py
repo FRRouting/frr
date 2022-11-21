@@ -268,9 +268,6 @@ def test_pim6_add_delete_static_RP_p0(request):
         check_router_status(tgen)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Shut link b/w R1 and R3 and R1 and R4 as per testcase topology")
@@ -468,9 +465,6 @@ def test_pim6_SPT_RPT_path_same_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Shut link b/w R1->R3, R1->R4 and R3->R1, R3->R4 as per " "testcase topology")
@@ -644,9 +638,6 @@ def test_pim6_RP_configured_as_LHR_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -779,9 +770,6 @@ def test_pim6_RP_configured_as_FHR_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -910,9 +898,6 @@ def test_pim6_SPT_RPT_path_different_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
@@ -1083,9 +1068,6 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
         pytest.skip(tgen.errors)
 
     step("Creating configuration from JSON")
-    kill_socat(tgen)
-    clear_pim6_mroute(tgen)
-    clear_pim6_interface_traffic(tgen, TOPO)
     reset_config_on_routers(tgen)
 
     step("Enable MLD on r1 interface")
