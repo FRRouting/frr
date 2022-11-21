@@ -72,8 +72,21 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	 * If the RPT and WC are set it's a (*,G)
 	 * and the source is the RP
 	 */
-	if ((source_flags & PIM_RPT_BIT_MASK)
-	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
+	if (CHECK_FLAG(source_flags, PIM_WILDCARD_BIT_MASK)) {
+		/* As per RFC 7761 Section 4.9.1:
+		 * The RPT (or Rendezvous Point Tree) bit is a 1-bit value for
+		 * use with PIM Join/Prune messages (see Section 4.9.5.1). If
+		 * the WC bit is 1, the RPT bit MUST be 1.
+		 */
+		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
+			if (PIM_DEBUG_PIM_J_P)
+				zlog_debug(
+					"Discarding (*,G)=%pSG join since WC bit is set but RPT bit is unset",
+					sg);
+
+			return;
+		}
+
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 		pim_addr rpf_addr;
 
