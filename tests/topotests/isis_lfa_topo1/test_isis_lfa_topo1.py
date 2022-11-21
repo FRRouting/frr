@@ -758,6 +758,80 @@ def test_rib_ipv6_step17():
 # - Route switchover of routes via eth-rt2
 #
 def test_rib_ipv6_step18():
+    def _rt2_neigh_down(router):
+        output = json.loads(router.vtysh_cmd("show isis neighbor rt2 json"))
+
+        """
+        Previous output was:
+        {
+          "areas":[
+            {
+              "area":"1",
+              "circuits":[
+                {
+                  "circuit":0,
+                  "adj":"rt2",
+                  "interface":{
+                    "name":"eth-rt2",
+                    "state":"Up",
+                    "adj-flaps":1,
+                    "last-ago":"21s",
+                    "circuit-type":"L1",
+                    "speaks":"IPv6",
+                    "topologies":{
+                      "topo-0":"ipv6-unicast"
+                    },
+                    "snpa":"2020.2020.2020",
+                    "area-address":{
+                      "isonet":"49.0000"
+                    },
+                    "ipv6-link-local":{
+                      "ipv6":"fe80::ac19:a8ff:fee5:f48f"
+                    },
+                    "adj-sid":{
+                    }
+                  },
+                  "level":1,
+                  "expires-in":"2s"
+                },
+                {
+                  "circuit":0
+                },
+                {
+                  "circuit":0
+                },
+                {
+                  "circuit":0
+                },
+                {
+                  "circuit":0
+                },
+                {
+                  "circuit":0
+                }
+              ]
+            }
+          ]
+        """
+
+        expected = {
+            "areas": [
+                {
+                    "area": "1",
+                    "circuits": [
+                        {"circuit": 0},
+                        {"circuit": 0},
+                        {"circuit": 0},
+                        {"circuit": 0},
+                        {"circuit": 0},
+                        {"circuit": 0},
+                    ],
+                }
+            ]
+        }
+
+        return topotest.json_cmp(output, expected, exact=True)
+
     logger.info("Test (step 18): verify IPv6 RIB")
     tgen = get_topogen()
 
@@ -769,23 +843,10 @@ def test_rib_ipv6_step18():
     tgen.net.cmd_raises("ip link set s1 down")
 
     rname = "rt1"
-
-    retry = 200 + 1
-
-    while retry:
-        retry -= 1
-        output = tgen.gears[rname].vtysh_cmd("show isis neighbor json")
-        output_json = json.loads(output)
-        found = False
-        for neighbor in output_json["areas"][0]["circuits"]:
-            if "adj" in neighbor and neighbor["adj"] == "rt2":
-                found = True
-                break
-        if not found:
-            break
-        time.sleep(0.05)
-
-    assert not found, "rt2 neighbor is still present"
+    router = tgen.gears[rname]
+    test_func = partial(_rt2_neigh_down, router)
+    success, result = topotest.run_and_expect(test_func, None, count=200, wait=0.05)
+    assert result is None, 'rt2 neighbor is still present on "{}"'.format(router)
 
     router_compare_json_output(
         rname,
@@ -941,13 +1002,13 @@ def test_rib_ipv6_step23():
         conf_file = os.path.join(CWD, "{}/bfdd.conf".format(rname))
         tgen.net[rname].cmd("vtysh -f {}".format(conf_file))
 
-    rname = "rt1"
-    expect = '[{"multihop":true,"peer":"2001:db8:1000::2","local":"2001:db8:1000::1","status":"up"}]'
-    router_compare_json_output(rname, "show bfd peers json", expect)
-
     logger.info("Set ISIS BFD")
     tgen.net["rt1"].cmd('vtysh -c "conf t" -c "int eth-rt2" -c "isis bfd"')
     tgen.net["rt2"].cmd('vtysh -c "conf t" -c "int eth-rt1" -c "isis bfd"')
+
+    rname = "rt1"
+    expect = '[{"multihop":false,"interface":"eth-rt2","status":"up"}]'
+    router_compare_json_output(rname, "show bfd peers json", expect)
 
     router_compare_json_output(
         rname,
@@ -968,6 +1029,11 @@ def test_rib_ipv6_step23():
 # - Route switchover of routes via eth-rt2
 #
 def test_rib_ipv6_step24():
+    def _bfd_down(router):
+        output = json.loads(router.vtysh_cmd("show bfd peers json"))
+        expected = []
+        return topotest.json_cmp(output, expected, exact=True)
+
     logger.info("Test (step 24): verify IPv6 RIB")
     tgen = get_topogen()
 
@@ -979,14 +1045,10 @@ def test_rib_ipv6_step24():
     tgen.net.cmd_raises("ip link set s1 down")
 
     rname = "rt1"
-    expect = '[{"multihop":true,"peer":"2001:db8:1000::2","local":"2001:db8:1000::1","status":"down"}]'
-    router_compare_json_output(
-        rname,
-        "show bfd peers json",
-        expect,
-        count=40,
-        wait=0.05,
-    )
+    router = tgen.gears[rname]
+    test_func = partial(_bfd_down, router)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.05)
+    assert result is None, 'BFD session is still up on "{}"'.format(router)
 
     router_compare_json_output(
         rname,
