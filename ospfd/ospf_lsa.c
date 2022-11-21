@@ -85,6 +85,16 @@ uint32_t get_metric(uint8_t *metric)
 	return m;
 }
 
+/** @brief The Function checks self generated DoNotAge.
+ *  @param lsa pointer.
+ *  @return true or false.
+ */
+bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
+{
+	return ((IS_LSA_SELF(lsa) && CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			? true
+			: false);
+}
 
 struct timeval int2tv(int a)
 {
@@ -135,6 +145,16 @@ int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
 int get_age(struct ospf_lsa *lsa)
 {
 	struct timeval rel;
+
+	/* As per rfc4136, the self-originated LSAs in their
+	 * own database keep aging, however rfc doesn't tell
+	 * till how long the LSA should be aged, as of now
+	 * we are capping it for OSPF_LSA_MAXAGE.
+	 */
+
+	/* If LSA is marked as donotage */
+	if (CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE) && !IS_LSA_SELF(lsa))
+		return ntohs(lsa->data->ls_age);
 
 	monotime_since(&lsa->tv_recv, &rel);
 	return ntohs(lsa->data->ls_age) + rel.tv_sec;
@@ -1134,6 +1154,10 @@ static struct ospf_lsa *ospf_network_lsa_refresh(struct ospf_lsa *lsa)
 		}
 		return NULL;
 	}
+
+	if (oi->state != ISM_DR)
+		return NULL;
+
 	/* Delete LSA from neighbor retransmit-list. */
 	ospf_ls_retransmit_delete_nbr_area(area, lsa);
 
@@ -1533,9 +1557,14 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
 	struct ospf_lsa *new;
 	struct summary_lsa *sl;
 	struct prefix p;
+	bool ind_lsa = false;
 
 	/* Sanity check. */
 	assert(lsa->data);
+
+	if (lsa->area->fr_info.indication_lsa_self &&
+	    (lsa->area->fr_info.indication_lsa_self == lsa))
+		ind_lsa = true;
 
 	sl = (struct summary_lsa *)lsa->data;
 	p.prefixlen = ip_masklen(sl->mask);
@@ -1550,6 +1579,9 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
 
 	/* Flood LSA through area. */
 	ospf_flood_through_area(new->area, NULL, new);
+
+	if (ind_lsa)
+		new->area->fr_info.indication_lsa_self = new;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		zlog_debug("LSA[Type%d:%pI4]: summary-ASBR-LSA refresh",
@@ -3641,6 +3673,49 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	return;
 }
 
+/** @brief Function to refresh all the self originated
+ *	   LSAs for area, when FR state change happens.
+ *  @param area pointer.
+ *  @return Void.
+ */
+void ospf_refresh_area_self_lsas(struct ospf_area *area)
+{
+	struct listnode *node2;
+	struct listnode *nnode2;
+	struct ospf_interface *oi;
+	struct route_node *rn;
+	struct ospf_lsa *lsa;
+
+	if (!area)
+		return;
+
+	if (area->router_lsa_self)
+		ospf_lsa_refresh(area->ospf, area->router_lsa_self);
+
+	for (ALL_LIST_ELEMENTS(area->oiflist, node2, nnode2, oi))
+		if (oi->network_lsa_self)
+			ospf_lsa_refresh(oi->ospf, oi->network_lsa_self);
+
+	LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (EXTERNAL_LSDB(area->ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+	LSDB_LOOP (OPAQUE_AS_LSDB(area->ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa))
+			ospf_lsa_refresh(area->ospf, lsa);
+}
+
 /* If there is self-originated LSA, then return 1, otherwise return 0. */
 /* An interface-independent version of ospf_lsa_is_self_originated */
 int ospf_lsa_is_self_originated(struct ospf *ospf, struct ospf_lsa *lsa)
@@ -3976,6 +4051,7 @@ void ospf_lsa_refresh_walker(struct thread *t)
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();
+	bool dna_lsa;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 		zlog_debug("LSA[Refresh]: %s: start", __func__);
@@ -4034,10 +4110,14 @@ void ospf_lsa_refresh_walker(struct thread *t)
 	ospf->lsa_refresher_started = monotime(NULL);
 
 	for (ALL_LIST_ELEMENTS(lsa_to_refresh, node, nnode, lsa)) {
-		ospf_lsa_refresh(ospf, lsa);
-		assert(lsa->lock > 0);
-		ospf_lsa_unlock(
-			&lsa); /* lsa_refresh_queue & temp for lsa_to_refresh*/
+		dna_lsa = ospf_check_dna_lsa(lsa);
+		if (!dna_lsa) { /* refresh only non-DNA LSAs */
+			ospf_lsa_refresh(ospf, lsa);
+			assert(lsa->lock > 0);
+			ospf_lsa_unlock(&lsa); /* lsa_refresh_queue & temp for
+						* lsa_to_refresh.
+						*/
+		}
 	}
 
 	list_delete(&lsa_to_refresh);

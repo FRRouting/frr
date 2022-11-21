@@ -92,6 +92,21 @@ static void ospf_lsdb_delete_entry(struct ospf_lsdb *lsdb,
 	lsdb->type[lsa->data->type].count--;
 	lsdb->type[lsa->data->type].checksum -= ntohs(lsa->data->checksum);
 	lsdb->total--;
+
+	/* Decrement number of router LSAs received with DC bit set */
+	if (lsa->area && (lsa->area->lsdb == lsdb) && !IS_LSA_SELF(lsa) &&
+	    (lsa->data->type == OSPF_ROUTER_LSA) &&
+	    CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC))
+		lsa->area->fr_info.router_lsas_recv_dc_bit--;
+
+	/*
+	 * If the LSA being deleted is indication LSA, then set the
+	 * pointer to NULL.
+	 */
+	if (lsa->area && lsa->area->fr_info.indication_lsa_self &&
+	    (lsa->area->fr_info.indication_lsa_self == lsa))
+		lsa->area->fr_info.indication_lsa_self = NULL;
+
 	rn->info = NULL;
 	route_unlock_node(rn);
 #ifdef MONITOR_LSDB_CHANGE
@@ -127,6 +142,12 @@ void ospf_lsdb_add(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
 		lsdb->type[lsa->data->type].count_self++;
 	lsdb->type[lsa->data->type].count++;
 	lsdb->total++;
+
+	/* Increment number of router LSAs received with DC bit set */
+	if (lsa->area && (lsa->area->lsdb == lsdb) && !IS_LSA_SELF(lsa) &&
+	    (lsa->data->type == OSPF_ROUTER_LSA) &&
+	    CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC))
+		lsa->area->fr_info.router_lsas_recv_dc_bit++;
 
 #ifdef MONITOR_LSDB_CHANGE
 	if (lsdb->new_lsa_hook != NULL)

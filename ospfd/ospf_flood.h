@@ -68,5 +68,7 @@ extern struct external_info *ospf_external_info_check(struct ospf *,
 						      struct ospf_lsa *);
 
 extern void ospf_lsdb_init(struct ospf_lsdb *);
+extern void ospf_area_update_fr_state(struct ospf_area *area);
+extern void ospf_refresh_dna_type5_and_type7_lsas(struct ospf *ospf);
 
 #endif /* _ZEBRA_OSPF_FLOOD_H */

@@ -50,6 +50,75 @@
 
 extern struct zclient *zclient;
 
+/** @brief Function to refresh type-5 and type-7 DNA
+ *	   LSAs when we receive an indication LSA.
+ *  @param Ospf instance.
+ *  @return Void.
+ */
+void ospf_refresh_dna_type5_and_type7_lsas(struct ospf *ospf)
+{
+	struct route_node *rn;
+	struct ospf_lsa *lsa = NULL;
+
+	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa) &&
+		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			ospf_lsa_refresh(ospf, lsa);
+
+	LSDB_LOOP (NSSA_LSDB(ospf), rn, lsa)
+		if (IS_LSA_SELF(lsa) &&
+		    CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE))
+			ospf_lsa_refresh(ospf, lsa);
+}
+
+/** @brief Function to update area flood reduction states.
+ *  @param area pointer.
+ *  @return Void.
+ */
+void ospf_area_update_fr_state(struct ospf_area *area)
+{
+	unsigned int count_router_lsas = 0;
+
+	if (area == NULL)
+		return;
+
+	count_router_lsas =
+		(unsigned int)(ospf_lsdb_count(area->lsdb, OSPF_ROUTER_LSA) -
+			       ospf_lsdb_count_self(area->lsdb,
+						    OSPF_ROUTER_LSA));
+
+	if (count_router_lsas >
+	    (unsigned int)area->fr_info.router_lsas_recv_dc_bit) {
+		area->fr_info.enabled = false;
+		area->fr_info.area_dc_clear = true;
+		return;
+	} else if (count_router_lsas <
+		   (unsigned int)area->fr_info.router_lsas_recv_dc_bit) {
+		/* This can never happen, total number of router lsas received
+		 * can never be less than router lsas received with dc bit set
+		 */
+		OSPF_LOG_ERR("%s: Counter mismatch for area %pI4", __func__,
+			     &area->area_id);
+		OSPF_LOG_ERR(
+			"%s: router LSAs in lsdb %d router LSAs recvd with dc bit set %d",
+			__func__, count_router_lsas,
+			area->fr_info.router_lsas_recv_dc_bit);
+		return;
+	}
+
+	area->fr_info.area_dc_clear = false;
+
+	if (OSPF_FR_CONFIG(area->ospf, area)) {
+		if (!area->fr_info.enabled) {
+			area->fr_info.enabled = true;
+			area->fr_info.state_changed = true;
+		}
+	} else {
+		area->fr_info.enabled = false;
+		area->fr_info.area_dc_clear = true;
+	}
+}
+
 /* Do the LSA acking specified in table 19, Section 13.5, row 2
  * This get called from ospf_flood_out_interface. Declared inline
  * for speed. */
@@ -428,6 +497,55 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (!(new = ospf_lsa_install(ospf, oi, new)))
 		return -1; /* unknown LSA type or any other error condition */
 
+	/* check if the installed LSA is an indication LSA */
+	if (ospf_check_indication_lsa(new) && !IS_LSA_SELF(new) &&
+	    !IS_LSA_MAXAGE(new)) {
+		new->area->fr_info.area_ind_lsa_recvd = true;
+		/* check if there are already type 5 LSAs originated
+		 * with DNA bit set, if yes reoriginate those LSAs.
+		 */
+		ospf_refresh_dna_type5_and_type7_lsas(ospf);
+	}
+
+	/* Check if we recived an indication LSA flush on backbone
+	 * network.
+	 */
+	ospf_recv_indication_lsa_flush(new);
+
+	if (new->area && OSPF_FR_CONFIG(ospf, new->area)) {
+		struct lsa_header const *lsah = new->data;
+
+		if (!CHECK_FLAG(lsah->options, OSPF_OPTION_DC) &&
+		    !ospf_check_indication_lsa(new)) {
+
+			new->area->fr_info.area_dc_clear = true;
+			/* check of previously area supported flood reduction */
+			if (new->area->fr_info.enabled) {
+				new->area->fr_info.enabled = false;
+				OSPF_LOG_DEBUG(
+					IS_DEBUG_OSPF_EVENT,
+					"Flood Reduction STATE on -> off by %s LSA",
+					dump_lsa_key(new));
+				/* if yes update all the lsa to the area the
+				 * new LSAs will have DNA bit set to 0.
+				 */
+				ospf_refresh_area_self_lsas(new->area);
+			}
+		} else if (!new->area->fr_info.enabled) {
+			/* check again after installing new LSA that area
+			 * supports flood reduction.
+			 */
+			ospf_area_update_fr_state(new->area);
+			if (new->area->fr_info.enabled) {
+				OSPF_LOG_DEBUG(
+					IS_DEBUG_OSPF_EVENT,
+					"Flood Reduction STATE off -> on by %s LSA",
+					dump_lsa_key(new));
+				ospf_refresh_area_self_lsas(new->area);
+			}
+		}
+	}
+
 	/* Acknowledge the receipt of the LSA by sending a Link State
 	   Acknowledgment packet back out the receiving interface. */
 	if (lsa_ack_flag)
@@ -464,6 +582,25 @@ int ospf_flood_through_interface(struct ospf_interface *oi,
 
 	if (!ospf_if_is_enable(oi))
 		return 0;
+
+	/* If flood reduction is configured, set the DC bit on the lsa. */
+	if (IS_LSA_SELF(lsa)) {
+		if (OSPF_FR_CONFIG(oi->area->ospf, oi->area)) {
+			if (!ospf_check_indication_lsa(lsa)) {
+				SET_FLAG(lsa->data->options, OSPF_OPTION_DC);
+				ospf_lsa_checksum(lsa->data);
+			}
+		} else if (CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC)) {
+			UNSET_FLAG(lsa->data->options, OSPF_OPTION_DC);
+			ospf_lsa_checksum(lsa->data);
+		}
+
+		/* If flood reduction is enabled then set DNA bit on the
+		 * self lsas.
+		 */
+		if (oi->area->fr_info.enabled)
+			SET_FLAG(lsa->data->ls_age, DO_NOT_AGE);
+	}
 
 	/* Remember if new LSA is added to a retransmit list. */
 	retx_flag = 0;
