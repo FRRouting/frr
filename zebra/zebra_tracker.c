@@ -25,6 +25,7 @@
 
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
+#include "lib/termtable.h"
 #include "zebra/zebra_tracker.h"
 #include "zebra/zebra_tracker_clippy.c"
 
@@ -145,6 +146,23 @@ void zebra_tracker_fileexists_set(const char *name, bool condition_file_exists)
 	tracker_file->condition_file_exists = condition_file_exists;
 }
 
+static const char *zebra_tracker_file_status(enum zebra_tracker_status status)
+{
+	switch (status) {
+	case ZEBRA_TRACKER_STATUS_INIT:
+		return "init";
+		break;
+	case ZEBRA_TRACKER_STATUS_DOWN:
+		return "down";
+	case ZEBRA_TRACKER_STATUS_UP:
+		return "up";
+	case ZEBRA_TRACKER_STATUS_DEL:
+		/* should not happen */
+		return "";
+	}
+
+	return "";
+}
 
 /* Tracker node structure. */
 static int tracker_config_write(struct vty *vty);
@@ -298,6 +316,136 @@ static int tracker_config_write(struct vty *vty)
 	return written;
 }
 
+static void zebra_show_tracker_file_json(struct json_object *json)
+{
+	struct json_object *json_arr_file, *json_tracker_file,
+		*json_tracker_status, *json_tracker_cond;
+	struct zebra_tracker_file *tracker_file;
+	struct listnode *node;
+
+	json_arr_file = json_object_new_array();
+
+	json_object_object_add(json, "file", json_arr_file);
+
+	for (ALL_LIST_ELEMENTS_RO(zebra_tracker_file_master, node,
+				  tracker_file)) {
+		json_tracker_file = json_object_new_object();
+		json_object_array_add(json_arr_file, json_tracker_file);
+
+		json_object_string_add(json_tracker_file, "name",
+				       tracker_file->name);
+		json_tracker_status = json_object_new_object();
+		json_object_object_add(json_tracker_file, "status",
+				       json_tracker_status);
+		if (tracker_file->status == ZEBRA_TRACKER_STATUS_DOWN)
+			json_object_boolean_add(json_tracker_status, "value",
+						false);
+		else if (tracker_file->status == ZEBRA_TRACKER_STATUS_UP)
+			json_object_boolean_add(json_tracker_status, "value",
+						true);
+		else
+			json_object_object_add(json_tracker_status, "value",
+					       NULL);
+		json_object_string_add(
+			json_tracker_status, "description",
+			zebra_tracker_file_status(tracker_file->status));
+		if (strlen(tracker_file->path) == 0)
+			json_object_object_add(json_tracker_file, "path", NULL);
+		else
+			json_object_string_add(json_tracker_file, "path",
+					       tracker_file->path);
+		if (!tracker_file->condition_file_exists
+		    && strlen(tracker_file->pattern) == 0)
+			json_object_object_add(json_tracker_file, "condition",
+					       NULL);
+		else {
+			json_tracker_cond = json_object_new_object();
+			json_object_object_add(json_tracker_file, "condition",
+					       json_tracker_cond);
+			if (tracker_file->condition_file_exists)
+				json_object_string_add(json_tracker_cond,
+						       "type", "exist");
+			else if (strlen(tracker_file->pattern) != 0) {
+				json_object_string_add(json_tracker_cond,
+						       "type", "pattern");
+				json_object_string_add(json_tracker_cond,
+						       "pattern",
+						       tracker_file->pattern);
+				json_object_boolean_add(
+					json_tracker_cond, "exact",
+					tracker_file->exact_pattern);
+			}
+		}
+	}
+}
+
+static void zebra_show_tracker_file(struct vty *vty)
+{
+	struct zebra_tracker_file *tracker_file;
+	struct listnode *node;
+	struct ttable *tt;
+
+	vty_out(vty, "List of file trackers\n\n");
+
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Name|Status|Path|Condition");
+
+	tt->style.indent = 0;
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	for (ALL_LIST_ELEMENTS_RO(zebra_tracker_file_master, node,
+				  tracker_file)) {
+
+		ttable_add_row(tt, "%s|%s|%s|%s%s%s", tracker_file->name,
+			       zebra_tracker_file_status(tracker_file->status),
+			       tracker_file->path,
+			       (!tracker_file->condition_file_exists
+				&& strlen(tracker_file->pattern) == 0)
+				       ? "** unset **"
+				       : (tracker_file->condition_file_exists
+						  ? "exist"
+						  : "pattern "),
+			       tracker_file->pattern,
+			       tracker_file->exact_pattern ? " exact" : "");
+	}
+
+	/* Dump the generated table. */
+	if (tt->nrows > 1) {
+		char *table;
+
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+	} else {
+		vty_out(vty, "** Empty **\n");
+	}
+	ttable_del(tt);
+}
+
+DEFUN(tracker_file_show, tracker_file_show_cmd, "show tracker file [json]",
+      SHOW_STR
+      "Tracker information\n"
+      "File tracker information\n" JSON_STR)
+{
+	struct json_object *json = NULL;
+	bool uj = use_json(argc, argv);
+
+	if (uj) {
+		json = json_object_new_object();
+		zebra_show_tracker_file_json(json);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else
+		zebra_show_tracker_file(vty);
+
+	return CMD_SUCCESS;
+}
+
 void cli_show_tracker(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults __attribute__((__unused__)))
 {
@@ -337,4 +485,6 @@ void zebra_tracker_init(void)
 	install_element(TRACKERFILE_NODE, &tracker_file_condition_pattern_cmd);
 	install_element(TRACKERFILE_NODE, &tracker_file_condition_exist_cmd);
 	install_element(TRACKERFILE_NODE, &no_tracker_file_condition_cmd);
+
+	install_element(ENABLE_NODE, &tracker_file_show_cmd);
 }
