@@ -42,6 +42,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
 
@@ -141,6 +142,10 @@ def setup_p_router(tgen, p_name):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    result = required_linux_kernel_version("5.7")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >= 5.7")
 
     # This function initiates the topology build with Topogen...
     tgen = Topogen(build_topo, mod.__name__)
