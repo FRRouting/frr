@@ -921,7 +921,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			memcpy(&nexthop->v6_global, &local->sin6.sin6_addr,
 			       IPV6_MAX_BYTELEN);
 
-			/* If directory connected set link-local address. */
+			/* If directly connected set link-local address. */
 			direct = if_lookup_by_ipv6(&remote->sin6.sin6_addr,
 						   remote->sin6.sin6_scope_id,
 						   peer->bgp->vrf_id);
@@ -934,7 +934,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			 */
 			if (!v6_ll_avail && if_is_loopback(ifp))
 				v6_ll_avail = true;
-			else {
+			else if (!v6_ll_avail) {
 				flog_warn(
 					EC_BGP_NO_LL_ADDRESS_AVAILABLE,
 					"Interface: %s does not have a v6 LL address associated with it, waiting until one is created for it",
