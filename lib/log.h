@@ -129,6 +129,21 @@ extern int proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string(unsigned int command);
 
+#define OSPF_LOG(level, cond, fmt, ...)                                        \
+	do {                                                                   \
+		if (cond)                                                      \
+			zlog_##level(fmt, ##__VA_ARGS__);                      \
+	} while (0)
+
+#define OSPF_LOG_ERR(fmt, ...) OSPF_LOG(err, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_WARN(fmt, ...) OSPF_LOG(warn, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_INFO(fmt, ...) OSPF_LOG(info, true, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_DEBUG(cond, fmt, ...) OSPF_LOG(debug, cond, fmt, ##__VA_ARGS__)
+
+#define OSPF_LOG_NOTICE(fmt, ...) OSPF_LOG(notice, true, fmt, ##__VA_ARGS__)
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {
