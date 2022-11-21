@@ -1574,6 +1574,254 @@ static void ospf_abr_announce_stub_defaults(struct ospf *ospf)
 		zlog_debug("%s: Stop", __func__);
 }
 
+/** @brief Function to check and generate indication
+ *	   LSA for area on which we received
+ *	   indication LSA flush.
+ *  @param Ospf instance.
+ *  @param Area on which indication lsa flush is to be generated.
+ *  @return Void.
+ */
+void ospf_generate_indication_lsa(struct ospf *ospf, struct ospf_area *area)
+{
+	bool area_fr_not_supp = false;
+
+	/* Check if you have any area which doesn't support
+	 * flood reduction.
+	 */
+
+	area_fr_not_supp = ospf_check_fr_enabled_all(ospf) ? false : true;
+
+	/* If any one of the area doestn't support FR, generate
+	 * indication LSA on behalf of that area.
+	 */
+
+	if (area_fr_not_supp && !area->fr_info.area_ind_lsa_recvd &&
+	    !area->fr_info.indication_lsa_self &&
+	    !area->fr_info.area_dc_clear) {
+
+		struct prefix_ipv4 p;
+		struct ospf_lsa *new;
+
+		p.family = AF_INET;
+		p.prefix = ospf->router_id;
+		p.prefixlen = IPV4_MAX_BITLEN;
+
+		new = ospf_summary_asbr_lsa_originate(&p, OSPF_LS_INFINITY,
+						      area);
+		if (!new) {
+			zlog_debug("%s: Indication lsa originate failed",
+				   __func__);
+			return;
+		}
+		/* save the indication lsa for that area */
+		area->fr_info.indication_lsa_self = new;
+	}
+}
+
+/** @brief Function to receive and process indication LSA
+ *	   flush from area.
+ *  @param lsa being flushed.
+ *  @return Void.
+ */
+void ospf_recv_indication_lsa_flush(struct ospf_lsa *lsa)
+{
+	if (!IS_LSA_SELF(lsa) && IS_LSA_MAXAGE(lsa) &&
+	    ospf_check_indication_lsa(lsa)) {
+		lsa->area->fr_info.area_ind_lsa_recvd = false;
+
+		OSPF_LOG_INFO("%s: Received an ind lsa: %pI4 area %pI4",
+			      __func__, &lsa->data->id, &lsa->area->area_id);
+
+		if (!IS_OSPF_ABR(lsa->area->ospf))
+			return;
+
+		/* If the LSA received is a indication LSA with maxage on
+		 * the network, then check and regenerate indication
+		 * LSA if any of our areas don't support flood reduction.
+		 */
+		ospf_generate_indication_lsa(lsa->area->ospf, lsa->area);
+	}
+}
+
+/** @brief Function to generate indication LSAs.
+ *  @param Ospf instance.
+ *  @param Area on behalf of which indication
+ *	   LSA is generated LSA.
+ *  @return Void.
+ */
+void ospf_abr_generate_indication_lsa(struct ospf *ospf,
+				      const struct ospf_area *area)
+{
+	struct ospf_lsa *new;
+	struct listnode *node;
+	struct ospf_area *o_area;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, o_area)) {
+		if (o_area == area)
+			continue;
+
+		if (o_area->fr_info.indication_lsa_self ||
+		    o_area->fr_info.area_ind_lsa_recvd ||
+		    o_area->fr_info.area_dc_clear) {
+			/* if the area has already received an
+			 * indication LSA or if area already has
+			 * LSAs with DC bit 0 other than
+			 * indication LSA then don't generate
+			 * indication LSA in those areas.
+			 */
+			OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+				       "Area %pI4 has LSAs with dc bit clear",
+				       &o_area->area_id);
+			continue;
+
+		} else {
+
+			struct prefix_ipv4 p;
+
+			p.family = AF_INET;
+			p.prefix = ospf->router_id;
+			p.prefixlen = IPV4_MAX_BITLEN;
+
+			new = ospf_summary_asbr_lsa_originate(
+				&p, OSPF_LS_INFINITY, o_area);
+			if (!new) {
+				zlog_debug(
+					"%s: Indication lsa originate Failed",
+					__func__);
+				return;
+			}
+			/* save the indication lsa for that area */
+			o_area->fr_info.indication_lsa_self = new;
+		}
+	}
+}
+
+/** @brief Flush the indication LSA from all the areas
+ *	   of ospf instance.
+ *  @param Ospf instance.
+ *  @return Void.
+ */
+void ospf_flush_indication_lsas(struct ospf *ospf)
+{
+	struct ospf_area *area;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+		if (area->fr_info.indication_lsa_self) {
+			OSPF_LOG_INFO(
+				"Flushing ind lsa: %pI4 area %pI4",
+				&area->fr_info.indication_lsa_self->data->id,
+				&area->area_id);
+			ospf_schedule_lsa_flush_area(
+				area, area->fr_info.indication_lsa_self);
+			area->fr_info.indication_lsa_self = NULL;
+		}
+	}
+}
+
+/** @brief Check if flood reduction is enabled on
+ *	   all the areas.
+ *  @param Ospf instance.
+ *  @return Void.
+ */
+bool ospf_check_fr_enabled_all(struct ospf *ospf)
+{
+	const struct ospf_area *area;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
+		if (!ospf_check_area_fr_enabled(area))
+			return false;
+
+	return true;
+}
+
+/** @brief Abr function to check conditions for generation
+ *	   of indication. LSAs/announcing non-DNA routers
+ *	   in the area.
+ *  @param thread
+ *  @return 0.
+ */
+static void ospf_abr_announce_non_dna_routers(struct thread *thread)
+{
+	struct ospf_area *area;
+	struct listnode *node;
+	struct ospf *ospf = THREAD_ARG(thread);
+
+	THREAD_OFF(ospf->t_abr_fr);
+
+	if (!IS_OSPF_ABR(ospf))
+		return;
+
+	OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "%s(): Start", __func__);
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "%s: Area %pI4 FR enabled: %d", __func__,
+			       &area->area_id, area->fr_info.enabled);
+		OSPF_LOG_DEBUG(
+			IS_DEBUG_OSPF_EVENT,
+			"LSA with DC bit clear: %d Recived indication LSA: %d",
+			area->fr_info.area_dc_clear,
+			area->fr_info.area_ind_lsa_recvd);
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "FR state change: %d",
+			       area->fr_info.state_changed);
+		if (!OSPF_IS_AREA_BACKBONE(area) &&
+		    area->fr_info.area_dc_clear) {
+			/* rfc4136 rfc1793: Suppose if the abr is connected to
+			 * a regular non-backbone OSPF area, Furthermore if
+			 * the area has LSAs with the DC-bit clear, other
+			 * than indication-LSAs. Then originate indication-LSAs
+			 * into all other directly-connected "regular" areas,
+			 * including the backbone area.
+			 */
+			ospf_abr_generate_indication_lsa(ospf, area);
+		}
+
+		if (OSPF_IS_AREA_BACKBONE(area) &&
+		    (area->fr_info.area_dc_clear ||
+		     area->fr_info.area_ind_lsa_recvd)) {
+			/* rfc4136 rfc1793: Suppose if the abr is connected to
+			 * backbone OSPF area. Furthermore, if backbone has
+			 * LSAs with the DC-bit clear that are either
+			 * a) not indication-LSAs or indication-LSAs or
+			 * b) indication-LSAs that have been originated by
+			 *    other routers,
+			 * then originate indication-LSAs into all other
+			 * directly-connected "regular" non-backbone areas.
+			 */
+			ospf_abr_generate_indication_lsa(ospf, area);
+		}
+
+		if (area->fr_info.enabled && area->fr_info.state_changed &&
+		    area->fr_info.indication_lsa_self) {
+			/* Ospf area flood reduction state changed
+			 * area now supports flood reduction.
+			 * check if all other areas support flood reduction
+			 * if yes then flush indication LSAs generated in
+			 * all the areas.
+			 */
+			if (ospf_check_fr_enabled_all(ospf))
+				ospf_flush_indication_lsas(ospf);
+
+			area->fr_info.state_changed = false;
+		}
+
+		/* If previously we had generated indication lsa
+		 * but now area has lsas with dc bit set to 0
+		 * apart from indication lsa, we'll clear indication lsa
+		 */
+		if (area->fr_info.area_dc_clear &&
+		    area->fr_info.indication_lsa_self) {
+			ospf_schedule_lsa_flush_area(
+				area, area->fr_info.indication_lsa_self);
+			area->fr_info.indication_lsa_self = NULL;
+		}
+	}
+
+	OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT, "%s(): Stop", __func__);
+}
+
 static int ospf_abr_remove_unapproved_translates_apply(struct ospf *ospf,
 						       struct ospf_lsa *lsa)
 {
@@ -1628,9 +1876,13 @@ static void ospf_abr_remove_unapproved_summaries(struct ospf *ospf)
 					ospf_lsa_flush_area(lsa, area);
 
 		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
-			if (ospf_lsa_is_self_originated(ospf, lsa))
-				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
-					ospf_lsa_flush_area(lsa, area);
+			if (ospf_lsa_is_self_originated(ospf, lsa) &&
+			    !CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED) &&
+			    /* Do not remove indication LSAs while
+			     * flushing unapproved summaries.
+			     */
+			    !ospf_check_indication_lsa(lsa))
+				ospf_lsa_flush_area(lsa, area);
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1793,6 +2045,20 @@ void ospf_abr_task(struct ospf *ospf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: announce stub defaults", __func__);
 		ospf_abr_announce_stub_defaults(ospf);
+
+		if (ospf->fr_configured) {
+			OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+				       "%s(): announce non-DNArouters",
+				       __func__);
+			/*
+			 * Schedule indication lsa generation timer,
+			 * giving time for route synchronization in
+			 * all the routers.
+			 */
+			thread_add_timer(
+				master, ospf_abr_announce_non_dna_routers, ospf,
+				OSPF_ABR_DNA_TIMER, &ospf->t_abr_fr);
+		}
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)

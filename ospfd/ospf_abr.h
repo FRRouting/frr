@@ -23,6 +23,11 @@
 #define _ZEBRA_OSPF_ABR_H
 
 #define OSPF_ABR_TASK_DELAY 	5
+#define OSPF_ABR_DNA_TIMER 10
+/* Delay in announceing Non-DNA routers
+ * so that LSAs are completely synced
+ * before generating indication LSAs.
+ */
 
 #define OSPF_AREA_RANGE_ADVERTISE	(1 << 0)
 #define OSPF_AREA_RANGE_SUBSTITUTE	(1 << 1)
@@ -84,4 +89,20 @@ extern void ospf_schedule_abr_task(struct ospf *);
 extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, uint32_t,
 					      struct ospf_area *);
 extern void ospf_abr_nssa_check_status(struct ospf *ospf);
+extern void ospf_abr_generate_indication_lsa(struct ospf *ospf,
+					     const struct ospf_area *area);
+extern void ospf_flush_indication_lsas(struct ospf *ospf);
+extern void ospf_generate_indication_lsa(struct ospf *ospf,
+					 struct ospf_area *area);
+extern bool ospf_check_fr_enabled_all(struct ospf *ospf);
+extern void ospf_recv_indication_lsa_flush(struct ospf_lsa *lsa);
+
+/** @brief Static inline functions.
+ *  @param Area pointer.
+ *  @return area Flood Reduction status.
+ */
+static inline bool ospf_check_area_fr_enabled(const struct ospf_area *area)
+{
+	return area->fr_info.enabled ? true : false;
+}
 #endif /* _ZEBRA_OSPF_ABR_H */
