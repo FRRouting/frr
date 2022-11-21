@@ -112,7 +112,6 @@ static struct global_state {
 	long period;
 	long timeout;
 	long restart_timeout;
-	bool reading_configuration;
 	long min_restart_interval;
 	long max_restart_interval;
 	long operational_timeout;
@@ -1070,8 +1069,6 @@ void watchfrr_status(struct vty *vty)
 	vty_out(vty, " Min Restart Interval: %ld\n", gs.min_restart_interval);
 	vty_out(vty, " Max Restart Interval: %ld\n", gs.max_restart_interval);
 	vty_out(vty, " Restart Timeout: %ld\n", gs.restart_timeout);
-	vty_out(vty, " Reading Configuration: %s\n",
-		gs.reading_configuration ? "yes" : "no");
 	if (gs.restart.pid)
 		vty_out(vty, "    global restart running, pid %ld\n",
 			(long)gs.restart.pid);
@@ -1276,16 +1273,6 @@ static void netns_setup(const char *nsname)
 	exit(1);
 }
 #endif
-
-static void watchfrr_start_config(void)
-{
-	gs.reading_configuration = true;
-}
-
-static void watchfrr_end_config(void)
-{
-	gs.reading_configuration = false;
-}
 
 static void watchfrr_init(int argc, char **argv)
 {
@@ -1581,7 +1568,6 @@ int main(int argc, char **argv)
 	master = frr_init();
 	watchfrr_error_init();
 	watchfrr_init(argc, argv);
-	cmd_init_config_callbacks(watchfrr_start_config, watchfrr_end_config);
 	watchfrr_vty_init();
 
 	frr_config_fork();
