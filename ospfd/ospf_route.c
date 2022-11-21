@@ -986,6 +986,16 @@ void ospf_prune_unreachable_routers(struct route_table *rtrs)
 						&or->u.std.area_id);
 				}
 
+				/* Unset the DNA flag on lsa, if the router
+				 * which generated this lsa is no longer
+				 * reachabele.
+				 */
+				(CHECK_FLAG(or->u.std.origin->ls_age,
+					    DO_NOT_AGE))
+					? UNSET_FLAG(or->u.std.origin->ls_age,
+						     DO_NOT_AGE)
+					: 0;
+
 				listnode_delete(paths, or);
 				ospf_route_free(or);
 			}

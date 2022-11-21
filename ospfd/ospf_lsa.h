@@ -60,6 +60,7 @@
 /* OSPF LSA header. */
 struct lsa_header {
 	uint16_t ls_age;
+#define DO_NOT_AGE 0x8000
 	uint8_t options;
 	uint8_t type;
 	struct in_addr id;
@@ -233,6 +234,9 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 	 || (type == OSPF_SUMMARY_LSA) || (type == OSPF_ASBR_SUMMARY_LSA)      \
 	 || (type == OSPF_AS_EXTERNAL_LSA) || (type == OSPF_AS_NSSA_LSA))
 
+#define OSPF_FR_CONFIG(o, a)                                                   \
+	(o->fr_configured || ((a != NULL) ? a->fr_info.configured : 0))
+
 /* Prototypes. */
 /* XXX: Eek, time functions, similar are in lib/thread.c */
 extern struct timeval int2tv(int);
@@ -358,4 +362,24 @@ extern void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
 extern void ospf_maxage_lsa_remover(struct thread *thread);
+extern bool ospf_check_dna_lsa(const struct ospf_lsa *lsa);
+extern void ospf_refresh_area_self_lsas(struct ospf_area *area);
+
+/** @brief Check if the LSA is an indication LSA.
+ *  @param lsa pointer.
+ *  @return true or false based on lsa info.
+ */
+static inline bool ospf_check_indication_lsa(struct ospf_lsa *lsa)
+{
+	struct summary_lsa *sl = NULL;
+
+	if (lsa->data->type == OSPF_ASBR_SUMMARY_LSA) {
+		sl = (struct summary_lsa *)lsa->data;
+		if ((GET_METRIC(sl->metric) == OSPF_LS_INFINITY) &&
+		    !CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC))
+			return true;
+	}
+
+	return false;
+}
 #endif /* _ZEBRA_OSPF_LSA_H */

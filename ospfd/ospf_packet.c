@@ -43,6 +43,7 @@
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
+#include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_lsdb.h"
@@ -3332,6 +3333,14 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 	else
 		stream_putw(s, 0); /* hello-interval of 0 for fast-hellos */
 
+	/* Check if flood-reduction is enabled,
+	 * if yes set the DC bit in the options.
+	 */
+	if (OSPF_FR_CONFIG(oi->ospf, oi->area))
+		SET_FLAG(OPTIONS(oi), OSPF_OPTION_DC);
+	else if (CHECK_FLAG(OPTIONS(oi), OSPF_OPTION_DC))
+		UNSET_FLAG(OPTIONS(oi), OSPF_OPTION_DC);
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: options: %x, int: %s", __func__, OPTIONS(oi),
 			   IF_NAME(oi));
@@ -3420,6 +3429,8 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 	options = OPTIONS(oi);
 	if (CHECK_FLAG(oi->ospf->config, OSPF_OPAQUE_CAPABLE))
 		SET_FLAG(options, OSPF_OPTION_O);
+	if (OSPF_FR_CONFIG(oi->ospf, oi->area))
+		SET_FLAG(options, OSPF_OPTION_DC);
 	stream_putc(s, options);
 
 	/* DD flags */
