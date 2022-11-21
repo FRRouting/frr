@@ -467,6 +467,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	 */
 	ospf_gr_nvm_read(new);
 
+	new->fr_configured = false;
+
 	return new;
 }
 
@@ -817,6 +819,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	THREAD_OFF(ospf->t_maxage);
 	THREAD_OFF(ospf->t_maxage_walker);
 	THREAD_OFF(ospf->t_abr_task);
+	THREAD_OFF(ospf->t_abr_fr);
 	THREAD_OFF(ospf->t_asbr_check);
 	THREAD_OFF(ospf->t_asbr_nssa_redist_update);
 	THREAD_OFF(ospf->t_distribute_update);
@@ -961,6 +964,15 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 
 	/* Self-originated LSAs initialize. */
 	new->router_lsa_self = NULL;
+
+	/* Initialize FR field */
+	new->fr_info.enabled = false;
+	new->fr_info.configured = false;
+	new->fr_info.state_changed = false;
+	new->fr_info.router_lsas_recv_dc_bit = 0;
+	new->fr_info.indication_lsa_self = NULL;
+	new->fr_info.area_ind_lsa_recvd = false;
+	new->fr_info.area_dc_clear = false;
 
 	ospf_opaque_type10_lsa_init(new);
 
