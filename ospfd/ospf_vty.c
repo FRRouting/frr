@@ -3053,6 +3053,43 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 			ospf_lsdb_checksum(area->lsdb, OSPF_OPAQUE_AREA_LSA));
 	}
 
+	if (area->fr_info.configured) {
+		if (use_json)
+			json_object_string_add(json_area, "areaFloodReduction",
+					       "configured");
+		else
+			vty_out(vty, "   Flood Reduction is configured.\n");
+	}
+
+	if (area->fr_info.enabled) {
+		if (use_json) {
+			json_object_boolean_true_add(
+				json_area, "areaFloodReductionEnabled");
+			if (area->fr_info.router_lsas_recv_dc_bit)
+				json_object_boolean_true_add(
+					json_area, "lsasRecvDCbitSet");
+			if (area->fr_info.area_ind_lsa_recvd)
+				json_object_string_add(json_area,
+						       "areaIndicationLsaRecv",
+						       "received");
+			if (area->fr_info.indication_lsa_self)
+				json_object_string_addf(
+					json_area, "areaIndicationLsa", "%pI4",
+					&area->fr_info.indication_lsa_self->data
+						 ->id);
+		} else {
+			vty_out(vty, "   Flood Reduction is enabled.\n");
+			vty_out(vty, "   No of LSAs rcv'd with DC bit set %d\n",
+				area->fr_info.router_lsas_recv_dc_bit);
+			if (area->fr_info.area_ind_lsa_recvd)
+				vty_out(vty, "   Ind LSA by other abr.\n");
+			if (area->fr_info.indication_lsa_self)
+				vty_out(vty, "   Ind LSA generated %pI4\n",
+					&area->fr_info.indication_lsa_self->data
+						 ->id);
+		}
+	}
+
 	if (use_json)
 		json_object_object_add(json_areas,
 				       inet_ntop(AF_INET, &area->area_id,
@@ -3286,6 +3323,14 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		vty_out(vty, " Administrative distance %u\n",
 			ospf->distance_all ? ospf->distance_all
 					   : ZEBRA_OSPF_DISTANCE_DEFAULT);
+	}
+
+	if (ospf->fr_configured) {
+		if (json)
+			json_object_string_add(json_vrf, "floodReduction",
+					       "configured");
+		else
+			vty_out(vty, " Flood Reduction is configured.\n");
 	}
 
 	/* Show ABR/ASBR flags. */
@@ -5964,118 +6009,109 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self,
 	struct as_external_lsa *asel;
 	struct prefix_ipv4 p;
 
-	if (lsa != NULL) {
-		/* If self option is set, check LSA self flag. */
-		if (self == 0 || IS_LSA_SELF(lsa)) {
+	if (lsa == NULL)
+		return 0;
 
-			if (!json_lsa) {
-				/* LSA common part show. */
-				vty_out(vty, "%-15pI4",
-					&lsa->data->id);
-				vty_out(vty, "%-15pI4 %4d 0x%08lx 0x%04x",
-					&lsa->data->adv_router,	LS_AGE(lsa),
-					(unsigned long)ntohl(
-						lsa->data->ls_seqnum),
-					ntohs(lsa->data->checksum));
-			} else {
-				char seqnum[10];
-				char checksum[10];
+	/* If self option is set, check LSA self flag. */
+	if (self == 0 || IS_LSA_SELF(lsa)) {
 
-				snprintf(seqnum, sizeof(seqnum), "%x",
-					 ntohl(lsa->data->ls_seqnum));
-				snprintf(checksum, sizeof(checksum), "%x",
-					 ntohs(lsa->data->checksum));
-				json_object_string_addf(json_lsa, "lsId",
-							"%pI4", &lsa->data->id);
-				json_object_string_addf(
-					json_lsa, "advertisedRouter", "%pI4",
-					&lsa->data->adv_router);
-				json_object_int_add(json_lsa, "lsaAge",
-						    LS_AGE(lsa));
-				json_object_string_add(
-					json_lsa, "sequenceNumber", seqnum);
-				json_object_string_add(json_lsa, "checksum",
-						       checksum);
-			}
+		if (!json_lsa) {
+			/* LSA common part show. */
+			vty_out(vty, "%-15pI4", &lsa->data->id);
+			vty_out(vty, "%-15pI4 %4d 0x%08lx 0x%04x",
+				&lsa->data->adv_router, LS_AGE(lsa),
+				(unsigned long)ntohl(lsa->data->ls_seqnum),
+				ntohs(lsa->data->checksum));
+		} else {
+			char seqnum[10];
+			char checksum[10];
 
-			/* LSA specific part show. */
-			switch (lsa->data->type) {
-			case OSPF_ROUTER_LSA:
-				rl = (struct router_lsa *)lsa->data;
-
-				if (!json_lsa)
-					vty_out(vty, " %-d", ntohs(rl->links));
-				else
-					json_object_int_add(json_lsa,
-							    "numOfRouterLinks",
-							    ntohs(rl->links));
-				break;
-			case OSPF_SUMMARY_LSA:
-				sl = (struct summary_lsa *)lsa->data;
-
-				p.family = AF_INET;
-				p.prefix = sl->header.id;
-				p.prefixlen = ip_masklen(sl->mask);
-				apply_mask_ipv4(&p);
-
-				if (!json_lsa)
-					vty_out(vty, " %pFX", &p);
-				else {
-					json_object_string_addf(
-						json_lsa, "summaryAddress",
-						"%pFX", &p);
-				}
-				break;
-			case OSPF_AS_EXTERNAL_LSA:
-			case OSPF_AS_NSSA_LSA:
-				asel = (struct as_external_lsa *)lsa->data;
-
-				p.family = AF_INET;
-				p.prefix = asel->header.id;
-				p.prefixlen = ip_masklen(asel->mask);
-				apply_mask_ipv4(&p);
-
-				if (!json_lsa)
-					vty_out(vty, " %s %pFX [0x%lx]",
-						IS_EXTERNAL_METRIC(
-							asel->e[0].tos)
-							? "E2"
-							: "E1",
-						&p,
-						(unsigned long)ntohl(
-							asel->e[0].route_tag));
-				else {
-					json_object_string_add(
-						json_lsa, "metricType",
-						IS_EXTERNAL_METRIC(
-							asel->e[0].tos)
-							? "E2"
-							: "E1");
-					json_object_string_addf(
-						json_lsa, "route", "%pFX", &p);
-					json_object_int_add(
-						json_lsa, "tag",
-						(unsigned long)ntohl(
-							asel->e[0].route_tag));
-				}
-				break;
-			case OSPF_NETWORK_LSA:
-			case OSPF_ASBR_SUMMARY_LSA:
-			case OSPF_OPAQUE_LINK_LSA:
-			case OSPF_OPAQUE_AREA_LSA:
-			case OSPF_OPAQUE_AS_LSA:
-			default:
-				break;
-			}
-
-			if (!json_lsa)
-				vty_out(vty, "\n");
+			snprintf(seqnum, sizeof(seqnum), "%x",
+				 ntohl(lsa->data->ls_seqnum));
+			snprintf(checksum, sizeof(checksum), "%x",
+				 ntohs(lsa->data->checksum));
+			json_object_string_addf(json_lsa, "lsId", "%pI4",
+						&lsa->data->id);
+			json_object_string_addf(json_lsa, "advertisedRouter",
+						"%pI4", &lsa->data->adv_router);
+			json_object_int_add(json_lsa, "lsaAge", LS_AGE(lsa));
+			json_object_string_add(json_lsa, "sequenceNumber",
+					       seqnum);
+			json_object_string_add(json_lsa, "checksum", checksum);
 		}
 
-		return 1;
+		/* LSA specific part show. */
+		switch (lsa->data->type) {
+		case OSPF_ROUTER_LSA:
+			rl = (struct router_lsa *)lsa->data;
+
+			if (!json_lsa)
+				vty_out(vty, " %-d", ntohs(rl->links));
+			else
+				json_object_int_add(json_lsa,
+						    "numOfRouterLinks",
+						    ntohs(rl->links));
+			break;
+		case OSPF_SUMMARY_LSA:
+			sl = (struct summary_lsa *)lsa->data;
+
+			p.family = AF_INET;
+			p.prefix = sl->header.id;
+			p.prefixlen = ip_masklen(sl->mask);
+			apply_mask_ipv4(&p);
+
+			if (!json_lsa)
+				vty_out(vty, " %pFX", &p);
+			else {
+				json_object_string_addf(
+					json_lsa, "summaryAddress", "%pFX", &p);
+			}
+			break;
+		case OSPF_AS_EXTERNAL_LSA:
+		case OSPF_AS_NSSA_LSA:
+			asel = (struct as_external_lsa *)lsa->data;
+
+			p.family = AF_INET;
+			p.prefix = asel->header.id;
+			p.prefixlen = ip_masklen(asel->mask);
+			apply_mask_ipv4(&p);
+
+			if (!json_lsa)
+				vty_out(vty, " %s %pFX [0x%lx]",
+					IS_EXTERNAL_METRIC(asel->e[0].tos)
+						? "E2"
+						: "E1",
+					&p,
+					(unsigned long)ntohl(
+						asel->e[0].route_tag));
+			else {
+				json_object_string_add(
+					json_lsa, "metricType",
+					IS_EXTERNAL_METRIC(asel->e[0].tos)
+						? "E2"
+						: "E1");
+				json_object_string_addf(json_lsa, "route",
+							"%pFX", &p);
+				json_object_int_add(
+					json_lsa, "tag",
+					(unsigned long)ntohl(
+						asel->e[0].route_tag));
+			}
+			break;
+		case OSPF_NETWORK_LSA:
+		case OSPF_ASBR_SUMMARY_LSA:
+		case OSPF_OPAQUE_LINK_LSA:
+		case OSPF_OPAQUE_AREA_LSA:
+		case OSPF_OPAQUE_AS_LSA:
+		default:
+			break;
+		}
+
+		if (!json_lsa)
+			vty_out(vty, "\n");
 	}
 
-	return 0;
+	return 1;
 }
 
 static const char *const show_database_desc[] = {
@@ -6144,7 +6180,16 @@ static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa,
 	struct router_lsa *rlsa = (struct router_lsa *)lsa->data;
 
 	if (!json) {
-		vty_out(vty, "  LS age: %d\n", LS_AGE(lsa));
+		if (IS_LSA_SELF(lsa))
+			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
+				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
+					? "(S-DNA)"
+					: "");
+		else
+			vty_out(vty, "  LS age: %d%s\n", LS_AGE(lsa),
+				CHECK_FLAG(lsa->data->ls_age, DO_NOT_AGE)
+					? "(DNA)"
+					: "");
 		vty_out(vty, "  Options: 0x%-2x : %s\n", lsa->data->options,
 			ospf_options_dump(lsa->data->options));
 		vty_out(vty, "  LS Flags: 0x%-2x %s\n", lsa->flags,
@@ -12235,6 +12280,9 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 		if (PREFIX_NAME_OUT(area))
 			vty_out(vty, " area %s filter-list prefix %s out\n",
 				buf, PREFIX_NAME_OUT(area));
+
+		if (area->fr_info.configured)
+			vty_out(vty, " area %s flood-reduction\n", buf);
 	}
 
 	return 0;
@@ -12611,6 +12659,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* SPF refresh parameters print. */
 	if (ospf->lsa_refresh_interval != OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
 		vty_out(vty, " refresh timer %d\n", ospf->lsa_refresh_interval);
+
+	if (ospf->fr_configured)
+		vty_out(vty, " flood-reduction\n");
 
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
@@ -12994,6 +13045,143 @@ DEFPY_HIDDEN(ospf_maxage_delay_timer, ospf_maxage_delay_timer_cmd,
 	return CMD_SUCCESS;
 }
 
+/*
+ * ------------------------------------------------------------------------*
+ * Following is (vty) configuration functions for flood-reduction handling.
+ * ------------------------------------------------------------------------
+ */
+
+DEFPY(flood_reduction, flood_reduction_cmd, "flood-reduction",
+      "flood reduction feature\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf)
+	struct ospf_area *area;
+	struct listnode *node;
+
+	/* Turn on the Flood Reduction feature for the router. */
+	if (!ospf->fr_configured) {
+		ospf->fr_configured = true;
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "Flood Reduction: OFF -> ON");
+		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+			if (area) {
+				ospf_area_update_fr_state(area);
+				ospf_refresh_area_self_lsas(area);
+			}
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(flood_reduction_area, flood_reduction_area_cmd,
+      "area <A.B.C.D|(0-4294967295)> flood-reduction",
+      "OSPF area parameters\n"
+      "OSPF area ID in IP address format\n"
+      "OSPF area ID as a decimal value\n"
+      "Enable flood reduction for area\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf)
+	struct ospf_area *oa;
+	int idx = 1;
+	int format;
+	int ret;
+	const char *areaid;
+	struct in_addr area_id;
+
+	areaid = argv[idx]->arg;
+
+	ret = str2area_id(areaid, &area_id, &format);
+	if (ret < 0) {
+		vty_out(vty, "Please specify area by A.B.C.D|<0-4294967295>\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	oa = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!oa) {
+		vty_out(vty, "OSPF area ID not present\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Turn on the Flood Reduction feature for the area. */
+	if (!oa->fr_info.configured) {
+		oa->fr_info.configured = true;
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "Flood Reduction area %pI4 : OFF -> ON",
+			       &oa->area_id);
+		ospf_area_update_fr_state(oa);
+		ospf_refresh_area_self_lsas(oa);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_flood_reduction, no_flood_reduction_cmd, "no flood-reduction",
+      NO_STR "flood reduction feature\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf)
+	struct listnode *node;
+	struct ospf_area *area;
+
+	/* Turn off the Flood Reduction feature for the router. */
+	if (ospf->fr_configured) {
+		ospf->fr_configured = false;
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "Flood Reduction: ON -> OFF");
+		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
+			if (area) {
+				ospf_area_update_fr_state(area);
+				ospf_refresh_area_self_lsas(area);
+			}
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_flood_reduction_area, no_flood_reduction_area_cmd,
+      "no area <A.B.C.D|(0-4294967295)> flood-reduction",
+      NO_STR
+      "OSPF area parameters\n"
+      "OSPF area ID in IP address format\n"
+      "OSPF area ID as a decimal value\n"
+      "Disable flood reduction for area\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf)
+	struct ospf_area *oa;
+	int idx = 2;
+	int format;
+	int ret;
+	const char *areaid;
+	struct in_addr area_id;
+
+	areaid = argv[idx]->arg;
+
+	ret = str2area_id(areaid, &area_id, &format);
+	if (ret < 0) {
+		vty_out(vty, "Please specify area by A.B.C.D|<0-4294967295>\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	oa = ospf_area_lookup_by_area_id(ospf, area_id);
+	if (!oa) {
+		vty_out(vty, "OSPF area ID not present\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Turn off the Flood Reduction feature for the area. */
+	if (oa->fr_info.configured) {
+		oa->fr_info.configured = false;
+		OSPF_LOG_DEBUG(IS_DEBUG_OSPF_EVENT,
+			       "Flood Reduction area %pI4 : ON -> OFF",
+			       &oa->area_id);
+		ospf_area_update_fr_state(oa);
+		ospf_refresh_area_self_lsas(oa);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void ospf_vty_clear_init(void)
 {
 	install_element(ENABLE_NODE, &clear_ip_ospf_interface_cmd);
@@ -13153,6 +13341,12 @@ void ospf_vty_init(void)
 
 	install_element(OSPF_NODE, &ospf_lsa_refresh_timer_cmd);
 	install_element(OSPF_NODE, &ospf_maxage_delay_timer_cmd);
+
+	/* Flood Reduction commands */
+	install_element(OSPF_NODE, &flood_reduction_cmd);
+	install_element(OSPF_NODE, &no_flood_reduction_cmd);
+	install_element(OSPF_NODE, &flood_reduction_area_cmd);
+	install_element(OSPF_NODE, &no_flood_reduction_area_cmd);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();
