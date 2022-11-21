@@ -1359,6 +1359,46 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 	return num_labels;
 }
 
+static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
+					       struct nlmsghdr *nlmsg,
+					       mpls_lse_t *out_lse,
+					       size_t buflen, char *label_buf)
+{
+	struct in_addr ipv4;
+
+	if (!nl_attr_put64(nlmsg, buflen, LWTUNNEL_IP_ID,
+			   htonll((uint64_t)out_lse[0])))
+		return false;
+
+	if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+		if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+				 &nexthop->gate.ipv4, 4))
+			return false;
+
+	} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+		if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
+			ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, &ipv4);
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST, &ipv4,
+					 4))
+				return false;
+
+		} else {
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+					 &nexthop->gate.ipv6, 16))
+				return false;
+		}
+	} else {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"%s: nexthop %pNHv %s must NEXTHOP_TYPE_IPV*_IFINDEX to be vxlan encapped",
+				__func__, nexthop, label_buf);
+
+		return false;
+	}
+
+	return true;
+}
+
 static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 					     struct nlmsghdr *nlmsg,
 					     size_t buflen, struct rtmsg *rtmsg,
@@ -1370,7 +1410,6 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 	struct rtattr *nest;
 	struct mpls_label_stack *nh_label;
 	enum lsp_types_t nh_label_type;
-	struct in_addr ipv4;
 
 	nh_label = nexthop->nh_label;
 	nh_label_type = nexthop->nh_label_type;
@@ -1387,7 +1426,6 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 				       label_buf, label_buf_size);
 
 	if (num_labels && nh_label_type == ZEBRA_LSP_EVPN) {
-
 		if (!nl_attr_put16(nlmsg, buflen, RTA_ENCAP_TYPE,
 				   LWTUNNEL_ENCAP_IP))
 			return false;
@@ -1396,36 +1434,10 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 		if (!nest)
 			return false;
 
-		if (!nl_attr_put64(nlmsg, buflen, LWTUNNEL_IP_ID,
-				   htonll((uint64_t)out_lse[0])))
+		if (_netlink_nexthop_encode_dvni_label(nexthop, nlmsg, out_lse,
+						       buflen,
+						       label_buf) == false)
 			return false;
-
-		if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
-			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
-					 &nexthop->gate.ipv4, 4))
-				return false;
-
-		} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-			if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
-				ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6,
-							 &ipv4);
-				if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
-						 &ipv4, 4))
-					return false;
-
-			} else {
-				if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
-						 &nexthop->gate.ipv6, 16))
-					return false;
-			}
-		} else {
-			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug(
-					"%s: nexthop %pNHv %s must NEXTHOP_TYPE_IPV*_IFINDEX to be vxlan encapped",
-					__func__, nexthop, label_buf);
-
-			return false;
-		}
 
 		nl_attr_nest_end(nlmsg, nest);
 
@@ -2720,7 +2732,24 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				nh->nh_label, nh->nh_label_type, out_lse,
 				label_buf, sizeof(label_buf));
 
-			if (num_labels) {
+			if (num_labels && nh->nh_label_type == ZEBRA_LSP_EVPN) {
+				if (!nl_attr_put16(&req->n, buflen,
+						   NHA_ENCAP_TYPE,
+						   LWTUNNEL_ENCAP_IP))
+					return 0;
+
+				nest = nl_attr_nest(&req->n, buflen, NHA_ENCAP);
+				if (!nest)
+					return 0;
+
+				if (_netlink_nexthop_encode_dvni_label(
+					    nh, &req->n, out_lse, buflen,
+					    label_buf) == false)
+					return 0;
+
+				nl_attr_nest_end(&req->n, nest);
+
+			} else if (num_labels) {
 				/* Set the BoS bit */
 				out_lse[num_labels - 1] |=
 					htonl(1 << MPLS_LS_S_SHIFT);
