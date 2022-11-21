@@ -622,6 +622,16 @@ via `ip link`, `bridge link` and `bridge vlan` commands:
     bridge  None
     vxlan0   100     100
 
+.. clicmd:: show evpn access-vlan [IFNAME VLAN-ID | detail] [json]
+
+   Show information for EVPN Access VLANs.
+
+   ::
+
+      VLAN         SVI             L2-VNI   VXLAN-IF        # Members
+      bridge.20    vlan20          20       vxlan0          0
+      bridge.10    vlan10          0        vxlan0          0
+
 .. _zebra-mpls:
 
 MPLS Commands
