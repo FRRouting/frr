@@ -115,7 +115,7 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 		elapsed.tv_sec >= ka.tv_sec || timercmp(&diff, &tolerance, <);
 
 	if (send_keepalive) {
-		if (bgp_debug_neighbor_events(pkat->peer))
+		if (bgp_debug_keepalive(pkat->peer))
 			zlog_debug("%s [FSM] Timer (keepalive timer expire)",
 				   pkat->peer->host);
 

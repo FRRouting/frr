@@ -1335,7 +1335,7 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	bgp_peer_update_orr_active_roots(peer);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s went from %s to %s", peer->host,
+		zlog_debug("%s fd %d went from %s to %s", peer->host, peer->fd,
 			   lookup_msg(bgp_status_msg, peer->ostatus, NULL),
 			   lookup_msg(bgp_status_msg, peer->status, NULL));
 }
