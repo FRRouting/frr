@@ -367,7 +367,7 @@ static void restart_kill(struct thread *t_kill)
 
 	time_elapsed(&delay, &restart->time);
 
-	if (gs.reading_configuration) {
+	if (gs.restart.pid) {
 		zlog_err(
 			"%s %s child process appears to still be reading configuration, delaying for another %lu time",
 			restart->what, restart->name, gs.restart_timeout);
