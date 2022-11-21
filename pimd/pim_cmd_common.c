@@ -2829,9 +2829,7 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(
-		tt,
-		"Address|Interface|Nexthop");
+	ttable_add_row(tt, "Address|Interface|Nexthop");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
@@ -2842,9 +2840,11 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 
 #if PIM_IPV == 4
-		ttable_add_row(tt, "%pPA|%s|%pI4", &pnc->rpf.rpf_addr, ifp ? ifp->name : "NULL", &nh_node->gate.ipv4);
+		ttable_add_row(tt, "%pPA|%s|%pI4", &pnc->rpf.rpf_addr,
+			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv4);
 #else
-		ttable_add_row(tt, "%pPA|%s|%pI6", &pnc->rpf.rpf_addr, ifp ? ifp->name : "NULL", &nh_node->gate.ipv6);
+		ttable_add_row(tt, "%pPA|%s|%pI6", &pnc->rpf.rpf_addr,
+			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv6);
 #endif
 	}
 	/* Dump the generated table. */
@@ -5367,6 +5367,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
+	struct ttable *tt = NULL;
 
 	if (uj) {
 		json = json_object_new_object();
@@ -5397,10 +5398,15 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		} else {
 			vty_out(vty, "Group Address %pFX\n", &bsgrp->group);
 			vty_out(vty, "--------------------------\n");
-			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "Rp Address",
-				"priority", "Holdtime", "Hash");
+			/* Prepare table. */
+			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+			ttable_add_row(tt, "Rp Address|priority|Holdtime|Hash");
+			tt->style.cell.rpad = 2;
+			tt->style.corner = '+';
+			ttable_restyle(tt);
 
-			vty_out(vty, "(ACTIVE)\n");
+			ttable_add_row(tt, "%s|%c|%c|%c", "(ACTIVE)", ' ', ' ',
+				       ' ');
 		}
 
 		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
@@ -5420,10 +5426,21 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 							&bsm_rp->rp_address);
 
 			} else {
-				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
+				ttable_add_row(
+					tt, "%pPA|%u|%u|%u",
 					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
+		}
+		/* Dump the generated table. */
+		if (tt) {
+			char *table = NULL;
+
+			table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP, table);
+			ttable_del(tt);
+			tt = NULL;
 		}
 		if (!bsm_rpinfos_count(bsgrp->bsrp_list) && !uj)
 			vty_out(vty, "Active List is empty.\n");
@@ -5435,10 +5452,16 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 			vty_out(vty, "(PENDING)\n");
 			vty_out(vty, "Pending RP count :%d\n",
 				bsgrp->pend_rp_cnt);
-			if (bsgrp->pend_rp_cnt)
-				vty_out(vty, "%-15s %-15s %-15s %-15s\n",
-					"Rp Address", "priority", "Holdtime",
-					"Hash");
+			if (bsgrp->pend_rp_cnt) {
+				/* Prepare table. */
+				tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+				ttable_add_row(
+					tt,
+					"Rp Address|priority|Holdtime|Hash");
+				tt->style.cell.rpad = 2;
+				tt->style.corner = '+';
+				ttable_restyle(tt);
+			}
 		}
 
 		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
@@ -5457,10 +5480,20 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 							"%pPA",
 							&bsm_rp->rp_address);
 			} else {
-				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
+				ttable_add_row(
+					tt, "%pPA|%u|%u|%u",
 					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
+		}
+		/* Dump the generated table. */
+		if (tt) {
+			char *table = NULL;
+
+			table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP, table);
+			ttable_del(tt);
 		}
 		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
 			vty_out(vty, "Partial List is empty\n");
