@@ -116,12 +116,28 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("bridge vlan add vid 1 dev {0}-{1}".format(pe_name, intf))
     pe.run("bridge vlan add vid 1 pvid untagged dev {0}-{1}".format(pe_name, intf))
 
-    return
+    # l3vni 100
+    pe.run("ip link add vrf-red type vrf table 1400")
+    pe.run("ip link add link bridge name vlan100 type vlan id 100 protocol 802.1q")
+    pe.run("ip link set dev vlan100 master vrf-blue")
+    pe.run("ip link set dev vlan100 up")
+    pe.run("bridge vlan add vid 100 dev bridge self")
+    pe.run("bridge vlan add dev vxlan0 vid 100")
+    pe.run("bridge vlan add dev vxlan0 vid 100 tunnel_info id 100")
+
+    # add a vrf for testing DVNI
+    if pe_name == "PE2":
+        pe.run("ip link add vrf-blue type vrf table 2400")
+        pe.run("ip link add link bridge name vlan300 type vlan id 300 protocol 802.1q")
+        pe.run("ip link set dev vlan300 master vrf-blue")
+        pe.run("ip link set dev vlan300 up")
+        pe.run("bridge vlan add vid 300 dev bridge self")
+        pe.run("bridge vlan add dev vxlan0 vid 300")
+        pe.run("bridge vlan add dev vxlan0 vid 300 tunnel_info id 300")
 
 def setup_p_router(tgen, p_name):
     p1 = tgen.gears[p_name]
     p1.run("sysctl -w net.ipv4.ip_forward=1")
-    return
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -159,6 +175,7 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
+    #tgen.mininet_cli()
     # This function tears down the whole topology.
     tgen.stop_topology()
 
@@ -216,7 +233,7 @@ def test_pe2_converge_evpn():
     "Wait for protocol convergence"
 
     tgen = get_topogen()
-    # Don't run this test if we have any failure.
+#Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
@@ -270,6 +287,9 @@ def mac_test_local_remote(local, remote):
     local_output_vni_json = json.loads(local_output_vni)
 
     for vni in local_output_json:
+        if vni not in remote_output_json:
+            continue
+
         mac_list = local_output_json[vni]["macs"]
         for mac in mac_list:
             if mac_list[mac]["type"] == "local" and mac_list[mac]["intf"] != "br101":
@@ -334,8 +354,6 @@ def test_local_remote_mac_pe2():
     pe2 = tgen.gears["PE2"]
     mac_test_local_remote(pe2, pe1)
 
-    # Memory leak test template
-
 
 def ip_learn_test(tgen, host, local, remote, ip_addr):
     "check the host IP gets learned by the VNI"
@@ -346,11 +364,11 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
         if "HWaddr" in line_items[0]:
             mac = line_items[1]
             break
-    print(host_output)
+    #print(host_output)
 
     # check we have a local association between the MAC and IP
     local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    print(local_output)
+    #print(local_output)
     local_output_json = json.loads(local_output)
     mac_type = local_output_json[mac]["type"]
     assertmsg = "Failed to learn local IP address on host {}".format(host.name)
@@ -374,7 +392,7 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
         remote_output = remote.vtysh_cmd(
             "show evpn mac vni 101 mac {} json".format(mac)
         )
-        print(remote_output)
+        #print(remote_output)
         remote_output_json = json.loads(remote_output)
         type = remote_output_json[mac]["type"]
         if not remote_output_json[mac]["neighbors"] == "none":
@@ -388,12 +406,12 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
         count += 1
         sleep(1)
 
-    print("tries: {}".format(count))
+    #print("tries: {}".format(count))
     assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
     # some debug for this failure
     if not converged == True:
         log_output = remote.run("cat zebra.log")
-        print(log_output)
+        #print(log_output)
 
     assert converged == True, assertmsg
     if remote_output_json[mac]["neighbors"]["active"]:
@@ -445,6 +463,36 @@ def test_ip_pe2_learn():
     host2.run("ping -c1 10.10.1.3")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
+
+def show_dvni_route(pe, vni, prefix, vrf):
+    output = pe.vtysh_cmd("show ip route vrf {} {}".format(vrf, prefix))
+
+    if str(vni) not in output:
+        return output
+
+    output = pe.run("ip route show vrf {} {}".format(vrf, prefix))
+
+    if str(vni) not in output:
+        return output
+
+    return None
+
+def test_dvni():
+    "test Downstream VNI works as expected importing into PE1"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    prefix = "4.4.4.1/32"
+    test_func = partial(show_dvni_route, pe1, 300, prefix, "vrf-red")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" DVNI route {} not found'.format(pe1.name, prefix)
+    assert result is None, assertmsg
+    #tgen.mininet_cli()
 
 
 def test_memory_leak():
