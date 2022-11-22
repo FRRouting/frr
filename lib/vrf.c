@@ -528,6 +528,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 static void vrf_terminate_single(struct vrf *vrf)
 {
 	/* Clear configured flag and invoke delete. */
+	vrf_disable(vrf);
 	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 	if_terminate(vrf);
 	vrf_delete(vrf);
