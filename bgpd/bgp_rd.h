@@ -23,6 +23,9 @@
 #ifndef _QUAGGA_BGP_RD_H
 #define _QUAGGA_BGP_RD_H
 
+#include "asn.h"
+#include "prefix.h"
+
 /* RD types */
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
@@ -34,6 +37,16 @@
 
 #define RD_ADDRSTRLEN  28
 #define RD_BYTES  8
+
+#define BGP_RD_AS_FORMAT(mode)                                                 \
+	((mode == ASNOTATION_DOT)                                              \
+		 ? "%pRDD"                                                     \
+		 : ((mode == ASNOTATION_DOTPLUS) ? "%pRDE" : "%pRDP"))
+
+#define BGP_RD_AS_FORMAT_SPACE(mode)                                           \
+	((mode == ASNOTATION_DOT)                                              \
+		 ? "%-21pRDD"                                                  \
+		 : ((mode == ASNOTATION_DOTPLUS) ? "%-21pRDE" : "%-21pRDP"))
 
 struct rd_as {
 	uint16_t type;
@@ -67,7 +80,8 @@ extern void decode_rd_vnc_eth(const uint8_t *pnt,
 #endif
 
 extern int str2prefix_rd(const char *, struct prefix_rd *);
-extern char *prefix_rd2str(const struct prefix_rd *, char *, size_t);
+extern char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size,
+			   enum asnotation_mode asnotation);
 extern void form_auto_rd(struct in_addr router_id, uint16_t rd_id,
 			 struct prefix_rd *prd);
 

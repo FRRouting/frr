@@ -2651,6 +2651,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 	char tag_buf[30];
 	char overlay_index_buf[INET6_ADDRSTRLEN + 14];
 	const struct prefix_evpn *evp;
+	int len = 0;
 
 	/* ' with addpath ID '          17
 	 * max strlen of uint32       + 10
@@ -2704,11 +2705,15 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		}
 	}
 
-	if (prd)
-		snprintfrr(str, size, "RD %pRD %pFX%s%s%s %s %s", prd, pu.p,
+	if (prd) {
+		len += snprintfrr(str + len, size - len, "RD ");
+		len += snprintfrr(str + len, size - len,
+				  BGP_RD_AS_FORMAT(bgp_get_asnotation(NULL)),
+				  prd);
+		snprintfrr(str + len, size - len, " %pFX%s%s%s %s %s", pu.p,
 			   overlay_index_buf, tag_buf, pathid_buf, afi2str(afi),
 			   safi2str(safi));
-	else if (safi == SAFI_FLOWSPEC) {
+	} else if (safi == SAFI_FLOWSPEC) {
 		char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
 		const struct prefix_fs *fs = pu.fs;
 

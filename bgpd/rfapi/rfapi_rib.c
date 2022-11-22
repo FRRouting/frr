@@ -1127,7 +1127,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				skiplist_insert(slRibPt, &ori->rk, ori);
 
 				vnc_zlog_debug_verbose(
-					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%pRD)",
+					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%pRDP)",
 					__func__, ri, &ori->rk.rd);
 			}
 
@@ -1369,7 +1369,7 @@ callback:
 					ri->last_sent_time = monotime(NULL);
 #if DEBUG_RIB_SL_RD
 					vnc_zlog_debug_verbose(
-						"%s: move route to recently deleted list, rd=%pRD",
+						"%s: move route to recently deleted list, rd=%pRDP",
 						__func__, &ri->rk.rd);
 #endif
 
@@ -2265,7 +2265,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		}
 #endif
 
-		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %pRD\n",
+		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %pRDP\n",
 		   deleted ? 'r' : ' ', *printedprefix ? "" : str_pfx, str_vn,
 		   str_un, ri->cost, str_lifetime, str_age, &ri->rk.rd);
 

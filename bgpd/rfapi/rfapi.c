@@ -376,7 +376,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
 	vnc_zlog_debug_verbose(
-		"%s: peer=%p, prefix=%pFX, prd=%pRD afi=%d, safi=%d bn=%p, bn->info=%p",
+		"%s: peer=%p, prefix=%pFX, prd=%pRDP afi=%d, safi=%d bn=%p, bn->info=%p",
 		__func__, peer, p, prd, afi, safi, bn,
 		(bn ? bgp_dest_get_bgp_path_info(bn) : NULL));
 
@@ -1066,7 +1066,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	bgp_process(bgp, bn, afi, safi);
 
 	vnc_zlog_debug_any(
-		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRD)",
+		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%pRDP)",
 		__func__, safi2str(safi), buf, bn, prd);
 
 done:
@@ -3725,7 +3725,7 @@ int rfapi_set_autord_from_vn(struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 		memcpy(rd->val + 2, &vn->addr.v6.s6_addr32[3],
 		       4); /* low order 4 bytes */
 	}
-	vnc_zlog_debug_verbose("%s: auto-RD is set to %pRD", __func__, rd);
+	vnc_zlog_debug_verbose("%s: auto-RD is set to %pRDP", __func__, rd);
 	return 0;
 }
 

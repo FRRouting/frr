@@ -2406,7 +2406,8 @@ static void bgp_evpn_es_json_frag_fill(json_object *json_frags,
 	for (ALL_LIST_ELEMENTS_RO(es->es_frag_list, node, es_frag)) {
 		json_frag = json_object_new_object();
 
-		json_object_string_addf(json_frag, "rd", "%pRD", &es_frag->prd);
+		json_object_string_addf(json_frag, "rd", "%pRDP",
+					&es_frag->prd);
 		json_object_int_add(json_frag, "eviCount",
 				    listcount(es_frag->es_evi_frag_list));
 
@@ -2421,7 +2422,7 @@ static void bgp_evpn_es_frag_show_detail(struct vty *vty,
 	struct bgp_evpn_es_frag *es_frag;
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_frag_list, node, es_frag)) {
-		vty_out(vty, "  %pRD EVIs: %d\n", &es_frag->prd,
+		vty_out(vty, "  %pRDP EVIs: %d\n", &es_frag->prd,
 			listcount(es_frag->es_evi_frag_list));
 	}
 }
@@ -2535,7 +2536,7 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 
 		json_object_string_add(json, "esi", es->esi_str);
 		if (es->es_base_frag)
-			json_object_string_addf(json, "rd", "%pRD",
+			json_object_string_addf(json, "rd", "%pRDP",
 						&es->es_base_frag->prd);
 
 		if (es->flags & (BGP_EVPNES_LOCAL | BGP_EVPNES_REMOTE)) {
@@ -2573,7 +2574,7 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 
 		bgp_evpn_es_vteps_str(vtep_str, es, sizeof(vtep_str));
 
-		vty_out(vty, "%-30s %-5s %-21pRD %-8d %s\n", es->esi_str,
+		vty_out(vty, "%-30s %-5s %-21pRDP %-8d %s\n", es->esi_str,
 			type_str, &es->es_base_frag->prd,
 			listcount(es->es_evi_list), vtep_str);
 	}
@@ -2650,7 +2651,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 
 		vty_out(vty, "ESI: %s\n", es->esi_str);
 		vty_out(vty, " Type: %s\n", type_str);
-		vty_out(vty, " RD: %pRD\n", &es->es_base_frag->prd);
+		vty_out(vty, " RD: %pRDP\n", &es->es_base_frag->prd);
 		vty_out(vty, " Originator-IP: %pI4\n", &es->originator_ip);
 		if (es->flags & BGP_EVPNES_LOCAL)
 			vty_out(vty, " Local ES DF preference: %u\n",
@@ -4009,13 +4010,18 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 		struct bgp_evpn_es_evi *es_evi, json_object *json)
 {
+	enum asnotation_mode mode;
+
+	mode = bgp_get_asnotation(es_evi->vpn->bgp_vrf);
+
 	if (json) {
 		json_object *json_flags;
 
 		/* Add the "brief" info first */
 		bgp_evpn_es_evi_show_entry(vty, es_evi, json);
 		if (es_evi->es_frag)
-			json_object_string_addf(json, "esFragmentRd", "%pRD",
+			json_object_string_addf(json, "esFragmentRd",
+						BGP_RD_AS_FORMAT(mode),
 						&es_evi->es_frag->prd);
 		if (es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST) {
 			json_flags = json_object_new_array();
@@ -4039,9 +4045,12 @@ static void bgp_evpn_es_evi_show_entry_detail(struct vty *vty,
 		vty_out(vty, "VNI: %d ESI: %s\n",
 				es_evi->vpn->vni, es_evi->es->esi_str);
 		vty_out(vty, " Type: %s\n", type_str);
-		if (es_evi->es_frag)
-			vty_out(vty, " ES fragment RD: %pRD\n",
+		if (es_evi->es_frag) {
+			vty_out(vty, " ES fragment RD: ");
+			vty_out(vty, BGP_RD_AS_FORMAT(mode),
 				&es_evi->es_frag->prd);
+			vty_out(vty, "\n");
+		}
 		vty_out(vty, " Inconsistencies: %s\n",
 			(es_evi->flags & BGP_EVPNES_EVI_INCONS_VTEP_LIST) ?
 			"es-vtep-mismatch":"-");

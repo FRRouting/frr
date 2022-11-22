@@ -1602,7 +1602,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	vty_out(vty, " ");
 	rfapiPrintRfapiIpAddr(vty, &rfd->vn_addr);
 	vty_out(vty, " %p %p ", rfd->response_cb, rfd->cookie);
-	vty_out(vty, "%pRD", &rfd->rd);
+	vty_out(vty, "%pRDP", &rfd->rd);
 	vty_out(vty, " %d", rfd->response_lifetime);
 	vty_out(vty, " %s", (rfd->rfg ? rfd->rfg->name : "<orphaned>"));
 	vty_out(vty, "%s", HVTYNL);

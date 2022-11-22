@@ -15647,8 +15647,10 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 						node, vname))
 				vty_out(vty, "  %s\n", vname);
 
-			vty_out(vty, "RD: %pRD\n",
+			vty_out(vty, "RD: ");
+			vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 				&bgp->vpn_policy[afi].tovpn_rd);
+			vty_out(vty, "\n");
 
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
 			if (bgp->vpn_policy[afi].rtlist[dir]) {

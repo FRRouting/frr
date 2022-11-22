@@ -957,11 +957,13 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		if (CHECK_FLAG(l3vpn_bgp->vpn_policy[AFI_IP].flags,
 			       BGP_VPN_POLICY_TOVPN_RD_SET))
 			prefix_rd2str(&l3vpn_bgp->vpn_policy[AFI_IP].tovpn_rd,
-				      rd_buf, sizeof(rd_buf));
+				      rd_buf, sizeof(rd_buf),
+				      bgp_get_asnotation(l3vpn_bgp));
 		else if (CHECK_FLAG(l3vpn_bgp->vpn_policy[AFI_IP6].flags,
 				    BGP_VPN_POLICY_TOVPN_RD_SET))
 			prefix_rd2str(&l3vpn_bgp->vpn_policy[AFI_IP6].tovpn_rd,
-				      rd_buf, sizeof(rd_buf));
+				      rd_buf, sizeof(rd_buf),
+				      bgp_get_asnotation(l3vpn_bgp));
 
 		*var_len = strnlen(rd_buf, RD_ADDRSTRLEN);
 		return (uint8_t *)rd_buf;

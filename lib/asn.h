@@ -53,6 +53,8 @@ void asn_asn2json_array(json_object *jseg_list, as_t asn,
 			enum asnotation_mode asnotation);
 void asn_asn2json(json_object *jseg_list, const char *attr,
 		  as_t asn, enum asnotation_mode asnotation);
+extern char *asn_asn2string(const as_t *as, char *buf, size_t len,
+			    enum asnotation_mode asnotation);
 /* display AS in appropriate format */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pASP"  (as_t *)

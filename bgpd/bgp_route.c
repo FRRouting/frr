@@ -10260,10 +10260,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (dest && dest->pdest) {
 			pdest = dest->pdest;
 			if (is_pi_family_evpn(parent_ri)) {
-				vty_out(vty,
-					"  Imported from %pRD:%pFX, VNI %s",
+				vty_out(vty, "  Imported from ");
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
-						pdest),
+						pdest));
+				vty_out(vty, ":%pFX, VNI %s",
 					(struct prefix_evpn *)
 						bgp_dest_get_prefix(dest),
 					tag_buf);
@@ -10276,12 +10277,15 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 							: "inactive");
 				vty_out(vty, "\n");
 
-			} else
-				vty_out(vty, "  Imported from %pRD:%pFX\n",
+			} else {
+				vty_out(vty, "  Imported from ");
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
-						pdest),
+						pdest));
+				vty_out(vty, ":%pFX\n",
 					(struct prefix_evpn *)
 						bgp_dest_get_prefix(dest));
+			}
 		}
 	}
 
@@ -11682,7 +11686,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			char rd[RD_ADDRSTRLEN];
 
 			memcpy(&prd, dest_p, sizeof(struct prefix_rd));
-			prefix_rd2str(&prd, rd, sizeof(rd));
+			prefix_rd2str(&prd, rd, sizeof(rd), bgp->asnotation);
 			bgp_show_table(vty, bgp, safi, itable, type, output_arg,
 				       rd, next == NULL, &output_cum,
 				       &total_cum, &json_header_depth,
@@ -11832,13 +11836,16 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	if (safi == SAFI_EVPN) {
 		if (!json) {
 			vty_out(vty, "BGP routing table entry for %s%s%pFX\n",
-				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
+				prd ? prefix_rd2str(prd, buf1, sizeof(buf1),
+						    bgp->asnotation)
 				    : "",
 				prd ? ":" : "", (struct prefix_evpn *)p);
 		} else {
-			json_object_string_add(json, "rd",
-				prd ? prefix_rd2str(prd, buf1, sizeof(buf1)) :
-				"");
+			json_object_string_add(
+				json, "rd",
+				prd ? prefix_rd2str(prd, buf1, sizeof(buf1),
+						    bgp->asnotation)
+				    : "");
 			bgp_evpn_route2json((struct prefix_evpn *)p, json);
 		}
 	} else {
@@ -11848,7 +11855,8 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				"\n",
 				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 					 ? prefix_rd2str(prd, buf1,
-							 sizeof(buf1))
+							 sizeof(buf1),
+							 bgp->asnotation)
 					 : ""),
 				safi == SAFI_MPLS_VPN ? ":" : "", p,
 				dest->version);
@@ -12057,8 +12065,9 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 		json_object_object_add(json_header, "paths", json_paths);
 
 		if (pfx_rd)
-			json_object_object_addf(json, json_header, "%pRD",
-						pfx_rd);
+			json_object_object_addf(
+				json, json_header,
+				BGP_RD_AS_FORMAT(bgp->asnotation), pfx_rd);
 	}
 }
 
@@ -14467,7 +14476,8 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			prd = (const struct prefix_rd *)bgp_dest_get_prefix(
 				dest);
 
-			prefix_rd2str(prd, rd_str, sizeof(rd_str));
+			prefix_rd2str(prd, rd_str, sizeof(rd_str),
+				      bgp->asnotation);
 
 			show_adj_route(
 				vty, peer, table, afi, safi, type, rmap_name,
@@ -15620,7 +15630,7 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 			/* "network" configuration display.  */
 			label = decode_label(&bgp_static->label);
 
-			vty_out(vty, "  network %pFX rd %pRD", p, prd);
+			vty_out(vty, "  network %pFX rd %pRDP", p, prd);
 			if (safi == SAFI_MPLS_VPN)
 				vty_out(vty, " label %u", label);
 
@@ -15698,7 +15708,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					  &bgp_static->gatewayIp.u.prefix, buf2,
 					  sizeof(buf2));
 			vty_out(vty,
-				"  network %s rd %pRD ethtag %u label %u esi %s gwip %s routermac %s\n",
+				"  network %s rd %pRDP ethtag %u label %u esi %s gwip %s routermac %s\n",
 				buf, prd, p->u.prefix_evpn.prefix_addr.eth_tag,
 				decode_label(&bgp_static->label), esi_buf, buf2,
 				macrouter);

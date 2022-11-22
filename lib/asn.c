@@ -212,6 +212,17 @@ void asn_asn2json_array(json_object *jseg_list, as_t asn,
 	}
 }
 
+char *asn_asn2string(const as_t *asn, char *buf, size_t len,
+		     enum asnotation_mode asnotation)
+{
+	if ((asnotation == ASNOTATION_PLAIN) ||
+	    ((asnotation == ASNOTATION_DOT) && *asn < UINT16_MAX))
+		snprintf(buf, len, "%u", *asn);
+	else
+		asn_asn2asdot(*asn, buf, len);
+	return buf;
+}
+
 static ssize_t printfrr_asnotation(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const void *ptr,
 				   enum asnotation_mode asnotation)
@@ -223,11 +234,7 @@ static ssize_t printfrr_asnotation(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!ptr)
 		return bputs(buf, "(null)");
 	asn = ptr;
-	if ((asnotation == ASNOTATION_PLAIN) ||
-	    ((asnotation == ASNOTATION_DOT) && *asn < UINT16_MAX))
-		snprintf(as_str, sizeof(as_str), "%u", *asn);
-	else
-		asn_asn2asdot(*asn, as_str, sizeof(as_str));
+	asn_asn2string(asn, as_str, sizeof(as_str), asnotation);
 	return bputs(buf, as_str);
 }
 

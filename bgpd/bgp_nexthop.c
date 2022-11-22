@@ -817,6 +817,7 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		safi = table->safi;
 		bgp_path = table->bgp;
 
+
 		if (json) {
 			json_path = json_object_new_object();
 			json_object_string_add(json_path, "afi", afi2str(afi));
@@ -826,7 +827,8 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 						dest);
 			if (dest->pdest)
 				json_object_string_addf(
-					json_path, "rd", "%pRD",
+					json_path, "rd",
+					BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest));
 			json_object_string_add(
@@ -836,13 +838,14 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 			json_object_array_add(paths, json_path);
 			continue;
 		}
-		if (dest->pdest)
-			vty_out(vty, "    %d/%d %pBD RD %pRD %s flags 0x%x\n",
-				afi, safi, dest,
+		if (dest->pdest) {
+			vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+			vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 				(struct prefix_rd *)bgp_dest_get_prefix(
-					dest->pdest),
-				bgp_path->name_pretty, path->flags);
-		else
+					dest->pdest));
+			vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+				path->flags);
+		} else
 			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
 				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}

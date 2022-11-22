@@ -2097,7 +2097,7 @@ static void rfapiItBiIndexAdd(struct agg_node *rn, /* Import table VPN node */
 	assert(bpi);
 	assert(bpi->extra);
 
-	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRDP", __func__, bpi,
 			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX_W_ALLOC(rn);
@@ -2135,7 +2135,9 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 		char buf[RD_ADDRSTRLEN];
 		char buf_aux_pfx[PREFIX_STRLEN];
 
-		prefix_rd2str(&k->extra->vnc.import.rd, buf, sizeof(buf));
+		prefix_rd2str(
+			&k->extra->vnc.import.rd, buf, sizeof(buf),
+			bgp_get_asnotation(k->peer ? k->peer->bgp : NULL));
 		if (k->extra->vnc.import.aux_prefix.family) {
 			prefix2str(&k->extra->vnc.import.aux_prefix,
 				   buf_aux_pfx, sizeof(buf_aux_pfx));
@@ -2173,7 +2175,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 			strlcpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
 
 		vnc_zlog_debug_verbose(
-			"%s want prd=%pRD, peer=%p, aux_prefix=%s", __func__,
+			"%s want prd=%pRDP, peer=%p, aux_prefix=%s", __func__,
 			prd, peer, buf_aux_pfx);
 		rfapiItBiIndexDump(rn);
 	}
@@ -2189,7 +2191,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 		     bpi_result = bpi_result->next) {
 #ifdef DEBUG_BI_SEARCH
 			vnc_zlog_debug_verbose(
-				"%s: bpi has prd=%pRD, peer=%p", __func__,
+				"%s: bpi has prd=%pRDP, peer=%p", __func__,
 				&bpi_result->extra->vnc.import.rd,
 				bpi_result->peer);
 #endif
@@ -2253,7 +2255,7 @@ static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
 	struct skiplist *sl;
 	int rc;
 
-	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRD", __func__, bpi,
+	vnc_zlog_debug_verbose("%s: bpi %p, peer %p, rd %pRDP", __func__, bpi,
 			       bpi->peer, &bpi->extra->vnc.import.rd);
 
 	sl = RFAPI_RDINDEX(rn);

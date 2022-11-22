@@ -1205,14 +1205,20 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {
-			if (dest->pdest)
-				zlog_debug(
-					"... eval path %d/%d %pBD RD %pRD %s flags 0x%x",
-					afi, safi, dest,
+
+			if (dest->pdest) {
+				char rd_buf[RD_ADDRSTRLEN];
+
+				prefix_rd2str(
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest),
+					rd_buf, sizeof(rd_buf),
+					bgp_get_asnotation(bnc->bgp));
+				zlog_debug(
+					"... eval path %d/%d %pBD RD %s %s flags 0x%x",
+					afi, safi, dest, rd_buf,
 					bgp_path->name_pretty, path->flags);
-			else
+			} else
 				zlog_debug(
 					"... eval path %d/%d %pBD %s flags 0x%x",
 					afi, safi, dest, bgp_path->name_pretty,

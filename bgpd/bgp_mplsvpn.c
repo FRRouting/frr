@@ -1868,7 +1868,7 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	int origin_local = 0;
 	struct bgp *src_vrf;
 	struct interface *ifp;
-
+	char rd_buf[RD_ADDRSTRLEN];
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
@@ -1907,6 +1907,9 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		return false;
 	}
 
+	if (debug)
+		prefix_rd2str(prd, rd_buf, sizeof(rd_buf), to_bgp->asnotation);
+
 	/* A route MUST NOT ever be accepted back into its source VRF, even if
 	 * it carries one or more RTs that match that VRF.
 	 */
@@ -1915,15 +1918,14 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		   ECOMMUNITY_SIZE) == 0) {
 		if (debug)
 			zlog_debug(
-				"%s: skipping import, match RD (%pRD) of src VRF (%s) and the prefix (%pFX)",
-				__func__, prd, to_bgp->name_pretty, p);
-
+				"%s: skipping import, match RD (%s) of src VRF (%s) and the prefix (%pFX)",
+				__func__, rd_buf, to_bgp->name_pretty, p);
 		return false;
 	}
 
 	if (debug)
-		zlog_debug("%s: updating RD %pRD, %pFX to %s", __func__, prd, p,
-			   to_bgp->name_pretty);
+		zlog_debug("%s: updating RD %s, %pFX to %s", __func__, rd_buf,
+			   p, to_bgp->name_pretty);
 
 	/* shallow copy */
 	static_attr = *path_vpn->attr;
@@ -2418,7 +2420,7 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 				     &bgp->vrf_prd_auto);
 			bgp->vpn_policy[afi].tovpn_rd = bgp->vrf_prd_auto;
 			prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd, buf,
-				      sizeof(buf));
+				      sizeof(buf), bgp->asnotation);
 
 			/* free up pre-existing memory if any and allocate
 			 *  the ecommunity attribute with new RD/RT
@@ -2553,8 +2555,8 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 		from_bgp->vpn_policy[afi].tovpn_rd = from_bgp->vrf_prd_auto;
 		SET_FLAG(from_bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
-		prefix_rd2str(&from_bgp->vpn_policy[afi].tovpn_rd,
-			      buf, sizeof(buf));
+		prefix_rd2str(&from_bgp->vpn_policy[afi].tovpn_rd, buf,
+			      sizeof(buf), from_bgp->asnotation);
 		from_bgp->vpn_policy[afi].rtlist[edir] =
 			ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
 		SET_FLAG(from_bgp->af_flags[afi][safi],
