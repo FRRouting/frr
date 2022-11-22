@@ -1054,7 +1054,7 @@ def test_rib_ipv6_step24():
         rname,
         "show ipv6 route isis json",
         outputs[rname][15]["show_ipv6_route.ref"],
-        count=5,
+        count=10,
     )
 
 
