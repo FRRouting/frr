@@ -3725,6 +3725,8 @@ route_set_vpnv4_nexthop(void *rule, const struct prefix *prefix, void *object)
 	path->attr->mp_nexthop_global_in = *address;
 	path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED);
+
 	return RMAP_OKAY;
 }
 
@@ -3761,6 +3763,9 @@ route_set_vpnv6_nexthop(void *rule, const struct prefix *prefix, void *object)
 	memcpy(&path->attr->mp_nexthop_global, address,
 	       sizeof(struct in6_addr));
 	path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL;
+
+	SET_FLAG(path->attr->rmap_change_flags,
+		 BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED);
 
 	return RMAP_OKAY;
 }
