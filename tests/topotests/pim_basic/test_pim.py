@@ -225,7 +225,7 @@ def test_pim_igmp_report():
         test_func = partial(
             topotest.router_json_cmp, r1, "show ip pim upstream json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=5, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
         assertmsg = '"{}" JSON output mismatches'.format(r1.name)
         assert result is None, assertmsg
     finally:

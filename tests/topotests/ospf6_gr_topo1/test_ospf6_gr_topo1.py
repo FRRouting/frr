@@ -224,7 +224,7 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
             if restarting != None:
                 tries = 40
             else:
-                tries = 1
+                tries = 10
         router_compare_json_output(
             rname, "show ipv6 route ospf json", "show_ipv6_route.json", tries
         )
@@ -246,7 +246,7 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
             if initial_convergence == True or restarting == rname:
                 tries = 240
             else:
-                tries = 1
+                tries = 10
             router_compare_json_output(
                 rname,
                 "show ipv6 ospf database json",
