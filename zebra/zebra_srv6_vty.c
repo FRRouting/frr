@@ -271,9 +271,20 @@ DEFUN (no_srv6_locator,
 
 DEFPY (locator_prefix,
        locator_prefix_cmd,
+<<<<<<< HEAD
        "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
+=======
+       "prefix X:X::X:X/M$prefix [block-len (16-64)$block_bit_len]  \
+	        [node-len (16-64)$node_bit_len] [func-bits (0-64)$func_bit_len]",
+       "Configure SRv6 locator prefix\n"
+       "Specify SRv6 locator prefix\n"
+       "Configure SRv6 locator block length in bits\n"
+       "Specify SRv6 locator block length in bits\n"
+       "Configure SRv6 locator node length in bits\n"
+       "Specify SRv6 locator node length in bits\n"
+>>>>>>> 3afb06d32 (bgpd: Fix the other of SR locator parameters)
        "Configure SRv6 locator function length in bits\n"
        "Specify SRv6 locator function length in bits\n")
 {
