@@ -423,6 +423,7 @@ DEFUN (vnc_defaults_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -2887,6 +2888,7 @@ DEFUN (vnc_nve_group_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");
@@ -3359,6 +3361,7 @@ DEFUN (vnc_vrf_policy_rd,
 
 	} else {
 
+		/* TODO: save RD format */
 		ret = str2prefix_rd(argv[1]->arg, &prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed rd\n");

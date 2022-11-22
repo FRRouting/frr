@@ -3971,6 +3971,8 @@ void bgp_free(struct bgp *bgp)
 		dir = BGP_VPN_POLICY_DIR_TOVPN;
 		if (bgp->vpn_policy[afi].rtlist[dir])
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		if (bgp->vpn_policy[afi].tovpn_rd_pretty)
+			XFREE(MTYPE_BGP, bgp->vpn_policy[afi].tovpn_rd_pretty);
 	}
 
 	bgp_confederation_id_unset(bgp);

@@ -2233,7 +2233,8 @@ static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Configure RD for VRF
  */
-static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd)
+static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd,
+				  const char *rd_pretty)
 {
 	/* If we have already advertise type-5 routes with a diffrent RD, we
 	 * have to delete and withdraw them firs
@@ -2242,6 +2243,7 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf, struct prefix_rd *rd)
 
 	/* update RD */
 	memcpy(&bgp_vrf->vrf_prd, rd, sizeof(struct prefix_rd));
+	bgp_vrf->vrf_prd_pretty = XSTRDUP(MTYPE_BGP, rd_pretty);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 
 	/* We have a new RD for VRF.
@@ -2263,7 +2265,8 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 	/* fall back to default RD */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
-
+	if (bgp_vrf->vrf_prd_pretty)
+		XFREE(MTYPE_BGP, bgp_vrf->vrf_prd_pretty);
 	/* We have a new RD for VRF.
 	 * Advertise all type-5 routes again with the new RD
 	 */
@@ -2274,7 +2277,7 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
  * Configure RD for a VNI (vty handler)
  */
 static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
-			      struct prefix_rd *rd)
+			      struct prefix_rd *rd, const char *rd_pretty)
 {
 	/* If the VNI is "live", we need to delete and withdraw this VNI's
 	 * local routes with the prior RD first. Then, after updating RD,
@@ -2285,6 +2288,7 @@ static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* update RD */
 	memcpy(&vpn->prd, rd, sizeof(struct prefix_rd));
+	vpn->prd_pretty = XSTRDUP(MTYPE_BGP, rd_pretty);
 	SET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 
 	if (is_vni_live(vpn))
@@ -3493,7 +3497,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	if (is_vni_configured(vpn)) {
 		vty_out(vty, "  vni %u\n", vpn->vni);
 		if (is_rd_configured(vpn))
-			vty_out(vty, "   rd %pRD\n", &vpn->prd);
+			vty_out(vty, "   rd %s\n", vpn->prd_pretty);
 
 		if (is_import_rt_configured(vpn)) {
 			for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode,
@@ -6144,7 +6148,7 @@ DEFUN (bgp_evpn_vrf_rd,
 		return CMD_SUCCESS;
 
 	/* Configure or update the RD. */
-	evpn_configure_vrf_rd(bgp_vrf, &prd);
+	evpn_configure_vrf_rd(bgp_vrf, &prd, argv[1]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -6236,7 +6240,7 @@ DEFUN (bgp_evpn_vni_rd,
 		return CMD_SUCCESS;
 
 	/* Configure or update the RD. */
-	evpn_configure_rd(bgp, vpn, &prd);
+	evpn_configure_rd(bgp, vpn, &prd, argv[1]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -7288,7 +7292,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 	}
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
-		vty_out(vty, "  rd %pRD\n", &bgp->vrf_prd);
+		vty_out(vty, "  rd %s\n", bgp->vrf_prd_pretty);
 
 	/* import route-target */
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {

@@ -9044,10 +9044,13 @@ DEFPY (af_rd_vpn_export,
 			   bgp_get_default(), bgp);
 
 	if (yes) {
+		bgp->vpn_policy[afi].tovpn_rd_pretty =
+			XSTRDUP(MTYPE_BGP, rd_str);
 		bgp->vpn_policy[afi].tovpn_rd = prd;
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
 	} else {
+		XFREE(MTYPE_BGP, bgp->vpn_policy[afi].tovpn_rd_pretty);
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_RD_SET);
 	}
@@ -15576,10 +15579,9 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 						json_object_new_string(vname));
 			json_object_object_add(json, "exportToVrfs",
 					       json_export_vrfs);
-			json_object_string_addf(json, "routeDistinguisher",
-						"%pRD",
-						&bgp->vpn_policy[afi].tovpn_rd);
-
+			json_object_string_addf(
+				json, "routeDistinguisher", "%s",
+				bgp->vpn_policy[afi].tovpn_rd_pretty);
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
 			if (bgp->vpn_policy[afi].rtlist[dir]) {
 				ecom_str = ecommunity_ecom2str(
@@ -17153,8 +17155,8 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET))
-		vty_out(vty, "%*srd vpn export %pRD\n", indent, "",
-			&bgp->vpn_policy[afi].tovpn_rd);
+		vty_out(vty, "%*srd vpn export %s\n", indent, "",
+			bgp->vpn_policy[afi].tovpn_rd_pretty);
 
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_NEXTHOP_SET)) {

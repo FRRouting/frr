@@ -15630,6 +15630,7 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 			/* "network" configuration display.  */
 			label = decode_label(&bgp_static->label);
 
+			/* TODO: save RD format */
 			vty_out(vty, "  network %pFX rd %pRDP", p, prd);
 			if (safi == SAFI_MPLS_VPN)
 				vty_out(vty, " label %u", label);
@@ -15707,6 +15708,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 				inet_ntop(bgp_static->gatewayIp.family,
 					  &bgp_static->gatewayIp.u.prefix, buf2,
 					  sizeof(buf2));
+			/* TODO: save RD format */
 			vty_out(vty,
 				"  network %s rd %pRDP ethtag %u label %u esi %s gwip %s routermac %s\n",
 				buf, prd, p->u.prefix_evpn.prefix_addr.eth_tag,

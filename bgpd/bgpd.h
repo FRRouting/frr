@@ -218,6 +218,7 @@ struct vpn_policy {
 	/* should be mpls_label_t? */
 	uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
 	uint32_t tovpn_zebra_vrf_label_last_sent;
+	char *tovpn_rd_pretty;
 	struct prefix_rd tovpn_rd;
 	struct prefix tovpn_nexthop; /* unset => set to 0 */
 	uint32_t flags;
@@ -751,6 +752,7 @@ struct bgp {
 
 	/* RD for this VRF */
 	struct prefix_rd vrf_prd;
+	char *vrf_prd_pretty;
 
 	/* import rt list for the vrf instance */
 	struct list *vrf_import_rtl;

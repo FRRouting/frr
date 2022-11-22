@@ -4722,6 +4722,7 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 	if (arg_rd) {
 		opt = &optary[cur_opt++];
 		opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
+		/* TODO: save RD format */
 		if (!str2prefix_rd(arg_rd, &opt->v.internal_rd)) {
 			vty_out(vty, "Malformed RD \"%s\"\n", arg_rd);
 			return CMD_WARNING_CONFIG_FAILED;
