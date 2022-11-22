@@ -831,19 +831,19 @@ def test_rt6_step11():
         rname,
         "show ip route isis json",
         outputs[rname][11]["show_ip_route.ref"],
-        count=1,
+        count=5,
     )
     router_compare_json_output(
         rname,
         "show ipv6 route isis json",
         outputs[rname][11]["show_ipv6_route.ref"],
-        count=1,
+        count=5,
     )
     router_compare_json_output(
         rname,
         "show mpls table json",
         outputs[rname][11]["show_mpls_table.ref"],
-        count=1,
+        count=5,
     )
 
 
@@ -1021,26 +1021,26 @@ def test_rt6_step14():
         "show bfd peers json",
         expect,
         count=40,
-        wait=0.05,
+        wait=0.5,
     )
 
     router_compare_json_output(
         rname,
         "show ip route isis json",
         outputs[rname][11]["show_ip_route.ref"],
-        count=4,
+        count=5,
     )
     router_compare_json_output(
         rname,
         "show ipv6 route isis json",
         outputs[rname][11]["show_ipv6_route.ref"],
-        count=4,
+        count=5,
     )
     router_compare_json_output(
         rname,
         "show mpls table json",
         outputs[rname][11]["show_mpls_table.ref"],
-        count=4,
+        count=5,
     )
 
 

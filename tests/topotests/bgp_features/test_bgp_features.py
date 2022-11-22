@@ -785,7 +785,7 @@ def test_bgp_delayopen_without():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
         assert res is None, assertmsg
 
@@ -862,7 +862,7 @@ def test_bgp_delayopen_singular():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
         assert res is None, assertmsg
 
@@ -880,7 +880,7 @@ def test_bgp_delayopen_singular():
     test_func = functools.partial(
         topotest.router_json_cmp, router, "show bgp neighbors json", expected
     )
-    _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+    _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
     assertmsg = "BGP session on r1 failed to set DelayOpenTime for r4"
     assert res is None, assertmsg
 
@@ -974,7 +974,7 @@ def test_bgp_delayopen_dual():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not shut down peer".format(router_num)
         assert res is None, assertmsg
 
@@ -1003,7 +1003,7 @@ def test_bgp_delayopen_dual():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show bgp neighbors json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} failed to set DelayOpenTime".format(router_num)
         assert res is None, assertmsg
 
@@ -1032,7 +1032,7 @@ def test_bgp_delayopen_dual():
         test_func = functools.partial(
             topotest.router_json_cmp, router, "show ip bgp summary json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "BGP session on r{} did not enter Connect state with peer".format(
             router_num
         )
