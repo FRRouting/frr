@@ -83,6 +83,7 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
       %{!?with_watchfrr:      %global  with_watchfrr      1 }
       %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
       %{!?with_pimd:          %global  with_pimd          1 }
+      %{!?with_pim6d:         %global  with_pim6d         1 }
       %{!?with_rpki:          %global  with_rpki          0 }
 
 8. Build the RPM::

@@ -27,10 +27,10 @@ else
   CONF_LUA=--enable-scripting
 endif
 
-ifeq ($(filter pkg.frr.pim6d,$(DEB_BUILD_PROFILES)),)
-  CONF_PIM6=--disable-pim6d
-else
+ifeq ($(filter pkg.frr.nopim6d,$(DEB_BUILD_PROFILES)),)
   CONF_PIM6=--enable-pim6d
+else
+  CONF_PIM6=--disable-pim6d
 endif
 
 export PYTHON=python3
