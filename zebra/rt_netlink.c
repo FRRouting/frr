@@ -3745,7 +3745,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			return zebra_vxlan_if_vni_mcast_group_update(ifp, vni,
 								     NULL);
 
-		if (is_zero_mac(&mac))
+		if (is_zero_mac(&mac) && vni)
 			return zebra_vxlan_check_readd_vtep(ifp, vni, vtep_ip);
 
 		return 0;
