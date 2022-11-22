@@ -6750,9 +6750,9 @@ DEFUN_YANG (no_set_vpn_nexthop,
 }
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
-DEFUN_YANG (set_ipx_vpn_nexthop,
+DEFPY_YANG (set_ipx_vpn_nexthop,
 	    set_ipx_vpn_nexthop_cmd,
-	    "set <ipv4|ipv6> vpn next-hop <A.B.C.D|X:X::X:X>",
+	    "set <ipv4|ipv6> vpn next-hop <A.B.C.D$addrv4|X:X::X:X$addrv6>",
 	    SET_STR
 	    "IPv4 information\n"
 	    "IPv6 information\n"
@@ -6768,6 +6768,11 @@ DEFUN_YANG (set_ipx_vpn_nexthop,
 
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
 		if (afi == AFI_IP) {
+			if (addrv6_str) {
+				vty_out(vty, "%% IPv4 next-hop expected\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+
 			const char *xpath =
 				"./set-action[action='frr-bgp-route-map:ipv4-vpn-address']";
 
@@ -6777,6 +6782,11 @@ DEFUN_YANG (set_ipx_vpn_nexthop,
 				"%s/rmap-set-action/frr-bgp-route-map:ipv4-address",
 				xpath);
 		} else {
+			if (addrv4_str) {
+				vty_out(vty, "%% IPv6 next-hop expected\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+
 			const char *xpath =
 				"./set-action[action='frr-bgp-route-map:ipv6-vpn-address']";
 
