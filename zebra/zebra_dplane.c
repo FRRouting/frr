@@ -37,6 +37,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_tc.h"
 #include "printfrr.h"
 
 /* Memory types */
@@ -313,23 +314,36 @@ struct dplane_netconf_info {
 	enum dplane_netconf_status_e linkdown_val;
 };
 
-/*
- * Traffic control contexts for the dplane
- */
-struct dplane_tc_info {
-	/* Rate spec (unit: Bytes/s) */
+struct dplane_tc_qdisc_info {
+	enum tc_qdisc_kind kind;
+	const char *kind_str;
+};
+
+struct dplane_tc_class_info {
+	uint32_t handle;
+	enum tc_qdisc_kind kind;
+	const char *kind_str;
 	uint64_t rate;
 	uint64_t ceil;
+};
 
-	/* TODO: custom burst */
-
-	/* Filter components for "tfilter" */
+struct dplane_tc_filter_info {
+	uint32_t handle;
+	uint16_t priority;
+	enum tc_filter_kind kind;
+	const char *kind_str;
 	uint32_t filter_bm;
+	uint16_t eth_proto;
+	uint8_t ip_proto;
 	struct prefix src_ip;
 	struct prefix dst_ip;
-	uint8_t ip_proto;
-
-	/* TODO: more filter components */
+	uint16_t src_port_min;
+	uint16_t src_port_max;
+	uint16_t dst_port_min;
+	uint16_t dst_port_max;
+	uint8_t dsfield;
+	uint8_t dsfield_mask;
+	uint32_t classid;
 };
 
 /*
@@ -381,7 +395,9 @@ struct zebra_dplane_ctx {
 		struct dplane_mac_info macinfo;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
-		struct dplane_tc_info tc;
+		struct dplane_tc_qdisc_info tc_qdisc;
+		struct dplane_tc_class_info tc_class;
+		struct dplane_tc_filter_info tc_filter;
 		struct zebra_pbr_iptable iptable;
 		struct zebra_pbr_ipset ipset;
 		struct {
@@ -800,9 +816,14 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_INSTALL:
 	case DPLANE_OP_INTF_UPDATE:
 	case DPLANE_OP_INTF_DELETE:
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 
 	case DPLANE_OP_IPSET_ENTRY_ADD:
@@ -1127,14 +1148,29 @@ const char *dplane_op2str(enum dplane_op_e op)
 		ret = "INTF_DELETE";
 		break;
 
-	case DPLANE_OP_TC_INSTALL:
-		ret = "TC_INSTALL";
+	case DPLANE_OP_TC_QDISC_INSTALL:
+		ret = "TC_QDISC_INSTALL";
 		break;
-	case DPLANE_OP_TC_UPDATE:
-		ret = "TC_UPDATE";
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+		ret = "TC_QDISC_UNINSTALL";
 		break;
-	case DPLANE_OP_TC_DELETE:
-		ret = "TC_DELETE";
+	case DPLANE_OP_TC_CLASS_ADD:
+		ret = "TC_CLASS_ADD";
+		break;
+	case DPLANE_OP_TC_CLASS_DELETE:
+		ret = "TC_CLASS_DELETE";
+		break;
+	case DPLANE_OP_TC_CLASS_UPDATE:
+		ret = "TC_CLASS_UPDATE";
+		break;
+	case DPLANE_OP_TC_FILTER_ADD:
+		ret = "TC_FILTER_ADD";
+		break;
+	case DPLANE_OP_TC_FILTER_DELETE:
+		ret = "TC_FILTER_DELETE";
+		break;
+	case DPLANE_OP_TC_FILTER_UPDATE:
+		ret = "TC__FILTER_UPDATE";
 		break;
 	}
 
@@ -1455,48 +1491,175 @@ uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.zd_old_distance;
 }
 
-uint64_t dplane_ctx_tc_get_rate(const struct zebra_dplane_ctx *ctx)
+int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.tc.rate;
+	return ctx->u.tc_qdisc.kind;
 }
 
-uint64_t dplane_ctx_tc_get_ceil(const struct zebra_dplane_ctx *ctx)
+const char *dplane_ctx_tc_qdisc_get_kind_str(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.tc.ceil;
+	return ctx->u.tc_qdisc.kind_str;
 }
 
-uint32_t dplane_ctx_tc_get_filter_bm(const struct zebra_dplane_ctx *ctx)
+uint32_t dplane_ctx_tc_class_get_handle(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.tc.filter_bm;
+	return ctx->u.tc_class.handle;
+}
+
+int dplane_ctx_tc_class_get_kind(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_class.kind;
+}
+
+const char *dplane_ctx_tc_class_get_kind_str(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_class.kind_str;
+}
+
+uint64_t dplane_ctx_tc_class_get_rate(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_class.rate;
+}
+
+uint64_t dplane_ctx_tc_class_get_ceil(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_class.ceil;
+}
+
+int dplane_ctx_tc_filter_get_kind(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.kind;
+}
+
+const char *
+dplane_ctx_tc_filter_get_kind_str(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.kind_str;
+}
+
+uint32_t dplane_ctx_tc_filter_get_priority(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.priority;
+}
+
+uint32_t dplane_ctx_tc_filter_get_handle(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.handle;
+}
+
+uint16_t dplane_ctx_tc_filter_get_eth_proto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.eth_proto;
+}
+
+uint32_t dplane_ctx_tc_filter_get_filter_bm(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.filter_bm;
 }
 
 const struct prefix *
-dplane_ctx_tc_get_src_ip(const struct zebra_dplane_ctx *ctx)
+dplane_ctx_tc_filter_get_src_ip(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.tc.src_ip);
+	return &ctx->u.tc_filter.src_ip;
+}
+
+uint16_t
+dplane_ctx_tc_filter_get_src_port_min(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.src_port_min;
+}
+
+
+uint16_t
+dplane_ctx_tc_filter_get_src_port_max(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.src_port_max;
 }
 
 const struct prefix *
-dplane_ctx_tc_get_dst_ip(const struct zebra_dplane_ctx *ctx)
+dplane_ctx_tc_filter_get_dst_ip(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.tc.dst_ip);
+	return &ctx->u.tc_filter.dst_ip;
 }
 
-uint8_t dplane_ctx_tc_get_ip_proto(const struct zebra_dplane_ctx *ctx)
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_min(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.tc.ip_proto;
+	return ctx->u.tc_filter.dst_port_min;
+}
+
+
+uint16_t
+dplane_ctx_tc_filter_get_dst_port_max(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.dst_port_max;
+}
+
+uint8_t dplane_ctx_tc_filter_get_ip_proto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.ip_proto;
+}
+
+uint8_t dplane_ctx_tc_filter_get_dsfield(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.dsfield;
+}
+
+uint8_t
+dplane_ctx_tc_filter_get_dsfield_mask(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.dsfield_mask;
+}
+
+uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.classid;
 }
 
 /*
@@ -2771,7 +2934,9 @@ done:
 	return ret;
 }
 
-int dplane_ctx_tc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op)
+static int dplane_ctx_tc_qdisc_init(struct zebra_dplane_ctx *ctx,
+				    enum dplane_op_e op,
+				    const struct zebra_tc_qdisc *qdisc)
 {
 	int ret = EINVAL;
 
@@ -2779,8 +2944,79 @@ int dplane_ctx_tc_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op)
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_ifindex = qdisc->qdisc.ifindex;
+	ctx->u.tc_qdisc.kind = qdisc->qdisc.kind;
+	ctx->u.tc_qdisc.kind_str = tc_qdisc_kind2str(qdisc->qdisc.kind);
 
 	/* TODO: init traffic control qdisc */
+	zns = zebra_ns_lookup(NS_DEFAULT);
+
+	dplane_ctx_ns_init(ctx, zns, true);
+
+	ret = AOK;
+
+	return ret;
+}
+
+static int dplane_ctx_tc_class_init(struct zebra_dplane_ctx *ctx,
+				    enum dplane_op_e op,
+				    struct zebra_tc_class *class)
+{
+	int ret = EINVAL;
+
+	struct zebra_ns *zns = NULL;
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_ifindex = class->class.ifindex;
+
+	ctx->u.tc_class.handle = class->class.handle;
+	ctx->u.tc_class.kind = class->class.kind;
+	ctx->u.tc_class.kind_str = tc_qdisc_kind2str(class->class.kind);
+	ctx->u.tc_class.rate = class->class.u.htb.rate;
+	ctx->u.tc_class.ceil = class->class.u.htb.ceil;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+
+	dplane_ctx_ns_init(ctx, zns, true);
+
+	ret = AOK;
+
+	return ret;
+}
+
+static int dplane_ctx_tc_filter_init(struct zebra_dplane_ctx *ctx,
+				     enum dplane_op_e op,
+				     struct zebra_tc_filter *filter)
+{
+	int ret = EINVAL;
+
+	struct zebra_ns *zns = NULL;
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_ifindex = filter->filter.ifindex;
+
+	ctx->u.tc_filter.eth_proto = filter->filter.protocol;
+	ctx->u.tc_filter.ip_proto = filter->filter.u.flower.ip_proto;
+
+	ctx->u.tc_filter.kind = filter->filter.kind;
+	ctx->u.tc_filter.kind_str = tc_filter_kind2str(filter->filter.kind);
+
+	ctx->u.tc_filter.filter_bm = filter->filter.u.flower.filter_bm;
+	prefix_copy(&ctx->u.tc_filter.src_ip, &filter->filter.u.flower.src_ip);
+	ctx->u.tc_filter.src_port_min = filter->filter.u.flower.src_port_min;
+	ctx->u.tc_filter.src_port_max = filter->filter.u.flower.src_port_max;
+	prefix_copy(&ctx->u.tc_filter.dst_ip, &filter->filter.u.flower.dst_ip);
+	ctx->u.tc_filter.dst_port_min = filter->filter.u.flower.dst_port_min;
+	ctx->u.tc_filter.dst_port_max = filter->filter.u.flower.dst_port_max;
+	ctx->u.tc_filter.dsfield = filter->filter.u.flower.dsfield;
+	ctx->u.tc_filter.dsfield_mask = filter->filter.u.flower.dsfield_mask;
+	ctx->u.tc_filter.classid = filter->filter.u.flower.classid;
+
+	ctx->u.tc_filter.priority = filter->filter.priority;
+	ctx->u.tc_filter.handle = filter->filter.handle;
+
 	zns = zebra_ns_lookup(NS_DEFAULT);
 
 	dplane_ctx_ns_init(ctx, zns, true);
@@ -3509,7 +3745,9 @@ dplane_route_update_internal(struct route_node *rn,
 	return result;
 }
 
-static enum zebra_dplane_result dplane_tc_update_internal(enum dplane_op_e op)
+static enum zebra_dplane_result
+tc_qdisc_update_internal(enum dplane_op_e op,
+			 const struct zebra_tc_qdisc *qdisc)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
@@ -3524,7 +3762,7 @@ static enum zebra_dplane_result dplane_tc_update_internal(enum dplane_op_e op)
 	}
 
 	/* Init context with info from zebra data structs */
-	ret = dplane_ctx_tc_init(ctx, op);
+	ret = dplane_ctx_tc_qdisc_init(ctx, op, qdisc);
 
 	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
@@ -3545,9 +3783,118 @@ done:
 	return result;
 }
 
-enum zebra_dplane_result dplane_tc_update(void)
+static enum zebra_dplane_result
+tc_class_update_internal(enum dplane_op_e op, struct zebra_tc_class *class)
 {
-	return dplane_tc_update_internal(DPLANE_OP_TC_UPDATE);
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	/* Obtain context block */
+	ctx = dplane_ctx_alloc();
+
+	if (!ctx) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	/* Init context with info from zebra data structs */
+	ret = dplane_ctx_tc_class_init(ctx, op, class);
+
+	if (ret == AOK)
+		ret = dplane_update_enqueue(ctx);
+
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_tcs_in, 1,
+				  memory_order_relaxed);
+	if (ret == AOK) {
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	} else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+static enum zebra_dplane_result
+tc_filter_update_internal(enum dplane_op_e op, struct zebra_tc_filter *filter)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	/* Obtain context block */
+	ctx = dplane_ctx_alloc();
+
+	if (!ctx) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	/* Init context with info from zebra data structs */
+	ret = dplane_ctx_tc_filter_init(ctx, op, filter);
+
+	if (ret == AOK)
+		ret = dplane_update_enqueue(ctx);
+
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_tcs_in, 1,
+				  memory_order_relaxed);
+	if (ret == AOK) {
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	} else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+enum zebra_dplane_result dplane_tc_qdisc_install(struct zebra_tc_qdisc *qdisc)
+{
+	return tc_qdisc_update_internal(DPLANE_OP_TC_QDISC_INSTALL, qdisc);
+}
+
+enum zebra_dplane_result dplane_tc_qdisc_uninstall(struct zebra_tc_qdisc *qdisc)
+{
+	return tc_qdisc_update_internal(DPLANE_OP_TC_QDISC_UNINSTALL, qdisc);
+}
+
+enum zebra_dplane_result dplane_tc_class_add(struct zebra_tc_class *class)
+{
+	return tc_class_update_internal(DPLANE_OP_TC_CLASS_ADD, class);
+}
+
+enum zebra_dplane_result dplane_tc_class_delete(struct zebra_tc_class *class)
+{
+	return tc_class_update_internal(DPLANE_OP_TC_CLASS_DELETE, class);
+}
+
+enum zebra_dplane_result dplane_tc_class_update(struct zebra_tc_class *class)
+{
+	return tc_class_update_internal(DPLANE_OP_TC_CLASS_UPDATE, class);
+}
+
+enum zebra_dplane_result dplane_tc_filter_add(struct zebra_tc_filter *filter)
+{
+	return tc_filter_update_internal(DPLANE_OP_TC_FILTER_ADD, filter);
+}
+
+enum zebra_dplane_result dplane_tc_filter_delete(struct zebra_tc_filter *filter)
+{
+	return tc_filter_update_internal(DPLANE_OP_TC_FILTER_DELETE, filter);
+}
+
+enum zebra_dplane_result dplane_tc_filter_update(struct zebra_tc_filter *filter)
+{
+	return tc_filter_update_internal(DPLANE_OP_TC_FILTER_UPDATE, filter);
 }
 
 /**
@@ -5733,10 +6080,18 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 		break;
 
 	/* TODO: more detailed log */
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
-		zlog_debug("Dplane tc ifidx %u", dplane_ctx_get_ifindex(ctx));
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+		zlog_debug("Dplane tc qdisc ifidx %u",
+			   dplane_ctx_get_ifindex(ctx));
+		break;
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+		break;
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
 	}
 }
@@ -5881,9 +6236,14 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 						  1, memory_order_relaxed);
 		break;
 
-	case DPLANE_OP_TC_INSTALL:
-	case DPLANE_OP_TC_UPDATE:
-	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_TC_QDISC_INSTALL:
+	case DPLANE_OP_TC_QDISC_UNINSTALL:
+	case DPLANE_OP_TC_CLASS_ADD:
+	case DPLANE_OP_TC_CLASS_DELETE:
+	case DPLANE_OP_TC_CLASS_UPDATE:
+	case DPLANE_OP_TC_FILTER_ADD:
+	case DPLANE_OP_TC_FILTER_DELETE:
+	case DPLANE_OP_TC_FILTER_UPDATE:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_tcs_errors,
 						  1, memory_order_relaxed);

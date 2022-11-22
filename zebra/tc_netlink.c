@@ -3,28 +3,27 @@
  *
  * Copyright (C) 2022 Shichu Yang
  *
- * This file is part of FRR.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <zebra.h>
 
 #ifdef HAVE_NETLINK
 
+#include <linux/pkt_cls.h>
+#include <linux/pkt_sched.h>
 #include <netinet/if_ether.h>
 #include <sys/socket.h>
 
@@ -32,33 +31,23 @@
 #include "prefix.h"
 #include "vrf.h"
 
-#include <linux/fib_rules.h>
-#include <linux/pkt_cls.h>
-#include <linux/pkt_sched.h>
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
-#include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 #include "zebra/debug.h"
-#include "zebra/rtadv.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/tc_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_tc.h"
 #include "zebra/zebra_trace.h"
-
-/* TODO: move these bitflags to zebra_tc.h */
-#define TC_FILTER_SRC_IP (1 << 0)
-#define TC_FILTER_DST_IP (1 << 1)
-#define TC_FILTER_IP_PROTOCOL (1 << 9)
 
 #define TC_FREQ_DEFAULT (100)
 
-#define TC_MAJOR_BASE (0x1000u)
+/* some magic number */
+#define TC_QDISC_MAJOR_ZEBRA (0xbeef0000u)
 #define TC_MINOR_NOCLASS (0xffffu)
-
-#define TC_FILTER_MASK (0x8000u)
 
 #define TIME_UNITS_PER_SEC (1000000)
 #define xmittime(r, s) (TIME_UNITS_PER_SEC * ((double)(s) / (double)(r)))
@@ -79,19 +68,6 @@ static uint32_t tc_get_freq(void)
 	}
 
 	return freq == 0 ? TC_FREQ_DEFAULT : freq;
-}
-
-static inline uint32_t tc_make_handle(uint16_t major, uint16_t minor)
-{
-	return (major) << 16 | (minor);
-}
-
-static inline uint32_t tc_get_handle(struct zebra_dplane_ctx *ctx,
-				     uint16_t minor)
-{
-	uint16_t major = TC_MAJOR_BASE + (uint16_t)dplane_ctx_get_ifindex(ctx);
-
-	return tc_make_handle(major, minor);
 }
 
 static void tc_calc_rate_table(struct tc_ratespec *ratespec, uint32_t *table,
@@ -189,11 +165,7 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 					void *data, size_t datalen)
 {
 	struct nlsock *nl;
-
-	const char *kind = "htb";
-
-	struct tc_htb_glob htb_glob = {
-		.rate2quantum = 10, .version = 3, .defcls = TC_MINOR_NOCLASS};
+	const char *kind_str = NULL;
 
 	struct rtattr *nest;
 
@@ -221,16 +193,41 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 
 	req->t.tcm_family = AF_UNSPEC;
 	req->t.tcm_ifindex = dplane_ctx_get_ifindex(ctx);
-	req->t.tcm_handle = tc_get_handle(ctx, 0);
+	req->t.tcm_info = 0;
+	req->t.tcm_handle = 0;
 	req->t.tcm_parent = TC_H_ROOT;
 
-	nl_attr_put(&req->n, datalen, TCA_KIND, kind, strlen(kind) + 1);
+	if (cmd == RTM_NEWQDISC) {
+		req->t.tcm_handle = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, 0);
 
-	nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
+		kind_str = dplane_ctx_tc_qdisc_get_kind_str(ctx);
 
-	nl_attr_put(&req->n, datalen, TCA_HTB_INIT, &htb_glob,
-		    sizeof(htb_glob));
-	nl_attr_nest_end(&req->n, nest);
+		nl_attr_put(&req->n, datalen, TCA_KIND, kind_str,
+			    strlen(kind_str) + 1);
+
+		nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
+
+		switch (dplane_ctx_tc_qdisc_get_kind(ctx)) {
+		case TC_QDISC_HTB: {
+			struct tc_htb_glob htb_glob = {
+				.rate2quantum = 10,
+				.version = 3,
+				.defcls = TC_MINOR_NOCLASS};
+			nl_attr_put(&req->n, datalen, TCA_HTB_INIT, &htb_glob,
+				    sizeof(htb_glob));
+			break;
+		}
+		case TC_QDISC_NOQUEUE:
+			break;
+		default:
+			break;
+			/* not implemented */
+		}
+
+		nl_attr_nest_end(&req->n, nest);
+	} else {
+		/* ifindex are enough for del/get qdisc */
+	}
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
@@ -241,17 +238,10 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 					 void *data, size_t datalen)
 {
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
 	struct nlsock *nl;
-	struct tc_htb_opt htb_opt = {};
-
-	uint64_t rate, ceil;
-	uint64_t buffer, cbuffer;
-
-	/* TODO: fetch mtu from interface */
-	uint32_t mtu = 0;
-
-	uint32_t rtab[256];
-	uint32_t ctab[256];
+	const char *kind_str = NULL;
 
 	struct rtattr *nest;
 
@@ -271,167 +261,299 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 
+	if (op == DPLANE_OP_TC_CLASS_UPDATE)
+		req->n.nlmsg_flags |= NLM_F_REPLACE;
+
 	req->n.nlmsg_type = cmd;
 
 	req->n.nlmsg_pid = nl->snl.nl_pid;
 
 	req->t.tcm_family = AF_UNSPEC;
 	req->t.tcm_ifindex = dplane_ctx_get_ifindex(ctx);
-	req->t.tcm_handle = tc_get_handle(ctx, 1);
-	req->t.tcm_parent = tc_get_handle(ctx, 0);
 
-	rate = dplane_ctx_tc_get_rate(ctx);
-	ceil = dplane_ctx_tc_get_ceil(ctx);
+	req->t.tcm_handle = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA,
+				      dplane_ctx_tc_class_get_handle(ctx));
+	req->t.tcm_parent = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, 0);
+	req->t.tcm_info = 0;
 
-	ceil = ceil < rate ? rate : ceil;
+	kind_str = dplane_ctx_tc_class_get_kind_str(ctx);
 
-	htb_opt.rate.rate = (rate >> 32 != 0) ? ~0U : rate;
-	htb_opt.ceil.rate = (ceil >> 32 != 0) ? ~0U : ceil;
+	if (op == DPLANE_OP_TC_CLASS_ADD || op == DPLANE_OP_TC_CLASS_UPDATE) {
+		zlog_debug("netlink tclass encoder: op: %s kind: %s handle: %u",
+			   op == DPLANE_OP_TC_CLASS_UPDATE ? "update" : "add",
+			   kind_str, dplane_ctx_tc_class_get_handle(ctx));
 
-	buffer = rate / tc_get_freq(), cbuffer = ceil / tc_get_freq();
+		nl_attr_put(&req->n, datalen, TCA_KIND, kind_str,
+			    strlen(kind_str) + 1);
 
-	htb_opt.buffer = buffer;
-	htb_opt.cbuffer = cbuffer;
+		nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
 
-	tc_calc_rate_table(&htb_opt.rate, rtab, mtu);
-	tc_calc_rate_table(&htb_opt.ceil, ctab, mtu);
+		switch (dplane_ctx_tc_class_get_kind(ctx)) {
+		case TC_QDISC_HTB: {
+			struct tc_htb_opt htb_opt = {};
 
-	htb_opt.ceil.mpu = htb_opt.rate.mpu = 0;
-	htb_opt.ceil.overhead = htb_opt.rate.overhead = 0;
+			uint64_t rate = dplane_ctx_tc_class_get_rate(ctx),
+				 ceil = dplane_ctx_tc_class_get_ceil(ctx);
 
-	nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
+			uint64_t buffer, cbuffer;
 
-	if (rate >> 32 != 0) {
-		nl_attr_put(&req->n, datalen, TCA_HTB_CEIL64, &rate,
-			    sizeof(rate));
+			/* TODO: fetch mtu from interface */
+			uint32_t mtu = 1500;
+
+			uint32_t rtab[256];
+			uint32_t ctab[256];
+
+			ceil = MAX(rate, ceil);
+
+			htb_opt.rate.rate = (rate >> 32 != 0) ? ~0U : rate;
+			htb_opt.ceil.rate = (ceil >> 32 != 0) ? ~0U : ceil;
+
+			buffer = rate / tc_get_freq() + mtu;
+			cbuffer = ceil / tc_get_freq() + mtu;
+
+			htb_opt.buffer = buffer;
+			htb_opt.cbuffer = cbuffer;
+
+			tc_calc_rate_table(&htb_opt.rate, rtab, mtu);
+			tc_calc_rate_table(&htb_opt.ceil, ctab, mtu);
+
+			htb_opt.ceil.mpu = htb_opt.rate.mpu = 0;
+			htb_opt.ceil.overhead = htb_opt.rate.overhead = 0;
+
+			if (rate >> 32 != 0) {
+				nl_attr_put(&req->n, datalen, TCA_HTB_RATE64,
+					    &rate, sizeof(rate));
+			}
+
+			if (ceil >> 32 != 0) {
+				nl_attr_put(&req->n, datalen, TCA_HTB_CEIL64,
+					    &ceil, sizeof(ceil));
+			}
+
+			nl_attr_put(&req->n, datalen, TCA_HTB_PARMS, &htb_opt,
+				    sizeof(htb_opt));
+
+			nl_attr_put(&req->n, datalen, TCA_HTB_RTAB, rtab,
+				    sizeof(rtab));
+			nl_attr_put(&req->n, datalen, TCA_HTB_CTAB, ctab,
+				    sizeof(ctab));
+			break;
+		}
+		default:
+			break;
+		}
+
+		nl_attr_nest_end(&req->n, nest);
 	}
-
-	if (ceil >> 32 != 0) {
-		nl_attr_put(&req->n, datalen, TCA_HTB_CEIL64, &ceil,
-			    sizeof(ceil));
-	}
-
-	nl_attr_put(&req->n, datalen, TCA_HTB_PARMS, &htb_opt, sizeof(htb_opt));
-
-	nl_attr_put(&req->n, datalen, TCA_HTB_RTAB, rtab, sizeof(rtab));
-	nl_attr_put(&req->n, datalen, TCA_HTB_CTAB, ctab, sizeof(ctab));
-	nl_attr_nest_end(&req->n, nest);
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
-/*
- * Traffic control filter encoding (only "flower" supported)
- */
-static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
-					  void *data, size_t datalen)
+static int netlink_tfilter_flower_port_type(uint8_t ip_proto, bool src)
 {
-	struct nlsock *nl;
-	struct rtattr *nest;
+	if (ip_proto == IPPROTO_TCP)
+		return src ? TCA_FLOWER_KEY_TCP_SRC : TCA_FLOWER_KEY_TCP_DST;
+	else if (ip_proto == IPPROTO_UDP)
+		return src ? TCA_FLOWER_KEY_UDP_SRC : TCA_FLOWER_KEY_UDP_DST;
+	else if (ip_proto == IPPROTO_SCTP)
+		return src ? TCA_FLOWER_KEY_SCTP_SRC : TCA_FLOWER_KEY_SCTP_DST;
+	else
+		return -1;
+}
 
-	const char *kind = "flower";
-
-	uint16_t priority;
-	uint16_t protocol;
-	uint32_t classid;
-	uint32_t filter_bm;
-	uint32_t flags = 0;
-
+static void netlink_tfilter_flower_put_options(struct nlmsghdr *n,
+					       size_t datalen,
+					       struct zebra_dplane_ctx *ctx)
+{
 	struct inet_prefix addr;
+	uint32_t flags = 0, classid;
+	uint8_t protocol = htons(dplane_ctx_tc_filter_get_eth_proto(ctx));
+	uint32_t filter_bm = dplane_ctx_tc_filter_get_filter_bm(ctx);
 
-	struct {
-		struct nlmsghdr n;
-		struct tcmsg t;
-		char buf[0];
-	} *req = (void *)data;
-
-	if (datalen < sizeof(*req))
-		return 0;
-
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
-
-	memset(req, 0, sizeof(*req));
-
-	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
-	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
-
-	req->n.nlmsg_flags |= NLM_F_EXCL;
-
-	req->n.nlmsg_type = cmd;
-
-	req->n.nlmsg_pid = nl->snl.nl_pid;
-
-	req->t.tcm_family = AF_UNSPEC;
-	req->t.tcm_ifindex = dplane_ctx_get_ifindex(ctx);
-
-	/* TODO: priority and layer-3 protocol support */
-	priority = 0;
-	protocol = htons(ETH_P_IP);
-	classid = tc_get_handle(ctx, 1);
-	filter_bm = dplane_ctx_tc_get_filter_bm(ctx);
-
-	req->t.tcm_info = tc_make_handle(priority, protocol);
-
-	req->t.tcm_handle = 1;
-	req->t.tcm_parent = tc_get_handle(ctx, 0);
-
-	nl_attr_put(&req->n, datalen, TCA_KIND, kind, strlen(kind) + 1);
-	nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
-
-	nl_attr_put(&req->n, datalen, TCA_FLOWER_CLASSID, &classid,
-		    sizeof(classid));
-
-	if (filter_bm & TC_FILTER_SRC_IP) {
-		const struct prefix *src_p = dplane_ctx_tc_get_src_ip(ctx);
+	if (filter_bm & TC_FLOWER_SRC_IP) {
+		const struct prefix *src_p =
+			dplane_ctx_tc_filter_get_src_ip(ctx);
 
 		if (tc_flower_get_inet_prefix(src_p, &addr) != 0)
-			return 0;
+			return;
 
-		nl_attr_put(&req->n, datalen,
+		nl_attr_put(n, datalen,
 			    (addr.family == AF_INET) ? TCA_FLOWER_KEY_IPV4_SRC
 						     : TCA_FLOWER_KEY_IPV6_SRC,
 			    addr.data, addr.bytelen);
 
 		if (tc_flower_get_inet_mask(src_p, &addr) != 0)
-			return 0;
+			return;
 
-		nl_attr_put(&req->n, datalen,
+		nl_attr_put(n, datalen,
 			    (addr.family == AF_INET)
 				    ? TCA_FLOWER_KEY_IPV4_SRC_MASK
 				    : TCA_FLOWER_KEY_IPV6_SRC_MASK,
 			    addr.data, addr.bytelen);
 	}
 
-	if (filter_bm & TC_FILTER_DST_IP) {
-		const struct prefix *dst_p = dplane_ctx_tc_get_dst_ip(ctx);
+	if (filter_bm & TC_FLOWER_DST_IP) {
+		const struct prefix *dst_p =
+			dplane_ctx_tc_filter_get_dst_ip(ctx);
 
 		if (tc_flower_get_inet_prefix(dst_p, &addr) != 0)
-			return 0;
+			return;
 
-		nl_attr_put(&req->n, datalen,
+		nl_attr_put(n, datalen,
 			    (addr.family == AF_INET) ? TCA_FLOWER_KEY_IPV4_DST
 						     : TCA_FLOWER_KEY_IPV6_DST,
 			    addr.data, addr.bytelen);
 
 		if (tc_flower_get_inet_mask(dst_p, &addr) != 0)
-			return 0;
+			return;
 
-		nl_attr_put(&req->n, datalen,
+		nl_attr_put(n, datalen,
 			    (addr.family == AF_INET)
 				    ? TCA_FLOWER_KEY_IPV4_DST_MASK
 				    : TCA_FLOWER_KEY_IPV6_DST_MASK,
 			    addr.data, addr.bytelen);
 	}
 
-	if (filter_bm & TC_FILTER_IP_PROTOCOL) {
-		nl_attr_put8(&req->n, datalen, TCA_FLOWER_KEY_IP_PROTO,
-			     dplane_ctx_tc_get_ip_proto(ctx));
+	if (filter_bm & TC_FLOWER_IP_PROTOCOL) {
+		nl_attr_put8(n, datalen, TCA_FLOWER_KEY_IP_PROTO,
+			     dplane_ctx_tc_filter_get_ip_proto(ctx));
 	}
 
-	nl_attr_put32(&req->n, datalen, TCA_FLOWER_FLAGS, flags);
+	if (filter_bm & TC_FLOWER_SRC_PORT) {
+		uint16_t min, max;
 
-	nl_attr_put16(&req->n, datalen, TCA_FLOWER_KEY_ETH_TYPE, protocol);
-	nl_attr_nest_end(&req->n, nest);
+		min = dplane_ctx_tc_filter_get_src_port_min(ctx);
+		max = dplane_ctx_tc_filter_get_src_port_max(ctx);
+
+		if (max > min) {
+			nl_attr_put16(n, datalen, TCA_FLOWER_KEY_PORT_SRC_MIN,
+				      htons(min));
+
+			nl_attr_put16(n, datalen, TCA_FLOWER_KEY_PORT_SRC_MAX,
+				      htons(max));
+		} else {
+			int type = netlink_tfilter_flower_port_type(
+				dplane_ctx_tc_filter_get_ip_proto(ctx), true);
+
+			if (type < 0)
+				return;
+
+			nl_attr_put16(n, datalen, type, htons(min));
+		}
+	}
+
+	if (filter_bm & TC_FLOWER_DST_PORT) {
+		uint16_t min = dplane_ctx_tc_filter_get_dst_port_min(ctx),
+			 max = dplane_ctx_tc_filter_get_dst_port_max(ctx);
+
+		if (max > min) {
+			nl_attr_put16(n, datalen, TCA_FLOWER_KEY_PORT_DST_MIN,
+				      htons(min));
+
+			nl_attr_put16(n, datalen, TCA_FLOWER_KEY_PORT_DST_MAX,
+				      htons(max));
+		} else {
+			int type = netlink_tfilter_flower_port_type(
+				dplane_ctx_tc_filter_get_ip_proto(ctx), false);
+
+			if (type < 0)
+				return;
+
+			nl_attr_put16(n, datalen, type, htons(min));
+		}
+	}
+
+	if (filter_bm & TC_FLOWER_DSFIELD) {
+		nl_attr_put8(n, datalen, TCA_FLOWER_KEY_IP_TOS,
+			     dplane_ctx_tc_filter_get_dsfield(ctx));
+		nl_attr_put8(n, datalen, TCA_FLOWER_KEY_IP_TOS_MASK,
+			     dplane_ctx_tc_filter_get_dsfield_mask(ctx));
+	}
+
+	classid = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA,
+			    dplane_ctx_tc_filter_get_classid(ctx));
+	nl_attr_put32(n, datalen, TCA_FLOWER_CLASSID, classid);
+
+	nl_attr_put32(n, datalen, TCA_FLOWER_FLAGS, flags);
+
+	nl_attr_put16(n, datalen, TCA_FLOWER_KEY_ETH_TYPE, protocol);
+}
+
+/*
+ * Traffic control filter encoding
+ */
+static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
+					  void *data, size_t datalen)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
+	struct nlsock *nl;
+	const char *kind_str = NULL;
+
+	struct rtattr *nest;
+
+	uint16_t priority;
+	uint16_t protocol;
+
+	struct {
+		struct nlmsghdr n;
+		struct tcmsg t;
+		char buf[0];
+	} *req = (void *)data;
+
+	if (datalen < sizeof(*req))
+		return 0;
+
+	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+
+	if (op == DPLANE_OP_TC_FILTER_UPDATE)
+		req->n.nlmsg_flags |= NLM_F_REPLACE;
+
+	req->n.nlmsg_type = cmd;
+
+	req->n.nlmsg_pid = nl->snl.nl_pid;
+
+	req->t.tcm_family = AF_UNSPEC;
+	req->t.tcm_ifindex = dplane_ctx_get_ifindex(ctx);
+
+	priority = dplane_ctx_tc_filter_get_priority(ctx);
+	protocol = htons(dplane_ctx_tc_filter_get_eth_proto(ctx));
+
+	req->t.tcm_info = TC_H_MAKE(priority << 16, protocol);
+	req->t.tcm_handle = dplane_ctx_tc_filter_get_handle(ctx);
+	req->t.tcm_parent = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, 0);
+
+	kind_str = dplane_ctx_tc_filter_get_kind_str(ctx);
+
+	if (op == DPLANE_OP_TC_FILTER_ADD || op == DPLANE_OP_TC_FILTER_UPDATE) {
+		nl_attr_put(&req->n, datalen, TCA_KIND, kind_str,
+			    strlen(kind_str) + 1);
+
+		zlog_debug(
+			"netlink tfilter encoder: op: %s priority: %u protocol: %u kind: %s handle: %u filter_bm: %u ip_proto: %u",
+			op == DPLANE_OP_TC_FILTER_UPDATE ? "update" : "add",
+			priority, protocol, kind_str,
+			dplane_ctx_tc_filter_get_handle(ctx),
+			dplane_ctx_tc_filter_get_filter_bm(ctx),
+			dplane_ctx_tc_filter_get_ip_proto(ctx));
+
+		nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
+		switch (dplane_ctx_tc_filter_get_kind(ctx)) {
+		case TC_FILTER_FLOWER: {
+			netlink_tfilter_flower_put_options(&req->n, datalen,
+							   ctx);
+			break;
+		}
+		default:
+			break;
+		}
+		nl_attr_nest_end(&req->n, nest);
+	}
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
@@ -442,10 +564,22 @@ static ssize_t netlink_newqdisc_msg_encoder(struct zebra_dplane_ctx *ctx,
 	return netlink_qdisc_msg_encode(RTM_NEWQDISC, ctx, buf, buflen);
 }
 
+static ssize_t netlink_delqdisc_msg_encoder(struct zebra_dplane_ctx *ctx,
+					    void *buf, size_t buflen)
+{
+	return netlink_qdisc_msg_encode(RTM_DELQDISC, ctx, buf, buflen);
+}
+
 static ssize_t netlink_newtclass_msg_encoder(struct zebra_dplane_ctx *ctx,
 					     void *buf, size_t buflen)
 {
 	return netlink_tclass_msg_encode(RTM_NEWTCLASS, ctx, buf, buflen);
+}
+
+static ssize_t netlink_deltclass_msg_encoder(struct zebra_dplane_ctx *ctx,
+					     void *buf, size_t buflen)
+{
+	return netlink_tclass_msg_encode(RTM_DELTCLASS, ctx, buf, buflen);
 }
 
 static ssize_t netlink_newtfilter_msg_encoder(struct zebra_dplane_ctx *ctx,
@@ -454,15 +588,294 @@ static ssize_t netlink_newtfilter_msg_encoder(struct zebra_dplane_ctx *ctx,
 	return netlink_tfilter_msg_encode(RTM_NEWTFILTER, ctx, buf, buflen);
 }
 
-enum netlink_msg_status netlink_put_tc_update_msg(struct nl_batch *bth,
-						  struct zebra_dplane_ctx *ctx)
+static ssize_t netlink_deltfilter_msg_encoder(struct zebra_dplane_ctx *ctx,
+					      void *buf, size_t buflen)
 {
-	/* TODO: error handling and other actions (delete, replace, ...) */
+	return netlink_tfilter_msg_encode(RTM_DELTFILTER, ctx, buf, buflen);
+}
 
-	netlink_batch_add_msg(bth, ctx, netlink_newqdisc_msg_encoder, false);
-	netlink_batch_add_msg(bth, ctx, netlink_newtclass_msg_encoder, false);
-	return netlink_batch_add_msg(bth, ctx, netlink_newtfilter_msg_encoder,
-				     false);
+enum netlink_msg_status
+netlink_put_tc_qdisc_update_msg(struct nl_batch *bth,
+				struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum netlink_msg_status ret;
+
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_TC_QDISC_INSTALL) {
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_newqdisc_msg_encoder, false);
+	} else if (op == DPLANE_OP_TC_QDISC_UNINSTALL) {
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_delqdisc_msg_encoder, false);
+	} else {
+		return FRR_NETLINK_ERROR;
+	}
+
+	return ret;
+}
+
+enum netlink_msg_status
+netlink_put_tc_class_update_msg(struct nl_batch *bth,
+				struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum netlink_msg_status ret;
+
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_TC_CLASS_ADD || op == DPLANE_OP_TC_CLASS_UPDATE) {
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_newtclass_msg_encoder, false);
+	} else if (op == DPLANE_OP_TC_CLASS_DELETE) {
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_deltclass_msg_encoder, false);
+	} else {
+		return FRR_NETLINK_ERROR;
+	}
+
+	return ret;
+}
+
+enum netlink_msg_status
+netlink_put_tc_filter_update_msg(struct nl_batch *bth,
+				 struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum netlink_msg_status ret;
+
+	op = dplane_ctx_get_op(ctx);
+
+	if (op == DPLANE_OP_TC_FILTER_ADD) {
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_newtfilter_msg_encoder, false);
+	} else if (op == DPLANE_OP_TC_FILTER_UPDATE) {
+		/*
+		 * Replace will fail if either filter type or the number of
+		 * filter options is changed, so DEL then NEW
+		 *
+		 * TFILTER may have refs to TCLASS.
+		 */
+
+		(void)netlink_batch_add_msg(
+			bth, ctx, netlink_deltfilter_msg_encoder, false);
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_newtfilter_msg_encoder, false);
+	} else if (op == DPLANE_OP_TC_FILTER_DELETE) {
+		ret = netlink_batch_add_msg(
+			bth, ctx, netlink_deltfilter_msg_encoder, false);
+	} else {
+		return FRR_NETLINK_ERROR;
+	}
+
+	return ret;
+}
+
+/*
+ * Request filters from the kernel
+ */
+static int netlink_request_filters(struct zebra_ns *zns, int family, int type,
+				   ifindex_t ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct tcmsg tc;
+	} req;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+	req.tc.tcm_family = family;
+	req.tc.tcm_ifindex = ifindex;
+
+	return netlink_request(&zns->netlink_cmd, &req);
+}
+
+/*
+ * Request queue discipline from the kernel
+ */
+static int netlink_request_qdiscs(struct zebra_ns *zns, int family, int type)
+{
+	struct {
+		struct nlmsghdr n;
+		struct tcmsg tc;
+	} req;
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+	req.tc.tcm_family = family;
+
+	return netlink_request(&zns->netlink_cmd, &req);
+}
+
+int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+{
+	struct tcmsg *tcm;
+	struct zebra_tc_qdisc qdisc = {};
+
+	int len;
+	struct rtattr *tb[TCA_MAX + 1];
+
+	frrtrace(3, frr_zebra, netlink_tc_qdisc_change, h, ns_id, startup);
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
+
+	if (len < 0) {
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
+		return -1;
+	}
+
+	tcm = NLMSG_DATA(h);
+	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
+
+	const char *kind_str = (const char *)RTA_DATA(tb[TCA_KIND]);
+
+	enum tc_qdisc_kind kind = tc_qdisc_str2kind(kind_str);
+
+	qdisc.qdisc.ifindex = tcm->tcm_ifindex;
+
+	switch (kind) {
+	case TC_QDISC_NOQUEUE:
+		/* "noqueue" is the default qdisc */
+		break;
+	default:
+		break;
+	}
+
+	if (tb[TCA_OPTIONS] != NULL) {
+		struct rtattr *options[TCA_HTB_MAX + 1];
+
+		netlink_parse_rtattr_nested(options, TCA_HTB_MAX,
+					    tb[TCA_OPTIONS]);
+
+		/* TODO: more details */
+		/* struct tc_htb_glob *glob = RTA_DATA(options[TCA_HTB_INIT]);
+		 */
+	}
+
+	if (h->nlmsg_type == RTM_NEWQDISC) {
+		if (startup &&
+		    TC_H_MAJ(tcm->tcm_handle) == TC_QDISC_MAJOR_ZEBRA) {
+			enum zebra_dplane_result ret;
+
+			ret = dplane_tc_qdisc_uninstall(&qdisc);
+
+			zlog_debug("%s: %s leftover qdisc: ifindex %d kind %s",
+				   __func__,
+				   ((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
+					    ? "Failed to remove"
+					    : "Removed"),
+				   qdisc.qdisc.ifindex, kind_str);
+		}
+	}
+
+	return 0;
+}
+
+int netlink_tclass_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+{
+	struct tcmsg *tcm;
+
+	int len;
+	struct rtattr *tb[TCA_MAX + 1];
+
+	frrtrace(3, frr_zebra, netlink_tc_class_change, h, ns_id, startup);
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
+
+	if (len < 0) {
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
+		return -1;
+	}
+
+	tcm = NLMSG_DATA(h);
+	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
+
+
+	if (tb[TCA_OPTIONS] != NULL) {
+		struct rtattr *options[TCA_HTB_MAX + 1];
+
+		netlink_parse_rtattr_nested(options, TCA_HTB_MAX,
+					    tb[TCA_OPTIONS]);
+
+		/* TODO: more details */
+		/* struct tc_htb_opt *opt = RTA_DATA(options[TCA_HTB_PARMS]); */
+	}
+
+	return 0;
+}
+
+int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+{
+	struct tcmsg *tcm;
+
+	int len;
+	struct rtattr *tb[TCA_MAX + 1];
+
+	frrtrace(3, frr_zebra, netlink_tc_filter_change, h, ns_id, startup);
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
+
+	if (len < 0) {
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct tcmsg)));
+		return -1;
+	}
+
+	tcm = NLMSG_DATA(h);
+	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
+
+	return 0;
+}
+
+int netlink_qdisc_read(struct zebra_ns *zns)
+{
+	int ret;
+	struct zebra_dplane_info dp_info;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true);
+
+	ret = netlink_request_qdiscs(zns, AF_UNSPEC, RTM_GETQDISC);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_parse_info(netlink_qdisc_change, &zns->netlink_cmd,
+				 &dp_info, 0, true);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+int netlink_tfilter_read_for_interface(struct zebra_ns *zns, ifindex_t ifindex)
+{
+	int ret;
+	struct zebra_dplane_info dp_info;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true);
+
+	ret = netlink_request_filters(zns, AF_UNSPEC, RTM_GETTFILTER, ifindex);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_parse_info(netlink_tfilter_change, &zns->netlink_cmd,
+				 &dp_info, 0, true);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 #endif /* HAVE_NETLINK */
