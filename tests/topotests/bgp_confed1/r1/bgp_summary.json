@@ -1,0 +1,13 @@
+{
+    "ipv4Unicast":{
+      "routerId":"203.0.113.1",
+      "as":100,
+      "peers":{
+        "192.0.2.2":{
+          "remoteAs": 300,
+          "state": "Established",
+          "peerState":"OK"  
+      }
+    }
+  }
+}

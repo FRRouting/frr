@@ -1,0 +1,77 @@
+{
+ "vrfId":0,
+ "vrfName":"default",
+ "routerId":"203.0.113.33",
+ "defaultLocPrf":100,
+ "localAS":300,
+ "routes":{"0.0.0.0/0":[
+  {
+    "network":"0.0.0.0\/0",
+    "peerId":"192.0.2.17",
+    "path":"(200)",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"192.0.2.17",
+        "afi":"ipv4",
+        "used":true
+      }
+    ]
+  }
+],"203.0.113.0/28":[
+  {
+    "network":"203.0.113.0\/28",
+    "peerId":"192.0.2.17",
+    "path":"(200) 100",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"192.0.2.1",
+        "afi":"ipv4",
+        "used":true
+      }
+    ]
+  }
+],"203.0.113.16/28":[
+  {
+    "network":"203.0.113.16\/28",
+    "peerId":"192.0.2.17",
+    "path":"(200)",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"192.0.2.17",
+        "afi":"ipv4",
+        "used":true
+      }
+    ]
+  }
+],"203.0.113.32/28":[
+  {
+    "network":"203.0.113.32\/28",
+    "peerId":"(unspec)",
+    "path":"",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"0.0.0.0",
+        "afi":"ipv4",
+        "used":true
+      }
+    ]
+  }
+],"203.0.113.48/28":[
+  {
+    "network":"203.0.113.48\/28",
+    "peerId":"192.0.2.50",
+    "path":"400",
+    "origin":"IGP",
+    "nexthops":[
+      {
+        "ip":"192.0.2.50",
+        "afi":"ipv4",
+        "used":true
+      }
+    ]
+  }
+] } }
