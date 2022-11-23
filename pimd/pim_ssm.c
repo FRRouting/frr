@@ -93,7 +93,8 @@ int pim_is_grp_ssm(struct pim_instance *pim, pim_addr group_addr)
 	if (!plist)
 		return 0;
 
-	return (prefix_list_apply(plist, &group) == PREFIX_PERMIT);
+	return (prefix_list_apply_ext(plist, NULL, &group, true) ==
+		PREFIX_PERMIT);
 }
 
 int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
