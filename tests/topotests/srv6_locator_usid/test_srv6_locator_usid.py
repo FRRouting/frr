@@ -54,12 +54,10 @@ def setup_module(mod):
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
         router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(
-                CWD, "{}/zebra.conf".format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_SHARP, os.path.join(
-                CWD, "{}/sharpd.conf".format(rname))
+            TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
     tgen.start_router()
 
@@ -71,18 +69,14 @@ def teardown_module(mod):
 
 def _check_srv6_locator(router, expected_locator_file):
     logger.info("checking zebra locator status")
-    output = json.loads(
-        router.vtysh_cmd("show segment-routing srv6 locator json")
-    )
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
     expected = open_json_file("{}/{}".format(CWD, expected_locator_file))
     return topotest.json_cmp(output, expected)
 
 
 def _check_sharpd_chunk(router, expected_chunk_file):
     logger.info("checking sharpd locator chunk status")
-    output = json.loads(
-        router.vtysh_cmd("show sharp segment-routing srv6 json")
-    )
+    output = json.loads(router.vtysh_cmd("show sharp segment-routing srv6 json"))
     expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
     return topotest.json_cmp(output, expected)
 
@@ -164,7 +158,7 @@ def test_srv6_usid_locator_create_locator():
           srv6
            locators
             locator loc2
-             prefix fc00:0:2::/48 func-bits 16 block-len 32 node-len 16
+             prefix fc00:0:2::/48 block-len 32 node-len 16 func-bits 16
         """
     )
     check_srv6_locator(router, "expected_locators_4.json")
@@ -181,9 +175,7 @@ def test_srv6_usid_locator_set_behavior_usid():
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
 
-    logger.info(
-        "Specify the SRv6 Locator loc2 as a Micro-segment (uSID) Locator"
-    )
+    logger.info("Specify the SRv6 Locator loc2 as a Micro-segment (uSID) Locator")
     router.vtysh_cmd(
         """
         configure terminal

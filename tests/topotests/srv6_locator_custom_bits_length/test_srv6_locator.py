@@ -124,7 +124,7 @@ def test_srv6():
           srv6
            locators
             locator loc3
-             prefix 2001:db8:3::/48 func-bits 16 block-len 32 node-len 16
+             prefix 2001:db8:3::/48 block-len 32 node-len 16 func-bits 16
         """
     )
     check_srv6_locator(router, "expected_locators4.json")
