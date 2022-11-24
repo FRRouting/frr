@@ -797,6 +797,54 @@ static int lib_route_map_entry_match_condition_metric_destroy(
 }
 
 /*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/tracker
+ */
+static void lib_route_map_entry_match_condition_tracker_name_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	return;
+}
+
+static int lib_route_map_entry_match_condition_tracker_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+
+static int lib_route_map_entry_match_condition_tracker_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/match-condition/tracker/tracker-name
+ */
+static int lib_route_map_entry_match_condition_tracker_name_modify(
+	struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_tracker_name_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/match-condition/tracker/tracker-status
+ */
+static int lib_route_map_entry_match_condition_tracker_status_modify(
+	struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/tag
  */
 static int
@@ -1443,6 +1491,27 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_metric_modify,
 				.destroy = lib_route_map_entry_match_condition_metric_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/tracker",
+			.cbs = {
+				.apply_finish = lib_route_map_entry_match_condition_tracker_name_finish,
+				.create = lib_route_map_entry_match_condition_tracker_create,
+				.destroy = lib_route_map_entry_match_condition_tracker_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/tracker/tracker-name",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_tracker_name_modify,
+				.destroy = lib_route_map_entry_match_condition_tracker_name_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/tracker/tracker-status",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_tracker_status_modify,
 			}
 		},
 		{
