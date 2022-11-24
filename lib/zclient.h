@@ -1090,6 +1090,9 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *s, struct zapi_route *api);
+extern int zapi_tracker_notify_decode(struct stream *s, char *name,
+				      bool *status);
+extern int zapi_tracker_del_decode(struct stream *s, char *name);
 extern int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			       uint32_t api_flags, uint32_t api_message);
 bool zapi_nhg_notify_decode(struct stream *s, uint32_t *id,
