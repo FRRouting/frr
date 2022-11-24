@@ -1397,8 +1397,6 @@ int bp_peer_socket(const struct bfd_session *bs)
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin.sin_addr, &bs->key.local, sizeof(sin.sin_addr));
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
-		sin.sin_addr.s_addr = INADDR_ANY;
 
 	pcount = 0;
 	do {
