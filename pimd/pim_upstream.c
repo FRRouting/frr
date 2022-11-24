@@ -2154,7 +2154,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 			continue;
 		}
 		pim_addr_to_prefix(&g, up->sg.grp);
-		apply_new = prefix_list_apply(np, &g);
+		apply_new = prefix_list_apply_ext(np, NULL, &g, true);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_GM, __func__);
