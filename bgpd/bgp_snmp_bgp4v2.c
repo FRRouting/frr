@@ -39,6 +39,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_snmp.h"
@@ -270,6 +271,108 @@ static uint8_t *bgpv2PeerTable(struct variable *v, oid name[], size_t *length,
 	case BGP4V2_PEER_DESCRIPTION:
 		if (peer->desc)
 			return SNMP_STRING(peer->desc);
+		break;
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
+static uint8_t *bgpv2PeerErrorsTable(struct variable *v, oid name[],
+				     size_t *length, int exact, size_t *var_len,
+				     WriteMethod **write_method)
+{
+	struct peer *peer;
+	struct ipaddr addr = {};
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method) ==
+	    MATCH_FAILED)
+		return NULL;
+
+	peer = bgpv2PeerTable_lookup(v, name, length, exact, &addr);
+	if (!peer)
+		return NULL;
+
+	switch (v->magic) {
+	case BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_INTEGER(peer->notify.code);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_INTEGER(peer->notify.subcode);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_PEER_LAST_ERROR_RECEIVED_TIME:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_INTEGER(peer->resettime);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
+			struct bgp_notify notify = peer->notify;
+			char msg_buf[255];
+			const char *msg_str = NULL;
+
+			if (notify.code == BGP_NOTIFY_CEASE &&
+			    (notify.subcode ==
+				     BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN ||
+			     notify.subcode == BGP_NOTIFY_CEASE_ADMIN_RESET)) {
+				msg_str = bgp_notify_admin_message(
+					msg_buf, sizeof(msg_buf),
+					(uint8_t *)notify.data, notify.length);
+				return SNMP_STRING(msg_str);
+			}
+		}
+		return SNMP_STRING("");
+	case BGP4V2_PEER_LAST_ERROR_RECEIVED_DATA:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_STRING(peer->notify.data);
+		else
+			return SNMP_STRING("");
+	case BGP4V2_PEER_LAST_ERROR_CODE_SENT:
+		if (peer->last_reset != PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_INTEGER(peer->notify.code);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_PEER_LAST_ERROR_SUBCODE_SENT:
+		if (peer->last_reset != PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_INTEGER(peer->notify.subcode);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_PEER_LAST_ERROR_SENT_TIME:
+		if (peer->last_reset != PEER_DOWN_NOTIFY_RECEIVED)
+			return SNMP_INTEGER(peer->resettime);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_PEER_LAST_ERROR_SENT_TEXT:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND ||
+		    peer->last_reset == PEER_DOWN_RTT_SHUTDOWN ||
+		    peer->last_reset == PEER_DOWN_USER_SHUTDOWN) {
+			struct bgp_notify notify = peer->notify;
+			char msg_buf[255];
+			const char *msg_str = NULL;
+
+			if (notify.code == BGP_NOTIFY_CEASE &&
+			    (notify.subcode ==
+				     BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN ||
+			     notify.subcode == BGP_NOTIFY_CEASE_ADMIN_RESET)) {
+				msg_str = bgp_notify_admin_message(
+					msg_buf, sizeof(msg_buf),
+					(uint8_t *)notify.data, notify.length);
+				return SNMP_STRING(msg_str);
+			}
+		}
+		return SNMP_STRING("");
+	case BGP4V2_PEER_LAST_ERROR_SENT_DATA:
+		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND ||
+		    peer->last_reset == PEER_DOWN_RTT_SHUTDOWN ||
+		    peer->last_reset == PEER_DOWN_USER_SHUTDOWN)
+			return SNMP_STRING(peer->notify.data);
+		else
+			return SNMP_STRING("");
 	default:
 		break;
 	}
@@ -278,6 +381,7 @@ static uint8_t *bgpv2PeerTable(struct variable *v, oid name[], size_t *length,
 }
 
 static struct variable bgpv2_variables[] = {
+	/* bgp4V2PeerEntry */
 	{BGP4V2_PEER_INSTANCE,
 	 ASN_UNSIGNED,
 	 RONLY,
@@ -446,6 +550,127 @@ static struct variable bgpv2_variables[] = {
 	 bgpv2PeerTable,
 	 6,
 	 {1, 2, 1, BGP4V2_PEER_DESCRIPTION, 2, 16}},
+	/* bgp4V2PeerErrorsEntry */
+	{BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_CODE_RECEIVED, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SUBCODE_RECEIVED, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_RECEIVED_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TIME, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_RECEIVED_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TIME, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_TEXT, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_RECEIVED_DATA,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_DATA, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_RECEIVED_DATA,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_RECEIVED_DATA, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_CODE_SENT,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_CODE_SENT, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_CODE_SENT,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_CODE_SENT, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_SUBCODE_SENT,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SUBCODE_SENT, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_SUBCODE_SENT,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SUBCODE_SENT, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_SENT_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_TIME, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_SENT_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_TIME, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_SENT_TEXT,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_TEXT, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_SENT_TEXT,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_TEXT, 2, 16}},
+	{BGP4V2_PEER_LAST_ERROR_SENT_DATA,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_DATA, 1, 4}},
+	{BGP4V2_PEER_LAST_ERROR_SENT_DATA,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgpv2PeerErrorsTable,
+	 6,
+	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_DATA, 2, 16}},
 };
 
 int bgp_snmp_bgp4v2_init(struct thread_master *tm)
