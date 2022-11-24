@@ -137,6 +137,12 @@ module frr-route-map {
       "Match a route tag";
   }
 
+  identity match-tracker {
+    base rmap-match-type;
+    description
+      "Match a tracker";
+  }
+
   identity rmap-set-type {
     description
       "Base route-map set-action";
@@ -269,6 +275,21 @@ module frr-route-map {
           leaf tag {
             type uint32 {
               range "1..4294967295";
+            }
+          }
+        }
+
+        case match-tracker {
+          when "derived-from-or-self(../condition, 'match-tracker')";
+          container tracker {
+            leaf tracker-name {
+              type string {
+                length "1..32";
+              }
+            }
+            leaf tracker-status {
+              type boolean;
+              default "true";
             }
           }
         }

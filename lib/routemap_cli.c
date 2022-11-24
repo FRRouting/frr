@@ -523,6 +523,48 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG_NOSH(match_tracker, match_tracker_cmd,
+		"match tracker WORD$name [up$up|down$down]",
+		MATCH_STR
+		"Match tracker\n"
+		"Tracker name\n"
+		"Match tracker status Up\n"
+		"Match tracker status Down\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:match-tracker']";
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/tracker/tracker-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/tracker/tracker-status", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      down ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG_NOSH(no_match_tracker, no_match_tracker_cmd,
+		"no match tracker WORD$name [up|down]",
+		NO_STR MATCH_STR
+		"Match tracker\n"
+		"Tracker name\n"
+		"Match tracker status Up\n"
+		"Match tracker status Down\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:match-tracker']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
@@ -584,6 +626,16 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " match tag %s\n",
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/tag"));
+	} else if (IS_MATCH_TRACKER(condition)) {
+		vty_out(vty, " match tracker %s %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/tracker/tracker-name"),
+			yang_dnode_get_bool(
+				dnode,
+				"./rmap-match-condition/tracker/tracker-status")
+				? "up"
+				: "down");
 	} else if (IS_MATCH_IPv4_PREFIX_LEN(condition)) {
 		vty_out(vty, " match ip address prefix-len %s\n",
 			yang_dnode_get_string(
@@ -1663,4 +1715,7 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &set_srte_color_cmd);
 	install_element(RMAP_NODE, &no_set_srte_color_cmd);
+
+	install_element(RMAP_NODE, &match_tracker_cmd);
+	install_element(RMAP_NODE, &no_match_tracker_cmd);
 }

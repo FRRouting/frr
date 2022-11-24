@@ -2311,6 +2311,30 @@ DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
 	return CMD_SUCCESS;
 }
 
+
+DEFUNSH(VTYSH_BGPD, match_tracker, vtysh_match_tracker_cmd,
+	"match tracker WORD [up|down]",
+	MATCH_STR
+	"Match tracker\n"
+	"Tracker name\n"
+	"Match tracker status Up\n"
+	"Match tracker status Down\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, no_match_tracker, vtysh_no_match_tracker_cmd,
+	"no match tracker WORD [up|down]",
+	NO_STR MATCH_STR
+	"Match tracker\n"
+	"Tracker name\n"
+	"Match tracker status Up\n"
+	"Match tracker status Down\n")
+{
+	return CMD_SUCCESS;
+}
+
+
 #ifdef HAVE_PBRD
 DEFUNSH(VTYSH_PBRD, vtysh_pbr_map, vtysh_pbr_map_cmd,
 	"pbr-map PBRMAP seq (1-700)",
@@ -5023,6 +5047,8 @@ void vtysh_init_vty(void)
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_end_all_cmd);
+	install_element(RMAP_NODE, &vtysh_match_tracker_cmd);
+	install_element(RMAP_NODE, &vtysh_no_match_tracker_cmd);
 
 	install_node(&vty_node);
 	install_element(CONFIG_NODE, &vtysh_line_vty_cmd);
