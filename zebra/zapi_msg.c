@@ -51,6 +51,7 @@
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_tracker.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
@@ -1011,7 +1012,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 }
 
 
-int zsend_tracker(int cmd, char *name, bool status)
+int zsend_tracker(int cmd, char *name, bool status, int proto)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ), *s_copy;
 	struct listnode *node;
@@ -1033,6 +1034,9 @@ int zsend_tracker(int cmd, char *name, bool status)
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		/* only BGP uses tracker for now */
 		if (client->proto != ZEBRA_ROUTE_BGP)
+			continue;
+
+		if (proto != ZEBRA_ROUTE_ALL && client->proto != proto)
 			continue;
 
 		s_copy = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -2418,6 +2422,7 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 		zsend_capabilities(client, zvrf);
 		zebra_vrf_update_all(client);
 	}
+	zebra_tracker_zsend_all(proto);
 stream_failure:
 	return;
 }
