@@ -39,14 +39,39 @@ static void zebra_tracker_zsend(char *name, enum zebra_tracker_status status)
 	switch (status) {
 	case ZEBRA_TRACKER_STATUS_INIT:
 	case ZEBRA_TRACKER_STATUS_DEL:
-		zsend_tracker(ZEBRA_TRACKER_DEL, name, false);
+		zsend_tracker(ZEBRA_TRACKER_DEL, name, false, ZEBRA_ROUTE_ALL);
 		break;
 	case ZEBRA_TRACKER_STATUS_DOWN:
-		zsend_tracker(ZEBRA_TRACKER_NOTIFY, name, false);
+		zsend_tracker(ZEBRA_TRACKER_NOTIFY, name, false,
+			      ZEBRA_ROUTE_ALL);
 		break;
 	case ZEBRA_TRACKER_STATUS_UP:
-		zsend_tracker(ZEBRA_TRACKER_NOTIFY, name, true);
+		zsend_tracker(ZEBRA_TRACKER_NOTIFY, name, true,
+			      ZEBRA_ROUTE_ALL);
 		break;
+	}
+}
+
+void zebra_tracker_zsend_all(int proto)
+{
+	struct zebra_tracker_file *tracker_file;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(zebra_tracker_file_master, node,
+				  tracker_file)) {
+		switch (tracker_file->status) {
+		case ZEBRA_TRACKER_STATUS_INIT:
+		case ZEBRA_TRACKER_STATUS_DEL:
+			continue;
+		case ZEBRA_TRACKER_STATUS_DOWN:
+			zsend_tracker(ZEBRA_TRACKER_NOTIFY, tracker_file->name,
+				      false, ZEBRA_ROUTE_ALL);
+			break;
+		case ZEBRA_TRACKER_STATUS_UP:
+			zsend_tracker(ZEBRA_TRACKER_NOTIFY, tracker_file->name,
+				      true, ZEBRA_ROUTE_ALL);
+			break;
+		}
 	}
 }
 

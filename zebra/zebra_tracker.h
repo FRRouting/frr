@@ -54,6 +54,7 @@ struct zebra_tracker_file {
 	struct event *event;
 };
 
+void zebra_tracker_zsend_all(int proto);
 struct zebra_tracker_file *zebra_tracker_file_get(const char *name);
 struct zebra_tracker_file *zebra_tracker_file_new(const char *name);
 void zebra_tracker_file_free(const char *name);
