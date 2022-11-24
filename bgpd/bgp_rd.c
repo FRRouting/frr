@@ -99,8 +99,8 @@ void decode_rd_vnc_eth(const uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
 
 int str2prefix_rd(const char *str, struct prefix_rd *prd)
 {
-	int ret = 0;
-	char *p;
+	int ret = 0, type = RD_TYPE_UNDEFINED;
+	char *p, *p2;
 	struct stream *s = NULL;
 	char *half = NULL;
 	struct in_addr addr;
@@ -113,30 +113,53 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 	if (!p)
 		goto out;
 
+	/* a second ':' is accepted */
+	p2 = strchr(p + 1, ':');
+	if (p2) {
+		/* type is in first part */
+		half = XMALLOC(MTYPE_TMP, (p - str) + 1);
+		memcpy(half, str, (p - str));
+		half[p - str] = '\0';
+		type = atoi(half);
+		if (type != RD_TYPE_AS && type != RD_TYPE_IP &&
+		    type != RD_TYPE_AS4)
+			goto out;
+		XFREE(MTYPE_TMP, half);
+		half = XMALLOC(MTYPE_TMP, (p2 - p));
+		memcpy(half, p + 1, (p2 - p - 1));
+		half[p2 - p - 1] = '\0';
+		p = p2 + 1;
+	} else {
+		half = XMALLOC(MTYPE_TMP, (p - str) + 1);
+		memcpy(half, str, (p - str));
+		half[p - str] = '\0';
+	}
 	if (!all_digit(p + 1))
 		goto out;
 
-	/* case AS dot format is used */
 	s = stream_new(RD_BYTES);
 
-	half = XMALLOC(MTYPE_TMP, (p - str) + 1);
-	memcpy(half, str, (p - str));
-	half[p - str] = '\0';
 	/* if it is an AS format or an IP */
 	if (asn_str2asn(half, &as_val)) {
 		if (as_val > UINT16_MAX) {
 			stream_putw(s, RD_TYPE_AS4);
 			stream_putl(s, as_val);
 			stream_putw(s, atol(p + 1));
+			if (type != RD_TYPE_UNDEFINED && type != RD_TYPE_AS4)
+				goto out;
 		} else {
 			stream_putw(s, RD_TYPE_AS);
 			stream_putw(s, as_val);
 			stream_putl(s, atol(p + 1));
+			if (type != RD_TYPE_UNDEFINED && type != RD_TYPE_AS)
+				goto out;
 		}
 	} else if (inet_aton(half, &addr)) {
 		stream_putw(s, RD_TYPE_IP);
 		stream_put_in_addr(s, &addr);
 		stream_putw(s, atol(p + 1));
+		if (type != RD_TYPE_UNDEFINED && type != RD_TYPE_IP)
+			goto out;
 	} else
 		goto out;
 	memcpy(prd->val, s->data, 8);

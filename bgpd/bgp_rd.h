@@ -27,6 +27,7 @@
 #include "prefix.h"
 
 /* RD types */
+#define RD_TYPE_UNDEFINED (-1)
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
 #define RD_TYPE_AS4     2
