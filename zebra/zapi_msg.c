@@ -1011,6 +1011,37 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 }
 
 
+int zsend_tracker(int cmd, char *name, bool status)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ), *s_copy;
+	struct listnode *node;
+	struct zserv *client;
+	uint8_t name_len, i;
+	vrf_id_t vrf_id;
+
+	vrf_id = 0; /* vrf_id is not decoded by daemons */
+	zclient_create_header(s, cmd, vrf_id);
+	name_len = strlen(name);
+	stream_putc(s, name_len);
+	for (i = 0; i < name_len; i++)
+		stream_putc(s, name[i]);
+
+	stream_putc(s, status);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		s_copy = stream_new(ZEBRA_MAX_PACKET_SIZ);
+		stream_copy(s_copy, s);
+		zserv_send_message(client, s_copy);
+	}
+
+	stream_free(s);
+
+	return 0;
+}
+
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 			   vrf_id_t vrf_id)
