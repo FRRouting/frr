@@ -1460,6 +1460,35 @@ stream_failure:
 	return ret;
 }
 
+static int zapi_tracker_decode(struct stream *s, char *name, bool *status)
+{
+	uint8_t name_len;
+
+	STREAM_GETC(s, name_len);
+	if (name_len == 0)
+		goto stream_failure;
+
+	STREAM_GET(name, s, name_len);
+	STREAM_GETC(s, *status);
+
+	return 0;
+stream_failure:
+	return -1;
+}
+
+
+int zapi_tracker_notify_decode(struct stream *s, char *name, bool *status)
+{
+	return zapi_tracker_decode(s, name, status);
+}
+
+int zapi_tracker_del_decode(struct stream *s, char *name)
+{
+	bool status __attribute__((unused));
+
+	return zapi_tracker_decode(s, name, &status);
+}
+
 int zapi_route_decode(struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
