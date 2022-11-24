@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "tracker.h"
+
 #ifndef __ZEBRA_TRACKER_H__
 #define __ZEBRA_TRACKER_H__
 
@@ -27,7 +29,6 @@
 extern "C" {
 #endif
 
-#define TRACKER_NAME_SIZE 32
 #define TRACKER_FILEPATTERN_SIZE 32
 
 /** Zebra tracker status definitions. */

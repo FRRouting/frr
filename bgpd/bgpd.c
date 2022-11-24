@@ -78,6 +78,7 @@
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
 #include "bgp_trace.h"
+#include "bgpd/bgp_tracker.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -8384,6 +8385,7 @@ void bgp_init(unsigned short instance)
 #endif
 	bgp_ethernetvpn_init();
 	bgp_flowspec_vty_init();
+	bgp_tracker_init();
 
 	/* Access list initialize. */
 	access_list_init();
@@ -8456,6 +8458,8 @@ void bgp_terminate(void)
 	EVENT_OFF(bm->t_rmap_update);
 	EVENT_OFF(bm->t_bgp_sync_label_manager);
 	EVENT_OFF(bm->t_bgp_start_label_manager);
+
+	bgp_tracker_terminate();
 
 	bgp_mac_finish();
 }

@@ -49,6 +49,7 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_tracker.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
@@ -3195,6 +3196,33 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int bgp_zebra_tracker(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = zclient->ibuf;
+	struct tracker tracker = {};
+
+	if (cmd == ZEBRA_TRACKER_NOTIFY) {
+		if (zapi_tracker_notify_decode(s, tracker.name, &tracker.status)
+		    < 0) {
+			zlog_err("%s: Unable to decode zapi_tracker", __func__);
+			return -1;
+		}
+		if (!bgp_tracker_get(tracker.name))
+			bgp_tracker_new(tracker.name);
+		bgp_tracker_set(tracker.name, tracker.status);
+	} else if (cmd == ZEBRA_TRACKER_DEL) {
+		if (zapi_tracker_del_decode(s, tracker.name) < 0) {
+			zlog_err("%s: Unable to decode zapi_tracker", __func__);
+			return -1;
+		}
+		bgp_tracker_free(tracker.name);
+	} else
+		zlog_debug("Unknown zebra_tracker ZAPI command received");
+
+	return 0;
+}
+
+
 extern struct zebra_privs_t bgpd_privs;
 
 static int bgp_ifp_create(struct interface *ifp)
@@ -3422,6 +3450,8 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_TRACKER_NOTIFY] = bgp_zebra_tracker,
+	[ZEBRA_TRACKER_DEL] = bgp_zebra_tracker,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)

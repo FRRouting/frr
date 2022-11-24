@@ -69,6 +69,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_routemap_nb_config.c \
 	bgpd/bgp_script.c \
 	bgpd/bgp_table.c \
+	bgpd/bgp_tracker.c \
 	bgpd/bgp_updgrp.c \
 	bgpd/bgp_updgrp_adv.c \
 	bgpd/bgp_updgrp_packet.c \
@@ -154,6 +155,7 @@ noinst_HEADERS += \
 	bgpd/bgp_snmp_bgp4.h \
 	bgpd/bgp_snmp_bgp4v2.h \
 	bgpd/bgp_table.h \
+	bgpd/bgp_tracker.h \
 	bgpd/bgp_updgrp.h \
 	bgpd/bgp_vpn.h \
 	bgpd/bgp_vty.h \
