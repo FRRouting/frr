@@ -305,6 +305,7 @@ pkginclude_HEADERS += \
 	lib/termtable.h \
 	lib/frrevent.h \
 	lib/trace.h \
+	lib/tracker.h \
 	lib/typerb.h \
 	lib/typesafe.h \
 	lib/vector.h \

@@ -29,6 +29,7 @@ struct zclient;
 #include "mlag.h"
 #include "srte.h"
 #include "srv6.h"
+#include "tracker.h"
 
 #ifdef __cplusplus
 extern "C" {
