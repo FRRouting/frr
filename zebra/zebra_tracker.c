@@ -22,6 +22,7 @@
 #include <zebra.h>
 /* rib.h is needed because it contains DECLARE_MGROUP(ZEBRA); */
 #include "zebra/rib.h"
+#include "zebra/zapi_msg.h"
 
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
@@ -32,6 +33,22 @@
 DEFINE_MTYPE_STATIC(ZEBRA, TRACKER_FILE, "Tracker File");
 
 static struct list *zebra_tracker_file_master = NULL;
+
+static void zebra_tracker_zsend(char *name, enum zebra_tracker_status status)
+{
+	switch (status) {
+	case ZEBRA_TRACKER_STATUS_INIT:
+	case ZEBRA_TRACKER_STATUS_DEL:
+		zsend_tracker(ZEBRA_TRACKER_DEL, name, false);
+		break;
+	case ZEBRA_TRACKER_STATUS_DOWN:
+		zsend_tracker(ZEBRA_TRACKER_NOTIFY, name, false);
+		break;
+	case ZEBRA_TRACKER_STATUS_UP:
+		zsend_tracker(ZEBRA_TRACKER_NOTIFY, name, true);
+		break;
+	}
+}
 
 struct zebra_tracker_file *zebra_tracker_file_get(const char *name)
 {
@@ -81,6 +98,7 @@ void zebra_tracker_file_free(const char *name)
 	zlog_info("Tracker file name %s deleted", tracker_file->name);
 
 	zebra_tracker_notify_file_close(tracker_file);
+	zebra_tracker_zsend(tracker_file->name, ZEBRA_TRACKER_STATUS_DEL);
 
 	XFREE(MTYPE_TRACKER_FILE, tracker_file);
 }
@@ -178,6 +196,8 @@ void zebra_tracker_file_set_status(struct zebra_tracker_file *tracker_file,
 		  zebra_tracker_file_status(status));
 
 	tracker_file->status = status;
+
+	zebra_tracker_zsend(tracker_file->name, status);
 }
 
 void zebra_tracker_file_update(const char *name)
