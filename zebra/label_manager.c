@@ -98,7 +98,7 @@ void delete_label_chunk(void *val)
  */
 int release_daemon_label_chunks(struct zserv *client)
 {
-	struct listnode *node;
+	struct listnode *node, *nnode;
 	struct label_manager_chunk *lmc;
 	int count = 0;
 	int ret;
@@ -108,7 +108,7 @@ int release_daemon_label_chunks(struct zserv *client)
 			   __func__, zebra_route_string(client->proto),
 			   client->instance, client->session_id);
 
-	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
+	for (ALL_LIST_ELEMENTS(lbl_mgr.lc_list, node, nnode, lmc)) {
 		if (lmc->proto == client->proto &&
 		    lmc->instance == client->instance &&
 		    lmc->session_id == client->session_id && lmc->keep == 0) {
@@ -419,13 +419,14 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 				 "%s: Daemon mismatch!!", __func__);
 			continue;
 		}
-		lmc->proto = NO_PROTO;
-		lmc->instance = 0;
-		lmc->session_id = 0;
-		lmc->keep = 0;
 		ret = 0;
 		break;
 	}
+	if (lmc) {
+		list_delete_node(lbl_mgr.lc_list, node);
+		delete_label_chunk(lmc);
+	}
+
 	if (ret != 0)
 		flog_err(EC_ZEBRA_LM_UNRELEASED_CHUNK,
 			 "%s: Label chunk not released!!", __func__);
