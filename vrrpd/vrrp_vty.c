@@ -281,6 +281,35 @@ void cli_show_preempt(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, " %svrrp %s preempt\n", pre ? "" : "no ", vrid);
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/checksum-with-
+ *        ipv4-pseudoheader
+ */
+DEFPY_YANG(vrrp_checksum_with_ipv4_pseudoheader,
+      vrrp_checksum_with_ipv4_pseudoheader_cmd,
+      "[no] vrrp (1-255)$vrid checksum-with-ipv4-pseudoheader",
+      NO_STR
+      VRRP_STR
+      VRRP_VRID_STR
+      "Checksum mode in VRRPv3\n")
+{
+	nb_cli_enqueue_change(vty, "./checksum-with-ipv4-pseudoheader",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+}
+
+void cli_show_checksum_with_ipv4_pseudoheader(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
+	const bool pre = yang_dnode_get_bool(dnode, NULL);
+
+	vty_out(vty, " %svrrp %s checksum-with-ipv4-pseudoheader\n",
+		pre ? "" : "no ", vrid);
+}
+
 /* XXX: yang conversion */
 DEFPY_YANG(vrrp_autoconfigure,
       vrrp_autoconfigure_cmd,
@@ -304,7 +333,7 @@ DEFPY_YANG(vrrp_autoconfigure,
 /* XXX: yang conversion */
 DEFPY_YANG(vrrp_default,
       vrrp_default_cmd,
-      "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
+      "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|checksum-with-ipv4-pseudoheader$ipv4ph|shutdown$s>",
       NO_STR
       VRRP_STR
       "Configure defaults for new VRRP instances\n"
@@ -313,6 +342,7 @@ DEFPY_YANG(vrrp_default,
       "Preempt mode\n"
       VRRP_PRIORITY_STR
       "Priority value\n"
+      "Checksum mode in VRRPv3\n"
       "Force VRRP router into administrative shutdown\n")
 {
 	if (adv) {
@@ -329,6 +359,8 @@ DEFPY_YANG(vrrp_default,
 		vd.preempt_mode = !no;
 	if (prio)
 		vd.priority = no ? VRRP_DEFAULT_PRIORITY : prioval;
+	if (ipv4ph)
+		vd.checksum_with_ipv4_pseudoheader = !no;
 	if (s)
 		vd.shutdown = !no;
 
@@ -374,6 +406,8 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_boolean_add(j, "shutdown", vr->shutdown);
 	json_object_boolean_add(j, "preemptMode", vr->preempt_mode);
 	json_object_boolean_add(j, "acceptMode", vr->accept_mode);
+	json_object_boolean_add(j, "checksumWithIpv4Pseudoheader",
+				vr->checksum_with_ipv4_pseudoheader);
 	json_object_string_add(j, "interface", vr->ifp->name);
 	json_object_int_add(j, "advertisementInterval",
 			    vr->advertisement_interval * CS2MS);
@@ -499,6 +533,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->preempt_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Accept Mode",
 		       vr->accept_mode ? "Yes" : "No");
+	ttable_add_row(tt, "%s|%s", "Checksum with IPv4 Pseudoheader",
+		       vr->checksum_with_ipv4_pseudoheader ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%d ms", "Advertisement Interval",
 		       vr->advertisement_interval * CS2MS);
 	ttable_add_row(tt, "%s|%d ms (stale)",
@@ -752,4 +788,6 @@ void vrrp_vty_init(void)
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip6_cmd);
 	install_element(INTERFACE_NODE, &vrrp_preempt_cmd);
+	install_element(INTERFACE_NODE,
+			&vrrp_checksum_with_ipv4_pseudoheader_cmd);
 }
