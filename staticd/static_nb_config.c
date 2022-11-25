@@ -370,7 +370,7 @@ static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 	struct static_nexthop *nh;
 	uint32_t old_color;
 
-	nh = nb_running_unset_entry(args->dnode);
+	nh = nb_running_get_entry(args->dnode, NULL, true);
 	old_color = nh->color;
 	nh->color = 0;
 
