@@ -3564,6 +3564,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	struct ospf_interface *oi;
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
+	struct ospf_if_params *oip;
 	int need_to_flush_ase = 0;
 
 	ospf->inst_shutdown = 1;
@@ -3596,6 +3597,12 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 				ospf_lsa_flush_area(oi->network_lsa_self, area);
 				ospf_lsa_unlock(&oi->network_lsa_self);
 				oi->network_lsa_self = NULL;
+
+				oip = ospf_lookup_if_params(
+					oi->ifp, oi->address->u.prefix4);
+				if (oip)
+					oip->network_lsa_seqnum = htonl(
+						OSPF_INVALID_SEQUENCE_NUMBER);
 			}
 
 			if (oi->type != OSPF_IFTYPE_VIRTUALLINK
