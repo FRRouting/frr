@@ -40,5 +40,8 @@ void cli_show_ipv6(struct vty *vty, const struct lyd_node *dnode,
 		   bool show_defaults);
 void cli_show_preempt(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults);
+void cli_show_checksum_with_ipv4_pseudoheader(struct vty *vty,
+					      const struct lyd_node *dnode,
+					      bool show_defaults);
 
 #endif /* __VRRP_VTY_H__ */

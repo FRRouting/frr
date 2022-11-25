@@ -53,6 +53,7 @@
 #define VRRP_DEFAULT_ADVINT 100
 #define VRRP_DEFAULT_PREEMPT true
 #define VRRP_DEFAULT_ACCEPT true
+#define VRRP_DEFAULT_CHECKSUM_WITH_IPV4_PSEUDOHEADER true
 #define VRRP_DEFAULT_SHUTDOWN false
 
 /* User compatibility constant */
@@ -70,6 +71,7 @@ struct vrrp_defaults {
 	uint16_t advertisement_interval;
 	bool preempt_mode;
 	bool accept_mode;
+	bool checksum_with_ipv4_pseudoheader;
 	bool shutdown;
 };
 
@@ -265,6 +267,14 @@ struct vrrp_vrouter {
 	 * it is not the IPvX address owner. The default is False.
 	 */
 	bool accept_mode;
+
+	/*
+	 * Indicates whether this router computes and accepts VRRPv3 checksums
+	 * without pseudoheader, for device interoperability.
+	 *
+	 * This option should only affect IPv4 virtual routers.
+	 */
+	bool checksum_with_ipv4_pseudoheader;
 
 	struct vrrp_router *v4;
 	struct vrrp_router *v6;
