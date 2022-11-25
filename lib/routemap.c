@@ -322,6 +322,22 @@ void route_map_no_match_tag_hook(int (*func)(
 	rmap_match_set_hook.no_match_tag = func;
 }
 
+/* match tracker */
+void route_map_match_tracker_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.match_tracker = func;
+}
+
+/* no match tracker */
+void route_map_no_match_tracker_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.no_match_tracker = func;
+}
+
 /* set sr-te color */
 void route_map_set_srte_color_hook(int (*func)(struct route_map_index *index,
 					       const char *command,

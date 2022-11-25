@@ -59,6 +59,7 @@
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_script.h"
+#include "bgpd/bgp_tracker.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -1480,6 +1481,72 @@ static const struct route_map_rule_cmd route_match_metric_cmd = {
 	route_match_metric,
 	route_value_compile,
 	route_value_free,
+};
+
+/* `match tracker NAME' */
+
+struct rmap_tracker {
+	char *name;
+	bool status;
+};
+
+/* Compile function for tracker match. */
+static void *route_match_tracker_compile(const char *arg)
+{
+	struct rmap_tracker *rtracker;
+	int len;
+	char *p;
+
+	rtracker =
+		XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_tracker));
+
+	p = strchr(arg, ' ');
+	if (p) {
+		len = p - arg;
+		rtracker->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
+		memcpy(rtracker->name, arg, len);
+		if (strstr(arg, "up") != NULL) /* arg contains "up" */
+			rtracker->status = true;
+		else
+			rtracker->status = false;
+	} else {
+		rtracker->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+		rtracker->status = true;
+	}
+
+	return rtracker;
+}
+
+/* Compile function for tracker match. */
+static void route_match_tracker_free(void *rule)
+{
+	struct rmap_tracker *rtracker = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rtracker->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rtracker);
+}
+
+/* Match function return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_tracker(void *rule, const struct prefix *prefix, void *object)
+{
+	struct rmap_tracker *rtracker = rule;
+	struct tracker *tracker;
+
+	tracker = bgp_tracker_get(rtracker->name);
+
+	if (tracker && tracker->status == rtracker->status)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map commands for tracker matching. */
+static const struct route_map_rule_cmd route_match_tracker_cmd = {
+	"tracker",
+	route_match_tracker,
+	route_match_tracker_compile,
+	route_match_tracker_free,
 };
 
 /* `match as-path ASPATH' */
@@ -7758,6 +7825,9 @@ void bgp_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_match_tracker_hook(generic_match_add);
+	route_map_no_match_tracker_hook(generic_match_delete);
+
 	route_map_set_srte_color_hook(generic_set_add);
 	route_map_no_set_srte_color_hook(generic_set_delete);
 
@@ -7793,6 +7863,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_ecommunity_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
 	route_map_install_match(&route_match_metric_cmd);
+	route_map_install_match(&route_match_tracker_cmd);
 	route_map_install_match(&route_match_origin_cmd);
 	route_map_install_match(&route_match_probability_cmd);
 	route_map_install_match(&route_match_interface_cmd);

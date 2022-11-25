@@ -803,7 +803,39 @@ static int lib_route_map_entry_match_condition_metric_destroy(
 static void lib_route_map_entry_match_condition_tracker_name_finish(
 	struct nb_cb_apply_finish_args *args)
 {
-	return;
+	struct routemap_hook_context *rhc;
+	const char *value;
+	bool tracker_status = true;
+	char *argstr;
+	int status_len;
+
+	/* Add configuration. */
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	value = yang_dnode_get_string(args->dnode, "./tracker-name");
+	tracker_status = yang_dnode_get_bool(args->dnode, "./tracker-status");
+
+	if (tracker_status)
+		status_len = strlen("up");
+	else
+		status_len = strlen("down");
+
+	argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+			 strlen(value) + status_len + 2);
+
+	snprintf(argstr, (strlen(value) + status_len + 2), "%s %s", value,
+		 tracker_status ? "up" : "down");
+
+	/* Set destroy information. */
+	rhc->rhc_mhook = rmap_match_set_hook.no_match_tracker;
+	rhc->rhc_rule = "tracker";
+	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+	generic_match_add(rhc->rhc_rmi, rhc->rhc_rule, argstr,
+			  RMAP_EVENT_MATCH_ADDED, args->errmsg,
+			  args->errmsg_len);
+
+	if (argstr != value)
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
 }
 
 /*
@@ -819,6 +851,15 @@ static int lib_route_map_entry_match_condition_tracker_name_modify(
 static int lib_route_map_entry_match_condition_tracker_name_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
 	return NB_OK;
 }
 
