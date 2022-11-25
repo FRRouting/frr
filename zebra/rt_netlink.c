@@ -974,7 +974,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 					    struct nexthop *nexthop,
 					    struct nlmsghdr *nlmsg,
 					    struct rtmsg *rtmsg,
-					    size_t req_size, int cmd)
+					    size_t req_size, int cmd,
+					    vrf_id_t route_vrf_id)
 {
 	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
@@ -1120,6 +1121,19 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 	 */
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
+       if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+
+               if ((route_vrf_id != nexthop->vrf_id) &&
+                  (strncmp(ifindex2ifname(nexthop->ifindex, nexthop->vrf_id),
+                           "overlay", sizeof("overlay")) == 0 ) &&
+                   vrf_is_backend_netns()){
+                    addattr32(nlmsg, req_size, RTA_OIF, ifname2ifindex("overlay", route_vrf_id));
+               }
+               else {
+                    addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
+               }
+       }
+
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX
 	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
@@ -1178,7 +1192,8 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 					   struct rtattr *rta,
 					   struct rtnexthop *rtnh,
 					   struct rtmsg *rtmsg,
-					   union g_addr **src)
+					   union g_addr **src,
+					   vrf_id_t route_vrf_id)
 {
 	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
@@ -1322,8 +1337,19 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 	 * This is especially useful if we are doing route
 	 * leaking.
 	 */
-	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
-		rtnh->rtnh_ifindex = nexthop->ifindex;
+       if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+
+               if ((route_vrf_id != nexthop->vrf_id) &&
+                  ((strncmp(ifindex2ifname(nexthop->ifindex, nexthop->vrf_id),
+                            "overlay", sizeof("overlay"))) == 0 ) &&
+                   vrf_is_backend_netns()){
+                    rtnh->rtnh_ifindex = ifname2ifindex("overlay", route_vrf_id);
+               }
+               else {
+                    rtnh->rtnh_ifindex = nexthop->ifindex;
+               }
+       }
+
 
 	/* ifindex */
 	if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
@@ -1353,7 +1379,7 @@ static inline void _netlink_mpls_build_singlepath(const char *routedesc,
 	family = NHLFE_FAMILY(nhlfe);
 	bytelen = (family == AF_INET ? 4 : 16);
 	_netlink_route_build_singlepath(routedesc, bytelen, nhlfe->nexthop,
-					nlmsg, rtmsg, req_size, cmd);
+					nlmsg, rtmsg, req_size, cmd, VRF_DEFAULT);
 }
 
 
@@ -1368,7 +1394,7 @@ _netlink_mpls_build_multipath(const char *routedesc, zebra_nhlfe_t *nhlfe,
 	family = NHLFE_FAMILY(nhlfe);
 	bytelen = (family == AF_INET ? 4 : 16);
 	_netlink_route_build_multipath(routedesc, bytelen, nhlfe->nexthop, rta,
-				       rtnh, rtmsg, src);
+				       rtnh, rtmsg, src, VRF_DEFAULT);
 }
 
 
@@ -1627,7 +1653,7 @@ static int netlink_route_multipath(int cmd, const struct prefix *p,
 
 				_netlink_route_build_singlepath(
 					routedesc, bytelen, nexthop, &req.n,
-					&req.r, sizeof req, cmd);
+					&req.r, sizeof req, cmd,re->vrf_id );
 				nexthop_num++;
 				break;
 			}
@@ -1709,7 +1735,7 @@ static int netlink_route_multipath(int cmd, const struct prefix *p,
 
 				_netlink_route_build_multipath(
 					routedesc, bytelen, nexthop, rta, rtnh,
-					&req.r, &src1);
+					&req.r, &src1, re->vrf_id);
 				rtnh = RTNH_NEXT(rtnh);
 
 				if (!setsrc && src1) {
