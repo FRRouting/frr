@@ -70,6 +70,7 @@ static struct test_segment {
 	const uint8_t asdata[1024];
 	int len;
 	struct test_spec sp;
+	enum asnotation_mode asnotation;
 } test_segments[] = {
 	{
 		/* 0 */
@@ -79,6 +80,7 @@ static struct test_segment {
 		10,
 		{"8466 3 52737 4096", "8466 3 52737 4096", 4, 0,
 		 NOT_ALL_PRIVATE, 4096, 4, 8466},
+		0,
 	},
 	{
 		/* 1 */
@@ -87,8 +89,16 @@ static struct test_segment {
 		{0x2, 0x1, 0x22, 0x12, 0x2, 0x1, 0x00, 0x04},
 		8,
 		{
-			"8722 4", "8722 4", 2, 0, NOT_ALL_PRIVATE, 4, 5, 8722,
+			"8722 4",
+			"8722 4",
+			2,
+			0,
+			NOT_ALL_PRIVATE,
+			4,
+			5,
+			8722,
 		},
+		0,
 	},
 	{
 		/* 2 */
@@ -99,6 +109,7 @@ static struct test_segment {
 		14,
 		{"8466 3 52737 4096 8722 4", "8466 3 52737 4096 8722 4", 6, 0,
 		 NOT_ALL_PRIVATE, 3, 5, 8466},
+		0,
 	},
 	{
 		/* 3 */
@@ -108,6 +119,7 @@ static struct test_segment {
 		10,
 		{"8482 51457 {5204}", "8482 51457 {5204}", 3, 0,
 		 NOT_ALL_PRIVATE, 5204, 51456, 8482},
+		0,
 	},
 	{
 		/* 4 */
@@ -119,6 +131,7 @@ static struct test_segment {
 		{"8467 59649 {4196,48658} {17322,30745}",
 		 "8467 59649 {4196,48658} {17322,30745}", 4, 0, NOT_ALL_PRIVATE,
 		 48658, 1, 8467},
+		0,
 	},
 	{
 		/* 5 */
@@ -131,6 +144,7 @@ static struct test_segment {
 		{"6435 59408 21665 {2457,4369,61697} 1842 41590 51793",
 		 "6435 59408 21665 {2457,4369,61697} 1842 41590 51793", 7, 0,
 		 NOT_ALL_PRIVATE, 51793, 1, 6435},
+		0,
 	},
 	{
 		/* 6 */
@@ -139,6 +153,7 @@ static struct test_segment {
 		{0x3, 0x3, 0x00, 0x7b, 0x01, 0xc8, 0x03, 0x15},
 		8,
 		{"(123 456 789)", "", 0, 3, NOT_ALL_PRIVATE, 789, 1, NULL_ASN},
+		0,
 	},
 	{
 		/* 7 */
@@ -149,6 +164,7 @@ static struct test_segment {
 		14,
 		{"(123 456 789) (111 222)", "", 0, 5, NOT_ALL_PRIVATE, 111, 1,
 		 NULL_ASN},
+		0,
 	},
 	{
 		/* 8 */
@@ -157,6 +173,7 @@ static struct test_segment {
 		{0x4, 0x3, 0x01, 0xc8, 0x00, 0x7b, 0x03, 0x15},
 		8,
 		{"[123,456,789]", "", 0, 1, NOT_ALL_PRIVATE, 123, 1, NULL_ASN},
+		0,
 	},
 	{
 		/* 9 */
@@ -168,6 +185,7 @@ static struct test_segment {
 		24,
 		{"(123 456 789) [111,222] 8722 {4196,48658}",
 		 "8722 {4196,48658}", 2, 4, NOT_ALL_PRIVATE, 123, 1, NULL_ASN},
+		0,
 	},
 	{
 		/* 10 */
@@ -178,6 +196,7 @@ static struct test_segment {
 		14,
 		{"8466 2 52737 4096 8722 4", "8466 2 52737 4096 8722 4", 6, 0,
 		 NOT_ALL_PRIVATE, 4096, 1, 8466},
+		0,
 	},
 	{
 		/* 11 */
@@ -189,6 +208,7 @@ static struct test_segment {
 		{"8466 2 52737 4096 8722 4 8722",
 		 "8466 2 52737 4096 8722 4 8722", 7, 0, NOT_ALL_PRIVATE, 4096,
 		 1, 8466},
+		0,
 	},
 	{
 		/* 12 */
@@ -198,6 +218,7 @@ static struct test_segment {
 		10,
 		{"8466 64512 52737 65535", "8466 64512 52737 65535", 4, 0,
 		 NOT_ALL_PRIVATE, 65535, 4, 8466},
+		0,
 	},
 	{
 		/* 13 */
@@ -207,6 +228,7 @@ static struct test_segment {
 		10,
 		{"65534 64512 64513 65535", "65534 64512 64513 65535", 4, 0,
 		 ALL_PRIVATE, 65534, 4, 65534},
+		0,
 	},
 	{
 		/* 14 */
@@ -275,6 +297,7 @@ static struct test_segment {
 
 		 "8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285 8466 3 52737 4096 34285",
 		 250, 0, NOT_ALL_PRIVATE, 4096, 4, 8466},
+		0,
 	},
 	{
 		/* 15 */
@@ -285,6 +308,7 @@ static struct test_segment {
 		12,
 		{"8466 3 52737 4096 3456", "8466 3 52737 4096 3456", 5, 0,
 		 NOT_ALL_PRIVATE, 4096, 4, 8466},
+		0,
 	},
 	{
 		/* 16 */
@@ -293,6 +317,7 @@ static struct test_segment {
 		{},
 		0,
 		{"", "", 0, 0, 0, 0, 0, 0},
+		0,
 	},
 	{
 		/* 17 */
@@ -308,6 +333,7 @@ static struct test_segment {
 		 "8466 3 52737 4096 3456 {7099,8153}",
 		 "8466 3 52737 4096 3456 {7099,8153}", 6, 0, NOT_ALL_PRIVATE,
 		 4096, 4, 8466},
+		0,
 	},
 	{
 		/* 18 */
@@ -320,6 +346,7 @@ static struct test_segment {
 		{"6435 59408 21665 {23456} 23456 23456 23456",
 		 "6435 59408 21665 {23456} 23456 23456 23456", 7, 0,
 		 NOT_ALL_PRIVATE, 23456, 1, 6435},
+		0,
 	},
 	{
 		/* 19 */
@@ -331,6 +358,7 @@ static struct test_segment {
 		{"{2457,4369,61697} 1842 41591 51793",
 		 "{2457,4369,61697} 1842 41591 51793", 4, 0, NOT_ALL_PRIVATE,
 		 51793, 1, 2457},
+		0,
 	},
 	{
 		/* 20 */
@@ -344,44 +372,88 @@ static struct test_segment {
 		{"(123 456 789) [124,456,788] 6435 59408 21665 {23456} 23456 23456 23456",
 		 "6435 59408 21665 {23456} 23456 23456 23456", 7, 4,
 		 NOT_ALL_PRIVATE, 23456, 1, 6435},
+		0,
 	},
 	{
 		/* 21 */
 		"reconcile_start_trans",
 		"seq(23456,23456,23456) seq(6435,59408,21665)",
 		{
-			0x2, 0x3, 0x5b, 0xa0, 0x5b, 0xa0, 0x5b, 0xa0, 0x2, 0x3,
-			0x19, 0x23, 0xe8, 0x10, 0x54, 0xa1,
+			0x2,
+			0x3,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x2,
+			0x3,
+			0x19,
+			0x23,
+			0xe8,
+			0x10,
+			0x54,
+			0xa1,
 		},
 		16,
 		{"23456 23456 23456 6435 59408 21665",
 		 "23456 23456 23456 6435 59408 21665", 6, 0, NOT_ALL_PRIVATE,
 		 21665, 1, 23456},
+		0,
 	},
 	{
 		/* 22 */
 		"reconcile_start_trans4",
 		"seq(1842,41591,51793) seq(6435,59408,21665)",
 		{
-			0x2, 0x3, 0x07, 0x32, 0xa2, 0x77, 0xca, 0x51, 0x2, 0x3,
-			0x19, 0x23, 0xe8, 0x10, 0x54, 0xa1,
+			0x2,
+			0x3,
+			0x07,
+			0x32,
+			0xa2,
+			0x77,
+			0xca,
+			0x51,
+			0x2,
+			0x3,
+			0x19,
+			0x23,
+			0xe8,
+			0x10,
+			0x54,
+			0xa1,
 		},
 		16,
 		{"1842 41591 51793 6435 59408 21665",
 		 "1842 41591 51793 6435 59408 21665", 6, 0, NOT_ALL_PRIVATE,
 		 41591, 1, 1842},
+		0,
 	},
 	{
 		/* 23 */
 		"reconcile_start_trans_error",
 		"seq(23456,23456,23456) seq(6435,59408)",
 		{
-			0x2, 0x3, 0x5b, 0xa0, 0x5b, 0xa0, 0x5b, 0xa0, 0x2, 0x2,
-			0x19, 0x23, 0xe8, 0x10,
+			0x2,
+			0x3,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x2,
+			0x2,
+			0x19,
+			0x23,
+			0xe8,
+			0x10,
 		},
 		14,
 		{"23456 23456 23456 6435 59408", "23456 23456 23456 6435 59408",
 		 5, 0, NOT_ALL_PRIVATE, 59408, 1, 23456},
+		0,
 	},
 	{
 		/* 24 */
@@ -397,6 +469,7 @@ static struct test_segment {
 		 "8466 3 52737 4096 3456 {7099,8153}",
 		 "8466 3 52737 4096 3456 {7099,8153}", 6, 0, NOT_ALL_PRIVATE,
 		 4096, 4, 8466},
+		0,
 	},
 	{
 		/* 25 */
@@ -406,6 +479,7 @@ static struct test_segment {
 		 0x80},
 		12,
 		{NULL, NULL, 0, 0, 0, 0, 0, 0},
+		0,
 	},
 	{
 		/* 26  */
@@ -415,6 +489,7 @@ static struct test_segment {
 		 0x00, 0x0d, 0x80},
 		14,
 		{NULL, NULL, 0, 0, 0, 0, 0, 0},
+		0,
 	},
 	{
 		/* 27  */
@@ -423,20 +498,66 @@ static struct test_segment {
 		{0x8, 0x2, 0x10, 0x00, 0x0d, 0x80},
 		14,
 		{NULL, NULL, 0, 0, 0, 0, 0, 0},
+		0,
 	},
 	{
 		/* 28 */
 		"BGP_AS_ZERO",
 		"seq(8466,3,52737,0,4096)",
-		{0x2, 0x5,
-		0x21, 0x12,
-		0x00, 0x03,
-		0xce, 0x01,
-		0x00, 0x00,
-		0x10, 0x00},
+		{0x2, 0x5, 0x21, 0x12, 0x00, 0x03, 0xce, 0x01, 0x00, 0x00, 0x10,
+		 0x00},
 		12,
 		{"8466 3 52737 0 4096", "8466 3 52737 0 4096", 5, 0,
 		 NOT_ALL_PRIVATE, 4096, 4, 8466},
+		0,
+	},
+	{
+		/* 29 */
+		"seq3_asdot+",
+		"seq(0.8466,0.3,0.52737,0.4096,0.8722,0.4)",
+		{0x2, 0x6, 0x21, 0x12, 0x00, 0x03, 0xce, 0x01, 0x10, 0x00, 0x22,
+		 0x12, 0x00, 0x04},
+		14,
+		{"0.8466 0.3 0.52737 0.4096 0.8722 0.4",
+		 "0.8466 0.3 0.52737 0.4096 0.8722 0.4", 6, 0, NOT_ALL_PRIVATE,
+		 3, 5, 8466},
+		ASNOTATION_DOTPLUS,
+	},
+	{
+		/* 30 */
+		"confmulti_asdot+",
+		"confseq(0.123,0.456,0.789) confset(0.222,0.111) seq(0.8722) set(0.4196,0.48658)",
+		{0x3,  0x3,  0x00, 0x7b, 0x01, 0xc8, 0x03, 0x15,
+		 0x4,  0x2,  0x00, 0xde, 0x00, 0x6f, 0x2,  0x1,
+		 0x22, 0x12, 0x1,  0x2,  0x10, 0x64, 0xbe, 0x12},
+		24,
+		{"(0.123 0.456 0.789) [0.111,0.222] 0.8722 {0.4196,0.48658}",
+		 "0.8722 {0.4196,0.48658}", 2, 4, NOT_ALL_PRIVATE, 123, 1,
+		 NULL_ASN},
+		ASNOTATION_DOTPLUS,
+	},
+	{
+		/* 31 */
+		"someprivate asdot+",
+		"seq(0.8466,0.64512,0.52737,0.65535)",
+		{0x2, 0x4, 0x21, 0x12, 0xfc, 0x00, 0xce, 0x01, 0xff, 0xff},
+		10,
+		{"0.8466 0.64512 0.52737 0.65535",
+		 "0.8466 0.64512 0.52737 0.65535", 4, 0, NOT_ALL_PRIVATE, 65535,
+		 4, 8466},
+		ASNOTATION_DOTPLUS,
+	},
+	{
+		/* 32 */
+		"BGP_AS_ZERO asdot+",
+		"seq(0.8466,0.3,0.52737,0.0,0.4096)",
+		{0x2, 0x5, 0x21, 0x12, 0x00, 0x03, 0xce, 0x01, 0x00, 0x00, 0x10,
+		 0x00},
+		12,
+		{"0.8466 0.3 0.52737 0.0 0.4096",
+		 "0.8466 0.3 0.52737 0.0 0.4096", 5, 0, NOT_ALL_PRIVATE, 4096,
+		 4, 8466},
+		ASNOTATION_DOTPLUS,
 	},
 	{NULL, NULL, {0}, 0, {NULL, 0, 0}}};
 
@@ -871,16 +992,16 @@ struct compare_tests {
 };
 
 /* make an aspath from a data stream */
-static struct aspath *make_aspath(const uint8_t *data, size_t len, int use32bit)
+static struct aspath *make_aspath(const uint8_t *data, size_t len, int use32bit,
+				  enum asnotation_mode asnotation)
 {
 	struct stream *s = NULL;
 	struct aspath *as;
-
 	if (len) {
 		s = stream_new(len);
 		stream_put(s, data, len);
 	}
-	as = aspath_parse(s, len, use32bit, ASNOTATION_PLAIN);
+	as = aspath_parse(s, len, use32bit, asnotation);
 
 	if (s)
 		stream_free(s);
@@ -916,16 +1037,15 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 	}
 
 	out = aspath_snmp_pathseg(as, &bytes);
-	asinout = make_aspath(out, bytes, 0);
-
+	asinout = make_aspath(out, bytes, 0, as->asnotation);
 	/* Excercise AS4 parsing a bit, with a dogfood test */
 	if (!s)
 		s = stream_new(BGP_MAX_PACKET_SIZE);
 	bytes4 = aspath_put(s, as, 1);
-	as4 = make_aspath(STREAM_DATA(s), bytes4, 1);
+	as4 = make_aspath(STREAM_DATA(s), bytes4, 1, as->asnotation);
 
 	asn_relax_as_zero(true);
-	asstr = aspath_str2aspath(sp->shouldbe, ASNOTATION_PLAIN);
+	asstr = aspath_str2aspath(sp->shouldbe, as->asnotation);
 	asn_relax_as_zero(false);
 
 	asconfeddel = aspath_delete_confed_seq(aspath_dup(asinout));
@@ -1053,7 +1173,7 @@ static void parse_test(struct test_segment *t)
 
 	printf("%s: %s\n", t->name, t->desc);
 
-	asp = make_aspath(t->asdata, t->len, 0);
+	asp = make_aspath(t->asdata, t->len, 0, t->asnotation);
 
 	printf("aspath: %s\nvalidating...:\n", aspath_print(asp));
 
@@ -1075,8 +1195,10 @@ static void prepend_test(struct tests *t)
 	printf("prepend %s: %s\n", t->test1->name, t->test1->desc);
 	printf("to %s: %s\n", t->test2->name, t->test2->desc);
 
-	asp1 = make_aspath(t->test1->asdata, t->test1->len, 0);
-	asp2 = make_aspath(t->test2->asdata, t->test2->len, 0);
+	asp1 = make_aspath(t->test1->asdata, t->test1->len, 0,
+			   ASNOTATION_PLAIN);
+	asp2 = make_aspath(t->test2->asdata, t->test2->len, 0,
+			   ASNOTATION_PLAIN);
 
 	ascratch = aspath_dup(asp2);
 	aspath_unintern(&asp2);
@@ -1102,8 +1224,8 @@ static void empty_prepend_test(struct test_segment *t)
 
 	printf("empty prepend %s: %s\n", t->name, t->desc);
 
-	asp1 = make_aspath(t->asdata, t->len, 0);
-	asp2 = aspath_empty(ASNOTATION_PLAIN);
+	asp1 = make_aspath(t->asdata, t->len, 0, t->asnotation);
+	asp2 = aspath_empty(t->asnotation);
 
 	ascratch = aspath_dup(asp2);
 	aspath_unintern(&asp2);
@@ -1130,8 +1252,10 @@ static void as4_reconcile_test(struct tests *t)
 	printf("reconciling %s:\n  %s\n", t->test1->name, t->test1->desc);
 	printf("with %s:\n  %s\n", t->test2->name, t->test2->desc);
 
-	asp1 = make_aspath(t->test1->asdata, t->test1->len, 0);
-	asp2 = make_aspath(t->test2->asdata, t->test2->len, 0);
+	asp1 = make_aspath(t->test1->asdata, t->test1->len, 0,
+			   ASNOTATION_PLAIN);
+	asp2 = make_aspath(t->test2->asdata, t->test2->len, 0,
+			   ASNOTATION_PLAIN);
 
 	ascratch = aspath_reconcile_as4(asp1, asp2);
 
@@ -1155,8 +1279,10 @@ static void aggregate_test(struct tests *t)
 	printf("aggregate %s: %s\n", t->test1->name, t->test1->desc);
 	printf("with %s: %s\n", t->test2->name, t->test2->desc);
 
-	asp1 = make_aspath(t->test1->asdata, t->test1->len, 0);
-	asp2 = make_aspath(t->test2->asdata, t->test2->len, 0);
+	asp1 = make_aspath(t->test1->asdata, t->test1->len, 0,
+			   ASNOTATION_PLAIN);
+	asp2 = make_aspath(t->test2->asdata, t->test2->len, 0,
+			   ASNOTATION_PLAIN);
 
 	ascratch = aspath_aggregate(asp1, asp2);
 
@@ -1188,8 +1314,8 @@ static void cmp_test(void)
 		printf("left cmp %s: %s\n", t1->name, t1->desc);
 		printf("and %s: %s\n", t2->name, t2->desc);
 
-		asp1 = make_aspath(t1->asdata, t1->len, 0);
-		asp2 = make_aspath(t2->asdata, t2->len, 0);
+		asp1 = make_aspath(t1->asdata, t1->len, 0, ASNOTATION_PLAIN);
+		asp2 = make_aspath(t2->asdata, t2->len, 0, ASNOTATION_PLAIN);
 
 		if (aspath_cmp_left(asp1, asp2) != left_compare[i].shouldbe_cmp
 		    || aspath_cmp_left(asp2, asp1)
@@ -1227,7 +1353,9 @@ static int handle_attr_test(struct aspath_tests *t)
 	struct aspath *asp;
 	size_t datalen;
 
-	asp = make_aspath(t->segment->asdata, t->segment->len, 0);
+	asp = make_aspath(t->segment->asdata, t->segment->len, 0,
+			  t->segment->asnotation);
+	bgp.asnotation = t->segment->asnotation;
 
 	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.obuf = stream_fifo_new();
@@ -1303,8 +1431,8 @@ int main(void)
 		parse_test(&test_segments[i]);
 		empty_prepend_test(&test_segments[i++]);
 	}
-
 	i = 0;
+
 	while (prepend_tests[i].test1) {
 		printf("prepend test %u\n", i);
 		prepend_test(&prepend_tests[i++]);
