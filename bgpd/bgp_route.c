@@ -6081,6 +6081,8 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 	XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	route_map_counter_decrement(bgp_static->rmap.map);
 
+	if (bgp_static->prd_pretty)
+		XFREE(MTYPE_BGP, bgp_static->prd_pretty);
 	XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
 }
@@ -6984,6 +6986,8 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 		bgp_static->label = label;
 		bgp_static->prd = prd;
 
+		if (rd_str)
+			bgp_static->prd_pretty = XSTRDUP(MTYPE_BGP, rd_str);
 		if (rmap_str) {
 			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 			route_map_counter_decrement(bgp_static->rmap.map);
@@ -15606,7 +15610,6 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 	const struct prefix *p;
-	const struct prefix_rd *prd;
 	struct bgp_static *bgp_static;
 	mpls_label_t label;
 
@@ -15624,14 +15627,12 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 				continue;
 
 			p = bgp_dest_get_prefix(dest);
-			prd = (const struct prefix_rd *)bgp_dest_get_prefix(
-				pdest);
 
 			/* "network" configuration display.  */
 			label = decode_label(&bgp_static->label);
 
-			/* TODO: save RD format */
-			vty_out(vty, "  network %pFX rd %pRDP", p, prd);
+			vty_out(vty, "  network %pFX rd %s", p,
+				bgp_static->prd_pretty);
 			if (safi == SAFI_MPLS_VPN)
 				vty_out(vty, " label %u", label);
 
@@ -15654,7 +15655,6 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 	const struct prefix *p;
-	const struct prefix_rd *prd;
 	struct bgp_static *bgp_static;
 	char buf[PREFIX_STRLEN * 2];
 	char buf2[SU_ADDRSTRLEN];
@@ -15682,7 +15682,6 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 				esi_to_str(bgp_static->eth_s_id,
 						esi_buf, sizeof(esi_buf));
 			p = bgp_dest_get_prefix(dest);
-			prd = (struct prefix_rd *)bgp_dest_get_prefix(pdest);
 
 			/* "network" configuration display.  */
 			if (p->u.prefix_evpn.route_type == 5) {
@@ -15708,10 +15707,10 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 				inet_ntop(bgp_static->gatewayIp.family,
 					  &bgp_static->gatewayIp.u.prefix, buf2,
 					  sizeof(buf2));
-			/* TODO: save RD format */
 			vty_out(vty,
-				"  network %s rd %pRDP ethtag %u label %u esi %s gwip %s routermac %s\n",
-				buf, prd, p->u.prefix_evpn.prefix_addr.eth_tag,
+				"  network %s rd %s ethtag %u label %u esi %s gwip %s routermac %s\n",
+				buf, bgp_static->prd_pretty,
+				p->u.prefix_evpn.prefix_addr.eth_tag,
 				decode_label(&bgp_static->label), esi_buf, buf2,
 				macrouter);
 
