@@ -444,7 +444,8 @@ static int vty_command(struct vty *vty, char *buf)
 	/*
 	 * Log non empty command lines
 	 */
-	if (do_log_commands)
+	if (do_log_commands &&
+	    strncmp(buf, "echo PING", strlen("echo PING")) != 0)
 		cp = buf;
 	if (cp != NULL) {
 		/* Skip white spaces. */
