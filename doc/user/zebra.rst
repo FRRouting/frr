@@ -1354,6 +1354,11 @@ zebra Terminal Mode Commands
    It dumps all the routes from RIB with detailed information including
    internal flags, status etc. This is defined as a hidden command.
 
+.. clicmd:: show <ip|ipv6> <nht|import-check> [<A.B.C.D|X:X::X:X>|vrf NAME [<A.B.C.D|X:X::X:X>]|vrf all] [json]
+
+   Display nexthops detailed information including the client details. This helps to
+   know the nexthops' resolution status.  
+
 
 Router-id
 =========
