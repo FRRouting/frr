@@ -175,7 +175,7 @@ def test_pim_reconvergence():
             "show ip pim neighbor json",
             {interface: {peer: None}},
         )
-        _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = '"{}" PIM convergence failure'.format(router)
         assert result is None, assertmsg
 
@@ -201,7 +201,7 @@ def test_pim_bfd_profile():
             "show bfd peers json",
             [settings],
         )
-        _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = '"{}" BFD convergence failure'.format(router)
         assert result is None, assertmsg
 
