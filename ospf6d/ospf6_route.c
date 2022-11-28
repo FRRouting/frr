@@ -246,7 +246,10 @@ void ospf6_merge_nexthops(struct list *dst, struct list *src)
 	}
 }
 
-int ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
+/*
+ * If the nexthops are the same return true
+ */
+bool ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
 {
 	struct listnode *anode, *bnode;
 	struct ospf6_nexthop *anh, *bnh;
@@ -264,14 +267,14 @@ int ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
 				/* Currnet List A element not found List B
 				 * Non-Identical lists return */
 				if (identical == false)
-					return 1;
+					return false;
 			}
-			return 0;
+			return true;
 		} else
-			return 1;
+			return false;
 	}
 	/* One of the routes doesn't exist ? */
-	return (1);
+	return false;
 }
 
 int ospf6_num_nexthops(struct list *nh_list)
@@ -577,12 +580,12 @@ ospf6_route_lookup_identical(struct ospf6_route *route,
 
 	for (target = ospf6_route_lookup(&route->prefix, table); target;
 	     target = target->next) {
-		if (target->type == route->type
-		    && prefix_same(&target->prefix, &route->prefix)
-		    && target->path.type == route->path.type
-		    && target->path.cost == route->path.cost
-		    && target->path.u.cost_e2 == route->path.u.cost_e2
-		    && ospf6_route_cmp_nexthops(target, route) == 0)
+		if (target->type == route->type &&
+		    prefix_same(&target->prefix, &route->prefix) &&
+		    target->path.type == route->path.type &&
+		    target->path.cost == route->path.cost &&
+		    target->path.u.cost_e2 == route->path.u.cost_e2 &&
+		    ospf6_route_cmp_nexthops(target, route))
 			return target;
 	}
 	return NULL;
