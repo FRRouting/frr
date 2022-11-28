@@ -104,11 +104,12 @@ int ospf_if_add_alldrouters(struct ospf *top, struct prefix *p,
 			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %pI4, ifindex %u, AllDRouters): %s; perhaps a kernel limit on # of multicast group memberships has been exceeded?",
 			top->fd, &p->u.prefix4, ifindex,
 			safe_strerror(errno));
-	else
-		zlog_debug(
-			"interface %pI4 [%u] join AllDRouters Multicast group.",
-			&p->u.prefix4, ifindex);
-
+	else {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"interface %pI4 [%u] join AllDRouters Multicast group.",
+				&p->u.prefix4, ifindex);
+	}
 	return ret;
 }
 
