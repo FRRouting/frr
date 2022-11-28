@@ -1613,15 +1613,18 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	struct interface *ifp;
 	int prev_family;
 	int peer_addr_updated = 0;
+	struct listnode *node;
+	union sockunion old_su;
 
+	/*
+	 * This function is only ever needed when FRR an interface
+	 * based peering, so this simple test will tell us if
+	 * we are in an interface based configuration or not
+	 */
 	if (!peer->conf_if)
 		return;
 
-	/*
-	 * Our peer structure is stored in the bgp->peerhash
-	 * release it before we modify anything.
-	 */
-	hash_release(peer->bgp->peerhash, peer);
+	old_su = peer->su;
 
 	prev_family = peer->su.sa.sa_family;
 	if ((ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
@@ -1664,9 +1667,48 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	}
 
 	/*
-	 * Since our su changed we need to del/add peer to the peerhash
+	 * If they are the same, nothing to do here, move along
 	 */
-	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	if (!sockunion_same(&old_su, &peer->su)) {
+		union sockunion new_su = peer->su;
+		struct bgp *bgp = peer->bgp;
+
+		/*
+		 * Our peer structure is stored in the bgp->peerhash
+		 * release it before we modify anything in both the
+		 * hash and the list.  But *only* if the peer
+		 * is in the bgp->peerhash as that on deletion
+		 * we call bgp_stop which calls this function :(
+		 * so on deletion let's remove from the list first
+		 * and then do the deletion preventing this from
+		 * being added back on the list below when we
+		 * fail to remove it up here.
+		 */
+
+		/*
+		 * listnode_lookup just scans the list
+		 * for the peer structure so it's safe
+		 * to use without modifying the su
+		 */
+		node = listnode_lookup(bgp->peer, peer);
+		if (node) {
+			/*
+			 * Let's reset the peer->su release and
+			 * reset it and put it back.  We have to
+			 * do this because hash_release will
+			 * scan through looking for a matching
+			 * su if needed.
+			 */
+			peer->su = old_su;
+			hash_release(peer->bgp->peerhash, peer);
+			listnode_delete(peer->bgp->peer, peer);
+
+			peer->su = new_su;
+			(void)hash_get(peer->bgp->peerhash, peer,
+				       hash_alloc_intern);
+			listnode_add_sort(peer->bgp->peer, peer);
+		}
+	}
 }
 
 void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi, safi_t safi)
@@ -1816,6 +1858,7 @@ struct peer *peer_create_accept(struct bgp *bgp)
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
+	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	return peer;
 }
@@ -2509,9 +2552,16 @@ int peer_delete(struct peer *peer)
 	/* Delete from all peer list. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
 	    && (pn = listnode_lookup(bgp->peer, peer))) {
-		peer_unlock(peer); /* bgp peer list reference */
+		/*
+		 * Removing from the list node first because
+		 * peer_unlock *can* call peer_delete( I know,
+		 * I know ).  So let's remove it and in
+		 * the su recalculate function we'll ensure
+		 * it's in there or not.
+		 */
 		list_delete_node(bgp->peer, pn);
 		hash_release(bgp->peerhash, peer);
+		peer_unlock(peer); /* bgp peer list reference */
 	}
 
 	/* Buffers.  */
@@ -3727,8 +3777,10 @@ int bgp_delete(struct bgp *bgp)
 	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
 		peer_group_delete(group);
 
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
+	while (listcount(bgp->peer)) {
+		peer = listnode_head(bgp->peer);
 		peer_delete(peer);
+	}
 
 	if (bgp->peer_self) {
 		peer_delete(bgp->peer_self);
