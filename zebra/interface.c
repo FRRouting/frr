@@ -4602,7 +4602,7 @@ static int if_config_write(struct vty *vty)
 							? ""
 							: "no ");
 				if (if_data->mpls == IF_ZEBRA_DATA_ON)
-					vty_out(vty, " mpls\n");
+					vty_out(vty, " mpls enable\n");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
