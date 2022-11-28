@@ -3939,6 +3939,12 @@ DEFUN (vtysh_ping,
 	return CMD_SUCCESS;
 }
 
+DEFUN(vtysh_motd, vtysh_motd_cmd, "show motd", SHOW_STR "Show motd\n")
+{
+	vty_hello(vty);
+	return CMD_SUCCESS;
+}
+
 ALIAS(vtysh_ping, vtysh_ping_ip_cmd, "ping ip WORD",
       "Send echo messages\n"
       "IP echo\n"
@@ -4907,6 +4913,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &no_vtysh_terminal_monitor_cmd);
 
 	install_element(VIEW_NODE, &vtysh_ping_cmd);
+	install_element(VIEW_NODE, &vtysh_motd_cmd);
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_ip_cmd);
