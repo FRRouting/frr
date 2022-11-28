@@ -497,6 +497,13 @@ struct cmd_node {
 #define ROLE_STR                                                               \
 	"Providing transit\nRoute server\nRS client\nUsing transit\nPublic/private peering\n"
 
+/* BFD protocol integration strings. */
+#define BFD_INTEGRATION_STR "BFD monitoring\n"
+#define BFD_INTEGRATION_MULTI_HOP_STR "Use BFD multi hop session\n"
+#define BFD_INTEGRATION_SOURCE_STR "Use source for BFD session\n"
+#define BFD_INTEGRATION_SOURCEV4_STR "Use IPv4 source for BFD session\n"
+#define BFD_INTEGRATION_SOURCEV6_STR "Use IPv4 source for BFD session\n"
+
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
