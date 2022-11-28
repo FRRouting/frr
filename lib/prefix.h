@@ -301,22 +301,6 @@ struct prefix_sg {
 	struct in_addr grp;
 };
 
-/* helper to get type safety/avoid casts on calls
- * (w/o this, functions accepting all prefix types need casts on the caller
- * side, which strips type safety since the cast will accept any pointer
- * type.)
- */
-#ifndef __cplusplus
-#define prefixtype(uname, typename, fieldname) \
-	typename *fieldname;
-#define TRANSPARENT_UNION __attribute__((transparent_union))
-#else
-#define prefixtype(uname, typename, fieldname) \
-	typename *fieldname; \
-	uname(typename *x) { this->fieldname = x; }
-#define TRANSPARENT_UNION
-#endif
-
 union prefixptr {
 	prefixtype(prefixptr, struct prefix,      p)
 	prefixtype(prefixptr, struct prefix_ipv4, p4)

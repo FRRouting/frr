@@ -72,6 +72,16 @@ extern "C" {
 #endif
 #endif
 
+#ifdef __INTELLISENSE__
+/*
+ * Fix Visual Studio Code error: attribute "constructor" does not take
+ * arguments.
+ *
+ * Caused by the macro `DEFINE_MTYPE_ATTR` in `lib/memory.h`.
+ */
+#pragma diag_suppress 1094
+#endif /* __INTELISENSE__ */
+
 #if __has_attribute(hot)
 #  define _OPTIMIZE_HOT __attribute__((hot))
 #else
@@ -410,6 +420,35 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
+
+/* helper to get type safety/avoid casts on calls
+ * (w/o this, functions accepting all prefix types need casts on the caller
+ * side, which strips type safety since the cast will accept any pointer
+ * type.)
+ */
+#ifndef __cplusplus
+#define prefixtype(uname, typename, fieldname) typename *fieldname;
+#define TRANSPARENT_UNION __attribute__((transparent_union))
+#else
+#define prefixtype(uname, typename, fieldname)                                 \
+	typename *fieldname;                                                   \
+	uname(typename *x)                                                     \
+	{                                                                      \
+		this->fieldname = x;                                           \
+	}
+#define TRANSPARENT_UNION
+#endif
+
+#ifdef __INTELLISENSE__
+/*
+ * Fix Visual Studio Code error: argument of type "struct prefix *" is
+ * incompatible with parameter of type "union prefixptr".
+ *
+ * This is caused by all functions having the transparent unions in the
+ * prototype. Example: `prefixptr` and `prefixconstptr` from `lib/prefix.h`.
+ */
+#pragma diag_suppress 167
+#endif /* __INTELISENSE__ */
 
 #ifdef __cplusplus
 }
