@@ -15,5 +15,6 @@ struct isis_srv6_db {
 };
 
 extern void isis_srv6_area_init(struct isis_area *area);
+extern void isis_srv6_area_term(struct isis_area *area);
 
 #endif /* _FRR_ISIS_SRV6_H */
