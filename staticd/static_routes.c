@@ -436,6 +436,8 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up,
 		nh->ifindex = IFINDEX_INTERNAL;
 	}
 
+	/* Remove previously configured route if any. */
+	static_uninstall_path(pn);
 	static_install_path(pn);
 }
 
