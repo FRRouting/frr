@@ -580,12 +580,7 @@ ospf6_route_lookup_identical(struct ospf6_route *route,
 
 	for (target = ospf6_route_lookup(&route->prefix, table); target;
 	     target = target->next) {
-		if (target->type == route->type &&
-		    prefix_same(&target->prefix, &route->prefix) &&
-		    target->path.type == route->path.type &&
-		    target->path.cost == route->path.cost &&
-		    target->path.u.cost_e2 == route->path.u.cost_e2 &&
-		    ospf6_route_cmp_nexthops(target, route))
+		if (ospf6_route_is_identical(target, route))
 			return target;
 	}
 	return NULL;
