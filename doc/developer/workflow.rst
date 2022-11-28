@@ -139,6 +139,10 @@ March/July/November.  Walking backwards from this date:
    version. Once the release is done, whatever updates we make to changelog
    files on the release branch need to be cherry-picked to the master branch.
 
+   Update essential dates in advance for reference table (below) when
+   the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
+   go in the ``master`` branch.
+
  - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
 
      .. code-block:: console
