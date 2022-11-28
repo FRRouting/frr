@@ -12,6 +12,12 @@
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
+
+	/* Area SRv6 configuration. */
+	struct {
+		/* Administrative status of SRv6 */
+		bool enabled;
+	} config;
 };
 
 extern void isis_srv6_area_init(struct isis_area *area);
