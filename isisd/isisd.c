@@ -3832,6 +3832,13 @@ struct cmd_node isis_flex_algo_node = {
 };
 #endif /* ifdnef FABRICD */
 
+struct cmd_node isis_srv6_node = {
+	.name = "isis-srv6",
+	.node = ISIS_SRV6_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-srv6)# ",
+};
+
 void isis_init(void)
 {
 	/* Install IS-IS top node */
@@ -3943,6 +3950,9 @@ void isis_init(void)
 	install_node(&isis_flex_algo_node);
 	install_default(ISIS_FLEX_ALGO_NODE);
 #endif /* ifdnef FABRICD */
+
+	install_node(&isis_srv6_node);
+	install_default(ISIS_SRV6_NODE);
 
 	spf_backoff_cmd_init();
 }
