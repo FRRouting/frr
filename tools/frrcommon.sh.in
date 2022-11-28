@@ -43,6 +43,10 @@ RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 #
 
 is_user_root () {
+	if [[ ! -z $FRR_NO_ROOT  &&  "${FRR_NO_ROOT}" == "yes" ]]; then
+		return 0
+	fi
+
 	[ "${EUID:-$(id -u)}" -eq 0 ] || {
 		log_failure_msg "Only users having EUID=0 can start/stop daemons"
 		return 1
