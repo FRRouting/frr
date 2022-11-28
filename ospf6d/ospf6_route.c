@@ -704,6 +704,27 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 	}
 
 	if (old) {
+		/* if route does not actually change, return unchanged */
+		if (ospf6_route_is_identical(old, route)) {
+			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+				zlog_debug(
+					"%s %p: route add %p: needless update of %p old cost %u",
+					ospf6_route_table_name(table),
+					(void *)table, (void *)route,
+					(void *)old, old->path.cost);
+			else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
+				zlog_debug("%s: route add: needless update",
+					   ospf6_route_table_name(table));
+
+			ospf6_route_delete(route);
+			SET_FLAG(old->flag, OSPF6_ROUTE_ADD);
+			ospf6_route_table_assert(table);
+
+			/* to free the lookup lock */
+			route_unlock_node(node);
+			return old;
+		}
+
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 			zlog_debug(
 				"%s %p: route add %p cost %u paths %u nh %u: update of %p cost %u paths %u nh %u",

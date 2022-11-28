@@ -297,6 +297,14 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 	 && (ra)->path.origin.type == (rb)->path.origin.type                   \
 	 && (ra)->path.origin.id == (rb)->path.origin.id                       \
 	 && (ra)->path.origin.adv_router == (rb)->path.origin.adv_router)
+#define ospf6_route_is_identical(ra, rb)                                       \
+	((ra)->type == (rb)->type &&                                           \
+	 prefix_same(&(ra)->prefix, &(rb)->prefix) &&                          \
+	 (ra)->path.type == (rb)->path.type &&                                 \
+	 (ra)->path.cost == (rb)->path.cost &&                                 \
+	 (ra)->path.u.cost_e2 == (rb)->path.u.cost_e2 &&                       \
+	 listcount(ra->paths) == listcount(rb->paths) &&                       \
+	 ospf6_route_cmp_nexthops(ra, rb) == 0)
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
