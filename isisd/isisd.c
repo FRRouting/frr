@@ -526,6 +526,7 @@ void isis_area_destroy(struct isis_area *area)
 #endif /* ifndef FABRICD */
 
 	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
 
 	isis_mpls_te_term(area);
 
