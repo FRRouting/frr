@@ -3966,7 +3966,8 @@ static void bgp_evpn_es_evi_show_entry(struct vty *vty,
 		json_object *json_types;
 
 		json_object_string_add(json, "esi", es_evi->es->esi_str);
-		json_object_int_add(json, "vni", es_evi->vpn->vni);
+		if (es_evi->vpn)
+			json_object_int_add(json, "vni", es_evi->vpn->vni);
 
 		if (es_evi->flags & (BGP_EVPNES_EVI_LOCAL |
 					BGP_EVPNES_EVI_REMOTE)) {
