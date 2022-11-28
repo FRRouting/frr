@@ -337,6 +337,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	flags_initialize(&area->flags);
 
 	isis_sr_area_init(area);
+	isis_srv6_area_init(area);
 
 	/*
 	 * Default values
