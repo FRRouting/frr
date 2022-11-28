@@ -65,6 +65,11 @@ struct static_route_args {
 	const char *label;
 	const char *table;
 	const char *color;
+
+	bool bfd;
+	bool bfd_multi_hop;
+	const char *bfd_source;
+	const char *bfd_profile;
 };
 
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
@@ -137,6 +142,11 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	/* Apply mask for given prefix. */
 	apply_mask(&p);
 	prefix2str(&p, buf_prefix, sizeof(buf_prefix));
+
+	if (args->bfd && args->gateway == NULL) {
+		vty_out(vty, "%% Route monitoring requires a gateway\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (args->source)
 		prefix2str(&src, buf_src_prefix, sizeof(buf_src_prefix));
@@ -332,6 +342,41 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 		}
+
+		if (args->bfd) {
+			char xpath_bfd[XPATH_MAXLEN];
+
+			if (args->bfd_source) {
+				strlcpy(xpath_bfd, xpath_nexthop,
+					sizeof(xpath_bfd));
+				strlcat(xpath_bfd,
+					"/frr-staticd:bfd-monitoring/source",
+					sizeof(xpath_bfd));
+				nb_cli_enqueue_change(vty, xpath_bfd,
+						      NB_OP_MODIFY,
+						      args->bfd_source);
+			}
+
+			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
+			strlcat(xpath_bfd,
+				"/frr-staticd:bfd-monitoring/multi-hop",
+				sizeof(xpath_bfd));
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_MODIFY,
+					      args->bfd_multi_hop ? "true"
+								  : "false");
+
+			if (args->bfd_profile) {
+				strlcpy(xpath_bfd, xpath_nexthop,
+					sizeof(xpath_bfd));
+				strlcat(xpath_bfd,
+					"/frr-staticd:bfd-monitoring/profile",
+					sizeof(xpath_bfd));
+				nb_cli_enqueue_change(vty, xpath_bfd,
+						      NB_OP_MODIFY,
+						      args->bfd_profile);
+			}
+		}
+
 		ret = nb_cli_apply_changes(vty, xpath_prefix);
 	} else {
 		if (args->source)
@@ -375,14 +420,23 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
-       "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [(1-255)$distance]",
+       "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
+       "(1-255)$distance"
+       "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}]"
+       "}]",
        NO_STR
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "Nexthop address\n"
        "Nexthop interface name\n"
-       "Distance\n")
+       "Distance\n"
+       BFD_INTEGRATION_STR
+       BFD_INTEGRATION_MULTI_HOP_STR
+       BFD_INTEGRATION_SOURCE_STR
+       BFD_INTEGRATION_SOURCEV4_STR
+       BFD_PROFILE_STR
+       BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -392,6 +446,10 @@ DEFPY_YANG (ip_mroute_dist,
 		.gateway = gate_str,
 		.interface_name = ifname,
 		.distance = distance_str,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -506,6 +564,7 @@ DEFPY_YANG(ip_route_address_interface,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -525,7 +584,13 @@ DEFPY_YANG(ip_route_address_interface,
       VRF_CMD_HELP_STR
       "Treat the nexthop as directly attached to the interface\n"
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -543,6 +608,10 @@ DEFPY_YANG(ip_route_address_interface,
 		.onlink = !!onlink,
 		.vrf = vrf,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -562,6 +631,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -580,7 +650,13 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       VRF_CMD_HELP_STR
       "Treat the nexthop as directly attached to the interface\n"
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -598,6 +674,10 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.onlink = !!onlink,
 		.xpath_vrf = true,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -616,6 +696,7 @@ DEFPY_YANG(ip_route,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -634,7 +715,13 @@ DEFPY_YANG(ip_route,
       "The table number to configure\n"
       VRF_CMD_HELP_STR
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -651,6 +738,10 @@ DEFPY_YANG(ip_route,
 		.color = color_str,
 		.vrf = vrf,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -668,6 +759,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -685,7 +777,13 @@ DEFPY_YANG(ip_route_vrf,
       "The table number to configure\n"
       VRF_CMD_HELP_STR
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -702,6 +800,10 @@ DEFPY_YANG(ip_route_vrf,
 		.color = color_str,
 		.xpath_vrf = true,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -814,6 +916,7 @@ DEFPY_YANG(ipv6_route_address_interface,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR
       IPV6_STR
@@ -834,7 +937,13 @@ DEFPY_YANG(ipv6_route_address_interface,
       VRF_CMD_HELP_STR
       "Treat the nexthop as directly attached to the interface\n"
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -852,6 +961,10 @@ DEFPY_YANG(ipv6_route_address_interface,
 		.onlink = !!onlink,
 		.vrf = vrf,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -870,6 +983,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR
       IPV6_STR
@@ -889,7 +1003,13 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
       VRF_CMD_HELP_STR
       "Treat the nexthop as directly attached to the interface\n"
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -907,6 +1027,10 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.onlink = !!onlink,
 		.xpath_vrf = true,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -924,6 +1048,7 @@ DEFPY_YANG(ipv6_route,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
             |color (1-4294967295)                          \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR
       IPV6_STR
@@ -943,7 +1068,13 @@ DEFPY_YANG(ipv6_route,
       "The table number to configure\n"
       VRF_CMD_HELP_STR
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -960,6 +1091,10 @@ DEFPY_YANG(ipv6_route,
 		.color = color_str,
 		.vrf = vrf,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -976,6 +1111,7 @@ DEFPY_YANG(ipv6_route_vrf,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
 	    |color (1-4294967295)                          \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
           }]",
       NO_STR
       IPV6_STR
@@ -994,7 +1130,13 @@ DEFPY_YANG(ipv6_route_vrf,
       "The table number to configure\n"
       VRF_CMD_HELP_STR
       "SR-TE color\n"
-      "The SR-TE color to configure\n")
+      "The SR-TE color to configure\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1011,6 +1153,10 @@ DEFPY_YANG(ipv6_route_vrf,
 		.color = color_str,
 		.xpath_vrf = true,
 		.nexthop_vrf = nexthop_vrf,
+		.bfd = !!bfd,
+		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_source = bfd_source_str,
+		.bfd_profile = bfd_profile,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1164,6 +1310,25 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	if (yang_dnode_exists(nexthop, "./srte-color"))
 		vty_out(vty, " color %s",
 			yang_dnode_get_string(nexthop, "./srte-color"));
+
+	if (yang_dnode_exists(nexthop, "./bfd-monitoring")) {
+		const struct lyd_node *bfd_dnode =
+			yang_dnode_get(nexthop, "./bfd-monitoring");
+
+		if (yang_dnode_get_bool(bfd_dnode, "./multi-hop")) {
+			vty_out(vty, " bfd multi-hop");
+
+			if (yang_dnode_exists(bfd_dnode, "./source"))
+				vty_out(vty, " source %s",
+					yang_dnode_get_string(bfd_dnode,
+							      "./source"));
+		} else
+			vty_out(vty, " bfd");
+
+		if (yang_dnode_exists(bfd_dnode, "./profile"))
+			vty_out(vty, " profile %s",
+				yang_dnode_get_string(bfd_dnode, "./profile"));
+	}
 
 	vty_out(vty, "\n");
 }
