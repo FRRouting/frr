@@ -2062,6 +2062,19 @@ DEFPY_YANG_NOSH (isis_srv6_enable,
 	return ret;
 }
 
+DEFPY_YANG (no_isis_srv6_enable,
+       no_isis_srv6_enable_cmd,
+       "no segment-routing srv6",
+       NO_STR
+       SR_STR
+       "Disable Segment Routing over IPv6 (SRv6)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing-srv6", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
@@ -3841,6 +3854,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_frr_remote_lfa_plist_cmd);
 
 	install_element(ISIS_NODE, &isis_srv6_enable_cmd);
+	install_element(ISIS_NODE, &no_isis_srv6_enable_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
 
