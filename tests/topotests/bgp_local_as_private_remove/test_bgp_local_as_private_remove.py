@@ -85,13 +85,17 @@ def test_bgp_remove_private_as():
         pytest.skip(tgen.errors)
 
     def _bgp_converge(router):
-        while True:
+        count = 0
+        while count<20 :
+            count +=1
+            time.sleep(1)
             output = json.loads(
                 tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json")
             )
             if output["192.168.255.1"]["bgpState"] == "Established":
                 time.sleep(1)
                 return True
+        return False
 
     def _bgp_as_path(router):
         output = json.loads(
