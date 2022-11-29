@@ -372,7 +372,6 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 			  json_object *json)
 {
-	char buf1[INET6_ADDRSTRLEN];
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct vrf_route_target *l3rt;
@@ -419,9 +418,8 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-pip: %s\n",
 			bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
-		vty_out(vty, "  System-IP: %s\n",
-			inet_ntop(AF_INET, &bgp_vrf->evpn_info->pip_ip,
-				  buf1, INET_ADDRSTRLEN));
+		vty_out(vty, "  System-IP: %pI4\n",
+			&bgp_vrf->evpn_info->pip_ip);
 		vty_out(vty, "  System-MAC: %s\n",
 				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
 					       buf2, sizeof(buf2)));
@@ -7071,8 +7069,6 @@ static int vni_cmp(const void **a, const void **b)
 void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				safi_t safi)
 {
-	char buf2[INET6_ADDRSTRLEN];
-
 	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
 
@@ -7217,10 +7213,8 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (bgp->evpn_info->advertise_pip) {
 			if (bgp->evpn_info->pip_ip_static.s_addr
 			    != INADDR_ANY) {
-				vty_out(vty, "  advertise-pip ip %s",
-					inet_ntop(AF_INET,
-					&bgp->evpn_info->pip_ip_static,
-					buf2, INET_ADDRSTRLEN));
+				vty_out(vty, "  advertise-pip ip %pI4",
+					&bgp->evpn_info->pip_ip_static);
 				if (!is_zero_mac(&(
 					    bgp->evpn_info->pip_rmac_static))) {
 					char buf[ETHER_ADDR_STRLEN];

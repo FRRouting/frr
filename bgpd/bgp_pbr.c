@@ -1636,9 +1636,8 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				ptr_ip = &api->actions[i].u.zr.redirect_ip_v4;
 			else
 				ptr_ip = &api->actions[i].u.zr.redirect_ip_v6;
-			if (inet_ntop(afi2family(api->afi),
-				      ptr_ip, local_buff,
-				      INET6_ADDRSTRLEN) != NULL) {
+			if (inet_ntop(afi2family(api->afi), ptr_ip, local_buff,
+				      sizeof(local_buff)) != NULL) {
 				delta = snprintf(ptr, len,
 					  "@redirect ip nh %s", local_buff);
 				len -= delta;
