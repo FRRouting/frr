@@ -4795,6 +4795,36 @@ static void bgp_route_map_event(const char *rmap_name)
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
+
+void bgp_route_map_tracker_event(const char *tracker_name)
+{
+	struct route_map_index *index;
+	struct route_map_rule *rule;
+	struct route_map *map;
+	bool found;
+
+	for (map = route_map_master.head; map; map = map->next) {
+		found = false;
+		for (index = map->head; index; index = index->next) {
+			for (rule = index->match_list.head; rule;
+			     rule = rule->next) {
+				if ((strncmp(rule->cmd->str, "tracker",
+					     strlen("tracker"))
+				     == 0)
+				    && (strncmp(rule->rule_str, tracker_name,
+						strlen(tracker_name))
+					== 0)) {
+					bgp_route_map_event(map->name);
+					found = true;
+					break;
+				}
+			}
+			if (found)
+				break;
+		}
+	}
+}
+
 DEFUN_YANG (match_mac_address,
 	    match_mac_address_cmd,
 	    "match mac address ACCESSLIST_MAC_NAME",
