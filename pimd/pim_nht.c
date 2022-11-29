@@ -724,20 +724,13 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	if (cmd == ZEBRA_NEXTHOP_UPDATE) {
-		rpf.rpf_addr = pim_addr_from_prefix(&match);
-		pnc = pim_nexthop_cache_find(pim, &rpf);
-		if (!pnc) {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
-					__func__, &rpf.rpf_addr);
-			return 0;
-		}
-	} else {
-		/*
-		 * We do not currently handle ZEBRA_IMPORT_CHECK_UPDATE
-		 */
+	rpf.rpf_addr = pim_addr_from_prefix(&match);
+	pnc = pim_nexthop_cache_find(pim, &rpf);
+	if (!pnc) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug(
+				"%s: Skipping NHT update, addr %pPA is not in local cached DB.",
+				__func__, &rpf.rpf_addr);
 		return 0;
 	}
 
