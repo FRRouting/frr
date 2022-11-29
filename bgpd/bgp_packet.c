@@ -979,10 +979,11 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
+		peer->notify.length = bgp_notify.length;
 
 		if (bgp_notify.length && data) {
-			bgp_notify.data =
-				XMALLOC(MTYPE_TMP, bgp_notify.length * 3);
+			bgp_notify.data = XMALLOC(MTYPE_BGP_NOTIFICATION,
+						  bgp_notify.length * 3);
 			for (i = 0; i < bgp_notify.length; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
@@ -1002,7 +1003,15 @@ static void bgp_notify_send_internal(struct peer *peer, uint8_t code,
 		bgp_notify_print(peer, &bgp_notify, "sending", hard_reset);
 
 		if (bgp_notify.data) {
-			XFREE(MTYPE_TMP, bgp_notify.data);
+			if (data) {
+				XFREE(MTYPE_BGP_NOTIFICATION,
+				      peer->notify.data);
+				peer->notify.data = XCALLOC(
+					MTYPE_BGP_NOTIFICATION, datalen);
+				memcpy(peer->notify.data, data, datalen);
+			}
+
+			XFREE(MTYPE_BGP_NOTIFICATION, bgp_notify.data);
 			bgp_notify.length = 0;
 		}
 	}
