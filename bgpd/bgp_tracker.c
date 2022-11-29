@@ -86,6 +86,8 @@ void bgp_tracker_del(char *name)
 
 	zlog_info("Tracker name %s deleted", tracker->name);
 
+	bgp_route_map_tracker_event(tracker->name);
+
 	_bgp_tracker_free(tracker);
 }
 
@@ -99,6 +101,8 @@ void bgp_tracker_set(char *name, bool status)
 		  status ? "Up" : "Down");
 
 	tracker->status = status;
+
+	bgp_route_map_tracker_event(tracker->name);
 }
 
 void bgp_tracker_init()
