@@ -36,11 +36,13 @@ import os
 import sys
 import json
 import pytest
+import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 pytestmark = [pytest.mark.bgpd]
@@ -83,29 +85,36 @@ def test_bgp_maximum_prefix_invalid():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def _bgp_converge(router):
-        while True:
-            output = json.loads(
-                tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json")
-            )
-            if output["192.168.255.1"]["connectionsEstablished"] > 0:
-                return True
+    r2 = tgen.gears["r2"]
 
-    def _bgp_parsing_nlri(router):
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
+        expected = {
+            "192.168.255.1": {
+                "connectionsEstablished": 1,
+                "connectionsDropped": 1,
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Can't converge initially"
+
+    def _bgp_parsing_nlri():
         cmd_max_exceeded = (
             'grep "%MAXPFXEXCEED: No. of IPv4 Unicast prefix received" bgpd.log'
         )
         cmdt_error_parsing_nlri = 'grep "Error parsing NLRI" bgpd.log'
-        output_max_exceeded = tgen.gears[router].run(cmd_max_exceeded)
-        output_error_parsing_nlri = tgen.gears[router].run(cmdt_error_parsing_nlri)
+        output_max_exceeded = r2.run(cmd_max_exceeded)
+        output_error_parsing_nlri = r2.run(cmdt_error_parsing_nlri)
 
         if len(output_max_exceeded) > 0:
             if len(output_error_parsing_nlri) > 0:
                 return False
         return True
 
-    if _bgp_converge("r2"):
-        assert _bgp_parsing_nlri("r2") == True
+    assert _bgp_parsing_nlri() == True
 
 
 if __name__ == "__main__":
