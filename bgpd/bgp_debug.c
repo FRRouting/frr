@@ -378,8 +378,6 @@ bool bgp_debug_peer_updout_enabled(char *host)
 /* Dump attribute. */
 bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 {
-	char addrbuf[BUFSIZ];
-
 	if (!attr)
 		return false;
 
@@ -395,15 +393,12 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	/* Add MP case. */
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
 	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", mp_nexthop %s",
-			 inet_ntop(AF_INET6, &attr->mp_nexthop_global, addrbuf,
-				   BUFSIZ));
+		snprintfrr(buf + strlen(buf), size - strlen(buf),
+			   ", mp_nexthop %pI6", &attr->mp_nexthop_global);
 
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-		snprintf(buf + strlen(buf), size - strlen(buf), "(%s)",
-			 inet_ntop(AF_INET6, &attr->mp_nexthop_local, addrbuf,
-				   BUFSIZ));
+		snprintfrr(buf + strlen(buf), size - strlen(buf), "(%pI6)",
+			   &attr->mp_nexthop_local);
 
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
 		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);

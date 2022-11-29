@@ -9884,7 +9884,6 @@ DEFPY (show_bgp_srv6,
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
-	char buf[256];
 
 	bgp = bgp_get_default();
 	if (!bgp)
@@ -9903,8 +9902,7 @@ DEFPY (show_bgp_srv6,
 
 	vty_out(vty, "functions:\n");
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
-		inet_ntop(AF_INET6, &func->sid, buf, sizeof(buf));
-		vty_out(vty, "- sid: %s\n", buf);
+		vty_out(vty, "- sid: %pI6\n", &func->sid);
 		vty_out(vty, "  locator: %s\n", func->locator_name);
 	}
 
@@ -12850,7 +12848,6 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			  json_object *json)
 {
 	struct bgp *bgp;
-	char buf1[PREFIX2STR_BUFFER];
 	char timebuf[BGP_UPTIME_LEN];
 	char dn_flag[2];
 	afi_t afi;
@@ -13174,11 +13171,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* BGP Version. */
 		vty_out(vty, "  BGP version 4");
-		vty_out(vty, ", remote router ID %s",
-			inet_ntop(AF_INET, &p->remote_id, buf1, sizeof(buf1)));
-		vty_out(vty, ", local router ID %s\n",
-			inet_ntop(AF_INET, &bgp->router_id, buf1,
-					sizeof(buf1)));
+		vty_out(vty, ", remote router ID %pI4", &p->remote_id);
+		vty_out(vty, ", local router ID %pI4\n", &bgp->router_id);
 
 		/* Confederation */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
@@ -14548,15 +14542,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						       "bgpConnection",
 						       "nonSharedNetwork");
 		} else {
-			vty_out(vty, "Nexthop: %s\n",
-				inet_ntop(AF_INET, &p->nexthop.v4, buf1,
-					  sizeof(buf1)));
-			vty_out(vty, "Nexthop global: %s\n",
-				inet_ntop(AF_INET6, &p->nexthop.v6_global, buf1,
-					  sizeof(buf1)));
-			vty_out(vty, "Nexthop local: %s\n",
-				inet_ntop(AF_INET6, &p->nexthop.v6_local, buf1,
-					  sizeof(buf1)));
+			vty_out(vty, "Nexthop: %pI4\n", &p->nexthop.v4);
+			vty_out(vty, "Nexthop global: %pI6\n",
+				&p->nexthop.v6_global);
+			vty_out(vty, "Nexthop local: %pI6\n",
+				&p->nexthop.v6_local);
 			vty_out(vty, "BGP connection: %s\n",
 				p->shared_network ? "shared network"
 						  : "non shared network");

@@ -4789,14 +4789,9 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 			bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
 		else {
-			if (BGP_DEBUG(nht, NHT)) {
-				char buf1[INET6_ADDRSTRLEN];
-				inet_ntop(AF_INET,
-					  (const void *)&attr_new->nexthop,
-					  buf1, INET6_ADDRSTRLEN);
-				zlog_debug("%s(%s): NH unresolved", __func__,
-					   buf1);
-			}
+			if (BGP_DEBUG(nht, NHT))
+				zlog_debug("%s(%pI4): NH unresolved", __func__,
+					   &attr_new->nexthop);
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
 	} else {
@@ -6296,7 +6291,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 						char buf1[INET6_ADDRSTRLEN];
 						inet_ntop(p->family,
 							  &p->u.prefix, buf1,
-							  INET6_ADDRSTRLEN);
+							  sizeof(buf1));
 						zlog_debug(
 							"%s(%s): Route not in table, not advertising",
 							__func__, buf1);
@@ -6346,8 +6341,9 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
 				char buf1[INET6_ADDRSTRLEN];
+
 				inet_ntop(p->family, &p->u.prefix, buf1,
-					  INET6_ADDRSTRLEN);
+					  sizeof(buf1));
 				zlog_debug(
 					"%s(%s): Route not in table, not advertising",
 					__func__, buf1);
@@ -8910,7 +8906,7 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 				struct vty *vty, json_object *json, bool wide)
 {
 	int len = 0;
-	char buf[BUFSIZ];
+	char buf[INET6_ADDRSTRLEN];
 
 	if (p->family == AF_INET) {
 		if (!json) {
@@ -8919,7 +8915,7 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 			json_object_string_add(json, "prefix",
 					       inet_ntop(p->family,
 							 &p->u.prefix, buf,
-							 BUFSIZ));
+							 sizeof(buf)));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
 			json_object_string_addf(json, "network", "%pFX", p);
 			json_object_int_add(json, "version", dest->version);
@@ -8941,9 +8937,9 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 			len = vty_out(vty, "%pFX", p);
 		else {
 			json_object_string_add(json, "prefix",
-						inet_ntop(p->family,
-							&p->u.prefix, buf,
-							BUFSIZ));
+					       inet_ntop(p->family,
+							 &p->u.prefix, buf,
+							 sizeof(buf)));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
 			json_object_string_addf(json, "network", "%pFX", p);
 			json_object_int_add(json, "version", dest->version);
@@ -9212,20 +9208,17 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	 * attr->mp_nexthop_global_in
 	 */
 	if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN)) {
-		char buf[BUFSIZ];
 		char nexthop[128];
 		int af = NEXTHOP_FAMILY(attr->mp_nexthop_len);
 
 		switch (af) {
 		case AF_INET:
-			snprintf(nexthop, sizeof(nexthop), "%s",
-				 inet_ntop(af, &attr->mp_nexthop_global_in, buf,
-					   BUFSIZ));
+			snprintfrr(nexthop, sizeof(nexthop), "%pI4",
+				   &attr->mp_nexthop_global_in);
 			break;
 		case AF_INET6:
-			snprintf(nexthop, sizeof(nexthop), "%s",
-				 inet_ntop(af, &attr->mp_nexthop_global, buf,
-					   BUFSIZ));
+			snprintfrr(nexthop, sizeof(nexthop), "%pI6",
+				   &attr->mp_nexthop_global);
 			break;
 		default:
 			snprintf(nexthop, sizeof(nexthop), "?");
@@ -9696,13 +9689,8 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 					vty_out(vty, "%-16pI4", &attr->nexthop);
 			} else if (p->family == AF_INET6 ||
 				   BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) {
-				char buf[BUFSIZ];
-
-				len = vty_out(
-					vty, "%s",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global, buf,
-						  BUFSIZ));
+				len = vty_out(vty, "%pI6",
+					      &attr->mp_nexthop_global);
 				len = wide ? (41 - len) : (16 - len);
 				if (len < 1)
 					vty_out(vty, "\n%*s", 36, " ");
@@ -10216,7 +10204,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			  json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
-	char buf1[BUFSIZ];
 	char tag_buf[30];
 	struct attr *attr = path->attr;
 	time_t tbuf;
@@ -10596,10 +10583,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 				vty_out(vty, " (%pI4)", &attr->originator_id);
 			else
-				vty_out(vty, " (%s)",
-					inet_ntop(AF_INET,
-						  &path->peer->remote_id, buf1,
-						  sizeof(buf1)));
+				vty_out(vty, " (%pI4)", &path->peer->remote_id);
 		}
 	}
 
@@ -11012,11 +10996,12 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Remote SID */
 	if (path->extra && path->extra->num_sids > 0 && safi != SAFI_EVPN) {
-		inet_ntop(AF_INET6, &path->extra->sid[0].sid, buf, sizeof(buf));
 		if (json_paths)
-			json_object_string_add(json_path, "remoteSid", buf);
+			json_object_string_addf(json_path, "remoteSid", "%pI6",
+						&path->extra->sid[0].sid);
 		else
-			vty_out(vty, "      Remote SID: %s\n", buf);
+			vty_out(vty, "      Remote SID: %pI6\n",
+				&path->extra->sid[0].sid);
 	}
 
 	/* Label Index */
@@ -15517,13 +15502,15 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 			/* "network" configuration display.  */
 			if (p->u.prefix_evpn.route_type == 5) {
 				char local_buf[PREFIX_STRLEN];
+
 				uint8_t family = is_evpn_prefix_ipaddr_v4((
 							 struct prefix_evpn *)p)
 							 ? AF_INET
 							 : AF_INET6;
 				inet_ntop(family,
-					  &p->u.prefix_evpn.prefix_addr.ip.ip.addr,
-					  local_buf, PREFIX_STRLEN);
+					  &p->u.prefix_evpn.prefix_addr.ip.ip
+						   .addr,
+					  local_buf, sizeof(local_buf));
 				snprintf(buf, sizeof(buf), "%s/%u", local_buf,
 					 p->u.prefix_evpn.prefix_addr
 						 .ip_prefix_length);

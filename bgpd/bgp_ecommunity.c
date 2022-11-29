@@ -988,13 +988,8 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				    type == ECOMMUNITY_ENCODE_IP) {
 					struct in_addr *ipv4 =
 						(struct in_addr *)pnt;
-					char ipv4str[INET_ADDRSTRLEN];
-
-					inet_ntop(AF_INET, ipv4,
-						  ipv4str,
-						  INET_ADDRSTRLEN);
-					snprintf(encbuf, sizeof(encbuf),
-						 "NH:%s:%d", ipv4str, pnt[5]);
+					snprintfrr(encbuf, sizeof(encbuf),
+						   "NH:%pI4:%d", ipv4, pnt[5]);
 				} else if (sub_type ==
 					   ECOMMUNITY_LINK_BANDWIDTH &&
 					   type == ECOMMUNITY_ENCODE_AS) {

@@ -904,20 +904,16 @@ static void attrhash_finish(void)
 static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
 	struct attr *attr = bucket->data;
-	char sid_str[BUFSIZ];
 
 	vty_out(vty, "attr[%ld] nexthop %pI4\n", attr->refcnt, &attr->nexthop);
 
-	sid_str[0] = '\0';
-	if (attr->srv6_l3vpn)
-		inet_ntop(AF_INET6, &attr->srv6_l3vpn->sid, sid_str, BUFSIZ);
-	else if (attr->srv6_vpn)
-		inet_ntop(AF_INET6, &attr->srv6_vpn->sid, sid_str, BUFSIZ);
-
 	vty_out(vty,
-		"\tflags: %" PRIu64" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
+		"\tflags: %" PRIu64
+		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
-		attr->origin, attr->weight, attr->label, sid_str);
+		attr->origin, attr->weight, attr->label,
+		attr->srv6_l3vpn ? &attr->srv6_l3vpn->sid
+				 : &attr->srv6_vpn->sid);
 }
 
 void attr_show_all(struct vty *vty)
@@ -1746,12 +1742,9 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 
 	if (ipv4_martian(&attr->nexthop) && !bgp->allow_martian) {
 		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
-		char buf[INET_ADDRSTRLEN];
 
-		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
-			  INET_ADDRSTRLEN);
-		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
-			 buf);
+		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %pI4",
+			 &attr->nexthop);
 		data[0] = BGP_ATTR_FLAG_TRANS;
 		data[1] = BGP_ATTR_NEXT_HOP;
 		data[2] = BGP_ATTR_NHLEN_IPV4;
@@ -2758,7 +2751,6 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	uint16_t length, endpoint_behavior;
 	size_t headersz = sizeof(type) + sizeof(length);
 	enum bgp_attr_parse_ret err;
-	char buf[BUFSIZ];
 
 	if (STREAM_READABLE(peer->curr) < headersz) {
 		flog_err(
@@ -2789,12 +2781,11 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		stream_getc(peer->curr);
 
 		/* Log SRv6 Service Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
 			zlog_debug(
-				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
-				__func__, buf, sid_flags, endpoint_behavior);
-		}
+				"%s: srv6-l3-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
+				__func__, &ipv6_sid, sid_flags,
+				endpoint_behavior);
 
 		/* Configure from Info */
 		if (attr->srv6_l3vpn) {
@@ -2855,7 +2846,6 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 	uint32_t srgb_range;
 	int srgb_count;
 	uint8_t sid_type, sid_flags;
-	char buf[BUFSIZ];
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
 		if (STREAM_READABLE(peer->curr) < length
@@ -2986,12 +2976,10 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			   sizeof(ipv6_sid)); /* sid_value */
 
 		/* Log VPN-SID Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
 			zlog_debug(
-				"%s: vpn-sid: sid %s, sid-type 0x%02x sid-flags 0x%02x",
-				__func__, buf, sid_type, sid_flags);
-		}
+				"%s: vpn-sid: sid %pI6, sid-type 0x%02x sid-flags 0x%02x",
+				__func__, &ipv6_sid, sid_type, sid_flags);
 
 		/* Configure from Info */
 		if (attr->srv6_vpn) {
