@@ -305,7 +305,8 @@ the default route.
    indicates that the operator wants to see the multicast rib address resolution
    table.  An alternative form of the command is ``show ip import-check`` and this
    form of the command is deprecated at this point in time.
-   If the ``json`` option is specified, output is displayed in JSON format.
+   User can get that information as JSON string when ``json`` key word
+   at the end of cli is presented.
 
 PBR dataplane programming
 =========================
