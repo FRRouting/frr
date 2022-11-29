@@ -4775,7 +4775,7 @@ void bgp_route_map_update_timer(struct event *thread)
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 }
 
-static void bgp_route_map_mark_update(const char *rmap_name)
+static void bgp_route_map_mark_update_timer(const char *rmap_name, bool timer)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -4786,9 +4786,9 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 	EVENT_OFF(bm->t_rmap_update);
 
 	/* rmap_update_timer of 0 means don't do route updates */
-	if (bm->rmap_update_timer) {
+	if (bm->rmap_update_timer || !timer) {
 		event_add_timer(bm->master, bgp_route_map_update_timer, NULL,
-				bm->rmap_update_timer, &bm->t_rmap_update);
+				timer ? bm->rmap_update_timer : 0, &bm->t_rmap_update);
 
 		/* Signal the groups that a route-map update event has
 		 * started */
@@ -4805,6 +4805,11 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 
 		vpn_policy_routemap_event(rmap_name);
 	}
+}
+
+static void bgp_route_map_mark_update(const char *rmap_name)
+{
+	bgp_route_map_mark_update_timer(rmap_name, true);
 }
 
 static void bgp_route_map_add(const char *rmap_name)
@@ -4849,6 +4854,13 @@ static void bgp_route_map_event(const char *rmap_name)
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
+static void _bgp_route_map_tracker_event(const char *rmap_name)
+{
+	if (route_map_mark_updated(rmap_name) == 0)
+		bgp_route_map_mark_update_timer(rmap_name, false);
+
+	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
+}
 
 void bgp_route_map_tracker_event(const char *tracker_name)
 {
@@ -4868,7 +4880,7 @@ void bgp_route_map_tracker_event(const char *tracker_name)
 				    && (strncmp(rule->rule_str, tracker_name,
 						strlen(tracker_name))
 					== 0)) {
-					bgp_route_map_event(map->name);
+					_bgp_route_map_tracker_event(map->name);
 					found = true;
 					break;
 				}
