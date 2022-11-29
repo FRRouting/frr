@@ -7,9 +7,10 @@
 #define _BGP_NHT_H
 
 /**
- * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
+ * bgp_nexthop_update() - process a nexthop update message from Zebra.
  */
-extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
+extern void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
+			       struct zapi_route *nhr);
 
 /**
  * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc

@@ -100,13 +100,6 @@ static int bgp_router_id_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-/* Nexthop update message from zebra. */
-static int bgp_read_nexthop_update(ZAPI_CALLBACK_ARGS)
-{
-	bgp_parse_nexthop_update(cmd, vrf_id);
-	return 0;
-}
-
 /* Set or clear interface on which unnumbered neighbor is configured. This
  * would in turn cause BGP to initiate or turn off IPv6 RAs on this
  * interface.
@@ -3332,7 +3325,6 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_INTERFACE_NBR_ADDRESS_DELETE] = bgp_interface_nbr_address_delete,
 	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = zebra_read_route,
 	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = zebra_read_route,
-	[ZEBRA_NEXTHOP_UPDATE] = bgp_read_nexthop_update,
 	[ZEBRA_FEC_UPDATE] = bgp_read_fec_update,
 	[ZEBRA_LOCAL_ES_ADD] = bgp_zebra_process_local_es_add,
 	[ZEBRA_LOCAL_ES_DEL] = bgp_zebra_process_local_es_del,
@@ -3454,6 +3446,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
 	zclient->zebra_capabilities = bgp_zebra_capabilities;
+	zclient->nexthop_update = bgp_nexthop_update;
 	zclient->instance = instance;
 
 	/* Initialize special zclient for synchronous message exchanges. */
