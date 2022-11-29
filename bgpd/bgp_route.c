@@ -4279,14 +4279,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	    && (!CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)))
 		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 
-	/* If maximum prefix count is configured and current prefix
-	 * count exeed it.
-	 */
-	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
-		bgp_attr_flush(&new_attr);
-		return -1;
-	}
-
 	/* If neighbor soo is configured, tag all incoming routes with
 	 * this SoO tag and then filter out advertisements in
 	 * subgroup_announce_check() if it matches the configured SoO
@@ -4804,6 +4796,17 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_path_info_set_flag(dest, new, BGP_PATH_ACCEPT_OWN);
 
 		bgp_path_info_set_flag(dest, new, BGP_PATH_VALID);
+	}
+
+	/* If maximum prefix count is configured and current prefix
+	 * count exeed it.
+	 */
+	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
+		reason = "maximum-prefix overflow";
+		bgp_attr_flush(&new_attr);
+		bgp_unlink_nexthop(new);
+		bgp_path_info_delete(dest, new);
+		goto filtered;
 	}
 
 	/* Addpath ID */
