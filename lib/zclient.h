@@ -293,6 +293,8 @@ struct zapi_cap {
 typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
 /* clang-format on */
 
+struct zapi_route;
+
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
@@ -347,6 +349,8 @@ struct zclient {
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
+	void (*nexthop_update)(struct vrf *vrf, struct prefix *match,
+			       struct zapi_route *nhr);
 
 	int (*handle_error)(enum zebra_error_types error);
 
