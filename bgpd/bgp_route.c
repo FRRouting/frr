@@ -4237,9 +4237,11 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			new_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 			new_attr.local_pref = BGP_GSHUT_LOCAL_PREF;
 
-			/* If graceful-shutdown is configured then add the GSHUT
-			 * community to all paths received from eBGP peers */
-		} else if (bgp_in_graceful_shutdown(peer->bgp))
+			/* If graceful-shutdown is configured globally or
+			 * per neighbor, then add the GSHUT community to
+			 * all paths received from eBGP peers. */
+		} else if (bgp_in_graceful_shutdown(peer->bgp) ||
+			   CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&new_attr);
 	}
 
