@@ -4235,6 +4235,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 {
 	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
+	bool sr_algo_subtlv_present = false;
 
 	if (!router_cap)
 		return 0;
@@ -4268,6 +4269,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
 				if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
 					stream_putc(s, router_cap->algo[i]);
+			sr_algo_subtlv_present = true;
 		}
 
 		/* Local Block if defined as per RFC8667 section #3.3 */
@@ -4371,6 +4373,24 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES);
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 		stream_putw(s, router_cap->srv6_cap.flags);
+
+		/*
+		 * Then add SR Algorithm if set and if we haven't already
+		 * added it when we processed SR-MPLS related Sub-TLVs as
+		 * per RFC 9352 section #3
+		 */
+		if (!sr_algo_subtlv_present) {
+			nb_algo = isis_tlvs_sr_algo_count(router_cap);
+			if (nb_algo > 0) {
+				stream_putc(s, ISIS_SUBTLV_ALGORITHM);
+				stream_putc(s, nb_algo);
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+					if (router_cap->algo[i] !=
+					    SR_ALGORITHM_UNSET)
+						stream_putc(s,
+							    router_cap->algo[i]);
+			}
+		}
 	}
 
 	/* Adjust TLV length which depends on subTLVs presence */
