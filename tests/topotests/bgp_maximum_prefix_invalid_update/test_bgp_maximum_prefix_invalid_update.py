@@ -87,34 +87,19 @@ def test_bgp_maximum_prefix_invalid():
 
     r2 = tgen.gears["r2"]
 
-    def _bgp_converge():
+    def _bgp_parsing_nlri():
         output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
-                "connectionsEstablished": 1,
-                "connectionsDropped": 1,
+                "lastNotificationReason": "Cease/Maximum Number of Prefixes Reached",
+                "lastResetDueTo": "BGP Notification send",
             }
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge)
+    test_func = functools.partial(_bgp_parsing_nlri)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result is None, "Can't converge initially"
-
-    def _bgp_parsing_nlri():
-        cmd_max_exceeded = (
-            'grep "%MAXPFXEXCEED: No. of IPv4 Unicast prefix received" bgpd.log'
-        )
-        cmdt_error_parsing_nlri = 'grep "Error parsing NLRI" bgpd.log'
-        output_max_exceeded = r2.run(cmd_max_exceeded)
-        output_error_parsing_nlri = r2.run(cmdt_error_parsing_nlri)
-
-        if len(output_max_exceeded) > 0:
-            if len(output_error_parsing_nlri) > 0:
-                return False
-        return True
-
-    assert _bgp_parsing_nlri() == True
+    assert result is None, "Didn't send NOTIFICATION when hitting maximum-prefix"
 
 
 if __name__ == "__main__":
