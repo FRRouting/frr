@@ -45,3 +45,10 @@ void isis_srv6_area_term(struct isis_area *area)
 {
 	sr_debug("ISIS-SRv6 (%s): Terminate SRv6", area->area_tag);
 }
+
+/**
+ * IS-IS SRv6 global initialization.
+ */
+void isis_srv6_init(void)
+{
+}

@@ -296,6 +296,7 @@ int main(int argc, char **argv, char **envp)
 	isis_route_map_init();
 	isis_mpls_te_init();
 	isis_sr_init();
+	isis_srv6_init();
 	lsp_init();
 	mt_init();
 
