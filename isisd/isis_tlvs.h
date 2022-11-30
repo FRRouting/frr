@@ -414,6 +414,17 @@ enum isis_tlv_type {
 
 	ISIS_SUBTLV_MAX = 40,
 
+	/* RFC 9352 section #2 */
+	ISIS_SUBTLV_SRV6_CAPABILITIES = 25,
+	/* RFC 9352 section #4.1 */
+	ISIS_SUBTLV_SRV6_MAX_SL_MSD = 41,
+	/* RFC 9352 section #4.2 */
+	ISIS_SUBTLV_SRV6_MAX_END_POP_MSD = 42,
+	/* RFC 9352 section #4.3 */
+	ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD = 44,
+	/* RFC 9352 section #4.4 */
+	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
+
 	/* draft-ietf-lsr-isis-srv6-extensions */
 	ISIS_SUBSUBTLV_SID_STRUCTURE = 1,
 
@@ -462,6 +473,9 @@ enum ext_subtlv_size {
 
 	/* RFC9350 - Flex-Algorithm */
 	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE = 1,
+
+	/* RFC 9352 section #2 */
+	ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE = 2,
 };
 
 enum ext_subsubtlv_types {
