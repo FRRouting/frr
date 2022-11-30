@@ -406,6 +406,124 @@ def test_ospfv3_nssa_tc26_p0(request):
     write_test_footer(tc_name)
 
 
+def test_ospfv3_learning_tc15_p0(request):
+    """Verify OSPF can learn different types of LSA and processes them.
+
+    OSPF Learning : Edge learning different types of LSAs.
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+
+    global topo
+    step("Bring up the base config as per the topology")
+    step("Configure area 1 as NSSA Area")
+
+    reset_config_on_routers(tgen)
+
+    step("Verify that Type 3 summary LSA is originated for the same Area 0")
+    ip = topo["routers"]["r1"]["links"]["r3-link0"]["ipv6"]
+    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+
+    input_dict = {
+        "r1": {
+            "static_routes": [
+                {
+                    "network": ip_net,
+                    "no_of_ip": 1,
+                    "routeType": "Network",
+                    "pathtype": "Inter-Area",
+                }
+            ]
+        }
+    }
+
+    dut = "r0"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf6"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r2": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 5, "next_hop": "Null0"}
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Redistribute static route in R2 ospf.")
+    dut = "r2"
+    red_static(dut)
+
+    step("Verify that Type 5 LSA is originated by R2.")
+    dut = "r0"
+    protocol = "ospf6"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r1": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 1, "routeType": "Network"}
+            ]
+        }
+    }
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_ospf6_neighbor(tgen, topo)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Change area 1 as non nssa area (on the fly changing area" " type on DUT).")
+
+    for rtr in ["r1", "r2", "r3"]:
+        input_dict = {
+            rtr: {
+                "ospf6": {"area": [{"id": "0.0.0.2", "type": "nssa", "delete": True}]}
+            }
+        }
+        result = create_router_ospf(tgen, topo, input_dict)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    step("Verify that OSPF neighbours are reset after changing area type.")
+    step("Verify that ABR R2 originates type 5 LSA in area 1.")
+    step("Verify that R1 installs type 5 lsa in its database.")
+    step("Verify that route is calculated and installed in R1.")
+
+    input_dict = {
+        "r1": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"][0], "no_of_ip": 1, "routeType": "Network"}
+            ]
+        }
+    }
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
 # As per internal discussion, this script has to be removed as translator
 # function is not supported, for more details kindly check this PR 2565570
 def ospfv3_nssa_tc27_p0(request):
