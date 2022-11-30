@@ -1273,13 +1273,15 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	}
 
 	{ /* base code assumes have valid host pointer */
-		char buf[BUFSIZ];
+		char buf[INET6_ADDRSTRLEN];
 		buf[0] = 0;
 
 		if (rfd->vn_addr.addr_family == AF_INET) {
-			inet_ntop(AF_INET, &rfd->vn_addr.addr.v4, buf, BUFSIZ);
+			inet_ntop(AF_INET, &rfd->vn_addr.addr.v4, buf,
+				  sizeof(buf));
 		} else if (rfd->vn_addr.addr_family == AF_INET6) {
-			inet_ntop(AF_INET6, &rfd->vn_addr.addr.v6, buf, BUFSIZ);
+			inet_ntop(AF_INET6, &rfd->vn_addr.addr.v6, buf,
+				  sizeof(buf));
 		}
 		rfd->peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
 	}

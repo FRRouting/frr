@@ -3682,35 +3682,33 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 
 	/* redirect IP */
 	if (afi == AFI_IP && nh->gate.ipv4.s_addr != INADDR_ANY) {
-		char buff[PREFIX_STRLEN];
-
 		api_nh->vrf_id = nh->vrf_id;
 		api_nh->gate.ipv4 = nh->gate.ipv4;
 		api_nh->type = NEXTHOP_TYPE_IPV4;
 
-		inet_ntop(AF_INET, &(nh->gate.ipv4), buff, INET_ADDRSTRLEN);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("BGP: %s default route to %s table %d (redirect IP)",
-				  announce ? "adding" : "withdrawing",
-				  buff, table_id);
+			zlog_debug(
+				"BGP: %s default route to %pI4 table %d (redirect IP)",
+				announce ? "adding" : "withdrawing",
+				&nh->gate.ipv4, table_id);
+
 		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
 				   : ZEBRA_ROUTE_DELETE,
 				   zclient, &api);
 	} else if (afi == AFI_IP6 &&
 		   memcmp(&nh->gate.ipv6,
 			  &in6addr_any, sizeof(struct in6_addr))) {
-		char buff[PREFIX_STRLEN];
-
 		api_nh->vrf_id = nh->vrf_id;
 		memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6,
 		       sizeof(struct in6_addr));
 		api_nh->type = NEXTHOP_TYPE_IPV6;
 
-		inet_ntop(AF_INET6, &(nh->gate.ipv6), buff, INET_ADDRSTRLEN);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("BGP: %s default route to %s table %d (redirect IP)",
-				  announce ? "adding" : "withdrawing",
-				  buff, table_id);
+			zlog_debug(
+				"BGP: %s default route to %pI6 table %d (redirect IP)",
+				announce ? "adding" : "withdrawing",
+				&nh->gate.ipv6, table_id);
+
 		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
 				   : ZEBRA_ROUTE_DELETE,
 				   zclient, &api);

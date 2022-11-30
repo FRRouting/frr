@@ -2435,7 +2435,7 @@ static char *bgp_evpn_es_vteps_str(char *vtep_str, struct bgp_evpn_es *es,
 	struct listnode *node;
 	struct bgp_evpn_es_vtep *es_vtep;
 	bool first = true;
-	char ip_buf[INET6_ADDRSTRLEN];
+	char ip_buf[INET_ADDRSTRLEN];
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
@@ -3903,7 +3903,7 @@ static char *bgp_evpn_es_evi_vteps_str(char *vtep_str,
 	struct listnode *node;
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 	bool first = true;
-	char ip_buf[INET6_ADDRSTRLEN];
+	char ip_buf[INET_ADDRSTRLEN];
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es_evi->es_evi_vtep_list, node, evi_vtep)) {
