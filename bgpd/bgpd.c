@@ -2649,6 +2649,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 {
 	uint32_t flags_tmp;
 	struct peer *conf;
+	bool config_node = !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	conf = group->conf;
 
@@ -2675,6 +2676,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	UNSET_FLAG(peer->flags, ~peer->flags_override);
 	SET_FLAG(peer->flags, flags_tmp);
 	SET_FLAG(peer->flags_invert, conf->flags_invert);
+
+	if (config_node)
+		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	/* peer timers apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER)) {
