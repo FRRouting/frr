@@ -1031,6 +1031,10 @@ int zsend_tracker(int cmd, char *name, bool status)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		/* only BGP uses tracker for now */
+		if (client->proto != ZEBRA_ROUTE_BGP)
+			continue;
+
 		s_copy = stream_new(ZEBRA_MAX_PACKET_SIZ);
 		stream_copy(s_copy, s);
 		zserv_send_message(client, s_copy);
