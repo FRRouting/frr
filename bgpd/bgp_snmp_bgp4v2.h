@@ -61,7 +61,10 @@
 #define BGP4V2_PEER_FSM_ESTABLISHED_TIME 1
 #define BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME 2
 
-/* bgp4V2NlriEntry */
+/* bgp4V2NlriEntry
+ * offset 1.3.6.1.3.5.1.1.9.1.x.(1|2).(4|16) = 13
+ */
+#define BGP4V2_NLRI_ENTRY_OFFSET 13
 #define BGP4V2_NLRI_INDEX 1
 #define BGP4V2_NLRI_AFI 2
 #define BGP4V2_NLRI_SAFI 3

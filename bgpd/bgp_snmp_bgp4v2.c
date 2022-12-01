@@ -414,6 +414,281 @@ static uint8_t *bgpv2PeerEventTimesTable(struct variable *v, oid name[],
 	return NULL;
 }
 
+static struct bgp_path_info *
+bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
+		     struct bgp *bgp, struct prefix *addr, int exact)
+{
+	oid *offset;
+	int offsetlen;
+	struct bgp_path_info *path;
+	struct bgp_dest *dest;
+	union sockunion su;
+	unsigned int len;
+	struct ipaddr paddr = {};
+	size_t namelen = v ? v->namelen : BGP4V2_NLRI_ENTRY_OFFSET;
+	sa_family_t family = name[namelen - 1] == 4 ? AF_INET : AF_INET6;
+	afi_t afi = AFI_IP;
+	size_t afi_len = IN_ADDR_SIZE;
+
+	if (family == AF_INET6) {
+		afi = AFI_IP6;
+		afi_len = IN6_ADDR_SIZE;
+	}
+
+#define BGP_NLRI_ENTRY_OFFSET (afi_len + 1 + afi_len)
+
+	sockunion_init(&su);
+
+	if (exact) {
+		if (*length - v->namelen != BGP_NLRI_ENTRY_OFFSET)
+			return NULL;
+
+		/* Set OID offset for prefix */
+		offset = name + v->namelen;
+		if (family == AF_INET)
+			oid2in_addr(offset, afi_len, &addr->u.prefix4);
+		else
+			oid2in6_addr(offset, &addr->u.prefix6);
+		offset += afi_len;
+
+		/* Prefix length */
+		addr->prefixlen = *offset;
+		addr->family = family;
+		offset++;
+
+		/* Peer address */
+		su.sin.sin_family = family;
+		if (family == AF_INET)
+			oid2in_addr(offset, afi_len, &su.sin.sin_addr);
+		else
+			oid2in6_addr(offset, &su.sin6.sin6_addr);
+
+		/* Lookup node */
+		dest = bgp_node_lookup(bgp->rib[afi][SAFI_UNICAST], addr);
+		if (dest) {
+			for (path = bgp_dest_get_bgp_path_info(dest); path;
+			     path = path->next)
+				if (sockunion_same(&path->peer->su, &su))
+					return path;
+
+			bgp_dest_unlock_node(dest);
+		}
+
+		return NULL;
+	}
+
+	offset = name + v->namelen;
+	offsetlen = *length - v->namelen;
+	len = offsetlen;
+
+	if (offsetlen == 0) {
+		dest = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]);
+	} else {
+		if (len > afi_len)
+			len = afi_len;
+
+		if (family == AF_INET)
+			oid2in_addr(offset, len, &addr->u.prefix4);
+		else
+			oid2in6_addr(offset, &addr->u.prefix6);
+
+		offset += afi_len;
+		offsetlen -= afi_len;
+
+		if (offsetlen > 0)
+			addr->prefixlen = *offset;
+		else
+			addr->prefixlen = len * 8;
+
+		dest = bgp_node_get(bgp->rib[afi][SAFI_UNICAST], addr);
+
+		offset++;
+		offsetlen--;
+	}
+
+	if (offsetlen > 0) {
+		len = offsetlen;
+		if (len > afi_len)
+			len = afi_len;
+
+		if (family == AF_INET)
+			oid2in_addr(offset, len, &paddr.ip._v4_addr);
+		else
+			oid2in6_addr(offset, &paddr.ip._v6_addr);
+	} else {
+		if (family == AF_INET)
+			memset(&paddr.ip._v4_addr, 0, afi_len);
+		else
+			memset(&paddr.ip._v6_addr, 0, afi_len);
+	}
+
+	if (!dest)
+		return NULL;
+
+	while ((dest = bgp_route_next(dest))) {
+		struct bgp_path_info *min = NULL;
+
+		for (path = bgp_dest_get_bgp_path_info(dest); path;
+		     path = path->next) {
+			sa_family_t path_family =
+				sockunion_family(&path->peer->su);
+
+			if (path_family == AF_INET &&
+			    IPV4_ADDR_CMP(&paddr.ip._v4_addr,
+					  &path->peer->su.sin.sin_addr) < 0) {
+				if (!min ||
+				    (min &&
+				     IPV4_ADDR_CMP(
+					     &path->peer->su.sin.sin_addr,
+					     &min->peer->su.sin.sin_addr) < 0))
+					min = path;
+			} else if (path_family == AF_INET6 &&
+				   IPV6_ADDR_CMP(
+					   &paddr.ip._v6_addr,
+					   &path->peer->su.sin6.sin6_addr) <
+					   0) {
+				if (!min ||
+				    (min &&
+				     IPV6_ADDR_CMP(
+					     &path->peer->su.sin6.sin6_addr,
+					     &min->peer->su.sin6.sin6_addr) <
+					     0))
+					min = path;
+			}
+		}
+
+		if (min) {
+			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
+
+			*length = v->namelen + BGP_NLRI_ENTRY_OFFSET;
+
+			offset = name + v->namelen;
+
+			if (family == AF_INET)
+				oid_copy_in_addr(offset, &rn_p->u.prefix4);
+			else
+				oid_copy_in6_addr(offset, &rn_p->u.prefix6);
+
+			offset += afi_len;
+			*offset = rn_p->prefixlen;
+			offset++;
+
+			if (family == AF_INET) {
+				oid_copy_in_addr(offset,
+						 &min->peer->su.sin.sin_addr);
+				addr->u.prefix4 = rn_p->u.prefix4;
+			} else {
+				oid_copy_in6_addr(
+					offset, &min->peer->su.sin6.sin6_addr);
+				addr->u.prefix6 = rn_p->u.prefix6;
+			}
+
+			addr->prefixlen = rn_p->prefixlen;
+
+			bgp_dest_unlock_node(dest);
+
+			return min;
+		}
+
+		if (family == AF_INET)
+			memset(&paddr.ip._v4_addr, 0, afi_len);
+		else
+			memset(&paddr.ip._v6_addr, 0, afi_len);
+	}
+
+	return NULL;
+}
+
+static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
+				    size_t *length, int exact, size_t *var_len,
+				    WriteMethod **write_method)
+{
+	struct bgp *bgp;
+	struct bgp_path_info *path;
+	struct peer_af *paf = NULL;
+	struct prefix addr = {};
+	enum bgp_af_index index;
+
+	bgp = bgp_get_default();
+	if (!bgp)
+		return NULL;
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method) ==
+	    MATCH_FAILED)
+		return NULL;
+
+	path = bgp4v2PathAttrLookup(v, name, length, bgp, &addr, exact);
+	if (!path)
+		return NULL;
+
+	AF_FOREACH (index) {
+		paf = path->peer->peer_af_array[index];
+		if (paf)
+			break;
+	}
+
+	switch (v->magic) {
+	case BGP4V2_NLRI_INDEX:
+		return SNMP_INTEGER(0);
+	case BGP4V2_NLRI_AFI:
+		if (paf)
+			return SNMP_INTEGER(paf->afi);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_NLRI_SAFI:
+		if (paf)
+			return SNMP_INTEGER(paf->safi);
+		else
+			return SNMP_INTEGER(0);
+	case BGP4V2_NLRI_PREFIX_TYPE:
+		break;
+	case BGP4V2_NLRI_PREFIX:
+		break;
+	case BGP4V2_NLRI_PREFIX_LEN:
+		break;
+	case BGP4V2_NLRI_BEST:
+		break;
+	case BGP4V2_NLRI_CALC_LOCAL_PREF:
+		break;
+	case BGP4V2_NLRI_ORIGIN:
+		break;
+	case BGP4V2_NLRI_NEXT_HOP_ADDR_TYPE:
+		break;
+	case BGP4V2_NLRI_NEXT_HOP_ADDR:
+		break;
+	case BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR_TYPE:
+		break;
+	case BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR:
+		break;
+	case BGP4V2_NLRI_LOCAL_PREF_PRESENT:
+		break;
+	case BGP4V2_NLRI_LOCAL_PREF:
+		break;
+	case BGP4V2_NLRI_MED_PRESENT:
+		break;
+	case BGP4V2_NLRI_MED:
+		break;
+	case BGP4V2_NLRI_ATOMIC_AGGREGATE:
+		break;
+	case BGP4V2_NLRI_AGGREGATOR_PRESENT:
+		break;
+	case BGP4V2_NLRI_AGGREGATOR_AS:
+		break;
+	case BGP4V2_NLRI_AGGREGATOR_ADDR:
+		break;
+	case BGP4V2_NLRI_AS_PATH_CALC_LENGTH:
+		break;
+	case BGP4V2_NLRI_AS_PATH_STRING:
+		break;
+	case BGP4V2_NLRI_AS_PATH:
+		break;
+	case BGP4V2_NLRI_PATH_ATTR_UNKNOWN:
+		*var_len = 0;
+		return NULL;
+	}
+	return NULL;
+}
+
 static struct variable bgpv2_variables[] = {
 	/* bgp4V2PeerEntry */
 	{BGP4V2_PEER_INSTANCE,
@@ -730,6 +1005,307 @@ static struct variable bgpv2_variables[] = {
 	 bgpv2PeerEventTimesTable,
 	 6,
 	 {1, 4, 1, BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME, 2, 16}},
+	/* bgp4V2NlriTable */
+	{BGP4V2_NLRI_INDEX,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_INDEX, 1, 4}},
+	{BGP4V2_NLRI_INDEX,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_INDEX, 2, 16}},
+	{BGP4V2_NLRI_AFI,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AFI, 1, 4}},
+	{BGP4V2_NLRI_AFI,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AFI, 2, 16}},
+	{BGP4V2_NLRI_SAFI,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_SAFI, 1, 4}},
+	{BGP4V2_NLRI_SAFI,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_SAFI, 2, 16}},
+	{BGP4V2_NLRI_PREFIX_TYPE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PREFIX_TYPE, 1, 4}},
+	{BGP4V2_NLRI_PREFIX_TYPE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PREFIX_TYPE, 2, 16}},
+	{BGP4V2_NLRI_PREFIX,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PREFIX, 1, 4}},
+	{BGP4V2_NLRI_PREFIX,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PREFIX, 2, 16}},
+	{BGP4V2_NLRI_PREFIX_LEN,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PREFIX_LEN, 1, 4}},
+	{BGP4V2_NLRI_PREFIX_LEN,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PREFIX_LEN, 2, 16}},
+	{BGP4V2_NLRI_BEST,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_BEST, 1, 4}},
+	{BGP4V2_NLRI_BEST,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_BEST, 2, 16}},
+	{BGP4V2_NLRI_CALC_LOCAL_PREF,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_CALC_LOCAL_PREF, 1, 4}},
+	{BGP4V2_NLRI_CALC_LOCAL_PREF,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_CALC_LOCAL_PREF, 2, 16}},
+	{BGP4V2_NLRI_ORIGIN,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_ORIGIN, 1, 4}},
+	{BGP4V2_NLRI_ORIGIN,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_ORIGIN, 2, 16}},
+	{BGP4V2_NLRI_NEXT_HOP_ADDR_TYPE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_NEXT_HOP_ADDR_TYPE, 1, 4}},
+	{BGP4V2_NLRI_NEXT_HOP_ADDR_TYPE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_NEXT_HOP_ADDR_TYPE, 2, 16}},
+	{BGP4V2_NLRI_NEXT_HOP_ADDR,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_NEXT_HOP_ADDR, 1, 4}},
+	{BGP4V2_NLRI_NEXT_HOP_ADDR,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_NEXT_HOP_ADDR, 2, 16}},
+	{BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR_TYPE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR_TYPE, 1, 4}},
+	{BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR_TYPE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR_TYPE, 2, 16}},
+	{BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR, 1, 4}},
+	{BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR, 2, 16}},
+	{BGP4V2_NLRI_LOCAL_PREF_PRESENT,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LOCAL_PREF_PRESENT, 1, 4}},
+	{BGP4V2_NLRI_LOCAL_PREF_PRESENT,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LOCAL_PREF_PRESENT, 2, 16}},
+	{BGP4V2_NLRI_LOCAL_PREF,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LOCAL_PREF, 1, 4}},
+	{BGP4V2_NLRI_LOCAL_PREF,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_LOCAL_PREF, 2, 16}},
+	{BGP4V2_NLRI_MED_PRESENT,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_MED_PRESENT, 1, 4}},
+	{BGP4V2_NLRI_MED_PRESENT,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_MED_PRESENT, 2, 16}},
+	{BGP4V2_NLRI_MED,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_MED, 1, 4}},
+	{BGP4V2_NLRI_MED,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_MED, 2, 16}},
+	{BGP4V2_NLRI_ATOMIC_AGGREGATE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_ATOMIC_AGGREGATE, 1, 4}},
+	{BGP4V2_NLRI_ATOMIC_AGGREGATE,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_ATOMIC_AGGREGATE, 2, 16}},
+	{BGP4V2_NLRI_AGGREGATOR_PRESENT,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AGGREGATOR_PRESENT, 1, 4}},
+	{BGP4V2_NLRI_AGGREGATOR_PRESENT,
+	 ASN_INTEGER,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AGGREGATOR_PRESENT, 2, 16}},
+	{BGP4V2_NLRI_AGGREGATOR_AS,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AGGREGATOR_AS, 1, 4}},
+	{BGP4V2_NLRI_AGGREGATOR_AS,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AGGREGATOR_AS, 2, 16}},
+	{BGP4V2_NLRI_AGGREGATOR_ADDR,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AGGREGATOR_ADDR, 1, 4}},
+	{BGP4V2_NLRI_AGGREGATOR_ADDR,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AGGREGATOR_ADDR, 2, 16}},
+	{BGP4V2_NLRI_AS_PATH_CALC_LENGTH,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AS_PATH_CALC_LENGTH, 1, 4}},
+	{BGP4V2_NLRI_AS_PATH_CALC_LENGTH,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AS_PATH_CALC_LENGTH, 2, 16}},
+	{BGP4V2_NLRI_AS_PATH_STRING,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AS_PATH_STRING, 1, 4}},
+	{BGP4V2_NLRI_AS_PATH_STRING,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AS_PATH_STRING, 2, 16}},
+	{BGP4V2_NLRI_AS_PATH,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AS_PATH, 1, 4}},
+	{BGP4V2_NLRI_AS_PATH,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_AS_PATH, 2, 16}},
+	{BGP4V2_NLRI_PATH_ATTR_UNKNOWN,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PATH_ATTR_UNKNOWN, 1, 4}},
+	{BGP4V2_NLRI_PATH_ATTR_UNKNOWN,
+	 ASN_OCTET_STR,
+	 RONLY,
+	 bgp4v2PathAttrTable,
+	 6,
+	 {1, 9, 1, BGP4V2_NLRI_PATH_ATTR_UNKNOWN, 2, 16}},
 };
 
 int bgp_snmp_bgp4v2_init(struct thread_master *tm)
