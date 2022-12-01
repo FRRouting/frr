@@ -380,6 +380,40 @@ static uint8_t *bgpv2PeerErrorsTable(struct variable *v, oid name[],
 	return NULL;
 }
 
+static uint8_t *bgpv2PeerEventTimesTable(struct variable *v, oid name[],
+					 size_t *length, int exact,
+					 size_t *var_len,
+					 WriteMethod **write_method)
+{
+	struct peer *peer;
+	struct ipaddr addr = {};
+
+	if (smux_header_table(v, name, length, exact, var_len, write_method) ==
+	    MATCH_FAILED)
+		return NULL;
+
+	peer = bgpv2PeerTable_lookup(v, name, length, exact, &addr);
+	if (!peer)
+		return NULL;
+
+	switch (v->magic) {
+	case BGP4V2_PEER_FSM_ESTABLISHED_TIME:
+		if (!peer->uptime)
+			return SNMP_INTEGER(0);
+		else
+			return SNMP_INTEGER(monotime(NULL) - peer->uptime);
+	case BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME:
+		if (!peer->update_time)
+			return SNMP_INTEGER(0);
+		else
+			return SNMP_INTEGER(monotime(NULL) - peer->update_time);
+	default:
+		break;
+	}
+
+	return NULL;
+}
+
 static struct variable bgpv2_variables[] = {
 	/* bgp4V2PeerEntry */
 	{BGP4V2_PEER_INSTANCE,
@@ -671,6 +705,31 @@ static struct variable bgpv2_variables[] = {
 	 bgpv2PeerErrorsTable,
 	 6,
 	 {1, 3, 1, BGP4V2_PEER_LAST_ERROR_SENT_DATA, 2, 16}},
+	/* bgp4V2PeerEventTimesEntry */
+	{BGP4V2_PEER_FSM_ESTABLISHED_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerEventTimesTable,
+	 6,
+	 {1, 4, 1, BGP4V2_PEER_FSM_ESTABLISHED_TIME, 1, 4}},
+	{BGP4V2_PEER_FSM_ESTABLISHED_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerEventTimesTable,
+	 6,
+	 {1, 4, 1, BGP4V2_PEER_FSM_ESTABLISHED_TIME, 2, 16}},
+	{BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerEventTimesTable,
+	 6,
+	 {1, 4, 1, BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME, 1, 4}},
+	{BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME,
+	 ASN_UNSIGNED,
+	 RONLY,
+	 bgpv2PeerEventTimesTable,
+	 6,
+	 {1, 4, 1, BGP4V2_PEER_PEER_IN_UPDATES_ELAPSED_TIME, 2, 16}},
 };
 
 int bgp_snmp_bgp4v2_init(struct thread_master *tm)
