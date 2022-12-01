@@ -34,11 +34,13 @@ import os
 import sys
 import json
 import pytest
+import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 pytestmark = [pytest.mark.bgpd]
@@ -81,30 +83,34 @@ def test_bgp_maximum_prefix_invalid():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def _bgp_converge(router):
-        while True:
-            output = json.loads(
-                tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json")
-            )
-            if output["192.168.255.1"]["bgpState"] == "Established":
-                if (
-                    output["192.168.255.1"]["addressFamilyInfo"]["ipv4Unicast"][
-                        "acceptedPrefixCounter"
-                    ]
-                    == 2
-                ):
-                    return True
+    r2 = tgen.gears["r2"]
 
-    def _bgp_comm_list_delete(router):
-        output = json.loads(
-            tgen.gears[router].vtysh_cmd("show ip bgp 172.16.255.254/32 json")
-        )
-        if "333:333" in output["paths"][0]["community"]["list"]:
-            return False
-        return True
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
+        expected = {
+            "192.168.255.1": {
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 2,
+                    }
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
 
-    if _bgp_converge("r2"):
-        assert _bgp_comm_list_delete("r2") == True
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Can't converge initially"
+
+    def _bgp_comm_list_delete():
+        output = json.loads(r2.vtysh_cmd("show ip bgp 172.16.255.254/32 json"))
+        expected = {"paths": [{"community": {"list": ["333:333"]}}]}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_comm_list_delete)
+    _, result = topotest.run_and_expect(test_func, not None, count=60, wait=0.5)
+    assert result is not None, "333:333 community SHOULD be stripped from r1"
 
 
 if __name__ == "__main__":
