@@ -1,0 +1,10 @@
+Integrated config wins
+======================
+
+
+The use of split-configuration setups (zebra.conf, staticd.conf, bgpd.conf,
+etc.) in FRR is considered deprecated and will go away at some point.
+
+At this point there is no timeline yet on removing split-config support, and
+this needs to go through an extensive deprecation period with increasingly
+loud user warnings.
