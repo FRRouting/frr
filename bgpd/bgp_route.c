@@ -9613,7 +9613,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 		json_status = json_object_new_object();
 		json_net = json_object_new_object();
 	} else {
-		vty_out(vty, "*");
+		vty_out(vty, " *");
 		vty_out(vty, ">");
 		vty_out(vty, " ");
 	}
