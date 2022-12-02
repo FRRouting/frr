@@ -29,6 +29,7 @@
 #include "stream.h"
 #include "vrf.h"
 #include "zclient.h"
+#include "libfrr.h"
 #include "table.h"
 #include "vty.h"
 #include "bfd.h"
@@ -1045,6 +1046,40 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * Frees all allocated resources and stops any activity.
+ *
+ * Must be called after every BFD session has been successfully
+ * unconfigured otherwise this function will `free()` any available
+ * session causing existing pointers to dangle.
+ *
+ * This is just a comment, in practice it will be called by the FRR
+ * library late finish hook. \see `bfd_protocol_integration_init`.
+ */
+static int bfd_protocol_integration_finish(void)
+{
+	if (bsglobal.zc == NULL)
+		return 0;
+
+	while (!TAILQ_EMPTY(&bsglobal.bsplist)) {
+		struct bfd_session_params *session =
+			TAILQ_FIRST(&bsglobal.bsplist);
+		bfd_sess_free(&session);
+	}
+
+	/*
+	 * BFD source cache is linked to sessions, if all sessions are gone
+	 * then the source cache must be empty.
+	 */
+	if (!SLIST_EMPTY(&bsglobal.source_list))
+		zlog_warn("BFD integration source cache not empty");
+
+	zclient_stop(bsglobal.nht_zclient);
+	zclient_free(bsglobal.nht_zclient);
+
+	return 0;
+}
+
 static zclient_handler *const bfd_nht_handlers[] = {
 	[ZEBRA_NEXTHOP_UPDATE] = bfd_nht_update,
 };
@@ -1076,6 +1111,8 @@ void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 	bsglobal.nht_zclient->zebra_connected = bfd_nht_zclient_connected;
 	thread_add_timer(tm, bfd_nht_zclient_connect, bsglobal.nht_zclient, 1,
 			 &bsglobal.nht_zclient->t_connect);
+
+	hook_register(frr_fini, bfd_protocol_integration_finish);
 }
 
 void bfd_protocol_integration_set_debug(bool enable)
