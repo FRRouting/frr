@@ -2106,6 +2106,10 @@ static int bgp_establish(struct peer *peer)
 	int status;
 
 	other = peer->doppelganger;
+	hash_release(peer->bgp->peerhash, peer);
+	if (other)
+		hash_release(peer->bgp->peerhash, other);
+
 	peer = peer_xfer_conn(peer);
 	if (!peer) {
 		flog_err(EC_BGP_CONNECT, "%%Neighbor failed in xfer_conn");
@@ -2310,7 +2314,6 @@ static int bgp_establish(struct peer *peer)
 	 * the doppelgangers su and this peer's su are the same
 	 * so the hash_release is the same for either.
 	 */
-	hash_release(peer->bgp->peerhash, peer);
 	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Start BFD peer if not already running. */
