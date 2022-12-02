@@ -28,6 +28,8 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/debug.h"
 
+#include "zebra/label_manager_clippy.c"
+
 #define CONNECTION_DELAY 5
 
 struct label_manager lbl_mgr;
@@ -145,6 +147,22 @@ void lm_hooks_unregister(void)
 	hook_unregister(lm_release_chunk, label_manager_release_label_chunk);
 }
 
+DEFPY(show_label_table, show_label_table_cmd, "show debugging label-table",
+      SHOW_STR
+      DEBUG_STR
+      "Display allocated label chunks\n")
+{
+	struct label_manager_chunk *lmc;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
+		vty_out(vty, "Proto %s: [%u/%u]\n",
+			zebra_route_string(lmc->proto), lmc->start, lmc->end);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /**
  * Init label manager (or proxy to an external one)
  */
@@ -159,6 +177,8 @@ void label_manager_init(void)
 
 	/* notify any external module that we are done */
 	hook_call(lm_cbs_inited);
+
+	install_element(VIEW_NODE, &show_label_table_cmd);
 }
 
 /* alloc and fill a label chunk */

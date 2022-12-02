@@ -783,6 +783,19 @@ presence of the entry.
    21     Static       10.125.0.2  IPv4 Explicit Null
 
 
+Allocated label chunks table can be dumped using the command
+
+.. clicmd:: show debugging label-table
+
+::
+
+   zebra# show debugging label-table
+   Proto ospf: [300/350]
+   Proto srte: [500/500]
+   Proto isis: [1200/1300]
+   Proto ospf: [20000/21000]
+   Proto isis: [22000/23000]
+
 .. _zebra-srv6:
 
 Segment-Routing IPv6
