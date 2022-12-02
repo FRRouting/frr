@@ -46,6 +46,7 @@
 #include "zebra/debug.h"
 #include "zebra/zapi_msg.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_GR, "GR");
 
 /*
  * Forward declaration.
@@ -111,7 +112,7 @@ static struct client_gr_info *zebra_gr_client_info_create(struct zserv *client)
 {
 	struct client_gr_info *info;
 
-	info = XCALLOC(MTYPE_TMP, sizeof(struct client_gr_info));
+	info = XCALLOC(MTYPE_ZEBRA_GR, sizeof(struct client_gr_info));
 
 	TAILQ_INSERT_TAIL(&(client->gr_info_queue), info, gr_info);
 	return info;
@@ -127,7 +128,7 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 
 	THREAD_OFF(info->t_stale_removal);
 
-	XFREE(MTYPE_TMP, info->current_prefix);
+	XFREE(MTYPE_ZEBRA_GR, info->current_prefix);
 
 	LOG_GR("%s: Instance info is being deleted for client %s", __func__,
 	       zebra_route_string(client->proto));
@@ -136,7 +137,7 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 	info->do_delete = true;
 	zebra_gr_delete_stale_routes(info);
 
-	XFREE(MTYPE_TMP, info);
+	XFREE(MTYPE_ZEBRA_GR, info);
 }
 
 /*
@@ -222,8 +223,8 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 	TAILQ_INIT(&(s_client->gr_info_queue));
 	listnode_delete(zrouter.stale_client_list, s_client);
 	if (info->stale_client)
-		XFREE(MTYPE_TMP, s_client);
-	XFREE(MTYPE_TMP, info);
+		zserv_client_delete(s_client);
+	XFREE(MTYPE_ZEBRA_GR, info);
 }
 
 /*
@@ -288,7 +289,7 @@ void zebra_gr_client_reconnect(struct zserv *client)
 	/* Delete the stale client */
 	listnode_delete(zrouter.stale_client_list, old_client);
 	/* Delete old client */
-	XFREE(MTYPE_TMP, old_client);
+	zserv_client_delete(old_client);
 }
 
 /*
@@ -474,7 +475,7 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 		LOG_GR("%s: Client %s all stale routes processed", __func__,
 		       zebra_route_string(client->proto));
 
-		XFREE(MTYPE_TMP, info->current_prefix);
+		XFREE(MTYPE_ZEBRA_GR, info->current_prefix);
 		info->current_afi = 0;
 		zebra_gr_delete_stale_client(info);
 	}
@@ -579,7 +580,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 					    && (info->do_delete == false)) {
 						info->current_afi = afi;
 						info->current_prefix = XCALLOC(
-							MTYPE_TMP,
+							MTYPE_ZEBRA_GR,
 							sizeof(struct prefix));
 						prefix_copy(
 							info->current_prefix,
@@ -593,7 +594,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		 * Reset the current prefix to indicate processing completion
 		 * of the current AFI
 		 */
-		XFREE(MTYPE_TMP, info->current_prefix);
+		XFREE(MTYPE_ZEBRA_GR, info->current_prefix);
 	}
 	return 0;
 }

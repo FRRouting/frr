@@ -3698,7 +3698,7 @@ static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
-		XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
+		XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_iptable));
 	struct stream *s;
 
 	s = msg;
