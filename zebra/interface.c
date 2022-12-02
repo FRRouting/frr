@@ -61,6 +61,7 @@ DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
+DEFINE_MTYPE(ZEBRA, ZIF_DESC, "Intf desc");
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
@@ -233,7 +234,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		if_nhg_dependents_release(ifp);
 		zebra_if_nhg_dependents_free(zebra_if);
 
-		XFREE(MTYPE_TMP, zebra_if->desc);
+		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
 		THREAD_OFF(zebra_if->speed_update);
 

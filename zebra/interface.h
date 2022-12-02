@@ -109,6 +109,9 @@ enum zebra_if_flags {
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
 	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
 
+/* Mem type for zif desc */
+DECLARE_MTYPE(ZIF_DESC);
+
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* back pointer to the interface */
