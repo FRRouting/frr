@@ -2702,6 +2702,18 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE) {
+		if (STREAM_READABLE(peer->curr) <
+		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficient data (need %u, have %zu remaining in UPDATE)",
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH,
+				STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
 		loc_block_len = stream_getc(peer->curr);
 		loc_node_len = stream_getc(peer->curr);
 		func_len = stream_getc(peer->curr);
@@ -2774,6 +2786,17 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	}
 
 	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
+		if (STREAM_READABLE(peer->curr) <
+		    BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %d for attribute data, have %zu remaining in UPDATE)",
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH,
+				STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
 		stream_getc(peer->curr);
 		stream_get(&ipv6_sid, peer->curr, sizeof(ipv6_sid));
 		sid_flags = stream_getc(peer->curr);
