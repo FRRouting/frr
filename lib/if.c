@@ -38,6 +38,7 @@
 #include "lib/if_clippy.c"
 
 DEFINE_MTYPE_STATIC(LIB, IF, "Interface");
+DEFINE_MTYPE_STATIC(LIB, IFDESC, "Intf Desc");
 DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
 DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected");
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label");
@@ -288,7 +289,7 @@ void if_delete(struct interface **ifp)
 
 	if_link_params_free(ptr);
 
-	XFREE(MTYPE_TMP, ptr->desc);
+	XFREE(MTYPE_IFDESC, ptr->desc);
 
 	XFREE(MTYPE_IF, ptr);
 	*ifp = NULL;
@@ -1612,9 +1613,9 @@ static int lib_interface_description_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_IFDESC, ifp->desc);
 	description = yang_dnode_get_string(args->dnode, NULL);
-	ifp->desc = XSTRDUP(MTYPE_TMP, description);
+	ifp->desc = XSTRDUP(MTYPE_IFDESC, description);
 
 	return NB_OK;
 }
@@ -1627,7 +1628,7 @@ static int lib_interface_description_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
-	XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_IFDESC, ifp->desc);
 
 	return NB_OK;
 }
