@@ -138,7 +138,9 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
  */
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
-	route_table_finish(zns->if_table);
+	if (zns->if_table)
+		route_table_finish(zns->if_table);
+	zns->if_table = NULL;
 
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
