@@ -348,9 +348,13 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		break;
 	default:
 		if (strncmp(line, "exit", strlen("exit")) == 0) {
-			if (config)
+			if (config) {
+				if (config->exit)
+					XFREE(MTYPE_VTYSH_CONFIG_LINE,
+					      config->exit);
 				config->exit =
 					XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
+			}
 		} else if (strncmp(line, "interface", strlen("interface")) == 0)
 			config = config_get(INTERFACE_NODE, line);
 		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
