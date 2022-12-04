@@ -155,7 +155,7 @@ def check_ping(name, dest_addr, expect_connected):
         if match not in output:
             return "ping fail"
 
-    match = "{} packet loss".format("0%" if expect_connected else "100%")
+    match = ", {} packet loss".format("0%" if expect_connected else "100%")
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, match)

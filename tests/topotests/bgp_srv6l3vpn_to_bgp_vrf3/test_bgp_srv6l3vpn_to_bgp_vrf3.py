@@ -66,10 +66,12 @@ def setup_module(mod):
     tgen.start_topology()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
@@ -111,7 +113,7 @@ def check_ping4(name, dest_addr, expect_connected):
         logger.info(output)
         assert match in output, "ping fail"
 
-    match = "{} packet loss".format("0%" if expect_connected else "100%")
+    match = ", {} packet loss".format("0%" if expect_connected else "100%")
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, match)
@@ -144,7 +146,7 @@ def check_rib(name, cmd, expected_file):
         expected = open_json_file("{}/{}".format(CWD, expected_file))
         return topotest.json_cmp(output, expected)
 
-    logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+    logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
@@ -214,10 +216,18 @@ def test_bgp_sid_vpn_export_disable():
            no sid vpn per-vrf export
         """
     )
-    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_sid_vpn_export_disabled.json")
-    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_sid_vpn_export_disabled.json")
-    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_sid_vpn_export_disabled.json")
-    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_disabled.json")
+    check_rib(
+        "r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_sid_vpn_export_disabled.json"
+    )
+    check_rib(
+        "r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_sid_vpn_export_disabled.json"
+    )
+    check_rib(
+        "r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_sid_vpn_export_disabled.json"
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_disabled.json"
+    )
     check_ping4("ce1", "192.168.2.2", False)
     check_ping6("ce1", "2001:2::2", False)
 
@@ -233,10 +243,18 @@ def test_bgp_sid_vpn_export_reenable():
            sid vpn per-vrf export auto
         """
     )
-    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_sid_vpn_export_reenabled.json")
-    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_sid_vpn_export_reenabled.json")
-    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_sid_vpn_export_reenabled.json")
-    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_reenabled.json")
+    check_rib(
+        "r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_sid_vpn_export_reenabled.json"
+    )
+    check_rib(
+        "r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_sid_vpn_export_reenabled.json"
+    )
+    check_rib(
+        "r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_sid_vpn_export_reenabled.json"
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_sid_vpn_export_reenabled.json"
+    )
     check_ping4("ce1", "192.168.2.2", True)
     check_ping6("ce1", "2001:2::2", True)
 
