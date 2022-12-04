@@ -2418,9 +2418,9 @@ in AS 7675, the announced routes' local preference value will be set to 80.
 
 The following configuration is an example of BGP route filtering using
 communities attribute. This configuration only permit BGP routes which has BGP
-communities value ``0:80`` or ``0:90``. The network operator can set special
-internal communities value at BGP border router, then limit the BGP route
-announcements into the internal network.
+communities value (``0:80`` and ``0:90``) or ``0:100``. The network operator can
+set special internal communities value at BGP border router, then limit the
+BGP route announcements into the internal network.
 
 .. code-block:: frr
 
@@ -2431,6 +2431,7 @@ announcements into the internal network.
     exit-address-family
    !
    bgp community-list 1 permit 0:80 0:90
+   bgp community-list 1 permit 0:100
    !
    route-map RMAP permit in
     match community 1
