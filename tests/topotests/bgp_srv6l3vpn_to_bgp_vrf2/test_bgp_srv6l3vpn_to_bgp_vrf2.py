@@ -69,10 +69,12 @@ def setup_module(mod):
     tgen.start_topology()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
@@ -114,7 +116,7 @@ def check_ping(name, dest_addr, expect_connected):
         logger.info(output)
         assert match in output, "ping fail"
 
-    match = "{} packet loss".format("0%" if expect_connected else "100%")
+    match = ", {} packet loss".format("0%" if expect_connected else "100%")
     logger.info("[+] check {} {} {}".format(name, dest_addr, match))
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, match)
@@ -131,7 +133,7 @@ def check_rib(name, cmd, expected_file):
         expected = open_json_file("{}/{}".format(CWD, expected_file))
         return topotest.json_cmp(output, expected)
 
-    logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+    logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
@@ -154,16 +156,16 @@ def test_rib():
 
 
 def test_ping():
-    check_ping("ce1", "192.168.2.2", " 0% packet loss")
-    check_ping("ce1", "192.168.3.2", " 0% packet loss")
-    check_ping("ce1", "192.168.4.2", " 100% packet loss")
-    check_ping("ce1", "192.168.5.2", " 100% packet loss")
-    check_ping("ce1", "192.168.6.2", " 100% packet loss")
-    check_ping("ce4", "192.168.1.2", " 100% packet loss")
-    check_ping("ce4", "192.168.2.2", " 100% packet loss")
-    check_ping("ce4", "192.168.3.2", " 100% packet loss")
-    check_ping("ce4", "192.168.5.2", " 0% packet loss")
-    check_ping("ce4", "192.168.6.2", " 0% packet loss")
+    check_ping("ce1", "192.168.2.2", True)
+    check_ping("ce1", "192.168.3.2", True)
+    check_ping("ce1", "192.168.4.2", False)
+    check_ping("ce1", "192.168.5.2", False)
+    check_ping("ce1", "192.168.6.2", False)
+    check_ping("ce4", "192.168.1.2", False)
+    check_ping("ce4", "192.168.2.2", False)
+    check_ping("ce4", "192.168.3.2", False)
+    check_ping("ce4", "192.168.5.2", True)
+    check_ping("ce4", "192.168.6.2", True)
 
 
 if __name__ == "__main__":
