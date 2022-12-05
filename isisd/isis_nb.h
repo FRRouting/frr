@@ -330,6 +330,8 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_srv6_locator_destroy(
 	struct nb_cb_destroy_args *args);
+void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);

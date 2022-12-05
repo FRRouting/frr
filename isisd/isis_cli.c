@@ -2038,6 +2038,15 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/locator
+ */
+void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, "  locator %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
  */
 DEFPY_YANG_NOSH (isis_srv6_enable,
