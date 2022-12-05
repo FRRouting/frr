@@ -234,11 +234,18 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 				return -1;
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
+				char label_str[MPLS_LABEL_STRLEN];
+
 				nhlfe2str(nhlfe, buf, BUFSIZ);
-				zlog_debug(
-					"Add LSP in-label %u type %d nexthop %s out-label %u",
-					lsp->ile.in_label, lsp_type, buf,
-					nexthop->nh_label->label[0]);
+				zlog_debug("Add LSP in-label %u type %d nexthop %s out-label %s",
+					   lsp->ile.in_label, lsp_type, buf,
+					   mpls_label2str(nexthop->nh_label
+								  ->num_labels,
+							  nexthop->nh_label->label,
+							  label_str,
+							  sizeof(label_str),
+							  nexthop->nh_label_type,
+							  0));
 			}
 
 			lsp->addr_family = NHLFE_FAMILY(nhlfe);
