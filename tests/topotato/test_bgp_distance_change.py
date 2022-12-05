@@ -104,17 +104,14 @@ class BGPDistanceChange(TestBase):
 
     @topotatofunc
     def _bgp_check_distance_change(self, topo, r1, r2):
-        yield from AssertVtysh.make(
+        yield from ReconfigureFRR.make(
             r1,
             "bgpd",
             """
-            enable
-            configure terminal
             router bgp 65000
                     address-family ipv4 unicast
                         distance bgp 123 123 123
             """,
-            compare="",
         )
         expected = {str(r2.lo_ip4[0]): [{"protocol": "bgp", "distance": 123}]}
         yield from AssertVtysh.make(

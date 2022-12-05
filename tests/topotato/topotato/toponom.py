@@ -220,6 +220,15 @@ class NOMLinked(NOMNode, metaclass=abc.ABCMeta):
         other = b if self.name == a else a
         return self.network.routers[other]
 
+    def addrs(
+        self, af: Union[None, Literal[4], Literal[6]] = None
+    ) -> Generator[AnyInterface, None, None]:
+        for iface in self.ifaces:
+            if af in [None, 4]:
+                yield from iface.ip4
+            if af in [None, 6]:
+                yield from iface.ip6
+
     @abc.abstractmethod
     def __repr__(self):
         pass
@@ -253,6 +262,15 @@ class Router(NOMLinked):
 
     def auto_lo6(self):
         self.lo_ip6.auto(lo6_net + self.num)
+
+    def addrs(
+        self, af: Union[None, Literal[4], Literal[6]] = None
+    ) -> Generator[AnyInterface, None, None]:
+        yield from super().addrs(af)
+        if af in [None, 4]:
+            yield from self.lo_ip4
+        if af in [None, 6]:
+            yield from self.lo_ip6
 
     def __repr__(self):
         return '<Router %d "%s">' % (self.num, self.name)
@@ -374,6 +392,17 @@ class LAN(NOMLinked):
 
     def auto_ip6(self):
         self.ip6.auto(lan6_net(self.num))
+
+    def addrs(
+        self, af: Union[None, Literal[4], Literal[6]] = None
+    ) -> Generator[AnyInterface, None, None]:
+        yield from super().addrs(af)
+        if af in [None, 4]:
+            for net4 in self.ip4:
+                yield ipaddress.IPv4Interface(net4)
+        if af in [None, 6]:
+            for net6 in self.ip6:
+                yield ipaddress.IPv6Interface(net6)
 
     def __repr__(self):
         return '<LAN %d "%s">' % (self.num, self.name)

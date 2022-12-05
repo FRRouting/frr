@@ -13,4 +13,4 @@ if test -f "$TOPOTATODIR/getlockpid.c" -a \! -f "$TOPOTATODIR/getlockpid"; then
 			-o "$TOPOTATODIR/getlockpid" "$TOPOTATODIR/getlockpid.c"
 	)
 fi
-exec python3 -m topotato.potatool "$@"
+exec ${PYTHON:-python3} -m topotato.potatool "$@"

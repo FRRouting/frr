@@ -14,6 +14,7 @@ import re
 import subprocess
 import tempfile
 import time
+import logging
 
 from typing import Union, Dict, List, Any, Optional
 
@@ -28,6 +29,9 @@ import scapy.config  # type: ignore
 from .utils import ClassHooks, exec_find
 from .nswrap import LinuxNamespace
 from .toponom import LAN, LinkIface, Network
+
+
+_logger = logging.getLogger(__name__)
 
 
 def ifname(host: str, iface: str) -> str:
@@ -106,6 +110,12 @@ class NetworkInstance(ClassHooks):
             self.instance = _instance
             self.tempdir = _instance.tempfile(name)
             os.mkdir(self.tempdir)
+            _logger.debug(
+                "%r temp-subdir for %r created: %s", _instance, self, self.tempdir
+            )
+
+        def __repr__(self):
+            return "<%s: %r>" % (self.__class__.__name__, self.name)
 
         def tempfile(self, name: str) -> str:
             return os.path.join(self.tempdir, name)
@@ -311,6 +321,7 @@ class NetworkInstance(ClassHooks):
         # pylint: disable=consider-using-with
         self.tempdir = tempfile.TemporaryDirectory()
         os.chmod(self.tempdir.name, 0o755)
+        _logger.debug("%r tempdir created: %s", self, self.tempdir.name)
 
     def tempfile(self, name):
         return os.path.join(self.tempdir.name, name)
