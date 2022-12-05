@@ -54,10 +54,6 @@
 
 #include "ospf_apiclient.h"
 
-/* *sigh* ... can't find a better way to hammer this into automake */
-#include "ospfd/ospf_dump_api.c"
-#include "ospfd/ospf_api.c"
-
 XREF_SETUP();
 
 DEFINE_MGROUP(OSPFCLIENT, "libospfapiclient");
