@@ -57,6 +57,22 @@ class CLIError(Exception):
         self.text = text
 
 
+def cli_cmd(name: Optional[str] = None):
+    def decorate(func):
+        _name = name
+        if _name is None:
+            while getattr(func, "__func__", None):
+                func = func.__func__
+            assert func.__name__.startswith("do_")
+            _name = func.__name__[3:]
+        func.potatool_cli = {
+            "name": _name,
+        }
+        return func
+
+    return decorate
+
+
 class PotatoolSession(WatchedSession):
     """
     Potatool add-ons to WatchedSession.
@@ -114,20 +130,6 @@ class PotatoolSession(WatchedSession):
         "?": "help",
         "!": "shell",
     }
-
-    @staticmethod
-    def cli_cmd(name: Optional[str] = None):
-        def decorate(func):
-            _name = name
-            if _name is None:
-                assert func.__name__.startswith("do_")
-                _name = func.__name__[3:]
-            func.potatool_cli = {
-                "name": _name,
-            }
-            return func
-
-        return decorate
 
     @classmethod
     def clisetup(cls):

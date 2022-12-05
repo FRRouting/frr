@@ -27,9 +27,7 @@
     <div id="vsplit">
       <div id="main">
         <h1>{{ nodeid }}</h1>
-        {%- if topotatocls.obj.__doc__ %}
-          <div class="docstring">{{ topotatocls.obj.__doc__ }}</div>
-        {%- endif %}
+        {{ topotatocls | docrender }}
         <ul>
           {%- if extrafiles['dotfilesvg'] %}
             <li><a href="{{ extrafiles['dotfilesvg'].filename }}">Download network diagram (as shown to the right, SVG)</a></li>
