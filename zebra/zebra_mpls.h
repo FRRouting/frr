@@ -257,6 +257,12 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl);
 
 /*
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf);
+
+/*
  * Uninstall all NHLFEs bound to a single FEC.
  *
  * mpls_ftn_uninstall -> Called to enqueue into early label processing
