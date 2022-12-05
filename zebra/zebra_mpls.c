@@ -448,6 +448,14 @@ static int fec_send(struct zebra_fec *fec, struct zserv *client)
 }
 
 /*
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf)
+{
+}
+
+/*
  * Update all registered clients about this FEC. Caller should've updated
  * FEC and ensure no duplicate updates.
  */
