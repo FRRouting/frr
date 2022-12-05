@@ -864,6 +864,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing-srv6/enabled",
 			.cbs = {
 				.modify = isis_instance_segment_routing_srv6_enabled_modify,
+				.cli_show = cli_show_isis_srv6_enabled,
 			},
 		},
 		{

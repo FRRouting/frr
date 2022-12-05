@@ -2037,6 +2037,15 @@ void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
+void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " segment-routing srv6\n");
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit
  */
