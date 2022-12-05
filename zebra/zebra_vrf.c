@@ -467,6 +467,8 @@ static int vrf_config_write(struct vty *vty)
 				vty_out(vty, "ip table range %u %u\n",
 					zvrf->tbl_mgr->start,
 					zvrf->tbl_mgr->end);
+			if (zvrf->zebra_mpls_fec_nexthop_resolution)
+				vty_out(vty, "mpls fec nexthop-resolution\n");
 		} else {
 			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
@@ -487,6 +489,8 @@ static int vrf_config_write(struct vty *vty)
 				vty_out(vty, " ip table range %u %u\n",
 					zvrf->tbl_mgr->start,
 					zvrf->tbl_mgr->end);
+			if (zvrf->zebra_mpls_fec_nexthop_resolution)
+				vty_out(vty, " mpls fec nexthop-resolution\n");
 		}
 
 
@@ -521,6 +525,39 @@ DEFPY (vrf_netns,
 	}
 
 	return ret;
+}
+
+DEFPY(mpls_fec_nexthop_resolution, mpls_fec_nexthop_resolution_cmd,
+      "[no$no] mpls fec nexthop-resolution",
+      NO_STR MPLS_STR
+      "MPLS FEC table\n"
+      "Authorise nexthop resolution over all labeled routes.\n")
+{
+	struct zebra_vrf *zvrf;
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	zvrf = vrf->info;
+	zebra_mpls_fec_nexthop_resolution_enabled(!no, zvrf);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mpls_fec_nexthop_resolution_vrf, mpls_fec_nexthop_resolution_vrf_cmd,
+      "[no$no] mpls fec nexthop-resolution",
+      NO_STR MPLS_STR
+      "MPLS FEC table (VRF)\n"
+      "Authorise nexthop resolution over all labeled routes.\n")
+{
+	struct zebra_vrf *zvrf;
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	zvrf = vrf->info;
+	zebra_mpls_fec_nexthop_resolution_enabled(!no, zvrf);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_vrf_netns,
@@ -662,4 +699,7 @@ void zebra_vrf_init(void)
 		install_element(VRF_NODE, &vrf_netns_cmd);
 		install_element(VRF_NODE, &no_vrf_netns_cmd);
 	}
+
+	install_element(VRF_NODE, &mpls_fec_nexthop_resolution_vrf_cmd);
+	install_element(CONFIG_NODE, &mpls_fec_nexthop_resolution_cmd);
 }
