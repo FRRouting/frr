@@ -50,6 +50,8 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
 
+DEFINE_MTYPE_STATIC(OSPFD, SNMP, "OSPF SNMP");
+
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
 
@@ -1321,12 +1323,12 @@ struct ospf_snmp_if {
 
 static struct ospf_snmp_if *ospf_snmp_if_new(void)
 {
-	return XCALLOC(MTYPE_TMP, sizeof(struct ospf_snmp_if));
+	return XCALLOC(MTYPE_SNMP, sizeof(struct ospf_snmp_if));
 }
 
 static void ospf_snmp_if_free(struct ospf_snmp_if *osif)
 {
-	XFREE(MTYPE_TMP, osif);
+	XFREE(MTYPE_SNMP, osif);
 }
 
 static int ospf_snmp_if_delete(struct interface *ifp)

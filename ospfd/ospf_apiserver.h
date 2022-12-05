@@ -26,10 +26,6 @@
 #include "ospf_api.h"
 #include "ospf_lsdb.h"
 
-/* MTYPE definition is not reflected to "memory.h". */
-#define MTYPE_OSPF_APISERVER MTYPE_TMP
-#define MTYPE_OSPF_APISERVER_MSGFILTER MTYPE_TMP
-
 /* List of opaque types that application registered */
 struct registered_opaque_type {
 	uint8_t lsa_type;
