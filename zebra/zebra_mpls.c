@@ -448,6 +448,16 @@ static int fec_send(struct zebra_fec *fec, struct zserv *client)
 }
 
 /*
+ * Set the variable to true/false, according to the
+ * vtysh configuration of "mpls fec nexthop-resolution"
+ */
+void zebra_mpls_fec_nexthop_resolution_enabled(bool status,
+					       struct zebra_vrf *zvrf)
+{
+	zvrf->zebra_mpls_fec_nexthop_resolution = status;
+}
+
+/*
  * Update all registered clients about this FEC. Caller should've updated
  * FEC and ensure no duplicate updates.
  */
