@@ -434,9 +434,9 @@ static int zebra_sr_config(struct vty *vty)
 			if (locator->argument_bits_length)
 				vty_out(vty, " arg-len %u",
 					locator->argument_bits_length);
-			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
-				vty_out(vty, "    behavior usid");
 			vty_out(vty, "\n");
+			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+				vty_out(vty, "    behavior usid\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}
