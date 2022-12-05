@@ -573,7 +573,7 @@ void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa,
 		json = json_object_new_object();
 		size_t header_str_sz = (2 * (end - start)) + 1;
 
-		header_str = XMALLOC(MTYPE_TMP, header_str_sz);
+		header_str = XMALLOC(MTYPE_OSPF6_LSA_HEADER, header_str_sz);
 
 		inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
 		inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
@@ -586,7 +586,7 @@ void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa,
 		json_object_string_add(json, "header", header_str);
 		json_object_array_add(json_array, json);
 
-		XFREE(MTYPE_TMP, header_str);
+		XFREE(MTYPE_OSPF6_LSA_HEADER, header_str);
 	} else {
 		vty_out(vty, "\n%s:\n", lsa->name);
 
