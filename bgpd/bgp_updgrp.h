@@ -476,6 +476,8 @@ extern void update_bgp_group_free(struct bgp *bgp);
 extern bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
 extern bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
 			       bool addpath_capable, afi_t afi, safi_t safi);
+extern bool bgp_addpath_capable(struct bgp_path_info *bpi, struct peer *peer,
+				afi_t afi, safi_t safi);
 
 /*
  * Inline functions

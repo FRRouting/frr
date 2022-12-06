@@ -1658,7 +1658,7 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 	as_t local_as;
 	uint8_t afi_safi_count = 0;
-	int adv_addpath_tx = 0;
+	bool adv_addpath_tx = false;
 
 	/* Non-Ext OP Len. */
 	cp = stream_get_endp(s);
@@ -1797,7 +1797,17 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 			 * will use it is
 			 * configured */
 			if (peer->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
-				adv_addpath_tx = 1;
+				adv_addpath_tx = true;
+
+			/* If we have enabled labeled unicast, we MUST check
+			 * against unicast SAFI because addpath IDs are
+			 * allocated under unicast SAFI, the same as the RIB
+			 * is managed in unicast SAFI.
+			 */
+			if (safi == SAFI_LABELED_UNICAST)
+				if (peer->addpath_type[afi][SAFI_UNICAST] !=
+				    BGP_ADDPATH_NONE)
+					adv_addpath_tx = true;
 		}
 	}
 
@@ -1838,6 +1848,10 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 				SET_FLAG(flags, BGP_ADDPATH_TX);
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_ADDPATH_AF_TX_ADV);
+				if (safi == SAFI_LABELED_UNICAST)
+					SET_FLAG(
+						peer->af_cap[afi][SAFI_UNICAST],
+						PEER_CAP_ADDPATH_AF_TX_ADV);
 			} else {
 				UNSET_FLAG(peer->af_cap[afi][safi],
 					   PEER_CAP_ADDPATH_AF_TX_ADV);
