@@ -266,7 +266,7 @@ all_start() {
 }
 
 all_stop() {
-	local pids reversed need_zebra
+	local pids reversed
 
 	daemon_list enabled_daemons disabled_daemons
 	[ "$1" = "--reallyall" ] && enabled_daemons="$enabled_daemons $disabled_daemons"
@@ -276,23 +276,13 @@ all_stop() {
 		reversed="$dmninst $reversed"
 	done
 
-	# Stop zebra last, after trying to stop the other daemons
 	for dmninst in $reversed; do
-		if [ "$dmninst" = "zebra" ]; then
-			need_zebra="yes"
-			continue
-		fi
-
 		daemon_stop "$dmninst" "$1" &
 		pids="$pids $!"
 	done
 	for pid in $pids; do
 		wait $pid
 	done
-
-	if [ -n "$need_zebra" ]; then
-		daemon_stop "zebra"
-	fi
 }
 
 all_status() {
