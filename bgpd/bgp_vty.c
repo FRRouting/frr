@@ -4678,7 +4678,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type);
 	} else {
 		peer = peer_create(NULL, conf_if, bgp, bgp->as, as, as_type,
-				   NULL);
+				   NULL, true);
 
 		if (!peer) {
 			vty_out(vty, "%% BGP failed to create peer\n");

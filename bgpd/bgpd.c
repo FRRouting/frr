@@ -950,6 +950,7 @@ static bool peer_hash_same(const void *p1, const void *p2)
 {
 	const struct peer *peer1 = p1;
 	const struct peer *peer2 = p2;
+
 	return (sockunion_same(&peer1->su, &peer2->su)
 		&& CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE)
 			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
@@ -1127,6 +1128,7 @@ static void peer_free(struct peer *peer)
 	bgp_timer_set(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
+	thread_cancel_event_ready(bm->master, peer);
 	FOREACH_AFI_SAFI (afi, safi)
 		THREAD_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!peer->t_write);
@@ -1457,7 +1459,10 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	/* peer flags apply */
 	peer_dst->flags = peer_src->flags;
-
+	/*
+	 * The doppelganger *must* not have a config node stored
+	 */
+	UNSET_FLAG(peer_dst->flags, PEER_FLAG_CONFIG_NODE);
 	peer_dst->peer_gr_present_state = peer_src->peer_gr_present_state;
 	peer_dst->peer_gr_new_status_flag = peer_src->peer_gr_new_status_flag;
 
@@ -1613,15 +1618,18 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	struct interface *ifp;
 	int prev_family;
 	int peer_addr_updated = 0;
+	struct listnode *node;
+	union sockunion old_su;
 
+	/*
+	 * This function is only ever needed when FRR an interface
+	 * based peering, so this simple test will tell us if
+	 * we are in an interface based configuration or not
+	 */
 	if (!peer->conf_if)
 		return;
 
-	/*
-	 * Our peer structure is stored in the bgp->peerhash
-	 * release it before we modify anything.
-	 */
-	hash_release(peer->bgp->peerhash, peer);
+	old_su = peer->su;
 
 	prev_family = peer->su.sa.sa_family;
 	if ((ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
@@ -1664,9 +1672,48 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	}
 
 	/*
-	 * Since our su changed we need to del/add peer to the peerhash
+	 * If they are the same, nothing to do here, move along
 	 */
-	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	if (!sockunion_same(&old_su, &peer->su)) {
+		union sockunion new_su = peer->su;
+		struct bgp *bgp = peer->bgp;
+
+		/*
+		 * Our peer structure is stored in the bgp->peerhash
+		 * release it before we modify anything in both the
+		 * hash and the list.  But *only* if the peer
+		 * is in the bgp->peerhash as that on deletion
+		 * we call bgp_stop which calls this function :(
+		 * so on deletion let's remove from the list first
+		 * and then do the deletion preventing this from
+		 * being added back on the list below when we
+		 * fail to remove it up here.
+		 */
+
+		/*
+		 * listnode_lookup just scans the list
+		 * for the peer structure so it's safe
+		 * to use without modifying the su
+		 */
+		node = listnode_lookup(bgp->peer, peer);
+		if (node) {
+			/*
+			 * Let's reset the peer->su release and
+			 * reset it and put it back.  We have to
+			 * do this because hash_release will
+			 * scan through looking for a matching
+			 * su if needed.
+			 */
+			peer->su = old_su;
+			hash_release(peer->bgp->peerhash, peer);
+			listnode_delete(peer->bgp->peer, peer);
+
+			peer->su = new_su;
+			(void)hash_get(peer->bgp->peerhash, peer,
+				       hash_alloc_intern);
+			listnode_add_sort(peer->bgp->peer, peer);
+		}
+	}
 }
 
 void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi, safi_t safi)
@@ -1715,7 +1762,8 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
  */
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
-			 int as_type, struct peer_group *group)
+			 int as_type, struct peer_group *group,
+			 bool config_node)
 {
 	int active;
 	struct peer *peer;
@@ -1753,6 +1801,10 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer = peer_lock(peer); /* bgp peer list reference */
 	peer->group = group;
 	listnode_add_sort(bgp->peer, peer);
+
+	if (config_node)
+		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
+
 	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Adjust update-group coalesce timer heuristics for # peers. */
@@ -1779,8 +1831,6 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 
 	/* Default configured keepalives count for shutdown rtt command */
 	peer->rtt_keepalive_conf = 1;
-
-	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	/* If 'bgp default <afi>-<safi>' is configured, then activate the
 	 * neighbor for the corresponding address family. IPv4 Unicast is
@@ -1816,6 +1866,7 @@ struct peer *peer_create_accept(struct bgp *bgp)
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
+	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	return peer;
 }
@@ -1987,7 +2038,8 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		else
 			local_as = bgp->as;
 
-		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL);
+		peer_create(su, conf_if, bgp, local_as, *as, as_type, NULL,
+			    true);
 	}
 
 	return 0;
@@ -2446,6 +2498,7 @@ int peer_delete(struct peer *peer)
 	bgp_keepalives_off(peer);
 	bgp_reads_off(peer);
 	bgp_writes_off(peer);
+	thread_cancel_event_ready(bm->master, peer);
 	FOREACH_AFI_SAFI (afi, safi)
 		THREAD_OFF(peer->t_revalidate_all[afi][safi]);
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
@@ -2509,9 +2562,16 @@ int peer_delete(struct peer *peer)
 	/* Delete from all peer list. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
 	    && (pn = listnode_lookup(bgp->peer, peer))) {
-		peer_unlock(peer); /* bgp peer list reference */
+		/*
+		 * Removing from the list node first because
+		 * peer_unlock *can* call peer_delete( I know,
+		 * I know ).  So let's remove it and in
+		 * the su recalculate function we'll ensure
+		 * it's in there or not.
+		 */
 		list_delete_node(bgp->peer, pn);
 		hash_release(bgp->peerhash, peer);
+		peer_unlock(peer); /* bgp peer list reference */
 	}
 
 	/* Buffers.  */
@@ -2649,6 +2709,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 {
 	uint32_t flags_tmp;
 	struct peer *conf;
+	bool config_node = !!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	conf = group->conf;
 
@@ -2675,6 +2736,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	UNSET_FLAG(peer->flags, ~peer->flags_override);
 	SET_FLAG(peer->flags, flags_tmp);
 	SET_FLAG(peer->flags_invert, conf->flags_invert);
+
+	if (config_node)
+		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	/* peer timers apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER)) {
@@ -3077,7 +3141,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		}
 
 		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-				   group->conf->as_type, group);
+				   group->conf->as_type, group, true);
 
 		peer = peer_lock(peer); /* group->peer list reference */
 		listnode_add(group->peer, peer);
@@ -3098,8 +3162,6 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			} else if (peer->afc[afi][safi])
 				peer_deactivate(peer, afi, safi);
 		}
-
-		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 		/* Set up peer's events and timers. */
 		if (peer_active(peer))
@@ -3723,8 +3785,10 @@ int bgp_delete(struct bgp *bgp)
 	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
 		peer_group_delete(group);
 
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
+	while (listcount(bgp->peer)) {
+		peer = listnode_head(bgp->peer);
 		peer_delete(peer);
+	}
 
 	if (bgp->peer_self) {
 		peer_delete(bgp->peer_self);
@@ -3971,7 +4035,7 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 
 	/* Create peer first; we've already checked group config is valid. */
 	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-			   group->conf->as_type, group);
+			   group->conf->as_type, group, true);
 	if (!peer)
 		return NULL;
 
@@ -4000,7 +4064,6 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 	/* Mark as dynamic, but also as a "config node" for other things to
 	 * work. */
 	SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
-	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	return peer;
 }
