@@ -9729,8 +9729,13 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 		}
 	}
 	if (use_json) {
+		struct bgp_path_info *bpi = bgp_dest_get_bgp_path_info(dest);
+
 		json_object_boolean_true_add(json_status, "*");
 		json_object_boolean_true_add(json_status, ">");
+
+		if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_MULTIPATH))
+			json_object_boolean_true_add(json_status, "=");
 		json_object_object_add(json_net, "appliedStatusSymbols",
 				       json_status);
 		json_object_object_addf(json_ar, json_net, "%pFX", p);
