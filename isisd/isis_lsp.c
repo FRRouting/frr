@@ -1262,6 +1262,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			  area->area_tag);
 
 		list_delete(&locator.srv6_sid);
+
+		isis_tlvs_add_ipv6_reach(lsp->tlvs,
+					 isis_area_ipv6_topology(area),
+					 &chunk->prefix, 0, false, NULL);
 	}
 
 	/* IPv4 address and TE router ID TLVs.
