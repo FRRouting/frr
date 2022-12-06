@@ -617,6 +617,10 @@ Terminal Mode Commands
    usage is printed sequentially. You can specify the daemon's name to print
    only its memory usage.
 
+.. clicmd:: show motd
+
+   Show current motd banner.
+
 .. clicmd:: show history
 
    Dump the vtysh cli history.
