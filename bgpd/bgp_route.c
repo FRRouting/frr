@@ -2086,11 +2086,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* If this is not the bestpath then check to see if there is an enabled
 	 * addpath
 	 * feature that requires us to advertise it */
-	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
-		if (!bgp_addpath_tx_path(peer->addpath_type[afi][safi], pi)) {
+	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+		if (!bgp_addpath_capable(pi, peer, afi, safi))
 			return false;
-		}
-	}
 
 	/* Aggregate-address suppress check. */
 	if (bgp_path_suppressed(pi) && !UNSUPPRESS_MAP_NAME(filter))
