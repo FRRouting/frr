@@ -711,6 +711,30 @@ void pim_msdp_read(struct thread *thread)
 			pim_msdp_pkt_rxed_with_fatal_error(mp);
 			return;
 		}
+
+		/*
+		 * Handle messages with longer than expected TLV size: resize
+		 * the stream to handle reading the whole message.
+		 *
+		 * RFC 3618 Section 12. 'Packet Formats':
+		 * > ... If an implementation receives a TLV whose length
+		 * > exceeds the maximum TLV length specified below, the TLV
+		 * > SHOULD be accepted. Any additional data, including possible
+		 * > next TLV's in the same message, SHOULD be ignored, and the
+		 * > MSDP session should not be reset. ...
+		 */
+		if (len > PIM_MSDP_SA_TLV_MAX_SIZE) {
+			/* Check if the current buffer is big enough. */
+			if (mp->ibuf->size < len) {
+				if (PIM_DEBUG_MSDP_PACKETS)
+					zlog_debug(
+						"MSDP peer %s sent TLV with unexpected large length (%d bytes)",
+						mp->key_str, len);
+
+				stream_resize_inplace(&mp->ibuf, len);
+			}
+		}
+
 		/* read complete TLV */
 		mp->packet_size = len;
 	}
