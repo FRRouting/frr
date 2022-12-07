@@ -1976,6 +1976,18 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	struct interface *ifp = up->rpf.source_nexthop.interface;
 	struct pim_interface *pim_ifp;
 
+	/* the KA timer only makes sense if this is a source for a *,G join
+	 * that we need to remain aware of.  If this is a S,G join without a
+	 * corresponding *,G join (=> SSM, or PIM router on S,G path that is
+	 * not on RPT), the KA timer is irrelevant (and SRC_STREAM shouldn't
+	 * be set - it's SRC_PIM/IGMP for the S,G join, and only that)
+	 */
+	if (!up->parent || up->parent->join_state != PIM_UPSTREAM_JOINED) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%pPUS: not starting KAT, no *,G join", up);
+		return false;
+	}
+
 	/* "iif == RPF_interface(S)" check is not easy to do as the info
 	 * we get from the kernel/ASIC is really a "lookup/key hit".
 	 * So we will do an approximate check here to avoid starting KAT
