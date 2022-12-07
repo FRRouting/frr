@@ -80,6 +80,8 @@ void zebra_tracker_file_free(const char *name)
 
 	zlog_info("Tracker file name %s deleted", tracker_file->name);
 
+	zebra_tracker_notify_file_close(tracker_file);
+
 	XFREE(MTYPE_TRACKER_FILE, tracker_file);
 }
 
@@ -162,6 +164,36 @@ static const char *zebra_tracker_file_status(enum zebra_tracker_status status)
 	}
 
 	return "";
+}
+
+void zebra_tracker_file_set_status(struct zebra_tracker_file *tracker_file,
+				   enum zebra_tracker_status status)
+{
+	if (tracker_file->status == status)
+		return;
+
+	zlog_info("Tracker file name %s status changed from %s to %s",
+		  tracker_file->name,
+		  zebra_tracker_file_status(tracker_file->status),
+		  zebra_tracker_file_status(status));
+
+	tracker_file->status = status;
+}
+
+void zebra_tracker_file_update(const char *name)
+{
+	struct zebra_tracker_file *tracker_file;
+
+	tracker_file = zebra_tracker_file_get(name);
+
+	zebra_tracker_notify_file_close(tracker_file);
+	if (strlen(tracker_file->path) != 0
+	    && (strlen(tracker_file->pattern) != 0
+		|| tracker_file->condition_file_exists))
+		zebra_tracker_notify_file_init(tracker_file);
+	else
+		zebra_tracker_file_set_status(tracker_file,
+					      ZEBRA_TRACKER_STATUS_INIT);
 }
 
 /* Tracker node structure. */

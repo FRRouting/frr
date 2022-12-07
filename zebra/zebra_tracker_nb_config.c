@@ -70,6 +70,7 @@ int zebra_tracker_filepath_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		zebra_tracker_file_new(name);
 		zebra_tracker_filepath_set(name, filepath);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -88,8 +89,10 @@ int zebra_tracker_filepath_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		if (zebra_tracker_file_get(name))
-			zebra_tracker_filepath_unset(name);
+		if (!zebra_tracker_file_get(name))
+			break;
+		zebra_tracker_filepath_unset(name);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -115,6 +118,7 @@ int zebra_tracker_filepattern_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		zebra_tracker_file_new(name);
 		zebra_tracker_filepattern_set(name, filepattern);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -133,8 +137,10 @@ int zebra_tracker_filepattern_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		if (zebra_tracker_file_get(name))
-			zebra_tracker_filepattern_unset(name);
+		if (!zebra_tracker_file_get(name))
+			break;
+		zebra_tracker_filepattern_unset(name);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -159,6 +165,7 @@ int zebra_tracker_filepattern_exact_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		zebra_tracker_file_new(name);
 		zebra_tracker_filepattern_exact_set(name, true);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -178,6 +185,7 @@ int zebra_tracker_filepattern_exact_destroy(struct nb_cb_destroy_args *args)
 	switch (args->event) {
 	case NB_EV_APPLY:
 		zebra_tracker_filepattern_exact_set(name, false);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -202,6 +210,7 @@ int zebra_tracker_fileexists_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		zebra_tracker_file_new(name);
 		zebra_tracker_fileexists_set(name, true);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -221,6 +230,7 @@ int zebra_tracker_fileexists_destroy(struct nb_cb_destroy_args *args)
 	switch (args->event) {
 	case NB_EV_APPLY:
 		zebra_tracker_fileexists_set(name, false);
+		zebra_tracker_file_update(name);
 		break;
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:

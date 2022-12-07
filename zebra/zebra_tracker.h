@@ -48,6 +48,9 @@ struct zebra_tracker_file {
 	bool condition_file_exists;
 	char pattern[TRACKER_FILEPATTERN_SIZE + 1];
 	bool exact_pattern;
+
+	/* inotify file tracking */
+	struct event *event;
 };
 
 struct zebra_tracker_file *zebra_tracker_file_get(const char *name);
@@ -61,6 +64,15 @@ zebra_tracker_filepattern_set(const char *name, const char *filepattern);
 void zebra_tracker_filepattern_unset(const char *name);
 void zebra_tracker_filepattern_exact_set(const char *name, bool exact);
 void zebra_tracker_fileexists_set(const char *name, bool condition_file_exists);
+
+void zebra_tracker_file_set_status(struct zebra_tracker_file *tracker_file,
+				   enum zebra_tracker_status status);
+
+void zebra_tracker_file_update(const char *name);
+
+
+void zebra_tracker_notify_file_init(struct zebra_tracker_file *tracker_file);
+void zebra_tracker_notify_file_close(struct zebra_tracker_file *tracker_file);
 
 void cli_show_tracker(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults __attribute__((__unused__)));
