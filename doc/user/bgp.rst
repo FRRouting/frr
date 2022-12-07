@@ -2975,6 +2975,25 @@ sysctl configurations:
 
 For more information, see ``man 7 arp``.
 
+.. _bgp-enabling-evpn:
+
+Enabling EVPN
+^^^^^^^^^^^^^
+
+EVPN should be enabled on the BGP instance corresponding to the VRF acting as
+the underlay for the VXLAN tunneling. In most circumstances this will be the
+default VRF. The command to enable EVPN for a BGP instance is
+``advertise-all-vni`` which lives under ``address-family l2vpn evpn``:
+
+.. code-block:: frr
+
+   router bgp 65001
+    !
+    address-family l2vpn evpn
+     advertise-all-vni
+
+A more comprehensive configuration example can be found in the :ref:`evpn` page.
+
 .. _bgp-evpn-l3-route-targets:
 
 EVPN L3 Route-Targets
