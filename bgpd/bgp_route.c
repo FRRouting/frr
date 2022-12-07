@@ -4233,6 +4233,12 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			 * need to be imported again, so flag accordingly.
 			 */
 			force_evpn_import = true;
+		} else {
+			/* implicit withdraw, decrement aggregate and pcount
+			 * here. only if update is accepted, they'll increment
+			 * below.
+			 */
+			bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 		}
 
 		/* Received Logging. */
@@ -4252,11 +4258,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* The attribute is changed. */
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
-
-		/* implicit withdraw, decrement aggregate and pcount here.
-		 * only if update is accepted, they'll increment below.
-		 */
-		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 
 		/* Update bgp route dampening information.  */
 		if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
