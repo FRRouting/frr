@@ -1072,6 +1072,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	safi_t safi;
 	struct bpacket_attr_vec_arr vecarr;
 	bool addpath_capable = false;
+	uint8_t default_originate_label[4] = {0x80, 0x00, 0x00};
+	mpls_label_t *label = NULL;
+	uint32_t num_labels = 0;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
@@ -1084,6 +1087,11 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	safi = SUBGRP_SAFI(subgrp);
 	bpacket_attr_vec_arr_reset(&vecarr);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
+
+	if (safi == SAFI_LABELED_UNICAST) {
+		label = (mpls_label_t *)default_originate_label;
+		num_labels = 1;
+	}
 
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
@@ -1127,9 +1135,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	pos = stream_get_endp(s);
 	stream_putw(s, 0);
 	total_attr_len = bgp_packet_attribute(
-		NULL, peer, s, attr, &vecarr, &p, afi, safi, from, NULL, NULL,
-		0, addpath_capable, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
-		NULL);
+		NULL, peer, s, attr, &vecarr, &p, afi, safi, from, NULL, label,
+		num_labels, addpath_capable,
+		BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, NULL);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);
