@@ -14071,6 +14071,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 			vty_out(vty, "Originating default network %s\n\n",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		}
+		(*output_count)++;
 		*header1 = 0;
 	}
 
