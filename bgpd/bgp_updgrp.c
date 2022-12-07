@@ -2230,10 +2230,18 @@ bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
 			      PEER_CAP_ADDPATH_AF_RX_RCV));
 }
 
+bool bgp_addpath_capable(struct bgp_path_info *bpi, struct peer *peer,
+			 afi_t afi, safi_t safi)
+{
+	return (bgp_addpath_tx_path(peer->addpath_type[afi][safi], bpi) ||
+		(safi == SAFI_LABELED_UNICAST &&
+		 bgp_addpath_tx_path(peer->addpath_type[afi][SAFI_UNICAST],
+				     bpi)));
+}
+
 bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
 			bool addpath_capable, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED) ||
-		(addpath_capable &&
-		 bgp_addpath_tx_path(peer->addpath_type[afi][safi], bpi)));
+		(addpath_capable && bgp_addpath_capable(bpi, peer, afi, safi)));
 }

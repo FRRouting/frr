@@ -2086,11 +2086,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* If this is not the bestpath then check to see if there is an enabled
 	 * addpath
 	 * feature that requires us to advertise it */
-	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
-		if (!bgp_addpath_tx_path(peer->addpath_type[afi][safi], pi)) {
+	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+		if (!bgp_addpath_capable(pi, peer, afi, safi))
 			return false;
-		}
-	}
 
 	/* Aggregate-address suppress check. */
 	if (bgp_path_suppressed(pi) && !UNSUPPRESS_MAP_NAME(filter))
@@ -9736,8 +9734,13 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 		}
 	}
 	if (use_json) {
+		struct bgp_path_info *bpi = bgp_dest_get_bgp_path_info(dest);
+
 		json_object_boolean_true_add(json_status, "*");
 		json_object_boolean_true_add(json_status, ">");
+
+		if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_MULTIPATH))
+			json_object_boolean_true_add(json_status, "=");
 		json_object_object_add(json_net, "appliedStatusSymbols",
 				       json_status);
 		json_object_object_addf(json_ar, json_net, "%pFX", p);
