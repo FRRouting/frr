@@ -782,7 +782,7 @@ Showing Information
 
 .. _show-ip-ospf:
 
-.. clicmd:: show ip ospf [json]
+.. clicmd:: show ip ospf [vrf <NAME|all>] [json]
 
    Show information on a variety of general OSPF and area state and
    configuration information.
