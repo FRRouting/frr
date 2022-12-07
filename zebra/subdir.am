@@ -104,6 +104,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_tracker.c \
 	zebra/zebra_tracker_nb.c \
 	zebra/zebra_tracker_nb_config.c \
+	zebra/zebra_tracker_notify.c \
 	zebra/zebra_srte.c \
 	zebra/zebra_tc.c \
 	zebra/zebra_trace.c \
