@@ -9682,8 +9682,14 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 						       attr->aspath->str);
 
 			/* Print origin */
+#if CONFDATE > 20231208
+CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
+#endif
 			json_object_string_add(json_net, "bgpOriginCode",
 					       bgp_origin_str[attr->origin]);
+			json_object_string_add(
+				json_net, "origin",
+				bgp_origin_long_str[attr->origin]);
 		} else {
 			if (p->family == AF_INET &&
 			    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP ||
@@ -9736,11 +9742,18 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 	if (use_json) {
 		struct bgp_path_info *bpi = bgp_dest_get_bgp_path_info(dest);
 
+#if CONFDATE > 20231208
+CPP_NOTICE("Drop `bgpStatusCodes` from JSON outputs")
+#endif
 		json_object_boolean_true_add(json_status, "*");
 		json_object_boolean_true_add(json_status, ">");
+		json_object_boolean_true_add(json_net, "valid");
+		json_object_boolean_true_add(json_net, "best");
 
-		if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_MULTIPATH))
+		if (bpi && CHECK_FLAG(bpi->flags, BGP_PATH_MULTIPATH)) {
 			json_object_boolean_true_add(json_status, "=");
+			json_object_boolean_true_add(json_net, "multipath");
+		}
 		json_object_object_add(json_net, "appliedStatusSymbols",
 				       json_status);
 		json_object_object_addf(json_ar, json_net, "%pFX", p);
@@ -14243,7 +14256,9 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		json_ar = json_object_new_object();
 		json_scode = json_object_new_object();
 		json_ocode = json_object_new_object();
-
+#if CONFDATE > 20231208
+CPP_NOTICE("Drop `bgpStatusCodes` from JSON outputs")
+#endif
 		json_object_string_add(json_scode, "suppressed", "s");
 		json_object_string_add(json_scode, "damped", "d");
 		json_object_string_add(json_scode, "history", "h");
@@ -14255,6 +14270,9 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		json_object_string_add(json_scode, "stale", "S");
 		json_object_string_add(json_scode, "removed", "R");
 
+#if CONFDATE > 20231208
+CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
+#endif
 		json_object_string_add(json_ocode, "igp", "i");
 		json_object_string_add(json_ocode, "egp", "e");
 		json_object_string_add(json_ocode, "incomplete", "?");
