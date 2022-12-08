@@ -192,6 +192,24 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	return pim_ifp;
 }
 
+static void pim_if_stop_kat(struct interface *ifp, struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+
+	assert(ifp);
+	assert(pim);
+
+	frr_each_safe (rb_pim_upstream, &pim->upstream_head, up) {
+		if (ifp != up->rpf.source_nexthop.interface)
+			continue;
+
+		if (up->t_ka_timer) {
+			THREAD_OFF(up->t_ka_timer);
+			pim_upstream_keep_alive_timer_proc(up);
+		}
+	}
+}
+
 void pim_if_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -851,6 +869,8 @@ void pim_if_addr_del_all(struct interface *ifp)
 
 	pim_rp_setup(pim);
 	pim_i_am_rp_re_evaluate(pim);
+
+	pim_if_stop_kat(ifp, pim);
 }
 
 void pim_if_addr_del_all_igmp(struct interface *ifp)
