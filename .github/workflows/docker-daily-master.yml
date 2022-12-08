@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   docker_daily_master:
+    if: github.repository == 'frrouting/frr'
     runs-on: ubuntu-latest
     permissions:
       contents: read

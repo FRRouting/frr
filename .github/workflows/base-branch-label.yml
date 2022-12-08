@@ -8,6 +8,7 @@ on:
 
 jobs:
   label:
+    if: github.repository == 'frrouting/frr'
     runs-on: ubuntu-latest
     permissions:
       contents: read
