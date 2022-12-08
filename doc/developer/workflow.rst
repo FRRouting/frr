@@ -308,6 +308,21 @@ your changes is usually not required and will be added based on your commit
 messages by the maintainers. However, you are free to include an update to the
 changelog with some better description.
 
+Accords: non-code community consensus
+=====================================
+
+The FRR repository has a place for "accords" - these are items of
+consideration for FRR that influence how we work as a community, but either
+haven't resulted in code *yet*, or may *never* result in code being written.
+They are placed in the ``doc/accords/`` directory.
+
+The general idea is to simply pass small blurbs of text through our normal PR
+procedures, giving them the same visibility, comment and review mechanisms as
+code PRs - and changing them later is another PR.  Please refer to the README
+file in ``doc/accords/`` for further details.  The file names of items in that
+directory are hopefully helpful in determining whether some of them might be
+relevant to your work.
+
 Submitting Patches and Enhancements
 ===================================
 
