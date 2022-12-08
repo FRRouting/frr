@@ -68,7 +68,7 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    option and we will use Route Replace Semantics instead of delete
    than add.
 
-.. option:: --asic-offload [notify_on_offload|notify_on_ack]
+.. option:: --asic-offload=[notify_on_offload|notify_on_ack]
 
    The linux kernel has the ability to use asic-offload ( see switchdev
    development ).  When the operator knows that FRR will be working in
@@ -76,10 +76,11 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    code only supports asynchronous notification of the offload state.
    In other words the initial ACK received for linux kernel installation
    does not give zebra any data about what the state of the offload
-   is.  This option takes the optional paramegers notify_on_offload
+   is.  This option takes the optional parameters notify_on_offload
    or notify_on_ack.  This signals to zebra to notify upper level
    protocols about route installation/update on ack received from
    the linux kernel or from offload notification.
+
 
 .. option:: -s <SIZE>, --nl-bufsize <SIZE>
 
