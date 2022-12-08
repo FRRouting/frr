@@ -775,7 +775,8 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 					: "");
 		}
 	}
-	json_subgrps = json_object_new_array();
+	if (ctx->uj)
+		json_subgrps = json_object_new_array();
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
 			continue;
