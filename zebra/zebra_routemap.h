@@ -50,6 +50,8 @@ zebra_nht_route_map_check(afi_t afi, int client_proto, const struct prefix *p,
 			  struct zebra_vrf *zvrf, struct route_entry *,
 			  struct nexthop *nexthop);
 
+extern void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf);
+
 #ifdef __cplusplus
 }
 #endif
