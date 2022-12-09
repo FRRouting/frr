@@ -21,6 +21,9 @@
 
 """
 Check if labeled-unicast works correctly with addpath capability.
+Initially R3 MUST announce 10.0.0.1/32 multipath(2) from R1 + R2.
+Later, we enable R5 and 10.0.0.1/32 multipath(3) MUST be announced,
+R1 + R2 + R5.
 """
 
 import os
@@ -41,7 +44,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 5):
+    for routern in range(1, 6):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -55,6 +58,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r3"])
     switch.add_link(tgen.gears["r4"])
+
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r5"])
 
 
 def setup_module(mod):
@@ -88,7 +95,7 @@ def test_bgp_addpath_labeled_unicast():
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
 
-    def _bgp_check_advertised_routes():
+    def _bgp_check_advertised_routes(prefix_num):
         output = json.loads(
             r3.vtysh_cmd(
                 "show bgp ipv4 labeled-unicast neighbors 192.168.34.4 advertised-routes json"
@@ -104,11 +111,11 @@ def test_bgp_addpath_labeled_unicast():
                     }
                 }
             },
-            "totalPrefixCounter": 2,
+            "totalPrefixCounter": prefix_num,
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_check_advertised_routes)
+    test_func = functools.partial(_bgp_check_advertised_routes, 2)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert (
         result is None
@@ -135,6 +142,36 @@ def test_bgp_addpath_labeled_unicast():
     test_func = functools.partial(_bgp_check_received_routes)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to receive labeled-unicast with addpath (multipath)"
+
+    step("Enable BGP session for R5")
+    r3.vtysh_cmd(
+        """
+          configure terminal
+            router bgp 65003
+              no neighbor 192.168.35.5 shutdown
+        """
+    )
+
+    test_func = functools.partial(_bgp_check_advertised_routes, 3)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), "Failed to advertise labeled-unicast with addpath (multipath)"
+
+    step("Disable BGP session for R5")
+    r3.vtysh_cmd(
+        """
+          configure terminal
+            router bgp 65003
+              neighbor 192.168.35.5 shutdown
+        """
+    )
+
+    test_func = functools.partial(_bgp_check_advertised_routes, 2)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert (
+        result is None
+    ), "Failed to advertise labeled-unicast with addpath (multipath)"
 
 
 if __name__ == "__main__":
