@@ -4012,7 +4012,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	struct attr new_attr;
 	struct attr *attr_new;
 	struct bgp_path_info *pi;
-	struct bgp_path_info *new;
+	struct bgp_path_info *new = NULL;
 	struct bgp_path_info_extra *extra;
 	const char *reason;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
@@ -4806,8 +4806,6 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
 		reason = "maximum-prefix overflow";
 		bgp_attr_flush(&new_attr);
-		bgp_unlink_nexthop(new);
-		bgp_path_info_delete(dest, new);
 		goto filtered;
 	}
 
@@ -4882,6 +4880,13 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 /* This BGP update is filtered.  Log the reason then update BGP
    entry.  */
 filtered:
+	if (new) {
+		bgp_unlink_nexthop(new);
+		bgp_path_info_delete(dest, new);
+		bgp_path_info_extra_free(&new->extra);
+		XFREE(MTYPE_BGP_ROUTE, new);
+	}
+
 	hook_call(bgp_process, bgp, afi, safi, dest, peer, true);
 
 	if (bgp_debug_update(peer, p, NULL, 1)) {
