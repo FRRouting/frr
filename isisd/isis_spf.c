@@ -1297,6 +1297,7 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 		if (lsp_adj == NULL || lsp_adj->hdr.rem_lifetime == 0) {
 			/* Delete one-way adjacency. */
 			listnode_delete(spftree->sadj_list, sadj);
+			isis_spf_adj_free(sadj);
 			continue;
 		}
 
@@ -1313,6 +1314,7 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 		if (args.reverse_metric == UINT32_MAX) {
 			/* Delete one-way adjacency. */
 			listnode_delete(spftree->sadj_list, sadj);
+			isis_spf_adj_free(sadj);
 			continue;
 		}
 		sadj->metric = args.reverse_metric;
