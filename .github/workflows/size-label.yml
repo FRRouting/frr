@@ -4,6 +4,7 @@ on: pull_request_target
 
 jobs:
   size-label:
+    if: github.repository == 'frrouting/frr'
     runs-on: ubuntu-latest
     permissions:
       contents: read
