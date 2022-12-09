@@ -49,6 +49,7 @@ Protocols
    fabricd
    ldpd
    eigrpd
+   evpn
    isisd
    nhrpd
    ospfd
