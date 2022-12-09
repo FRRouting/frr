@@ -349,37 +349,6 @@ extern struct list *list_dup(struct list *list);
 	(node) != NULL && ((data) = static_cast(data, listgetdata(node)), 1);  \
 	(node) = listnextnode(node), ((data) = NULL)
 
-/* these *do not* cleanup list nodes and referenced data, as the functions
- * do - these macros simply {de,at}tach a listnode from/to a list.
- */
-
-/* List node attach macro.  */
-#define LISTNODE_ATTACH(L, N)                                                  \
-	do {                                                                   \
-		(N)->prev = (L)->tail;                                         \
-		(N)->next = NULL;                                              \
-		if ((L)->head == NULL)                                         \
-			(L)->head = (N);                                       \
-		else                                                           \
-			(L)->tail->next = (N);                                 \
-		(L)->tail = (N);                                               \
-		(L)->count++;                                                  \
-	} while (0)
-
-/* List node detach macro.  */
-#define LISTNODE_DETACH(L, N)                                                  \
-	do {                                                                   \
-		if ((N)->prev)                                                 \
-			(N)->prev->next = (N)->next;                           \
-		else                                                           \
-			(L)->head = (N)->next;                                 \
-		if ((N)->next)                                                 \
-			(N)->next->prev = (N)->prev;                           \
-		else                                                           \
-			(L)->tail = (N)->prev;                                 \
-		(L)->count--;                                                  \
-	} while (0)
-
 extern struct listnode *listnode_lookup_nocheck(struct list *list, void *data);
 
 /*
