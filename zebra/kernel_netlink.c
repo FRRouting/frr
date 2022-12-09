@@ -1877,6 +1877,10 @@ void kernel_init(struct zebra_ns *zns)
 	ret = setsockopt(zns->netlink.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
 			 &grp, sizeof(grp));
 
+	if (ret < 0)
+		zlog_notice(
+			"Registration for RTNLGRP_BRVLAN Membership failed : %d %s",
+			errno, safe_strerror(errno));
 	/*
 	 * Let's tell the kernel that we want to receive extended
 	 * ACKS over our command socket(s)
