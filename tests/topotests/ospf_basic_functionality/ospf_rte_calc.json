@@ -1,5 +1,5 @@
 {
-
+    "feature": ["bgp"],
     "ipv4base": "10.0.0.0",
     "ipv4mask": 24,
     "link_ip_start": {
