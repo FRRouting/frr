@@ -1234,7 +1234,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		}
 	}
 
-	json_auth = json_object_new_object();
+	if (use_json)
+		json_auth = json_object_new_object();
 	if (oi->at_data.flags != 0) {
 		if (use_json) {
 			if (CHECK_FLAG(oi->at_data.flags,
