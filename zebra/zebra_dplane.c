@@ -812,20 +812,8 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_IPTABLE_ADD:
 	case DPLANE_OP_IPTABLE_DELETE:
-		if (ctx->u.iptable.interface_name_list) {
-			struct listnode *node, *nnode;
-			char *ifname;
-
-			for (ALL_LIST_ELEMENTS(
-				     ctx->u.iptable.interface_name_list, node,
-				     nnode, ifname)) {
-				LISTNODE_DETACH(
-					ctx->u.iptable.interface_name_list,
-					node);
-				XFREE(MTYPE_DP_NETFILTER, ifname);
-			}
+		if (ctx->u.iptable.interface_name_list)
 			list_delete(&ctx->u.iptable.interface_name_list);
-		}
 		break;
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
@@ -3240,6 +3228,11 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 	return AOK;
 }
 
+static void zebra_dplane_interface_name_list_deletion(void *data)
+{
+	XFREE(MTYPE_DP_NETFILTER, data);
+}
+
 /**
  * dplane_ctx_iptable_init() - Initialize a context block for a PBR iptable
  * update.
@@ -3273,9 +3266,10 @@ static int dplane_ctx_iptable_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_vrf_id = iptable->vrf_id;
 	memcpy(&ctx->u.iptable, iptable, sizeof(struct zebra_pbr_iptable));
-	ctx->u.iptable.interface_name_list = NULL;
 	if (iptable->nb_interface > 0) {
 		ctx->u.iptable.interface_name_list = list_new();
+		ctx->u.iptable.interface_name_list->del =
+			zebra_dplane_interface_name_list_deletion;
 		for (ALL_LIST_ELEMENTS_RO(iptable->interface_name_list, node,
 					  ifname)) {
 			listnode_add(ctx->u.iptable.interface_name_list,
