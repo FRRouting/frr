@@ -1093,7 +1093,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 				   nl_msg_type_to_str(msg_type), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	} else {
-		if ((msg_type != RTM_GETNEXTHOP) || !startup)
+		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
+		    !startup)
 			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
 				 "%s error: %s, type=%s(%u), seq=%u, pid=%u",
 				 nl->name, safe_strerror(-errnum),
