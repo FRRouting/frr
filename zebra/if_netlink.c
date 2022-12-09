@@ -2651,7 +2651,6 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	for (attr = BRVLAN_RTA(bvm); RTA_OK(attr, rem);
 	     attr = RTA_NEXT(attr, rem)) {
 		vinfo = NULL;
-		state = 0;
 		vrange = 0;
 
 		type = attr->rta_type & NLA_TYPE_MASK;
