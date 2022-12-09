@@ -93,14 +93,14 @@ struct zebra_l2info_gre {
 };
 
 struct zebra_vxlan_vni {
-	vni_t vni;	    /* VNI */
+	vni_t vni;	      /* VNI */
 	vlanid_t access_vlan; /* Access VLAN - for VLAN-aware bridge. */
 	struct in_addr mcast_grp;
 };
 
 enum {
 	ZEBRA_VXLAN_IF_VNI = 0, /* per vni vxlan if */
-	ZEBRA_VXLAN_IF_SVD      /* single vxlan device */
+	ZEBRA_VXLAN_IF_SVD	/* single vxlan device */
 };
 
 struct zebra_vxlan_if_vlan_ctx {

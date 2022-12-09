@@ -749,8 +749,8 @@ static int netlink_bridge_vxlan_vlan_vni_map_update(struct interface *ifp,
 		memset(aftb, 0, sizeof(aftb));
 		netlink_parse_rtattr_nested(aftb, IFLA_BRIDGE_VLAN_TUNNEL_MAX,
 					    i);
-		if (!aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID]
-		    || !aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
+		if (!aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID] ||
+		    !aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
 			/* vlan-vni info missing */
 			return 0;
 

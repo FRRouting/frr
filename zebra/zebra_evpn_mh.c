@@ -541,8 +541,8 @@ static bool zebra_evpn_acc_vl_cmp(const void *p1, const void *p2)
 	if (acc_bd1 == NULL || acc_bd2 == NULL)
 		return false;
 
-	return ((acc_bd1->vid == acc_bd2->vid)
-		&& (acc_bd1->bridge_ifindex == acc_bd2->bridge_ifindex));
+	return ((acc_bd1->vid == acc_bd2->vid) &&
+		(acc_bd1->bridge_ifindex == acc_bd2->bridge_ifindex));
 }
 
 /* Lookup VLAN based broadcast domain */

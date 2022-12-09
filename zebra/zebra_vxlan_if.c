@@ -205,14 +205,14 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				chgflags);
 
 		/* Removed from bridge? Cleanup and return */
-		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE)
-		    && (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
+		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE) &&
+		    (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			zebra_vxlan_process_l3vni_oper_down(zl3vni);
 			return 0;
 		}
 
-		if ((chgflags & ZEBRA_VXLIF_MASTER_MAC_CHANGE)
-		    && if_is_operative(ifp) && is_l3vni_oper_up(zl3vni)) {
+		if ((chgflags & ZEBRA_VXLIF_MASTER_MAC_CHANGE) &&
+		    if_is_operative(ifp) && is_l3vni_oper_up(zl3vni)) {
 			zebra_vxlan_process_l3vni_oper_down(zl3vni);
 			zebra_vxlan_process_l3vni_oper_up(zl3vni);
 			return 0;
@@ -282,8 +282,8 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				chgflags);
 
 		/* Removed from bridge? Cleanup and return */
-		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE)
-		    && (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
+		if ((chgflags & ZEBRA_VXLIF_MASTER_CHANGE) &&
+		    (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
 			/* Delete from client, remove all remote VTEPs */
 			/* Also, free up all MACs and neighbors. */
 			zevpn->svi_if = NULL;
@@ -303,10 +303,10 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			zebra_evpn_mac_del_all(zevpn, 0, 1, DEL_LOCAL_MAC);
 		}
 
-		if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr
-		    || zevpn->mcast_grp.s_addr != vnip->mcast_grp.s_addr) {
+		if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
+		    zevpn->mcast_grp.s_addr != vnip->mcast_grp.s_addr) {
 			zebra_vxlan_sg_deref(zevpn->local_vtep_ip,
-				zevpn->mcast_grp);
+					     zevpn->mcast_grp);
 			zebra_vxlan_sg_ref(vxl->vtep_ip, vnip->mcast_grp);
 			zevpn->local_vtep_ip = vxl->vtep_ip;
 			zevpn->mcast_grp = vnip->mcast_grp;
@@ -425,10 +425,10 @@ static int zebra_vxlan_if_add_vni(struct interface *ifp,
 		if (!zevpn)
 			zevpn = zebra_evpn_add(vni);
 
-		if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr
-		    || zevpn->mcast_grp.s_addr != vnip->mcast_grp.s_addr) {
+		if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
+		    zevpn->mcast_grp.s_addr != vnip->mcast_grp.s_addr) {
 			zebra_vxlan_sg_deref(zevpn->local_vtep_ip,
-				zevpn->mcast_grp);
+					     zevpn->mcast_grp);
 			zebra_vxlan_sg_ref(vxl->vtep_ip, vnip->mcast_grp);
 			zevpn->local_vtep_ip = vxl->vtep_ip;
 			zevpn->mcast_grp = vnip->mcast_grp;

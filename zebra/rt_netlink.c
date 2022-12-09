@@ -1333,8 +1333,8 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 	int num_labels = 0;
 
 	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
-		if (nh_label_type != ZEBRA_LSP_EVPN
-		    && nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
+		if (nh_label_type != ZEBRA_LSP_EVPN &&
+		    nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
 			continue;
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
@@ -3927,7 +3927,7 @@ int netlink_macfdb_read_mcast_for_vni(struct zebra_ns *zns,
 				      struct interface *ifp, vni_t vni)
 {
 	struct zebra_if *zif;
-	struct ethaddr mac = { .octet = {0} };
+	struct ethaddr mac = {.octet = {0}};
 	struct zebra_dplane_info dp_info;
 	int ret = 0;
 

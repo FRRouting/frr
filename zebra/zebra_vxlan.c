@@ -1050,9 +1050,9 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				return 0;
 			}
 
-			if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr
-			    || zevpn->mcast_grp.s_addr
-				       != vnip->mcast_grp.s_addr) {
+			if (zevpn->local_vtep_ip.s_addr !=
+				    vxl->vtep_ip.s_addr ||
+			    zevpn->mcast_grp.s_addr != vnip->mcast_grp.s_addr) {
 				zebra_vxlan_sg_deref(zevpn->local_vtep_ip,
 						     zevpn->mcast_grp);
 				zebra_vxlan_sg_ref(vxl->vtep_ip,
@@ -2129,7 +2129,7 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 				continue;
 
 			vni_id = zebra_vxlan_if_access_vlan_vni_find(
-					zif, in_param->br_if);
+				zif, in_param->br_if);
 			if (vni_id) {
 				found = 1;
 				break;

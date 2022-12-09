@@ -1911,7 +1911,7 @@ static void zebra_vxlan_if_vni_hash_dump_vty(struct hash_bucket *bucket,
 	struct zebra_vxlan_vni *vni;
 
 	vni = (struct zebra_vxlan_vni *)bucket->data;
-	vty = (struct vty *) ctxt;
+	vty = (struct vty *)ctxt;
 
 	zebra_vxlan_if_vni_dump_vty(vty, vni);
 }

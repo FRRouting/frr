@@ -2852,17 +2852,17 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 			counter++;
 
 		/* Check for changes to the nexthop - set ROUTE_ENTRY_CHANGED */
-		if (prev_active != new_active || prev_index != nexthop->ifindex
-		    || ((nexthop->type >= NEXTHOP_TYPE_IFINDEX
-			 && nexthop->type < NEXTHOP_TYPE_IPV6)
-			&& prev_src.ipv4.s_addr
-				   != nexthop->rmap_src.ipv4.s_addr)
-		    || ((nexthop->type >= NEXTHOP_TYPE_IPV6
-			 && nexthop->type < NEXTHOP_TYPE_BLACKHOLE)
-			&& !(IPV6_ADDR_SAME(&prev_src.ipv6,
-					    &nexthop->rmap_src.ipv6)))
-		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)
-		    || vni_removed)
+		if (prev_active != new_active ||
+		    prev_index != nexthop->ifindex ||
+		    ((nexthop->type >= NEXTHOP_TYPE_IFINDEX &&
+		      nexthop->type < NEXTHOP_TYPE_IPV6) &&
+		     prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr) ||
+		    ((nexthop->type >= NEXTHOP_TYPE_IPV6 &&
+		      nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
+		     !(IPV6_ADDR_SAME(&prev_src.ipv6,
+				      &nexthop->rmap_src.ipv6))) ||
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ||
+		    vni_removed)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	}
 
