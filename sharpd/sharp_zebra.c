@@ -272,8 +272,8 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 	} else {
 		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 			/* Check if we set a VNI label */
-			if (nh->nh_label
-			    && (nh->nh_label_type == ZEBRA_LSP_EVPN))
+			if (nh->nh_label &&
+			    (nh->nh_label_type == ZEBRA_LSP_EVPN))
 				SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 			api_nh = &api.nexthops[i];
