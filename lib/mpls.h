@@ -139,6 +139,8 @@ static inline void vni2label(vni_t vni, mpls_label_t *label)
 {
 	uint8_t *tag = (uint8_t *)label;
 
+	assert(tag);
+
 	tag[0] = (vni >> 16) & 0xFF;
 	tag[1] = (vni >> 8) & 0xFF;
 	tag[2] = vni & 0xFF;
@@ -148,6 +150,8 @@ static inline vni_t label2vni(const mpls_label_t *label)
 {
 	uint8_t *tag = (uint8_t *)label;
 	vni_t vni;
+
+	assert(tag);
 
 	vni = ((uint32_t)*tag++ << 16);
 	vni |= (uint32_t)*tag++ << 8;
