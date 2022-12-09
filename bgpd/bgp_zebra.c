@@ -1404,6 +1404,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	}
 
 	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		labels = NULL;
+		num_labels = 0;
 		uint32_t nh_weight;
 		bool is_evpn;
 		bool is_parent_evpn;
