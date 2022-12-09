@@ -1820,6 +1820,23 @@ static void zebra_route_map_event(const char *rmap_name)
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
+void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf)
+{
+	afi_t afi;
+	uint8_t type;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+			if (PROTO_RM_NAME(zvrf, afi, type))
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      PROTO_RM_NAME(zvrf, afi, type));
+			if (NHT_RM_NAME(zvrf, afi, type))
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      NHT_RM_NAME(zvrf, afi, type));
+		}
+	}
+}
+
 /* ip protocol configuration write function */
 void zebra_routemap_config_write_protocol(struct vty *vty,
 					  struct zebra_vrf *zvrf)

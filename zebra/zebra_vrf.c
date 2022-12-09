@@ -270,6 +270,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	/* Cleanup EVPN states for vrf */
 	zebra_vxlan_vrf_delete(zvrf);
+	zebra_routemap_vrf_delete(zvrf);
 
 	list_delete_all_node(zvrf->rid_all_sorted_list);
 	list_delete_all_node(zvrf->rid_lo_sorted_list);
