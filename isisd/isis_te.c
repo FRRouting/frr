@@ -765,6 +765,11 @@ static struct ls_attributes *get_attributes(struct ls_node_id adv,
 		attr->standard.admin_group = tlvs->adm_group;
 		SET_FLAG(attr->flags, LS_ATTR_ADM_GRP);
 	}
+	if (CHECK_FLAG(tlvs->status, EXT_EXTEND_ADM_GRP)) {
+		admin_group_copy(&attr->ext_admin_group,
+				 &tlvs->ext_admin_group);
+		SET_FLAG(attr->flags, LS_ATTR_EXT_ADM_GRP);
+	}
 	if (CHECK_FLAG(tlvs->status, EXT_LLRI)) {
 		attr->standard.local_id = tlvs->local_llri;
 		attr->standard.remote_id = tlvs->remote_llri;
