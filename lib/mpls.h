@@ -233,7 +233,7 @@ static inline char *label2str(mpls_label_t label, enum lsp_types_t type,
 			snprintf(buf, len, "Reserved (%u)", label);
 		else
 			snprintf(buf, len, "%u", label);
-		return (buf);
+		return buf;
 	}
 }
 
