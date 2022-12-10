@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 			continue;
 
 		XFREE(MTYPE_TMP, timers[index]->arg);
-		thread_cancel(&timers[index]);
+		event_cancel(&timers[index]);
 		timers_pending--;
 	}
 

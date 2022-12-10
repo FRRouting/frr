@@ -548,7 +548,7 @@ void isis_area_destroy(struct isis_area *area)
 	THREAD_OFF(area->t_lsp_refresh[1]);
 	THREAD_OFF(area->t_rlfa_rib_update);
 
-	thread_cancel_event(master, area);
+	event_cancel_event(master, area);
 
 	listnode_delete(area->isis->area_list, area);
 

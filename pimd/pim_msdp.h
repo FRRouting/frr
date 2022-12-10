@@ -211,8 +211,8 @@ struct pim_msdp {
 	event_add_write(mp->pim->msdp.master, pim_msdp_write, mp, mp->fd,      \
 			&mp->t_write)
 
-#define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
-#define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)
+#define PIM_MSDP_PEER_READ_OFF(mp) event_cancel(&mp->t_read)
+#define PIM_MSDP_PEER_WRITE_OFF(mp) event_cancel(&mp->t_write)
 
 #if PIM_IPV != 6
 // struct pim_msdp *msdp;

@@ -398,9 +398,9 @@ void pcep_thread_cancel_timer(struct event **thread)
 	}
 
 	if ((*thread)->master->owner == pthread_self()) {
-		thread_cancel(thread);
+		event_cancel(thread);
 	} else {
-		thread_cancel_async((*thread)->master, thread, NULL);
+		event_cancel_async((*thread)->master, thread, NULL);
 	}
 }
 

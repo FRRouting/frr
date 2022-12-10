@@ -731,7 +731,7 @@ void interface_up(struct event *thread)
 	if (!oi->type_cfg)
 		oi->type = ospf6_default_iftype(oi->interface);
 
-	thread_cancel(&oi->thread_sso);
+	event_cancel(&oi->thread_sso);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
 		zlog_debug("Interface Event %s: [InterfaceUp]",
@@ -935,7 +935,7 @@ void interface_down(struct event *thread)
 	if (oi->on_write_q) {
 		listnode_delete(ospf6->oi_write_q, oi);
 		if (list_isempty(ospf6->oi_write_q))
-			thread_cancel(&ospf6->t_write);
+			event_cancel(&ospf6->t_write);
 		oi->on_write_q = 0;
 	}
 

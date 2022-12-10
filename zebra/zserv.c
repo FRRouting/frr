@@ -670,7 +670,7 @@ void zserv_close_client(struct zserv *client)
 			zlog_debug("Closing client '%s'",
 				   zebra_route_string(client->proto));
 
-		thread_cancel_event(zrouter.master, client);
+		event_cancel_event(zrouter.master, client);
 		THREAD_OFF(client->t_cleanup);
 		THREAD_OFF(client->t_process);
 

@@ -5874,11 +5874,11 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 
 		/* Stop any outstanding tasks */
 		if (zdplane_info.dg_master) {
-			thread_cancel_async(zdplane_info.dg_master,
-					    &zi->t_request, NULL);
+			event_cancel_async(zdplane_info.dg_master,
+					   &zi->t_request, NULL);
 
-			thread_cancel_async(zdplane_info.dg_master, &zi->t_read,
-					    NULL);
+			event_cancel_async(zdplane_info.dg_master, &zi->t_read,
+					   NULL);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);
@@ -6854,8 +6854,8 @@ void zebra_dplane_shutdown(void)
 	zdplane_info.dg_run = false;
 
 	if (zdplane_info.dg_t_update)
-		thread_cancel_async(zdplane_info.dg_t_update->master,
-				    &zdplane_info.dg_t_update, NULL);
+		event_cancel_async(zdplane_info.dg_t_update->master,
+				   &zdplane_info.dg_t_update, NULL);
 
 	frr_pthread_stop(zdplane_info.dg_pthread, NULL);
 

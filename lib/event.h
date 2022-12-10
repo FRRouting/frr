@@ -158,10 +158,10 @@ struct cpu_thread_history {
 /*
  * Please consider this macro deprecated, and do not use it in new code.
  */
-#define THREAD_OFF(thread)                                             \
-	do {                                                           \
-		if ((thread))                                          \
-			thread_cancel(&(thread));                      \
+#define THREAD_OFF(thread)                                                     \
+	do {                                                                   \
+		if ((thread))                                                  \
+			event_cancel(&(thread));                               \
 	} while (0)
 
 /*
@@ -241,13 +241,12 @@ extern void _thread_execute(const struct xref_threadsched *xref,
 			    struct thread_master *master,
 			    void (*fn)(struct event *), void *arg, int val);
 
-extern void thread_cancel(struct event **event);
-extern void thread_cancel_async(struct thread_master *, struct event **,
-				void *);
+extern void event_cancel(struct event **event);
+extern void event_cancel_async(struct thread_master *, struct event **, void *);
 /* Cancel ready tasks with an arg matching 'arg' */
-extern void thread_cancel_event_ready(struct thread_master *m, void *arg);
+extern void event_cancel_event_ready(struct thread_master *m, void *arg);
 /* Cancel all tasks with an arg matching 'arg', including timers and io */
-extern void thread_cancel_event(struct thread_master *m, void *arg);
+extern void event_cancel_event(struct thread_master *m, void *arg);
 extern struct event *thread_fetch(struct thread_master *, struct event *event);
 extern void thread_call(struct event *event);
 extern unsigned long thread_timer_remain_second(struct event *event);

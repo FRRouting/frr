@@ -356,7 +356,7 @@ void ospf_if_free(struct ospf_interface *oi)
 	listnode_delete(oi->ospf->oiflist, oi);
 	listnode_delete(oi->area->oiflist, oi);
 
-	thread_cancel_event(master, oi);
+	event_cancel_event(master, oi);
 
 	memset(oi, 0, sizeof(*oi));
 	XFREE(MTYPE_OSPF_IF, oi);

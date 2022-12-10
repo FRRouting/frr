@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 		event_add_timer_msec(master, dummy_func, NULL, 0, &timers[i]);
 	}
 	for (i = 0; i < SCHEDULE_TIMERS; i++)
-		thread_cancel(&timers[i]);
+		event_cancel(&timers[i]);
 
 	monotime(&tv_start);
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 		int index;
 
 		index = prng_rand(prng) % SCHEDULE_TIMERS;
-		thread_cancel(&timers[index]);
+		event_cancel(&timers[index]);
 	}
 
 	monotime(&tv_stop);
