@@ -62,7 +62,7 @@ struct xref_threadsched {
 
 	const char *funcname;
 	const char *dest;
-	uint32_t thread_type;
+	uint32_t event_type;
 };
 
 /* Master of the theads. */
@@ -91,10 +91,21 @@ struct thread_master {
 	RUSAGE_T last_getrusage;
 };
 
+/* Event types. */
+enum event_types {
+	EVENT_READ,
+	EVENT_WRITE,
+	EVENT_TIMER,
+	EVENT_EVENT,
+	EVENT_READY,
+	EVENT_UNUSED,
+	EVENT_EXECUTE,
+};
+
 /* Thread itself. */
 struct event {
-	uint8_t type;		  /* thread type */
-	uint8_t add_type;	  /* thread type */
+	enum event_types type;	   /* thread type */
+	enum event_types add_type; /* thread type */
 	struct thread_list_item threaditem;
 	struct thread_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
@@ -136,15 +147,6 @@ struct cpu_thread_history {
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
-/* Thread types. */
-#define THREAD_READ           0
-#define THREAD_WRITE          1
-#define THREAD_TIMER          2
-#define THREAD_EVENT          3
-#define THREAD_READY          4
-#define THREAD_UNUSED         5
-#define THREAD_EXECUTE        6
-
 /* Thread yield time.  */
 #define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 10ms */
 
@@ -177,7 +179,7 @@ struct cpu_thread_history {
 			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
 			.funcname = #f,                                        \
 			.dest = #t,                                            \
-			.thread_type = THREAD_##type,                          \
+			.event_type = EVENT_##type,                            \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
 		_event_add_##addfn(&_xref, m, f, a, v, t);                     \
@@ -193,14 +195,14 @@ struct cpu_thread_history {
 	_xref_t_a(timer_tv, TIMER, m, f, a, v, t)
 #define event_add_event(m, f, a, v, t) _xref_t_a(event, EVENT, m, f, a, v, t)
 
-#define thread_execute(m,f,a,v)                                                \
+#define thread_execute(m, f, a, v)                                             \
 	({                                                                     \
-		static const struct xref_threadsched _xref                     \
-				__attribute__((used)) = {                      \
+		static const struct xref_threadsched _xref __attribute__(      \
+			(used)) = {                                            \
 			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
 			.funcname = #f,                                        \
 			.dest = NULL,                                          \
-			.thread_type = THREAD_EXECUTE,                         \
+			.event_type = EVENT_EXECUTE,                           \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
 		_thread_execute(&_xref, m, f, a, v);                           \

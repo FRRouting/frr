@@ -24,9 +24,9 @@
 #include "libfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread");
-DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master");
-DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info");
-DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats");
+DEFINE_MTYPE_STATIC(LIB, EVENT_MASTER, "Thread master");
+DEFINE_MTYPE_STATIC(LIB, EVENT_POLL, "Thread Poll Info");
+DEFINE_MTYPE_STATIC(LIB, EVENT_STATS, "Thread stats");
 
 DECLARE_LIST(thread_list, struct event, threaditem);
 
@@ -105,7 +105,7 @@ static bool cpu_record_hash_cmp(const struct cpu_thread_history *a,
 static void *cpu_record_hash_alloc(struct cpu_thread_history *a)
 {
 	struct cpu_thread_history *new;
-	new = XCALLOC(MTYPE_THREAD_STATS, sizeof(struct cpu_thread_history));
+	new = XCALLOC(MTYPE_EVENT_STATS, sizeof(struct cpu_thread_history));
 	new->func = a->func;
 	new->funcname = a->funcname;
 	return new;
@@ -115,7 +115,7 @@ static void cpu_record_hash_free(void *a)
 {
 	struct cpu_thread_history *hist = a;
 
-	XFREE(MTYPE_THREAD_STATS, hist);
+	XFREE(MTYPE_EVENT_STATS, hist);
 }
 
 static void vty_out_cpu_thread_history(struct vty *vty,
@@ -128,11 +128,11 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 		(a->real.total / a->total_calls), a->real.max,
 		a->total_cpu_warn, a->total_wall_warn, a->total_starv_warn);
 	vty_out(vty, "  %c%c%c%c%c  %s\n",
-		a->types & (1 << THREAD_READ) ? 'R' : ' ',
-		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
-		a->types & (1 << THREAD_TIMER) ? 'T' : ' ',
-		a->types & (1 << THREAD_EVENT) ? 'E' : ' ',
-		a->types & (1 << THREAD_EXECUTE) ? 'X' : ' ', a->funcname);
+		a->types & (1 << EVENT_READ) ? 'R' : ' ',
+		a->types & (1 << EVENT_WRITE) ? 'W' : ' ',
+		a->types & (1 << EVENT_TIMER) ? 'T' : ' ',
+		a->types & (1 << EVENT_EVENT) ? 'E' : ' ',
+		a->types & (1 << EVENT_EXECUTE) ? 'X' : ' ', a->funcname);
 }
 
 static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
@@ -289,23 +289,23 @@ static uint8_t parse_filter(const char *filterstr)
 		switch (filterstr[i]) {
 		case 'r':
 		case 'R':
-			filter |= (1 << THREAD_READ);
+			filter |= (1 << EVENT_READ);
 			break;
 		case 'w':
 		case 'W':
-			filter |= (1 << THREAD_WRITE);
+			filter |= (1 << EVENT_WRITE);
 			break;
 		case 't':
 		case 'T':
-			filter |= (1 << THREAD_TIMER);
+			filter |= (1 << EVENT_TIMER);
 			break;
 		case 'e':
 		case 'E':
-			filter |= (1 << THREAD_EVENT);
+			filter |= (1 << EVENT_EVENT);
 			break;
 		case 'x':
 		case 'X':
-			filter |= (1 << THREAD_EXECUTE);
+			filter |= (1 << EVENT_EXECUTE);
 			break;
 		default:
 			break;
@@ -551,7 +551,7 @@ struct thread_master *thread_master_create(const char *name)
 
 	pthread_once(&init_once, &initializer);
 
-	rv = XCALLOC(MTYPE_THREAD_MASTER, sizeof(struct thread_master));
+	rv = XCALLOC(MTYPE_EVENT_MASTER, sizeof(struct thread_master));
 
 	/* Initialize master mutex */
 	pthread_mutex_init(&rv->mtx, NULL);
@@ -559,7 +559,7 @@ struct thread_master *thread_master_create(const char *name)
 
 	/* Set name */
 	name = name ? name : "default";
-	rv->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
+	rv->name = XSTRDUP(MTYPE_EVENT_MASTER, name);
 
 	/* Initialize I/O task data structures */
 
@@ -570,10 +570,10 @@ struct thread_master *thread_master_create(const char *name)
 		rv->fd_limit = (int)limit.rlim_cur;
 	}
 
-	rv->read = XCALLOC(MTYPE_THREAD_POLL,
+	rv->read = XCALLOC(MTYPE_EVENT_POLL,
 			   sizeof(struct event *) * rv->fd_limit);
 
-	rv->write = XCALLOC(MTYPE_THREAD_POLL,
+	rv->write = XCALLOC(MTYPE_EVENT_POLL,
 			    sizeof(struct event *) * rv->fd_limit);
 
 	char tmhashname[strlen(name) + 32];
@@ -607,9 +607,9 @@ struct thread_master *thread_master_create(const char *name)
 	/* Initialize data structures for poll() */
 	rv->handler.pfdsize = rv->fd_limit;
 	rv->handler.pfdcount = 0;
-	rv->handler.pfds = XCALLOC(MTYPE_THREAD_MASTER,
+	rv->handler.pfds = XCALLOC(MTYPE_EVENT_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
-	rv->handler.copy = XCALLOC(MTYPE_THREAD_MASTER,
+	rv->handler.copy = XCALLOC(MTYPE_EVENT_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
 
 	/* add to list of threadmasters */
@@ -626,12 +626,12 @@ struct thread_master *thread_master_create(const char *name)
 void thread_master_set_name(struct thread_master *master, const char *name)
 {
 	frr_with_mutex (&master->mtx) {
-		XFREE(MTYPE_THREAD_MASTER, master->name);
-		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
+		XFREE(MTYPE_EVENT_MASTER, master->name);
+		master->name = XSTRDUP(MTYPE_EVENT_MASTER, name);
 	}
 }
 
-#define THREAD_UNUSED_DEPTH 10
+#define EVENT_UNUSED_DEPTH 10
 
 /* Move thread to unuse list. */
 static void thread_add_unuse(struct thread_master *m, struct event *thread)
@@ -642,12 +642,12 @@ static void thread_add_unuse(struct thread_master *m, struct event *thread)
 
 	thread->hist->total_active--;
 	memset(thread, 0, sizeof(struct event));
-	thread->type = THREAD_UNUSED;
+	thread->type = EVENT_UNUSED;
 
 	/* Restore the thread mutex context. */
 	thread->mtx = mtxc;
 
-	if (thread_list_count(&m->unuse) < THREAD_UNUSED_DEPTH) {
+	if (thread_list_count(&m->unuse) < EVENT_UNUSED_DEPTH) {
 		thread_list_add_tail(&m->unuse, thread);
 		return;
 	}
@@ -678,7 +678,7 @@ static void thread_array_free(struct thread_master *m,
 			thread_free(m, t);
 		}
 	}
-	XFREE(MTYPE_THREAD_POLL, thread_array);
+	XFREE(MTYPE_EVENT_POLL, thread_array);
 }
 
 /*
@@ -726,10 +726,10 @@ void thread_master_free(struct thread_master *m)
 
 	hash_clean_and_free(&m->cpu_record, cpu_record_hash_free);
 
-	XFREE(MTYPE_THREAD_MASTER, m->name);
-	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);
-	XFREE(MTYPE_THREAD_MASTER, m->handler.copy);
-	XFREE(MTYPE_THREAD_MASTER, m);
+	XFREE(MTYPE_EVENT_MASTER, m->name);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.pfds);
+	XFREE(MTYPE_EVENT_MASTER, m->handler.copy);
+	XFREE(MTYPE_EVENT_MASTER, m);
 }
 
 /* Return remain time in milliseconds. */
@@ -953,11 +953,11 @@ void _event_add_read_write(const struct xref_threadsched *xref,
 			   void (*func)(struct event *), void *arg, int fd,
 			   struct event **t_ptr)
 {
-	int dir = xref->thread_type;
+	int dir = xref->event_type;
 	struct event *thread = NULL;
 	struct event **thread_array;
 
-	if (dir == THREAD_READ)
+	if (dir == EVENT_READ)
 		frrtrace(9, frr_libfrr, schedule_read, m,
 			 xref->funcname, xref->xref.file, xref->xref.line,
 			 t_ptr, fd, 0, arg, 0);
@@ -978,7 +978,7 @@ void _event_add_read_write(const struct xref_threadsched *xref,
 		/* default to a new pollfd */
 		nfds_t queuepos = m->handler.pfdcount;
 
-		if (dir == THREAD_READ)
+		if (dir == EVENT_READ)
 			thread_array = m->read;
 		else
 			thread_array = m->write;
@@ -1007,7 +1007,7 @@ void _event_add_read_write(const struct xref_threadsched *xref,
 
 		m->handler.pfds[queuepos].fd = fd;
 		m->handler.pfds[queuepos].events |=
-			(dir == THREAD_READ ? POLLIN : POLLOUT);
+			(dir == EVENT_READ ? POLLIN : POLLOUT);
 
 		if (queuepos == m->handler.pfdcount)
 			m->handler.pfdcount++;
@@ -1054,7 +1054,7 @@ static void _event_add_timer_timeval(const struct xref_threadsched *xref,
 			/* thread is already scheduled; don't reschedule */
 			return;
 
-		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
+		thread = thread_get(m, EVENT_TIMER, func, arg, xref);
 
 		frr_with_mutex (&thread->mtx) {
 			thread->u.sands = t;
@@ -1138,7 +1138,7 @@ void _event_add_event(const struct xref_threadsched *xref,
 			/* thread is already scheduled; don't reschedule */
 			break;
 
-		thread = thread_get(m, THREAD_EVENT, func, arg, xref);
+		thread = thread_get(m, EVENT_EVENT, func, arg, xref);
 		frr_with_mutex (&thread->mtx) {
 			thread->u.val = val;
 			thread_list_add_tail(&m->event, thread);
@@ -1363,24 +1363,25 @@ static void do_event_cancel(struct thread_master *master)
 
 		/* Determine the appropriate queue to cancel the thread from */
 		switch (thread->type) {
-		case THREAD_READ:
+		case EVENT_READ:
 			event_cancel_rw(master, thread->u.fd, POLLIN, -1);
 			thread_array = master->read;
 			break;
-		case THREAD_WRITE:
+		case EVENT_WRITE:
 			event_cancel_rw(master, thread->u.fd, POLLOUT, -1);
 			thread_array = master->write;
 			break;
-		case THREAD_TIMER:
+		case EVENT_TIMER:
 			thread_timer_list_del(&master->timer, thread);
 			break;
-		case THREAD_EVENT:
+		case EVENT_EVENT:
 			list = &master->event;
 			break;
-		case THREAD_READY:
+		case EVENT_READY:
 			list = &master->ready;
 			break;
-		default:
+		case EVENT_UNUSED:
+		case EVENT_EXECUTE:
 			continue;
 			break;
 		}
@@ -1604,14 +1605,14 @@ static int thread_process_io_helper(struct thread_master *m,
 		return 0;
 	}
 
-	if (thread->type == THREAD_READ)
+	if (thread->type == EVENT_READ)
 		thread_array = m->read;
 	else
 		thread_array = m->write;
 
 	thread_array[thread->u.fd] = NULL;
 	thread_list_add_tail(&m->ready, thread);
-	thread->type = THREAD_READY;
+	thread->type = EVENT_READY;
 
 	return 1;
 }
@@ -1716,7 +1717,7 @@ static unsigned int thread_process_timers(struct thread_master *m,
 		}
 
 		thread_timer_list_pop(&m->timer);
-		thread->type = THREAD_READY;
+		thread->type = EVENT_READY;
 		thread_list_add_tail(&m->ready, thread);
 		ready++;
 	}
@@ -1731,7 +1732,7 @@ static unsigned int thread_process(struct thread_list_head *list)
 	unsigned int ready = 0;
 
 	while ((thread = thread_list_pop(list))) {
-		thread->type = THREAD_READY;
+		thread->type = EVENT_READY;
 		thread_list_add_tail(&thread->master->ready, thread);
 		ready++;
 	}
@@ -1901,7 +1902,7 @@ unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 }
 
 /* We should aim to yield after yield milliseconds, which defaults
-   to THREAD_YIELD_TIME_SLOT .
+   to EVENT_YIELD_TIME_SLOT .
    Note: we are using real (wall clock) time for this calculation.
    It could be argued that CPU time may make more sense in certain
    contexts.  The things to consider are whether the thread may have
@@ -2065,11 +2066,11 @@ void _thread_execute(const struct xref_threadsched *xref,
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {
-		thread = thread_get(m, THREAD_EVENT, func, arg, xref);
+		thread = thread_get(m, EVENT_EVENT, func, arg, xref);
 
 		/* Set its event value. */
 		frr_with_mutex (&thread->mtx) {
-			thread->add_type = THREAD_EXECUTE;
+			thread->add_type = EVENT_EXECUTE;
 			thread->u.val = val;
 			thread->ref = &thread;
 		}
@@ -2131,14 +2132,11 @@ void debug_signals(const sigset_t *sigs)
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const struct event *thread)
 {
-	static const char * const types[] = {
-		[THREAD_READ] = "read",
-		[THREAD_WRITE] = "write",
-		[THREAD_TIMER] = "timer",
-		[THREAD_EVENT] = "event",
-		[THREAD_READY] = "ready",
-		[THREAD_UNUSED] = "unused",
-		[THREAD_EXECUTE] = "exec",
+	static const char *const types[] = {
+		[EVENT_READ] = "read",	  [EVENT_WRITE] = "write",
+		[EVENT_TIMER] = "timer",  [EVENT_EVENT] = "event",
+		[EVENT_READY] = "ready",  [EVENT_UNUSED] = "unused",
+		[EVENT_EXECUTE] = "exec",
 	};
 	ssize_t rv = 0;
 	char info[16] = "";
@@ -2154,13 +2152,18 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 		rv += bprintfrr(buf, " INVALID(%u)", thread->type);
 
 	switch (thread->type) {
-	case THREAD_READ:
-	case THREAD_WRITE:
+	case EVENT_READ:
+	case EVENT_WRITE:
 		snprintfrr(info, sizeof(info), "fd=%d", thread->u.fd);
 		break;
 
-	case THREAD_TIMER:
+	case EVENT_TIMER:
 		snprintfrr(info, sizeof(info), "r=%pTVMud", &thread->u.sands);
+		break;
+	case EVENT_READY:
+	case EVENT_EVENT:
+	case EVENT_UNUSED:
+	case EVENT_EXECUTE:
 		break;
 	}
 
