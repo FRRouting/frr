@@ -190,7 +190,7 @@ int _frrzmq_event_add_read(const struct xref_threadsched *xref,
 	cb->in_cb = false;
 
 	if (events & ZMQ_POLLIN) {
-		thread_cancel(&cb->read.thread);
+		event_cancel(&cb->read.thread);
 
 		event_add_event(master, frrzmq_read_msg, cbp, fd,
 				&cb->read.thread);
@@ -296,7 +296,7 @@ int _frrzmq_event_add_write(const struct xref_threadsched *xref,
 	cb->in_cb = false;
 
 	if (events & ZMQ_POLLOUT) {
-		thread_cancel(&cb->write.thread);
+		event_cancel(&cb->write.thread);
 
 		_event_add_event(xref, master, frrzmq_write_msg, cbp, fd,
 				 &cb->write.thread);
@@ -311,7 +311,7 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 	if (!cb || !*cb)
 		return;
 	core->cancelled = true;
-	thread_cancel(&core->thread);
+	event_cancel(&core->thread);
 
 	/* If cancelled from within a callback, don't try to free memory
 	 * in this path.
@@ -344,7 +344,7 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 	if ((events & event) && core->thread && !core->cancelled) {
 		struct thread_master *tm = core->thread->master;
 
-		thread_cancel(&core->thread);
+		event_cancel(&core->thread);
 
 		if (event == ZMQ_POLLIN)
 			event_add_event(tm, frrzmq_read_msg, cbp, cb->fd,

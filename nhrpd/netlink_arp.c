@@ -125,7 +125,7 @@ static void netlink_log_recv(struct event *t)
 void netlink_set_nflog_group(int nlgroup)
 {
 	if (netlink_log_fd >= 0) {
-		thread_cancel(&netlink_log_thread);
+		event_cancel(&netlink_log_thread);
 		close(netlink_log_fd);
 		netlink_log_fd = -1;
 	}

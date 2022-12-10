@@ -38,7 +38,7 @@ struct cancel_req {
 };
 
 /* Flags for task cancellation */
-#define THREAD_CANCEL_FLAG_READY     0x01
+#define EVENT_CANCEL_FLAG_READY 0x01
 
 static int thread_timer_cmp(const struct event *a, const struct event *b)
 {
@@ -1169,8 +1169,8 @@ void _event_add_event(const struct xref_threadsched *xref,
  *   - POLLIN
  *   - POLLOUT
  */
-static void thread_cancel_rw(struct thread_master *master, int fd, short state,
-			     int idx_hint)
+static void event_cancel_rw(struct thread_master *master, int fd, short state,
+			    int idx_hint)
 {
 	bool found = false;
 
@@ -1267,7 +1267,7 @@ static void cancel_arg_helper(struct thread_master *master,
 	}
 
 	/* If requested, stop here and ignore io and timers */
-	if (CHECK_FLAG(cr->flags, THREAD_CANCEL_FLAG_READY))
+	if (CHECK_FLAG(cr->flags, EVENT_CANCEL_FLAG_READY))
 		return;
 
 	/* Check the io tasks */
@@ -1283,7 +1283,7 @@ static void cancel_arg_helper(struct thread_master *master,
 			fd = pfd->fd;
 
 			/* Found a match to cancel: clean up fd arrays */
-			thread_cancel_rw(master, pfd->fd, pfd->events, i);
+			event_cancel_rw(master, pfd->fd, pfd->events, i);
 
 			/* Clean up thread arrays */
 			master->read[fd] = NULL;
@@ -1328,7 +1328,7 @@ static void cancel_arg_helper(struct thread_master *master,
  * @param master the thread master to process
  * @REQUIRE master->mtx
  */
-static void do_thread_cancel(struct thread_master *master)
+static void do_event_cancel(struct thread_master *master)
 {
 	struct thread_list_head *list = NULL;
 	struct event **thread_array = NULL;
@@ -1364,11 +1364,11 @@ static void do_thread_cancel(struct thread_master *master)
 		/* Determine the appropriate queue to cancel the thread from */
 		switch (thread->type) {
 		case THREAD_READ:
-			thread_cancel_rw(master, thread->u.fd, POLLIN, -1);
+			event_cancel_rw(master, thread->u.fd, POLLIN, -1);
 			thread_array = master->read;
 			break;
 		case THREAD_WRITE:
-			thread_cancel_rw(master, thread->u.fd, POLLOUT, -1);
+			event_cancel_rw(master, thread->u.fd, POLLOUT, -1);
 			thread_array = master->write;
 			break;
 		case THREAD_TIMER:
@@ -1401,7 +1401,7 @@ static void do_thread_cancel(struct thread_master *master)
 	if (master->cancel_req)
 		list_delete_all_node(master->cancel_req);
 
-	/* Wake up any threads which may be blocked in thread_cancel_async() */
+	/* Wake up any threads which may be blocked in event_cancel_async() */
 	master->canceled = true;
 	pthread_cond_broadcast(&master->cancel_cond);
 }
@@ -1426,7 +1426,7 @@ static void cancel_event_helper(struct thread_master *m, void *arg, int flags)
 	frr_with_mutex (&m->mtx) {
 		cr->eventobj = arg;
 		listnode_add(m->cancel_req, cr);
-		do_thread_cancel(m);
+		do_event_cancel(m);
 	}
 }
 
@@ -1438,7 +1438,7 @@ static void cancel_event_helper(struct thread_master *m, void *arg, int flags)
  * @param m the thread_master to cancel from
  * @param arg the argument passed when creating the event
  */
-void thread_cancel_event(struct thread_master *master, void *arg)
+void event_cancel_event(struct thread_master *master, void *arg)
 {
 	cancel_event_helper(master, arg, 0);
 }
@@ -1451,11 +1451,11 @@ void thread_cancel_event(struct thread_master *master, void *arg)
  * @param m the thread_master to cancel from
  * @param arg the argument passed when creating the event
  */
-void thread_cancel_event_ready(struct thread_master *m, void *arg)
+void event_cancel_event_ready(struct thread_master *m, void *arg)
 {
 
 	/* Only cancel ready/event tasks */
-	cancel_event_helper(m, arg, THREAD_CANCEL_FLAG_READY);
+	cancel_event_helper(m, arg, EVENT_CANCEL_FLAG_READY);
 }
 
 /**
@@ -1465,7 +1465,7 @@ void thread_cancel_event_ready(struct thread_master *m, void *arg)
  *
  * @param thread task to cancel
  */
-void thread_cancel(struct event **thread)
+void event_cancel(struct event **thread)
 {
 	struct thread_master *master;
 
@@ -1474,10 +1474,10 @@ void thread_cancel(struct event **thread)
 
 	master = (*thread)->master;
 
-	frrtrace(9, frr_libfrr, thread_cancel, master,
-		 (*thread)->xref->funcname, (*thread)->xref->xref.file,
-		 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
-		 (*thread)->u.val, (*thread)->arg, (*thread)->u.sands.tv_sec);
+	frrtrace(9, frr_libfrr, event_cancel, master, (*thread)->xref->funcname,
+		 (*thread)->xref->xref.file, (*thread)->xref->xref.line, NULL,
+		 (*thread)->u.fd, (*thread)->u.val, (*thread)->arg,
+		 (*thread)->u.sands.tv_sec);
 
 	assert(master->owner == pthread_self());
 
@@ -1486,7 +1486,7 @@ void thread_cancel(struct event **thread)
 			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
 		cr->thread = *thread;
 		listnode_add(master->cancel_req, cr);
-		do_thread_cancel(master);
+		do_event_cancel(master);
 	}
 
 	*thread = NULL;
@@ -1516,19 +1516,19 @@ void thread_cancel(struct event **thread)
  * @param thread pointer to thread to cancel
  * @param eventobj the event
  */
-void thread_cancel_async(struct thread_master *master, struct event **thread,
-			 void *eventobj)
+void event_cancel_async(struct thread_master *master, struct event **thread,
+			void *eventobj)
 {
 	assert(!(thread && eventobj) && (thread || eventobj));
 
 	if (thread && *thread)
-		frrtrace(9, frr_libfrr, thread_cancel_async, master,
+		frrtrace(9, frr_libfrr, event_cancel_async, master,
 			 (*thread)->xref->funcname, (*thread)->xref->xref.file,
 			 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
 			 (*thread)->u.val, (*thread)->arg,
 			 (*thread)->u.sands.tv_sec);
 	else
-		frrtrace(9, frr_libfrr, thread_cancel_async, master, NULL, NULL,
+		frrtrace(9, frr_libfrr, event_cancel_async, master, NULL, NULL,
 			 0, NULL, 0, 0, eventobj, 0);
 
 	assert(master->owner != pthread_self());
@@ -1638,10 +1638,10 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 		ready++;
 
 		/*
-		 * Unless someone has called thread_cancel from another
+		 * Unless someone has called event_cancel from another
 		 * pthread, the only thing that could have changed in
 		 * m->handler.pfds while we were asleep is the .events
-		 * field in a given pollfd. Barring thread_cancel() that
+		 * field in a given pollfd. Barring event_cancel() that
 		 * value should be a superset of the values we have in our
 		 * copy, so there's no need to update it. Similarily,
 		 * barring deletion, the fd should still be a valid index
@@ -1758,7 +1758,7 @@ struct event *thread_fetch(struct thread_master *m, struct event *fetch)
 		pthread_mutex_lock(&m->mtx);
 
 		/* Process any pending cancellation requests */
-		do_thread_cancel(m);
+		do_event_cancel(m);
 
 		/*
 		 * Attempt to flush ready queue before going into poll().

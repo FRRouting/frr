@@ -132,7 +132,7 @@ void control_shutdown(void)
 {
 	struct bfd_control_socket *bcs;
 
-	thread_cancel(&bglobal.bg_csockev);
+	event_cancel(&bglobal.bg_csockev);
 
 	socket_close(&bglobal.bg_csock);
 
@@ -185,8 +185,8 @@ static void control_free(struct bfd_control_socket *bcs)
 	struct bfd_control_queue *bcq;
 	struct bfd_notify_peer *bnp;
 
-	thread_cancel(&(bcs->bcs_ev));
-	thread_cancel(&(bcs->bcs_outev));
+	event_cancel(&(bcs->bcs_ev));
+	event_cancel(&(bcs->bcs_outev));
 
 	close(bcs->bcs_sd);
 
@@ -292,7 +292,7 @@ static int control_queue_dequeue(struct bfd_control_socket *bcs)
 	return 1;
 
 empty_list:
-	thread_cancel(&(bcs->bcs_outev));
+	event_cancel(&(bcs->bcs_outev));
 	bcs->bcs_bout = NULL;
 	return 0;
 }

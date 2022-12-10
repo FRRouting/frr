@@ -414,14 +414,14 @@ static void fpm_connect(struct event *t);
 static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 {
 	/* Cancel all zebra threads first. */
-	thread_cancel_async(zrouter.master, &fnc->t_lspreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_lspwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
-	thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_lspreset, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_lspwalk, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_nhgreset, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
 
 	/*
 	 * Grab the lock to empty the streams (data plane might try to
@@ -1484,9 +1484,9 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 	THREAD_OFF(fnc->t_rmacwalk);
 	THREAD_OFF(fnc->t_event);
 	THREAD_OFF(fnc->t_nhg);
-	thread_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
-	thread_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
-	thread_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);
+	event_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
+	event_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
+	event_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);
 
 	if (fnc->socket != -1) {
 		close(fnc->socket);

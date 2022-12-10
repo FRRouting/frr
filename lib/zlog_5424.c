@@ -1053,7 +1053,7 @@ bool zlog_5424_apply_dst(struct zlog_cfg_5424 *zcf)
 {
 	int fd = -1;
 
-	thread_cancel(&zcf->t_reconnect);
+	event_cancel(&zcf->t_reconnect);
 
 	if (zcf->prio_min != ZLOG_DISABLED)
 		fd = zlog_5424_open(zcf, -1);
@@ -1106,7 +1106,7 @@ bool zlog_5424_rotate(struct zlog_cfg_5424 *zcf)
 		if (!zcf->active)
 			return true;
 
-		thread_cancel(&zcf->t_reconnect);
+		event_cancel(&zcf->t_reconnect);
 
 		/* need to retain the socket type because it also influences
 		 * other fields (packets) and we can't atomically swap these

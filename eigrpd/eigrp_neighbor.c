@@ -164,7 +164,7 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 		eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
-	thread_cancel_event(master, nbr);
+	event_cancel_event(master, nbr);
 	eigrp_fifo_free(nbr->multicast_queue);
 	eigrp_fifo_free(nbr->retrans_queue);
 	THREAD_OFF(nbr->t_holddown);

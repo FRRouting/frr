@@ -136,7 +136,7 @@ Mapping the general names used in the figure to specific FRR functions:
 - ``task`` is ``struct event *``
 - ``fetch`` is ``thread_fetch()``
 - ``exec()`` is ``thread_call``
-- ``cancel()`` is ``thread_cancel()``
+- ``cancel()`` is ``event_cancel()``
 - ``schedule()`` is any of the various task-specific ``event_add_*`` functions
 
 Adding tasks is done with various task-specific function-like macros. These
@@ -228,7 +228,7 @@ well as *any other pthread*. This serves as the basis for inter-thread
 communication and boils down to a slightly more complicated method of message
 passing, where the messages are the regular task events as used in the
 event-driven model. The only difference is thread cancellation, which requires
-calling ``thread_cancel_async()`` instead of ``thread_cancel`` to cancel a task
+calling ``event_cancel_async()`` instead of ``event_cancel`` to cancel a task
 currently scheduled on a ``threadmaster`` belonging to a different pthread.
 This is necessary to avoid race conditions in the specific case where one
 pthread wants to guarantee that a task on another pthread is cancelled before

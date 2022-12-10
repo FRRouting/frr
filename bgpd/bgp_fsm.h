@@ -24,7 +24,7 @@
 #define BGP_EVENT_FLUSH(P)                                                     \
 	do {                                                                   \
 		assert(peer);                                                  \
-		thread_cancel_event_ready(bm->master, (P));                    \
+		event_cancel_event_ready(bm->master, (P));                     \
 	} while (0)
 
 #define BGP_UPDATE_GROUP_TIMER_ON(T, F)                                        \

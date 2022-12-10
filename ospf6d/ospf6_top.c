@@ -176,7 +176,7 @@ static int ospf6_vrf_disable(struct vrf *vrf)
 		 * from VRF and make it "down".
 		 */
 		ospf6_vrf_unlink(ospf6, vrf);
-		thread_cancel(&ospf6->t_ospf6_receive);
+		event_cancel(&ospf6->t_ospf6_receive);
 		close(ospf6->fd);
 		ospf6->fd = -1;
 	}

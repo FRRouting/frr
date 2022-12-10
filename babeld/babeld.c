@@ -306,8 +306,8 @@ babel_clean_routing_process(void)
     babel_interface_close_all();
 
     /* cancel events */
-    thread_cancel(&babel_routing_process->t_read);
-    thread_cancel(&babel_routing_process->t_update);
+    event_cancel(&babel_routing_process->t_read);
+    event_cancel(&babel_routing_process->t_update);
 
     distribute_list_delete(&babel_routing_process->distribute_ctx);
     XFREE(MTYPE_BABEL, babel_routing_process);
@@ -485,7 +485,7 @@ static void
 babel_set_timer(struct timeval *timeout)
 {
     long msecs = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
-    thread_cancel(&(babel_routing_process->t_update));
+    event_cancel(&(babel_routing_process->t_update));
     event_add_timer_msec(master, babel_main_loop, NULL, msecs,
 			 &babel_routing_process->t_update);
 }

@@ -415,7 +415,7 @@ static void sigchild(void)
 		what = restart->what;
 		restart->pid = 0;
 		gs.numpids--;
-		thread_cancel(&restart->t_kill);
+		event_cancel(&restart->t_kill);
 
 		/* Update restart time to reflect the time the command
 		 * completed. */
@@ -688,7 +688,7 @@ static void handle_read(struct event *t_read)
 			   dmn->name, (long)delay.tv_sec, (long)delay.tv_usec);
 
 	SET_READ_HANDLER(dmn);
-	thread_cancel(&dmn->t_wakeup);
+	event_cancel(&dmn->t_wakeup);
 	SET_WAKEUP_ECHO(dmn);
 }
 
@@ -874,7 +874,7 @@ static void phase_hanging(struct event *t_hanging)
 static void set_phase(enum restart_phase new_phase)
 {
 	gs.phase = new_phase;
-	thread_cancel(&gs.t_phase_hanging);
+	event_cancel(&gs.t_phase_hanging);
 
 	event_add_timer(master, phase_hanging, NULL, PHASE_TIMEOUT,
 			&gs.t_phase_hanging);

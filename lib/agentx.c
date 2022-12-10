@@ -97,7 +97,7 @@ static void agentx_events_update(void)
 	struct event **thr;
 	int fd, thr_fd;
 
-	thread_cancel(&timeout_thr);
+	event_cancel(&timeout_thr);
 
 	FD_ZERO(&fds);
 	snmp_select_info(&maxfd, &fds, &timeout, &block);
@@ -119,7 +119,7 @@ static void agentx_events_update(void)
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
 			if (!FD_ISSET(fd, &fds)) {
-				thread_cancel(thr);
+				event_cancel(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
@@ -142,7 +142,7 @@ static void agentx_events_update(void)
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
 		thr = listgetdata(ln);
-		thread_cancel(thr);
+		event_cancel(thr);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;

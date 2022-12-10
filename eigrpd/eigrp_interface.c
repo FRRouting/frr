@@ -360,7 +360,7 @@ void eigrp_if_stream_unset(struct eigrp_interface *ei)
 	if (ei->on_write_q) {
 		listnode_delete(eigrp->oi_write_q, ei);
 		if (list_isempty(eigrp->oi_write_q))
-			thread_cancel(&(eigrp->t_write));
+			event_cancel(&(eigrp->t_write));
 		ei->on_write_q = 0;
 	}
 }
@@ -422,7 +422,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	struct eigrp *eigrp = ei->eigrp;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
-		thread_cancel(&ei->t_hello);
+		event_cancel(&ei->t_hello);
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 

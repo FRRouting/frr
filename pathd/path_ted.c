@@ -657,7 +657,7 @@ void path_ted_timer_handler_refresh(struct event *thread)
 void path_ted_timer_sync_cancel(void)
 {
 	if (ted_state_g.t_link_state_sync != NULL) {
-		thread_cancel(&ted_state_g.t_link_state_sync);
+		event_cancel(&ted_state_g.t_link_state_sync);
 		ted_state_g.t_link_state_sync = NULL;
 	}
 }
@@ -672,7 +672,7 @@ void path_ted_timer_sync_cancel(void)
 void path_ted_timer_refresh_cancel(void)
 {
 	if (ted_state_g.t_segment_list_refresh != NULL) {
-		thread_cancel(&ted_state_g.t_segment_list_refresh);
+		event_cancel(&ted_state_g.t_segment_list_refresh);
 		ted_state_g.t_segment_list_refresh = NULL;
 	}
 }

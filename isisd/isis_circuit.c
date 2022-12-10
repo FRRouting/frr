@@ -929,7 +929,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->snd_stream = NULL;
 	}
 
-	thread_cancel_event(master, circuit);
+	event_cancel_event(master, circuit);
 
 	return;
 }

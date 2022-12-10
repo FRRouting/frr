@@ -97,8 +97,8 @@ void spf_backoff_free(struct spf_backoff *backoff)
 	if (!backoff)
 		return;
 
-	thread_cancel(&backoff->t_holddown);
-	thread_cancel(&backoff->t_timetolearn);
+	event_cancel(&backoff->t_holddown);
+	event_cancel(&backoff->t_timetolearn);
 	XFREE(MTYPE_SPF_BACKOFF_NAME, backoff->name);
 
 	XFREE(MTYPE_SPF_BACKOFF, backoff);
@@ -150,7 +150,7 @@ long spf_backoff_schedule(struct spf_backoff *backoff)
 		break;
 	case SPF_BACKOFF_SHORT_WAIT:
 	case SPF_BACKOFF_LONG_WAIT:
-		thread_cancel(&backoff->t_holddown);
+		event_cancel(&backoff->t_holddown);
 		event_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
 				     backoff, backoff->holddown,
 				     &backoff->t_holddown);
