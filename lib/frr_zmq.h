@@ -59,17 +59,16 @@ extern void frrzmq_finish(void);
 
 #define _xref_zmq_a(type, f, d, call)                                          \
 	({                                                                     \
-		static const struct xref_threadsched _xref                     \
-				__attribute__((used)) = {                      \
+		static const struct xref_threadsched _xref __attribute__(      \
+			(used)) = {                                            \
 			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
 			.funcname = #f,                                        \
 			.dest = #d,                                            \
-			.thread_type = THREAD_ ## type,                        \
+			.event_type = EVENT_##type,                            \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
 		call;                                                          \
-	})                                                                     \
-	/* end */
+	}) /* end */
 
 /* core event registration, one of these 2 macros should be used */
 #define frrzmq_event_add_read_msg(m, f, e, a, z, d)                            \
