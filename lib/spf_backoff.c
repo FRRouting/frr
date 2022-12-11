@@ -204,8 +204,7 @@ void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 	vty_out(vty, "%sHolddown timer:    %ld msec\n", prefix,
 		backoff->holddown);
 	if (backoff->t_holddown) {
-		struct timeval remain =
-			thread_timer_remain(backoff->t_holddown);
+		struct timeval remain = event_timer_remain(backoff->t_holddown);
 		vty_out(vty, "%s                   Still runs for %lld msec\n",
 			prefix,
 			(long long)remain.tv_sec * 1000
@@ -218,7 +217,7 @@ void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 		backoff->timetolearn);
 	if (backoff->t_timetolearn) {
 		struct timeval remain =
-			thread_timer_remain(backoff->t_timetolearn);
+			event_timer_remain(backoff->t_timetolearn);
 		vty_out(vty, "%s                   Still runs for %lld msec\n",
 			prefix,
 			(long long)remain.tv_sec * 1000

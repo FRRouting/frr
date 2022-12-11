@@ -1208,7 +1208,7 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 	if (sg->t_sg_expire) {
 		struct timeval remain;
 
-		remain = thread_timer_remain(sg->t_sg_expire);
+		remain = event_timer_remain(sg->t_sg_expire);
 		if (timercmp(&remain, &expire_wait, <=))
 			return;
 
@@ -1316,7 +1316,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 	if (pend) {
 		struct timeval remain;
 
-		remain = thread_timer_remain(pend->t_expire);
+		remain = event_timer_remain(pend->t_expire);
 		if (timercmp(&remain, &timers->expire_wait, <=))
 			return;
 

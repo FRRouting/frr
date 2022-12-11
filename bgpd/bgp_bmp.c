@@ -2408,7 +2408,7 @@ DEFPY(show_bmp,
 				uptime[0] = '\0';
 
 				if (ba->t_timer) {
-					long trem = thread_timer_remain_second(
+					long trem = event_timer_remain_second(
 						ba->t_timer);
 
 					peer_uptime(monotime(NULL) - trem,

@@ -1148,7 +1148,7 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 				if (info->t_stale_removal) {
 					vty_out(vty,
 						"Stale delete timer: %ld sec\n",
-						thread_timer_remain_second(
+						event_timer_remain_second(
 							info->t_stale_removal));
 				}
 			}

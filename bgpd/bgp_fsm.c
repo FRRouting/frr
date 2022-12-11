@@ -1046,7 +1046,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 	 *                     (MRAI - m) < r
 	 */
 	if (peer->t_routeadv)
-		remain = thread_timer_remain_second(peer->t_routeadv);
+		remain = event_timer_remain_second(peer->t_routeadv);
 	else
 		remain = peer->v_routeadv;
 	diff = peer->v_routeadv - diff;

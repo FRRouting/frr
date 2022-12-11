@@ -733,7 +733,7 @@ void thread_master_free(struct thread_master *m)
 }
 
 /* Return remain time in milliseconds. */
-unsigned long thread_timer_remain_msec(struct event *thread)
+unsigned long event_timer_remain_msec(struct event *thread)
 {
 	int64_t remain;
 
@@ -748,12 +748,12 @@ unsigned long thread_timer_remain_msec(struct event *thread)
 }
 
 /* Return remain time in seconds. */
-unsigned long thread_timer_remain_second(struct event *thread)
+unsigned long event_timer_remain_second(struct event *thread)
 {
-	return thread_timer_remain_msec(thread) / 1000LL;
+	return event_timer_remain_msec(thread) / 1000LL;
 }
 
-struct timeval thread_timer_remain(struct event *thread)
+struct timeval event_timer_remain(struct event *thread)
 {
 	struct timeval remain;
 	frr_with_mutex (&thread->mtx) {
@@ -783,8 +783,7 @@ static int time_hhmmss(char *buf, int buf_size, long sec)
 char *thread_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
-		time_hhmmss(buf, buf_size,
-				thread_timer_remain_second(t_timer));
+		time_hhmmss(buf, buf_size, event_timer_remain_second(t_timer));
 	} else {
 		snprintf(buf, buf_size, "--:--:--");
 	}

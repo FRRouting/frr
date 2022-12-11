@@ -518,7 +518,7 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	    && bpi->extra->vnc.import.timer) {
 		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
 		r = snprintf(p, REMAIN, " [%4lu] ",
-			     thread_timer_remain_second(t));
+			     event_timer_remain_second(t));
 		INCP;
 
 	} else {
@@ -909,7 +909,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
 				rfapiFormatSeconds(
-					thread_timer_remain_second(m->timer),
+					event_timer_remain_second(m->timer),
 					buf_remain, BUFSIZ);
 				fp(out, " %-15s %-10s\n",
 				   inet_ntop(m->p.family, &m->p.u.prefix,
@@ -982,7 +982,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 				} else
 					fp(out, "%-15s %-15s", "", "");
 				buf_remain[0] = 0;
-				rfapiFormatSeconds(thread_timer_remain_second(
+				rfapiFormatSeconds(event_timer_remain_second(
 							   mon_eth->timer),
 						   buf_remain, BUFSIZ);
 				fp(out, " %-17s %10d %-10s\n",
@@ -1114,7 +1114,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		char buf_age[BUFSIZ];
 
 		struct event *t = (struct event *)bpi->extra->vnc.import.timer;
-		remaining = thread_timer_remain_second(t);
+		remaining = event_timer_remain_second(t);
 
 #ifdef RFAPI_REGISTRATIONS_REPORT_AGE
 		/*

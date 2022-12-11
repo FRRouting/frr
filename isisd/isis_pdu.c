@@ -2053,7 +2053,7 @@ static void _send_hello_sched(struct isis_circuit *circuit,
 			      struct event **threadp, int level, long delay)
 {
 	if (*threadp) {
-		if (thread_timer_remain_msec(*threadp) < (unsigned long)delay)
+		if (event_timer_remain_msec(*threadp) < (unsigned long)delay)
 			return;
 
 		THREAD_OFF(*threadp);

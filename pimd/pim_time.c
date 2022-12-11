@@ -125,7 +125,7 @@ void pim_time_timer_to_mmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
 		pim_time_mmss(buf, buf_size,
-			      thread_timer_remain_second(t_timer));
+			      event_timer_remain_second(t_timer));
 	} else {
 		snprintf(buf, buf_size, "--:--");
 	}
@@ -135,7 +135,7 @@ void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
 		pim_time_hhmmss(buf, buf_size,
-				thread_timer_remain_second(t_timer));
+				event_timer_remain_second(t_timer));
 	} else {
 		snprintf(buf, buf_size, "--:--:--");
 	}
@@ -160,5 +160,5 @@ long pim_time_timer_remain_msec(struct event *t_timer)
 {
 	/* no timer thread running means timer has expired: return 0 */
 
-	return t_timer ? thread_timer_remain_msec(t_timer) : 0;
+	return t_timer ? event_timer_remain_msec(t_timer) : 0;
 }

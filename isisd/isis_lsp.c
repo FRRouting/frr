@@ -1603,7 +1603,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			 * Note: in case of a BFD 'down' message the refresh is
 			 * scheduled once again just to be sure
 			 */
-			struct timeval remain = thread_timer_remain(
+			struct timeval remain = event_timer_remain(
 				area->t_lsp_refresh[lvl - 1]);
 			sched_debug(
 				"ISIS (%s): Regeneration is already pending, nothing todo. (Due in %lld.%03lld seconds)",
@@ -1986,7 +1986,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		}
 
 		if (circuit->lsp_regenerate_pending[lvl - 1]) {
-			struct timeval remain = thread_timer_remain(
+			struct timeval remain = event_timer_remain(
 				circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 			sched_debug(
 				"ISIS (%s): Regenerate is already pending, nothing todo. (Due in %lld.%03lld seconds)",
