@@ -254,9 +254,9 @@ extern void event_call(struct event *event);
 extern unsigned long event_timer_remain_second(struct event *event);
 extern struct timeval event_timer_remain(struct event *event);
 extern unsigned long event_timer_remain_msec(struct event *event);
-extern int thread_should_yield(struct event *event);
+extern int event_should_yield(struct event *event);
 /* set yield time for thread */
-extern void thread_set_yield_time(struct event *event, unsigned long);
+extern void event_set_yield_time(struct event *event, unsigned long);
 
 /* Internal libfrr exports */
 extern void thread_getrusage(RUSAGE_T *);

@@ -67,7 +67,7 @@ static void clear_something(struct event *thread)
 	while (ws->i < ITERS_MAX) {
 		slow_func(ws->vty, ws->str, ws->i);
 		ws->i++;
-		if (thread_should_yield(thread)) {
+		if (event_should_yield(thread)) {
 			event_add_timer_msec(master, clear_something, ws, 0,
 					     NULL);
 			return;
