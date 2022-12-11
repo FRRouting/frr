@@ -541,7 +541,7 @@ static void _bfd_sess_remove(struct bfd_session_params *bsp)
 
 	/* Send request to remove any session. */
 	bsp->lastev = BSE_UNINSTALL;
-	thread_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
 }
 
 void bfd_sess_free(struct bfd_session_params **bsp)
@@ -894,7 +894,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
-		thread_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
 	}
 
 	return 0;

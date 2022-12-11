@@ -69,7 +69,7 @@
 
 /* Macro for OSPF execute event. */
 #define OSPF_ISM_EVENT_EXECUTE(I, E)                                           \
-	thread_execute(master, ospf_ism_event, (I), (E))
+	event_execute(master, ospf_ism_event, (I), (E))
 
 /* Prototypes. */
 extern void ospf_ism_event(struct event *thread);

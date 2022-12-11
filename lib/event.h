@@ -195,7 +195,7 @@ struct cpu_thread_history {
 	_xref_t_a(timer_tv, TIMER, m, f, a, v, t)
 #define event_add_event(m, f, a, v, t) _xref_t_a(event, EVENT, m, f, a, v, t)
 
-#define thread_execute(m, f, a, v)                                             \
+#define event_execute(m, f, a, v)                                              \
 	({                                                                     \
 		static const struct xref_threadsched _xref __attribute__(      \
 			(used)) = {                                            \
@@ -205,7 +205,7 @@ struct cpu_thread_history {
 			.event_type = EVENT_EXECUTE,                           \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		_thread_execute(&_xref, m, f, a, v);                           \
+		_event_execute(&_xref, m, f, a, v);                            \
 	}) /* end */
 
 /* Prototypes. */
@@ -239,9 +239,9 @@ extern void _event_add_event(const struct xref_threadsched *xref,
 			     void (*fn)(struct event *), void *arg, int val,
 			     struct event **tref);
 
-extern void _thread_execute(const struct xref_threadsched *xref,
-			    struct thread_master *master,
-			    void (*fn)(struct event *), void *arg, int val);
+extern void _event_execute(const struct xref_threadsched *xref,
+			   struct thread_master *master,
+			   void (*fn)(struct event *), void *arg, int val);
 
 extern void event_cancel(struct event **event);
 extern void event_cancel_async(struct thread_master *, struct event **, void *);

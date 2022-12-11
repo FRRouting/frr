@@ -57,7 +57,7 @@ static void wheel_timer_thread(struct event *t)
 
 	wheel = THREAD_ARG(t);
 
-	thread_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
+	event_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
 }
 
 struct timer_wheel *wheel_init(struct thread_master *master, int period,

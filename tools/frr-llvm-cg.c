@@ -276,7 +276,7 @@ static bool is_thread_sched(const char *name, size_t len)
 		thread_prefix "event_add_timer_msec",
 		thread_prefix "event_add_timer_tv",
 		thread_prefix "event_add_event",
-		thread_prefix "thread_execute",
+		thread_prefix "event_execute",
 	};
 	size_t i;
 

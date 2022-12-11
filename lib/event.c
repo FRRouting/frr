@@ -2058,9 +2058,9 @@ void event_call(struct event *thread)
 }
 
 /* Execute thread */
-void _thread_execute(const struct xref_threadsched *xref,
-		     struct thread_master *m, void (*func)(struct event *),
-		     void *arg, int val)
+void _event_execute(const struct xref_threadsched *xref,
+		    struct thread_master *m, void (*func)(struct event *),
+		    void *arg, int val)
 {
 	struct event *thread;
 

@@ -180,35 +180,35 @@ struct ospf6_intra_prefix_lsa {
 #define OSPF6_ROUTER_LSA_EXECUTE(oa)                                           \
 	do {                                                                   \
 		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))                 \
-			thread_execute(master, ospf6_router_lsa_originate, oa, \
-				       0);                                     \
+			event_execute(master, ospf6_router_lsa_originate, oa,  \
+				      0);                                      \
 	} while (0)
 
 #define OSPF6_NETWORK_LSA_EXECUTE(oi)                                          \
 	do {                                                                   \
 		THREAD_OFF((oi)->thread_network_lsa);                          \
-		thread_execute(master, ospf6_network_lsa_originate, oi, 0);    \
+		event_execute(master, ospf6_network_lsa_originate, oi, 0);     \
 	} while (0)
 
 #define OSPF6_LINK_LSA_EXECUTE(oi)                                             \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
-			thread_execute(master, ospf6_link_lsa_originate, oi,   \
-				       0);                                     \
+			event_execute(master, ospf6_link_lsa_originate, oi,    \
+				      0);                                      \
 	} while (0)
 
 #define OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi)                             \
 	do {                                                                   \
 		THREAD_OFF((oi)->thread_intra_prefix_lsa);                     \
-		thread_execute(master,                                         \
-			       ospf6_intra_prefix_lsa_originate_transit, oi,   \
-			       0);                                             \
+		event_execute(master,                                          \
+			      ospf6_intra_prefix_lsa_originate_transit, oi,    \
+			      0);                                              \
 	} while (0)
 
 #define OSPF6_AS_EXTERN_LSA_EXECUTE(oi)                                        \
 	do {                                                                   \
 		THREAD_OFF((oi)->thread_as_extern_lsa);                        \
-		thread_execute(master, ospf6_orig_as_external_lsa, oi, 0);     \
+		event_execute(master, ospf6_orig_as_external_lsa, oi, 0);      \
 	} while (0)
 
 /* Function Prototypes */
