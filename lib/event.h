@@ -102,10 +102,10 @@ enum event_types {
 	EVENT_EXECUTE,
 };
 
-/* Thread itself. */
+/* Event itself. */
 struct event {
-	enum event_types type;	   /* thread type */
-	enum event_types add_type; /* thread type */
+	enum event_types type;	   /* event type */
+	enum event_types add_type; /* event type */
 	struct event_list_item eventitem;
 	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
@@ -118,7 +118,7 @@ struct event {
 		struct timeval sands; /* rest of time sands value. */
 	} u;
 	struct timeval real;
-	struct cpu_thread_history *hist; /* cache pointer to cpu_history */
+	struct cpu_event_history *hist;	 /* cache pointer to cpu_history */
 	unsigned long yield;		 /* yield time in microseconds */
 	const struct xref_eventsched *xref; /* origin location */
 	pthread_mutex_t mtx;   /* mutex for thread.c functions */
@@ -129,7 +129,7 @@ struct event {
 #pragma FRR printfrr_ext "%pTH"(struct event *)
 #endif
 
-struct cpu_thread_history {
+struct cpu_event_history {
 	void (*func)(struct event *);
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
