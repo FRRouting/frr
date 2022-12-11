@@ -10136,9 +10136,9 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 							.actual_grace_period);
 					vty_out(vty,
 						"   Remaining GraceTime:%ld(in seconds).\n",
-						thread_timer_remain_second(
+						event_timer_remain_second(
 							nbr->gr_helper_info
-							.t_grace_timer));
+								.t_grace_timer));
 					vty_out(vty,
 						"   Graceful Restart reason: %s.\n\n",
 						ospf_restart_reason2str(
@@ -10169,9 +10169,9 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 							.actual_grace_period);
 					json_object_int_add(
 						json_neigh, "remainGracetime",
-						thread_timer_remain_second(
+						event_timer_remain_second(
 							nbr->gr_helper_info
-							.t_grace_timer));
+								.t_grace_timer));
 					json_object_string_add(
 						json_neigh, "restartReason",
 						ospf_restart_reason2str(

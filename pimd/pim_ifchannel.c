@@ -896,7 +896,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 		  previously received join message with holdtime=0xFFFF.
 		 */
 		if (ch->t_ifjoin_expiry_timer) {
-			unsigned long remain = thread_timer_remain_second(
+			unsigned long remain = event_timer_remain_second(
 				ch->t_ifjoin_expiry_timer);
 			if (remain > holdtime) {
 				/*
@@ -964,7 +964,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 		pim_ifchannel_ifjoin_handler(ch, pim_ifp);
 
 		if (ch->t_ifjoin_expiry_timer) {
-			unsigned long remain = thread_timer_remain_second(
+			unsigned long remain = event_timer_remain_second(
 				ch->t_ifjoin_expiry_timer);
 
 			if (remain > holdtime)
@@ -1087,7 +1087,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 			 * Join/Prune message.
 			 */
 			if (ch->t_ifjoin_expiry_timer) {
-				unsigned long rem = thread_timer_remain_second(
+				unsigned long rem = event_timer_remain_second(
 					ch->t_ifjoin_expiry_timer);
 
 				if (rem > holdtime)

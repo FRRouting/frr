@@ -2926,12 +2926,12 @@ static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
 	struct event *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
-		clock = thread_timer_remain_second(thread);
+		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
-		clock = thread_timer_remain_second(thread);
+		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
@@ -3106,7 +3106,7 @@ DEFUN (show_ip_rip_status,
 	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
 		rip->update_time);
 	vty_out(vty, " next due in %lu seconds\n",
-		thread_timer_remain_second(rip->t_update));
+		event_timer_remain_second(rip->t_update));
 	vty_out(vty, "  Timeout after %u seconds,", rip->timeout_time);
 	vty_out(vty, " garbage collect after %u seconds\n", rip->garbage_time);
 

@@ -2250,7 +2250,7 @@ static void isis_spf_ietf_common(struct vty *vty, struct isis *isis)
 			vty_out(vty, "  Level-%d:\n", level);
 			vty_out(vty, "    SPF delay status: ");
 			if (area->spf_timer[level - 1]) {
-				struct timeval remain = thread_timer_remain(
+				struct timeval remain = event_timer_remain(
 					area->spf_timer[level - 1]);
 				vty_out(vty, "Pending, due in %lld msec\n",
 					(long long)remain.tv_sec * 1000

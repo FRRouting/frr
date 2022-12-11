@@ -877,18 +877,18 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 		 * but
 		 * highly recommended".
 		 */
-		if (!ripng->ecmp && !same && rinfo->metric == rte->metric
-		    && rinfo->t_timeout
-		    && (thread_timer_remain_second(rinfo->t_timeout)
-			< (ripng->timeout_time / 2))) {
+		if (!ripng->ecmp && !same && rinfo->metric == rte->metric &&
+		    rinfo->t_timeout &&
+		    (event_timer_remain_second(rinfo->t_timeout) <
+		     (ripng->timeout_time / 2))) {
 			ripng_ecmp_replace(ripng, &newinfo);
 		}
 		/* Next, compare the metrics.  If the datagram is from the same
 		   router as the existing route, and the new metric is different
 		   than the old one; or, if the new metric is lower than the old
 		   one; do the following actions: */
-		else if ((same && rinfo->metric != rte->metric)
-			 || rte->metric < rinfo->metric) {
+		else if ((same && rinfo->metric != rte->metric) ||
+			 rte->metric < rinfo->metric) {
 			if (listcount(list) == 1) {
 				if (newinfo.metric != RIPNG_METRIC_INFINITY)
 					ripng_ecmp_replace(ripng, &newinfo);
@@ -1934,12 +1934,12 @@ static void ripng_vty_out_uptime(struct vty *vty, struct ripng_info *rinfo)
 	struct event *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
-		clock = thread_timer_remain_second(thread);
+		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
-		clock = thread_timer_remain_second(thread);
+		clock = event_timer_remain_second(thread);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
@@ -2128,7 +2128,7 @@ DEFUN (show_ipv6_ripng_status,
 	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
 		ripng->update_time);
 	vty_out(vty, " next due in %lu seconds\n",
-		thread_timer_remain_second(ripng->t_update));
+		event_timer_remain_second(ripng->t_update));
 	vty_out(vty, "  Timeout after %u seconds,", ripng->timeout_time);
 	vty_out(vty, " garbage collect after %u seconds\n",
 		ripng->garbage_time);

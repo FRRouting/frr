@@ -575,8 +575,8 @@ static void isis_circuit_ldp_sync_print_vty(struct isis_circuit *circuit,
 		break;
 	case LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP:
 		if (ldp_sync_info->t_holddown != NULL) {
-			struct timeval remain = thread_timer_remain(
-				ldp_sync_info->t_holddown);
+			struct timeval remain =
+				event_timer_remain(ldp_sync_info->t_holddown);
 			vty_out(vty,
 				"  Holddown timer is running %lld.%03lld remaining\n",
 				(long long)remain.tv_sec,

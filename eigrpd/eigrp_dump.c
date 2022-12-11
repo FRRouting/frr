@@ -192,7 +192,7 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
 	vty_out(vty, "%-3u %-17pI4 %-21s", 0, &nbr->src, IF_NAME(nbr->ei));
 	if (nbr->t_holddown)
 		vty_out(vty, "%-7lu",
-			thread_timer_remain_second(nbr->t_holddown));
+			event_timer_remain_second(nbr->t_holddown));
 	else
 		vty_out(vty, "-      ");
 	vty_out(vty, "%-8u %-6u %-5u", 0, 0, EIGRP_PACKET_RETRANS_TIME);

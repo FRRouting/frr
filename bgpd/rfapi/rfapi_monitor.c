@@ -743,7 +743,7 @@ static void rfapiMonitorTimerExpire(struct event *t)
 
 static void rfapiMonitorTimerRestart(struct rfapi_monitor_vpn *m)
 {
-	unsigned long remain = thread_timer_remain_second(m->timer);
+	unsigned long remain = event_timer_remain_second(m->timer);
 
 	/* unexpected case, but avoid wraparound problems below */
 	if (remain > m->rfd->response_lifetime)
@@ -1051,7 +1051,7 @@ static void rfapiMonitorEthTimerExpire(struct event *t)
 
 static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 {
-	unsigned long remain = thread_timer_remain_second(m->timer);
+	unsigned long remain = event_timer_remain_second(m->timer);
 
 	/* unexpected case, but avoid wraparound problems below */
 	if (remain > m->rfd->response_lifetime)
