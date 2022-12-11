@@ -535,9 +535,9 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	oi->hello_in++;
 
 	/* Execute neighbor events */
-	thread_execute(master, hello_received, on, 0);
+	event_execute(master, hello_received, on, 0);
 	if (twoway)
-		thread_execute(master, twoway_received, on, 0);
+		event_execute(master, twoway_received, on, 0);
 	else {
 		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
 			if (IS_DEBUG_OSPF6_GR)
@@ -553,7 +553,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 			 * receives one_way hellow when it acts as HELPER for
 			 * that specific neighbor.
 			 */
-			thread_execute(master, oneway_received, on, 0);
+			event_execute(master, oneway_received, on, 0);
 		}
 	}
 
@@ -624,7 +624,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		return;
 
 	case OSPF6_NEIGHBOR_INIT:
-		thread_execute(master, twoway_received, on, 0);
+		event_execute(master, twoway_received, on, 0);
 		if (on->state != OSPF6_NEIGHBOR_EXSTART) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
@@ -640,7 +640,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		    && !CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)
 		    && ntohl(dbdesc->seqnum) == on->dbdesc_seqnum) {
 			/* execute NegotiationDone */
-			thread_execute(master, negotiation_done, on, 0);
+			event_execute(master, negotiation_done, on, 0);
 
 			/* Record neighbor options */
 			memcpy(on->options, dbdesc->options,
@@ -828,7 +828,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		return;
 
 	case OSPF6_NEIGHBOR_INIT:
-		thread_execute(master, twoway_received, on, 0);
+		event_execute(master, twoway_received, on, 0);
 		if (on->state != OSPF6_NEIGHBOR_EXSTART) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
@@ -855,7 +855,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			on->dbdesc_seqnum = ntohl(dbdesc->seqnum);
 
 			/* schedule NegotiationDone */
-			thread_execute(master, negotiation_done, on, 0);
+			event_execute(master, negotiation_done, on, 0);
 
 			/* Record neighbor options */
 			memcpy(on->options, dbdesc->options,
@@ -2421,7 +2421,7 @@ void ospf6_dbdesc_send_newone(struct event *thread)
 		event_add_event(master, exchange_done, on, 0,
 				&on->thread_exchange_done);
 
-	thread_execute(master, ospf6_dbdesc_send, on, 0);
+	event_execute(master, ospf6_dbdesc_send, on, 0);
 }
 
 static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
@@ -2592,7 +2592,7 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 				listnode_add(oi->area->ospf6->oi_write_q, oi);
 				oi->on_write_q = 1;
 			}
-			thread_execute(master, ospf6_write, oi->area->ospf6, 0);
+			event_execute(master, ospf6_write, oi->area->ospf6, 0);
 		} else
 			OSPF6_MESSAGE_WRITE_ON(oi);
 	}

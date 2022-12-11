@@ -396,7 +396,7 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 			ospf6_lsa_checksum(lsa->header);
 
 			THREAD_OFF(lsa->refresh);
-			thread_execute(master, ospf6_lsa_refresh, lsa, 0);
+			event_execute(master, ospf6_lsa_refresh, lsa, 0);
 		} else {
 			zlog_debug("calling ospf6_lsdb_remove %s", lsa->name);
 			ospf6_lsdb_remove(lsa, lsdb);
