@@ -59,9 +59,9 @@ extern void frrzmq_finish(void);
 
 #define _xref_zmq_a(type, f, d, call)                                          \
 	({                                                                     \
-		static const struct xref_threadsched _xref __attribute__(      \
+		static const struct xref_eventsched _xref __attribute__(       \
 			(used)) = {                                            \
-			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
+			.xref = XREF_INIT(XREFT_EVENTSCHED, NULL, __func__),   \
 			.funcname = #f,                                        \
 			.dest = #d,                                            \
 			.event_type = EVENT_##type,                            \
@@ -108,14 +108,14 @@ struct frrzmq_cb;
  *   loop.
  */
 extern int
-_frrzmq_event_add_read(const struct xref_threadsched *xref,
+_frrzmq_event_add_read(const struct xref_eventsched *xref,
 		       struct event_master *master,
 		       void (*msgfunc)(void *arg, void *zmqsock),
 		       void (*partfunc)(void *arg, void *zmqsock,
 					zmq_msg_t *msg, unsigned partnum),
 		       void (*errfunc)(void *arg, void *zmqsock), void *arg,
 		       void *zmqsock, struct frrzmq_cb **cb);
-extern int _frrzmq_event_add_write(const struct xref_threadsched *xref,
+extern int _frrzmq_event_add_write(const struct xref_eventsched *xref,
 				   struct event_master *master,
 				   void (*msgfunc)(void *arg, void *zmqsock),
 				   void (*errfunc)(void *arg, void *zmqsock),

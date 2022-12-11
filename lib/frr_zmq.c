@@ -149,7 +149,7 @@ out_err:
 		cb->read.cb_error(cb->read.arg, cb->zmqsock);
 }
 
-int _frrzmq_event_add_read(const struct xref_threadsched *xref,
+int _frrzmq_event_add_read(const struct xref_eventsched *xref,
 			   struct event_master *master,
 			   void (*msgfunc)(void *arg, void *zmqsock),
 			   void (*partfunc)(void *arg, void *zmqsock,
@@ -257,7 +257,7 @@ out_err:
 		cb->write.cb_error(cb->write.arg, cb->zmqsock);
 }
 
-int _frrzmq_event_add_write(const struct xref_threadsched *xref,
+int _frrzmq_event_add_write(const struct xref_eventsched *xref,
 			    struct event_master *master,
 			    void (*msgfunc)(void *arg, void *zmqsock),
 			    void (*errfunc)(void *arg, void *zmqsock),

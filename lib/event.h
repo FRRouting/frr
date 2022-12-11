@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/* Thread management routine header.
+/* Event management routine header.
  * Copyright (C) 1998 Kunihiro Ishiguro
  */
 
@@ -57,7 +57,7 @@ struct fd_handler {
 	nfds_t copycount;
 };
 
-struct xref_threadsched {
+struct xref_eventsched {
 	struct xref xref;
 
 	const char *funcname;
@@ -120,7 +120,7 @@ struct event {
 	struct timeval real;
 	struct cpu_thread_history *hist; /* cache pointer to cpu_history */
 	unsigned long yield;		 /* yield time in microseconds */
-	const struct xref_threadsched *xref;   /* origin location */
+	const struct xref_eventsched *xref; /* origin location */
 	pthread_mutex_t mtx;   /* mutex for thread.c functions */
 	bool ignore_timer_late;
 };
@@ -174,9 +174,9 @@ struct cpu_thread_history {
 
 #define _xref_t_a(addfn, type, m, f, a, v, t)                                  \
 	({                                                                     \
-		static const struct xref_threadsched _xref __attribute__(      \
+		static const struct xref_eventsched _xref __attribute__(       \
 			(used)) = {                                            \
-			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
+			.xref = XREF_INIT(XREFT_EVENTSCHED, NULL, __func__),   \
 			.funcname = #f,                                        \
 			.dest = #t,                                            \
 			.event_type = EVENT_##type,                            \
@@ -197,9 +197,9 @@ struct cpu_thread_history {
 
 #define event_execute(m, f, a, v)                                              \
 	({                                                                     \
-		static const struct xref_threadsched _xref __attribute__(      \
+		static const struct xref_eventsched _xref __attribute__(       \
 			(used)) = {                                            \
-			.xref = XREF_INIT(XREFT_THREADSCHED, NULL, __func__),  \
+			.xref = XREF_INIT(XREFT_EVENTSCHED, NULL, __func__),   \
 			.funcname = #f,                                        \
 			.dest = NULL,                                          \
 			.event_type = EVENT_EXECUTE,                           \
@@ -214,32 +214,32 @@ void thread_master_set_name(struct event_master *master, const char *name);
 extern void thread_master_free(struct event_master *m);
 extern void thread_master_free_unused(struct event_master *m);
 
-extern void _event_add_read_write(const struct xref_threadsched *xref,
+extern void _event_add_read_write(const struct xref_eventsched *xref,
 				  struct event_master *master,
 				  void (*fn)(struct event *), void *arg, int fd,
 				  struct event **tref);
 
-extern void _event_add_timer(const struct xref_threadsched *xref,
+extern void _event_add_timer(const struct xref_eventsched *xref,
 			     struct event_master *master,
 			     void (*fn)(struct event *), void *arg, long t,
 			     struct event **tref);
 
-extern void _event_add_timer_msec(const struct xref_threadsched *xref,
+extern void _event_add_timer_msec(const struct xref_eventsched *xref,
 				  struct event_master *master,
 				  void (*fn)(struct event *), void *arg, long t,
 				  struct event **tref);
 
-extern void _event_add_timer_tv(const struct xref_threadsched *xref,
+extern void _event_add_timer_tv(const struct xref_eventsched *xref,
 				struct event_master *master,
 				void (*fn)(struct event *), void *arg,
 				struct timeval *tv, struct event **tref);
 
-extern void _event_add_event(const struct xref_threadsched *xref,
+extern void _event_add_event(const struct xref_eventsched *xref,
 			     struct event_master *master,
 			     void (*fn)(struct event *), void *arg, int val,
 			     struct event **tref);
 
-extern void _event_execute(const struct xref_threadsched *xref,
+extern void _event_execute(const struct xref_eventsched *xref,
 			   struct event_master *master,
 			   void (*fn)(struct event *), void *arg, int val);
 
