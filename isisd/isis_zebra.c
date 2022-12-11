@@ -828,7 +828,7 @@ static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = isis_zebra_client_close_notify,
 };
 
-void isis_zebra_init(struct thread_master *master, int instance)
+void isis_zebra_init(struct event_master *master, int instance)
 {
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default, isis_handlers,

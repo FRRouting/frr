@@ -1394,7 +1394,7 @@ static struct variable bgpv2_variables[] = {
 	 {1, 9, 1, BGP4V2_NLRI_PATH_ATTR_UNKNOWN, 2, 16}},
 };
 
-int bgp_snmp_bgp4v2_init(struct thread_master *tm)
+int bgp_snmp_bgp4v2_init(struct event_master *tm)
 {
 	REGISTER_MIB("mibII/bgpv2", bgpv2_variables, variable, bgpv2_oid);
 	return 0;

@@ -81,6 +81,6 @@
 #define BGP4V2_ESTABLISHED_NOTIFICATION 1
 #define BGP4V2_BACKWARD_TRANSITION_NOTIFICATION 2
 
-extern int bgp_snmp_bgp4v2_init(struct thread_master *tm);
+extern int bgp_snmp_bgp4v2_init(struct event_master *tm);
 
 #endif /* _FRR_BGP_SNMP_BGP4V2_H_ */

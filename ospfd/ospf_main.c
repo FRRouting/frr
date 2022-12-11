@@ -70,7 +70,7 @@ const struct option longopts[] = {
 /* OSPFd program name */
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_master *master;
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;

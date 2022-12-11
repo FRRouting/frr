@@ -59,7 +59,7 @@ static void work_queue_item_remove(struct work_queue *wq,
 }
 
 /* create new work queue */
-struct work_queue *work_queue_new(struct thread_master *m,
+struct work_queue *work_queue_new(struct event_master *m,
 				  const char *queue_name)
 {
 	struct work_queue *new;

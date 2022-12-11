@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-extern struct thread_master *master;
+extern struct event_master *master;
 
 extern void static_zebra_nht_register(struct static_nexthop *nh, bool reg);
 

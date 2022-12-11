@@ -686,7 +686,7 @@ void bfd_key_iterate(hash_iter_func hif, void *arg);
 unsigned long bfd_get_session_count(void);
 
 /* Export callback functions for `event.c`. */
-extern struct thread_master *master;
+extern struct event_master *master;
 
 void bfd_recvtimer_cb(struct event *t);
 void bfd_echo_recvtimer_cb(struct event *t);

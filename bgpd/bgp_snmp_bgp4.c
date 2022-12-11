@@ -791,7 +791,7 @@ int bgpTrapBackwardTransition(struct peer *peer)
 	return 0;
 }
 
-int bgp_snmp_bgp4_init(struct thread_master *tm)
+int bgp_snmp_bgp4_init(struct event_master *tm)
 {
 	REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
 	return 0;

@@ -11,7 +11,7 @@ struct pbr_interface {
 	char mapname[100];
 };
 
-extern struct thread_master *master;
+extern struct event_master *master;
 
 extern void pbr_zebra_init(void);
 

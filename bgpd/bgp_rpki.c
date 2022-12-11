@@ -591,7 +591,7 @@ err:
 
 }
 
-static int bgp_rpki_init(struct thread_master *master)
+static int bgp_rpki_init(struct event_master *master)
 {
 	rpki_debug = false;
 	rtr_is_running = false;

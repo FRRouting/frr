@@ -1173,7 +1173,7 @@ static int ldp_snmp_nbr_state_change(struct nbr * nbr, int old_state)
 	return 0;
 }
 
-static int ldp_snmp_init(struct thread_master *tm)
+static int ldp_snmp_init(struct event_master *tm)
 {
 	hook_register(agentx_enabled, ldp_snmp_agentx_enabled);
 
@@ -1182,7 +1182,7 @@ static int ldp_snmp_init(struct thread_master *tm)
 	return 0;
 }
 
-static int ldp_snmp_register_mib(struct thread_master *tm)
+static int ldp_snmp_register_mib(struct event_master *tm)
 {
 	static int registered = 0;
 

@@ -41,7 +41,7 @@ struct ted_state ted_state_g = {};
  * path_path_ted public API function implementations
  */
 
-void path_ted_init(struct thread_master *master)
+void path_ted_init(struct event_master *master)
 {
 	ted_state_g.main = master;
 	ted_state_g.link_state_delay_interval = TIMER_RETRY_DELAY;

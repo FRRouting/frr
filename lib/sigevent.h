@@ -25,12 +25,12 @@ struct frr_signal_t {
 
 /* initialise sigevent system
  * takes:
- * - pointer to valid struct thread_master
+ * - pointer to valid struct event_master
  * - number of elements in passed in signals array
  * - array of frr_signal_t's describing signals to handle
  *   and handlers to use for each signal
  */
-extern void signal_init(struct thread_master *m, int sigc,
+extern void signal_init(struct event_master *m, int sigc,
 			struct frr_signal_t *signals);
 
 

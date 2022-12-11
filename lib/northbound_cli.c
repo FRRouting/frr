@@ -29,7 +29,7 @@ struct debug nb_dbg_events = {0, "Northbound events"};
 struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
-static struct thread_master *master;
+static struct event_master *master;
 
 static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
@@ -1876,7 +1876,7 @@ static const struct cmd_variable_handler yang_var_handlers[] = {
 	 .completions = yang_translator_autocomplete},
 	{.completions = NULL}};
 
-void nb_cli_init(struct thread_master *tm)
+void nb_cli_init(struct event_master *tm)
 {
 	master = tm;
 

@@ -29,7 +29,7 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 static int mgmt_fe_listen_fd = -1;
-static struct thread_master *mgmt_fe_listen_tm;
+static struct event_master *mgmt_fe_listen_tm;
 static struct event *mgmt_fe_listen_ev;
 static void mgmt_fe_server_register_event(enum mgmt_fe_event event);
 
@@ -126,7 +126,7 @@ mgmt_fe_server_start_failed:
 	exit(-1);
 }
 
-int mgmt_fe_server_init(struct thread_master *master)
+int mgmt_fe_server_init(struct event_master *master)
 {
 	if (mgmt_fe_listen_tm) {
 		MGMTD_FE_SRVR_DBG("MGMTD Frontend Server already running!");

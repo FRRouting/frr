@@ -71,7 +71,7 @@ struct isis_master {
 	/* ISIS instance. */
 	struct list *isis;
 	/* ISIS thread master. */
-	struct thread_master *master;
+	struct event_master *master;
 	uint8_t options;
 };
 #define F_ISIS_UNIT_TEST 0x01
@@ -252,7 +252,7 @@ DECLARE_MTYPE(ISIS_PLIST_NAME);
 DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
-void isis_master_init(struct thread_master *master);
+void isis_master_init(struct event_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
@@ -329,7 +329,7 @@ void config_end_lsp_generate(struct isis_area *area);
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
 
 /* Master of threads. */
-extern struct thread_master *master;
+extern struct event_master *master;
 
 extern unsigned long debug_adj_pkt;
 extern unsigned long debug_snp_pkt;

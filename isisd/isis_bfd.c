@@ -209,7 +209,7 @@ static int bfd_handle_circuit_add_addr(struct isis_circuit *circuit)
 	return 0;
 }
 
-void isis_bfd_init(struct thread_master *tm)
+void isis_bfd_init(struct event_master *tm)
 {
 	bfd_protocol_integration_init(zclient, tm);
 

@@ -23,7 +23,7 @@
 
 #define TIMESTR_LEN strlen("4294967296.999999")
 
-struct thread_master *master;
+struct event_master *master;
 
 static size_t log_buf_len;
 static size_t log_buf_pos;

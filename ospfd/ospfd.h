@@ -78,7 +78,7 @@ struct ospf_master {
 	struct list *ospf;
 
 	/* OSPF thread master. */
-	struct thread_master *master;
+	struct event_master *master;
 
 	/* Various OSPF global configuration. */
 	uint8_t options;
@@ -664,7 +664,7 @@ extern struct ospf_master *om;
 extern unsigned short ospf_instance;
 extern const int ospf_redistributed_proto_max;
 extern struct zclient *zclient;
-extern struct thread_master *master;
+extern struct event_master *master;
 extern int ospf_zlog;
 extern struct zebra_privs_t ospfd_privs;
 
@@ -758,7 +758,7 @@ extern void ospf_interface_area_unset(struct ospf *ospf, struct interface *ifp);
 
 extern void ospf_route_map_init(void);
 
-extern void ospf_master_init(struct thread_master *master);
+extern void ospf_master_init(struct event_master *master);
 extern void ospf_vrf_init(void);
 extern void ospf_vrf_terminate(void);
 extern void ospf_vrf_link(struct ospf *ospf, struct vrf *vrf);

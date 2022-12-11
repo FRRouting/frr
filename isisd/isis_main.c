@@ -77,7 +77,7 @@ static const struct option longopts[] = {
 	{0}};
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_master *master;
 
 /*
  * Prototypes.

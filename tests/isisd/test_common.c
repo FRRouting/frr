@@ -12,7 +12,7 @@
 
 #include "test_common.h"
 
-struct thread_master *master;
+struct event_master *master;
 struct zebra_privs_t isisd_privs;
 
 int isis_sock_init(struct isis_circuit *circuit)

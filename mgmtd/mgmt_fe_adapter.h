@@ -82,7 +82,7 @@ struct mgmt_fe_client_adapter {
 DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 
 /* Initialise frontend adapter module */
-extern int mgmt_fe_adapter_init(struct thread_master *tm,
+extern int mgmt_fe_adapter_init(struct event_master *tm,
 				struct mgmt_master *cm);
 
 /* Destroy frontend adapter module */

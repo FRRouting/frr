@@ -286,7 +286,7 @@ static int
 mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 				 struct mgmt_be_client_adapter *adapter);
 
-static struct thread_master *mgmt_txn_tm;
+static struct event_master *mgmt_txn_tm;
 static struct mgmt_master *mgmt_txn_mm;
 
 static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
@@ -2260,7 +2260,7 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 	}
 }
 
-int mgmt_txn_init(struct mgmt_master *mm, struct thread_master *tm)
+int mgmt_txn_init(struct mgmt_master *mm, struct event_master *tm)
 {
 	if (mgmt_txn_mm || mgmt_txn_tm)
 		assert(!"MGMTD TXN: Call txn_init() only once");

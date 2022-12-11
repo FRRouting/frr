@@ -32,7 +32,7 @@
  *
  */
 
-static struct thread_master *zmlag_master;
+static struct event_master *zmlag_master;
 static int mlag_socket;
 
 static void zebra_mlag_connect(struct event *thread);

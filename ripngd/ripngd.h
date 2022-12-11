@@ -316,7 +316,7 @@ struct ripng_offset_list {
 
 /* Extern variables. */
 extern struct zebra_privs_t ripngd_privs;
-extern struct thread_master *master;
+extern struct event_master *master;
 extern struct ripng_instance_head ripng_instances;
 
 /* Prototypes. */
@@ -338,7 +338,7 @@ extern void ripng_zebra_vrf_register(struct vrf *vrf);
 extern void ripng_zebra_vrf_deregister(struct vrf *vrf);
 extern void ripng_terminate(void);
 /* zclient_init() is done by ripng_zebra.c:zebra_init() */
-extern void zebra_init(struct thread_master *);
+extern void zebra_init(struct event_master *master);
 extern void ripng_zebra_stop(void);
 extern void ripng_redistribute_conf_update(struct ripng *ripng, int type);
 extern void ripng_redistribute_conf_delete(struct ripng *ripng, int type);

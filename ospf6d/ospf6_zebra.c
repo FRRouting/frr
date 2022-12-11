@@ -750,7 +750,7 @@ static zclient_handler *const ospf6_handlers[] = {
 	[ZEBRA_NEXTHOP_UPDATE] = ospf6_zebra_import_check_update,
 };
 
-void ospf6_zebra_init(struct thread_master *master)
+void ospf6_zebra_init(struct event_master *master)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master, &zclient_options_default, ospf6_handlers,

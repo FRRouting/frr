@@ -11,7 +11,7 @@
 #include "network.h"
 #include "prng.h"
 
-struct thread_master *master;
+struct event_master *master;
 
 struct acc_vals {
 	int c0;

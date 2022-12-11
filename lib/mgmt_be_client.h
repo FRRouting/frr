@@ -188,9 +188,8 @@ mgmt_be_client_name2id(const char *name)
  * Returns:
  *    Backend client lib handler (nothing but address of mgmt_be_client_ctx)
  */
-extern uintptr_t
-mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
-			   struct thread_master *master_thread);
+extern uintptr_t mgmt_be_client_lib_init(struct mgmt_be_client_params *params,
+					 struct event_master *master_thread);
 
 /*
  * Subscribe with MGMTD for one or more YANG subtree(s).

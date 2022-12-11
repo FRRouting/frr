@@ -883,11 +883,11 @@ const char	*pw_type_name(uint16_t);
 const char	*pw_error_code(uint8_t);
 
 /* quagga */
-extern struct thread_master	*master;
+extern struct event_master *master;
 extern char			 ctl_sock_path[MAXPATHLEN];
 
 /* ldp_zebra.c */
-void		 ldp_zebra_init(struct thread_master *);
+void ldp_zebra_init(struct event_master *m);
 void		 ldp_zebra_destroy(void);
 int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
@@ -904,7 +904,7 @@ void ldp_zebra_regdereg_zebra_info(bool want_register);
 	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
 #endif
 
-DECLARE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm));
+DECLARE_HOOK(ldp_register_mib, (struct event_master * tm), (tm));
 
 extern void ldp_agentx_enabled(void);
 

@@ -20,7 +20,7 @@
 #define SCHEDULE_TIMERS 1000000
 #define REMOVE_TIMERS    500000
 
-struct thread_master *master;
+struct event_master *master;
 
 static void dummy_func(struct event *thread)
 {
