@@ -37,8 +37,8 @@ struct rusage_t {
 
 #define GETRUSAGE(X) event_getrusage(X)
 
-PREDECL_LIST(thread_list);
-PREDECL_HEAP(thread_timer_list);
+PREDECL_LIST(event_list);
+PREDECL_HEAP(event_timer_list);
 
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a
@@ -71,8 +71,8 @@ struct event_master {
 
 	struct event **read;
 	struct event **write;
-	struct thread_timer_list_head timer;
-	struct thread_list_head event, ready, unuse;
+	struct event_timer_list_head timer;
+	struct event_list_head event, ready, unuse;
 	struct list *cancel_req;
 	bool canceled;
 	pthread_cond_t cancel_cond;
@@ -106,8 +106,8 @@ enum event_types {
 struct event {
 	enum event_types type;	   /* thread type */
 	enum event_types add_type; /* thread type */
-	struct thread_list_item threaditem;
-	struct thread_timer_list_item timeritem;
+	struct event_list_item eventitem;
+	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
 	struct event_master *master;  /* pointer to the struct event_master */
 	void (*func)(struct event *); /* event function */
