@@ -810,7 +810,7 @@ static struct event *thread_get(struct thread_master *m, uint8_t type,
 	thread->add_type = type;
 	thread->master = m;
 	thread->arg = arg;
-	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
+	thread->yield = EVENT_YIELD_TIME_SLOT; /* default */
 	thread->ref = NULL;
 	thread->ignore_timer_late = false;
 

@@ -78,7 +78,7 @@ struct work_queue *work_queue_new(struct thread_master *m,
 
 	/* Default values, can be overridden by caller */
 	new->spec.hold = WORK_QUEUE_DEFAULT_HOLD;
-	new->spec.yield = THREAD_YIELD_TIME_SLOT;
+	new->spec.yield = EVENT_YIELD_TIME_SLOT;
 	new->spec.retry = WORK_QUEUE_DEFAULT_RETRY;
 
 	return new;
@@ -127,7 +127,7 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 
 		/* set thread yield time, if needed */
 		if (thread_is_scheduled(wq->thread) &&
-		    wq->spec.yield != THREAD_YIELD_TIME_SLOT)
+		    wq->spec.yield != EVENT_YIELD_TIME_SLOT)
 			thread_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;
 	} else
