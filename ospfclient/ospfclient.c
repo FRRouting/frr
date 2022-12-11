@@ -320,8 +320,8 @@ int main(int argc, char *argv[])
 
 	/* Now connection is established, run loop */
 	while (1) {
-		thread_fetch(master, &thread);
-		thread_call(&thread);
+		event_fetch(master, &thread);
+		event_call(&thread);
 	}
 
 	/* Never reached */

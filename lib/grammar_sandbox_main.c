@@ -45,8 +45,8 @@ int main(int argc, char **argv)
 	vty_stdio(vty_do_exit);
 
 	/* Fetch next active thread. */
-	while (thread_fetch(master, &event))
-		thread_call(&event);
+	while (event_fetch(master, &event))
+		event_call(&event);
 
 	/* Not reached. */
 	exit(0);

@@ -1181,8 +1181,8 @@ void frr_run(struct thread_master *master)
 	zlog_startup_end();
 
 	struct event thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 }
 
 void frr_early_fini(void)

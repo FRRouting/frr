@@ -589,7 +589,7 @@ struct thread_master *thread_master_create(const char *name)
 	thread_list_init(&rv->unuse);
 	thread_timer_list_init(&rv->timer);
 
-	/* Initialize thread_fetch() settings */
+	/* Initialize event_fetch() settings */
 	rv->spin = true;
 	rv->handle_signals = true;
 
@@ -1159,7 +1159,7 @@ void _event_add_event(const struct xref_threadsched *xref,
  * NOT's out the .events field of pollfd corresponding to the given file
  * descriptor. The event to be NOT'd is passed in the 'state' parameter.
  *
- * This needs to happen for both copies of pollfd's. See 'thread_fetch'
+ * This needs to happen for both copies of pollfd's. See 'event_fetch'
  * implementation for details.
  *
  * @param master
@@ -1741,7 +1741,7 @@ static unsigned int thread_process(struct thread_list_head *list)
 
 
 /* Fetch next ready thread. */
-struct event *thread_fetch(struct thread_master *m, struct event *fetch)
+struct event *event_fetch(struct thread_master *m, struct event *fetch)
 {
 	struct event *thread = NULL;
 	struct timeval now;
@@ -1962,7 +1962,7 @@ void thread_getrusage(RUSAGE_T *r)
  * particular, the maximum real and cpu times must be monotonically increasing
  * or this code is not correct.
  */
-void thread_call(struct event *thread)
+void event_call(struct event *thread)
 {
 	RUSAGE_T before, after;
 
@@ -1979,10 +1979,10 @@ void thread_call(struct event *thread)
 
 	thread->real = before.real;
 
-	frrtrace(9, frr_libfrr, thread_call, thread->master,
+	frrtrace(9, frr_libfrr, event_call, thread->master,
 		 thread->xref->funcname, thread->xref->xref.file,
-		 thread->xref->xref.line, NULL, thread->u.fd,
-		 thread->u.val, thread->arg, thread->u.sands.tv_sec);
+		 thread->xref->xref.line, NULL, thread->u.fd, thread->u.val,
+		 thread->arg, thread->u.sands.tv_sec);
 
 	pthread_setspecific(thread_current, thread);
 	(*thread->func)(thread);
@@ -2077,7 +2077,7 @@ void _thread_execute(const struct xref_threadsched *xref,
 	}
 
 	/* Execute thread doing all accounting. */
-	thread_call(thread);
+	event_call(thread);
 
 	/* Give back or free thread. */
 	thread_add_unuse(m, thread);

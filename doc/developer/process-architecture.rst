@@ -111,13 +111,13 @@ program. When no more tasks are available, the program dies. Typically at
 startup the first task added is an I/O task for VTYSH as well as any network
 sockets needed for peerings or IPC.
 
-To retrieve the next task to run the program calls ``thread_fetch()``.
-``thread_fetch()`` internally computes which task to execute next based on
+To retrieve the next task to run the program calls ``event_fetch()``.
+``event_fetch()`` internally computes which task to execute next based on
 rudimentary priority logic. Events (type ``THREAD_EVENT``) execute with the
 highest priority, followed by expired timers and finally I/O tasks (type
 ``THREAD_READ`` and ``THREAD_WRITE``). When scheduling a task a function and an
-arbitrary argument are provided. The task returned from ``thread_fetch()`` is
-then executed with ``thread_call()``.
+arbitrary argument are provided. The task returned from ``event_fetch()`` is
+then executed with ``event_call()``.
 
 The following diagram illustrates a simplified version of this infrastructure.
 
@@ -134,8 +134,8 @@ illustrated at the bottom.
 Mapping the general names used in the figure to specific FRR functions:
 
 - ``task`` is ``struct event *``
-- ``fetch`` is ``thread_fetch()``
-- ``exec()`` is ``thread_call``
+- ``fetch`` is ``event_fetch()``
+- ``exec()`` is ``event_call``
 - ``cancel()`` is ``event_cancel()``
 - ``schedule()`` is any of the various task-specific ``event_add_*`` functions
 

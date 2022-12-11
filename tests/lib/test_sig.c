@@ -45,8 +45,8 @@ int main(void)
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
 
-	while (thread_fetch(master, &t))
-		thread_call(&t);
+	while (event_fetch(master, &t))
+		event_call(&t);
 
 	exit(0);
 }

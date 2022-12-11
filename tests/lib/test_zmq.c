@@ -279,8 +279,8 @@ static void run_server(int syncfd)
 	frrzmq_event_add_read_msg(master, serverfn, NULL, NULL, zmqsock, &cb);
 
 	write(syncfd, &dummy, sizeof(dummy));
-	while (thread_fetch(master, &t))
-		thread_call(&t);
+	while (event_fetch(master, &t))
+		event_call(&t);
 
 	zmq_close(zmqsock);
 	frrzmq_finish();
