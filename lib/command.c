@@ -2542,7 +2542,7 @@ void cmd_init(int terminal)
 
 		install_default(CONFIG_NODE);
 
-		thread_cmd_init();
+		event_cmd_init();
 		workqueue_cmd_init();
 		hash_cmd_init();
 	}

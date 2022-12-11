@@ -195,7 +195,7 @@ static void isis_config_end(void)
 	/* If ISIS config processing thread isn't running, then
 	 * we can return and rely it's properly handled.
 	 */
-	if (!thread_is_scheduled(t_isis_cfg))
+	if (!event_is_scheduled(t_isis_cfg))
 		return;
 
 	THREAD_OFF(t_isis_cfg);

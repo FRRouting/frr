@@ -3181,9 +3181,9 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 		if (es->df_delay_timer)
 			json_object_string_add(
 				json, "dfDelayTimer",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       es->df_delay_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      es->df_delay_timer));
 		json_object_int_add(json, "nexthopGroup", es->nhg_id);
 		if (listcount(es->es_vtep_list)) {
 			json_vteps = json_object_new_array();
@@ -3226,9 +3226,9 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 								  : "df");
 		if (es->df_delay_timer)
 			vty_out(vty, " DF delay: %s\n",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       es->df_delay_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      es->df_delay_timer));
 		vty_out(vty, " DF preference: %u\n", es->df_pref);
 		vty_out(vty, " Nexthop group: %u\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
@@ -3529,8 +3529,8 @@ void zebra_evpn_mh_json(json_object *json)
 	json_object_int_add(json, "startupDelay", zmh_info->startup_delay_time);
 	json_object_string_add(
 		json, "startupDelayTimer",
-		thread_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
-				       zmh_info->startup_delay_timer));
+		event_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
+				      zmh_info->startup_delay_timer));
 	json_object_int_add(json, "uplinkConfigCount",
 			    zmh_info->uplink_cfg_cnt);
 	json_object_int_add(json, "uplinkActiveCount",
@@ -3562,8 +3562,8 @@ void zebra_evpn_mh_print(struct vty *vty)
 		zmh_info->mac_hold_time, zmh_info->neigh_hold_time);
 	vty_out(vty, "  startup-delay: %ds, start-delay-timer: %s\n",
 		zmh_info->startup_delay_time,
-		thread_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
-				       zmh_info->startup_delay_timer));
+		event_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
+				      zmh_info->startup_delay_timer));
 	vty_out(vty, "  uplink-cfg-cnt: %u, uplink-active-cnt: %u\n",
 		zmh_info->uplink_cfg_cnt, zmh_info->uplink_oper_up_cnt);
 	if (zmh_info->protodown_rc)

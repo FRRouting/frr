@@ -1746,9 +1746,9 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 		}
 		if (n->hold_timer) {
 			vty_out(vty, " (ht: %s)",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       n->hold_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      n->hold_timer));
 			sync_info = true;
 		}
 		if (!sync_info)
@@ -1769,9 +1769,9 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 		if (n->hold_timer)
 			json_object_string_add(
 				json, "peerActiveHold",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       n->hold_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      n->hold_timer));
 	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 		if (n->mac->es) {

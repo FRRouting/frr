@@ -13460,7 +13460,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_neigh,
 			"bgpTimerConfiguredConditionalAdvertisementsSec",
 			bgp->condition_check_period);
-		if (thread_is_scheduled(bgp->t_condition_check))
+		if (event_is_scheduled(bgp->t_condition_check))
 			json_object_int_add(
 				json_neigh,
 				"bgpTimerUntilConditionalAdvertisementsSec",
@@ -13541,7 +13541,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		vty_out(vty,
 			"  Configured conditional advertisements interval is %d seconds\n",
 			bgp->condition_check_period);
-		if (thread_is_scheduled(bgp->t_condition_check))
+		if (event_is_scheduled(bgp->t_condition_check))
 			vty_out(vty,
 				"  Time until conditional advertisements begin is %lu seconds\n",
 				event_timer_remain_second(
@@ -18768,7 +18768,7 @@ static struct event *t_bgp_cfg;
 
 bool bgp_config_inprocess(void)
 {
-	return thread_is_scheduled(t_bgp_cfg);
+	return event_is_scheduled(t_bgp_cfg);
 }
 
 static void bgp_config_finish(struct event *t)
@@ -18797,7 +18797,7 @@ static void bgp_config_end(void)
 {
 #define BGP_POST_CONFIG_DELAY_SECONDS 1
 	uint32_t bgp_post_config_delay =
-		thread_is_scheduled(bm->t_rmap_update)
+		event_is_scheduled(bm->t_rmap_update)
 			? event_timer_remain_second(bm->t_rmap_update)
 			: BGP_POST_CONFIG_DELAY_SECONDS;
 

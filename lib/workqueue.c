@@ -106,27 +106,27 @@ void work_queue_free_and_null(struct work_queue **wqp)
 
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
-	return thread_is_scheduled(wq->thread);
+	return event_is_scheduled(wq->thread);
 }
 
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
 	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) &&
-	    !thread_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
+	    !event_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
 		if (delay > 0) {
 			event_add_timer_msec(wq->master, work_queue_run, wq,
 					     delay, &wq->thread);
-			thread_ignore_late_timer(wq->thread);
+			event_ignore_late_timer(wq->thread);
 		} else
 			event_add_event(wq->master, work_queue_run, wq, 0,
 					&wq->thread);
 
 		/* set thread yield time, if needed */
-		if (thread_is_scheduled(wq->thread) &&
+		if (event_is_scheduled(wq->thread) &&
 		    wq->spec.yield != EVENT_YIELD_TIME_SLOT)
 			event_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;

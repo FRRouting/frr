@@ -35,7 +35,7 @@ struct rusage_t {
 };
 #define RUSAGE_T        struct rusage_t
 
-#define GETRUSAGE(X) thread_getrusage(X)
+#define GETRUSAGE(X) event_getrusage(X)
 
 PREDECL_LIST(thread_list);
 PREDECL_HEAP(thread_timer_list);
@@ -259,19 +259,19 @@ extern int event_should_yield(struct event *event);
 extern void event_set_yield_time(struct event *event, unsigned long);
 
 /* Internal libfrr exports */
-extern void thread_getrusage(RUSAGE_T *);
-extern void thread_cmd_init(void);
+extern void event_getrusage(RUSAGE_T *);
+extern void event_cmd_init(void);
 
 /* Returns elapsed real (wall clock) time. */
-extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
-					  unsigned long *cpu_time_elapsed);
+extern unsigned long event_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
+					 unsigned long *cpu_time_elapsed);
 
 /* only for use in logging functions! */
 extern pthread_key_t thread_current;
-extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
-				    struct event *t_timer);
+extern char *event_timer_to_hhmmss(char *buf, int buf_size,
+				   struct event *t_timer);
 
-static inline bool thread_is_scheduled(struct event *thread)
+static inline bool event_is_scheduled(struct event *thread)
 {
 	if (thread)
 		return true;
@@ -282,7 +282,7 @@ static inline bool thread_is_scheduled(struct event *thread)
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
 
-static inline void thread_ignore_late_timer(struct event *event)
+static inline void event_ignore_late_timer(struct event *event)
 {
 	event->ignore_timer_late = true;
 }

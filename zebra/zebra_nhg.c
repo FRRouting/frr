@@ -1727,7 +1727,7 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 
 	nhe->refcnt++;
 
-	if (thread_is_scheduled(nhe->timer)) {
+	if (event_is_scheduled(nhe->timer)) {
 		THREAD_OFF(nhe->timer);
 		nhe->refcnt--;
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);

@@ -516,7 +516,7 @@ DEFPY_NOSH (show_thread_timers,
 	return CMD_SUCCESS;
 }
 
-void thread_cmd_init(void)
+void event_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
 	install_element(VIEW_NODE, &show_thread_poll_cmd);
@@ -737,7 +737,7 @@ unsigned long event_timer_remain_msec(struct event *thread)
 {
 	int64_t remain;
 
-	if (!thread_is_scheduled(thread))
+	if (!event_is_scheduled(thread))
 		return 0;
 
 	frr_with_mutex (&thread->mtx) {
@@ -780,7 +780,7 @@ static int time_hhmmss(char *buf, int buf_size, long sec)
 	return wr != 8;
 }
 
-char *thread_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
+char *event_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 {
 	if (t_timer) {
 		time_hhmmss(buf, buf_size, event_timer_remain_second(t_timer));
@@ -1865,8 +1865,8 @@ static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 		+ (a.tv_usec - b.tv_usec));
 }
 
-unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
-				   unsigned long *cputime)
+unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
+				  unsigned long *cputime)
 {
 #ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
 
@@ -1927,7 +1927,7 @@ void event_set_yield_time(struct event *thread, unsigned long yield_time)
 	}
 }
 
-void thread_getrusage(RUSAGE_T *r)
+void event_getrusage(RUSAGE_T *r)
 {
 	monotime(&r->real);
 	if (!cputime_enabled) {
@@ -1993,7 +1993,7 @@ void event_call(struct event *thread)
 	unsigned long walltime, cputime;
 	unsigned long exp;
 
-	walltime = thread_consumed_time(&after, &before, &cputime);
+	walltime = event_consumed_time(&after, &before, &cputime);
 
 	/* update walltime */
 	atomic_fetch_add_explicit(&thread->hist->real.total, walltime,

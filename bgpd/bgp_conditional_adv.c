@@ -328,7 +328,7 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Register for conditional routes polling timer */
-	if (!thread_is_scheduled(bgp->t_condition_check))
+	if (!event_is_scheduled(bgp->t_condition_check))
 		event_add_timer(bm->master, bgp_conditional_adv_timer, bgp, 0,
 				&bgp->t_condition_check);
 }
