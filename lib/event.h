@@ -148,7 +148,7 @@ struct cpu_thread_history {
 #define TIMER_SECOND_MICRO 1000000L
 
 /* Thread yield time.  */
-#define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 10ms */
+#define EVENT_YIELD_TIME_SLOT 10 * 1000L /* 10ms */
 
 #define THREAD_TIMER_STRLEN 12
 
