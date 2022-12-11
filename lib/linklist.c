@@ -28,6 +28,37 @@
 DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List");
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node");
 
+/* these *do not* cleanup list nodes and referenced data, as the functions
+ * do - these macros simply {de,at}tach a listnode from/to a list.
+ */
+
+/* List node attach macro.  */
+#define LISTNODE_ATTACH(L, N)                                                  \
+	do {                                                                   \
+		(N)->prev = (L)->tail;                                         \
+		(N)->next = NULL;                                              \
+		if ((L)->head == NULL)                                         \
+			(L)->head = (N);                                       \
+		else                                                           \
+			(L)->tail->next = (N);                                 \
+		(L)->tail = (N);                                               \
+		(L)->count++;                                                  \
+	} while (0)
+
+/* List node detach macro.  */
+#define LISTNODE_DETACH(L, N)                                                  \
+	do {                                                                   \
+		if ((N)->prev)                                                 \
+			(N)->prev->next = (N)->next;                           \
+		else                                                           \
+			(L)->head = (N)->next;                                 \
+		if ((N)->next)                                                 \
+			(N)->next->prev = (N)->prev;                           \
+		else                                                           \
+			(L)->tail = (N)->prev;                                 \
+		(L)->count--;                                                  \
+	} while (0)
+
 struct list *list_new(void)
 {
 	return XCALLOC(MTYPE_LINK_LIST, sizeof(struct list));
