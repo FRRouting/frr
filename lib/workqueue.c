@@ -128,7 +128,7 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 		/* set thread yield time, if needed */
 		if (thread_is_scheduled(wq->thread) &&
 		    wq->spec.yield != EVENT_YIELD_TIME_SLOT)
-			thread_set_yield_time(wq->thread, wq->spec.yield);
+			event_set_yield_time(wq->thread, wq->spec.yield);
 		return 1;
 	} else
 		return 0;
@@ -311,8 +311,8 @@ void work_queue_run(struct event *thread)
 		cycles++;
 
 		/* test if we should yield */
-		if (!(cycles % wq->cycles.granularity)
-		    && thread_should_yield(thread)) {
+		if (!(cycles % wq->cycles.granularity) &&
+		    event_should_yield(thread)) {
 			yielded = 1;
 			goto stats;
 		}

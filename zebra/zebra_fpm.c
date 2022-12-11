@@ -285,7 +285,7 @@ union g_addr ipv4ll_gateway;
  */
 static inline int zfpm_thread_should_yield(struct event *t)
 {
-	return thread_should_yield(t);
+	return event_should_yield(t);
 }
 
 /*

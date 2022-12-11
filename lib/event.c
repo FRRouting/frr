@@ -1910,7 +1910,7 @@ unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
    for CPU time.  On balance, wall clock time seems to make sense.
    Plus it has the added benefit that gettimeofday should be faster
    than calling getrusage. */
-int thread_should_yield(struct event *thread)
+int event_should_yield(struct event *thread)
 {
 	int result;
 	frr_with_mutex (&thread->mtx) {
@@ -1920,7 +1920,7 @@ int thread_should_yield(struct event *thread)
 	return result;
 }
 
-void thread_set_yield_time(struct event *thread, unsigned long yield_time)
+void event_set_yield_time(struct event *thread, unsigned long yield_time)
 {
 	frr_with_mutex (&thread->mtx) {
 		thread->yield = yield_time;

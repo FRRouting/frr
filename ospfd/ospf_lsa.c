@@ -3074,7 +3074,7 @@ void ospf_maxage_lsa_remover(struct event *thread)
 			}
 
 			/* TODO: maybe convert this function to a work-queue */
-			if (thread_should_yield(thread)) {
+			if (event_should_yield(thread)) {
 				OSPF_TIMER_ON(ospf->t_maxage,
 					      ospf_maxage_lsa_remover, 0);
 				route_unlock_node(
