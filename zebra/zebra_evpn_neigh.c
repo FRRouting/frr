@@ -1706,7 +1706,7 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	struct zebra_vrf *zvrf = NULL;
 	struct timeval detect_start_time = {0, 0};
 	char timebuf[MONOTIME_STRLEN];
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 	time_t uptime;
 	char up_str[MONOTIME_STRLEN];
 

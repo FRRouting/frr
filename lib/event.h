@@ -147,10 +147,10 @@ struct cpu_event_history {
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
-/* Thread yield time.  */
+/* Event yield time.  */
 #define EVENT_YIELD_TIME_SLOT 10 * 1000L /* 10ms */
 
-#define THREAD_TIMER_STRLEN 12
+#define EVENT_TIMER_STRLEN 12
 
 /* Macros. */
 #define THREAD_ARG(X) ((X)->arg)

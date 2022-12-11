@@ -3139,7 +3139,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 	char alg_buf[EVPN_DF_ALG_STR_LEN];
 	struct zebra_evpn_es_vtep *es_vtep;
 	struct listnode	*node;
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 
 	if (json) {
 		json_object *json_vteps;
@@ -3522,7 +3522,7 @@ DEFPY(zebra_evpn_mh_uplink, zebra_evpn_mh_uplink_cmd, "[no] evpn mh uplink",
 void zebra_evpn_mh_json(json_object *json)
 {
 	json_object *json_array;
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 
 	json_object_int_add(json, "macHoldtime", zmh_info->mac_hold_time);
 	json_object_int_add(json, "neighHoldtime", zmh_info->neigh_hold_time);
@@ -3555,7 +3555,7 @@ void zebra_evpn_mh_json(json_object *json)
 void zebra_evpn_mh_print(struct vty *vty)
 {
 	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
-	char thread_buf[THREAD_TIMER_STRLEN];
+	char thread_buf[EVENT_TIMER_STRLEN];
 
 	vty_out(vty, "EVPN MH:\n");
 	vty_out(vty, "  mac-holdtime: %ds, neigh-holdtime: %ds\n",
