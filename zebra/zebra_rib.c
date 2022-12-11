@@ -4415,7 +4415,7 @@ void rib_update(enum rib_update_event event)
 {
 	struct rib_update_ctx *ctx;
 
-	if (thread_is_scheduled(t_rib_update_threads[event]))
+	if (event_is_scheduled(t_rib_update_threads[event]))
 		return;
 
 	ctx = rib_update_ctx_init(0, event);

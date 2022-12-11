@@ -1140,7 +1140,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	if (use_json) {
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsupdate))
+		if (event_is_scheduled(oi->thread_send_lsupdate))
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
@@ -1150,9 +1150,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       duration);
 		json_object_string_add(
 			json_obj, "lsUpdateSendThread",
-			(thread_is_scheduled(oi->thread_send_lsupdate)
-				 ? "on"
-				 : "off"));
+			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
+								      : "off"));
 
 		json_arr = json_object_new_array();
 		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
@@ -1162,7 +1161,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       json_arr);
 
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsack))
+		if (event_is_scheduled(oi->thread_send_lsack))
 			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 
@@ -1172,8 +1171,8 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				       duration);
 		json_object_string_add(
 			json_obj, "lsAckSendThread",
-			(thread_is_scheduled(oi->thread_send_lsack) ? "on"
-								    : "off"));
+			(event_is_scheduled(oi->thread_send_lsack) ? "on"
+								   : "off"));
 
 		json_arr = json_object_new_array();
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
@@ -1183,28 +1182,27 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 
 	} else {
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsupdate))
+		if (event_is_scheduled(oi->thread_send_lsupdate))
 			timersub(&oi->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
 			oi->lsupdate_list->count, duration,
-			(thread_is_scheduled(oi->thread_send_lsupdate)
-				 ? "on"
-				 : "off"));
+			(event_is_scheduled(oi->thread_send_lsupdate) ? "on"
+								      : "off"));
 		for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (thread_is_scheduled(oi->thread_send_lsack))
+		if (event_is_scheduled(oi->thread_send_lsack))
 			timersub(&oi->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
 			oi->lsack_list->count, duration,
-			(thread_is_scheduled(oi->thread_send_lsack) ? "on"
-								    : "off"));
+			(event_is_scheduled(oi->thread_send_lsack) ? "on"
+								   : "off"));
 		for (ALL_LSDB(oi->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 	}
@@ -2107,7 +2105,7 @@ DEFUN (ipv6_ospf6_hellointerval,
 	/*
 	 * If the thread is scheduled, send the new hello now.
 	 */
-	if (thread_is_scheduled(oi->thread_send_hello)) {
+	if (event_is_scheduled(oi->thread_send_hello)) {
 		THREAD_OFF(oi->thread_send_hello);
 
 		event_add_timer(master, ospf6_hello_send, oi, 0,

@@ -815,7 +815,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_dbdesc))
+		if (event_is_scheduled(on->thread_send_dbdesc))
 			timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaDbDescCount",
@@ -824,8 +824,8 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       duration);
 		json_object_string_add(
 			json_neighbor, "dbDescSendThread",
-			(thread_is_scheduled(on->thread_send_dbdesc) ? "on"
-								     : "off"));
+			(event_is_scheduled(on->thread_send_dbdesc) ? "on"
+								    : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
 			json_object_array_add(
@@ -834,7 +834,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       json_array);
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_lsreq))
+		if (event_is_scheduled(on->thread_send_lsreq))
 			timersub(&on->thread_send_lsreq->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaLsReqCount",
@@ -843,8 +843,8 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       duration);
 		json_object_string_add(
 			json_neighbor, "lsReqSendThread",
-			(thread_is_scheduled(on->thread_send_lsreq) ? "on"
-								    : "off"));
+			(event_is_scheduled(on->thread_send_lsreq) ? "on"
+								   : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->request_list, lsa, lsanext))
 			json_object_array_add(
@@ -854,7 +854,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_lsupdate))
+		if (event_is_scheduled(on->thread_send_lsupdate))
 			timersub(&on->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
@@ -864,9 +864,8 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       duration);
 		json_object_string_add(
 			json_neighbor, "lsUpdateSendThread",
-			(thread_is_scheduled(on->thread_send_lsupdate)
-				 ? "on"
-				 : "off"));
+			(event_is_scheduled(on->thread_send_lsupdate) ? "on"
+								      : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
 			json_object_array_add(
@@ -875,7 +874,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       json_array);
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_lsack))
+		if (event_is_scheduled(on->thread_send_lsack))
 			timersub(&on->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		json_object_int_add(json_neighbor, "pendingLsaLsAckCount",
@@ -884,8 +883,8 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       duration);
 		json_object_string_add(
 			json_neighbor, "lsAckSendThread",
-			(thread_is_scheduled(on->thread_send_lsack) ? "on"
-								    : "off"));
+			(event_is_scheduled(on->thread_send_lsack) ? "on"
+								   : "off"));
 		json_array = json_object_new_array();
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			json_object_array_add(
@@ -973,52 +972,51 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_dbdesc))
+		if (event_is_scheduled(on->thread_send_dbdesc))
 			timersub(&on->thread_send_dbdesc->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for DbDesc in Time %s [thread %s]\n",
 			on->dbdesc_list->count, duration,
-			(thread_is_scheduled(on->thread_send_dbdesc) ? "on"
-								     : "off"));
+			(event_is_scheduled(on->thread_send_dbdesc) ? "on"
+								    : "off"));
 		for (ALL_LSDB(on->dbdesc_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_lsreq))
+		if (event_is_scheduled(on->thread_send_lsreq))
 			timersub(&on->thread_send_lsreq->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSReq in Time %s [thread %s]\n",
 			on->request_list->count, duration,
-			(thread_is_scheduled(on->thread_send_lsreq) ? "on"
-								    : "off"));
+			(event_is_scheduled(on->thread_send_lsreq) ? "on"
+								   : "off"));
 		for (ALL_LSDB(on->request_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_lsupdate))
+		if (event_is_scheduled(on->thread_send_lsupdate))
 			timersub(&on->thread_send_lsupdate->u.sands, &now,
 				 &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSUpdate in Time %s [thread %s]\n",
 			on->lsupdate_list->count, duration,
-			(thread_is_scheduled(on->thread_send_lsupdate)
-				 ? "on"
-				 : "off"));
+			(event_is_scheduled(on->thread_send_lsupdate) ? "on"
+								      : "off"));
 		for (ALL_LSDB(on->lsupdate_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 
 		timerclear(&res);
-		if (thread_is_scheduled(on->thread_send_lsack))
+		if (event_is_scheduled(on->thread_send_lsack))
 			timersub(&on->thread_send_lsack->u.sands, &now, &res);
 		timerstring(&res, duration, sizeof(duration));
 		vty_out(vty,
 			"    %d Pending LSAs for LSAck in Time %s [thread %s]\n",
 			on->lsack_list->count, duration,
-			(thread_is_scheduled(on->thread_send_lsack) ? "on"
-								    : "off"));
+			(event_is_scheduled(on->thread_send_lsack) ? "on"
+								   : "off"));
 		for (ALL_LSDB(on->lsack_list, lsa, lsanext))
 			vty_out(vty, "      %s\n", lsa->name);
 

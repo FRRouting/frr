@@ -687,7 +687,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	/* SPF calculation timer is already scheduled. */
-	if (thread_is_scheduled(ospf6->t_spf_calc)) {
+	if (event_is_scheduled(ospf6->t_spf_calc)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 			zlog_debug(
 				"SPF: calculation timer is already scheduled: %p",

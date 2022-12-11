@@ -692,9 +692,9 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 		if (mac->hold_timer)
 			json_object_string_add(
 				json_mac, "peerActiveHold",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       mac->hold_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      mac->hold_timer));
 		if (mac->es)
 			json_object_string_add(json_mac, "esi",
 					mac->es->esi_str);
@@ -784,9 +784,9 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 			vty_out(vty, " peer-active");
 		if (mac->hold_timer)
 			vty_out(vty, " (ht: %s)",
-				thread_timer_to_hhmmss(thread_buf,
-						       sizeof(thread_buf),
-						       mac->hold_timer));
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      mac->hold_timer));
 		vty_out(vty, "\n");
 		vty_out(vty, " Local Seq: %u Remote Seq: %u\n", mac->loc_seq,
 			mac->rem_seq);

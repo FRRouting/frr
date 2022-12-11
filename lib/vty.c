@@ -545,7 +545,7 @@ static int vty_command(struct vty *vty, char *buf)
 
 	GETRUSAGE(&after);
 
-	walltime = thread_consumed_time(&after, &before, &cputime);
+	walltime = event_consumed_time(&after, &before, &cputime);
 
 	if (cputime_enabled_here && cputime_enabled && cputime_threshold
 	    && cputime > cputime_threshold)
