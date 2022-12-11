@@ -28,7 +28,7 @@ DEFINE_MTYPE_STATIC(LIB, EVENT_MASTER, "Thread master");
 DEFINE_MTYPE_STATIC(LIB, EVENT_POLL, "Thread Poll Info");
 DEFINE_MTYPE_STATIC(LIB, EVENT_STATS, "Thread stats");
 
-DECLARE_LIST(thread_list, struct event, threaditem);
+DECLARE_LIST(event_list, struct event, eventitem);
 
 struct cancel_req {
 	int flags;
@@ -40,7 +40,7 @@ struct cancel_req {
 /* Flags for task cancellation */
 #define EVENT_CANCEL_FLAG_READY 0x01
 
-static int thread_timer_cmp(const struct event *a, const struct event *b)
+static int event_timer_cmp(const struct event *a, const struct event *b)
 {
 	if (a->u.sands.tv_sec < b->u.sands.tv_sec)
 		return -1;
@@ -53,7 +53,7 @@ static int thread_timer_cmp(const struct event *a, const struct event *b)
 	return 0;
 }
 
-DECLARE_HEAP(thread_timer_list, struct event, timeritem, thread_timer_cmp);
+DECLARE_HEAP(event_timer_list, struct event, timeritem, event_timer_cmp);
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
@@ -493,7 +493,7 @@ static void show_thread_timers_helper(struct vty *vty, struct event_master *m)
 	vty_out(vty, "\nShowing timers for %s\n", name);
 	vty_out(vty, "-------------------%s\n", underline);
 
-	frr_each (thread_timer_list, &m->timer, thread) {
+	frr_each (event_timer_list, &m->timer, thread) {
 		vty_out(vty, "  %-50s%pTH\n", thread->hist->funcname, thread);
 	}
 }
@@ -584,10 +584,10 @@ struct event_master *thread_master_create(const char *name)
 		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
 		tmhashname);
 
-	thread_list_init(&rv->event);
-	thread_list_init(&rv->ready);
-	thread_list_init(&rv->unuse);
-	thread_timer_list_init(&rv->timer);
+	event_list_init(&rv->event);
+	event_list_init(&rv->ready);
+	event_list_init(&rv->unuse);
+	event_timer_list_init(&rv->timer);
 
 	/* Initialize event_fetch() settings */
 	rv->spin = true;
@@ -647,8 +647,8 @@ static void thread_add_unuse(struct event_master *m, struct event *thread)
 	/* Restore the thread mutex context. */
 	thread->mtx = mtxc;
 
-	if (thread_list_count(&m->unuse) < EVENT_UNUSED_DEPTH) {
-		thread_list_add_tail(&m->unuse, thread);
+	if (event_list_count(&m->unuse) < EVENT_UNUSED_DEPTH) {
+		event_list_add_tail(&m->unuse, thread);
 		return;
 	}
 
@@ -657,11 +657,11 @@ static void thread_add_unuse(struct event_master *m, struct event *thread)
 
 /* Free all unused thread. */
 static void thread_list_free(struct event_master *m,
-			     struct thread_list_head *list)
+			     struct event_list_head *list)
 {
 	struct event *t;
 
-	while ((t = thread_list_pop(list)))
+	while ((t = event_list_pop(list)))
 		thread_free(m, t);
 }
 
@@ -693,7 +693,7 @@ void thread_master_free_unused(struct event_master *m)
 {
 	frr_with_mutex (&m->mtx) {
 		struct event *t;
-		while ((t = thread_list_pop(&m->unuse)))
+		while ((t = event_list_pop(&m->unuse)))
 			thread_free(m, t);
 	}
 }
@@ -712,7 +712,7 @@ void thread_master_free(struct event_master *m)
 
 	thread_array_free(m, m->read);
 	thread_array_free(m, m->write);
-	while ((t = thread_timer_list_pop(&m->timer)))
+	while ((t = event_timer_list_pop(&m->timer)))
 		thread_free(m, t);
 	thread_list_free(m, &m->event);
 	thread_list_free(m, &m->ready);
@@ -795,7 +795,7 @@ static struct event *thread_get(struct event_master *m, uint8_t type,
 				void (*func)(struct event *), void *arg,
 				const struct xref_threadsched *xref)
 {
-	struct event *thread = thread_list_pop(&m->unuse);
+	struct event *thread = event_list_pop(&m->unuse);
 	struct cpu_thread_history tmp;
 
 	if (!thread) {
@@ -1056,7 +1056,7 @@ static void _event_add_timer_timeval(const struct xref_threadsched *xref,
 
 		frr_with_mutex (&thread->mtx) {
 			thread->u.sands = t;
-			thread_timer_list_add(&m->timer, thread);
+			event_timer_list_add(&m->timer, thread);
 			if (t_ptr) {
 				*t_ptr = thread;
 				thread->ref = t_ptr;
@@ -1067,7 +1067,7 @@ static void _event_add_timer_timeval(const struct xref_threadsched *xref,
 		 * might change the time we'll wait for, give the pthread
 		 * a chance to re-compute.
 		 */
-		if (thread_timer_list_first(&m->timer) == thread)
+		if (event_timer_list_first(&m->timer) == thread)
 			AWAKEN(m);
 	}
 #define ONEYEAR2SEC (60 * 60 * 24 * 365)
@@ -1138,7 +1138,7 @@ void _event_add_event(const struct xref_threadsched *xref,
 		thread = thread_get(m, EVENT_EVENT, func, arg, xref);
 		frr_with_mutex (&thread->mtx) {
 			thread->u.val = val;
-			thread_list_add_tail(&m->event, thread);
+			event_list_add_tail(&m->event, thread);
 		}
 
 		if (t_ptr) {
@@ -1245,19 +1245,19 @@ static void cancel_arg_helper(struct event_master *master,
 		return;
 
 	/* First process the ready lists. */
-	frr_each_safe(thread_list, &master->event, t) {
+	frr_each_safe (event_list, &master->event, t) {
 		if (t->arg != cr->eventobj)
 			continue;
-		thread_list_del(&master->event, t);
+		event_list_del(&master->event, t);
 		if (t->ref)
 			*t->ref = NULL;
 		thread_add_unuse(master, t);
 	}
 
-	frr_each_safe(thread_list, &master->ready, t) {
+	frr_each_safe (event_list, &master->ready, t) {
 		if (t->arg != cr->eventobj)
 			continue;
-		thread_list_del(&master->ready, t);
+		event_list_del(&master->ready, t);
 		if (t->ref)
 			*t->ref = NULL;
 		thread_add_unuse(master, t);
@@ -1300,14 +1300,14 @@ static void cancel_arg_helper(struct event_master *master,
 	}
 
 	/* Check the timer tasks */
-	t = thread_timer_list_first(&master->timer);
+	t = event_timer_list_first(&master->timer);
 	while (t) {
 		struct event *t_next;
 
-		t_next = thread_timer_list_next(&master->timer, t);
+		t_next = event_timer_list_next(&master->timer, t);
 
 		if (t->arg == cr->eventobj) {
-			thread_timer_list_del(&master->timer, t);
+			event_timer_list_del(&master->timer, t);
 			if (t->ref)
 				*t->ref = NULL;
 			thread_add_unuse(master, t);
@@ -1327,7 +1327,7 @@ static void cancel_arg_helper(struct event_master *master,
  */
 static void do_event_cancel(struct event_master *master)
 {
-	struct thread_list_head *list = NULL;
+	struct event_list_head *list = NULL;
 	struct event **thread_array = NULL;
 	struct event *thread;
 	struct cancel_req *cr;
@@ -1369,7 +1369,7 @@ static void do_event_cancel(struct event_master *master)
 			thread_array = master->write;
 			break;
 		case EVENT_TIMER:
-			thread_timer_list_del(&master->timer, thread);
+			event_timer_list_del(&master->timer, thread);
 			break;
 		case EVENT_EVENT:
 			list = &master->event;
@@ -1384,7 +1384,7 @@ static void do_event_cancel(struct event_master *master)
 		}
 
 		if (list) {
-			thread_list_del(list, thread);
+			event_list_del(list, thread);
 		} else if (thread_array) {
 			thread_array[thread->u.fd] = NULL;
 		}
@@ -1556,13 +1556,13 @@ void event_cancel_async(struct event_master *master, struct event **thread,
 }
 /* ------------------------------------------------------------------------- */
 
-static struct timeval *thread_timer_wait(struct thread_timer_list_head *timers,
+static struct timeval *thread_timer_wait(struct event_timer_list_head *timers,
 					 struct timeval *timer_val)
 {
-	if (!thread_timer_list_count(timers))
+	if (!event_timer_list_count(timers))
 		return NULL;
 
-	struct event *next_timer = thread_timer_list_first(timers);
+	struct event *next_timer = event_timer_list_first(timers);
 	monotime_until(&next_timer->u.sands, timer_val);
 	return timer_val;
 }
@@ -1608,7 +1608,7 @@ static int thread_process_io_helper(struct event_master *m,
 		thread_array = m->write;
 
 	thread_array[thread->u.fd] = NULL;
-	thread_list_add_tail(&m->ready, thread);
+	event_list_add_tail(&m->ready, thread);
 	thread->type = EVENT_READY;
 
 	return 1;
@@ -1689,7 +1689,7 @@ static unsigned int thread_process_timers(struct event_master *m,
 	struct event *thread;
 	unsigned int ready = 0;
 
-	while ((thread = thread_timer_list_first(&m->timer))) {
+	while ((thread = event_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			break;
 		prev = thread->u.sands;
@@ -1713,9 +1713,9 @@ static unsigned int thread_process_timers(struct event_master *m,
 			}
 		}
 
-		thread_timer_list_pop(&m->timer);
+		event_timer_list_pop(&m->timer);
 		thread->type = EVENT_READY;
-		thread_list_add_tail(&m->ready, thread);
+		event_list_add_tail(&m->ready, thread);
 		ready++;
 	}
 
@@ -1723,14 +1723,14 @@ static unsigned int thread_process_timers(struct event_master *m,
 }
 
 /* process a list en masse, e.g. for event thread lists */
-static unsigned int thread_process(struct thread_list_head *list)
+static unsigned int thread_process(struct event_list_head *list)
 {
 	struct event *thread;
 	unsigned int ready = 0;
 
-	while ((thread = thread_list_pop(list))) {
+	while ((thread = event_list_pop(list))) {
 		thread->type = EVENT_READY;
-		thread_list_add_tail(&thread->master->ready, thread);
+		event_list_add_tail(&thread->master->ready, thread);
 		ready++;
 	}
 	return ready;
@@ -1762,7 +1762,7 @@ struct event *event_fetch(struct event_master *m, struct event *fetch)
 		 * Attempt to flush ready queue before going into poll().
 		 * This is performance-critical. Think twice before modifying.
 		 */
-		if ((thread = thread_list_pop(&m->ready))) {
+		if ((thread = event_list_pop(&m->ready))) {
 			fetch = thread_run(m, thread, fetch);
 			if (fetch->ref)
 				*fetch->ref = NULL;
@@ -1798,11 +1798,11 @@ struct event *event_fetch(struct event_master *m, struct event *fetch)
 		 * In every case except the last, we need to hit poll() at least
 		 * once per loop to avoid starvation by events
 		 */
-		if (!thread_list_count(&m->ready))
+		if (!event_list_count(&m->ready))
 			tw = thread_timer_wait(&m->timer, &tv);
 
-		if (thread_list_count(&m->ready) ||
-				(tw && !timercmp(tw, &zerotime, >)))
+		if (event_list_count(&m->ready) ||
+		    (tw && !timercmp(tw, &zerotime, >)))
 			tw = &zerotime;
 
 		if (!tw && m->handler.pfdcount == 0) { /* die */
