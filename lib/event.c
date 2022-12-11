@@ -89,23 +89,23 @@ unsigned long walltime_threshold = CONSUMED_TIME_CHECK;
 /* CLI start ---------------------------------------------------------------- */
 #include "lib/event_clippy.c"
 
-static unsigned int cpu_record_hash_key(const struct cpu_thread_history *a)
+static unsigned int cpu_record_hash_key(const struct cpu_event_history *a)
 {
 	int size = sizeof(a->func);
 
 	return jhash(&a->func, size, 0);
 }
 
-static bool cpu_record_hash_cmp(const struct cpu_thread_history *a,
-			       const struct cpu_thread_history *b)
+static bool cpu_record_hash_cmp(const struct cpu_event_history *a,
+				const struct cpu_event_history *b)
 {
 	return a->func == b->func;
 }
 
-static void *cpu_record_hash_alloc(struct cpu_thread_history *a)
+static void *cpu_record_hash_alloc(struct cpu_event_history *a)
 {
-	struct cpu_thread_history *new;
-	new = XCALLOC(MTYPE_EVENT_STATS, sizeof(struct cpu_thread_history));
+	struct cpu_event_history *new;
+	new = XCALLOC(MTYPE_EVENT_STATS, sizeof(struct cpu_event_history));
 	new->func = a->func;
 	new->funcname = a->funcname;
 	return new;
@@ -113,13 +113,13 @@ static void *cpu_record_hash_alloc(struct cpu_thread_history *a)
 
 static void cpu_record_hash_free(void *a)
 {
-	struct cpu_thread_history *hist = a;
+	struct cpu_event_history *hist = a;
 
 	XFREE(MTYPE_EVENT_STATS, hist);
 }
 
-static void vty_out_cpu_thread_history(struct vty *vty,
-				       struct cpu_thread_history *a)
+static void vty_out_cpu_event_history(struct vty *vty,
+				      struct cpu_event_history *a)
 {
 	vty_out(vty,
 		"%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu %9zu %9zu %10zu",
@@ -137,12 +137,12 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 
 static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 {
-	struct cpu_thread_history *totals = args[0];
-	struct cpu_thread_history copy;
+	struct cpu_event_history *totals = args[0];
+	struct cpu_event_history copy;
 	struct vty *vty = args[1];
 	uint8_t *filter = args[2];
 
-	struct cpu_thread_history *a = bucket->data;
+	struct cpu_event_history *a = bucket->data;
 
 	copy.total_active =
 		atomic_load_explicit(&a->total_active, memory_order_seq_cst);
@@ -167,7 +167,7 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 	if (!(copy.types & *filter))
 		return;
 
-	vty_out_cpu_thread_history(vty, &copy);
+	vty_out_cpu_event_history(vty, &copy);
 	totals->total_active += copy.total_active;
 	totals->total_calls += copy.total_calls;
 	totals->total_cpu_warn += copy.total_cpu_warn;
@@ -183,7 +183,7 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 
 static void cpu_record_print(struct vty *vty, uint8_t filter)
 {
-	struct cpu_thread_history tmp;
+	struct cpu_event_history tmp;
 	void *args[3] = {&tmp, vty, &filter};
 	struct event_master *m;
 	struct listnode *ln;
@@ -244,7 +244,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	vty_out(vty, "  Type  Thread\n");
 
 	if (tmp.total_calls > 0)
-		vty_out_cpu_thread_history(vty, &tmp);
+		vty_out_cpu_event_history(vty, &tmp);
 }
 
 static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
@@ -252,7 +252,7 @@ static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 	uint8_t *filter = args[0];
 	struct hash *cpu_record = args[1];
 
-	struct cpu_thread_history *a = bucket->data;
+	struct cpu_event_history *a = bucket->data;
 
 	if (!(a->types & *filter))
 		return;
@@ -796,7 +796,7 @@ static struct event *thread_get(struct event_master *m, uint8_t type,
 				const struct xref_eventsched *xref)
 {
 	struct event *thread = event_list_pop(&m->unuse);
-	struct cpu_thread_history tmp;
+	struct cpu_event_history tmp;
 
 	if (!thread) {
 		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
