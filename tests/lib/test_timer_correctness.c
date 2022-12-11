@@ -166,8 +166,8 @@ int main(int argc, char **argv)
 	}
 	XFREE(MTYPE_TMP, alarms);
 
-	while (thread_fetch(master, &t))
-		thread_call(&t);
+	while (event_fetch(master, &t))
+		event_call(&t);
 
 	return 0;
 }

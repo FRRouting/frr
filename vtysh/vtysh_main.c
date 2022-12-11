@@ -234,8 +234,8 @@ static void vtysh_rl_run(void)
 	event_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
 
-	while (!vtysh_loop_exited && thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (!vtysh_loop_exited && event_fetch(master, &thread))
+		event_call(&thread);
 
 	if (!vtysh_loop_exited)
 		rl_callback_handler_remove();

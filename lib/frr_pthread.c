@@ -292,8 +292,8 @@ static void *fpt_run(void *arg)
 	struct event task;
 	while (atomic_load_explicit(&fpt->running, memory_order_relaxed)) {
 		pthread_testcancel();
-		if (thread_fetch(fpt->master, &task)) {
-			thread_call(&task);
+		if (event_fetch(fpt->master, &task)) {
+			event_call(&task);
 		}
 	}
 

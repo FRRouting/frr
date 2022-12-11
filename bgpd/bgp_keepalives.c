@@ -162,7 +162,7 @@ void *bgp_keepalives_start(void *arg)
 	/*
 	 * The RCU mechanism for each pthread is initialized in a "locked"
 	 * state. That's ok for pthreads using the frr_pthread,
-	 * thread_fetch event loop, because that event loop unlocks regularly.
+	 * event_fetch event loop, because that event loop unlocks regularly.
 	 * For foreign pthreads, the lock needs to be unlocked so that the
 	 * background rcu pthread can run.
 	 */

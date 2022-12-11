@@ -123,8 +123,8 @@ ldpe(void)
 	leconf = config_new_empty();
 
 	struct event thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 
 	/* NOTREACHED */
 	return;

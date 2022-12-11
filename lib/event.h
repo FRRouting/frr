@@ -249,8 +249,8 @@ extern void event_cancel_async(struct thread_master *, struct event **, void *);
 extern void event_cancel_event_ready(struct thread_master *m, void *arg);
 /* Cancel all tasks with an arg matching 'arg', including timers and io */
 extern void event_cancel_event(struct thread_master *m, void *arg);
-extern struct event *thread_fetch(struct thread_master *, struct event *event);
-extern void thread_call(struct event *event);
+extern struct event *event_fetch(struct thread_master *, struct event *event);
+extern void event_call(struct event *event);
 extern unsigned long thread_timer_remain_second(struct event *event);
 extern struct timeval thread_timer_remain(struct event *event);
 extern unsigned long thread_timer_remain_msec(struct event *event);

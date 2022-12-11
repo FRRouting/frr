@@ -546,8 +546,8 @@ int main(int argc, char **argv)
 
 	/* Event Loop */
 	struct event thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	while (event_fetch(master, &thread))
+		event_call(&thread);
 	return 0;
 }
 
