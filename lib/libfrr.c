@@ -33,10 +33,10 @@
 #include "frrscript.h"
 #include "systemd.h"
 
-DEFINE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
-DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
+DEFINE_HOOK(frr_early_init, (struct event_master * tm), (tm));
+DEFINE_HOOK(frr_late_init, (struct event_master * tm), (tm));
+DEFINE_HOOK(frr_config_pre, (struct event_master * tm), (tm));
+DEFINE_HOOK(frr_config_post, (struct event_master * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
 DEFINE_KOOH(frr_fini, (), ());
 
@@ -696,8 +696,8 @@ static void _err_print(const void *cookie, const char *errstr)
 	fprintf(stderr, "%s: %s\n", prefix, errstr);
 }
 
-static struct thread_master *master;
-struct thread_master *frr_init(void)
+static struct event_master *master;
+struct event_master *frr_init(void)
 {
 	struct option_chain *oc;
 	struct log_arg *log_arg;
@@ -1139,7 +1139,7 @@ void frr_detach(void)
 	frr_check_detach();
 }
 
-void frr_run(struct thread_master *master)
+void frr_run(struct event_master *master)
 {
 	char instanceinfo[64] = "";
 

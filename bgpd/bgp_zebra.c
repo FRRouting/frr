@@ -3443,7 +3443,7 @@ void bgp_if_init(void)
 	hook_register_prio(if_del, 0, bgp_if_delete_hook);
 }
 
-void bgp_zebra_init(struct thread_master *master, unsigned short instance)
+void bgp_zebra_init(struct event_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
 

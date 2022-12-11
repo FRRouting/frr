@@ -21,11 +21,11 @@ extern bool sd_stderr_is_journal;
 void systemd_send_stopping(void);
 
 /*
- *  master - The struct thread_master * to use to schedule ourself
+ *  master - The struct event_master * to use to schedule ourself
  *  the_process - Should we send watchdog if we are not the requested
  *                process?
  */
-void systemd_send_started(struct thread_master *master);
+void systemd_send_started(struct event_master *master);
 
 /*
  * status - A status string to send to systemd

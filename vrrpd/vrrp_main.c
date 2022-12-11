@@ -50,7 +50,7 @@ struct zebra_privs_t vrrp_privs = {
 struct option longopts[] = { {0} };
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_master *master;
 
 static struct frr_daemon_info vrrpd_di;
 

@@ -23,7 +23,7 @@ DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module");
 
 static struct debug nb_dbg_client_confd = {0, "Northbound client: ConfD"};
 
-static struct thread_master *master;
+static struct event_master *master;
 static struct sockaddr confd_addr;
 static int cdb_sub_sock, dp_ctl_sock, dp_worker_sock;
 static struct event *t_cdb_sub, *t_dp_ctl, *t_dp_worker;
@@ -1465,7 +1465,7 @@ static int frr_confd_finish(void)
 	return 0;
 }
 
-static int frr_confd_module_late_init(struct thread_master *tm)
+static int frr_confd_module_late_init(struct event_master *tm)
 {
 	master = tm;
 

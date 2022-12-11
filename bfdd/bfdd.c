@@ -32,7 +32,7 @@ DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
 DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_master *master;
 
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};

@@ -252,7 +252,7 @@ extern void static_next_hop_bfd_profile(struct static_nexthop *sn,
 extern void static_next_hop_bfd_multi_hop(struct static_nexthop *sn, bool mhop);
 
 /** Call this function after zebra client initialization. */
-extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);
+extern void static_bfd_initialize(struct zclient *zc, struct event_master *tm);
 
 extern void static_bfd_show(struct vty *vty, bool isjson);
 

@@ -9,9 +9,9 @@
 #include "memory.h"
 DECLARE_MGROUP(MVTYSH);
 
-struct thread_master;
+struct event_master;
 
-extern struct thread_master *master;
+extern struct event_master *master;
 
 #define VTYSH_ZEBRA     0x00001
 #define VTYSH_RIPD      0x00002

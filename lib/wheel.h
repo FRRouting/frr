@@ -13,7 +13,7 @@ extern "C" {
 
 struct timer_wheel {
 	char *name;
-	struct thread_master *master;
+	struct event_master *master;
 	int slots;
 	long long curr_slot;
 	unsigned int period;
@@ -66,7 +66,7 @@ struct timer_wheel {
  * and cause significant amount of time handling thread events instead
  * of running your code.
  */
-struct timer_wheel *wheel_init(struct thread_master *master, int period,
+struct timer_wheel *wheel_init(struct event_master *master, int period,
 			       size_t slots,
 			       unsigned int (*slot_key)(const void *),
 			       void (*slot_run)(void *), const char *run_name);

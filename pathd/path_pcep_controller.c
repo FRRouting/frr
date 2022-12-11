@@ -152,7 +152,7 @@ static const char *timeout_type_name(enum pcep_ctrl_timeout_type type);
 
 /* ------------ API Functions Called from Main Thread ------------ */
 
-int pcep_ctrl_initialize(struct thread_master *main_thread,
+int pcep_ctrl_initialize(struct event_master *main_thread,
 			 struct frr_pthread **fpt,
 			 pcep_main_event_handler_t event_handler)
 {

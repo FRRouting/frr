@@ -16,7 +16,7 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 void path_zebra_delete_sr_policy(struct srte_policy *policy);
 int path_zebra_request_label(mpls_label_t label);
 void path_zebra_release_label(mpls_label_t label);
-void path_zebra_init(struct thread_master *master);
+void path_zebra_init(struct event_master *master);
 void path_zebra_stop(void);
 
 #endif /* _FRR_PATH_MPLS_H_ */

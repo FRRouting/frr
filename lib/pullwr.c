@@ -16,7 +16,7 @@
 
 struct pullwr {
 	int fd;
-	struct thread_master *tm;
+	struct event_master *tm;
 	/* writer == NULL <=> we're idle */
 	struct event *writer;
 
@@ -40,10 +40,9 @@ DEFINE_MTYPE_STATIC(LIB, PULLWR_BUF,  "pull-driven write buffer");
 
 static void pullwr_run(struct event *t);
 
-struct pullwr *_pullwr_new(struct thread_master *tm, int fd,
-		void *arg,
-		void (*fill)(void *, struct pullwr *),
-		void (*err)(void *, struct pullwr *, bool))
+struct pullwr *_pullwr_new(struct event_master *tm, int fd, void *arg,
+			   void (*fill)(void *, struct pullwr *),
+			   void (*err)(void *, struct pullwr *, bool))
 {
 	struct pullwr *pullwr;
 

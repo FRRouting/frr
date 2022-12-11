@@ -25,7 +25,7 @@
 
 /* need these to link in libbgp */
 struct zebra_privs_t bgpd_privs = {};
-struct thread_master *master = NULL;
+struct event_master *master = NULL;
 
 static struct bgp *bgp;
 static as_t asn = 100;

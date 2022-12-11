@@ -24,7 +24,7 @@
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif /*s6_addr32*/
 
-struct thread_master *master;
+struct event_master *master;
 
 /* This structure is copied from lib/srcdest_table.c to which it is
  * private as far as other parts of Quagga are concerned.

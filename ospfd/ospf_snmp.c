@@ -2525,7 +2525,7 @@ static int ospf_snmp_ism_change(struct ospf_interface *oi, int state,
 }
 
 /* Register OSPF2-MIB. */
-static int ospf_snmp_init(struct thread_master *tm)
+static int ospf_snmp_init(struct event_master *tm)
 {
 	ospf_snmp_iflist = list_new();
 	ospf_snmp_vl_table = route_table_init();

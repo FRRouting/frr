@@ -98,7 +98,7 @@ struct bgp_master {
 	struct list *bgp;
 
 	/* BGP thread master.  */
-	struct thread_master *master;
+	struct event_master *master;
 
 	/* Listening sockets */
 	struct list *listen_sockets;
@@ -2156,7 +2156,7 @@ extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 
 extern int bgp_config_write(struct vty *);
 
-extern void bgp_master_init(struct thread_master *master, const int buffer_size,
+extern void bgp_master_init(struct event_master *master, const int buffer_size,
 			    struct list *addresses);
 
 extern void bgp_init(unsigned short instance);

@@ -14,7 +14,7 @@
 #include "log.h"
 #include "northbound.h"
 
-static struct thread_master *master;
+static struct event_master *master;
 
 struct troute {
 	struct prefix_ipv4 prefix;

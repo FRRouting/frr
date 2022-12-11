@@ -35,7 +35,7 @@ struct eigrp_master {
 	struct list *eigrp;
 
 	/* EIGRP thread master. */
-	struct thread_master *master;
+	struct event_master *master;
 
 	/* Zebra interface list. */
 	struct list *iflist;
@@ -51,7 +51,7 @@ struct eigrp_master {
 
 /* Extern variables. */
 extern struct zclient *zclient;
-extern struct thread_master *master;
+extern struct event_master *master;
 extern struct eigrp_master *eigrp_om;
 extern struct zebra_privs_t eigrpd_privs;
 

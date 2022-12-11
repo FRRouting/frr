@@ -2140,7 +2140,7 @@ int ospf_nbr_nbma_poll_interval_unset(struct ospf *ospf, struct in_addr addr)
 	return 1;
 }
 
-void ospf_master_init(struct thread_master *master)
+void ospf_master_init(struct event_master *master)
 {
 	memset(&ospf_master, 0, sizeof(ospf_master));
 

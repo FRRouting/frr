@@ -66,7 +66,7 @@ struct xref_threadsched {
 };
 
 /* Master of the theads. */
-struct thread_master {
+struct event_master {
 	char *name;
 
 	struct event **read;
@@ -109,7 +109,7 @@ struct event {
 	struct thread_list_item threaditem;
 	struct thread_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
-	struct thread_master *master; /* pointer to the struct thread_master */
+	struct event_master *master;  /* pointer to the struct event_master */
 	void (*func)(struct event *); /* event function */
 	void *arg;		      /* event argument */
 	union {
@@ -209,57 +209,58 @@ struct cpu_thread_history {
 	}) /* end */
 
 /* Prototypes. */
-extern struct thread_master *thread_master_create(const char *);
-void thread_master_set_name(struct thread_master *master, const char *name);
-extern void thread_master_free(struct thread_master *);
-extern void thread_master_free_unused(struct thread_master *);
+extern struct event_master *thread_master_create(const char *name);
+void thread_master_set_name(struct event_master *master, const char *name);
+extern void thread_master_free(struct event_master *m);
+extern void thread_master_free_unused(struct event_master *m);
 
 extern void _event_add_read_write(const struct xref_threadsched *xref,
-				  struct thread_master *master,
+				  struct event_master *master,
 				  void (*fn)(struct event *), void *arg, int fd,
 				  struct event **tref);
 
 extern void _event_add_timer(const struct xref_threadsched *xref,
-			     struct thread_master *master,
+			     struct event_master *master,
 			     void (*fn)(struct event *), void *arg, long t,
 			     struct event **tref);
 
 extern void _event_add_timer_msec(const struct xref_threadsched *xref,
-				  struct thread_master *master,
+				  struct event_master *master,
 				  void (*fn)(struct event *), void *arg, long t,
 				  struct event **tref);
 
 extern void _event_add_timer_tv(const struct xref_threadsched *xref,
-				struct thread_master *master,
+				struct event_master *master,
 				void (*fn)(struct event *), void *arg,
 				struct timeval *tv, struct event **tref);
 
 extern void _event_add_event(const struct xref_threadsched *xref,
-			     struct thread_master *master,
+			     struct event_master *master,
 			     void (*fn)(struct event *), void *arg, int val,
 			     struct event **tref);
 
 extern void _event_execute(const struct xref_threadsched *xref,
-			   struct thread_master *master,
+			   struct event_master *master,
 			   void (*fn)(struct event *), void *arg, int val);
 
 extern void event_cancel(struct event **event);
-extern void event_cancel_async(struct thread_master *, struct event **, void *);
+extern void event_cancel_async(struct event_master *m, struct event **eptr,
+			       void *data);
 /* Cancel ready tasks with an arg matching 'arg' */
-extern void event_cancel_event_ready(struct thread_master *m, void *arg);
+extern void event_cancel_event_ready(struct event_master *m, void *arg);
 /* Cancel all tasks with an arg matching 'arg', including timers and io */
-extern void event_cancel_event(struct thread_master *m, void *arg);
-extern struct event *event_fetch(struct thread_master *, struct event *event);
+extern void event_cancel_event(struct event_master *m, void *arg);
+extern struct event *event_fetch(struct event_master *m, struct event *event);
 extern void event_call(struct event *event);
 extern unsigned long event_timer_remain_second(struct event *event);
 extern struct timeval event_timer_remain(struct event *event);
 extern unsigned long event_timer_remain_msec(struct event *event);
 extern int event_should_yield(struct event *event);
 /* set yield time for thread */
-extern void event_set_yield_time(struct event *event, unsigned long);
+extern void event_set_yield_time(struct event *event, unsigned long ytime);
 
 /* Internal libfrr exports */
-extern void event_getrusage(RUSAGE_T *);
+extern void event_getrusage(RUSAGE_T *r);
 extern void event_cmd_init(void);
 
 /* Returns elapsed real (wall clock) time. */

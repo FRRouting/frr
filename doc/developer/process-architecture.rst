@@ -47,7 +47,7 @@ section. For now it provides basic information necessary to understand the
 interplay between the event system and kernel threads.
 
 The core event system is implemented in :file:`lib/thread.[ch]`. The primary
-structure is ``struct thread_master``, hereafter referred to as a
+structure is ``struct event_master``, hereafter referred to as a
 ``threadmaster``. A ``threadmaster`` is a global state object, or context, that
 holds all the tasks currently pending execution as well as statistics on tasks
 that have already executed. The event system is driven by adding tasks to this
@@ -95,7 +95,7 @@ irrelevant for the time being) for the specific type. For example, to add a
 
 ::
 
-   event_add_read(struct thread_master *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
+   event_add_read(struct event_master *master, int (*handler)(struct event *), void *arg, int fd, struct event **ref);
 
 The ``struct event`` is then created and added to the appropriate internal
 datastructure within the ``threadmaster``. Note that the ``READ`` and

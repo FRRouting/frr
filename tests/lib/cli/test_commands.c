@@ -30,7 +30,7 @@ extern vector cmdvec;
 extern struct cmd_node vty_node;
 extern void test_init_cmd(void); /* provided in test-commands-defun.c */
 
-struct thread_master *master; /* dummy for libfrr*/
+struct event_master *master; /* dummy for libfrr*/
 
 static vector test_cmds;
 static char test_buf[32768];

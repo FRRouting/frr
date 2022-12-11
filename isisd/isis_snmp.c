@@ -2797,7 +2797,7 @@ static uint8_t *isis_snmp_find_isadj_prot_supp(struct variable *v, oid *name,
 
 
 /* Register ISIS-MIB. */
-static int isis_snmp_init(struct thread_master *tm)
+static int isis_snmp_init(struct event_master *tm)
 {
 	struct isis_func_to_prefix *h2f = isis_func_to_prefix_arr;
 	struct variable *v;

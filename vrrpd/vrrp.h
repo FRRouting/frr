@@ -65,7 +65,7 @@ struct vrrp_defaults {
 extern struct vrrp_defaults vd;
 
 /* threadmaster */
-extern struct thread_master *master;
+extern struct event_master *master;
 
 /* privileges */
 extern struct zebra_privs_t vrrp_privs;

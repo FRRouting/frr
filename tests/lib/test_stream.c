@@ -11,7 +11,7 @@
 #include "printfrr.h"
 
 static unsigned long long ham = 0xdeadbeefdeadbeef;
-struct thread_master *master;
+struct event_master *master;
 
 static void print_stream(struct stream *s)
 {

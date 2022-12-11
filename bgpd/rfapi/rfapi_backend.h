@@ -14,7 +14,7 @@
 #include "bgpd/bgp_nexthop.h"
 
 extern void rfapi_init(void);
-extern void vnc_zebra_init(struct thread_master *master);
+extern void vnc_zebra_init(struct event_master *master);
 extern void vnc_zebra_destroy(void);
 
 extern void rfapi_delete(struct bgp *);

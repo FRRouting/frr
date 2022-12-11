@@ -331,7 +331,7 @@ static void trap_default_signals(void)
 	}
 }
 
-void signal_init(struct thread_master *m, int sigc,
+void signal_init(struct event_master *m, int sigc,
 		 struct frr_signal_t signals[])
 {
 

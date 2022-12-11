@@ -110,7 +110,7 @@ struct zebra_mlag_info {
 	struct frr_pthread *zebra_pth_mlag;
 
 	/* MLAG Thread context 'master' */
-	struct thread_master *th_master;
+	struct event_master *th_master;
 
 	/*
 	 * Event for Initial MLAG Connection setup & Data Read
@@ -127,7 +127,7 @@ struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
-	struct thread_master *master;
+	struct event_master *master;
 
 	/* Lists of clients who have connected to us */
 	struct list *client_list;

@@ -37,7 +37,7 @@ static void babel_exit_properly(void);
 static void babel_save_state_file(void);
 
 
-struct thread_master *master;     /* quagga's threads handler */
+struct event_master *master;	  /* quagga's threads handler */
 struct timeval babel_now;         /* current time             */
 
 unsigned char myid[8];            /* unique id (mac address of an interface) */

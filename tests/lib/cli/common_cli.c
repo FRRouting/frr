@@ -17,7 +17,7 @@
 
 #include "common_cli.h"
 
-struct thread_master *master;
+struct event_master *master;
 
 int dump_args(struct vty *vty, const char *descr, int argc,
 	      struct cmd_token *argv[])

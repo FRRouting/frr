@@ -335,8 +335,7 @@ struct rfapi_rfp_cfg {
  * return value:
  *    rfp_start_val rfp returned value passed on rfp_stop and other rfapi calls
 --------------------------------------------*/
-extern void *rfp_start(struct thread_master *master,
-		       struct rfapi_rfp_cfg **cfgp,
+extern void *rfp_start(struct event_master *master, struct rfapi_rfp_cfg **cfgp,
 		       struct rfapi_rfp_cb_methods **cbmp);
 
 /*------------------------------------------

@@ -135,7 +135,7 @@ static struct variable rip_variables[] = {
 	{RIP2PEERRCVBADPACKETS, COUNTER, RONLY, rip2PeerTable, 3, {4, 1, 5}},
 	{RIP2PEERRCVBADROUTES, COUNTER, RONLY, rip2PeerTable, 3, {4, 1, 6}}};
 
-extern struct thread_master *master;
+extern struct event_master *master;
 
 static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 			    int exact, size_t *var_len,
@@ -553,7 +553,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 }
 
 /* Register RIPv2-MIB. */
-static int rip_snmp_init(struct thread_master *master)
+static int rip_snmp_init(struct event_master *master)
 {
 	rip_ifaddr_table = route_table_init();
 

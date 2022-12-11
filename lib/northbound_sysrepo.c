@@ -23,7 +23,7 @@ DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module");
 
 static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 
-static struct thread_master *master;
+static struct event_master *master;
 static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
@@ -721,7 +721,7 @@ static int frr_sr_finish(void)
 	return 0;
 }
 
-static int frr_sr_module_config_loaded(struct thread_master *tm)
+static int frr_sr_module_config_loaded(struct event_master *tm)
 {
 	master = tm;
 
@@ -736,7 +736,7 @@ static int frr_sr_module_config_loaded(struct thread_master *tm)
 	return 0;
 }
 
-static int frr_sr_module_late_init(struct thread_master *tm)
+static int frr_sr_module_late_init(struct event_master *tm)
 {
 	frr_sr_cli_init();
 

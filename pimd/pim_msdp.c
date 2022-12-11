@@ -1333,7 +1333,7 @@ static void pim_msdp_enable(struct pim_instance *pim)
 }
 
 /* MSDP init */
-void pim_msdp_init(struct pim_instance *pim, struct thread_master *master)
+void pim_msdp_init(struct pim_instance *pim, struct event_master *master)
 {
 	pim->msdp.master = master;
 	char hash_name[64];

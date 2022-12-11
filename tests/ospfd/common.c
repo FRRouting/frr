@@ -17,7 +17,7 @@
 
 #include "common.h"
 
-struct thread_master *master;
+struct event_master *master;
 struct zebra_privs_t ospfd_privs;
 
 

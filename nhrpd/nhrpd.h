@@ -19,7 +19,7 @@ DECLARE_MGROUP(NHRPD);
 #define NHRP_VTY_PORT		2610
 #define NHRP_DEFAULT_CONFIG	"nhrpd.conf"
 
-extern struct thread_master *master;
+extern struct event_master *master;
 
 enum { NHRP_OK = 0,
        NHRP_ERR_FAIL,

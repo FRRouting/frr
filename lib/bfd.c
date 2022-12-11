@@ -111,7 +111,7 @@ struct bfd_sessions_global {
 	struct bfd_source_list source_list;
 
 	/** Pointer to FRR's event manager. */
-	struct thread_master *tm;
+	struct event_master *tm;
 	/** Pointer to zebra client data structure. */
 	struct zclient *zc;
 
@@ -1039,7 +1039,7 @@ static int bfd_protocol_integration_finish(void)
 	return 0;
 }
 
-void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
+void bfd_protocol_integration_init(struct zclient *zc, struct event_master *tm)
 {
 	/* Initialize data structure. */
 	TAILQ_INIT(&bsglobal.bsplist);

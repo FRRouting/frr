@@ -64,7 +64,7 @@ int execute_flag = 0;
 int user_mode;
 
 /* Master of threads. */
-struct thread_master *master;
+struct event_master *master;
 
 /* Command logging */
 FILE *logfile;

@@ -156,7 +156,7 @@ struct zfpm_glob {
 	 */
 	enum zfpm_msg_format message_format;
 
-	struct thread_master *master;
+	struct event_master *master;
 
 	enum zfpm_state state;
 
@@ -1978,7 +1978,7 @@ static struct cmd_node zebra_node = {
  *
  * Returns true on success.
  */
-static int zfpm_init(struct thread_master *master)
+static int zfpm_init(struct event_master *master)
 {
 	int enable = 1;
 	uint16_t port = 0;

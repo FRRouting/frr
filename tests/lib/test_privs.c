@@ -50,7 +50,7 @@ Report bugs to %s\n",
 	exit(status);
 }
 
-struct thread_master *master;
+struct event_master *master;
 /* main routine. */
 int main(int argc, char **argv)
 {

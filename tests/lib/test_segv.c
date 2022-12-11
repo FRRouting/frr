@@ -17,7 +17,7 @@
 
 struct frr_signal_t sigs[] = {};
 
-struct thread_master *master;
+struct event_master *master;
 
 void func1(int *arg);
 void func3(void);

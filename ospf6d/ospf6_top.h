@@ -13,7 +13,7 @@ struct ospf6_master {
 	/* OSPFv3 instance. */
 	struct list *ospf6;
 	/* OSPFv3 thread master. */
-	struct thread_master *master;
+	struct event_master *master;
 };
 
 /* ospf6->config_flags */
@@ -233,7 +233,7 @@ extern struct ospf6 *ospf6;
 extern struct ospf6_master *om6;
 
 /* prototypes */
-extern void ospf6_master_init(struct thread_master *master);
+extern void ospf6_master_init(struct event_master *master);
 extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);

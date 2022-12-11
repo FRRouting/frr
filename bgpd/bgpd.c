@@ -8010,7 +8010,7 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 	return buf;
 }
 
-void bgp_master_init(struct thread_master *master, const int buffer_size,
+void bgp_master_init(struct event_master *master, const int buffer_size,
 		     struct list *addresses)
 {
 	qobj_init();

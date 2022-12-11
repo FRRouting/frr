@@ -609,7 +609,7 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 }
 #endif /* HAVE_BFDD */
 
-void bgp_bfd_init(struct thread_master *tm)
+void bgp_bfd_init(struct event_master *tm)
 {
 	/* Initialize BFD client functions */
 	bfd_protocol_integration_init(zclient, tm);

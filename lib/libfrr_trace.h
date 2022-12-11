@@ -73,7 +73,7 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_libfrr, hash_release, TRACE_INFO)
 
 #define THREAD_SCHEDULE_ARGS                                                   \
-	TP_ARGS(struct thread_master *, master, const char *, funcname,        \
+	TP_ARGS(struct event_master *, master, const char *, funcname,        \
 		const char *, schedfrom, int, fromln, struct event **,        \
 		thread_ptr, int, fd, int, val, void *, arg, long, time)
 

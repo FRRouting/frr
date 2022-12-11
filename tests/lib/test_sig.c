@@ -35,7 +35,7 @@ struct frr_signal_t sigs[] = {{
 				      .handler = &sigusr2,
 			      }};
 
-struct thread_master *master;
+struct event_master *master;
 struct event t;
 
 int main(void)

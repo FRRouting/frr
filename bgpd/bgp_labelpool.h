@@ -31,7 +31,7 @@ struct labelpool {
 	uint32_t next_chunksize;		/* request this many labels */
 };
 
-extern void bgp_lp_init(struct thread_master *master, struct labelpool *pool);
+extern void bgp_lp_init(struct event_master *master, struct labelpool *pool);
 extern void bgp_lp_finish(void);
 extern void bgp_lp_get(int type, void *labelid,
 	int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated));
