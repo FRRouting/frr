@@ -426,8 +426,10 @@ struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi)
 
 	/* PtoP link must have only 1 neighbor. */
 	if (ospf_nbr_count(oi, 0) > 1)
-		flog_warn(EC_OSPF_PTP_NEIGHBOR,
-			  "Point-to-Point link has more than 1 neighobrs.");
+		flog_warn(
+			EC_OSPF_PTP_NEIGHBOR,
+			"Point-to-Point link on interface %s has more than 1 neighbor.",
+			oi->ifp->name);
 
 	return nbr;
 }
