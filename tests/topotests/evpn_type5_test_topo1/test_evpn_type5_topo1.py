@@ -848,17 +848,17 @@ def test_RT_verification_manual_p0(request):
         }
         result = verify_rib(tgen, addr_type, "d1", input_routes, expected=False)
         assert result is not True, (
-            "Testcase {} :Failed \n Expected Behavior: Routes are still "
-            "present \n Error: {}".format(tc_name, result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "d1", result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
         assert result is not True, (
-            "Testcase {} :Failed \n Expected Behavior: Routes are still "
-            "present \n Error: {}".format(tc_name, result)
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "d2", result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step(
         "Configure RT value as 100:100000010000010000101010 to check "
@@ -900,10 +900,10 @@ def test_RT_verification_manual_p0(request):
         tgen, topo, dut, input_routes, rt="100:100000010000010000101010", expected=False
     )
     assert result is not True, (
-        "Testcase {} :Failed \n Expected Behavior: RT value of out"
-        " of boundary \n Error: {}".format(tc_name, result)
+        "Testcase {} : Failed \n "
+        "Expected: RT value out of boundary error \n "
+        "Found: {}".format(tc_name, dut, result)
     )
-    logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -1316,18 +1316,20 @@ def test_evpn_routes_from_VNFs_p1(request):
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert (
-            result is not True
-        ), "Testcase :Failed \n Routes are still present: {}".format(result)
-        logger.info("Expected Behavior: {}".format(result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "d2", result)
+        )
 
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_rib(tgen, addr_type, "r3", input_routes, expected=False)
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-        logger.info("Expected Behavior: {}".format(result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "r3", result)
+        )
 
     step("Re-advertise IP prefixes from VFN(R1).")
     step(
@@ -1401,16 +1403,18 @@ def test_evpn_routes_from_VNFs_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-        logger.info("Expected Behavior: {}".format(result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "d2", result)
+        )
 
         result = verify_rib(tgen, addr_type, "r4", input_routes, expected=False)
-        assert (
-            result is not True
-        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-        logger.info("Expected Behavior: {}".format(result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: Routes should not be present in {} RIB \n "
+            "Found: {}".format(tc_name, "r4", result)
+        )
 
     step("Add vrf BLUE on router Edge-1 again.")
     interface = topo["routers"]["e1"]["links"]["r2-link1"]["interface"]
@@ -1504,16 +1508,18 @@ def test_evpn_routes_from_VNFs_p1(request):
     }
 
     result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-    logger.info("Expected Behavior: {}".format(result))
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: Routes should not be present in {} RIB \n "
+        "Found: {}".format(tc_name, "d2", result)
+    )
 
     result = verify_rib(tgen, addr_type, "r4", input_routes, expected=False)
-    assert (
-        result is not True
-    ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
-    logger.info("Expected Behavior: {}".format(result))
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: Routes should not be present in {} RIB \n "
+        "Found: {}".format(tc_name, "r4", result)
+    )
 
     step("Advertise IPv6 address-family in EVPN advertisements " "for VRF GREEN.")
     addr_type = "ipv6"
