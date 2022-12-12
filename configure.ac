@@ -2088,16 +2088,12 @@ fi
 if test "$enable_pim6d" != "no"; then
 AC_MSG_CHECKING([for pim6d OS support])
 case "$host_os" in
-  darwin*)
-    AC_MSG_RESULT([no])
-    enable_pim6d="no"
-    ;;
-  openbsd*)
-    AC_MSG_RESULT([no])
-    enable_pim6d="no"
+  linux*)
+    AC_MSG_RESULT([yes])
     ;;
   *)
-    AC_MSG_RESULT([yes])
+    AC_MSG_RESULT([no])
+    enable_pim6d="no"
     ;;
 esac
 fi
