@@ -536,8 +536,9 @@ def test_RP_configured_as_LHR_1_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S, G) upstream join state is joined and join"
-        " timer is running \n Error: {}".format(tc_name, result)
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -741,9 +742,9 @@ def test_RP_configured_as_LHR_2_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -947,9 +948,9 @@ def test_RP_configured_as_FHR_1_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1154,9 +1155,9 @@ def test_RP_configured_as_FHR_2_p2(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1279,9 +1280,9 @@ def test_SPT_RPT_path_different_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r3: Verify (S, G) ip mroutes")
@@ -1303,9 +1304,9 @@ def test_SPT_RPT_path_different_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r2: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
-            tc_name, result
-        )
+        "Expected: [{}]: Upstream Join State should not be Joined and "
+        "join timer should not run\n "
+        "Found: {}".format(tc_name, dut, result)
     )
 
     step("r2: Verify (S, G) ip mroutes")

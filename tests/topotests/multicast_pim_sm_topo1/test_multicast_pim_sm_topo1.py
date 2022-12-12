@@ -159,7 +159,7 @@ def setup_module(mod):
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.19")
     if result is not True:
-        pytest.skip("Kernel requirements are not met")
+        pytest.skip("Kernel version should be >= 4.19")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
@@ -880,12 +880,11 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
             data["oil"],
             expected=False,
         )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-            tc_name, result
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "Expected: [{}]: mroute (S, G) should not be present in mroute table \n "
+            "Found: {}".format(tc_name, data["dut"], result)
         )
-        logger.info("Expected Behavior: {}".format(result))
 
     step(
         "Source which is stopped got removed , other source"
@@ -1100,12 +1099,11 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     result = verify_mroutes(
         tgen, "c1", "*", IGMP_JOIN, "c1-c2-eth1", "c1-l1-eth0", expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (*, G) should not be present in mroute table \n "
+        "Found: {}".format(tc_name, "c1", result)
     )
-    logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -1209,12 +1207,11 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     result = verify_mroutes(
         tgen, "f1", "*", IGMP_JOIN, "f1-r2-eth3", "f1-i8-eth2", expected=False
     )
-    assert (
-        result is not True
-    ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
-        tc_name, result
+    assert result is not True, (
+        "Testcase {} : Failed \n "
+        "Expected: [{}]: mroute (*, G) should not be present in mroute table \n "
+        "Found: {}".format(tc_name, "f1", result)
     )
-    logger.info("Expected Behavior: {}".format(result))
 
     step("IGMP groups are present verify using 'show ip igmp group'")
     dut = "l1"
