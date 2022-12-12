@@ -17333,20 +17333,23 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_bgp_l2vpn_evpn_updgrps,
-	show_bgp_l2vpn_evpn_updgrps_cmd,
-	"show [ip] bgp l2vpn evpn update-groups",
-	SHOW_STR
-	IP_STR
-	BGP_STR
-	"l2vpn address family\n"
-	"evpn sub-address family\n"
-	"Detailed info about dynamic update groups\n")
+DEFPY(show_bgp_l2vpn_evpn_updgrps,
+      show_bgp_l2vpn_evpn_updgrps_cmd,
+      "show [ip] bgp l2vpn evpn update-groups [subgroup-id (1-1000)$subgrpid] [json$json]",
+      SHOW_STR
+      IP_STR
+      BGP_STR
+      "l2vpn address family\n"
+      "evpn sub-address family\n"
+      "Detailed info about dynamic update groups\n"
+      "Specific subgroup to display detailed info\n"
+      "Subgroup identifier\n"
+      JSON_STR)
 {
 	char *vrf = NULL;
-	uint64_t subgrp_id = 0;
+	bool uj = !!json;
 
-	bgp_show_update_groups(vty, vrf, AFI_L2VPN, SAFI_EVPN, subgrp_id, 0);
+	bgp_show_update_groups(vty, vrf, AFI_L2VPN, SAFI_EVPN, subgrpid, uj);
 	return CMD_SUCCESS;
 }
 
