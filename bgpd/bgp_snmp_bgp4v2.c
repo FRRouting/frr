@@ -607,6 +607,7 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 	struct bgp_path_info *path;
 	struct peer_af *paf = NULL;
 	struct prefix addr = {};
+	const struct prefix *prefix = NULL;
 	enum bgp_af_index index;
 
 	bgp = bgp_get_default();
@@ -620,6 +621,8 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 	path = bgp4v2PathAttrLookup(v, name, length, bgp, &addr, exact);
 	if (!path)
 		return NULL;
+
+	prefix = bgp_dest_get_prefix(path->net);
 
 	AF_FOREACH (index) {
 		paf = path->peer->peer_af_array[index];
@@ -641,47 +644,126 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_PREFIX_TYPE:
-		break;
+		if (paf)
+			return SNMP_INTEGER(paf->afi);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_PREFIX:
-		break;
+		if (prefix->family == AF_INET6)
+			return SNMP_IP6ADDRESS(prefix->u.prefix6);
+		else
+			return SNMP_IPADDRESS(prefix->u.prefix4);
 	case BGP4V2_NLRI_PREFIX_LEN:
-		break;
+		return SNMP_INTEGER(prefix->prefixlen);
 	case BGP4V2_NLRI_BEST:
-		break;
+		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
+			return SNMP_INTEGER(1);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_CALC_LOCAL_PREF:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+			return SNMP_INTEGER(path->attr->local_pref);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_ORIGIN:
-		break;
+		switch (path->attr->origin) {
+		case BGP_ORIGIN_IGP:
+			return SNMP_INTEGER(1);
+		case BGP_ORIGIN_EGP:
+			return SNMP_INTEGER(2);
+		case BGP_ORIGIN_INCOMPLETE:
+			return SNMP_INTEGER(3);
+		default:
+			return SNMP_INTEGER(0);
+		}
 	case BGP4V2_NLRI_NEXT_HOP_ADDR_TYPE:
-		break;
+		switch (path->attr->mp_nexthop_len) {
+		case BGP_ATTR_NHLEN_IPV4:
+			return SNMP_INTEGER(1);
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+			return SNMP_INTEGER(2);
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+			if (path->attr->mp_nexthop_prefer_global)
+				return SNMP_INTEGER(2);
+			else
+				return SNMP_INTEGER(4);
+		default:
+			return SNMP_INTEGER(1);
+		}
 	case BGP4V2_NLRI_NEXT_HOP_ADDR:
+		switch (path->attr->mp_nexthop_len) {
+		case BGP_ATTR_NHLEN_IPV4:
+			return SNMP_IPADDRESS(path->attr->mp_nexthop_global_in);
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+			return SNMP_IP6ADDRESS(path->attr->mp_nexthop_global);
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+			if (path->attr->mp_nexthop_prefer_global)
+				return SNMP_IP6ADDRESS(
+					path->attr->mp_nexthop_global);
+			else
+				return SNMP_IP6ADDRESS(
+					path->attr->mp_nexthop_local);
+		default:
+			return SNMP_IPADDRESS(path->attr->nexthop);
+		}
 		break;
 	case BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR_TYPE:
-		break;
 	case BGP4V2_NLRI_LINK_LOCAL_NEXT_HOP_ADDR:
+		/* Not properly defined in specification what should be here. */
 		break;
 	case BGP4V2_NLRI_LOCAL_PREF_PRESENT:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+			return SNMP_INTEGER(1);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_LOCAL_PREF:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+			return SNMP_INTEGER(path->attr->local_pref);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_MED_PRESENT:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+			return SNMP_INTEGER(1);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_MED:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+			return SNMP_INTEGER(path->attr->local_pref);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_ATOMIC_AGGREGATE:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
+			return SNMP_INTEGER(1);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_AGGREGATOR_PRESENT:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+			return SNMP_INTEGER(1);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_AGGREGATOR_AS:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+			return SNMP_INTEGER(path->attr->aggregator_as);
+		else
+			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_AGGREGATOR_ADDR:
-		break;
+		if (CHECK_FLAG(path->attr->flag,
+			       ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+			return SNMP_IPADDRESS(path->attr->aggregator_addr);
+		else
+			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGP4V2_NLRI_AS_PATH_CALC_LENGTH:
-		break;
-	case BGP4V2_NLRI_AS_PATH_STRING:
-		break;
+		return SNMP_INTEGER(path->attr->aspath->segments->length);
 	case BGP4V2_NLRI_AS_PATH:
-		break;
+		return aspath_snmp_pathseg(path->attr->aspath, var_len);
 	case BGP4V2_NLRI_PATH_ATTR_UNKNOWN:
 		*var_len = 0;
 		return NULL;
