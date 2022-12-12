@@ -164,6 +164,154 @@ void isis_mpls_te_term(struct isis_area *area)
 	XFREE(MTYPE_ISIS_MPLS_TE, area->mta);
 }
 
+static void isis_link_params_update_asla(struct isis_circuit *circuit,
+					 struct interface *ifp)
+{
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node, *nnode;
+	struct isis_ext_subtlvs *ext = circuit->ext;
+	int i;
+
+	if (!HAS_LINK_PARAMS(ifp)) {
+		list_delete_all_node(ext->aslas);
+		return;
+	}
+
+#ifndef FABRICD
+	/* RFC 8919 Application Specific Link-Attributes
+	 * is required by flex-algo application ISIS_SABM_FLAG_X
+	 */
+	if (list_isempty(circuit->area->flex_algos->flex_algos))
+		isis_tlvs_free_asla(ext, ISIS_SABM_FLAG_X);
+	else
+		isis_tlvs_find_alloc_asla(ext, ISIS_SABM_FLAG_X);
+#endif /* ifndef FABRICD */
+
+	if (list_isempty(ext->aslas))
+		return;
+
+	for (ALL_LIST_ELEMENTS(ext->aslas, node, nnode, asla)) {
+		asla->legacy = circuit->area->asla_legacy_flag;
+		RESET_SUBTLV(asla);
+
+		if (asla->legacy)
+			continue;
+
+		/* Fulfill ASLA subTLVs from interface link parameters */
+		if (IS_PARAM_SET(ifp->link_params, LP_ADM_GRP)) {
+			asla->admin_group = ifp->link_params->admin_grp;
+			SET_SUBTLV(asla, EXT_ADM_GRP);
+		} else
+			UNSET_SUBTLV(asla, EXT_ADM_GRP);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_EXTEND_ADM_GRP)) {
+			admin_group_copy(&asla->ext_admin_group,
+					 &ifp->link_params->ext_admin_grp);
+			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+		} else
+			UNSET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+
+		/* Send admin-group zero for better compatibility
+		 * https://www.rfc-editor.org/rfc/rfc7308#section-2.3.2
+		 */
+		if (circuit->area->admin_group_send_zero &&
+		    !IS_SUBTLV(asla, EXT_ADM_GRP) &&
+		    !IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP)) {
+			asla->admin_group = 0;
+			SET_SUBTLV(asla, EXT_ADM_GRP);
+			admin_group_clear(&asla->ext_admin_group);
+			admin_group_allow_explicit_zero(&asla->ext_admin_group);
+			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+		}
+
+		if (IS_PARAM_SET(ifp->link_params, LP_TE_METRIC)) {
+			asla->te_metric = ifp->link_params->te_metric;
+			SET_SUBTLV(asla, EXT_TE_METRIC);
+		} else
+			UNSET_SUBTLV(asla, EXT_TE_METRIC);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_DELAY)) {
+			asla->delay = ifp->link_params->av_delay;
+			SET_SUBTLV(asla, EXT_DELAY);
+		} else
+			UNSET_SUBTLV(asla, EXT_DELAY);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_MM_DELAY)) {
+			asla->min_delay = ifp->link_params->min_delay;
+			asla->max_delay = ifp->link_params->max_delay;
+			SET_SUBTLV(asla, EXT_MM_DELAY);
+		} else {
+			UNSET_SUBTLV(asla, EXT_MM_DELAY);
+		}
+
+		if (asla->standard_apps == ISIS_SABM_FLAG_X)
+			/* Flex-Algo ASLA does not need the following TE
+			 * sub-TLVs
+			 */
+			continue;
+
+		if (IS_PARAM_SET(ifp->link_params, LP_MAX_BW)) {
+			asla->max_bw = ifp->link_params->max_bw;
+			SET_SUBTLV(asla, EXT_MAX_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_MAX_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_MAX_RSV_BW)) {
+			asla->max_rsv_bw = ifp->link_params->max_rsv_bw;
+			SET_SUBTLV(asla, EXT_MAX_RSV_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_MAX_RSV_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_UNRSV_BW)) {
+			for (i = 0; i < MAX_CLASS_TYPE; i++)
+				asla->unrsv_bw[i] =
+					ifp->link_params->unrsv_bw[i];
+			SET_SUBTLV(asla, EXT_UNRSV_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_UNRSV_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_DELAY_VAR)) {
+			asla->delay_var = ifp->link_params->delay_var;
+			SET_SUBTLV(asla, EXT_DELAY_VAR);
+		} else
+			UNSET_SUBTLV(asla, EXT_DELAY_VAR);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_PKT_LOSS)) {
+			asla->pkt_loss = ifp->link_params->pkt_loss;
+			SET_SUBTLV(asla, EXT_PKT_LOSS);
+		} else
+			UNSET_SUBTLV(asla, EXT_PKT_LOSS);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_RES_BW)) {
+			asla->res_bw = ifp->link_params->res_bw;
+			SET_SUBTLV(asla, EXT_RES_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_RES_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_AVA_BW)) {
+			asla->ava_bw = ifp->link_params->ava_bw;
+			SET_SUBTLV(asla, EXT_AVA_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_AVA_BW);
+
+		if (IS_PARAM_SET(ifp->link_params, LP_USE_BW)) {
+			asla->use_bw = ifp->link_params->use_bw;
+			SET_SUBTLV(asla, EXT_USE_BW);
+		} else
+			UNSET_SUBTLV(asla, EXT_USE_BW);
+	}
+
+
+	for (ALL_LIST_ELEMENTS(ext->aslas, node, nnode, asla)) {
+		if (!asla->legacy && NO_SUBTLV(asla) &&
+		    admin_group_nb_words(&asla->ext_admin_group) == 0)
+			/* remove ASLA without info from the list of ASLAs to
+			 * not send void ASLA
+			 */
+			isis_tlvs_del_asla_flex_algo(ext, asla);
+	}
+}
+
 /* Main initialization / update function of the MPLS TE Circuit context */
 /* Call when interface TE Link parameters are modified */
 void isis_link_params_update(struct isis_circuit *circuit,
@@ -209,6 +357,19 @@ void isis_link_params_update(struct isis_circuit *circuit,
 			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
 		} else
 			UNSET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+
+		/* Send admin-group zero for better compatibility
+		 * https://www.rfc-editor.org/rfc/rfc7308#section-2.3.2
+		 */
+		if (circuit->area->admin_group_send_zero &&
+		    !IS_SUBTLV(ext, EXT_ADM_GRP) &&
+		    !IS_SUBTLV(ext, EXT_EXTEND_ADM_GRP)) {
+			ext->adm_group = 0;
+			SET_SUBTLV(ext, EXT_ADM_GRP);
+			admin_group_clear(&ext->ext_admin_group);
+			admin_group_allow_explicit_zero(&ext->ext_admin_group);
+			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
+		}
 
 		/* If known, register local IPv4 addr from ip_addr list */
 		if (listcount(circuit->ip_addrs) != 0) {
@@ -330,6 +491,8 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		else
 			ext->status = 0;
 	}
+
+	isis_link_params_update_asla(circuit, ifp);
 
 	return;
 }
@@ -503,7 +666,12 @@ int isis_mpls_te_update(struct interface *ifp)
 	isis_link_params_update(circuit, ifp);
 
 	/* ... and LSP */
-	if (circuit->area && IS_MPLS_TE(circuit->area->mta))
+	if (circuit->area &&
+	    (IS_MPLS_TE(circuit->area->mta)
+#ifndef FABRICD
+	     || !list_isempty(circuit->area->flex_algos->flex_algos)
+#endif /* ifndef FABRICD */
+		     ))
 		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 
 	rc = 0;

@@ -123,6 +123,7 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 	ext = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(struct isis_ext_subtlvs));
 	init_item_list(&ext->adj_sid);
 	init_item_list(&ext->lan_sid);
+	ext->aslas = list_new();
 
 	admin_group_init(&ext->ext_admin_group);
 
@@ -132,6 +133,8 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext)
 {
 	struct isis_item *item, *next_item;
+	struct listnode *node, *nnode;
+	struct isis_asla_subtlvs *asla;
 
 	if (!ext)
 		return;
@@ -145,6 +148,11 @@ void isis_del_ext_subtlvs(struct isis_ext_subtlvs *ext)
 		next_item = item->next;
 		XFREE(MTYPE_ISIS_SUBTLV, item);
 	}
+
+	for (ALL_LIST_ELEMENTS(ext->aslas, node, nnode, asla))
+		isis_tlvs_del_asla_flex_algo(ext, asla);
+
+	list_delete(&ext->aslas);
 
 	admin_group_term(&ext->ext_admin_group);
 
@@ -162,6 +170,8 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 	struct isis_ext_subtlvs *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
 	struct isis_adj_sid *adj;
 	struct isis_lan_adj_sid *lan;
+	struct listnode *node, *nnode;
+	struct isis_asla_subtlvs *new_asla, *asla;
 
 	/* Copy the Extended IS main part */
 	memcpy(rv, exts, sizeof(struct isis_ext_subtlvs));
@@ -226,10 +236,131 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 		SET_SUBTLV(rv, EXT_LAN_ADJ_SID);
 	}
 
+	rv->aslas = list_new();
+
+	for (ALL_LIST_ELEMENTS(exts->aslas, node, nnode, asla)) {
+		new_asla = XCALLOC(MTYPE_ISIS_SUBTLV,
+				   sizeof(struct isis_asla_subtlvs));
+		memcpy(new_asla, asla, sizeof(struct isis_asla_subtlvs));
+
+		new_asla->ext_admin_group.bitmap.data = NULL;
+		admin_group_copy(&new_asla->ext_admin_group,
+				 &asla->ext_admin_group);
+
+		listnode_add(rv->aslas, new_asla);
+	}
+
 	rv->ext_admin_group.bitmap.data = NULL;
 	admin_group_copy(&rv->ext_admin_group, &exts->ext_admin_group);
 
 	return rv;
+}
+
+static void format_item_asla_subtlvs(struct isis_asla_subtlvs *asla,
+				     struct sbuf *buf, int indent)
+{
+	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+
+	sbuf_push(buf, indent, "Application Specific Link Attributes:\n");
+	sbuf_push(buf, indent + 2,
+		  "L flag: %u, SA-Length: %u, UDA-Length: %u\n", asla->legacy,
+		  asla->standard_apps_length, asla->user_def_apps_length);
+	sbuf_push(buf, indent + 2, "Standard Applications: 0x%02x",
+		  asla->standard_apps);
+	if (asla->standard_apps) {
+		uint8_t bit = asla->standard_apps;
+		if (bit & ISIS_SABM_FLAG_R)
+			sbuf_push(buf, 0, " RSVP-TE");
+		if (bit & ISIS_SABM_FLAG_S)
+			sbuf_push(buf, 0, " SR-Policy");
+		if (bit & ISIS_SABM_FLAG_L)
+			sbuf_push(buf, 0, " Loop-Free-Alternate");
+		if (bit & ISIS_SABM_FLAG_X)
+			sbuf_push(buf, 0, " Flex-Algo");
+	}
+	sbuf_push(buf, 0, "\n");
+	sbuf_push(buf, indent + 2, "User Defined Applications: 0x%02x\n",
+		  asla->user_def_apps);
+
+	if (IS_SUBTLV(asla, EXT_ADM_GRP)) {
+		sbuf_push(buf, indent + 2, "Admin Group: 0x%08x\n",
+			  asla->admin_group);
+		sbuf_push(buf, indent + 4, "Bit positions: %s\n",
+			  admin_group_standard_print(
+				  admin_group_buf,
+				  indent + 2 + strlen("Admin Group: "),
+				  asla->admin_group));
+	}
+	if (IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP) &&
+	    admin_group_nb_words(&asla->ext_admin_group) != 0) {
+		sbuf_push(buf, indent + 2, "Ext Admin Group: %s\n",
+			  admin_group_string(
+				  admin_group_buf, ADMIN_GROUP_PRINT_MAX_SIZE,
+				  indent + 2 + strlen("Ext Admin Group: "),
+				  &asla->ext_admin_group));
+		admin_group_print(admin_group_buf,
+				  indent + 2 + strlen("Ext Admin Group: "),
+				  &asla->ext_admin_group);
+		if (admin_group_buf[0] != '\0' &&
+		    (buf->pos + strlen(admin_group_buf) +
+		     SBUF_DEFAULT_SIZE / 2) < buf->size)
+			sbuf_push(buf, indent + 4, "Bit positions: %s\n",
+				  admin_group_buf);
+	}
+	if (IS_SUBTLV(asla, EXT_MAX_BW))
+		sbuf_push(buf, indent + 2,
+			  "Maximum Bandwidth: %g (Bytes/sec)\n", asla->max_bw);
+	if (IS_SUBTLV(asla, EXT_MAX_RSV_BW))
+		sbuf_push(buf, indent + 2,
+			  "Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
+			  asla->max_rsv_bw);
+	if (IS_SUBTLV(asla, EXT_UNRSV_BW)) {
+		sbuf_push(buf, indent + 2, "Unreserved Bandwidth:\n");
+		for (int j = 0; j < MAX_CLASS_TYPE; j += 2) {
+			sbuf_push(
+				buf, indent + 2,
+				"[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
+				j, asla->unrsv_bw[j], j + 1,
+				asla->unrsv_bw[j + 1]);
+		}
+	}
+	if (IS_SUBTLV(asla, EXT_TE_METRIC))
+		sbuf_push(buf, indent + 2, "Traffic Engineering Metric: %u\n",
+			  asla->te_metric);
+	/* Extended metrics */
+	if (IS_SUBTLV(asla, EXT_DELAY))
+		sbuf_push(buf, indent + 2,
+			  "%s Average Link Delay: %u (micro-sec)\n",
+			  IS_ANORMAL(asla->delay) ? "Anomalous" : "Normal",
+			  asla->delay);
+	if (IS_SUBTLV(asla, EXT_MM_DELAY)) {
+		sbuf_push(buf, indent + 2,
+			  "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
+			  IS_ANORMAL(asla->min_delay) ? "Anomalous" : "Normal",
+			  asla->min_delay & TE_EXT_MASK,
+			  asla->max_delay & TE_EXT_MASK);
+	}
+	if (IS_SUBTLV(asla, EXT_DELAY_VAR)) {
+		sbuf_push(buf, indent + 2, "Delay Variation: %u (micro-sec)\n",
+			  asla->delay_var & TE_EXT_MASK);
+	}
+	if (IS_SUBTLV(asla, EXT_PKT_LOSS))
+		sbuf_push(buf, indent + 2, "%s Link Packet Loss: %g (%%)\n",
+			  IS_ANORMAL(asla->pkt_loss) ? "Anomalous" : "Normal",
+			  (float)((asla->pkt_loss & TE_EXT_MASK) *
+				  LOSS_PRECISION));
+	if (IS_SUBTLV(asla, EXT_RES_BW))
+		sbuf_push(buf, indent + 2,
+			  "Unidir. Residual Bandwidth: %g (Bytes/sec)\n",
+			  asla->res_bw);
+	if (IS_SUBTLV(asla, EXT_AVA_BW))
+		sbuf_push(buf, indent + 2,
+			  "Unidir. Available Bandwidth: %g (Bytes/sec)\n",
+			  asla->ava_bw);
+	if (IS_SUBTLV(asla, EXT_USE_BW))
+		sbuf_push(buf, indent + 2,
+			  "Unidir. Utilized Bandwidth: %g (Bytes/sec)\n",
+			  asla->use_bw);
 }
 
 /* mtid parameter is used to manage multi-topology i.e. IPv4 / IPv6 */
@@ -240,6 +371,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
 	char aux_buf[255];
 	char cnt_buf[255];
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node;
 
 	/* Standard metrics */
 	if (IS_SUBTLV(exts, EXT_ADM_GRP)) {
@@ -688,6 +821,8 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					lan->neighbor_id);
 			}
 	}
+	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
+		format_item_asla_subtlvs(asla, buf, indent);
 }
 
 static void free_item_ext_subtlvs(struct  isis_ext_subtlvs *exts)
@@ -695,10 +830,124 @@ static void free_item_ext_subtlvs(struct  isis_ext_subtlvs *exts)
 	isis_del_ext_subtlvs(exts);
 }
 
+static int pack_item_ext_subtlv_asla(struct isis_asla_subtlvs *asla,
+				     struct stream *s, size_t *min_len)
+{
+	size_t subtlv_len;
+	size_t subtlv_len_pos;
+
+	/* Sub TLV header */
+	stream_putc(s, ISIS_SUBTLV_ASLA);
+
+	subtlv_len_pos = stream_get_endp(s);
+	stream_putc(s, 0); /* length will be filled later */
+
+	/* SABM Flag/Length */
+	if (asla->legacy)
+		stream_putc(s, ASLA_LEGACY_FLAG | asla->standard_apps_length);
+	else
+		stream_putc(s, asla->standard_apps_length);
+	stream_putc(s, asla->user_def_apps_length); /* UDABM Flag/Length */
+	stream_putc(s, asla->standard_apps);
+	stream_putc(s, asla->user_def_apps);
+
+	/* Administrative Group */
+	if (IS_SUBTLV(asla, EXT_ADM_GRP)) {
+		stream_putc(s, ISIS_SUBTLV_ADMIN_GRP);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putl(s, asla->admin_group);
+	}
+
+	/* Extended Administrative Group */
+	if (IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP) &&
+	    admin_group_nb_words(&asla->ext_admin_group) != 0) {
+		size_t ag_length;
+		size_t ag_length_pos;
+		struct admin_group *ag;
+
+		stream_putc(s, ISIS_SUBTLV_EXT_ADMIN_GRP);
+		ag_length_pos = stream_get_endp(s);
+		stream_putc(s, 0); /* length will be filled later*/
+
+		ag = &asla->ext_admin_group;
+		for (size_t i = 0; i < admin_group_nb_words(ag); i++)
+			stream_putl(s, ag->bitmap.data[i]);
+
+		ag_length = stream_get_endp(s) - ag_length_pos - 1;
+		stream_putc_at(s, ag_length_pos, ag_length);
+	}
+
+	if (IS_SUBTLV(asla, EXT_MAX_BW)) {
+		stream_putc(s, ISIS_SUBTLV_MAX_BW);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putf(s, asla->max_bw);
+	}
+	if (IS_SUBTLV(asla, EXT_MAX_RSV_BW)) {
+		stream_putc(s, ISIS_SUBTLV_MAX_RSV_BW);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putf(s, asla->max_rsv_bw);
+	}
+	if (IS_SUBTLV(asla, EXT_UNRSV_BW)) {
+		stream_putc(s, ISIS_SUBTLV_UNRSV_BW);
+		stream_putc(s, ISIS_SUBTLV_UNRSV_BW_SIZE);
+		for (int j = 0; j < MAX_CLASS_TYPE; j++)
+			stream_putf(s, asla->unrsv_bw[j]);
+	}
+	if (IS_SUBTLV(asla, EXT_TE_METRIC)) {
+		stream_putc(s, ISIS_SUBTLV_TE_METRIC);
+		stream_putc(s, ISIS_SUBTLV_TE_METRIC_SIZE);
+		stream_put3(s, asla->te_metric);
+	}
+	if (IS_SUBTLV(asla, EXT_DELAY)) {
+		stream_putc(s, ISIS_SUBTLV_AV_DELAY);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putl(s, asla->delay);
+	}
+	if (IS_SUBTLV(asla, EXT_MM_DELAY)) {
+		stream_putc(s, ISIS_SUBTLV_MM_DELAY);
+		stream_putc(s, ISIS_SUBTLV_MM_DELAY_SIZE);
+		stream_putl(s, asla->min_delay);
+		stream_putl(s, asla->max_delay);
+	}
+	if (IS_SUBTLV(asla, EXT_DELAY_VAR)) {
+		stream_putc(s, ISIS_SUBTLV_DELAY_VAR);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putl(s, asla->delay_var);
+	}
+	if (IS_SUBTLV(asla, EXT_PKT_LOSS)) {
+		stream_putc(s, ISIS_SUBTLV_PKT_LOSS);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putl(s, asla->pkt_loss);
+	}
+	if (IS_SUBTLV(asla, EXT_RES_BW)) {
+		stream_putc(s, ISIS_SUBTLV_RES_BW);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putf(s, asla->res_bw);
+	}
+	if (IS_SUBTLV(asla, EXT_AVA_BW)) {
+		stream_putc(s, ISIS_SUBTLV_AVA_BW);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putf(s, asla->ava_bw);
+	}
+	if (IS_SUBTLV(asla, EXT_USE_BW)) {
+		stream_putc(s, ISIS_SUBTLV_USE_BW);
+		stream_putc(s, ISIS_SUBTLV_DEF_SIZE);
+		stream_putf(s, asla->use_bw);
+	}
+
+	subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+	stream_putc_at(s, subtlv_len_pos, subtlv_len);
+
+	return 0;
+}
+
 static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				 struct stream *s, size_t *min_len)
 {
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node;
 	uint8_t size;
+	int ret;
 
 	if (STREAM_WRITEABLE(s) < ISIS_SUBTLV_MAX_SIZE) {
 		*min_len = ISIS_SUBTLV_MAX_SIZE;
@@ -861,6 +1110,219 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				stream_putl(s, lan->sid);
 		}
 	}
+
+	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla)) {
+		ret = pack_item_ext_subtlv_asla(asla, s, min_len);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int unpack_item_ext_subtlv_asla(uint16_t mtid, uint8_t subtlv_len,
+				       struct stream *s, struct sbuf *log,
+				       int indent,
+				       struct isis_ext_subtlvs *exts)
+{
+	/* Standard App Identifier Bit Flags/Length */
+	uint8_t sabm_flag_len;
+	/* User-defined App Identifier Bit Flags/Length */
+	uint8_t uabm_flag_len;
+	uint8_t sabm[ASLA_APP_IDENTIFIER_BIT_LENGTH] = {0};
+	uint8_t uabm[ASLA_APP_IDENTIFIER_BIT_LENGTH] = {0};
+	uint8_t readable;
+	uint8_t subsubtlv_type;
+	uint8_t subsubtlv_len;
+	size_t nb_groups;
+	struct isis_asla_subtlvs *asla;
+
+	if (subtlv_len < ISIS_SUBSUBTLV_HDR_SIZE) {
+		TLV_SIZE_MISMATCH(log, indent, "ASLA");
+		return -1;
+	}
+
+
+	asla = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*asla));
+
+	admin_group_init(&asla->ext_admin_group);
+
+
+	sabm_flag_len = stream_getc(s);
+	uabm_flag_len = stream_getc(s);
+	asla->legacy = CHECK_FLAG(sabm_flag_len, ASLA_LEGACY_FLAG);
+	asla->standard_apps_length = ASLA_APPS_LENGTH_MASK & sabm_flag_len;
+	asla->user_def_apps_length = ASLA_APPS_LENGTH_MASK & uabm_flag_len;
+
+	for (int i = 0; i < asla->standard_apps_length; i++)
+		sabm[i] = stream_getc(s);
+	for (int i = 0; i < asla->user_def_apps_length; i++)
+		uabm[i] = stream_getc(s);
+
+	asla->standard_apps = sabm[0];
+	asla->user_def_apps = uabm[0];
+
+	readable = subtlv_len - 4;
+	while (readable > 0) {
+		if (readable < ISIS_SUBSUBTLV_HDR_SIZE) {
+			TLV_SIZE_MISMATCH(log, indent, "ASLA Sub TLV");
+			return -1;
+		}
+
+		subsubtlv_type = stream_getc(s);
+		subsubtlv_len = stream_getc(s);
+		readable -= ISIS_SUBSUBTLV_HDR_SIZE;
+
+
+		switch (subsubtlv_type) {
+		case ISIS_SUBTLV_ADMIN_GRP:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "ASLA Adm Group");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->admin_group = stream_getl(s);
+				SET_SUBTLV(asla, EXT_ADM_GRP);
+			}
+			break;
+
+		case ISIS_SUBTLV_EXT_ADMIN_GRP:
+			nb_groups = subsubtlv_len / sizeof(uint32_t);
+			for (size_t i = 0; i < nb_groups; i++) {
+				uint32_t val = stream_getl(s);
+
+				admin_group_bulk_set(&asla->ext_admin_group,
+						     val, i);
+			}
+			SET_SUBTLV(asla, EXT_EXTEND_ADM_GRP);
+			break;
+		case ISIS_SUBTLV_MAX_BW:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Maximum Bandwidth");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->max_bw = stream_getf(s);
+				SET_SUBTLV(asla, EXT_MAX_BW);
+			}
+			break;
+		case ISIS_SUBTLV_MAX_RSV_BW:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(
+					log, indent,
+					"Maximum Reservable Bandwidth");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->max_rsv_bw = stream_getf(s);
+				SET_SUBTLV(asla, EXT_MAX_RSV_BW);
+			}
+			break;
+		case ISIS_SUBTLV_UNRSV_BW:
+			if (subsubtlv_len != ISIS_SUBTLV_UNRSV_BW_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Unreserved Bandwidth");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				for (int i = 0; i < MAX_CLASS_TYPE; i++)
+					asla->unrsv_bw[i] = stream_getf(s);
+				SET_SUBTLV(asla, EXT_UNRSV_BW);
+			}
+			break;
+		case ISIS_SUBTLV_TE_METRIC:
+			if (subsubtlv_len != ISIS_SUBTLV_TE_METRIC_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Traffic Engineering Metric");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->te_metric = stream_get3(s);
+				SET_SUBTLV(asla, EXT_TE_METRIC);
+			}
+			break;
+		/* Extended Metrics as defined in RFC 7810 */
+		case ISIS_SUBTLV_AV_DELAY:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Average Link Delay");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->delay = stream_getl(s);
+				SET_SUBTLV(asla, EXT_DELAY);
+			}
+			break;
+		case ISIS_SUBTLV_MM_DELAY:
+			if (subsubtlv_len != ISIS_SUBTLV_MM_DELAY_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Min/Max Link Delay");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->min_delay = stream_getl(s);
+				asla->max_delay = stream_getl(s);
+				SET_SUBTLV(asla, EXT_MM_DELAY);
+			}
+			break;
+		case ISIS_SUBTLV_DELAY_VAR:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Delay Variation");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->delay_var = stream_getl(s);
+				SET_SUBTLV(asla, EXT_DELAY_VAR);
+			}
+			break;
+		case ISIS_SUBTLV_PKT_LOSS:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "Link Packet Loss");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->pkt_loss = stream_getl(s);
+				SET_SUBTLV(asla, EXT_PKT_LOSS);
+			}
+			break;
+		case ISIS_SUBTLV_RES_BW:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(
+					log, indent,
+					"Unidirectional Residual Bandwidth");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->res_bw = stream_getf(s);
+				SET_SUBTLV(asla, EXT_RES_BW);
+			}
+			break;
+		case ISIS_SUBTLV_AVA_BW:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(
+					log, indent,
+					"Unidirectional Available Bandwidth");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->ava_bw = stream_getf(s);
+				SET_SUBTLV(asla, EXT_AVA_BW);
+			}
+			break;
+		case ISIS_SUBTLV_USE_BW:
+			if (subsubtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+				TLV_SIZE_MISMATCH(
+					log, indent,
+					"Unidirectional Utilized Bandwidth");
+				stream_forward_getp(s, subsubtlv_len);
+			} else {
+				asla->use_bw = stream_getf(s);
+				SET_SUBTLV(asla, EXT_USE_BW);
+			}
+			break;
+		default:
+			zlog_debug("unknown (t,l)=(%u,%u)", subsubtlv_type,
+				   subsubtlv_len);
+			stream_forward_getp(s, subsubtlv_len);
+			break;
+		}
+		readable -= subsubtlv_len;
+	}
+
+	listnode_add(exts->aslas, asla);
 
 	return 0;
 }
@@ -1207,6 +1669,13 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				append_item(&exts->lan_sid,
 					    (struct isis_item *)lan);
 				SET_SUBTLV(exts, EXT_LAN_ADJ_SID);
+			}
+			break;
+		case ISIS_SUBTLV_ASLA:
+			if (unpack_item_ext_subtlv_asla(mtid, subtlv_len, s,
+							log, indent,
+							exts) < 0) {
+				sbuf_push(log, indent, "TLV parse error");
 			}
 			break;
 		default:
@@ -5871,6 +6340,54 @@ void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 	XFREE(MTYPE_ISIS_SUBTLV, lan);
 	if (exts->lan_sid.count == 0)
 		UNSET_SUBTLV(exts, EXT_LAN_ADJ_SID);
+}
+
+void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
+				  struct isis_asla_subtlvs *asla)
+{
+	admin_group_term(&asla->ext_admin_group);
+	listnode_delete(ext->aslas, asla);
+	XFREE(MTYPE_ISIS_SUBTLV, asla);
+}
+
+struct isis_asla_subtlvs *
+isis_tlvs_find_alloc_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps)
+{
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node;
+
+	if (!list_isempty(ext->aslas)) {
+		for (ALL_LIST_ELEMENTS_RO(ext->aslas, node, asla)) {
+			if (CHECK_FLAG(asla->standard_apps, standard_apps))
+				return asla;
+		}
+	}
+
+	asla = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(struct isis_asla_subtlvs));
+	admin_group_init(&asla->ext_admin_group);
+	SET_FLAG(asla->standard_apps, standard_apps);
+	SET_FLAG(asla->user_def_apps, standard_apps);
+	asla->standard_apps_length = ASLA_APP_IDENTIFIER_BIT_LENGTH;
+	asla->user_def_apps_length = ASLA_APP_IDENTIFIER_BIT_LENGTH;
+
+	listnode_add(ext->aslas, asla);
+	return asla;
+}
+
+void isis_tlvs_free_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps)
+{
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node;
+
+	if (!ext)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(ext->aslas, node, asla)) {
+		if (!CHECK_FLAG(asla->standard_apps, standard_apps))
+			continue;
+		isis_tlvs_del_asla_flex_algo(ext, asla);
+		break;
+	}
 }
 
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,

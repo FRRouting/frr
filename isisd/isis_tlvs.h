@@ -400,6 +400,9 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
+	/* RFC 8919 */
+	ISIS_SUBTLV_ASLA = 16,
+
 	ISIS_SUBTLV_MAX = 40,
 };
 
@@ -434,6 +437,8 @@ enum ext_subtlv_size {
 	/* RFC 7308 */
 	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
 
+	ISIS_SUBSUBTLV_HDR_SIZE = 2,
+
 	ISIS_SUBTLV_MAX_SIZE = 180,
 };
 
@@ -441,6 +446,8 @@ enum ext_subtlv_size {
 #define SET_SUBTLV(s, t) ((s->status) |= (t))
 #define UNSET_SUBTLV(s, t) ((s->status) &= ~(t))
 #define IS_SUBTLV(s, t) (s->status & t)
+#define RESET_SUBTLV(s) (s->status = 0)
+#define NO_SUBTLV(s) (s->status == 0)
 
 #define EXT_DISABLE		0x000000
 #define EXT_ADM_GRP		0x000001
@@ -512,6 +519,45 @@ struct isis_ext_subtlvs {
 	/* Segment Routing Adjacency & LAN Adjacency Segment ID */
 	struct isis_item_list adj_sid;
 	struct isis_item_list lan_sid;
+
+	struct list *aslas;
+};
+
+/* RFC 8919 */
+#define ISIS_SABM_FLAG_R 0x80 /* RSVP-TE */
+#define ISIS_SABM_FLAG_S 0x40 /* Segment Routing Policy */
+#define ISIS_SABM_FLAG_L 0x20 /* Loop-Free Alternate */
+#define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
+
+#define ASLA_APP_IDENTIFIER_BIT_LENGTH 1
+#define ASLA_LEGACY_FLAG 0x80
+#define ASLA_APPS_LENGTH_MASK 0x7f
+
+struct isis_asla_subtlvs {
+	uint32_t status;
+
+	/* Application Specific Link Attribute - RFC 8919 */
+	bool legacy; /* L-Flag */
+	uint8_t standard_apps_length;
+	uint8_t user_def_apps_length;
+	uint8_t standard_apps;
+	uint8_t user_def_apps;
+
+	/* Sub-TLV list - rfc8919 section-3.1 */
+	uint32_t admin_group;
+	struct admin_group ext_admin_group; /* Res. Class/Color - RFC 7308 */
+	float max_bw;			    /* Maximum Bandwidth - RFC 5305 */
+	float max_rsv_bw;   /* Maximum Reservable Bandwidth - RFC 5305 */
+	float unrsv_bw[8];  /* Unreserved Bandwidth - RFC 5305 */
+	uint32_t te_metric; /* Traffic Engineering Metric - RFC 5305 */
+	uint32_t delay;     /* Average Link Delay  - RFC 8570 */
+	uint32_t min_delay; /* Low Link Delay  - RFC 8570 */
+	uint32_t max_delay; /* High Link Delay  - RFC 8570 */
+	uint32_t delay_var; /* Link Delay Variation i.e. Jitter - RFC 8570 */
+	uint32_t pkt_loss;  /* Unidirectional Link Packet Loss - RFC 8570 */
+	float res_bw;       /* Unidirectional Residual Bandwidth - RFC 8570 */
+	float ava_bw;       /* Unidirectional Available Bandwidth - RFC 8570 */
+	float use_bw;       /* Unidirectional Utilized Bandwidth - RFC 8570 */
 };
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
@@ -541,6 +587,12 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_OL_MASK        0x8000
 #define ISIS_MT_AT_MASK        0x4000
 #endif
+
+/* RFC 8919 */
+#define ISIS_SABM_FLAG_R 0x80 /* RSVP-TE */
+#define ISIS_SABM_FLAG_S 0x40 /* Segment Routing Policy */
+#define ISIS_SABM_FLAG_L 0x20 /* Loop-Free Alternate */
+#define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
 
 void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
@@ -605,6 +657,12 @@ void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan);
 void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan);
+
+void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
+				  struct isis_asla_subtlvs *asla);
+struct isis_asla_subtlvs *
+isis_tlvs_find_alloc_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
+void isis_tlvs_free_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps);
 
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
 				  uint8_t metric);
