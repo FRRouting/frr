@@ -904,6 +904,12 @@ static void attrhash_finish(void)
 static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
 	struct attr *attr = bucket->data;
+	struct in6_addr *sid = NULL;
+
+	if (attr->srv6_l3vpn)
+		sid = &attr->srv6_l3vpn->sid;
+	else if (attr->srv6_vpn)
+		sid = &attr->srv6_vpn->sid;
 
 	vty_out(vty, "attr[%ld] nexthop %pI4\n", attr->refcnt, &attr->nexthop);
 
@@ -911,9 +917,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		"\tflags: %" PRIu64
 		" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %pI6\n",
 		attr->flag, attr->distance, attr->med, attr->local_pref,
-		attr->origin, attr->weight, attr->label,
-		attr->srv6_l3vpn ? &attr->srv6_l3vpn->sid
-				 : &attr->srv6_vpn->sid);
+		attr->origin, attr->weight, attr->label, sid);
 }
 
 void attr_show_all(struct vty *vty)
