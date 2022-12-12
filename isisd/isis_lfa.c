@@ -355,6 +355,7 @@ bool isis_lfa_excise_node_check(const struct isis_spftree *spftree,
 
 struct tilfa_find_pnode_prefix_sid_args {
 	uint32_t sid_index;
+	int algorithm;
 };
 
 static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix,
@@ -368,15 +369,17 @@ static int tilfa_find_pnode_prefix_sid_cb(const struct prefix *prefix,
 	if (!subtlvs || subtlvs->prefix_sids.count == 0)
 		return LSP_ITER_CONTINUE;
 
-	psid = (struct isis_prefix_sid *)subtlvs->prefix_sids.head;
-
-	/* Require the node flag to be set. */
-	if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NODE))
-		return LSP_ITER_CONTINUE;
-
-	args->sid_index = psid->value;
-
-	return LSP_ITER_STOP;
+	for (psid = (struct isis_prefix_sid *)subtlvs->prefix_sids.head; psid;
+	     psid = psid->next) {
+		/* Require the node flag to be set. */
+		if (!CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_NODE))
+			continue;
+		if (psid->algorithm != args->algorithm)
+			continue;
+		args->sid_index = psid->value;
+		return LSP_ITER_STOP;
+	}
+	return LSP_ITER_CONTINUE;
 }
 
 /* Find Prefix-SID associated to a System ID. */
@@ -389,6 +392,8 @@ static uint32_t tilfa_find_pnode_prefix_sid(struct isis_spftree *spftree,
 	lsp = isis_root_system_lsp(spftree->lspdb, sysid);
 	if (!lsp)
 		return UINT32_MAX;
+
+	args.algorithm = spftree->algorithm;
 
 	args.sid_index = UINT32_MAX;
 	isis_lsp_iterate_ip_reach(lsp, spftree->family, spftree->mtid,
@@ -1099,7 +1104,7 @@ struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree)
 		spftree->area, spftree->lspdb, spftree->sysid, spftree->level,
 		spftree->tree_id, SPF_TYPE_REVERSE,
 		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES,
-		SR_ALGORITHM_SPF);
+		spftree->algorithm);
 	isis_run_spf(spftree_reverse);
 
 	return spftree_reverse;
@@ -1196,7 +1201,7 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
 				      SPF_TYPE_TI_LFA, spftree->flags,
-				      SR_ALGORITHM_SPF);
+				      spftree->algorithm);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.protected_resource = *resource;
@@ -1245,7 +1250,7 @@ int isis_spf_run_neighbors(struct isis_spftree *spftree)
 			spftree->area, spftree->lspdb, adj_node->sysid,
 			spftree->level, spftree->tree_id, SPF_TYPE_FORWARD,
 			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES,
-			SR_ALGORITHM_SPF);
+			spftree->algorithm);
 		isis_run_spf(adj_node->lfa.spftree);
 	}
 
@@ -1726,7 +1731,7 @@ struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
 				      SPF_TYPE_RLFA, spftree->flags,
-				      SR_ALGORITHM_SPF);
+				      spftree->algorithm);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.remote.max_metric = max_metric;
