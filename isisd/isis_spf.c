@@ -2415,6 +2415,190 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifndef FABRICD
+static void show_isis_flex_algo_display_eag(struct vty *vty, char *buf,
+					    int indent,
+					    struct admin_group *admin_group)
+{
+	if (admin_group_zero(admin_group))
+		vty_out(vty, "not-set\n");
+	else {
+		vty_out(vty, "%s\n",
+			admin_group_string(buf, ADMIN_GROUP_PRINT_MAX_SIZE,
+					   indent, admin_group));
+		admin_group_print(buf, indent, admin_group);
+		if (buf[0] != '\0')
+			vty_out(vty, "            Bit positions: %s\n", buf);
+	}
+}
+
+static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis,
+				       uint8_t algorithm)
+{
+	struct isis_router_cap_fad *router_fad;
+	char buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+	struct admin_group *admin_group;
+	struct isis_area *area;
+	struct listnode *node;
+	struct flex_algo *fa;
+	int indent, algo;
+	bool fad_identical, fad_supported;
+
+	if (!isis->area_list || isis->area_list->count == 0)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		/*
+		 * The shapes of the flex algo spftree 2-dimensional array
+		 * and the area spftree 2-dimensional array are not guaranteed
+		 * to be identical.
+		 */
+
+		for (algo = 0; algo < SR_ALGORITHM_COUNT; algo++) {
+			if (algorithm != SR_ALGORITHM_UNSET &&
+			    algorithm != algo)
+				continue;
+
+			fa = flex_algo_lookup(area->flex_algos, algo);
+			if (!fa)
+				continue;
+
+			vty_out(vty, "Area %s:",
+				area->area_tag ? area->area_tag : "null");
+
+			vty_out(vty, " Algorithm %d\n", algo);
+			vty_out(vty, "\n");
+
+			vty_out(vty, " Enabled Data-Planes:");
+			if (fa->dataplanes == 0) {
+				vty_out(vty, " None\n\n");
+				continue;
+			}
+			if (CHECK_FLAG(fa->dataplanes, FLEX_ALGO_SR_MPLS))
+				vty_out(vty, " SR-MPLS");
+			if (CHECK_FLAG(fa->dataplanes, FLEX_ALGO_SRV6))
+				vty_out(vty, " SRv6");
+			if (CHECK_FLAG(fa->dataplanes, FLEX_ALGO_IP))
+				vty_out(vty, " IP");
+			vty_out(vty, "\n\n");
+
+
+			router_fad = isis_flex_algo_elected(algo, area);
+			vty_out(vty,
+				" Elected and running Flexible-Algorithm Definition:\n");
+			if (router_fad)
+				vty_out(vty, "  Source: %pSY\n",
+					router_fad->sysid);
+			else
+				vty_out(vty, "  Source: Not found\n");
+
+			if (!router_fad) {
+				vty_out(vty, "\n");
+				continue;
+			}
+
+			fad_identical =
+				flex_algo_definition_cmp(fa, &router_fad->fad);
+			fad_supported =
+				isis_flex_algo_supported(&router_fad->fad);
+			vty_out(vty, "  Priority: %d\n",
+				router_fad->fad.priority);
+			vty_out(vty, "  Equal to local: %s\n",
+				fad_identical ? "yes" : "no");
+			vty_out(vty, "  Local state: %s\n",
+				fad_supported
+					? "enabled"
+					: "disabled (unsupported definition)");
+			vty_out(vty, "  Calculation type: ");
+			if (router_fad->fad.calc_type == 0)
+				vty_out(vty, "spf\n");
+			else
+				vty_out(vty, "%d\n", router_fad->fad.calc_type);
+			vty_out(vty, "  Metric type: %s\n",
+				flex_algo_metric_type_print(
+					buf, sizeof(buf),
+					router_fad->fad.metric_type));
+			vty_out(vty, "  Prefix-metric: %s\n",
+				CHECK_FLAG(router_fad->fad.flags, FAD_FLAG_M)
+					? "enabled"
+					: "disabled");
+			if (router_fad->fad.flags != 0 &&
+			    router_fad->fad.flags != FAD_FLAG_M)
+				vty_out(vty, "  Flags: 0x%x\n",
+					router_fad->fad.flags);
+			vty_out(vty, "  Exclude SRLG: %s\n",
+				router_fad->fad.exclude_srlg ? "enabled"
+							     : "disabled");
+
+			admin_group = &router_fad->fad.admin_group_exclude_any;
+			indent = vty_out(vty, "  Exclude-any admin-group: ");
+			show_isis_flex_algo_display_eag(vty, buf, indent,
+							admin_group);
+
+			admin_group = &router_fad->fad.admin_group_include_all;
+			indent = vty_out(vty, "  Include-all admin-group: ");
+			show_isis_flex_algo_display_eag(vty, buf, indent,
+							admin_group);
+
+			admin_group = &router_fad->fad.admin_group_include_any;
+			indent = vty_out(vty, "  Include-any admin-group: ");
+			show_isis_flex_algo_display_eag(vty, buf, indent,
+							admin_group);
+
+			if (router_fad->fad.unsupported_subtlv)
+				vty_out(vty,
+					"  Unsupported sub-TLV: Present (see logs)");
+
+			vty_out(vty, "\n");
+		}
+	}
+}
+
+DEFUN(show_isis_flex_algo, show_isis_flex_algo_cmd,
+      "show " PROTO_NAME
+      " [vrf <NAME|all>] flex-algo"
+      " [(128-255)]",
+      SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "IS-IS Flex-algo information\n"
+      "Algorithm number\n")
+{
+	struct isis *isis;
+	struct listnode *node;
+	const char *vrf_name = VRF_DEFAULT_NAME;
+	bool all_vrf = false;
+	int idx = 0;
+	int idx_vrf = 0;
+	uint8_t flex_algo;
+
+	if (!im) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+
+	if (argv_find(argv, argc, "flex-algo", &idx) && (idx + 1) < argc)
+		flex_algo = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+	else
+		flex_algo = SR_ALGORITHM_UNSET;
+
+	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+				show_isis_flex_algo_common(vty, isis,
+							   flex_algo);
+			return CMD_SUCCESS;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL)
+			show_isis_flex_algo_common(vty, isis, flex_algo);
+	}
+
+	return CMD_SUCCESS;
+}
+#endif /* ifndef FABRICD */
+
 static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			     struct isis_route_info *rinfo, bool prefix_sid,
 			     bool no_adjacencies, bool json)
@@ -3079,6 +3263,9 @@ DEFUN(show_isis_frr_summary, show_isis_frr_summary_cmd,
 
 void isis_spf_init(void)
 {
+#ifndef FABRICD
+	install_element(VIEW_NODE, &show_isis_flex_algo_cmd);
+#endif /* ifndef FABRICD */
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
 	install_element(VIEW_NODE, &show_isis_route_cmd);
 	install_element(VIEW_NODE, &show_isis_frr_summary_cmd);
