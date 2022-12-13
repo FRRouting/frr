@@ -144,7 +144,9 @@ class PIM6PrunePropagate(TestBase, AutoFixture, topo=topo1, configs=Configs):
                 maxwait=2.0,
             )
 
-        yield from self.pkt_send(h1, repeat=5, interval=0.2)
+        # need > 30s here, stats fetch from kernel is needed to start KAT
+        # note 4 packets is only 3x the interval between...
+        yield from self.pkt_send(h1, repeat=4, interval=11)
 
         def expect_pkt(ipv6: IPv6, udp: UDP):
             return (
@@ -193,6 +195,9 @@ class PIM6PrunePropagate(TestBase, AutoFixture, topo=topo1, configs=Configs):
         yield from self.assert_join_state(r3, "r3-r4", "NOINFO", maxwait=1.0)
         # MLD state is gone
         yield from self.assert_join_state(r4, "r4-lan4", None, maxwait=1.0)
+
+	# send some follow-on packets that should NOT get forwarded
+        yield from self.pkt_send(h1, repeat=3, interval=1)
 
         # r2-4 should completely ditch source MFIB state
         yield from AssertVtysh.make(
