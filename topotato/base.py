@@ -133,6 +133,9 @@ class TopotatoItem(nodes.Item, ClassHooks):
     fixturenames: Any
     funcargs: Dict[str, Any]
 
+    _ifix_name: str
+    """Name of the network instance fixture"""
+
     nodeid_children_sep: Optional[str] = None
 
     _obj: "TestBase"
@@ -701,6 +704,9 @@ class TopotatoClass(_pytest.python.Class):
     """
     The actual instance of our test class.
     """
+
+    _ifix_name: str
+    """Name of the network instance fixture"""
 
     skipall: Optional[Exception]
 
