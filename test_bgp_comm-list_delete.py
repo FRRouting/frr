@@ -101,7 +101,6 @@ class BGPCommListDeleteTest(TestBase):
     def _bgp_converge_bgpstate(self, topo, r1, r2):
 
         expected = {str(r1.ifaces[0].ip4[0].ip): {"bgpState": "Established"}}
-        print(r1.__dict__)
         yield from AssertVtysh.make(
             r2,
             "bgpd",
