@@ -280,8 +280,9 @@ def test_pim6_add_delete_static_RP_p0(request):
         shutdown_bringup_interface(tgen, "r1", intf, ifaceaction=False)
 
     step("Enable PIM6 between r1 and r2")
-    step("Enable MLD on r1 interface and send MLD " "join {} to r1".\
-         format(GROUP_RANGE_1))
+    step(
+        "Enable MLD on r1 interface and send MLD " "join {} to r1".format(GROUP_RANGE_1)
+    )
     step("Configure r2 loopback interface as RP")
     input_dict = {
         "r2": {
@@ -484,8 +485,11 @@ def test_pim6_SPT_RPT_path_same_p1(request):
         shutdown_bringup_interface(tgen, "r3", intf, ifaceaction=False)
 
     step("Enable the PIM6 on all the interfaces of r1, r2, r3 and r4 routers")
-    step("Configure RP on r2 (loopback interface) for the group range {}".\
-        format(GROUP_ADDRESS_1))
+    step(
+        "Configure RP on r2 (loopback interface) for the group range {}".format(
+            GROUP_ADDRESS_1
+        )
+    )
     input_dict = {
         "r2": {
             "pim6": {
@@ -503,7 +507,9 @@ def test_pim6_SPT_RPT_path_same_p1(request):
     result = create_pim_config(tgen, TOPO, input_dict)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Enable MLD on r1 interface and send MLD join {} to R1".format(GROUP_ADDRESS_1))
+    step(
+        "Enable MLD on r1 interface and send MLD join {} to R1".format(GROUP_ADDRESS_1)
+    )
     intf = TOPO["routers"]["r0"]["links"]["r1"]["interface"]
     intf_ip = TOPO["routers"]["r0"]["links"]["r1"]["ipv6"].split("/")[0]
     result = socat_send_mld_join(
@@ -1084,8 +1090,11 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
 
     step("Enable MLD on r1 interface")
     step("Enable the PIM66 on all the interfaces of r1, r2, r3 and r4 routers")
-    step("Configure RP on r2 (loopback interface) for the group range {}".\
-        format(GROUP_RANGE_4))
+    step(
+        "Configure RP on r2 (loopback interface) for the group range {}".format(
+            GROUP_RANGE_4
+        )
+    )
     input_dict = {
         "r2": {
             "pim6": {
@@ -1255,9 +1264,9 @@ def test_pim6_send_join_on_higher_preffered_rp_p1(request):
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
-        "r1: rp-info is present for group {} \n Error: {}".format(tc_name,
-                                                                  GROUP_RANGE_4,
-                                                                  result)
+        "r1: rp-info is present for group {} \n Error: {}".format(
+            tc_name, GROUP_RANGE_4, result
+        )
     )
 
     step(

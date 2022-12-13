@@ -1413,8 +1413,6 @@ def test_clear_pim_configuration_p1(request):
     write_test_footer(tc_name)
 
 
-
-
 if __name__ == "__main__":
     ARGS = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(ARGS))
