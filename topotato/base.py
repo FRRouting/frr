@@ -662,12 +662,17 @@ class TopotatoFunction(nodes.Collector, _pytest.python.PyobjMixin):
         topo = tcls.obj.instancefn.net
 
         # pylint: disable=protected-access
-        argspec = inspect.getfullargspec(method._call).args[2:]
-        args = []
-        for argname in argspec:
-            args.append(topo.routers[argname])
+        argspec = inspect.getfullargspec(method._call).args[1:]
+        argnames = set(argspec)
 
-        iterator = method(topo, *args)
+        # all possible kwargs
+        all_args = {}
+        all_args.update(topo.routers)
+        all_args["topo"] = topo
+        all_args["_"] = None
+
+        args = {k: v for k, v in all_args.items() if k in argnames}
+        iterator = method(**args)
 
         tests = []
         sendval = None
