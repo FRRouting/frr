@@ -1,8 +1,12 @@
-from topotato import *
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2022 Nathan Mangar
 
 """
 Test if default-originate works with ONLY match operations.
 """
+
+from topotato import *
 
 
 @topology_fixture()
@@ -28,12 +32,12 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r1'
     interface lo
-     ip address {{ routers.r1.lo_ip4[0] }} 
+     ip address {{ routers.r1.lo_ip4[0] }}
     !
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -42,7 +46,7 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r2'
     router bgp 65001
       no bgp ebgp-requires-policy
@@ -72,8 +76,8 @@ class Configs(FRRConfigs):
       set community 65000:1
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 @config_fixture(Configs)

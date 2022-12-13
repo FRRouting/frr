@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2022 Nathan Mangar
 
@@ -36,12 +37,12 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r1'
     interface lo
-     ip address {{ routers.r1.lo_ip4[0] }} 
+     ip address {{ routers.r1.lo_ip4[0] }}
     !
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -50,7 +51,7 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r2'
     router bgp 65001
       no bgp ebgp-requires-policy
@@ -65,8 +66,8 @@ class Configs(FRRConfigs):
       neighbor 192.168.255.2 timers connect 10
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class TestBGPMinimumHoldtime(TestBase, AutoFixture, topo=topology, configs=Configs):

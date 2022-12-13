@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2022 Jugroo Jesvin Brian
 
@@ -58,7 +59,7 @@ class Configs(FRRConfigs):
       no bgp ebgp-requires-policy
       neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} remote-as 65000
       neighbor {{ routers.r1.ifaces[0].ip4[0].ip }} timers 3 10
-      address-family ipv4 
+      address-family ipv4
         redistribute connected
       exit-address-family
     #%   elif router.name == 'r1'
@@ -66,8 +67,7 @@ class Configs(FRRConfigs):
       no bgp ebgp-requires-policy
       neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} remote-as 65001
       neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
-      exit-address-family
-     !
+    !
     #%   endif
     #% endblock
     """

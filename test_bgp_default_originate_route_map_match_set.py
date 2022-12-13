@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2022 Nathan Mangar
 
@@ -37,14 +38,14 @@ class Configs(FRRConfigs):
     #% block main
     #%   if router.name == 'r1'
     interface lo
-     ip address {{ routers.r1.lo_ip4[0] }} 
+     ip address {{ routers.r1.lo_ip4[0] }}
     !
     ip route 192.168.13.0./24 Null0
         !
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -53,7 +54,7 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r2'
     router bgp 65001
       no bgp ebgp-requires-policy
@@ -70,8 +71,8 @@ class Configs(FRRConfigs):
       neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} timers 3 10
       address-family ipv4 unicast
         redistribute connected
-          network 192.168.13.0/24 route-map internal
-          neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} default-originate route-map default
+        network 192.168.13.0/24 route-map internal
+        neighbor {{ routers.r2.ifaces[0].ip4[0].ip }} default-originate route-map default
       exit-address-family
     !
     bgp community-list standard default seq 5 permit 65000:1
@@ -85,8 +86,8 @@ class Configs(FRRConfigs):
       set community 65000:1
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class BGPDefaultOriginateRouteMapMatchSet(

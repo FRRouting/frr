@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2022 Nathan Mangar
-
 
 """
 rfc6286: Autonomous-System-Wide Unique BGP Identifier for BGP-4
@@ -41,7 +41,7 @@ class Configs(FRRConfigs):
     #% block main
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -76,7 +76,7 @@ class Configs(FRRConfigs):
     !
     #%   endif
     #% endblock
-  """
+    """
 
 
 class TestBGPAsWideBGPIdentifier(TestBase, AutoFixture, topo=topology, configs=Configs):

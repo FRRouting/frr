@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2022 Nathan Mangar
 
@@ -42,7 +43,7 @@ class Configs(FRRConfigs):
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }} 
+     ip address {{ iface.ip4[0] }}
     !
     #%   endfor
     ip forwarding
@@ -51,7 +52,7 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-  #% block main
+    #% block main
     #%   if router.name == 'r1'
     router bgp 65001
      no bgp ebgp-requires-policy
@@ -87,8 +88,8 @@ class Configs(FRRConfigs):
      exit-address-family
     !
     #%   endif
-  #% endblock
-  """
+    #% endblock
+    """
 
 
 class BGPSetAspathReplace(TestBase, AutoFixture, topo=topology, configs=Configs):
