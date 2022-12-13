@@ -12,7 +12,7 @@ route-map aggr-rmap permit 10
 """
 
 __topotests_file__ = (
-    "bgp_aggregate_address_route_map/test_bgp_default-originate_route-map.py"
+    "bgp_aggregate_address_route_map/test_bgp_aggregate-address_route-map.py",
 )
 __topotests_gitrev__ = "4953ca977f3a5de8109ee6353ad07f816ca1774c"
 
