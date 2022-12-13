@@ -75,7 +75,6 @@ from lib.common_config import (
     socat_send_mld_join,
     socat_send_pim6_traffic,
     kill_socat,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -165,12 +164,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():

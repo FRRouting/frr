@@ -57,7 +57,6 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
-    topo_daemons,
     create_route_maps,
     shutdown_bringup_interface,
     create_interfaces_cfg,
@@ -139,12 +138,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
