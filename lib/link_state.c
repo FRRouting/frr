@@ -346,7 +346,7 @@ struct ls_prefix *ls_prefix_new(struct ls_node_id adv, struct prefix p)
 	if (adv.origin == UNKNOWN)
 		return NULL;
 
-	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_attributes));
+	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_prefix));
 	new->adv = adv;
 	new->pref = p;
 
