@@ -111,9 +111,9 @@ extern "C" {
 	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DETAILED)
 
 #define IS_ZEBRA_DEBUG_DPLANE_DPDK                                             \
-	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DPDK)
+	(zebra_debug_dplane_dpdk & ZEBRA_DEBUG_DPLANE_DPDK)
 #define IS_ZEBRA_DEBUG_DPLANE_DPDK_DETAIL                                      \
-	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
+	(zebra_debug_dplane_dpdk & ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
 
 #define IS_ZEBRA_DEBUG_MLAG (zebra_debug_mlag & ZEBRA_DEBUG_MLAG)
 
