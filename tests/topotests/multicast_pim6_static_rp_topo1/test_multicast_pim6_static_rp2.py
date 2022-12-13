@@ -247,6 +247,7 @@ def verify_state_incremented(state_before, state_after):
 #
 #####################################################
 
+
 def test_pim6_multiple_groups_same_RP_address_p2(request):
     """
     Configure multiple  groups (10 grps) with same RP address

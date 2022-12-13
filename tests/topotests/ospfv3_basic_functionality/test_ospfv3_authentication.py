@@ -93,6 +93,7 @@ TESTCASES =
 
  """
 
+
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -152,6 +153,7 @@ def teardown_module(mod):
 # ##################################
 # Test cases start here.
 # ##################################
+
 
 def test_ospf6_auth_trailer_tc1_md5(request):
     """
@@ -229,9 +231,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
         tc_name, ospf6_covergence
     )
 
-    step(
-        "Disable authentication on R2 "
-    )
+    step("Disable authentication on R2 ")
 
     r2_ospf6_auth = {
         "r2": {
@@ -241,7 +241,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
                         "hash-algo": "md5",
                         "key": "ospf6",
                         "key-id": "10",
-                        "del_action": True
+                        "del_action": True,
                     }
                 }
             }
@@ -397,9 +397,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
         tc_name, ospf6_covergence
     )
 
-    step(
-        "Disable authentication on R2 "
-    )
+    step("Disable authentication on R2 ")
 
     r2_ospf6_auth = {
         "r2": {
@@ -409,7 +407,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
                         "hash-algo": "hmac-sha-256",
                         "key": "ospf6",
                         "key-id": "10",
-                        "del_action": True
+                        "del_action": True,
                     }
                 }
             }
@@ -487,6 +485,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
     )
 
     write_test_footer(tc_name)
+
 
 def test_ospf6_auth_trailer_tc3_keychain_md5(request):
     """
@@ -579,21 +578,10 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
         tc_name, ospf6_covergence
     )
 
-    step(
-        "Disable authentication on R2 "
-    )
+    step("Disable authentication on R2 ")
 
     r2_ospf6_auth = {
-        "r2": {
-            "links": {
-                "r1": {
-                    "ospf6": {
-                        "keychain": "auth",
-                        "del_action": True
-                    }
-                }
-            }
-        }
+        "r2": {"links": {"r1": {"ospf6": {"keychain": "auth", "del_action": True}}}}
     }
     result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
@@ -665,6 +653,7 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
     )
 
     write_test_footer(tc_name)
+
 
 def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
     """
@@ -757,21 +746,10 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
         tc_name, ospf6_covergence
     )
 
-    step(
-        "Disable authentication on R2 "
-    )
+    step("Disable authentication on R2 ")
 
     r2_ospf6_auth = {
-        "r2": {
-            "links": {
-                "r1": {
-                    "ospf6": {
-                        "keychain": "auth",
-                        "del_action": True
-                    }
-                }
-            }
-        }
+        "r2": {"links": {"r1": {"ospf6": {"keychain": "auth", "del_action": True}}}}
     }
     result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
@@ -843,6 +821,7 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
     )
 
     write_test_footer(tc_name)
+
 
 def test_ospf6_auth_trailer_tc5_md5_keymissmatch(request):
     """
@@ -959,6 +938,7 @@ def test_ospf6_auth_trailer_tc5_md5_keymissmatch(request):
 
     write_test_footer(tc_name)
 
+
 def test_ospf6_auth_trailer_tc6_sha256_mismatch(request):
     """
     OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
@@ -1068,6 +1048,7 @@ def test_ospf6_auth_trailer_tc6_sha256_mismatch(request):
     )
 
     write_test_footer(tc_name)
+
 
 def test_ospf6_auth_trailer_tc7_keychain_md5_missmatch(request):
     """
@@ -1200,6 +1181,7 @@ def test_ospf6_auth_trailer_tc7_keychain_md5_missmatch(request):
 
     write_test_footer(tc_name)
 
+
 def test_ospf6_auth_trailer_tc8_keychain_sha256_missmatch(request):
     """
     OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
@@ -1331,6 +1313,7 @@ def test_ospf6_auth_trailer_tc8_keychain_sha256_missmatch(request):
 
     write_test_footer(tc_name)
 
+
 def test_ospf6_auth_trailer_tc9_keychain_not_configured(request):
     """
     OSPFv3 Neighborship without Authentication Trailer -
@@ -1408,6 +1391,7 @@ def test_ospf6_auth_trailer_tc9_keychain_not_configured(request):
 
     write_test_footer(tc_name)
 
+
 def test_ospf6_auth_trailer_tc10_no_auth_trailer(request):
     """
     OSPFv3 Neighborship without Authentication Trailer -
@@ -1436,6 +1420,7 @@ def test_ospf6_auth_trailer_tc10_no_auth_trailer(request):
     )
 
     write_test_footer(tc_name)
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

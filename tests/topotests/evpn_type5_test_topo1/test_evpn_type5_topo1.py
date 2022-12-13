@@ -71,7 +71,7 @@ from lib.common_config import (
     configure_brctl,
     create_interface_in_kernel,
     kill_router_daemons,
-    start_router_daemons
+    start_router_daemons,
 )
 
 from lib.topolog import logger
@@ -1765,34 +1765,41 @@ def test_evpn_address_family_with_graceful_restart_p0(request):
     for addr_type in ADDR_TYPES:
         input_dict_1 = {
             "r3": {
-                "static_routes": [{
-                    "network": NETWORK1_2[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED"
-                }]
+                "static_routes": [
+                    {
+                        "network": NETWORK1_2[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    }
+                ]
             },
-            "r4":{
-                "static_routes": [{
-                    "network": NETWORK1_3[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "BLUE"
-                },
-                {
-                    "network": NETWORK1_4[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "GREEN"
-                }]
-            }
+            "r4": {
+                "static_routes": [
+                    {
+                        "network": NETWORK1_3[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "BLUE",
+                    },
+                    {
+                        "network": NETWORK1_4[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "GREEN",
+                    },
+                ]
+            },
         }
 
         result = create_static_routes(tgen, input_dict_1)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("Redistribute static in (IPv4 and IPv6) address-family "
-        "on Edge-1 for all VRFs.")
+    step(
+        "Redistribute static in (IPv4 and IPv6) address-family "
+        "on Edge-1 for all VRFs."
+    )
 
-    input_dict_2={}
+    input_dict_2 = {}
     for dut in ["r3", "r4"]:
         temp = {dut: {"bgp": []}}
         input_dict_2.update(temp)
@@ -1811,108 +1818,116 @@ def test_evpn_address_family_with_graceful_restart_p0(request):
                     "vrf": vrf,
                     "address_family": {
                         "ipv4": {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         },
                         "ipv6": {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
-                        }
-                    }
-                })
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
+                        },
+                    },
+                }
+            )
 
     result = create_router_bgp(tgen, topo, input_dict_2)
-    assert result is True, "Testcase {} :Failed \n Error: {}". \
-        format(tc_name, result)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify on router Edge-1 that EVPN routes corresponding to "
-        "all VRFs are received from both routers DCG-1 and DCG-2")
+    step(
+        "Verify on router Edge-1 that EVPN routes corresponding to "
+        "all VRFs are received from both routers DCG-1 and DCG-2"
+    )
 
     for addr_type in ADDR_TYPES:
         input_routes = {
             "r3": {
-                "static_routes": [{
-                    "network": NETWORK1_2[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "RED"
-                }]
+                "static_routes": [
+                    {
+                        "network": NETWORK1_2[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "RED",
+                    }
+                ]
             },
-            "r4":{
-                "static_routes": [{
-                    "network": NETWORK1_3[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "BLUE"
-                },
-                {
-                    "network": NETWORK1_4[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "GREEN"
-                }]
-            }
+            "r4": {
+                "static_routes": [
+                    {
+                        "network": NETWORK1_3[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "BLUE",
+                    },
+                    {
+                        "network": NETWORK1_4[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "GREEN",
+                    },
+                ]
+            },
         }
 
         result = verify_rib(tgen, addr_type, "e1", input_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("Configure DCG-2 as GR restarting node for EVPN session between"
+    step(
+        "Configure DCG-2 as GR restarting node for EVPN session between"
         " DCG-2 and EDGE-1, following by a session reset using 'clear bgp *'"
-        " command.")
+        " command."
+    )
 
     input_dict_gr = {
         "d2": {
-            "bgp":
-            [
+            "bgp": [
                 {
                     "local_as": "200",
                     "graceful-restart": {
                         "graceful-restart": True,
-                    }
+                    },
                 }
             ]
         }
     }
 
     result = create_router_bgp(tgen, topo, input_dict_gr)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that DCG-2 changes it's role to GR-restarting router "
-        "and EDGE-1 becomes the GR-helper.")
+    step(
+        "Verify that DCG-2 changes it's role to GR-restarting router "
+        "and EDGE-1 becomes the GR-helper."
+    )
 
     step("Kill BGPd daemon on DCG-2.")
     kill_router_daemons(tgen, "d2", ["bgpd"])
 
-    step("Verify that EDGE-1 keep stale entries for EVPN RT-5 routes "
-        "received from DCG-2 before the restart.")
+    step(
+        "Verify that EDGE-1 keep stale entries for EVPN RT-5 routes "
+        "received from DCG-2 before the restart."
+    )
 
     for addr_type in ADDR_TYPES:
         input_routes = {
-            "r4":{
-                "static_routes": [{
-                    "network": NETWORK1_3[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "BLUE"
-                },
-                {
-                    "network": NETWORK1_4[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "GREEN"
-                }]
+            "r4": {
+                "static_routes": [
+                    {
+                        "network": NETWORK1_3[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "BLUE",
+                    },
+                    {
+                        "network": NETWORK1_4[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "GREEN",
+                    },
+                ]
             }
         }
         result = verify_evpn_routes(tgen, topo, "e1", input_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("Verify that DCG-2 keeps BGP routes in Zebra until BGPd "
-        "comes up or end of 'rib-stale-time'")
+    step(
+        "Verify that DCG-2 keeps BGP routes in Zebra until BGPd "
+        "comes up or end of 'rib-stale-time'"
+    )
 
     step("Start BGPd daemon on DCG-2.")
     start_router_daemons(tgen, "d2", ["bgpd"])
@@ -1920,44 +1935,52 @@ def test_evpn_address_family_with_graceful_restart_p0(request):
     step("Verify that EDGE-1 removed all the stale entries.")
     for addr_type in ADDR_TYPES:
         input_routes = {
-            "r4":{
-                "static_routes": [{
-                    "network": NETWORK1_3[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "BLUE"
-                },
-                {
-                    "network": NETWORK1_4[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "GREEN"
-                }]
+            "r4": {
+                "static_routes": [
+                    {
+                        "network": NETWORK1_3[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "BLUE",
+                    },
+                    {
+                        "network": NETWORK1_4[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "GREEN",
+                    },
+                ]
             }
         }
         result = verify_evpn_routes(tgen, topo, "e1", input_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("Verify that DCG-2 refresh zebra with EVPN routes. "
-        "(no significance of 'rib-stale-time'")
+    step(
+        "Verify that DCG-2 refresh zebra with EVPN routes. "
+        "(no significance of 'rib-stale-time'"
+    )
 
     for addr_type in ADDR_TYPES:
         input_routes = {
-            "r4":{
-                "static_routes": [{
-                    "network": NETWORK1_3[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "BLUE"
-                },
-                {
-                    "network": NETWORK1_4[addr_type],
-                    "next_hop": NEXT_HOP_IP[addr_type],
-                    "vrf": "GREEN"
-                }]
+            "r4": {
+                "static_routes": [
+                    {
+                        "network": NETWORK1_3[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "BLUE",
+                    },
+                    {
+                        "network": NETWORK1_4[addr_type],
+                        "next_hop": NEXT_HOP_IP[addr_type],
+                        "vrf": "GREEN",
+                    },
+                ]
             }
         }
         result = verify_rib(tgen, addr_type, "d2", input_routes)
-        assert result is True, "Testcase {} :Failed \n Error: {}". \
-            format(tc_name, result)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
