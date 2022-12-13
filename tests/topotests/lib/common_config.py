@@ -961,7 +961,7 @@ def generate_support_bundle():
     return True
 
 
-def start_topology(tgen, daemon=None):
+def start_topology(tgen):
     """
     Starting topology, create tmp files which are loaded to routers
     to start daemons and then start routers
