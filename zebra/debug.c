@@ -341,7 +341,7 @@ DEFPY(debug_zebra_dplane_dpdk, debug_zebra_dplane_dpdk_cmd,
 		SET_FLAG(zebra_debug_dplane_dpdk, ZEBRA_DEBUG_DPLANE_DPDK);
 
 		if (detail)
-			SET_FLAG(zebra_debug_dplane,
+			SET_FLAG(zebra_debug_dplane_dpdk,
 				 ZEBRA_DEBUG_DPLANE_DPDK_DETAIL);
 	}
 
@@ -740,10 +740,12 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
-	if (CHECK_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)) {
+	if (CHECK_FLAG(zebra_debug_dplane_dpdk,
+		       ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)) {
 		vty_out(vty, "debug zebra dplane dpdk detailed\n");
 		write++;
-	} else if (CHECK_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE_DPDK)) {
+	} else if (CHECK_FLAG(zebra_debug_dplane_dpdk,
+			      ZEBRA_DEBUG_DPLANE_DPDK)) {
 		vty_out(vty, "debug zebra dplane dpdk\n");
 		write++;
 	}
