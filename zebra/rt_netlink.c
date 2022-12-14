@@ -692,8 +692,9 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 }
 
 /* Looking up routing table by netlink interface. */
-static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
-					     int startup)
+int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
+					       ns_id_t ns_id, int startup,
+					       struct zebra_dplane_ctx *ctx)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -768,9 +769,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 	selfroute = is_selfroute(rtm->rtm_protocol);
 
-	if (!startup && selfroute
-	    && h->nlmsg_type == RTM_NEWROUTE
-	    && !zrouter.asic_offloaded) {
+	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE &&
+	    !zrouter.asic_offloaded && !ctx) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
 				   rtm->rtm_protocol);
@@ -988,8 +988,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			}
 		}
 		if (nhe_id || ng)
-			rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p, re, ng,
-					  startup);
+			dplane_rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p,
+						 re, ng, startup, ctx);
 		else {
 			/*
 			 * I really don't see how this is possible
@@ -1004,6 +1004,13 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			XFREE(MTYPE_RE, re);
 		}
 	} else {
+		if (ctx) {
+			zlog_err(
+				"%s: %pFX RTM_DELROUTE received but received a context as well",
+				__func__, &p);
+			return 0;
+		}
+
 		if (nhe_id) {
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
 				   &p, &src_p, NULL, nhe_id, table, metric,
@@ -1028,7 +1035,14 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		}
 	}
 
-	return 0;
+	return 1;
+}
+
+static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
+					     int startup)
+{
+	return netlink_route_change_read_unicast_internal(h, ns_id, startup,
+							  NULL);
 }
 
 static struct mcast_route_data *mroute = NULL;

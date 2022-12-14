@@ -135,6 +135,8 @@ struct dplane_route_info {
 	uint32_t zd_mtu;
 	uint32_t zd_nexthop_mtu;
 
+	uint32_t zd_flags;
+
 	/* Nexthop hash entry info */
 	struct dplane_nexthop_info nhe;
 
@@ -1428,6 +1430,20 @@ uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_old_instance;
+}
+
+uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.zd_flags;
+}
+
+void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_flags = flags;
 }
 
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx)
@@ -2766,25 +2782,16 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 	return AOK;
 }
 
-/*
- * Initialize a context block for a route update from zebra data structs.
- */
-int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
-			  struct route_node *rn, struct route_entry *re)
+int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
+				enum dplane_op_e op, struct route_entry *re,
+				const struct prefix *p,
+				const struct prefix_ipv6 *src_p, afi_t afi,
+				safi_t safi)
 {
 	int ret = EINVAL;
-	const struct route_table *table = NULL;
-	const struct rib_table_info *info;
-	const struct prefix *p, *src_p;
-	struct zebra_ns *zns;
-	struct zebra_vrf *zvrf;
-	struct nexthop *nexthop;
-	struct zebra_l3vni *zl3vni;
-	const struct interface *ifp;
-	struct dplane_intf_extra *if_extra;
 
-	if (!ctx || !rn || !re)
-		goto done;
+	if (!ctx || !re)
+		return ret;
 
 	TAILQ_INIT(&ctx->u.rinfo.intf_extra_q);
 
@@ -2793,9 +2800,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	ctx->u.rinfo.zd_type = re->type;
 	ctx->u.rinfo.zd_old_type = re->type;
-
-	/* Prefixes: dest, and optional source */
-	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	prefix_copy(&(ctx->u.rinfo.zd_dest), p);
 
@@ -2806,6 +2810,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	ctx->zd_table_id = re->table;
 
+	ctx->u.rinfo.zd_flags = re->flags;
 	ctx->u.rinfo.zd_metric = re->metric;
 	ctx->u.rinfo.zd_old_metric = re->metric;
 	ctx->zd_vrf_id = re->vrf_id;
@@ -2816,11 +2821,46 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	ctx->u.rinfo.zd_old_tag = re->tag;
 	ctx->u.rinfo.zd_distance = re->distance;
 
+	ctx->u.rinfo.zd_afi = afi;
+	ctx->u.rinfo.zd_safi = safi;
+
+	return AOK;
+}
+
+/*
+ * Initialize a context block for a route update from zebra data structs.
+ */
+int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			  struct route_node *rn, struct route_entry *re)
+{
+	int ret = EINVAL;
+	const struct route_table *table = NULL;
+	const struct rib_table_info *info;
+	const struct prefix *p;
+	const struct prefix_ipv6 *src_p;
+	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf;
+	struct nexthop *nexthop;
+	struct zebra_l3vni *zl3vni;
+	const struct interface *ifp;
+	struct dplane_intf_extra *if_extra;
+
+	if (!ctx || !rn || !re)
+		return ret;
+
+	/*
+	 * Let's grab the data from the route_node
+	 * so that we can call a helper function
+	 */
+
+	/* Prefixes: dest, and optional source */
+	srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
 	table = srcdest_rnode_table(rn);
 	info = table->info;
 
-	ctx->u.rinfo.zd_afi = info->afi;
-	ctx->u.rinfo.zd_safi = info->safi;
+	if (dplane_ctx_route_init_basic(ctx, op, re, p, src_p, info->afi,
+					info->safi) != AOK)
+		return ret;
 
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop),
@@ -2875,8 +2915,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	/* Don't need some info when capturing a system notification */
 	if (op == DPLANE_OP_SYS_ROUTE_ADD ||
 	    op == DPLANE_OP_SYS_ROUTE_DELETE) {
-		ret = AOK;
-		goto done;
+		return AOK;
 	}
 
 	/* Extract ns info - can't use pointers to 'core' structs */
@@ -2897,14 +2936,12 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		 * If its a delete we only use the prefix anyway, so this only
 		 * matters for INSTALL/UPDATE.
 		 */
-		if (zebra_nhg_kernel_nexthops_enabled()
-		    && (((op == DPLANE_OP_ROUTE_INSTALL)
-			 || (op == DPLANE_OP_ROUTE_UPDATE))
-			&& !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
-			&& !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))) {
-			ret = ENOENT;
-			goto done;
-		}
+		if (zebra_nhg_kernel_nexthops_enabled() &&
+		    (((op == DPLANE_OP_ROUTE_INSTALL) ||
+		      (op == DPLANE_OP_ROUTE_UPDATE)) &&
+		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)))
+			return ENOENT;
 
 		re->nhe_installed_id = nhe->id;
 	}
@@ -2916,10 +2953,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	re->dplane_sequence = zebra_router_get_next_sequence();
 	ctx->zd_seq = re->dplane_sequence;
 
-	ret = AOK;
-
-done:
-	return ret;
+	return AOK;
 }
 
 static int dplane_ctx_tc_qdisc_init(struct zebra_dplane_ctx *ctx,
@@ -3031,7 +3065,7 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	int ret = EINVAL;
 
 	if (!ctx || !nhe)
-		goto done;
+		return ret;
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -3066,7 +3100,6 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	ret = AOK;
 
-done:
 	return ret;
 }
 
@@ -3088,7 +3121,7 @@ int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	bool set_pdown, unset_pdown;
 
 	if (!ctx || !ifp)
-		goto done;
+		return ret;
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -3133,7 +3166,6 @@ int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	ret = AOK;
 
-done:
 	return ret;
 }
 
@@ -3161,10 +3193,8 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	/* This may be called to create/init a dplane context, not necessarily
 	 * to copy an lsp object.
 	 */
-	if (lsp == NULL) {
-		ret = AOK;
-		goto done;
-	}
+	if (lsp == NULL)
+		return ret;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: in-label %u ecmp# %d",
@@ -3207,7 +3237,7 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	}
 
 	if (ret != AOK)
-		goto done;
+		return ret;
 
 	/* Capture backup nhlfes/nexthops */
 	frr_each(nhlfe_list, &lsp->backup_nhlfe_list, nhlfe) {
@@ -3227,11 +3257,6 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		new_nhlfe->flags = nhlfe->flags;
 		new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
 	}
-
-	/* On error the ctx will be cleaned-up, so we don't need to
-	 * deal with any allocated nhlfe or nexthop structs here.
-	 */
-done:
 
 	return ret;
 }
@@ -3293,11 +3318,11 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	afi = (pw->af == AF_INET) ? AFI_IP : AFI_IP6;
 	table = zebra_vrf_table(afi, SAFI_UNICAST, pw->vrf_id);
 	if (table == NULL)
-		goto done;
+		return ret;
 
 	rn = route_node_match(table, &p);
 	if (rn == NULL)
-		goto done;
+		return ret;
 
 	re = NULL;
 	RNODE_FOREACH_RE(rn, re) {
@@ -3365,10 +3390,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	}
 	route_unlock_node(rn);
 
-	ret = AOK;
-
-done:
-	return ret;
+	return AOK;
 }
 
 /**
@@ -3943,12 +3965,11 @@ enum zebra_dplane_result dplane_route_add(struct route_node *rn,
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	if (rn == NULL || re == NULL)
-		goto done;
+		return ret;
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_ROUTE_INSTALL);
 
-done:
 	return ret;
 }
 
@@ -3962,11 +3983,11 @@ enum zebra_dplane_result dplane_route_update(struct route_node *rn,
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	if (rn == NULL || re == NULL)
-		goto done;
+		return ret;
 
 	ret = dplane_route_update_internal(rn, re, old_re,
 					   DPLANE_OP_ROUTE_UPDATE);
-done:
+
 	return ret;
 }
 
@@ -3979,12 +4000,11 @@ enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	if (rn == NULL || re == NULL)
-		goto done;
+		return ret;
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_ROUTE_DELETE);
 
-done:
 	return ret;
 }
 
@@ -3997,18 +4017,16 @@ enum zebra_dplane_result dplane_sys_route_add(struct route_node *rn,
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	/* Ignore this event unless a provider plugin has requested it. */
-	if (!zdplane_info.dg_sys_route_notifs) {
-		ret = ZEBRA_DPLANE_REQUEST_SUCCESS;
-		goto done;
-	}
+	if (!zdplane_info.dg_sys_route_notifs)
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
+
 
 	if (rn == NULL || re == NULL)
-		goto done;
+		return ret;
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_SYS_ROUTE_ADD);
 
-done:
 	return ret;
 }
 
@@ -4021,18 +4039,15 @@ enum zebra_dplane_result dplane_sys_route_del(struct route_node *rn,
 	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	/* Ignore this event unless a provider plugin has requested it. */
-	if (!zdplane_info.dg_sys_route_notifs) {
-		ret = ZEBRA_DPLANE_REQUEST_SUCCESS;
-		goto done;
-	}
+	if (!zdplane_info.dg_sys_route_notifs)
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	if (rn == NULL || re == NULL)
-		goto done;
+		return ret;
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_SYS_ROUTE_DELETE);
 
-done:
 	return ret;
 }
 
@@ -6287,6 +6302,20 @@ kernel_dplane_process_ipset_entry(struct zebra_dplane_provider *prov,
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
+void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			      struct prefix_ipv6 *src_p, struct route_entry *re,
+			      struct nexthop_group *ng, int startup,
+			      struct zebra_dplane_ctx *ctx)
+{
+	if (!ctx)
+		rib_add_multipath(afi, safi, p, src_p, re, ng, startup);
+	else {
+		dplane_ctx_route_init_basic(ctx, dplane_ctx_get_op(ctx), re, p,
+					    src_p, afi, safi);
+		dplane_provider_enqueue_to_zebra(ctx);
+	}
+}
+
 /*
  * Kernel provider callback
  */
@@ -6463,7 +6492,7 @@ int dplane_clean_ctx_queue(bool (*context_cb)(struct zebra_dplane_ctx *ctx,
 	TAILQ_INIT(&work_list);
 
 	if (context_cb == NULL)
-		goto done;
+		return AOK;
 
 	/* Walk the pending context queue under the dplane lock. */
 	DPLANE_LOCK();
@@ -6487,9 +6516,7 @@ int dplane_clean_ctx_queue(bool (*context_cb)(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_fini(&ctx);
 	}
 
-done:
-
-	return 0;
+	return AOK;
 }
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
@@ -6553,10 +6580,8 @@ static bool dplane_work_pending(void)
 	}
 	DPLANE_UNLOCK();
 
-	if (ctx != NULL) {
-		ret = true;
-		goto done;
-	}
+	if (ctx != NULL)
+		return true;
 
 	while (prov) {
 
@@ -6579,7 +6604,6 @@ static bool dplane_work_pending(void)
 	if (ctx != NULL)
 		ret = true;
 
-done:
 	return ret;
 }
 

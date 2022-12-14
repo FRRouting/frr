@@ -122,6 +122,10 @@ netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 extern enum netlink_msg_status
 netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
+					       ns_id_t ns_id, int startup,
+					       struct zebra_dplane_ctx *ctx);
+
 #ifdef NETLINK_DEBUG
 const char *nlmsg_type2str(uint16_t type);
 const char *af_type2str(int type);

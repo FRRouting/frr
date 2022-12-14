@@ -380,6 +380,8 @@ route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_instance(struct zebra_dplane_ctx *ctx, uint16_t instance);
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
@@ -908,6 +910,12 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset);
 int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			  struct route_node *rn, struct route_entry *re);
 
+int dplane_ctx_route_init_basic(struct zebra_dplane_ctx *ctx,
+				enum dplane_op_e op, struct route_entry *re,
+				const struct prefix *p,
+				const struct prefix_ipv6 *src_p, afi_t afi,
+				safi_t safi);
+
 /* Encode next hop information into data plane context. */
 int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			    struct nhg_hash_entry *nhe);
@@ -1072,6 +1080,16 @@ void zebra_dplane_start(void);
 void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
+
+/*
+ * decision point for sending a routing update through the old
+ * straight to zebra master pthread or through the dplane to
+ * the master pthread for handling
+ */
+void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			      struct prefix_ipv6 *src_p, struct route_entry *re,
+			      struct nexthop_group *ng, int startup,
+			      struct zebra_dplane_ctx *ctx);
 
 #ifdef __cplusplus
 }

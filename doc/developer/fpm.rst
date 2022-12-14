@@ -101,3 +101,19 @@ Data
 ^^^^
 
 The netlink or protobuf message payload.
+
+
+Route Status Notification from ASIC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The dplane_fpm_nl has the ability to read route netlink messages
+from the underlying fpm implementation that can tell zebra
+whether or not the route has been Offloaded/Failed or Trapped.
+The end developer must send the data up the same socket that has
+been created to listen for FPM messages from Zebra.  The data sent
+must have a Frame Header with Version set to 1, Message Type set to 1
+and an appropriate message Length.  The message data must contain
+a RTM_NEWROUTE netlink message that sends the prefix and nexthops
+associated with the route.  Finally rtm_flags must contain
+RTM_F_OFFLOAD, RTM_F_TRAP and or RTM_F_OFFLOAD_FAILED to signify
+what has happened to the route in the ASIC.
