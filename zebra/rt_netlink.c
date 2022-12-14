@@ -987,10 +987,12 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 				}
 			}
 		}
-		if (nhe_id || ng)
+		if (nhe_id || ng) {
 			dplane_rib_add_multipath(afi, SAFI_UNICAST, &p, &src_p,
 						 re, ng, startup, ctx);
-		else {
+			if (ng)
+				nexthop_group_delete(&ng);
+		} else {
 			/*
 			 * I really don't see how this is possible
 			 * but since we are testing for it let's
