@@ -114,6 +114,17 @@ const struct message bgp_status_msg[] = {{Idle, "Idle"},
 					 {Deleted, "Deleted"},
 					 {0}};
 
+const struct message bgp_status_msg_color[] = {
+	{Idle, VT_WARN "Idle" VT_END},
+	{Connect, "Connect"},
+	{Active, VT_ERR "Active" VT_END},
+	{OpenSent, "OpenSent"},
+	{OpenConfirm, "OpenConfirm"},
+	{Established, VT_GOOD "Established" VT_END},
+	{Clearing, "Clearing"},
+	{Deleted, "Deleted"},
+	{0}};
+
 /* BGP message type string. */
 const char *const bgp_type_str[] = {NULL,	   "OPEN",      "UPDATE",
 			      "NOTIFICATION", "KEEPALIVE", "ROUTE-REFRESH",

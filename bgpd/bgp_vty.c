@@ -13205,7 +13205,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* Status. */
 		vty_out(vty, "  BGP state = %s",
-			lookup_msg(bgp_status_msg, p->status, NULL));
+			lookup_msg(bgp_status_msg_color, p->status, NULL));
 
 		if (peer_established(p))
 			vty_out(vty, ", up for %8s",

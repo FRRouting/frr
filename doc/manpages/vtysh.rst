@@ -76,6 +76,9 @@ VTYSH_HISTFILE
    Override the history file for vtysh commands. Logging can be turned off using ``VTYSH_HISTFILE=/dev/null vtysh``.
    Environment is preferred way to override the history file path over command line argument (-H/--histfile).
 
+VTYSH_COLOR
+   If the variable is set, then vtysh color highlighting is used
+
 FILES
 =====
 |INSTALL_PREFIX_SBIN|/vtysh

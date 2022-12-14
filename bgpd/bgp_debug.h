@@ -180,6 +180,7 @@ extern void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 			     const char *direct, bool hard_reset);
 
 extern const struct message bgp_status_msg[];
+extern const struct message bgp_status_msg_color[];
 extern bool bgp_debug_neighbor_events(const struct peer *peer);
 extern bool bgp_debug_keepalive(const struct peer *peer);
 extern bool bgp_debug_update(const struct peer *peer, const struct prefix *p,

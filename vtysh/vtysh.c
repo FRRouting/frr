@@ -4417,6 +4417,8 @@ void vtysh_init_vty(void)
 	vty = vty_new();
 	vty->type = VTY_SHELL;
 	vty->node = VIEW_NODE;
+	if (getenv("VTYSH_COLOR"))
+		vty->color = true;
 
 	/* set default output */
 	vty->of = stdout;
