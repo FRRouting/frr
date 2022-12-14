@@ -3743,7 +3743,6 @@ static void rib_queue_init(void)
 
 	/* fill in the work queue spec */
 	zrouter.ribq->spec.workfunc = &meta_queue_process;
-	zrouter.ribq->spec.errorfunc = NULL;
 	zrouter.ribq->spec.completion_func = NULL;
 	/* XXX: TODO: These should be runtime configurable via vty */
 	zrouter.ribq->spec.max_retries = 3;
