@@ -166,8 +166,8 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name)
 {
 	if (PIM_DEBUG_MROUTE) {
-		pim_sgaddr sg = {.src = *oil_mcastgrp(c_oil),
-				 .grp = *oil_origin(c_oil)};
+		pim_sgaddr sg = {.src = *oil_origin(c_oil),
+				 .grp = *oil_mcastgrp(c_oil)};
 
 		zlog_debug(
 			"%s(%s): Del oil for %pSG, Ref Count: %d (Predecrement)",
