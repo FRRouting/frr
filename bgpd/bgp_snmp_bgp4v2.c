@@ -440,11 +440,11 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	sockunion_init(&su);
 
 	if (exact) {
-		if (*length - v->namelen != BGP_NLRI_ENTRY_OFFSET)
+		if (*length - namelen != BGP_NLRI_ENTRY_OFFSET)
 			return NULL;
 
 		/* Set OID offset for prefix */
-		offset = name + v->namelen;
+		offset = name + namelen;
 		if (family == AF_INET)
 			oid2in_addr(offset, afi_len, &addr->u.prefix4);
 		else
@@ -477,8 +477,8 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		return NULL;
 	}
 
-	offset = name + v->namelen;
-	offsetlen = *length - v->namelen;
+	offset = name + namelen;
+	offsetlen = *length - namelen;
 	len = offsetlen;
 
 	if (offsetlen == 0) {
@@ -560,9 +560,9 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		if (min) {
 			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
 
-			*length = v->namelen + BGP_NLRI_ENTRY_OFFSET;
+			*length = namelen + BGP_NLRI_ENTRY_OFFSET;
 
-			offset = name + v->namelen;
+			offset = name + namelen;
 
 			if (family == AF_INET)
 				oid_copy_in_addr(offset, &rn_p->u.prefix4);
