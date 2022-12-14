@@ -1754,7 +1754,6 @@ static void mpls_processq_init(void)
 
 	zrouter.lsp_process_q->spec.workfunc = &lsp_process;
 	zrouter.lsp_process_q->spec.del_item_data = &lsp_processq_del;
-	zrouter.lsp_process_q->spec.errorfunc = NULL;
 	zrouter.lsp_process_q->spec.completion_func = &lsp_processq_complete;
 	zrouter.lsp_process_q->spec.max_retries = 0;
 	zrouter.lsp_process_q->spec.hold = 10;
