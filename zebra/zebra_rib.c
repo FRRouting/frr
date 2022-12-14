@@ -3681,14 +3681,14 @@ static void rib_meta_queue_free(struct meta_queue *mq, struct list *l,
 static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 					struct zebra_vrf *zvrf)
 {
-	struct zebra_early_route *zer;
+	struct zebra_early_route *ere;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(l, node, nnode, zer)) {
-		if (zvrf && zer->re->vrf_id != zvrf->vrf->vrf_id)
+	for (ALL_LIST_ELEMENTS(l, node, nnode, ere)) {
+		if (zvrf && ere->re->vrf_id != zvrf->vrf->vrf_id)
 			continue;
 
-		XFREE(MTYPE_RE, zer);
+		early_route_memory_free(ere);
 		node->data = NULL;
 		list_delete_node(l, node);
 		mq->size--;
