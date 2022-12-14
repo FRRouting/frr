@@ -335,18 +335,12 @@ static int gm_config_write(struct vty *vty, int writes,
 		struct listnode *node;
 		struct gm_join *ij;
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<grp?>", ij->group_addr, group_str,
-				       sizeof(group_str));
-			if (ij->source_addr.s_addr == INADDR_ANY) {
-				vty_out(vty, " ip igmp join %s\n", group_str);
-			} else {
-				inet_ntop(AF_INET, &ij->source_addr, source_str,
-					  sizeof(source_str));
-				vty_out(vty, " ip igmp join %s %s\n", group_str,
-					source_str);
-			}
+			if (pim_addr_is_any(ij->source_addr))
+				vty_out(vty, " ip igmp join %pPAs\n",
+					&ij->group_addr);
+			else
+				vty_out(vty, " ip igmp join %pPAs %pPAs\n",
+					&ij->group_addr, &ij->source_addr);
 			++writes;
 		}
 	}
@@ -387,6 +381,21 @@ static int gm_config_write(struct vty *vty, int writes,
 	    GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC)
 		vty_out(vty, " ipv6 mld last-member-query-interval %d\n",
 			pim_ifp->gm_specific_query_max_response_time_dsec);
+
+	/* IF ipv6 mld join */
+	if (pim_ifp->gm_join_list) {
+		struct listnode *node;
+		struct gm_join *ij;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (pim_addr_is_any(ij->source_addr))
+				vty_out(vty, " ipv6 mld join %pPAs\n",
+					&ij->group_addr);
+			else
+				vty_out(vty, " ipv6 mld join %pPAs %pPAs\n",
+					&ij->group_addr, &ij->source_addr);
+			++writes;
+		}
+	}
 
 	return writes;
 }
