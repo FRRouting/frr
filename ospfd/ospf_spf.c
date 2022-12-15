@@ -1956,9 +1956,10 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	rt_time = monotime_since(&start_time, NULL);
 
 	/* Free old all routers routing table */
-	if (ospf->oall_rtrs)
-		/* ospf_route_delete (ospf->old_rtrs); */
+	if (ospf->oall_rtrs) {
 		ospf_rtrs_free(ospf->oall_rtrs);
+		ospf->oall_rtrs = NULL;
+	}
 
 	/* Update all routers routing table */
 	ospf->oall_rtrs = ospf->all_rtrs;
@@ -1967,9 +1968,10 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 	ospf_apiserver_notify_reachable(ospf->oall_rtrs, ospf->all_rtrs);
 #endif
 	/* Free old ABR/ASBR routing table */
-	if (ospf->old_rtrs)
-		/* ospf_route_delete (ospf->old_rtrs); */
+	if (ospf->old_rtrs) {
 		ospf_rtrs_free(ospf->old_rtrs);
+		ospf->old_rtrs = NULL;
+	}
 
 	/* Update ABR/ASBR routing table */
 	ospf->old_rtrs = ospf->new_rtrs;
