@@ -140,6 +140,12 @@ struct nexthop {
 		vni_t vni;
 	} nh_encap;
 
+	/* EVPN router's MAC.
+	 * Don't support multiple RMAC from the same VTEP yet, so it's not
+	 * included in hash key.
+	 */
+	struct ethaddr rmac;
+
 	/* SR-TE color used for matching SR-TE policies */
 	uint32_t srte_color;
 
