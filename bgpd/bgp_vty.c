@@ -10834,6 +10834,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	bool show_established =
 		CHECK_FLAG(show_flags, BGP_SHOW_OPT_ESTABLISHED);
 	bool show_wide = CHECK_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+	bool show_status = CHECK_FLAG(show_flags, BGP_SHOW_OPT_STATUS);
 	bool show_terse = CHECK_FLAG(show_flags, BGP_SHOW_OPT_TERSE);
 
 	/* labeled-unicast routes are installed in the unicast table so in order
@@ -11358,8 +11359,12 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						max_neighbor_width - 8, " ");
 					vty_out(vty,
 						show_wide
-							? BGP_SHOW_SUMMARY_HEADER_ALL_WIDE
-							: BGP_SHOW_SUMMARY_HEADER_ALL);
+							? (show_status
+								   ? BGP_SHOW_SUMMARY_HEADER_ALL_WIDE_STATUS
+								   : BGP_SHOW_SUMMARY_HEADER_ALL_WIDE)
+							: (show_status
+								   ? BGP_SHOW_SUMMARY_HEADER_ALL_STATUS
+								   : BGP_SHOW_SUMMARY_HEADER_ALL));
 				}
 
 				memset(dn_flag, '\0', sizeof(dn_flag));
@@ -11470,6 +11475,13 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 					vty_out(vty, " %8u", 0);
 				}
+
+				/* Output `Status` column */
+				if (show_status)
+					vty_out(vty, " %12s",
+						lookup_msg(bgp_status_msg,
+							   peer->status, NULL));
+
 				/* Make sure `Desc` column is the lastest in
 				 * the output.
 				 */
@@ -11709,7 +11721,7 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
       " [" BGP_SAFI_WITH_LABEL_CMD_STR
-      "]] [all$all] summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [terse] [wide] [json$uj]",
+      "]] [all$all] summary [established|failed] [<neighbor <A.B.C.D|X:X::X:X|WORD>|remote-as <(1-4294967295)|internal|external>>] [terse] [wide] [status] [json$uj]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
@@ -11725,7 +11737,8 @@ DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
       "Internal (iBGP) AS sessions\n"
       "External (eBGP) AS sessions\n"
       "Shorten the information on BGP instances\n"
-      "Increase table width for longer output\n" JSON_STR)
+      "Increase table width for longer output\n"
+      "Show `Status` column\n" JSON_STR)
 {
 	char *vrf = NULL;
 	afi_t afi = AFI_MAX;
@@ -11772,6 +11785,9 @@ DEFPY(show_ip_bgp_summary, show_ip_bgp_summary_cmd,
 
 	if (argv_find(argv, argc, "wide", &idx))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+
+	if (argv_find(argv, argc, "status", &idx))
+		SET_FLAG(show_flags, BGP_SHOW_OPT_STATUS);
 
 	if (argv_find(argv, argc, "json", &idx))
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);

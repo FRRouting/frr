@@ -54,6 +54,10 @@ struct bgp;
 	"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_ALL_WIDE                                       \
 	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
+#define BGP_SHOW_SUMMARY_HEADER_ALL_STATUS                                     \
+	"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt       Status Desc\n"
+#define BGP_SHOW_SUMMARY_HEADER_ALL_WIDE_STATUS                                \
+	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt       Status Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
 
 #define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json)                              \

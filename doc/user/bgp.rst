@@ -4120,7 +4120,7 @@ Some other commands provide additional options for filtering the output.
    This command displays BGP routes using AS path regular expression
    (:ref:`bgp-regular-expressions`).
 
-.. clicmd:: show [ip] bgp [all] summary [wide] [json]
+.. clicmd:: show [ip] bgp [all] summary [wide] [status] [json]
 
    Show a bgp peer summary for the specified address family.
 
@@ -4131,6 +4131,9 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
 ``wide`` option gives more output like ``LocalAS`` and extended ``Desc`` to
 64 characters.
+
+``status`` option show column `Status`.
+
 
    .. code-block:: frr
 
