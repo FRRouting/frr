@@ -421,7 +421,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 {
 	oid *offset;
 	int offsetlen;
-	struct bgp_path_info *path;
+	struct bgp_path_info *path, *min;
 	struct bgp_dest *dest;
 	union sockunion su;
 	unsigned int len;
@@ -501,6 +501,8 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 		else
 			addr->prefixlen = len * 8;
 
+		addr->family = family;
+
 		dest = bgp_node_get(bgp->rib[afi][SAFI_UNICAST], addr);
 
 		offset++;
@@ -526,8 +528,8 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 	if (!dest)
 		return NULL;
 
-	while ((dest = bgp_route_next(dest))) {
-		struct bgp_path_info *min = NULL;
+	do {
+		min = NULL;
 
 		for (path = bgp_dest_get_bgp_path_info(dest); path;
 		     path = path->next) {
@@ -565,6 +567,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 
 			offset = name + namelen;
 
+			/* Encode prefix into OID */
 			if (family == AF_INET)
 				oid_copy_in_addr(offset, &rn_p->u.prefix4);
 			else
@@ -574,6 +577,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			*offset = rn_p->prefixlen;
 			offset++;
 
+			/* Encode peer's IP into OID */
 			if (family == AF_INET) {
 				oid_copy_in_addr(offset,
 						 &min->peer->su.sin.sin_addr);
@@ -585,6 +589,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			}
 
 			addr->prefixlen = rn_p->prefixlen;
+			addr->family = rn_p->family;
 
 			bgp_dest_unlock_node(dest);
 
@@ -595,7 +600,7 @@ bgp4v2PathAttrLookup(struct variable *v, oid name[], size_t *length,
 			memset(&paddr.ip._v4_addr, 0, afi_len);
 		else
 			memset(&paddr.ip._v6_addr, 0, afi_len);
-	}
+	} while ((dest = bgp_route_next(dest)));
 
 	return NULL;
 }
