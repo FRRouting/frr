@@ -1,0 +1,32 @@
+{
+    "vrfName": "vrf10",
+    "routerId": "192.0.2.1",
+    "localAS": 65001,
+    "routes": {
+        "172.16.0.1/32": [
+            {
+                "valid": true,
+                "bestpath": true,
+                "pathFrom": "external",
+                "prefix": "172.16.0.1",
+                "prefixLen": 32,
+                "network": "172.16.0.1\/32",
+                "path": "65002",
+                "origin": "incomplete",
+                "nexthops": [
+                    {
+                        "hostname": "ce1",
+                        "afi": "ipv6",
+                        "scope": "global",
+                        "used": true
+                    },
+                    {
+                        "hostname": "ce1",
+                        "afi": "ipv6",
+                        "scope": "link-local"
+                    }
+                ]
+            }
+        ]
+    }
+}
