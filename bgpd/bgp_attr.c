@@ -3986,6 +3986,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		size += 232; // TODO: Maximum possible for type-2, type-3 and
 			     // type-5
+	else if (safi == SAFI_FLOWSPEC)
+		size = ((struct prefix_fs *)p)->prefix.prefixlen;
 	return size;
 }
 
