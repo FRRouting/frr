@@ -2424,7 +2424,7 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
       " [vrf <NAME|all>] topology"
 #ifndef FABRICD
       " [<level-1|level-2>]"
-      " [algorithm (128-255)]"
+      " [algorithm [(128-255)]]"
 #endif /* ifndef FABRICD */
       ,
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
@@ -2443,8 +2443,10 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 	struct isis *isis = NULL;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
+	bool all_algorithm = false;
 	int idx_vrf = 0;
-	uint8_t algorithm = SR_ALGORITHM_SPF;
+	uint16_t algorithm = SR_ALGORITHM_SPF;
+
 #ifndef FABRICD
 	int idx = 0;
 
@@ -2453,8 +2455,12 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 		levels = ISIS_LEVEL1;
 	if (argv_find(argv, argc, "level-2", &idx))
 		levels = ISIS_LEVEL2;
-	if (argv_find(argv, argc, "algorithm", &idx))
-		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint16_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
 #endif /* ifndef FABRICD */
 
 	if (!im) {
@@ -2465,14 +2471,34 @@ DEFUN(show_isis_topology, show_isis_topology_cmd,
 
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_topology_common(vty, levels, isis,
-							  algorithm);
+			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+				if (all_algorithm) {
+					for (algorithm = SR_ALGORITHM_FLEX_MIN;
+					     algorithm <= SR_ALGORITHM_FLEX_MAX;
+					     algorithm++)
+						show_isis_topology_common(
+							vty, levels, isis,
+							(uint8_t)algorithm);
+				} else {
+					show_isis_topology_common(
+						vty, levels, isis,
+						(uint8_t)algorithm);
+				}
+			}
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
-		if (isis != NULL)
-			show_isis_topology_common(vty, levels, isis, algorithm);
+		if (isis == NULL)
+			return CMD_SUCCESS;
+		if (all_algorithm) {
+			for (algorithm = SR_ALGORITHM_FLEX_MIN;
+			     algorithm <= SR_ALGORITHM_FLEX_MAX; algorithm++) {
+				show_isis_topology_common(vty, levels, isis,
+							  (uint8_t)algorithm);
+			}
+		} else
+			show_isis_topology_common(vty, levels, isis,
+						  (uint8_t)algorithm);
 	}
 
 	return CMD_SUCCESS;
