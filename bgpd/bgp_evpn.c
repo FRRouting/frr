@@ -6912,6 +6912,7 @@ static void bgp_evpn_remote_ip_hash_del(struct bgpevpn *vpn,
 	if (ip->macip_path_list->count == 0) {
 		bgp_evpn_remote_ip_process_nexthops(vpn, &ip->addr, false);
 		hash_release(vpn->remote_ip_hash, ip);
+		list_delete(&ip->macip_path_list);
 		XFREE(MTYPE_EVPN_REMOTE_IP, ip);
 	}
 }
