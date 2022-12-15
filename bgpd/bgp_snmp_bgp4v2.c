@@ -739,7 +739,7 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 	case BGP4V2_NLRI_MED:
 		if (CHECK_FLAG(path->attr->flag,
 			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
-			return SNMP_INTEGER(path->attr->local_pref);
+			return SNMP_INTEGER(path->attr->med);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_ATOMIC_AGGREGATE:
