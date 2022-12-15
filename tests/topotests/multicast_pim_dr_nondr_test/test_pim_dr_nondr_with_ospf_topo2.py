@@ -166,12 +166,9 @@ def setup_module(mod):
     topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, tgen.json_topo)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -919,7 +916,9 @@ def test_configuring_igmp_local_join_on_reciever_dr_non_dr_nodes_p1(request):
         )
 
         for dut, intf in zip(["r1", "r2"], [intf_r1_s1, intf_r2_s1]):
-            result = verify_igmp_groups(tgen, dut, intf, IGMP_JOIN_RANGE_3, expected=False)
+            result = verify_igmp_groups(
+                tgen, dut, intf, IGMP_JOIN_RANGE_3, expected=False
+            )
             assert result is not True, (
                 "Testcase {} : Failed \n "
                 "IGMP groups are still present \n Error: {}".format(tc_name, result)

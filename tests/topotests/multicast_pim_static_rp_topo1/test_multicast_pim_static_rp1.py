@@ -128,7 +128,6 @@ from lib.common_config import (
     kill_router_daemons,
     start_router_daemons,
     create_static_routes,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -223,12 +222,9 @@ def setup_module(mod):
 
     # ... and here it calls Mininet initialization functions.
 
-    # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, TOPO)
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start daemons and then start routers
-    start_topology(tgen, daemons)
+    start_topology(tgen)
 
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -1415,8 +1411,6 @@ def test_clear_pim_configuration_p1(request):
     # tgen.mininet_cli()
 
     write_test_footer(tc_name)
-
-
 
 
 if __name__ == "__main__":
