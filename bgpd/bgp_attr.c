@@ -3961,7 +3961,12 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      uint32_t num_labels, bool addpath_capable,
 			      uint32_t addpath_tx_id, struct attr *attr)
 {
-	if (safi == SAFI_MPLS_VPN) {
+	switch (safi) {
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
+		assert(!"Dev escape usage of SAFI_UNSPEC or MAX");
+		break;
+	case SAFI_MPLS_VPN:
 		if (addpath_capable)
 			stream_putl(s, addpath_tx_id);
 		/* Label, RD, Prefix write. */
@@ -3969,20 +3974,35 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put(s, label, BGP_LABEL_BYTES);
 		stream_put(s, prd->val, 8);
 		stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
-	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-		/* EVPN prefix - contents depend on type */
-		bgp_evpn_encode_prefix(s, p, prd, label, num_labels, attr,
-				       addpath_capable, addpath_tx_id);
-	} else if (safi == SAFI_LABELED_UNICAST) {
+		break;
+	case SAFI_EVPN:
+		if (afi == AFI_L2VPN)
+			/* EVPN prefix - contents depend on type */
+			bgp_evpn_encode_prefix(s, p, prd, label, num_labels,
+					       attr, addpath_capable,
+					       addpath_tx_id);
+		else
+			assert(!"Add encoding bits here for other AFI's");
+		break;
+	case SAFI_LABELED_UNICAST:
 		/* Prefix write with label. */
 		stream_put_labeled_prefix(s, p, label, addpath_capable,
 					  addpath_tx_id);
-	} else if (safi == SAFI_FLOWSPEC) {
+		break;
+	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
 			   p->u.prefix_flowspec.prefixlen);
-	} else
+		break;
+
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
 		stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
+		break;
+	case SAFI_ENCAP:
+		assert(!"Please add proper encoding of SAFI_ENCAP");
+		break;
+	}
 }
 
 size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
