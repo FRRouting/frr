@@ -313,6 +313,7 @@ static bool static_zebra_nht_get_prefix(const struct static_nexthop *nh,
 	}
 
 	assertf(0, "BUG: someone forgot to add nexthop type %u", nh->type);
+	return false;
 }
 
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
