@@ -406,9 +406,9 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 		}
 	}
 
-	zlog_info("Resetting peer %s%s due to change in addpath config",
+	zlog_info("Resetting peer %s%pBP due to change in addpath config",
 		  CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) ? "group " : "",
-		  peer->host);
+		  peer);
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
