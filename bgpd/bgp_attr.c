@@ -3979,15 +3979,39 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 				     const struct prefix *p)
 {
 	int size = PSIZE(p->prefixlen);
-	if (safi == SAFI_MPLS_VPN)
+
+	switch (safi) {
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
+		assert(!"Attempting to figure size for a SAFI_UNSPEC/SAFI_MAX this is a DEV ESCAPE");
+		break;
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+		break;
+	case SAFI_MPLS_VPN:
 		size += 88;
-	else if (safi == SAFI_LABELED_UNICAST)
+		break;
+	case SAFI_ENCAP:
+		/* This has to be wrong, but I don't know what to put here */
+		assert(!"Do we try to use this?");
+		break;
+	case SAFI_LABELED_UNICAST:
 		size += BGP_LABEL_BYTES;
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		size += 232; // TODO: Maximum possible for type-2, type-3 and
-			     // type-5
-	else if (safi == SAFI_FLOWSPEC)
+		break;
+	case SAFI_EVPN:
+		/*
+		 * TODO: Maximum possible for type-2, type-3 and type-5
+		 */
+		if (afi == AFI_L2VPN)
+			size += 232;
+		else
+			assert(!"Attempting to figure size for SAFI_EVPN and !AFI_L2VPN and FRR will not have the proper values");
+		break;
+	case SAFI_FLOWSPEC:
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		break;
+	}
+
 	return size;
 }
 
