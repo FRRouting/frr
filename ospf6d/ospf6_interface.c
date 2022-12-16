@@ -303,6 +303,9 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	/* disable from area list if possible */
 	ospf6_area_interface_delete(oi);
 
+	if (oi->at_data.auth_key)
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+
 	/* Free BFD allocated data. */
 	XFREE(MTYPE_TMP, oi->bfd_config.profile);
 

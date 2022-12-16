@@ -32,13 +32,15 @@
 #include "linklist.h"
 #include "lib/version.h"
 #include "lib_errors.h"
+#include "hook.h"
+#include "libfrr.h"
 #include "xref.h"
 
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
 
-static int agentx_enabled = 0;
+static bool agentx_enabled = false;
 
 static struct thread_master *agentx_tm;
 static struct thread *timeout_thr = NULL;
@@ -226,7 +228,7 @@ DEFUN (agentx_enable,
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
-		agentx_enabled = 1;
+		agentx_enabled = true;
 		hook_call(agentx_enabled);
 	}
 
@@ -245,7 +247,14 @@ DEFUN (no_agentx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-int smux_enabled(void)
+static int smux_disable(void)
+{
+	agentx_enabled = false;
+
+	return 0;
+}
+
+bool smux_enabled(void)
 {
 	return agentx_enabled;
 }
@@ -264,6 +273,8 @@ void smux_init(struct thread_master *tm)
 	install_node(&agentx_node);
 	install_element(CONFIG_NODE, &agentx_enable_cmd);
 	install_element(CONFIG_NODE, &no_agentx_cmd);
+
+	hook_register(frr_early_fini, smux_disable);
 }
 
 void smux_agentx_enable(void)
@@ -272,7 +283,7 @@ void smux_agentx_enable(void)
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
-		agentx_enabled = 1;
+		agentx_enabled = true;
 	}
 }
 

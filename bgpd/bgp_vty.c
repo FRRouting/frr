@@ -14693,7 +14693,7 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
-	int find = 0;
+	bool found = false;
 	safi_t safi = SAFI_UNICAST;
 	json_object *json_neighbor = NULL;
 
@@ -14721,27 +14721,31 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 				     && !strcmp(peer->conf_if, conf_if))
 				    || (peer->hostname
 					&& !strcmp(peer->hostname, conf_if))) {
-					find = 1;
+					found = true;
 					bgp_show_peer_gr_status(vty, peer,
 								json_neighbor);
 				}
 			} else {
 				if (sockunion_same(&peer->su, su)) {
-					find = 1;
+					found = true;
 					bgp_show_peer_gr_status(vty, peer,
 								json_neighbor);
 				}
 			}
-			if (json && find)
-				json_object_object_add(json, peer->host,
-						       json_neighbor);
+			if (json) {
+				if (found)
+					json_object_object_add(json, peer->host,
+							       json_neighbor);
+				else
+					json_object_free(json_neighbor);
+			}
 		}
 
-		if (find)
+		if (found)
 			break;
 	}
 
-	if (type == show_peer && !find) {
+	if (type == show_peer && !found) {
 		if (json)
 			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
 		else
