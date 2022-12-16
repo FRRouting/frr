@@ -831,6 +831,13 @@ Showing Information
    Show the OSPF routing table, as determined by the most recent SPF
    calculation.
 
+.. clicmd:: show ip ospf [vrf <NAME|all>] border-routers [json]
+
+   Show the list of ABR and ASBR border routers summary learnt via
+   OSPFv2 Type-3 (Summary LSA) and Type-4 (Summary ASBR LSA).
+   User can get that information as JSON format when ``json`` keyword
+   at the end of cli is presented.
+
 .. clicmd:: show ip ospf (1-65535) route orr [NAME]
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] route orr [NAME]
