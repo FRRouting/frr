@@ -539,10 +539,15 @@ static void zfpm_log_route_info(struct netlink_route_info *ri,
 	for (i = 0; i < ri->num_nhs; i++) {
 		nhi = &ri->nhs[i];
 
-		if (ri->af == AF_INET)
-			inet_ntop(AF_INET, &nhi->gateway, buf, sizeof(buf));
-		else
-			inet_ntop(AF_INET6, &nhi->gateway, buf, sizeof(buf));
+		if (nhi->gateway) {
+			if (ri->af == AF_INET)
+				inet_ntop(AF_INET, nhi->gateway, buf,
+					  sizeof(buf));
+			else
+				inet_ntop(AF_INET6, nhi->gateway, buf,
+					  sizeof(buf));
+		} else
+			strlcpy(buf, "none", sizeof(buf));
 
 		zfpm_debug("  Intf: %u, Gateway: %s, Recursive: %s, Type: %s, Encap type: %s",
 			   nhi->if_index, buf, nhi->recursive ? "yes" : "no",
