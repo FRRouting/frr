@@ -1983,6 +1983,8 @@ if __name__ == "__main__":
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
+        prev_depth = -1
+
         if lines_to_del:
             if not args.test_reset:
                 print("\nLines To Delete")
@@ -2006,6 +2008,10 @@ if __name__ == "__main__":
                     ]
                     if not nolines:
                         continue
+                    depth = len(ctx_keys)
+                    if not line:
+                        depth -= 1
+                    prev_depth = depth
 
                 cmd = "\n".join(nolines)
                 print(cmd)
@@ -2028,6 +2034,14 @@ if __name__ == "__main__":
                     lines = [x.strip() for x in lines if x.strip()]
                     if not lines:
                         continue
+
+                depth = len(ctx_keys)
+                if not line:
+                    depth -= 1
+
+                if depth == 0 and prev_depth > 0:
+                    print("\n".join(("exit",) * prev_depth))
+                prev_depth = depth
 
                 cmd = "\n".join(lines)
                 print(cmd)
@@ -2162,6 +2176,7 @@ if __name__ == "__main__":
 
             if lines_to_add:
                 lines_to_configure = []
+                prev_depth = -1
 
                 for (ctx_keys, line) in lines_to_add:
 
@@ -2172,6 +2187,14 @@ if __name__ == "__main__":
                     # out the second time due to first deletion
                     if x == 1 and ctx_keys[0].startswith("no "):
                         continue
+
+                    depth = len(ctx_keys)
+                    if not line:
+                        depth -= 1
+
+                    if depth == 0 and prev_depth > 0:
+                        lines_to_configure.append("\n".join(("exit",) * prev_depth))
+                    prev_depth = depth
 
                     cmd = "\n".join(lines_to_config(ctx_keys, line, False)) + "\n"
                     lines_to_configure.append(cmd)
