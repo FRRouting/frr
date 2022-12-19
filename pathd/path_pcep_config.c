@@ -453,8 +453,7 @@ int path_pcep_config_update_path(struct path *path)
 	}
 
 	if (number_of_sid_clashed)
-		SET_FLAG(segment->segment_list->flags,
-			 F_SEGMENT_LIST_SID_CONFLICT);
+		SET_FLAG(segment_list->flags, F_SEGMENT_LIST_SID_CONFLICT);
 	else
 		srte_apply_changes();
 
