@@ -498,6 +498,7 @@ void ospf6_delete(struct ospf6 *o)
 	struct route_node *rn = NULL;
 	struct ospf6_area *oa;
 	struct vrf *vrf;
+	struct ospf6_external_aggr_rt *aggr;
 
 	QOBJ_UNREG(o);
 
@@ -536,8 +537,11 @@ void ospf6_delete(struct ospf6 *o)
 	}
 
 	for (rn = route_top(o->rt_aggr_tbl); rn; rn = route_next(rn))
-		if (rn->info)
-			ospf6_external_aggregator_free(rn->info);
+		if (rn->info) {
+			aggr = rn->info;
+			ospf6_asbr_summary_config_delete(o, rn);
+			ospf6_external_aggregator_free(aggr);
+		}
 	route_table_finish(o->rt_aggr_tbl);
 
 	XFREE(MTYPE_OSPF6_TOP, o->name);
