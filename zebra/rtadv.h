@@ -308,6 +308,7 @@ struct rtadv_prefix {
 #define ND_OPT_HA_INFORMATION	8   /* HA Information Option */
 #endif
 
+
 #ifndef HAVE_STRUCT_ND_OPT_ADV_INTERVAL
 struct nd_opt_adv_interval { /* Advertisement interval option */
 	uint8_t nd_opt_ai_type;
@@ -323,6 +324,12 @@ struct nd_opt_adv_interval { /* Advertisement interval option */
 #define nd_opt_ai_reserved	nd_opt_adv_interval_reserved
 #define nd_opt_ai_interval	nd_opt_adv_interval_ival
 #endif
+#endif
+#ifndef ND_OPT_RTR_ADV_INTERVAL
+#define ND_OPT_RTR_ADV_INTERVAL 7
+#endif
+#ifndef ND_OPT_HOME_AGENT_INFO
+#define ND_OPT_HOME_AGENT_INFO 8
 #endif
 
 #ifndef HAVE_STRUCT_ND_OPT_HOMEAGENT_INFO
