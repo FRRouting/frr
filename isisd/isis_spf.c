@@ -2912,6 +2912,7 @@ static void show_isis_route_common(struct vty *vty, int levels,
 			jstr = json_object_new_string(
 				area->area_tag ? area->area_tag : "null");
 			json_object_object_add(*json, "area", jstr);
+			json_object_int_add(*json, "algorithm", algo);
 		} else {
 			vty_out(vty, "Area %s:",
 				area->area_tag ? area->area_tag : "null");
