@@ -3876,7 +3876,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 				stream_putc(s, attr->mp_nexthop_len);
 				stream_put_ipv4(s, attr->nexthop.s_addr);
 			}
-		default:
+			break;
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
 			break;
 		}
 		break;
@@ -3927,16 +3930,23 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			break;
 		case SAFI_FLOWSPEC:
 			stream_putc(s, 0); /* no nexthop for flowspec */
-		default:
+			break;
+		case SAFI_UNSPEC:
+		case SAFI_MAX:
+			assert(!"SAFI's UNSPEC or MAX being specified are a DEV ESCAPE");
 			break;
 		}
 		break;
-	default:
+	case AFI_L2VPN:
 		if (safi != SAFI_FLOWSPEC)
 			flog_err(
 				EC_BGP_ATTR_NH_SEND_LEN,
 				"Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
 				peer->host, afi, safi, attr->mp_nexthop_len);
+		break;
+	case AFI_UNSPEC:
+	case AFI_MAX:
+		assert(!"DEV ESCAPE: AFI_UNSPEC or AFI_MAX should not be used here");
 		break;
 	}
 
@@ -3951,7 +3961,12 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      uint32_t num_labels, bool addpath_capable,
 			      uint32_t addpath_tx_id, struct attr *attr)
 {
-	if (safi == SAFI_MPLS_VPN) {
+	switch (safi) {
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
+		assert(!"Dev escape usage of SAFI_UNSPEC or MAX");
+		break;
+	case SAFI_MPLS_VPN:
 		if (addpath_capable)
 			stream_putl(s, addpath_tx_id);
 		/* Label, RD, Prefix write. */
@@ -3959,35 +3974,74 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put(s, label, BGP_LABEL_BYTES);
 		stream_put(s, prd->val, 8);
 		stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
-	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-		/* EVPN prefix - contents depend on type */
-		bgp_evpn_encode_prefix(s, p, prd, label, num_labels, attr,
-				       addpath_capable, addpath_tx_id);
-	} else if (safi == SAFI_LABELED_UNICAST) {
+		break;
+	case SAFI_EVPN:
+		if (afi == AFI_L2VPN)
+			/* EVPN prefix - contents depend on type */
+			bgp_evpn_encode_prefix(s, p, prd, label, num_labels,
+					       attr, addpath_capable,
+					       addpath_tx_id);
+		else
+			assert(!"Add encoding bits here for other AFI's");
+		break;
+	case SAFI_LABELED_UNICAST:
 		/* Prefix write with label. */
 		stream_put_labeled_prefix(s, p, label, addpath_capable,
 					  addpath_tx_id);
-	} else if (safi == SAFI_FLOWSPEC) {
+		break;
+	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
 			   p->u.prefix_flowspec.prefixlen);
-	} else
+		break;
+
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
 		stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
+		break;
+	case SAFI_ENCAP:
+		assert(!"Please add proper encoding of SAFI_ENCAP");
+		break;
+	}
 }
 
 size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 				     const struct prefix *p)
 {
 	int size = PSIZE(p->prefixlen);
-	if (safi == SAFI_MPLS_VPN)
+
+	switch (safi) {
+	case SAFI_UNSPEC:
+	case SAFI_MAX:
+		assert(!"Attempting to figure size for a SAFI_UNSPEC/SAFI_MAX this is a DEV ESCAPE");
+		break;
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+		break;
+	case SAFI_MPLS_VPN:
 		size += 88;
-	else if (safi == SAFI_LABELED_UNICAST)
+		break;
+	case SAFI_ENCAP:
+		/* This has to be wrong, but I don't know what to put here */
+		assert(!"Do we try to use this?");
+		break;
+	case SAFI_LABELED_UNICAST:
 		size += BGP_LABEL_BYTES;
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		size += 232; // TODO: Maximum possible for type-2, type-3 and
-			     // type-5
-	else if (safi == SAFI_FLOWSPEC)
+		break;
+	case SAFI_EVPN:
+		/*
+		 * TODO: Maximum possible for type-2, type-3 and type-5
+		 */
+		if (afi == AFI_L2VPN)
+			size += 232;
+		else
+			assert(!"Attempting to figure size for SAFI_EVPN and !AFI_L2VPN and FRR will not have the proper values");
+		break;
+	case SAFI_FLOWSPEC:
 		size = ((struct prefix_fs *)p)->prefix.prefixlen;
+		break;
+	}
+
 	return size;
 }
 
