@@ -145,10 +145,24 @@ static struct peer *bgpv2PeerTable_lookup(struct variable *v, oid name[],
 	size_t namelen = v ? v->namelen : BGP4V2_PEER_ENTRY_OFFSET;
 	oid *offset = name + namelen;
 	sa_family_t family = name[namelen - 1] == 4 ? AF_INET : AF_INET6;
+	int afi_len = IN_ADDR_SIZE;
+	size_t offsetlen = *length - namelen;
+
+	if (family == AF_INET6)
+		afi_len = IN6_ADDR_SIZE;
+
+	/* Somehow with net-snmp 5.7.3, every OID item in an array
+	 * is uninitialized and has a max random value, let's zero it.
+	 * With 5.8, 5.9, it works fine even without this hack.
+	 */
+	if (!offsetlen) {
+		for (int i = 0; i < afi_len; i++)
+			*(offset + i) = 0;
+	}
 
 	if (exact) {
 		if (family == AF_INET) {
-			oid2in_addr(offset, IN_ADDR_SIZE, &addr->ip._v4_addr);
+			oid2in_addr(offset, afi_len, &addr->ip._v4_addr);
 			peer = peer_lookup_all_vrf(addr);
 			return peer;
 		} else if (family == AF_INET6) {
@@ -163,11 +177,11 @@ static struct peer *bgpv2PeerTable_lookup(struct variable *v, oid name[],
 		switch (sockunion_family(&peer->su)) {
 		case AF_INET:
 			oid_copy_in_addr(offset, &peer->su.sin.sin_addr);
-			*length = IN_ADDR_SIZE + namelen;
+			*length = afi_len + namelen;
 			return peer;
 		case AF_INET6:
 			oid_copy_in6_addr(offset, &peer->su.sin6.sin6_addr);
-			*length = IN6_ADDR_SIZE + namelen;
+			*length = afi_len + namelen;
 			return peer;
 		default:
 			break;
