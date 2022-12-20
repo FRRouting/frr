@@ -11248,7 +11248,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 	bool wide = CHECK_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
 	bool all = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL);
-	bool detail = CHECK_FLAG(show_flags, BGP_SHOW_OPT_DETAIL);
+	bool detail_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
 
 	if (output_cum && *output_cum != 0)
 		header = false;
@@ -11282,7 +11282,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	}
 
 	/* Check for 'json detail', where we need header output once per dest */
-	if (use_json && detail && type != bgp_show_type_dampend_paths &&
+	if (use_json && detail_json && type != bgp_show_type_dampend_paths &&
 	    type != bgp_show_type_damp_neighbor &&
 	    type != bgp_show_type_flap_statistics &&
 	    type != bgp_show_type_flap_neighbor)
@@ -11545,7 +11545,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				vty_out(vty, "Default local pref %u, ",
 					bgp->default_local_pref);
 				vty_out(vty, "local AS %u\n", bgp->as);
-				if (!detail) {
+				if (!detail_json) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_NCODE_HEADER);
 					vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -11557,7 +11557,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				else if (type == bgp_show_type_flap_statistics
 					 || type == bgp_show_type_flap_neighbor)
 					vty_out(vty, BGP_SHOW_FLAP_HEADER);
-				else if (!detail)
+				else if (!detail_json)
 					vty_out(vty, (wide ? BGP_SHOW_HEADER_WIDE
 							   : BGP_SHOW_HEADER));
 				header = false;
@@ -11600,7 +11600,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						   AFI_IP, safi, use_json,
 						   json_paths);
 			else {
-				if (detail) {
+				if (detail_json) {
 					const struct prefix_rd *prd;
 
 					prd = bgp_rd_from_dest(dest, safi);
@@ -12666,7 +12666,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           |A.B.C.D/M longer-prefixes\
           |X:X::X:X/M longer-prefixes\
 	  |optimal-route-reflection [WORD$orr_group_name]\
-          ] [json$uj [detail$detail] | wide$wide]",
+          ] [json$uj [detail$detail_json] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
@@ -12739,8 +12739,8 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 	}
 
-	if (detail)
-		SET_FLAG(show_flags, BGP_SHOW_OPT_DETAIL);
+	if (detail_json)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
 
 	/* [<ipv4|ipv6> [all]] */
 	if (all) {
@@ -14717,7 +14717,7 @@ DEFUN (show_ip_bgp_flowspec_routes_detailed,
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	bool uj = use_json(argc, argv);
-	uint16_t show_flags = BGP_SHOW_OPT_DETAIL;
+	uint16_t show_flags = BGP_SHOW_OPT_JSON_DETAIL;
 
 	if (uj) {
 		argc--;
