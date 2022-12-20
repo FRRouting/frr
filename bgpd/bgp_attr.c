@@ -4682,7 +4682,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	}
 
 	/* AIGP */
-	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP) &&
+	if (bpi && attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AIGP) &&
 	    (CHECK_FLAG(peer->flags, PEER_FLAG_AIGP) ||
 	     peer->sort != BGP_PEER_EBGP)) {
 		/* At the moment only AIGP Metric TLV exists for AIGP
