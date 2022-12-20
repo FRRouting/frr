@@ -665,6 +665,7 @@ DECLARE_HOOK(bgp_process,
 #define BGP_SHOW_OPT_FAILED (1 << 6)
 #define BGP_SHOW_OPT_JSON_DETAIL (1 << 7)
 #define BGP_SHOW_OPT_TERSE (1 << 8)
+#define BGP_SHOW_OPT_ROUTES_DETAIL (1 << 9)
 
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
