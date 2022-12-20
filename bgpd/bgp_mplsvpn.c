@@ -2868,6 +2868,10 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 {
 	struct bgp *bgp;
 	struct bgp_table *table;
+	uint16_t show_flags = 0;
+
+	if (use_json)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
 
 	bgp = bgp_get_default();
 	if (bgp == NULL) {
@@ -2879,7 +2883,7 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 	}
 	table = bgp->rib[afi][SAFI_MPLS_VPN];
 	return bgp_show_table_rd(vty, bgp, SAFI_MPLS_VPN, table, prd, type,
-				 output_arg, use_json);
+				 output_arg, show_flags);
 }
 
 DEFUN (show_bgp_ip_vpn_all_rd,
