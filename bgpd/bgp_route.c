@@ -11249,6 +11249,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	bool wide = CHECK_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
 	bool all = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL);
 	bool detail_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
+	bool detail_routes = CHECK_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 
 	if (output_cum && *output_cum != 0)
 		header = false;
@@ -11545,7 +11546,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				vty_out(vty, "Default local pref %u, ",
 					bgp->default_local_pref);
 				vty_out(vty, "local AS %u\n", bgp->as);
-				if (!detail_json) {
+				if (!detail_routes) {
 					vty_out(vty, BGP_SHOW_SCODE_HEADER);
 					vty_out(vty, BGP_SHOW_NCODE_HEADER);
 					vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -11557,7 +11558,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				else if (type == bgp_show_type_flap_statistics
 					 || type == bgp_show_type_flap_neighbor)
 					vty_out(vty, BGP_SHOW_FLAP_HEADER);
-				else if (!detail_json)
+				else if (!detail_routes)
 					vty_out(vty, (wide ? BGP_SHOW_HEADER_WIDE
 							   : BGP_SHOW_HEADER));
 				header = false;
@@ -11600,7 +11601,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						   AFI_IP, safi, use_json,
 						   json_paths);
 			else {
-				if (detail_json) {
+				if (detail_routes) {
 					const struct prefix_rd *prd;
 
 					prd = bgp_rd_from_dest(dest, safi);
@@ -12666,6 +12667,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           |A.B.C.D/M longer-prefixes\
           |X:X::X:X/M longer-prefixes\
 	  |optimal-route-reflection [WORD$orr_group_name]\
+          |detail-routes$detail_routes\
           ] [json$uj [detail$detail_json] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
@@ -12716,6 +12718,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "Display route and more specific routes\n"
       "Display Optimal Route Reflection RR Clients\n"
       "ORR Group name\n"
+      "Display detailed version of all routes\n"
       JSON_STR
       "Display detailed version of JSON output\n"
       "Increase table width for longer prefixes\n")
@@ -12741,6 +12744,9 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 
 	if (detail_json)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
+
+	if (detail_routes)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
 
 	/* [<ipv4|ipv6> [all]] */
 	if (all) {
