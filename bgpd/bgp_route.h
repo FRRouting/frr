@@ -663,7 +663,7 @@ DECLARE_HOOK(bgp_process,
 #define BGP_SHOW_OPT_AFI_IP6 (1 << 4)
 #define BGP_SHOW_OPT_ESTABLISHED (1 << 5)
 #define BGP_SHOW_OPT_FAILED (1 << 6)
-#define BGP_SHOW_OPT_DETAIL (1 << 7)
+#define BGP_SHOW_OPT_JSON_DETAIL (1 << 7)
 #define BGP_SHOW_OPT_TERSE (1 << 8)
 
 /* Prototypes. */
