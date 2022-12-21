@@ -8917,7 +8917,11 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 			bgp_aggregate_decrement(bgp, bgp_dest_get_prefix(dest),
 						pi, afi, SAFI_UNICAST);
 			bgp_path_info_delete(dest, pi);
-			bgp_process(bgp, dest, afi, SAFI_UNICAST);
+			if (!CHECK_FLAG(bgp->flags,
+					BGP_FLAG_DELETE_IN_PROGRESS))
+				bgp_process(bgp, dest, afi, SAFI_UNICAST);
+			else
+				bgp_path_info_reap(dest, pi);
 		}
 	}
 }
