@@ -1585,7 +1585,11 @@ ospf6_asbr_summary_remove_lsa_and_route(struct ospf6 *ospf6,
 			zlog_debug(
 				"%s: Remove the blackhole route",
 				__func__);
+
 		ospf6_zebra_route_update_remove(aggr->route, ospf6);
+		if (aggr->route->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
+			      aggr->route->route_option);
 		ospf6_route_delete(aggr->route);
 		aggr->route = NULL;
 	}
@@ -2736,7 +2740,12 @@ ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
 					   struct ospf6_external_aggr_rt *aggr)
 {
 	struct ospf6_route *rt_aggr;
+	struct ospf6_route *old_rt = NULL;
 	struct ospf6_external_info *info;
+
+	/* Check if a route is already present. */
+	if (aggr->route)
+		old_rt = aggr->route;
 
 	/* Create summary route and save it. */
 	rt_aggr = ospf6_route_create(ospf6);
@@ -2755,6 +2764,16 @@ ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
 
 	/* Add next-hop to Null interface. */
 	ospf6_add_route_nexthop_blackhole(rt_aggr);
+
+	/* Free the old route, if any. */
+	if (old_rt) {
+		ospf6_zebra_route_update_remove(old_rt, ospf6);
+
+		if (old_rt->route_option)
+			XFREE(MTYPE_OSPF6_EXTERNAL_INFO, old_rt->route_option);
+
+		ospf6_route_delete(old_rt);
+	}
 
 	ospf6_zebra_route_update_add(rt_aggr, ospf6);
 }
@@ -3024,8 +3043,8 @@ static void ospf6_aggr_handle_external_info(void *data)
 	(void)ospf6_originate_type5_type7_lsas(rt, ospf6);
 }
 
-static void
-ospf6_asbr_summary_config_delete(struct ospf6 *ospf6, struct route_node *rn)
+void ospf6_asbr_summary_config_delete(struct ospf6 *ospf6,
+				      struct route_node *rn)
 {
 	struct ospf6_external_aggr_rt *aggr = rn->info;
 
@@ -3166,14 +3185,6 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 	if (OSPF6_EXTERNAL_RT_COUNT(aggr))
 		hash_clean(aggr->match_extnl_hash,
 			ospf6_aggr_unlink_external_info);
-
-	if (aggr->route) {
-		if (aggr->route->route_option)
-			XFREE(MTYPE_OSPF6_EXTERNAL_INFO,
-			      aggr->route->route_option);
-
-		ospf6_route_delete(aggr->route);
-	}
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Release the aggregator Address(%pFX)",
