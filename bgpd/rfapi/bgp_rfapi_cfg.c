@@ -3847,6 +3847,13 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 	return h;
 }
 
+static void bgp_rfapi_rfgn_list_delete(void *data)
+{
+	struct rfapi_rfg_name *rfgn = data;
+	free(rfgn->name);
+	rfgn_free(rfgn);
+}
+
 void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 {
 	afi_t afi;
@@ -3858,8 +3865,13 @@ void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 	if (h->l2_groups != NULL)
 		list_delete(&h->l2_groups);
 	list_delete(&h->nve_groups_sequential);
+
+	h->rfg_export_direct_bgp_l->del = bgp_rfapi_rfgn_list_delete;
 	list_delete(&h->rfg_export_direct_bgp_l);
+
+	h->rfg_export_zebra_l->del = bgp_rfapi_rfgn_list_delete;
 	list_delete(&h->rfg_export_zebra_l);
+
 	if (h->default_rt_export_list)
 		ecommunity_free(&h->default_rt_export_list);
 	if (h->default_rt_import_list)
