@@ -37,6 +37,7 @@
 DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object");
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
+DEFINE_MTYPE_STATIC(ZEBRA, NH_LABEL, "Nexthop label");
 
 bool mpls_enabled;
 bool mpls_pw_reach_strict; /* Strict reachability checking */
@@ -1452,7 +1453,31 @@ static int nhlfe_del(struct zebra_nhlfe *nhlfe)
 static void nhlfe_out_label_update(struct zebra_nhlfe *nhlfe,
 				   struct mpls_label_stack *nh_label)
 {
-	nhlfe->nexthop->nh_label->label[0] = nh_label->label[0];
+	struct mpls_label_stack *nh_label_tmp;
+	int i;
+
+	/* Enforce limit on label stack size */
+	if (nh_label->num_labels > MPLS_MAX_LABELS)
+		nh_label->num_labels = MPLS_MAX_LABELS;
+
+	/* Resize the array to accommodate the new label stack */
+	if (nh_label->num_labels > nhlfe->nexthop->nh_label->num_labels) {
+		nh_label_tmp = XREALLOC(MTYPE_NH_LABEL, nhlfe->nexthop->nh_label,
+					sizeof(struct mpls_label_stack) +
+						nh_label->num_labels *
+							sizeof(mpls_label_t));
+		if (nh_label_tmp) {
+			nhlfe->nexthop->nh_label = nh_label_tmp;
+			nhlfe->nexthop->nh_label->num_labels =
+				nh_label->num_labels;
+		} else
+			nh_label->num_labels =
+				nhlfe->nexthop->nh_label->num_labels;
+	}
+
+	/* Copy the label stack into the array */
+	for (i = 0; i < nh_label->num_labels; i++)
+		nhlfe->nexthop->nh_label->label[i] = nh_label->label[i];
 }
 
 static int mpls_lsp_uninstall_all(struct hash *lsp_table, struct zebra_lsp *lsp,
