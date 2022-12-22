@@ -276,6 +276,42 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_unlock, TRACE_INFO)
 
+/*
+ * bgp_path_info_add/bgp_path_info_free
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_path_info_add,
+	TP_ARGS(struct bgp_dest *, dest,
+		struct bgp_path_info *, bpi,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(prefix, bgp_dest_get_prefix_str(dest))
+		ctf_string(peer, PEER_HOSTNAME(bpi->peer))
+		ctf_integer(unsigned int, dest_lock,
+			    bgp_dest_get_lock_count(dest))
+		ctf_integer(unsigned int, peer_lock, bpi->peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_add, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_path_info_free,
+	TP_ARGS(struct bgp_path_info *, bpi,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(prefix, bgp_dest_get_prefix_str(bpi->net))
+		ctf_string(peer, PEER_HOSTNAME(bpi->peer))
+		ctf_integer(unsigned int, dest_lock,
+			    bgp_dest_get_lock_count(bpi->net))
+		ctf_integer(unsigned int, peer_lock, bpi->peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_path_info_free, TRACE_INFO)
+
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mac_ip_zsend,
