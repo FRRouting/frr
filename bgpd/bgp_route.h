@@ -882,4 +882,12 @@ bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
 extern bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi);
 extern const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 						safi_t safi);
+extern void bgp_path_info_free_with_caller(const char *caller,
+					   struct bgp_path_info *path);
+extern void bgp_path_info_add_with_caller(const char *caller,
+					  struct bgp_dest *dest,
+					  struct bgp_path_info *pi);
+#define bgp_path_info_add(A, B)                                                \
+	bgp_path_info_add_with_caller(__func__, (A), (B))
+#define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))
 #endif /* _QUAGGA_BGP_ROUTE_H */
