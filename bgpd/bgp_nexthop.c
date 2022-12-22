@@ -500,11 +500,8 @@ static void bgp_connected_cleanup(struct route_table *table,
 	if (!bc)
 		return;
 
-	bc->refcnt--;
-	if (bc->refcnt == 0) {
-		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_dest_set_bgp_connected_ref_info(bn, NULL);
-	}
+	XFREE(MTYPE_BGP_CONN, bc);
+	bgp_dest_set_bgp_connected_ref_info(bn, NULL);
 }
 
 bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
