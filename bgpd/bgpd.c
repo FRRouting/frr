@@ -93,6 +93,7 @@
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_orr.h"
+#include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
@@ -1194,6 +1195,7 @@ static void peer_free(struct peer *peer)
 /* increase reference count on a struct peer */
 struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
 {
+	frrtrace(2, frr_bgp, bgp_peer_lock, peer, name);
 	assert(peer && (peer->lock >= 0));
 
 	peer->lock++;
@@ -1206,6 +1208,7 @@ struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
  */
 struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
 {
+	frrtrace(2, frr_bgp, bgp_peer_unlock, peer, name);
 	assert(peer && (peer->lock > 0));
 
 	peer->lock--;

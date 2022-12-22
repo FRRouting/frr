@@ -247,6 +247,35 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, bgp_dest_unlock, TRACE_INFO)
 
+/*
+ * peer_lock/peer_unlock
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_peer_lock,
+	TP_ARGS(struct peer *, peer,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(unsigned int, count, peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_lock, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_peer_unlock,
+	TP_ARGS(struct peer *, peer,
+		const char *, name),
+	TP_FIELDS(
+		ctf_string(caller, name)
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(unsigned int, count, peer->lock)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_peer_unlock, TRACE_INFO)
+
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mac_ip_zsend,
