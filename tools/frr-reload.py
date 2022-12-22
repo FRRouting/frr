@@ -1514,6 +1514,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
             [
                 ctx_keys[0].startswith(x)
                 for x in [
+                    "agentx",
                     "frr version",
                     "frr defaults",
                     "username",
