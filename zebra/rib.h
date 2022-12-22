@@ -108,8 +108,8 @@ struct route_entry {
 	uint32_t nexthop_mtu;
 
 	/* Flags of this route.
-	 * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
-	 * to clients via Zserv
+	 * This flag's definition is in lib/zclient.h ZEBRA_FLAG_* and is
+	 * exposed to clients via Zserv
 	 */
 	uint32_t flags;
 
