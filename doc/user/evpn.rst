@@ -441,7 +441,7 @@ Here a traditional ``vxlan`` interface is created with the name "vni100" which
 uses a VTEP-IP of 100.64.0.1, carries VNI 100, and has Dynamic VTEP learning
 disabled. IPv6 address autoconfiguration is disabled for "vni100", then the
 interface is enslaved to "br100", ARP/ND suppression is enabled, and Dynamic
-VTEP Learning is disabled.
+MAC Learning is disabled.
 
 .. code-block:: shell
 
