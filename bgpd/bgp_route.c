@@ -9695,6 +9695,18 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 			json_object_string_add(
 				json_net, "origin",
 				bgp_origin_long_str[attr->origin]);
+
+			/* Print community */
+			if (attr->community) {
+				json_object *communities = json_object_new_array();
+				for (int i = 0; i < attr->community->size; ++i) {
+					uint32_t comm_val = ntohl(attr->community->val[i]);
+					char str[40];
+					snprintf(str, 40, "%u:%u", comm_val >> 16, comm_val & 0x0ffff);
+					json_array_string_add(communities, str);
+				}
+				json_object_object_add(json_net, "community", communities);
+			}
 		} else {
 			if (p->family == AF_INET &&
 			    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP ||
@@ -9742,6 +9754,15 @@ CPP_NOTICE("Drop `bgpOriginCodes` from JSON outputs")
 
 			/* Print origin */
 			vty_out(vty, "%s", bgp_origin_str[attr->origin]);
+
+			/* Print community */
+			if (attr->community) {
+				vty_out(vty, "\t");
+				for (int i = 0; i < attr->community->size; ++i) {
+					uint32_t comm_val = ntohl(attr->community->val[i]);
+					vty_out(vty, "%u:%u ", comm_val >> 16, comm_val & 0x0ffff);
+				}
+			}
 		}
 	}
 	if (use_json) {
