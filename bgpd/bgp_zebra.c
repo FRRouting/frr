@@ -1532,7 +1532,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		api_nh->weight = nh_weight;
 
-		if (mpinfo->extra && !sid_zero(&mpinfo->extra->sid[0].sid) &&
+		if (mpinfo->extra &&
+		    bgp_is_valid_label(&mpinfo->extra->label[0]) &&
+		    !sid_zero(&mpinfo->extra->sid[0].sid) &&
 		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
 			sid_info = &mpinfo->extra->sid[0];
 
@@ -1540,12 +1542,16 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			       sizeof(api_nh->seg6_segs));
 
 			if (sid_info->transposition_len != 0) {
-				if (!bgp_is_valid_label(
-					    &mpinfo->extra->label[0]))
-					continue;
-
 				mpls_lse_decode(mpinfo->extra->label[0], &label,
 						&ttl, &exp, &bos);
+
+				if (label < MPLS_LABEL_UNRESERVED_MIN) {
+					if (bgp_debug_zebra(&api.prefix))
+						zlog_debug(
+							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
+					continue;
+				}
+
 				transpose_sid(&api_nh->seg6_segs, label,
 					      sid_info->transposition_offset,
 					      sid_info->transposition_len);
