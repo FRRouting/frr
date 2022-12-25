@@ -758,8 +758,8 @@ void bgp_nht_ifp_down(struct interface *ifp)
 
 static void bgp_nht_ifp_initial(struct event *thread)
 {
-	ifindex_t ifindex = THREAD_VAL(thread);
-	struct bgp *bgp = THREAD_ARG(thread);
+	ifindex_t ifindex = EVENT_VAL(thread);
+	struct bgp *bgp = EVENT_ARG(thread);
 	struct interface *ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
 
 	if (!ifp)

@@ -600,7 +600,7 @@ enum zclient_send_status path_ted_link_state_sync(void)
 void path_ted_timer_handler_sync(struct event *thread)
 {
 	/* data unpacking */
-	struct ted_state *data = THREAD_ARG(thread);
+	struct ted_state *data = EVENT_ARG(thread);
 
 	assert(data != NULL);
 	/* Retry the sync */
@@ -640,7 +640,7 @@ void path_ted_timer_handler_refresh(struct event *thread)
 
 	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
 	/* data unpacking */
-	struct ted_state *data = THREAD_ARG(thread);
+	struct ted_state *data = EVENT_ARG(thread);
 
 	assert(data != NULL);
 

@@ -744,7 +744,7 @@ void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area)
 
 static void ospf_stub_router_timer(struct event *t)
 {
-	struct ospf_area *area = THREAD_ARG(t);
+	struct ospf_area *area = EVENT_ARG(t);
 
 	area->t_stub_router = NULL;
 
@@ -3044,7 +3044,7 @@ int ospf_check_nbr_status(struct ospf *ospf)
 
 void ospf_maxage_lsa_remover(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct ospf_lsa *lsa, *old;
 	struct route_node *rn;
 	int reschedule = 0;
@@ -3292,7 +3292,7 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 /* Periodical check of MaxAge LSA. */
 void ospf_lsa_maxage_walker(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
 	struct ospf_area *area;
@@ -3652,7 +3652,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 * without conflicting to other threads.
 	 */
 	if (ospf->t_maxage != NULL) {
-		THREAD_OFF(ospf->t_maxage);
+		EVENT_OFF(ospf->t_maxage);
 		event_execute(master, ospf_maxage_lsa_remover, ospf, 0);
 	}
 
@@ -3842,7 +3842,7 @@ static void ospf_lsa_action(struct event *t)
 {
 	struct lsa_action *data;
 
-	data = THREAD_ARG(t);
+	data = EVENT_ARG(t);
 
 	if (IS_DEBUG_OSPF(lsa, LSA) == OSPF_DEBUG_LSA)
 		zlog_debug("LSA[Action]: Performing scheduled LSA action: %d",
@@ -4033,7 +4033,7 @@ void ospf_lsa_refresh_walker(struct event *t)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;
-	struct ospf *ospf = THREAD_ARG(t);
+	struct ospf *ospf = EVENT_ARG(t);
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();

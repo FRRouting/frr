@@ -349,7 +349,7 @@ static struct timeval *time_elapsed(struct timeval *result,
 
 static void restart_kill(struct event *t_kill)
 {
-	struct restart_info *restart = THREAD_ARG(t_kill);
+	struct restart_info *restart = EVENT_ARG(t_kill);
 	struct timeval delay;
 
 	time_elapsed(&delay, &restart->time);
@@ -556,7 +556,7 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 
 static void wakeup_down(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0)
@@ -567,7 +567,7 @@ static void wakeup_down(struct event *t_wakeup)
 
 static void wakeup_init(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
@@ -587,7 +587,7 @@ static void restart_done(struct daemon *dmn)
 			dmn->name, state_str[dmn->state]);
 		return;
 	}
-	THREAD_OFF(dmn->t_wakeup);
+	EVENT_OFF(dmn->t_wakeup);
 
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
@@ -612,9 +612,9 @@ static void daemon_down(struct daemon *dmn, const char *why)
 		close(dmn->fd);
 		dmn->fd = -1;
 	}
-	THREAD_OFF(dmn->t_read);
-	THREAD_OFF(dmn->t_write);
-	THREAD_OFF(dmn->t_wakeup);
+	EVENT_OFF(dmn->t_read);
+	EVENT_OFF(dmn->t_write);
+	EVENT_OFF(dmn->t_wakeup);
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 
@@ -624,7 +624,7 @@ static void daemon_down(struct daemon *dmn, const char *why)
 
 static void handle_read(struct event *t_read)
 {
-	struct daemon *dmn = THREAD_ARG(t_read);
+	struct daemon *dmn = EVENT_ARG(t_read);
 	static const char resp[sizeof(PING_TOKEN) + 4] = PING_TOKEN "\n";
 	char buf[sizeof(resp) + 100];
 	ssize_t rc;
@@ -740,7 +740,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	if (gs.numdown == 0) {
 		daemon_send_ready(0);
 
-		THREAD_OFF(gs.t_operational);
+		EVENT_OFF(gs.t_operational);
 
 		event_add_timer(master, daemon_restarting_operational, NULL,
 				gs.operational_timeout, &gs.t_operational);
@@ -752,7 +752,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 
 static void check_connect(struct event *t_write)
 {
-	struct daemon *dmn = THREAD_ARG(t_write);
+	struct daemon *dmn = EVENT_ARG(t_write);
 	int sockerr;
 	socklen_t reslen = sizeof(sockerr);
 
@@ -780,7 +780,7 @@ static void check_connect(struct event *t_write)
 
 static void wakeup_connect_hanging(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 	char why[100];
 
 	dmn->t_wakeup = NULL;
@@ -938,7 +938,7 @@ static void phase_check(void)
 					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
-		THREAD_OFF(gs.t_phase_hanging);
+		EVENT_OFF(gs.t_phase_hanging);
 		zlog_notice("Phased global restart has completed.");
 		break;
 	}
@@ -987,7 +987,7 @@ static void try_restart(struct daemon *dmn)
 
 static void wakeup_unresponsive(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
@@ -1002,7 +1002,7 @@ static void wakeup_unresponsive(struct event *t_wakeup)
 
 static void wakeup_no_answer(struct event *t_wakeup)
 {
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
@@ -1019,7 +1019,7 @@ static void wakeup_send_echo(struct event *t_wakeup)
 {
 	static const char echocmd[] = "echo " PING_TOKEN;
 	ssize_t rc;
-	struct daemon *dmn = THREAD_ARG(t_wakeup);
+	struct daemon *dmn = EVENT_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	if (((rc = write(dmn->fd, echocmd, sizeof(echocmd))) < 0)

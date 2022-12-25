@@ -17,7 +17,7 @@
 #include "network.h"		// for ERRNO_IO_RETRY
 #include "stream.h"		// for stream_get_endp, stream_getw_from, str...
 #include "ringbuf.h"		// for ringbuf_remain, ringbuf_peek, ringbuf_...
-#include "event.h"		// for THREAD_OFF, THREAD_ARG, thread...
+#include "event.h"		// for EVENT_OFF, EVENT_ARG, thread...
 
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
@@ -66,7 +66,7 @@ void bgp_writes_off(struct peer *peer)
 	assert(fpt->running);
 
 	event_cancel_async(fpt->master, &peer->t_write, NULL);
-	THREAD_OFF(peer->t_generate_updgrp_packets);
+	EVENT_OFF(peer->t_generate_updgrp_packets);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 }
@@ -97,8 +97,8 @@ void bgp_reads_off(struct peer *peer)
 	assert(fpt->running);
 
 	event_cancel_async(fpt->master, &peer->t_read, NULL);
-	THREAD_OFF(peer->t_process_packet);
-	THREAD_OFF(peer->t_process_packet_error);
+	EVENT_OFF(peer->t_process_packet);
+	EVENT_OFF(peer->t_process_packet_error);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 }
@@ -111,7 +111,7 @@ void bgp_reads_off(struct peer *peer)
 static void bgp_process_writes(struct event *thread)
 {
 	static struct peer *peer;
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 	uint16_t status;
 	bool reschedule;
 	bool fatal = false;
@@ -223,7 +223,7 @@ static void bgp_process_reads(struct event *thread)
 	int ret = 1;
 	/* clang-format on */
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 
 	if (peer->fd < 0 || bm->terminating)
 		return;

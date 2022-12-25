@@ -5775,7 +5775,7 @@ bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
  */
 static void dplane_incoming_read(struct event *event)
 {
-	struct dplane_zns_info *zi = THREAD_ARG(event);
+	struct dplane_zns_info *zi = EVENT_ARG(event);
 
 	kernel_dplane_read(&zi->info);
 
@@ -5790,7 +5790,7 @@ static void dplane_incoming_read(struct event *event)
  */
 static void dplane_incoming_request(struct event *event)
 {
-	struct dplane_zns_info *zi = THREAD_ARG(event);
+	struct dplane_zns_info *zi = EVENT_ARG(event);
 
 	/* Start read task */
 	event_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
@@ -6607,8 +6607,8 @@ static void dplane_check_shutdown_status(struct event *event)
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
 		if (zdplane_info.dg_master) {
-			THREAD_OFF(zi->t_read);
-			THREAD_OFF(zi->t_request);
+			EVENT_OFF(zi->t_read);
+			EVENT_OFF(zi->t_request);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);

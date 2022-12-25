@@ -399,7 +399,7 @@ void pim_scan_oil(struct pim_instance *pim)
 
 static void on_rpf_cache_refresh(struct event *t)
 {
-	struct pim_instance *pim = THREAD_ARG(t);
+	struct pim_instance *pim = EVENT_ARG(t);
 
 	/* update kernel multicast forwarding cache (MFC) */
 	pim_scan_oil(pim);

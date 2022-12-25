@@ -53,7 +53,7 @@ static void if_down_del_nbr_connected(struct interface *ifp);
 
 static void if_zebra_speed_update(struct event *thread)
 {
-	struct interface *ifp = THREAD_ARG(thread);
+	struct interface *ifp = EVENT_ARG(thread);
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;
@@ -223,7 +223,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
-		THREAD_OFF(zebra_if->speed_update);
+		EVENT_OFF(zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
 	}

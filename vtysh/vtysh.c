@@ -3730,7 +3730,7 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 
 static void vtysh_log_read(struct event *thread)
 {
-	struct vtysh_client *vclient = THREAD_ARG(thread);
+	struct vtysh_client *vclient = EVENT_ARG(thread);
 	struct {
 		struct zlog_live_hdr hdr;
 		char text[4096];
@@ -3769,7 +3769,7 @@ static void vtysh_log_read(struct event *thread)
 				"log monitor connection closed unexpectedly");
 		buf.hdr.textlen = strlen(buf.text);
 
-		THREAD_OFF(vclient->log_reader);
+		EVENT_OFF(vclient->log_reader);
 		close(vclient->log_fd);
 		vclient->log_fd = -1;
 
@@ -3891,7 +3891,7 @@ DEFPY (no_vtysh_terminal_monitor,
 			 * a close notification...
 			 */
 			if (vclient->log_fd != -1) {
-				THREAD_OFF(vclient->log_reader);
+				EVENT_OFF(vclient->log_reader);
 
 				close(vclient->log_fd);
 				vclient->log_fd = -1;

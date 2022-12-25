@@ -165,7 +165,7 @@ static void bgp_conditional_adv_timer(struct event *t)
 	route_map_result_t ret;
 	bool advmap_table_changed = false;
 
-	bgp = THREAD_ARG(t);
+	bgp = EVENT_ARG(t);
 	assert(bgp);
 
 	event_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
@@ -351,7 +351,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Last filter removed. So cancel conditional routes polling thread. */
-	THREAD_OFF(bgp->t_condition_check);
+	EVENT_OFF(bgp->t_condition_check);
 }
 
 static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,

@@ -558,7 +558,7 @@ static void ospf_ase_calculate_timer(struct event *t)
 	struct ospf_area *area;
 	struct timeval start_time, stop_time;
 
-	ospf = THREAD_ARG(t);
+	ospf = EVENT_ARG(t);
 	ospf->t_ase_calc = NULL;
 
 	if (ospf->ase_calc) {

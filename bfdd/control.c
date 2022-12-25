@@ -144,7 +144,7 @@ void control_shutdown(void)
 
 void control_accept(struct event *t)
 {
-	int csock, sd = THREAD_FD(t);
+	int csock, sd = EVENT_FD(t);
 
 	csock = accept(sd, NULL, 0);
 	if (csock == -1) {
@@ -381,7 +381,7 @@ static void control_reset_buf(struct bfd_control_buffer *bcb)
 
 static void control_read(struct event *t)
 {
-	struct bfd_control_socket *bcs = THREAD_ARG(t);
+	struct bfd_control_socket *bcs = EVENT_ARG(t);
 	struct bfd_control_buffer *bcb = &bcs->bcs_bin;
 	int sd = bcs->bcs_sd;
 	struct bfd_control_msg bcm;
@@ -516,7 +516,7 @@ schedule_next_read:
 
 static void control_write(struct event *t)
 {
-	struct bfd_control_socket *bcs = THREAD_ARG(t);
+	struct bfd_control_socket *bcs = EVENT_ARG(t);
 	struct bfd_control_buffer *bcb = bcs->bcs_bout;
 	int sd = bcs->bcs_sd;
 	ssize_t bwrite;

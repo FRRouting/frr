@@ -70,7 +70,7 @@ void eigrp_hello_timer(struct event *thread)
 {
 	struct eigrp_interface *ei;
 
-	ei = THREAD_ARG(thread);
+	ei = EVENT_ARG(thread);
 
 	if (IS_DEBUG_EIGRP(0, TIMERS))
 		zlog_debug("Start Hello Timer (%s) Expire [%u]", IF_NAME(ei),

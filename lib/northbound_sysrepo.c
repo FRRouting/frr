@@ -516,8 +516,8 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 
 static void frr_sr_read_cb(struct event *thread)
 {
-	struct yang_module *module = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
+	struct yang_module *module = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
 	int ret;
 
 	ret = sr_subscription_process_events(module->sr_subscription, session,
@@ -710,7 +710,7 @@ static int frr_sr_finish(void)
 		if (!module->sr_subscription)
 			continue;
 		sr_unsubscribe(module->sr_subscription);
-		THREAD_OFF(module->sr_thread);
+		EVENT_OFF(module->sr_thread);
 	}
 
 	if (session)

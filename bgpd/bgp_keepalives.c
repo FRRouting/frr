@@ -15,7 +15,7 @@
 #include "memory.h"		// for MTYPE_TMP, XFREE, XCALLOC, XMALLOC
 #include "monotime.h"		// for monotime, monotime_since
 
-#include "bgpd/bgpd.h"          // for peer, PEER_THREAD_KEEPALIVES_ON, peer...
+#include "bgpd/bgpd.h"          // for peer, PEER_EVENT_KEEPALIVES_ON, peer...
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events
 #include "bgpd/bgp_packet.h"	// for bgp_keepalive_send
 #include "bgpd/bgp_keepalives.h"

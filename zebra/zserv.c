@@ -34,7 +34,7 @@
 #include "lib/sockopt.h"          /* for setsockopt_so_recvbuf, setsockopt... */
 #include "lib/sockunion.h"        /* for sockopt_reuseaddr, sockopt_reuseport */
 #include "lib/stream.h"           /* for STREAM_SIZE, stream (ptr only), ... */
-#include "event.h"                /* for thread (ptr only), THREAD_ARG, ... */
+#include "event.h"                /* for thread (ptr only), EVENT_ARG, ... */
 #include "lib/vrf.h"              /* for vrf_info_lookup, VRF_DEFAULT */
 #include "lib/vty.h"              /* for vty_out, vty (ptr only) */
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
@@ -188,8 +188,8 @@ static void zserv_client_fail(struct zserv *client)
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
 
-	THREAD_OFF(client->t_read);
-	THREAD_OFF(client->t_write);
+	EVENT_OFF(client->t_read);
+	EVENT_OFF(client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLIENT_FAIL);
 }
 
@@ -215,7 +215,7 @@ static void zserv_client_fail(struct zserv *client)
  */
 static void zserv_write(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 	struct stream *msg;
 	uint32_t wcmd = 0;
 	struct stream_fifo *cache;
@@ -308,7 +308,7 @@ zwrite_fail:
  */
 static void zserv_read(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 	int sock;
 	size_t already;
 	struct stream_fifo *cache;
@@ -321,7 +321,7 @@ static void zserv_read(struct event *thread)
 					memory_order_relaxed);
 	cache = stream_fifo_new();
 	p2p = p2p_orig;
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	while (p2p) {
 		ssize_t nb;
@@ -493,7 +493,7 @@ static void zserv_client_event(struct zserv *client,
  */
 static void zserv_process_messages(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
 	uint32_t p2p = zrouter.packets_to_process;
@@ -671,8 +671,8 @@ void zserv_close_client(struct zserv *client)
 				   zebra_route_string(client->proto));
 
 		event_cancel_event(zrouter.master, client);
-		THREAD_OFF(client->t_cleanup);
-		THREAD_OFF(client->t_process);
+		EVENT_OFF(client->t_cleanup);
+		EVENT_OFF(client->t_process);
 
 		/* destroy pthread */
 		frr_pthread_destroy(client->pthread);
@@ -711,7 +711,7 @@ void zserv_close_client(struct zserv *client)
  */
 static void zserv_handle_client_fail(struct event *thread)
 {
-	struct zserv *client = THREAD_ARG(thread);
+	struct zserv *client = EVENT_ARG(thread);
 
 	zserv_close_client(client);
 }
@@ -853,7 +853,7 @@ static void zserv_accept(struct event *thread)
 	struct sockaddr_in client;
 	socklen_t len;
 
-	accept_sock = THREAD_FD(thread);
+	accept_sock = EVENT_FD(thread);
 
 	/* Reregister myself. */
 	zserv_event(NULL, ZSERV_ACCEPT);

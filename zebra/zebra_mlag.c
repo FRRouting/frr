@@ -294,7 +294,7 @@ static void zebra_mlag_publish_process_state(struct zserv *client,
  */
 static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 {
-	struct stream *s = THREAD_ARG(thread);
+	struct stream *s = EVENT_ARG(thread);
 	struct stream *zebra_s = NULL;
 	struct listnode *node;
 	struct zserv *client;

@@ -628,7 +628,7 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 	struct mgmt_commit_stats *cmt_stats;
 	int ret = 0;
 
-	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 	cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
 
@@ -780,7 +780,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 
 	if (success) {
 		/* Stop the commit-timeout timer */
-		THREAD_OFF(txn->comm_cfg_timeout);
+		EVENT_OFF(txn->comm_cfg_timeout);
 
 		create_cmt_info_rec =
 			(result != MGMTD_NO_CFG_CHANGES &&
@@ -1458,7 +1458,7 @@ static void mgmt_txn_cfg_commit_timedout(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 
-	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG);
@@ -1549,7 +1549,7 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
-	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
 	MGMTD_TXN_DBG(
@@ -1615,7 +1615,7 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 		 * cleanup. Please see mgmt_fe_send_commit_cfg_reply() for
 		 * more details.
 		 */
-		THREAD_OFF(txn->comm_cfg_timeout);
+		EVENT_OFF(txn->comm_cfg_timeout);
 		mgmt_txn_send_commit_cfg_reply(txn, MGMTD_SUCCESS, NULL);
 		break;
 	case MGMTD_COMMIT_PHASE_MAX:
@@ -1882,7 +1882,7 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	int num_processed = 0;
 	bool error;
 
-	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
 	MGMTD_TXN_DBG(
@@ -1949,7 +1949,7 @@ static void mgmt_txn_process_get_data(struct event *thread)
 	int num_processed = 0;
 	bool error;
 
-	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
 	MGMTD_TXN_DBG(
@@ -2170,10 +2170,10 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 		if ((*txn)->type == MGMTD_TXN_TYPE_CONFIG)
 			if (mgmt_txn_mm->cfg_txn == *txn)
 				mgmt_txn_mm->cfg_txn = NULL;
-		THREAD_OFF((*txn)->proc_get_cfg);
-		THREAD_OFF((*txn)->proc_get_data);
-		THREAD_OFF((*txn)->proc_comm_cfg);
-		THREAD_OFF((*txn)->comm_cfg_timeout);
+		EVENT_OFF((*txn)->proc_get_cfg);
+		EVENT_OFF((*txn)->proc_get_data);
+		EVENT_OFF((*txn)->proc_comm_cfg);
+		EVENT_OFF((*txn)->comm_cfg_timeout);
 		hash_release(mgmt_txn_mm->txn_hash, *txn);
 		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
 
@@ -2210,7 +2210,7 @@ static void mgmt_txn_cleanup(struct event *thread)
 {
 	struct mgmt_txn_ctx *txn;
 
-	txn = (struct mgmt_txn_ctx *)THREAD_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
 	assert(txn);
 
 	mgmt_txn_cleanup_txn(&txn);

@@ -1619,7 +1619,7 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 				   nhe->nhg.nexthop);
 	}
 
-	THREAD_OFF(nhe->timer);
+	EVENT_OFF(nhe->timer);
 
 	zebra_nhg_free_members(nhe);
 
@@ -1644,7 +1644,7 @@ void zebra_nhg_hash_free(void *p)
 				   nhe->nhg.nexthop);
 	}
 
-	THREAD_OFF(nhe->timer);
+	EVENT_OFF(nhe->timer);
 
 	nexthops_free(nhe->nhg.nexthop);
 
@@ -1685,7 +1685,7 @@ void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg)
 
 static void zebra_nhg_timer(struct event *thread)
 {
-	struct nhg_hash_entry *nhe = THREAD_ARG(thread);
+	struct nhg_hash_entry *nhe = EVENT_ARG(thread);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("Nexthop Timer for nhe: %pNG", nhe);
@@ -1728,7 +1728,7 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 	nhe->refcnt++;
 
 	if (event_is_scheduled(nhe->timer)) {
-		THREAD_OFF(nhe->timer);
+		EVENT_OFF(nhe->timer);
 		nhe->refcnt--;
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 	}
@@ -3507,7 +3507,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 
 		/* Dont call the dec API, we dont want to uninstall the ID */
 		old->refcnt = 0;
-		THREAD_OFF(old->timer);
+		EVENT_OFF(old->timer);
 		zebra_nhg_free(old);
 		old = NULL;
 	}

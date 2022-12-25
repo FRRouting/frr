@@ -231,7 +231,7 @@ int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
 
 void pcep_lib_socket_write_ready(struct event *thread)
 {
-	struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_socket_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 
 	pceplib_external_socket_write(data->fd, data->payload);
@@ -240,7 +240,7 @@ void pcep_lib_socket_write_ready(struct event *thread)
 
 void pcep_lib_socket_read_ready(struct event *thread)
 {
-	struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_socket_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 
 	pceplib_external_socket_read(data->fd, data->payload);

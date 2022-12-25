@@ -70,8 +70,8 @@ static void vici_connection_error(struct vici_conn *vici)
 {
 	nhrp_vc_reset();
 
-	THREAD_OFF(vici->t_read);
-	THREAD_OFF(vici->t_write);
+	EVENT_OFF(vici->t_read);
+	EVENT_OFF(vici->t_write);
 	zbuf_reset(&vici->ibuf);
 	zbufq_reset(&vici->obuf);
 
@@ -359,7 +359,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 
 static void vici_read(struct event *t)
 {
-	struct vici_conn *vici = THREAD_ARG(t);
+	struct vici_conn *vici = EVENT_ARG(t);
 	struct zbuf *ibuf = &vici->ibuf;
 	struct zbuf pktbuf;
 
@@ -389,7 +389,7 @@ static void vici_read(struct event *t)
 
 static void vici_write(struct event *t)
 {
-	struct vici_conn *vici = THREAD_ARG(t);
+	struct vici_conn *vici = EVENT_ARG(t);
 	int r;
 
 	r = zbufq_write(&vici->obuf, vici->fd);
@@ -502,7 +502,7 @@ static char *vici_get_charon_filepath(void)
 
 static void vici_reconnect(struct event *t)
 {
-	struct vici_conn *vici = THREAD_ARG(t);
+	struct vici_conn *vici = EVENT_ARG(t);
 	int fd;
 	char *file_path;
 

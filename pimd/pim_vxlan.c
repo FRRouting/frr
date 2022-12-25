@@ -178,7 +178,7 @@ static void pim_vxlan_work_timer_cb(struct event *t)
 /* global 1second timer used for periodic processing */
 static void pim_vxlan_work_timer_setup(bool start)
 {
-	THREAD_OFF(vxlan_info.work_timer);
+	EVENT_OFF(vxlan_info.work_timer);
 	if (start)
 		event_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
 				PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
@@ -225,7 +225,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * if there are no other references.
 		 */
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
-			THREAD_OFF(up->t_ka_timer);
+			EVENT_OFF(up->t_ka_timer);
 			up = pim_upstream_keep_alive_timer_proc(up);
 		} else {
 			/* this is really unexpected as we force vxlan

@@ -137,7 +137,7 @@ int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
 
 void ospf_opaque_type9_lsa_term(struct ospf_interface *oi)
 {
-	THREAD_OFF(oi->t_opaque_lsa_self);
+	EVENT_OFF(oi->t_opaque_lsa_self);
 	if (oi->opaque_lsa_self != NULL)
 		list_delete(&oi->opaque_lsa_self);
 	oi->opaque_lsa_self = NULL;
@@ -166,7 +166,7 @@ void ospf_opaque_type10_lsa_term(struct ospf_area *area)
 	area->lsdb->new_lsa_hook = area->lsdb->del_lsa_hook = NULL;
 #endif /* MONITOR_LSDB_CHANGE */
 
-	THREAD_OFF(area->t_opaque_lsa_self);
+	EVENT_OFF(area->t_opaque_lsa_self);
 	if (area->opaque_lsa_self != NULL)
 		list_delete(&area->opaque_lsa_self);
 	return;
@@ -194,7 +194,7 @@ void ospf_opaque_type11_lsa_term(struct ospf *top)
 	top->lsdb->new_lsa_hook = top->lsdb->del_lsa_hook = NULL;
 #endif /* MONITOR_LSDB_CHANGE */
 
-	THREAD_OFF(top->t_opaque_lsa_self);
+	EVENT_OFF(top->t_opaque_lsa_self);
 	if (top->opaque_lsa_self != NULL)
 		list_delete(&top->opaque_lsa_self);
 	return;
@@ -590,7 +590,7 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 		ospf_opaque_lsa_flush_schedule(lsa);
 	}
 
-	THREAD_OFF(oipt->t_opaque_lsa_self);
+	EVENT_OFF(oipt->t_opaque_lsa_self);
 	list_delete(&oipt->id_list);
 	if (cleanup_owner) {
 		/* Remove from its owner's self-originated LSA list. */
@@ -697,7 +697,7 @@ static void free_opaque_info_per_id(void *val)
 {
 	struct opaque_info_per_id *oipi = (struct opaque_info_per_id *)val;
 
-	THREAD_OFF(oipi->t_opaque_lsa_self);
+	EVENT_OFF(oipi->t_opaque_lsa_self);
 	if (oipi->lsa != NULL)
 		ospf_lsa_unlock(&oipi->lsa);
 	XFREE(MTYPE_OPAQUE_INFO_PER_ID, oipi);
@@ -1460,7 +1460,7 @@ static void ospf_opaque_type9_lsa_originate(struct event *t)
 {
 	struct ospf_interface *oi;
 
-	oi = THREAD_ARG(t);
+	oi = EVENT_ARG(t);
 	oi->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1474,7 +1474,7 @@ static void ospf_opaque_type10_lsa_originate(struct event *t)
 {
 	struct ospf_area *area;
 
-	area = THREAD_ARG(t);
+	area = EVENT_ARG(t);
 	area->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1489,7 +1489,7 @@ static void ospf_opaque_type11_lsa_originate(struct event *t)
 {
 	struct ospf *top;
 
-	top = THREAD_ARG(t);
+	top = EVENT_ARG(t);
 	top->t_opaque_lsa_self = NULL;
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1830,7 +1830,7 @@ static void ospf_opaque_type9_lsa_reoriginate_timer(struct event *t)
 	struct ospf *top;
 	struct ospf_interface *oi;
 
-	oipt = THREAD_ARG(t);
+	oipt = EVENT_ARG(t);
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -1874,7 +1874,7 @@ static void ospf_opaque_type10_lsa_reoriginate_timer(struct event *t)
 	struct ospf_interface *oi;
 	int n;
 
-	oipt = THREAD_ARG(t);
+	oipt = EVENT_ARG(t);
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -1919,7 +1919,7 @@ static void ospf_opaque_type11_lsa_reoriginate_timer(struct event *t)
 	struct ospf_opaque_functab *functab;
 	struct ospf *top;
 
-	oipt = THREAD_ARG(t);
+	oipt = EVENT_ARG(t);
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -2022,7 +2022,7 @@ static void ospf_opaque_lsa_refresh_timer(struct event *t)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Timer[Opaque-LSA]: (Opaque-LSA Refresh expire)");
 
-	oipi = THREAD_ARG(t);
+	oipi = EVENT_ARG(t);
 
 	if ((lsa = oipi->lsa) != NULL)
 		if ((functab = oipi->opqctl_type->functab) != NULL)

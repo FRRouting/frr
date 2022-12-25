@@ -146,7 +146,7 @@ void mgmt_fe_server_destroy(void)
 		MGMTD_FE_SRVR_DBG("Closing MGMTD Frontend Server!");
 
 		if (mgmt_fe_listen_ev) {
-			THREAD_OFF(mgmt_fe_listen_ev);
+			EVENT_OFF(mgmt_fe_listen_ev);
 			mgmt_fe_listen_ev = NULL;
 		}
 

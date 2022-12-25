@@ -61,7 +61,7 @@ struct pullwr *_pullwr_new(struct event_master *tm, int fd, void *arg,
 
 void pullwr_del(struct pullwr *pullwr)
 {
-	THREAD_OFF(pullwr->writer);
+	EVENT_OFF(pullwr->writer);
 
 	XFREE(MTYPE_PULLWR_BUF, pullwr->buffer);
 	XFREE(MTYPE_PULLWR_HEAD, pullwr);
@@ -177,7 +177,7 @@ void pullwr_write(struct pullwr *pullwr, const void *data, size_t len)
 
 static void pullwr_run(struct event *t)
 {
-	struct pullwr *pullwr = THREAD_ARG(t);
+	struct pullwr *pullwr = EVENT_ARG(t);
 	struct iovec iov[2];
 	size_t niov, lastvalid;
 	ssize_t nwr;

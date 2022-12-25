@@ -98,8 +98,8 @@ static void control_accept(struct event *thread)
 	struct ctl_conn		*c;
 
 	len = sizeof(s_un);
-	if ((connfd = accept(THREAD_FD(thread), (struct sockaddr *)&s_un,
-	    &len)) == -1) {
+	if ((connfd = accept(EVENT_FD(thread), (struct sockaddr *)&s_un,
+			     &len)) == -1) {
 		/*
 		 * Pause accept if we are out of file descriptors, or
 		 * libevent will haunt us here too.
@@ -169,8 +169,8 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	THREAD_OFF(c->iev.ev_read);
-	THREAD_OFF(c->iev.ev_write);
+	EVENT_OFF(c->iev.ev_read);
+	EVENT_OFF(c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);
@@ -179,7 +179,7 @@ control_close(int fd)
 /* ARGSUSED */
 static void control_dispatch_imsg(struct event *thread)
 {
-	int		 fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	struct ctl_conn	*c;
 	struct imsg	 imsg;
 	ssize_t		 n;

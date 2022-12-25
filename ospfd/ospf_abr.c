@@ -1731,9 +1731,9 @@ static void ospf_abr_announce_non_dna_routers(struct event *thread)
 {
 	struct ospf_area *area;
 	struct listnode *node;
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
-	THREAD_OFF(ospf->t_abr_fr);
+	EVENT_OFF(ospf->t_abr_fr);
 
 	if (!IS_OSPF_ABR(ospf))
 		return;
@@ -2058,7 +2058,7 @@ void ospf_abr_task(struct ospf *ospf)
 
 static void ospf_abr_task_timer(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 
 	ospf->t_abr_task = 0;
 

@@ -37,7 +37,7 @@ static void zclient_lookup_connect(struct event *t)
 {
 	struct zclient *zlookup;
 
-	zlookup = THREAD_ARG(t);
+	zlookup = EVENT_ARG(t);
 
 	if (zlookup->sock >= 0) {
 		return;
@@ -114,7 +114,7 @@ static void zclient_lookup_failed(struct zclient *zlookup)
 
 void zclient_lookup_free(void)
 {
-	THREAD_OFF(zlookup_read);
+	EVENT_OFF(zlookup_read);
 	zclient_stop(zlookup);
 	zclient_free(zlookup);
 	zlookup = NULL;
@@ -366,7 +366,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 void zclient_lookup_read_pipe(struct event *thread)
 {
-	struct zclient *zlookup = THREAD_ARG(thread);
+	struct zclient *zlookup = EVENT_ARG(thread);
 	struct pim_instance *pim = pim_get_pim_instance(VRF_DEFAULT);
 	struct pim_zlookup_nexthop nexthop_tab[10];
 	pim_addr l = PIMADDR_ANY;

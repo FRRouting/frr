@@ -96,13 +96,13 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 			circuit->area->area_tag, circuit->circuit_id,
 			circuit->interface->name, level);
 
-	THREAD_OFF(circuit->t_send_csnp[idx]);
-	THREAD_OFF(circuit->t_send_psnp[idx]);
+	EVENT_OFF(circuit->t_send_csnp[idx]);
+	EVENT_OFF(circuit->t_send_psnp[idx]);
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		THREAD_OFF(circuit->u.bc.t_send_lan_hello[idx]);
-		THREAD_OFF(circuit->u.bc.t_run_dr[idx]);
-		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
+		EVENT_OFF(circuit->u.bc.t_send_lan_hello[idx]);
+		EVENT_OFF(circuit->u.bc.t_run_dr[idx]);
+		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
 		circuit->lsp_regenerate_pending[idx] = 0;
 		circuit->u.bc.run_dr_elect[idx] = 0;
 		circuit->u.bc.is_dr[idx] = 0;
@@ -200,7 +200,7 @@ void isis_event_dis_status_change(struct event *thread)
 {
 	struct isis_circuit *circuit;
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 
 	/* invalid arguments */
 	if (!circuit || !circuit->area)

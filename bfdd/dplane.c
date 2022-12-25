@@ -307,14 +307,14 @@ static ssize_t bfd_dplane_flush(struct bfd_dplane_ctx *bdc)
 	stream_pulldown(bdc->outbuf);
 
 	/* Disable write ready events. */
-	THREAD_OFF(bdc->outbufev);
+	EVENT_OFF(bdc->outbufev);
 
 	return total;
 }
 
 static void bfd_dplane_write(struct event *t)
 {
-	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
+	struct bfd_dplane_ctx *bdc = EVENT_ARG(t);
 
 	/* Handle connection stage. */
 	if (bdc->connecting && bfd_dplane_client_connecting(bdc))
@@ -601,7 +601,7 @@ skip_read:
 
 static void bfd_dplane_read(struct event *t)
 {
-	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
+	struct bfd_dplane_ctx *bdc = EVENT_ARG(t);
 	int rv;
 
 	rv = bfd_dplane_expect(bdc, 0, bfd_dplane_handle_message, NULL);
@@ -672,7 +672,7 @@ static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 	/* Client mode has special treatment. */
 	if (bdc->client) {
 		/* Disable connection event if any. */
-		THREAD_OFF(bdc->connectev);
+		EVENT_OFF(bdc->connectev);
 
 		/* Normal treatment on shutdown. */
 		if (bglobal.bg_shutdown)
@@ -680,8 +680,8 @@ static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 
 		/* Attempt reconnection. */
 		socket_close(&bdc->sock);
-		THREAD_OFF(bdc->inbufev);
-		THREAD_OFF(bdc->outbufev);
+		EVENT_OFF(bdc->inbufev);
+		EVENT_OFF(bdc->outbufev);
 		event_add_timer(master, bfd_dplane_client_connect, bdc, 3,
 				&bdc->connectev);
 		return;
@@ -699,8 +699,8 @@ free_resources:
 	socket_close(&bdc->sock);
 	stream_free(bdc->inbuf);
 	stream_free(bdc->outbuf);
-	THREAD_OFF(bdc->inbufev);
-	THREAD_OFF(bdc->outbufev);
+	EVENT_OFF(bdc->inbufev);
+	EVENT_OFF(bdc->outbufev);
 	XFREE(MTYPE_BFDD_DPLANE_CTX, bdc);
 }
 
@@ -821,7 +821,7 @@ static uint16_t bfd_dplane_request_counters(const struct bfd_session *bs)
  */
 static void bfd_dplane_accept(struct event *t)
 {
-	struct bfd_global *bg = THREAD_ARG(t);
+	struct bfd_global *bg = EVENT_ARG(t);
 	struct bfd_dplane_ctx *bdc;
 	int sock;
 
@@ -901,7 +901,7 @@ static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc)
 
 static void bfd_dplane_client_connect(struct event *t)
 {
-	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
+	struct bfd_dplane_ctx *bdc = EVENT_ARG(t);
 	int rv, sock;
 	socklen_t rvlen = sizeof(rv);
 
@@ -949,8 +949,8 @@ static void bfd_dplane_client_connect(struct event *t)
 	}
 
 reschedule_connect:
-	THREAD_OFF(bdc->inbufev);
-	THREAD_OFF(bdc->outbufev);
+	EVENT_OFF(bdc->inbufev);
+	EVENT_OFF(bdc->outbufev);
 	socket_close(&sock);
 	event_add_timer(master, bfd_dplane_client_connect, bdc, 3,
 			&bdc->connectev);
@@ -997,7 +997,7 @@ static int bfd_dplane_finish_late(void)
 		bfd_dplane_ctx_free(bdc);
 
 	/* Cancel accept thread and close socket. */
-	THREAD_OFF(bglobal.bg_dplane_sockev);
+	EVENT_OFF(bglobal.bg_dplane_sockev);
 	close(bglobal.bg_dplane_sock);
 
 	return 0;

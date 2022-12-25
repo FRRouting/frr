@@ -437,8 +437,8 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 
 	stream_reset(fnc->ibuf);
 	stream_reset(fnc->obuf);
-	THREAD_OFF(fnc->t_read);
-	THREAD_OFF(fnc->t_write);
+	EVENT_OFF(fnc->t_read);
+	EVENT_OFF(fnc->t_write);
 
 	/* FPM is disabled, don't attempt to connect. */
 	if (fnc->disabled)
@@ -450,7 +450,7 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 
 static void fpm_read(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	fpm_msg_hdr_t fpm;
 	ssize_t rv;
 	char buf[65535];
@@ -612,7 +612,7 @@ static void fpm_read(struct event *t)
 
 static void fpm_write(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	socklen_t statuslen;
 	ssize_t bwritten;
 	int rv, status;
@@ -716,7 +716,7 @@ static void fpm_write(struct event *t)
 
 static void fpm_connect(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct sockaddr_in *sin = (struct sockaddr_in *)&fnc->addr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&fnc->addr;
 	socklen_t slen;
@@ -1022,7 +1022,7 @@ static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 
 static void fpm_lsp_send(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
 	struct fpm_lsp_arg fla;
 
@@ -1082,7 +1082,7 @@ static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
 
 static void fpm_nhg_send(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct fpm_nhg_arg fna;
 
 	fna.fnc = fnc;
@@ -1111,7 +1111,7 @@ static void fpm_nhg_send(struct event *t)
  */
 static void fpm_rib_send(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	rib_dest_t *dest;
 	struct route_node *rn;
 	struct route_table *rt;
@@ -1218,7 +1218,7 @@ static void fpm_rmac_send(struct event *t)
 {
 	struct fpm_rmac_arg fra;
 
-	fra.fnc = THREAD_ARG(t);
+	fra.fnc = EVENT_ARG(t);
 	fra.ctx = dplane_ctx_alloc();
 	fra.complete = true;
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
@@ -1242,7 +1242,7 @@ static void fpm_nhg_reset_cb(struct hash_bucket *bucket, void *arg)
 
 static void fpm_nhg_reset(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 
 	hash_iterate(zrouter.nhgs_id, fpm_nhg_reset_cb, NULL);
 
@@ -1262,7 +1262,7 @@ static void fpm_lsp_reset_cb(struct hash_bucket *bucket, void *arg)
 
 static void fpm_lsp_reset(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
 
 	hash_iterate(zvrf->lsp_table, fpm_lsp_reset_cb, NULL);
@@ -1276,7 +1276,7 @@ static void fpm_lsp_reset(struct event *t)
  */
 static void fpm_rib_reset(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	rib_dest_t *dest;
 	struct route_node *rn;
 	struct route_table *rt;
@@ -1317,7 +1317,7 @@ static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 
 static void fpm_rmac_reset(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
 
@@ -1328,7 +1328,7 @@ static void fpm_rmac_reset(struct event *t)
 
 static void fpm_process_queue(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct zebra_dplane_ctx *ctx;
 	bool no_bufs = false;
 	uint64_t processed_contexts = 0;
@@ -1389,8 +1389,8 @@ static void fpm_process_queue(struct event *t)
  */
 static void fpm_process_event(struct event *t)
 {
-	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
-	enum fpm_nl_events event = THREAD_VAL(t);
+	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
+	enum fpm_nl_events event = EVENT_VAL(t);
 
 	switch (event) {
 	case FNE_DISABLE:
@@ -1474,16 +1474,16 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 {
 	/* Disable all events and close socket. */
-	THREAD_OFF(fnc->t_lspreset);
-	THREAD_OFF(fnc->t_lspwalk);
-	THREAD_OFF(fnc->t_nhgreset);
-	THREAD_OFF(fnc->t_nhgwalk);
-	THREAD_OFF(fnc->t_ribreset);
-	THREAD_OFF(fnc->t_ribwalk);
-	THREAD_OFF(fnc->t_rmacreset);
-	THREAD_OFF(fnc->t_rmacwalk);
-	THREAD_OFF(fnc->t_event);
-	THREAD_OFF(fnc->t_nhg);
+	EVENT_OFF(fnc->t_lspreset);
+	EVENT_OFF(fnc->t_lspwalk);
+	EVENT_OFF(fnc->t_nhgreset);
+	EVENT_OFF(fnc->t_nhgwalk);
+	EVENT_OFF(fnc->t_ribreset);
+	EVENT_OFF(fnc->t_ribwalk);
+	EVENT_OFF(fnc->t_rmacreset);
+	EVENT_OFF(fnc->t_rmacwalk);
+	EVENT_OFF(fnc->t_event);
+	EVENT_OFF(fnc->t_nhg);
 	event_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
 	event_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
 	event_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);

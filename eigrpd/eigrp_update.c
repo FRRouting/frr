@@ -900,7 +900,7 @@ void eigrp_update_send_GR_thread(struct event *thread)
 	struct eigrp_neighbor *nbr;
 
 	/* get argument from thread */
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	/* remove this thread pointer */
 
 	/* if there is packet waiting in queue,

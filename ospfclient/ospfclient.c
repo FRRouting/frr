@@ -75,7 +75,7 @@ static void lsa_delete(struct event *t)
 	struct in_addr area_id;
 	int rc;
 
-	oclient = THREAD_ARG(t);
+	oclient = EVENT_ARG(t);
 
 	rc = inet_aton(args[6], &area_id);
 	if (rc <= 0) {
@@ -106,7 +106,7 @@ static void lsa_inject(struct event *t)
 	static uint32_t counter = 1; /* Incremented each time invoked */
 	int rc;
 
-	cl = THREAD_ARG(t);
+	cl = EVENT_ARG(t);
 
 	rc = inet_aton(args[5], &ifaddr);
 	if (rc <= 0) {
@@ -146,8 +146,8 @@ static void lsa_read(struct event *thread)
 
 	printf("lsa_read called\n");
 
-	oclient = THREAD_ARG(thread);
-	fd = THREAD_FD(thread);
+	oclient = EVENT_ARG(thread);
+	fd = EVENT_FD(thread);
 
 	/* Handle asynchronous message */
 	ret = ospf_apiclient_handle_async(oclient);

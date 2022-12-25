@@ -79,7 +79,7 @@ static void tx_queue_element_free(void *element)
 {
 	struct isis_tx_queue_entry *e = element;
 
-	THREAD_OFF(e->retry);
+	EVENT_OFF(e->retry);
 
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
 }
@@ -102,7 +102,7 @@ static struct isis_tx_queue_entry *tx_queue_find(struct isis_tx_queue *queue,
 
 static void tx_queue_send_event(struct event *thread)
 {
-	struct isis_tx_queue_entry *e = THREAD_ARG(thread);
+	struct isis_tx_queue_entry *e = EVENT_ARG(thread);
 	struct isis_tx_queue *queue = e->queue;
 
 	event_add_timer(master, tx_queue_send_event, e, 5, &e->retry);
@@ -147,7 +147,7 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 
 	e->type = type;
 
-	THREAD_OFF(e->retry);
+	EVENT_OFF(e->retry);
 	event_add_event(master, tx_queue_send_event, e, 0, &e->retry);
 
 	e->is_retry = false;
@@ -170,7 +170,7 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			   func, file, line);
 	}
 
-	THREAD_OFF(e->retry);
+	EVENT_OFF(e->retry);
 
 	hash_release(queue->hash, e);
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);

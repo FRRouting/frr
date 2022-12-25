@@ -97,8 +97,8 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 /* Discovery functions */
 void disc_recv_packet(struct event *thread)
 {
-	int			 fd = THREAD_FD(thread);
-	struct event **threadp = THREAD_ARG(thread);
+	int fd = EVENT_FD(thread);
+	struct event **threadp = EVENT_ARG(thread);
 
 	union {
 		struct	cmsghdr hdr;
@@ -292,7 +292,7 @@ disc_find_iface(unsigned int ifindex, int af, union ldpd_addr *src)
 
 void session_accept(struct event *thread)
 {
-	int			 fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	struct sockaddr_storage	 src;
 	socklen_t		 len = sizeof(src);
 	int			 newfd;
@@ -396,8 +396,8 @@ session_accept_nbr(struct nbr *nbr, int fd)
 
 static void session_read(struct event *thread)
 {
-	int		 fd = THREAD_FD(thread);
-	struct nbr	*nbr = THREAD_ARG(thread);
+	int fd = EVENT_FD(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 	struct tcp_conn	*tcp = nbr->tcp;
 	struct ldp_hdr	*ldp_hdr;
 	struct ldp_msg	*msg;
@@ -612,7 +612,7 @@ static void session_read(struct event *thread)
 
 static void session_write(struct event *thread)
 {
-	struct tcp_conn *tcp = THREAD_ARG(thread);
+	struct tcp_conn *tcp = EVENT_ARG(thread);
 	struct nbr	*nbr = tcp->nbr;
 
 	tcp->wbuf.ev = NULL;
@@ -640,7 +640,7 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	switch (nbr->state) {
 	case NBR_STA_PRESENT:
 		if (nbr_pending_connect(nbr))
-			THREAD_OFF(nbr->ev_connect);
+			EVENT_OFF(nbr->ev_connect);
 		break;
 	case NBR_STA_INITIAL:
 	case NBR_STA_OPENREC:
@@ -745,7 +745,7 @@ tcp_close(struct tcp_conn *tcp)
 	evbuf_clear(&tcp->wbuf);
 
 	if (tcp->nbr) {
-		THREAD_OFF(tcp->rev);
+		EVENT_OFF(tcp->rev);
 		free(tcp->rbuf);
 		tcp->nbr->tcp = NULL;
 	}
@@ -777,7 +777,7 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 void
 pending_conn_del(struct pending_conn *pconn)
 {
-	THREAD_OFF(pconn->ev_timeout);
+	EVENT_OFF(pconn->ev_timeout);
 	TAILQ_REMOVE(&global.pending_conns, pconn, entry);
 	free(pconn);
 }
@@ -797,7 +797,7 @@ pending_conn_find(int af, union ldpd_addr *addr)
 
 static void pending_conn_timeout(struct event *thread)
 {
-	struct pending_conn	*pconn = THREAD_ARG(thread);
+	struct pending_conn *pconn = EVENT_ARG(thread);
 	struct tcp_conn		*tcp;
 
 	pconn->ev_timeout = NULL;

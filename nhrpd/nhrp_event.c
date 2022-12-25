@@ -31,8 +31,8 @@ static void evmgr_reconnect(struct event *t);
 
 static void evmgr_connection_error(struct event_manager *evmgr)
 {
-	THREAD_OFF(evmgr->t_read);
-	THREAD_OFF(evmgr->t_write);
+	EVENT_OFF(evmgr->t_read);
+	EVENT_OFF(evmgr->t_write);
 	zbuf_reset(&evmgr->ibuf);
 	zbufq_reset(&evmgr->obuf);
 
@@ -76,7 +76,7 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 
 static void evmgr_read(struct event *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct event_manager *evmgr = EVENT_ARG(t);
 	struct zbuf *ibuf = &evmgr->ibuf;
 	struct zbuf msg;
 
@@ -94,7 +94,7 @@ static void evmgr_read(struct event *t)
 
 static void evmgr_write(struct event *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct event_manager *evmgr = EVENT_ARG(t);
 	int r;
 
 	r = zbufq_write(&evmgr->obuf, evmgr->fd);
@@ -181,7 +181,7 @@ static void evmgr_submit(struct event_manager *evmgr, struct zbuf *obuf)
 
 static void evmgr_reconnect(struct event *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct event_manager *evmgr = EVENT_ARG(t);
 	int fd;
 
 	if (evmgr->fd >= 0 || !nhrp_event_socket_path)

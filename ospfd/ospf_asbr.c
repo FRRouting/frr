@@ -266,7 +266,7 @@ void ospf_asbr_status_update(struct ospf *ospf, uint8_t status)
  */
 static void ospf_asbr_nssa_redist_update_timer(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	int type;
 
 	ospf->t_asbr_nssa_redist_update = NULL;
@@ -1042,7 +1042,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 
 static void ospf_asbr_external_aggr_process(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	int operation = 0;
 
 	ospf->t_external_aggr = NULL;
@@ -1084,7 +1084,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 				zlog_debug(
 					"%s, Restarting Aggregator delay timer.",
 					__func__);
-			THREAD_OFF(ospf->t_external_aggr);
+			EVENT_OFF(ospf->t_external_aggr);
 		}
 	}
 

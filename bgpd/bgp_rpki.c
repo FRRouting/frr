@@ -383,7 +383,7 @@ struct rpki_revalidate_prefix {
 
 static void rpki_revalidate_prefix(struct event *thread)
 {
-	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
+	struct rpki_revalidate_prefix *rrp = EVENT_ARG(thread);
 	struct bgp_dest *match, *node;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
@@ -491,7 +491,7 @@ struct rpki_revalidate_peer {
 
 static void bgp_rpki_revalidate_peer(struct event *thread)
 {
-	struct rpki_revalidate_peer *rvp = THREAD_ARG(thread);
+	struct rpki_revalidate_peer *rvp = EVENT_ARG(thread);
 
 	/*
 	 * Here's the expensive bit of gnomish deviousness
@@ -693,7 +693,7 @@ static void stop(void)
 {
 	rtr_is_stopping = true;
 	if (is_running()) {
-		THREAD_OFF(t_rpki_sync);
+		EVENT_OFF(t_rpki_sync);
 		rtr_mgr_stop(rtr_config);
 		rtr_mgr_free(rtr_config);
 		rtr_is_running = false;

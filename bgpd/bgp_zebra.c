@@ -1058,7 +1058,7 @@ static void bgp_zebra_tm_connect(struct event *t)
 	struct zclient *zclient;
 	int delay = 10, ret = 0;
 
-	zclient = THREAD_ARG(t);
+	zclient = EVENT_ARG(t);
 	if (bgp_tm_status_connected && zclient->sock > 0)
 		delay = 60;
 	else {

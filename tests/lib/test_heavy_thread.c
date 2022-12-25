@@ -58,7 +58,7 @@ static void slow_func(struct vty *vty, const char *str, const int i)
 
 static void clear_something(struct event *thread)
 {
-	struct work_state *ws = THREAD_ARG(thread);
+	struct work_state *ws = EVENT_ARG(thread);
 
 	/* this could be like iterating through 150k of route_table
 	 * or worse, iterating through a list of peers, to bgp_stop them with

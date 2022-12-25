@@ -446,7 +446,7 @@ if_get_wait_for_sync_interval(void)
 /* ARGSUSED */
 static void if_hello_timer(struct event *thread)
 {
-	struct iface_af		*ia = THREAD_ARG(thread);
+	struct iface_af *ia = EVENT_ARG(thread);
 
 	ia->hello_timer = NULL;
 	send_hello(HELLO_LINK, ia, NULL);
@@ -456,7 +456,7 @@ static void if_hello_timer(struct event *thread)
 static void
 if_start_hello_timer(struct iface_af *ia)
 {
-	THREAD_OFF(ia->hello_timer);
+	EVENT_OFF(ia->hello_timer);
 	event_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
 			&ia->hello_timer);
 }
@@ -464,7 +464,7 @@ if_start_hello_timer(struct iface_af *ia)
 static void
 if_stop_hello_timer(struct iface_af *ia)
 {
-	THREAD_OFF(ia->hello_timer);
+	EVENT_OFF(ia->hello_timer);
 }
 
 struct ctl_iface *
@@ -722,7 +722,7 @@ ldp_sync_act_iface_start_sync(struct iface *iface)
 
 static void iface_wait_for_ldp_sync_timer(struct event *thread)
 {
-	struct iface *iface = THREAD_ARG(thread);
+	struct iface *iface = EVENT_ARG(thread);
 
 	ldp_sync_fsm(iface, LDP_SYNC_EVT_LDP_SYNC_COMPLETE);
 }
@@ -732,7 +732,7 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 	if (iface->ldp_sync.wait_for_sync_timer)
 		return;
 
-	THREAD_OFF(iface->ldp_sync.wait_for_sync_timer);
+	EVENT_OFF(iface->ldp_sync.wait_for_sync_timer);
 	event_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
 			if_get_wait_for_sync_interval(),
 			&iface->ldp_sync.wait_for_sync_timer);
@@ -740,7 +740,7 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 
 static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	THREAD_OFF(iface->ldp_sync.wait_for_sync_timer);
+	EVENT_OFF(iface->ldp_sync.wait_for_sync_timer);
 }
 
 static int

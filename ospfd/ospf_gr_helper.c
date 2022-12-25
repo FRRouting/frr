@@ -331,7 +331,7 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  */
 static void ospf_handle_grace_timer_expiry(struct event *thread)
 {
-	struct ospf_neighbor *nbr = THREAD_ARG(thread);
+	struct ospf_neighbor *nbr = EVENT_ARG(thread);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
@@ -500,7 +500,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 
 	if (OSPF_GR_IS_ACTIVE_HELPER(restarter)) {
 		if (restarter->gr_helper_info.t_grace_timer)
-			THREAD_OFF(restarter->gr_helper_info.t_grace_timer);
+			EVENT_OFF(restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf->active_restarter_cnt > 0)
 			ospf->active_restarter_cnt--;
@@ -699,7 +699,7 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	 * expiry, stop the grace timer.
 	 */
 	if (reason != OSPF_GR_HELPER_GRACE_TIMEOUT)
-		THREAD_OFF(nbr->gr_helper_info.t_grace_timer);
+		EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
 
 	/* check exit triggered due to successful completion
 	 * of graceful restart.

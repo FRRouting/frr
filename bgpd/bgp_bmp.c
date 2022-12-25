@@ -1337,7 +1337,7 @@ static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 
 static void bmp_stats(struct event *thread)
 {
-	struct bmp_targets *bt = THREAD_ARG(thread);
+	struct bmp_targets *bt = EVENT_ARG(thread);
 	struct stream *s;
 	struct peer *peer;
 	struct listnode *node;
@@ -1390,7 +1390,7 @@ static void bmp_stats(struct event *thread)
 /* read from the BMP socket to detect session termination */
 static void bmp_read(struct event *t)
 {
-	struct bmp *bmp = THREAD_ARG(t);
+	struct bmp *bmp = EVENT_ARG(t);
 	char buf[1024];
 	ssize_t n;
 
@@ -1495,7 +1495,7 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 static void bmp_accept(struct event *thread)
 {
 	union sockunion su;
-	struct bmp_listener *bl = THREAD_ARG(thread);
+	struct bmp_listener *bl = EVENT_ARG(thread);
 	int bmp_sock;
 
 	/* We continue hearing BMP socket. */
@@ -1517,7 +1517,7 @@ static void bmp_close(struct bmp *bmp)
 	struct bmp_queue_entry *bqe;
 	struct bmp_mirrorq *bmq;
 
-	THREAD_OFF(bmp->t_read);
+	EVENT_OFF(bmp->t_read);
 
 	if (bmp->active)
 		bmp_active_disconnected(bmp->active);
@@ -1529,7 +1529,7 @@ static void bmp_close(struct bmp *bmp)
 		if (!bqe->refcount)
 			XFREE(MTYPE_BMP_QUEUE, bqe);
 
-	THREAD_OFF(bmp->t_read);
+	EVENT_OFF(bmp->t_read);
 	pullwr_del(bmp->pullwr);
 	close(bmp->socket);
 }
@@ -1644,7 +1644,7 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	struct bmp *bmp;
 	struct bmp_active *ba;
 
-	THREAD_OFF(bt->t_stats);
+	EVENT_OFF(bt->t_stats);
 
 	frr_each_safe (bmp_actives, &bt->actives, ba)
 		bmp_active_put(ba);
@@ -1729,7 +1729,7 @@ out_sock:
 
 static void bmp_listener_stop(struct bmp_listener *bl)
 {
-	THREAD_OFF(bl->t_accept);
+	EVENT_OFF(bl->t_accept);
 
 	if (bl->sock != -1)
 		close(bl->sock);
@@ -1768,9 +1768,9 @@ static struct bmp_active *bmp_active_get(struct bmp_targets *bt,
 
 static void bmp_active_put(struct bmp_active *ba)
 {
-	THREAD_OFF(ba->t_timer);
-	THREAD_OFF(ba->t_read);
-	THREAD_OFF(ba->t_write);
+	EVENT_OFF(ba->t_timer);
+	EVENT_OFF(ba->t_read);
+	EVENT_OFF(ba->t_write);
 
 	bmp_actives_del(&ba->targets->actives, ba);
 
@@ -1904,16 +1904,16 @@ static void bmp_active_resolved(struct resolver_query *resq, const char *errstr,
 
 static void bmp_active_thread(struct event *t)
 {
-	struct bmp_active *ba = THREAD_ARG(t);
+	struct bmp_active *ba = EVENT_ARG(t);
 	socklen_t slen;
 	int status, ret;
 	vrf_id_t vrf_id;
 
 	/* all 3 end up here, though only timer or read+write are active
 	 * at a time */
-	THREAD_OFF(ba->t_timer);
-	THREAD_OFF(ba->t_read);
-	THREAD_OFF(ba->t_write);
+	EVENT_OFF(ba->t_timer);
+	EVENT_OFF(ba->t_read);
+	EVENT_OFF(ba->t_write);
 
 	ba->last_err = NULL;
 
@@ -1967,9 +1967,9 @@ static void bmp_active_disconnected(struct bmp_active *ba)
 
 static void bmp_active_setup(struct bmp_active *ba)
 {
-	THREAD_OFF(ba->t_timer);
-	THREAD_OFF(ba->t_read);
-	THREAD_OFF(ba->t_write);
+	EVENT_OFF(ba->t_timer);
+	EVENT_OFF(ba->t_read);
+	EVENT_OFF(ba->t_write);
 
 	if (ba->bmp)
 		return;
@@ -2190,7 +2190,7 @@ DEFPY(bmp_stats_cfg,
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 
-	THREAD_OFF(bt->t_stats);
+	EVENT_OFF(bt->t_stats);
 	if (no)
 		bt->stat_msec = 0;
 	else if (interval_str)

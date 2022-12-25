@@ -33,7 +33,7 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 
 static void nhrp_shortcut_do_expire(struct event *t)
 {
-	struct nhrp_shortcut *s = THREAD_ARG(t);
+	struct nhrp_shortcut *s = EVENT_ARG(t);
 
 	event_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
 			&s->t_timer);
@@ -123,7 +123,7 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 		s->route_installed = 0;
 	}
 
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	if (holding_time) {
 		s->expiring = 0;
 		s->holding_time = holding_time;
@@ -137,7 +137,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
 
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
@@ -156,7 +156,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 
 static void nhrp_shortcut_do_purge(struct event *t)
 {
-	struct nhrp_shortcut *s = THREAD_ARG(t);
+	struct nhrp_shortcut *s = EVENT_ARG(t);
 	s->t_timer = NULL;
 	nhrp_shortcut_delete(s);
 }
@@ -204,7 +204,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	event_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
 
 	if (pp->hdr->type != NHRP_PACKET_RESOLUTION_REPLY) {
@@ -454,7 +454,7 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	s = nhrp_shortcut_get(&p);
 	if (s && s->type != NHRP_CACHE_INCOMPLETE) {
 		s->addr = *addr;
-		THREAD_OFF(s->t_timer);
+		EVENT_OFF(s->t_timer);
 		event_add_timer(master, nhrp_shortcut_do_purge, s, 30,
 				&s->t_timer);
 		nhrp_shortcut_send_resolution_req(s);
@@ -499,7 +499,7 @@ struct purge_ctx {
 
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 {
-	THREAD_OFF(s->t_timer);
+	EVENT_OFF(s->t_timer);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	if (force) {

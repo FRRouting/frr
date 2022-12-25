@@ -599,7 +599,7 @@ static void ospf6_spf_calculation_thread(struct event *t)
 	int areas_processed = 0;
 	char rbuf[32];
 
-	ospf6 = (struct ospf6 *)THREAD_ARG(t);
+	ospf6 = (struct ospf6 *)EVENT_ARG(t);
 
 	/* execute SPF calculation */
 	monotime(&start);
@@ -724,7 +724,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	THREAD_OFF(ospf6->t_spf_calc);
+	EVENT_OFF(ospf6->t_spf_calc);
 	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
 			     &ospf6->t_spf_calc);
 }
@@ -1236,7 +1236,7 @@ static void ospf6_ase_calculate_timer(struct event *t)
 	struct ospf6_area *area;
 	uint16_t type;
 
-	ospf6 = THREAD_ARG(t);
+	ospf6 = EVENT_ARG(t);
 
 	/* Calculate external route for each AS-external-LSA */
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);

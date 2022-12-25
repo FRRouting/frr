@@ -431,7 +431,7 @@ static unsigned int bgp_dump_routes_func(int afi, int first_run,
 static void bgp_dump_interval_func(struct event *t)
 {
 	struct bgp_dump *bgp_dump;
-	bgp_dump = THREAD_ARG(t);
+	bgp_dump = EVENT_ARG(t);
 
 	/* Reschedule dump even if file couldn't be opened this time... */
 	if (bgp_dump_open_file(bgp_dump) != NULL) {
@@ -691,7 +691,7 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	}
 
 	/* Removing interval event. */
-	THREAD_OFF(bgp_dump->t_interval);
+	EVENT_OFF(bgp_dump->t_interval);
 
 	bgp_dump->interval = 0;
 

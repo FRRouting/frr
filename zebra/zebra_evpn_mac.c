@@ -386,7 +386,7 @@ static void zebra_evpn_dad_mac_auto_recovery_exp(struct event *t)
 	struct listnode *node = NULL;
 	struct zebra_neigh *nbr = NULL;
 
-	mac = THREAD_ARG(t);
+	mac = EVENT_ARG(t);
 
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(mac->zevpn->vrf_id);
@@ -575,7 +575,7 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		}
 
 		/* Start auto recovery timer for this MAC */
-		THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+		EVENT_OFF(mac->dad_mac_auto_recovery_timer);
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN) {
 				char mac_buf[MAC_BUF_SIZE];
@@ -1152,7 +1152,7 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	zebra_evpn_mac_stop_hold_timer(mac);
 
 	/* Cancel auto recovery */
-	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+	EVENT_OFF(mac->dad_mac_auto_recovery_timer);
 
 	/* If the MAC is freed before the neigh we will end up
 	 * with a stale pointer against the neigh.
@@ -1508,7 +1508,7 @@ static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 	bool old_static;
 	bool new_static;
 
-	mac = THREAD_ARG(t);
+	mac = EVENT_ARG(t);
 	/* the purpose of the hold timer is to age out the peer-active
 	 * flag
 	 */
@@ -1581,7 +1581,7 @@ void zebra_evpn_mac_stop_hold_timer(struct zebra_mac *mac)
 						       sizeof(mac_buf)));
 	}
 
-	THREAD_OFF(mac->hold_timer);
+	EVENT_OFF(mac->hold_timer);
 }
 
 void zebra_evpn_sync_mac_del(struct zebra_mac *mac)

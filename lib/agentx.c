@@ -46,13 +46,13 @@ static void agentx_read(struct event *t)
 	fd_set fds;
 	int flags, new_flags = 0;
 	int nonblock = false;
-	struct listnode *ln = THREAD_ARG(t);
+	struct listnode *ln = EVENT_ARG(t);
 	struct event **thr = listgetdata(ln);
 	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
 	/* fix for non blocking socket */
-	flags = fcntl(THREAD_FD(t), F_GETFL, 0);
+	flags = fcntl(EVENT_FD(t), F_GETFL, 0);
 	if (-1 == flags) {
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 			 strerror(errno), errno);
@@ -62,19 +62,19 @@ static void agentx_read(struct event *t)
 	if (flags & O_NONBLOCK)
 		nonblock = true;
 	else
-		new_flags = fcntl(THREAD_FD(t), F_SETFL, flags | O_NONBLOCK);
+		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags | O_NONBLOCK);
 
 	if (new_flags == -1)
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
 			 strerror(errno), errno);
 
 	FD_ZERO(&fds);
-	FD_SET(THREAD_FD(t), &fds);
+	FD_SET(EVENT_FD(t), &fds);
 	snmp_read(&fds);
 
 	/* Reset the flag */
 	if (!nonblock) {
-		new_flags = fcntl(THREAD_FD(t), F_SETFL, flags);
+		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags);
 
 		if (new_flags == -1)
 			flog_err(
@@ -109,7 +109,7 @@ static void agentx_events_update(void)
 
 	ln = listhead(events);
 	thr = ln ? listgetdata(ln) : NULL;
-	thr_fd = thr ? THREAD_FD(*thr) : -1;
+	thr_fd = thr ? EVENT_FD(*thr) : -1;
 
 	/* "two-pointer" / two-list simultaneous iteration
 	 * ln/thr/thr_fd point to the next existing event listener to hit while
@@ -125,7 +125,7 @@ static void agentx_events_update(void)
 			}
 			ln = nextln;
 			thr = ln ? listgetdata(ln) : NULL;
-			thr_fd = thr ? THREAD_FD(*thr) : -1;
+			thr_fd = thr ? EVENT_FD(*thr) : -1;
 		}
 		/* need listener, but haven't hit one where it would be */
 		else if (FD_ISSET(fd, &fds)) {

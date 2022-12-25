@@ -246,7 +246,7 @@ void eigrp_distribute_timer_process(struct event *thread)
 {
 	struct eigrp *eigrp;
 
-	eigrp = THREAD_ARG(thread);
+	eigrp = EVENT_ARG(thread);
 
 	/* execute GR for whole process */
 	eigrp_update_send_process_GR(eigrp, EIGRP_GR_FILTER, NULL);
@@ -267,7 +267,7 @@ void eigrp_distribute_timer_interface(struct event *thread)
 {
 	struct eigrp_interface *ei;
 
-	ei = THREAD_ARG(thread);
+	ei = EVENT_ARG(thread);
 	ei->t_distribute = NULL;
 
 	/* execute GR for interface */

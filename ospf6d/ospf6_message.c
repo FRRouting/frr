@@ -790,7 +790,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		event_add_event(master, ospf6_lsreq_send, on, 0,
 				&on->thread_send_lsreq);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_dbdesc);
 
 	/* More bit check */
 	if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MBIT)
@@ -875,7 +875,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
 					"Duplicated dbdesc causes retransmit");
-			THREAD_OFF(on->thread_send_dbdesc);
+			EVENT_OFF(on->thread_send_dbdesc);
 			event_add_event(master, ospf6_dbdesc_send, on, 0,
 					&on->thread_send_dbdesc);
 			return;
@@ -928,7 +928,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
 					"Duplicated dbdesc causes retransmit");
-			THREAD_OFF(on->thread_send_dbdesc);
+			EVENT_OFF(on->thread_send_dbdesc);
 			event_add_event(master, ospf6_dbdesc_send, on, 0,
 					&on->thread_send_dbdesc);
 			return;
@@ -1002,7 +1002,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		event_add_event(master, ospf6_lsreq_send, on, 0,
 				&on->thread_send_lsreq);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_dbdesc);
 	event_add_event(master, ospf6_dbdesc_send_newone, on, 0,
 			&on->thread_send_dbdesc);
 
@@ -1136,7 +1136,7 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 	assert(p == OSPF6_MESSAGE_END(oh));
 
 	/* schedule send lsupdate */
-	THREAD_OFF(on->thread_send_lsupdate);
+	EVENT_OFF(on->thread_send_lsupdate);
 	event_add_event(master, ospf6_lsupdate_send_neighbor, on, 0,
 			&on->thread_send_lsupdate);
 }
@@ -1914,8 +1914,8 @@ void ospf6_receive(struct event *thread)
 	int count = 0;
 
 	/* add next read thread */
-	ospf6 = THREAD_ARG(thread);
-	sockfd = THREAD_FD(thread);
+	ospf6 = EVENT_ARG(thread);
+	sockfd = EVENT_FD(thread);
 
 	event_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 		       &ospf6->t_ospf6_receive);
@@ -2084,7 +2084,7 @@ static uint16_t ospf6_make_hello(struct ospf6_interface *oi, struct stream *s)
 
 static void ospf6_write(struct event *thread)
 {
-	struct ospf6 *ospf6 = THREAD_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(thread);
 	struct ospf6_interface *oi;
 	struct ospf6_header *oh;
 	struct ospf6_packet *op;
@@ -2242,7 +2242,7 @@ void ospf6_hello_send(struct event *thread)
 	struct ospf6_packet *op;
 	uint16_t length = OSPF6_HEADER_SIZE;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	if (oi->state <= OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
@@ -2339,7 +2339,7 @@ void ospf6_dbdesc_send(struct event *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 	struct ospf6_packet *op;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 
 	if (on->state < OSPF6_NEIGHBOR_EXSTART) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_DBDESC, SEND))
@@ -2382,7 +2382,7 @@ void ospf6_dbdesc_send_newone(struct event *thread)
 	struct ospf6_lsa *lsa, *lsanext;
 	unsigned int size = 0;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	ospf6_lsdb_remove_all(on->dbdesc_list);
 
 	/* move LSAs from summary_list to dbdesc_list (within neighbor
@@ -2504,7 +2504,7 @@ void ospf6_lsreq_send(struct event *thread)
 	struct ospf6_packet *op;
 	uint16_t length = OSPF6_HEADER_SIZE;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 
 	/* LSReq will be sent only in ExStart or Loading */
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE
@@ -2683,7 +2683,7 @@ void ospf6_lsupdate_send_neighbor(struct event *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 	int lsa_cnt = 0;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 
 	if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND_HDR))
 		zlog_debug("LSUpdate to neighbor %s", on->name);
@@ -2818,7 +2818,7 @@ void ospf6_lsupdate_send_interface(struct event *thread)
 	uint16_t length = OSPF6_HEADER_SIZE;
 	int lsa_cnt = 0;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	if (oi->state <= OSPF6_INTERFACE_WAITING) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE,
@@ -2858,7 +2858,7 @@ void ospf6_lsack_send_neighbor(struct event *thread)
 	struct ospf6_packet *op;
 	uint16_t length = OSPF6_HEADER_SIZE;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSACK, SEND_HDR))
@@ -2909,7 +2909,7 @@ static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
 		    > ospf6_packet_max(oi)) {
 			/* if we run out of packet size/space here,
 			   better to try again soon. */
-			THREAD_OFF(oi->thread_send_lsack);
+			EVENT_OFF(oi->thread_send_lsack);
 			event_add_event(master, ospf6_lsack_send_interface, oi,
 					0, &oi->thread_send_lsack);
 
@@ -2934,7 +2934,7 @@ void ospf6_lsack_send_interface(struct event *thread)
 	struct ospf6_packet *op;
 	uint16_t length = OSPF6_HEADER_SIZE;
 
-	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(thread);
 
 	if (oi->state <= OSPF6_INTERFACE_WAITING) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSACK, SEND_HDR))
