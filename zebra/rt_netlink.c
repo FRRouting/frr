@@ -2501,7 +2501,7 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
  */
 ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				   const struct zebra_dplane_ctx *ctx,
-				   void *buf, size_t buflen)
+				   void *buf, size_t buflen, bool fpm)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2528,9 +2528,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 	/*
 	 * Nothing to do if the kernel doesn't support nexthop objects or
-	 * we dont want to install this type of NHG
+	 * we dont want to install this type of NHG, but FPM may possible to
+	 * handle this.
 	 */
-	if (!kernel_nexthops_supported()) {
+	if (!fpm && !kernel_nexthops_supported()) {
 		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
 			zlog_debug(
 				"%s: nhg_id %u (%s): kernel nexthops not supported, ignoring",
@@ -2850,7 +2851,7 @@ static ssize_t netlink_nexthop_msg_encoder(struct zebra_dplane_ctx *ctx,
 		return -1;
 	}
 
-	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen);
+	return netlink_nexthop_msg_encode(cmd, ctx, buf, buflen, false);
 }
 
 enum netlink_msg_status
