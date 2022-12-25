@@ -405,7 +405,7 @@ static void zebra_evpn_neigh_hold_exp_cb(struct event *t)
 	bool old_n_static;
 	bool new_n_static;
 
-	n = THREAD_ARG(t);
+	n = EVENT_ARG(t);
 	/* the purpose of the hold timer is to age out the peer-active
 	 * flag
 	 */
@@ -576,7 +576,7 @@ int zebra_evpn_neigh_del(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 		listnode_delete(n->mac->neigh_list, n);
 
 	/* Cancel auto recovery */
-	THREAD_OFF(n->dad_ip_auto_recovery_timer);
+	EVENT_OFF(n->dad_ip_auto_recovery_timer);
 
 	/* Cancel proxy hold timer */
 	zebra_evpn_neigh_stop_hold_timer(n);
@@ -1086,7 +1086,7 @@ static void zebra_evpn_dad_ip_auto_recovery_exp(struct event *t)
 	struct zebra_neigh *nbr = NULL;
 	struct zebra_evpn *zevpn = NULL;
 
-	nbr = THREAD_ARG(t);
+	nbr = EVENT_ARG(t);
 
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(nbr->zevpn->vrf_id);
@@ -1223,7 +1223,7 @@ static void zebra_evpn_dup_addr_detect_for_neigh(
 		nbr->dad_dup_detect_time = monotime(NULL);
 
 		/* Start auto recovery timer for this IP */
-		THREAD_OFF(nbr->dad_ip_auto_recovery_timer);
+		EVENT_OFF(nbr->dad_ip_auto_recovery_timer);
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
@@ -1680,7 +1680,7 @@ void zebra_evpn_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 	nbr->detect_start_time.tv_sec = 0;
 	nbr->detect_start_time.tv_usec = 0;
 	nbr->dad_dup_detect_time = 0;
-	THREAD_OFF(nbr->dad_ip_auto_recovery_timer);
+	EVENT_OFF(nbr->dad_ip_auto_recovery_timer);
 
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL)) {
 		zebra_evpn_neigh_send_add_to_client(zevpn->vni, &nbr->ip,

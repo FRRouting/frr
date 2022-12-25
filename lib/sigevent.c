@@ -131,7 +131,7 @@ void frr_signal_timer(struct event *t)
 {
 	struct frr_sigevent_master_t *sigm;
 
-	sigm = THREAD_ARG(t);
+	sigm = EVENT_ARG(t);
 	sigm->t = NULL;
 	event_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
 			FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);

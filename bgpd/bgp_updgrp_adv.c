@@ -303,7 +303,7 @@ static void subgroup_coalesce_timer(struct event *thread)
 	struct update_subgroup *subgrp;
 	struct bgp *bgp;
 
-	subgrp = THREAD_ARG(thread);
+	subgrp = EVENT_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes upon coalesce timer expiry(%u ms)",
 			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
@@ -329,7 +329,7 @@ static void subgroup_coalesce_timer(struct event *thread)
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			peer = PAF_PEER(paf);
-			THREAD_OFF(peer->t_routeadv);
+			EVENT_OFF(peer->t_routeadv);
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 		}
 	}

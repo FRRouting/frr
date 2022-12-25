@@ -1844,7 +1844,7 @@ void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
 /* Worker for SPF calculation scheduler. */
 static void ospf_spf_calculate_schedule_worker(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct route_table *new_table, *new_rtrs;
 	struct route_table *all_rtrs = NULL;
 	struct timeval start_time, spf_start_time;

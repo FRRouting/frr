@@ -413,7 +413,7 @@ static void rip_interface_clean(struct rip_interface *ri)
 	ri->enable_interface = 0;
 	ri->running = 0;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 }
 
 void rip_interfaces_clean(struct rip *rip)
@@ -472,7 +472,7 @@ int rip_if_down(struct interface *ifp)
 
 	ri = ifp->info;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 
 	rip = ri->rip;
 	if (rip) {
@@ -780,7 +780,7 @@ static void rip_interface_wakeup(struct event *t)
 	struct rip_interface *ri;
 
 	/* Get interface. */
-	ifp = THREAD_ARG(t);
+	ifp = EVENT_ARG(t);
 
 	ri = ifp->info;
 

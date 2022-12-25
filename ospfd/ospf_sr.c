@@ -461,7 +461,7 @@ static void sr_start_label_manager(struct event *start)
 {
 	struct ospf *ospf;
 
-	ospf = THREAD_ARG(start);
+	ospf = EVENT_ARG(start);
 
 	/* re-attempt to start SR & Label Manager connection */
 	ospf_sr_start(ospf);
@@ -565,7 +565,7 @@ static void ospf_sr_stop(void)
 	osr_debug("SR (%s): Stop Segment Routing", __func__);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	THREAD_OFF(OspfSR.t_start_lm);
+	EVENT_OFF(OspfSR.t_start_lm);
 
 	/* Release SRGB if active */
 	sr_global_block_delete();

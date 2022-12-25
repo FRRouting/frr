@@ -1085,7 +1085,7 @@ static void sr_start_label_manager(struct event *start)
 {
 	struct isis_area *area;
 
-	area = THREAD_ARG(start);
+	area = EVENT_ARG(start);
 
 	/* re-attempt to start SR & Label Manager connection */
 	isis_sr_start(area);
@@ -1168,7 +1168,7 @@ void isis_sr_stop(struct isis_area *area)
 		 area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	THREAD_OFF(srdb->t_start_lm);
+	EVENT_OFF(srdb->t_start_lm);
 
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))

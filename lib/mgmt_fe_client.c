@@ -179,7 +179,7 @@ static void mgmt_fe_client_write(struct event *thread)
 	struct mgmt_fe_client_ctx *client_ctx;
 	enum mgmt_msg_wsched rv;
 
-	client_ctx = (struct mgmt_fe_client_ctx *)THREAD_ARG(thread);
+	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
 			    mgmt_debug_fe_client);
 	if (rv == MSW_SCHED_STREAM)
@@ -198,7 +198,7 @@ static void mgmt_fe_client_resume_writes(struct event *thread)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 
-	client_ctx = (struct mgmt_fe_client_ctx *)THREAD_ARG(thread);
+	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 	assert(client_ctx && client_ctx->conn_fd != -1);
 
 	mgmt_fe_client_writes_on(client_ctx);
@@ -674,7 +674,7 @@ static void mgmt_fe_client_proc_msgbufs(struct event *thread)
 {
 	struct mgmt_fe_client_ctx *client_ctx;
 
-	client_ctx = (struct mgmt_fe_client_ctx *)THREAD_ARG(thread);
+	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_fe_client_process_msg,
 			      client_ctx, mgmt_debug_fe_client))
 		mgmt_fe_client_register_event(client_ctx, MGMTD_FE_PROC_MSG);
@@ -685,7 +685,7 @@ static void mgmt_fe_client_read(struct event *thread)
 	struct mgmt_fe_client_ctx *client_ctx;
 	enum mgmt_msg_rsched rv;
 
-	client_ctx = (struct mgmt_fe_client_ctx *)THREAD_ARG(thread);
+	client_ctx = (struct mgmt_fe_client_ctx *)EVENT_ARG(thread);
 
 	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
 			   mgmt_debug_fe_client);
@@ -727,7 +727,7 @@ static void mgmt_fe_server_connect(struct mgmt_fe_client_ctx *client_ctx)
 
 static void mgmt_fe_client_conn_timeout(struct event *thread)
 {
-	mgmt_fe_server_connect(THREAD_ARG(thread));
+	mgmt_fe_server_connect(EVENT_ARG(thread));
 }
 
 static void
@@ -1067,10 +1067,10 @@ void mgmt_fe_client_lib_destroy(uintptr_t lib_hndl)
 
 	mgmt_fe_destroy_client_sessions(lib_hndl);
 
-	THREAD_OFF(client_ctx->conn_retry_tmr);
-	THREAD_OFF(client_ctx->conn_read_ev);
-	THREAD_OFF(client_ctx->conn_write_ev);
-	THREAD_OFF(client_ctx->conn_writes_on);
-	THREAD_OFF(client_ctx->msg_proc_ev);
+	EVENT_OFF(client_ctx->conn_retry_tmr);
+	EVENT_OFF(client_ctx->conn_read_ev);
+	EVENT_OFF(client_ctx->conn_write_ev);
+	EVENT_OFF(client_ctx->conn_writes_on);
+	EVENT_OFF(client_ctx->msg_proc_ev);
 	mgmt_msg_destroy(&client_ctx->mstate);
 }

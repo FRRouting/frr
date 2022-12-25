@@ -23,7 +23,7 @@ static struct rip_peer *rip_peer_new(void)
 
 static void rip_peer_free(struct rip_peer *peer)
 {
-	THREAD_OFF(peer->t_timeout);
+	EVENT_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIP_PEER, peer);
 }
 
@@ -56,7 +56,7 @@ static void rip_peer_timeout(struct event *t)
 {
 	struct rip_peer *peer;
 
-	peer = THREAD_ARG(t);
+	peer = EVENT_ARG(t);
 	listnode_delete(peer->rip->peer_list, peer);
 	rip_peer_free(peer);
 }
@@ -69,7 +69,7 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 	peer = rip_peer_lookup(rip, addr);
 
 	if (peer) {
-		THREAD_OFF(peer->t_timeout);
+		EVENT_OFF(peer->t_timeout);
 	} else {
 		peer = rip_peer_new();
 		peer->rip = rip;

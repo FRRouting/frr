@@ -307,7 +307,7 @@ int eigrp_check_sha256_digest(struct stream *s,
 
 void eigrp_write(struct event *thread)
 {
-	struct eigrp *eigrp = THREAD_ARG(thread);
+	struct eigrp *eigrp = EVENT_ARG(thread);
 	struct eigrp_header *eigrph;
 	struct eigrp_interface *ei;
 	struct eigrp_packet *ep;
@@ -474,7 +474,7 @@ void eigrp_read(struct event *thread)
 	uint16_t length = 0;
 
 	/* first of all get interface pointer. */
-	eigrp = THREAD_ARG(thread);
+	eigrp = EVENT_ARG(thread);
 
 	/* prepare for next packet. */
 	event_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
@@ -923,7 +923,7 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 	if (ep->s)
 		stream_free(ep->s);
 
-	THREAD_OFF(ep->t_retrans_timer);
+	EVENT_OFF(ep->t_retrans_timer);
 
 	XFREE(MTYPE_EIGRP_PACKET, ep);
 }
@@ -973,7 +973,7 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 void eigrp_unack_packet_retrans(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->retrans_queue);
@@ -1009,7 +1009,7 @@ void eigrp_unack_packet_retrans(struct event *thread)
 void eigrp_unack_multicast_packet_retrans(struct event *thread)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->multicast_queue);

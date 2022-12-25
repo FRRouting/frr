@@ -43,8 +43,8 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU",
 	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
 
-	THREAD_OFF(p->t_fallback);
-	THREAD_OFF(p->t_timer);
+	EVENT_OFF(p->t_fallback);
+	EVENT_OFF(p->t_timer);
 	hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
 	nhrp_vc_notify_del(p->vc, &p->vc_notifier);
@@ -53,7 +53,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 
 static void nhrp_peer_notify_up(struct event *t)
 {
-	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_peer *p = EVENT_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
@@ -76,7 +76,7 @@ static void __nhrp_peer_check(struct nhrp_peer *p)
 
 	online = nifp->enabled && (!nifp->ipsec_profile || vc->ipsec);
 	if (p->online != online) {
-		THREAD_OFF(p->t_fallback);
+		EVENT_OFF(p->t_fallback);
 		if (online && notifier_active(&p->notifier_list)) {
 			/* If we requested the IPsec connection, delay
 			 * the up notification a bit to allow things
@@ -250,7 +250,7 @@ void nhrp_peer_unref(struct nhrp_peer *p)
 
 static void nhrp_peer_request_timeout(struct event *t)
 {
-	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_peer *p = EVENT_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
@@ -273,12 +273,12 @@ static void nhrp_peer_request_timeout(struct event *t)
 
 static void nhrp_peer_defer_vici_request(struct event *t)
 {
-	struct nhrp_peer *p = THREAD_ARG(t);
+	struct nhrp_peer *p = EVENT_ARG(t);
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 
-	THREAD_OFF(p->t_timer);
+	EVENT_OFF(p->t_timer);
 
 	if (p->online) {
 		debugf(NHRP_DEBUG_COMMON,

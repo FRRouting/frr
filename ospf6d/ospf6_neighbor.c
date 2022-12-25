@@ -163,18 +163,18 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	ospf6_lsdb_delete(on->lsupdate_list);
 	ospf6_lsdb_delete(on->lsack_list);
 
-	THREAD_OFF(on->inactivity_timer);
+	EVENT_OFF(on->inactivity_timer);
 
-	THREAD_OFF(on->last_dbdesc_release_timer);
+	EVENT_OFF(on->last_dbdesc_release_timer);
 
-	THREAD_OFF(on->thread_send_dbdesc);
-	THREAD_OFF(on->thread_send_lsreq);
-	THREAD_OFF(on->thread_send_lsupdate);
-	THREAD_OFF(on->thread_send_lsack);
-	THREAD_OFF(on->thread_exchange_done);
-	THREAD_OFF(on->thread_adj_ok);
+	EVENT_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_lsreq);
+	EVENT_OFF(on->thread_send_lsupdate);
+	EVENT_OFF(on->thread_send_lsack);
+	EVENT_OFF(on->thread_exchange_done);
+	EVENT_OFF(on->thread_adj_ok);
 
-	THREAD_OFF(on->gr_helper_info.t_grace_timer);
+	EVENT_OFF(on->gr_helper_info.t_grace_timer);
 
 	bfd_sess_free(&on->bfd_session);
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
@@ -276,14 +276,14 @@ void hello_received(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *HelloReceived*", on->name);
 
 	/* reset Inactivity Timer */
-	THREAD_OFF(on->inactivity_timer);
+	EVENT_OFF(on->inactivity_timer);
 	event_add_timer(master, inactivity_timer, on,
 			on->ospf6_if->dead_interval, &on->inactivity_timer);
 
@@ -296,7 +296,7 @@ void twoway_received(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state > OSPF6_NEIGHBOR_INIT)
@@ -319,7 +319,7 @@ void twoway_received(struct event *thread)
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_dbdesc);
 	event_add_event(master, ospf6_dbdesc_send, on, 0,
 			&on->thread_send_dbdesc);
 }
@@ -329,7 +329,7 @@ void negotiation_done(struct event *thread)
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXSTART)
@@ -375,7 +375,7 @@ void negotiation_done(struct event *thread)
 
 static void ospf6_neighbor_last_dbdesc_release(struct event *thread)
 {
-	struct ospf6_neighbor *on = THREAD_ARG(thread);
+	struct ospf6_neighbor *on = EVENT_ARG(thread);
 
 	assert(on);
 	memset(&on->dbdesc_last, 0, sizeof(struct ospf6_dbdesc));
@@ -385,7 +385,7 @@ void exchange_done(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_EXCHANGE)
@@ -394,12 +394,12 @@ void exchange_done(struct event *thread)
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *ExchangeDone*", on->name);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_dbdesc);
 	ospf6_lsdb_remove_all(on->dbdesc_list);
 
 	/* RFC 2328 (10.8): Release the last dbdesc after dead_interval */
 	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT)) {
-		THREAD_OFF(on->last_dbdesc_release_timer);
+		EVENT_OFF(on->last_dbdesc_release_timer);
 		event_add_timer(master, ospf6_neighbor_last_dbdesc_release, on,
 				on->ospf6_if->dead_interval,
 				&on->last_dbdesc_release_timer);
@@ -430,7 +430,7 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 		if (on->request_list->count == 0)
 			event_add_event(master, loading_done, on, 0, NULL);
 		else if (on->last_ls_req == NULL) {
-			THREAD_OFF(on->thread_send_lsreq);
+			EVENT_OFF(on->thread_send_lsreq);
 			event_add_event(master, ospf6_lsreq_send, on, 0,
 					&on->thread_send_lsreq);
 		}
@@ -441,7 +441,7 @@ void loading_done(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state != OSPF6_NEIGHBOR_LOADING)
@@ -460,7 +460,7 @@ void adj_ok(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
@@ -473,7 +473,7 @@ void adj_ok(struct event *thread)
 		SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT);
 		SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
-		THREAD_OFF(on->thread_send_dbdesc);
+		EVENT_OFF(on->thread_send_dbdesc);
 		event_add_event(master, ospf6_dbdesc_send, on, 0,
 				&on->thread_send_dbdesc);
 
@@ -488,7 +488,7 @@ void seqnumber_mismatch(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
@@ -505,7 +505,7 @@ void seqnumber_mismatch(struct event *thread)
 
 	ospf6_neighbor_clear_ls_lists(on);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
 	event_add_event(master, ospf6_dbdesc_send, on, 0,
@@ -516,7 +516,7 @@ void bad_lsreq(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
@@ -533,7 +533,7 @@ void bad_lsreq(struct event *thread)
 
 	ospf6_neighbor_clear_ls_lists(on);
 
-	THREAD_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_dbdesc);
 	on->dbdesc_seqnum++; /* Incr seqnum as per RFC2328, sec 10.3 */
 
 	event_add_event(master, ospf6_dbdesc_send, on, 0,
@@ -544,7 +544,7 @@ void oneway_received(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (on->state < OSPF6_NEIGHBOR_TWOWAY)
@@ -559,19 +559,19 @@ void oneway_received(struct event *thread)
 
 	ospf6_neighbor_clear_ls_lists(on);
 
-	THREAD_OFF(on->thread_send_dbdesc);
-	THREAD_OFF(on->thread_send_lsreq);
-	THREAD_OFF(on->thread_send_lsupdate);
-	THREAD_OFF(on->thread_send_lsack);
-	THREAD_OFF(on->thread_exchange_done);
-	THREAD_OFF(on->thread_adj_ok);
+	EVENT_OFF(on->thread_send_dbdesc);
+	EVENT_OFF(on->thread_send_lsreq);
+	EVENT_OFF(on->thread_send_lsupdate);
+	EVENT_OFF(on->thread_send_lsack);
+	EVENT_OFF(on->thread_exchange_done);
+	EVENT_OFF(on->thread_adj_ok);
 }
 
 void inactivity_timer(struct event *thread)
 {
 	struct ospf6_neighbor *on;
 
-	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
+	on = (struct ospf6_neighbor *)EVENT_ARG(thread);
 	assert(on);
 
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))

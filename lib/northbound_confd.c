@@ -403,7 +403,7 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 
 static void frr_confd_cdb_read_cb(struct event *thread)
 {
-	int fd = THREAD_FD(thread);
+	int fd = EVENT_FD(thread);
 	enum cdb_sub_notification cdb_ev;
 	int flags;
 	int *subp = NULL;
@@ -588,7 +588,7 @@ error:
 static void frr_confd_finish_cdb(void)
 {
 	if (cdb_sub_sock > 0) {
-		THREAD_OFF(t_cdb_sub);
+		EVENT_OFF(t_cdb_sub);
 		cdb_close(cdb_sub_sock);
 	}
 }
@@ -1175,8 +1175,8 @@ static int frr_confd_dp_read(struct confd_daemon_ctx *dctx, int fd)
 
 static void frr_confd_dp_ctl_read(struct event *thread)
 {
-	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
+	struct confd_daemon_ctx *dctx = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
 
 	event_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
 
@@ -1185,8 +1185,8 @@ static void frr_confd_dp_ctl_read(struct event *thread)
 
 static void frr_confd_dp_worker_read(struct event *thread)
 {
-	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
+	struct confd_daemon_ctx *dctx = EVENT_ARG(thread);
+	int fd = EVENT_FD(thread);
 
 	event_add_read(master, frr_confd_dp_worker_read, dctx, fd,
 		       &t_dp_worker);
@@ -1337,11 +1337,11 @@ error:
 static void frr_confd_finish_dp(void)
 {
 	if (dp_worker_sock > 0) {
-		THREAD_OFF(t_dp_worker);
+		EVENT_OFF(t_dp_worker);
 		close(dp_worker_sock);
 	}
 	if (dp_ctl_sock > 0) {
-		THREAD_OFF(t_dp_ctl);
+		EVENT_OFF(t_dp_ctl);
 		close(dp_ctl_sock);
 	}
 	if (dctx != NULL)

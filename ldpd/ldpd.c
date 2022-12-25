@@ -559,7 +559,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 /* ARGSUSED */
 static void main_dispatch_ldpe(struct event *thread)
 {
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	int			 af;
@@ -613,8 +613,8 @@ static void main_dispatch_ldpe(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		ldpe_pid = 0;
 
 		if (lde_pid == 0)
@@ -627,7 +627,7 @@ static void main_dispatch_ldpe(struct event *thread)
 /* ARGSUSED */
 static void main_dispatch_lde(struct event *thread)
 {
-	struct imsgev	*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	struct imsg	 imsg;
 	ssize_t		 n;
@@ -722,8 +722,8 @@ static void main_dispatch_lde(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_pid = 0;
 		if (ldpe_pid == 0)
 			ldpd_shutdown();
@@ -735,7 +735,7 @@ static void main_dispatch_lde(struct event *thread)
 /* ARGSUSED */
 void ldp_write_handler(struct event *thread)
 {
-	struct imsgev	*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	ssize_t		 n;
 
@@ -745,8 +745,8 @@ void ldp_write_handler(struct event *thread)
 		fatal("msgbuf_write");
 	if (n == 0) {
 		/* this pipe is dead, so remove the event handlers */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		return;
 	}
 
@@ -835,7 +835,7 @@ void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct event *),
 void
 evbuf_clear(struct evbuf *eb)
 {
-	THREAD_OFF(eb->ev);
+	EVENT_OFF(eb->ev);
 	msgbuf_clear(&eb->wbuf);
 	eb->wbuf.fd = -1;
 }

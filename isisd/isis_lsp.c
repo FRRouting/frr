@@ -431,7 +431,7 @@ bool isis_level2_adj_up(struct isis_area *area)
  */
 void set_overload_on_start_timer(struct event *thread)
 {
-	struct isis_area *area = THREAD_ARG(thread);
+	struct isis_area *area = EVENT_ARG(thread);
 	assert(area);
 
 	area->t_overload_on_startup_timer = NULL;
@@ -1418,7 +1418,7 @@ int lsp_generate(struct isis_area *area, int level)
 
 	refresh_time = lsp_refresh_time(newlsp, rem_lifetime);
 
-	THREAD_OFF(area->t_lsp_refresh[level - 1]);
+	EVENT_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 	event_add_timer(master, lsp_refresh, &area->lsp_refresh_arg[level - 1],
 			refresh_time, &area->t_lsp_refresh[level - 1]);
@@ -1523,7 +1523,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
  */
 static void lsp_refresh(struct event *thread)
 {
-	struct lsp_refresh_arg *arg = THREAD_ARG(thread);
+	struct lsp_refresh_arg *arg = EVENT_ARG(thread);
 
 	assert(arg);
 
@@ -1627,7 +1627,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			"ISIS (%s): Will schedule regen timer. Last run was: %lld, Now is: %lld",
 			area->area_tag, (long long)lsp->last_generated,
 			(long long)now);
-		THREAD_OFF(area->t_lsp_refresh[lvl - 1]);
+		EVENT_OFF(area->t_lsp_refresh[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < area->lsp_gen_interval[lvl - 1]
 		    && !(area->bfd_signalled_down)) {
@@ -1819,7 +1819,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	lsp_flood(lsp, NULL);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
-	THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+	EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
 	circuit->lsp_regenerate_pending[level - 1] = 0;
 	if (level == IS_LEVEL_1)
 		event_add_timer(master, lsp_l1_refresh_pseudo, circuit,
@@ -1905,7 +1905,7 @@ static void lsp_l1_refresh_pseudo(struct event *thread)
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 
 	circuit->u.bc.t_refresh_pseudo_lsp[0] = NULL;
 	circuit->lsp_regenerate_pending[0] = 0;
@@ -1927,7 +1927,7 @@ static void lsp_l2_refresh_pseudo(struct event *thread)
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 
 	circuit->u.bc.t_refresh_pseudo_lsp[1] = NULL;
 	circuit->lsp_regenerate_pending[1] = 0;
@@ -2010,7 +2010,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 			"ISIS (%s): Will schedule PSN regen timer. Last run was: %lld, Now is: %lld",
 			area->area_tag, (long long)lsp->last_generated,
 			(long long)now);
-		THREAD_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
+		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < circuit->area->lsp_gen_interval[lvl - 1]) {
 			timeout =
@@ -2054,7 +2054,7 @@ void lsp_tick(struct event *thread)
 	uint16_t rem_lifetime;
 	bool fabricd_sync_incomplete = false;
 
-	area = THREAD_ARG(thread);
+	area = EVENT_ARG(thread);
 	assert(area);
 	area->t_tick = NULL;
 	event_add_timer(master, lsp_tick, area, 1, &area->t_tick);

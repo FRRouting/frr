@@ -899,7 +899,7 @@ static void mgmt_be_client_process_msg(void *user_ctx, uint8_t *data,
 
 static void mgmt_be_client_proc_msgbufs(struct event *thread)
 {
-	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
+	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&client_ctx->mstate, mgmt_be_client_process_msg,
 			      client_ctx, mgmt_debug_be_client))
@@ -908,7 +908,7 @@ static void mgmt_be_client_proc_msgbufs(struct event *thread)
 
 static void mgmt_be_client_read(struct event *thread)
 {
-	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
+	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 	enum mgmt_msg_rsched rv;
 
 	rv = mgmt_msg_read(&client_ctx->mstate, client_ctx->conn_fd,
@@ -964,7 +964,7 @@ static int mgmt_be_client_send_msg(struct mgmt_be_client_ctx *client_ctx,
 
 static void mgmt_be_client_write(struct event *thread)
 {
-	struct mgmt_be_client_ctx *client_ctx = THREAD_ARG(thread);
+	struct mgmt_be_client_ctx *client_ctx = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&client_ctx->mstate, client_ctx->conn_fd,
@@ -985,7 +985,7 @@ static void mgmt_be_client_resume_writes(struct event *thread)
 {
 	struct mgmt_be_client_ctx *client_ctx;
 
-	client_ctx = (struct mgmt_be_client_ctx *)THREAD_ARG(thread);
+	client_ctx = (struct mgmt_be_client_ctx *)EVENT_ARG(thread);
 	assert(client_ctx && client_ctx->conn_fd != -1);
 
 	mgmt_be_client_writes_on(client_ctx);
@@ -1042,7 +1042,7 @@ static void mgmt_be_server_connect(struct mgmt_be_client_ctx *client_ctx)
 
 static void mgmt_be_client_conn_timeout(struct event *thread)
 {
-	mgmt_be_server_connect(THREAD_ARG(thread));
+	mgmt_be_server_connect(EVENT_ARG(thread));
 }
 
 static void
@@ -1213,11 +1213,11 @@ void mgmt_be_client_lib_destroy(uintptr_t lib_hndl)
 
 	mgmt_msg_destroy(&client_ctx->mstate);
 
-	THREAD_OFF(client_ctx->conn_retry_tmr);
-	THREAD_OFF(client_ctx->conn_read_ev);
-	THREAD_OFF(client_ctx->conn_write_ev);
-	THREAD_OFF(client_ctx->conn_writes_on);
-	THREAD_OFF(client_ctx->msg_proc_ev);
+	EVENT_OFF(client_ctx->conn_retry_tmr);
+	EVENT_OFF(client_ctx->conn_read_ev);
+	EVENT_OFF(client_ctx->conn_write_ev);
+	EVENT_OFF(client_ctx->conn_writes_on);
+	EVENT_OFF(client_ctx->msg_proc_ev);
 	mgmt_be_cleanup_all_txns(client_ctx);
 	mgmt_be_txns_fini(&client_ctx->txn_head);
 }

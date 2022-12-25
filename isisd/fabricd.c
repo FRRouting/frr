@@ -225,11 +225,11 @@ struct fabricd *fabricd_new(struct isis_area *area)
 
 void fabricd_finish(struct fabricd *f)
 {
-	THREAD_OFF(f->initial_sync_timeout);
+	EVENT_OFF(f->initial_sync_timeout);
 
-	THREAD_OFF(f->tier_calculation_timer);
+	EVENT_OFF(f->tier_calculation_timer);
 
-	THREAD_OFF(f->tier_set_timer);
+	EVENT_OFF(f->tier_set_timer);
 
 	isis_spftree_del(f->spftree);
 	neighbor_lists_clear(f);
@@ -239,7 +239,7 @@ void fabricd_finish(struct fabricd *f)
 
 static void fabricd_initial_sync_timeout(struct event *thread)
 {
-	struct fabricd *f = THREAD_ARG(thread);
+	struct fabricd *f = EVENT_ARG(thread);
 
 	if (IS_DEBUG_ADJ_PACKETS)
 		zlog_debug(
@@ -325,7 +325,7 @@ void fabricd_initial_sync_finish(struct isis_area *area)
 		  f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_COMPLETE;
 	f->initial_sync_circuit = NULL;
-	THREAD_OFF(f->initial_sync_timeout);
+	EVENT_OFF(f->initial_sync_timeout);
 }
 
 static void fabricd_bump_tier_calculation_timer(struct fabricd *f);
@@ -391,14 +391,14 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 
 static void fabricd_tier_set_timer(struct event *thread)
 {
-	struct fabricd *f = THREAD_ARG(thread);
+	struct fabricd *f = EVENT_ARG(thread);
 
 	fabricd_set_tier(f, f->tier_pending);
 }
 
 static void fabricd_tier_calculation_cb(struct event *thread)
 {
-	struct fabricd *f = THREAD_ARG(thread);
+	struct fabricd *f = EVENT_ARG(thread);
 	uint8_t tier = ISIS_TIER_UNDEFINED;
 
 	tier = fabricd_calculate_fabric_tier(f->area);
@@ -417,14 +417,14 @@ static void fabricd_bump_tier_calculation_timer(struct fabricd *f)
 {
 	/* Cancel timer if we already know our tier */
 	if (f->tier != ISIS_TIER_UNDEFINED || f->tier_set_timer) {
-		THREAD_OFF(f->tier_calculation_timer);
+		EVENT_OFF(f->tier_calculation_timer);
 		return;
 	}
 
 	/* If we need to calculate the tier, wait some
 	 * time for the topology to settle before running
 	 * the calculation */
-	THREAD_OFF(f->tier_calculation_timer);
+	EVENT_OFF(f->tier_calculation_timer);
 
 	event_add_timer(master, fabricd_tier_calculation_cb, f,
 			2 * f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
@@ -709,7 +709,7 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 		if (!circuit->t_send_csnp[1])
 			continue;
 
-		THREAD_OFF(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
+		EVENT_OFF(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
 		event_add_timer_msec(master, send_l2_csnp, circuit,
 				     isis_jitter(f->csnp_delay, CSNP_JITTER),
 				     &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);

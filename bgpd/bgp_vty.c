@@ -2194,7 +2194,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 
 	/* Cancel max-med onstartup if its on */
 	if (bgp->t_maxmed_onstartup) {
-		THREAD_OFF(bgp->t_maxmed_onstartup);
+		EVENT_OFF(bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
 
@@ -7518,7 +7518,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 		 * fired.
 		 */
 		if (!rmap_delay_timer && bm->t_rmap_update) {
-			THREAD_OFF(bm->t_rmap_update);
+			EVENT_OFF(bm->t_rmap_update);
 			event_execute(bm->master, bgp_route_map_update_timer,
 				      NULL, 0);
 		}
@@ -18783,7 +18783,7 @@ static void bgp_config_finish(struct event *t)
 static void bgp_config_start(void)
 {
 #define BGP_PRE_CONFIG_MAX_WAIT_SECONDS 600
-	THREAD_OFF(t_bgp_cfg);
+	EVENT_OFF(t_bgp_cfg);
 	event_add_timer(bm->master, bgp_config_finish, NULL,
 			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
@@ -18807,7 +18807,7 @@ static void bgp_config_end(void)
 	if (!bgp_config_inprocess())
 		return;
 
-	THREAD_OFF(t_bgp_cfg);
+	EVENT_OFF(t_bgp_cfg);
 
 	/* Start a new timer to make sure we don't send EoR
 	 * before route-maps are processed.

@@ -200,7 +200,7 @@ void pim_msdp_write(struct event *thread)
 	int work_cnt = 0;
 	int work_max_cnt = 100;
 
-	mp = THREAD_ARG(thread);
+	mp = EVENT_ARG(thread);
 	mp->t_write = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -692,7 +692,7 @@ void pim_msdp_read(struct event *thread)
 	int rc;
 	uint32_t len;
 
-	mp = THREAD_ARG(thread);
+	mp = EVENT_ARG(thread);
 	mp->t_read = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {

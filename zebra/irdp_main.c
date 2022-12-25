@@ -193,7 +193,7 @@ static void irdp_advertisement(struct interface *ifp, struct prefix *p)
 void irdp_send_thread(struct event *t_advert)
 {
 	uint32_t timer, tmp;
-	struct interface *ifp = THREAD_ARG(t_advert);
+	struct interface *ifp = EVENT_ARG(t_advert);
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
 	struct prefix *p;
@@ -245,7 +245,7 @@ void irdp_advert_off(struct interface *ifp)
 	if (!irdp)
 		return;
 
-	THREAD_OFF(irdp->t_advertise);
+	EVENT_OFF(irdp->t_advertise);
 
 	if (ifp->connected)
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
@@ -280,7 +280,7 @@ void process_solicit(struct interface *ifp)
 		return;
 
 	irdp->flags |= IF_SOLICIT;
-	THREAD_OFF(irdp->t_advertise);
+	EVENT_OFF(irdp->t_advertise);
 
 	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 

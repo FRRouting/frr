@@ -296,7 +296,7 @@ nbr_del(struct nbr *nbr)
 	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
-		THREAD_OFF(nbr->ev_connect);
+		EVENT_OFF(nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -409,7 +409,7 @@ nbr_session_active_role(struct nbr *nbr)
 
 static void nbr_ktimer(struct event *thread)
 {
-	struct nbr	*nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	nbr->keepalive_timer = NULL;
 	send_keepalive(nbr);
@@ -423,7 +423,7 @@ nbr_start_ktimer(struct nbr *nbr)
 
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
-	THREAD_OFF(nbr->keepalive_timer);
+	EVENT_OFF(nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
 	event_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
@@ -431,14 +431,14 @@ nbr_start_ktimer(struct nbr *nbr)
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	THREAD_OFF(nbr->keepalive_timer);
+	EVENT_OFF(nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
 
 static void nbr_ktimeout(struct event *thread)
 {
-	struct nbr *nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	nbr->keepalive_timeout = NULL;
 
@@ -450,7 +450,7 @@ static void nbr_ktimeout(struct event *thread)
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	THREAD_OFF(nbr->keepalive_timeout);
+	EVENT_OFF(nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
 	event_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
 			&nbr->keepalive_timeout);
@@ -459,14 +459,14 @@ nbr_start_ktimeout(struct nbr *nbr)
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	THREAD_OFF(nbr->keepalive_timeout);
+	EVENT_OFF(nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
 
 static void nbr_itimeout(struct event *thread)
 {
-	struct nbr	*nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
@@ -479,7 +479,7 @@ nbr_start_itimeout(struct nbr *nbr)
 	int		 secs;
 
 	secs = INIT_FSM_TIMEOUT;
-	THREAD_OFF(nbr->init_timeout);
+	EVENT_OFF(nbr->init_timeout);
 	nbr->init_timeout = NULL;
 	event_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
@@ -487,14 +487,14 @@ nbr_start_itimeout(struct nbr *nbr)
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	THREAD_OFF(nbr->init_timeout);
+	EVENT_OFF(nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
 
 static void nbr_idtimer(struct event *thread)
 {
-	struct nbr *nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 
 	nbr->initdelay_timer = NULL;
 
@@ -525,7 +525,7 @@ nbr_start_idtimer(struct nbr *nbr)
 		break;
 	}
 
-	THREAD_OFF(nbr->initdelay_timer);
+	EVENT_OFF(nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
 	event_add_timer(master, nbr_idtimer, nbr, secs, &nbr->initdelay_timer);
 }
@@ -533,7 +533,7 @@ nbr_start_idtimer(struct nbr *nbr)
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	THREAD_OFF(nbr->initdelay_timer);
+	EVENT_OFF(nbr->initdelay_timer);
 }
 
 int
@@ -550,7 +550,7 @@ nbr_pending_connect(struct nbr *nbr)
 
 static void nbr_connect_cb(struct event *thread)
 {
-	struct nbr	*nbr = THREAD_ARG(thread);
+	struct nbr *nbr = EVENT_ARG(thread);
 	int		 error;
 	socklen_t	 len;
 

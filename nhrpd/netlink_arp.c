@@ -99,7 +99,7 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 static void netlink_log_recv(struct event *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
-	int fd = THREAD_FD(t);
+	int fd = EVENT_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 

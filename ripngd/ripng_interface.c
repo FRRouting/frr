@@ -155,7 +155,7 @@ static int ripng_if_down(struct interface *ifp)
 
 	ri = ifp->info;
 
-	THREAD_OFF(ri->t_wakeup);
+	EVENT_OFF(ri->t_wakeup);
 
 	ripng = ri->ripng;
 
@@ -301,7 +301,7 @@ void ripng_interface_clean(struct ripng *ripng)
 		ri->enable_interface = 0;
 		ri->running = 0;
 
-		THREAD_OFF(ri->t_wakeup);
+		EVENT_OFF(ri->t_wakeup);
 	}
 }
 
@@ -592,7 +592,7 @@ static void ripng_interface_wakeup(struct event *t)
 	struct ripng_interface *ri;
 
 	/* Get interface. */
-	ifp = THREAD_ARG(t);
+	ifp = EVENT_ARG(t);
 
 	ri = ifp->info;
 

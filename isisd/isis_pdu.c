@@ -192,7 +192,7 @@ static int process_p2p_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	THREAD_OFF(adj->t_expire);
+	EVENT_OFF(adj->t_expire);
 	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			&adj->t_expire);
 
@@ -484,7 +484,7 @@ static int process_lan_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	THREAD_OFF(adj->t_expire);
+	EVENT_OFF(adj->t_expire);
 	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			&adj->t_expire);
 
@@ -1788,7 +1788,7 @@ void isis_receive(struct event *thread)
 	/*
 	 * Get the circuit
 	 */
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 	assert(circuit);
 
 	circuit->t_read = NULL;
@@ -2011,7 +2011,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 static void send_hello_cb(struct event *thread)
 {
-	struct isis_circuit_arg *arg = THREAD_ARG(thread);
+	struct isis_circuit_arg *arg = EVENT_ARG(thread);
 	assert(arg);
 
 	struct isis_circuit *circuit = arg->circuit;
@@ -2056,7 +2056,7 @@ static void _send_hello_sched(struct isis_circuit *circuit,
 		if (event_timer_remain_msec(*threadp) < (unsigned long)delay)
 			return;
 
-		THREAD_OFF(*threadp);
+		EVENT_OFF(*threadp);
 	}
 
 	event_add_timer_msec(master, send_hello_cb,
@@ -2242,7 +2242,7 @@ void send_l1_csnp(struct event *thread)
 {
 	struct isis_circuit *circuit;
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 	assert(circuit);
 
 	circuit->t_send_csnp[0] = NULL;
@@ -2262,7 +2262,7 @@ void send_l2_csnp(struct event *thread)
 {
 	struct isis_circuit *circuit;
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 	assert(circuit);
 
 	circuit->t_send_csnp[1] = NULL;
@@ -2397,7 +2397,7 @@ void send_l1_psnp(struct event *thread)
 
 	struct isis_circuit *circuit;
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 	assert(circuit);
 
 	circuit->t_send_psnp[0] = NULL;
@@ -2417,7 +2417,7 @@ void send_l2_psnp(struct event *thread)
 {
 	struct isis_circuit *circuit;
 
-	circuit = THREAD_ARG(thread);
+	circuit = EVENT_ARG(thread);
 	assert(circuit);
 
 	circuit->t_send_psnp[1] = NULL;

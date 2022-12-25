@@ -146,7 +146,7 @@ void mgmt_be_server_destroy(void)
 		MGMTD_BE_SRVR_DBG("Closing MGMTD Backend Server!");
 
 		if (mgmt_be_listen_ev) {
-			THREAD_OFF(mgmt_be_listen_ev);
+			EVENT_OFF(mgmt_be_listen_ev);
 			mgmt_be_listen_ev = NULL;
 		}
 

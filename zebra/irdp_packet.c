@@ -217,7 +217,7 @@ void irdp_read_raw(struct event *r)
 	char buf[IRDP_RX_BUF];
 	int ret, ifindex = 0;
 
-	int irdp_sock = THREAD_FD(r);
+	int irdp_sock = EVENT_FD(r);
 	event_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
 		       &t_irdp_raw);
 

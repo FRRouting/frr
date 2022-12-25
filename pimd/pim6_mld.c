@@ -329,7 +329,7 @@ static void gm_expiry_calc(struct gm_query_timers *timers)
 static void gm_sg_free(struct gm_sg *sg)
 {
 	/* t_sg_expiry is handled before this is reached */
-	THREAD_OFF(sg->t_sg_query);
+	EVENT_OFF(sg->t_sg_query);
 	gm_packet_sg_subs_fini(sg->subs_negative);
 	gm_packet_sg_subs_fini(sg->subs_positive);
 	XFREE(MTYPE_GM_SG, sg);
@@ -404,7 +404,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_expiry_calc(&timers);
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
-			THREAD_OFF(sg->t_sg_query);
+			EVENT_OFF(sg->t_sg_query);
 			sg->n_query = gm_ifp->cur_lmqc;
 			sg->query_sbit = false;
 			gm_trigger_specific(sg);
@@ -443,7 +443,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		 * another path.
 		 */
 		if (has_expired)
-			THREAD_OFF(sg->t_sg_expire);
+			EVENT_OFF(sg->t_sg_expire);
 
 		assertf((!sg->t_sg_expire &&
 			 !gm_packet_sg_subs_count(sg->subs_positive) &&
@@ -582,7 +582,7 @@ static void gm_sg_expiry_cancel(struct gm_sg *sg)
 {
 	if (sg->t_sg_expire && PIM_DEBUG_GM_TRACE)
 		zlog_debug(log_sg(sg, "alive, cancelling expiry timer"));
-	THREAD_OFF(sg->t_sg_expire);
+	EVENT_OFF(sg->t_sg_expire);
 	sg->query_sbit = true;
 }
 
@@ -1031,7 +1031,7 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
  */
 static void gm_t_expire(struct event *t)
 {
-	struct gm_if *gm_ifp = THREAD_ARG(t);
+	struct gm_if *gm_ifp = EVENT_ARG(t);
 	struct gm_packet_state *pkt;
 
 	zlog_info(log_ifp("general expiry timer"));
@@ -1103,7 +1103,7 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 
 		gm_ifp->n_pending--;
 		if (!gm_ifp->n_pending)
-			THREAD_OFF(gm_ifp->t_expire);
+			EVENT_OFF(gm_ifp->t_expire);
 	}
 
 	/* people might be messing with their configs or something */
@@ -1128,7 +1128,7 @@ static void gm_handle_q_general(struct gm_if *gm_ifp,
 
 static void gm_t_sg_expire(struct event *t)
 {
-	struct gm_sg *sg = THREAD_ARG(t);
+	struct gm_sg *sg = EVENT_ARG(t);
 	struct gm_if *gm_ifp = sg->iface;
 	struct gm_packet_sg *item;
 
@@ -1212,7 +1212,7 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 		if (timercmp(&remain, &expire_wait, <=))
 			return;
 
-		THREAD_OFF(sg->t_sg_expire);
+		EVENT_OFF(sg->t_sg_expire);
 	}
 
 	event_add_timer_tv(router->master, gm_t_sg_expire, sg, &expire_wait,
@@ -1240,7 +1240,7 @@ static void gm_t_grp_expire(struct event *t)
 	 * receive a report, so that work is left to gm_t_sg_expire and we
 	 * shouldn't worry about it here.
 	 */
-	struct gm_grp_pending *pend = THREAD_ARG(t);
+	struct gm_grp_pending *pend = EVENT_ARG(t);
 	struct gm_if *gm_ifp = pend->iface;
 	struct gm_sg *sg, *sg_start, sg_ref = {};
 
@@ -1269,7 +1269,7 @@ static void gm_t_grp_expire(struct event *t)
 		 * parallel.  But if we received nothing for the *,G query,
 		 * the S,G query is kinda irrelevant.
 		 */
-		THREAD_OFF(sg->t_sg_expire);
+		EVENT_OFF(sg->t_sg_expire);
 
 		frr_each_safe (gm_packet_sg_subs, sg->subs_positive, item)
 			/* this will also drop the EXCLUDE S,G lists */
@@ -1320,7 +1320,7 @@ static void gm_handle_q_group(struct gm_if *gm_ifp,
 		if (timercmp(&remain, &timers->expire_wait, <=))
 			return;
 
-		THREAD_OFF(pend->t_expire);
+		EVENT_OFF(pend->t_expire);
 	} else {
 		pend = XCALLOC(MTYPE_GM_GRP_PENDING, sizeof(*pend));
 		pend->grp = grp;
@@ -1341,7 +1341,7 @@ static void gm_bump_querier(struct gm_if *gm_ifp)
 {
 	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 
-	THREAD_OFF(gm_ifp->t_query);
+	EVENT_OFF(gm_ifp->t_query);
 
 	if (pim_addr_is_any(pim_ifp->ll_lowest))
 		return;
@@ -1355,7 +1355,7 @@ static void gm_bump_querier(struct gm_if *gm_ifp)
 
 static void gm_t_other_querier(struct event *t)
 {
-	struct gm_if *gm_ifp = THREAD_ARG(t);
+	struct gm_if *gm_ifp = EVENT_ARG(t);
 	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 
 	zlog_info(log_ifp("other querier timer expired"));
@@ -1466,8 +1466,8 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	if (IPV6_ADDR_CMP(&pkt_src->sin6_addr, &pim_ifp->ll_lowest) < 0) {
 		unsigned int other_ms;
 
-		THREAD_OFF(gm_ifp->t_query);
-		THREAD_OFF(gm_ifp->t_other_querier);
+		EVENT_OFF(gm_ifp->t_query);
+		EVENT_OFF(gm_ifp->t_other_querier);
 
 		other_ms = timers.qrv * timers.qqic_ms + timers.max_resp_ms / 2;
 		event_add_timer_msec(router->master, gm_t_other_querier, gm_ifp,
@@ -1587,7 +1587,7 @@ static bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len,
 
 static void gm_t_recv(struct event *t)
 {
-	struct pim_instance *pim = THREAD_ARG(t);
+	struct pim_instance *pim = EVENT_ARG(t);
 	union {
 		char buf[CMSG_SPACE(sizeof(struct in6_pktinfo)) +
 			 CMSG_SPACE(256) /* hop options */ +
@@ -1859,7 +1859,7 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 
 static void gm_t_query(struct event *t)
 {
-	struct gm_if *gm_ifp = THREAD_ARG(t);
+	struct gm_if *gm_ifp = EVENT_ARG(t);
 	unsigned int timer_ms = gm_ifp->cur_query_intv;
 
 	if (gm_ifp->n_startup) {
@@ -1875,7 +1875,7 @@ static void gm_t_query(struct event *t)
 
 static void gm_t_sg_query(struct event *t)
 {
-	struct gm_sg *sg = THREAD_ARG(t);
+	struct gm_sg *sg = EVENT_ARG(t);
 
 	gm_trigger_specific(sg);
 }
@@ -1896,7 +1896,7 @@ static void gm_send_specific(struct gm_gsq_pending *pend_gsq)
 
 static void gm_t_gsq_pend(struct event *t)
 {
-	struct gm_gsq_pending *pend_gsq = THREAD_ARG(t);
+	struct gm_gsq_pending *pend_gsq = EVENT_ARG(t);
 
 	gm_send_specific(pend_gsq);
 }
@@ -1947,7 +1947,7 @@ static void gm_trigger_specific(struct gm_sg *sg)
 	pend_gsq->n_src++;
 
 	if (pend_gsq->n_src == array_size(pend_gsq->srcs)) {
-		THREAD_OFF(pend_gsq->t_send);
+		EVENT_OFF(pend_gsq->t_send);
 		gm_send_specific(pend_gsq);
 		pend_gsq = NULL;
 	}
@@ -2053,7 +2053,7 @@ static void gm_vrf_socket_decref(struct pim_instance *pim)
 	if (--pim->gm_socket_if_count)
 		return;
 
-	THREAD_OFF(pim->t_gm_recv);
+	EVENT_OFF(pim->t_gm_recv);
 	close(pim->gm_socket);
 	pim->gm_socket = -1;
 }
@@ -2126,17 +2126,17 @@ void gm_group_delete(struct gm_if *gm_ifp)
 		gm_packet_drop(pkt, false);
 
 	while ((pend_grp = gm_grp_pends_pop(gm_ifp->grp_pends))) {
-		THREAD_OFF(pend_grp->t_expire);
+		EVENT_OFF(pend_grp->t_expire);
 		XFREE(MTYPE_GM_GRP_PENDING, pend_grp);
 	}
 
 	while ((pend_gsq = gm_gsq_pends_pop(gm_ifp->gsq_pends))) {
-		THREAD_OFF(pend_gsq->t_send);
+		EVENT_OFF(pend_gsq->t_send);
 		XFREE(MTYPE_GM_GSQ_PENDING, pend_gsq);
 	}
 
 	while ((sg = gm_sgs_pop(gm_ifp->sgs))) {
-		THREAD_OFF(sg->t_sg_expire);
+		EVENT_OFF(sg->t_sg_expire);
 		assertf(!gm_packet_sg_subs_count(sg->subs_negative), "%pSG",
 			&sg->sgaddr);
 		assertf(!gm_packet_sg_subs_count(sg->subs_positive), "%pSG",
@@ -2164,9 +2164,9 @@ void gm_ifp_teardown(struct interface *ifp)
 	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("MLD stop"));
 
-	THREAD_OFF(gm_ifp->t_query);
-	THREAD_OFF(gm_ifp->t_other_querier);
-	THREAD_OFF(gm_ifp->t_expire);
+	EVENT_OFF(gm_ifp->t_query);
+	EVENT_OFF(gm_ifp->t_other_querier);
+	EVENT_OFF(gm_ifp->t_expire);
 
 	frr_with_privs (&pimd_privs) {
 		struct ipv6_mreq mreq;
@@ -2209,7 +2209,7 @@ static void gm_update_ll(struct interface *ifp)
 	gm_ifp->cur_ll_lowest = pim_ifp->ll_lowest;
 	if (was_querier)
 		gm_ifp->querier = pim_ifp->ll_lowest;
-	THREAD_OFF(gm_ifp->t_query);
+	EVENT_OFF(gm_ifp->t_query);
 
 	if (pim_addr_is_any(gm_ifp->cur_ll_lowest)) {
 		if (was_querier)

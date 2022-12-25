@@ -484,7 +484,7 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 
 static void kernel_read(struct event *thread)
 {
-	struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG(thread);
+	struct zebra_ns *zns = (struct zebra_ns *)EVENT_ARG(thread);
 	struct zebra_dplane_info dp_info;
 
 	/* Capture key info from ns struct */
@@ -1959,7 +1959,7 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
-	THREAD_OFF(zns->t_netlink);
+	EVENT_OFF(zns->t_netlink);
 
 	kernel_nlsock_fini(&zns->netlink);
 

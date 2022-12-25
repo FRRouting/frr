@@ -633,7 +633,7 @@ static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = (struct mgmt_fe_session_ctx *)THREAD_ARG(thread);
+	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(thread);
 
 	mgmt_fe_session_cfg_txn_cleanup(session);
 }
@@ -642,7 +642,7 @@ static void mgmt_fe_session_show_txn_clnup(struct event *thread)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = (struct mgmt_fe_session_ctx *)THREAD_ARG(thread);
+	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(thread);
 
 	mgmt_fe_session_show_txn_cleanup(session);
 }
@@ -1437,7 +1437,7 @@ static void mgmt_fe_adapter_process_msg(void *user_ctx, uint8_t *data,
 
 static void mgmt_fe_adapter_proc_msgbufs(struct event *thread)
 {
-	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 
 	if (mgmt_msg_procbufs(&adapter->mstate, mgmt_fe_adapter_process_msg,
 			      adapter, mgmt_debug_fe))
@@ -1446,7 +1446,7 @@ static void mgmt_fe_adapter_proc_msgbufs(struct event *thread)
 
 static void mgmt_fe_adapter_read(struct event *thread)
 {
-	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_rsched rv;
 
 	rv = mgmt_msg_read(&adapter->mstate, adapter->conn_fd, mgmt_debug_fe);
@@ -1461,7 +1461,7 @@ static void mgmt_fe_adapter_read(struct event *thread)
 
 static void mgmt_fe_adapter_write(struct event *thread)
 {
-	struct mgmt_fe_client_adapter *adapter = THREAD_ARG(thread);
+	struct mgmt_fe_client_adapter *adapter = EVENT_ARG(thread);
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&adapter->mstate, adapter->conn_fd, mgmt_debug_fe);
@@ -1481,7 +1481,7 @@ static void mgmt_fe_adapter_resume_writes(struct event *thread)
 {
 	struct mgmt_fe_client_adapter *adapter;
 
-	adapter = (struct mgmt_fe_client_adapter *)THREAD_ARG(thread);
+	adapter = (struct mgmt_fe_client_adapter *)EVENT_ARG(thread);
 	assert(adapter && adapter->conn_fd != -1);
 
 	mgmt_fe_adapter_writes_on(adapter);
@@ -1538,10 +1538,10 @@ mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 	(*adapter)->refcount--;
 	if (!(*adapter)->refcount) {
 		mgmt_fe_adapters_del(&mgmt_fe_adapters, *adapter);
-		THREAD_OFF((*adapter)->conn_read_ev);
-		THREAD_OFF((*adapter)->conn_write_ev);
-		THREAD_OFF((*adapter)->proc_msg_ev);
-		THREAD_OFF((*adapter)->conn_writes_on);
+		EVENT_OFF((*adapter)->conn_read_ev);
+		EVENT_OFF((*adapter)->conn_write_ev);
+		EVENT_OFF((*adapter)->proc_msg_ev);
+		EVENT_OFF((*adapter)->conn_writes_on);
 		mgmt_msg_destroy(&(*adapter)->mstate);
 		XFREE(MTYPE_MGMTD_FE_ADPATER, *adapter);
 	}

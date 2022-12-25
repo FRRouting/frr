@@ -193,9 +193,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	ch->upstream = NULL;
 
-	THREAD_OFF(ch->t_ifjoin_expiry_timer);
-	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-	THREAD_OFF(ch->t_ifassert_timer);
+	EVENT_OFF(ch->t_ifjoin_expiry_timer);
+	EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
+	EVENT_OFF(ch->t_ifassert_timer);
 
 	if (ch->parent) {
 		listnode_delete(ch->parent->sources, ch);
@@ -411,7 +411,7 @@ const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state)
 */
 void reset_ifassert_state(struct pim_ifchannel *ch)
 {
-	THREAD_OFF(ch->t_ifassert_timer);
+	EVENT_OFF(ch->t_ifassert_timer);
 
 	pim_ifassert_winner_set(ch, PIM_IFASSERT_NOINFO, PIMADDR_ANY,
 				router->infinite_assert_metric);
@@ -632,7 +632,7 @@ static void on_ifjoin_expiry_timer(struct event *t)
 {
 	struct pim_ifchannel *ch;
 
-	ch = THREAD_ARG(t);
+	ch = EVENT_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel %s expiry timer", __func__,
@@ -649,7 +649,7 @@ static void on_ifjoin_prune_pending_timer(struct event *t)
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
-	ch = THREAD_ARG(t);
+	ch = EVENT_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: IFCHANNEL%pSG %s Prune Pending Timer Popped",
@@ -920,13 +920,13 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 				return;
 			}
 		}
-		THREAD_OFF(ch->t_ifjoin_expiry_timer);
+		EVENT_OFF(ch->t_ifjoin_expiry_timer);
 		break;
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
-			THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			EVENT_OFF(ch->t_ifjoin_expiry_timer);
 			delete_on_noinfo(ch);
 			return;
 		} else
@@ -943,7 +943,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 		 * maximum of its current value and the HoldTime from the
 		 * triggering Join/Prune message.
 		 */
-		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+		EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
 
 		/* Check if SGRpt join Received */
 		if ((source_flags & PIM_ENCODE_RPT_BIT) &&
@@ -955,7 +955,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 			 * I transitions to the NoInfo state.The ET and PPT are
 			 * cancelled.
 			 */
-			THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			EVENT_OFF(ch->t_ifjoin_expiry_timer);
 			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
 			return;
@@ -970,7 +970,7 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 			if (remain > holdtime)
 				return;
 		}
-		THREAD_OFF(ch->t_ifjoin_expiry_timer);
+		EVENT_OFF(ch->t_ifjoin_expiry_timer);
 
 		break;
 	case PIM_IFJOIN_PRUNE_TMP:
@@ -1030,8 +1030,8 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 			   be taken not to use "ch" afterwards since it would be
 			   deleted. */
 
-			THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-			THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
+			EVENT_OFF(ch->t_ifjoin_expiry_timer);
 			event_add_timer_msec(router->master,
 					     on_ifjoin_prune_pending_timer, ch,
 					     jp_override_interval_msec,
@@ -1068,7 +1068,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		/* If we called ifjoin_prune() directly instead, care should
 		   be taken not to use "ch" afterwards since it would be
 		   deleted. */
-		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+		EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
 		event_add_timer_msec(router->master,
 				     on_ifjoin_prune_pending_timer, ch,
 				     jp_override_interval_msec,
@@ -1076,7 +1076,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 		break;
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
-			THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+			EVENT_OFF(ch->t_ifjoin_prune_pending_timer);
 			/*
 			 * While in Prune State, Receive SGRpt Prune.
 			 * RFC 7761 Sec 4.5.3:
@@ -1092,7 +1092,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 
 				if (rem > holdtime)
 					return;
-				THREAD_OFF(ch->t_ifjoin_expiry_timer);
+				EVENT_OFF(ch->t_ifjoin_expiry_timer);
 			}
 
 			event_add_timer(router->master, on_ifjoin_expiry_timer,
@@ -1103,7 +1103,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 	case PIM_IFJOIN_PRUNE_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE;
-			THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			EVENT_OFF(ch->t_ifjoin_expiry_timer);
 			event_add_timer(router->master, on_ifjoin_expiry_timer,
 					ch, holdtime,
 					&ch->t_ifjoin_expiry_timer);
@@ -1112,7 +1112,7 @@ void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
-			THREAD_OFF(ch->t_ifjoin_expiry_timer);
+			EVENT_OFF(ch->t_ifjoin_expiry_timer);
 			event_add_timer(router->master, on_ifjoin_expiry_timer,
 					ch, holdtime,
 					&ch->t_ifjoin_expiry_timer);
@@ -1466,8 +1466,8 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 				break;
 
 			if (child->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING_TMP)
-				THREAD_OFF(child->t_ifjoin_prune_pending_timer);
-			THREAD_OFF(child->t_ifjoin_expiry_timer);
+				EVENT_OFF(child->t_ifjoin_prune_pending_timer);
+			EVENT_OFF(child->t_ifjoin_expiry_timer);
 
 			PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
 			child->ifjoin_state = PIM_IFJOIN_NOINFO;

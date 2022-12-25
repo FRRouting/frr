@@ -288,7 +288,7 @@ err:
 
 static void nhrp_packet_recvraw(struct event *t)
 {
-	int fd = THREAD_FD(t), ifindex;
+	int fd = EVENT_FD(t), ifindex;
 	struct zbuf *zb;
 	struct interface *ifp;
 	struct nhrp_peer *p;

@@ -148,7 +148,7 @@ void isis_delete_adj(void *arg)
 	/* Remove self from snmp list without walking the list*/
 	list_delete_node(adj->circuit->snmp_adj_list, adj->snmp_list_node);
 
-	THREAD_OFF(adj->t_expire);
+	EVENT_OFF(adj->t_expire);
 	if (adj->adj_state != ISIS_ADJ_DOWN)
 		adj->adj_state = ISIS_ADJ_DOWN;
 
@@ -485,7 +485,7 @@ void isis_adj_expire(struct event *thread)
 	/*
 	 * Get the adjacency
 	 */
-	adj = THREAD_ARG(thread);
+	adj = EVENT_ARG(thread);
 	assert(adj);
 	adj->t_expire = NULL;
 

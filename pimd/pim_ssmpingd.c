@@ -196,7 +196,7 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 {
 	assert(ss);
 
-	THREAD_OFF(ss->t_sock_read);
+	EVENT_OFF(ss->t_sock_read);
 
 	if (close(ss->sock_fd)) {
 		zlog_warn(
@@ -290,7 +290,7 @@ static void ssmpingd_sock_read(struct event *t)
 {
 	struct ssmpingd_sock *ss;
 
-	ss = THREAD_ARG(t);
+	ss = EVENT_ARG(t);
 
 	ssmpingd_read_msg(ss);
 

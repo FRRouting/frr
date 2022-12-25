@@ -791,8 +791,8 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 
 static void zlog_5424_reconnect(struct event *t)
 {
-	struct zlog_cfg_5424 *zcf = THREAD_ARG(t);
-	int fd = THREAD_FD(t);
+	struct zlog_cfg_5424 *zcf = EVENT_ARG(t);
+	int fd = EVENT_FD(t);
 	char dummy[256];
 	ssize_t ret;
 

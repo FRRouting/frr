@@ -775,7 +775,7 @@ static void mroute_read(struct event *t)
 	int cont = 1;
 	int rd;
 	ifindex_t ifindex;
-	pim = THREAD_ARG(t);
+	pim = EVENT_ARG(t);
 
 	while (cont) {
 		rd = pim_socket_recvfromto(pim->mroute_socket, (uint8_t *)buf,
@@ -815,7 +815,7 @@ static void mroute_read_on(struct pim_instance *pim)
 
 static void mroute_read_off(struct pim_instance *pim)
 {
-	THREAD_OFF(pim->thread);
+	EVENT_OFF(pim->thread);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)

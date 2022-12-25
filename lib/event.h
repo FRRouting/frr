@@ -153,14 +153,14 @@ struct cpu_event_history {
 #define EVENT_TIMER_STRLEN 12
 
 /* Macros. */
-#define THREAD_ARG(X) ((X)->arg)
-#define THREAD_FD(X)  ((X)->u.fd)
-#define THREAD_VAL(X) ((X)->u.val)
+#define EVENT_ARG(X) ((X)->arg)
+#define EVENT_FD(X) ((X)->u.fd)
+#define EVENT_VAL(X) ((X)->u.val)
 
 /*
  * Please consider this macro deprecated, and do not use it in new code.
  */
-#define THREAD_OFF(thread)                                                     \
+#define EVENT_OFF(thread)                                                      \
 	do {                                                                   \
 		if ((thread))                                                  \
 			event_cancel(&(thread));                               \

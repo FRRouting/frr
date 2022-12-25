@@ -312,12 +312,12 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	struct listnode *node;
 
 	/* Cancel read and write threads. */
-	THREAD_OFF(apiserv->t_sync_read);
+	EVENT_OFF(apiserv->t_sync_read);
 #ifdef USE_ASYNC_READ
-	THREAD_OFF(apiserv->t_async_read);
+	EVENT_OFF(apiserv->t_async_read);
 #endif /* USE_ASYNC_READ */
-	THREAD_OFF(apiserv->t_sync_write);
-	THREAD_OFF(apiserv->t_async_write);
+	EVENT_OFF(apiserv->t_sync_write);
+	EVENT_OFF(apiserv->t_async_write);
 
 	/* Unregister all opaque types that application registered
 	   and flush opaque LSAs if still in LSDB. */
@@ -367,8 +367,8 @@ void ospf_apiserver_read(struct event *thread)
 	int fd;
 	enum ospf_apiserver_event event;
 
-	apiserv = THREAD_ARG(thread);
-	fd = THREAD_FD(thread);
+	apiserv = EVENT_ARG(thread);
+	fd = EVENT_FD(thread);
 
 	if (fd == apiserv->fd_sync) {
 		event = OSPF_APISERVER_SYNC_READ;
@@ -426,9 +426,9 @@ void ospf_apiserver_sync_write(struct event *thread)
 	int fd;
 	int rc = -1;
 
-	apiserv = THREAD_ARG(thread);
+	apiserv = EVENT_ARG(thread);
 	assert(apiserv);
-	fd = THREAD_FD(thread);
+	fd = EVENT_FD(thread);
 
 	apiserv->t_sync_write = NULL;
 
@@ -486,9 +486,9 @@ void ospf_apiserver_async_write(struct event *thread)
 	int fd;
 	int rc = -1;
 
-	apiserv = THREAD_ARG(thread);
+	apiserv = EVENT_ARG(thread);
 	assert(apiserv);
-	fd = THREAD_FD(thread);
+	fd = EVENT_FD(thread);
 
 	apiserv->t_async_write = NULL;
 
@@ -589,8 +589,8 @@ void ospf_apiserver_accept(struct event *thread)
 	unsigned int peerlen;
 	int ret;
 
-	/* THREAD_ARG (thread) is NULL */
-	accept_sock = THREAD_FD(thread);
+	/* EVENT_ARG (thread) is NULL */
+	accept_sock = EVENT_FD(thread);
 
 	/* Keep hearing on socket for further connections. */
 	ospf_apiserver_event(OSPF_APISERVER_ACCEPT, accept_sock, NULL);

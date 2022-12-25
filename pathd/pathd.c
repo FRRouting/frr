@@ -1299,7 +1299,7 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 
 void trigger_pathd_candidate_created_timer(struct event *thread)
 {
-	struct srte_candidate *candidate = THREAD_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(thread);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_created, candidate);
 }
@@ -1319,7 +1319,7 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 
 void trigger_pathd_candidate_updated_timer(struct event *thread)
 {
-	struct srte_candidate *candidate = THREAD_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(thread);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_updated, candidate);
 }

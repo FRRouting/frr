@@ -45,7 +45,7 @@ void frrzmq_finish(void)
 
 static void frrzmq_read_msg(struct event *t)
 {
-	struct frrzmq_cb **cbp = THREAD_ARG(t);
+	struct frrzmq_cb **cbp = EVENT_ARG(t);
 	struct frrzmq_cb *cb;
 	zmq_msg_t msg;
 	unsigned partno;
@@ -202,7 +202,7 @@ int _frrzmq_event_add_read(const struct xref_eventsched *xref,
 
 static void frrzmq_write_msg(struct event *t)
 {
-	struct frrzmq_cb **cbp = THREAD_ARG(t);
+	struct frrzmq_cb **cbp = EVENT_ARG(t);
 	struct frrzmq_cb *cb;
 	unsigned char written = 0;
 	int ret;

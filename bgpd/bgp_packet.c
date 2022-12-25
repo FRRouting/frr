@@ -444,7 +444,7 @@ static void bgp_write_proceed_actions(struct peer *peer)
  */
 void bgp_generate_updgrp_packets(struct event *thread)
 {
-	struct peer *peer = THREAD_ARG(thread);
+	struct peer *peer = EVENT_ARG(thread);
 
 	struct stream *s;
 	struct peer_af *paf;
@@ -1796,7 +1796,7 @@ static void bgp_refresh_stalepath_timer_expire(struct event *thread)
 {
 	struct peer_af *paf;
 
-	paf = THREAD_ARG(thread);
+	paf = EVENT_ARG(thread);
 
 	afi_t afi = paf->afi;
 	safi_t safi = paf->safi;
@@ -2106,11 +2106,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 							"EOR RCV",
 							gr_info->eor_received);
 					if (gr_info->t_select_deferral) {
-						void *info = THREAD_ARG(
+						void *info = EVENT_ARG(
 							gr_info->t_select_deferral);
 						XFREE(MTYPE_TMP, info);
 					}
-					THREAD_OFF(gr_info->t_select_deferral);
+					EVENT_OFF(gr_info->t_select_deferral);
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
 					/* Best path selection */
@@ -2613,7 +2613,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			return BGP_PACKET_NOOP;
 		}
 
-		THREAD_OFF(peer->t_refresh_stalepath);
+		EVENT_OFF(peer->t_refresh_stalepath);
 
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
 		UNSET_FLAG(peer->af_sflags[afi][safi],
@@ -2863,7 +2863,7 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
  * would not, making event flow difficult to understand. Please think twice
  * before hacking this.
  *
- * Thread type: THREAD_EVENT
+ * Thread type: EVENT_EVENT
  * @param thread
  * @return 0
  */
@@ -2875,7 +2875,7 @@ void bgp_process_packet(struct event *thread)
 	int fsm_update_result;    // return code of bgp_event_update()
 	int mprc;		  // message processing return code
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
 					       memory_order_relaxed);
 	fsm_update_result = 0;
@@ -3049,8 +3049,8 @@ void bgp_packet_process_error(struct event *thread)
 	struct peer *peer;
 	int code;
 
-	peer = THREAD_ARG(thread);
-	code = THREAD_VAL(thread);
+	peer = EVENT_ARG(thread);
+	code = EVENT_VAL(thread);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] BGP error %d on fd %d",

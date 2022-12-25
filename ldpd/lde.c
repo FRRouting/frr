@@ -234,7 +234,7 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 /* ARGSUSED */
 static void lde_dispatch_imsg(struct event *thread)
 {
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
@@ -395,8 +395,8 @@ static void lde_dispatch_imsg(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_shutdown();
 	}
 }
@@ -415,7 +415,7 @@ static void lde_dispatch_parent(struct event *thread)
 	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd;
-	struct imsgev		*iev = THREAD_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;
 	int			 shut = 0;
@@ -673,8 +673,8 @@ static void lde_dispatch_parent(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		THREAD_OFF(iev->ev_read);
-		THREAD_OFF(iev->ev_write);
+		EVENT_OFF(iev->ev_read);
+		EVENT_OFF(iev->ev_write);
 		lde_shutdown();
 	}
 }

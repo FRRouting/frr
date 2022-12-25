@@ -2205,7 +2205,7 @@ static void zebra_evpn_es_df_delay_exp_cb(struct event *t)
 {
 	struct zebra_evpn_es *es;
 
-	es = THREAD_ARG(t);
+	es = EVENT_ARG(t);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s df-delay expired", es->esi_str);
@@ -2314,7 +2314,7 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
 
-	THREAD_OFF(es->df_delay_timer);
+	EVENT_OFF(es->df_delay_timer);
 
 	/* clear EVPN protodown flags on the access port */
 	zebra_evpn_mh_clear_protodown_es(es);
@@ -3931,7 +3931,7 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 	if (zmh_info->startup_delay_timer) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("startup-delay timer cancelled");
-		THREAD_OFF(zmh_info->startup_delay_timer);
+		EVENT_OFF(zmh_info->startup_delay_timer);
 	}
 
 	if (zmh_info->startup_delay_time) {

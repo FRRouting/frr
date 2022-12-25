@@ -4397,7 +4397,7 @@ static void rib_update_handler(struct event *thread)
 {
 	struct rib_update_ctx *ctx;
 
-	ctx = THREAD_ARG(thread);
+	ctx = EVENT_ARG(thread);
 
 	rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
 

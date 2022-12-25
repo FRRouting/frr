@@ -443,7 +443,7 @@ static void ospf_ls_req_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_ls_req = NULL;
 
 	/* Send Link State Request. */
@@ -456,7 +456,7 @@ static void ospf_ls_req_timer(struct event *thread)
 
 void ospf_ls_req_event(struct ospf_neighbor *nbr)
 {
-	THREAD_OFF(nbr->t_ls_req);
+	EVENT_OFF(nbr->t_ls_req);
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
@@ -466,7 +466,7 @@ void ospf_ls_upd_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_ls_upd = NULL;
 
 	/* Send Link State Update. */
@@ -524,7 +524,7 @@ void ospf_ls_ack_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 
-	oi = THREAD_ARG(thread);
+	oi = EVENT_ARG(thread);
 	oi->t_ls_ack = NULL;
 
 	/* Send Link State Acknowledgment. */
@@ -610,7 +610,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 
 static void ospf_write(struct event *thread)
 {
-	struct ospf *ospf = THREAD_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(thread);
 	struct ospf_interface *oi;
 	struct ospf_packet *op;
 	struct sockaddr_in sa_dst;
@@ -3210,7 +3210,7 @@ void ospf_read(struct event *thread)
 	enum ospf_read_return_enum ret;
 
 	/* first of all get interface pointer. */
-	ospf = THREAD_ARG(thread);
+	ospf = EVENT_ARG(thread);
 
 	/* prepare for next packet. */
 	event_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
@@ -3742,7 +3742,7 @@ void ospf_poll_timer(struct event *thread)
 {
 	struct ospf_nbr_nbma *nbr_nbma;
 
-	nbr_nbma = THREAD_ARG(thread);
+	nbr_nbma = EVENT_ARG(thread);
 	nbr_nbma->t_poll = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -3761,7 +3761,7 @@ void ospf_hello_reply_timer(struct event *thread)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = THREAD_ARG(thread);
+	nbr = EVENT_ARG(thread);
 	nbr->t_hello_reply = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -4096,7 +4096,7 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 		 * is actually turned off.
 		 */
 		if (list_isempty(oi->ospf->oi_write_q))
-			THREAD_OFF(oi->ospf->t_write);
+			EVENT_OFF(oi->ospf->t_write);
 	} else {
 		/* Hook thread to write packet. */
 		OSPF_ISM_WRITE_ON(oi->ospf);
@@ -4105,7 +4105,7 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 
 static void ospf_ls_upd_send_queue_event(struct event *thread)
 {
-	struct ospf_interface *oi = THREAD_ARG(thread);
+	struct ospf_interface *oi = EVENT_ARG(thread);
 	struct route_node *rn;
 	struct route_node *rnext;
 	struct list *update;
@@ -4252,7 +4252,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 
 static void ospf_ls_ack_send_event(struct event *thread)
 {
-	struct ospf_interface *oi = THREAD_ARG(thread);
+	struct ospf_interface *oi = EVENT_ARG(thread);
 
 	oi->t_ls_ack_direct = NULL;
 

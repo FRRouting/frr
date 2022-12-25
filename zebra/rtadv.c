@@ -477,7 +477,7 @@ no_more_opts:
 
 static void rtadv_timer(struct event *thread)
 {
-	struct zebra_vrf *zvrf = THREAD_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(thread);
 	struct vrf *vrf;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -825,9 +825,9 @@ static void rtadv_read(struct event *thread)
 	struct sockaddr_in6 from;
 	ifindex_t ifindex = 0;
 	int hoplimit = -1;
-	struct zebra_vrf *zvrf = THREAD_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(thread);
 
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 	zvrf->rtadv.ra_read = NULL;
 
 	/* Register myself. */
@@ -2806,8 +2806,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 				&rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
-		THREAD_OFF(rtadv->ra_timer);
-		THREAD_OFF(rtadv->ra_read);
+		EVENT_OFF(rtadv->ra_timer);
+		EVENT_OFF(rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
 		event_add_timer(zrouter.master, rtadv_timer, zvrf, val,

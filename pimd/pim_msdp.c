@@ -56,7 +56,7 @@ static void pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa,
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
 static void pim_msdp_sa_adv_timer_cb(struct event *t)
 {
-	struct pim_instance *pim = THREAD_ARG(t);
+	struct pim_instance *pim = EVENT_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP SA advertisement timer expired");
@@ -68,7 +68,7 @@ static void pim_msdp_sa_adv_timer_cb(struct event *t)
 
 static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 {
-	THREAD_OFF(pim->msdp.sa_adv_timer);
+	EVENT_OFF(pim->msdp.sa_adv_timer);
 	if (start) {
 		event_add_timer(pim->msdp.master, pim_msdp_sa_adv_timer_cb, pim,
 				PIM_MSDP_SA_ADVERTISMENT_TIME,
@@ -81,7 +81,7 @@ static void pim_msdp_sa_state_timer_cb(struct event *t)
 {
 	struct pim_msdp_sa *sa;
 
-	sa = THREAD_ARG(t);
+	sa = EVENT_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_sa_timer_expiry_log(sa, "state");
@@ -92,7 +92,7 @@ static void pim_msdp_sa_state_timer_cb(struct event *t)
 
 static void pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
 {
-	THREAD_OFF(sa->sa_state_timer);
+	EVENT_OFF(sa->sa_state_timer);
 	if (start) {
 		event_add_timer(sa->pim->msdp.master,
 				pim_msdp_sa_state_timer_cb, sa,
@@ -865,7 +865,7 @@ static void pim_msdp_peer_hold_timer_cb(struct event *t)
 {
 	struct pim_msdp_peer *mp;
 
-	mp = THREAD_ARG(t);
+	mp = EVENT_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_timer_expiry_log(mp, "hold");
@@ -884,7 +884,7 @@ static void pim_msdp_peer_hold_timer_cb(struct event *t)
 static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	struct pim_instance *pim = mp->pim;
-	THREAD_OFF(mp->hold_timer);
+	EVENT_OFF(mp->hold_timer);
 	if (start) {
 		event_add_timer(pim->msdp.master, pim_msdp_peer_hold_timer_cb,
 				mp, pim->msdp.hold_time, &mp->hold_timer);
@@ -897,7 +897,7 @@ static void pim_msdp_peer_ka_timer_cb(struct event *t)
 {
 	struct pim_msdp_peer *mp;
 
-	mp = THREAD_ARG(t);
+	mp = EVENT_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_timer_expiry_log(mp, "ka");
@@ -909,7 +909,7 @@ static void pim_msdp_peer_ka_timer_cb(struct event *t)
 
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
-	THREAD_OFF(mp->ka_timer);
+	EVENT_OFF(mp->ka_timer);
 	if (start) {
 		event_add_timer(mp->pim->msdp.master, pim_msdp_peer_ka_timer_cb,
 				mp, mp->pim->msdp.keep_alive, &mp->ka_timer);
@@ -957,7 +957,7 @@ static void pim_msdp_peer_cr_timer_cb(struct event *t)
 {
 	struct pim_msdp_peer *mp;
 
-	mp = THREAD_ARG(t);
+	mp = EVENT_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_timer_expiry_log(mp, "connect-retry");
@@ -972,7 +972,7 @@ static void pim_msdp_peer_cr_timer_cb(struct event *t)
 
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
-	THREAD_OFF(mp->cr_timer);
+	EVENT_OFF(mp->cr_timer);
 	if (start) {
 		event_add_timer(mp->pim->msdp.master, pim_msdp_peer_cr_timer_cb,
 				mp, mp->pim->msdp.connection_retry,

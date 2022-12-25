@@ -620,14 +620,14 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 
 void bfd_xmt_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	ptm_bfd_xmt_TO(bs, 0);
 }
 
 void bfd_echo_xmt_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	if (bs->echo_xmt_TO > 0)
 		ptm_bfd_echo_xmt_TO(bs);
@@ -636,7 +636,7 @@ void bfd_echo_xmt_cb(struct event *t)
 /* Was ptm_bfd_detect_TO() */
 void bfd_recvtimer_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
@@ -649,7 +649,7 @@ void bfd_recvtimer_cb(struct event *t)
 /* Was ptm_bfd_echo_detect_TO() */
 void bfd_echo_recvtimer_cb(struct event *t)
 {
-	struct bfd_session *bs = THREAD_ARG(t);
+	struct bfd_session *bs = EVENT_ARG(t);
 
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
@@ -1999,12 +1999,12 @@ static int bfd_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
 	/* Disable read/write poll triggering. */
-	THREAD_OFF(bvrf->bg_ev[0]);
-	THREAD_OFF(bvrf->bg_ev[1]);
-	THREAD_OFF(bvrf->bg_ev[2]);
-	THREAD_OFF(bvrf->bg_ev[3]);
-	THREAD_OFF(bvrf->bg_ev[4]);
-	THREAD_OFF(bvrf->bg_ev[5]);
+	EVENT_OFF(bvrf->bg_ev[0]);
+	EVENT_OFF(bvrf->bg_ev[1]);
+	EVENT_OFF(bvrf->bg_ev[2]);
+	EVENT_OFF(bvrf->bg_ev[3]);
+	EVENT_OFF(bvrf->bg_ev[4]);
+	EVENT_OFF(bvrf->bg_ev[5]);
 
 	/* Close all descriptors. */
 	socket_close(&bvrf->bg_echo);

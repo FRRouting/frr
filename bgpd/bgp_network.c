@@ -343,7 +343,7 @@ static void bgp_accept(struct event *thread)
 	int bgp_sock;
 	int accept_sock;
 	union sockunion su;
-	struct bgp_listener *listener = THREAD_ARG(thread);
+	struct bgp_listener *listener = EVENT_ARG(thread);
 	struct peer *peer;
 	struct peer *peer1;
 	char buf[SU_ADDRSTRLEN];
@@ -354,7 +354,7 @@ static void bgp_accept(struct event *thread)
 	bgp = bgp_lookup_by_name(listener->name);
 
 	/* Register accept thread. */
-	accept_sock = THREAD_FD(thread);
+	accept_sock = EVENT_FD(thread);
 	if (accept_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "[Error] BGP accept socket fd is negative: %d",
@@ -391,7 +391,7 @@ static void bgp_accept(struct event *thread)
 				"[Error] accept() failed with error \"%s\" on BGP listener socket %d for BGP instance in VRF \"%s\"; refreshing socket",
 				safe_strerror(save_errno), accept_sock,
 				VRF_LOGNAME(vrf));
-			THREAD_OFF(listener->thread);
+			EVENT_OFF(listener->thread);
 		} else {
 			flog_err_sys(
 				EC_LIB_SOCKET,
@@ -436,7 +436,7 @@ static void bgp_accept(struct event *thread)
 				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
 
 			bgp_fsm_change_status(peer1, Active);
-			THREAD_OFF(
+			EVENT_OFF(
 				peer1->t_start); /* created in peer_create() */
 
 			if (peer_active(peer1)) {
@@ -569,7 +569,7 @@ static void bgp_accept(struct event *thread)
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
-	THREAD_OFF(peer->t_start); /* created in peer_create() */
+	EVENT_OFF(peer->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
@@ -961,7 +961,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp == bgp) {
-			THREAD_OFF(listener->thread);
+			EVENT_OFF(listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
 			XFREE(MTYPE_BGP_LISTENER, listener->name);
@@ -983,7 +983,7 @@ void bgp_close(void)
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp)
 			continue;
-		THREAD_OFF(listener->thread);
+		EVENT_OFF(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
 		XFREE(MTYPE_BGP_LISTENER, listener->name);

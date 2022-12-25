@@ -487,7 +487,7 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 
 static void _bfd_sess_send(struct event *t)
 {
-	struct bfd_session_params *bsp = THREAD_ARG(t);
+	struct bfd_session_params *bsp = EVENT_ARG(t);
 	int rv;
 
 	/* Validate configuration before trying to send bogus data. */
@@ -533,7 +533,7 @@ static void _bfd_sess_send(struct event *t)
 static void _bfd_sess_remove(struct bfd_session_params *bsp)
 {
 	/* Cancel any pending installation request. */
-	THREAD_OFF(bsp->installev);
+	EVENT_OFF(bsp->installev);
 
 	/* Not installed, nothing to do. */
 	if (!bsp->installed)
@@ -890,7 +890,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 		bsp->installed = false;
 
 		/* Cancel any pending installation request. */
-		THREAD_OFF(bsp->installev);
+		EVENT_OFF(bsp->installev);
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;

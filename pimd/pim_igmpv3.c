@@ -112,7 +112,7 @@ static void igmp_source_timer(struct event *t)
 	struct gm_source *source;
 	struct gm_group *group;
 
-	source = THREAD_ARG(t);
+	source = EVENT_ARG(t);
 
 	group = source->source_group;
 
@@ -187,7 +187,7 @@ static void source_timer_off(struct gm_group *group, struct gm_source *source)
 			group_str, source_str, group->interface->name);
 	}
 
-	THREAD_OFF(source->t_source_timer);
+	EVENT_OFF(source->t_source_timer);
 }
 
 static void igmp_source_timer_on(struct gm_group *group,
@@ -1206,7 +1206,7 @@ static void igmp_group_retransmit(struct event *t)
 	int num_retransmit_sources_left;
 	int send_with_sflag_set; /* boolean */
 
-	group = THREAD_ARG(t);
+	group = EVENT_ARG(t);
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];

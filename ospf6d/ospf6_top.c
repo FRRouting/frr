@@ -552,15 +552,15 @@ static void ospf6_disable(struct ospf6 *o)
 		ospf6_route_remove_all(o->route_table);
 		ospf6_route_remove_all(o->brouter_table);
 
-		THREAD_OFF(o->maxage_remover);
-		THREAD_OFF(o->t_spf_calc);
-		THREAD_OFF(o->t_ase_calc);
-		THREAD_OFF(o->t_distribute_update);
-		THREAD_OFF(o->t_ospf6_receive);
-		THREAD_OFF(o->t_external_aggr);
-		THREAD_OFF(o->gr_info.t_grace_period);
-		THREAD_OFF(o->t_write);
-		THREAD_OFF(o->t_abr_task);
+		EVENT_OFF(o->maxage_remover);
+		EVENT_OFF(o->t_spf_calc);
+		EVENT_OFF(o->t_ase_calc);
+		EVENT_OFF(o->t_distribute_update);
+		EVENT_OFF(o->t_ospf6_receive);
+		EVENT_OFF(o->t_external_aggr);
+		EVENT_OFF(o->gr_info.t_grace_period);
+		EVENT_OFF(o->t_write);
+		EVENT_OFF(o->t_abr_task);
 	}
 }
 
@@ -575,7 +575,7 @@ void ospf6_master_init(struct event_master *master)
 
 static void ospf6_maxage_remover(struct event *thread)
 {
-	struct ospf6 *o = (struct ospf6 *)THREAD_ARG(thread);
+	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(thread);
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;

@@ -231,7 +231,7 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 
 static void zebra_ns_ready_read(struct event *t)
 {
-	struct zebra_netns_info *zns_info = THREAD_ARG(t);
+	struct zebra_netns_info *zns_info = EVENT_ARG(t);
 	const char *netnspath;
 	int err, stop_retry = 0;
 
@@ -282,7 +282,7 @@ static void zebra_ns_ready_read(struct event *t)
 
 static void zebra_ns_notify_read(struct event *t)
 {
-	int fd_monitor = THREAD_FD(t);
+	int fd_monitor = EVENT_FD(t);
 	struct inotify_event *event;
 	char buf[BUFSIZ];
 	ssize_t len;
@@ -442,7 +442,7 @@ void zebra_ns_notify_close(void)
 		fd = zebra_netns_notify_current->u.fd;
 
 	if (zebra_netns_notify_current->master != NULL)
-		THREAD_OFF(zebra_netns_notify_current);
+		EVENT_OFF(zebra_netns_notify_current);
 
 	/* auto-removal of notify items */
 	if (fd > 0)

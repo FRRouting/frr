@@ -328,7 +328,7 @@ int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res)
 
 void pcep_refine_path_event_cb(struct event *thread)
 {
-	struct pcep_refine_path_event_data *data = THREAD_ARG(thread);
+	struct pcep_refine_path_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	struct path *path = data->path;
@@ -390,7 +390,7 @@ void pcep_thread_cancel_timer(struct event **thread)
 		return;
 	}
 
-	struct pcep_ctrl_timer_data *data = THREAD_ARG(*thread);
+	struct pcep_ctrl_timer_data *data = EVENT_ARG(*thread);
 	PCEP_DEBUG("Timer %s / %s canceled", timer_type_name(data->timer_type),
 		   timeout_type_name(data->timeout_type));
 	if (data != NULL) {
@@ -496,7 +496,7 @@ void pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
 void pcep_thread_finish_event_handler(struct event *thread)
 {
 	int i;
-	struct frr_pthread *fpt = THREAD_ARG(thread);
+	struct frr_pthread *fpt = EVENT_ARG(thread);
 	struct ctrl_state *ctrl_state = fpt->data;
 
 	assert(ctrl_state != NULL);
@@ -554,7 +554,7 @@ int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_thread_timer_handler(struct event *thread)
 {
 	/* data unpacking */
-	struct pcep_ctrl_timer_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_timer_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
@@ -600,7 +600,7 @@ void pcep_thread_timer_handler(struct event *thread)
 
 void pcep_thread_pcep_event(struct event *thread)
 {
-	struct pcep_ctrl_event_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	pcep_event *event = data->payload;
@@ -710,7 +710,7 @@ int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_thread_event_handler(struct event *thread)
 {
 	/* data unpacking */
-	struct pcep_ctrl_event_data *data = THREAD_ARG(thread);
+	struct pcep_ctrl_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
@@ -972,7 +972,7 @@ int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_main_event_handler(struct event *thread)
 {
 	/* data unpacking */
-	struct pcep_main_event_data *data = THREAD_ARG(thread);
+	struct pcep_main_event_data *data = EVENT_ARG(thread);
 	assert(data != NULL);
 	pcep_main_event_handler_t handler = data->handler;
 	enum pcep_main_event_type type = data->type;

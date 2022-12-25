@@ -2625,7 +2625,7 @@ static void bgp_route_select_timer_expire(struct event *thread)
 	safi_t safi;
 	struct bgp *bgp;
 
-	info = THREAD_ARG(thread);
+	info = EVENT_ARG(thread);
 	afi = info->afi;
 	safi = info->safi;
 	bgp = info->bgp;
@@ -3383,9 +3383,9 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	if (bgp->gr_info[afi][safi].t_route_select) {
 		struct event *t = bgp->gr_info[afi][safi].t_route_select;
 
-		thread_info = THREAD_ARG(t);
+		thread_info = EVENT_ARG(t);
 		XFREE(MTYPE_TMP, thread_info);
-		THREAD_OFF(bgp->gr_info[afi][safi].t_route_select);
+		EVENT_OFF(bgp->gr_info[afi][safi].t_route_select);
 	}
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
@@ -3589,7 +3589,7 @@ static void bgp_maximum_prefix_restart_timer(struct event *thread)
 {
 	struct peer *peer;
 
-	peer = THREAD_ARG(thread);
+	peer = EVENT_ARG(thread);
 	peer->t_pmax_restart = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
@@ -5046,7 +5046,7 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
 	if (!paf->t_announce_route)
 		return;
 
-	THREAD_OFF(paf->t_announce_route);
+	EVENT_OFF(paf->t_announce_route);
 }
 
 /*
@@ -5060,7 +5060,7 @@ static void bgp_announce_route_timer_expired(struct event *t)
 	struct peer_af *paf;
 	struct peer *peer;
 
-	paf = THREAD_ARG(t);
+	paf = EVENT_ARG(t);
 	peer = paf->peer;
 
 	if (!peer_established(peer))
@@ -5225,7 +5225,7 @@ static void bgp_soft_reconfig_table_task(struct event *thread)
 	struct prefix_rd *prd;
 	struct listnode *node, *nnode;
 
-	table = THREAD_ARG(thread);
+	table = EVENT_ARG(thread);
 	prd = NULL;
 
 	max_iter = SOFT_RECONFIG_TASK_MAX_PREFIX;
@@ -5319,7 +5319,7 @@ void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 
 		list_delete(&ntable->soft_reconfig_peers);
 		bgp_soft_reconfig_table_flag(ntable, false);
-		THREAD_OFF(ntable->soft_reconfig_thread);
+		EVENT_OFF(ntable->soft_reconfig_thread);
 	}
 }
 
@@ -13346,7 +13346,7 @@ static void bgp_table_stats_walker(struct event *t)
 {
 	struct bgp_dest *dest, *ndest;
 	struct bgp_dest *top;
-	struct bgp_table_stats *ts = THREAD_ARG(t);
+	struct bgp_table_stats *ts = EVENT_ARG(t);
 	unsigned int space = 0;
 
 	if (!(top = bgp_table_top(ts->table)))
@@ -13743,7 +13743,7 @@ static void bgp_peer_count_walker(struct event *t)
 {
 	struct bgp_dest *rn, *rm;
 	const struct bgp_table *table;
-	struct peer_pcounts *pc = THREAD_ARG(t);
+	struct peer_pcounts *pc = EVENT_ARG(t);
 
 	if (pc->safi == SAFI_MPLS_VPN || pc->safi == SAFI_ENCAP
 	    || pc->safi == SAFI_EVPN) {

@@ -848,10 +848,10 @@ static void rfapiBgpInfoChainFree(struct bgp_path_info *bpi)
 		if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 		    && bpi->extra->vnc.import.timer) {
 			struct rfapi_withdraw *wcb =
-				THREAD_ARG(bpi->extra->vnc.import.timer);
+				EVENT_ARG(bpi->extra->vnc.import.timer);
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			THREAD_OFF(bpi->extra->vnc.import.timer);
+			EVENT_OFF(bpi->extra->vnc.import.timer);
 		}
 
 		next = bpi->next;
@@ -2347,7 +2347,7 @@ static void rfapiMonitorEncapDelete(struct bgp_path_info *vpn_bpi)
  */
 static void rfapiWithdrawTimerVPN(struct event *t)
 {
-	struct rfapi_withdraw *wcb = THREAD_ARG(t);
+	struct rfapi_withdraw *wcb = EVENT_ARG(t);
 	struct bgp_path_info *bpi = wcb->info;
 	struct bgp *bgp = bgp_get_default();
 	const struct prefix *p;
@@ -2656,7 +2656,7 @@ rfapiWithdrawEncapUpdateCachedUn(struct rfapi_import_table *import_table,
 
 static void rfapiWithdrawTimerEncap(struct event *t)
 {
-	struct rfapi_withdraw *wcb = THREAD_ARG(t);
+	struct rfapi_withdraw *wcb = EVENT_ARG(t);
 	struct bgp_path_info *bpi = wcb->info;
 	int was_first_route = 0;
 	struct rfapi_monitor_encap *em;
@@ -3076,12 +3076,11 @@ static void rfapiBgpInfoFilteredImportEncap(
 				 */
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 				    && bpi->extra->vnc.import.timer) {
-					struct rfapi_withdraw *wcb = THREAD_ARG(
+					struct rfapi_withdraw *wcb = EVENT_ARG(
 						bpi->extra->vnc.import.timer);
 
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					THREAD_OFF(
-						bpi->extra->vnc.import.timer);
+					EVENT_OFF(bpi->extra->vnc.import.timer);
 				}
 
 				if (action == FIF_ACTION_UPDATE) {
@@ -3169,10 +3168,10 @@ static void rfapiBgpInfoFilteredImportEncap(
 			__func__);
 		if (bpi->extra->vnc.import.timer) {
 			struct rfapi_withdraw *wcb =
-				THREAD_ARG(bpi->extra->vnc.import.timer);
+				EVENT_ARG(bpi->extra->vnc.import.timer);
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			THREAD_OFF(bpi->extra->vnc.import.timer);
+			EVENT_OFF(bpi->extra->vnc.import.timer);
 		}
 		rfapiExpireEncapNow(import_table, rn, bpi);
 	}
@@ -3529,12 +3528,11 @@ void rfapiBgpInfoFilteredImportVPN(
 				 */
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)
 				    && bpi->extra->vnc.import.timer) {
-					struct rfapi_withdraw *wcb = THREAD_ARG(
+					struct rfapi_withdraw *wcb = EVENT_ARG(
 						bpi->extra->vnc.import.timer);
 
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					THREAD_OFF(
-						bpi->extra->vnc.import.timer);
+					EVENT_OFF(bpi->extra->vnc.import.timer);
 
 					import_table->holddown_count[afi] -= 1;
 					RFAPI_UPDATE_ITABLE_COUNT(
@@ -3748,10 +3746,10 @@ void rfapiBgpInfoFilteredImportVPN(
 			__func__);
 		if (bpi->extra->vnc.import.timer) {
 			struct rfapi_withdraw *wcb =
-				THREAD_ARG(bpi->extra->vnc.import.timer);
+				EVENT_ARG(bpi->extra->vnc.import.timer);
 
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			THREAD_OFF(bpi->extra->vnc.import.timer);
+			EVENT_OFF(bpi->extra->vnc.import.timer);
 		}
 		rfapiExpireVpnNow(import_table, rn, bpi, 0);
 	}
@@ -4485,7 +4483,7 @@ static void rfapiDeleteRemotePrefixesIt(
 						continue;
 					if (bpi->extra->vnc.import.timer) {
 						struct rfapi_withdraw *wcb =
-							THREAD_ARG(
+							EVENT_ARG(
 								bpi->extra->vnc
 									.import
 									.timer);
@@ -4498,9 +4496,8 @@ static void rfapiDeleteRemotePrefixesIt(
 							afi, 1);
 						XFREE(MTYPE_RFAPI_WITHDRAW,
 						      wcb);
-						THREAD_OFF(
-							bpi->extra->vnc.import
-								.timer);
+						EVENT_OFF(bpi->extra->vnc.import
+								  .timer);
 					}
 				} else {
 					if (!delete_active)

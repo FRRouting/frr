@@ -134,7 +134,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 
 	ospf6->gr_info.restart_in_progress = false;
 	ospf6->gr_info.finishing_restart = true;
-	THREAD_OFF(ospf6->gr_info.t_grace_period);
+	EVENT_OFF(ospf6->gr_info.t_grace_period);
 
 	/* Record in non-volatile memory that the restart is complete. */
 	ospf6_gr_nvm_delete(ospf6);
@@ -461,7 +461,7 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 /* Handling of grace period expiry. */
 static void ospf6_gr_grace_period_expired(struct event *thread)
 {
-	struct ospf6 *ospf6 = THREAD_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(thread);
 
 	ospf6_gr_restart_exit(ospf6, "grace period has expired");
 }

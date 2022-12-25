@@ -1326,7 +1326,7 @@ static void kernel_read(struct event *thread)
 	} buf;
 
 	/* Fetch routing socket. */
-	sock = THREAD_FD(thread);
+	sock = EVENT_FD(thread);
 
 	nbytes = read(sock, &buf, sizeof(buf));
 

@@ -329,7 +329,7 @@ static void pim_igmp_other_querier_expire(struct event *t)
 {
 	struct gm_sock *igmp;
 
-	igmp = THREAD_ARG(t);
+	igmp = EVENT_ARG(t);
 
 	assert(!igmp->t_igmp_query_timer);
 
@@ -377,7 +377,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 				"Querier %s resetting TIMER event for Other-Querier-Present",
 				ifaddr_str);
 		}
-		THREAD_OFF(igmp->t_other_querier_timer);
+		EVENT_OFF(igmp->t_other_querier_timer);
 	} else {
 		/*
 		  We are the current querier, then stop sending general queries:
@@ -439,7 +439,7 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_other_querier_timer);
+	EVENT_OFF(igmp->t_other_querier_timer);
 }
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
@@ -883,7 +883,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_igmp_query_timer);
+	EVENT_OFF(igmp->t_igmp_query_timer);
 }
 
 /* Issue IGMP general query */
@@ -895,7 +895,7 @@ static void pim_igmp_general_query(struct event *t)
 	struct pim_interface *pim_ifp;
 	int query_buf_size;
 
-	igmp = THREAD_ARG(t);
+	igmp = EVENT_ARG(t);
 
 	assert(igmp->interface);
 	assert(igmp->interface->info);
@@ -953,7 +953,7 @@ static void sock_close(struct gm_sock *igmp)
 				igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_igmp_read);
+	EVENT_OFF(igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
 		flog_err(
@@ -1045,7 +1045,7 @@ void igmp_group_delete(struct gm_group *group)
 		igmp_source_delete(src);
 	}
 
-	THREAD_OFF(group->t_group_query_retransmit_timer);
+	EVENT_OFF(group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
@@ -1211,7 +1211,7 @@ static void igmp_read_on(struct gm_sock *igmp);
 static void pim_igmp_read(struct event *t)
 {
 	uint8_t buf[10000];
-	struct gm_sock *igmp = (struct gm_sock *)THREAD_ARG(t);
+	struct gm_sock *igmp = (struct gm_sock *)EVENT_ARG(t);
 	struct sockaddr_storage from;
 	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
@@ -1304,7 +1304,7 @@ static void igmp_group_timer(struct event *t)
 {
 	struct gm_group *group;
 
-	group = THREAD_ARG(t);
+	group = EVENT_ARG(t);
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1348,7 +1348,7 @@ static void group_timer_off(struct gm_group *group)
 		zlog_debug("Cancelling TIMER event for group %s on %s",
 			   group_str, group->interface->name);
 	}
-	THREAD_OFF(group->t_group_timer);
+	EVENT_OFF(group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,

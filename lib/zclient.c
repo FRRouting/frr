@@ -160,9 +160,9 @@ void zclient_stop(struct zclient *zclient)
 		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
-	THREAD_OFF(zclient->t_read);
-	THREAD_OFF(zclient->t_connect);
-	THREAD_OFF(zclient->t_write);
+	EVENT_OFF(zclient->t_read);
+	EVENT_OFF(zclient->t_connect);
+	EVENT_OFF(zclient->t_write);
 
 	/* Reset streams. */
 	stream_reset(zclient->ibuf);
@@ -251,7 +251,7 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 
 static void zclient_flush_data(struct event *thread)
 {
-	struct zclient *zclient = THREAD_ARG(thread);
+	struct zclient *zclient = EVENT_ARG(thread);
 
 	zclient->t_write = NULL;
 	if (zclient->sock < 0)
@@ -295,7 +295,7 @@ enum zclient_send_status zclient_send_message(struct zclient *zclient)
 			 __func__, zclient->sock);
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
-		THREAD_OFF(zclient->t_write);
+		EVENT_OFF(zclient->t_write);
 		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
 		event_add_write(zclient->master, zclient_flush_data, zclient,
@@ -748,7 +748,7 @@ static void zclient_connect(struct event *t)
 {
 	struct zclient *zclient;
 
-	zclient = THREAD_ARG(t);
+	zclient = EVENT_ARG(t);
 	zclient->t_connect = NULL;
 
 	if (zclient_debug)
@@ -4035,7 +4035,7 @@ static void zclient_read(struct event *thread)
 	struct zclient *zclient;
 
 	/* Get socket to zebra. */
-	zclient = THREAD_ARG(thread);
+	zclient = EVENT_ARG(thread);
 	zclient->t_read = NULL;
 
 	/* Read zebra header (if we don't have it already). */

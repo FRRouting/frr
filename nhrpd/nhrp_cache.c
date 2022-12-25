@@ -72,8 +72,8 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	hash_release(nifp->cache_hash, c);
 	nhrp_peer_unref(c->cur.peer);
 	nhrp_peer_unref(c->new.peer);
-	THREAD_OFF(c->t_timeout);
-	THREAD_OFF(c->t_auth);
+	EVENT_OFF(c->t_timeout);
+	EVENT_OFF(c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
@@ -197,7 +197,7 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 
 static void nhrp_cache_do_free(struct event *t)
 {
-	struct nhrp_cache *c = THREAD_ARG(t);
+	struct nhrp_cache *c = EVENT_ARG(t);
 
 	c->t_timeout = NULL;
 	nhrp_cache_free(c);
@@ -205,7 +205,7 @@ static void nhrp_cache_do_free(struct event *t)
 
 static void nhrp_cache_do_timeout(struct event *t)
 {
-	struct nhrp_cache *c = THREAD_ARG(t);
+	struct nhrp_cache *c = EVENT_ARG(t);
 
 	c->t_timeout = NULL;
 	if (c->cur.type != NHRP_CACHE_INVALID)
@@ -310,7 +310,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 
 static void nhrp_cache_reset_new(struct nhrp_cache *c)
 {
-	THREAD_OFF(c->t_auth);
+	EVENT_OFF(c->t_auth);
 	if (notifier_list_anywhere(&c->newpeer_notifier))
 		nhrp_peer_notify_del(c->new.peer, &c->newpeer_notifier);
 	nhrp_peer_unref(c->new.peer);
@@ -320,7 +320,7 @@ static void nhrp_cache_reset_new(struct nhrp_cache *c)
 
 static void nhrp_cache_update_timers(struct nhrp_cache *c)
 {
-	THREAD_OFF(c->t_timeout);
+	EVENT_OFF(c->t_timeout);
 
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:
@@ -397,7 +397,7 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 
 static void nhrp_cache_do_auth_timeout(struct event *t)
 {
-	struct nhrp_cache *c = THREAD_ARG(t);
+	struct nhrp_cache *c = EVENT_ARG(t);
 	c->t_auth = NULL;
 	nhrp_cache_authorize_binding(&c->eventid, (void *)"timeout");
 }

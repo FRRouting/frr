@@ -1747,7 +1747,7 @@ static void zebra_route_map_set_delay_timer(uint32_t value)
 	if (!value && zebra_t_rmap_update) {
 		/* Event driven route map updates is being disabled */
 		/* But there's a pending timer. Fire it off now */
-		THREAD_OFF(zebra_t_rmap_update);
+		EVENT_OFF(zebra_t_rmap_update);
 		zebra_route_map_update_timer(NULL);
 	}
 }
@@ -1757,7 +1757,7 @@ void zebra_routemap_finish(void)
 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
 	zebra_rmap_update_timer = 0;
 	/* Thread off if any scheduled already */
-	THREAD_OFF(zebra_t_rmap_update);
+	EVENT_OFF(zebra_t_rmap_update);
 	route_map_finish();
 }
 
@@ -1874,7 +1874,7 @@ static void zebra_route_map_mark_update(const char *rmap_name)
 {
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (zebra_rmap_update_timer)
-		THREAD_OFF(zebra_t_rmap_update);
+		EVENT_OFF(zebra_t_rmap_update);
 
 	event_add_timer(zrouter.master, zebra_route_map_update_timer, NULL,
 			zebra_rmap_update_timer, &zebra_t_rmap_update);

@@ -1855,7 +1855,7 @@ void isis_spf_switchover_routes(struct isis_area *area,
 
 static void isis_run_spf_cb(struct event *thread)
 {
-	struct isis_spf_run *run = THREAD_ARG(thread);
+	struct isis_spf_run *run = EVENT_ARG(thread);
 	struct isis_area *area = run->area;
 	int level = run->level;
 	int have_run = 0;
@@ -1950,7 +1950,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			area->area_tag, level, diff, func, file, line);
 	}
 
-	THREAD_OFF(area->t_rlfa_rib_update);
+	EVENT_OFF(area->t_rlfa_rib_update);
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running
 		 * to
