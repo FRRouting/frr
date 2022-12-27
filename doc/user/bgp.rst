@@ -4325,6 +4325,17 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    If ``json`` option is specified, output is displayed in JSON format.
 
+.. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes
+
+   Display the detailed version of all routes. The same format as using
+   ``show [ip] bgp [afi] [safi] PREFIX``, but for the whole BGP table.
+
+   If ``all`` option is specified, ``ip`` keyword is ignored and,
+   routes displayed for all AFIs and SAFIs.
+
+   If ``afi`` is specified, with ``all`` option, routes will be displayed for
+   each SAFI in the selected AFI.
+
 .. _bgp-display-routes-by-community:
 
 Displaying Routes by Community Attribute
