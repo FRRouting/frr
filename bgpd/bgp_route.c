@@ -277,8 +277,10 @@ struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 }
 
 /* Free bgp route information. */
-static void bgp_path_info_free(struct bgp_path_info *path)
+void bgp_path_info_free_with_caller(const char *name,
+				    struct bgp_path_info *path)
 {
+	frrtrace(2, frr_bgp, bgp_path_info_free, path, name);
 	bgp_attr_unintern(&path->attr);
 
 	bgp_unlink_nexthop(path);
@@ -389,8 +391,10 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 	return -1;
 }
 
-void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi)
+void bgp_path_info_add_with_caller(const char *name, struct bgp_dest *dest,
+				   struct bgp_path_info *pi)
 {
+	frrtrace(2, frr_bgp, bgp_path_info_add, dest, pi, name);
 	struct bgp_path_info *top;
 
 	top = bgp_dest_get_bgp_path_info(dest);
