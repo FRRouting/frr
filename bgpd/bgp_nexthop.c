@@ -23,6 +23,7 @@
 #include "command.h"
 #include "thread.h"
 #include "prefix.h"
+#include "lib/json.h"
 #include "zclient.h"
 #include "stream.h"
 #include "network.h"
@@ -734,17 +735,67 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 	return false;
 }
 
+static void bgp_show_bgp_path_info_flags(uint32_t flags, json_object *json)
+{
+	json_object *json_flags = NULL;
+	if (!json)
+		return;
+
+	json_flags = json_object_new_array();
+	if (CHECK_FLAG(flags, BGP_PATH_IGP_CHANGED))
+		json_array_string_add(json_flags, "igpChanged");
+	if (CHECK_FLAG(flags, BGP_PATH_DAMPED))
+		json_array_string_add(json_flags, "damped");
+	if (CHECK_FLAG(flags, BGP_PATH_HISTORY))
+		json_array_string_add(json_flags, "history");
+	if (CHECK_FLAG(flags, BGP_PATH_SELECTED))
+		json_array_string_add(json_flags, "selected");
+	if (CHECK_FLAG(flags, BGP_PATH_VALID))
+		json_array_string_add(json_flags, "valid");
+	if (CHECK_FLAG(flags, BGP_PATH_ATTR_CHANGED))
+		json_array_string_add(json_flags, "attrChanged");
+	if (CHECK_FLAG(flags, BGP_PATH_DMED_CHECK))
+		json_array_string_add(json_flags, "dmedCheck");
+	if (CHECK_FLAG(flags, BGP_PATH_DMED_SELECTED))
+		json_array_string_add(json_flags, "dmedSelected");
+	if (CHECK_FLAG(flags, BGP_PATH_STALE))
+		json_array_string_add(json_flags, "stale");
+	if (CHECK_FLAG(flags, BGP_PATH_REMOVED))
+		json_array_string_add(json_flags, "removed");
+	if (CHECK_FLAG(flags, BGP_PATH_COUNTED))
+		json_array_string_add(json_flags, "counted");
+	if (CHECK_FLAG(flags, BGP_PATH_MULTIPATH))
+		json_array_string_add(json_flags, "multipath");
+	if (CHECK_FLAG(flags, BGP_PATH_MULTIPATH_CHG))
+		json_array_string_add(json_flags, "multipathChanged");
+	if (CHECK_FLAG(flags, BGP_PATH_RIB_ATTR_CHG))
+		json_array_string_add(json_flags, "ribAttributeChanged");
+	if (CHECK_FLAG(flags, BGP_PATH_ANNC_NH_SELF))
+		json_array_string_add(json_flags, "anncNhSelf");
+	if (CHECK_FLAG(flags, BGP_PATH_LINK_BW_CHG))
+		json_array_string_add(json_flags, "linkBandwidthChanged");
+	if (CHECK_FLAG(flags, BGP_PATH_ACCEPT_OWN))
+		json_array_string_add(json_flags, "acceptOwn");
+	json_object_object_add(json, "flags", json_flags);
+}
+
 static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
-				   struct bgp_nexthop_cache *bnc)
+				   struct bgp_nexthop_cache *bnc,
+				   json_object *json)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *path;
-	int afi;
+	afi_t afi;
 	safi_t safi;
 	struct bgp_table *table;
 	struct bgp *bgp_path;
+	json_object *paths = NULL;
+	json_object *json_path = NULL;
 
-	vty_out(vty, "  Paths:\n");
+	if (json)
+		paths = json_object_new_array();
+	else
+		vty_out(vty, "  Paths:\n");
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
 		dest = path->net;
 		assert(dest && bgp_dest_table(dest));
@@ -753,6 +804,25 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		safi = table->safi;
 		bgp_path = table->bgp;
 
+		if (json) {
+			json_path = json_object_new_object();
+			json_object_string_add(json_path, "afi", afi2str(afi));
+			json_object_string_add(json_path, "safi",
+					       safi2str(safi));
+			json_object_string_addf(json_path, "prefix", "%pBD",
+						dest);
+			if (dest->pdest)
+				json_object_string_addf(
+					json_path, "rd", "%pRD",
+					(struct prefix_rd *)bgp_dest_get_prefix(
+						dest->pdest));
+			json_object_string_add(
+				json_path, "vrf",
+				vrf_id_to_name(bgp_path->vrf_id));
+			bgp_show_bgp_path_info_flags(path->flags, json_path);
+			json_object_array_add(paths, json_path);
+			continue;
+		}
 		if (dest->pdest)
 			vty_out(vty, "    %d/%d %pBD RD %pRD %s flags 0x%x\n",
 				afi, safi, dest,
@@ -763,14 +833,71 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
 				afi, safi, dest, bgp_path->name_pretty, path->flags);
 	}
+	if (json)
+		json_object_object_add(json, "paths", paths);
 }
 
 static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
-				     struct bgp_nexthop_cache *bnc)
+				     struct bgp_nexthop_cache *bnc,
+				     json_object *json)
 {
 	struct nexthop *nexthop;
+	json_object *json_gates = NULL;
+	json_object *json_gate = NULL;
 
+	if (json)
+		json_gates = json_object_new_array();
 	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+		if (json) {
+			json_gate = json_object_new_object();
+			switch (nexthop->type) {
+			case NEXTHOP_TYPE_IPV6:
+				json_object_string_addf(json_gate, "ip", "%pI6",
+							&nexthop->gate.ipv6);
+				break;
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				json_object_string_addf(json_gate, "ip", "%pI6",
+							&nexthop->gate.ipv6);
+				json_object_string_add(
+					json_gate, "ifname",
+					ifindex2ifname(
+						bnc->ifindex ? bnc->ifindex
+							     : nexthop->ifindex,
+						bgp->vrf_id));
+				break;
+			case NEXTHOP_TYPE_IPV4:
+				json_object_string_addf(json_gate, "ip", "%pI4",
+							&nexthop->gate.ipv4);
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				json_object_string_add(
+					json_gate, "ifname",
+					ifindex2ifname(
+						bnc->ifindex ? bnc->ifindex
+							     : nexthop->ifindex,
+						bgp->vrf_id));
+				break;
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				json_object_string_addf(json_gate, "ip", "%pI4",
+							&nexthop->gate.ipv4);
+				json_object_string_add(
+					json_gate, "ifname",
+					ifindex2ifname(
+						bnc->ifindex ? bnc->ifindex
+							     : nexthop->ifindex,
+						bgp->vrf_id));
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				json_object_boolean_true_add(json_gate,
+							     "isBlackhole");
+				break;
+			default:
+				json_object_boolean_false_add(
+					json_gate, "isValidNexthopType");
+			}
+			json_object_array_add(json_gates, json_gate);
+			continue;
+		}
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV6:
 			vty_out(vty, "  gate %pI6\n", &nexthop->gate.ipv6);
@@ -806,97 +933,169 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 				nexthop->type);
 		}
 	}
+	if (json)
+		json_object_object_add(json, "gates", json_gates);
 }
 
 static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
-			     struct bgp_nexthop_cache *bnc,
-			     bool specific)
+			     struct bgp_nexthop_cache *bnc, bool specific,
+			     json_object *json)
 {
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
 	struct peer *peer;
+	json_object *json_last_update = NULL;
+	json_object *json_nexthop = NULL;
 
 	peer = (struct peer *)bnc->nht_info;
 
-	if (bnc->srte_color)
-		vty_out(vty, " SR-TE color %u -", bnc->srte_color);
+	if (json)
+		json_nexthop = json_object_new_object();
+	if (bnc->srte_color) {
+		if (json)
+			json_object_int_add(json_nexthop, "srteColor",
+					    bnc->srte_color);
+		else
+			vty_out(vty, " SR-TE color %u -", bnc->srte_color);
+	}
+	inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix, buf, sizeof(buf));
 	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
-		vty_out(vty, " %s valid [IGP metric %d], #paths %d",
-			inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix,
-				  buf, sizeof(buf)),
-			bnc->metric, bnc->path_count);
-		if (peer)
-			vty_out(vty, ", peer %s", peer->host);
-		if (bnc->is_evpn_gwip_nexthop)
-			vty_out(vty, " EVPN Gateway IP");
-		vty_out(vty, "\n");
-		bgp_show_nexthops_detail(vty, bgp, bnc);
+		if (json) {
+			json_object_boolean_true_add(json_nexthop, "valid");
+			json_object_boolean_true_add(json_nexthop, "complete");
+			json_object_int_add(json_nexthop, "igpMetric",
+					    bnc->metric);
+			json_object_int_add(json_nexthop, "pathCount",
+					    bnc->path_count);
+			if (peer)
+				json_object_string_add(json_nexthop, "peer",
+						       peer->host);
+			if (bnc->is_evpn_gwip_nexthop)
+				json_object_boolean_true_add(json_nexthop,
+							     "isEvpnGatewayIp");
+		} else {
+			vty_out(vty, " %s valid [IGP metric %d], #paths %d",
+				buf, bnc->metric, bnc->path_count);
+			if (peer)
+				vty_out(vty, ", peer %s", peer->host);
+			if (bnc->is_evpn_gwip_nexthop)
+				vty_out(vty, " EVPN Gateway IP");
+			vty_out(vty, "\n");
+		}
+		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
 	} else if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE)) {
-		vty_out(vty,
-			" %s overlay index unresolved [IGP metric %d], #paths %d",
-			inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix,
-				  buf, sizeof(buf)),
-			bnc->metric, bnc->path_count);
-		if (bnc->is_evpn_gwip_nexthop)
-			vty_out(vty, " EVPN Gateway IP");
-		vty_out(vty, "\n");
-		bgp_show_nexthops_detail(vty, bgp, bnc);
+		if (json) {
+			json_object_boolean_true_add(json_nexthop, "valid");
+			json_object_boolean_false_add(json_nexthop, "complete");
+			json_object_int_add(json_nexthop, "igpMetric",
+					    bnc->metric);
+			json_object_int_add(json_nexthop, "pathCount",
+					    bnc->path_count);
+			if (bnc->is_evpn_gwip_nexthop)
+				json_object_boolean_true_add(json_nexthop,
+							     "isEvpnGatewayIp");
+		} else {
+			vty_out(vty,
+				" %s overlay index unresolved [IGP metric %d], #paths %d",
+				buf, bnc->metric, bnc->path_count);
+			if (bnc->is_evpn_gwip_nexthop)
+				vty_out(vty, " EVPN Gateway IP");
+			vty_out(vty, "\n");
+		}
+		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
 	} else {
-		vty_out(vty, " %s invalid, #paths %d",
-			inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix,
-				  buf, sizeof(buf)),
-			bnc->path_count);
-		if (peer)
-			vty_out(vty, ", peer %s", peer->host);
-		if (bnc->is_evpn_gwip_nexthop)
-			vty_out(vty, " EVPN Gateway IP");
-		vty_out(vty, "\n");
-		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
-			vty_out(vty, "  Must be Connected\n");
-		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
-			vty_out(vty, "  Is not Registered\n");
+		if (json) {
+			json_object_boolean_false_add(json_nexthop, "valid");
+			json_object_boolean_false_add(json_nexthop, "complete");
+			json_object_int_add(json_nexthop, "pathCount",
+					    bnc->path_count);
+			if (peer)
+				json_object_string_add(json_nexthop, "peer",
+						       peer->host);
+			if (bnc->is_evpn_gwip_nexthop)
+				json_object_boolean_true_add(json_nexthop,
+							     "isEvpnGatewayIp");
+			if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+				json_object_boolean_false_add(json_nexthop,
+							      "isConnected");
+			if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+				json_object_boolean_false_add(json_nexthop,
+							      "isRegistered");
+		} else {
+			vty_out(vty, " %s invalid, #paths %d", buf,
+				bnc->path_count);
+			if (peer)
+				vty_out(vty, ", peer %s", peer->host);
+			if (bnc->is_evpn_gwip_nexthop)
+				vty_out(vty, " EVPN Gateway IP");
+			vty_out(vty, "\n");
+			if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+				vty_out(vty, "  Must be Connected\n");
+			if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+				vty_out(vty, "  Is not Registered\n");
+		}
 	}
 	tbuf = time(NULL) - (monotime(NULL) - bnc->last_update);
-	vty_out(vty, "  Last update: %s", ctime(&tbuf));
+	if (json) {
+		json_last_update = json_object_new_object();
+		json_object_int_add(json_last_update, "epoch", tbuf);
+		json_object_string_add(json_last_update, "string",
+				       ctime(&tbuf));
+		json_object_object_add(json_nexthop, "lastUpdate",
+				       json_last_update);
+	} else {
+		vty_out(vty, "  Last update: %s", ctime(&tbuf));
+	}
 
 	/* show paths dependent on nexthop, if needed. */
 	if (specific)
-		bgp_show_nexthop_paths(vty, bgp, bnc);
+		bgp_show_nexthop_paths(vty, bgp, bnc, json_nexthop);
+	if (json)
+		json_object_object_add(json, buf, json_nexthop);
 }
 
 static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp,
-			      bool import_table)
+			      bool import_table, json_object *json)
 {
 	struct bgp_nexthop_cache *bnc;
 	afi_t afi;
 	struct bgp_nexthop_cache_head(*tree)[AFI_MAX];
+	json_object *json_nexthops = NULL;
 
-	if (import_table)
-		vty_out(vty, "Current BGP import check cache:\n");
-	else
-		vty_out(vty, "Current BGP nexthop cache:\n");
+	if (!json) {
+		if (import_table)
+			vty_out(vty, "Current BGP import check cache:\n");
+		else
+			vty_out(vty, "Current BGP nexthop cache:\n");
+	}
 	if (import_table)
 		tree = &bgp->import_check_table;
 	else
 		tree = &bgp->nexthop_cache_table;
+	if (json)
+		json_nexthops = json_object_new_object();
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		frr_each (bgp_nexthop_cache, &(*tree)[afi], bnc)
-			bgp_show_nexthop(vty, bgp, bnc, false);
+			bgp_show_nexthop(vty, bgp, bnc, false, json_nexthops);
 	}
+	if (json)
+		json_object_object_add(json, "nexthops", json_nexthops);
 }
 
 static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
-				     const char *nhopip_str,
-				     bool import_table)
+				     const char *nhopip_str, bool import_table,
+				     json_object *json)
 {
 	struct bgp *bgp;
+	json_object *json_nexthops = NULL;
 
 	if (name)
 		bgp = bgp_lookup_by_name(name);
 	else
 		bgp = bgp_get_default();
 	if (!bgp) {
-		vty_out(vty, "%% No such BGP instance exist\n");
+		if (!json)
+			vty_out(vty, "%% No such BGP instance exist\n");
 		return CMD_WARNING;
 	}
 
@@ -907,44 +1106,59 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		bool found = false;
 
 		if (!str2prefix(nhopip_str, &nhop)) {
-			vty_out(vty, "nexthop address is malformed\n");
+			if (!json)
+				vty_out(vty, "nexthop address is malformed\n");
 			return CMD_WARNING;
 		}
 		tree = import_table ? &bgp->import_check_table
 				    : &bgp->nexthop_cache_table;
+		if (json)
+			json_nexthops = json_object_new_object();
 		frr_each (bgp_nexthop_cache, &(*tree)[family2afi(nhop.family)],
 			  bnc) {
 			if (prefix_cmp(&bnc->prefix, &nhop))
 				continue;
-			bgp_show_nexthop(vty, bgp, bnc, true);
+			bgp_show_nexthop(vty, bgp, bnc, true, json_nexthops);
 			found = true;
 		}
-		if (!found)
+		if (json)
+			json_object_object_add(json, "nexthops", json_nexthops);
+		if (!found && !json)
 			vty_out(vty, "nexthop %s does not have entry\n",
 				nhopip_str);
 	} else
-		bgp_show_nexthops(vty, bgp, import_table);
+		bgp_show_nexthops(vty, bgp, import_table, json);
 
 	return CMD_SUCCESS;
 }
 
-static void bgp_show_all_instances_nexthops_vty(struct vty *vty)
+static void bgp_show_all_instances_nexthops_vty(struct vty *vty,
+						json_object *json)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	const char *inst_name;
+	json_object *json_instance = NULL;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		vty_out(vty, "\nInstance %s:\n",
-			(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-				? VRF_DEFAULT_NAME
-				: bgp->name);
-		bgp_show_nexthops(vty, bgp, false);
+		inst_name = (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+				    ? VRF_DEFAULT_NAME
+				    : bgp->name;
+		if (json)
+			json_instance = json_object_new_object();
+		else
+			vty_out(vty, "\nInstance %s:\n", inst_name);
+
+		bgp_show_nexthops(vty, bgp, false, json_instance);
+
+		if (json)
+			json_object_object_add(json, inst_name, json_instance);
 	}
 }
 
 DEFUN (show_ip_bgp_nexthop,
        show_ip_bgp_nexthop_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [<A.B.C.D|X:X::X:X>] [detail]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [<A.B.C.D|X:X::X:X>] [detail] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -952,12 +1166,19 @@ DEFUN (show_ip_bgp_nexthop,
        "BGP nexthop table\n"
        "IPv4 nexthop address\n"
        "IPv6 nexthop address\n"
-       "Show detailed information\n")
+       "Show detailed information\n"
+       JSON_STR)
 {
+	int rc = 0;
 	int idx = 0;
 	int nh_idx = 0;
 	char *vrf = NULL;
 	char *nhop_ip = NULL;
+	json_object *json = NULL;
+	bool uj = use_json(argc, argv);
+
+	if (uj)
+		json = json_object_new_object();
 
 	if (argv_find(argv, argc, "view", &idx)
 	    || argv_find(argv, argc, "vrf", &idx))
@@ -967,39 +1188,64 @@ DEFUN (show_ip_bgp_nexthop,
 	    || argv_find(argv, argc, "X:X::X:X", &nh_idx))
 		nhop_ip = argv[nh_idx]->arg;
 
-	return show_ip_bgp_nexthop_table(vty, vrf, nhop_ip, false);
+	rc = show_ip_bgp_nexthop_table(vty, vrf, nhop_ip, false, json);
+
+	if (uj)
+		vty_json(vty, json);
+	return rc;
 }
 
 DEFUN (show_ip_bgp_import_check,
        show_ip_bgp_import_check_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] import-check-table [detail]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] import-check-table [detail] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "BGP import check table\n"
-       "Show detailed information\n")
+       "Show detailed information\n"
+       JSON_STR)
 {
+	int rc = 0;
 	int idx = 0;
 	char *vrf = NULL;
+	json_object *json = NULL;
+	bool uj = use_json(argc, argv);
+
+	if (uj)
+		json = json_object_new_object();
 
 	if (argv_find(argv, argc, "view", &idx)
 	    || argv_find(argv, argc, "vrf", &idx))
 		vrf = argv[++idx]->arg;
 
-	return show_ip_bgp_nexthop_table(vty, vrf, NULL, true);
+	rc = show_ip_bgp_nexthop_table(vty, vrf, NULL, true, json);
+
+	if (uj)
+		vty_json(vty, json);
+	return rc;
 }
 
 DEFUN (show_ip_bgp_instance_all_nexthop,
        show_ip_bgp_instance_all_nexthop_cmd,
-       "show [ip] bgp <view|vrf> all nexthop",
+       "show [ip] bgp <view|vrf> all nexthop [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
-       "BGP nexthop table\n")
+       "BGP nexthop table\n"
+       JSON_STR)
 {
-	bgp_show_all_instances_nexthops_vty(vty);
+	json_object *json = NULL;
+	bool uj = use_json(argc, argv);
+
+	if (uj)
+		json = json_object_new_object();
+
+	bgp_show_all_instances_nexthops_vty(vty, json);
+
+	if (uj)
+		vty_json(vty, json);
 	return CMD_SUCCESS;
 }
 
