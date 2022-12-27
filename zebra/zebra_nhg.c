@@ -2275,6 +2275,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			break;
 		case AFI_UNSPEC:
 		case AFI_L2VPN:
+		case AFI_LINKSTATE:
 		case AFI_MAX:
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: unknown address-family: %u", __func__,
@@ -2318,6 +2319,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_MAX:
 		assert(afi != AFI_IP && afi != AFI_IP6);
 		break;

@@ -562,6 +562,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			client->redist_v6_del_cnt++;
 		break;
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_MAX:
 	case AFI_UNSPEC:
 		break;

@@ -331,6 +331,11 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 		       "%s: Asked to install unsupported route type: L2VPN",
 		       __func__);
 		break;
+	case AFI_LINKSTATE:
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Asked to install unsupported route type: Link-State",
+		       __func__);
+		break;
 	case AFI_UNSPEC:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Asked to install unspecified route type", __func__);
@@ -374,6 +379,11 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 	case AFI_L2VPN:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Asked to delete unsupported route type: L2VPN",
+		       __func__);
+		break;
+	case AFI_LINKSTATE:
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Asked to delete unsupported route type: Link-State",
 		       __func__);
 		break;
 	case AFI_UNSPEC:
