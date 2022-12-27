@@ -1060,9 +1060,11 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 {
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp *bgp_nexthop;
+	struct bgp_table *table;
 	bool nh_valid;
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
+	table = bgp_dest_table(bpi_ultimate->net);
 
 	if (bpi->extra && bpi->extra->bgp_orig)
 		bgp_nexthop = bpi->extra->bgp_orig;
@@ -1070,13 +1072,25 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		bgp_nexthop = bgp_orig;
 
 	/*
-	 * No nexthop tracking for redistributed routes or for
+	 * No nexthop tracking for redistributed routes,
+	 * for static (i.e. coming from the bgp network statement or for
 	 * EVPN-imported routes that get leaked.
 	 */
 	if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
 	    is_pi_family_evpn(bpi_ultimate))
 		nh_valid = 1;
-	else
+	else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP &&
+		 bpi_ultimate->sub_type == BGP_ROUTE_STATIC && table &&
+		 (table->safi == SAFI_UNICAST ||
+		  table->safi == SAFI_LABELED_UNICAST)) {
+		/* Routes from network statement */
+		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
+			nh_valid = bgp_find_or_add_nexthop(
+				to_bgp, bgp_nexthop, afi, safi, bpi_ultimate,
+				NULL, 0, p);
+		else
+			nh_valid = 1;
+	} else
 		/*
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
@@ -1266,6 +1280,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		if (debug)
 			zlog_debug("%s: ->%s: %pBD Found route, changed attr",
 				   __func__, to_bgp->name_pretty, bn);
+		UNSET_FLAG(bpi->attr->nh_flag, BGP_ATTR_NH_REFRESH);
 
 		return bpi;
 	}
@@ -1864,10 +1879,30 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	uint32_t num_labels = 0;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
+	struct bgp_path_info *bpi;
 	int origin_local = 0;
 	struct bgp *src_vrf;
+	struct interface *ifp;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
+
+	/*
+	 * For VRF-2-VRF route-leaking,
+	 * the source will be the originating VRF.
+	 *
+	 * If ACCEPT_OWN mechanism is enabled, then we SHOULD(?)
+	 * get the source VRF (BGP) by looking at the RD.
+	 */
+	struct bgp *src_bgp = bgp_lookup_by_rd(path_vpn, prd, afi);
+
+	if (path_vpn->extra && path_vpn->extra->bgp_orig)
+		src_vrf = path_vpn->extra->bgp_orig;
+	else if (src_bgp)
+		src_vrf = src_bgp;
+	else
+		src_vrf = from_bgp;
+
+	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p, NULL);
 
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
@@ -1928,6 +1963,18 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 
 	community_strip_accept_own(&static_attr);
 
+	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+		if (bpi->extra && bpi->extra->parent == path_vpn)
+			break;
+	}
+
+	if (bpi &&
+	    leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi,
+				      path_vpn, bpi, src_vrf, p, debug))
+		SET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_VALID);
+	else
+		UNSET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_VALID);
+
 	/*
 	 * Nexthop: stash and clear
 	 *
@@ -1969,6 +2016,22 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 		}
 		break;
 	}
+
+	if (static_attr.nexthop.s_addr == INADDR_ANY &&
+	    IN6_IS_ADDR_UNSPECIFIED(&static_attr.mp_nexthop_global)) {
+		ifp = if_get_vrf_loopback(src_vrf->vrf_id);
+		if (ifp)
+			static_attr.nh_ifindex = ifp->ifindex;
+	} else if (static_attr.nh_ifindex)
+		ifp = if_lookup_by_index(static_attr.nh_ifindex,
+					 src_vrf->vrf_id);
+	else
+		ifp = NULL;
+
+	if (ifp && if_is_operative(ifp))
+		SET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
+	else
+		UNSET_FLAG(static_attr.nh_flag, BGP_ATTR_NH_IF_OPERSTATE);
 
 	/*
 	 * route map handling
@@ -2050,22 +2113,6 @@ static bool vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
 	if (debug)
 		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
 			   path_vpn->net, num_labels);
-
-	/*
-	 * For VRF-2-VRF route-leaking,
-	 * the source will be the originating VRF.
-	 *
-	 * If ACCEPT_OWN mechanism is enabled, then we SHOULD(?)
-	 * get the source VRF (BGP) by looking at the RD.
-	 */
-	struct bgp *src_bgp = bgp_lookup_by_rd(path_vpn, prd, afi);
-
-	if (path_vpn->extra && path_vpn->extra->bgp_orig)
-		src_vrf = path_vpn->extra->bgp_orig;
-	else if (src_bgp)
-		src_vrf = src_bgp;
-	else
-		src_vrf = from_bgp;
 
 	leak_update(to_bgp, bn, new_attr, afi, safi, path_vpn, pLabels,
 		    num_labels, src_vrf, &nexthop_orig, nexthop_self_flag,

@@ -825,55 +825,56 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		&& attr1->med == attr2->med
 	    && attr1->local_pref == attr2->local_pref
 	    && attr1->rmap_change_flags == attr2->rmap_change_flags) {
-		if (attr1->aggregator_as == attr2->aggregator_as
-		    && attr1->aggregator_addr.s_addr
-			       == attr2->aggregator_addr.s_addr
-		    && attr1->weight == attr2->weight
-		    && attr1->tag == attr2->tag
-		    && attr1->label_index == attr2->label_index
-		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
-		    && bgp_attr_get_ecommunity(attr1)
-			       == bgp_attr_get_ecommunity(attr2)
-		    && bgp_attr_get_ipv6_ecommunity(attr1)
-			       == bgp_attr_get_ipv6_ecommunity(attr2)
-		    && bgp_attr_get_lcommunity(attr1)
-				   == bgp_attr_get_lcommunity(attr2)
-		    && bgp_attr_get_cluster(attr1)
-			       == bgp_attr_get_cluster(attr2)
-		    && bgp_attr_get_transit(attr1)
-			       == bgp_attr_get_transit(attr2)
-		    && bgp_attr_get_aigp_metric(attr1)
-			       == bgp_attr_get_aigp_metric(attr2)
-		    && attr1->rmap_table_id == attr2->rmap_table_id
-		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
-		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
+		if (attr1->aggregator_as == attr2->aggregator_as &&
+		    attr1->aggregator_addr.s_addr ==
+			    attr2->aggregator_addr.s_addr &&
+		    attr1->weight == attr2->weight &&
+		    attr1->tag == attr2->tag &&
+		    attr1->label_index == attr2->label_index &&
+		    attr1->mp_nexthop_len == attr2->mp_nexthop_len &&
+		    bgp_attr_get_ecommunity(attr1) ==
+			    bgp_attr_get_ecommunity(attr2) &&
+		    bgp_attr_get_ipv6_ecommunity(attr1) ==
+			    bgp_attr_get_ipv6_ecommunity(attr2) &&
+		    bgp_attr_get_lcommunity(attr1) ==
+			    bgp_attr_get_lcommunity(attr2) &&
+		    bgp_attr_get_cluster(attr1) ==
+			    bgp_attr_get_cluster(attr2) &&
+		    bgp_attr_get_transit(attr1) ==
+			    bgp_attr_get_transit(attr2) &&
+		    bgp_attr_get_aigp_metric(attr1) ==
+			    bgp_attr_get_aigp_metric(attr2) &&
+		    attr1->rmap_table_id == attr2->rmap_table_id &&
+		    (attr1->encap_tunneltype == attr2->encap_tunneltype) &&
+		    encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
 #ifdef ENABLE_BGP_VNC
 		    && encap_same(bgp_attr_get_vnc_subtlvs(attr1),
 				  bgp_attr_get_vnc_subtlvs(attr2))
 #endif
 		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
-				      &attr2->mp_nexthop_global)
-		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
-				      &attr2->mp_nexthop_local)
-		    && IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
-				      &attr2->mp_nexthop_global_in)
-		    && IPV4_ADDR_SAME(&attr1->originator_id,
-				      &attr2->originator_id)
-		    && overlay_index_same(attr1, attr2)
-		    && !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t))
-		    && attr1->es_flags == attr2->es_flags
-		    && attr1->mm_sync_seqnum == attr2->mm_sync_seqnum
-		    && attr1->df_pref == attr2->df_pref
-		    && attr1->df_alg == attr2->df_alg
-		    && attr1->nh_ifindex == attr2->nh_ifindex
-		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
-		    && attr1->distance == attr2->distance
-		    && srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn)
-		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn)
-		    && attr1->srte_color == attr2->srte_color
-		    && attr1->nh_type == attr2->nh_type
-		    && attr1->bh_type == attr2->bh_type
-		    && attr1->otc == attr2->otc)
+				      &attr2->mp_nexthop_global) &&
+		    IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
+				   &attr2->mp_nexthop_local) &&
+		    IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
+				   &attr2->mp_nexthop_global_in) &&
+		    IPV4_ADDR_SAME(&attr1->originator_id,
+				   &attr2->originator_id) &&
+		    overlay_index_same(attr1, attr2) &&
+		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
+		    attr1->es_flags == attr2->es_flags &&
+		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
+		    attr1->df_pref == attr2->df_pref &&
+		    attr1->df_alg == attr2->df_alg &&
+		    attr1->nh_ifindex == attr2->nh_ifindex &&
+		    attr1->nh_flag == attr2->nh_flag &&
+		    attr1->nh_lla_ifindex == attr2->nh_lla_ifindex &&
+		    attr1->distance == attr2->distance &&
+		    srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn) &&
+		    srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn) &&
+		    attr1->srte_color == attr2->srte_color &&
+		    attr1->nh_type == attr2->nh_type &&
+		    attr1->bh_type == attr2->bh_type &&
+		    attr1->otc == attr2->otc)
 			return true;
 	}
 
@@ -2254,6 +2255,12 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+			if (if_is_operative(peer->nexthop.ifp))
+				SET_FLAG(attr->nh_flag,
+					 BGP_ATTR_NH_IF_OPERSTATE);
+			else
+				UNSET_FLAG(attr->nh_flag,
+					   BGP_ATTR_NH_IF_OPERSTATE);
 		}
 		break;
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
@@ -2271,6 +2278,12 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+			if (if_is_operative(peer->nexthop.ifp))
+				SET_FLAG(attr->nh_flag,
+					 BGP_ATTR_NH_IF_OPERSTATE);
+			else
+				UNSET_FLAG(attr->nh_flag,
+					   BGP_ATTR_NH_IF_OPERSTATE);
 		}
 		if (attr->mp_nexthop_len
 		    == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
