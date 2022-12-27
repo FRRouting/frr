@@ -2504,6 +2504,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2524,6 +2526,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2541,10 +2545,14 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNSPEC:
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
 		break;
+	case AFI_LINKSTATE:
+		/* TODO */
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		return BGP_AF_MAX;
