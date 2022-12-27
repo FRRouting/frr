@@ -217,6 +217,8 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 		case SAFI_EVPN:
 		case SAFI_LABELED_UNICAST:
 		case SAFI_FLOWSPEC:
+		case SAFI_LINKSTATE:
+		case SAFI_LINKSTATE_VPN:
 		case SAFI_MAX:
 			assert(!"Passed in safi should be impossible");
 		}
@@ -2947,6 +2949,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
+	case AFI_LINKSTATE:
 	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
@@ -3395,6 +3398,7 @@ void rfapiBgpInfoFilteredImportVPN(
 		rt = import_table->imported_vpn[afi];
 		break;
 
+	case AFI_LINKSTATE:
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
@@ -3795,6 +3799,8 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	case SAFI_EVPN:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_LINKSTATE:
+	case SAFI_LINKSTATE_VPN:
 	case SAFI_MAX:
 		/* not expected */
 		flog_err(EC_LIB_DEVELOPMENT, "%s: bad safi %d", __func__, safi);
@@ -4039,6 +4045,8 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 	case SAFI_EVPN:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_LINKSTATE:
+	case SAFI_LINKSTATE_VPN:
 	case SAFI_MAX:
 		/* Suppress uninitialized variable warning */
 		rt = NULL;
