@@ -161,12 +161,14 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	enum lsp_types_t lsp_type;
 	char buf[BUFSIZ];
 	int added, changed;
+	bool zvrf_nexthop_resolution;
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
 	if (!lsp_table)
 		return -1;
 
+	zvrf_nexthop_resolution = zvrf->zebra_mpls_fec_nexthop_resolution;
 	lsp_type = lsp_type_from_re_type(re->type);
 	added = changed = 0;
 
@@ -180,13 +182,20 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
-	for (nexthop = re->nhe->nhg.nexthop;
-	     nexthop; nexthop = nexthop->next) {
-		/* Skip inactive and recursive entries. */
-		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+	nexthop = re->nhe->nhg.nexthop;
+	while (nexthop) {
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
 			continue;
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		}
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+			nexthop =
+				nexthop_next_resolution(nexthop,
+							zvrf_nexthop_resolution);
 			continue;
+		}
 
 		nhlfe = nhlfe_find(&lsp->nhlfe_list, lsp_type,
 				   nexthop->type, &nexthop->gate,
@@ -194,9 +203,13 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		if (nhlfe) {
 			/* Clear deleted flag (in case it was set) */
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
-			if (nexthop_labels_match(nhlfe->nexthop, nexthop))
+			if (nexthop_labels_match(nhlfe->nexthop, nexthop)) {
 				/* No change */
+				nexthop =
+					nexthop_next_resolution(nexthop,
+								zvrf_nexthop_resolution);
 				continue;
+			}
 
 
 			if (IS_ZEBRA_DEBUG_MPLS) {
@@ -234,6 +247,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			SET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
 			added++;
 		}
+		nexthop = nexthop_next_resolution(nexthop,
+						  zvrf_nexthop_resolution);
 	}
 
 	/* Queue LSP for processing if necessary. If no NHLFE got added (special
