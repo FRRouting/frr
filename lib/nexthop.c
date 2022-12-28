@@ -699,6 +699,15 @@ struct nexthop *nexthop_next(const struct nexthop *nexthop)
 	return NULL;
 }
 
+struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
+					bool nexthop_resolution)
+{
+	if (nexthop_resolution)
+		return nexthop_next(nexthop);
+	/* no resolution attempt */
+	return nexthop->next;
+}
+
 /* Return the next nexthop in the tree that is resolved and active */
 struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 {
