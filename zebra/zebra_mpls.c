@@ -50,7 +50,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re);
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label);
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
-				 mpls_label_t old_label);
+				 mpls_label_t old_label, bool uninstall);
 static int fec_send(struct zebra_fec *fec, struct zserv *client);
 static void fec_update_clients(struct zebra_fec *fec);
 static void fec_print(struct zebra_fec *fec, struct vty *vty);
@@ -245,6 +245,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			return -1;
 	} else {
 		lsp_check_free(lsp_table, &lsp);
+		/* failed to install a new LSP */
+		return -1;
 	}
 
 	return 0;
@@ -353,7 +355,7 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 			fec_update_clients(fec);
 
 			/* Update label forwarding entries appropriately */
-			fec_change_update_lsp(zvrf, fec, old_label);
+			fec_change_update_lsp(zvrf, fec, old_label, false);
 		}
 	}
 }
@@ -384,7 +386,7 @@ static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
  * entries, as appropriate.
  */
 static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
-				 mpls_label_t old_label)
+				 mpls_label_t old_label, bool uninstall)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -416,11 +418,17 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 			break;
 	}
 
-	if (!re || !zebra_rib_labeled_unicast(re))
+	if (!re || !zebra_rib_labeled_unicast(re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
 		return 0;
+	}
 
-	if (lsp_install(zvrf, fec->label, rn, re))
+	if (lsp_install(zvrf, fec->label, rn, re)) {
+		if (uninstall)
+			lsp_uninstall(zvrf, fec->label);
 		return -1;
+	}
 
 	return 0;
 }
@@ -453,6 +461,22 @@ static int fec_send(struct zebra_fec *fec, struct zserv *client)
  */
 void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf)
 {
+	int af;
+	struct route_node *rn;
+	struct zebra_fec *fec;
+
+	for (af = AFI_IP; af < AFI_MAX; af++) {
+		if (zvrf->fec_table[af] == NULL)
+			continue;
+		for (rn = route_top(zvrf->fec_table[af]); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
+			fec = rn->info;
+			fec_change_update_lsp(zvrf, fec, MPLS_INVALID_LABEL,
+					      true);
+		}
+	}
 }
 
 /*
@@ -2353,7 +2377,7 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 	}
 
 	if (new_client || label_change)
-		return fec_change_update_lsp(zvrf, fec, old_label);
+		return fec_change_update_lsp(zvrf, fec, old_label, false);
 
 	return 0;
 }
@@ -2394,7 +2418,7 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	    list_isempty(fec->client_list)) {
 		mpls_label_t old_label = fec->label;
 		fec->label = MPLS_INVALID_LABEL; /* reset */
-		fec_change_update_lsp(zvrf, fec, old_label);
+		fec_change_update_lsp(zvrf, fec, old_label, false);
 		fec_del(fec);
 	}
 
@@ -2564,7 +2588,7 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		fec_update_clients(fec);
 
 		/* Update label forwarding entries appropriately */
-		ret = fec_change_update_lsp(zvrf, fec, old_label);
+		ret = fec_change_update_lsp(zvrf, fec, old_label, false);
 	}
 
 	return ret;
@@ -2617,7 +2641,7 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	fec_update_clients(fec);
 
 	/* Update label forwarding entries appropriately */
-	return fec_change_update_lsp(zvrf, fec, old_label);
+	return fec_change_update_lsp(zvrf, fec, old_label, false);
 }
 
 /*
