@@ -1453,7 +1453,8 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 		    && !peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
 		    && !peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]) {
+		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]
+		    && !peer->afc_nego[AFI_LINKSTATE][SAFI_LINKSTATE]) {
 			flog_err(EC_BGP_PKT_OPEN,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
