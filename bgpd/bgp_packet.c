@@ -1712,6 +1712,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 			peer->afc[AFI_L2VPN][SAFI_EVPN];
 		peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP6][SAFI_FLOWSPEC];
+		peer->afc_nego[AFI_LINKSTATE][SAFI_LINKSTATE] =
+			peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE];
 	}
 
 	/* Verify valid local address present based on negotiated
