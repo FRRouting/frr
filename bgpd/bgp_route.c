@@ -11811,6 +11811,9 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 					       1, NULL, NULL);
 	}
 
+	if (safi == SAFI_EVPN)
+		return bgp_evpn_show_all_routes(vty, bgp, type, use_json, 0);
+
 	return bgp_show_table(vty, bgp, safi, table, type, output_arg, NULL, 1,
 			      NULL, NULL, &json_header_depth, show_flags,
 			      rpki_target_state);
