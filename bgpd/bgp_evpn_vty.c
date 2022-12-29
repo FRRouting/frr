@@ -3192,6 +3192,21 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 	}
 }
 
+int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
+			     bool use_json, int detail)
+{
+	json_object *json = NULL;
+
+	if (use_json)
+		json = json_object_new_object();
+
+	evpn_show_all_routes(vty, bgp, type, json, detail);
+
+	if (use_json)
+		vty_json(vty, json);
+	return CMD_SUCCESS;
+}
+
 /*
  * Display specified VNI (vty handler)
  */
