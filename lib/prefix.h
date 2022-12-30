@@ -246,6 +246,13 @@ struct prefix_evpn {
 	struct evpn_addr prefix __attribute__((aligned(8)));
 };
 
+/* Link-State prefix structure. */
+struct prefix_linkstate {
+	uint8_t family;
+	uint16_t prefixlen;
+	struct linkstate_prefix prefix __attribute__((aligned(8)));
+};
+
 static inline int is_evpn_prefix_ipaddr_none(const struct prefix_evpn *evp)
 {
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE)

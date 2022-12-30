@@ -200,6 +200,54 @@ static int bgp_linkstate_nlri_node_descriptor_decode(
 	return BGP_NLRI_PARSE_OK;
 }
 
+
+static void bgp_linkstate_nlri_node_descriptor_encode(
+	struct bgp_ls_nlri_node_descr_tlv *node_descr, struct stream *s)
+{
+	size_t len_pos, len;
+
+	/* TLV type */
+	if (CHECK_FLAG(node_descr->flags, BGP_NLRI_TLV_NODE_DESCR_LOCAL_NODE))
+		stream_putw(s, BGP_LS_TLV_LOCAL_NODE_DESCRIPTORS);
+	else if (CHECK_FLAG(node_descr->flags,
+			    BGP_NLRI_TLV_NODE_DESCR_REMOTE_NODE))
+		stream_putw(s, BGP_LS_TLV_REMOTE_NODE_DESCRIPTORS);
+	else
+		/* should not happen */
+		return;
+
+	/* Size will be filled later */
+	len_pos = stream_get_endp(s);
+	stream_putw(s, 0);
+
+	if (CHECK_FLAG(node_descr->flags,
+		       BGP_NLRI_TLV_NODE_DESCR_AUTONOMOUS_SYSTEM)) {
+		stream_putw(s, BGP_LS_TLV_AUTONOMOUS_SYSTEM);
+		stream_putw(s, 4);
+		stream_putl(s, node_descr->autonomous_system);
+	}
+	if (CHECK_FLAG(node_descr->flags, BGP_NLRI_TLV_NODE_DESCR_BGP_LS_ID)) {
+		stream_putw(s, BGP_LS_TLV_BGP_LS_IDENTIFIER);
+		stream_putw(s, 4);
+		stream_putl(s, node_descr->bgp_ls_id);
+	}
+	if (CHECK_FLAG(node_descr->flags, BGP_NLRI_TLV_NODE_DESCR_AREA_ID)) {
+		stream_putw(s, BGP_LS_TLV_OSPF_AREA_ID);
+		stream_putw(s, IPV4_MAX_BYTELEN);
+		stream_putl(s, node_descr->area_id);
+	}
+	if (CHECK_FLAG(node_descr->flags,
+		       BGP_NLRI_TLV_NODE_DESCR_IGP_ROUTER_ID)) {
+		stream_putw(s, BGP_LS_TLV_IGP_ROUTER_ID);
+		stream_putw(s, node_descr->igp_router_id_size);
+		stream_put(s, &node_descr->igp_router_id,
+			   node_descr->igp_router_id_size);
+	}
+	len = stream_get_endp(s) - len_pos - 2;
+
+	stream_putw_at(s, len_pos, len);
+}
+
 static size_t bgp_linkstate_nlri_node_descriptor_display(
 	struct bgp_ls_nlri_node_descr_tlv *node_descr, char *buf, size_t size,
 	bool multiline)
@@ -317,6 +365,16 @@ static int bgp_linkstate_nlri_node_decode(struct bgp_linkstate_type_node **pp,
 }
 
 static void
+bgp_linkstate_nlri_node_encode(struct bgp_linkstate_type_node *p_node,
+			       struct stream *s)
+{
+	stream_putc(s, p_node->proto);
+	stream_putq(s, p_node->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_encode(&p_node->local_node_descr, s);
+}
+
+static void
 bgp_linkstate_nlri_node_display(char *buf, size_t size,
 				struct bgp_linkstate_type_node *p_node,
 				bool multiline)
@@ -386,6 +444,46 @@ static int bgp_linkstate_nlri_link_descriptor_decode(
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+static void bgp_linkstate_nlri_link_descriptor_encode(
+	struct bgp_ls_nlri_link_descr_tlv *link_descr, struct stream *s)
+{
+	uint16_t *pnt;
+
+	if (CHECK_FLAG(link_descr->flags,
+		       BGP_NLRI_TLV_LINK_DESCR_LOCAL_REMOTE_ID)) {
+		stream_putw(s, BGP_LS_TLV_LINK_LOCAL_REMOTE_IDENTIFIERS);
+		stream_putw(s, 2);
+		stream_putw(s, link_descr->local_remote_id);
+	}
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_INTERFACE4)) {
+		stream_putw(s, BGP_LS_TLV_IPV4_INTERFACE_ADDRESS);
+		stream_putw(s, IPV4_MAX_BYTELEN);
+		stream_put_in_addr(s, &link_descr->interface4);
+	}
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_NEIGHBOR4)) {
+		stream_putw(s, BGP_LS_TLV_IPV4_NEIGHBOR_ADDRESS);
+		stream_putw(s, IPV4_MAX_BYTELEN);
+		stream_put_in_addr(s, &link_descr->neighbor4);
+	}
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_INTERFACE6)) {
+		stream_putw(s, BGP_LS_TLV_IPV6_INTERFACE_ADDRESS);
+		stream_putw(s, IPV6_MAX_BYTELEN);
+		stream_put(s, &link_descr->interface6, IPV6_MAX_BYTELEN);
+	}
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_NEIGHBOR6)) {
+		stream_putw(s, BGP_LS_TLV_IPV6_NEIGHBOR_ADDRESS);
+		stream_putw(s, IPV6_MAX_BYTELEN);
+		stream_put(s, &link_descr->neighbor6, IPV6_MAX_BYTELEN);
+	}
+	if (CHECK_FLAG(link_descr->flags, BGP_NLRI_TLV_LINK_DESCR_MT_ID)) {
+		stream_putw(s, BGP_LS_TLV_MULTI_TOPOLOGY_ID);
+		stream_putw(s, link_descr->mtid.length);
+		pnt = (uint16_t *)&link_descr->mtid.data;
+		for (int i = 0; i < (link_descr->mtid.length / 2); i++)
+			stream_putw(s, pnt[i]);
+	}
 }
 
 static size_t
@@ -562,6 +660,19 @@ static int bgp_linkstate_nlri_link_decode(struct bgp_linkstate_type_link **pp,
 }
 
 static void
+bgp_linkstate_nlri_link_encode(struct bgp_linkstate_type_link *p_link,
+			       struct stream *s)
+{
+	stream_putc(s, p_link->proto);
+	stream_putq(s, p_link->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_encode(&p_link->local_node_descr, s);
+	bgp_linkstate_nlri_node_descriptor_encode(&p_link->remote_node_descr,
+						  s);
+	bgp_linkstate_nlri_link_descriptor_encode(&p_link->link_descr, s);
+}
+
+static void
 bgp_linkstate_nlri_link_display(char *buf, size_t size,
 				struct bgp_linkstate_type_link *p_link,
 				bool multiline)
@@ -615,6 +726,47 @@ static int bgp_linkstate_nlri_prefix4_descriptor_decode(
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+static void bgp_linkstate_nlri_prefix4_descriptor_encode(
+	struct bgp_ls_nlri_prefix4_descr_tlv *prefix4_descr, struct stream *s)
+{
+	uint16_t *pnt;
+	uint8_t length;
+
+	if (CHECK_FLAG(prefix4_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_OSPF_ROUTE_TYPE)) {
+		stream_putw(s, BGP_LS_TLV_OSPF_ROUTE_TYPE);
+		stream_putw(s, 1);
+		stream_putc(s, prefix4_descr->ospf_route_type);
+	}
+	if (CHECK_FLAG(prefix4_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_IP_REACHABILITY)) {
+		/* The Type and Length fields of the TLV are defined in Table 6.
+		 * The following two fields determine the reachability
+		 * information of the address family.  The Prefix Length field
+		 * contains the length of the prefix in bits.  The IP Prefix
+		 * field contains the most significant octets of the prefix,
+		 * i.e., 1 octet for prefix length 1 up to 8, 2 octets for
+		 * prefix length 9 to 16, 3 octets for prefix length 17 up to
+		 * 24, 4 octets for prefix length 25 up to 32, etc.
+		 */
+		stream_putw(s, BGP_LS_TLV_IP_REACHABILITY_INFORMATION);
+		length = (prefix4_descr->ip_reachability_prefixlen - 1) / 8 + 1;
+		stream_putw(
+			s,
+			length + sizeof(prefix4_descr
+						->ip_reachability_prefixlen));
+		stream_putc(s, prefix4_descr->ip_reachability_prefixlen);
+		stream_put(s, &prefix4_descr->ip_reachability_prefix, length);
+	}
+	if (CHECK_FLAG(prefix4_descr->flags, BGP_NLRI_TLV_PREFIX_DESCR_MT_ID)) {
+		stream_putw(s, BGP_LS_TLV_MULTI_TOPOLOGY_ID);
+		stream_putw(s, prefix4_descr->mtid.length);
+		pnt = (uint16_t *)&prefix4_descr->mtid.data;
+		for (int i = 0; i < (prefix4_descr->mtid.length / 2); i++)
+			stream_putw(s, pnt[i]);
+	}
 }
 
 static size_t bgp_linkstate_nlri_prefix4_descriptor_display(
@@ -744,6 +896,19 @@ bgp_linkstate_nlri_prefix4_decode(struct bgp_linkstate_type_prefix4 **pp,
 }
 
 static void
+bgp_linkstate_nlri_prefix4_encode(struct bgp_linkstate_type_prefix4 *p_prefix4,
+				  struct stream *s)
+{
+	stream_putc(s, p_prefix4->proto);
+	stream_putq(s, p_prefix4->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_encode(&p_prefix4->local_node_descr,
+						  s);
+	bgp_linkstate_nlri_prefix4_descriptor_encode(&p_prefix4->prefix_descr,
+						     s);
+}
+
+static void
 bgp_linkstate_nlri_prefix4_display(char *buf, size_t size,
 				   struct bgp_linkstate_type_prefix4 *p_prefix4,
 				   bool multiline)
@@ -794,6 +959,47 @@ static int bgp_linkstate_nlri_prefix6_descriptor_decode(
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+static void bgp_linkstate_nlri_prefix6_descriptor_encode(
+	struct bgp_ls_nlri_prefix6_descr_tlv *prefix6_descr, struct stream *s)
+{
+	uint16_t *pnt;
+	uint8_t length;
+
+	if (CHECK_FLAG(prefix6_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_OSPF_ROUTE_TYPE)) {
+		stream_putw(s, BGP_LS_TLV_OSPF_ROUTE_TYPE);
+		stream_putw(s, 1);
+		stream_putc(s, prefix6_descr->ospf_route_type);
+	}
+	if (CHECK_FLAG(prefix6_descr->flags,
+		       BGP_NLRI_TLV_PREFIX_DESCR_IP_REACHABILITY)) {
+		/* The Type and Length fields of the TLV are defined in Table 6.
+		 * The following two fields determine the reachability
+		 * information of the address family.  The Prefix Length field
+		 * contains the length of the prefix in bits.  The IP Prefix
+		 * field contains the most significant octets of the prefix,
+		 * i.e., 1 octet for prefix length 1 up to 8, 2 octets for
+		 * prefix length 9 to 16, 3 octets for prefix length 17 up to
+		 * 24, 4 octets for prefix length 25 up to 32, etc.
+		 */
+		stream_putw(s, BGP_LS_TLV_IP_REACHABILITY_INFORMATION);
+		length = (prefix6_descr->ip_reachability_prefixlen - 1) / 8 + 1;
+		stream_putw(
+			s,
+			length + sizeof(prefix6_descr
+						->ip_reachability_prefixlen));
+		stream_putc(s, prefix6_descr->ip_reachability_prefixlen);
+		stream_put(s, &prefix6_descr->ip_reachability_prefix, length);
+	}
+	if (CHECK_FLAG(prefix6_descr->flags, BGP_NLRI_TLV_PREFIX_DESCR_MT_ID)) {
+		stream_putw(s, BGP_LS_TLV_MULTI_TOPOLOGY_ID);
+		stream_putw(s, prefix6_descr->mtid.length);
+		pnt = (uint16_t *)&prefix6_descr->mtid.data;
+		for (int i = 0; i < (prefix6_descr->mtid.length / 2); i++)
+			stream_putw(s, pnt[i]);
+	}
 }
 
 static size_t bgp_linkstate_nlri_prefix6_descriptor_display(
@@ -916,6 +1122,20 @@ bgp_linkstate_nlri_prefix6_decode(struct bgp_linkstate_type_prefix6 **pp,
 		return BGP_NLRI_PARSE_ERROR_PREFIX_LINKSTATE;
 
 	return ret;
+}
+
+
+static void
+bgp_linkstate_nlri_prefix6_encode(struct bgp_linkstate_type_prefix6 *p_prefix6,
+				  struct stream *s)
+{
+	stream_putc(s, p_prefix6->proto);
+	stream_putq(s, p_prefix6->identifier);
+
+	bgp_linkstate_nlri_node_descriptor_encode(&p_prefix6->local_node_descr,
+						  s);
+	bgp_linkstate_nlri_prefix6_descriptor_encode(&p_prefix6->prefix_descr,
+						     s);
 }
 
 static void
@@ -1093,4 +1313,45 @@ char *bgp_linkstate_nlri_prefix_display(char *buf, size_t size,
 	}
 
 	return cbuf;
+}
+
+/*
+ * Encode Link-State prefix in Update (MP_REACH)
+ */
+void bgp_nlri_encode_linkstate(struct stream *s, const struct prefix *p)
+{
+	struct prefix_linkstate *p_ls = (struct prefix_linkstate *)p;
+	size_t len_pos, len;
+
+	/* NLRI type */
+	stream_putw(s, p->u.prefix_linkstate.nlri_type);
+
+	/* Size will be filled later */
+	len_pos = stream_get_endp(s);
+	stream_putw(s, 0);
+
+	switch (p_ls->prefix.nlri_type) {
+	case BGP_LINKSTATE_NODE:
+		bgp_linkstate_nlri_node_encode(
+			(struct bgp_linkstate_type_node *)p_ls->prefix.ptr, s);
+		break;
+	case BGP_LINKSTATE_LINK:
+		bgp_linkstate_nlri_link_encode(
+			(struct bgp_linkstate_type_link *)p_ls->prefix.ptr, s);
+		break;
+	case BGP_LINKSTATE_PREFIX4:
+		bgp_linkstate_nlri_prefix4_encode(
+			(struct bgp_linkstate_type_prefix4 *)p_ls->prefix.ptr,
+			s);
+		break;
+	case BGP_LINKSTATE_PREFIX6:
+		bgp_linkstate_nlri_prefix6_encode(
+			(struct bgp_linkstate_type_prefix6 *)p_ls->prefix.ptr,
+			s);
+		break;
+	}
+
+	len = stream_get_endp(s) - len_pos - 2;
+
+	stream_putw_at(s, len_pos, len);
 }
