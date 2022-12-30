@@ -3951,11 +3951,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		}
 		break;
 	case AFI_L2VPN:
-		if (safi != SAFI_FLOWSPEC)
-			flog_err(
-				EC_BGP_ATTR_NH_SEND_LEN,
-				"Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
-				peer->host, afi, safi, attr->mp_nexthop_len);
+		flog_err(
+			 EC_BGP_ATTR_NH_SEND_LEN,
+			 "Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
+			 peer->host, afi, safi, attr->mp_nexthop_len);
 		break;
 	case AFI_UNSPEC:
 	case AFI_MAX:
