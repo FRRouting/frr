@@ -13,6 +13,7 @@ frr (8.4.1-1) UNRELEASED; urgency=medium
   * disable ELF magic on mips64el
   * fixed texinfo figure installation directory
   * enable dh_sphinxdoc to get rid of embedded javascript in frr-doc
+  * removed bogus iproute dependency choice
 
  -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 12:19:01 +0100
 
