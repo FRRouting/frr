@@ -15012,6 +15012,7 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 	struct bgp_distance *bdistance;
 	struct access_list *alist;
 	struct bgp_static *bgp_static;
+	struct bgp_path_info *bpi_ultimate;
 
 	if (!bgp)
 		return 0;
@@ -15020,6 +15021,12 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 
 	if (pinfo->attr->distance)
 		return pinfo->attr->distance;
+
+	/* get peer origin to calculate appropriate distance */
+	if (pinfo->sub_type == BGP_ROUTE_IMPORTED) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(pinfo);
+		peer = bpi_ultimate->peer;
+	}
 
 	/* Check source address.
 	 * Note: for aggregate route, peer can have unspec af type.
