@@ -21,6 +21,7 @@ sbin_SCRIPTS += \
 	tools/frrcommon.sh \
 	tools/frrinit.sh \
 	tools/generate_support_bundle.py \
+	tools/frr_babeltrace.py \
 	tools/watchfrr.sh \
 	# end
 
@@ -58,6 +59,7 @@ EXTRA_DIST += \
 	tools/frr.service \
 	tools/frr@.service \
 	tools/generate_support_bundle.py \
+	tools/frr_babeltrace.py \
 	tools/multiple-bgpd.sh \
 	tools/rrcheck.pl \
 	tools/rrlookup.pl \

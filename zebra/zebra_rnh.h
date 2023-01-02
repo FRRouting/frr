@@ -31,36 +31,22 @@ extern "C" {
 
 extern void zebra_rnh_init(void);
 
-static inline const char *rnh_type2str(enum rnh_type type)
-{
-	switch (type) {
-	case RNH_NEXTHOP_TYPE:
-		return "Nexthop";
-	case RNH_IMPORT_CHECK_TYPE:
-		return "Import";
-	}
-
-	return "ERROR";
-}
-
-extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
-				 enum rnh_type type, bool *exists);
+extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
+				 bool *exists);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
-				    enum rnh_type type);
+				    safi_t safi);
 extern void zebra_free_rnh(struct rnh *rnh);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
-				 enum rnh_type type, vrf_id_t vrfid);
+				 vrf_id_t vrfid);
 extern int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
-				 enum rnh_type type, vrf_id_t vrf_id,
-				 uint32_t srte_color);
+				 vrf_id_t vrf_id, uint32_t srte_color);
 extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *, bool *);
 extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
-extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
-				    enum rnh_type type);
+extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client);
 extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
-			       enum rnh_type type, struct prefix *p);
-extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
-				  enum rnh_type type, struct prefix *p);
+			       const struct prefix *p, safi_t safi);
+extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
+				  struct vty *vty, const struct prefix *p);
 
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 

@@ -115,7 +115,7 @@ static int static_path_list_tag_modify(struct nb_cb_modify_args *args)
 }
 
 struct nexthop_iter {
-	int count;
+	uint32_t count;
 	bool blackhole;
 };
 
@@ -169,7 +169,12 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 		if (iter.blackhole && iter.count > 1) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
-				"Route can not have blackhole and non-blackhole nexthops simultaneously");
+				"Route cannot have blackhole and non-blackhole nexthops simultaneously");
+			return NB_ERR_VALIDATION;
+		} else if (iter.count > zebra_ecmp_count) {
+			snprintf(args->errmsg, args->errmsg_len,
+				"Route cannot have more than %d ECMP nexthops",
+				 zebra_ecmp_count);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -258,6 +263,7 @@ nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 	struct static_nexthop *nh;
 	uint32_t pos;
 	uint8_t index;
+	uint old_num_labels;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -273,8 +279,12 @@ nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 			return NB_ERR;
 		}
 		index = pos - 1;
+		old_num_labels = nh->snh_label.num_labels;
 		nh->snh_label.label[index] = 0;
 		nh->snh_label.num_labels--;
+
+		if (old_num_labels != nh->snh_label.num_labels)
+			nh->state = STATIC_START;
 		break;
 	}
 
@@ -286,6 +296,7 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 	struct static_nexthop *nh;
 	uint32_t pos;
 	uint8_t index;
+	mpls_label_t old_label;
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
 	pos = yang_get_list_pos(lyd_parent(args->dnode));
@@ -296,7 +307,12 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 	}
 	/* Mapping to array = list-index -1 */
 	index = pos - 1;
+
+	old_label = nh->snh_label.label[index];
 	nh->snh_label.label[index] = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (old_label != nh->snh_label.label[index])
+		nh->state = STATIC_START;
 
 	return NB_OK;
 }
@@ -305,6 +321,7 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
 	enum static_nh_type nh_type;
+	bool old_onlink;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -322,7 +339,11 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		nh = nb_running_get_entry(args->dnode, NULL, true);
+		old_onlink = nh->onlink;
 		nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
+
+		if (old_onlink != nh->onlink)
+			nh->state = STATIC_START;
 		break;
 	}
 
@@ -332,9 +353,14 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 static int static_nexthop_color_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
+	uint32_t old_color;
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
+	old_color = nh->color;
 	nh->color = yang_dnode_get_uint32(args->dnode, NULL);
+
+	if (old_color != nh->color)
+		nh->state = STATIC_START;
 
 	return NB_OK;
 }
@@ -342,9 +368,14 @@ static int static_nexthop_color_modify(struct nb_cb_modify_args *args)
 static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 {
 	struct static_nexthop *nh;
+	uint32_t old_color;
 
 	nh = nb_running_unset_entry(args->dnode);
+	old_color = nh->color;
 	nh->color = 0;
+
+	if (old_color != nh->color)
+		nh->state = STATIC_START;
 
 	return NB_OK;
 }

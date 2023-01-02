@@ -27,6 +27,10 @@ extern "C" {
 
 #ifdef HAVE_NETLINK
 
+#define RTM_NHA(h)                                                             \
+	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
+
+
 #define NL_RCV_PKT_BUF_SIZE     32768
 #define NL_PKT_BUF_SIZE         8192
 
@@ -86,19 +90,56 @@ extern void netlink_parse_rtattr_flags(struct rtattr **tb, int max,
 				 unsigned short flags);
 extern void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 					struct rtattr *rta);
+/*
+ * nl_addraw_l copies raw form the netlink message buffer into netlink
+ * message header pointer. It ensures the aligned data buffer does not
+ * override past max length.
+ * return value is 0 if its successful
+ */
+extern bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen,
+			const void *data, unsigned int len);
+/*
+ * nl_rta_put - add an additional optional attribute(rtattr) to the
+ * Netlink message buffer.
+ *
+ * Returns true if the attribute could be added to the message (fits into the
+ * buffer), otherwise false is returned.
+ */
+extern bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
+		       const void *data, int alen);
+extern bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type,
+			 uint16_t data);
+extern bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type,
+			 uint64_t data);
+/*
+ * nl_rta_nest - start an additional optional attribute (rtattr) nest.
+ *
+ * Returns a valid pointer to the beginning of the nest if the attribute
+ * describing the nest could be added to the message (fits into the buffer),
+ * otherwise NULL is returned.
+ */
+extern struct rtattr *nl_rta_nest(struct rtattr *rta, unsigned int maxlen,
+				  int type);
+/*
+ * nl_rta_nest_end - finalize nesting of an aditionl optionl attributes.
+ *
+ * Updates the length field of the attribute header to include the appeneded
+ * attributes. Returns a total length of the Netlink message.
+ */
+extern int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest);
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
 extern const char *nl_rtproto_to_str(uint8_t rtproto);
 extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);
 
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-			      const struct nlsock *nl,
+			      struct nlsock *nl,
 			      const struct zebra_dplane_info *dp_info,
-			      int count, int startup);
+			      int count, bool startup);
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			struct nlmsghdr *n, struct nlsock *nl,
-			struct zebra_ns *zns, int startup);
+			struct zebra_ns *zns, bool startup);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {
@@ -142,6 +183,7 @@ extern int netlink_config_write_helper(struct vty *vty);
 extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
+extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
 #endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus

@@ -29,6 +29,30 @@ administrator with an external editor.
    vtysh.
 
 
+Live logs
+=========
+
+.. clicmd:: terminal monitor [DAEMON]
+
+   Receive and display log messages.
+
+   It is not currently possible to change the minimum message priority (fixed
+   to debug) or output formatting.  These will likely be made configurable in
+   the future.
+
+   Log messages are received asynchronously and may be printed both during
+   command execution as well as while on the prompt.  They are printed to
+   stderr, unlike regular CLI output which is printed to stdout.  The intent is
+   that stdin/stdout might be driven by some script while log messages are
+   visible on stderr.  If stdout and stderr are the same file, the prompt and
+   pending input will be cleared and reprinted appropriately.
+
+   .. note::
+
+      If ``vtysh`` cannot keep up, some log messages may be lost.  The daemons
+      do **not** wait for, get blocked by, or buffer messages for ``vtysh``.
+
+
 Pager usage
 ===========
 
@@ -153,11 +177,7 @@ Writing the configuration can be triggered directly by invoking *vtysh -w*.
 This may be useful for scripting. Note this command should be run as either the
 superuser or the FRR user.
 
-We recommend you do not mix the use of the two types of files. Further, it is
-better not to use the integrated :file:`frr.conf` file, as any syntax error in
-it can lead to /all/ of your daemons being unable to start up. Per daemon files
-are more robust as impact of errors in configuration are limited to the daemon
-in whose file the error is made.
+We recommend you do not mix the use of the two types of files.
 
 .. clicmd:: service integrated-vtysh-config
 

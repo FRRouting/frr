@@ -90,7 +90,7 @@ void sigusr1(void);
 static void bgp_exit(int);
 static void bgp_vrf_terminate(void);
 
-static struct quagga_signal_t bgp_signals[] = {
+static struct frr_signal_t bgp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -294,19 +294,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp && bgp->vrf_id != vrf->vrf_id) {
-		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_BGP, bgp->name);
-			XFREE(MTYPE_BGP, bgp->name_pretty);
-			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
-			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-#ifdef ENABLE_BGP_VNC
-			if (!bgp->rfapi) {
-				bgp->rfapi = bgp_rfapi_new(bgp);
-				assert(bgp->rfapi);
-				assert(bgp->rfapi_cfg);
-			}
-#endif /* ENABLE_BGP_VNC */
-		}
 		old_vrf_id = bgp->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
@@ -367,8 +354,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 
 static void bgp_vrf_init(void)
 {
-	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable,
-		 bgp_vrf_delete, bgp_vrf_enable);
+	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
 }
 
 static void bgp_vrf_terminate(void)
@@ -468,8 +454,7 @@ int main(int argc, char **argv)
 		}
 		case 'l':
 			listnode_add_sort_nodup(addresses, optarg);
-		/* listenon implies -n */
-		/* fallthru */
+			break;
 		case 'n':
 			no_fib_flag = 1;
 			break;
@@ -525,6 +510,8 @@ int main(int argc, char **argv)
 					 - strlen(bgpd_di.startinfo),
 				 ", bgp@%s:%d", address, bm->port);
 	}
+
+	bgp_if_init();
 
 	frr_config_fork();
 	/* must be called after fork() */

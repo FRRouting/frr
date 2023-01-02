@@ -830,8 +830,7 @@ int nb_candidate_validate(struct nb_context *context,
 	struct nb_config_cbs changes;
 	int ret;
 
-	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
-	    != NB_OK)
+	if (nb_candidate_validate_yang(candidate, errmsg, errmsg_len) != NB_OK)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, &changes);
@@ -1650,10 +1649,12 @@ static int nb_oper_data_iter_container(const struct nb_node *nb_node,
 				       uint32_t flags, nb_oper_data_cb cb,
 				       void *arg)
 {
+	const struct lysc_node *snode = nb_node->snode;
+
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
 		return NB_OK;
 
-	/* Presence containers. */
+	/* Read-only presence containers. */
 	if (nb_node->cbs.get_elem) {
 		struct yang_data *data;
 		int ret;
@@ -1663,15 +1664,24 @@ static int nb_oper_data_iter_container(const struct nb_node *nb_node,
 			/* Presence container is not present. */
 			return NB_OK;
 
-		ret = (*cb)(nb_node->snode, translator, data, arg);
+		ret = (*cb)(snode, translator, data, arg);
 		if (ret != NB_OK)
 			return ret;
 	}
 
+	/* Read-write presence containers. */
+	if (CHECK_FLAG(snode->flags, LYS_CONFIG_W)) {
+		struct lysc_node_container *scontainer;
+
+		scontainer = (struct lysc_node_container *)snode;
+		if (CHECK_FLAG(scontainer->flags, LYS_PRESENCE)
+		    && !yang_dnode_get(running_config->dnode, xpath))
+			return NB_OK;
+	}
+
 	/* Iterate over the child nodes. */
-	return nb_oper_data_iter_children(nb_node->snode, xpath, list_entry,
-					  list_keys, translator, false, flags,
-					  cb, arg);
+	return nb_oper_data_iter_children(snode, xpath, list_entry, list_keys,
+					  translator, false, flags, cb, arg);
 }
 
 static int
@@ -2206,7 +2216,8 @@ void nb_running_move_tree(const char *xpath_from, const char *xpath_to)
 		strlcpy(entry->xpath, newpath, sizeof(entry->xpath));
 		XFREE(MTYPE_TMP, newpath);
 
-		hash_get(running_config_entries, entry, hash_alloc_intern);
+		(void)hash_get(running_config_entries, entry,
+			       hash_alloc_intern);
 	}
 
 	list_delete(&entries);

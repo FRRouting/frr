@@ -199,14 +199,14 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
-		if (if_lookup_exact_address(&ipaddr->ipaddr_v4, AF_INET,
-					    vrf->vrf_id))
+		if (if_address_is_local(&ipaddr->ipaddr_v4, AF_INET,
+					vrf->vrf_id))
 			return false;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		if (if_lookup_exact_address(&ipaddr->ipaddr_v6, AF_INET6,
-					    vrf->vrf_id))
+		if (if_address_is_local(&ipaddr->ipaddr_v6, AF_INET6,
+					vrf->vrf_id))
 			return false;
 		break;
 	default:
@@ -335,20 +335,11 @@ struct static_nexthop *static_add_nexthop(struct static_path *pn,
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
+	case STATIC_IFNAME:
 		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			nh->ifindex = ifp->ifindex;
 		else
-			zlog_warn(
-				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
-				ifname);
-
-		break;
-	case STATIC_IFNAME:
-		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
-		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
-			nh->ifindex = ifp->ifindex;
-		} else
 			zlog_warn(
 				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
 				ifname);
@@ -378,13 +369,11 @@ void static_install_nexthop(struct static_nexthop *nh)
 	switch (nh->type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV6_GATEWAY:
-		if (!static_zebra_nh_update(nh))
-			static_zebra_nht_register(nh, true);
+		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		if (!static_zebra_nh_update(nh))
-			static_zebra_nht_register(nh, true);
+		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_BLACKHOLE:
 		static_install_path(pn);
@@ -432,13 +421,13 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up,
 	if (up) {
 		if (strcmp(nh->ifname, ifp->name))
 			return;
-		if (nh->nh_vrf_id != ifp->vrf_id)
+		if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 			return;
 		nh->ifindex = ifp->ifindex;
 	} else {
 		if (nh->ifindex != ifp->ifindex)
 			return;
-		if (nh->nh_vrf_id != ifp->vrf_id)
+		if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 			return;
 		nh->ifindex = IFINDEX_INTERNAL;
 	}
@@ -723,7 +712,7 @@ static void static_fixup_intf_nh(struct route_table *stable,
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
-				if (nh->nh_vrf_id != ifp->vrf_id)
+				if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 					continue;
 
 				if (nh->ifindex != ifp->ifindex)
@@ -750,7 +739,7 @@ void static_install_intf_nh(struct interface *ifp)
 		struct static_vrf *svrf = vrf->info;
 
 		/* Not needed if same vrf since happens naturally */
-		if (vrf->vrf_id == ifp->vrf_id)
+		if (vrf->vrf_id == ifp->vrf->vrf_id)
 			continue;
 
 		/* Install any static routes configured for this interface. */

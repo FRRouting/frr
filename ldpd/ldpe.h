@@ -30,9 +30,6 @@
 #include "ldpd.h"
 #include "lib/ldp_sync.h"
 
-#define min(x,y) ((x) <= (y) ? (x) : (y))
-#define max(x,y) ((x) > (y) ? (x) : (y))
-
 /* forward declarations */
 TAILQ_HEAD(mapping_head, mapping_entry);
 
@@ -151,7 +148,7 @@ extern struct nbr_pid_head	 nbrs_by_pid;
 
 /* accept.c */
 void	accept_init(void);
-int	accept_add(int, int (*)(struct thread *), void *);
+int accept_add(int, void (*)(struct thread *), void *);
 void	accept_del(int);
 void	accept_pause(void);
 void	accept_unpause(void);
@@ -295,8 +292,8 @@ int			 gen_ldp_hdr(struct ibuf *, uint16_t);
 int			 gen_msg_hdr(struct ibuf *, uint16_t, uint16_t);
 int			 send_packet(int, int, union ldpd_addr *,
 			    struct iface_af *, void *, size_t);
-int			 disc_recv_packet(struct thread *);
-int			 session_accept(struct thread *);
+void disc_recv_packet(struct thread *thread);
+void session_accept(struct thread *thread);
 void			 session_accept_nbr(struct nbr *, int);
 void			 session_shutdown(struct nbr *, uint32_t, uint32_t,
 			    uint32_t);

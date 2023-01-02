@@ -83,7 +83,7 @@ DEFPY_YANG (no_router_rip,
 	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
-void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
+void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults)
 {
 	const char *vrf_name;
@@ -112,7 +112,7 @@ DEFPY_YANG (rip_allow_ecmp,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -138,7 +138,7 @@ DEFPY_YANG (rip_default_information_originate,
 }
 
 void cli_show_rip_default_information_originate(struct vty *vty,
-						struct lyd_node *dnode,
+						const struct lyd_node *dnode,
 						bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -174,7 +174,7 @@ DEFPY_YANG (no_rip_default_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_default_metric(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, " default-metric %s\n",
@@ -208,7 +208,7 @@ DEFPY_YANG (no_rip_distance,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_distance(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	if (yang_dnode_is_default(dnode, NULL))
@@ -243,7 +243,7 @@ DEFPY_YANG (rip_distance_source,
 				    prefix_str);
 }
 
-void cli_show_rip_distance_source(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_distance_source(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	vty_out(vty, " distance %s %s",
@@ -271,7 +271,7 @@ DEFPY_YANG (rip_neighbor,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_neighbor(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, " neighbor %s\n", yang_dnode_get_string(dnode, NULL));
@@ -293,7 +293,7 @@ DEFPY_YANG (rip_network_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_network_prefix(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_network_prefix(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
@@ -315,7 +315,8 @@ DEFPY_YANG (rip_network_if,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_network_interface(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
@@ -326,7 +327,7 @@ void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY_YANG (rip_offset_list,
        rip_offset_list_cmd,
-       "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
+       "[no] offset-list ACCESSLIST4_NAME$acl <in|out>$direction (0-16)$metric [IFNAME]",
        NO_STR
        "Modify RIP metric\n"
        "Access-list name\n"
@@ -348,7 +349,7 @@ DEFPY_YANG (rip_offset_list,
 		ifname ? ifname : "*", direction);
 }
 
-void cli_show_rip_offset_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_offset_list(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *interface;
@@ -380,7 +381,7 @@ DEFPY_YANG (rip_passive_default,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_passive_default(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_passive_default(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -417,14 +418,16 @@ DEFPY_YANG (rip_passive_interface,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_passive_interface(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	vty_out(vty, " passive-interface %s\n",
 		yang_dnode_get_string(dnode, NULL));
 }
 
-void cli_show_rip_non_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_non_passive_interface(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	vty_out(vty, " no passive-interface %s\n",
@@ -436,7 +439,7 @@ void cli_show_rip_non_passive_interface(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY_YANG (rip_redistribute,
        rip_redistribute_cmd,
-       "[no] redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map WORD}]",
+       "[no] redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map RMAP_NAME$route_map}]",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
@@ -460,7 +463,7 @@ DEFPY_YANG (rip_redistribute,
 				    protocol);
 }
 
-void cli_show_rip_redistribute(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_redistribute(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, " redistribute %s",
@@ -490,7 +493,7 @@ DEFPY_YANG (rip_route,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_route(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_route(struct vty *vty, const struct lyd_node *dnode,
 			bool show_defaults)
 {
 	vty_out(vty, " route %s\n", yang_dnode_get_string(dnode, NULL));
@@ -535,7 +538,7 @@ DEFPY_YANG (no_rip_timers,
 	return nb_cli_apply_changes(vty, "./timers");
 }
 
-void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_timers(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults)
 {
 	vty_out(vty, " timers basic %s %s %s\n",
@@ -573,7 +576,7 @@ DEFPY_YANG (no_rip_version,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_version(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	/*
@@ -619,7 +622,8 @@ DEFPY_YANG (ip_rip_split_horizon,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-void cli_show_ip_rip_split_horizon(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_split_horizon(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	int value;
@@ -655,7 +659,7 @@ DEFPY_YANG (ip_rip_v2_broadcast,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-void cli_show_ip_rip_v2_broadcast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_v2_broadcast(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -711,7 +715,8 @@ DEFPY_YANG (no_ip_rip_receive_version,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-void cli_show_ip_rip_receive_version(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_receive_version(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	switch (yang_dnode_get_enum(dnode, NULL)) {
@@ -780,7 +785,7 @@ DEFPY_YANG (no_ip_rip_send_version,
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
-void cli_show_ip_rip_send_version(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_send_version(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	switch (yang_dnode_get_enum(dnode, NULL)) {
@@ -860,7 +865,7 @@ DEFPY_YANG (no_ip_rip_authentication_mode,
 }
 
 void cli_show_ip_rip_authentication_scheme(struct vty *vty,
-					   struct lyd_node *dnode,
+					   const struct lyd_node *dnode,
 					   bool show_defaults)
 {
 	switch (yang_dnode_get_enum(dnode, "./mode")) {
@@ -933,7 +938,7 @@ DEFPY_YANG (no_ip_rip_authentication_string,
 }
 
 void cli_show_ip_rip_authentication_string(struct vty *vty,
-					   struct lyd_node *dnode,
+					   const struct lyd_node *dnode,
 					   bool show_defaults)
 {
 	vty_out(vty, " ip rip authentication string %s\n",
@@ -982,7 +987,7 @@ DEFPY_YANG (no_ip_rip_authentication_key_chain,
 }
 
 void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
-					      struct lyd_node *dnode,
+					      const struct lyd_node *dnode,
 					      bool show_defaults)
 {
 	vty_out(vty, " ip rip authentication key-chain %s\n",
@@ -1021,7 +1026,7 @@ DEFPY_YANG (clear_ip_rip,
 
 DEFUN (rip_distribute_list,
        rip_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -1041,7 +1046,7 @@ DEFUN (rip_distribute_list,
 
 DEFUN (rip_no_distribute_list,
        rip_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"

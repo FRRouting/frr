@@ -8,19 +8,21 @@ Topotests is a suite of topology tests for FRR built on top of micronet.
 Installation and Setup
 ----------------------
 
-Topotests run under python3. Additionally, for ExaBGP (which is used in some of
-the BGP tests) an older python2 version must be installed.
+Topotests run under python3. Additionally, for ExaBGP (which is used
+in some of the BGP tests) an older python2 version (and the python2
+version of ``pip``) must be installed.
 
-Tested with Ubuntu 20.04 and Ubuntu 18.04 and Debian 11.
+Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 
-Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
-tests).
+Instructions are the same for all setups (i.e. ExaBGP is only used for
+BGP tests).
 
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
+   apt-get install gdb
    apt-get install iproute2
    apt-get install net-tools
    apt-get install python3-pip
@@ -33,6 +35,15 @@ Installing Topotest Requirements
    python2 -m pip install 'exabgp<4.0.0'
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
+   # To enable the gRPC topotest install:
+   python3 -m pip install grpcio grpcio-tools
+
+   # Install Socat tool to run PIMv6 tests,
+   # Socat code can be taken from below url,
+   # which has latest changes done for PIMv6,
+   # join and traffic:
+   https://github.com/opensourcerouting/socat/
+
 
 Enable Coredumps
 """"""""""""""""
@@ -41,7 +52,6 @@ Optional, will give better output.
 
 .. code:: shell
 
-   apt-get install gdb
    disable apport (which move core files)
 
 Set ``enabled=0`` in ``/etc/default/apport``.
@@ -137,14 +147,14 @@ Topotests must be run as root. Normally this will be accomplished through the
 use of the ``sudo`` command. In order for topotests to be able to open new
 windows (either XTerm or byobu/screen/tmux windows) certain environment
 variables must be passed through the sudo command. One way to do this is to
-specify the :option:`-E` flag to ``sudo``. This will carry over most if not all
+specify the ``-E`` flag to ``sudo``. This will carry over most if not all
 your environment variables include ``PATH``. For example:
 
 .. code:: shell
 
    sudo -E python3 -m pytest -s -v
 
-If you do not wish to use :option:`-E` (e.g., to avoid ``sudo`` inheriting
+If you do not wish to use ``-E`` (e.g., to avoid ``sudo`` inheriting
 ``PATH``) you can modify your `/etc/sudoers` config file to specifically pass
 the environment variables required by topotests. Add the following commands to
 your ``/etc/sudoers`` config file.
@@ -197,7 +207,7 @@ the run.
 
 Here we see that 4 tests have failed. We an dig deeper by displaying the
 captured logs and errors. First let's redisplay the results enumerated by adding
-the :option:`-E` flag
+the ``-E`` flag
 
 .. code:: shell
 
@@ -385,7 +395,7 @@ to launch the given programs.
 
 NOTE: you must run the topotest (pytest) such that your DISPLAY, STY or TMUX
 environment variables are carried over. You can do this by passing the
-:option:`-E` flag to ``sudo`` or you can modify your ``/etc/sudoers`` config to
+``-E`` flag to ``sudo`` or you can modify your ``/etc/sudoers`` config to
 automatically pass that environment variable through to the ``sudo``
 environment.
 
@@ -903,6 +913,7 @@ Interface), from here you can call your router ``vtysh`` or even bash.
 Here's the help text:
 
 .. code:: shell
+
     unet> help
 
     Commands:
@@ -911,8 +922,6 @@ Here's the help text:
       term [hosts]               :: open shell terminals for hosts
       vtysh [hosts]              :: open vtysh terminals for hosts
       [hosts] <vtysh-command>    :: execute vtysh-command on hosts
-
-.. code:: shell
 
 Here are some commands example:
 
@@ -1088,6 +1097,9 @@ Requirements:
   a pull request. This ensures we have a unified code style.
 - Mark test modules with pytest markers depending on the daemons used during the
   tests (see :ref:`topotests-markers`)
+- Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
+  ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
+  for documentation.
 
 Tips:
 

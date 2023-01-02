@@ -116,13 +116,26 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 	stream_putl(s, message);
 
+	stream_putw(s, SAFI_UNICAST);
+	/*
+	 * The prefix is copied twice because the ZEBRA_NEXTHOP_UPDATE
+	 * code was modified to send back both the matched against
+	 * as well as the actual matched.  There does not appear to
+	 * be an equivalent here so just send the same thing twice.
+	 */
 	switch (policy->endpoint.ipa_type) {
 	case IPADDR_V4:
 		stream_putw(s, AF_INET);
 		stream_putc(s, IPV4_MAX_BITLEN);
 		stream_put_in_addr(s, &policy->endpoint.ipaddr_v4);
+		stream_putw(s, AF_INET);
+		stream_putc(s, IPV4_MAX_BITLEN);
+		stream_put_in_addr(s, &policy->endpoint.ipaddr_v4);
 		break;
 	case IPADDR_V6:
+		stream_putw(s, AF_INET6);
+		stream_putc(s, IPV6_MAX_BITLEN);
+		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
 		stream_putw(s, AF_INET6);
 		stream_putc(s, IPV6_MAX_BITLEN);
 		stream_put(s, &policy->endpoint.ipaddr_v6, IPV6_MAX_BYTELEN);
@@ -196,7 +209,7 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		exit(1);
 	}
 
-	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), RNH_NEXTHOP_TYPE);
+	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
 	if (!rnh)
 		return;
 
@@ -205,8 +218,8 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 			zebra_sr_policy_notify_update_client(policy, client);
 		else
 			/* Fallback to the IGP shortest path. */
-			zebra_send_rnh_update(rnh, client, RNH_NEXTHOP_TYPE,
-					      zvrf_id(zvrf), policy->color);
+			zebra_send_rnh_update(rnh, client, zvrf_id(zvrf),
+					      policy->color);
 	}
 }
 

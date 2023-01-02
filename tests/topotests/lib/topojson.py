@@ -40,8 +40,12 @@ from lib.common_config import (
     topo_daemons,
     number_to_column,
 )
-from lib.ospf import create_router_ospf, create_router_ospf6
-from lib.pim import create_igmp_config, create_pim_config
+from lib.ospf import create_router_ospf
+from lib.pim import (
+    create_igmp_config,
+    create_pim_config,
+    create_mld_config,
+)
 from lib.topolog import logger
 
 
@@ -332,9 +336,9 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
             ("route_maps", create_route_maps),
             ("pim", create_pim_config),
             ("igmp", create_igmp_config),
+            ("mld", create_mld_config),
             ("bgp", create_router_bgp),
             ("ospf", create_router_ospf),
-            ("ospf6", create_router_ospf6),
         ]
     )
 
@@ -352,6 +356,20 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
     if not result:
         logger.info("build_config_from_json: failed to configure topology")
         pytest.exit(1)
+
+    logger.info(
+        "Built config now clearing ospf neighbors as that router-id might not be what is used"
+    )
+    for ospf in ["ospf", "ospf6"]:
+        for router in data:
+            if ospf not in data[router]:
+                continue
+
+            r = tgen.gears[router]
+            if ospf == "ospf":
+                r.vtysh_cmd("clear ip ospf process")
+            else:
+                r.vtysh_cmd("clear ipv6 ospf6 process")
 
 
 def create_tgen_from_json(testfile, json_file=None):

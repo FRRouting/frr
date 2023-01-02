@@ -40,6 +40,7 @@
 #include "linklist.h"
 #include "command.h"
 #include "memory.h"
+#include "network.h"
 #include "filter.h"
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_daemons.h"
@@ -50,6 +51,7 @@
 #include "frrstr.h"
 #include "json.h"
 #include "ferr.h"
+#include "bgpd/bgp_vty.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
@@ -69,7 +71,14 @@ struct vtysh_client {
 	int flag;
 	char path[MAXPATHLEN];
 	struct vtysh_client *next;
+
+	struct thread *log_reader;
+	int log_fd;
+	uint32_t lost_msgs;
 };
+
+static bool stderr_tty;
+static bool stderr_stdout_same;
 
 /* Some utility functions for working on vtysh-specific vty tasks */
 
@@ -126,26 +135,27 @@ static void vtysh_pager_envdef(bool fallback)
 /* --- */
 
 struct vtysh_client vtysh_client[] = {
-	{.fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .next = NULL},
-	{.fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .next = NULL},
-	{.fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .next = NULL},
-	{.fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .next = NULL},
-	{.fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .next = NULL},
-	{.fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .next = NULL},
-	{.fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .next = NULL},
-	{.fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .next = NULL},
-	{.fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .next = NULL},
-	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
-	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
-	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
-	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
-	{.fd = -1, .name = "fabricd", .flag = VTYSH_FABRICD, .next = NULL},
-	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
-	{.fd = -1, .name = "pbrd", .flag = VTYSH_PBRD, .next = NULL},
-	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
-	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
-	{.fd = -1, .name = "vrrpd", .flag = VTYSH_VRRPD, .next = NULL},
-	{.fd = -1, .name = "pathd", .flag = VTYSH_PATHD, .next = NULL},
+	{.name = "zebra", .flag = VTYSH_ZEBRA},
+	{.name = "ripd", .flag = VTYSH_RIPD},
+	{.name = "ripngd", .flag = VTYSH_RIPNGD},
+	{.name = "ospfd", .flag = VTYSH_OSPFD},
+	{.name = "ospf6d", .flag = VTYSH_OSPF6D},
+	{.name = "ldpd", .flag = VTYSH_LDPD},
+	{.name = "bgpd", .flag = VTYSH_BGPD},
+	{.name = "isisd", .flag = VTYSH_ISISD},
+	{.name = "pimd", .flag = VTYSH_PIMD},
+	{.name = "nhrpd", .flag = VTYSH_NHRPD},
+	{.name = "eigrpd", .flag = VTYSH_EIGRPD},
+	{.name = "babeld", .flag = VTYSH_BABELD},
+	{.name = "sharpd", .flag = VTYSH_SHARPD},
+	{.name = "fabricd", .flag = VTYSH_FABRICD},
+	{.name = "watchfrr", .flag = VTYSH_WATCHFRR},
+	{.name = "pbrd", .flag = VTYSH_PBRD},
+	{.name = "staticd", .flag = VTYSH_STATICD},
+	{.name = "bfdd", .flag = VTYSH_BFDD},
+	{.name = "vrrpd", .flag = VTYSH_VRRPD},
+	{.name = "pathd", .flag = VTYSH_PATHD},
+	{.name = "pim6d", .flag = VTYSH_PIM6D},
 };
 
 /* Searches for client by name, returns index */
@@ -181,6 +191,53 @@ static void vclient_close(struct vtysh_client *vclient)
 	}
 }
 
+static ssize_t vtysh_client_receive(struct vtysh_client *vclient, char *buf,
+				    size_t bufsz, int *pass_fd)
+{
+	struct iovec iov[1] = {
+		{
+			.iov_base = buf,
+			.iov_len = bufsz,
+		},
+	};
+	union {
+		uint8_t buf[CMSG_SPACE(sizeof(int))];
+		struct cmsghdr align;
+	} u;
+	struct msghdr mh = {
+		.msg_iov = iov,
+		.msg_iovlen = array_size(iov),
+		.msg_control = u.buf,
+		.msg_controllen = sizeof(u.buf),
+	};
+	struct cmsghdr *cmh = CMSG_FIRSTHDR(&mh);
+	ssize_t ret;
+
+	cmh->cmsg_level = SOL_SOCKET;
+	cmh->cmsg_type = SCM_RIGHTS;
+	cmh->cmsg_len = CMSG_LEN(sizeof(int));
+	memset(CMSG_DATA(cmh), -1, sizeof(int));
+
+	do {
+		ret = recvmsg(vclient->fd, &mh, 0);
+		if (ret >= 0 || (errno != EINTR && errno != EAGAIN))
+			break;
+	} while (true);
+
+	if (cmh->cmsg_len == CMSG_LEN(sizeof(int))) {
+		int fd;
+
+		memcpy(&fd, CMSG_DATA(cmh), sizeof(int));
+		if (fd != -1) {
+			if (pass_fd)
+				*pass_fd = fd;
+			else
+				close(fd);
+		}
+	}
+	return ret;
+}
+
 /*
  * Send a CLI command to a client and read the response.
  *
@@ -204,7 +261,8 @@ static void vclient_close(struct vtysh_client *vclient)
  *    a status code
  */
 static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
-			    void (*callback)(void *, const char *), void *cbarg)
+			    void (*callback)(void *, const char *), void *cbarg,
+			    int *pass_fd)
 {
 	int ret;
 	char stackbuf[4096];
@@ -238,8 +296,10 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 	bufvalid = buf;
 	do {
-		ssize_t nread =
-			read(vclient->fd, bufvalid, buf + bufsz - bufvalid - 1);
+		ssize_t nread;
+
+		nread = vtysh_client_receive(
+			vclient, bufvalid, buf + bufsz - bufvalid - 1, pass_fd);
 
 		if (nread < 0 && (errno == EINTR || errno == EAGAIN))
 			continue;
@@ -381,7 +441,7 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 	int correct_instance = 0, wrong_instance = 0;
 
 	for (client = head_client; client; client = client->next) {
-		rc = vtysh_client_run(client, line, callback, cbarg);
+		rc = vtysh_client_run(client, line, callback, cbarg, NULL);
 		if (rc == CMD_NOT_MY_INSTANCE) {
 			wrong_instance++;
 			continue;
@@ -484,7 +544,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	if (vtysh_add_timestamp && strncmp(line, "exit", 4)) {
 		char ts[48];
 
-		(void)quagga_timestamp(3, ts, sizeof(ts));
+		(void)frr_timestamp(3, ts, sizeof(ts));
 		vty_out(vty, "%% %s\n\n", ts);
 	}
 
@@ -818,7 +878,7 @@ int vtysh_mark_file(const char *filename)
 	return 0;
 }
 
-/* Configration make from file. */
+/* Configuration make from file. */
 int vtysh_config_from_file(struct vty *vty, FILE *fp)
 {
 	int ret;
@@ -826,9 +886,22 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	int lineno = 0;
 	/* once we have an error, we remember & return that */
 	int retcode = CMD_SUCCESS;
+	char *vty_buf_copy = XCALLOC(MTYPE_VTYSH_CMD, VTY_BUFSIZ);
+	char *vty_buf_trimmed = NULL;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
+
+		strlcpy(vty_buf_copy, vty->buf, VTY_BUFSIZ);
+		vty_buf_trimmed = trim(vty_buf_copy);
+
+		/*
+		 * Ignore the "end" lines, we will generate these where
+		 * appropriate, otherwise we never execute
+		 * XFRR_end_configuration, and start/end markers do not work.
+		 */
+		if (strmatch(vty_buf_trimmed, "end"))
+			continue;
 
 		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
@@ -895,6 +968,8 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		}
 		}
 	}
+
+	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
 	return (retcode);
 }
@@ -1184,7 +1259,6 @@ static struct cmd_node srte_candidate_dyn_node = {
 	.prompt = "%s(config-sr-te-candidate)# ",
 };
 
-#if defined(HAVE_PATHD_PCEP)
 static struct cmd_node pcep_node = {
 	.name = "srte pcep",
 	.node = PCEP_NODE,
@@ -1212,7 +1286,6 @@ static struct cmd_node pcep_pce_config_node = {
 	.parent_node = PCEP_NODE,
 	.prompt = "%s(pcep-sr-te-pcep-pce-config)# ",
 };
-#endif /* HAVE_PATHD_PCEP */
 #endif /* HAVE_PATHD */
 
 static struct cmd_node vrf_node = {
@@ -1279,6 +1352,7 @@ static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_vpnv6_node = {
@@ -1286,6 +1360,7 @@ static struct cmd_node bgp_vpnv6_node = {
 	.node = BGP_VPNV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
@@ -1293,6 +1368,7 @@ static struct cmd_node bgp_flowspecv4_node = {
 	.node = BGP_FLOWSPECV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
@@ -1300,6 +1376,7 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4_node = {
@@ -1307,6 +1384,7 @@ static struct cmd_node bgp_ipv4_node = {
 	.node = BGP_IPV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4m_node = {
@@ -1314,6 +1392,7 @@ static struct cmd_node bgp_ipv4m_node = {
 	.node = BGP_IPV4M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4l_node = {
@@ -1321,6 +1400,7 @@ static struct cmd_node bgp_ipv4l_node = {
 	.node = BGP_IPV4L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6_node = {
@@ -1328,6 +1408,7 @@ static struct cmd_node bgp_ipv6_node = {
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6m_node = {
@@ -1335,6 +1416,7 @@ static struct cmd_node bgp_ipv6m_node = {
 	.node = BGP_IPV6M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_node = {
@@ -1342,6 +1424,7 @@ static struct cmd_node bgp_evpn_node = {
 	.node = BGP_EVPN_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
@@ -1356,6 +1439,7 @@ static struct cmd_node bgp_ipv6l_node = {
 	.node = BGP_IPV6L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 #ifdef ENABLE_BGP_VNC
@@ -1516,6 +1600,7 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
+	.no_xpath = true,
 };
 
 #ifdef HAVE_BGPD
@@ -1568,6 +1653,8 @@ static int vtysh_end(void)
 	return CMD_SUCCESS;
 }
 
+#include "vtysh/vtysh_clippy.c"
+
 DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	"End current mode and change to enable mode\n")
 {
@@ -1576,7 +1663,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 
 DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
 	"srv6",
-	"Segment-Routing SRv6 configration\n")
+	"Segment-Routing SRv6 configuration\n")
 {
 	vty->node = SRV6_NODE;
 	return CMD_SUCCESS;
@@ -1584,7 +1671,7 @@ DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
 
 DEFUNSH(VTYSH_ZEBRA, srv6_locators, srv6_locators_cmd,
 	"locators",
-	"Segment-Routing SRv6 locators configration\n")
+	"Segment-Routing SRv6 locators configuration\n")
 {
 	vty->node = SRV6_LOCS_NODE;
 	return CMD_SUCCESS;
@@ -1601,7 +1688,7 @@ DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
+	"router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
 	"View/VRF name\n")
@@ -1614,8 +1701,8 @@ DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 	"address-family vpnv4 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -1624,8 +1711,8 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 	"address-family vpnv6 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -1635,8 +1722,8 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 	"address-family ipv4 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4_NODE;
 	return CMD_SUCCESS;
@@ -1645,8 +1732,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_flowspecv4, address_family_flowspecv4_cmd,
 	"address-family ipv4 flowspec",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV4_NODE;
 	return CMD_SUCCESS;
@@ -1655,8 +1742,8 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv4, address_family_flowspecv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 	"address-family ipv6 flowspec",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV6_NODE;
 	return CMD_SUCCESS;
@@ -1665,8 +1752,8 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4_multicast,
 	address_family_ipv4_multicast_cmd, "address-family ipv4 multicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4M_NODE;
 	return CMD_SUCCESS;
@@ -1675,8 +1762,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_multicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4_vpn, address_family_ipv4_vpn_cmd,
 	"address-family ipv4 vpn",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -1686,8 +1773,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_labeled_unicast,
 	address_family_ipv4_labeled_unicast_cmd,
 	"address-family ipv4 labeled-unicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4L_NODE;
 	return CMD_SUCCESS;
@@ -1696,8 +1783,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_labeled_unicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6, address_family_ipv6_cmd,
 	"address-family ipv6 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6_NODE;
 	return CMD_SUCCESS;
@@ -1706,8 +1793,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6, address_family_ipv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6_multicast,
 	address_family_ipv6_multicast_cmd, "address-family ipv6 multicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6M_NODE;
 	return CMD_SUCCESS;
@@ -1716,8 +1803,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_multicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6_vpn, address_family_ipv6_vpn_cmd,
 	"address-family ipv6 vpn",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -1727,8 +1814,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 	address_family_ipv6_labeled_unicast_cmd,
 	"address-family ipv6 labeled-unicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6L_NODE;
 	return CMD_SUCCESS;
@@ -1792,28 +1879,12 @@ DEFUNSH(VTYSH_BGPD,
 DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 	"address-family <l2vpn evpn>",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_EVPN_NODE;
 	return CMD_SUCCESS;
 }
-
-#if defined(HAVE_CUMULUS)
-#if CONFDATE > 20211115
-CPP_NOTICE("Use of `address-family evpn` is deprecated please remove don't forget frr-reload.py")
-#endif
-DEFUNSH_HIDDEN(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
-	       "address-family evpn",
-	       "Enter Address Family command mode\n"
-	       "EVPN Address family\n")
-{
-	vty_out(vty,
-		"This command is deprecated please convert to `address-family l2vpn evpn`\n");
-	vty->node = BGP_EVPN_NODE;
-	return CMD_SUCCESS;
-}
-#endif
 
 DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni " CMD_VNI_RANGE,
 	"VXLAN Network Identifier\n"
@@ -2109,8 +2180,6 @@ DEFUNSH(VTYSH_PATHD, srte_policy_candidate_dyn_path,
 	return CMD_SUCCESS;
 }
 
-#if defined(HAVE_PATHD_PCEP)
-
 DEFUNSH(VTYSH_PATHD, pcep, pcep_cmd,
 	"pcep",
 	"Configure SR pcep\n")
@@ -2145,12 +2214,10 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
 	return CMD_SUCCESS;
 }
 
-#endif /* HAVE_PATHD_PCEP */
-
 #endif /* HAVE_PATHD */
 
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
-	"route-map WORD <deny|permit> (1-65535)",
+	"route-map RMAP_NAME <deny|permit> (1-65535)",
 	"Create route-map or enter route-map command mode\n"
 	"Route map tag\n"
 	"Route map denies set operations\n"
@@ -2724,6 +2791,16 @@ static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 	return ret;
 }
 
+DEFUN (vtysh_show_thread_timer,
+       vtysh_show_thread_timer_cmd,
+       "show thread timers",
+       SHOW_STR
+       "Thread information\n"
+       "Show all timers and how long they have in the system\n")
+{
+	return show_per_daemon(vty, argv, argc, "Thread timers for %s:\n");
+}
+
 DEFUN (vtysh_show_poll,
        vtysh_show_poll_cmd,
        "show thread poll",
@@ -2894,6 +2971,7 @@ DEFUN (show_yang_operational_data,
          [{\
 	   format <json|xml>\
 	   |translate WORD\
+	   |with-config\
 	 }]" DAEMONS_LIST,
        SHOW_STR
        "YANG information\n"
@@ -2904,6 +2982,7 @@ DEFUN (show_yang_operational_data,
        "Extensible Markup Language\n"
        "Translate operational data\n"
        "YANG module translator\n"
+       "Merge configuration data\n"
        DAEMONS_STR)
 {
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
@@ -3023,6 +3102,74 @@ DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
 	return CMD_SUCCESS;
 }
 
+DEFUN(vtysh_debug_uid_backtrace,
+      vtysh_debug_uid_backtrace_cmd,
+      "[no] debug unique-id UID backtrace",
+      NO_STR
+      DEBUG_STR
+      "Options per individual log message, by unique ID\n"
+      "Log message unique ID (XXXXX-XXXXX)\n"
+      "Add backtrace to log when message is printed\n")
+{
+	unsigned int i, ok = 0;
+	int err = CMD_SUCCESS, ret;
+	const char *uid;
+	char line[64];
+
+	if (!strcmp(argv[0]->text, "no")) {
+		uid = argv[3]->arg;
+		snprintfrr(line, sizeof(line),
+			   "no debug unique-id %s backtrace", uid);
+	} else {
+		uid = argv[2]->arg;
+		snprintfrr(line, sizeof(line), "debug unique-id %s backtrace",
+			   uid);
+	}
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			switch (ret) {
+			case CMD_SUCCESS:
+				ok++;
+				break;
+			case CMD_ERR_NOTHING_TODO:
+				/* ignore this daemon
+				 *
+				 * note this doesn't need to handle instances
+				 * of the same daemon individually because
+				 * the same daemon will have the same UIDs
+				 */
+				break;
+			default:
+				if (err == CMD_SUCCESS)
+					err = ret;
+				break;
+			}
+		}
+
+	if (err == CMD_SUCCESS && !ok) {
+		vty_out(vty, "%% no running daemon recognizes unique-ID %s\n",
+			uid);
+		err = CMD_WARNING;
+	}
+	return err;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_allow_reserved_ranges, vtysh_allow_reserved_ranges_cmd,
+	"allow-reserved-ranges",
+	"Allow using IPv4 (Class E) reserved IP space\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, no_vtysh_allow_reserved_ranges,
+	no_vtysh_allow_reserved_ranges_cmd, "no allow-reserved-ranges",
+	NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_ALL, vtysh_service_password_encrypt,
 	vtysh_service_password_encrypt_cmd, "service password-encryption",
 	"Set up miscellaneous service\n"
@@ -3087,7 +3234,7 @@ DEFUN (vtysh_write_terminal,
        "Skip \"Building configuration...\" header\n")
 {
 	unsigned int i;
-	char line[] = "do write terminal\n";
+	char line[] = "do write terminal";
 
 	if (!strcmp(argv[argc - 1]->arg, "no-header"))
 		argc--;
@@ -3166,7 +3313,7 @@ static void backup_config_file(const char *fbackup)
 int vtysh_write_config_integrated(void)
 {
 	unsigned int i;
-	char line[] = "do write terminal\n";
+	char line[] = "do write terminal";
 	FILE *fp;
 	int fd;
 #ifdef FRR_USER
@@ -3244,6 +3391,18 @@ int vtysh_write_config_integrated(void)
 		err++;
 	}
 
+	if (fflush(fp) != 0) {
+		printf("%% Warning: fflush() failed on %s: %s\n", frr_config,
+		       safe_strerror(errno));
+		err++;
+	}
+
+	if (fsync(fd) < 0) {
+		printf("%% Warning: fsync() failed on %s: %s\n", frr_config,
+		       safe_strerror(errno));
+		err++;
+	}
+
 	fclose(fp);
 
 	printf("Integrated configuration saved to %s\n", frr_config);
@@ -3279,12 +3438,12 @@ DEFUN (vtysh_write_memory,
        "Write configuration to the file (same as write memory)\n")
 {
 	int ret = CMD_SUCCESS;
-	char line[] = "do write memory\n";
+	char line[] = "do write memory";
 	unsigned int i;
 
 	vty_out(vty, "Note: this version of vtysh never writes vtysh.conf\n");
 
-	/* If integrated frr.conf explicitely set. */
+	/* If integrated frr.conf explicitly set. */
 	if (want_config_integrated()) {
 		ret = CMD_WARNING_CONFIG_FAILED;
 
@@ -3415,6 +3574,292 @@ DEFUN (vtysh_show_daemons,
 
 	return CMD_SUCCESS;
 }
+
+struct visual_prio {
+	/* 4 characters for nice alignment */
+	const char *label;
+
+	int c256_background;
+	int c256_formatarg;
+};
+
+/* clang-format off */
+struct visual_prio visual_prios[] = {
+	[LOG_EMERG] = {
+		.label = "\e[31;1mEMRG",
+		.c256_background = 53,
+		.c256_formatarg = 225,
+	},
+	[LOG_ALERT] = {
+		.label = "\e[31;1mALRT",
+		.c256_background = 53,
+		.c256_formatarg = 225,
+	},
+	[LOG_CRIT] = {
+		.label = "\e[31;1mCRIT",
+		.c256_background = 53,
+		.c256_formatarg = 225,
+	},
+	[LOG_ERR] = {
+		.label = "\e[38;5;202mERR!",
+		.c256_background = 52,
+		.c256_formatarg = 224,
+	},
+	[LOG_WARNING] = {
+		.label = "\e[38;5;222mWARN",
+		.c256_background = 58,
+		.c256_formatarg = 230,
+	},
+	[LOG_NOTICE] = {
+		.label = "NTFY",
+		.c256_background = 234,
+		.c256_formatarg = 195,
+	},
+	[LOG_INFO] = {
+		.label = "\e[38;5;192mINFO",
+		.c256_background = 236,
+		.c256_formatarg = 195,
+	},
+	[LOG_DEBUG] = {
+		.label = "\e[38;5;116mDEBG",
+		.c256_background = 238,
+		.c256_formatarg = 195,
+	},
+};
+/* clang-format on */
+
+static void vtysh_log_print(struct vtysh_client *vclient,
+			    struct zlog_live_hdr *hdr, const char *text)
+{
+	size_t textlen = hdr->textlen, textpos = 0;
+	time_t ts = hdr->ts_sec;
+	struct visual_prio *vis;
+	struct tm tm;
+	char ts_buf[32];
+
+	if (hdr->prio >= array_size(visual_prios))
+		vis = &visual_prios[LOG_CRIT];
+	else
+		vis = &visual_prios[hdr->prio];
+
+	localtime_r(&ts, &tm);
+	strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", &tm);
+
+	if (!stderr_tty) {
+		const char *label = vis->label + strlen(vis->label) - 4;
+
+		fprintf(stderr, "%s.%03u [%s] %s: %.*s\n", ts_buf,
+			hdr->ts_nsec / 1000000U, label, vclient->name,
+			(int)textlen, text);
+		return;
+	}
+
+	fprintf(stderr,
+		"\e[48;5;%dm\e[38;5;247m%s.%03u [%s\e[38;5;247m] \e[38;5;255m%s\e[38;5;247m: \e[38;5;251m",
+		vis->c256_background, ts_buf, hdr->ts_nsec / 1000000U,
+		vis->label, vclient->name);
+
+	for (size_t fmtpos = 0; fmtpos < hdr->n_argpos; fmtpos++) {
+		struct fmt_outpos *fmt = &hdr->argpos[fmtpos];
+
+		if (fmt->off_start < textpos || fmt->off_end < fmt->off_start ||
+		    fmt->off_end > textlen)
+			continue;
+
+		while (fmt->off_end > fmt->off_start &&
+		       text[fmt->off_end - 1] == ' ')
+			fmt->off_end--;
+
+		fprintf(stderr, "%.*s\e[38;5;%dm%.*s\e[38;5;251m",
+			(int)(fmt->off_start - textpos), text + textpos,
+			vis->c256_formatarg,
+			(int)(fmt->off_end - fmt->off_start),
+			text + fmt->off_start);
+		textpos = fmt->off_end;
+	}
+	fprintf(stderr, "%.*s\033[K\033[m\n", (int)(textlen - textpos),
+		text + textpos);
+}
+
+static void vtysh_log_read(struct thread *thread)
+{
+	struct vtysh_client *vclient = THREAD_ARG(thread);
+	struct {
+		struct zlog_live_hdr hdr;
+		char text[4096];
+	} buf;
+	const char *text;
+	ssize_t ret;
+
+	thread_add_read(master, vtysh_log_read, vclient, vclient->log_fd,
+			&vclient->log_reader);
+
+	ret = recv(vclient->log_fd, &buf, sizeof(buf), 0);
+
+	if (ret < 0 && ERRNO_IO_RETRY(errno))
+		return;
+
+	if (stderr_stdout_same) {
+#ifdef HAVE_RL_CLEAR_VISIBLE_LINE
+		rl_clear_visible_line();
+#else
+		puts("\r");
+#endif
+		fflush(stdout);
+	}
+
+	if (ret <= 0) {
+		struct timespec ts;
+
+		buf.text[0] = '\0'; /* coverity */
+
+		if (ret != 0)
+			snprintfrr(buf.text, sizeof(buf.text),
+				   "log monitor connection error: %m");
+		else
+			snprintfrr(
+				buf.text, sizeof(buf.text),
+				"log monitor connection closed unexpectedly");
+		buf.hdr.textlen = strlen(buf.text);
+
+		THREAD_OFF(vclient->log_reader);
+		close(vclient->log_fd);
+		vclient->log_fd = -1;
+
+		clock_gettime(CLOCK_REALTIME, &ts);
+		buf.hdr.ts_sec = ts.tv_sec;
+		buf.hdr.ts_nsec = ts.tv_nsec;
+		buf.hdr.prio = LOG_ERR;
+		buf.hdr.flags = 0;
+		buf.hdr.texthdrlen = 0;
+		buf.hdr.n_argpos = 0;
+	} else {
+		int32_t lost_msgs = buf.hdr.lost_msgs - vclient->lost_msgs;
+
+		if (lost_msgs > 0) {
+			vclient->lost_msgs = buf.hdr.lost_msgs;
+			fprintf(stderr,
+				"%d log messages from %s lost (vtysh reading too slowly)\n",
+				lost_msgs, vclient->name);
+		}
+	}
+
+	text = buf.text + sizeof(buf.hdr.argpos[0]) * buf.hdr.n_argpos;
+	vtysh_log_print(vclient, &buf.hdr, text);
+
+	if (stderr_stdout_same)
+		rl_forced_update_display();
+
+	return;
+}
+
+#ifdef CLIPPY
+/* clippy/clidef can't process the DEFPY below without some value for this */
+#define DAEMONS_LIST "daemon"
+#endif
+
+DEFPY (vtysh_terminal_monitor,
+       vtysh_terminal_monitor_cmd,
+       "terminal monitor ["DAEMONS_LIST"]$daemon",
+       "Set terminal line parameters\n"
+       "Receive log messages to active VTY session\n"
+       DAEMONS_STR)
+{
+	static const char line[] = "terminal monitor";
+	int ret_all = CMD_SUCCESS, ret, fd;
+	size_t i, ok = 0;
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		struct vtysh_client *vclient = &vtysh_client[i];
+
+		if (daemon && strcmp(vclient->name, daemon))
+			continue;
+
+		for (; vclient; vclient = vclient->next) {
+			if (vclient->log_fd != -1) {
+				vty_out(vty, "%% %s: already monitoring logs\n",
+					vclient->name);
+				ok++;
+				continue;
+			}
+
+			fd = -1;
+			ret = vtysh_client_run(vclient, line, NULL, NULL, &fd);
+			if (fd != -1) {
+				set_nonblocking(fd);
+				vclient->log_fd = fd;
+				thread_add_read(master, vtysh_log_read, vclient,
+						vclient->log_fd,
+						&vclient->log_reader);
+			}
+			if (ret != CMD_SUCCESS) {
+				vty_out(vty, "%% failed to enable logs on %s\n",
+					vclient->name);
+				ret_all = CMD_WARNING;
+			} else
+				ok++;
+		}
+	}
+
+	if (!ok && ret_all == CMD_SUCCESS) {
+		vty_out(vty,
+			"%% command had no effect, relevant daemons not connected?\n");
+		ret_all = CMD_WARNING;
+	}
+	return ret_all;
+}
+
+DEFPY (no_vtysh_terminal_monitor,
+       no_vtysh_terminal_monitor_cmd,
+       "no terminal monitor ["DAEMONS_LIST"]$daemon",
+       NO_STR
+       "Set terminal line parameters\n"
+       "Receive log messages to active VTY session\n"
+       DAEMONS_STR)
+{
+	static const char line[] = "no terminal monitor";
+	int ret_all = CMD_SUCCESS, ret;
+	size_t i, ok = 0;
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		struct vtysh_client *vclient = &vtysh_client[i];
+
+		if (daemon && strcmp(vclient->name, daemon))
+			continue;
+
+		for (; vclient; vclient = vclient->next) {
+			/* run this even if log_fd == -1, in case something
+			 * got desync'd
+			 */
+			ret = vtysh_client_run(vclient, line, NULL, NULL, NULL);
+			if (ret != CMD_SUCCESS) {
+				vty_out(vty,
+					"%% failed to disable logs on %s\n",
+					vclient->name);
+				ret_all = CMD_WARNING;
+			} else
+				ok++;
+
+			/* with this being a datagram socket, we can't expect
+			 * a close notification...
+			 */
+			if (vclient->log_fd != -1) {
+				THREAD_OFF(vclient->log_reader);
+
+				close(vclient->log_fd);
+				vclient->log_fd = -1;
+			}
+		}
+	}
+
+	if (!ok && ret_all == CMD_SUCCESS) {
+		vty_out(vty,
+			"%% command had no effect, relevant daemons not connected?\n");
+		ret_all = CMD_WARNING;
+	}
+	return ret_all;
+}
+
 
 /* Execute command in child process. */
 static void execute_command(const char *command, int argc, const char *arg1,
@@ -3704,7 +4149,7 @@ static int vtysh_connect(struct vtysh_client *vclient)
 		return -1;
 	}
 
-	memset(&addr, 0, sizeof(struct sockaddr_un));
+	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
@@ -3923,6 +4368,21 @@ void vtysh_uninit(void)
 
 void vtysh_init_vty(void)
 {
+	struct stat st_out, st_err;
+
+	cmd_defer_tree(true);
+
+	for (size_t i = 0; i < array_size(vtysh_client); i++) {
+		vtysh_client[i].fd = -1;
+		vtysh_client[i].log_fd = -1;
+	}
+
+	stderr_tty = isatty(STDERR_FILENO);
+
+	if (fstat(STDOUT_FILENO, &st_out) || fstat(STDERR_FILENO, &st_err) ||
+	    (st_out.st_dev == st_err.st_dev && st_out.st_ino == st_err.st_ino))
+		stderr_stdout_same = true;
+
 	/* Make vty structure. */
 	vty = vty_new();
 	vty->type = VTY_SHELL;
@@ -4052,9 +4512,6 @@ void vtysh_init_vty(void)
 
 	install_node(&bgp_evpn_node);
 	install_element(BGP_NODE, &address_family_evpn_cmd);
-#if defined(HAVE_CUMULUS)
-	install_element(BGP_NODE, &address_family_evpn2_cmd);
-#endif
 	install_element(BGP_EVPN_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_end_all_cmd);
@@ -4237,6 +4694,7 @@ void vtysh_init_vty(void)
 #endif /* HAVE_BFDD */
 
 	install_node(&segment_routing_node);
+	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
@@ -4262,13 +4720,11 @@ void vtysh_init_vty(void)
 	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
 
-#if defined(HAVE_PATHD_PCEP)
 	install_node(&pcep_node);
 	install_node(&pcep_pcc_node);
 	install_node(&pcep_pce_node);
@@ -4292,7 +4748,6 @@ void vtysh_init_vty(void)
 	install_element(PCEP_NODE, &pcep_cli_pcc_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pce_cmd);
-#endif /* HAVE_PATHD_PCEP */
 
 #endif /* HAVE_PATHD */
 
@@ -4421,6 +4876,9 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_terminal_no_length_cmd);
 	install_element(VIEW_NODE, &vtysh_show_daemons_cmd);
 
+	install_element(VIEW_NODE, &vtysh_terminal_monitor_cmd);
+	install_element(VIEW_NODE, &no_vtysh_terminal_monitor_cmd);
+
 	install_element(VIEW_NODE, &vtysh_ping_cmd);
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_cmd);
@@ -4447,6 +4905,8 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
+	install_element(ENABLE_NODE, &vtysh_debug_uid_backtrace_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_uid_backtrace_cmd);
 
 	/* northbound */
 	install_element(ENABLE_NODE, &show_config_running_cmd);
@@ -4464,12 +4924,16 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
 	install_element(VIEW_NODE, &vtysh_show_poll_cmd);
+	install_element(VIEW_NODE, &vtysh_show_thread_timer_cmd);
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
+
+	install_element(CONFIG_NODE, &vtysh_allow_reserved_ranges_cmd);
+	install_element(CONFIG_NODE, &no_vtysh_allow_reserved_ranges_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_password_cmd);

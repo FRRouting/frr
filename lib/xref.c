@@ -35,6 +35,8 @@
 struct xref_block *xref_blocks;
 static struct xref_block **xref_block_last = &xref_blocks;
 
+struct xrefdata_uid_head xrefdata_uid = INIT_RBTREE_UNIQ(xrefdata_uid);
+
 static void base32(uint8_t **inpos, int *bitpos,
 		   char *out, size_t n_chars)
 {
@@ -109,6 +111,8 @@ static void xref_add_one(const struct xref *xref)
 	base32(&h, &bitpos, &xrefdata->uid[0], 5);
 	xrefdata->uid[5] = '-';
 	base32(&h, &bitpos, &xrefdata->uid[6], 5);
+
+	xrefdata_uid_add(&xrefdata_uid, xrefdata);
 }
 
 void xref_gcc_workaround(const struct xref *xref)

@@ -267,8 +267,8 @@ void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level)
 void isis_lfa_excluded_iface_add(struct isis_circuit *circuit, int level,
 				 const char *ifname)
 {
-	hash_get(circuit->lfa_excluded_ifaces[level - 1], (char *)ifname,
-		 lfa_excl_interface_hash_alloc);
+	(void)hash_get(circuit->lfa_excluded_ifaces[level - 1], (char *)ifname,
+		       lfa_excl_interface_hash_alloc);
 }
 
 /**
@@ -1401,7 +1401,7 @@ static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
 	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
 }
 
-static int isis_area_verify_routes_cb(struct thread *thread)
+static void isis_area_verify_routes_cb(struct thread *thread)
 {
 	struct isis_area *area = THREAD_ARG(thread);
 
@@ -1409,8 +1409,6 @@ static int isis_area_verify_routes_cb(struct thread *thread)
 		zlog_debug("ISIS-LFA: updating RLFAs in the RIB");
 
 	isis_area_verify_routes(area);
-
-	return 0;
 }
 
 static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
@@ -1443,9 +1441,8 @@ static mpls_label_t rlfa_nexthop_label(struct isis_spftree *spftree,
 			}
 			break;
 		case AF_INET6:
-			for (unsigned int j = 0; j < adj->ipv6_address_count;
-			     j++) {
-				struct in6_addr addr = adj->ipv6_addresses[j];
+			for (unsigned int j = 0; j < adj->ll_ipv6_count; j++) {
+				struct in6_addr addr = adj->ll_ipv6_addrs[j];
 
 				if (!IPV6_ADDR_SAME(
 					    &addr,
@@ -1522,7 +1519,7 @@ int isis_rlfa_activate(struct isis_spftree *spftree, struct rlfa *rlfa,
 			  spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] += 1;
 
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_rlfa_rib_update);
 	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
 			 &area->t_rlfa_rib_update);
 
@@ -1541,7 +1538,7 @@ void isis_rlfa_deactivate(struct isis_spftree *spftree, struct rlfa *rlfa)
 	isis_route_delete(area, rn, spftree->route_table_backup);
 	spftree->lfa.protection_counters.rlfa[vertex->N.ip.priority] -= 1;
 
-	thread_cancel(&area->t_rlfa_rib_update);
+	THREAD_OFF(area->t_rlfa_rib_update);
 	thread_add_timer(master, isis_area_verify_routes_cb, area, 2,
 			 &area->t_rlfa_rib_update);
 }
@@ -1648,6 +1645,11 @@ void isis_ldp_rlfa_handle_client_close(struct zapi_client_close_info *info)
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
 			     level++) {
 				struct isis_spftree *spftree;
+
+				if (!(area->is_type & level))
+					continue;
+				if (!area->spftree[tree][level - 1])
+					continue;
 
 				spftree = area->spftree[tree][level - 1];
 				isis_rlfa_list_clear(spftree);

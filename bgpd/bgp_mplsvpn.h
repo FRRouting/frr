@@ -21,9 +21,11 @@
 #ifndef _QUAGGA_BGP_MPLSVPN_H
 #define _QUAGGA_BGP_MPLSVPN_H
 
+#include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_vty.h"
 
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
@@ -31,9 +33,7 @@
 	 || (label) == MPLS_LABEL_IPV6_EXPLICIT_NULL                           \
 	 || (label) == MPLS_LABEL_IMPLICIT_NULL)
 
-#define BGP_VPNVX_HELP_STR                                                     \
-	"Address Family\n"                                                     \
-	"Address Family\n"
+#define BGP_VPNVX_HELP_STR BGP_AF_STR BGP_AF_STR
 
 #define V4_HEADER                                                              \
 	"   Network          Next Hop            Metric LocPrf Weight Path\n"
@@ -52,27 +52,27 @@ extern int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     int tags, bool use_json);
 
-extern void vpn_leak_from_vrf_update(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
+extern void vpn_leak_from_vrf_update(struct bgp *to_bgp, struct bgp *from_bgp,
 				     struct bgp_path_info *path_vrf);
 
-extern void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
+extern void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp, struct bgp *from_bgp,
 				       struct bgp_path_info *path_vrf);
 
-extern void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn,
-					   struct bgp *bgp_vrf, afi_t afi);
+extern void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp,
+					   struct bgp *from_bgp, afi_t afi);
 
-extern void vpn_leak_from_vrf_update_all(struct bgp *bgp_vpn,
-					 struct bgp *bgp_vrf, afi_t afi);
+extern void vpn_leak_from_vrf_update_all(struct bgp *to_bgp,
+					 struct bgp *from_bgp, afi_t afi);
 
-extern void vpn_leak_to_vrf_withdraw_all(struct bgp *bgp_vrf, afi_t afi);
+extern void vpn_leak_to_vrf_withdraw_all(struct bgp *to_bgp, afi_t afi);
 
-extern void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, struct bgp *bgp_vpn,
+extern void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 				       afi_t afi);
 
-extern void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,
+extern bool vpn_leak_to_vrf_update(struct bgp *from_bgp,
 				   struct bgp_path_info *path_vpn);
 
-extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
+extern void vpn_leak_to_vrf_withdraw(struct bgp *from_bgp,
 				     struct bgp_path_info *path_vpn);
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
@@ -204,7 +204,7 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 	return 1;
 }
 
-static inline void vpn_leak_prechange(vpn_policy_direction_t direction,
+static inline void vpn_leak_prechange(enum vpn_policy_direction direction,
 				      afi_t afi, struct bgp *bgp_vpn,
 				      struct bgp *bgp_vrf)
 {
@@ -224,7 +224,7 @@ static inline void vpn_leak_prechange(vpn_policy_direction_t direction,
 	}
 }
 
-static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
+static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 				       afi_t afi, struct bgp *bgp_vpn,
 				       struct bgp *bgp_vrf)
 {
@@ -232,8 +232,14 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 	if (!bgp_vpn)
 		return;
 
-	if (direction == BGP_VPN_POLICY_DIR_FROMVPN)
-		vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
+	if (direction == BGP_VPN_POLICY_DIR_FROMVPN) {
+		/* trigger a flush to re-sync with ADJ-RIB-in */
+		if (!CHECK_FLAG(bgp_vpn->af_flags[afi][SAFI_MPLS_VPN],
+				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
+			bgp_clear_soft_in(bgp_vpn, afi, SAFI_MPLS_VPN);
+		else
+			vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
+	}
 	if (direction == BGP_VPN_POLICY_DIR_TOVPN) {
 
 		if (bgp_vrf->vpn_policy[afi].tovpn_label !=

@@ -34,10 +34,13 @@
 #include "qobj.h"
 #include "compiler.h"
 #include "northbound.h"
+#include "zlog_live.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct json_object;
 
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
@@ -56,8 +59,12 @@ struct vty_cfg_change {
 	const char *value;
 };
 
+PREDECL_DLIST(vtys);
+
 /* VTY struct. */
 struct vty {
+	struct vtys_item itm;
+
 	/* File descripter of this vty. */
 	int fd;
 
@@ -155,7 +162,22 @@ struct vty {
 	unsigned char escape;
 
 	/* Current vty status. */
-	enum { VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE } status;
+	enum {
+		VTY_NORMAL,
+		VTY_CLOSE,
+		VTY_MORE,
+		VTY_MORELINE,
+		VTY_PASSFD,
+	} status;
+
+	/* vtysh socket/fd passing (for terminal monitor) */
+	int pass_fd;
+
+	/* CLI command return value (likely CMD_SUCCESS) when pass_fd != -1 */
+	uint8_t pass_fd_status[4];
+
+	/* live logging target / terminal monitor */
+	struct zlog_live_cfg live_log;
 
 	/* IAC handling: was the last character received the
 	   IAC (interpret-as-command) escape character (and therefore the next
@@ -179,9 +201,6 @@ struct vty {
 
 	/* Configure lines. */
 	int lines;
-
-	/* Terminal monitor. */
-	int monitor;
 
 	/* Read and write thread. */
 	struct thread *t_read;
@@ -246,6 +265,15 @@ static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 		return CMD_NOT_MY_INSTANCE;                                    \
 	struct structname *ptr = VTY_GET_CONTEXT(structname);                  \
 	VTY_CHECK_CONTEXT(ptr);
+
+#define VTY_DECLVAR_CONTEXT_VRF(vrfptr)                                        \
+	struct vrf *vrfptr;                                                    \
+	if (vty->node == CONFIG_NODE)                                          \
+		vrfptr = vrf_lookup_by_id(VRF_DEFAULT);                        \
+	else                                                                   \
+		vrfptr = VTY_GET_CONTEXT(vrf);                                 \
+	VTY_CHECK_CONTEXT(vrfptr);                                             \
+	MACRO_REQUIRE_SEMICOLON() /* end */
 
 /* XPath macros. */
 #define VTY_PUSH_XPATH(nodeval, value)                                         \
@@ -317,7 +345,16 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
 extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
-bool vty_set_include(struct vty *vty, const char *regexp);
+extern bool vty_set_include(struct vty *vty, const char *regexp);
+/* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
+ * NULL check and json_object_free() is included.
+ */
+extern int vty_json(struct vty *vty, struct json_object *json);
+
+/* post fd to be passed to the vtysh client
+ * fd is owned by the VTY code after this and will be closed when done
+ */
+extern void vty_pass_fd(struct vty *vty, int fd);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
@@ -325,8 +362,6 @@ extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
-extern void vty_log(const char *level, const char *proto, const char *msg,
-		    struct timestamp_control *);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive);
@@ -340,10 +375,6 @@ extern void vty_hello(struct vty *);
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
-
-/* Send a fixed-size message to all vty terminal monitors; this should be
-   an async-signal-safe function. */
-extern void vty_log_fixed(char *buf, size_t len);
 
 #ifdef __cplusplus
 }

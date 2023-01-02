@@ -31,6 +31,11 @@
 #define list_const_next	concat(TYPE, _const_next)
 #define list_next	concat(TYPE, _next)
 #define list_next_safe	concat(TYPE, _next_safe)
+#define list_const_last concat(TYPE, _const_last)
+#define list_last	concat(TYPE, _last)
+#define list_const_prev	concat(TYPE, _const_prev)
+#define list_prev	concat(TYPE, _prev)
+#define list_prev_safe	concat(TYPE, _prev_safe)
 #define list_count	concat(TYPE, _count)
 #define list_add	concat(TYPE, _add)
 #define list_add_head	concat(TYPE, _add_head)
@@ -39,6 +44,8 @@
 #define list_find	concat(TYPE, _find)
 #define list_find_lt	concat(TYPE, _find_lt)
 #define list_find_gteq	concat(TYPE, _find_gteq)
+#define list_member	concat(TYPE, _member)
+#define list_anywhere	concat(TYPE, _anywhere)
 #define list_del	concat(TYPE, _del)
 #define list_pop	concat(TYPE, _pop)
 #define list_swap_all	concat(TYPE, _swap_all)
@@ -169,6 +176,9 @@ static void concat(test_, TYPE)(void)
 
 	list_init(&head);
 	assert(list_first(&head) == NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(list_last(&head) == NULL);
+#endif
 
 	ts_hash("init", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
 
@@ -201,6 +211,10 @@ static void concat(test_, TYPE)(void)
 	assert(!list_first(&head));
 	assert(list_count(&other) == k);
 	assert(list_first(&other) != NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(!list_last(&head));
+	assert(list_last(&other) != NULL);
+#endif
 	ts_hash_headx(
 		&other, "swap1",
 		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
@@ -239,6 +253,13 @@ static void concat(test_, TYPE)(void)
 	ts_hash_headx(
 		&head, "swap2b",
 		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
+
+	while (list_pop(&other))
+		;
+	list_fini(&other);
+	prng_free(prng_swap);
+
+	ts_ref("swap-cleanup");
 #endif /* !IS_ATOMIC */
 
 	k = 0;
@@ -260,12 +281,35 @@ static void concat(test_, TYPE)(void)
 		(void)cprev;
 #else
 		assert(!cprev || cprev->val < citem->val);
+#if IS_REVERSE(REALTYPE)
+		assert(list_const_prev(chead, citem) == cprev);
+#endif
 #endif
 		cprev = citem;
 		k++;
 	}
 	assert(list_count(chead) == k);
+#if IS_REVERSE(REALTYPE)
+	assert(cprev == list_const_last(chead));
+#endif
 	ts_ref("walk");
+
+#if IS_REVERSE(REALTYPE) && !IS_HASH(REALTYPE) && !IS_HEAP(REALTYPE)
+	cprev = NULL;
+	k = 0;
+
+	frr_rev_each(list_const, chead, citem) {
+		assert(!cprev || cprev->val > citem->val);
+		assert(list_const_next(chead, citem) == cprev);
+
+		cprev = citem;
+		k++;
+	}
+	assert(list_count(chead) == k);
+	assert(cprev == list_const_first(chead));
+
+	ts_ref("reverse-walk");
+#endif
 
 #if IS_UNIQ(REALTYPE)
 	prng_free(prng);
@@ -294,7 +338,7 @@ static void concat(test_, TYPE)(void)
 #elif IS_HEAP(REALTYPE)
 	/* heap - partially sorted. */
 	prev = NULL;
-	l = k / 2;
+	l = k / 4;
 	for (i = 0; i < l; i++) {
 		item = list_pop(&head);
 		if (prev)
@@ -303,7 +347,24 @@ static void concat(test_, TYPE)(void)
 		k--;
 		prev = item;
 	}
-	ts_hash("pop", NULL);
+	ts_hash("pop#1", NULL);
+
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hash("member", NULL);
+
+	l = k / 2;
+	for (; i < l; i++) {
+		item = list_pop(&head);
+		if (prev)
+			assert(prev->val < item->val);
+		item->scratchpad = 0;
+		k--;
+		prev = item;
+	}
+	ts_hash("pop#2", NULL);
 
 #else /* !IS_UNIQ(REALTYPE) && !IS_HEAP(REALTYPE) */
 	for (i = 0; i < NITEM; i++) {
@@ -380,6 +441,14 @@ static void concat(test_, TYPE)(void)
 	assert(l + list_count(&head) == k);
 	ts_hashx("del", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
 
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++)
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+	ts_hashx("member", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
+#endif
+
 	frr_each_safe(list, &head, item) {
 		assert(item->scratchpad != 0);
 
@@ -405,6 +474,9 @@ static void concat(test_, TYPE)(void)
 	}
 	assert(list_count(&head) == k);
 	assert(list_first(&head) != NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(list_last(&head) != NULL);
+#endif
 	ts_hash("fill / add_tail", "eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
 
 #if !IS_ATOMIC(REALTYPE)
@@ -417,6 +489,10 @@ static void concat(test_, TYPE)(void)
 	assert(!list_first(&head));
 	assert(list_count(&other) == k);
 	assert(list_first(&other) != NULL);
+#if IS_REVERSE(REALTYPE)
+	assert(!list_last(&head));
+	assert(list_last(&other) != NULL);
+#endif
 	ts_hash_head(
 		&other, "swap1",
 		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
@@ -449,6 +525,13 @@ static void concat(test_, TYPE)(void)
 	ts_hash_head(
 		&head, "swap2b",
 		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+	while (list_pop(&other))
+		;
+	list_fini(&other);
+	prng_free(prng_swap);
+
+	ts_ref("swap-cleanup");
 #endif
 
 	for (i = 0; i < NITEM / 2; i++) {
@@ -461,7 +544,54 @@ static void concat(test_, TYPE)(void)
 	}
 	ts_hash("del-prng", "86d568a95eb429dab3162976c5a5f3f75aabc835932cd682aa280b6923549564");
 
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++) {
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+		assertf(list_anywhere(&itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_anywhere(&itm[i]));
+	}
+	ts_hash("member", "86d568a95eb429dab3162976c5a5f3f75aabc835932cd682aa280b6923549564");
+#endif
+
 	l = 0;
+	while (l < (k / 4) && (prev = list_pop(&head))) {
+		assert(prev->scratchpad != 0);
+
+		prev->scratchpad = 0;
+		l++;
+	}
+	ts_hash("pop#1", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+
+#if !IS_ATOMIC(REALTYPE)
+	for (i = 0; i < NITEM; i++) {
+		assertf(list_member(&head, &itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_member(&head, &itm[i]));
+		assertf(list_anywhere(&itm[i]) == itm[i].scratchpad,
+			"%zu should:%d is:%d", i, itm[i].scratchpad,
+			list_anywhere(&itm[i]));
+	}
+	ts_hash("member", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+#endif
+#if IS_REVERSE(REALTYPE)
+	i = 0;
+	prev = NULL;
+
+	frr_rev_each (list, &head, item) {
+		assert(item->scratchpad != 0);
+		assert(list_next(&head, item) == prev);
+
+		i++;
+		prev = item;
+	}
+	assert(list_first(&head) == prev);
+	assert(list_count(&head) == i);
+	ts_hash("reverse-walk", "42b8950c880535b2d2e0c980f9845f7841ecf675c0fb9801aec4170d2036349d");
+#endif
+
 	while ((item = list_pop(&head))) {
 		assert(item->scratchpad != 0);
 
@@ -471,7 +601,7 @@ static void concat(test_, TYPE)(void)
 	assert(l == k);
 	assert(list_count(&head) == 0);
 	assert(list_first(&head) == NULL);
-	ts_hash("pop", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
+	ts_hash("pop#2", "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119");
 
 	prng_free(prng);
 	prng = prng_new(0x1e5a2d69);
@@ -650,6 +780,7 @@ static void concat(test_, TYPE)(void)
 	list_fini(&head);
 	ts_ref("fini");
 	ts_end();
+	prng_free(prng);
 	printfrr("%s end\n", str(TYPE));
 }
 
@@ -672,6 +803,13 @@ static void concat(test_, TYPE)(void)
 #undef list_first
 #undef list_next
 #undef list_next_safe
+#undef list_const_first
+#undef list_const_next
+#undef list_last
+#undef list_prev
+#undef list_prev_safe
+#undef list_const_last
+#undef list_const_prev
 #undef list_count
 #undef list_add
 #undef list_add_head
@@ -680,6 +818,8 @@ static void concat(test_, TYPE)(void)
 #undef list_find
 #undef list_find_lt
 #undef list_find_gteq
+#undef list_member
+#undef list_anywhere
 #undef list_del
 #undef list_pop
 #undef list_swap_all

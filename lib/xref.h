@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <errno.h>
 #include "compiler.h"
+#include "typesafe.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,6 +64,8 @@ struct xref {
 	/* type-specific bits appended by embedding this struct */
 };
 
+PREDECL_RBTREE_UNIQ(xrefdata_uid);
+
 struct xrefdata {
 	/* pointer back to the const part;  this will be initialized at
 	 * program startup by xref_block_add().  (Creating structs with
@@ -88,7 +91,17 @@ struct xrefdata {
 	uint32_t hashu32[2];
 
 	/* -- 32 bytes (on 64bit) -- */
+	struct xrefdata_uid_item xui;
 };
+
+static inline int xrefdata_uid_cmp(const struct xrefdata *a,
+				   const struct xrefdata *b)
+{
+	return strcmp(a->uid, b->uid);
+}
+
+DECLARE_RBTREE_UNIQ(xrefdata_uid, struct xrefdata, xui, xrefdata_uid_cmp);
+extern struct xrefdata_uid_head xrefdata_uid;
 
 /* linker "magic" is used to create an array of pointers to struct xref.
  * the result is a contiguous block of pointers, each pointing to an xref

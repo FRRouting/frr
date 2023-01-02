@@ -246,11 +246,8 @@ lib_interface_vrrp_vrrp_group_v4_source_address_get_elem(
 {
 	const struct vrrp_vrouter *vr = args->list_entry;
 	struct yang_data *val = NULL;
-	struct ipaddr ip;
 
-	memset(&ip, 0x00, sizeof(ip));
-
-	if (memcmp(&vr->v4->src.ipaddr_v4, &ip.ipaddr_v4, sizeof(ip.ipaddr_v4)))
+	if (!ipaddr_is_zero(&vr->v4->src))
 		val = yang_data_new_ip(args->xpath, &vr->v4->src);
 
 	return val;
@@ -410,7 +407,7 @@ lib_interface_vrrp_vrrp_group_v6_source_address_get_elem(
 	const struct vrrp_vrouter *vr = args->list_entry;
 	struct yang_data *val = NULL;
 
-	if (ipaddr_isset(&vr->v6->src))
+	if (!ipaddr_is_zero(&vr->v6->src))
 		val = yang_data_new_ip(args->xpath, &vr->v6->src);
 
 	return val;

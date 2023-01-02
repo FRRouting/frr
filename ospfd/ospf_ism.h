@@ -78,9 +78,6 @@
 					  OSPF_IF_PARAM((O), v_hello));        \
 	} while (0)
 
-/* Macro for OSPF ISM timer turn off. */
-#define OSPF_ISM_TIMER_OFF(X) thread_cancel(&(X))
-
 /* Macro for OSPF schedule event. */
 #define OSPF_ISM_EVENT_SCHEDULE(I, E)                                          \
 	thread_add_event(master, ospf_ism_event, (I), (E), NULL)
@@ -90,9 +87,9 @@
 	thread_execute(master, ospf_ism_event, (I), (E))
 
 /* Prototypes. */
-extern int ospf_ism_event(struct thread *);
+extern void ospf_ism_event(struct thread *thread);
 extern void ism_change_status(struct ospf_interface *, int);
-extern int ospf_hello_timer(struct thread *thread);
+extern void ospf_hello_timer(struct thread *thread);
 extern int ospf_dr_election(struct ospf_interface *oi);
 
 DECLARE_HOOK(ospf_ism_change,

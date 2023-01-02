@@ -19,8 +19,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _QUAGGA_BGP_MPATH_H
-#define _QUAGGA_BGP_MPATH_H
+#ifndef _FRR_BGP_MPATH_H
+#define _FRR_BGP_MPATH_H
 
 /* Supplemental information linked to bgp_path_info for keeping track of
  * multipath selections, lazily allocated to save memory
@@ -51,20 +51,22 @@ struct bgp_path_info_mpath {
 };
 
 /* Functions to support maximum-paths configuration */
-extern int bgp_maximum_paths_set(struct bgp *, afi_t, safi_t, int, uint16_t,
-				 uint16_t);
-extern int bgp_maximum_paths_unset(struct bgp *, afi_t, safi_t, int);
+extern int bgp_maximum_paths_set(struct bgp *bgp, afi_t afi, safi_t safi,
+				 int peertype, uint16_t maxpaths,
+				 bool clusterlen);
+extern int bgp_maximum_paths_unset(struct bgp *bgp, afi_t afi, safi_t safi,
+				   int peertype);
 
 /* Functions used by bgp_best_selection to record current
  * multipath selections
  */
 extern int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
 				     struct bgp_path_info *bpi2);
-extern void bgp_mp_list_init(struct list *);
-extern void bgp_mp_list_clear(struct list *);
+extern void bgp_mp_list_init(struct list *mp_list);
+extern void bgp_mp_list_clear(struct list *mp_list);
 extern void bgp_mp_list_add(struct list *mp_list, struct bgp_path_info *mpinfo);
 extern void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best);
-extern void bgp_path_info_mpath_update(struct bgp_dest *dest,
+extern void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				       struct bgp_path_info *new_best,
 				       struct bgp_path_info *old_best,
 				       struct list *mp_list,
@@ -90,4 +92,4 @@ extern bool bgp_path_info_mpath_chkwtd(struct bgp *bgp,
 				       struct bgp_path_info *path);
 extern uint64_t bgp_path_info_mpath_cumbw(struct bgp_path_info *path);
 
-#endif /* _QUAGGA_BGP_MPATH_H */
+#endif /* _FRR_BGP_MPATH_H */

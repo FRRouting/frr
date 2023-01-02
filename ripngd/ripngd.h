@@ -137,10 +137,7 @@ struct ripng {
 
 	/* RIPng threads. */
 	struct thread *t_read;
-	struct thread *t_write;
 	struct thread *t_update;
-	struct thread *t_garbage;
-	struct thread *t_zebra;
 
 	/* Triggered update hack. */
 	int trigger;
@@ -314,8 +311,6 @@ enum ripng_event {
 
 /* RIPng timer on/off macro. */
 #define RIPNG_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
-
-#define RIPNG_TIMER_OFF(T)  thread_cancel(&(T))
 
 #define RIPNG_OFFSET_LIST_IN  0
 #define RIPNG_OFFSET_LIST_OUT 1

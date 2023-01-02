@@ -144,13 +144,29 @@ Route Map Match Command
 
    Matches the specified `prefix-len`. This is a Zebra specific command.
 
+.. clicmd:: match ip next-hop ACCESS_LIST
+
+   Match the next-hop according to the given access-list.
+
 .. clicmd:: match ip next-hop address IPV4_ADDR
 
    This is a BGP specific match command. Matches the specified `ipv4_addr`.
 
-.. clicmd:: match ipv6 next-hop IPV6_ADDR
+.. clicmd:: match ip next-hop prefix-list PREFIX_LIST
+
+   Match the next-hop according to the given prefix-list.
+
+.. clicmd:: match ipv6 next-hop ACCESS_LIST
+
+   Match the next-hop according to the given access-list.
+
+.. clicmd:: match ipv6 next-hop address IPV6_ADDR
 
    This is a BGP specific match command. Matches the specified `ipv6_addr`.
+
+.. clicmd:: match ipv6 next-hop prefix-list PREFIX_LIST
+
+   Match the next-hop according to the given prefix-list.
 
 .. clicmd:: match as-path AS_PATH
 
@@ -189,6 +205,11 @@ Route Map Match Command
   interface name specified if the neighbor was specified
   in this manner.
 
+.. clicmd:: match peer PEER_GROUP_NAME
+
+  This is a BGP specific match command. Matches the peer
+  group name specified for the peer in question.
+
 .. clicmd:: match source-protocol PROTOCOL_NAME
 
   This is a ZEBRA specific match command.  Matches the
@@ -198,6 +219,18 @@ Route Map Match Command
 
   This is a ZEBRA specific match command.  The number is a range from (0-255).
   Matches the originating protocols instance specified.
+
+.. clicmd:: match evpn route-type ROUTE_TYPE_NAME
+
+  This is a BGP EVPN specific match command. It matches to EVPN route-type
+  from type-1 (EAD route-type) to type-5 (Prefix route-type).
+  User can provide in an integral form (1-5) or string form of route-type
+  (i.e ead, macip, multicast, es, prefix).
+
+.. clicmd:: match evpn vni NUMBER
+
+  This is a BGP EVPN specific match command which matches to EVPN VNI id.
+  The number is a range from (1-6777215).
 
 .. _route-map-set-command:
 
@@ -211,7 +244,9 @@ Route Map Set Command
    Set a tag on the matched route. This tag value can be from (1-4294967295).
    Additionally if you have compiled with the :option:`--enable-realms`
    configure option. Tag values from (1-255) are sent to the Linux kernel as a
-   realm value. Then route policy can be applied. See the tc man page.
+   realm value. Then route policy can be applied. See the tc man page.  As
+   a note realms cannot currently be used with the installation of nexthops
+   as nexthop groups in the linux kernel.
 
 .. clicmd:: set ip next-hop IPV4_ADDRESS
 
@@ -304,6 +339,9 @@ Route Map Set Command
    Set the color of a SR-TE Policy to be applied to a learned route. The SR-TE
    Policy is uniquely determined by the color and the BGP nexthop.
 
+.. clicmd:: set l3vpn next-hop encapsulation gre
+
+   Accept L3VPN traffic over GRE encapsulation.
 
 .. _route-map-call-command:
 

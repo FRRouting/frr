@@ -131,7 +131,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -444,9 +444,10 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n"
-            "routes are not present in rib \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present in rib \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected behaviour: {}".format(result))
 
@@ -466,9 +467,10 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, (
-            "Testcase {} : Failed \n "
-            "routes are not present in rib \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present in rib \n Error: {}".format(
+            tc_name, result
         )
         logger.info("Expected behaviour: {}".format(result))
 
@@ -664,9 +666,10 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
             result = verify_rib(
                 tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
             )
-            assert result is not True, (
-                "Testcase {} : Failed \n "
-                "Routes are still present \n Error: {}".format(tc_name, result)
+            assert (
+                result is not True
+            ), "Testcase {} : Failed \nRoutes are still present \n Error: {}".format(
+                tc_name, result
             )
             logger.info("Expected behaviour: {}".format(result))
         else:

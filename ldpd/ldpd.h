@@ -63,15 +63,15 @@
 struct evbuf {
 	struct msgbuf		 wbuf;
 	struct thread		*ev;
-	int			 (*handler)(struct thread *);
+	void (*handler)(struct thread *);
 	void			*arg;
 };
 
 struct imsgev {
 	struct imsgbuf		 ibuf;
-	int			(*handler_write)(struct thread *);
+	void (*handler_write)(struct thread *);
 	struct thread		*ev_write;
-	int			(*handler_read)(struct thread *);
+	void (*handler_read)(struct thread *);
 	struct thread		*ev_read;
 };
 
@@ -352,7 +352,7 @@ struct iface_ldp_sync {
 
 struct iface {
 	RB_ENTRY(iface)		 entry;
-	char			 name[IF_NAMESIZE];
+	char			 name[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	struct if_addr_head	 addr_list;
 	struct in6_addr		 linklocal;
@@ -458,7 +458,7 @@ struct ldp_entity_stats {
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
 	struct l2vpn		*l2vpn;
-	char			 ifname[IF_NAMESIZE];
+	char			 ifname[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	int			 operative;
 	uint8_t			 mac[ETH_ALEN];
@@ -475,7 +475,7 @@ struct l2vpn_pw {
 	int			 af;
 	union ldpd_addr		 addr;
 	uint32_t		 pwid;
-	char			 ifname[IF_NAMESIZE];
+	char			 ifname[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	bool			 enabled;
 	uint32_t		 remote_group;
@@ -507,7 +507,7 @@ struct l2vpn {
 	int			 type;
 	int			 pw_type;
 	int			 mtu;
-	char			 br_ifname[IF_NAMESIZE];
+	char			 br_ifname[INTERFACE_NAMSIZ];
 	ifindex_t		 br_ifindex;
 	struct l2vpn_if_head	 if_tree;
 	struct l2vpn_pw_head	 pw_tree;
@@ -629,7 +629,7 @@ struct kroute {
 };
 
 struct kaddr {
-	char			 ifname[IF_NAMESIZE];
+	char			 ifname[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	int			 af;
 	union ldpd_addr		 addr;
@@ -638,7 +638,7 @@ struct kaddr {
 };
 
 struct kif {
-	char			 ifname[IF_NAMESIZE];
+	char			 ifname[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	int			 flags;
 	int			 operative;
@@ -656,7 +656,7 @@ struct acl_check {
 /* control data structures */
 struct ctl_iface {
 	int			 af;
-	char			 name[IF_NAMESIZE];
+	char			 name[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	int			 state;
 	enum iface_type		 type;
@@ -667,7 +667,7 @@ struct ctl_iface {
 };
 
 struct ctl_disc_if {
-	char			 name[IF_NAMESIZE];
+	char			 name[INTERFACE_NAMSIZ];
 	int			 active_v4;
 	int			 active_v6;
 	int			 no_adj;
@@ -683,7 +683,7 @@ struct ctl_adj {
 	int			 af;
 	struct in_addr		 id;
 	enum hello_type		 type;
-	char			 ifname[IF_NAMESIZE];
+	char			 ifname[INTERFACE_NAMSIZ];
 	union ldpd_addr		 src_addr;
 	uint16_t		 holdtime;
 	uint16_t		 holdtime_remaining;
@@ -723,7 +723,7 @@ struct ctl_rt {
 struct ctl_pw {
 	uint16_t		 type;
 	char			 l2vpn_name[L2VPN_NAME_LEN];
-	char			 ifname[IF_NAMESIZE];
+	char			 ifname[INTERFACE_NAMSIZ];
 	uint32_t		 pwid;
 	struct in_addr		 lsr_id;
 	uint32_t		 local_label;
@@ -739,7 +739,7 @@ struct ctl_pw {
 };
 
 struct ctl_ldp_sync {
-	char			 name[IF_NAMESIZE];
+	char			 name[INTERFACE_NAMSIZ];
 	ifindex_t		 ifindex;
 	bool			 in_sync;
 	bool			 timer_running;
@@ -792,7 +792,7 @@ void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
 socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
-int			 ldp_write_handler(struct thread *);
+void ldp_write_handler(struct thread *thread);
 void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
 void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
 int			 main_imsg_compose_both(enum imsg_type, void *,
@@ -802,8 +802,7 @@ int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t,
 			    pid_t, int, void *, uint16_t);
 void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
 void			 evbuf_event_add(struct evbuf *);
-void			 evbuf_init(struct evbuf *, int,
-			    int (*)(struct thread *), void *);
+void evbuf_init(struct evbuf *, int, void (*)(struct thread *), void *);
 void			 evbuf_clear(struct evbuf *);
 int			 ldp_acl_request(struct imsgev *, char *, int,
 			    union ldpd_addr *, uint8_t);

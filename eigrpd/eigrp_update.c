@@ -910,22 +910,20 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
  *
  * Uses nbr_gr_packet_type and t_nbr_send_gr from neighbor.
  */
-int eigrp_update_send_GR_thread(struct thread *thread)
+void eigrp_update_send_GR_thread(struct thread *thread)
 {
 	struct eigrp_neighbor *nbr;
 
 	/* get argument from thread */
 	nbr = THREAD_ARG(thread);
 	/* remove this thread pointer */
-	nbr->t_nbr_send_gr = NULL;
 
 	/* if there is packet waiting in queue,
 	 * schedule this thread again with small delay */
 	if (nbr->retrans_queue->count > 0) {
-		nbr->t_nbr_send_gr = NULL;
 		thread_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
 				      10, &nbr->t_nbr_send_gr);
-		return 0;
+		return;
 	}
 
 	/* send GR EIGRP packet chunk */
@@ -934,10 +932,7 @@ int eigrp_update_send_GR_thread(struct thread *thread)
 	/* if it wasn't last chunk, schedule this thread again */
 	if (nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST) {
 		thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
-		nbr->t_nbr_send_gr = NULL;
 	}
-
-	return 0;
 }
 
 /**
@@ -1003,7 +998,6 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 	nbr->nbr_gr_packet_type = EIGRP_PACKET_PART_FIRST;
 	/* execute packet sending in thread */
 	thread_execute(master, eigrp_update_send_GR_thread, nbr, 0);
-	nbr->t_nbr_send_gr = NULL;
 }
 
 /**

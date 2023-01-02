@@ -36,13 +36,13 @@
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
-
-#include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 /* clang-format on */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_vrf;
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -216,15 +216,15 @@ struct zserv {
 	 */
 
 	/* monotime of client creation */
-	_Atomic uint32_t connect_time;
+	_Atomic uint64_t connect_time;
 	/* monotime of last message received */
-	_Atomic uint32_t last_read_time;
+	_Atomic uint64_t last_read_time;
 	/* monotime of last message sent */
-	_Atomic uint32_t last_write_time;
+	_Atomic uint64_t last_write_time;
 	/* command code of last message read */
-	_Atomic uint32_t last_read_cmd;
+	_Atomic uint64_t last_read_cmd;
 	/* command code of last message written */
-	_Atomic uint32_t last_write_cmd;
+	_Atomic uint64_t last_write_cmd;
 
 	/*
 	 * Number of instances configured with
@@ -379,7 +379,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) void zebra_finalize(struct thread *event);
 
 /*
  * Graceful restart functions.

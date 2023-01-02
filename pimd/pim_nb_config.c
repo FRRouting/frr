@@ -31,8 +31,31 @@
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
 #include "pim_vxlan.h"
+#include "pim_util.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "pim_util.h"
+#include "pim6_mld.h"
+
+#if PIM_IPV == 6
+#define pim6_msdp_err(funcname, argtype)                                       \
+int funcname(struct argtype *args)                                             \
+{                                                                              \
+	snprintf(args->errmsg, args->errmsg_len,                               \
+		 "Trying to configure MSDP in pim6d.  "                        \
+		 "MSDP does not exist for IPv6.");                             \
+	return NB_ERR_VALIDATION;                                              \
+}                                                                              \
+MACRO_REQUIRE_SEMICOLON()
+
+#define yang_dnode_get_pimaddr yang_dnode_get_ipv6
+
+#else /* PIM_IPV != 6 */
+#define pim6_msdp_err(funcname, argtype)                                       \
+MACRO_REQUIRE_SEMICOLON()
+
+#define yang_dnode_get_pimaddr yang_dnode_get_ipv4
+#endif /* PIM_IPV != 6 */
 
 static void pim_if_membership_clear(struct interface *ifp)
 {
@@ -41,8 +64,7 @@ static void pim_if_membership_clear(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (PIM_IF_TEST_PIM(pim_ifp->options)
-	    && PIM_IF_TEST_IGMP(pim_ifp->options)) {
+	if (pim_ifp->pim_enable && pim_ifp->gm_enable) {
 		return;
 	}
 
@@ -62,15 +84,15 @@ static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *grpnode;
-	struct igmp_group *grp;
+	struct gm_group *grp;
 
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (!PIM_IF_TEST_PIM(pim_ifp->options))
+	if (!pim_ifp->pim_enable)
 		return;
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+	if (!pim_ifp->gm_enable)
 		return;
 
 	/*
@@ -86,18 +108,18 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	 */
 
 	/* scan igmp groups */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode, grp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode, grp)) {
 		struct listnode *srcnode;
-		struct igmp_source *src;
+		struct gm_source *src;
 
 		/* scan group sources */
 		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode,
 					  src)) {
 
 			if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags)) {
-				struct prefix_sg sg;
+				pim_sgaddr sg;
 
-				memset(&sg, 0, sizeof(struct prefix_sg));
+				memset(&sg, 0, sizeof(sg));
 				sg.src = src->source_addr;
 				sg.grp = grp->group_addr;
 				pim_ifchannel_local_membership_add(
@@ -105,7 +127,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 			}
 
 		} /* scan group sources */
-	}	  /* scan igmp groups */
+	}	 /* scan igmp groups */
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
@@ -121,7 +143,7 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	if (!pim_ifp)
 		pim_ifp = pim_if_new(ifp, false, true, false, false);
 	else
-		PIM_IF_DO_PIM(pim_ifp->options);
+		pim_ifp->pim_enable = true;
 
 	pim_if_addr_add_all(ifp);
 	pim_if_membership_refresh(ifp);
@@ -137,7 +159,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	if (!pim_ifp)
 		return 1;
 
-	PIM_IF_DONT_PIM(pim_ifp->options);
+	pim_ifp->pim_enable = false;
 
 	pim_if_membership_clear(ifp);
 
@@ -147,7 +169,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
 
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
+	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);
 		pim_if_delete(ifp);
 	}
@@ -156,8 +178,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 }
 
 static int interface_pim_use_src_cmd_worker(struct interface *ifp,
-		struct in_addr source_addr,
-		char *errmsg, size_t errmsg_len)
+		pim_addr source_addr, char *errmsg, size_t errmsg_len)
 {
 	int result;
 	int ret = NB_OK;
@@ -236,21 +257,17 @@ static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
 	return ret;
 }
 
-static int pim_rp_cmd_worker(struct pim_instance *pim,
-		struct in_addr rp_addr,
-		struct prefix group, const char *plist,
-		char *errmsg, size_t errmsg_len)
+static int pim_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
+			     struct prefix group, const char *plist,
+			     char *errmsg, size_t errmsg_len)
 {
-	char rp_str[INET_ADDRSTRLEN];
 	int result;
-
-	inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str));
 
 	result = pim_rp_new(pim, rp_addr, group, plist, RP_SRC_STATIC);
 
 	if (result == PIM_RP_NO_PATH) {
-		snprintf(errmsg, errmsg_len,
-			 "No Path to RP address specified: %s", rp_str);
+		snprintfrr(errmsg, errmsg_len,
+			   "No Path to RP address specified: %pPA", &rp_addr);
 		return NB_ERR_INCONSISTENCY;
 	}
 
@@ -275,16 +292,13 @@ static int pim_rp_cmd_worker(struct pim_instance *pim,
 	return NB_OK;
 }
 
-static int pim_no_rp_cmd_worker(struct pim_instance *pim,
-				struct in_addr rp_addr, struct prefix group,
-				const char *plist,
+static int pim_no_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
+				struct prefix group, const char *plist,
 				char *errmsg, size_t errmsg_len)
 {
-	char rp_str[INET_ADDRSTRLEN];
 	char group_str[PREFIX2STR_BUFFER];
 	int result;
 
-	inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str));
 	prefix2str(&group, group_str, sizeof(group_str));
 
 	result = pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
@@ -296,8 +310,8 @@ static int pim_no_rp_cmd_worker(struct pim_instance *pim,
 	}
 
 	if (result == PIM_RP_BAD_ADDRESS) {
-		snprintf(errmsg, errmsg_len,
-			 "Bad RP address specified: %s", rp_str);
+		snprintfrr(errmsg, errmsg_len, "Bad RP address specified: %pPA",
+			   &rp_addr);
 		return NB_ERR_INCONSISTENCY;
 	}
 
@@ -318,9 +332,12 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 
 	yang_dnode_get_path(dnode, if_xpath, sizeof(if_xpath));
 	pim_enable_dnode =
-		yang_dnode_getf(dnode, "%s/frr-pim:pim/pim-enable", if_xpath);
-	igmp_enable_dnode = yang_dnode_getf(
-		dnode, "%s/frr-igmp:igmp/igmp-enable", if_xpath);
+		yang_dnode_getf(dnode,
+				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
+				if_xpath, FRR_PIM_AF_XPATH_VAL);
+	igmp_enable_dnode = yang_dnode_getf(dnode,
+			"%s/frr-gmp:gmp/address-family[address-family='%s']/enable",
+			if_xpath, FRR_PIM_AF_XPATH_VAL);
 
 	if (((pim_enable_dnode) &&
 	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||
@@ -331,7 +348,7 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	return false;
 }
 
-static int pim_cmd_igmp_start(struct interface *ifp)
+static int pim_cmd_gm_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	uint8_t need_startup = 0;
@@ -342,8 +359,8 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 		pim_ifp = pim_if_new(ifp, true, false, false, false);
 		need_startup = 1;
 	} else {
-		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-			PIM_IF_DO_IGMP(pim_ifp->options);
+		if (!pim_ifp->gm_enable) {
+			pim_ifp->gm_enable = true;
 			need_startup = 1;
 		}
 	}
@@ -365,45 +382,33 @@ static int pim_cmd_igmp_start(struct interface *ifp)
  * This function propagates the reconfiguration to every active socket
  * for that interface.
  */
-static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
+#if PIM_IPV == 4
+static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
 	assert(igmp);
-
-	/* other querier present? */
-
-	if (igmp->t_other_querier_timer)
-		return;
-
-	/* this is the querier */
-
 	assert(igmp->interface);
 	assert(igmp->interface->info);
 
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
-		char ifaddr_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				sizeof(ifaddr_str));
-		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
-				__func__, ifaddr_str, ifp->name,
-				pim_ifp->igmp_default_query_interval);
-	}
+	if (PIM_DEBUG_GM_TRACE)
+		zlog_debug("%s: Querier %pPAs on %s reconfig query_interval=%d",
+			   __func__, &igmp->ifaddr, ifp->name,
+			   pim_ifp->gm_default_query_interval);
 
 	/*
 	 * igmp_startup_mode_on() will reset QQI:
 
-	 * igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
+	 * igmp->querier_query_interval = pim_ifp->gm_default_query_interval;
 	 */
 	igmp_startup_mode_on(igmp);
 }
 
-static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
+static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 {
 	if (igmp->mtrace_only)
 		return;
@@ -431,36 +436,45 @@ static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
 		assert(igmp->t_other_querier_timer);
 	}
 }
+#endif /* PIM_IPV == 4 */
 
+#if PIM_IPV == 4
 static void change_query_interval(struct pim_interface *pim_ifp,
 		int query_interval)
 {
 	struct listnode *sock_node;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 
-	pim_ifp->igmp_default_query_interval = query_interval;
+	pim_ifp->gm_default_query_interval = query_interval;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 		igmp_sock_query_interval_reconfig(igmp);
 		igmp_sock_query_reschedule(igmp);
 	}
 }
+#endif
 
-static void change_query_max_response_time(struct pim_interface *pim_ifp,
-		int query_max_response_time_dsec)
+static void change_query_max_response_time(struct interface *ifp,
+					   int query_max_response_time_dsec)
 {
+#if PIM_IPV == 4
 	struct listnode *sock_node;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct listnode *grp_node;
-	struct igmp_group *grp;
+	struct gm_group *grp;
+#endif
 
-	if (pim_ifp->igmp_query_max_response_time_dsec
-	    == query_max_response_time_dsec)
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (pim_ifp->gm_query_max_response_time_dsec ==
+	    query_max_response_time_dsec)
 		return;
 
-	pim_ifp->igmp_query_max_response_time_dsec =
-		query_max_response_time_dsec;
+	pim_ifp->gm_query_max_response_time_dsec = query_max_response_time_dsec;
 
+#if PIM_IPV == 6
+	gm_ifp_update(ifp);
+#else
 	/*
 	 * Below we modify socket/group/source timers in order to quickly
 	 * reflect the change. Otherwise, those timers would args->eventually
@@ -468,15 +482,15 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	 */
 
 	/* scan all sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 		/* reschedule socket general query */
 		igmp_sock_query_reschedule(igmp);
 	}
 
 	/* scan socket groups */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grp_node, grp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grp_node, grp)) {
 		struct listnode *src_node;
-		struct igmp_source *src;
+		struct gm_source *src;
 
 		/* reset group timers for groups in EXCLUDE mode */
 		if (grp->group_filtermode_isexcl)
@@ -493,6 +507,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 				igmp_source_reset_gmi(grp, src);
 		}
 	}
+#endif /* PIM_IPV == 4 */
 }
 
 int routing_control_plane_protocols_name_validate(
@@ -510,9 +525,38 @@ int routing_control_plane_protocols_name_validate(
 }
 
 /*
- * XPath: /frr-pim:pim/packets
+ * XPath: /frr-pim:pim/address-family
  */
-int pim_packets_modify(struct nb_cb_modify_args *args)
+int pim_address_family_create(struct nb_cb_create_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_address_family_destroy(struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-pim:pim/address-family/packets
+ */
+int pim_address_family_packets_modify(struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -529,9 +573,10 @@ int pim_packets_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-pim:pim/join-prune-interval
+ * XPath: /frr-pim:pim/address-family/join-prune-interval
  */
-int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
+int pim_address_family_join_prune_interval_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -547,9 +592,10 @@ int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-pim:pim/register-suppress-time
+ * XPath: /frr-pim:pim/address-family/register-suppress-time
  */
-int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
+int pim_address_family_register_suppress_time_modify(
+	struct nb_cb_modify_args *args)
 {
 	uint16_t value;
 	switch (args->event) {
@@ -585,9 +631,9 @@ int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/ecmp
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/ecmp
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ecmp_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -608,9 +654,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_modify(
 }
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/ecmp-rebalance
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/ecmp-rebalance
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_rebalance_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ecmp_rebalance_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -632,9 +678,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_ecmp_rebalance_mo
 }
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/keep-alive-timer
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/keep-alive-timer
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_keep_alive_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_keep_alive_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -656,9 +702,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_keep_alive_timer_
 }
 
 /*
- * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/rp-keep-alive-timer
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/rp-keep-alive-timer
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_rp_keep_alive_timer_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_keep_alive_timer_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -705,7 +751,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_de
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -897,7 +942,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	int result;
-	struct ipaddr source_addr;
+	pim_addr source_addr;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -907,16 +952,14 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
-		result = pim_ssmpingd_start(pim, source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		result = pim_ssmpingd_start(pim, source_addr);
 		if (result) {
-			char source_str[INET_ADDRSTRLEN];
-
-			ipaddr2str(&source_addr, source_str,
-					sizeof(source_str));
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure starting ssmpingd for source %s: %d",
-				 source_str, result);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% Failure starting ssmpingd for source %pPA: %d",
+				&source_addr, result);
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
@@ -930,7 +973,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	int result;
-	struct ipaddr source_addr;
+	pim_addr source_addr;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -940,16 +983,14 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
-		result = pim_ssmpingd_stop(pim, source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		result = pim_ssmpingd_stop(pim, source_addr);
 		if (result) {
-			char source_str[INET_ADDRSTRLEN];
-
-			ipaddr2str(&source_addr, source_str,
-				   sizeof(source_str));
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure stopping ssmpingd for source %s: %d",
-				  source_str, result);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% Failure stopping ssmpingd for source %pPA: %d",
+				&source_addr, result);
 			return NB_ERR_INCONSISTENCY;
 		}
 
@@ -1032,6 +1073,20 @@ int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+pim6_msdp_err(pim_msdp_mesh_group_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_mesh_group_create, nb_cb_create_args);
+pim6_msdp_err(pim_msdp_mesh_group_source_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_mesh_group_source_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_mesh_group_members_create, nb_cb_create_args);
+pim6_msdp_err(pim_msdp_mesh_group_members_destroy, nb_cb_destroy_args);
+pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify,
+	      nb_cb_modify_args);
+pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_destroy,
+	      nb_cb_destroy_args);
+pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create,
+	      nb_cb_create_args);
+
+#if PIM_IPV != 6
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups
@@ -1261,6 +1316,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 
 	return NB_OK;
 }
+#endif /* PIM_IPV != 6 */
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag
@@ -1476,9 +1532,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family
  */
-int lib_interface_pim_create(struct nb_cb_create_args *args)
+int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1491,7 +1547,7 @@ int lib_interface_pim_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int lib_interface_pim_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1519,9 +1575,9 @@ int lib_interface_pim_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/pim-enable
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/pim-enable
  */
-int lib_interface_pim_pim_enable_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1573,9 +1629,36 @@ int lib_interface_pim_pim_enable_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/hello-interval
+ * XPath:
+ * /frr-interface:lib/interface/frr-pim:pim/address-family/pim-passive-enable
  */
-int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_pim_passive_enable_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->pim_passive_enable =
+			yang_dnode_get_bool(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/hello-interval
+ */
+int lib_interface_pim_address_family_hello_interval_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1598,9 +1681,10 @@ int lib_interface_pim_hello_interval_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/hello-holdtime
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/hello-holdtime
  */
-int lib_interface_pim_hello_holdtime_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_hello_holdtime_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1622,7 +1706,8 @@ int lib_interface_pim_hello_holdtime_modify(struct nb_cb_modify_args *args)
 
 }
 
-int lib_interface_pim_hello_holdtime_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_pim_address_family_hello_holdtime_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1642,9 +1727,9 @@ int lib_interface_pim_hello_holdtime_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd
  */
-int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
+int lib_interface_pim_address_family_bfd_create(struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1665,7 +1750,8 @@ int lib_interface_pim_bfd_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int lib_interface_pim_bfd_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_pim_address_family_bfd_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1695,9 +1781,10 @@ int lib_interface_pim_bfd_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd
  */
-void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
+void lib_interface_pim_address_family_bfd_apply_finish(
+	struct nb_cb_apply_finish_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1721,9 +1808,10 @@ void lib_interface_pim_bfd_apply_finish(struct nb_cb_apply_finish_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd/min-rx-interval
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd/min-rx-interval
  */
-int lib_interface_pim_bfd_min_rx_interval_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_bfd_min_rx_interval_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1737,9 +1825,10 @@ int lib_interface_pim_bfd_min_rx_interval_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd/min-tx-interval
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd/min-tx-interval
  */
-int lib_interface_pim_bfd_min_tx_interval_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_bfd_min_tx_interval_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1753,9 +1842,10 @@ int lib_interface_pim_bfd_min_tx_interval_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd/detect_mult
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd/detect_mult
  */
-int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_bfd_detect_mult_modify(
+	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1769,9 +1859,10 @@ int lib_interface_pim_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bfd/profile
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd/profile
  */
-int lib_interface_pim_bfd_profile_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_bfd_profile_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1794,7 +1885,8 @@ int lib_interface_pim_bfd_profile_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int lib_interface_pim_bfd_profile_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_pim_address_family_bfd_profile_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1816,9 +1908,9 @@ int lib_interface_pim_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/bsm
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bsm
  */
-int lib_interface_pim_bsm_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_bsm_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1840,9 +1932,10 @@ int lib_interface_pim_bsm_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/unicast-bsm
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/unicast-bsm
  */
-int lib_interface_pim_unicast_bsm_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_unicast_bsm_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1865,9 +1958,10 @@ int lib_interface_pim_unicast_bsm_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/active-active
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/active-active
  */
-int lib_interface_pim_active_active_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_active_active_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1902,9 +1996,10 @@ int lib_interface_pim_active_active_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/dr-priority
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/dr-priority
  */
-int lib_interface_pim_dr_priority_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_dr_priority_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1916,7 +2011,7 @@ int lib_interface_pim_dr_priority_modify(struct nb_cb_modify_args *args)
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
 		if (!is_pim_interface(if_dnode)) {
 			snprintf(args->errmsg, args->errmsg_len,
-					"Pim not enabled on this interface");
+				 "Pim not enabled on this interface");
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1941,41 +2036,13 @@ int lib_interface_pim_dr_priority_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family
- */
-int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/use-source
  */
-int lib_interface_pim_address_family_use_source_modify(struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_use_source_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct ipaddr source_addr;
+	pim_addr source_addr;
 	int result;
 	const struct lyd_node *if_dnode;
 
@@ -1993,10 +2060,14 @@ int lib_interface_pim_address_family_use_source_modify(struct nb_cb_modify_args 
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
+#if PIM_IPV == 4
+		yang_dnode_get_ipv4(&source_addr, args->dnode, NULL);
+#else
+		yang_dnode_get_ipv6(&source_addr, args->dnode, NULL);
+#endif
 
 		result = interface_pim_use_src_cmd_worker(
-				ifp, source_addr.ip._v4_addr,
+				ifp, source_addr,
 				args->errmsg, args->errmsg_len);
 
 		if (result != PIM_SUCCESS)
@@ -2012,7 +2083,6 @@ int lib_interface_pim_address_family_use_source_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct in_addr source_addr = {INADDR_ANY};
 	int result;
 	const struct lyd_node *if_dnode;
 
@@ -2021,7 +2091,7 @@ int lib_interface_pim_address_family_use_source_destroy(
 		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
 		if (!is_pim_interface(if_dnode)) {
 			snprintf(args->errmsg, args->errmsg_len,
-					"Pim not enabled on this interface");
+				 "Pim not enabled on this interface");
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2031,7 +2101,7 @@ int lib_interface_pim_address_family_use_source_destroy(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 
-		result = interface_pim_use_src_cmd_worker(ifp, source_addr,
+		result = interface_pim_use_src_cmd_worker(ifp, PIMADDR_ANY,
 				args->errmsg,
 				args->errmsg_len);
 
@@ -2139,8 +2209,8 @@ int lib_interface_pim_address_family_mroute_destroy(
 	struct interface *iif;
 	struct interface *oif;
 	const char *oifname;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
@@ -2170,11 +2240,10 @@ int lib_interface_pim_address_family_mroute_destroy(
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
 
-		if (pim_static_del(pim, iif, oif, group_addr.ip._v4_addr,
-					source_addr.ip._v4_addr)) {
+		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
 					"Failed to remove static mroute");
 			return NB_ERR_INCONSISTENCY;
@@ -2197,8 +2266,8 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	struct interface *iif;
 	struct interface *oif;
 	const char *oifname;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
@@ -2247,11 +2316,10 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		yang_dnode_get_ip(&source_addr, args->dnode, "../source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "../group-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
 
-		if (pim_static_add(pim, iif, oif, group_addr.ip._v4_addr,
-				   source_addr.ip._v4_addr)) {
+		if (pim_static_add(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Failed to add static mroute");
 			return NB_ERR_INCONSISTENCY;
@@ -2300,7 +2368,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	struct prefix group;
-	struct ipaddr rp_addr;
+	pim_addr rp_addr;
 	const char *plist;
 	int result = 0;
 
@@ -2312,31 +2380,30 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&rp_addr, args->dnode, "./rp-address");
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "./rp-address");
 
 		if (yang_dnode_get(args->dnode, "./group-list")) {
-			yang_dnode_get_ipv4p(&group, args->dnode,
-					"./group-list");
-			apply_mask_ipv4((struct prefix_ipv4 *)&group);
-			result = pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr,
-					group, NULL, args->errmsg,
-					args->errmsg_len);
+			yang_dnode_get_prefix(&group, args->dnode,
+					      "./group-list");
+			apply_mask(&group);
+			result = pim_no_rp_cmd_worker(pim, rp_addr, group, NULL,
+						      args->errmsg,
+						      args->errmsg_len);
 		}
 
 		else if (yang_dnode_get(args->dnode, "./prefix-list")) {
 			plist = yang_dnode_get_string(args->dnode,
 					"./prefix-list");
-			if (!str2prefix("224.0.0.0/4", &group)) {
+			if (!pim_get_all_mcast_group(&group)) {
 				flog_err(
 					EC_LIB_DEVELOPMENT,
 					"Unable to convert 224.0.0.0/4 to prefix");
 				return NB_ERR_INCONSISTENCY;
 			}
 
-			result = pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr,
-					group, plist,
-					args->errmsg,
-					args->errmsg_len);
+			result = pim_no_rp_cmd_worker(pim, rp_addr, group,
+						      plist, args->errmsg,
+						      args->errmsg_len);
 		}
 
 		if (result)
@@ -2356,7 +2423,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	struct prefix group;
-	struct ipaddr rp_addr;
+	pim_addr rp_addr;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2366,12 +2433,11 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
-		yang_dnode_get_ipv4p(&group, args->dnode, NULL);
-		apply_mask_ipv4((struct prefix_ipv4 *)&group);
-
-		return pim_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
-				NULL, args->errmsg, args->errmsg_len);
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_prefix(&group, args->dnode, NULL);
+		apply_mask(&group);
+		return pim_rp_cmd_worker(pim, rp_addr, group, NULL,
+					 args->errmsg, args->errmsg_len);
 	}
 
 	return NB_OK;
@@ -2383,7 +2449,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	struct prefix group;
-	struct ipaddr rp_addr;
+	pim_addr rp_addr;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2393,13 +2459,12 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
-		yang_dnode_get_ipv4p(&group, args->dnode, NULL);
-		apply_mask_ipv4((struct prefix_ipv4 *)&group);
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_prefix(&group, args->dnode, NULL);
+		apply_mask(&group);
 
-		return pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
-				NULL, args->errmsg,
-				args->errmsg_len);
+		return pim_no_rp_cmd_worker(pim, rp_addr, group, NULL,
+					    args->errmsg, args->errmsg_len);
 	}
 
 	return NB_OK;
@@ -2414,7 +2479,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	struct prefix group;
-	struct ipaddr rp_addr;
+	pim_addr rp_addr;
 	const char *plist;
 
 	switch (args->event) {
@@ -2426,14 +2491,14 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
-		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
-		if (!str2prefix("224.0.0.0/4", &group)) {
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
+		if (!pim_get_all_mcast_group(&group)) {
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Unable to convert 224.0.0.0/4 to prefix");
 			return NB_ERR_INCONSISTENCY;
 		}
-		return pim_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
-				plist, args->errmsg, args->errmsg_len);
+		return pim_rp_cmd_worker(pim, rp_addr, group, plist,
+					 args->errmsg, args->errmsg_len);
 	}
 
 	return NB_OK;
@@ -2445,7 +2510,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	struct prefix group;
-	struct ipaddr rp_addr;
+	pim_addr rp_addr;
 	const char *plist;
 
 	switch (args->event) {
@@ -2456,16 +2521,15 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
+		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		plist = yang_dnode_get_string(args->dnode, NULL);
-		if (!str2prefix("224.0.0.0/4", &group)) {
+		if (!pim_get_all_mcast_group(&group)) {
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Unable to convert 224.0.0.0/4 to prefix");
 			return NB_ERR_INCONSISTENCY;
 		}
-		return pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
-				plist, args->errmsg,
-				args->errmsg_len);
+		return pim_no_rp_cmd_worker(pim, rp_addr, group, plist,
+					    args->errmsg, args->errmsg_len);
 		break;
 	}
 
@@ -2473,9 +2537,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family
  */
-int lib_interface_igmp_create(struct nb_cb_create_args *args)
+int lib_interface_gmp_address_family_create(struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2488,7 +2552,7 @@ int lib_interface_igmp_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2505,13 +2569,13 @@ int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		PIM_IF_DONT_IGMP(pim_ifp->options);
+		pim_ifp->gm_enable = false;
 
 		pim_if_membership_clear(ifp);
 
 		pim_if_addr_del_all_igmp(ifp);
 
-		if (!PIM_IF_TEST_PIM(pim_ifp->options))
+		if (!pim_ifp->pim_enable)
 			pim_if_delete(ifp);
 	}
 
@@ -2519,12 +2583,13 @@ int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/igmp-enable
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/enable
  */
-int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
+int lib_interface_gmp_address_family_enable_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	bool igmp_enable;
+	bool gm_enable;
 	struct pim_interface *pim_ifp;
 	int mcast_if_count;
 	const char *ifp_name;
@@ -2538,9 +2603,10 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 		/* Limiting mcast interfaces to number of VIFs */
 		if (mcast_if_count == MAXVIFS) {
 			ifp_name = yang_dnode_get_string(if_dnode, "name");
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Max multicast interfaces(%d) Reached. Could not enable IGMP on interface %s",
-				 MAXVIFS, ifp_name);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Max multicast interfaces(%d) Reached. Could not enable %s on interface %s",
+				MAXVIFS, GM, ifp_name);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2549,10 +2615,10 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		igmp_enable = yang_dnode_get_bool(args->dnode, NULL);
+		gm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
-		if (igmp_enable)
-			return pim_cmd_igmp_start(ifp);
+		if (gm_enable)
+			return pim_cmd_gm_start(ifp);
 
 		else {
 			pim_ifp = ifp->info;
@@ -2560,24 +2626,28 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			PIM_IF_DONT_IGMP(pim_ifp->options);
+			pim_ifp->gm_enable = false;
 
 			pim_if_membership_clear(ifp);
 
+#if PIM_IPV == 4
 			pim_if_addr_del_all_igmp(ifp);
+#else
+			gm_ifp_teardown(ifp);
+#endif
 
-			if (!PIM_IF_TEST_PIM(pim_ifp->options))
+			if (!pim_ifp->pim_enable)
 				pim_if_delete(ifp);
 		}
 	}
-
 	return NB_OK;
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/version
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/igmp-version
  */
-int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
+int lib_interface_gmp_address_family_igmp_version_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2611,7 +2681,8 @@ int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_gmp_address_family_igmp_version_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2632,13 +2703,68 @@ int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/query-interval
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/mld-version
  */
-int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
+int lib_interface_gmp_address_family_mld_version_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		pim_ifp->mld_version = yang_dnode_get_uint8(args->dnode, NULL);
+		gm_ifp_update(ifp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_gmp_address_family_mld_version_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		pim_ifp->mld_version = 2;
+		gm_ifp_update(ifp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/query-interval
+ */
+int lib_interface_gmp_address_family_query_interval_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	int query_interval;
 
+#if PIM_IPV == 4
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
@@ -2649,14 +2775,32 @@ int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
 		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
 		change_query_interval(ifp->info, query_interval);
 	}
+#else
+	struct pim_interface *pim_ifp;
 
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
+		pim_ifp->gm_default_query_interval = query_interval;
+		gm_ifp_update(ifp);
+	}
+#endif
 	return NB_OK;
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/query-max-response-time
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/query-max-response-time
  */
-int lib_interface_igmp_query_max_response_time_modify(
+int lib_interface_gmp_address_family_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
@@ -2671,17 +2815,17 @@ int lib_interface_igmp_query_max_response_time_modify(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		query_max_response_time_dsec =
 			yang_dnode_get_uint16(args->dnode, NULL);
-		change_query_max_response_time(ifp->info,
-				query_max_response_time_dsec);
+		change_query_max_response_time(ifp,
+					       query_max_response_time_dsec);
 	}
 
 	return NB_OK;
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/last-member-query-interval
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/last-member-query-interval
  */
-int lib_interface_igmp_last_member_query_interval_modify(
+int lib_interface_gmp_address_family_last_member_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
@@ -2698,8 +2842,11 @@ int lib_interface_igmp_last_member_query_interval_modify(
 		pim_ifp = ifp->info;
 		last_member_query_interval =
 			yang_dnode_get_uint16(args->dnode, NULL);
-		pim_ifp->igmp_specific_query_max_response_time_dsec =
+		pim_ifp->gm_specific_query_max_response_time_dsec =
 			last_member_query_interval;
+#if PIM_IPV == 6
+		gm_ifp_update(ifp);
+#endif
 
 		break;
 	}
@@ -2708,9 +2855,9 @@ int lib_interface_igmp_last_member_query_interval_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/robustness-variable
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/robustness-variable
  */
-int lib_interface_igmp_robustness_variable_modify(
+int lib_interface_gmp_address_family_robustness_variable_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
@@ -2725,10 +2872,12 @@ int lib_interface_igmp_robustness_variable_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		last_member_query_count = yang_dnode_get_uint8(args->dnode,
-				NULL);
-		pim_ifp->igmp_last_member_query_count = last_member_query_count;
-
+		last_member_query_count =
+			yang_dnode_get_uint8(args->dnode, NULL);
+		pim_ifp->gm_last_member_query_count = last_member_query_count;
+#if PIM_IPV == 6
+		gm_ifp_update(ifp);
+#endif
 		break;
 	}
 
@@ -2736,40 +2885,12 @@ int lib_interface_igmp_robustness_variable_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/address-family
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group
  */
-int lib_interface_igmp_address_family_create(struct nb_cb_create_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_interface_igmp_address_family_destroy(struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/address-family/static-group
- */
-int lib_interface_igmp_address_family_static_group_create(
+int lib_interface_gmp_address_family_static_group_create(
 	struct nb_cb_create_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	struct ipaddr source_addr;
 	struct ipaddr group_addr;
@@ -2785,6 +2906,14 @@ int lib_interface_igmp_address_family_static_group_create(
 			snprintf(args->errmsg, args->errmsg_len,
 				 "multicast not enabled on interface %s",
 				 ifp_name);
+			return NB_ERR_VALIDATION;
+		}
+
+		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+		if (pim_is_group_224_0_0_0_24(group_addr.ip._v4_addr)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Groups within 224.0.0.0/24 are reserved and cannot be joined");
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -2804,11 +2933,13 @@ int lib_interface_igmp_address_family_static_group_create(
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
-int lib_interface_igmp_address_family_static_group_destroy(
+int lib_interface_gmp_address_family_static_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;

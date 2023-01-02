@@ -23,11 +23,19 @@
 
 #include "vxlan.h"
 
+/* Macro to update bgp_original based on bpg_path_info */
+#define BGP_ORIGINAL_UPDATE(_bgp_orig, _mpinfo, _bgp)                          \
+	((_mpinfo->extra && _mpinfo->extra->bgp_orig                           \
+	  && _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                          \
+		 ? (_bgp_orig = _mpinfo->extra->bgp_orig)                      \
+		 : (_bgp_orig = _bgp))
+
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
 extern void bgp_zebra_init(struct thread_master *master,
 			   unsigned short instance);
+extern void bgp_if_init(void);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
 extern uint32_t bgp_zebra_tm_get_id(void);
 extern bool bgp_zebra_tm_chunk_obtained(void);
@@ -38,7 +46,7 @@ extern int bgp_if_update_all(void);
 extern void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       afi_t afi, safi_t safi);
-extern void bgp_zebra_announce_table(struct bgp *, afi_t, safi_t);
+extern void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_zebra_withdraw(const struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       safi_t safi);
@@ -54,44 +62,54 @@ extern void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi,
 extern void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer);
 extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);
 
-extern void bgp_zebra_instance_register(struct bgp *);
-extern void bgp_zebra_instance_deregister(struct bgp *);
+extern void bgp_zebra_instance_register(struct bgp *bgp);
+extern void bgp_zebra_instance_deregister(struct bgp *bgp);
 
 extern void bgp_redistribute_redo(struct bgp *bgp);
-extern struct bgp_redist *bgp_redist_lookup(struct bgp *, afi_t, uint8_t,
-					    unsigned short);
-extern struct bgp_redist *bgp_redist_add(struct bgp *, afi_t, uint8_t,
-					 unsigned short);
-extern int bgp_redistribute_set(struct bgp *, afi_t, int, unsigned short,
-				bool changed);
-extern int bgp_redistribute_resend(struct bgp *, afi_t, int, unsigned short);
+extern struct bgp_redist *bgp_redist_lookup(struct bgp *bgp, afi_t afi,
+					    uint8_t type,
+					    unsigned short instance);
+extern struct bgp_redist *bgp_redist_add(struct bgp *bgp, afi_t afi,
+					 uint8_t type, unsigned short instance);
+extern int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
+				unsigned short instance, bool changed);
+extern int bgp_redistribute_resend(struct bgp *bgp, afi_t afi, int type,
+				   unsigned short instance);
 extern bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 				      struct route_map *route_map);
-extern bool bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *,
-					afi_t, int, uint32_t);
-extern int bgp_redistribute_unset(struct bgp *, afi_t, int, unsigned short);
-extern int bgp_redistribute_unreg(struct bgp *, afi_t, int, unsigned short);
+extern bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
+					afi_t afi, int type, uint32_t metric);
+extern int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
+				  unsigned short instance);
+extern int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
+				  unsigned short instance);
 
-extern struct interface *if_lookup_by_ipv4(struct in_addr *, vrf_id_t);
-extern struct interface *if_lookup_by_ipv4_exact(struct in_addr *, vrf_id_t);
-extern struct interface *if_lookup_by_ipv6(struct in6_addr *, ifindex_t,
-					   vrf_id_t);
-extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *, ifindex_t,
-						 vrf_id_t);
+extern struct interface *if_lookup_by_ipv4(struct in_addr *addr,
+					   vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr,
+						 vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_ipv6(struct in6_addr *addr,
+					   ifindex_t ifindex, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
+						 ifindex_t ifindex,
+						 vrf_id_t vrf_id);
 extern int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise,
 				      vni_t vni);
-extern int bgp_zebra_advertise_gw_macip(struct bgp *, int, vni_t);
+extern int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise,
+					vni_t vni);
 extern int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise,
 					 vni_t vni);
-extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
+extern int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise);
 extern int bgp_zebra_dup_addr_detection(struct bgp *bgp);
 extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
 					 enum vxlan_flood_control flood_ctrl);
 
 extern int bgp_zebra_num_connects(void);
 
-extern bool bgp_zebra_nexthop_set(union sockunion *, union sockunion *,
-				  struct bgp_nexthop *, struct peer *);
+extern bool bgp_zebra_nexthop_set(union sockunion *local,
+				  union sockunion *remote,
+				  struct bgp_nexthop *nexthop,
+				  struct peer *peer);
 struct bgp_pbr_action;
 struct bgp_pbr_match;
 struct bgp_pbr_rule;

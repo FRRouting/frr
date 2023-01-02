@@ -28,10 +28,11 @@
 
 #include "pim_tlv.h"
 #include "pim_iface.h"
+#include "pim_str.h"
 
 struct pim_neighbor {
 	int64_t creation; /* timestamp of creation */
-	struct in_addr source_addr;
+	pim_addr source_addr;
 	pim_hello_options hello_options;
 	uint16_t holdtime;
 	uint16_t propagation_delay_msec;
@@ -50,7 +51,7 @@ struct pim_neighbor {
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);
 void pim_neighbor_free(struct pim_neighbor *neigh);
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
-				       struct in_addr source_addr);
+				       pim_addr source_addr);
 struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 						    struct prefix *src);
 struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp);
@@ -59,7 +60,7 @@ struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp);
 #define PIM_NEIGHBOR_SEND_DELAY 0
 #define PIM_NEIGHBOR_SEND_NOW   1
 struct pim_neighbor *
-pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
+pim_neighbor_add(struct interface *ifp, pim_addr source_addr,
 		 pim_hello_options hello_options, uint16_t holdtime,
 		 uint16_t propagation_delay, uint16_t override_interval,
 		 uint32_t dr_priority, uint32_t generation_id,

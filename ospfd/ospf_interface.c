@@ -66,15 +66,16 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		nbr = rn->info;
-		if (nbr) {
-			/* Do not show myself. */
-			if (nbr == oi->nbr_self)
-				continue;
-			/* Down state is not shown. */
-			if (nbr->state == NSM_Down)
-				continue;
-			count++;
-		}
+		if (!nbr)
+			continue;
+
+		/* Do not show myself. */
+		if (nbr == oi->nbr_self)
+			continue;
+		/* Down state is not shown. */
+		if (nbr->state == NSM_Down)
+			continue;
+		count++;
 	}
 
 	return count;
@@ -102,7 +103,7 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 					: OSPF_DEFAULT_BANDWIDTH;
 	refbw = oi->ospf->ref_bandwidth;
 
-	/* A specifed ip ospf cost overrides a calculated one. */
+	/* A specified ip ospf cost overrides a calculated one. */
 	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), output_cost_cmd)
 	    || OSPF_IF_PARAM_CONFIGURED(oi->params, output_cost_cmd))
 		cost = OSPF_IF_PARAM(oi, output_cost_cmd);
@@ -302,7 +303,7 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	/* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
 	/* delete all static neighbors attached to this interface */
 	for (ALL_LIST_ELEMENTS(oi->nbr_nbma, node, nnode, nbr_nbma)) {
-		OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
+		THREAD_OFF(nbr_nbma->t_poll);
 
 		if (nbr_nbma->nbr) {
 			nbr_nbma->nbr->nbr_nbma = NULL;
@@ -315,10 +316,11 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	}
 
 	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		if ((nbr = rn->info) != NULL)
 			if (nbr != oi->nbr_self)
 				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+	}
 
 	/* Cleanup Link State Acknowlegdment list. */
 	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))
@@ -360,9 +362,8 @@ void ospf_if_free(struct ospf_interface *oi)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
-			   __func__, oi->ifp->name,
-			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
-			   oi->ifp->vrf_id);
+			   __func__, oi->ifp->name, oi->ifp->vrf->name,
+			   oi->ifp->vrf->vrf_id);
 
 	ospf_delete_from_if(oi->ifp, oi);
 
@@ -460,13 +461,13 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 {
 	struct route_node *rn;
 	struct prefix_ipv4 addr;
-	struct ospf_interface *oi, *match;
+	struct ospf_interface *oi, *match, *unnumbered_match;
 
 	addr.family = AF_INET;
 	addr.prefix = src;
 	addr.prefixlen = IPV4_MAX_BITLEN;
 
-	match = NULL;
+	match = unnumbered_match = NULL;
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		oi = rn->info;
@@ -477,11 +478,11 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 			continue;
 
-		if (if_is_loopback(oi->ifp) || if_is_vrf(oi->ifp))
+		if (if_is_loopback(oi->ifp))
 			continue;
 
 		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
-			match = oi;
+			unnumbered_match = oi;
 		else if (prefix_match(CONNECTED_PREFIX(oi->connected),
 				      (struct prefix *)&addr)) {
 			if ((match == NULL) || (match->address->prefixlen
@@ -490,7 +491,24 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 		}
 	}
 
-	return match;
+	if (match)
+		return match;
+
+	return unnumbered_match;
+}
+
+void ospf_interface_fifo_flush(struct ospf_interface *oi)
+{
+	struct ospf *ospf = oi->ospf;
+
+	ospf_fifo_flush(oi->obuf);
+
+	if (oi->on_write_q) {
+		listnode_delete(ospf->oi_write_q, oi);
+		if (list_isempty(ospf->oi_write_q))
+			THREAD_OFF(ospf->t_write);
+		oi->on_write_q = 0;
+	}
 }
 
 static void ospf_if_reset_stats(struct ospf_interface *oi)
@@ -504,19 +522,10 @@ static void ospf_if_reset_stats(struct ospf_interface *oi)
 
 void ospf_if_stream_unset(struct ospf_interface *oi)
 {
-	struct ospf *ospf = oi->ospf;
-
 	/* flush the interface packet queue */
-	ospf_fifo_flush(oi->obuf);
+	ospf_interface_fifo_flush(oi);
 	/*reset protocol stats */
 	ospf_if_reset_stats(oi);
-
-	if (oi->on_write_q) {
-		listnode_delete(ospf->oi_write_q, oi);
-		if (list_isempty(ospf->oi_write_q))
-			OSPF_TIMER_OFF(ospf->t_write);
-		oi->on_write_q = 0;
-	}
 }
 
 
@@ -705,11 +714,11 @@ static int ospf_if_delete_hook(struct interface *ifp)
 	 */
 	ospf_del_if_params(ifp, IF_DEF_PARAMS(ifp));
 
-	route_table_finish(IF_OIFS(ifp));
-
 	for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
 		if (rn->info)
 			ospf_del_if_params(ifp, rn->info);
+
+	route_table_finish(IF_OIFS(ifp));
 	route_table_finish(IF_OIFS_PARAMS(ifp));
 
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
@@ -719,7 +728,7 @@ static int ospf_if_delete_hook(struct interface *ifp)
 
 int ospf_if_is_enable(struct ospf_interface *oi)
 {
-	if (!(if_is_loopback(oi->ifp) || if_is_vrf(oi->ifp)))
+	if (!(if_is_loopback(oi->ifp)))
 		if (if_is_up(oi->ifp))
 			return 1;
 
@@ -846,6 +855,8 @@ int ospf_if_down(struct ospf_interface *oi)
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
 
+	if (!ospf->new_table)
+		return 1;
 	for (rn = route_top(ospf->new_table); rn; rn = route_next(rn)) {
 		or = rn->info;
 
@@ -901,30 +912,24 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	struct prefix_ipv4 *p;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new()(%s): Start", ospf_get_name(ospf));
+		zlog_debug("%s: (%s): Start", __func__, ospf_get_name(ospf));
 	if (vlink_count == OSPF_VL_MAX_COUNT) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links");
-		return NULL;
-	}
+				"%s: Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links",
+				__func__);
 
-	if (ospf->vrf_id == VRF_UNKNOWN) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_vl_new(): Alarm: cannot create pseudo interface in unknown VRF");
 		return NULL;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
-			ospf->vrf_id);
+		zlog_debug("%s: creating pseudo zebra interface vrf id %u",
+			   __func__, ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
-	vi = if_create_name(ifname, ospf->vrf_id);
+	vi = if_get_by_name(ifname, ospf->vrf_id, ospf->name);
 	/*
-	 * if_create_name sets ZEBRA_INTERFACE_LINKDETECTION
+	 * if_get_by_name sets ZEBRA_INTERFACE_LINKDETECTION
 	 * virtual links don't need this.
 	 */
 	UNSET_FLAG(vi->status, ZEBRA_INTERFACE_LINKDETECTION);
@@ -943,7 +948,9 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	if (voi == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: OSPF int structure is not created");
+				"%s: Alarm: OSPF int structure is not created",
+				__func__);
+
 		return NULL;
 	}
 	voi->connected = co;
@@ -953,17 +960,15 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 	vlink_count++;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Created name: %s", ifname);
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): set if->name to %s", vi->name);
+		zlog_debug("%s: Created name: %s set if->name to %s", __func__,
+			   ifname, vi->name);
 
 	area_id.s_addr = INADDR_ANY;
 	area = ospf_area_get(ospf, area_id);
 	voi->area = area;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): set associated area to the backbone");
+		zlog_debug("%s: set associated area to the backbone", __func__);
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(voi, voi->ospf->router_id);
@@ -971,18 +976,21 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	ospf_area_add_if(voi->area, voi);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Stop");
+		zlog_debug("%s: Stop", __func__);
 	return voi;
 }
 
 static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
 {
 	struct interface *ifp = vl_data->vl_oi->ifp;
+	struct vrf *vrf = ifp->vrf;
 
 	vl_data->vl_oi->address->u.prefix4.s_addr = INADDR_ANY;
 	vl_data->vl_oi->address->prefixlen = 0;
 	ospf_if_free(vl_data->vl_oi);
 	if_delete(&ifp);
+	if (!vrf_is_enabled(vrf))
+		vrf_delete(vrf);
 	vlink_count--;
 }
 
@@ -1163,10 +1171,8 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 	struct ospf_interface *oi;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("ospf_vl_up_check(): Start");
-		zlog_debug("ospf_vl_up_check(): Router ID is %pI4",
-			   &rid);
-		zlog_debug("ospf_vl_up_check(): Area is %pI4",
+		zlog_debug("%s: Start", __func__);
+		zlog_debug("%s: Router ID is %pI4 Area is %pI4", __func__, &rid,
 			   &area->area_id);
 	}
 
@@ -1185,13 +1191,13 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			SET_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED);
 
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_vl_up_check(): this VL matched");
+				zlog_debug("%s: this VL matched", __func__);
 
 			if (oi->state == ISM_Down) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"ospf_vl_up_check(): VL is down, waking it up");
+						"%s: VL is down, waking it up",
+						__func__);
 				SET_FLAG(oi->ifp->flags, IFF_UP);
 				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
 			}
@@ -1199,13 +1205,15 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			if (ospf_vl_set_params(area, vl_data, v)) {
 				if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"ospf_vl_up_check: VL cost change, scheduling router lsa refresh");
+						"%s: VL cost change, scheduling router lsa refresh",
+						__func__);
 				if (ospf->backbone)
 					ospf_router_lsa_update_area(
 						ospf->backbone);
 				else if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"ospf_vl_up_check: VL cost change, no backbone!");
+						"%s: VL cost change, no backbone!",
+						__func__);
 			}
 		}
 	}
@@ -1298,7 +1306,7 @@ uint8_t ospf_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;
-	else if (if_is_loopback(ifp) || if_is_vrf(ifp))
+	else if (if_is_loopback(ifp))
 		return OSPF_IFTYPE_LOOPBACK;
 	else
 		return OSPF_IFTYPE_BROADCAST;
@@ -1335,10 +1343,9 @@ static int ospf_ifp_create(struct interface *ifp)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
-			ifp->speed);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu, ifp->speed);
 
 	assert(ifp->info);
 
@@ -1351,7 +1358,7 @@ static int ospf_ifp_create(struct interface *ifp)
 		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	}
 
-	ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+	ospf = ifp->vrf->info;
 	if (!ospf)
 		return 0;
 
@@ -1435,13 +1442,13 @@ static int ospf_ifp_destroy(struct interface *ifp)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	hook_call(ospf_if_delete, ifp);
 
-	ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+	ospf = ifp->vrf->info;
 	if (ospf) {
 		if (ospf_if_count_area_params(ifp) > 0)
 			ospf_interface_area_unset(ospf, ifp);
@@ -1478,7 +1485,7 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 			ospf_hello_send(oi);
 
 			/* Restart hello timer for this interface */
-			OSPF_ISM_TIMER_OFF(oi->t_hello);
+			THREAD_OFF(oi->t_hello);
 			OSPF_HELLO_TIMER_ON(oi);
 		}
 
@@ -1502,7 +1509,7 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 		ospf_hello_send(oi);
 
 		/* Restart the hello timer. */
-		OSPF_ISM_TIMER_OFF(oi->t_hello);
+		THREAD_OFF(oi->t_hello);
 		OSPF_HELLO_TIMER_ON(oi);
 	}
 }

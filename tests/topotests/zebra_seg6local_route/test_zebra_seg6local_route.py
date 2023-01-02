@@ -79,11 +79,7 @@ def test_zebra_seg6local_routes():
     logger.info("Test for seg6local route install via ZAPI was start.")
     r1 = tgen.gears["r1"]
 
-    def check(router, dest, context, expected):
-        router.vtysh_cmd(
-            "sharp install seg6local-routes {} "
-            "nexthop-seg6local dum0 {} 1".format(dest, context)
-        )
+    def check(router, dest, expected):
         output = json.loads(router.vtysh_cmd("show ipv6 route {} json".format(dest)))
         output = output.get("{}/128".format(dest))
         if output is None:
@@ -92,17 +88,23 @@ def test_zebra_seg6local_routes():
 
     manifests = open_json_file(os.path.join(CWD, "{}/routes.json".format("r1")))
     for manifest in manifests:
-        logger.info(
-            "CHECK {} {}".format(manifest["in"]["dest"], manifest["in"]["context"])
+        dest = manifest["in"]["dest"]
+        context = manifest["in"]["context"]
+
+        logger.info("CHECK {} {}".format(dest, context))
+
+        r1.vtysh_cmd(
+            "sharp install seg6local-routes {} nexthop-seg6local dum0 {} 1".format(
+                dest, context
+            )
         )
         test_func = partial(
             check,
             r1,
-            manifest["in"]["dest"],
-            manifest["in"]["context"],
+            dest,
             manifest["out"],
         )
-        success, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+        success, result = topotest.run_and_expect(test_func, None, count=25, wait=1)
         assert result is None, "Failed"
 
 

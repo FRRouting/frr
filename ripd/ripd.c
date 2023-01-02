@@ -65,7 +65,7 @@ DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
-static int rip_triggered_update(struct thread *);
+static void rip_triggered_update(struct thread *);
 static int rip_update_jitter(unsigned long);
 static void rip_distance_table_node_cleanup(struct route_table *table,
 					    struct route_node *node);
@@ -136,16 +136,15 @@ struct rip *rip_info_get_instance(const struct rip_info *rinfo)
 }
 
 /* RIP route garbage collect timer. */
-static int rip_garbage_collect(struct thread *t)
+static void rip_garbage_collect(struct thread *t)
 {
 	struct rip_info *rinfo;
 	struct route_node *rp;
 
 	rinfo = THREAD_ARG(t);
-	rinfo->t_garbage_collect = NULL;
 
 	/* Off timeout timer. */
-	RIP_TIMER_OFF(rinfo->t_timeout);
+	THREAD_OFF(rinfo->t_timeout);
 
 	/* Get route_node pointer. */
 	rp = rinfo->rp;
@@ -159,8 +158,6 @@ static int rip_garbage_collect(struct thread *t)
 
 	/* Free RIP routing information. */
 	rip_info_free(rinfo);
-
-	return 0;
 }
 
 static void rip_timeout_update(struct rip *rip, struct rip_info *rinfo);
@@ -225,16 +222,18 @@ struct rip_info *rip_ecmp_replace(struct rip *rip, struct rip_info *rinfo_new)
 			rip_zebra_ipv4_delete(rip, rp);
 
 	/* Re-use the first entry, and delete the others. */
-	for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
-		if (tmp_rinfo != rinfo) {
-			RIP_TIMER_OFF(tmp_rinfo->t_timeout);
-			RIP_TIMER_OFF(tmp_rinfo->t_garbage_collect);
-			list_delete_node(list, node);
-			rip_info_free(tmp_rinfo);
-		}
+	for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo)) {
+		if (tmp_rinfo == rinfo)
+			continue;
 
-	RIP_TIMER_OFF(rinfo->t_timeout);
-	RIP_TIMER_OFF(rinfo->t_garbage_collect);
+		THREAD_OFF(tmp_rinfo->t_timeout);
+		THREAD_OFF(tmp_rinfo->t_garbage_collect);
+		list_delete_node(list, node);
+		rip_info_free(tmp_rinfo);
+	}
+
+	THREAD_OFF(rinfo->t_timeout);
+	THREAD_OFF(rinfo->t_garbage_collect);
 	memcpy(rinfo, rinfo_new, sizeof(struct rip_info));
 
 	if (rip_route_rte(rinfo)) {
@@ -263,12 +262,12 @@ struct rip_info *rip_ecmp_delete(struct rip *rip, struct rip_info *rinfo)
 	struct route_node *rp = rinfo->rp;
 	struct list *list = (struct list *)rp->info;
 
-	RIP_TIMER_OFF(rinfo->t_timeout);
+	THREAD_OFF(rinfo->t_timeout);
 
 	if (listcount(list) > 1) {
 		/* Some other ECMP entries still exist. Just delete this entry.
 		 */
-		RIP_TIMER_OFF(rinfo->t_garbage_collect);
+		THREAD_OFF(rinfo->t_garbage_collect);
 		listnode_delete(list, rinfo);
 		if (rip_route_rte(rinfo)
 		    && CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
@@ -303,20 +302,18 @@ struct rip_info *rip_ecmp_delete(struct rip *rip, struct rip_info *rinfo)
 }
 
 /* Timeout RIP routes. */
-static int rip_timeout(struct thread *t)
+static void rip_timeout(struct thread *t)
 {
 	struct rip_info *rinfo = THREAD_ARG(t);
 	struct rip *rip = rip_info_get_instance(rinfo);
 
 	rip_ecmp_delete(rip, rinfo);
-
-	return 0;
 }
 
 static void rip_timeout_update(struct rip *rip, struct rip_info *rinfo)
 {
 	if (rinfo->metric != RIP_METRIC_INFINITY) {
-		RIP_TIMER_OFF(rinfo->t_timeout);
+		THREAD_OFF(rinfo->t_timeout);
 		thread_add_timer(master, rip_timeout, rinfo, rip->timeout_time,
 				 &rinfo->t_timeout);
 	}
@@ -333,61 +330,56 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 	const char *inout = rip_distribute == RIP_FILTER_OUT ? "out" : "in";
 
 	/* Input distribute-list filtering. */
-	if (ri->list[rip_distribute]) {
-		if (access_list_apply(ri->list[rip_distribute],
-				      (struct prefix *)p)
-		    == FILTER_DENY) {
-			if (IS_RIP_DEBUG_PACKET)
-				zlog_debug("%pFX filtered by distribute %s", p,
-					   inout);
-			return -1;
-		}
+	if (ri->list[rip_distribute] &&
+	    access_list_apply(ri->list[rip_distribute], (struct prefix *)p) ==
+		    FILTER_DENY) {
+		if (IS_RIP_DEBUG_PACKET)
+			zlog_debug("%pFX filtered by distribute %s", p, inout);
+		return -1;
 	}
-	if (ri->prefix[rip_distribute]) {
-		if (prefix_list_apply(ri->prefix[rip_distribute],
-				      (struct prefix *)p)
-		    == PREFIX_DENY) {
-			if (IS_RIP_DEBUG_PACKET)
-				zlog_debug("%pFX filtered by prefix-list %s", p,
-					   inout);
-			return -1;
-		}
+
+	if (ri->prefix[rip_distribute] &&
+	    prefix_list_apply(ri->prefix[rip_distribute], (struct prefix *)p) ==
+		    PREFIX_DENY) {
+		if (IS_RIP_DEBUG_PACKET)
+			zlog_debug("%pFX filtered by prefix-list %s", p, inout);
+		return -1;
 	}
 
 	/* All interface filter check. */
 	dist = distribute_lookup(ri->rip->distribute_ctx, NULL);
-	if (dist) {
-		if (dist->list[distribute]) {
-			alist = access_list_lookup(AFI_IP,
-						   dist->list[distribute]);
+	if (!dist)
+		return 0;
 
-			if (alist) {
-				if (access_list_apply(alist, (struct prefix *)p)
-				    == FILTER_DENY) {
-					if (IS_RIP_DEBUG_PACKET)
-						zlog_debug(
-							"%pFX filtered by distribute %s",
-							p, inout);
-					return -1;
-				}
-			}
-		}
-		if (dist->prefix[distribute]) {
-			plist = prefix_list_lookup(AFI_IP,
-						   dist->prefix[distribute]);
+	if (dist->list[distribute]) {
+		alist = access_list_lookup(AFI_IP, dist->list[distribute]);
 
-			if (plist) {
-				if (prefix_list_apply(plist, (struct prefix *)p)
-				    == PREFIX_DENY) {
-					if (IS_RIP_DEBUG_PACKET)
-						zlog_debug(
-							"%pFX filtered by prefix-list %s",
-							p, inout);
-					return -1;
-				}
+		if (alist) {
+			if (access_list_apply(alist, (struct prefix *)p) ==
+			    FILTER_DENY) {
+				if (IS_RIP_DEBUG_PACKET)
+					zlog_debug(
+						"%pFX filtered by distribute %s",
+						p, inout);
+				return -1;
 			}
 		}
 	}
+	if (dist->prefix[distribute]) {
+		plist = prefix_list_lookup(AFI_IP, dist->prefix[distribute]);
+
+		if (plist) {
+			if (prefix_list_apply(plist, (struct prefix *)p) ==
+			    PREFIX_DENY) {
+				if (IS_RIP_DEBUG_PACKET)
+					zlog_debug(
+						"%pFX filtered by prefix-list %s",
+						p, inout);
+				return -1;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -533,46 +525,46 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 			    && IPV4_ADDR_SAME(&rinfo->nh.gate.ipv4, nexthop))
 				break;
 
-			if (!listnextnode(node)) {
-				/* Not found in the list */
+			if (listnextnode(node))
+				continue;
 
-				if (rte->metric > rinfo->metric) {
-					/* New route has a greater metric.
-					 * Discard it. */
-					route_unlock_node(rp);
-					return;
-				}
+			/* Not found in the list */
 
-				if (rte->metric < rinfo->metric)
-					/* New route has a smaller metric.
-					 * Replace the ECMP list
-					 * with the new one in below. */
-					break;
+			if (rte->metric > rinfo->metric) {
+				/* New route has a greater metric.
+				 * Discard it. */
+				route_unlock_node(rp);
+				return;
+			}
 
-				/* Metrics are same. We compare the distances.
-				 */
-				old_dist = rinfo->distance
-						   ? rinfo->distance
+			if (rte->metric < rinfo->metric)
+				/* New route has a smaller metric.
+				 * Replace the ECMP list
+				 * with the new one in below. */
+				break;
+
+			/* Metrics are same. We compare the distances.
+			 */
+			old_dist = rinfo->distance ? rinfo->distance
 						   : ZEBRA_RIP_DISTANCE_DEFAULT;
 
-				if (new_dist > old_dist) {
-					/* New route has a greater distance.
-					 * Discard it. */
-					route_unlock_node(rp);
-					return;
-				}
-
-				if (new_dist < old_dist)
-					/* New route has a smaller distance.
-					 * Replace the ECMP list
-					 * with the new one in below. */
-					break;
-
-				/* Metrics and distances are both same. Keep
-				 * "rinfo" null and
-				 * the new route is added in the ECMP list in
-				 * below. */
+			if (new_dist > old_dist) {
+				/* New route has a greater distance.
+				 * Discard it. */
+				route_unlock_node(rp);
+				return;
 			}
+
+			if (new_dist < old_dist)
+				/* New route has a smaller distance.
+				 * Replace the ECMP list
+				 * with the new one in below. */
+				break;
+
+			/* Metrics and distances are both same. Keep
+			 * "rinfo" null and
+			 * the new route is added in the ECMP list in
+			 * below. */
 		}
 
 	if (rinfo) {
@@ -667,8 +659,8 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 					assert(newinfo.metric
 					       != RIP_METRIC_INFINITY);
 
-					RIP_TIMER_OFF(rinfo->t_timeout);
-					RIP_TIMER_OFF(rinfo->t_garbage_collect);
+					THREAD_OFF(rinfo->t_timeout);
+					THREAD_OFF(rinfo->t_garbage_collect);
 					memcpy(rinfo, &newinfo,
 					       sizeof(struct rip_info));
 					rip_timeout_update(rip, rinfo);
@@ -1004,6 +996,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
 				    struct key *key)
 {
 	size_t doff = 0;
+	static uint32_t seq = 0;
 
 	assert(s && ri && ri->auth_type == RIP_AUTH_MD5);
 
@@ -1036,7 +1029,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
 	/* RFC2080: The value used in the sequence number is
 	   arbitrary, but two suggestions are the time of the
 	   message's creation or a simple message counter. */
-	stream_putl(s, time(NULL));
+	stream_putl(s, ++seq);
 
 	/* Reserved field must be zero. */
 	stream_putl(s, 0);
@@ -1089,10 +1082,9 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 
 	/* Check packet length. */
 	if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE)) {
-		flog_err(
-			EC_RIP_PACKET,
-			"rip_auth_md5_set(): packet length %ld is less than minimum length.",
-			len);
+		flog_err(EC_RIP_PACKET,
+			 "%s: packet length %ld is less than minimum length.",
+			 __func__, len);
 		return;
 	}
 
@@ -1279,15 +1271,14 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		}
 
 		/* For RIPv1, there won't be a valid netmask.
-
-		   This is a best guess at the masks.  If everyone was using old
-		   Ciscos before the 'ip subnet zero' option, it would be almost
-		   right too :-)
-
-		   Cisco summarize ripv1 advertisements to the classful boundary
-		   (/16 for class B's) except when the RIP packet does to inside
-		   the classful network in question.  */
-
+		 * This is a best guess at the masks.  If everyone was using old
+		 * Ciscos before the 'ip subnet zero' option, it would be almost
+		 * right too :-)
+		 *
+		 * Cisco summarize ripv1 advertisements to the classful boundary
+		 * (/16 for class B's) except when the RIP packet does to inside
+		 * the classful network in question.
+		 */
 		if ((packet->version == RIPv1
 		     && rte->prefix.s_addr != INADDR_ANY)
 		    || (packet->version == RIPv2
@@ -1296,10 +1287,9 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			uint32_t destination;
 
 			if (subnetted == -1) {
-				memcpy(&ifaddr, ifc->address,
-				       sizeof(struct prefix_ipv4));
+				memcpy(&ifaddr, ifc->address, sizeof(ifaddr));
 				memcpy(&ifaddrclass, &ifaddr,
-				       sizeof(struct prefix_ipv4));
+				       sizeof(ifaddrclass));
 				apply_classful_mask_ipv4(&ifaddrclass);
 				subnetted = 0;
 				if (ifaddr.prefixlen > ifaddrclass.prefixlen)
@@ -1460,27 +1450,23 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 			inet_ntop(AF_INET, &sin.sin_addr, dst, sizeof(dst));
 		}
 #undef ADDRESS_SIZE
-		zlog_debug("rip_send_packet %pI4 > %s (%s)",
-			   &ifc->address->u.prefix4, dst,
-			   ifc->ifp->name);
+		zlog_debug("%s %pI4 > %s (%s)", __func__,
+			   &ifc->address->u.prefix4, dst, ifc->ifp->name);
 	}
 
 	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)) {
 		/*
 		 * ZEBRA_IFA_SECONDARY is set on linux when an interface is
-		 * configured
-		 * with multiple addresses on the same subnet: the first address
-		 * on the subnet is configured "primary", and all subsequent
-		 * addresses
-		 * on that subnet are treated as "secondary" addresses.
-		 * In order to avoid routing-table bloat on other rip listeners,
-		 * we do not send out RIP packets with ZEBRA_IFA_SECONDARY
-		 * source addrs.
+		 * configured with multiple addresses on the same
+		 * subnet: the first address on the subnet is configured
+		 * "primary", and all subsequent addresses on that subnet
+		 * are treated as "secondary" addresses.  In order to avoid
+		 * routing-table bloat on other rip listeners, we do not send
+		 * out RIP packets with ZEBRA_IFA_SECONDARY source addrs.
 		 * XXX Since Linux is the only system for which the
-		 * ZEBRA_IFA_SECONDARY
-		 * flag is set, we would end up sending a packet for a
-		 * "secondary"
-		 * source address on non-linux systems.
+		 * ZEBRA_IFA_SECONDARY flag is set, we would end up
+		 * sending a packet for a "secondary" source address on
+		 * non-linux systems.
 		 */
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("duplicate dropped");
@@ -1488,7 +1474,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	}
 
 	/* Make destination address. */
-	memset(&sin, 0, sizeof(struct sockaddr_in));
+	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sin.sin_len = sizeof(struct sockaddr_in);
@@ -1523,6 +1509,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	cmsgptr->cmsg_type = IP_PKTINFO;
 	pkt = (struct in_pktinfo *)CMSG_DATA(cmsgptr);
 	pkt->ipi_ifindex = ifc->ifp->ifindex;
+	pkt->ipi_spec_dst.s_addr = ifc->address->u.prefix4.s_addr;
 #endif /* GNU_LINUX */
 
 	ret = sendmsg(rip->sock, &msg, 0);
@@ -1555,7 +1542,7 @@ void rip_redistribute_add(struct rip *rip, int type, int sub_type,
 
 	rp = route_node_get(rip->table, (struct prefix *)p);
 
-	memset(&newinfo, 0, sizeof(struct rip_info));
+	memset(&newinfo, 0, sizeof(newinfo));
 	newinfo.type = type;
 	newinfo.sub_type = sub_type;
 	newinfo.metric = 1;
@@ -1626,7 +1613,7 @@ void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 				RIP_TIMER_ON(rinfo->t_garbage_collect,
 					     rip_garbage_collect,
 					     rip->garbage_time);
-				RIP_TIMER_OFF(rinfo->t_timeout);
+				THREAD_OFF(rinfo->t_timeout);
 				rinfo->flags |= RIP_RTF_CHANGED;
 
 				if (IS_RIP_DEBUG_EVENT)
@@ -1725,7 +1712,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 }
 
 /* First entry point of RIP packet. */
-static int rip_read(struct thread *t)
+static void rip_read(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int sock;
@@ -1744,13 +1731,12 @@ static int rip_read(struct thread *t)
 
 	/* Fetch socket then register myself. */
 	sock = THREAD_FD(t);
-	rip->t_read = NULL;
 
 	/* Add myself to tne next event */
 	rip_event(rip, RIP_READ, sock);
 
 	/* RIPd manages only IPv4. */
-	memset(&from, 0, sizeof(struct sockaddr_in));
+	memset(&from, 0, sizeof(from));
 	fromlen = sizeof(struct sockaddr_in);
 
 	len = recvfrom(sock, (char *)&rip_buf.buf, sizeof(rip_buf.buf), 0,
@@ -1758,7 +1744,7 @@ static int rip_read(struct thread *t)
 	if (len < 0) {
 		zlog_info("recvfrom failed (VRF %s): %s", rip->vrf_name,
 			  safe_strerror(errno));
-		return len;
+		return;
 	}
 
 	/* Check is this packet comming from myself? */
@@ -1766,7 +1752,7 @@ static int rip_read(struct thread *t)
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("ignore packet comes from myself (VRF %s)",
 				   rip->vrf_name);
-		return -1;
+		return;
 	}
 
 	/* Which interface is this packet comes from. */
@@ -1784,10 +1770,10 @@ static int rip_read(struct thread *t)
 	/* If this packet come from unknown interface, ignore it. */
 	if (ifp == NULL) {
 		zlog_info(
-			"rip_read: cannot find interface for packet from %pI4 port %d (VRF %s)",
-			&from.sin_addr, ntohs(from.sin_port),
+			"%s: cannot find interface for packet from %pI4 port %d (VRF %s)",
+			__func__, &from.sin_addr, ntohs(from.sin_port),
 			rip->vrf_name);
-		return -1;
+		return;
 	}
 
 	p.family = AF_INET;
@@ -1798,10 +1784,10 @@ static int rip_read(struct thread *t)
 
 	if (ifc == NULL) {
 		zlog_info(
-			"rip_read: cannot find connected address for packet from %pI4 port %d on interface %s (VRF %s)",
-			&from.sin_addr, ntohs(from.sin_port),
+			"%s: cannot find connected address for packet from %pI4 port %d on interface %s (VRF %s)",
+			__func__, &from.sin_addr, ntohs(from.sin_port),
 			ifp->name, rip->vrf_name);
-		return -1;
+		return;
 	}
 
 	/* Packet length check. */
@@ -1809,13 +1795,13 @@ static int rip_read(struct thread *t)
 		zlog_warn("packet size %d is smaller than minimum size %d", len,
 			  RIP_PACKET_MINSIZ);
 		rip_peer_bad_packet(rip, &from);
-		return len;
+		return;
 	}
 	if (len > RIP_PACKET_MAXSIZ) {
 		zlog_warn("packet size %d is larger than max size %d", len,
 			  RIP_PACKET_MAXSIZ);
 		rip_peer_bad_packet(rip, &from);
-		return len;
+		return;
 	}
 
 	/* Packet alignment check. */
@@ -1823,7 +1809,7 @@ static int rip_read(struct thread *t)
 		zlog_warn("packet size %d is wrong for RIP packet alignment",
 			  len);
 		rip_peer_bad_packet(rip, &from);
-		return len;
+		return;
 	}
 
 	/* Set RTE number. */
@@ -1837,7 +1823,7 @@ static int rip_read(struct thread *t)
 		zlog_info("version 0 with command %d received.",
 			  packet->command);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* Dump RIP packet. */
@@ -1858,7 +1844,7 @@ static int rip_read(struct thread *t)
 			zlog_debug("RIP is not enabled on interface %s.",
 				   ifp->name);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* RIP Version check. RFC2453, 4.6 and 5.1 */
@@ -1872,7 +1858,7 @@ static int rip_read(struct thread *t)
 				"  packet's v%d doesn't fit to if version spec",
 				packet->version);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* RFC2453 5.2 If the router is not configured to authenticate RIP-2
@@ -1887,7 +1873,7 @@ static int rip_read(struct thread *t)
 				packet->version);
 		ripd_notif_send_auth_type_failure(ifp->name);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* RFC:
@@ -1923,7 +1909,7 @@ static int rip_read(struct thread *t)
 					"RIPv1 dropped because authentication enabled");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 	} else if (ri->auth_type != RIP_NO_AUTH) {
 		const char *auth_desc;
@@ -1936,7 +1922,7 @@ static int rip_read(struct thread *t)
 					"RIPv2 authentication failed: no auth RTE in packet");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 
 		/* First RTE must be an Authentication Family RTE */
@@ -1946,7 +1932,7 @@ static int rip_read(struct thread *t)
 					"RIPv2 dropped because authentication enabled");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 
 		/* Check RIPv2 authentication. */
@@ -1982,7 +1968,7 @@ static int rip_read(struct thread *t)
 					   auth_desc);
 			ripd_notif_send_auth_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 	}
 
@@ -2012,8 +1998,6 @@ static int rip_read(struct thread *t)
 		rip_peer_bad_packet(rip, &from);
 		break;
 	}
-
-	return len;
 }
 
 /* Write routing table entry to the stream and return next index of
@@ -2117,277 +2101,247 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	}
 
 	if (version == RIPv1) {
-		memcpy(&ifaddrclass, ifc->address, sizeof(struct prefix_ipv4));
+		memcpy(&ifaddrclass, ifc->address, sizeof(ifaddrclass));
 		apply_classful_mask_ipv4(&ifaddrclass);
 		subnetted = 0;
 		if (ifc->address->prefixlen > ifaddrclass.prefixlen)
 			subnetted = 1;
 	}
 
-	for (rp = route_top(rip->table); rp; rp = route_next(rp))
-		if ((list = rp->info) != NULL && listcount(list) != 0) {
-			rinfo = listgetdata(listhead(list));
-			/* For RIPv1, if we are subnetted, output subnets in our
-			 * network    */
-			/* that have the same mask as the output "interface".
-			 * For other     */
-			/* networks, only the classfull version is output. */
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
 
-			if (version == RIPv1) {
-				p = (struct prefix_ipv4 *)&rp->p;
+		if (list == NULL)
+			continue;
 
-				if (IS_RIP_DEBUG_PACKET)
-					zlog_debug(
-						"RIPv1 mask check, %pFX considered for output",
-						&rp->p);
+		if (listcount(list) == 0)
+			continue;
 
-				if (subnetted
-				    && prefix_match(
-					       (struct prefix *)&ifaddrclass,
-					       &rp->p)) {
-					if ((ifc->address->prefixlen
-					     != rp->p.prefixlen)
-					    && (rp->p.prefixlen
-						!= IPV4_MAX_BITLEN))
-						continue;
-				} else {
-					memcpy(&classfull, &rp->p,
-					       sizeof(struct prefix_ipv4));
-					apply_classful_mask_ipv4(&classfull);
-					if (rp->p.u.prefix4.s_addr != INADDR_ANY
-					    && classfull.prefixlen
-						       != rp->p.prefixlen)
-						continue;
+		rinfo = listgetdata(listhead(list));
+		/*
+		 * For RIPv1, if we are subnetted, output subnets in our
+		 * network that have the same mask as the output "interface".
+		 * For other networks, only the classfull version is output.
+		 */
+		if (version == RIPv1) {
+			p = (struct prefix_ipv4 *)&rp->p;
+
+			if (IS_RIP_DEBUG_PACKET)
+				zlog_debug(
+					"RIPv1 mask check, %pFX considered for output",
+					&rp->p);
+
+			if (subnetted &&
+			    prefix_match((struct prefix *)&ifaddrclass,
+					 &rp->p)) {
+				if ((ifc->address->prefixlen !=
+				     rp->p.prefixlen) &&
+				    (rp->p.prefixlen != IPV4_MAX_BITLEN))
+					continue;
+			} else {
+				memcpy(&classfull, &rp->p,
+				       sizeof(struct prefix_ipv4));
+				apply_classful_mask_ipv4(&classfull);
+				if (rp->p.u.prefix4.s_addr != INADDR_ANY &&
+				    classfull.prefixlen != rp->p.prefixlen)
+					continue;
+			}
+			if (IS_RIP_DEBUG_PACKET)
+				zlog_debug(
+					"RIPv1 mask check, %pFX made it through",
+					&rp->p);
+		} else
+			p = (struct prefix_ipv4 *)&rp->p;
+
+		/* Apply output filters. */
+		ret = rip_filter(RIP_FILTER_OUT, p, ri);
+		if (ret < 0)
+			continue;
+
+		/* Changed route only output. */
+		if (route_type == rip_changed_route &&
+		    (!(rinfo->flags & RIP_RTF_CHANGED)))
+			continue;
+
+		/* Split horizon. */
+		if (ri->split_horizon == RIP_SPLIT_HORIZON) {
+			/*
+			 * We perform split horizon for RIP and connected
+			 * route.  For rip routes, we want to suppress the
+			 * route if we would end up sending the route back on
+			 * the interface that we learned it from, with a
+			 * higher metric. For connected routes, we suppress
+			 * the route if the prefix is a subset of the source
+			 * address that we are going to use for the packet
+			 * (in order to handle the case when multiple subnets
+			 * are configured on the same interface).
+			 */
+			int suppress = 0;
+			struct rip_info *tmp_rinfo = NULL;
+			struct connected *tmp_ifc = NULL;
+
+			for (ALL_LIST_ELEMENTS_RO(list, listnode, tmp_rinfo))
+				if (tmp_rinfo->type == ZEBRA_ROUTE_RIP &&
+				    tmp_rinfo->nh.ifindex ==
+					    ifc->ifp->ifindex) {
+					suppress = 1;
+					break;
 				}
-				if (IS_RIP_DEBUG_PACKET)
-					zlog_debug(
-						"RIPv1 mask check, %pFX made it through",
-						&rp->p);
-			} else
-				p = (struct prefix_ipv4 *)&rp->p;
 
-			/* Apply output filters. */
-			ret = rip_filter(RIP_FILTER_OUT, p, ri);
-			if (ret < 0)
-				continue;
-
-			/* Changed route only output. */
-			if (route_type == rip_changed_route
-			    && (!(rinfo->flags & RIP_RTF_CHANGED)))
-				continue;
-
-			/* Split horizon. */
-			/* if (split_horizon == rip_split_horizon) */
-			if (ri->split_horizon == RIP_SPLIT_HORIZON) {
-				/*
-				 * We perform split horizon for RIP and
-				 * connected route.
-				 * For rip routes, we want to suppress the route
-				 * if we would
-				 * end up sending the route back on the
-				 * interface that we
-				 * learned it from, with a higher metric. For
-				 * connected routes,
-				 * we suppress the route if the prefix is a
-				 * subset of the
-				 * source address that we are going to use for
-				 * the packet
-				 * (in order to handle the case when multiple
-				 * subnets are
-				 * configured on the same interface).
-				 */
-				int suppress = 0;
-				struct rip_info *tmp_rinfo = NULL;
-				struct connected *tmp_ifc = NULL;
-
-				for (ALL_LIST_ELEMENTS_RO(list, listnode,
-							  tmp_rinfo))
-					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
-					    && tmp_rinfo->nh.ifindex
-						       == ifc->ifp->ifindex) {
+			if (!suppress && rinfo->type == ZEBRA_ROUTE_CONNECT) {
+				for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected,
+							  listnode, tmp_ifc))
+					if (prefix_match((struct prefix *)p,
+							 tmp_ifc->address)) {
 						suppress = 1;
 						break;
 					}
-
-				if (!suppress
-				    && rinfo->type == ZEBRA_ROUTE_CONNECT) {
-					for (ALL_LIST_ELEMENTS_RO(
-						     ifc->ifp->connected,
-						     listnode, tmp_ifc))
-						if (prefix_match(
-							    (struct prefix *)p,
-							    tmp_ifc->address)) {
-							suppress = 1;
-							break;
-						}
-				}
-
-				if (suppress)
-					continue;
 			}
 
-			/* Preparation for route-map. */
-			rinfo->metric_set = 0;
-			rinfo->nexthop_out.s_addr = 0;
-			rinfo->metric_out = rinfo->metric;
-			rinfo->tag_out = rinfo->tag;
-			rinfo->ifindex_out = ifc->ifp->ifindex;
+			if (suppress)
+				continue;
+		}
 
-			/* In order to avoid some local loops,
-			 * if the RIP route has a nexthop via this interface,
-			 * keep the nexthop,
-			 * otherwise set it to 0. The nexthop should not be
-			 * propagated
-			 * beyond the local broadcast/multicast area in order
-			 * to avoid an IGP multi-level recursive look-up.
-			 * see (4.4)
-			 */
-			if (rinfo->nh.ifindex == ifc->ifp->ifindex)
-				rinfo->nexthop_out = rinfo->nh.gate.ipv4;
+		/* Preparation for route-map. */
+		rinfo->metric_set = 0;
+		rinfo->nexthop_out.s_addr = 0;
+		rinfo->metric_out = rinfo->metric;
+		rinfo->tag_out = rinfo->tag;
+		rinfo->ifindex_out = ifc->ifp->ifindex;
 
-			/* Interface route-map */
-			if (ri->routemap[RIP_FILTER_OUT]) {
-				ret = route_map_apply(
-					ri->routemap[RIP_FILTER_OUT],
-					(struct prefix *)p, rinfo);
+		/* In order to avoid some local loops, if the RIP route has
+		 * a nexthop via this interface, keep the nexthop, otherwise
+		 * set it to 0. The nexthop should not be propagated beyond
+		 * the local broadcast/multicast area in order to avoid an
+		 * IGP multi-level recursive look-up. see (4.4)
+		 */
+		if (rinfo->nh.ifindex == ifc->ifp->ifindex)
+			rinfo->nexthop_out = rinfo->nh.gate.ipv4;
 
-				if (ret == RMAP_DENYMATCH) {
-					if (IS_RIP_DEBUG_PACKET)
-						zlog_debug(
-							"RIP %pFX is filtered by route-map out",
-							p);
-					continue;
-				}
-			}
+		/* Interface route-map */
+		if (ri->routemap[RIP_FILTER_OUT]) {
+			ret = route_map_apply(ri->routemap[RIP_FILTER_OUT],
+					      (struct prefix *)p, rinfo);
 
-			/* Apply redistribute route map - continue, if deny */
-			if (rip->redist[rinfo->type].route_map.name
-			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
-				ret = route_map_apply(
-					rip->redist[rinfo->type].route_map.map,
-					(struct prefix *)p, rinfo);
-
-				if (ret == RMAP_DENYMATCH) {
-					if (IS_RIP_DEBUG_PACKET)
-						zlog_debug(
-							"%pFX is filtered by route-map",
-							p);
-					continue;
-				}
-			}
-
-			/* When route-map does not set metric. */
-			if (!rinfo->metric_set) {
-				/* If redistribute metric is set. */
-				if (rip->redist[rinfo->type].metric_config
-				    && rinfo->metric != RIP_METRIC_INFINITY) {
-					rinfo->metric_out =
-						rip->redist[rinfo->type].metric;
-				} else {
-					/* If the route is not connected or
-					   localy generated
-					   one, use default-metric value*/
-					if (rinfo->type != ZEBRA_ROUTE_RIP
-					    && rinfo->type
-						       != ZEBRA_ROUTE_CONNECT
-					    && rinfo->metric
-						       != RIP_METRIC_INFINITY)
-						rinfo->metric_out =
-							rip->default_metric;
-				}
-			}
-
-			/* Apply offset-list */
-			if (rinfo->metric != RIP_METRIC_INFINITY)
-				rip_offset_list_apply_out(p, ifc->ifp,
-							  &rinfo->metric_out);
-
-			if (rinfo->metric_out > RIP_METRIC_INFINITY)
-				rinfo->metric_out = RIP_METRIC_INFINITY;
-
-			/* Perform split-horizon with poisoned reverse
-			 * for RIP and connected routes.
-			 **/
-			if (ri->split_horizon
-			    == RIP_SPLIT_HORIZON_POISONED_REVERSE) {
-				/*
-				 * We perform split horizon for RIP and
-				 * connected route.
-				 * For rip routes, we want to suppress the route
-				 * if we would
-				 * end up sending the route back on the
-				 * interface that we
-				 * learned it from, with a higher metric. For
-				 * connected routes,
-				 * we suppress the route if the prefix is a
-				 * subset of the
-				 * source address that we are going to use for
-				 * the packet
-				 * (in order to handle the case when multiple
-				 * subnets are
-				 * configured on the same interface).
-				 */
-				struct rip_info *tmp_rinfo = NULL;
-				struct connected *tmp_ifc = NULL;
-
-				for (ALL_LIST_ELEMENTS_RO(list, listnode,
-							  tmp_rinfo))
-					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
-					    && tmp_rinfo->nh.ifindex
-						       == ifc->ifp->ifindex)
-						rinfo->metric_out =
-							RIP_METRIC_INFINITY;
-
-				if (rinfo->metric_out != RIP_METRIC_INFINITY
-				    && rinfo->type == ZEBRA_ROUTE_CONNECT) {
-					for (ALL_LIST_ELEMENTS_RO(
-						     ifc->ifp->connected,
-						     listnode, tmp_ifc))
-						if (prefix_match(
-							    (struct prefix *)p,
-							    tmp_ifc->address)) {
-							rinfo->metric_out =
-								RIP_METRIC_INFINITY;
-							break;
-						}
-				}
-			}
-
-			/* Prepare preamble, auth headers, if needs be */
-			if (num == 0) {
-				stream_putc(s, RIP_RESPONSE);
-				stream_putc(s, version);
-				stream_putw(s, 0);
-
-				/* auth header for !v1 && !no_auth */
-				if ((ri->auth_type != RIP_NO_AUTH)
-				    && (version != RIPv1))
-					doff = rip_auth_header_write(
-						s, ri, key, auth_str,
-						RIP_AUTH_SIMPLE_SIZE);
-			}
-
-			/* Write RTE to the stream. */
-			num = rip_write_rte(num, s, p, version, rinfo);
-			if (num == rtemax) {
-				if (version == RIPv2
-				    && ri->auth_type == RIP_AUTH_MD5)
-					rip_auth_md5_set(s, ri, doff, auth_str,
-							 RIP_AUTH_SIMPLE_SIZE);
-
-				ret = rip_send_packet(STREAM_DATA(s),
-						      stream_get_endp(s), to,
-						      ifc);
-
-				if (ret >= 0 && IS_RIP_DEBUG_SEND)
-					rip_packet_dump((struct rip_packet *)
-								STREAM_DATA(s),
-							stream_get_endp(s),
-							"SEND");
-				num = 0;
-				stream_reset(s);
+			if (ret == RMAP_DENYMATCH) {
+				if (IS_RIP_DEBUG_PACKET)
+					zlog_debug(
+						"RIP %pFX is filtered by route-map out",
+						p);
+				continue;
 			}
 		}
+
+		/* Apply redistribute route map - continue, if deny */
+		if (rip->redist[rinfo->type].route_map.name &&
+		    rinfo->sub_type != RIP_ROUTE_INTERFACE) {
+			ret = route_map_apply(
+				rip->redist[rinfo->type].route_map.map,
+				(struct prefix *)p, rinfo);
+
+			if (ret == RMAP_DENYMATCH) {
+				if (IS_RIP_DEBUG_PACKET)
+					zlog_debug(
+						"%pFX is filtered by route-map",
+						p);
+				continue;
+			}
+		}
+
+		/* When route-map does not set metric. */
+		if (!rinfo->metric_set) {
+			/* If redistribute metric is set. */
+			if (rip->redist[rinfo->type].metric_config &&
+			    rinfo->metric != RIP_METRIC_INFINITY) {
+				rinfo->metric_out =
+					rip->redist[rinfo->type].metric;
+			} else {
+				/* If the route is not connected or localy
+				 * generated one, use default-metric value
+				 */
+				if (rinfo->type != ZEBRA_ROUTE_RIP &&
+				    rinfo->type != ZEBRA_ROUTE_CONNECT &&
+				    rinfo->metric != RIP_METRIC_INFINITY)
+					rinfo->metric_out = rip->default_metric;
+			}
+		}
+
+		/* Apply offset-list */
+		if (rinfo->metric != RIP_METRIC_INFINITY)
+			rip_offset_list_apply_out(p, ifc->ifp,
+						  &rinfo->metric_out);
+
+		if (rinfo->metric_out > RIP_METRIC_INFINITY)
+			rinfo->metric_out = RIP_METRIC_INFINITY;
+
+		/* Perform split-horizon with poisoned reverse
+		 * for RIP and connected routes.
+		 **/
+		if (ri->split_horizon == RIP_SPLIT_HORIZON_POISONED_REVERSE) {
+			/*
+			 * We perform split horizon for RIP and connected
+			 * route.  For rip routes, we want to suppress the
+			 * route if we would end up sending the route back
+			 * on the interface that we learned it from, with a
+			 * higher metric. For connected routes, we suppress
+			 * the route if the prefix is a subset of the source
+			 * address that we are going to use for the packet
+			 * (in order to handle the case when multiple
+			 * subnets are configured on the same interface).
+			 */
+			struct rip_info *tmp_rinfo = NULL;
+			struct connected *tmp_ifc = NULL;
+
+			for (ALL_LIST_ELEMENTS_RO(list, listnode, tmp_rinfo))
+				if (tmp_rinfo->type == ZEBRA_ROUTE_RIP &&
+				    tmp_rinfo->nh.ifindex == ifc->ifp->ifindex)
+					rinfo->metric_out = RIP_METRIC_INFINITY;
+
+			if (rinfo->metric_out != RIP_METRIC_INFINITY &&
+			    rinfo->type == ZEBRA_ROUTE_CONNECT) {
+				for (ALL_LIST_ELEMENTS_RO(ifc->ifp->connected,
+							  listnode, tmp_ifc))
+					if (prefix_match((struct prefix *)p,
+							 tmp_ifc->address)) {
+						rinfo->metric_out =
+							RIP_METRIC_INFINITY;
+						break;
+					}
+			}
+		}
+
+		/* Prepare preamble, auth headers, if needs be */
+		if (num == 0) {
+			stream_putc(s, RIP_RESPONSE);
+			stream_putc(s, version);
+			stream_putw(s, 0);
+
+			/* auth header for !v1 && !no_auth */
+			if ((ri->auth_type != RIP_NO_AUTH) &&
+			    (version != RIPv1))
+				doff = rip_auth_header_write(
+					s, ri, key, auth_str,
+					RIP_AUTH_SIMPLE_SIZE);
+		}
+
+		/* Write RTE to the stream. */
+		num = rip_write_rte(num, s, p, version, rinfo);
+		if (num == rtemax) {
+			if (version == RIPv2 && ri->auth_type == RIP_AUTH_MD5)
+				rip_auth_md5_set(s, ri, doff, auth_str,
+						 RIP_AUTH_SIMPLE_SIZE);
+
+			ret = rip_send_packet(STREAM_DATA(s),
+					      stream_get_endp(s), to, ifc);
+
+			if (ret >= 0 && IS_RIP_DEBUG_SEND)
+				rip_packet_dump(
+					(struct rip_packet *)STREAM_DATA(s),
+					stream_get_endp(s), "SEND");
+			num = 0;
+			stream_reset(s);
+		}
+	}
 
 	/* Flush unwritten RTE. */
 	if (num != 0) {
@@ -2429,7 +2383,7 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 	if (if_is_broadcast(ifp) || if_is_pointopoint(ifp)) {
 		if (ifc->address->family == AF_INET) {
 			/* Destination address and port setting. */
-			memset(&to, 0, sizeof(struct sockaddr_in));
+			memset(&to, 0, sizeof(to));
 			if (ifc->destination)
 				/* use specified broadcast or peer destination
 				 * addr */
@@ -2483,70 +2437,65 @@ static void rip_update_process(struct rip *rip, int route_type)
 		if (ri->passive)
 			continue;
 
-		if (ri->running) {
-			/*
-			 * If there is no version configuration in the
-			 * interface,
-			 * use rip's version setting.
-			 */
-			int vsend = ((ri->ri_send == RI_RIP_UNSPEC)
-					     ? rip->version_send
-					     : ri->ri_send);
+		if (!ri->running)
+			continue;
 
-			if (IS_RIP_DEBUG_EVENT)
-				zlog_debug("SEND UPDATE to %s ifindex %d",
-					   ifp->name, ifp->ifindex);
+		/*
+		 * If there is no version configuration in the
+		 * interface, use rip's version setting.
+		 */
+		int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ? rip->version_send
+							    : ri->ri_send);
 
-			/* send update on each connected network */
-			for (ALL_LIST_ELEMENTS(ifp->connected, ifnode, ifnnode,
-					       connected)) {
-				if (connected->address->family == AF_INET) {
-					if (vsend & RIPv1)
-						rip_update_interface(
-							connected, RIPv1,
-							route_type);
-					if ((vsend & RIPv2)
-					    && if_is_multicast(ifp))
-						rip_update_interface(
-							connected, RIPv2,
-							route_type);
-				}
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug("SEND UPDATE to %s ifindex %d", ifp->name,
+				   ifp->ifindex);
+
+		/* send update on each connected network */
+		for (ALL_LIST_ELEMENTS(ifp->connected, ifnode, ifnnode,
+				       connected)) {
+			if (connected->address->family == AF_INET) {
+				if (vsend & RIPv1)
+					rip_update_interface(connected, RIPv1,
+							     route_type);
+				if ((vsend & RIPv2) && if_is_multicast(ifp))
+					rip_update_interface(connected, RIPv2,
+							     route_type);
 			}
 		}
 	}
 
 	/* RIP send updates to each neighbor. */
-	for (rp = route_top(rip->neighbor); rp; rp = route_next(rp))
-		if (rp->info != NULL) {
-			p = &rp->p;
+	for (rp = route_top(rip->neighbor); rp; rp = route_next(rp)) {
+		if (rp->info == NULL)
+			continue;
 
-			connected = if_lookup_address(&p->u.prefix4, AF_INET,
-						      rip->vrf->vrf_id);
-			if (!connected) {
-				zlog_warn(
-					"Neighbor %pI4 doesn't have connected interface!",
-					&p->u.prefix4);
-				continue;
-			}
+		p = &rp->p;
 
-			/* Set destination address and port */
-			memset(&to, 0, sizeof(struct sockaddr_in));
-			to.sin_addr = p->u.prefix4;
-			to.sin_port = htons(RIP_PORT_DEFAULT);
-
-			/* RIP version is rip's configuration. */
-			rip_output_process(connected, &to, route_type,
-					   rip->version_send);
+		connected = if_lookup_address(&p->u.prefix4, AF_INET,
+					      rip->vrf->vrf_id);
+		if (!connected) {
+			zlog_warn(
+				"Neighbor %pI4 doesn't have connected interface!",
+				&p->u.prefix4);
+			continue;
 		}
+
+		/* Set destination address and port */
+		memset(&to, 0, sizeof(struct sockaddr_in));
+		to.sin_addr = p->u.prefix4;
+		to.sin_port = htons(RIP_PORT_DEFAULT);
+
+		/* RIP version is rip's configuration. */
+		rip_output_process(connected, &to, route_type,
+				   rip->version_send);
+	}
 }
 
 /* RIP's periodical timer. */
-static int rip_update(struct thread *t)
+static void rip_update(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
-
-	/* Clear timer pointer. */
-	rip->t_update = NULL;
 
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("update timer fire!");
@@ -2556,13 +2505,11 @@ static int rip_update(struct thread *t)
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
-	RIP_TIMER_OFF(rip->t_triggered_interval);
+	THREAD_OFF(rip->t_triggered_interval);
 	rip->trigger = 0;
 
 	/* Register myself. */
 	rip_event(rip, RIP_UPDATE_EVENT, 0);
-
-	return 0;
 }
 
 /* Walk down the RIP routing table then clear changed flag. */
@@ -2573,41 +2520,39 @@ static void rip_clear_changed_flag(struct rip *rip)
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
 
-	for (rp = route_top(rip->table); rp; rp = route_next(rp))
-		if ((list = rp->info) != NULL)
-			for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-				UNSET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
-				/* This flag can be set only on the first entry.
-				 */
-				break;
-			}
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+
+		if (list == NULL)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			UNSET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
+			/* This flag can be set only on the first entry. */
+			break;
+		}
+	}
 }
 
 /* Triggered update interval timer. */
-static int rip_triggered_interval(struct thread *t)
+static void rip_triggered_interval(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
-
-	rip->t_triggered_interval = NULL;
 
 	if (rip->trigger) {
 		rip->trigger = 0;
 		rip_triggered_update(t);
 	}
-	return 0;
 }
 
 /* Execute triggered update. */
-static int rip_triggered_update(struct thread *t)
+static void rip_triggered_update(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int interval;
 
-	/* Clear thred pointer. */
-	rip->t_triggered_update = NULL;
-
 	/* Cancel interval timer. */
-	RIP_TIMER_OFF(rip->t_triggered_interval);
+	THREAD_OFF(rip->t_triggered_interval);
 	rip->trigger = 0;
 
 	/* Logging triggered update. */
@@ -2628,11 +2573,8 @@ static int rip_triggered_update(struct thread *t)
 	 update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	rip->t_triggered_interval = NULL;
 	thread_add_timer(master, rip_triggered_interval, rip, interval,
 			 &rip->t_triggered_interval);
-
-	return 0;
 }
 
 /* Withdraw redistributed route. */
@@ -2642,34 +2584,39 @@ void rip_redistribute_withdraw(struct rip *rip, int type)
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 
-	for (rp = route_top(rip->table); rp; rp = route_next(rp))
-		if ((list = rp->info) != NULL) {
-			rinfo = listgetdata(listhead(list));
-			if (rinfo->type == type
-			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
-				/* Perform poisoned reverse. */
-				rinfo->metric = RIP_METRIC_INFINITY;
-				RIP_TIMER_ON(rinfo->t_garbage_collect,
-					     rip_garbage_collect,
-					     rip->garbage_time);
-				RIP_TIMER_OFF(rinfo->t_timeout);
-				rinfo->flags |= RIP_RTF_CHANGED;
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
 
-				if (IS_RIP_DEBUG_EVENT) {
-					struct prefix_ipv4 *p =
-						(struct prefix_ipv4 *)&rp->p;
+		if (list == NULL)
+			continue;
 
-					zlog_debug(
-						"Poisone %pFX on the interface %s with an infinity metric [withdraw]",
-						p,
-						ifindex2ifname(
-							rinfo->nh.ifindex,
-							rip->vrf->vrf_id));
-				}
+		rinfo = listgetdata(listhead(list));
 
-				rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
-			}
+		if (rinfo->type != type)
+			continue;
+
+		if (rinfo->sub_type == RIP_ROUTE_INTERFACE)
+			continue;
+
+		/* Perform poisoned reverse. */
+		rinfo->metric = RIP_METRIC_INFINITY;
+		RIP_TIMER_ON(rinfo->t_garbage_collect, rip_garbage_collect,
+			     rip->garbage_time);
+		THREAD_OFF(rinfo->t_timeout);
+		rinfo->flags |= RIP_RTF_CHANGED;
+
+		if (IS_RIP_DEBUG_EVENT) {
+			struct prefix_ipv4 *p = (struct prefix_ipv4 *)&rp->p;
+
+			zlog_debug(
+				"Poisone %pFX on the interface %s with an infinity metric [withdraw]",
+				p,
+				ifindex2ifname(rinfo->nh.ifindex,
+					       rip->vrf->vrf_id));
 		}
+
+		rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
+	}
 }
 
 struct rip *rip_lookup_by_vrf_id(vrf_id_t vrf_id)
@@ -2834,11 +2781,10 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 
 	switch (event) {
 	case RIP_READ:
-		rip->t_read = NULL;
 		thread_add_read(master, rip_read, rip, sock, &rip->t_read);
 		break;
 	case RIP_UPDATE_EVENT:
-		RIP_TIMER_OFF(rip->t_update);
+		THREAD_OFF(rip->t_update);
 		jitter = rip_update_jitter(rip->update_time);
 		thread_add_timer(master, rip_update, rip,
 				 sock ? 2 : rip->update_time + jitter,
@@ -2886,7 +2832,7 @@ uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo)
 	struct rip_distance *rdistance;
 	struct access_list *alist;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.prefix = rinfo->from;
 	p.prefixlen = IPV4_MAX_BITLEN;
@@ -2927,19 +2873,20 @@ static void rip_distance_show(struct vty *vty, struct rip *rip)
 	vty_out(vty, "  Distance: (default is %u)\n",
 		rip->distance ? rip->distance : ZEBRA_RIP_DISTANCE_DEFAULT);
 
-	for (rn = route_top(rip->distance_table); rn; rn = route_next(rn))
-		if ((rdistance = rn->info) != NULL) {
-			if (header) {
-				vty_out(vty,
-					"    Address           Distance  List\n");
-				header = 0;
-			}
-			snprintfrr(buf, sizeof(buf), "%pFX", &rn->p);
-			vty_out(vty, "    %-20s  %4d  %s\n", buf,
-				rdistance->distance,
-				rdistance->access_list ? rdistance->access_list
-						       : "");
+	for (rn = route_top(rip->distance_table); rn; rn = route_next(rn)) {
+		rdistance = rn->info;
+
+		if (rdistance == NULL)
+			continue;
+
+		if (header) {
+			vty_out(vty, "    Address           Distance  List\n");
+			header = 0;
 		}
+		snprintfrr(buf, sizeof(buf), "%pFX", &rn->p);
+		vty_out(vty, "    %-20s  %4d  %s\n", buf, rdistance->distance,
+			rdistance->access_list ? rdistance->access_list : "");
+	}
 }
 
 /* Update ECMP routes to zebra when ECMP is disabled. */
@@ -2950,31 +2897,38 @@ void rip_ecmp_disable(struct rip *rip)
 	struct list *list;
 	struct listnode *node, *nextnode;
 
-	for (rp = route_top(rip->table); rp; rp = route_next(rp))
-		if ((list = rp->info) != NULL && listcount(list) > 1) {
-			rinfo = listgetdata(listhead(list));
-			if (!rip_route_rte(rinfo))
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+
+		if (!list)
+			continue;
+		if (listcount(list) == 0)
+			continue;
+
+		rinfo = listgetdata(listhead(list));
+		if (!rip_route_rte(rinfo))
+			continue;
+
+		/* Drop all other entries, except the first one. */
+		for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo)) {
+			if (tmp_rinfo == rinfo)
 				continue;
 
-			/* Drop all other entries, except the first one. */
-			for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
-				if (tmp_rinfo != rinfo) {
-					RIP_TIMER_OFF(tmp_rinfo->t_timeout);
-					RIP_TIMER_OFF(
-						tmp_rinfo->t_garbage_collect);
-					list_delete_node(list, node);
-					rip_info_free(tmp_rinfo);
-				}
-
-			/* Update zebra. */
-			rip_zebra_ipv4_add(rip, rp);
-
-			/* Set the route change flag. */
-			SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
-
-			/* Signal the output process to trigger an update. */
-			rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
+			THREAD_OFF(tmp_rinfo->t_timeout);
+			THREAD_OFF(tmp_rinfo->t_garbage_collect);
+			list_delete_node(list, node);
+			rip_info_free(tmp_rinfo);
 		}
+
+		/* Update zebra. */
+		rip_zebra_ipv4_add(rip, rp);
+
+		/* Set the route change flag. */
+		SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
+
+		/* Signal the output process to trigger an update. */
+		rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
+	}
 }
 
 /* Print out routes update time. */
@@ -3055,82 +3009,77 @@ DEFUN (show_ip_rip,
 		"      (i) - interface\n\n"
 		"     Network            Next Hop         Metric From            Tag Time\n");
 
-	for (np = route_top(rip->table); np; np = route_next(np))
-		if ((list = np->info) != NULL)
-			for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-				int len;
+	for (np = route_top(rip->table); np; np = route_next(np)) {
+		list = np->info;
 
-				len = vty_out(
-					vty, "%c(%s) %pFX",
-					/* np->lock, For debugging. */
-					zebra_route_char(rinfo->type),
-					rip_route_type_print(rinfo->sub_type),
-					&np->p);
+		if (!list)
+			continue;
 
-				len = 24 - len;
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			int len;
 
-				if (len > 0)
-					vty_out(vty, "%*s", len, " ");
+			len = vty_out(vty, "%c(%s) %pFX",
+				      /* np->lock, For debugging. */
+				      zebra_route_char(rinfo->type),
+				      rip_route_type_print(rinfo->sub_type),
+				      &np->p);
 
-				switch (rinfo->nh.type) {
-				case NEXTHOP_TYPE_IPV4:
-				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					vty_out(vty, "%-20pI4 %2d ",
-						&rinfo->nh.gate.ipv4,
-						rinfo->metric);
-					break;
-				case NEXTHOP_TYPE_IFINDEX:
-					vty_out(vty,
-						"0.0.0.0              %2d ",
-						rinfo->metric);
-					break;
-				case NEXTHOP_TYPE_BLACKHOLE:
-					vty_out(vty,
-						"blackhole            %2d ",
-						rinfo->metric);
-					break;
-				case NEXTHOP_TYPE_IPV6:
-				case NEXTHOP_TYPE_IPV6_IFINDEX:
-					vty_out(vty,
-						"V6 Address Hidden    %2d ",
-						rinfo->metric);
-					break;
-				}
+			len = 24 - len;
 
-				/* Route which exist in kernel routing table. */
-				if ((rinfo->type == ZEBRA_ROUTE_RIP)
-				    && (rinfo->sub_type == RIP_ROUTE_RTE)) {
-					vty_out(vty, "%-15pI4 ",
-						&rinfo->from);
-					vty_out(vty, "%3" ROUTE_TAG_PRI " ",
-						(route_tag_t)rinfo->tag);
-					rip_vty_out_uptime(vty, rinfo);
-				} else if (rinfo->metric
-					   == RIP_METRIC_INFINITY) {
-					vty_out(vty, "self            ");
-					vty_out(vty, "%3" ROUTE_TAG_PRI " ",
-						(route_tag_t)rinfo->tag);
-					rip_vty_out_uptime(vty, rinfo);
-				} else {
-					if (rinfo->external_metric) {
-						len = vty_out(
-							vty, "self (%s:%d)",
-							zebra_route_string(
-								rinfo->type),
-							rinfo->external_metric);
-						len = 16 - len;
-						if (len > 0)
-							vty_out(vty, "%*s", len,
-								" ");
-					} else
-						vty_out(vty,
-							"self            ");
-					vty_out(vty, "%3" ROUTE_TAG_PRI,
-						(route_tag_t)rinfo->tag);
-				}
+			if (len > 0)
+				vty_out(vty, "%*s", len, " ");
 
-				vty_out(vty, "\n");
+			switch (rinfo->nh.type) {
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				vty_out(vty, "%-20pI4 %2d ",
+					&rinfo->nh.gate.ipv4, rinfo->metric);
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				vty_out(vty, "0.0.0.0              %2d ",
+					rinfo->metric);
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				vty_out(vty, "blackhole            %2d ",
+					rinfo->metric);
+				break;
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				vty_out(vty, "V6 Address Hidden    %2d ",
+					rinfo->metric);
+				break;
 			}
+
+			/* Route which exist in kernel routing table. */
+			if ((rinfo->type == ZEBRA_ROUTE_RIP) &&
+			    (rinfo->sub_type == RIP_ROUTE_RTE)) {
+				vty_out(vty, "%-15pI4 ", &rinfo->from);
+				vty_out(vty, "%3" ROUTE_TAG_PRI " ",
+					(route_tag_t)rinfo->tag);
+				rip_vty_out_uptime(vty, rinfo);
+			} else if (rinfo->metric == RIP_METRIC_INFINITY) {
+				vty_out(vty, "self            ");
+				vty_out(vty, "%3" ROUTE_TAG_PRI " ",
+					(route_tag_t)rinfo->tag);
+				rip_vty_out_uptime(vty, rinfo);
+			} else {
+				if (rinfo->external_metric) {
+					len = vty_out(
+						vty, "self (%s:%d)",
+						zebra_route_string(rinfo->type),
+						rinfo->external_metric);
+					len = 16 - len;
+					if (len > 0)
+						vty_out(vty, "%*s", len, " ");
+				} else
+					vty_out(vty, "self            ");
+				vty_out(vty, "%3" ROUTE_TAG_PRI,
+					(route_tag_t)rinfo->tag);
+			}
+
+			vty_out(vty, "\n");
+		}
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3230,20 +3179,17 @@ DEFUN (show_ip_rip_status,
 	vty_out(vty, "  Routing for Networks:\n");
 	rip_show_network_config(vty, rip);
 
-	{
-		int found_passive = 0;
-		FOR_ALL_INTERFACES (rip->vrf, ifp) {
-			ri = ifp->info;
+	int found_passive = 0;
+	FOR_ALL_INTERFACES (rip->vrf, ifp) {
+		ri = ifp->info;
 
-			if ((ri->enable_network || ri->enable_interface)
-			    && ri->passive) {
-				if (!found_passive) {
-					vty_out(vty,
-						"  Passive Interface(s):\n");
-					found_passive = 1;
-				}
-				vty_out(vty, "    %s\n", ifp->name);
+		if ((ri->enable_network || ri->enable_interface) &&
+		    ri->passive) {
+			if (!found_passive) {
+				vty_out(vty, "  Passive Interface(s):\n");
+				found_passive = 1;
 			}
+			vty_out(vty, "    %s\n", ifp->name);
 		}
 	}
 
@@ -3561,8 +3507,8 @@ static void rip_instance_disable(struct rip *rip)
 			rip_zebra_ipv4_delete(rip, rp);
 
 		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-			RIP_TIMER_OFF(rinfo->t_timeout);
-			RIP_TIMER_OFF(rinfo->t_garbage_collect);
+			THREAD_OFF(rinfo->t_timeout);
+			THREAD_OFF(rinfo->t_garbage_collect);
 			rip_info_free(rinfo);
 		}
 		list_delete(&list);
@@ -3574,12 +3520,12 @@ static void rip_instance_disable(struct rip *rip)
 	rip_redistribute_disable(rip);
 
 	/* Cancel RIP related timers. */
-	RIP_TIMER_OFF(rip->t_update);
-	RIP_TIMER_OFF(rip->t_triggered_update);
-	RIP_TIMER_OFF(rip->t_triggered_interval);
+	THREAD_OFF(rip->t_update);
+	THREAD_OFF(rip->t_triggered_update);
+	THREAD_OFF(rip->t_triggered_interval);
 
 	/* Cancel read thread. */
-	thread_cancel(&rip->t_read);
+	THREAD_OFF(rip->t_read);
 
 	/* Close RIP socket. */
 	close(rip->sock);
@@ -3605,9 +3551,17 @@ static int rip_vrf_new(struct vrf *vrf)
 
 static int rip_vrf_delete(struct vrf *vrf)
 {
+	struct rip *rip;
+
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
 			   vrf->vrf_id);
+
+	rip = rip_lookup_by_vrf_name(vrf->name);
+	if (!rip)
+		return 0;
+
+	rip_clean(rip);
 
 	return 0;
 }
@@ -3618,43 +3572,6 @@ static int rip_vrf_enable(struct vrf *vrf)
 	int socket;
 
 	rip = rip_lookup_by_vrf_name(vrf->name);
-	if (!rip) {
-		char *old_vrf_name = NULL;
-
-		rip = (struct rip *)vrf->info;
-		if (!rip)
-			return 0;
-		/* update vrf name */
-		if (rip->vrf_name)
-			old_vrf_name = rip->vrf_name;
-		rip->vrf_name = XSTRDUP(MTYPE_RIP_VRF_NAME, vrf->name);
-		/*
-		 * HACK: Change the RIP VRF in the running configuration directly,
-		 * bypassing the northbound layer. This is necessary to avoid deleting
-		 * the RIP and readding it in the new VRF, which would have
-		 * several implications.
-		 */
-		if (yang_module_find("frr-ripd") && old_vrf_name) {
-			struct lyd_node *rip_dnode;
-			char oldpath[XPATH_MAXLEN];
-			char newpath[XPATH_MAXLEN];
-
-			rip_dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-ripd:ripd/instance[vrf='%s']/vrf",
-				old_vrf_name);
-			if (rip_dnode) {
-				yang_dnode_get_path(lyd_parent(rip_dnode),
-						    oldpath, sizeof(oldpath));
-				yang_dnode_change_leaf(rip_dnode, vrf->name);
-				yang_dnode_get_path(lyd_parent(rip_dnode),
-						    newpath, sizeof(newpath));
-				nb_running_move_tree(oldpath, newpath);
-				running_config->version++;
-			}
-		}
-		XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);
-	}
 	if (!rip || rip->enabled)
 		return 0;
 
@@ -3695,8 +3612,7 @@ static int rip_vrf_disable(struct vrf *vrf)
 
 void rip_vrf_init(void)
 {
-	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable, rip_vrf_delete,
-		 rip_vrf_enable);
+	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable, rip_vrf_delete);
 
 	vrf_cmd_init(NULL);
 }

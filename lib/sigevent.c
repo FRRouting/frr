@@ -36,10 +36,10 @@
 
 
 /* master signals descriptor struct */
-static struct quagga_sigevent_master_t {
+static struct frr_sigevent_master_t {
 	struct thread *t;
 
-	struct quagga_signal_t *signals;
+	struct frr_signal_t *signals;
 	int sigc;
 
 	volatile sig_atomic_t caught;
@@ -48,10 +48,10 @@ static struct quagga_sigevent_master_t {
 /* Generic signal handler
  * Schedules signal event thread
  */
-static void quagga_signal_handler(int signo)
+static void frr_signal_handler(int signo)
 {
 	int i;
-	struct quagga_signal_t *sig;
+	struct frr_signal_t *sig;
 
 	for (i = 0; i < sigmaster.sigc; i++) {
 		sig = &(sigmaster.signals[i]);
@@ -91,12 +91,12 @@ bool frr_sigevent_check(sigset_t *setp)
 }
 
 /* check if signals have been caught and run appropriate handlers */
-int quagga_sigevent_process(void)
+int frr_sigevent_process(void)
 {
-	struct quagga_signal_t *sig;
+	struct frr_signal_t *sig;
 	int i;
 #ifdef SIGEVENT_BLOCK_SIGNALS
-	/* shouldnt need to block signals, but potentially may be needed */
+	/* shouldn't need to block signals, but potentially may be needed */
 	sigset_t newmask, oldmask;
 
 	/*
@@ -110,7 +110,7 @@ int quagga_sigevent_process(void)
 
 	if ((sigprocmask(SIG_BLOCK, &newmask, &oldmask)) < 0) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
-			     "quagga_signal_timer: couldnt block signals!");
+			     "frr_signal_timer: couldnt block signals!");
 		return -1;
 	}
 #endif /* SIGEVENT_BLOCK_SIGNALS */
@@ -134,24 +134,23 @@ int quagga_sigevent_process(void)
 
 #ifdef SIGEVENT_BLOCK_SIGNALS
 	if (sigprocmask(SIG_UNBLOCK, &oldmask, NULL) < 0)
-		;
-	return -1;
+		return -1;
 #endif /* SIGEVENT_BLOCK_SIGNALS */
 
 	return 0;
 }
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
-/* timer thread to check signals. Shouldnt be needed */
-int quagga_signal_timer(struct thread *t)
+/* timer thread to check signals. shouldn't be needed */
+void frr_signal_timer(struct thread *t)
 {
-	struct quagga_sigevent_master_t *sigm;
+	struct frr_sigevent_master_t *sigm;
 
 	sigm = THREAD_ARG(t);
 	sigm->t = NULL;
-	thread_add_timer(sigm->t->master, quagga_signal_timer, &sigmaster,
-			 QUAGGA_SIGNAL_TIMER_INTERVAL, &sigm->t);
-	return quagga_sigevent_process();
+	thread_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
+			 FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
+	frr_sigevent_process();
 }
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 
@@ -163,7 +162,7 @@ static int signal_set(int signo)
 	struct sigaction sig;
 	struct sigaction osig;
 
-	sig.sa_handler = &quagga_signal_handler;
+	sig.sa_handler = &frr_signal_handler;
 	sigfillset(&sig.sa_mask);
 	sig.sa_flags = 0;
 	if (signo == SIGALRM) {
@@ -348,11 +347,11 @@ static void trap_default_signals(void)
 }
 
 void signal_init(struct thread_master *m, int sigc,
-		 struct quagga_signal_t signals[])
+		 struct frr_signal_t signals[])
 {
 
 	int i = 0;
-	struct quagga_signal_t *sig;
+	struct frr_signal_t *sig;
 
 	/* First establish some default handlers that can be overridden by
 	   the application. */
@@ -370,7 +369,7 @@ void signal_init(struct thread_master *m, int sigc,
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
 	sigmaster.t = NULL;
-	thread_add_timer(m, quagga_signal_timer, &sigmaster,
-			 QUAGGA_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
+	thread_add_timer(m, frr_signal_timer, &sigmaster,
+			 FRR_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 }

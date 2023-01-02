@@ -26,11 +26,11 @@
 
 #define	CONTROL_BACKLOG	5
 
-static int		 control_accept(struct thread *);
+static void control_accept(struct thread *);
 static struct ctl_conn	*control_connbyfd(int);
 static struct ctl_conn	*control_connbypid(pid_t);
 static void		 control_close(int);
-static int		 control_dispatch_imsg(struct thread *);
+static void control_dispatch_imsg(struct thread *);
 
 struct ctl_conns	 ctl_conns;
 
@@ -101,8 +101,7 @@ control_cleanup(char *path)
 }
 
 /* ARGSUSED */
-static int
-control_accept(struct thread *thread)
+static void control_accept(struct thread *thread)
 {
 	int			 connfd;
 	socklen_t		 len;
@@ -121,14 +120,14 @@ control_accept(struct thread *thread)
 		else if (errno != EWOULDBLOCK && errno != EINTR &&
 		    errno != ECONNABORTED)
 			log_warn("%s: accept", __func__);
-		return (0);
+		return;
 	}
 	sock_set_nonblock(connfd);
 
 	if ((c = calloc(1, sizeof(struct ctl_conn))) == NULL) {
 		log_warn(__func__);
 		close(connfd);
-		return (0);
+		return;
 	}
 
 	imsg_init(&c->iev.ibuf, connfd);
@@ -140,8 +139,6 @@ control_accept(struct thread *thread)
 	c->iev.ev_write = NULL;
 
 	TAILQ_INSERT_TAIL(&ctl_conns, c, entry);
-
-	return (0);
 }
 
 static struct ctl_conn *
@@ -183,16 +180,15 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	thread_cancel(&c->iev.ev_read);
-	thread_cancel(&c->iev.ev_write);
+	THREAD_OFF(c->iev.ev_read);
+	THREAD_OFF(c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);
 }
 
 /* ARGSUSED */
-static int
-control_dispatch_imsg(struct thread *thread)
+static void control_dispatch_imsg(struct thread *thread)
 {
 	int		 fd = THREAD_FD(thread);
 	struct ctl_conn	*c;
@@ -202,7 +198,7 @@ control_dispatch_imsg(struct thread *thread)
 
 	if ((c = control_connbyfd(fd)) == NULL) {
 		log_warnx("%s: fd %d: not found", __func__, fd);
-		return (0);
+		return;
 	}
 
 	c->iev.ev_read = NULL;
@@ -210,13 +206,13 @@ control_dispatch_imsg(struct thread *thread)
 	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
 	    n == 0) {
 		control_close(fd);
-		return (0);
+		return;
 	}
 
 	for (;;) {
 		if ((n = imsg_get(&c->iev.ibuf, &imsg)) == -1) {
 			control_close(fd);
-			return (0);
+			return;
 		}
 
 		if (n == 0)
@@ -278,8 +274,6 @@ control_dispatch_imsg(struct thread *thread)
 	}
 
 	imsg_event_add(&c->iev);
-
-	return (0);
 }
 
 int

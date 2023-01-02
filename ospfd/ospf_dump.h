@@ -68,6 +68,8 @@
 
 #define OSPF_DEBUG_BFD_LIB 0x01
 
+#define OSPF_DEBUG_CLIENT_API 0x01
+
 /* Macro for setting debug option. */
 #define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
 #define CONF_DEBUG_PACKET_OFF(a, b)	    conf_debug_ospf_packet[a] &= ~(b)
@@ -118,6 +120,7 @@
 
 #define IS_DEBUG_OSPF_LDP_SYNC IS_DEBUG_OSPF(ldp_sync, LDP_SYNC)
 #define IS_DEBUG_OSPF_GR IS_DEBUG_OSPF(gr, GR)
+#define IS_DEBUG_OSPF_CLIENT_API IS_DEBUG_OSPF(client_api, CLIENT_API)
 
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
@@ -142,6 +145,7 @@ extern unsigned long term_debug_ospf_defaultinfo;
 extern unsigned long term_debug_ospf_ldp_sync;
 extern unsigned long term_debug_ospf_gr;
 extern unsigned long term_debug_ospf_bfd;
+extern unsigned long term_debug_ospf_client_api;
 
 /* Message Strings. */
 extern char *ospf_lsa_type_str[];
@@ -150,7 +154,11 @@ extern char *ospf_lsa_type_str[];
 extern const char *ospf_area_name_string(struct ospf_area *);
 extern const char *ospf_area_desc_string(struct ospf_area *);
 extern const char *ospf_if_name_string(struct ospf_interface *);
-extern void ospf_nbr_state_message(struct ospf_neighbor *, char *, size_t);
+extern int ospf_nbr_ism_state(struct ospf_neighbor *nbr);
+extern void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf,
+				   size_t size);
+extern void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
+				       size_t size);
 extern const char *ospf_timer_dump(struct thread *, char *, size_t);
 extern const char *ospf_timeval_dump(struct timeval *, char *, size_t);
 extern void ospf_packet_dump(struct stream *);

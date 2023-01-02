@@ -21,9 +21,6 @@
 
 #include <zebra.h>
 
-/* for basename */
-#include <libgen.h>
-
 #include "if.h"
 #include "vrf.h"
 #include "vrf_int.h"
@@ -72,7 +69,6 @@ static struct vrf_master {
 	int (*vrf_delete_hook)(struct vrf *);
 	int (*vrf_enable_hook)(struct vrf *);
 	int (*vrf_disable_hook)(struct vrf *);
-	int (*vrf_update_name_hook)(struct vrf *vrf);
 } vrf_master = {
 	0,
 };
@@ -95,28 +91,6 @@ static __inline int vrf_id_compare(const struct vrf *a, const struct vrf *b)
 static int vrf_name_compare(const struct vrf *a, const struct vrf *b)
 {
 	return strcmp(a->name, b->name);
-}
-
-/* if ns_id is different and not VRF_UNKNOWN,
- * then update vrf identifier, and enable VRF
- */
-static void vrf_update_vrf_id(ns_id_t ns_id, void *opaqueptr)
-{
-	ns_id_t vrf_id = (vrf_id_t)ns_id;
-	vrf_id_t old_vrf_id;
-	struct vrf *vrf = (struct vrf *)opaqueptr;
-
-	if (!vrf)
-		return;
-	old_vrf_id = vrf->vrf_id;
-	if (vrf_id == vrf->vrf_id)
-		return;
-	if (vrf->vrf_id != VRF_UNKNOWN)
-		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
-	vrf->vrf_id = vrf_id;
-	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
-	if (old_vrf_id == VRF_UNKNOWN)
-		vrf_enable(vrf);
 }
 
 int vrf_switch_to_netns(vrf_id_t vrf_id)
@@ -201,8 +175,6 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 			name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
-		if (vrf->vrf_id == VRF_DEFAULT)
-			vrf_set_default_name(vrf->name, false);
 	} else if (name && vrf->name[0] == '\0') {
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
@@ -272,32 +244,27 @@ void vrf_delete(struct vrf *vrf)
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
 
+	if (vrf->vrf_id != VRF_UNKNOWN) {
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+		vrf->vrf_id = VRF_UNKNOWN;
+	}
+
 	/* If the VRF is user configured, it'll stick around, just remove
 	 * the ID mapping. Interfaces assigned to this VRF should've been
 	 * removed already as part of the VRF going down.
 	 */
-	if (vrf_is_user_cfged(vrf)) {
-		if (vrf->vrf_id != VRF_UNKNOWN) {
-			/* Delete any VRF interfaces - should be only
-			 * the VRF itself, other interfaces should've
-			 * been moved out of the VRF.
-			 */
-			if_terminate(vrf);
-			RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
-			vrf->vrf_id = VRF_UNKNOWN;
-		}
-		vrf->ns_ctxt = NULL;
+	if (vrf_is_user_cfged(vrf))
 		return;
-	}
+
+	/* Do not delete the VRF if it has interfaces configured in it. */
+	if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name))
+		return;
 
 	if (vrf_master.vrf_delete_hook)
 		(*vrf_master.vrf_delete_hook)(vrf);
 
 	QOBJ_UNREG(vrf);
-	if_terminate(vrf);
 
-	if (vrf->vrf_id != VRF_UNKNOWN)
-		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
 	if (vrf->name[0] != '\0')
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
 
@@ -382,13 +349,6 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 
 	vrf = vrf_lookup_by_id(vrf_id);
 	return VRF_LOGNAME(vrf);
-}
-
-/* Get the data pointer of the specified VRF. If not found, create one. */
-void *vrf_info_get(vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
-	return vrf->info;
 }
 
 /* Look up the data pointer of the specified VRF. */
@@ -524,8 +484,7 @@ static const struct cmd_variable_handler vrf_var_handlers[] = {
 
 /* Initialize VRF module. */
 void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-	      int (*disable)(struct vrf *), int (*destroy)(struct vrf *),
-	      int ((*update)(struct vrf *)))
+	      int (*disable)(struct vrf *), int (*destroy)(struct vrf *))
 {
 	struct vrf *default_vrf;
 
@@ -538,7 +497,6 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	vrf_master.vrf_enable_hook = enable;
 	vrf_master.vrf_disable_hook = disable;
 	vrf_master.vrf_delete_hook = destroy;
-	vrf_master.vrf_update_name_hook = update;
 
 	/* The default VRF always exists. */
 	default_vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
@@ -571,6 +529,7 @@ static void vrf_terminate_single(struct vrf *vrf)
 {
 	/* Clear configured flag and invoke delete. */
 	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	if_terminate(vrf);
 	vrf_delete(vrf);
 }
 
@@ -598,7 +557,8 @@ void vrf_terminate(void)
 
 	/* Finally terminate default VRF */
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	vrf_terminate_single(vrf);
+	if (vrf)
+		vrf_terminate_single(vrf);
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
@@ -659,115 +619,6 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	return 0;
 }
 
-int vrf_handler_create(struct vty *vty, const char *vrfname,
-		       struct vrf **vrf)
-{
-	struct vrf *vrfp;
-	char xpath_list[XPATH_MAXLEN];
-	int ret;
-
-	if (strlen(vrfname) > VRF_NAMSIZ) {
-		if (vty)
-			vty_out(vty,
-				"%% VRF name %s invalid: length exceeds %d bytes\n",
-				vrfname, VRF_NAMSIZ);
-		else
-			flog_warn(
-				EC_LIB_VRF_LENGTH,
-				"%% VRF name %s invalid: length exceeds %d bytes",
-				vrfname, VRF_NAMSIZ);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (vty) {
-		snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH,
-			 vrfname);
-
-		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-		ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
-		if (ret == CMD_SUCCESS) {
-			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
-			vrfp = vrf_lookup_by_name(vrfname);
-			if (vrfp)
-				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
-		}
-	} else {
-		vrfp = vrf_get(VRF_UNKNOWN, vrfname);
-
-		if (vrf)
-			*vrf = vrfp;
-	}
-	return CMD_SUCCESS;
-}
-
-int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
-			     ns_id_t ns_id, ns_id_t internal_ns_id,
-			     ns_id_t rel_def_ns_id)
-{
-	struct ns *ns = NULL;
-
-	if (!vrf)
-		return CMD_WARNING_CONFIG_FAILED;
-	if (vrf->vrf_id != VRF_UNKNOWN && vrf->ns_ctxt == NULL) {
-		if (vty)
-			vty_out(vty,
-				"VRF %u is already configured with VRF %s\n",
-				vrf->vrf_id, vrf->name);
-		else
-			zlog_info("VRF %u is already configured with VRF %s",
-				  vrf->vrf_id, vrf->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (vrf->ns_ctxt != NULL) {
-		ns = (struct ns *)vrf->ns_ctxt;
-		if (!strcmp(ns->name, pathname)) {
-			if (vty)
-				vty_out(vty,
-					"VRF %u already configured with NETNS %s\n",
-					vrf->vrf_id, ns->name);
-			else
-				zlog_info(
-					"VRF %u already configured with NETNS %s",
-					vrf->vrf_id, ns->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-	ns = ns_lookup_name(pathname);
-	if (ns && ns->vrf_ctxt) {
-		struct vrf *vrf2 = (struct vrf *)ns->vrf_ctxt;
-
-		if (vrf2 == vrf)
-			return CMD_SUCCESS;
-		if (vty)
-			vty_out(vty,
-				"NS %s is already configured with VRF %u(%s)\n",
-				ns->name, vrf2->vrf_id, vrf2->name);
-		else
-			zlog_info("NS %s is already configured with VRF %u(%s)",
-				  ns->name, vrf2->vrf_id, vrf2->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	ns = ns_get_created(ns, pathname, ns_id);
-	ns->internal_ns_id = internal_ns_id;
-	ns->relative_default_ns = rel_def_ns_id;
-	ns->vrf_ctxt = (void *)vrf;
-	vrf->ns_ctxt = (void *)ns;
-	/* update VRF netns NAME */
-	strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
-
-	if (!ns_enable(ns, vrf_update_vrf_id)) {
-		if (vty)
-			vty_out(vty, "Can not associate NS %u with NETNS %s\n",
-				ns->ns_id, ns->name);
-		else
-			zlog_info("Can not associate NS %u with NETNS %s",
-				  ns->ns_id, ns->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 /* vrf CLI commands */
 DEFUN_NOSH(vrf_exit,
            vrf_exit_cmd,
@@ -786,8 +637,29 @@ DEFUN_YANG_NOSH (vrf,
 {
 	int idx_name = 1;
 	const char *vrfname = argv[idx_name]->arg;
+	char xpath_list[XPATH_MAXLEN];
+	struct vrf *vrf;
+	int ret;
 
-	return vrf_handler_create(vty, vrfname, NULL);
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		vty_out(vty,
+			"%% VRF name %s invalid: length exceeds %d bytes\n",
+			vrfname, VRF_NAMSIZ);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
+
+	nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
+	if (ret == CMD_SUCCESS) {
+		VTY_PUSH_XPATH(VRF_NODE, xpath_list);
+		vrf = vrf_lookup_by_name(vrfname);
+		if (vrf)
+			VTY_PUSH_CONTEXT(VRF_NODE, vrf);
+	}
+
+	return ret;
 }
 
 DEFUN_YANG (no_vrf,
@@ -814,15 +686,10 @@ DEFUN_YANG (no_vrf,
 
 	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 		/*
-		 * Remove the VRF interface config. Currently, we allow to
-		 * remove only inactive VRFs, so we use VRF_DEFAULT_NAME here,
-		 * because when the VRF is removed from kernel, the interface
-		 * is moved to the default VRF. If we ever allow removing
-		 * active VRFs, this code have to be updated accordingly.
+		 * Remove the VRF interface config when removing the VRF.
 		 */
 		snprintf(xpath_list, sizeof(xpath_list),
-			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
-			 vrfname, VRF_DEFAULT_NAME);
+			 "/frr-interface:lib/interface[name='%s']", vrfname);
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
 	}
 
@@ -902,33 +769,9 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_element(VRF_NODE, &vrf_exit_cmd);
 }
 
-void vrf_set_default_name(const char *default_name, bool force)
+void vrf_set_default_name(const char *default_name)
 {
-	struct vrf *def_vrf;
-	static bool def_vrf_forced;
-
-	def_vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	assert(default_name);
-	if (def_vrf && !force && def_vrf_forced) {
-		zlog_debug("VRF: %s, avoid changing name to %s, previously forced (%u)",
-			   def_vrf->name, default_name,
-			   def_vrf->vrf_id);
-		return;
-	}
-	if (strmatch(vrf_default_name, default_name))
-		return;
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
-	if (def_vrf) {
-		if (force)
-			def_vrf_forced = true;
-		RB_REMOVE(vrf_name_head, &vrfs_by_name, def_vrf);
-		strlcpy(def_vrf->data.l.netns_name,
-			vrf_default_name, NS_NAMSIZ);
-		strlcpy(def_vrf->name, vrf_default_name, sizeof(def_vrf->name));
-		RB_INSERT(vrf_name_head, &vrfs_by_name, def_vrf);
-		if (vrf_master.vrf_update_name_hook)
-			(*vrf_master.vrf_update_name_hook)(def_vrf);
-	}
 }
 
 const char *vrf_get_default_name(void)

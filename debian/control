@@ -19,7 +19,7 @@ Build-Depends: bison,
                libpcre2-dev,
                libpython3-dev,
                libreadline-dev,
-               librtr-dev <!pkg.frr.nortrlib>,
+               librtr-dev (>= 0.8.0~) <!pkg.frr.nortrlib>,
                libsnmp-dev,
                libssh-dev <!pkg.frr.nortrlib>,
                libyang2-dev,
@@ -30,6 +30,7 @@ Build-Depends: bison,
                python3-pytest:native <!nocheck>,
                python3-sphinx:native,
                texinfo (>= 4.7),
+               lua5.3 <pkg.frr.lua>,
                liblua5.3-dev <pkg.frr.lua>
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/

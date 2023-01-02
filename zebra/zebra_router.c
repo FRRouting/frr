@@ -29,7 +29,9 @@
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
 #include "zebra_nhg.h"
+#include "zebra_neigh.h"
 #include "debug.h"
+#include "zebra_script.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
@@ -231,16 +233,20 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
+	THREAD_OFF(zrouter.sweeper);
+
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
 
 	work_queue_free_and_null(&zrouter.ribq);
-	meta_queue_free(zrouter.mq);
+	meta_queue_free(zrouter.mq, NULL);
 
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
+	zebra_neigh_terminate();
 
 	/* Free NHE in ID table only since it has unhashable entries as well */
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_hash_free_zero_id, NULL);
 	hash_clean(zrouter.nhgs_id, zebra_nhg_hash_free);
 	hash_free(zrouter.nhgs_id);
 	hash_clean(zrouter.nhgs, NULL);
@@ -255,6 +261,13 @@ void zebra_router_terminate(void)
 	hash_free(zrouter.ipset_entry_hash);
 	hash_clean(zrouter.iptable_hash, zebra_pbr_iptable_free);
 	hash_free(zrouter.iptable_hash);
+
+#ifdef HAVE_SCRIPTING
+	zebra_script_destroy();
+#endif
+
+	/* OS-specific deinit */
+	kernel_router_terminate();
 }
 
 bool zebra_router_notify_on_ack(void)
@@ -266,10 +279,15 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 {
 	zrouter.sequence_num = 0;
 
+	zrouter.allow_delete = false;
+
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+
+	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
 	zebra_vxlan_init();
 	zebra_mlag_init();
+	zebra_neigh_init();
 
 	zrouter.rules_hash = hash_create_size(8, zebra_pbr_rules_hash_key,
 					      zebra_pbr_rules_hash_equal,
@@ -296,4 +314,11 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
+
+#ifdef HAVE_SCRIPTING
+	zebra_script_init();
+#endif
+
+	/* OS-specific init */
+	kernel_router_init();
 }

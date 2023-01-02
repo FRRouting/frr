@@ -56,7 +56,7 @@ module frr-pim {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
-  revision 2017-03-09 {
+  revision 2021-11-22 {
     description
       "Initial revision.";
     reference
@@ -76,43 +76,6 @@ module frr-pim {
   /*
    * Groupings
    */
-
-  grouping global-pim-config-attributes {
-    description
-      "A grouping defining pim global attributes.";
-
-    leaf ecmp {
-      type boolean;
-      default "false";
-      description
-        "Enable PIM ECMP.";
-    }
-
-    leaf ecmp-rebalance {
-      type boolean;
-      default "false";
-      description
-        "Enable PIM ECMP Rebalance.";
-    }
-
-    leaf keep-alive-timer {
-      type uint16 {
-        range "1..max";
-      }
-      default "210";
-      description
-        "Keep alive Timer in seconds.";
-    }
-
-    leaf rp-keep-alive-timer {
-      type uint16 {
-        range "1..max";
-      }
-      default "210";
-      description
-        "RP keep alive Timer in seconds.";
-    }
-  }
 
   grouping msdp-timers {
     leaf hold-time {
@@ -154,9 +117,41 @@ module frr-pim {
     }
   }
 
-  grouping per-af-global-pim-config-attributes {
+  grouping global-pim-config-attributes {
     description
       "A grouping defining per address family pim global attributes";
+
+    leaf ecmp {
+      type boolean;
+      default "false";
+      description
+        "Enable PIM ECMP.";
+    }
+    
+    leaf ecmp-rebalance {
+      type boolean;
+      default "false";
+      description
+        "Enable PIM ECMP Rebalance.";
+    }
+    
+    leaf keep-alive-timer {
+      type uint16 {
+        range "1..max";
+      }
+      default "210";
+      description
+        "Keep alive Timer in seconds.";
+    }
+    
+    leaf rp-keep-alive-timer {
+      type uint16 {
+        range "1..max";
+      }
+      default "210";
+      description
+        "RP keep alive Timer in seconds.";
+    }
 
     leaf send-v6-secondary {
       when "../frr-pim:address-family = 'frr-rt:ipv4'" {
@@ -326,17 +321,24 @@ module frr-pim {
         description
           "Only accept registers from a specific source prefix list.";
     }
-  } // per-af-global-pim-config-attributes
+  } // global-pim-config-attributes
 
   grouping interface-pim-config-attributes {
     description
-      "A grouping defining pim interface attributes.";
+      "A grouping defining pim interface attributes per address family.";
 
     leaf pim-enable {
       type boolean;
       default "false";
       description
         "Enable PIM flag on the interface.";
+    }
+
+    leaf pim-passive-enable {
+      type boolean;
+      default "false";
+      description
+        "Disable exchange of protocol packets.";
     }
 
     leaf hello-interval {
@@ -426,11 +428,6 @@ module frr-pim {
       description
         "DR (Designated Router) priority";
     }
-  } // interface-pim-config-attributes
-
-  grouping per-af-interface-pim-config-attributes {
-    description
-      "A grouping defining pim interface attributes per address family.";
 
     leaf use-source {
       type inet:ip-address;
@@ -467,56 +464,11 @@ module frr-pim {
           "Multicast group address.";
       }
     }
-  } // per-af-interface-pim-config-attributes
+  } // interface-pim-config-attributes
 
-  /*
-   * Global Configuration data nodes
-   */
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
-        + "frr-rt:control-plane-protocol" {
-    container pim {
-      when "../frr-rt:type = 'frr-pim:pimd'" {
-        description
-          "This container is only valid for the 'pim' routing
-           protocol.";
-      }
-      description
-        "PIM configuration data.";
-
-      uses global-pim-config-attributes;
-
-      list address-family {
-        key "address-family";
-        description
-          "Each list entry for one address family.";
-        uses frr-rt:address-family;
-        uses per-af-global-pim-config-attributes;
-
-      } //address-family
-    } // pim
-  } // augment
-
-  /*
-   * Per-interface configuration data
-   */
-  augment "/frr-interface:lib/frr-interface:interface" {
-    container pim {
-      presence
-        "Configure PIM on an interface.";
-      uses interface-pim-config-attributes;
-      list address-family {
-        key "address-family";
-        description
-          "Each list entry for one address family.";
-        uses frr-rt:address-family;
-        uses per-af-interface-pim-config-attributes;
-      }
-    }
-  }
-
-  container pim {
+  grouping router-pim-config-attributes {
     description
-      "PIM router parameters.";
+      "A grouping defining pim router attributes per address family.";
     leaf packets {
       type uint8 {
         range "1..max";
@@ -540,6 +492,60 @@ module frr-pim {
       default "60";
       description
         "Register Suppress Timer.";
+    }
+  }
+
+  /*
+   * Global Configuration data nodes
+   */
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
+        + "frr-rt:control-plane-protocol" {
+    container pim {
+      when "../frr-rt:type = 'frr-pim:pimd'" {
+        description
+          "This container is only valid for the 'pim' routing
+           protocol.";
+      }
+      description
+        "PIM configuration data.";
+      list address-family {
+        key "address-family";
+        description
+          "Each list entry for one address family.";
+        uses frr-rt:address-family;
+        uses global-pim-config-attributes;
+
+      } //address-family
+    } // pim
+  } // augment
+
+  /*
+   * Per-interface configuration data
+   */
+  augment "/frr-interface:lib/frr-interface:interface" {
+    container pim {
+      list address-family {
+        key "address-family";
+        description
+          "Each list entry for one address family.";
+        uses frr-rt:address-family;
+        uses interface-pim-config-attributes;
+      }
+    }
+  }
+
+  /*
+   * Router configuration data
+   */
+  container pim {
+    description
+      "PIM router parameters.";
+    list address-family {
+      key "address-family";
+      description
+        "Each list entry for one address family.";
+      uses frr-rt:address-family;
+      uses router-pim-config-attributes;
     }
   }
 }

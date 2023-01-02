@@ -69,8 +69,8 @@ int eigrp_sock_init(struct vrf *vrf)
 			AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP, vrf->vrf_id,
 			vrf->vrf_id != VRF_DEFAULT ? vrf->name : NULL);
 		if (eigrp_sock < 0) {
-			zlog_err("eigrp_read_sock_init: socket: %s",
-				 safe_strerror(errno));
+			zlog_err("%s: socket: %s",
+				 __func__, safe_strerror(errno));
 			exit(1);
 		}
 
@@ -288,7 +288,7 @@ void eigrp_if_update(struct interface *ifp)
 	 * we need to check eac one and add the interface as approperate
 	 */
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
-		if (ifp->vrf_id != eigrp->vrf_id)
+		if (ifp->vrf->vrf_id != eigrp->vrf_id)
 			continue;
 
 		/* EIGRP must be on and Router-ID must be configured. */

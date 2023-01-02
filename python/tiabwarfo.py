@@ -21,7 +21,6 @@ import os
 import subprocess
 import re
 import argparse
-import subprocess
 import json
 
 structs = ['xref', 'xref_logmsg', 'xref_threadsched', 'xref_install_element', 'xrefdata', 'xrefdata_logmsg', 'cmd_element']

@@ -6,27 +6,33 @@ FRR Release Procedure
 ``<version>`` - version to be released, e.g. 7.3
 ``origin`` - FRR upstream repository
 
-1. Checkout ``dev/<version>``.
+Stage 1 - Preparation
+---------------------
+
+#. Prepare changelog for the new release
+
+   Note: use ``tools/release_notes.py`` to help draft release notes changelog
+
+#. Checkout the existing ``dev/<version>`` branch.
 
    .. code-block:: console
 
       git checkout dev/<version>
 
-2. Create and push a new branch called ``stable/<version>`` based on the
+#. Create and push a new branch called ``stable/<version>`` based on the
    ``dev/<version>`` branch.
 
    .. code-block:: console
 
       git checkout -b stable/<version>
-      git push origin stable/<version>:refs/heads/stable/<version>
 
-3. Remove the development branch called ``dev/<version>``
+#. Remove the development branch called ``dev/<version>``
 
    .. code-block:: console
 
       git push origin --delete dev/<version>
 
-4. Update Changelog for Red Hat Packages:
+#. Update Changelog for Red Hat Packages:
 
    Edit :file:`redhat/frr.spec.in` and look for the ``%changelog`` section:
 
@@ -47,7 +53,7 @@ FRR Release Procedure
 
    - Add the changelog text below this entry.
 
-5. Update Changelog for Debian Packages:
+#. Update Changelog for Debian Packages:
 
    Update :file:`debian/changelog`:
 
@@ -80,104 +86,155 @@ FRR Release Procedure
          .
            * Your Changes Here
 
-6. Change main version number:
+#. Commit the changes, adding the changelog to the commit message. Follow all
+   existing commit guidelines. The commit message should be akin to::
 
-    - Edit :file:`configure.ac` and change version in the ``AC_INIT`` command
-      to ``<version>``
+      debian, redhat: updating changelog for new release
 
-7. Commit the changes, adding the changelog to the commit message. Follow all
-   existing commit guidelines.
+#. Change main version number:
 
-8. Create and submit a GitHub pull request, with the ``HEAD`` set to
-   ``stable/<version>`` and the base set to the upstream ``master`` branch.
-   Allow NetDef CI to complete its run and verify that all package builds were
-   successful.
+   - Edit :file:`configure.ac` and change version in the ``AC_INIT`` command
+     to ``<version>``
 
-9. Create a git tag for the version:
+   Add and commit this change. This commit should be separate from the commit
+   containing the changelog. The commit message should be::
+
+      FRR Release <version>
+
+   The version field should be complete; i.e. for ``8.0.0``, the version should
+   be ``8.0.0`` and not ``8.0`` or ``8``.
+
+
+Stage 2 - Staging
+-----------------
+
+#. Push the stable branch to a new remote branch prefixed with ``rc``::
+
+      git push origin stable/<version>:rc/version
+
+   This will trigger the NetDEF CI, which serve as a sanity check on the
+   release branch. Verify that all tests pass and that all package builds are
+   successful. To do this, go to the NetDEF CI located here:
+
+   https://ci1.netdef.org/browse/FRR-FRR
+
+   In the top left, look for ``rc-<version>`` in the "Plan branch" dropdown.
+   Select this version. Note that it may take a few minutes for the CI to kick
+   in on this new branch and appear in the list.
+
+#. Push the stable branch:
+
+   .. code-block:: console
+
+      git push origin stable/<version>:refs/heads/stable/<version>
+
+#. Create and push a git tag for the version:
 
    .. code-block:: console
 
       git tag -a frr-<version> -m "FRRouting Release <version>"
+      git push origin frr-<version>
 
-10. Push the commit and new tag.
+#. Create a new branch based on ``master``, cherry-pick the commit made earlier
+   that added the changelogs, and use it to create a PR against ``master``.
+   This way ``master`` has the latest changelog for the next cycle.
+
+#. Kick off the "Release" build plan on the CI system for the correct release.
+   Contact Martin Winter for this step. Ensure all release packages build
+   successfully.
+
+#. Kick off the Snapcraft build plan for the release.
+
+
+Stage 3 - Publish
+-----------------
+
+#. Upload both the Debian and RPM packages to their respective repositories.
+
+#. Coordinate with the maintainer of FRR's RPM repository to publish the RPM
+   packages on that repository. Update the repository webpage. Verify that the
+   instructions on the webpage work and that FRR is installable from the
+   repository on a Red Hat system.
+
+   Current maintainer: *Martin Winter*
+
+#. Coordinate with the maintainer of FRR Debian package to publish the Debian
+   packages on that repository. Update the repository webpage. Verify that the
+   instructions on the webpage work and that FRR is installable from the
+   repository on a Debian system.
+
+   Current maintainer: *Jafar Al-Gharaibeh*
+
+#. Log in to the Read The Docs instance. in the "FRRouting" project, navigate
+   to the "Overview" tab. Ensure there is a ``stable-<version>`` version listed
+   and that it is enabled. Go to "Admin" and then "Advanced Settings". Change
+   "Default version" to the new version. This ensures that the documentation
+   shown to visitors is that of the latest release by default.
+
+   This step must be performed by someone with administrative access to the
+   Read the Docs instance.
+
+#. On GitHub, go to the <https://github.com/FRRouting/frr/releases>_ and click
+   "Draft a new release". Write a release announcement. The release
+   announcement should follow the template in
+   ``release-announcement-template.md``, located next to this document. Check
+   for spelling errors, and optionally (but preferably) have other maintainers
+   proofread the announcement text.
+
+   Do not attach any packages or source tarballs to the GitHub release.
+
+   Publish the release once it is reviewed.
+
+#. Deploy Snapcraft release. Remember that this will automatically upgrade Snap
+   users.
+
+   Current maintainer: *Martin Winter*
+
+#. Build and publish the Docker containers.
+
+   Current maintainer: *Quentin Young*
+
+#. Clone the ``frr-www`` repository:
 
    .. code-block:: console
 
-      git push origin stable/<version>:refs/head/stable/<version>
-      git push origin frr-<version>
+      git clone https://github.com/FRRouting/frr-www.git
 
-11. Kick off the Release build plan on the CI system for the correct release.
-    Contact Martin Winter for this step. Ensure all release packages build
-    successfully.
+#. Add a new release announcement, using a previous announcement as template:
 
-12. Kick off the Snapcraft build plan for the release.
+   .. code-block:: console
 
-13. Acquire the release RPM binary packages from Martin Winter.
+      cp content/release/<old-version>.md content/release/<new-version>.md
 
-14. On GitHub, go to the <https://github.com/FRRouting/frr/releases>_ and click
-    "Draft a new release". Write a release announcement. The release
-    announcement should follow the template in
-    ``release-announcement-template.md``, located next to this document. Check
-    for spelling errors, and optionally (but preferably) have other maintainers
-    proofread the announcement text.
+   Paste the GitHub release announcement text into this document, and **remove
+   line breaks**. In other words, this::
 
-    Attach **only** the binary RPM packages to the GitHub release using
-    GitHub's attachment functionality. Do not attach Debian packages. Do not
-    attach source tarballs - these will be generated and attached by GitHub
-    automatically. Do not publish the release yet.
+      This is one continuous
+      sentence that should be
+      rendered on one line
 
-15. Contact the current Debian maintainer for FRR to get new Debian packages
-    built and published on our APT repository at https://deb.frrouting.net/.
-    Ensure the webpage text is updated. Verify that new packages install
-    successfully on a vanilla Debian installation using the instructions on the
-    webpage.
+   Needs to be changed to this::
 
-16. Deploy Snapcraft release (after CI system finishes the tests for snapcraft
-    testplan).
+      This is one continuous sentence that should be rendered on one line
 
-17. Update the Read The Docs instance to being publishing documentation built
-    off the ``stable/<version>`` branch. Contact Quentin Young for this step.
+   This is very important otherwise the announcement will be unreadable on the
+   website.
 
-18. Publish the GitHub release.
+   To get the number of commiters and commits, here is a couple of handy commands:
 
-19. Clone the ``frr-www`` repository:
+   .. code-block:: console
 
-    .. code-block:: console
+      # The number of commits
+      % git log --oneline --no-merges base_8.2...base_8.1 | wc -l
 
-       git clone https://github.com/FRRouting/frr-www.git
+      # The number of commiters
+      % git shortlog --summary --no-merges base_8.2...base_8.1 | wc -l
 
-20. Add a new release announcement, using a previous announcement as template:
+   Make sure to add a link to the GitHub releases page at the top.
 
-    .. code-block:: console
+#. Deploy the updated ``frr-www`` on the frrouting.org web server and verify
+   that the announcement text is visible.
 
-       cp <old-version>-launch.md <version>-launch.md
-
-    Paste the GitHub release announcement text into this document, and **remove
-    line breaks**. In other words, this::
-
-       This is one continuous
-       sentence that should be
-       rendered on one line
-
-    Needs to be changed to this::
-
-       This is one continuous sentence that should be rendered on one line
-
-    This is very important otherwise the announcement will be unreadable on the
-    website.
-
-    Make sure to add a link to the GitHub releases page at the top.
-
-    Once finished, manually add a new entry into ``index.html`` to link to this
-    new announcement. Look at past commits to see how to do this.
-
-21. Deploy the updated ``frr-www`` on the frrouting.org web server and verify
-    that the announcement text is visible.
-
-22. Send an email to ``announce@lists.frrouting.org``. The text of this email
-    should include the text from the GitHub release.
-
-23. Update masters version of the changelog-auto.in
-
-    Take the change data and cut-n-paste the changes into the master version below
-    the @VERSION@-0 lines.  So we have the history of the previous release.
+#. Send an email to ``announce@lists.frrouting.org``. The text of this email
+   should include text as appropriate from the GitHub release and a link to the
+   GitHub release, Debian repository, and RPM repository.

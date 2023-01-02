@@ -46,6 +46,7 @@ struct ospf6_area {
 	/* Summary routes to be originated (includes Configured Address Ranges)
 	 */
 	struct ospf6_route_table *range_table;
+	struct ospf6_route_table *nssa_range_table;
 	struct ospf6_route_table *summary_prefix;
 	struct ospf6_route_table *summary_router;
 
@@ -123,7 +124,6 @@ struct ospf6_area {
 #define OSPF6_NSSA_TRANSLATE_ENABLED  1
 };
 
-#define OSPF6_AREA_DEFAULT    0x00
 #define OSPF6_AREA_ENABLE     0x01
 #define OSPF6_AREA_ACTIVE     0x02
 #define OSPF6_AREA_TRANSIT    0x04 /* TransitCapability */

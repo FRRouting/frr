@@ -37,7 +37,7 @@
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
 #include "bgpd/bgp_errors.h"	// for expanded error reference information
 #include "bgpd/bgp_fsm.h"	// for BGP_EVENT_ADD, bgp_event
-#include "bgpd/bgp_packet.h"	// for bgp_notify_send_with_data, bgp_notify...
+#include "bgpd/bgp_packet.h"	// for bgp_notify_io_invalid...
 #include "bgpd/bgp_trace.h"	// for frrtraces
 #include "bgpd/bgpd.h"		// for peer, BGP_MARKER_SIZE, bgp_master, bm
 /* clang-format on */
@@ -45,8 +45,8 @@
 /* forward declarations */
 static uint16_t bgp_write(struct peer *);
 static uint16_t bgp_read(struct peer *peer, int *code_p);
-static int bgp_process_writes(struct thread *);
-static int bgp_process_reads(struct thread *);
+static void bgp_process_writes(struct thread *);
+static void bgp_process_reads(struct thread *);
 static bool validate_header(struct peer *);
 
 /* generic i/o status codes */
@@ -121,7 +121,7 @@ void bgp_reads_off(struct peer *peer)
 /*
  * Called from I/O pthread when a file descriptor has become ready for writing.
  */
-static int bgp_process_writes(struct thread *thread)
+static void bgp_process_writes(struct thread *thread)
 {
 	static struct peer *peer;
 	peer = THREAD_ARG(thread);
@@ -130,11 +130,11 @@ static int bgp_process_writes(struct thread *thread)
 	bool fatal = false;
 
 	if (peer->fd < 0)
-		return -1;
+		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_write(peer);
 		reschedule = (stream_fifo_head(peer->obuf) != NULL);
 	}
@@ -161,8 +161,6 @@ static int bgp_process_writes(struct thread *thread)
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
 	}
-
-	return 0;
 }
 
 /*
@@ -172,7 +170,7 @@ static int bgp_process_writes(struct thread *thread)
  * We read as much data as possible, process as many packets as we can and
  * place them on peer->ibuf for secondary processing by the main thread.
  */
-static int bgp_process_reads(struct thread *thread)
+static void bgp_process_reads(struct thread *thread)
 {
 	/* clang-format off */
 	static struct peer *peer;	// peer to read from
@@ -186,11 +184,11 @@ static int bgp_process_reads(struct thread *thread)
 	peer = THREAD_ARG(thread);
 
 	if (peer->fd < 0 || bm->terminating)
-		return -1;
+		return;
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	frr_with_mutex(&peer->io_mtx) {
+	frr_with_mutex (&peer->io_mtx) {
 		status = bgp_read(peer, &code);
 	}
 
@@ -249,7 +247,7 @@ static int bgp_process_reads(struct thread *thread)
 			stream_set_endp(pkt, pktsize);
 
 			frrtrace(2, frr_bgp, packet_read, peer, pkt);
-			frr_with_mutex(&peer->io_mtx) {
+			frr_with_mutex (&peer->io_mtx) {
 				stream_fifo_push(peer->ibuf, pkt);
 			}
 
@@ -271,8 +269,6 @@ static int bgp_process_reads(struct thread *thread)
 			thread_add_event(bm->master, bgp_process_packet,
 					 peer, 0, &peer->t_process_packet);
 	}
-
-	return 0;
 }
 
 /*
@@ -302,6 +298,7 @@ static uint16_t bgp_write(struct peer *peer)
 	unsigned int iovsz;
 	unsigned int strmsz;
 	unsigned int total_written;
+	time_t now;
 
 	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 					       memory_order_relaxed);
@@ -434,19 +431,22 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
+	now = monotime(NULL);
 	/*
 	 * Update last_update if UPDATEs were written.
 	 * Note: that these are only updated at end,
 	 *       not per message (i.e., per loop)
 	 */
 	if (uo)
-		atomic_store_explicit(&peer->last_update, bgp_clock(),
+		atomic_store_explicit(&peer->last_update, now,
 				      memory_order_relaxed);
 
 	/* If we TXed any flavor of packet */
-	if (update_last_write)
-		atomic_store_explicit(&peer->last_write, bgp_clock(),
+	if (update_last_write) {
+		atomic_store_explicit(&peer->last_write, now,
 				      memory_order_relaxed);
+		peer->last_sendq_ok = now;
+	}
 }
 
 	return status;
@@ -526,8 +526,8 @@ static bool validate_header(struct peer *peer)
 		return false;
 
 	if (memcmp(m_correct, m_rx, BGP_MARKER_SIZE) != 0) {
-		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
-				BGP_NOTIFY_HEADER_NOT_SYNC);
+		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_NOT_SYNC, NULL, 0);
 		return false;
 	}
 
@@ -547,9 +547,8 @@ static bool validate_header(struct peer *peer)
 			zlog_debug("%s unknown message type 0x%02x", peer->host,
 				   type);
 
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
-					  BGP_NOTIFY_HEADER_BAD_MESTYPE, &type,
-					  1);
+		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_BAD_MESTYPE, &type, 1);
 		return false;
 	}
 
@@ -574,9 +573,9 @@ static bool validate_header(struct peer *peer)
 
 		uint16_t nsize = htons(size);
 
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
-					  BGP_NOTIFY_HEADER_BAD_MESLEN,
-					  (unsigned char *)&nsize, 2);
+		bgp_notify_io_invalid(peer, BGP_NOTIFY_HEADER_ERR,
+				      BGP_NOTIFY_HEADER_BAD_MESLEN,
+				      (unsigned char *)&nsize, 2);
 		return false;
 	}
 

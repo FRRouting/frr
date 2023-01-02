@@ -236,8 +236,8 @@ BFD Peer Specific Commands
 
    Notes:
 
-   - Profile configurations can be overriden on a peer basis by specifying
-     new parameters in peer configuration node.
+   - Profile configurations can be overridden on a peer basis by specifying
+     non-default parameters in peer configuration node.
    - Non existing profiles can be configured and they will only be applied
      once they start to exist.
    - If the profile gets updated the new configuration will be applied to all
@@ -518,6 +518,10 @@ You can inspect the current BFD peer status with the following commands:
    frr# show bfd peer 192.168.0.1 json
    {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-receive-interval":50,"echo-transmit-interval":0,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-receive-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
 
+If you are running IPV4 BFD Echo, on a Linux platform, we also
+calculate round trip time for the packets.  We display minimum,
+average and maximum time it took to receive the looped Echo packets
+in the RTT fields.
 
 You can inspect the current BFD peer status in brief with the following commands:
 

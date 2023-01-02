@@ -20,6 +20,7 @@ vtysh_scan += \
 	zebra/zebra_vty.c \
 	zebra/zserv.c \
 	zebra/zebra_vrf.c \
+	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
@@ -50,7 +51,7 @@ man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
 
-zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
+zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
 zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
@@ -60,6 +61,7 @@ zebra_zebra_SOURCES = \
 	zebra/debug.c \
 	zebra/if_ioctl.c \
 	zebra/if_netlink.c \
+	zebra/if_socket.c \
 	zebra/if_sysctl.c \
 	zebra/interface.c \
 	zebra/ioctl.c \
@@ -69,6 +71,7 @@ zebra_zebra_SOURCES = \
 	zebra/kernel_socket.c \
 	zebra/label_manager.c \
 	zebra/main.c \
+	zebra/netconf_netlink.c \
 	zebra/redistribute.c \
 	zebra/router-id.c \
 	zebra/rt_netlink.c \
@@ -79,6 +82,8 @@ zebra_zebra_SOURCES = \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
 	zebra/table_manager.c \
+	zebra/tc_netlink.c \
+	zebra/tc_socket.c \
 	zebra/zapi_msg.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
@@ -116,11 +121,14 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_routemap.c \
 	zebra/zebra_routemap_nb.c \
 	zebra/zebra_routemap_nb_config.c \
+	zebra/zebra_script.c \
 	zebra/zebra_srte.c \
+	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
 	zebra/zebra_evpn_mh.c \
+	zebra/zebra_neigh.c \
 	zebra/zserv.c \
 	# end
 
@@ -134,6 +142,7 @@ clippy_scan += \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
+	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	# end
 
 noinst_HEADERS += \
@@ -147,6 +156,7 @@ noinst_HEADERS += \
 	zebra/kernel_netlink.h \
 	zebra/kernel_socket.h \
 	zebra/label_manager.h \
+	zebra/netconf_netlink.h \
 	zebra/redistribute.h \
 	zebra/rib.h \
 	zebra/router-id.h \
@@ -155,6 +165,7 @@ noinst_HEADERS += \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/table_manager.h \
+	zebra/tc_netlink.h \
 	zebra/zapi_msg.h \
 	zebra/zebra_dplane.h \
 	zebra/zebra_errors.h \
@@ -185,12 +196,17 @@ noinst_HEADERS += \
 	zebra/zebra_routemap.h \
 	zebra/zebra_routemap_nb.h \
 	zebra/zebra_router.h \
+	zebra/zebra_script.h \
 	zebra/zebra_srte.h \
+	zebra/zebra_trace.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
+	zebra/zebra_neigh.h \
 	zebra/zserv.h \
+	zebra/dpdk/zebra_dplane_dpdk.h \
+	zebra/dpdk/zebra_dplane_dpdk_private.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
@@ -248,3 +264,12 @@ zebra_zebra_SOURCES += \
 	zebra/debug_nl.c \
 	# end
 endif
+
+if DP_DPDK
+module_LTLIBRARIES += zebra/zebra_dplane_dpdk.la
+endif
+
+zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/zebra_dplane_dpdk_vty.c
+zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
+zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
+zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)

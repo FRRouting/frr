@@ -92,14 +92,15 @@ DEFUN_YANG(
 }
 
 void bfd_cli_show_header(struct vty *vty,
-			 struct lyd_node *dnode __attribute__((__unused__)),
+			 const struct lyd_node *dnode
+			 __attribute__((__unused__)),
 			 bool show_defaults __attribute__((__unused__)))
 {
 	vty_out(vty, "!\nbfd\n");
 }
 
-void bfd_cli_show_header_end(struct vty *vty,
-			     struct lyd_node *dnode __attribute__((__unused__)))
+void bfd_cli_show_header_end(struct vty *vty, const struct lyd_node *dnode
+			     __attribute__((__unused__)))
 {
 	vty_out(vty, "exit\n");
 	vty_out(vty, "!\n");
@@ -230,7 +231,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void _bfd_cli_show_peer(struct vty *vty, struct lyd_node *dnode,
+static void _bfd_cli_show_peer(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults __attribute__((__unused__)),
 			       bool mhop)
 {
@@ -259,22 +260,20 @@ static void _bfd_cli_show_peer(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void bfd_cli_show_single_hop_peer(struct vty *vty,
-				  struct lyd_node *dnode,
+void bfd_cli_show_single_hop_peer(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	_bfd_cli_show_peer(vty, dnode, show_defaults, false);
 }
 
-void bfd_cli_show_multi_hop_peer(struct vty *vty,
-				  struct lyd_node *dnode,
-				  bool show_defaults)
+void bfd_cli_show_multi_hop_peer(struct vty *vty, const struct lyd_node *dnode,
+				 bool show_defaults)
 {
 	_bfd_cli_show_peer(vty, dnode, show_defaults, true);
 }
 
-void bfd_cli_show_peer_end(struct vty *vty,
-			   struct lyd_node *dnode __attribute__((__unused__)))
+void bfd_cli_show_peer_end(struct vty *vty, const struct lyd_node *dnode
+			   __attribute__((__unused__)))
 {
 	vty_out(vty, " exit\n");
 	vty_out(vty, " !\n");
@@ -291,7 +290,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, "  %sshutdown\n",
@@ -309,7 +308,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_passive(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_passive(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, "  %spassive-mode\n",
@@ -347,7 +346,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_minimum_ttl(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	vty_out(vty, "  minimum-ttl %s\n", yang_dnode_get_string(dnode, NULL));
@@ -364,7 +363,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_mult(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults)
 {
 	vty_out(vty, "  detect-multiplier %s\n",
@@ -386,7 +385,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_rx(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults)
 {
 	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
@@ -409,7 +408,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_tx(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults)
 {
 	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
@@ -424,12 +423,19 @@ DEFPY_YANG(
 	"Configure echo mode\n")
 {
 	if (!bfd_cli_is_profile(vty) && !bfd_cli_is_single_hop(vty)) {
-		vty_out(vty, "%% Echo mode is only available for single hop sessions.\n");
+		vty_out(vty,
+			"%% Echo mode is only available for single hop sessions.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (!no && !bglobal.bg_use_dplane) {
-		vty_out(vty, "%% Current implementation of echo mode works only when the peer is also FRR.\n");
+#ifdef BFD_LINUX
+		vty_out(vty,
+			"%% Echo mode works correctly for IPv4, but only works when the peer is also FRR for IPv6.\n");
+#else
+		vty_out(vty,
+			"%% Current implementation of echo mode works only when the peer is also FRR.\n");
+#endif /* BFD_LINUX */
 	}
 
 	nb_cli_enqueue_change(vty, "./echo-mode", NB_OP_MODIFY,
@@ -437,8 +443,8 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
-			   bool show_defaults)
+void bfd_cli_show_echo(struct vty *vty, const struct lyd_node *dnode,
+		       bool show_defaults)
 {
 	vty_out(vty, "  %secho-mode\n",
 		yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
@@ -487,8 +493,8 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_desired_echo_transmission_interval(struct vty *vty,
-	struct lyd_node *dnode, bool show_defaults)
+void bfd_cli_show_desired_echo_transmission_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
 
@@ -522,7 +528,8 @@ DEFPY_YANG(
 }
 
 void bfd_cli_show_required_echo_receive_interval(struct vty *vty,
-	struct lyd_node *dnode, bool show_defaults)
+						 const struct lyd_node *dnode,
+						 bool show_defaults)
 {
 	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
 
@@ -573,7 +580,7 @@ DEFPY_YANG(no_bfd_profile, no_bfd_profile_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_show_profile(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_show_profile(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, " profile %s\n", yang_dnode_get_string(dnode, "./name"));
@@ -654,7 +661,7 @@ DEFPY_YANG(bfd_peer_profile, bfd_peer_profile_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void bfd_cli_peer_profile_show(struct vty *vty, struct lyd_node *dnode,
+void bfd_cli_peer_profile_show(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, "  profile %s\n", yang_dnode_get_string(dnode, NULL));

@@ -122,7 +122,7 @@ int setsockopt_ipv6_pktinfo(int sock, int val)
 	if (ret < 0)
 		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_PKTINFO : %s",
 			 safe_strerror(errno));
-#endif /* INIA_IPV6 */
+#endif /* IANA_IPV6 */
 	return ret;
 }
 
@@ -268,12 +268,9 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 	    && (errno == EADDRINUSE)) {
 		/* see above: handle possible problem when interface comes back
 		 * up */
-		char buf[1][INET_ADDRSTRLEN];
 		zlog_info(
-			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %s, ifindex %u)",
-			sock, inet_ntop(AF_INET, &mreqn.imr_multiaddr, buf[0],
-					sizeof(buf[0])),
-			ifindex);
+			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %pI4, ifindex %u)",
+			sock, &mreqn.imr_multiaddr, ifindex);
 		setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&mreqn,
 			   sizeof(mreqn));
 		ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
@@ -309,12 +306,9 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 	    && (errno == EADDRINUSE)) {
 		/* see above: handle possible problem when interface comes back
 		 * up */
-		char buf[1][INET_ADDRSTRLEN];
 		zlog_info(
-			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %s, ifindex %u)",
-			sock, inet_ntop(AF_INET, &mreq.imr_multiaddr, buf[0],
-					sizeof(buf[0])),
-			ifindex);
+			"setsockopt_ipv4_multicast attempting to drop and re-add (fd %d, mcast %pI4, ifindex %u)",
+			sock, &mreq.imr_multiaddr, ifindex);
 		setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&mreq,
 			   sizeof(mreq));
 		ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
@@ -595,7 +589,7 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 
 		/* If this does not work, then all users of this sockopt will
 		 * need to
-		 * differentiate between IPv4 and IPv6, and keep seperate
+		 * differentiate between IPv4 and IPv6, and keep separate
 		 * sockets for
 		 * each.
 		 *

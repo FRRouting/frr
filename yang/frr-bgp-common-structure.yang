@@ -25,6 +25,8 @@ submodule frr-bgp-common-structure {
     prefix frr-bt;
   }
 
+  include "frr-bgp-common";
+
   organization
     "FRRouting";
   contact
@@ -157,7 +159,7 @@ submodule frr-bgp-common-structure {
         type uint16 {
           range "50..60000";
         }
-        units "miliseconds";
+        units "milliseconds";
         default "300";
         description
           "Required min receive interval.";
@@ -168,7 +170,7 @@ submodule frr-bgp-common-structure {
         type uint16 {
           range "50..60000";
         }
-        units "miliseconds";
+        units "milliseconds";
         default "300";
         description
           "Desired min transmit interval.";

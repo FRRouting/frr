@@ -90,7 +90,7 @@ struct pcep_ctrl_socket_data {
 	void *payload;
 };
 
-typedef int (*pcep_ctrl_thread_callback)(struct thread *);
+typedef void (*pcep_ctrl_thread_callback)(struct thread *);
 
 /* PCC connection information, populated in a thread-safe
  * manner with pcep_ctrl_get_pcc_info() */
@@ -132,7 +132,7 @@ struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
 
 /* Asynchronously send a report. The caller is giving away the path structure,
  * it shouldn't be allocated on the stack. If `pcc_id` is `0` the report is
- * sent by all PCCs.  The parameter is_stable is used to hint wether the status
+ * sent by all PCCs.  The parameter is_stable is used to hint whether the status
  * will soon change, this is used to ensure all report updates are sent even
  * when missing status update events */
 int pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
@@ -174,7 +174,7 @@ int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
 
 int pcep_thread_send_ctrl_event(void *fpt, void *payload,
 				pcep_ctrl_thread_callback cb);
-int pcep_thread_pcep_event(struct thread *thread);
+void pcep_thread_pcep_event(struct thread *thread);
 int pcep_thread_pcc_count(struct ctrl_state *ctrl_state);
 /* Called by the PCC to refine a path in the main thread */
 int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,

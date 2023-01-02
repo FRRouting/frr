@@ -1,0 +1,264 @@
+{
+    "address_types": [
+        "ipv6"
+    ],
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv6": "2001:db8:f::",
+        "v6mask": 128
+    },
+    "switches": {
+        "s1": {
+            "links": {
+                "r0": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 98
+                    }
+                },
+                "r1": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 99
+                    }
+                },
+                "r2": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                },
+                "r3": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                },
+                "r4": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                },
+                "r5": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                },
+                "r6": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                },
+                "r7": {
+
+                    "ipv6": "auto",
+
+                    "ospf6": {
+                        "area": "0.0.0.3",
+                        "hello_interval": 1,
+                        "dead_interval": 4,
+                        "priority": 0
+                    }
+                }
+            }
+        }
+    },
+    "routers": {
+        "r0": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf6": {
+                "router_id": "100.1.1.0",
+                "neighbors": {
+                    "r1": {},
+                    "r2": {},
+                    "r3": {},
+                    "r4": {},
+                    "r5": {},
+                    "r6": {},
+                    "r7": {}
+                }
+            }
+        },
+        "r1": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r3-link0": {
+
+                    "ipv6": "auto",
+                    "description": "DummyIntftoR3"
+                }
+            },
+            "ospf6": {
+                "router_id": "100.1.1.1",
+                "neighbors": {
+                    "r0": {},
+                    "r2": {},
+                    "r3": {},
+                    "r4": {},
+                    "r5": {},
+                    "r6": {},
+                    "r7": {}
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf6": {
+                "router_id": "100.1.1.2",
+                "neighbors": {
+                    "r1": {},
+                    "r0": {}
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r1-link0": {
+
+                    "ipv6": "auto",
+                    "description": "DummyIntftoR1"
+
+                }
+            },
+
+            "ospf6": {
+                "router_id": "100.1.1.3",
+                "neighbors": {
+                    "r0": {},
+                    "r1": {}
+                }
+            }
+        },
+        "r4": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                }
+            },
+
+            "ospf6": {
+                "router_id": "100.1.1.4",
+                "neighbors": {
+                    "r0": {},
+                    "r1": {}
+                }
+            }
+        },
+        "r5": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                }
+            },
+            "ospf6": {
+                "router_id": "100.1.1.5",
+                "neighbors": {
+                    "r0": {},
+                    "r1": {}
+                }
+            }
+        },
+        "r6": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                }
+            },
+
+            "ospf6": {
+                "router_id": "100.1.1.6",
+                "neighbors": {
+                    "r0": {},
+                    "r1": {}
+                }
+            }
+        },
+        "r7": {
+            "links": {
+                "lo": {
+
+                    "ipv6": "auto",
+                    "type": "loopback"
+                }
+            },
+
+            "ospf6": {
+                "router_id": "100.1.1.7",
+                "neighbors": {
+                    "r0": {},
+                    "r1": {}
+                }
+            }
+        }
+    }
+}

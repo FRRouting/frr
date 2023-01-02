@@ -46,8 +46,8 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
-static int		 main_dispatch_ldpe(struct thread *);
-static int		 main_dispatch_lde(struct thread *);
+static void main_dispatch_ldpe(struct thread *thread);
+static void main_dispatch_lde(struct thread *thread);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 			    struct imsgbuf *);
 static void		 main_imsg_send_net_sockets(int);
@@ -180,7 +180,7 @@ sigusr1(void)
 	zlog_rotate();
 }
 
-static struct quagga_signal_t ldp_signals[] =
+static struct frr_signal_t ldp_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -219,7 +219,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.n_yang_modules = array_size(ldpd_yang_modules),
 );
 
-static int ldp_config_fork_apply(struct thread *t)
+static void ldp_config_fork_apply(struct thread *t)
 {
 	/*
 	 * So the frr_config_fork() function schedules
@@ -231,8 +231,6 @@ static int ldp_config_fork_apply(struct thread *t)
 	 * after the read in of the config.
 	 */
 	ldp_config_apply(NULL, vty_conf);
-
-	return 0;
 }
 
 int
@@ -243,7 +241,6 @@ main(int argc, char *argv[])
 	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
-	struct thread           *thread = NULL;
 	bool                    ctl_sock_used = false;
 
 	snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
@@ -374,7 +371,7 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
@@ -393,7 +390,7 @@ main(int argc, char *argv[])
 	frr_config_fork();
 
 	/* apply configuration */
-	thread_add_event(master, ldp_config_fork_apply, NULL, 0, &thread);
+	thread_add_event(master, ldp_config_fork_apply, NULL, 0, NULL);
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
@@ -403,28 +400,24 @@ main(int argc, char *argv[])
 		fatal(NULL);
 	imsg_init(&iev_ldpe->ibuf, pipe_parent2ldpe[0]);
 	iev_ldpe->handler_read = main_dispatch_ldpe;
-	iev_ldpe->ev_read = NULL;
 	thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
 			&iev_ldpe->ev_read);
 	iev_ldpe->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_ldpe_sync->ibuf, pipe_parent2ldpe_sync[0]);
 	iev_ldpe_sync->handler_read = main_dispatch_ldpe;
-	iev_ldpe_sync->ev_read = NULL;
 	thread_add_read(master, iev_ldpe_sync->handler_read, iev_ldpe_sync, iev_ldpe_sync->ibuf.fd,
 			&iev_ldpe_sync->ev_read);
 	iev_ldpe_sync->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_lde->ibuf, pipe_parent2lde[0]);
 	iev_lde->handler_read = main_dispatch_lde;
-	iev_lde->ev_read = NULL;
 	thread_add_read(master, iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd,
 			&iev_lde->ev_read);
 	iev_lde->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_lde_sync->ibuf, pipe_parent2lde_sync[0]);
 	iev_lde_sync->handler_read = main_dispatch_lde;
-	iev_lde_sync->ev_read = NULL;
 	thread_add_read(master, iev_lde_sync->handler_read, iev_lde_sync, iev_lde_sync->ibuf.fd,
 			&iev_lde_sync->ev_read);
 	iev_lde_sync->handler_write = ldp_write_handler;
@@ -568,8 +561,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 /* imsg handling */
 /* ARGSUSED */
-static int
-main_dispatch_ldpe(struct thread *thread)
+static void main_dispatch_ldpe(struct thread *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -624,21 +616,18 @@ main_dispatch_ldpe(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
 		ldpe_pid = 0;
 		if (lde_pid == 0)
 			ldpd_shutdown();
 		else
 			kill(lde_pid, SIGTERM);
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-static int
-main_dispatch_lde(struct thread *thread)
+static void main_dispatch_lde(struct thread *thread)
 {
 	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
@@ -732,21 +721,18 @@ main_dispatch_lde(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
 		lde_pid = 0;
 		if (ldpe_pid == 0)
 			ldpd_shutdown();
 		else
 			kill(ldpe_pid, SIGTERM);
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-int
-ldp_write_handler(struct thread *thread)
+void ldp_write_handler(struct thread *thread)
 {
 	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
@@ -758,14 +744,12 @@ ldp_write_handler(struct thread *thread)
 		fatal("msgbuf_write");
 	if (n == 0) {
 		/* this pipe is dead, so remove the event handlers */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
-		return (0);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
+		return;
 	}
 
 	imsg_event_add(iev);
-
-	return (0);
 }
 
 void
@@ -833,9 +817,8 @@ evbuf_event_add(struct evbuf *eb)
 				 &eb->ev);
 }
 
-void
-evbuf_init(struct evbuf *eb, int fd, int (*handler)(struct thread *),
-    void *arg)
+void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct thread *),
+		void *arg)
 {
 	msgbuf_init(&eb->wbuf);
 	eb->wbuf.fd = fd;
@@ -846,7 +829,7 @@ evbuf_init(struct evbuf *eb, int fd, int (*handler)(struct thread *),
 void
 evbuf_clear(struct evbuf *eb)
 {
-	thread_cancel(&eb->ev);
+	THREAD_OFF(eb->ev);
 	msgbuf_clear(&eb->wbuf);
 	eb->wbuf.fd = -1;
 }
@@ -1807,7 +1790,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	previous_pw_type = l2vpn->pw_type;
 	previous_mtu = l2vpn->mtu;
 
-	/* merge intefaces */
+	/* merge interfaces */
 	RB_FOREACH_SAFE(lif, l2vpn_if_head, &l2vpn->if_tree, ftmp) {
 		/* find deleted interfaces */
 		if (l2vpn_if_find(xl, lif->ifname) == NULL) {

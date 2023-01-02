@@ -16,7 +16,7 @@ adduser \
 	frr
 usermod -a -G frrvty frr
 
-mkdir -p /var/log/frr
+mkdir -m 0755 -p /var/log/frr
 mkdir -p /etc/frr
 
 
@@ -40,7 +40,7 @@ find \
 	# don't chown anything that has ACLs (but don't fail if we don't
 	# have getfacl)
 	if { getfacl -c "$filename" 2>/dev/null || true; } \
-		| egrep -q -v '^((user|group|other)::|$)'; then
+		| grep -E -q -v '^((user|group|other)::|$)'; then
 		:
 	else
 		chown frr: "$filename"

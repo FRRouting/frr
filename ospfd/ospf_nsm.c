@@ -59,7 +59,7 @@ DEFINE_HOOK(ospf_nsm_change,
 static void nsm_clear_adj(struct ospf_neighbor *);
 
 /* OSPF NSM Timer functions. */
-static int ospf_inactivity_timer(struct thread *thread)
+static void ospf_inactivity_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -76,15 +76,17 @@ static int ospf_inactivity_timer(struct thread *thread)
 	 */
 	if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
-	else if (IS_DEBUG_OSPF_GR)
-		zlog_debug(
-			"%s, Acting as HELPER for this neighbour, So inactivitytimer event will not be fired.",
-			__func__);
-
-	return 0;
+	else {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"%s, Acting as HELPER for this neighbour, So restart the dead timer",
+				__func__);
+		OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
+				  nbr->v_inactivity);
+	}
 }
 
-static int ospf_db_desc_timer(struct thread *thread)
+static void ospf_db_desc_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -102,8 +104,6 @@ static int ospf_db_desc_timer(struct thread *thread)
 
 	/* DD Retransmit timer set. */
 	OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer, nbr->v_db_desc);
-
-	return 0;
 }
 
 /* Hook function called after ospf NSM event is occurred.
@@ -120,32 +120,32 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	switch (nbr->state) {
 	case NSM_Deleted:
 	case NSM_Down:
-		OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
-		OSPF_NSM_TIMER_OFF(nbr->t_hello_reply);
+		THREAD_OFF(nbr->t_inactivity);
+		THREAD_OFF(nbr->t_hello_reply);
 	/* fallthru */
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:
-		OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
+		THREAD_OFF(nbr->t_db_desc);
+		THREAD_OFF(nbr->t_ls_upd);
+		THREAD_OFF(nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_upd);
-		OSPF_NSM_TIMER_OFF(nbr->t_ls_req);
+		THREAD_OFF(nbr->t_ls_upd);
+		THREAD_OFF(nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
 		OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer,
 				  nbr->v_ls_upd);
 		if (!IS_SET_DD_MS(nbr->dd_flags))
-			OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
+			THREAD_OFF(nbr->t_db_desc);
 		break;
 	case NSM_Loading:
 	case NSM_Full:
 	default:
-		OSPF_NSM_TIMER_OFF(nbr->t_db_desc);
+		THREAD_OFF(nbr->t_db_desc);
 		break;
 	}
 }
@@ -173,16 +173,16 @@ int nsm_should_adj(struct ospf_neighbor *nbr)
 }
 
 /* OSPF NSM functions. */
-static int nsm_packet_received(struct ospf_neighbor *nbr)
+static int nsm_hello_received(struct ospf_neighbor *nbr)
 {
 	/* Start or Restart Inactivity Timer. */
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
+	THREAD_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
 	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
-		OSPF_POLL_TIMER_OFF(nbr->nbr_nbma->t_poll);
+		THREAD_OFF(nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
 	if (nbr->state < NSM_Exchange)
@@ -194,9 +194,9 @@ static int nsm_packet_received(struct ospf_neighbor *nbr)
 static int nsm_start(struct ospf_neighbor *nbr)
 {
 	if (nbr->nbr_nbma)
-		OSPF_POLL_TIMER_OFF(nbr->nbr_nbma->t_poll);
+		THREAD_OFF(nbr->nbr_nbma->t_poll);
 
-	OSPF_NSM_TIMER_OFF(nbr->t_inactivity);
+	THREAD_OFF(nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
@@ -382,6 +382,10 @@ static void nsm_clear_adj(struct ospf_neighbor *nbr)
 
 static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 {
+	struct ospf_interface *oi = nbr->oi;
+	struct ospf_neighbor *on;
+	struct route_node *rn;
+
 	/* killing nbr_self is invalid */
 	if (nbr == nbr->oi->nbr_self) {
 		assert(nbr != nbr->oi->nbr_self);
@@ -407,6 +411,35 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 				ospf_get_name(nbr->oi->ospf));
 	}
 
+	/*
+	 * Do we have any neighbors that are also operating
+	 * on this interface?
+	 */
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		on = rn->info;
+
+		if (!on)
+			continue;
+
+		if (on == nbr || on == oi->nbr_self)
+			continue;
+
+		/*
+		 * on is in some state where we might be
+		 * sending packets on this interface
+		 */
+		if (on->state > NSM_Down) {
+			route_unlock_node(rn);
+			return 0;
+		}
+	}
+	/*
+	 * If we get here we know that this interface
+	 * has no neighbors in a state where we could
+	 * be sending packets.  Let's flush anything
+	 * we got.
+	 */
+	ospf_interface_fifo_flush(oi);
 	return 0;
 }
 
@@ -418,7 +451,7 @@ const struct {
 	{
 		/* DependUpon: dummy state. */
 		{NULL, NSM_DependUpon}, /* NoEvent           */
-		{NULL, NSM_DependUpon}, /* PacketReceived    */
+		{NULL, NSM_DependUpon}, /* HelloReceived     */
 		{NULL, NSM_DependUpon}, /* Start             */
 		{NULL, NSM_DependUpon}, /* 2-WayReceived     */
 		{NULL, NSM_DependUpon}, /* NegotiationDone   */
@@ -435,7 +468,7 @@ const struct {
 	{
 		/* Deleted: dummy state. */
 		{NULL, NSM_Deleted}, /* NoEvent           */
-		{NULL, NSM_Deleted}, /* PacketReceived    */
+		{NULL, NSM_Deleted}, /* HelloReceived     */
 		{NULL, NSM_Deleted}, /* Start             */
 		{NULL, NSM_Deleted}, /* 2-WayReceived     */
 		{NULL, NSM_Deleted}, /* NegotiationDone   */
@@ -452,8 +485,8 @@ const struct {
 	{
 		/* Down: */
 		{NULL, NSM_DependUpon},		 /* NoEvent           */
-		{nsm_packet_received, NSM_Init}, /* PacketReceived    */
-		{nsm_start, NSM_Attempt},	/* Start             */
+		{nsm_hello_received, NSM_Init},  /* HelloReceived     */
+		{nsm_start, NSM_Attempt},	 /* Start             */
 		{NULL, NSM_Down},		 /* 2-WayReceived     */
 		{NULL, NSM_Down},		 /* NegotiationDone   */
 		{NULL, NSM_Down},		 /* ExchangeDone      */
@@ -469,7 +502,7 @@ const struct {
 	{
 		/* Attempt: */
 		{NULL, NSM_DependUpon},		 /* NoEvent           */
-		{nsm_packet_received, NSM_Init}, /* PacketReceived    */
+		{nsm_hello_received, NSM_Init},  /* HelloReceived     */
 		{NULL, NSM_Attempt},		 /* Start             */
 		{NULL, NSM_Attempt},		 /* 2-WayReceived     */
 		{NULL, NSM_Attempt},		 /* NegotiationDone   */
@@ -486,7 +519,7 @@ const struct {
 	{
 		/* Init: */
 		{NULL, NSM_DependUpon},		       /* NoEvent           */
-		{nsm_packet_received, NSM_Init},       /* PacketReceived    */
+		{nsm_hello_received, NSM_Init},        /* HelloReceived     */
 		{NULL, NSM_Init},		       /* Start             */
 		{nsm_twoway_received, NSM_DependUpon}, /* 2-WayReceived     */
 		{NULL, NSM_Init},		       /* NegotiationDone   */
@@ -503,7 +536,7 @@ const struct {
 	{
 		/* 2-Way: */
 		{NULL, NSM_DependUpon},		   /* NoEvent           */
-		{nsm_packet_received, NSM_TwoWay}, /* HelloReceived     */
+		{nsm_hello_received, NSM_TwoWay},  /* HelloReceived     */
 		{NULL, NSM_TwoWay},		   /* Start             */
 		{NULL, NSM_TwoWay},		   /* 2-WayReceived     */
 		{NULL, NSM_TwoWay},		   /* NegotiationDone   */
@@ -520,7 +553,7 @@ const struct {
 	{
 		/* ExStart: */
 		{NULL, NSM_DependUpon},		      /* NoEvent           */
-		{nsm_packet_received, NSM_ExStart},   /* PacaketReceived   */
+		{nsm_hello_received, NSM_ExStart},    /* HelloReceived     */
 		{NULL, NSM_ExStart},		      /* Start             */
 		{NULL, NSM_ExStart},		      /* 2-WayReceived     */
 		{nsm_negotiation_done, NSM_Exchange}, /* NegotiationDone   */
@@ -537,7 +570,7 @@ const struct {
 	{
 		/* Exchange: */
 		{NULL, NSM_DependUpon},		     /* NoEvent           */
-		{nsm_packet_received, NSM_Exchange}, /* PacketReceived    */
+		{nsm_hello_received, NSM_Exchange},  /* HelloReceived     */
 		{NULL, NSM_Exchange},		     /* Start             */
 		{NULL, NSM_Exchange},		     /* 2-WayReceived     */
 		{NULL, NSM_Exchange},		     /* NegotiationDone   */
@@ -554,7 +587,7 @@ const struct {
 	{
 		/* Loading: */
 		{NULL, NSM_DependUpon},		    /* NoEvent           */
-		{nsm_packet_received, NSM_Loading}, /* PacketReceived    */
+		{nsm_hello_received, NSM_Loading},  /* HelloReceived     */
 		{NULL, NSM_Loading},		    /* Start             */
 		{NULL, NSM_Loading},		    /* 2-WayReceived     */
 		{NULL, NSM_Loading},		    /* NegotiationDone   */
@@ -571,7 +604,7 @@ const struct {
 	{
 		/* Full: */
 		{NULL, NSM_DependUpon},		 /* NoEvent           */
-		{nsm_packet_received, NSM_Full}, /* PacketReceived    */
+		{nsm_hello_received, NSM_Full},  /* HelloReceived     */
 		{NULL, NSM_Full},		 /* Start             */
 		{NULL, NSM_Full},		 /* 2-WayReceived     */
 		{NULL, NSM_Full},		 /* NegotiationDone   */
@@ -588,7 +621,7 @@ const struct {
 };
 
 static const char *const ospf_nsm_event_str[] = {
-	"NoEvent",	   "PacketReceived",  "Start",
+	"NoEvent",	   "HelloReceived",  "Start",
 	"2-WayReceived",     "NegotiationDone", "ExchangeDone",
 	"BadLSReq",	  "LoadingDone",     "AdjOK?",
 	"SeqNumberMismatch", "1-WayReceived",   "KillNbr",
@@ -756,10 +789,8 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 			zlog_info(
 				"%s: Initializing [DD]: %pI4 with seqnum:%x , flags:%x",
-				(oi->ospf->name) ? oi->ospf->name
-						 : VRF_DEFAULT_NAME,
-				&nbr->router_id, nbr->dd_seqnum,
-				nbr->dd_flags);
+				ospf_get_name(oi->ospf), &nbr->router_id,
+				nbr->dd_seqnum, nbr->dd_flags);
 		ospf_db_desc_send(nbr);
 	}
 
@@ -774,7 +805,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 }
 
 /* Execute NSM event process. */
-int ospf_nsm_event(struct thread *thread)
+void ospf_nsm_event(struct thread *thread)
 {
 	int event;
 	int next_state;
@@ -844,8 +875,6 @@ int ospf_nsm_event(struct thread *thread)
 	 */
 	if (nbr->state == NSM_Deleted)
 		ospf_nbr_delete(nbr);
-
-	return 0;
 }
 
 /* Check loading state. */

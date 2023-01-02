@@ -88,16 +88,18 @@ struct isis_adjacency {
 	struct in_addr *ipv4_addresses;
 	unsigned int ipv4_address_count;
 	struct in_addr router_address;
-	struct in6_addr *ipv6_addresses;
-	unsigned int ipv6_address_count;
+	struct in6_addr *ll_ipv6_addrs; /* Link local IPv6 neighbor address */
+	unsigned int ll_ipv6_count;
+	struct in6_addr *global_ipv6_addrs; /* Global IPv6 neighbor address */
+	unsigned int global_ipv6_count;
 	struct in6_addr router_address6;
 	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
 	int level;			/* level (1 or 2) */
 	enum isis_system_type sys_type; /* neighbourSystemType */
 	uint16_t hold_time;		/* entryRemainingTime */
-	uint32_t last_upd;
-	uint32_t last_flap; /* last time the adj flapped */
+	time_t last_upd;
+	time_t last_flap; /* last time the adj flapped */
 	enum isis_threeway_state threeway_state;
 	uint32_t ext_circuit_id;
 	int flaps;		      /* number of adjacency flaps  */
@@ -127,9 +129,11 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
 DECLARE_HOOK(isis_adj_ip_enabled_hook,
-	     (struct isis_adjacency *adj, int family), (adj, family));
+	     (struct isis_adjacency * adj, int family, bool global),
+	     (adj, family, global));
 DECLARE_HOOK(isis_adj_ip_disabled_hook,
-	     (struct isis_adjacency *adj, int family), (adj, family));
+	     (struct isis_adjacency * adj, int family, bool global),
+	     (adj, family, global));
 void isis_log_adj_change(struct isis_adjacency *adj,
 			 enum isis_adj_state old_state,
 			 enum isis_adj_state new_state, const char *reason);
@@ -137,13 +141,15 @@ void isis_adj_state_change(struct isis_adjacency **adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
 const char *isis_adj_yang_state(enum isis_adj_state state);
-int isis_adj_expire(struct thread *thread);
+void isis_adj_expire(struct thread *thread);
 void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			char detail);
+void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
+			 char detail);
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
 void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
-int isis_bfd_startup_timer(struct thread *thread);
+void isis_bfd_startup_timer(struct thread *thread);
 const char *isis_adj_name(const struct isis_adjacency *adj);
 
 #endif /* ISIS_ADJACENCY_H */

@@ -37,6 +37,7 @@ enum bgp_show_type {
 	bgp_show_type_normal,
 	bgp_show_type_regexp,
 	bgp_show_type_prefix_list,
+	bgp_show_type_access_list,
 	bgp_show_type_filter_list,
 	bgp_show_type_route_map,
 	bgp_show_type_neighbor,
@@ -89,6 +90,9 @@ enum bgp_show_adj_route_type {
 
 /* Maximum number of sids we can process or send with a prefix. */
 #define BGP_MAX_SIDS 6
+
+/* Maximum buffer length for storing BGP best path selection reason */
+#define BGP_MAX_SELECTION_REASON_STR_BUF 32
 
 /* Error codes for handling NLRI */
 #define BGP_NLRI_PARSE_OK 0
@@ -151,6 +155,8 @@ struct bgp_sid_info {
 	uint8_t loc_node_len;
 	uint8_t func_len;
 	uint8_t arg_len;
+	uint8_t transposition_len;
+	uint8_t transposition_offset;
 };
 
 /* Ancillary information to struct bgp_path_info,
@@ -228,6 +234,12 @@ struct bgp_path_info_extra {
 	 * Set to NULL if route is not imported from another bgp instance.
 	 */
 	struct bgp *bgp_orig;
+
+	/*
+	 * Original bgp session to know if the session is a
+	 * connected EBGP session or not
+	 */
+	struct peer *peer_orig;
 
 	/*
 	 * Nexthop in context of original bgp instance. Needed
@@ -463,12 +475,16 @@ struct bgp_aggregate {
 		 ? 0                                                           \
 		 : ((nhlen) < IPV6_MAX_BYTELEN ? AFI_IP : AFI_IP6))
 
+#define BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)                                      \
+	((attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||               \
+	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||        \
+	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||              \
+	 (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+
 #define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                         \
-	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))             \
-	 && ((attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL              \
-	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL    \
-	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL          \
-	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL))
+	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) &&          \
+	 BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))
+
 #define BGP_PATH_COUNTABLE(BI)                                                 \
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
 	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))
@@ -584,6 +600,49 @@ static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest)
 		 (!bgp_option_check(BGP_OPT_NO_FIB))));
 }
 
+/*
+ * If we have a fib result and it failed to install( or was withdrawn due
+ * to better admin distance we need to send down the wire a withdrawal.
+ * This function assumes that bgp_check_advertise was already returned
+ * as good to go.
+ */
+static inline bool bgp_check_withdrawal(struct bgp *bgp, struct bgp_dest *dest)
+{
+	struct bgp_path_info *pi, *selected = NULL;
+
+	if (!BGP_SUPPRESS_FIB_ENABLED(bgp))
+		return false;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+			selected = pi;
+			continue;
+		}
+
+		if (pi->sub_type != BGP_ROUTE_NORMAL)
+			return true;
+	}
+
+	/*
+	 * pi is selected and bgp is dealing with a static route
+	 * ( ie a network statement of some sort ).  FIB installed
+	 * is irrelevant
+	 *
+	 * I am not sure what the above for loop is wanted in this
+	 * manner at this point.  But I do know that if I have
+	 * a static route that is selected and it's the one
+	 * being checked for should I withdrawal we do not
+	 * want to withdraw the route on installation :)
+	 */
+	if (selected && selected->sub_type == BGP_ROUTE_STATIC)
+		return false;
+
+	if (CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED))
+		return false;
+
+	return true;
+}
+
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
 	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
@@ -608,7 +667,8 @@ extern void bgp_process_queue_init(struct bgp *bgp);
 extern void bgp_route_init(void);
 extern void bgp_route_finish(void);
 extern void bgp_cleanup_routes(struct bgp *);
-extern void bgp_announce_route(struct peer *, afi_t, safi_t);
+extern void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi,
+			       bool force);
 extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all(struct peer *);
 extern void bgp_default_originate(struct peer *, afi_t, safi_t, int);
@@ -629,6 +689,8 @@ extern struct bgp_dest *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 struct prefix_rd *prd);
 extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
 extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
+extern struct bgp_path_info *
+bgp_get_imported_bpi_ultimate(struct bgp_path_info *info);
 extern void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi);
 extern void bgp_path_info_extra_free(struct bgp_path_info_extra **extra);
 extern void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi);
@@ -752,7 +814,7 @@ extern bool subgroup_announce_check(struct bgp_dest *dest,
 				    struct bgp_path_info *pi,
 				    struct update_subgroup *subgrp,
 				    const struct prefix *p, struct attr *attr,
-				    bool skip_rmap_check);
+				    struct attr *post_attr);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
@@ -769,6 +831,7 @@ extern int bgp_path_info_cmp_compatible(struct bgp *bgp,
 					struct bgp_path_info *exist,
 					char *pfx_buf, afi_t afi, safi_t safi,
 					enum bgp_path_selection_reason *reason);
+extern void bgp_attr_add_llgr_community(struct attr *attr);
 extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
@@ -780,7 +843,7 @@ extern bool bgp_zebra_has_route_changed(struct bgp_path_info *selected);
 
 extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct bgp_dest *dest,
-					struct prefix_rd *prd, afi_t afi,
+					const struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn,
@@ -791,7 +854,7 @@ extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     bool use_json);
-extern int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_dest *dest);
@@ -802,4 +865,7 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 					    const struct prefix *p, afi_t afi,
 					    safi_t safi, bool suppress);
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
+const char *
+bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
+extern bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_ROUTE_H */

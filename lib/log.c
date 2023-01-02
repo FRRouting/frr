@@ -64,7 +64,7 @@ const char *lookup_msg(const struct message *mz, int kz, const char *nf)
 }
 
 /* For time string format. */
-size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
+size_t frr_timestamp(int timestamp_precision, char *buf, size_t buflen)
 {
 	static struct {
 		time_t last;
@@ -239,7 +239,7 @@ void zlog_backtrace(int priority)
 {
 #ifdef HAVE_LIBUNWIND
 	char buf[100];
-	unw_cursor_t cursor;
+	unw_cursor_t cursor = {};
 	unw_context_t uc;
 	unw_word_t ip, off, sp;
 	Dl_info dlinfo;
@@ -355,9 +355,6 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_INTERFACE_NBR_ADDRESS_ADD),
 	DESC_ENTRY(ZEBRA_INTERFACE_NBR_ADDRESS_DELETE),
 	DESC_ENTRY(ZEBRA_INTERFACE_BFD_DEST_UPDATE),
-	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_REGISTER),
-	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_UNREGISTER),
-	DESC_ENTRY(ZEBRA_IMPORT_CHECK_UPDATE),
 	DESC_ENTRY(ZEBRA_BFD_DEST_REGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_DEREGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_UPDATE),
@@ -373,7 +370,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_BFD_CLIENT_DEREGISTER),
 	DESC_ENTRY(ZEBRA_INTERFACE_ENABLE_RADV),
 	DESC_ENTRY(ZEBRA_INTERFACE_DISABLE_RADV),
-	DESC_ENTRY(ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB),
+	DESC_ENTRY(ZEBRA_NEXTHOP_LOOKUP_MRIB),
 	DESC_ENTRY(ZEBRA_INTERFACE_LINK_PARAMS),
 	DESC_ENTRY(ZEBRA_MPLS_LABELS_ADD),
 	DESC_ENTRY(ZEBRA_MPLS_LABELS_DELETE),

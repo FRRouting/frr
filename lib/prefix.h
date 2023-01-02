@@ -95,6 +95,7 @@ struct evpn_ead_addr {
 	esi_t esi;
 	uint32_t eth_tag;
 	struct ipaddr ip;
+	uint16_t frag_id;
 };
 
 struct evpn_macip_addr {
@@ -286,13 +287,6 @@ static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
 	return 0;
 }
 
-/* Prefix for a generic pointer */
-struct prefix_ptr {
-	uint8_t family;
-	uint16_t prefixlen;
-	uintptr_t prefix __attribute__((aligned(8)));
-};
-
 /* Prefix for a Flowspec entry */
 struct prefix_fs {
 	uint8_t family;
@@ -341,9 +335,6 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
 } TRANSPARENT_UNION;
 
-#undef prefixtype
-#undef TRANSPARENT_UNION
-
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
 #endif /* INET_ADDRSTRLEN */
@@ -361,7 +352,7 @@ union prefixconstptr {
 #define PREFIX_STRLEN 80
 
 /*
- * Longest possible length of a (S,G) string is 36 bytes
+ * Longest possible length of a (S,G) string is 34 bytes
  * 123.123.123.123 = 15 * 2
  * (,) = 3
  * NULL Character at end = 1
@@ -391,6 +382,8 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 #define IPV4_NET0(a) ((((uint32_t)(a)) & 0xff000000) == 0x00000000)
 #define IPV4_NET127(a) ((((uint32_t)(a)) & 0xff000000) == 0x7f000000)
 #define IPV4_LINKLOCAL(a) ((((uint32_t)(a)) & 0xffff0000) == 0xa9fe0000)
+#define IPV4_CLASS_D(a) ((((uint32_t)(a)) & 0xf0000000) == 0xe0000000)
+#define IPV4_CLASS_E(a) ((((uint32_t)(a)) & 0xf0000000) == 0xf0000000)
 #define IPV4_CLASS_DE(a) ((((uint32_t)(a)) & 0xe0000000) == 0xe0000000)
 #define IPV4_MC_LINKLOCAL(a) ((((uint32_t)(a)) & 0xffffff00) == 0xe0000000)
 
@@ -422,6 +415,11 @@ extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
 
+static inline afi_t prefix_afi(union prefixconstptr pu)
+{
+	return family2afi(pu.p->family);
+}
+
 /*
  * Check bit of the prefix.
  *
@@ -439,8 +437,8 @@ extern void prefix_free(struct prefix **p);
  * Function to handle prefix_free being used as a del function.
  */
 extern void prefix_free_lists(void *arg);
-extern const char *prefix_family_str(const struct prefix *);
-extern int prefix_blen(const struct prefix *);
+extern const char *prefix_family_str(union prefixconstptr pu);
+extern int prefix_blen(union prefixconstptr pu);
 extern int str2prefix(const char *, struct prefix *);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
@@ -451,14 +449,14 @@ extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,
 				   const struct prefix *match_pfx);
-extern int prefix_match(const struct prefix *, const struct prefix *);
-extern int prefix_match_network_statement(const struct prefix *,
-					  const struct prefix *);
-extern int prefix_same(union prefixconstptr, union prefixconstptr);
-extern int prefix_cmp(union prefixconstptr, union prefixconstptr);
-extern int prefix_common_bits(const struct prefix *, const struct prefix *);
-extern void prefix_copy(union prefixptr, union prefixconstptr);
-extern void apply_mask(struct prefix *);
+extern int prefix_match(union prefixconstptr unet, union prefixconstptr upfx);
+extern int prefix_match_network_statement(union prefixconstptr unet,
+					  union prefixconstptr upfx);
+extern int prefix_same(union prefixconstptr ua, union prefixconstptr ub);
+extern int prefix_cmp(union prefixconstptr ua, union prefixconstptr ub);
+extern int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub);
+extern void prefix_copy(union prefixptr udst, union prefixconstptr usrc);
+extern void apply_mask(union prefixptr pu);
 
 #ifdef __clang_analyzer__
 /* clang-SA doesn't understand transparent unions, making it think that the
@@ -511,6 +509,7 @@ extern int str_to_esi(const char *str, esi_t *esi);
 extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
+extern bool ipv4_unicast_valid(const struct in_addr *addr);
 
 static inline int ipv6_martian(const struct in6_addr *addr)
 {
@@ -527,14 +526,14 @@ static inline int ipv6_martian(const struct in6_addr *addr)
 extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 
 /* NOTE: This routine expects the address argument in network byte order. */
-static inline int ipv4_martian(const struct in_addr *addr)
+static inline bool ipv4_martian(const struct in_addr *addr)
 {
 	in_addr_t ip = ntohl(addr->s_addr);
 
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_DE(ip)) {
-		return 1;
+	if (IPV4_NET0(ip) || IPV4_NET127(ip) || !ipv4_unicast_valid(addr)) {
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 static inline bool is_default_prefix4(const struct prefix_ipv4 *p)
@@ -587,6 +586,80 @@ static inline int is_default_host_route(const struct prefix *p)
 	return 0;
 }
 
+static inline bool is_ipv6_global_unicast(const struct in6_addr *p)
+{
+	if (IN6_IS_ADDR_UNSPECIFIED(p) || IN6_IS_ADDR_LOOPBACK(p) ||
+	    IN6_IS_ADDR_LINKLOCAL(p) || IN6_IS_ADDR_MULTICAST(p))
+		return false;
+
+	return true;
+}
+
+/* IPv6 scope values, usable for IPv4 too (cf. below) */
+/* clang-format off */
+enum {
+	/* 0: reserved */
+	MCAST_SCOPE_IFACE  = 0x1,
+	MCAST_SCOPE_LINK   = 0x2,
+	MCAST_SCOPE_REALM  = 0x3,
+	MCAST_SCOPE_ADMIN  = 0x4,
+	MCAST_SCOPE_SITE   = 0x5,
+	/* 6-7: unassigned */
+	MCAST_SCOPE_ORG    = 0x8,
+	/* 9-d: unassigned */
+	MCAST_SCOPE_GLOBAL = 0xe,
+	/* f: reserved */
+};
+/* clang-format on */
+
+static inline uint8_t ipv6_mcast_scope(const struct in6_addr *addr)
+{
+	return addr->s6_addr[1] & 0xf;
+}
+
+static inline bool ipv6_mcast_nofwd(const struct in6_addr *addr)
+{
+	return (addr->s6_addr[1] & 0xf) <= MCAST_SCOPE_LINK;
+}
+
+static inline bool ipv6_mcast_ssm(const struct in6_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s6_addr32[0]);
+
+	/* ff3x:0000::/32 */
+	return (bits & 0xfff0ffff) == 0xff300000;
+}
+
+static inline uint8_t ipv4_mcast_scope(const struct in_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s_addr);
+
+	/* 224.0.0.0/24 - link scope */
+	if ((bits & 0xffffff00) == 0xe0000000)
+		return MCAST_SCOPE_LINK;
+	/* 239.0.0.0/8 - org scope */
+	if ((bits & 0xff000000) == 0xef000000)
+		return MCAST_SCOPE_ORG;
+
+	return MCAST_SCOPE_GLOBAL;
+}
+
+static inline bool ipv4_mcast_nofwd(const struct in_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s_addr);
+
+	/* 224.0.0.0/24 */
+	return (bits & 0xffffff00) == 0xe0000000;
+}
+
+static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
+{
+	uint32_t bits = ntohl(addr->s_addr);
+
+	/* 232.0.0.0/8 */
+	return (bits & 0xff000000) == 0xe8000000;
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pEA"  (struct ethaddr *)
 
@@ -601,8 +674,9 @@ static inline int is_default_host_route(const struct prefix *p)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
+#pragma FRR printfrr_ext "%pRD"  (struct prefix_rd *)
 
-#pragma FRR printfrr_ext "%pSG4" (struct prefix_sg *)
+#pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif
 
 #ifdef __cplusplus

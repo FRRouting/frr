@@ -81,7 +81,7 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
-	&frr_igmp_info,
+	&frr_gmp_info,
 };
 
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
@@ -136,8 +136,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
 	 */
-	if_zapi_callbacks(pim_ifp_create, pim_ifp_up,
-			  pim_ifp_down, pim_ifp_destroy);
+	pim_iface_init();
 	pim_zebra_init();
 	pim_bfd_init();
 	pim_mlag_init();
@@ -154,9 +153,9 @@ int main(int argc, char **argv, char **envp)
 	PIM_DO_DEBUG_PIM_EVENTS;
 	PIM_DO_DEBUG_PIM_PACKETS;
 	PIM_DO_DEBUG_PIM_TRACE;
-	PIM_DO_DEBUG_IGMP_EVENTS;
-	PIM_DO_DEBUG_IGMP_PACKETS;
-	PIM_DO_DEBUG_IGMP_TRACE;
+	PIM_DO_DEBUG_GM_EVENTS;
+	PIM_DO_DEBUG_GM_PACKETS;
+	PIM_DO_DEBUG_GM_TRACE;
 	PIM_DO_DEBUG_ZEBRA;
 #endif
 

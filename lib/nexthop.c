@@ -922,6 +922,34 @@ int nexthop_str2backups(const char *str, int *num_backups,
 	return ret;
 }
 
+ssize_t printfrr_nhs(struct fbuf *buf, const struct nexthop *nexthop)
+{
+	ssize_t ret = 0;
+
+	if (!nexthop)
+		return bputs(buf, "(null)");
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		ret += bprintfrr(buf, "if %u", nexthop->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		ret += bprintfrr(buf, "%pI4 if %u", &nexthop->gate.ipv4,
+				 nexthop->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret += bprintfrr(buf, "%pI6 if %u", &nexthop->gate.ipv6,
+				 nexthop->ifindex);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		ret += bputs(buf, "blackhole");
+		break;
+	}
+	return ret;
+}
+
 /*
  * nexthop printing variants:
  *	%pNHvv
@@ -943,7 +971,7 @@ int nexthop_str2backups(const char *str, int *num_backups,
  *		eth0
  *		(0-length if no interface present)
  */
-printfrr_ext_autoreg_p("NH", printfrr_nh)
+printfrr_ext_autoreg_p("NH", printfrr_nh);
 static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1010,27 +1038,7 @@ static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 	case 's':
 		ea->fmt++;
 
-		if (!nexthop)
-			return bputs(buf, "(null)");
-
-		switch (nexthop->type) {
-		case NEXTHOP_TYPE_IFINDEX:
-			ret += bprintfrr(buf, "if %u", nexthop->ifindex);
-			break;
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			ret += bprintfrr(buf, "%pI4 if %u", &nexthop->gate.ipv4,
-					 nexthop->ifindex);
-			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			ret += bprintfrr(buf, "%pI6 if %u", &nexthop->gate.ipv6,
-					 nexthop->ifindex);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			ret += bputs(buf, "blackhole");
-			break;
-		}
+		ret += printfrr_nhs(buf, nexthop);
 		return ret;
 	case 'c':
 		ea->fmt++;

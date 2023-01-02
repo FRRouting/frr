@@ -22,6 +22,8 @@ of these buffers, pipe their contents through ``tr '\0' '\n'``.  A blank line
 marks the end of valid unwritten data (it will generally be followed by
 garbled, older log messages since the buffer is not cleared.)
 
+.. _daemons-configuration-file:
+
 Daemons Configuration File
 --------------------------
 After a fresh install, starting FRR will do nothing. This is because daemons
@@ -109,7 +111,7 @@ reasons touched on in the VTYSH documentation and should generally be enabled.
 This allows the operator to control the number of open file descriptors
 each daemon is allowed to start with.  The current assumed value on
 most operating systems is 1024.  If the operator plans to run bgp with
-several thousands of peers than this is where we would modify FRR to
+several thousands of peers then this is where we would modify FRR to
 allow this to happen.
 
 ::

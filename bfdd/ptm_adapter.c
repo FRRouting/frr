@@ -457,7 +457,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	}
 
 	/* Sanity check: peer and local address must match IP types. */
-	if (bpc->bpc_local.sa_sin.sin_family != 0
+	if (bpc->bpc_local.sa_sin.sin_family != AF_UNSPEC
 	    && (bpc->bpc_local.sa_sin.sin_family
 		!= bpc->bpc_peer.sa_sin.sin_family)) {
 		zlog_warn("ptm-read: peer family doesn't match local type");
@@ -666,9 +666,7 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 	struct bfd_session *bs;
 	struct vrf *vrf;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (!vrf)
-		return;
+	vrf = ifp->vrf;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
@@ -680,7 +678,8 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 		/* If Interface matches vrfname, then bypass iface check */
 		if (vrf_is_backend_netns() || strcmp(ifp->name, vrf->name)) {
 			/* Interface name mismatch. */
-			if (strcmp(ifp->name, bs->key.ifname))
+			if (bs->key.ifname[0] &&
+			    strcmp(ifp->name, bs->key.ifname))
 				continue;
 		}
 
@@ -723,11 +722,6 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf)
 	/* it may affect configs without interfaces */
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		/* update name */
-		if (bs->vrf && bs->vrf == vrf) {
-			if (!strmatch(bs->key.vrfname, vrf->name))
-				bfd_session_update_vrf_name(bs, vrf);
-		}
 		if (bs->vrf)
 			continue;
 		if (bs->key.vrfname[0] &&
@@ -767,8 +761,8 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 static int bfd_ifp_destroy(struct interface *ifp)
 {
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: delete interface %s (VRF %u)", ifp->name,
-			   ifp->vrf_id);
+		zlog_debug("zclient: delete interface %s (VRF %s(%u))",
+			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	bfdd_sessions_disable_interface(ifp);
 
@@ -837,36 +831,39 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 static int bfd_ifp_create(struct interface *ifp)
 {
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: add interface %s (VRF %u)", ifp->name,
-			   ifp->vrf_id);
+		zlog_debug("zclient: add interface %s (VRF %s(%u))", ifp->name,
+			   ifp->vrf->name, ifp->vrf->vrf_id);
 	bfdd_sessions_enable_interface(ifp);
 
 	return 0;
 }
 
-void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
-{
-	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
-	zclient = zclient_new(master, &zclient_options_default);
-	assert(zclient != NULL);
-	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
-
+static zclient_handler *const bfd_handlers[] = {
 	/*
 	 * We'll receive all messages through replay, however it will
 	 * contain a special field with the real command inside so we
 	 * avoid having to create too many handlers.
 	 */
-	zclient->bfd_dest_replay = bfdd_replay;
+	[ZEBRA_BFD_DEST_REPLAY] = bfdd_replay,
+
+	/* Learn about interface VRF. */
+	[ZEBRA_INTERFACE_VRF_UPDATE] = bfdd_interface_vrf_update,
+
+	/* Learn about new addresses being registered. */
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = bfdd_interface_address_update,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = bfdd_interface_address_update,
+};
+
+void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
+{
+	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
+	zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
+			      array_size(bfd_handlers));
+	assert(zclient != NULL);
+	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
-
-	/* Learn about interface VRF. */
-	zclient->interface_vrf_update = bfdd_interface_vrf_update;
-
-	/* Learn about new addresses being registered. */
-	zclient->interface_address_add = bfdd_interface_address_update;
-	zclient->interface_address_delete = bfdd_interface_address_update;
 }
 
 void bfdd_zclient_register(vrf_id_t vrf_id)

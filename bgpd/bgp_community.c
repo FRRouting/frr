@@ -200,7 +200,8 @@ struct community *community_uniq_sort(struct community *com)
    0xFFFFFF04      "no-peer"
 
    For other values, "AS:VAL" format is used.  */
-static void set_community_string(struct community *com, bool make_json)
+static void set_community_string(struct community *com, bool make_json,
+				 bool translate_alias)
 {
 	int i;
 	char *str;
@@ -447,7 +448,9 @@ static void set_community_string(struct community *com, bool make_json)
 			val = comval & 0xFFFF;
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			const char *com2alias = bgp_community2alias(buf);
+			const char *com2alias =
+				translate_alias ? bgp_community2alias(buf)
+						: buf;
 
 			strlcat(str, com2alias, len);
 			if (make_json) {
@@ -487,7 +490,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find, false);
+		set_community_string(find, false, true);
 
 	return find;
 }
@@ -496,6 +499,9 @@ struct community *community_intern(struct community *com)
 void community_unintern(struct community **com)
 {
 	struct community *ret;
+
+	if (!*com)
+		return;
 
 	if ((*com)->refcnt)
 		(*com)->refcnt--;
@@ -545,7 +551,7 @@ struct community *community_dup(struct community *com)
 }
 
 /* Return string representation of communities attribute. */
-char *community_str(struct community *com, bool make_json)
+char *community_str(struct community *com, bool make_json, bool translate_alias)
 {
 	if (!com)
 		return NULL;
@@ -554,7 +560,7 @@ char *community_str(struct community *com, bool make_json)
 		XFREE(MTYPE_COMMUNITY_STR, com->str);
 
 	if (!com->str)
-		set_community_string(com, make_json);
+		set_community_string(com, make_json, translate_alias);
 	return com->str;
 }
 
@@ -908,8 +914,16 @@ void community_init(void)
 			    "BGP Community Hash");
 }
 
+static void community_hash_free(void *data)
+{
+	struct community *com = data;
+
+	community_free(&com);
+}
+
 void community_finish(void)
 {
+	hash_clean(comhash, community_hash_free);
 	hash_free(comhash);
 	comhash = NULL;
 }
@@ -921,7 +935,7 @@ static struct community *bgp_aggr_community_lookup(
 	return hash_lookup(aggregate->community_hash, community);
 }
 
-static void *bgp_aggr_communty_hash_alloc(void *p)
+static void *bgp_aggr_community_hash_alloc(void *p)
 {
 	struct community *ref = (struct community *)p;
 	struct community *community = NULL;
@@ -978,7 +992,7 @@ void bgp_compute_aggregate_community_hash(struct bgp_aggregate *aggregate,
 		/* Insert community into hash.
 		 */
 		aggr_community = hash_get(aggregate->community_hash, community,
-					  bgp_aggr_communty_hash_alloc);
+					  bgp_aggr_community_hash_alloc);
 	}
 
 	/* Increment reference counter.

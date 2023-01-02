@@ -92,7 +92,7 @@ static void tx_queue_element_free(void *element)
 {
 	struct isis_tx_queue_entry *e = element;
 
-	thread_cancel(&(e->retry));
+	THREAD_OFF(e->retry);
 
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);
 }
@@ -114,12 +114,11 @@ static struct isis_tx_queue_entry *tx_queue_find(struct isis_tx_queue *queue,
 	return hash_lookup(queue->hash, &e);
 }
 
-static int tx_queue_send_event(struct thread *thread)
+static void tx_queue_send_event(struct thread *thread)
 {
 	struct isis_tx_queue_entry *e = THREAD_ARG(thread);
 	struct isis_tx_queue *queue = e->queue;
 
-	e->retry = NULL;
 	thread_add_timer(master, tx_queue_send_event, e, 5, &e->retry);
 
 	if (e->is_retry)
@@ -129,8 +128,6 @@ static int tx_queue_send_event(struct thread *thread)
 
 	queue->send_event(queue->circuit, e->lsp, e->type);
 	/* Don't access e here anymore, send_event might have destroyed it */
-
-	return 0;
 }
 
 void _isis_tx_queue_add(struct isis_tx_queue *queue,
@@ -164,7 +161,7 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 
 	e->type = type;
 
-	thread_cancel(&(e->retry));
+	THREAD_OFF(e->retry);
 	thread_add_event(master, tx_queue_send_event, e, 0, &e->retry);
 
 	e->is_retry = false;
@@ -187,7 +184,7 @@ void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			   func, file, line);
 	}
 
-	thread_cancel(&(e->retry));
+	THREAD_OFF(e->retry);
 
 	hash_release(queue->hash, e);
 	XFREE(MTYPE_TX_QUEUE_ENTRY, e);

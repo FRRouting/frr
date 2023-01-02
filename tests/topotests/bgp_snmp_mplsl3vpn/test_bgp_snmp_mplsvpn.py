@@ -38,6 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
+from lib import topotest
 
 # Required to instantiate the topology builder class.
 
@@ -154,7 +155,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    # For all registred routers, load the zebra configuration file
+    # For all registered routers, load the zebra configuration file
     for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
@@ -239,10 +240,18 @@ def test_pe1_converge_evpn():
     tgen = get_topogen()
 
     r1 = tgen.gears["r1"]
-    r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
+    def _convergence():
+        r1 = tgen.gears["r1"]
+        r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
+
+        return r1_snmp.test_oid("bgpVersion", "10")
+
+    _, result = topotest.run_and_expect(_convergence, True, count=20, wait=1)
     assertmsg = "BGP SNMP does not seem to be running"
-    assert r1_snmp.test_oid("bgpVersion", "10"), assertmsg
+    assert result, assertmsg
+
+    r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
     count = 0
     passed = False
     while count < 125:

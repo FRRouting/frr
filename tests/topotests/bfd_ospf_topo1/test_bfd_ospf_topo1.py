@@ -132,7 +132,7 @@ def print_cmd_result(rname, command):
     print(get_topogen().gears[rname].vtysh_cmd(command, isjson=False))
 
 
-def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
+def router_compare_json_output(rname, command, reference, count=40, wait=2):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
@@ -141,7 +141,7 @@ def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
     filename = "{}/{}/{}".format(CWD, rname, reference)
     expected = json.loads(open(filename).read())
 
-    # Run test function until we get an result. Wait at most 60 seconds.
+    # Run test function until we get an result. Wait at most 80 seconds.
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
     _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
@@ -195,16 +195,16 @@ def test_bfd_ospf_interface_failure_rt2_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
-    # TODO: add check for array size
-    sleep(2)
+    topotest.sleep(2, "Wait for BFD down notification")
+
     router_compare_json_output(
-        "rt1", "show ip route ospf json", "step3/show_ip_route_rt2_down.ref", 1, 0
+        "rt1", "show ip route ospf json", "step3/show_ip_route_rt2_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt2_down.ref", 1, 0
+        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt2_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 10, 2
     )
 
     # Check recovery, this can take some time
@@ -234,16 +234,15 @@ def test_bfd_ospf_interface_failure_rt3_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
-    # TODO: add check for array size
-    sleep(2)
+    topotest.sleep(2, "Wait for BFD down notification")
     router_compare_json_output(
-        "rt1", "show ip route ospf json", "step3/show_ip_route_rt3_down.ref", 1, 0
+        "rt1", "show ip route ospf json", "step3/show_ip_route_rt3_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt3_down.ref", 1, 0
+        "rt1", "show ipv6 route ospf json", "step3/show_ipv6_route_rt3_down.ref", 10, 2
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 10, 2
     )
 
     # Check recovery, this can take some time

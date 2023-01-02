@@ -94,7 +94,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t ripng_signals[] = {
+struct frr_signal_t ripng_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,

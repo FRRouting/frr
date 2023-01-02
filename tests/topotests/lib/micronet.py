@@ -266,7 +266,7 @@ class Commander(object):  # pylint: disable=R0205
                 )
             if raises:
                 # error = Exception("stderr: {}".format(stderr))
-                # This annoyingly doesnt' show stderr when printed normally
+                # This annoyingly doesn't' show stderr when printed normally
                 error = subprocess.CalledProcessError(rc, actual_cmd)
                 error.stdout, error.stderr = stdout, stderr
                 raise error
@@ -358,11 +358,14 @@ class Commander(object):  # pylint: disable=R0205
             # wait for not supported in screen for now
             channel = None
             cmd = [self.get_exec_path("screen")]
+            if title:
+                cmd.append("-t")
+                cmd.append(title)
             if not os.path.exists(
                 "/run/screen/S-{}/{}".format(os.environ["USER"], os.environ["STY"])
             ):
                 cmd = ["sudo", "-u", os.environ["SUDO_USER"]] + cmd
-            cmd.append(nscmd)
+            cmd.extend(nscmd.split(" "))
         elif "DISPLAY" in os.environ:
             # We need it broken up for xterm
             user_cmd = cmd
@@ -552,8 +555,11 @@ class LinuxNamespace(Commander):
             self.base_pre_cmd.append("-F")
         self.set_pre_cmd(self.base_pre_cmd + ["--wd=" + self.cwd])
 
-        # Remount /sys to pickup any changes
+        # Remount sysfs and cgroup to pickup any changes
         self.cmd_raises("mount -t sysfs sysfs /sys")
+        self.cmd_raises(
+            "mount -o rw,nosuid,nodev,noexec,relatime -t cgroup2 cgroup /sys/fs/cgroup"
+        )
 
         # Set the hostname to the namespace name
         if uts and set_hostname:
@@ -592,6 +598,60 @@ class LinuxNamespace(Commander):
     def bind_mount(self, outer, inner):
         self.cmd_raises("mkdir -p " + inner)
         self.cmd_raises("mount --rbind {} {} ".format(outer, inner))
+
+    def add_vlan(self, vlanname, linkiface, vlanid):
+        self.logger.debug("Adding VLAN interface: %s (%s)", vlanname, vlanid)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises(
+            [
+                ip_path,
+                "link",
+                "add",
+                "link",
+                linkiface,
+                "name",
+                vlanname,
+                "type",
+                "vlan",
+                "id",
+                vlanid,
+            ]
+        )
+        self.cmd_raises([ip_path, "link", "set", "dev", vlanname, "up"])
+
+    def add_loop(self, loopname):
+        self.logger.debug("Adding Linux iface: %s", loopname)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises([ip_path, "link", "add", loopname, "type", "dummy"])
+        self.cmd_raises([ip_path, "link", "set", "dev", loopname, "up"])
+
+    def add_l3vrf(self, vrfname, tableid):
+        self.logger.debug("Adding Linux VRF: %s", vrfname)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises(
+            [ip_path, "link", "add", vrfname, "type", "vrf", "table", tableid]
+        )
+        self.cmd_raises([ip_path, "link", "set", "dev", vrfname, "up"])
+
+    def del_iface(self, iface):
+        self.logger.debug("Removing Linux Iface: %s", iface)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        self.cmd_raises([ip_path, "link", "del", iface])
+
+    def attach_iface_to_l3vrf(self, ifacename, vrfname):
+        self.logger.debug("Attaching Iface %s to Linux VRF %s", ifacename, vrfname)
+        ip_path = self.get_exec_path("ip")
+        assert ip_path, "XXX missing ip command!"
+        if vrfname:
+            self.cmd_raises(
+                [ip_path, "link", "set", "dev", ifacename, "master", vrfname]
+            )
+        else:
+            self.cmd_raises([ip_path, "link", "set", "dev", ifacename, "nomaster"])
 
     def add_netns(self, ns):
         self.logger.debug("Adding network namespace %s", ns)

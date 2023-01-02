@@ -320,6 +320,12 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+static zclient_handler *const path_handlers[] = {
+	[ZEBRA_SR_POLICY_NOTIFY_STATUS] = path_zebra_sr_policy_notify_status,
+	[ZEBRA_ROUTER_ID_UPDATE] = path_zebra_router_id_update,
+	[ZEBRA_OPAQUE_MESSAGE] = path_zebra_opaque_msg_handler,
+};
+
 /**
  * Initializes Zebra asynchronous connection.
  *
@@ -331,15 +337,13 @@ void path_zebra_init(struct thread_master *master)
 	options.synchronous = true;
 
 	/* Initialize asynchronous zclient. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, path_handlers,
+			      array_size(path_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
 	zclient->zebra_connected = path_zebra_connected;
-	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
-	zclient->router_id_update = path_zebra_router_id_update;
-	zclient->opaque_msg_handler = path_zebra_opaque_msg_handler;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_SRTE;
 	zclient_sync->instance = 1;
@@ -347,4 +351,10 @@ void path_zebra_init(struct thread_master *master)
 
 	/* Connect to the LM. */
 	path_zebra_label_manager_connect();
+}
+
+void path_zebra_stop(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
 }

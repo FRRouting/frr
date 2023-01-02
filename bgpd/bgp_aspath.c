@@ -328,7 +328,12 @@ void aspath_free(struct aspath *aspath)
 void aspath_unintern(struct aspath **aspath)
 {
 	struct aspath *ret;
-	struct aspath *asp = *aspath;
+	struct aspath *asp;
+
+	if (!*aspath)
+		return;
+
+	asp = *aspath;
 
 	if (asp->refcnt)
 		asp->refcnt--;
@@ -539,7 +544,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 	seg = as->segments;
 
-/* ASN takes 5 to 10 chars plus seperator, see below.
+/* ASN takes 5 to 10 chars plus separator, see below.
  * If there is one differing segment type, we need an additional
  * 2 chars for segment delimiters, and the final '\0'.
  * Hopefully this is large enough to avoid hitting the realloc
@@ -555,17 +560,17 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 	while (seg) {
 		int i;
-		char seperator;
+		char separator;
 
-		/* Check AS type validity. Set seperator for segment */
+		/* Check AS type validity. Set separator for segment */
 		switch (seg->type) {
 		case AS_SET:
 		case AS_CONFED_SET:
-			seperator = ',';
+			separator = ',';
 			break;
 		case AS_SEQUENCE:
 		case AS_CONFED_SEQUENCE:
-			seperator = ' ';
+			separator = ' ';
 			break;
 		default:
 			XFREE(MTYPE_AS_STR, str_buf);
@@ -579,7 +584,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 /* We might need to increase str_buf, particularly if path has
  * differing segments types, our initial guesstimate above will
- * have been wrong. Need 10 chars for ASN, a seperator each and
+ * have been wrong. Need 10 chars for ASN, a separator each and
  * potentially two segment delimiters, plus a space between each
  * segment and trailing zero.
  *
@@ -602,7 +607,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 		if (make_json)
 			jseg_list = json_object_new_array();
 
-		/* write out the ASNs, with their seperators, bar the last one*/
+		/* write out the ASNs, with their separators, bar the last one*/
 		for (i = 0; i < seg->length; i++) {
 			if (make_json)
 				json_object_array_add(
@@ -614,7 +619,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 			if (i < (seg->length - 1))
 				len += snprintf(str_buf + len, str_size - len,
-						"%c", seperator);
+						"%c", separator);
 		}
 
 		if (make_json) {
@@ -849,15 +854,12 @@ struct aspath *aspath_parse(struct stream *s, size_t length, int use32bit)
 	if (length % AS16_VALUE_SIZE)
 		return NULL;
 
-	memset(&as, 0, sizeof(struct aspath));
+	memset(&as, 0, sizeof(as));
 	if (assegments_parse(s, length, &as.segments, use32bit) < 0)
 		return NULL;
 
 	/* If already same aspath exist then return it. */
 	find = hash_get(ashash, &as, aspath_hash_alloc);
-
-	/* bug! should not happen, let the daemon crash below */
-	assert(find);
 
 	/* if the aspath was already hashed free temporary memory. */
 	if (find->refcnt) {
@@ -1002,8 +1004,6 @@ uint8_t *aspath_snmp_pathseg(struct aspath *as, size_t *varlen)
 	return stream_pnt(snmp_stream);
 }
 
-#define min(A,B) ((A) < (B) ? (A) : (B))
-
 static struct assegment *aspath_aggregate_as_set_add(struct aspath *aspath,
 						     struct assegment *asset,
 						     as_t as)
@@ -1060,7 +1060,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 			break;
 
 		/* Minimum segment length. */
-		minlen = min(seg1->length, seg2->length);
+		minlen = MIN(seg1->length, seg2->length);
 
 		for (match = 0; match < minlen; match++)
 			if (seg1->as[match] != seg2->as[match])
@@ -1209,28 +1209,6 @@ bool aspath_private_as_check(struct aspath *aspath)
 	return true;
 }
 
-/* Return True if the entire ASPATH consist of the specified ASN */
-bool aspath_single_asn_check(struct aspath *aspath, as_t asn)
-{
-	struct assegment *seg;
-
-	if (!(aspath && aspath->segments))
-		return false;
-
-	seg = aspath->segments;
-
-	while (seg) {
-		int i;
-
-		for (i = 0; i < seg->length; i++) {
-			if (seg->as[i] != asn)
-				return false;
-		}
-		seg = seg->next;
-	}
-	return true;
-}
-
 /* Replace all instances of the target ASN with our own ASN */
 struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 					   as_t target_asn, as_t our_asn)
@@ -1248,6 +1226,28 @@ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 			if (seg->as[i] == target_asn)
 				seg->as[i] = our_asn;
 		}
+		seg = seg->next;
+	}
+
+	aspath_str_update(new, false);
+	return new;
+}
+
+/* Replace all ASNs with our own ASN */
+struct aspath *aspath_replace_all_asn(struct aspath *aspath, as_t our_asn)
+{
+	struct aspath *new;
+	struct assegment *seg;
+
+	new = aspath_dup(aspath);
+	seg = new->segments;
+
+	while (seg) {
+		int i;
+
+		for (i = 0; i < seg->length; i++)
+			seg->as[i] = our_asn;
+
 		seg = seg->next;
 	}
 
@@ -1291,6 +1291,7 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	int i;
 	int j;
 	int public = 0;
+	int peer = 0;
 
 	new = XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
 
@@ -1299,14 +1300,17 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	last_new_seg = NULL;
 	seg = aspath->segments;
 	while (seg) {
-	      public
-		= 0;
+		public = 0;
+		peer = 0;
 		for (i = 0; i < seg->length; i++) {
 			// ASN is public
-			if (!BGP_AS_IS_PRIVATE(seg->as[i])) {
-			      public
-				++;
-			}
+			if (!BGP_AS_IS_PRIVATE(seg->as[i]))
+				public++;
+			/* ASN matches peer's.
+			 * Don't double-count if peer_asn is public.
+			 */
+			else if (seg->as[i] == peer_asn)
+				peer++;
 		}
 
 		// The entire segment is public so copy it
@@ -1318,7 +1322,10 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 		// there are public ASNs then come back and fill in only the
 		// public ASNs.
 		else {
-			new_seg = assegment_new(seg->type, public);
+			/* length needs to account for all retained ASNs
+			 * (public or peer_asn), not just public
+			 */
+			new_seg = assegment_new(seg->type, (public + peer));
 			j = 0;
 			for (i = 0; i < seg->length; i++) {
 				// keep ASN if public or matches peer's ASN
@@ -1907,7 +1914,7 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 {
 	const char *p = buf;
 
-	/* Skip seperators (space for sequences, ',' for sets). */
+	/* Skip separators (space for sequences, ',' for sets). */
 	while (isspace((unsigned char)*p) || *p == ',')
 		p++;
 

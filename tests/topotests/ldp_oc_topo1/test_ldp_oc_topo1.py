@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 test_ldp_oc_topo1.py: Simple FRR LDP Test
 
              +---------+

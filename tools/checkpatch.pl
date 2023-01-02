@@ -409,6 +409,25 @@ our $Operators	= qr{
 		  }x;
 
 our $c90_Keywords = qr{do|for|while|if|else|return|goto|continue|switch|default|case|break}x;
+our $Iterators	= qr{
+			frr_each|frr_each_safe|frr_each_from|
+			frr_with_mutex|frr_with_privs|
+			LIST_FOREACH|LIST_FOREACH_SAFE|
+			SLIST_FOREACH|SLIST_FOREACH_SAFE|SLIST_FOREACH_PREVPTR|
+			STAILQ_FOREACH|STAILQ_FOREACH_SAFE|
+			TAILQ_FOREACH|TAILQ_FOREACH_SAFE|TAILQ_FOREACH_REVERSE|TAILQ_FOREACH_REVERSE_SAFE|
+			RB_FOREACH|RB_FOREACH_SAFE|RB_FOREACH_REVERSE|RB_FOREACH_REVERSE_SAFE|
+			SPLAY_FOREACH|
+			FOR_ALL_INTERFACES|FOR_ALL_INTERFACES_ADDRESSES|JSON_FOREACH|
+			LY_FOR_KEYS|LY_LIST_FOR|LY_TREE_FOR|LY_TREE_DFS_BEGIN|LYD_TREE_DFS_BEGIN|
+			RE_DEST_FOREACH_ROUTE|RE_DEST_FOREACH_ROUTE_SAFE|
+			RNODE_FOREACH_RE|RNODE_FOREACH_RE_SAFE|
+			UPDGRP_FOREACH_SUBGRP|UPDGRP_FOREACH_SUBGRP_SAFE|
+			SUBGRP_FOREACH_PEER|SUBGRP_FOREACH_PEER_SAFE|
+			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
+			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
+			LSDB_LOOP
+		  }x;
 
 our $BasicType;
 our $NonptrType;
@@ -1009,9 +1028,9 @@ sub top_of_kernel_tree {
 	my ($root) = @_;
 
 	my @tree_check = (
-		"COPYING", "CREDITS", "Kbuild", "MAINTAINERS", "Makefile",
-		"README", "Documentation", "arch", "include", "drivers",
-		"fs", "init", "ipc", "kernel", "lib", "scripts",
+		"COPYING", "configure.ac", "Makefile.am",
+		"README.md", "doc", "lib", "vtysh", "watchfrr", "tests",
+		"zebra", "bgpd", "ospfd", "ospf6d", "isisd", "staticd",
 	);
 
 	foreach my $check (@tree_check) {
@@ -2655,8 +2674,8 @@ sub process {
 		      (defined($1) || defined($2))))) {
 			$is_patch = 1;
 			$reported_maintainer_file = 1;
-			WARN("FILE_PATH_CHANGES",
-			     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
+			#WARN("FILE_PATH_CHANGES",
+			#     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
 		}
 
 # Check for wrappage within a valid hunk of the file
@@ -4028,7 +4047,8 @@ sub process {
 				if|for|while|switch|return|case|
 				volatile|__volatile__|
 				__attribute__|format|__extension__|
-				asm|__asm__)$/x)
+				asm|__asm__|
+				$Iterators)$/x)
 			{
 			# cpp #define statements have non-optional spaces, ie
 			# if there is a space between the name and the open
@@ -5769,7 +5789,7 @@ sub process {
 		}
 
 		# check for vsprintf extension %p<foo> misuses
-		if ($^V && $^V ge 5.10.0 &&
+		if (0 && $^V && $^V ge 5.10.0 &&
 		    defined $stat &&
 		    $stat =~ /^\+(?![^\{]*\{\s*).*\b(\w+)\s*\(.*$String\s*,/s &&
 		    $1 !~ /^_*volatile_*$/) {

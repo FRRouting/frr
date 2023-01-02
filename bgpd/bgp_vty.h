@@ -28,23 +28,20 @@ struct bgp;
 #define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
 #define BGP_INSTANCE_ALL_HELP_STR "BGP view\nBGP VRF\nAll Views/VRFs\n"
 
+#define BGP_AF_STR "Address Family\n"
+#define BGP_AF_MODIFIER_STR "Address Family modifier\n"
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
-#define BGP_AFI_HELP_STR        "Address Family\nAddress Family\n"
+#define BGP_AFI_HELP_STR BGP_AF_STR BGP_AF_STR
 #define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
 #define BGP_SAFI_HELP_STR                                                      \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"
+	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 #define BGP_AFI_SAFI_CMD_STR    BGP_AFI_CMD_STR" "BGP_SAFI_CMD_STR
 #define BGP_AFI_SAFI_HELP_STR   BGP_AFI_HELP_STR BGP_SAFI_HELP_STR
 
 #define BGP_SAFI_WITH_LABEL_CMD_STR  "<unicast|multicast|vpn|labeled-unicast|flowspec>"
 #define BGP_SAFI_WITH_LABEL_HELP_STR                                           \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"
+	BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR            \
+		BGP_AF_MODIFIER_STR BGP_AF_MODIFIER_STR
 
 #define SHOW_GR_HEADER \
 	"Codes: GR - Graceful Restart," \
@@ -59,19 +56,18 @@ struct bgp;
 	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
 
-#define BGP_SHOW_PEER_GR_CAPABILITY( \
-			vty, p, use_json, json) \
-	do {			\
-		bgp_show_neighbor_graceful_restart_local_mode( \
-				vty, p, use_json, json);		\
-		bgp_show_neighbor_graceful_restart_remote_mode( \
-				vty, p, use_json, json); \
-		bgp_show_neighnor_graceful_restart_rbit( \
-				vty, p, use_json, json);	\
-		bgp_show_neighbor_graceful_restart_time( \
-				vty, p, use_json, json);	\
-		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(\
-						vty, p, use_json, json); \
+#define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, json)                    \
+	do {                                                                   \
+		bgp_show_neighbor_graceful_restart_local_mode(vty, p,          \
+							      use_json, json); \
+		bgp_show_neighbor_graceful_restart_remote_mode(                \
+			vty, p, use_json, json);                               \
+		bgp_show_neighnor_graceful_restart_flags(vty, p, use_json,     \
+							 json);                \
+		bgp_show_neighbor_graceful_restart_time(vty, p, use_json,      \
+							json);                 \
+		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(    \
+			vty, p, use_json, json);                               \
 	} while (0)
 
 #define VTY_BGP_GR_DEFINE_LOOP_VARIABLE                                        \
@@ -153,6 +149,7 @@ struct bgp;
 				"endOfRibSentAfterUpdate");                    \
 	} while (0)
 
+extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void bgp_vty_init(void);
 extern void community_alias_vty(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
@@ -164,6 +161,7 @@ extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_listen(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp);
 extern int bgp_vty_return(struct vty *vty, int ret);
+extern bool bgp_config_inprocess(void);
 extern struct peer *peer_and_group_lookup_vty(struct vty *vty,
 					      const char *peer_str);
 

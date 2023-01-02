@@ -22,6 +22,7 @@
 #define _QUAGGA_BGP_ECOMMUNITY_H
 
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_rpki.h"
 #include "bgpd/bgpd.h"
 
 /* Refer to rfc7153 for the IANA registry definitions. These are
@@ -51,6 +52,7 @@
 /* Note: This really depends on the high-order octet. This means that
  * multiple definitions for the same value are possible.
  */
+#define ECOMMUNITY_ORIGIN_VALIDATION_STATE  0x00
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
 #define ECOMMUNITY_LINK_BANDWIDTH           0x04
@@ -99,6 +101,14 @@
 /* Extended Communities value is eight octet long.  */
 #define ECOMMUNITY_SIZE                        8
 #define IPV6_ECOMMUNITY_SIZE                  20
+
+/* Extended Community Origin Validation State */
+enum ecommunity_origin_validation_states {
+	ECOMMUNITY_ORIGIN_VALIDATION_STATE_VALID,
+	ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTFOUND,
+	ECOMMUNITY_ORIGIN_VALIDATION_STATE_INVALID,
+	ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTUSED
+};
 
 /* Extended Communities type flag.  */
 #define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40
@@ -236,6 +246,32 @@ static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 	eval->val[7] = bandwidth & 0xff;
 }
 
+static inline void encode_origin_validation_state(enum rpki_states state,
+						  struct ecommunity_val *eval)
+{
+	enum ecommunity_origin_validation_states ovs_state =
+		ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTUSED;
+
+	switch (state) {
+	case RPKI_VALID:
+		ovs_state = ECOMMUNITY_ORIGIN_VALIDATION_STATE_VALID;
+		break;
+	case RPKI_NOTFOUND:
+		ovs_state = ECOMMUNITY_ORIGIN_VALIDATION_STATE_NOTFOUND;
+		break;
+	case RPKI_INVALID:
+		ovs_state = ECOMMUNITY_ORIGIN_VALIDATION_STATE_INVALID;
+		break;
+	case RPKI_NOT_BEING_USED:
+		break;
+	}
+
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS;
+	eval->val[1] = ECOMMUNITY_ORIGIN_VALIDATION_STATE;
+	eval->val[7] = ovs_state;
+}
+
 extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
 extern void ecommunity_free(struct ecommunity **);
@@ -257,6 +293,7 @@ extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
 						  int keyword_included);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
 extern void ecommunity_strfree(char **s);
+extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
 extern bool ecommunity_match(const struct ecommunity *,
 			     const struct ecommunity *);
 extern char *ecommunity_str(struct ecommunity *);
@@ -313,4 +350,7 @@ static inline void ecommunity_strip_rts(struct ecommunity *ecom)
 	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_IP, subtype);
 	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_AS4, subtype);
 }
+extern struct ecommunity *
+ecommunity_add_origin_validation_state(enum rpki_states rpki_state,
+				       struct ecommunity *ecom);
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */

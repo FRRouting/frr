@@ -18,7 +18,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 Reference: https://www.cmand.org/communityexploration
 
                      --y2--
@@ -169,7 +169,7 @@ def test_bgp_community_update_path_change():
             if (
                 len(
                     tgen.gears["c1"].run(
-                        'grep "10.0.1.2 rcvd 192.168.255.254/32 IPv4 unicast...duplicate ignored" bgpd.log'
+                        'grep "10.0.1.2(x1) rcvd 192.168.255.254/32 IPv4 unicast...duplicate ignored" bgpd.log'
                     )
                 )
                 > 0

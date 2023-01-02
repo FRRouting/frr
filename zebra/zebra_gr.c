@@ -51,7 +51,7 @@
  * Forward declaration.
  */
 static struct zserv *zebra_gr_find_stale_client(struct zserv *client);
-static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread);
+static void zebra_gr_route_stale_delete_timer_expiry(struct thread *thread);
 static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info);
 static void zebra_gr_process_client_stale_routes(struct zserv *client,
 						 vrf_id_t vrf_id);
@@ -444,7 +444,7 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
  * Delete all the stale routes that have not been refreshed
  * post restart.
  */
-static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
+static void zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 {
 	struct client_gr_info *info;
 	int32_t cnt = 0;
@@ -478,7 +478,6 @@ static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 		info->current_afi = 0;
 		zebra_gr_delete_stale_client(info);
 	}
-	return 0;
 }
 
 
@@ -649,19 +648,17 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 		return;
 
 	/* Check if route update completed for all AFI, SAFI */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-			if (info->af_enabled[afi][safi]) {
-				if (!info->route_sync[afi][safi]) {
-					LOG_GR(
-					   "%s: Client %s route update not completed for AFI %d, SAFI %d",
-					   __func__, zebra_route_string(
-							    client->proto),
-					   afi, safi);
-					return;
-				}
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (info->af_enabled[afi][safi]) {
+			if (!info->route_sync[afi][safi]) {
+				LOG_GR("%s: Client %s route update not completed for AFI %d, SAFI %d",
+				       __func__,
+				       zebra_route_string(client->proto), afi,
+				       safi);
+				return;
 			}
 		}
+	}
 
 	/*
 	 * Route update completed for all AFI, SAFI

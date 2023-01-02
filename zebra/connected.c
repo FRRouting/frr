@@ -73,8 +73,7 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 	if (!ifc)
 		return;
 
-	if (!if_is_loopback(ifp) && ifc->address->family == AF_INET &&
-	    !IS_ZEBRA_IF_VRF(ifp)) {
+	if (!if_is_loopback(ifp) && ifc->address->family == AF_INET) {
 		if (ifc->address->prefixlen == IPV4_MAX_BITLEN)
 			SET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
 		else
@@ -202,7 +201,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = ifp->vrf_id,
+		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
@@ -211,12 +210,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct listnode *cnode;
 	struct connected *c;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Up for interface but no associated zvrf: %d",
-			__func__, ifp->vrf_id);
+			"%s: Received Up for interface but no associated zvrf: %s(%d)",
+			__func__, ifp->vrf->name, ifp->vrf->vrf_id);
 		return;
 	}
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -291,10 +290,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	}
 
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
+		false);
 
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
+		false);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -326,6 +327,8 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	if (!if_is_operative(ifp))
+		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	/* Allocate new connected address. */
 	p = prefix_ipv4_new();
@@ -382,19 +385,19 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = ifp->vrf_id,
+		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t count = 0;
 	struct listnode *cnode;
 	struct connected *c;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Down for interface but no associated zvrf: %d",
-			__func__, ifp->vrf_id);
+			"%s: Received Down for interface but no associated zvrf: %s(%d)",
+			__func__, ifp->vrf->name, ifp->vrf->vrf_id);
 		return;
 	}
 
@@ -492,12 +495,12 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 	connected_withdraw(ifc);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
 				"%u: IF %s IP %pFX address delete, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name, p);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), p);
+				ifp->vrf->vrf_id, ifp->name, p);
+		mpls_mark_lsps_for_processing(ifp->vrf->info, p);
 	}
 }
 
@@ -509,14 +512,14 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 	struct prefix p, d;
 	struct connected *ifc;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
 	p.u.prefix4 = *addr;
 	p.prefixlen =
 		CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_BITLEN : prefixlen;
 
 	if (dest) {
-		memset(&d, 0, sizeof(struct prefix));
+		memset(&d, 0, sizeof(d));
 		d.family = AF_INET;
 		d.u.prefix4 = *dest;
 		d.prefixlen = prefixlen;
@@ -547,6 +550,8 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	if (!if_is_operative(ifp))
+		SET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	/* Allocate new connected address. */
 	p = prefix_ipv6_new();
@@ -598,7 +603,7 @@ void connected_delete_ipv6(struct interface *ifp,
 	struct prefix p, d;
 	struct connected *ifc;
 
-	memset(&p, 0, sizeof(struct prefix));
+	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
 	memcpy(&p.u.prefix6, address, sizeof(struct in6_addr));
 	p.prefixlen = prefixlen;
@@ -608,7 +613,7 @@ void connected_delete_ipv6(struct interface *ifp,
 		rtadv_delete_prefix(ifp->info, &p);
 
 	if (dest) {
-		memset(&d, 0, sizeof(struct prefix));
+		memset(&d, 0, sizeof(d));
 		d.family = AF_INET6;
 		IPV6_ADDR_COPY(&d.u.prefix6, dest);
 		d.prefixlen = prefixlen;

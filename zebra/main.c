@@ -71,17 +71,17 @@ struct thread_master *master;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-/* Allow non-quagga entities to delete quagga routes */
-int allow_delete = 0;
-
 int graceful_restart;
 
 bool v6_rr_semantics = false;
 
+/* Receive buffer size for kernel control sockets */
+#define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
-/* Receive buffer size for netlink socket */
-uint32_t nl_rcvbufsize = 4194304;
-#endif /* HAVE_NETLINK */
+uint32_t rcvbufsize = RCVBUFSIZE_MIN;
+#else
+uint32_t rcvbufsize = 128 * 1024;
+#endif
 
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
@@ -93,7 +93,6 @@ const struct option longopts[] = {
 	{"socket", required_argument, NULL, 'z'},
 	{"ecmp", required_argument, NULL, 'e'},
 	{"retain", no_argument, NULL, 'r'},
-	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"graceful_restart", required_argument, NULL, 'K'},
 	{"asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD},
 #ifdef HAVE_NETLINK
@@ -103,8 +102,12 @@ const struct option longopts[] = {
 #endif /* HAVE_NETLINK */
 	{0}};
 
-zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW,
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN,
+				  ZCAP_NET_RAW,
+#ifdef HAVE_DPDK
+				  ZCAP_IPC_LOCK,  ZCAP_READ_SEARCH,
+				  ZCAP_SYS_RAWIO
+#endif
 };
 
 /* zebra privileges to run with */
@@ -182,6 +185,7 @@ static void sigint(void)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
 	}
+
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
 
@@ -213,7 +217,7 @@ static void sigint(void)
  * Final shutdown step for the zebra main thread. This is run after all
  * async update processing has completed.
  */
-int zebra_finalize(struct thread *dummy)
+void zebra_finalize(struct thread *dummy)
 {
 	zlog_info("Zebra final shutdown");
 
@@ -225,6 +229,7 @@ int zebra_finalize(struct thread *dummy)
 
 	zebra_router_terminate();
 
+	ns_terminate();
 	frr_fini();
 	exit(0);
 }
@@ -235,7 +240,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t zebra_signals[] = {
+struct frr_signal_t zebra_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -283,7 +288,6 @@ int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
 	char *zserv_path = NULL;
-	char *vrf_default_name_configured = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
@@ -295,9 +299,9 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"baz:e:o:rK:"
+		"baz:e:rK:s:"
 #ifdef HAVE_NETLINK
-		"s:n"
+		"n"
 #endif
 		,
 		longopts,
@@ -306,13 +310,14 @@ int main(int argc, char **argv)
 		"  -z, --socket             Set path of zebra socket\n"
 		"  -e, --ecmp               Specify ECMP to use.\n"
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
-		"  -o, --vrfdefaultname     Set default VRF name.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
 		"  -A, --asic-offload       FRR is interacting with an asic underneath the linux kernel\n"
 #ifdef HAVE_NETLINK
-		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
+		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"      --v6-rr-semantics    Use v6 RR semantics\n"
+#else
+		"  -s,                      Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
 	);
 
@@ -329,7 +334,7 @@ int main(int argc, char **argv)
 			// batch_mode = 1;
 			break;
 		case 'a':
-			allow_delete = 1;
+			zrouter.allow_delete = true;
 			break;
 		case 'e': {
 			unsigned long int parsed_multipath =
@@ -346,9 +351,6 @@ int main(int argc, char **argv)
 			zrouter.multipath_num = parsed_multipath;
 			break;
 		}
-		case 'o':
-			vrf_default_name_configured = optarg;
-			break;
 		case 'z':
 			zserv_path = optarg;
 			if (!frr_zclient_addr(&dummy, &dummylen, optarg)) {
@@ -364,10 +366,14 @@ int main(int argc, char **argv)
 		case 'K':
 			graceful_restart = atoi(optarg);
 			break;
-#ifdef HAVE_NETLINK
 		case 's':
-			nl_rcvbufsize = atoi(optarg);
+			rcvbufsize = atoi(optarg);
+			if (rcvbufsize < RCVBUFSIZE_MIN)
+				fprintf(stderr,
+					"Rcvbufsize is smaller than recommended value: %d\n",
+					RCVBUFSIZE_MIN);
 			break;
+#ifdef HAVE_NETLINK
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
@@ -399,14 +405,12 @@ int main(int argc, char **argv)
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
-	zebra_ns_init((const char *)vrf_default_name_configured);
+	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
-#if defined(HAVE_RTADV)
 	rtadv_cmd_init();
-#endif
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();
@@ -442,8 +446,8 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	thread_add_timer(zrouter.master, rib_sweep_route,
-			 NULL, graceful_restart, NULL);
+	thread_add_timer(zrouter.master, rib_sweep_route, NULL,
+			 graceful_restart, &zrouter.sweeper);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();

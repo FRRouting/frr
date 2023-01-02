@@ -36,10 +36,10 @@
 #include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
-static int	 ldpe_dispatch_main(struct thread *);
-static int	 ldpe_dispatch_lde(struct thread *);
+static void ldpe_dispatch_main(struct thread *thread);
+static void ldpe_dispatch_lde(struct thread *thread);
 #ifdef __OpenBSD__
-static int	 ldpe_dispatch_pfkey(struct thread *);
+static void ldpe_dispatch_pfkey(struct thread *thread);
 #endif
 static void	 ldpe_setup_sockets(int, int, int, int);
 static void	 ldpe_close_sockets(int);
@@ -82,7 +82,7 @@ sigint(void)
 	ldpe_shutdown();
 }
 
-static struct quagga_signal_t ldpe_signals[] =
+static struct frr_signal_t ldpe_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -122,7 +122,6 @@ ldpe(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = ldpe_dispatch_main;
-	iev_main->ev_read = NULL;
 	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
 		        &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
@@ -149,7 +148,6 @@ ldpe_init(struct ldpd_init *init)
 	/* This socket must be open before dropping privileges. */
 	global.pfkeysock = pfkey_init();
 	if (sysdep.no_pfkey == 0) {
-		pfkey_ev = NULL;
 		thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
 				&pfkey_ev);
 	}
@@ -214,7 +212,7 @@ ldpe_shutdown(void)
 
 #ifdef __OpenBSD__
 	if (sysdep.no_pfkey == 0) {
-		thread_cancel(&pfkey_ev);
+		THREAD_OFF(pfkey_ev);
 		close(global.pfkeysock);
 	}
 #endif
@@ -275,8 +273,7 @@ ldpe_imsg_compose_lde(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static int
-ldpe_dispatch_main(struct thread *thread)
+static void ldpe_dispatch_main(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*niface;
@@ -377,7 +374,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
-			iev_lde->ev_read = NULL;
 			thread_add_read(master, iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd,
 					&iev_lde->ev_read);
 			iev_lde->handler_write = ldp_write_handler;
@@ -620,8 +616,8 @@ ldpe_dispatch_main(struct thread *thread)
 			}
 			break;
 		default:
-			log_debug("ldpe_dispatch_main: error handling imsg %d",
-			    imsg.hdr.type);
+			log_debug("%s: error handling imsg %d",
+			    __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -630,17 +626,14 @@ ldpe_dispatch_main(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
 		ldpe_shutdown();
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-static int
-ldpe_dispatch_lde(struct thread *thread)
+static void ldpe_dispatch_lde(struct thread *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -731,7 +724,7 @@ ldpe_dispatch_lde(struct thread *thread)
 
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
-				log_debug("ldpe_dispatch_lde: cannot find neighbor");
+				log_debug("%s: cannot find neighbor", __func__);
 				break;
 			}
 			if (nbr->state != NBR_STA_OPER)
@@ -751,7 +744,7 @@ ldpe_dispatch_lde(struct thread *thread)
 		case IMSG_NBR_SHUTDOWN:
 			nbr = nbr_find_peerid(imsg.hdr.peerid);
 			if (nbr == NULL) {
-				log_debug("ldpe_dispatch_lde: cannot find neighbor");
+				log_debug("%s: cannot find neighbor", __func__);
 				break;
 			}
 			if (nbr->state != NBR_STA_OPER)
@@ -759,8 +752,8 @@ ldpe_dispatch_lde(struct thread *thread)
 			session_shutdown(nbr,S_SHUTDOWN,0,0);
 			break;
 		default:
-			log_debug("ldpe_dispatch_lde: error handling imsg %d",
-			    imsg.hdr.type);
+			log_debug("%s: error handling imsg %d",
+			    __func__, imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -769,29 +762,23 @@ ldpe_dispatch_lde(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
 		ldpe_shutdown();
 	}
-
-	return (0);
 }
 
 #ifdef __OpenBSD__
 /* ARGSUSED */
-static int
-ldpe_dispatch_pfkey(struct thread *thread)
+static void ldpe_dispatch_pfkey(struct thread *thread)
 {
 	int	 fd = THREAD_FD(thread);
 
-	pfkey_ev = NULL;
 	thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
 			&pfkey_ev);
 
 	if (pfkey_read(fd, NULL) == -1)
 		fatal("pfkey_read failed, exiting...");
-
-	return (0);
 }
 #endif /* __OpenBSD__ */
 
@@ -805,13 +792,11 @@ ldpe_setup_sockets(int af, int disc_socket, int edisc_socket,
 
 	/* discovery socket */
 	af_global->ldp_disc_socket = disc_socket;
-	af_global->disc_ev = NULL;
 	thread_add_read(master, disc_recv_packet, &af_global->disc_ev, af_global->ldp_disc_socket,
 			&af_global->disc_ev);
 
 	/* extended discovery socket */
 	af_global->ldp_edisc_socket = edisc_socket;
-	af_global->edisc_ev = NULL;
 	thread_add_read(master, disc_recv_packet, &af_global->edisc_ev, af_global->ldp_edisc_socket,
 			&af_global->edisc_ev);
 
@@ -828,14 +813,14 @@ ldpe_close_sockets(int af)
 	af_global = ldp_af_global_get(&global, af);
 
 	/* discovery socket */
-	thread_cancel(&af_global->disc_ev);
+	THREAD_OFF(af_global->disc_ev);
 	if (af_global->ldp_disc_socket != -1) {
 		close(af_global->ldp_disc_socket);
 		af_global->ldp_disc_socket = -1;
 	}
 
 	/* extended discovery socket */
-	thread_cancel(&af_global->edisc_ev);
+	THREAD_OFF(af_global->edisc_ev);
 	if (af_global->ldp_edisc_socket != -1) {
 		close(af_global->ldp_edisc_socket);
 		af_global->ldp_edisc_socket = -1;

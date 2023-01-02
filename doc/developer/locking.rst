@@ -7,7 +7,9 @@ FRR ships two small wrappers around ``pthread_mutex_lock()`` /
 ``pthread_mutex_unlock``.  Use ``#include "frr_pthread.h"`` to get these
 macros.
 
-.. c:function:: frr_with_mutex(pthread_mutex_t *mutex)
+.. c:macro:: frr_with_mutex (mutex)
+
+   (With ``pthread_mutex_t *mutex``.)
 
    Begin a C statement block that is executed with the mutex locked.  Any
    exit from the block (``break``, ``return``, ``goto``, end of block) will
@@ -15,7 +17,7 @@ macros.
 
       int somefunction(int option)
       {
-          frr_with_mutex(&my_mutex) {
+          frr_with_mutex (&my_mutex) {
               /* mutex will be locked */
 
               if (!option)
@@ -43,7 +45,9 @@ macros.
    statement works correctly, FRR coding style requires that this macro always
    be used with a ``{ ... }`` block.
 
-.. c:function:: frr_mutex_lock_autounlock(pthread_mutex_t *mutex)
+.. c:macro:: frr_mutex_lock_autounlock(mutex)
+
+   (With ``pthread_mutex_t *mutex``.)
 
    Lock mutex and unlock at the end of the current C statement block::
 

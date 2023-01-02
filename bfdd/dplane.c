@@ -107,7 +107,7 @@ struct bfd_dplane_ctx {
  */
 typedef void (*bfd_dplane_expect_cb)(struct bfddp_message *msg, void *arg);
 
-static int bfd_dplane_client_connect(struct thread *t);
+static void bfd_dplane_client_connect(struct thread *t);
 static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc);
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc);
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
@@ -157,8 +157,8 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 	case ECHO_REPLY:
 	case ECHO_REQUEST:
 		zlog_debug("  [dp_time=%" PRIu64 " bfdd_time=%" PRIu64 "]",
-			   (uint64_t)be64toh(msg->data.echo.dp_time),
-			   (uint64_t)be64toh(msg->data.echo.bfdd_time));
+			   be64toh(msg->data.echo.dp_time),
+			   be64toh(msg->data.echo.bfdd_time));
 		break;
 
 	case DP_ADD_SESSION:
@@ -245,21 +245,18 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 			" packets), "
 			"out %" PRIu64 " bytes (%" PRIu64 " packets)}]",
 			ntohl(msg->data.session_counters.lid),
-			(uint64_t)be64toh(
-				msg->data.session_counters.control_input_bytes),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .control_input_packets),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .control_output_bytes),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .control_output_packets),
-			(uint64_t)be64toh(msg->data.session_counters.echo_input_bytes),
-			(uint64_t)be64toh(
-				msg->data.session_counters.echo_input_packets),
-			(uint64_t)be64toh(
-				msg->data.session_counters.echo_output_bytes),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .echo_output_packets));
+			be64toh(msg->data.session_counters.control_input_bytes),
+			be64toh(msg->data.session_counters
+				.control_input_packets),
+			be64toh(msg->data.session_counters
+				.control_output_bytes),
+			be64toh(msg->data.session_counters
+				.control_output_packets),
+			be64toh(msg->data.session_counters.echo_input_bytes),
+			be64toh(msg->data.session_counters.echo_input_packets),
+			be64toh(msg->data.session_counters.echo_output_bytes),
+			be64toh(msg->data.session_counters
+				.echo_output_packets));
 		break;
 	}
 }
@@ -328,17 +325,15 @@ static ssize_t bfd_dplane_flush(struct bfd_dplane_ctx *bdc)
 	return total;
 }
 
-static int bfd_dplane_write(struct thread *t)
+static void bfd_dplane_write(struct thread *t)
 {
 	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
 
 	/* Handle connection stage. */
 	if (bdc->connecting && bfd_dplane_client_connecting(bdc))
-		return 0;
+		return;
 
 	bfd_dplane_flush(bdc);
-
-	return 0;
 }
 
 static void
@@ -617,18 +612,17 @@ skip_read:
 	return 0;
 }
 
-static int bfd_dplane_read(struct thread *t)
+static void bfd_dplane_read(struct thread *t)
 {
 	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
 	int rv;
 
 	rv = bfd_dplane_expect(bdc, 0, bfd_dplane_handle_message, NULL);
 	if (rv == -1)
-		return 0;
+		return;
 
 	stream_pulldown(bdc->inbuf);
 	thread_add_read(master, bfd_dplane_read, bdc, bdc->sock, &bdc->inbufev);
-	return 0;
 }
 
 static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
@@ -838,7 +832,7 @@ static uint16_t bfd_dplane_request_counters(const struct bfd_session *bs)
 /*
  * Data plane listening socket.
  */
-static int bfd_dplane_accept(struct thread *t)
+static void bfd_dplane_accept(struct thread *t)
 {
 	struct bfd_global *bg = THREAD_ARG(t);
 	struct bfd_dplane_ctx *bdc;
@@ -861,7 +855,6 @@ static int bfd_dplane_accept(struct thread *t)
 reschedule_and_return:
 	thread_add_read(master, bfd_dplane_accept, bg, bg->bg_dplane_sock,
 			&bglobal.bg_dplane_sockev);
-	return 0;
 }
 
 /*
@@ -919,7 +912,7 @@ static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc)
 	}
 }
 
-static int bfd_dplane_client_connect(struct thread *t)
+static void bfd_dplane_client_connect(struct thread *t)
 {
 	struct bfd_dplane_ctx *bdc = THREAD_ARG(t);
 	int rv, sock;
@@ -968,15 +961,12 @@ static int bfd_dplane_client_connect(struct thread *t)
 		_bfd_dplane_client_bootstrap(bdc);
 	}
 
-	return 0;
-
 reschedule_connect:
 	THREAD_OFF(bdc->inbufev);
 	THREAD_OFF(bdc->outbufev);
 	socket_close(&sock);
 	thread_add_timer(master, bfd_dplane_client_connect, bdc, 3,
 			 &bdc->connectev);
-	return 0;
 }
 
 static void bfd_dplane_client_init(const struct sockaddr *sa, socklen_t salen)

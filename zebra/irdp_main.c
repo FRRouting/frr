@@ -112,7 +112,6 @@ int irdp_sock_init(void)
 		return ret;
 	};
 
-	t_irdp_raw = NULL;
 	thread_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
 
 	return sock;
@@ -206,7 +205,7 @@ static void irdp_advertisement(struct interface *ifp, struct prefix *p)
 	stream_free(s);
 }
 
-int irdp_send_thread(struct thread *t_advert)
+void irdp_send_thread(struct thread *t_advert)
 {
 	uint32_t timer, tmp;
 	struct interface *ifp = THREAD_ARG(t_advert);
@@ -217,7 +216,7 @@ int irdp_send_thread(struct thread *t_advert)
 	struct connected *ifc;
 
 	if (!irdp)
-		return 0;
+		return;
 
 	irdp->flags &= ~IF_SOLICIT;
 
@@ -247,7 +246,6 @@ int irdp_send_thread(struct thread *t_advert)
 	irdp->t_advertise = NULL;
 	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
 			 &irdp->t_advertise);
-	return 0;
 }
 
 void irdp_advert_off(struct interface *ifp)
@@ -262,7 +260,7 @@ void irdp_advert_off(struct interface *ifp)
 	if (!irdp)
 		return;
 
-	thread_cancel(&irdp->t_advertise);
+	THREAD_OFF(irdp->t_advertise);
 
 	if (ifp->connected)
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
@@ -297,7 +295,7 @@ void process_solicit(struct interface *ifp)
 		return;
 
 	irdp->flags |= IF_SOLICIT;
-	thread_cancel(&irdp->t_advertise);
+	THREAD_OFF(irdp->t_advertise);
 
 	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 

@@ -36,12 +36,32 @@
 extern "C" {
 #endif
 
+struct zebra_pbr_action {
+	afi_t afi;
+
+	/* currently only one nexthop is supported */
+	union g_addr gate;
+
+	/* dest-interface */
+	ifindex_t ifindex;
+
+	/* dataplane info */
+	intptr_t dp_flow_ptr;
+
+	/* neigh */
+	struct zebra_neigh_ent *neigh;
+	/* zebra_pbr_rule is linked to neigh via neigh_listnode */
+	struct listnode neigh_listnode;
+};
+
 struct zebra_pbr_rule {
 	int sock;
 
 	struct pbr_rule rule;
 
 	char ifname[INTERFACE_NAMSIZ];
+
+	struct zebra_pbr_action action;
 
 	vrf_id_t vrf_id;
 };
@@ -69,6 +89,8 @@ struct zebra_pbr_ipset_info {
 	 * but value is an enum ipset_type
 	 */
 	uint32_t type;
+
+	uint8_t family;
 
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
@@ -169,6 +191,9 @@ struct zebra_pbr_iptable {
 
 	struct list *interface_name_list;
 
+#define IPTABLE_INSTALL_QUEUED 1 << 1
+#define IPTABLE_UNINSTALL_QUEUED 1 << 2
+	uint8_t internal_flags;
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
@@ -238,6 +263,8 @@ extern void zebra_pbr_iptable_free(void *arg);
 extern uint32_t zebra_pbr_iptable_hash_key(const void *arg);
 extern bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 
+extern void zebra_pbr_config_write(struct vty *vty);
+extern void zebra_pbr_expand_action_update(bool enable);
 extern void zebra_pbr_init(void);
 extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
 extern void zebra_pbr_show_iptable(struct vty *vty, char *iptable);
@@ -245,6 +272,9 @@ extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
 				   struct zebra_pbr_iptable *zpi);
 size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
 				   uint16_t tcp_val);
+extern void zebra_pbr_show_rule(struct vty *vty);
+extern void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule,
+				     struct vty *vty);
 
 DECLARE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	     (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,

@@ -54,6 +54,7 @@ from lib.topojson import build_config_from_json
 # Global variables
 topo = None
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 # Global variables
 NETWORK_CMD_IP = "1.0.1.17/32"
@@ -112,7 +113,7 @@ def setup_module(mod):
     topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -141,7 +142,7 @@ def teardown_module():
 
 def get_llip(onrouter, intf):
     """
-    API to get the link local ipv6 address of a perticular interface
+    API to get the link local ipv6 address of a particular interface
 
     Parameters
     ----------
@@ -169,7 +170,7 @@ def get_llip(onrouter, intf):
 
 def get_glipv6(onrouter, intf):
     """
-    API to get the global ipv6 address of a perticular interface
+    API to get the global ipv6 address of a particular interface
 
     Parameters
     ----------

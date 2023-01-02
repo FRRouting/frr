@@ -25,6 +25,7 @@
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_opaque.h"
+#include "zebra/rib.h"
 
 /* Mem type */
 DEFINE_MTYPE_STATIC(ZEBRA, OPQ, "ZAPI Opaque Information");
@@ -106,7 +107,7 @@ static const char LOG_NAME[] = "Zebra Opaque";
 /* Prototypes */
 
 /* Main event loop, processing incoming message queue */
-static int process_messages(struct thread *event);
+static void process_messages(struct thread *event);
 static int handle_opq_registration(const struct zmsghdr *hdr,
 				   struct stream *msg);
 static int handle_opq_unregistration(const struct zmsghdr *hdr,
@@ -246,7 +247,7 @@ uint32_t zebra_opaque_enqueue_batch(struct stream_fifo *batch)
 	/* Dequeue messages from the incoming batch, and save them
 	 * on the module fifo.
 	 */
-	frr_with_mutex(&zo_info.mutex) {
+	frr_with_mutex (&zo_info.mutex) {
 		msg = stream_fifo_pop(batch);
 		while (msg) {
 			stream_fifo_push(&zo_info.in_fifo, msg);
@@ -270,7 +271,7 @@ uint32_t zebra_opaque_enqueue_batch(struct stream_fifo *batch)
 /*
  * Pthread event loop, process the incoming message queue.
  */
-static int process_messages(struct thread *event)
+static void process_messages(struct thread *event)
 {
 	struct stream_fifo fifo;
 	struct stream *msg;
@@ -287,7 +288,7 @@ static int process_messages(struct thread *event)
 	 * Dequeue some messages from the incoming queue, temporarily
 	 * save them on the local fifo
 	 */
-	frr_with_mutex(&zo_info.mutex) {
+	frr_with_mutex (&zo_info.mutex) {
 
 		for (i = 0; i < zo_info.msgs_per_cycle; i++) {
 			msg = stream_fifo_pop(&zo_info.in_fifo);
@@ -335,8 +336,6 @@ done:
 
 	/* This will also free any leftover messages, in the shutdown case */
 	stream_fifo_deinit(&fifo);
-
-	return 0;
 }
 
 /*

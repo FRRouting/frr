@@ -27,7 +27,7 @@ FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd pim6d ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd pathd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
@@ -51,13 +51,6 @@ pidfile()
 vtyfile()
 {
 	echo "$V_PATH/$1.vty"
-}
-
-chownfrr()
-{
-	test -n "$FRR_USER" && chown "$FRR_USER" "$1"
-	test -n "$FRR_GROUP" && chgrp "$FRR_GROUP" "$1"
-	test -n "$FRR_CONFIG_MODE" && chmod "$FRR_CONFIG_MODE" "$1"
 }
 
 # Check if daemon is started by using the pidfile.
@@ -103,12 +96,10 @@ check_daemon()
 		# check for config file
 		if [ -n "$2" ]; then
 			if [ ! -r "$C_PATH/$1-$2.conf" ]; then
-				touch "$C_PATH/$1-$2.conf"
-				chownfrr "$C_PATH/$1-$2.conf"
+				install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" /dev/null "$C_PATH/$1-$2.conf"
 			fi
 		elif [ ! -r "$C_PATH/$1.conf" ]; then
-			touch "$C_PATH/$1.conf"
-			chownfrr "$C_PATH/$1.conf"
+			install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" /dev/null "$C_PATH/$1.conf"
 		fi
 	fi
 	return 0
@@ -533,9 +524,8 @@ convert_daemon_prios
 
 if [ ! -d $V_PATH ]; then
 	echo "Creating $V_PATH"
-	mkdir -p $V_PATH
-	chownfrr $V_PATH
-	chmod 755 /$V_PATH
+	install -g "$FRR_GROUP" -o "$FRR_USER" -m "$FRR_CONFIG_MODE" -d "$V_PATH"
+	chmod gu+x "${V_PATH}"
 fi
 
 if [ -n "$3" ] && [ "$3" != "all" ]; then

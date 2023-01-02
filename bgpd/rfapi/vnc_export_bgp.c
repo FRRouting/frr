@@ -136,8 +136,9 @@ static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 	uint8_t *ecp;
 	uint32_t i;
 	uint16_t localadmin = bgp->rfapi_cfg->resolve_nve_roo_local_admin;
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-	for (ecp = attr->ecommunity->val, i = 0; i < attr->ecommunity->size;
+	for (ecp = ecomm->val, i = 0; i < ecomm->size;
 	     ++i, ecp += ECOMMUNITY_SIZE) {
 
 		if (VNC_DEBUG(EXPORT_BGP_GETCE)) {
@@ -563,7 +564,6 @@ static struct ecommunity *vnc_route_origin_ecom_single(struct in_addr *origin)
 	roec.val[7] = 0;
 
 	new = ecommunity_new();
-	assert(new);
 	ecommunity_add_val(new, &roec, false, false);
 
 	if (!new->size) {
@@ -640,15 +640,14 @@ encap_attr_export(struct attr *new, struct attr *orig,
 		/* TBD  use lcom for IPv6 */
 		ecom_ro = vnc_route_origin_ecom_single(&use_nexthop->u.prefix4);
 	}
-	if (new->ecommunity) {
+	if (bgp_attr_get_ecommunity(new)) {
 		if (ecom_ro)
-			new->ecommunity =
-				ecommunity_merge(ecom_ro, new->ecommunity);
+			bgp_attr_set_ecommunity(
+				new,
+				ecommunity_merge(ecom_ro,
+						 bgp_attr_get_ecommunity(new)));
 	} else {
-		new->ecommunity = ecom_ro;
-	}
-	if (ecom_ro) {
-		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
+		bgp_attr_set_ecommunity(new, ecom_ro);
 	}
 
 	/*
@@ -731,7 +730,7 @@ void vnc_direct_bgp_add_prefix(struct bgp *bgp,
 		return;
 	}
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/* TBD set some configured med, see add_vnc_route() */
 
 	vnc_zlog_debug_verbose(
@@ -972,9 +971,6 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 			import_table = rfg->rfapi_import_table;
 
-			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
-			/* TBD set some configured med, see add_vnc_route() */
-
 			if (afi == AFI_IP || afi == AFI_IP6) {
 				rt = import_table->imported_vpn[afi];
 			} else {
@@ -982,6 +978,9 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 					 __func__, afi);
 				return;
 			}
+
+			bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
+			/* TBD set some configured med, see add_vnc_route() */
 
 			/*
 			 * Walk the NVE-Group's VNC Import table
@@ -1307,7 +1306,7 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 		return;
 	}
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_INCOMPLETE);
 	/* TBD set some configured med, see add_vnc_route() */
 
 	/*
@@ -1713,7 +1712,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	 * export expiration timer is already running on
 	 * this route: cancel it
 	 */
-	thread_cancel(&eti->timer);
+	THREAD_OFF(eti->timer);
 
 	bgp_update(peer, prefix, /* prefix */
 		   0,		 /* addpath_id */
@@ -1725,9 +1724,9 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 	bgp_attr_unintern(&iattr);
 }
 
-static int vncExportWithdrawTimer(struct thread *t)
+static void vncExportWithdrawTimer(struct thread *t)
 {
-	struct vnc_export_info *eti = t->arg;
+	struct vnc_export_info *eti = THREAD_ARG(t);
 	const struct prefix *p = agg_node_get_prefix(eti->node);
 
 	/*
@@ -1744,8 +1743,6 @@ static int vncExportWithdrawTimer(struct thread *t)
 	 * Free the eti
 	 */
 	vnc_eti_delete(eti);
-
-	return 0;
 }
 
 /*
@@ -1946,7 +1943,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 					 * already running on
 					 * this route: cancel it
 					 */
-					thread_cancel(&eti->timer);
+					THREAD_OFF(eti->timer);
 
 					vnc_zlog_debug_verbose(
 						"%s: calling bgp_update",
@@ -2015,7 +2012,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 					ZEBRA_ROUTE_VNC_DIRECT_RH,
 					BGP_ROUTE_REDISTRIBUTE);
 				if (eti) {
-					thread_cancel(&eti->timer);
+					THREAD_OFF(eti->timer);
 					vnc_eti_delete(eti);
 				}
 

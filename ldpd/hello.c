@@ -415,13 +415,13 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		if (holdtime == 0)
 			holdtime = LINK_DFLT_HOLDTIME;
 
-		adj->holdtime = min(if_get_hello_holdtime(ia), holdtime);
+		adj->holdtime = MIN(if_get_hello_holdtime(ia), holdtime);
 		break;
 	case HELLO_TARGETED:
 		if (holdtime == 0)
 			holdtime = TARGETED_DFLT_HOLDTIME;
 
-		adj->holdtime = min(tnbr_get_hello_holdtime(tnbr), holdtime);
+		adj->holdtime = MIN(tnbr_get_hello_holdtime(tnbr), holdtime);
 	}
 	if (adj->holdtime != INFINITE_HOLDTIME)
 		adj_start_itimer(adj);

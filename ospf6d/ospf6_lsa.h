@@ -87,11 +87,6 @@
 #define OSPF6_SCOPE_AS         0x4000
 #define OSPF6_SCOPE_RESERVED   0x6000
 
-/* AS-external-LSA refresh method. */
-#define LSA_REFRESH_IF_CHANGED  0
-#define LSA_REFRESH_FORCE       1
-
-
 /* XXX U-bit handling should be treated here */
 #define OSPF6_LSA_SCOPE(type) (ntohs(type) & OSPF6_LSTYPE_SCOPE_MASK)
 
@@ -178,8 +173,6 @@ struct ospf6_lsa_handler {
 #define OSPF6_LSA_IS_KNOWN(t)                                                  \
 	(ospf6_get_lsa_handler(t)->lh_type != OSPF6_LSTYPE_UNKNOWN ? 1 : 0)
 
-extern vector ospf6_lsa_handler_vector;
-
 /* Macro for LSA Origination */
 /* addr is (struct prefix *) */
 #define CONTINUE_IF_ADDRESS_LINKLOCAL(debug, addr)                             \
@@ -263,8 +256,8 @@ extern struct ospf6_lsa *ospf6_lsa_copy(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa);
 
-extern int ospf6_lsa_expire(struct thread *thread);
-extern int ospf6_lsa_refresh(struct thread *thread);
+extern void ospf6_lsa_expire(struct thread *thread);
+extern void ospf6_lsa_refresh(struct thread *thread);
 
 extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsah);
 extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsah);
@@ -273,6 +266,7 @@ extern int ospf6_lsa_prohibited_duration(uint16_t type, uint32_t id,
 
 extern void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler);
 extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type);
+extern void ospf6_lsa_debug_set_all(bool val);
 
 extern void ospf6_lsa_init(void);
 extern void ospf6_lsa_terminate(void);

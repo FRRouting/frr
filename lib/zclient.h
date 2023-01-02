@@ -21,6 +21,8 @@
 #ifndef _ZEBRA_ZCLIENT_H
 #define _ZEBRA_ZCLIENT_H
 
+struct zclient;
+
 /* For struct zapi_route. */
 #include "prefix.h"
 #include "ipaddr.h"
@@ -126,9 +128,6 @@ typedef enum {
 	ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
 	ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
 	ZEBRA_INTERFACE_BFD_DEST_UPDATE,
-	ZEBRA_IMPORT_ROUTE_REGISTER,
-	ZEBRA_IMPORT_ROUTE_UNREGISTER,
-	ZEBRA_IMPORT_CHECK_UPDATE,
 	ZEBRA_BFD_DEST_REGISTER,
 	ZEBRA_BFD_DEST_DEREGISTER,
 	ZEBRA_BFD_DEST_UPDATE,
@@ -144,7 +143,7 @@ typedef enum {
 	ZEBRA_BFD_CLIENT_DEREGISTER,
 	ZEBRA_INTERFACE_ENABLE_RADV,
 	ZEBRA_INTERFACE_DISABLE_RADV,
-	ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
+	ZEBRA_NEXTHOP_LOOKUP_MRIB,
 	ZEBRA_INTERFACE_LINK_PARAMS,
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
@@ -287,12 +286,20 @@ struct zapi_cap {
 	vrf_id_t vrf_id;
 };
 
+/* clang-format off */
+#define ZAPI_CALLBACK_ARGS                                                     \
+	int cmd, struct zclient *zclient, uint16_t length, vrf_id_t vrf_id
+
+/* function-type typedef (pointer not included) */
+typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
+/* clang-format on */
+
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
 	struct thread_master *master;
 
-	/* Priviledges to change socket values */
+	/* Privileges to change socket values */
 	struct zebra_privs_t *privs;
 
 	/* Do we care about failure events for route install? */
@@ -300,6 +307,9 @@ struct zclient {
 
 	/* Is this a synchronous client? */
 	bool synchronous;
+
+	/* BFD enabled with bfd_protocol_integration_init() */
+	bool bfd_integration;
 
 	/* Session id (optional) to support clients with multiple sessions */
 	uint32_t session_id;
@@ -332,15 +342,14 @@ struct zclient {
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
-	/* Redistribute defauilt. */
+	/* Redistribute default. */
 	vrf_bitmap_t default_information[AFI_MAX];
-
-#define ZAPI_CALLBACK_ARGS                                                     \
-	int cmd, struct zclient *zclient, uint16_t length, vrf_id_t vrf_id
 
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
+
+	int (*handle_error)(enum zebra_error_types error);
 
 	/*
 	 * When the zclient attempts to write the stream data to
@@ -353,61 +362,14 @@ struct zclient {
 	 * more data.
 	 */
 	void (*zebra_buffer_write_ready)(void);
-	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_address_add)(ZAPI_CALLBACK_ARGS);
-	int (*interface_address_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_link_params)(ZAPI_CALLBACK_ARGS);
-	int (*interface_bfd_dest_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_nbr_address_add)(ZAPI_CALLBACK_ARGS);
-	int (*interface_nbr_address_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_vrf_update)(ZAPI_CALLBACK_ARGS);
-	int (*nexthop_update)(ZAPI_CALLBACK_ARGS);
-	int (*import_check_update)(ZAPI_CALLBACK_ARGS);
-	int (*bfd_dest_replay)(ZAPI_CALLBACK_ARGS);
-	int (*redistribute_route_add)(ZAPI_CALLBACK_ARGS);
-	int (*redistribute_route_del)(ZAPI_CALLBACK_ARGS);
-	int (*fec_update)(int, struct zclient *, uint16_t);
-	int (*local_es_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_es_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_es_evi_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_es_evi_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_vni_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_vni_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_l3vni_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_l3vni_del)(ZAPI_CALLBACK_ARGS);
-	void (*local_ip_prefix_add)(ZAPI_CALLBACK_ARGS);
-	void (*local_ip_prefix_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_macip_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_macip_del)(ZAPI_CALLBACK_ARGS);
-	int (*pw_status_update)(ZAPI_CALLBACK_ARGS);
-	int (*route_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*rule_notify_owner)(ZAPI_CALLBACK_ARGS);
-	void (*label_chunk)(ZAPI_CALLBACK_ARGS);
-	int (*ipset_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*ipset_entry_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*iptable_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*vxlan_sg_add)(ZAPI_CALLBACK_ARGS);
-	int (*vxlan_sg_del)(ZAPI_CALLBACK_ARGS);
-	int (*mlag_process_up)(void);
-	int (*mlag_process_down)(void);
-	int (*mlag_handle_msg)(struct stream *msg, int len);
-	int (*nhg_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_locator_add)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_locator_delete)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_function_add)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_function_delete)(ZAPI_CALLBACK_ARGS);
-	void (*process_srv6_locator_chunk)(ZAPI_CALLBACK_ARGS);
-	int (*handle_error)(enum zebra_error_types error);
-	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
-	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
-	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
-	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
-	int (*zebra_client_close_notify)(ZAPI_CALLBACK_ARGS);
-	void (*neighbor_added)(ZAPI_CALLBACK_ARGS);
-	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
-	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
-	void (*gre_update)(ZAPI_CALLBACK_ARGS);
+
+	zclient_handler *const *handlers;
+	size_t n_handlers;
 };
+
+/* lib handlers added in bfd.c */
+extern int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS);
+extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 
 /* Zebra API message flag. */
 #define ZAPI_MESSAGE_NEXTHOP  0x01
@@ -490,6 +452,7 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 #define ZAPI_NEXTHOP_FLAG_SEG6		0x10
 #define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
+#define ZAPI_NEXTHOP_FLAG_EVPN		0x40
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -656,7 +619,7 @@ struct zapi_sr_policy {
 };
 
 struct zapi_pw {
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	int type;
 	int af;
@@ -669,7 +632,7 @@ struct zapi_pw {
 };
 
 struct zapi_pw_status {
-	char ifname[IF_NAMESIZE];
+	char ifname[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	uint32_t status;
 };
@@ -897,7 +860,9 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
 extern struct zclient *zclient_new(struct thread_master *m,
-				   struct zclient_options *opt);
+				   struct zclient_options *opt,
+				   zclient_handler *const *handlers,
+				   size_t n_handlers);
 
 extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);
@@ -1107,7 +1072,8 @@ extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 						   struct zapi_route *);
 extern enum zclient_send_status
 zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
-		 bool exact_match, vrf_id_t vrf_id);
+		 safi_t safi, bool connected, bool resolve_via_default,
+		 vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
@@ -1147,7 +1113,17 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
 int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				     const struct nexthop *nh);
-extern bool zapi_nexthop_update_decode(struct stream *s,
+/*
+ * match -> is the prefix that the calling daemon asked to be matched
+ * against.
+ * nhr->prefix -> is the actual prefix that was matched against in the
+ * rib itself.
+ *
+ * This distinction is made because a LPM can be made if there is a
+ * covering route.  This way the upper level protocol can make a decision
+ * point about whether or not it wants to use the match or not.
+ */
+extern bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 				       struct zapi_route *nhr);
 const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
 			     int bufsize);

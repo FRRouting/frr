@@ -161,11 +161,11 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 	/*
 	 * And set the filter
 	 */
-	memset(&bpf_prog, 0, sizeof(struct bpf_program));
+	memset(&bpf_prog, 0, sizeof(bpf_prog));
 	bpf_prog.bf_len = 8;
 	bpf_prog.bf_insns = &(llcfilter[0]);
 	if (ioctl(fd, BIOCSETF, (caddr_t)&bpf_prog) < 0) {
-		zlog_warn("open_bpf_dev(): failed to install filter: %s",
+		zlog_warn("%s: failed to install filter: %s", __func__,
 			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
@@ -198,7 +198,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 			circuit->tx = isis_send_pdu_bcast;
 			circuit->rx = isis_recv_pdu_bcast;
 		} else {
-			zlog_warn("isis_sock_init(): unknown circuit type");
+			zlog_warn("%s: unknown circuit type", __func__);
 			retval = ISIS_WARNING;
 			break;
 		}
@@ -223,8 +223,8 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 		bytesread = read(circuit->fd, readbuff, readblen);
 	}
 	if (bytesread < 0) {
-		zlog_warn("isis_recv_pdu_bcast(): read() failed: %s",
-				safe_strerror(errno));
+		zlog_warn("%s: read() failed: %s", __func__,
+			  safe_strerror(errno));
 		return ISIS_WARNING;
 	}
 
@@ -267,8 +267,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN + ETHER_HDR_LEN;
 	if (buflen > sizeof(sock_buff)) {
 		zlog_warn(
-			"isis_send_pdu_bcast: sock_buff size %zu is less than output pdu size %zu on circuit %s",
-			sizeof(sock_buff), buflen, circuit->interface->name);
+			"%s: sock_buff size %zu is less than output pdu size %zu on circuit %s",
+			__func__, sizeof(sock_buff), buflen,
+			circuit->interface->name);
 		return ISIS_WARNING;
 	}
 

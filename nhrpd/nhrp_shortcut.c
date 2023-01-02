@@ -22,7 +22,7 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 
 static struct route_table *shortcut_rib[AFI_MAX];
 
-static int nhrp_shortcut_do_purge(struct thread *t);
+static void nhrp_shortcut_do_purge(struct thread *t);
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s);
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s);
 
@@ -35,39 +35,30 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 	}
 }
 
-static int nhrp_shortcut_do_expire(struct thread *t)
+static void nhrp_shortcut_do_expire(struct thread *t)
 {
 	struct nhrp_shortcut *s = THREAD_ARG(t);
 
-	s->t_timer = NULL;
 	thread_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
 			 &s->t_timer);
 	s->expiring = 1;
 	nhrp_shortcut_check_use(s);
-
-	return 0;
 }
 
 static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 				       unsigned long cmd)
 {
-	char buf2[PREFIX_STRLEN];
-
 	struct nhrp_shortcut *s =
 		container_of(n, struct nhrp_shortcut, cache_notifier);
 	struct nhrp_cache *c = s->cache;
 
-	if (c)
-		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
-	else
-		snprintf(buf2, sizeof(buf2), "(unspec)");
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
 			debugf(NHRP_DEBUG_ROUTE,
-			       "Shortcut: route install %pFX nh %s dev %s",
-			       s->p, buf2, c && c->ifp ?
-			       c->ifp->name : "<unk>");
+			       "Shortcut: route install %pFX nh %pSU dev %s",
+			       s->p, &c->remote_addr,
+			       c && c->ifp ? c->ifp->name : "<unk>");
 
 			nhrp_route_announce(1, s->type, s->p, c ? c->ifp : NULL,
 					    c ? &c->remote_addr : NULL, 0);
@@ -167,12 +158,11 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	}
 }
 
-static int nhrp_shortcut_do_purge(struct thread *t)
+static void nhrp_shortcut_do_purge(struct thread *t)
 {
 	struct nhrp_shortcut *s = THREAD_ARG(t);
 	s->t_timer = NULL;
 	nhrp_shortcut_delete(s);
-	return 0;
 }
 
 static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)

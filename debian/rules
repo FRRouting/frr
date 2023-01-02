@@ -27,6 +27,12 @@ else
   CONF_LUA=--enable-scripting
 endif
 
+ifeq ($(filter pkg.frr.pim6d,$(DEB_BUILD_PROFILES)),)
+  CONF_PIM6=--disable-pim6d
+else
+  CONF_PIM6=--enable-pim6d
+endif
+
 export PYTHON=python3
 
 %:
@@ -46,6 +52,7 @@ override_dh_auto_configure:
 		\
 		$(CONF_RPKI) \
 		$(CONF_LUA) \
+		$(CONF_PIM6) \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
@@ -72,6 +79,7 @@ override_dh_auto_install:
 
 # let dh_systemd_* and dh_installinit do their thing automatically
 	cp build/tools/frr.service debian/frr.service
+	cp build/tools/frr@.service debian/frr@.service
 	cp build/tools/frrinit.sh debian/frr.init
 	-rm -f debian/tmp/usr/lib/frr/frr
 
@@ -117,3 +125,4 @@ override_dh_auto_clean:
 	if test -f Makefile; then make redistclean; fi
 	-rm -f debian/frr.init
 	-rm -f debian/frr.service
+	-rm -f debian/frr@.service

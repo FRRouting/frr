@@ -347,7 +347,7 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static int nb_cli_confirmed_commit_timeout(struct thread *thread)
+static void nb_cli_confirmed_commit_timeout(struct thread *thread)
 {
 	struct vty *vty = THREAD_ARG(thread);
 
@@ -357,8 +357,6 @@ static int nb_cli_confirmed_commit_timeout(struct thread *thread)
 
 	nb_cli_confirmed_commit_rollback(vty);
 	nb_cli_confirmed_commit_clean(vty);
-
-	return 0;
 }
 
 static int nb_cli_commit(struct vty *vty, bool force,
@@ -550,14 +548,16 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 				       LYD_VALIDATE_NO_STATE, NULL);
 }
 
-static int lyd_node_cmp(struct lyd_node **dnode1, struct lyd_node **dnode2)
+static int lyd_node_cmp(const struct lyd_node **dnode1,
+			const struct lyd_node **dnode2)
 {
 	struct nb_node *nb_node = (*dnode1)->schema->priv;
 
 	return nb_node->cbs.cli_cmp(*dnode1, *dnode2);
 }
 
-static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
+static void show_dnode_children_cmds(struct vty *vty,
+				     const struct lyd_node *root,
 				     bool with_defaults)
 {
 	struct nb_node *nb_node, *sort_node = NULL;
@@ -616,7 +616,7 @@ static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
 	}
 }
 
-void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
+void nb_cli_show_dnode_cmds(struct vty *vty, const struct lyd_node *root,
 			    bool with_defaults)
 {
 	struct nb_node *nb_node;
@@ -1464,6 +1464,7 @@ DEFPY (show_yang_operational_data,
          [{\
 	   format <json$json|xml$xml>\
 	   |translate WORD$translator_family\
+	   |with-config$with_config\
 	 }]",
        SHOW_STR
        "YANG information\n"
@@ -1473,13 +1474,15 @@ DEFPY (show_yang_operational_data,
        "JavaScript Object Notation\n"
        "Extensible Markup Language\n"
        "Translate operational data\n"
-       "YANG module translator\n")
+       "YANG module translator\n"
+       "Merge configuration data\n")
 {
 	LYD_FORMAT format;
 	struct yang_translator *translator = NULL;
 	struct ly_ctx *ly_ctx;
 	struct lyd_node *dnode;
 	char *strp;
+	uint32_t print_options = LYD_PRINT_WITHSIBLINGS;
 
 	if (xml)
 		format = LYD_XML;
@@ -1507,13 +1510,21 @@ DEFPY (show_yang_operational_data,
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
+
+	if (with_config && yang_dnode_exists(running_config->dnode, xpath)) {
+		struct lyd_node *config_dnode =
+			yang_dnode_get(running_config->dnode, xpath);
+		if (config_dnode != NULL) {
+			lyd_merge_tree(&dnode, yang_dnode_dup(config_dnode),
+				       LYD_MERGE_DESTRUCT);
+			print_options |= LYD_PRINT_WD_ALL;
+		}
+	}
+
 	(void)lyd_validate_all(&dnode, ly_ctx, 0, NULL);
 
 	/* Display the data. */
-	if (lyd_print_mem(&strp, dnode, format,
-			  LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)
-		    != 0
-	    || !strp) {
+	if (lyd_print_mem(&strp, dnode, format, print_options) != 0 || !strp) {
 		vty_out(vty, "%% Failed to display operational data.\n");
 		yang_dnode_free(dnode);
 		return CMD_WARNING;

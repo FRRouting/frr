@@ -193,7 +193,7 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
  * usage:  DECLARE_HOOK(my_hook, (int arg1, struct foo *arg2), (arg1, arg2));
  * as above, "passlist" must use the same order and same names as "arglist"
  *
- * theoretically passlist is not neccessary, but let's keep things simple and
+ * theoretically passlist is not necessary, but let's keep things simple and
  * use exact same args on DECLARE and DEFINE.
  */
 #define DECLARE_HOOK(hookname, arglist, passlist)                              \

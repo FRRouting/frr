@@ -41,8 +41,8 @@
 #include "libfrr.h"
 
 static void		 lde_shutdown(void);
-static int		 lde_dispatch_imsg(struct thread *);
-static int		 lde_dispatch_parent(struct thread *);
+static void lde_dispatch_imsg(struct thread *thread);
+static void lde_dispatch_parent(struct thread *thread);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -107,7 +107,7 @@ sigint(void)
 	lde_shutdown();
 }
 
-static struct quagga_signal_t lde_signals[] =
+static struct frr_signal_t lde_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -145,7 +145,6 @@ lde(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
-	iev_main->ev_read = NULL;
 	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
 		        &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
@@ -244,8 +243,7 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static int
-lde_dispatch_imsg(struct thread *thread)
+static void lde_dispatch_imsg(struct thread *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -419,17 +417,14 @@ lde_dispatch_imsg(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
 		lde_shutdown();
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-static int
-lde_dispatch_parent(struct thread *thread)
+static void lde_dispatch_parent(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -555,7 +550,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_ldpe->ibuf, fd);
 			iev_ldpe->handler_read = lde_dispatch_imsg;
-			iev_ldpe->ev_read = NULL;
 			thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
 					&iev_ldpe->ev_read);
 			iev_ldpe->handler_write = ldp_write_handler;
@@ -708,12 +702,10 @@ lde_dispatch_parent(struct thread *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		thread_cancel(&iev->ev_read);
-		thread_cancel(&iev->ev_write);
+		THREAD_OFF(iev->ev_read);
+		THREAD_OFF(iev->ev_write);
 		lde_shutdown();
 	}
-
-	return (0);
 }
 
 int
@@ -2175,11 +2167,9 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static int zclient_sync_retry(struct thread *thread)
+static void zclient_sync_retry(struct thread *thread)
 {
 	zclient_sync_init();
-
-	return 0;
 }
 
 /*
@@ -2194,7 +2184,7 @@ static void zclient_sync_init(void)
 	options.synchronous = true;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->session_id = 1; /* Distinguish from main session */

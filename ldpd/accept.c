@@ -25,7 +25,7 @@
 struct accept_ev {
 	LIST_ENTRY(accept_ev)	 entry;
 	struct thread		*ev;
-	int			(*accept_cb)(struct thread *);
+	void (*accept_cb)(struct thread *);
 	void			*arg;
 	int			 fd;
 };
@@ -37,8 +37,8 @@ struct {
 
 static void	accept_arm(void);
 static void	accept_unarm(void);
-static int	accept_cb(struct thread *);
-static int	accept_timeout(struct thread *);
+static void accept_cb(struct thread *);
+static void accept_timeout(struct thread *);
 
 void
 accept_init(void)
@@ -46,8 +46,7 @@ accept_init(void)
 	LIST_INIT(&accept_queue.queue);
 }
 
-int
-accept_add(int fd, int (*cb)(struct thread *), void *arg)
+int accept_add(int fd, void (*cb)(struct thread *), void *arg)
 {
 	struct accept_ev	*av;
 
@@ -58,7 +57,6 @@ accept_add(int fd, int (*cb)(struct thread *), void *arg)
 	av->arg = arg;
 	LIST_INSERT_HEAD(&accept_queue.queue, av, entry);
 
-	av->ev = NULL;
 	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
 
 	log_debug("%s: accepting on fd %d", __func__, fd);
@@ -74,7 +72,7 @@ accept_del(int fd)
 	LIST_FOREACH(av, &accept_queue.queue, entry)
 		if (av->fd == fd) {
 			log_debug("%s: %d removed from queue", __func__, fd);
-			thread_cancel(&av->ev);
+			THREAD_OFF(av->ev);
 			LIST_REMOVE(av, entry);
 			free(av);
 			return;
@@ -86,7 +84,6 @@ accept_pause(void)
 {
 	log_debug(__func__);
 	accept_unarm();
-	accept_queue.evt = NULL;
 	thread_add_timer(master, accept_timeout, NULL, 1, &accept_queue.evt);
 }
 
@@ -95,7 +92,7 @@ accept_unpause(void)
 {
 	if (accept_queue.evt != NULL) {
 		log_debug(__func__);
-		thread_cancel(&accept_queue.evt);
+		THREAD_OFF(accept_queue.evt);
 		accept_arm();
 	}
 }
@@ -105,7 +102,6 @@ accept_arm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry) {
-		av->ev = NULL;
 		thread_add_read(master, accept_cb, av, av->fd, &av->ev);
 	}
 }
@@ -115,27 +111,20 @@ accept_unarm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry)
-		thread_cancel(&av->ev);
+		THREAD_OFF(av->ev);
 }
 
-static int
-accept_cb(struct thread *thread)
+static void accept_cb(struct thread *thread)
 {
 	struct accept_ev	*av = THREAD_ARG(thread);
-	av->ev = NULL;
 	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
 	av->accept_cb(thread);
-
-	return (0);
 }
 
-static int
-accept_timeout(struct thread *thread)
+static void accept_timeout(struct thread *thread)
 {
 	accept_queue.evt = NULL;
 
 	log_debug(__func__);
 	accept_arm();
-
-	return (0);
 }

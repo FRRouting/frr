@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "zebra.h"
+
 #include "memory.h"
 #include "lib/jhash.h"
 #include "frrstr.h"
@@ -40,9 +42,7 @@ static bool bgp_ca_community_hash_cmp(const void *p1, const void *p2)
 	const struct community_alias *ca1 = p1;
 	const struct community_alias *ca2 = p2;
 
-	return (strncmp(ca1->community, ca2->community,
-			sizeof(struct community_alias))
-		== 0);
+	return (strcmp(ca1->community, ca2->community) == 0);
 }
 
 static unsigned int bgp_ca_alias_hash_key(const void *p)
@@ -57,8 +57,7 @@ static bool bgp_ca_alias_hash_cmp(const void *p1, const void *p2)
 	const struct community_alias *ca1 = p1;
 	const struct community_alias *ca2 = p2;
 
-	return (strncmp(ca1->alias, ca2->alias, sizeof(struct community_alias))
-		== 0);
+	return (strcmp(ca1->alias, ca2->alias) == 0);
 }
 
 static void *bgp_community_alias_alloc(void *p)
@@ -82,9 +81,16 @@ void bgp_community_alias_init(void)
 			    "BGP community alias (alias)");
 }
 
+static void bgp_ca_free(void *ca)
+{
+	XFREE(MTYPE_COMMUNITY_ALIAS, ca);
+}
+
 void bgp_community_alias_finish(void)
 {
+	hash_clean(bgp_ca_community_hash, bgp_ca_free);
 	hash_free(bgp_ca_community_hash);
+	hash_clean(bgp_ca_alias_hash, bgp_ca_free);
 	hash_free(bgp_ca_alias_hash);
 }
 
@@ -107,12 +113,12 @@ int bgp_community_alias_write(struct vty *vty)
 
 void bgp_ca_community_insert(struct community_alias *ca)
 {
-	hash_get(bgp_ca_community_hash, ca, bgp_community_alias_alloc);
+	(void)hash_get(bgp_ca_community_hash, ca, bgp_community_alias_alloc);
 }
 
 void bgp_ca_alias_insert(struct community_alias *ca)
 {
-	hash_get(bgp_ca_alias_hash, ca, bgp_community_alias_alloc);
+	(void)hash_get(bgp_ca_alias_hash, ca, bgp_community_alias_alloc);
 }
 
 void bgp_ca_community_delete(struct community_alias *ca)

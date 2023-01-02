@@ -35,13 +35,13 @@ static __inline int	 nbr_addr_compare(const struct nbr *,
 static __inline int	 nbr_pid_compare(const struct nbr *,
 			    const struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
-static int		 nbr_ktimer(struct thread *);
+static void nbr_ktimer(struct thread *thread);
 static void		 nbr_start_ktimer(struct nbr *);
-static int		 nbr_ktimeout(struct thread *);
+static void nbr_ktimeout(struct thread *thread);
 static void		 nbr_start_ktimeout(struct nbr *);
-static int		 nbr_itimeout(struct thread *);
+static void nbr_itimeout(struct thread *thread);
 static void		 nbr_start_itimeout(struct nbr *);
-static int		 nbr_idtimer(struct thread *);
+static void nbr_idtimer(struct thread *thread);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
 static __inline int	 nbr_params_compare(const struct nbr_params *,
@@ -307,7 +307,7 @@ nbr_del(struct nbr *nbr)
 	nbr->auth.method = AUTH_NONE;
 
 	if (nbr_pending_connect(nbr))
-		thread_cancel(&nbr->ev_connect);
+		THREAD_OFF(nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -419,16 +419,13 @@ nbr_session_active_role(struct nbr *nbr)
 
 /* Keepalive timer: timer to send keepalive message to neighbors */
 
-static int
-nbr_ktimer(struct thread *thread)
+static void nbr_ktimer(struct thread *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 
 	nbr->keepalive_timer = NULL;
 	send_keepalive(nbr);
 	nbr_start_ktimer(nbr);
-
-	return (0);
 }
 
 static void
@@ -438,7 +435,7 @@ nbr_start_ktimer(struct nbr *nbr)
 
 	/* send three keepalives per period */
 	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
-	thread_cancel(&nbr->keepalive_timer);
+	THREAD_OFF(nbr->keepalive_timer);
 	nbr->keepalive_timer = NULL;
 	thread_add_timer(master, nbr_ktimer, nbr, secs, &nbr->keepalive_timer);
 }
@@ -446,13 +443,12 @@ nbr_start_ktimer(struct nbr *nbr)
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timer);
+	THREAD_OFF(nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
 
-static int
-nbr_ktimeout(struct thread *thread)
+static void nbr_ktimeout(struct thread *thread)
 {
 	struct nbr *nbr = THREAD_ARG(thread);
 
@@ -461,14 +457,12 @@ nbr_ktimeout(struct thread *thread)
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	session_shutdown(nbr, S_KEEPALIVE_TMR, 0, 0);
-
-	return (0);
 }
 
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timeout);
+	THREAD_OFF(nbr->keepalive_timeout);
 	nbr->keepalive_timeout = NULL;
 	thread_add_timer(master, nbr_ktimeout, nbr, nbr->keepalive,
 			 &nbr->keepalive_timeout);
@@ -477,21 +471,18 @@ nbr_start_ktimeout(struct nbr *nbr)
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->keepalive_timeout);
+	THREAD_OFF(nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
 
-static int
-nbr_itimeout(struct thread *thread)
+static void nbr_itimeout(struct thread *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
-
-	return (0);
 }
 
 static void
@@ -500,7 +491,7 @@ nbr_start_itimeout(struct nbr *nbr)
 	int		 secs;
 
 	secs = INIT_FSM_TIMEOUT;
-	thread_cancel(&nbr->init_timeout);
+	THREAD_OFF(nbr->init_timeout);
 	nbr->init_timeout = NULL;
 	thread_add_timer(master, nbr_itimeout, nbr, secs, &nbr->init_timeout);
 }
@@ -508,13 +499,12 @@ nbr_start_itimeout(struct nbr *nbr)
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	thread_cancel(&nbr->init_timeout);
+	THREAD_OFF(nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
 
-static int
-nbr_idtimer(struct thread *thread)
+static void nbr_idtimer(struct thread *thread)
 {
 	struct nbr *nbr = THREAD_ARG(thread);
 
@@ -523,8 +513,6 @@ nbr_idtimer(struct thread *thread)
 	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
 
 	nbr_establish_connection(nbr);
-
-	return (0);
 }
 
 void
@@ -549,7 +537,7 @@ nbr_start_idtimer(struct nbr *nbr)
 		break;
 	}
 
-	thread_cancel(&nbr->initdelay_timer);
+	THREAD_OFF(nbr->initdelay_timer);
 	nbr->initdelay_timer = NULL;
 	thread_add_timer(master, nbr_idtimer, nbr, secs,
 			 &nbr->initdelay_timer);
@@ -558,7 +546,7 @@ nbr_start_idtimer(struct nbr *nbr)
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	thread_cancel(&nbr->initdelay_timer);
+	THREAD_OFF(nbr->initdelay_timer);
 }
 
 int
@@ -573,8 +561,7 @@ nbr_pending_connect(struct nbr *nbr)
 	return (nbr->ev_connect != NULL);
 }
 
-static int
-nbr_connect_cb(struct thread *thread)
+static void nbr_connect_cb(struct thread *thread)
 {
 	struct nbr	*nbr = THREAD_ARG(thread);
 	int		 error;
@@ -585,7 +572,7 @@ nbr_connect_cb(struct thread *thread)
 	len = sizeof(error);
 	if (getsockopt(nbr->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
 		log_warn("%s: getsockopt SOL_SOCKET SO_ERROR", __func__);
-		return (0);
+		return;
 	}
 
 	if (error) {
@@ -593,12 +580,10 @@ nbr_connect_cb(struct thread *thread)
 		errno = error;
 		log_debug("%s: error while connecting to %s: %s", __func__,
 		    log_addr(nbr->af, &nbr->raddr), strerror(errno));
-		return (0);
+		return;
 	}
 
 	nbr_fsm(nbr, NBR_EVT_CONNECT_UP);
-
-	return (0);
 }
 
 int
@@ -862,11 +847,8 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.stats = nbr->stats;
 	nctl.flags = nbr->flags;
 	nctl.max_pdu_len = nbr->max_pdu_len;
-	if (nbr->keepalive_timer)
-		nctl.hold_time_remaining =
-		    thread_timer_remain_second(nbr->keepalive_timer);
-	else
-		nctl.hold_time_remaining = 0;
+	nctl.hold_time_remaining =
+		thread_timer_remain_second(nbr->keepalive_timer);
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

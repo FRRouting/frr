@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 #
 # test_bgp_ecmp_topo1.py
@@ -140,12 +140,6 @@ def test_bgp_convergence():
         with 'json') and compare with `data` contents.
         """
         output = router.vtysh_cmd(cmd, isjson=True)
-        if "ipv4Unicast" in output:
-            output["ipv4Unicast"]["vrfName"] = output["ipv4Unicast"]["vrfName"].replace(
-                "default", "Default"
-            )
-        elif "vrfName" in output:
-            output["vrfName"] = output["vrfName"].replace("default", "Default")
         return topotest.json_cmp(output, data)
 
     test_func = functools.partial(

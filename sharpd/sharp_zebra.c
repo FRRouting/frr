@@ -626,19 +626,13 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 {
 	int command;
 
-	if (!import) {
-		command = ZEBRA_NEXTHOP_REGISTER;
+	command = ZEBRA_NEXTHOP_REGISTER;
 
-		if (!watch)
-			command = ZEBRA_NEXTHOP_UNREGISTER;
-	} else {
-		command = ZEBRA_IMPORT_ROUTE_REGISTER;
+	if (!watch)
+		command = ZEBRA_NEXTHOP_UNREGISTER;
 
-		if (!watch)
-			command = ZEBRA_IMPORT_ROUTE_UNREGISTER;
-	}
-
-	if (zclient_send_rnh(zclient, command, p, connected, vrf_id)
+	if (zclient_send_rnh(zclient, command, p, SAFI_UNICAST, connected,
+			     false, vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
@@ -687,16 +681,17 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct sharp_nh_tracker *nht;
 	struct zapi_route nhr;
+	struct prefix matched;
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &matched, &nhr)) {
 		zlog_err("%s: Decode of update failed", __func__);
 		return 0;
 	}
 
-	zlog_debug("Received update for %pFX metric: %u", &nhr.prefix,
-		   nhr.metric);
+	zlog_debug("Received update for %pFX actual match: %pFX metric: %u",
+		   &matched, &nhr.prefix, nhr.metric);
 
-	nht = sharp_nh_tracker_get(&nhr.prefix);
+	nht = sharp_nh_tracker_get(&matched);
 	nht->nhop_num = nhr.nexthop_num;
 	nht->updates++;
 
@@ -727,6 +722,10 @@ void sharp_redistribute_vrf(struct vrf *vrf, int type)
 				0, vrf->vrf_id);
 }
 
+static zclient_handler *const sharp_opaque_handlers[] = {
+	[ZEBRA_OPAQUE_MESSAGE] = sharp_opaque_handler,
+};
+
 /* Add a zclient with a specified session id, for testing. */
 int sharp_zclient_create(uint32_t session_id)
 {
@@ -739,14 +738,13 @@ int sharp_zclient_create(uint32_t session_id)
 			return -1;
 	}
 
-	client = zclient_new(master, &zclient_options_default);
+	client = zclient_new(master, &zclient_options_default,
+			     sharp_opaque_handlers,
+			     array_size(sharp_opaque_handlers));
 	client->sock = -1;
 	client->session_id = session_id;
 
 	zclient_init(client, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
-
-	/* Register handlers for messages we expect this session to see */
-	client->opaque_msg_handler = sharp_opaque_handler;
 
 	/* Enqueue on the list of test clients */
 	add_zclient(client);
@@ -803,10 +801,12 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 
 	if (info.type == LINK_STATE_UPDATE) {
 		lse = ls_stream2ted(sg.ted, s, false);
-		if (lse)
+		if (lse) {
 			zlog_debug(" |- Got %s %s from Link State Database",
 				   status2txt[lse->status],
 				   type2txt[lse->type]);
+			lse->status = SYNC;
+		}
 		else
 			zlog_debug(
 				"%s: Error to convert Stream into Link State",
@@ -935,7 +935,7 @@ int sharp_zebra_srv6_manager_release_locator_chunk(const char *locator_name)
 	return srv6_manager_release_locator_chunk(zclient, locator_name);
 }
 
-static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	struct srv6_locator_chunk s6c = {};
@@ -958,16 +958,42 @@ static void sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c))
 			if (!prefix_cmp(c, &s6c.prefix))
-				return;
+				return 0;
 
 		chunk = prefix_ipv6_new();
 		*chunk = s6c.prefix;
 		listnode_add(loc->chunks, chunk);
-		return;
+		return 0;
 	}
 
 	zlog_err("%s: can't get locator_chunk!!", __func__);
+	return 0;
 }
+
+int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
+{
+	zlog_debug("Sending zebra to set %s protodown %s", ifp->name,
+		   down ? "on" : "off");
+
+	if (zclient_send_interface_protodown(zclient, ifp->vrf->vrf_id, ifp,
+					     down) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
+	return 0;
+}
+
+static zclient_handler *const sharp_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_NEXTHOP_UPDATE] = sharp_nexthop_update,
+	[ZEBRA_NHG_NOTIFY_OWNER] = nhg_notify_owner,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = sharp_redistribute_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = sharp_redistribute_route,
+	[ZEBRA_OPAQUE_MESSAGE] = sharp_opaque_handler,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
+		sharp_zebra_process_srv6_locator_chunk,
+};
 
 void sharp_zebra_init(void)
 {
@@ -976,20 +1002,10 @@ void sharp_zebra_init(void)
 	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up,
 			  sharp_ifp_down, sharp_ifp_destroy);
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, sharp_handlers,
+			      array_size(sharp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_address_add = interface_address_add;
-	zclient->interface_address_delete = interface_address_delete;
-	zclient->route_notify_owner = route_notify_owner;
-	zclient->nexthop_update = sharp_nexthop_update;
-	zclient->import_check_update = sharp_nexthop_update;
-	zclient->nhg_notify_owner = nhg_notify_owner;
 	zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
-	zclient->redistribute_route_add = sharp_redistribute_route;
-	zclient->redistribute_route_del = sharp_redistribute_route;
-	zclient->opaque_msg_handler = sharp_opaque_handler;
-	zclient->process_srv6_locator_chunk =
-		sharp_zebra_process_srv6_locator_chunk;
 }

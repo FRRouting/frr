@@ -443,7 +443,7 @@ class Topogen(object):
     def start_router(self, router=None):
         """
         Call the router startRouter method.
-        If no router is specified it is called for all registred routers.
+        If no router is specified it is called for all registered routers.
         """
         if router is None:
             # pylint: disable=r1704
@@ -706,6 +706,7 @@ class TopoRouter(TopoGear):
     ]
 
     # Router Daemon enumeration definition.
+    RD_FRR = 0  # not a daemon, but use to setup unified configs
     RD_ZEBRA = 1
     RD_RIP = 2
     RD_RIPNG = 3
@@ -724,7 +725,9 @@ class TopoRouter(TopoGear):
     RD_PBRD = 16
     RD_PATH = 17
     RD_SNMP = 18
+    RD_PIM6 = 19
     RD = {
+        RD_FRR: "frr",
         RD_ZEBRA: "zebra",
         RD_RIP: "ripd",
         RD_RIPNG: "ripngd",
@@ -733,6 +736,7 @@ class TopoRouter(TopoGear):
         RD_ISIS: "isisd",
         RD_BGP: "bgpd",
         RD_PIM: "pimd",
+        RD_PIM6: "pim6d",
         RD_LDP: "ldpd",
         RD_EIGRP: "eigrpd",
         RD_NHRP: "nhrpd",
@@ -789,12 +793,37 @@ class TopoRouter(TopoGear):
         self.logger.info('check capability {} for "{}"'.format(param, daemonstr))
         return self.net.checkCapability(daemonstr, param)
 
+    def load_frr_config(self, source, daemons=None):
+        """
+        Loads the unified configuration file source
+        Start the daemons in the list
+        If daemons is None, try to infer daemons from the config file
+        """
+        self.load_config(self.RD_FRR, source)
+        if not daemons:
+            # Always add zebra
+            self.load_config(self.RD_ZEBRA)
+            for daemon in self.RD:
+                # This will not work for all daemons
+                daemonstr = self.RD.get(daemon).rstrip("d")
+                if daemonstr == "pim":
+                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
+                else:
+                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
+                result = self.run(grep_cmd).strip()
+                if result:
+                    self.load_config(daemon)
+        else:
+            for daemon in daemons:
+                self.load_config(daemon)
+
     def load_config(self, daemon, source=None, param=None):
         """Loads daemon configuration from the specified source
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
-        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP.
+        TopoRouter.RD_PIM, TopoRouter.RD_PIM6, TopoRouter.RD_PBR,
+        TopoRouter.RD_SNMP.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -1250,6 +1279,7 @@ def diagnose_env_linux(rundir):
             "ripngd",
             "isisd",
             "pimd",
+            "pim6d",
             "ldpd",
             "pbrd",
         ]:
@@ -1263,7 +1293,7 @@ def diagnose_env_linux(rundir):
                     )
                     continue
 
-                logger.warning("could not find {} in {}".format(fname, frrdir))
+                logger.error("could not find {} in {}".format(fname, frrdir))
                 ret = False
             else:
                 if fname != "zebra":

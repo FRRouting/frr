@@ -151,24 +151,6 @@ void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
 	ospf6_lsa_originate(oi->area->ospf6, lsa);
 }
 
-void ospf6_remove_id_from_external_id_table(struct ospf6 *ospf6,
-						uint32_t id)
-{
-	struct prefix prefix_id;
-	struct route_node *node;
-
-	/* remove binding in external_id_table */
-	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
-	prefix_id.u.prefix4.s_addr = id;
-	node = route_node_lookup(ospf6->external_id_table, &prefix_id);
-	assert(node);
-	node->info = NULL;
-	route_unlock_node(node); /* to free the lookup lock */
-	route_unlock_node(node); /* to free the original lock */
-
-}
-
 void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 {
 	uint32_t id = lsa->header->id;
@@ -176,8 +158,6 @@ void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	struct listnode *lnode;
 
 	ospf6_lsa_purge(lsa);
-
-	ospf6_remove_id_from_external_id_table(ospf6, id);
 
 	/* Delete the corresponding NSSA LSA */
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
@@ -266,9 +246,13 @@ void ospf6_decrement_retrans_count(struct ospf6_lsa *lsa)
 /* RFC2328 section 13.2 Installing LSAs in the database */
 void ospf6_install_lsa(struct ospf6_lsa *lsa)
 {
+	struct ospf6 *ospf6;
 	struct timeval now;
 	struct ospf6_lsa *old;
 	struct ospf6_area *area = NULL;
+
+	ospf6 = ospf6_get_by_lsdb(lsa);
+	assert(ospf6);
 
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
@@ -330,20 +314,14 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)) {
 
 		/* check if it is new lsa ? or existing lsa got modified ?*/
-		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa)) {
-			struct ospf6 *ospf6;
-
-			ospf6 = ospf6_get_by_lsdb(lsa);
-
-			assert(ospf6);
-
+		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa))
 			ospf6_helper_handle_topo_chg(ospf6, lsa);
-		}
 	}
 
 	ospf6_lsdb_add(lsa, lsa->lsdb);
 
-	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+	    && lsa->header->adv_router != ospf6->router_id) {
 		area = OSPF6_AREA(lsa->lsdb->data);
 		ospf6_translated_nssa_refresh(area, lsa, NULL);
 		ospf6_schedule_abr_task(area->ospf6);
@@ -486,11 +464,28 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 				lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, on->retrans_list);
 			if (!old) {
+				struct ospf6_lsa *orig;
+				struct ospf6_lsdb *lsdb;
+
 				if (is_debug)
 					zlog_debug(
 						"Increment %s from retrans_list of %s",
 						lsa->name, on->name);
-				ospf6_increment_retrans_count(lsa);
+
+				/* Increment the retrans count on the original
+				 * copy of LSA if present, to maintain the
+				 * counter consistency.
+				 */
+
+				lsdb = ospf6_get_scoped_lsdb(lsa);
+				orig = ospf6_lsdb_lookup(
+					lsa->header->type, lsa->header->id,
+					lsa->header->adv_router, lsdb);
+				if (orig)
+					ospf6_increment_retrans_count(orig);
+				else
+					ospf6_increment_retrans_count(lsa);
+
 				ospf6_lsdb_add(ospf6_lsa_copy(lsa),
 					       on->retrans_list);
 				thread_add_timer(
@@ -546,7 +541,6 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		/* reschedule retransmissions to all neighbors */
 		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 			THREAD_OFF(on->thread_send_lsupdate);
-			on->thread_send_lsupdate = NULL;
 			thread_add_event(master, ospf6_lsupdate_send_neighbor,
 					 on, 0, &on->thread_send_lsupdate);
 		}
@@ -884,6 +878,28 @@ static int ospf6_is_maxage_lsa_drop(struct ospf6_lsa *lsa,
 	return 0;
 }
 
+static bool ospf6_lsa_check_min_arrival(struct ospf6_lsa *lsa,
+					struct ospf6_neighbor *from)
+{
+	struct timeval now, res;
+	unsigned int time_delta_ms;
+
+	monotime(&now);
+	timersub(&now, &lsa->installed, &res);
+	time_delta_ms = (res.tv_sec * 1000) + (int)(res.tv_usec / 1000);
+
+	if (time_delta_ms < from->ospf6_if->area->ospf6->lsa_minarrival) {
+		if (IS_OSPF6_DEBUG_FLOODING ||
+		    IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))
+			zlog_debug(
+				"LSA can't be updated within MinLSArrival, %dms < %dms, discard",
+				time_delta_ms,
+				from->ospf6_if->area->ospf6->lsa_minarrival);
+		return true;
+	}
+	return false;
+}
+
 /* RFC2328 section 13 The Flooding Procedure */
 void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		       struct ospf6_lsa_header *lsa_header)
@@ -891,7 +907,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 	struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
 	int ismore_recent;
 	int is_debug = 0;
-	unsigned int time_delta_ms;
 
 	ismore_recent = 1;
 	assert(from);
@@ -999,19 +1014,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 		/* (a) MinLSArrival check */
 		if (old) {
-			struct timeval now, res;
-			monotime(&now);
-			timersub(&now, &old->installed, &res);
-			time_delta_ms =
-				(res.tv_sec * 1000) + (int)(res.tv_usec / 1000);
-			if (time_delta_ms
-			    < from->ospf6_if->area->ospf6->lsa_minarrival) {
-				if (is_debug)
-					zlog_debug(
-						"LSA can't be updated within MinLSArrival, %dms < %dms, discard",
-						time_delta_ms,
-						from->ospf6_if->area->ospf6
-							->lsa_minarrival);
+			if (ospf6_lsa_check_min_arrival(old, from)) {
 				ospf6_lsa_delete(new);
 				return; /* examin next lsa */
 			}
@@ -1113,7 +1116,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Newer instance of the self-originated LSA");
 				zlog_debug("Schedule reorigination");
 			}
-			new->refresh = NULL;
 			thread_add_event(master, ospf6_lsa_refresh, new, 0,
 					 &new->refresh);
 		}
@@ -1229,7 +1231,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						__PRETTY_FUNCTION__, old->name);
 			}
 
-			/* XXX, MinLSArrival check !? RFC 2328 13 (8) */
+			/* MinLSArrival check as per RFC 2328 13 (8) */
+			if (ospf6_lsa_check_min_arrival(old, from)) {
+				ospf6_lsa_delete(new);
+				return; /* examin next lsa */
+			}
 
 			ospf6_lsdb_add(ospf6_lsa_copy(old),
 				       from->lsupdate_list);
@@ -1239,7 +1245,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			ospf6_lsa_delete(new);
 			return;
 		}
-		return;
 	}
 }
 

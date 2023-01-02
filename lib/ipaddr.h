@@ -137,15 +137,6 @@ static inline void ipv4_mapped_ipv6_to_ipv4(const struct in6_addr *in6,
 }
 
 /*
- * Check if a struct ipaddr has nonzero value
- */
-static inline bool ipaddr_isset(struct ipaddr *ip)
-{
-	static struct ipaddr a = {};
-	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
-}
-
-/*
  * generic ordering comparison between IP addresses
  */
 static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
@@ -168,6 +159,19 @@ static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
 	default:
 		return 0;
 	}
+}
+
+static inline bool ipaddr_is_zero(const struct ipaddr *ip)
+{
+	switch (ip->ipa_type) {
+	case IPADDR_NONE:
+		return true;
+	case IPADDR_V4:
+		return ip->ipaddr_v4.s_addr == INADDR_ANY;
+	case IPADDR_V6:
+		return IN6_IS_ADDR_UNSPECIFIED(&ip->ipaddr_v6);
+	}
+	return true;
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR

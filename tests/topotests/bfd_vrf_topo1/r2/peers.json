@@ -4,7 +4,7 @@
     "status": "up"
   },
   {
-    "remote-echo-receive-interval": 100,
+    "remote-echo-receive-interval": 1000,
     "peer": "192.168.1.1",
     "status": "up"
   },

@@ -197,7 +197,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 		len -= tlv_len;
 	}
 
-	nbr->keepalive = min(nbr_get_keepalive(nbr->af, nbr->id),
+	nbr->keepalive = MIN(nbr_get_keepalive(nbr->af, nbr->id),
 	    ntohs(sess.keepalive_time));
 
 	max_pdu_len = ntohs(sess.max_pdu_len);
@@ -208,7 +208,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 	 */
 	if (max_pdu_len <= 255)
 		max_pdu_len = LDP_MAX_LEN;
-	nbr->max_pdu_len = min(max_pdu_len, LDP_MAX_LEN);
+	nbr->max_pdu_len = MIN(max_pdu_len, LDP_MAX_LEN);
 
 	nbr_fsm(nbr, NBR_EVT_INIT_RCVD);
 

@@ -82,7 +82,7 @@ int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 		return 0;
 
 	/* received ldp-sync interface state from LDP */
-	ils_debug("ldp_sync: rcvd %s from LDP if %s",
+	ils_debug("%s: rcvd %s from LDP if %s", __func__,
 		  state.sync_start ? "sync-start" : "sync-complete", ifp->name);
 	if (state.sync_start)
 		isis_ldp_sync_if_start(circuit, false);
@@ -106,7 +106,7 @@ int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	if (announce.proto != ZEBRA_ROUTE_LDP)
 		return 0;
 
-	ils_debug("ldp_sync: rcvd announce from LDP");
+	ils_debug("%s: rcvd announce from LDP", __func__);
 
 	/* LDP just started up:
 	 *  set cost to LSInfinity
@@ -128,8 +128,7 @@ void isis_ldp_sync_state_req_msg(struct isis_circuit *circuit)
 	struct ldp_igp_sync_if_state_req request;
 	struct interface *ifp = circuit->interface;
 
-	ils_debug("ldp_sync: send state request to LDP for %s",
-		  ifp->name);
+	ils_debug("%s: send state request to LDP for %s", __func__, ifp->name);
 
 	memset(&request, 0, sizeof(request));
 	strlcpy(request.name, ifp->name, sizeof(ifp->name));
@@ -159,7 +158,7 @@ void isis_ldp_sync_if_start(struct isis_circuit *circuit,
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		ils_debug("ldp_sync: start on if %s state: %s",
+		ils_debug("%s: start on if %s state: %s", __func__,
 			  circuit->interface->name, "Holding down until Sync");
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		isis_ldp_sync_set_if_metric(circuit, true);
@@ -218,7 +217,7 @@ static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 	struct isis_area *area = circuit->area;
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)
-	    || circuit->interface->vrf_id != VRF_DEFAULT
+	    || circuit->interface->vrf->vrf_id != VRF_DEFAULT
 	    || if_is_loopback(circuit->interface))
 		return 0;
 
@@ -246,7 +245,8 @@ static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 		else
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 
-		ils_debug("ldp_sync: down on if %s", circuit->interface->name);
+		ils_debug("%s: down on if %s", __func__,
+			  circuit->interface->name);
 		ldp_sync_if_down(circuit->ldp_sync_info);
 	}
 
@@ -344,7 +344,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 /*
  * LDP-SYNC holddown timer routines
  */
-static int isis_ldp_sync_holddown_timer(struct thread *thread)
+static void isis_ldp_sync_holddown_timer(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
@@ -355,18 +355,17 @@ static int isis_ldp_sync_holddown_timer(struct thread *thread)
 	 */
 	circuit = THREAD_ARG(thread);
 	if (circuit->ldp_sync_info == NULL)
-		return 0;
+		return;
 
 	ldp_sync_info = circuit->ldp_sync_info;
 
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
 	ldp_sync_info->t_holddown = NULL;
 
-	ils_debug("ldp_sync: holddown timer expired for %s state:sync achieved",
-		  circuit->interface->name);
+	ils_debug("%s: holddown timer expired for %s state:sync achieved",
+		  __func__, circuit->interface->name);
 
 	isis_ldp_sync_set_if_metric(circuit, true);
-	return 0;
 }
 
 void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
@@ -384,7 +383,7 @@ void isis_ldp_sync_holddown_timer_add(struct isis_circuit *circuit)
 	    ldp_sync_info->holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		return;
 
-	ils_debug("ldp_sync: start holddown timer for %s time %d",
+	ils_debug("%s: start holddown timer for %s time %d", __func__,
 		  circuit->interface->name, ldp_sync_info->holddown);
 
 	thread_add_timer(master, isis_ldp_sync_holddown_timer,
@@ -414,7 +413,7 @@ void isis_ldp_sync_handle_client_close(struct zapi_client_close_info *info)
 	 *  set cost to LSInfinity
 	 *  send request to LDP for LDP-SYNC state for each interface
 	 */
-	zlog_err("ldp_sync: LDP down");
+	zlog_err("%s: LDP down", __func__);
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 		if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
@@ -480,13 +479,16 @@ void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
 	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config
+	 *  specified on interface overrides global config
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
- 	 */
+	 */
 	if (if_is_loopback(circuit->interface))
 		return;
 
-	ils_debug("ldp_sync: enable if %s", circuit->interface->name);
+	if (circuit->interface->vrf->vrf_id != VRF_DEFAULT)
+		return;
+
+	ils_debug("%s: enable if %s", __func__, circuit->interface->name);
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 		return;
@@ -505,7 +507,7 @@ void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
 		isis_ldp_sync_state_req_msg(circuit);
 	} else {
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-		ils_debug("ldp_sync: Sync only runs on P2P links %s",
+		ils_debug("%s: Sync only runs on P2P links %s", __func__,
 			  circuit->interface->name);
 	}
 }
@@ -523,7 +525,7 @@ void isis_if_ldp_sync_disable(struct isis_circuit *circuit)
 	if (if_is_loopback(circuit->interface))
 		return;
 
-	ils_debug("ldp_sync: remove if %s", circuit->interface->name);
+	ils_debug("%s: remove if %s", __func__, circuit->interface->name);
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 		return;
@@ -539,7 +541,7 @@ void isis_if_set_ldp_sync_holddown(struct isis_circuit *circuit)
 	struct isis_area *area = circuit->area;
 
 	/* called when setting LDP-SYNC at the global level:
-	 *  specifed on interface overrides global config.
+	 *  specified on interface overrides global config.
 	 */
 	if (if_is_loopback(circuit->interface))
 		return;

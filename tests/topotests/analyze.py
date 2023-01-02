@@ -115,6 +115,9 @@ def dump_testcase(testcase):
     for key, val in testcase.items():
         if isinstance(val, str) or isinstance(val, float) or isinstance(val, int):
             s += "{}: {}\n".format(key, val)
+        elif isinstance(val, list):
+            for k2, v2 in enumerate(val):
+                s += "{}: {}\n".format(k2, v2)
         else:
             for k2, v2 in val.items():
                 s += "{}: {}\n".format(k2, v2)
@@ -198,9 +201,12 @@ def main():
                 logging.critical("%s doesn't exist", args.results)
                 sys.exit(1)
             ttfiles = [args.results]
+        elif os.path.exists("/tmp/topotests/topotests.xml"):
+            ttfiles.append("/tmp/topotests/topotests.xml")
 
-        if not ttfiles and os.path.exists("/tmp/topotests.xml"):
-            ttfiles.append("/tmp/topotests.xml")
+        if not ttfiles:
+            if os.path.exists("/tmp/topotests.xml"):
+                ttfiles.append("/tmp/topotests.xml")
 
     for f in ttfiles:
         m = re.match(r"tt-group-(\d+)/topotests.xml", f)

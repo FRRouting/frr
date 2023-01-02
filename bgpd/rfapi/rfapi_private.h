@@ -364,6 +364,11 @@ extern int rfapi_extract_l2o(
  * compaitibility to old quagga_time call
  * time_t value in terms of stabilised absolute time.
  * replacement for POSIX time()
+ *
+ * Please do not use this.  This is kept only for
+ * Lou's CI in that that CI compiles against some
+ * private bgp code and it will just fail to compile
+ * without this.  Use monotime()
  */
 extern time_t rfapi_time(time_t *t);
 

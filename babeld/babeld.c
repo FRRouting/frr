@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "plist.h"
 #include "lib_errors.h"
 #include "network.h"
+#include "if.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -49,11 +50,11 @@ THE SOFTWARE.
 DEFINE_MGROUP(BABELD, "babeld");
 DEFINE_MTYPE_STATIC(BABELD, BABEL, "Babel Structure");
 
-static int babel_init_routing_process(struct thread *thread);
+static void babel_init_routing_process(struct thread *thread);
 static void babel_get_myid(void);
 static void babel_initial_noise(void);
-static int babel_read_protocol (struct thread *thread);
-static int babel_main_loop(struct thread *thread);
+static void babel_read_protocol(struct thread *thread);
+static void babel_main_loop(struct thread *thread);
 static void babel_set_timer(struct timeval *timeout);
 static void babel_fill_with_next_timeout(struct timeval *tv);
 static void
@@ -175,8 +176,7 @@ fail:
 }
 
 /* thread reading entries form others babel daemons */
-static int
-babel_read_protocol (struct thread *thread)
+static void babel_read_protocol(struct thread *thread)
 {
     int rc;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -207,14 +207,12 @@ babel_read_protocol (struct thread *thread)
 
     /* re-add thread */
     thread_add_read(master, &babel_read_protocol, NULL, protocol_socket, &babel_routing_process->t_read);
-    return 0;
 }
 
 /* Zebra will give some information, especially about interfaces. This function
  must be call with a litte timeout wich may give zebra the time to do his job,
  making these inits have sense. */
-static int
-babel_init_routing_process(struct thread *thread)
+static void babel_init_routing_process(struct thread *thread)
 {
     myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
@@ -222,7 +220,6 @@ babel_init_routing_process(struct thread *thread)
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
     babel_initial_noise();
     babel_main_loop(thread);/* this function self-add to the t_update thread */
-    return 0;
 }
 
 /* fill "myid" with an unique id (only if myid != {0}). */
@@ -255,7 +252,7 @@ babel_get_myid(void)
     /* We failed to get a global EUI64 from the interfaces we were given.
      Let's try to find an interface with a MAC address. */
     for(i = 1; i < 256; i++) {
-        char buf[IF_NAMESIZE], *ifname;
+        char buf[INTERFACE_NAMSIZ], *ifname;
         unsigned char eui[8];
         ifname = if_indextoname(i, buf);
         if(ifname == NULL)
@@ -327,8 +324,7 @@ babel_clean_routing_process(void)
 }
 
 /* Function used with timeout. */
-static int
-babel_main_loop(struct thread *thread)
+static void babel_main_loop(struct thread *thread)
 {
     struct timeval tv;
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -348,8 +344,8 @@ babel_main_loop(struct thread *thread)
             /* it happens often to have less than 1 ms, it's bad. */
             timeval_add_msec(&tv, &tv, 300);
             babel_set_timer(&tv);
-            return 0;
-        }
+	    return;
+	}
 
         gettime(&babel_now);
 
@@ -410,7 +406,6 @@ babel_main_loop(struct thread *thread)
     }
 
     assert(0); /* this line should never be reach */
-    return 0;
 }
 
 static void
@@ -716,7 +711,7 @@ DEFUN (babel_set_smoothing_half_life,
 
 DEFUN (babel_distribute_list,
        babel_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -736,7 +731,7 @@ DEFUN (babel_distribute_list,
 
 DEFUN (babel_no_distribute_list,
        babel_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -758,7 +753,7 @@ DEFUN (babel_no_distribute_list,
 
 DEFUN (babel_ipv6_distribute_list,
        babel_ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -779,7 +774,7 @@ DEFUN (babel_ipv6_distribute_list,
 
 DEFUN (babel_no_ipv6_distribute_list,
        babel_no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "no ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"

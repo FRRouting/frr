@@ -46,7 +46,7 @@ static struct list *events = NULL;
 
 static void agentx_events_update(void);
 
-static int agentx_timeout(struct thread *t)
+static void agentx_timeout(struct thread *t)
 {
 	timeout_thr = NULL;
 
@@ -54,15 +54,16 @@ static int agentx_timeout(struct thread *t)
 	run_alarms();
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
-	return 0;
 }
 
-static int agentx_read(struct thread *t)
+static void agentx_read(struct thread *t)
 {
 	fd_set fds;
 	int flags, new_flags = 0;
 	int nonblock = false;
 	struct listnode *ln = THREAD_ARG(t);
+	struct thread **thr = listgetdata(ln);
+	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
 	/* fix for non blocking socket */
@@ -70,7 +71,7 @@ static int agentx_read(struct thread *t)
 	if (-1 == flags) {
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 			 strerror(errno), errno);
-		return -1;
+		return;
 	}
 
 	if (flags & O_NONBLOCK)
@@ -99,7 +100,6 @@ static int agentx_read(struct thread *t)
 
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
-	return 0;
 }
 
 static void agentx_events_update(void)
@@ -109,7 +109,7 @@ static void agentx_events_update(void)
 	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
 	fd_set fds;
 	struct listnode *ln;
-	struct thread *thr;
+	struct thread **thr;
 	int fd, thr_fd;
 
 	thread_cancel(&timeout_thr);
@@ -118,14 +118,13 @@ static void agentx_events_update(void)
 	snmp_select_info(&maxfd, &fds, &timeout, &block);
 
 	if (!block) {
-		timeout_thr = NULL;
 		thread_add_timer_tv(agentx_tm, agentx_timeout, NULL, &timeout,
 				    &timeout_thr);
 	}
 
 	ln = listhead(events);
 	thr = ln ? listgetdata(ln) : NULL;
-	thr_fd = thr ? THREAD_FD(thr) : -1;
+	thr_fd = thr ? THREAD_FD(*thr) : -1;
 
 	/* "two-pointer" / two-list simultaneous iteration
 	 * ln/thr/thr_fd point to the next existing event listener to hit while
@@ -135,20 +134,21 @@ static void agentx_events_update(void)
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
 			if (!FD_ISSET(fd, &fds)) {
-				thread_cancel(&thr);
+				thread_cancel(thr);
+				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
 			ln = nextln;
 			thr = ln ? listgetdata(ln) : NULL;
-			thr_fd = thr ? THREAD_FD(thr) : -1;
+			thr_fd = thr ? THREAD_FD(*thr) : -1;
 		}
 		/* need listener, but haven't hit one where it would be */
 		else if (FD_ISSET(fd, &fds)) {
 			struct listnode *newln;
-			thr = NULL;
-			thread_add_read(agentx_tm, agentx_read, NULL, fd, &thr);
+			thr = XCALLOC(MTYPE_TMP, sizeof(struct thread *));
+
 			newln = listnode_add_before(events, ln, thr);
-			thr->arg = newln;
+			thread_add_read(agentx_tm, agentx_read, newln, fd, thr);
 		}
 	}
 
@@ -157,7 +157,8 @@ static void agentx_events_update(void)
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
 		thr = listgetdata(ln);
-		thread_cancel(&thr);
+		thread_cancel(thr);
+		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;
 	}

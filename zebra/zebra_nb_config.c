@@ -1148,7 +1148,6 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
 	struct zebra_l3vni *zl3vni = NULL;
-	struct zebra_vrf *zvrf_evpn = NULL;
 	char err[ERR_STR_SZ];
 	bool pfx_only = false;
 	const struct lyd_node *pn_dnode;
@@ -1159,33 +1158,25 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		return NB_OK;
 	case NB_EV_VALIDATE:
-		zvrf_evpn = zebra_vrf_get_evpn();
-		if (!zvrf_evpn) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "evpn vrf is not present.");
-			return NB_ERR_VALIDATION;
-		}
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 		/* Get vrf info from parent node, reject configuration
 		 * if zebra vrf already mapped to different vni id.
 		 */
 		pn_dnode = yang_dnode_get_parent(args->dnode, "vrf");
-		if (pn_dnode) {
-			vrfname = yang_dnode_get_string(pn_dnode, "./name");
-			zvrf = zebra_vrf_lookup_by_name(vrfname);
-			if (!zvrf) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "zebra vrf info not found for vrf:%s.",
-					 vrfname);
-				return NB_ERR_VALIDATION;
-			}
-			if (zvrf->l3vni && zvrf->l3vni != vni) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"vni %u cannot be configured as vni %u is already configured under the vrf",
-					vni, zvrf->l3vni);
-				return NB_ERR_VALIDATION;
-			}
+		vrfname = yang_dnode_get_string(pn_dnode, "./name");
+		zvrf = zebra_vrf_lookup_by_name(vrfname);
+		if (!zvrf) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "zebra vrf info not found for vrf:%s.",
+				 vrfname);
+			return NB_ERR_VALIDATION;
+		}
+		if (zvrf->l3vni && zvrf->l3vni != vni) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"vni %u cannot be configured as vni %u is already configured under the vrf",
+				vni, zvrf->l3vni);
+			return NB_ERR_VALIDATION;
 		}
 
 		/* Check if this VNI is already present in the system */

@@ -212,12 +212,12 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	if (lsa->data->type == OSPF_AS_NSSA_LSA)
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug("ospf_ase_calc(): Processing Type-7");
+			zlog_debug("%s: Processing Type-7", __func__);
 
 	/* Stay away from any Local Translated Type-7 LSAs */
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)) {
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug("ospf_ase_calc(): Rejecting Local Xlt'd");
+			zlog_debug("%s: Rejecting Local Xlt'd", __func__);
 		return 0;
 	}
 
@@ -277,6 +277,19 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		if (IS_DEBUG_OSPF(lsa, LSA))
 			zlog_debug(
 				"Route[External]: Originating router is not an ASBR");
+		return 0;
+	}
+
+	/* Type-5 shouldn't be calculated if it is originated from NSSA ASBR.
+	 * As per RFC 3101, expectation is to receive type-7 lsas from
+	 * NSSA ASBR. Ignore calculation, if the current LSA is type-5 and
+	 * originated ASBR's area is NSSA.
+	 */
+	if ((lsa->data->type == OSPF_AS_EXTERNAL_LSA)
+	    && (asbr_route->u.std.external_routing != OSPF_AREA_DEFAULT)) {
+		if (IS_DEBUG_OSPF(lsa, LSA))
+			zlog_debug(
+				"Route[External]: Ignore, If type-5 LSA from NSSA area.");
 		return 0;
 	}
 
@@ -551,7 +564,7 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
-static int ospf_ase_calculate_timer(struct thread *t)
+static void ospf_ase_calculate_timer(struct thread *t)
 {
 	struct ospf *ospf;
 	struct ospf_lsa *lsa;
@@ -576,9 +589,8 @@ static int ospf_ase_calculate_timer(struct thread *t)
 		if (ospf->anyNSSA)
 			for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 				if (IS_DEBUG_OSPF_NSSA)
-					zlog_debug(
-						"ospf_ase_calculate_timer(): looking at area %pI4",
-						&area->area_id);
+					zlog_debug("%s: looking at area %pI4",
+						   __func__, &area->area_id);
 
 				if (area->external_routing == OSPF_AREA_NSSA)
 					LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
@@ -618,8 +630,6 @@ static int ospf_ase_calculate_timer(struct thread *t)
 		ospf_zebra_gr_disable(ospf);
 		ospf->gr_info.finishing_restart = false;
 	}
-
-	return 0;
 }
 
 void ospf_ase_calculate_schedule(struct ospf *ospf)

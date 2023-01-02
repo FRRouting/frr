@@ -60,7 +60,7 @@ int db_init(const char *path_fmt, ...)
 			    (SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE), NULL)
 	    != SQLITE_OK) {
 		if (dbp == NULL) {
-			zlog_warn("%s: failed to open dabatase '%s'", __func__,
+			zlog_warn("%s: failed to open database '%s'", __func__,
 				  path);
 			return -1;
 		}

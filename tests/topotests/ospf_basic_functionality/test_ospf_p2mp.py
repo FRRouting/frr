@@ -47,10 +47,12 @@ from lib.common_config import (
     step,
     create_interfaces_cfg,
     topo_daemons,
+    retry,
+    run_frr_cmd,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
-from lib.topotest import frr_unicode
+from lib.topotest import frr_unicode, json_cmp
 
 from lib.ospf import (
     verify_ospf_interface,
@@ -107,7 +109,7 @@ def setup_module(mod):
     daemons = topo_daemons(tgen, topo)
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen, daemons)
 
     # Creating configuration from JSON
@@ -376,6 +378,158 @@ def test_ospf_p2mp_tc1_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
+
+
+@retry(retry_timeout=30)
+def verify_ospf_json(tgen, dut, input_dict, cmd="show ip ospf database json"):
+    del tgen
+    show_ospf_json = run_frr_cmd(dut, cmd, isjson=True)
+    if not bool(show_ospf_json):
+        return "ospf is not running"
+    result = json_cmp(show_ospf_json, input_dict)
+    return str(result) if result else None
+
+
+@pytest.mark.parametrize("tgen", [2], indirect=True)
+def test_ospf_nbrs(tgen):
+    db_full = {
+        "areas": {
+            "0.0.0.0": {
+                "routerLinkStates": [
+                    {
+                        "lsId": "100.1.1.0",
+                        "advertisedRouter": "100.1.1.0",
+                        "numOfRouterLinks": 6,
+                    },
+                    {
+                        "lsId": "100.1.1.1",
+                        "advertisedRouter": "100.1.1.1",
+                        "numOfRouterLinks": 6,
+                    },
+                    {
+                        "lsId": "100.1.1.2",
+                        "advertisedRouter": "100.1.1.2",
+                        "numOfRouterLinks": 6,
+                    },
+                    {
+                        "lsId": "100.1.1.3",
+                        "advertisedRouter": "100.1.1.3",
+                        "numOfRouterLinks": 7,
+                    },
+                ]
+            }
+        }
+    }
+    input = [
+        [
+            "r0",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.1": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.2": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.3": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        [
+            "r1",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.0": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.2": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.3": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        [
+            "r2",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.0": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.1": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.3": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        [
+            "r3",
+            "show ip ospf n json",
+            {
+                "neighbors": {
+                    "100.1.1.0": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.1": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                    "100.1.1.2": [
+                        {
+                            "state": "Full/DROther",
+                        }
+                    ],
+                }
+            },
+        ],
+        ["r0", "show ip ospf database json", db_full],
+        ["r1", "show ip ospf database json", db_full],
+        ["r2", "show ip ospf database json", db_full],
+        ["r3", "show ip ospf database json", db_full],
+        ["r0", "show ip ospf database json", db_full],
+        ["r0", "show ip ospf database router json", {}],
+        ["r0", "show ip ospf interface traffic json", {}],
+        ["r1", "show ip ospf interface traffic json", {}],
+        ["r2", "show ip ospf interface traffic json", {}],
+        ["r3", "show ip ospf interface traffic json", {}],
+    ]
+    for cmd_set in input:
+        step("test_ospf: %s - %s" % (cmd_set[0], cmd_set[1]))
+        assert (
+            verify_ospf_json(tgen, tgen.gears[cmd_set[0]], cmd_set[2], cmd_set[1])
+            is None
+        )
 
 
 if __name__ == "__main__":

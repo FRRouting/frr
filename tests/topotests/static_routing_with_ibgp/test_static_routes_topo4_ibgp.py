@@ -96,7 +96,7 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
+    #  to start daemons and then start routers
     start_topology(tgen)
 
     # Creating configuration from JSON
@@ -175,7 +175,7 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
     )
 
     for addr_type in ADDR_TYPES:
-        # Api call to modfiy BGP timerse
+        # Api call to modify BGP timerse
         input_dict = {
             "r2": {
                 "bgp": {

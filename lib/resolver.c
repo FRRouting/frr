@@ -14,12 +14,14 @@
 #include <ares.h>
 #include <ares_version.h>
 
-#include "vector.h"
+#include "typesafe.h"
+#include "jhash.h"
 #include "thread.h"
 #include "lib_errors.h"
 #include "resolver.h"
 #include "command.h"
 #include "xref.h"
+#include "vrf.h"
 
 XREF_SETUP();
 
@@ -27,75 +29,128 @@ struct resolver_state {
 	ares_channel channel;
 	struct thread_master *master;
 	struct thread *timeout;
-	vector read_threads, write_threads;
 };
 
 static struct resolver_state state;
 static bool resolver_debug;
 
-#define THREAD_RUNNING ((struct thread *)-1)
+/* a FD doesn't necessarily map 1:1 to a request;  we could be talking to
+ * multiple caches simultaneously, to see which responds fastest.
+ * Theoretically we could also be using the same fd for multiple lookups,
+ * but the c-ares API guarantees an n:1 mapping for fd => channel.
+ *
+ * Either way c-ares makes that decision and we just need to deal with
+ * whatever FDs it gives us.
+ */
+
+DEFINE_MTYPE_STATIC(LIB, ARES_FD, "c-ares (DNS) file descriptor information");
+PREDECL_HASH(resolver_fds);
+
+struct resolver_fd {
+	struct resolver_fds_item itm;
+
+	int fd;
+	struct resolver_state *state;
+	struct thread *t_read, *t_write;
+};
+
+static int resolver_fd_cmp(const struct resolver_fd *a,
+			   const struct resolver_fd *b)
+{
+	return numcmp(a->fd, b->fd);
+}
+
+static uint32_t resolver_fd_hash(const struct resolver_fd *item)
+{
+	return jhash_1word(item->fd, 0xacd04c9e);
+}
+
+DECLARE_HASH(resolver_fds, struct resolver_fd, itm, resolver_fd_cmp,
+	     resolver_fd_hash);
+
+static struct resolver_fds_head resfds[1] = {INIT_HASH(resfds[0])};
+
+static struct resolver_fd *resolver_fd_get(int fd,
+					   struct resolver_state *newstate)
+{
+	struct resolver_fd ref = {.fd = fd}, *res;
+
+	res = resolver_fds_find(resfds, &ref);
+	if (!res && newstate) {
+		res = XCALLOC(MTYPE_ARES_FD, sizeof(*res));
+		res->fd = fd;
+		res->state = newstate;
+		resolver_fds_add(resfds, res);
+
+		if (resolver_debug)
+			zlog_debug("c-ares registered FD %d", fd);
+	}
+	return res;
+}
+
+static void resolver_fd_drop_maybe(struct resolver_fd *resfd)
+{
+	if (resfd->t_read || resfd->t_write)
+		return;
+
+	if (resolver_debug)
+		zlog_debug("c-ares unregistered FD %d", resfd->fd);
+
+	resolver_fds_del(resfds, resfd);
+	XFREE(MTYPE_ARES_FD, resfd);
+}
+
+/* end of FD housekeeping */
 
 static void resolver_update_timeouts(struct resolver_state *r);
 
-static int resolver_cb_timeout(struct thread *t)
+static void resolver_cb_timeout(struct thread *t)
 {
 	struct resolver_state *r = THREAD_ARG(t);
 
-	r->timeout = THREAD_RUNNING;
 	ares_process(r->channel, NULL, NULL);
-	r->timeout = NULL;
 	resolver_update_timeouts(r);
-
-	return 0;
 }
 
-static int resolver_cb_socket_readable(struct thread *t)
+static void resolver_cb_socket_readable(struct thread *t)
 {
-	struct resolver_state *r = THREAD_ARG(t);
-	int fd = THREAD_FD(t);
+	struct resolver_fd *resfd = THREAD_ARG(t);
+	struct resolver_state *r = resfd->state;
 
-	vector_set_index(r->read_threads, fd, THREAD_RUNNING);
-	ares_process_fd(r->channel, fd, ARES_SOCKET_BAD);
-	if (vector_lookup(r->read_threads, fd) == THREAD_RUNNING) {
-		t = NULL;
-		thread_add_read(r->master, resolver_cb_socket_readable, r, fd,
-				&t);
-		vector_set_index(r->read_threads, fd, t);
-	}
+	thread_add_read(r->master, resolver_cb_socket_readable, resfd,
+			resfd->fd, &resfd->t_read);
+	/* ^ ordering important:
+	 * ares_process_fd may transitively call THREAD_OFF(resfd->t_read)
+	 * combined with resolver_fd_drop_maybe, so resfd may be free'd after!
+	 */
+	ares_process_fd(r->channel, resfd->fd, ARES_SOCKET_BAD);
 	resolver_update_timeouts(r);
-
-	return 0;
 }
 
-static int resolver_cb_socket_writable(struct thread *t)
+static void resolver_cb_socket_writable(struct thread *t)
 {
-	struct resolver_state *r = THREAD_ARG(t);
-	int fd = THREAD_FD(t);
+	struct resolver_fd *resfd = THREAD_ARG(t);
+	struct resolver_state *r = resfd->state;
 
-	vector_set_index(r->write_threads, fd, THREAD_RUNNING);
-	ares_process_fd(r->channel, ARES_SOCKET_BAD, fd);
-	if (vector_lookup(r->write_threads, fd) == THREAD_RUNNING) {
-		t = NULL;
-		thread_add_write(r->master, resolver_cb_socket_writable, r, fd,
-				 &t);
-		vector_set_index(r->write_threads, fd, t);
-	}
+	thread_add_write(r->master, resolver_cb_socket_writable, resfd,
+			 resfd->fd, &resfd->t_write);
+	/* ^ ordering important:
+	 * ares_process_fd may transitively call THREAD_OFF(resfd->t_write)
+	 * combined with resolver_fd_drop_maybe, so resfd may be free'd after!
+	 */
+	ares_process_fd(r->channel, ARES_SOCKET_BAD, resfd->fd);
 	resolver_update_timeouts(r);
-
-	return 0;
 }
 
 static void resolver_update_timeouts(struct resolver_state *r)
 {
 	struct timeval *tv, tvbuf;
 
-	if (r->timeout == THREAD_RUNNING)
-		return;
-
 	THREAD_OFF(r->timeout);
 	tv = ares_timeout(r->channel, NULL, &tvbuf);
 	if (tv) {
 		unsigned int timeoutms = tv->tv_sec * 1000 + tv->tv_usec / 1000;
+
 		thread_add_timer_msec(r->master, resolver_cb_timeout, r,
 				      timeoutms, &r->timeout);
 	}
@@ -105,41 +160,27 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 			   int writable)
 {
 	struct resolver_state *r = (struct resolver_state *)data;
-	struct thread *t;
+	struct resolver_fd *resfd;
 
-	if (readable) {
-		t = vector_lookup_ensure(r->read_threads, fd);
-		if (!t) {
-			thread_add_read(r->master, resolver_cb_socket_readable,
-					r, fd, &t);
-			vector_set_index(r->read_threads, fd, t);
-		}
-	} else {
-		t = vector_lookup(r->read_threads, fd);
-		if (t) {
-			if (t != THREAD_RUNNING) {
-				THREAD_OFF(t);
-			}
-			vector_unset(r->read_threads, fd);
-		}
-	}
+	resfd = resolver_fd_get(fd, (readable || writable) ? r : NULL);
+	if (!resfd)
+		return;
 
-	if (writable) {
-		t = vector_lookup_ensure(r->write_threads, fd);
-		if (!t) {
-			thread_add_read(r->master, resolver_cb_socket_writable,
-					r, fd, &t);
-			vector_set_index(r->write_threads, fd, t);
-		}
-	} else {
-		t = vector_lookup(r->write_threads, fd);
-		if (t) {
-			if (t != THREAD_RUNNING) {
-				THREAD_OFF(t);
-			}
-			vector_unset(r->write_threads, fd);
-		}
-	}
+	assert(resfd->state == r);
+
+	if (!readable)
+		THREAD_OFF(resfd->t_read);
+	else if (!resfd->t_read)
+		thread_add_read(r->master, resolver_cb_socket_readable, resfd,
+				fd, &resfd->t_read);
+
+	if (!writable)
+		THREAD_OFF(resfd->t_write);
+	else if (!resfd->t_write)
+		thread_add_write(r->master, resolver_cb_socket_writable, resfd,
+				 fd, &resfd->t_write);
+
+	resolver_fd_drop_maybe(resfd);
 }
 
 
@@ -185,7 +226,7 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	callback(query, NULL, i, &addr[0]);
 }
 
-static int resolver_cb_literal(struct thread *t)
+static void resolver_cb_literal(struct thread *t)
 {
 	struct resolver_query *query = THREAD_ARG(t);
 	void (*callback)(struct resolver_query *, const char *, int,
@@ -195,15 +236,17 @@ static int resolver_cb_literal(struct thread *t)
 	query->callback = NULL;
 
 	callback(query, ARES_SUCCESS, 1, &query->literal_addr);
-	return 0;
 }
 
-void resolver_resolve(struct resolver_query *query, int af,
+void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname,
 		      void (*callback)(struct resolver_query *, const char *,
 				       int, union sockunion *))
 {
 	int ret;
+
+	if (hostname == NULL)
+		return;
 
 	if (query->callback != NULL) {
 		flog_err(
@@ -233,7 +276,18 @@ void resolver_resolve(struct resolver_query *query, int af,
 	if (resolver_debug)
 		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+		return;
+	}
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
+	ret = vrf_switchback_to_initial();
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: Can't switchback from VRF %u (%s)", __func__,
+			     vrf_id, safe_strerror(errno));
 	resolver_update_timeouts(&state);
 }
 
@@ -269,8 +323,6 @@ void resolver_init(struct thread_master *tm)
 	struct ares_options ares_opts;
 
 	state.master = tm;
-	state.read_threads = vector_init(1);
-	state.write_threads = vector_init(1);
 
 	ares_opts = (struct ares_options){
 		.sock_state_cb = &ares_socket_cb,

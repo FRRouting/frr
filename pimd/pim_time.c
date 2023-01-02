@@ -171,9 +171,7 @@ void pim_time_uptime_begin(char *buf, int buf_size, int64_t now, int64_t begin)
 
 long pim_time_timer_remain_msec(struct thread *t_timer)
 {
-	/* FIXME: Actually fetch msec resolution from thread */
-
 	/* no timer thread running means timer has expired: return 0 */
 
-	return t_timer ? 1000 * thread_timer_remain_second(t_timer) : 0;
+	return t_timer ? thread_timer_remain_msec(t_timer) : 0;
 }

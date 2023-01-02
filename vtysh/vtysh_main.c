@@ -78,39 +78,56 @@ int execute_flag = 0;
 /* Flag to indicate if in user/unprivileged mode. */
 int user_mode;
 
-/* For sigsetjmp() & siglongjmp(). */
-static sigjmp_buf jmpbuf;
-
-/* Flag for avoid recursive siglongjmp() call. */
-static int jmpflag = 0;
-
-/* A static variable for holding the line. */
-static char *line_read;
-
 /* Master of threads. */
 struct thread_master *master;
 
 /* Command logging */
 FILE *logfile;
 
+static void vtysh_rl_callback(char *line_read)
+{
+	HIST_ENTRY *last;
+
+	rl_callback_handler_remove();
+
+	if (!line_read) {
+		vtysh_loop_exited = true;
+		return;
+	}
+
+	/* If the line has any text in it, save it on the history. But only if
+	 * last command in history isn't the same one.
+	 */
+	if (*line_read) {
+		using_history();
+		last = previous_history();
+		if (!last || strcmp(last->line, line_read) != 0) {
+			add_history(line_read);
+			append_history(1, history_file);
+		}
+	}
+
+	vtysh_execute(line_read);
+
+	if (!vtysh_loop_exited)
+		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+}
+
 /* SIGTSTP handler.  This function care user's ^Z input. */
 static void sigtstp(int sig)
 {
+	rl_callback_handler_remove();
+
 	/* Execute "end" command. */
 	vtysh_execute("end");
+
+	if (!vtysh_loop_exited)
+		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
 
 	/* Initialize readline. */
 	rl_initialize();
 	printf("\n");
-
-	/* Check jmpflag for duplicate siglongjmp(). */
-	if (!jmpflag)
-		return;
-
-	jmpflag = 0;
-
-	/* Back to main command loop. */
-	siglongjmp(jmpbuf, 1);
+	rl_forced_update_display();
 }
 
 /* SIGINT handler.  This function care user's ^Z input.  */
@@ -208,32 +225,35 @@ struct option longopts[] = {
 	{"timestamp", no_argument, NULL, 't'},
 	{0}};
 
-/* Read a string, and return a pointer to it.  Returns NULL on EOF. */
-static char *vtysh_rl_gets(void)
+bool vtysh_loop_exited;
+
+static struct thread *vtysh_rl_read_thread;
+
+static void vtysh_rl_read(struct thread *thread)
 {
-	HIST_ENTRY *last;
-	/* If the buffer has already been allocated, return the memory
-	 * to the free pool. */
-	if (line_read) {
-		free(line_read);
-		line_read = NULL;
-	}
+	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+			&vtysh_rl_read_thread);
+	rl_callback_read_char();
+}
 
-	/* Get a line from the user.  Change prompt according to node.  XXX. */
-	line_read = readline(vtysh_prompt());
+/* Read a string, and return a pointer to it.  Returns NULL on EOF. */
+static void vtysh_rl_run(void)
+{
+	struct thread thread;
 
-	/* If the line has any text in it, save it on the history. But only if
-	 * last command in history isn't the same one. */
-	if (line_read && *line_read) {
-		using_history();
-		last = previous_history();
-		if (!last || strcmp(last->line, line_read) != 0) {
-			add_history(line_read);
-			append_history(1, history_file);
-		}
-	}
+	master = thread_master_create(NULL);
 
-	return (line_read);
+	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+	thread_add_read(master, vtysh_rl_read, NULL, STDIN_FILENO,
+			&vtysh_rl_read_thread);
+
+	while (!vtysh_loop_exited && thread_fetch(master, &thread))
+		thread_call(&thread);
+
+	if (!vtysh_loop_exited)
+		rl_callback_handler_remove();
+
+	thread_master_free(master);
 }
 
 static void log_it(const char *line)
@@ -458,7 +478,6 @@ int main(int argc, char **argv, char **env)
 	}
 
 	/* Initialize user input buffer. */
-	line_read = NULL;
 	setlinebuf(stdout);
 
 	/* Signal and others. */
@@ -587,7 +606,7 @@ int main(int argc, char **argv, char **env)
 	 * Setup history file for use by both -c and regular input
 	 * If we can't find the home directory, then don't store
 	 * the history information.
-	 * VTYSH_HISTFILE is prefered over command line
+	 * VTYSH_HISTFILE is preferred over command line
 	 * argument (-H/--histfile).
 	 */
 	if (getenv("VTYSH_HISTFILE")) {
@@ -725,13 +744,8 @@ int main(int argc, char **argv, char **env)
 
 	vtysh_add_timestamp = ts_flag;
 
-	/* Preparation for longjmp() in sigtstp(). */
-	sigsetjmp(jmpbuf, 1);
-	jmpflag = 1;
-
 	/* Main command loop. */
-	while (vtysh_rl_gets())
-		vtysh_execute(line_read);
+	vtysh_rl_run();
 
 	vtysh_uninit();
 

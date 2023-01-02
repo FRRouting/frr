@@ -86,7 +86,8 @@ struct bfd_echo_pkt {
 		};
 	};
 	uint32_t my_discr;
-	uint8_t pad[16];
+	uint64_t time_sent_sec;
+	uint64_t time_sent_usec;
 };
 
 
@@ -168,9 +169,10 @@ enum bfd_session_flags {
 						 * expires
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
+	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
 	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
 };
 
 /*
@@ -190,8 +192,8 @@ struct bfd_key {
 	uint16_t mhop;
 	struct in6_addr peer;
 	struct in6_addr local;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
+	char ifname[INTERFACE_NAMSIZ];
+	char vrfname[VRF_NAMSIZ];
 } __attribute__((packed));
 
 struct bfd_session_stats {
@@ -248,6 +250,8 @@ struct bfd_config_timers {
 	uint32_t required_min_echo_rx;
 };
 
+#define BFD_RTT_SAMPLE 8
+
 /*
  * Session state information
  */
@@ -291,6 +295,7 @@ struct bfd_session {
 
 	struct bfd_dplane_ctx *bdc;
 	struct sockaddr_any local_address;
+	uint8_t peer_hw_addr[ETH_ALEN];
 	struct interface *ifp;
 	struct vrf *vrf;
 
@@ -309,6 +314,10 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
+
+	uint8_t rtt_valid;	    /* number of valid samples */
+	uint8_t rtt_index;	    /* last index added */
+	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
 };
 
 struct peer_label {
@@ -426,7 +435,7 @@ int control_init(const char *path);
 void control_shutdown(void);
 int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
-int control_accept(struct thread *t);
+void control_accept(struct thread *t);
 
 
 /*
@@ -555,8 +564,9 @@ int bp_echov6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
+void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
 
-int bfd_recv_cb(struct thread *t);
+void bfd_recv_cb(struct thread *t);
 
 
 /*
@@ -600,7 +610,8 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
-				      ifindex_t ifindex, vrf_id_t vrfid,
+				      struct interface *ifp,
+				      vrf_id_t vrfid,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
@@ -631,6 +642,7 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+void bfd_rtt_init(struct bfd_session *bfd);
 
 /**
  * Set the BFD session echo state.
@@ -689,10 +701,10 @@ unsigned long bfd_get_session_count(void);
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
 
-int bfd_recvtimer_cb(struct thread *t);
-int bfd_echo_recvtimer_cb(struct thread *t);
-int bfd_xmt_cb(struct thread *t);
-int bfd_echo_xmt_cb(struct thread *t);
+void bfd_recvtimer_cb(struct thread *t);
+void bfd_echo_recvtimer_cb(struct thread *t);
+void bfd_xmt_cb(struct thread *t);
+void bfd_echo_xmt_cb(struct thread *t);
 
 extern struct in6_addr zero_addr;
 
@@ -723,7 +735,7 @@ void bfd_profile_free(struct bfd_profile *bp);
 
 /**
  * Apply a profile configuration to an existing BFD session. The non default
- * values will not be overriden.
+ * values will not be overridden.
  *
  * NOTE: if the profile doesn't exist yet, then the profile will be applied
  * once it begins to exist.
@@ -773,7 +785,6 @@ void bfdd_zclient_unregister(vrf_id_t vrf_id);
 void bfdd_zclient_register(vrf_id_t vrf_id);
 void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
-void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
 

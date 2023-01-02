@@ -144,14 +144,15 @@ double_linked_list *pcep_msg_read(int sock_fd)
 				"%s: pcep_msg_read: Message not fully read! Trying to read %d bytes more, fd [%d]",
 				__func__, read_len, sock_fd);
 
-			if (PCEP_MESSAGE_LENGTH - ret - buffer_read >= read_len )
+			if (PCEP_MESSAGE_LENGTH - ret - buffer_read >= read_len)
 				read_ret =
 					read(sock_fd, &buffer[ret], read_len);
 			else {
 				pcep_log(
 					LOG_ERR,
 					"%s: Trying to read size (%d) offset (%d) in a buff of size (%d)",
-					__func__, read_len, ret, PCEP_MESSAGE_LENGTH);
+					__func__, read_len, ret,
+					PCEP_MESSAGE_LENGTH);
 				return msg_list;
 			}
 

@@ -1,9 +1,9 @@
 name: frr
-version: @VERSION@
+version: '@VERSION@'
 summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
 description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
- FRRouting (FRR) is free software which manages TCP/IP based routing 
- protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, 
+ FRRouting (FRR) is free software which manages TCP/IP based routing
+ protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2,
  RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing), PATHD (Segment
  routing), BFD and OpenFabric as well as the IPv6 versions of these.
  FRRouting (frr) is a fork of Quagga.
@@ -275,7 +275,7 @@ parts:
            - usr/lib/x86_64-linux-gnu/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
-        source-tag: v0.7.0
+        source-tag: v0.8.0
         plugin: cmake
         configflags:
            - -DCMAKE_BUILD_TYPE=Release
@@ -296,7 +296,7 @@ parts:
            - -DENABLE_LYD_PRIV=ON
            - -DENABLE_CACHE=ON
            - -DCMAKE_BUILD_TYPE:String="Release"
-    frr: 
+    frr:
         after: [rtrlib,libyang]
         build-packages:
            - gcc
@@ -306,6 +306,7 @@ parts:
            - make
            - gawk
            - libreadline-dev
+           - libelf-dev
            - texinfo
            - libncurses5-dev
            - texlive-latex-base
@@ -365,7 +366,7 @@ parts:
             - --enable-rpki
             - --enable-vrrpd
             - --enable-configfile-mask=0640
-            - --enable-logfile-mask=0640 
+            - --enable-logfile-mask=0640
             - --localstatedir=/var/run
             - --sbindir=/sbin
             - --bindir=/bin

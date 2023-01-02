@@ -126,8 +126,6 @@ extern void rfapiCheckRefcount(struct agg_node *rn, safi_t safi,
 
 extern int rfapiHasNonRemovedRoutes(struct agg_node *rn);
 
-extern int rfapiProcessDeferredClose(struct thread *t);
-
 extern int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bpi, struct prefix *p);
 
 extern void rfapiNexthop2Prefix(struct attr *attr, struct prefix *p);

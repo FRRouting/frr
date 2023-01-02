@@ -404,9 +404,6 @@ enum rip_event {
 /* Macro for timer turn on. */
 #define RIP_TIMER_ON(T,F,V) thread_add_timer (master, (F), rinfo, (V), &(T))
 
-/* Macro for timer turn off. */
-#define RIP_TIMER_OFF(X) thread_cancel(&(X))
-
 #define RIP_OFFSET_LIST_IN  0
 #define RIP_OFFSET_LIST_OUT 1
 #define RIP_OFFSET_LIST_MAX 2
@@ -526,7 +523,7 @@ extern void rip_cli_init(void);
 extern struct zebra_privs_t ripd_privs;
 extern struct rip_instance_head rip_instances;
 
-/* Master thread strucutre. */
+/* Master thread structure. */
 extern struct thread_master *master;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));

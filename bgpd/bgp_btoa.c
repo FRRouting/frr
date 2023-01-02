@@ -77,7 +77,7 @@ static void attr_parse(struct stream *s, uint16_t len)
 
 	lim = s->getp + len;
 
-	printf("attr_parse s->getp %zd, len %d, lim %d\n", s->getp, len, lim);
+	printf("%s s->getp %zd, len %d, lim %d\n", __func__, s->getp, len, lim);
 
 	while (s->getp < lim) {
 		flag = stream_getc(s);

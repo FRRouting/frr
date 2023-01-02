@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 customize.py: Simple FRR MPLS L3VPN test topology
 
                   |
@@ -137,22 +137,6 @@ def ltemplatePreRouterStartHook():
     if tgen.hasmpls != True:
         logger.info("MPLS not available, skipping setup")
         return False
-    # configure r2 mpls interfaces
-    intfs = ["lo", "r2-eth0", "r2-eth1", "r2-eth2"]
-    for intf in intfs:
-        cc.doCmd(tgen, "r2", "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf))
-    # configure MPLS
-    rtrs = ["r1", "r3", "r4"]
-    cmds = ["echo 1 > /proc/sys/net/mpls/conf/lo/input"]
-    for rtr in rtrs:
-        router = tgen.gears[rtr]
-        for cmd in cmds:
-            cc.doCmd(tgen, rtr, cmd)
-        intfs = ["lo", rtr + "-eth0", rtr + "-eth4"]
-        for intf in intfs:
-            cc.doCmd(
-                tgen, rtr, "echo 1 > /proc/sys/net/mpls/conf/{}/input".format(intf)
-            )
     logger.info("setup mpls input")
     return True
 

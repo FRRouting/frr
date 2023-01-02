@@ -23,6 +23,14 @@
 
 #define BGP_SOCKET_SNDBUF_SIZE 65536
 
+struct bgp_listener {
+	int fd;
+	union sockunion su;
+	struct thread *thread;
+	struct bgp *bgp;
+	char *name;
+};
+
 extern void bgp_dump_listener_info(struct vty *vty);
 extern int bgp_socket(struct bgp *bgp, unsigned short port,
 		      const char *address);
@@ -37,5 +45,7 @@ extern int bgp_md5_unset_prefix(struct bgp *bgp, struct prefix *p);
 extern int bgp_md5_set(struct peer *);
 extern int bgp_md5_unset(struct peer *);
 extern int bgp_set_socket_ttl(struct peer *, int fd);
+extern int bgp_update_address(struct interface *ifp, const union sockunion *dst,
+			      union sockunion *addr);
 
 #endif /* _QUAGGA_BGP_NETWORK_H */

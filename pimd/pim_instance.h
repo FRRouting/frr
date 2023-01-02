@@ -30,18 +30,7 @@
 #include "pim_vxlan_instance.h"
 #include "pim_oil.h"
 #include "pim_upstream.h"
-
-#if defined(HAVE_LINUX_MROUTE_H)
-#include <linux/mroute.h>
-#else
-/*
-  Below: from <linux/mroute.h>
-*/
-
-#ifndef MAXVIFS
-#define MAXVIFS (256)
-#endif
-#endif
+#include "pim_mroute.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -99,6 +88,7 @@ struct pim_router {
 	uint32_t register_suppress_time;
 	int packet_process;
 	uint32_t register_probe_time;
+	uint16_t multipath;
 
 	/*
 	 * What is the default vrf that we work in
@@ -146,6 +136,7 @@ struct pim_instance {
 
 	struct thread *thread;
 	int mroute_socket;
+	int reg_sock; /* Socket to send register msg */
 	int64_t mroute_socket_creation;
 	int64_t mroute_add_events;
 	int64_t mroute_add_last;
@@ -176,10 +167,14 @@ struct pim_instance {
 	struct pim_vxlan_instance vxlan;
 
 	struct list *ssmpingd_list;
-	struct in_addr ssmpingd_group_addr;
+	pim_addr ssmpingd_group_addr;
 
-	unsigned int igmp_group_count;
-	unsigned int igmp_watermark_limit;
+	unsigned int gm_socket_if_count;
+	int gm_socket;
+	struct thread *t_gm_recv;
+
+	unsigned int gm_group_count;
+	unsigned int gm_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
 
@@ -205,6 +200,8 @@ struct pim_instance {
 	int64_t nexthop_lookups;
 	int64_t nexthop_lookups_avoided;
 	int64_t last_route_change_time;
+
+	uint64_t gm_rx_drop_sys;
 };
 
 void pim_vrf_init(void);

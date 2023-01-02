@@ -42,6 +42,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_trace.h"
 
 /* definitions */
 
@@ -243,6 +244,8 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint8_t proto = 0;
 	uint8_t ip_proto = 0;
 
+	frrtrace(3, frr_zebra, netlink_rule_change, h, ns_id, startup);
+
 	/* Basic validation followed by extracting attributes. */
 	if (h->nlmsg_type != RTM_NEWRULE && h->nlmsg_type != RTM_DELRULE)
 		return 0;
@@ -403,7 +406,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 		return ret;
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 	if (ret < 0)
 		return ret;
 
@@ -412,7 +415,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 		return ret;
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 	return ret;
 }
 

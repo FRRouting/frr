@@ -30,6 +30,7 @@ import os
 import re
 import sys
 from functools import partial
+from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -135,7 +136,7 @@ def test_wait_protocol_convergence():
             )
             if (
                 topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"state": "Full/DR"}]}}
+                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
                 )
                 is None
             ):
@@ -143,14 +144,14 @@ def test_wait_protocol_convergence():
 
             if (
                 topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"state": "Full/DROther"}]}}
+                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
                 )
                 is None
             ):
                 return None
 
             return topotest.json_cmp(
-                result, {"neighbors": {neighbor: [{"state": "Full/Backup"}]}}
+                result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
             )
 
         _, result = topotest.run_and_expect(
@@ -315,17 +316,26 @@ def test_ospf6_kernel_route():
     for router in rlist:
         logger.info('Checking OSPF IPv6 kernel routes in "%s"', router.name)
 
-        routes = topotest.ip6_route(router)
-        expected = {
-            "2001:db8:1::/64": {},
-            "2001:db8:2::/64": {},
-            "2001:db8:3::/64": {},
-            "2001:db8:100::/64": {},
-            "2001:db8:200::/64": {},
-            "2001:db8:300::/64": {},
-        }
+        def _routes_in_fib6():
+            routes = topotest.ip6_route(router)
+            expected = {
+                "2001:db8:1::/64": {},
+                "2001:db8:2::/64": {},
+                "2001:db8:3::/64": {},
+                "2001:db8:100::/64": {},
+                "2001:db8:200::/64": {},
+                "2001:db8:300::/64": {},
+            }
+            logger.info("Routes:")
+            logger.info(routes)
+            logger.info(topotest.json_cmp(routes, expected))
+            logger.info("ENd:")
+            return topotest.json_cmp(routes, expected)
+
+        _, result = topotest.run_and_expect(_routes_in_fib6, None, count=20, wait=1)
+
         assertmsg = 'OSPF IPv6 route mismatch in router "{}"'.format(router.name)
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        assert result is None, assertmsg
 
 
 def test_ospf_json():
@@ -336,6 +346,7 @@ def test_ospf_json():
 
     for rnum in range(1, 5):
         router = tgen.gears["r{}".format(rnum)]
+        logger.info(router.vtysh_cmd("show ip ospf database"))
         logger.info('Comparing router "%s" "show ip ospf json" output', router.name)
         expected = {
             "routerId": "10.0.255.{}".format(rnum),
@@ -475,7 +486,18 @@ def test_ospf_link_down_kernel_route():
         assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down'.format(
             router.name
         )
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        count = 0
+        not_found = True
+        while not_found and count < 10:
+            not_found = topotest.json_cmp(routes, expected)
+            if not_found:
+                sleep(1)
+                routes = topotest.ip4_route(router)
+                count += 1
+            else:
+                not_found = False
+                break
+        assert not_found is False, assertmsg
 
 
 def test_ospf6_link_down():
@@ -547,7 +569,19 @@ def test_ospf6_link_down_kernel_route():
         assertmsg = 'OSPF IPv6 route mismatch in router "{}" after link down'.format(
             router.name
         )
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        count = 0
+        not_found = True
+        while not_found and count < 10:
+            not_found = topotest.json_cmp(routes, expected)
+            if not_found:
+                sleep(1)
+                routes = topotest.ip6_route(router)
+                count += 1
+            else:
+                not_found = False
+                break
+
+        assert not_found is False, assertmsg
 
 
 def test_memory_leak():

@@ -216,7 +216,7 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 		return NULL;
 	}
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf->vrf_id);
 
 	if (!p) {
 		DEBUGD(&vrrp_dbg_zebra,
@@ -405,7 +405,7 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	struct ipaddr *iter;
 
 	for (ALL_LIST_ELEMENTS_RO(r->addrs, ln, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			return true;
 
 	return false;
@@ -484,7 +484,7 @@ int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			list_delete_node(r->addrs, ln);
 
 	/*
@@ -544,7 +544,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 
 	size_t ifps_cnt =
 		if_lookup_by_hwaddr(r->vmac.octet, sizeof(r->vmac.octet), &ifps,
-				    r->vr->ifp->vrf_id);
+				    r->vr->ifp->vrf->vrf_id);
 
 	/*
 	 * Filter to only those macvlan interfaces whose parent is the base
@@ -654,7 +654,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 
 	vrrp_set_advertisement_interval(vr, vd.advertisement_interval);
 
-	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
+	(void)hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
 	return vr;
 }
@@ -681,8 +681,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static int vrrp_adver_timer_expire(struct thread *thread);
-static int vrrp_master_down_timer_expire(struct thread *thread);
+static void vrrp_adver_timer_expire(struct thread *thread);
+static void vrrp_master_down_timer_expire(struct thread *thread);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -903,7 +903,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
-		addrcmp = memcmp(&src->ip, &r->src.ip, IPADDRSZ(src));
+		addrcmp = ipaddr_cmp(src, &r->src);
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
@@ -983,9 +983,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static int vrrp_read(struct thread *thread)
+static void vrrp_read(struct thread *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = THREAD_ARG(thread);
 
 	struct vrrp_pkt *pkt;
 	ssize_t pktsize;
@@ -1045,8 +1045,6 @@ done:
 
 	if (resched)
 		thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
-
-	return 0;
 }
 
 /*
@@ -1083,9 +1081,9 @@ static int vrrp_socket(struct vrrp_router *r)
 
 	frr_with_privs(&vrrp_privs) {
 		r->sock_rx = vrf_socket(r->family, SOCK_RAW, IPPROTO_VRRP,
-					r->vr->ifp->vrf_id, NULL);
+					r->vr->ifp->vrf->vrf_id, NULL);
 		r->sock_tx = vrf_socket(r->family, SOCK_RAW, IPPROTO_VRRP,
-					r->vr->ifp->vrf_id, NULL);
+					r->vr->ifp->vrf->vrf_id, NULL);
 	}
 
 	if (r->sock_rx < 0 || r->sock_tx < 0) {
@@ -1102,7 +1100,7 @@ static int vrrp_socket(struct vrrp_router *r)
 	 * Bind Tx socket to macvlan device - necessary for VRF support,
 	 * otherwise the kernel will select the vrf device
 	 */
-	if (r->vr->ifp->vrf_id != VRF_DEFAULT) {
+	if (r->vr->ifp->vrf->vrf_id != VRF_DEFAULT) {
 		frr_with_privs (&vrrp_privs) {
 			ret = setsockopt(r->sock_tx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->mvl_ifp->name,
@@ -1480,9 +1478,9 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static int vrrp_adver_timer_expire(struct thread *thread)
+static void vrrp_adver_timer_expire(struct thread *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = THREAD_ARG(thread);
 
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1503,16 +1501,14 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 			 r->vr->vrid, family2str(r->family),
 			 vrrp_state_names[r->fsm.state]);
 	}
-
-	return 0;
 }
 
 /*
  * Called when Master_Down_Timer expires.
  */
-static int vrrp_master_down_timer_expire(struct thread *thread)
+static void vrrp_master_down_timer_expire(struct thread *thread)
 {
-	struct vrrp_router *r = thread->arg;
+	struct vrrp_router *r = THREAD_ARG(thread);
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		  "Master_Down_Timer expired",
@@ -1522,8 +1518,6 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 			      r->vr->advertisement_interval * CS2MS,
 			      &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
-
-	return 0;
 }
 
 /*
@@ -1751,7 +1745,7 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 	struct interface *p;
 	struct vrrp_vrouter *vr;
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf->vrf_id);
 
 	if (!p)
 		return NULL;
@@ -2398,7 +2392,7 @@ void vrrp_init(void)
 	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 }
 
 void vrrp_fini(void)

@@ -32,15 +32,16 @@
 
 int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size);
 
-int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
-		      struct in_addr src_addr, uint8_t *tlv_buf,
-		      int tlv_buf_size);
-
-void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
+int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
+		      pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size);
+#if PIM_IPV == 6
+struct in6_addr pim_register_get_unicast_v6_addr(struct pim_interface *p_ifp);
+#endif
+void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up);
-void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
-			    struct in_addr src, struct in_addr originator);
+void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
+			    pim_addr originator);
 void pim_register_join(struct pim_upstream *up);
 void pim_null_register_send(struct pim_upstream *up);
 void pim_reg_del_on_couldreg_fail(struct interface *ifp);

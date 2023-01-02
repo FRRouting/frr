@@ -40,7 +40,7 @@
 
 /* OSPF Neighbor State Machine Event. */
 #define NSM_NoEvent	        0
-#define NSM_PacketReceived	1 /* HelloReceived in the protocol */
+#define NSM_HelloReceived	1 /* HelloReceived in the protocol */
 #define NSM_Start		2
 #define NSM_TwoWayReceived	3
 #define NSM_NegotiationDone	4
@@ -58,9 +58,6 @@
 /* Macro for OSPF NSM timer turn on. */
 #define OSPF_NSM_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr, (V), &(T))
 
-/* Macro for OSPF NSM timer turn off. */
-#define OSPF_NSM_TIMER_OFF(X) thread_cancel(&(X))
-
 /* Macro for OSPF NSM schedule event. */
 #define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
 	thread_add_event(master, ospf_nsm_event, (N), (E), NULL)
@@ -70,7 +67,7 @@
 	thread_execute(master, ospf_nsm_event, (N), (E))
 
 /* Prototypes. */
-extern int ospf_nsm_event(struct thread *);
+extern void ospf_nsm_event(struct thread *);
 extern void ospf_check_nbr_loading(struct ospf_neighbor *);
 extern int ospf_db_summary_isempty(struct ospf_neighbor *);
 extern int ospf_db_summary_count(struct ospf_neighbor *);

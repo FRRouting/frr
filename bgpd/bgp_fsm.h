@@ -29,11 +29,6 @@
 			thread_add_timer(bm->master, (F), peer, (V), &(T));    \
 	} while (0)
 
-#define BGP_TIMER_OFF(T)                                                       \
-	do {                                                                   \
-		THREAD_OFF((T));					       \
-	} while (0)
-
 #define BGP_EVENT_ADD(P, E)                                                    \
 	do {                                                                   \
 		if ((P)->status != Deleted)                                    \
@@ -110,14 +105,14 @@
 	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
 
 #define BGP_PEER_RESTARTING_MODE(peer)                                         \
-	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)                   \
-	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV)                    \
-	 && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) &&                \
+	 CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV) &&         \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV))
 
 #define BGP_PEER_HELPER_MODE(peer)                                             \
-	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER)            \
-	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)                    \
-	 && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV))
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER) &&         \
+	 CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV) &&         \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV))
 
 /* Prototypes. */
 
@@ -125,11 +120,11 @@
  * Update FSM for peer based on whether we have valid nexthops or not.
  */
 extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
-extern int bgp_event(struct thread *);
+extern void bgp_event(struct thread *);
 extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
 extern int bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
-extern int bgp_routeadv_timer(struct thread *);
+extern void bgp_routeadv_timer(struct thread *);
 extern void bgp_fsm_change_status(struct peer *peer, int status);
 extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);

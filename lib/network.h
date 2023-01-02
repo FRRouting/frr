@@ -22,6 +22,13 @@
 #ifndef _ZEBRA_NETWORK_H
 #define _ZEBRA_NETWORK_H
 
+#ifdef HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#endif
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +51,35 @@ extern int set_cloexec(int fd);
 
 extern float htonf(float);
 extern float ntohf(float);
+
+/* force type for be64toh/htobe64 to be uint64_t, *without* a direct cast
+ *
+ * this is a workaround for false-positive printfrr warnings from FRR's
+ * frr-format GCC plugin that would be triggered from
+ * { printfrr("%"PRIu64, (uint64_t)be64toh(...)); }
+ *
+ * the key element here is that "(uint64_t)expr" causes the warning, while
+ * "({ uint64_t x = expr; x; })" does not.  (The cast is the trigger, a
+ * variable of the same type works correctly.)
+ */
+
+/* zap system definitions... */
+#ifdef be64toh
+#undef be64toh
+#endif
+#ifdef htobe64
+#undef htobe64
+#endif
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define be64toh(x)	({ uint64_t r = __builtin_bswap64(x); r; })
+#define htobe64(x)	({ uint64_t r = __builtin_bswap64(x); r; })
+#elif BYTE_ORDER == BIG_ENDIAN
+#define be64toh(x)	({ uint64_t r = (x); r; })
+#define htobe64(x)	({ uint64_t r = (x); r; })
+#else
+#error nobody expects the endianish inquisition. check OS endian.h headers.
+#endif
 
 /**
  * Helper function that returns a random long value. The main purpose of

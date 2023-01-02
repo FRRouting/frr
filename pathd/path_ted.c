@@ -15,9 +15,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "stdlib.h"
-
 #include <zebra.h>
+
+#include <stdlib.h>
 
 #include "memory.h"
 #include "log.h"
@@ -39,8 +39,8 @@ static void path_ted_unregister_vty(void);
 static uint32_t path_ted_start_importing_igp(const char *daemon_str);
 static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
-static int path_ted_timer_handler_sync(struct thread *thread);
-static int path_ted_timer_handler_refresh(struct thread *thread);
+static void path_ted_timer_handler_sync(struct thread *thread);
+static void path_ted_timer_handler_refresh(struct thread *thread);
 static int path_ted_cli_debug_config_write(struct vty *vty);
 static int path_ted_cli_debug_set_all(uint32_t flags, bool set);
 
@@ -66,7 +66,7 @@ uint32_t path_ted_teardown(void)
 	PATH_TED_DEBUG("%s : TED [%p]", __func__, ted_state_g.ted);
 	path_ted_unregister_vty();
 	path_ted_stop_importing_igp();
-	ls_ted_del_all(ted_state_g.ted);
+	ls_ted_del_all(&ted_state_g.ted);
 	path_ted_timer_sync_cancel();
 	path_ted_timer_refresh_cancel();
 	return 0;
@@ -243,16 +243,16 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		}
 		break;
 	case IPADDR_V6:
-		key = (uint64_t)(local->ip._v6_addr.s6_addr32[0] & 0xffffffff)
-		      | ((uint64_t)local->ip._v6_addr.s6_addr32[1] << 32);
+		key = (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[2]) << 32 |
+		      (uint64_t)ntohl(local->ip._v6_addr.s6_addr32[3]);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
-			if ((memcmp(&edge->attributes->standard.remote6,
-				    &remote->ip._v6_addr,
-				    sizeof(remote->ip._v6_addr))
-			     && CHECK_FLAG(edge->attributes->flags,
-					   LS_ATTR_ADJ_SID))) {
-				sid = edge->attributes->adj_sid[0]
+			if ((0 == memcmp(&edge->attributes->standard.remote6,
+					 &remote->ip._v6_addr,
+					 sizeof(remote->ip._v6_addr)) &&
+			     CHECK_FLAG(edge->attributes->flags,
+					LS_ATTR_ADJ_SID6))) {
+				sid = edge->attributes->adj_sid[ADJ_PRI_IPV6]
 					      .sid; /* from primary */
 				break;
 			}
@@ -353,7 +353,7 @@ DEFPY (debug_path_ted,
 }
 
 /*
- * Followings are vty command functions.
+ * Following are vty command functions.
  */
 /* clang-format off */
 DEFUN (path_ted_on,
@@ -385,13 +385,13 @@ DEFUN (no_path_ted,
        "Disable the TE Database functionality\n")
 /* clang-format on */
 {
-	if (ted_state_g.enabled) {
+	if (!ted_state_g.enabled) {
 		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
 		return CMD_SUCCESS;
 	}
 
 	/* Remove TED */
-	ls_ted_del_all(ted_state_g.ted);
+	ls_ted_del_all(&ted_state_g.ted);
 	ted_state_g.enabled = false;
 	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
 	ted_state_g.import = IMPORT_UNKNOWN;
@@ -447,7 +447,7 @@ DEFUN (no_path_ted_import,
 }
 
 /* clang-format off */
-DEFPY (show_pahtd_ted_db,
+DEFPY (show_pathd_ted_db,
        show_pathd_ted_db_cmd,
        "show pathd ted database <verbose|json>$ver_json ",
        "show command\n"
@@ -462,7 +462,7 @@ DEFPY (show_pahtd_ted_db,
 	json_object *json = NULL;
 
 	if (!ted_state_g.enabled) {
-		vty_out(vty, "PATHD TED database is not enabled\n");
+		vty_out(vty, "Traffic Engineering database is not enabled\n");
 		return CMD_WARNING;
 	}
 	if (strcmp(ver_json, "json") == 0) {
@@ -471,12 +471,8 @@ DEFPY (show_pahtd_ted_db,
 	}
 	/* Show the complete TED */
 	ls_show_ted(ted_state_g.ted, vty, json, !st_json);
-	if (st_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (st_json)
+		vty_json(vty, json);
 	return CMD_SUCCESS;
 }
 
@@ -606,14 +602,14 @@ enum zclient_send_status path_ted_link_state_sync(void)
  *
  * @return		status
  */
-int path_ted_timer_handler_sync(struct thread *thread)
+void path_ted_timer_handler_sync(struct thread *thread)
 {
 	/* data unpacking */
 	struct ted_state *data = THREAD_ARG(thread);
 
 	assert(data != NULL);
 	/* Retry the sync */
-	return path_ted_link_state_sync();
+	path_ted_link_state_sync();
 }
 
 /**
@@ -643,10 +639,10 @@ int path_ted_segment_list_refresh(void)
  *
  * @return		status
  */
-int path_ted_timer_handler_refresh(struct thread *thread)
+void path_ted_timer_handler_refresh(struct thread *thread)
 {
 	if (!path_ted_is_initialized())
-		return MPLS_LABEL_NONE;
+		return;
 
 	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
 	/* data unpacking */
@@ -655,7 +651,6 @@ int path_ted_timer_handler_refresh(struct thread *thread)
 	assert(data != NULL);
 
 	srte_policy_update_ted_sid();
-	return 0;
 }
 
 /**

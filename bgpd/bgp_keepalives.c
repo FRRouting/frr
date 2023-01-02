@@ -121,7 +121,7 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 
 		bgp_keepalive_send(pkat->peer);
 		monotime(&pkat->last);
-		memset(&elapsed, 0x00, sizeof(struct timeval));
+		memset(&elapsed, 0, sizeof(elapsed));
 		diff = ka;
 	}
 
@@ -175,6 +175,15 @@ void *bgp_keepalives_start(void *arg)
 	struct timeval next_update = {0, 0};
 	struct timespec next_update_ts = {0, 0};
 
+	/*
+	 * The RCU mechanism for each pthread is initialized in a "locked"
+	 * state. That's ok for pthreads using the frr_pthread,
+	 * thread_fetch event loop, because that event loop unlocks regularly.
+	 * For foreign pthreads, the lock needs to be unlocked so that the
+	 * background rcu pthread can run.
+	 */
+	rcu_read_unlock();
+
 	peerhash_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
 	peerhash_cond = XCALLOC(MTYPE_TMP, sizeof(pthread_cond_t));
 
@@ -220,7 +229,7 @@ void *bgp_keepalives_start(void *arg)
 
 		hash_iterate(peerhash, peer_process, &next_update);
 		if (next_update.tv_sec == -1)
-			memset(&next_update, 0x00, sizeof(next_update));
+			memset(&next_update, 0, sizeof(next_update));
 
 		monotime_since(&currtime, &aftertime);
 
@@ -252,11 +261,11 @@ void bgp_keepalives_on(struct peer *peer)
 	 */
 	assert(peerhash_mtx);
 
-	frr_with_mutex(peerhash_mtx) {
+	frr_with_mutex (peerhash_mtx) {
 		holder.peer = peer;
 		if (!hash_lookup(peerhash, &holder)) {
 			struct pkat *pkat = pkat_new(peer);
-			hash_get(peerhash, pkat, hash_alloc_intern);
+			(void)hash_get(peerhash, pkat, hash_alloc_intern);
 			peer_lock(peer);
 		}
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
@@ -280,7 +289,7 @@ void bgp_keepalives_off(struct peer *peer)
 	 */
 	assert(peerhash_mtx);
 
-	frr_with_mutex(peerhash_mtx) {
+	frr_with_mutex (peerhash_mtx) {
 		holder.peer = peer;
 		struct pkat *res = hash_release(peerhash, &holder);
 		if (res) {
@@ -293,7 +302,7 @@ void bgp_keepalives_off(struct peer *peer)
 
 void bgp_keepalives_wake(void)
 {
-	frr_with_mutex(peerhash_mtx) {
+	frr_with_mutex (peerhash_mtx) {
 		pthread_cond_signal(peerhash_cond);
 	}
 }

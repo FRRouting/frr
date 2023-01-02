@@ -428,7 +428,7 @@ static void plist_dnode_to_prefix(const struct lyd_node *dnode, bool *any,
 static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 {
 	struct plist_dup_args *pda = arg;
-	struct prefix p;
+	struct prefix p = {};
 	int ge, le;
 	bool any;
 
@@ -1135,7 +1135,7 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fz = &f->u.zfilter;
-	fz->prefix.family = 0;
+	fz->prefix.family = AF_UNSPEC;
 
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
