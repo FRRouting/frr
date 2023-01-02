@@ -1,0 +1,11 @@
+--- frr-8.4.1/lib/xref.h	2021-11-08 04:44:24.000000000 +0100
++++ frr-8.4.1/lib/xref.h	2022-11-29 19:40:16.614404443 +0100
+@@ -195,7 +195,7 @@
+  * some build issue with it just add -DFRR_XREF_NO_NOTE to your build flags
+  * to disable it.
+  */
+-#ifdef FRR_XREF_NO_NOTE
++#if defined(FRR_XREF_NO_NOTE) || defined(__mips64)
+ #define XREF_NOTE ""
+ #else
+ 

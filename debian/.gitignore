@@ -3,6 +3,8 @@
 /*/
 !/tests/
 !/source
+!/patches/
+!/patches/xref_mips64el_pcrel.patch
 
 /*.log
 /*.substvars
