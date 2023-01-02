@@ -11,6 +11,7 @@ frr (8.4.1-1) UNRELEASED; urgency=medium
   * upstream fix bgpd UAF CVE-2022-37035 (closes: #1016978)
   * libyang-related pcre3 dep replaced with pcre2 (closes: #1000032)
   * disable ELF magic on mips64el
+  * fixed texinfo figure installation directory
 
  -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 12:19:01 +0100
 
