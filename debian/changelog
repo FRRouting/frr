@@ -1,4 +1,4 @@
-frr (8.4.1-1) UNRELEASED; urgency=medium
+frr (8.4.1-1) unstable; urgency=medium
 
   * New upstream release FRR 8.4.1 (closes: #1017518)
   * New frr@ systemd service unit to run inside network namespace
@@ -15,7 +15,7 @@ frr (8.4.1-1) UNRELEASED; urgency=medium
   * enable dh_sphinxdoc to get rid of embedded javascript in frr-doc
   * removed bogus iproute dependency choice
 
- -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 12:19:01 +0100
+ -- David Lamparter <equinox-debian@diac24.net>  Mon, 02 Jan 2023 14:46:06 +0100
 
 frr (8.1-1) unstable; urgency=medium
 
