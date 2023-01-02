@@ -104,9 +104,8 @@ Package: frr-doc
 Section: doc
 Architecture: all
 Multi-Arch: foreign
-Depends: libjs-jquery,
-         libjs-underscore,
-         ${misc:Depends}
+Depends: ${misc:Depends},
+         ${sphinxdoc:Depends}
 Suggests: frr
 Conflicts: quagga-doc
 Description: FRRouting suite - user manual

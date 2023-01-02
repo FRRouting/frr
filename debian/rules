@@ -36,7 +36,7 @@ endif
 export PYTHON=python3
 
 %:
-	dh $@ -Bbuild
+	dh $@ -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
 	$(shell dpkg-buildflags --export=sh); \
@@ -92,12 +92,6 @@ override_dh_auto_install:
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
 	-rm debian/tmp/usr/lib/frr/ssd
-
-# use installed js libraries
-	-rm -f debian/tmp/usr/share/doc/frr/html/_static/jquery.js
-	ln -s /usr/share/javascript/jquery/jquery.js debian/tmp/usr/share/doc/frr/html/_static/jquery.js
-	-rm -f debian/tmp/usr/share/doc/frr/html/_static/underscore.js
-	ln -s /usr/share/javascript/underscore/underscore.js debian/tmp/usr/share/doc/frr/html/_static/underscore.js
 
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
